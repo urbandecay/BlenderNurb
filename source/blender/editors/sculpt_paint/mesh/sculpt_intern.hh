@@ -12,7 +12,6 @@
 
 #include "BKE_brush.hh"
 #include "BKE_bvhutils.hh"
-#include "BKE_image_wrappers.hh"
 #include "BKE_paint.hh"
 #include "BKE_paint_bvh.hh"
 #include "BKE_subdiv_ccg.hh"
@@ -24,8 +23,6 @@
 #include "BLI_set.hh"
 #include "BLI_span.hh"
 #include "BLI_vector.hh"
-
-#include "IMB_colormanagement.hh"
 
 #include "DNA_brush_enums.h"
 #include "DNA_brush_types.h"
@@ -56,12 +53,9 @@ struct bContext;
 struct BMLog;
 struct Dial;
 struct DistRayAABB_Precalc;
-struct Image;
-struct ImageUser;
 struct Key;
 struct KeyBlock;
 struct Object;
-struct PaintModeSettings;
 struct ReportList;
 struct wmKeyConfig;
 struct wmKeyMap;
@@ -126,7 +120,6 @@ enum class UpdateType {
   Mask,
   Visibility,
   Color,
-  Image,
   FaceSet,
 };
 
@@ -156,29 +149,6 @@ struct ProjectBrushTarget {
   bke::BVHTreeFromMesh tree_data;
   float4x4 active_to_target_matrix;
 };
-
-namespace paint::image {
-
-struct TileColorspaceProcessor : NonCopyable {
-  ColormanageProcessor buffer_to_linear_processor = {};
-  ColormanageProcessor linear_to_buffer_processor = {};
-  bool is_noop = true;
-};
-
-struct ImageData : NonCopyable {
-  Image *image = nullptr;
-  ImageUser *image_user = nullptr;
-
-  Map<bke::image::TileNumber, ImBuf *> buffers = {};
-  Map<bke::image::TileNumber, TileColorspaceProcessor> processors = {};
-
-  ~ImageData();
-
-  static std::unique_ptr<ImageData> init_active_image(Object &ob,
-                                                      PaintModeSettings &paint_mode_settings);
-};
-
-}  // namespace paint::image
 
 struct StrokeToggleSettings {
   /**
@@ -443,8 +413,6 @@ struct StrokeCache {
 
   float4x4 stroke_local_mat = float4x4::identity();
   float multiplane_scrape_angle = 0.0f;
-
-  std::unique_ptr<paint::image::ImageData> image_data;
 
   StrokeCache();
   ~StrokeCache();
@@ -917,18 +885,6 @@ float object_space_radius_get(const ViewContext &vc,
                               const float3 &location,
                               float scale_factor = 1.0);
 }  // namespace ed::sculpt_paint
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name 3D Texture Paint (Experimental)
- * \{ */
-
-void SCULPT_do_paint_brush_image(const Depsgraph &depsgraph,
-                                 const Sculpt &sd,
-                                 Object &ob,
-                                 const IndexMask &node_mask);
-bool SCULPT_use_image_paint_brush(PaintModeSettings &settings, Object &ob);
 
 /** \} */
 

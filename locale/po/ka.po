@@ -24983,22 +24983,6 @@ msgid "Node tree for node based materials"
 msgstr "კვანძოვანი ხე კვანძოვანი მასალებისთვის"
 
 
-msgid "Active Paint Texture Index"
-msgstr "აქტიური სახატავი ტექსტურის ინდექსი"
-
-
-msgid "Index of active texture paint slot"
-msgstr "აქტიური სახატავი ტექსტურის სლოტის ინდექსი"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "კლონირებადი სახატავი ტექსტურის ინდექსი"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "კლონირებადი სახატავი ტექსტურის ინდექსი"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "ინდექსის ნომერი სარენდერო გადავლისთვის \"Material Index\""
 
@@ -25129,10 +25113,6 @@ msgstr "უშვებს ფერად გამჭვირვალობ�
 
 msgid "Texture Slot Images"
 msgstr "ტექსტურის სლოტის გამოსახულებები"
-
-
-msgid "Texture images used for texture painting"
-msgstr "ტექსტურული გამოსახულებები ტექსტურის ხატვისთვის"
 
 
 msgid "Texture Slots"
@@ -26449,10 +26429,6 @@ msgstr "წვეროთა მოხატვა"
 
 msgid "Weight Paint"
 msgstr "წონის ხატვა"
-
-
-msgid "Texture Paint"
-msgstr "ტექსტურის ხატვა"
 
 
 msgid "Particle Edit"
@@ -79073,15 +79049,6 @@ msgid "Add to Palette"
 msgstr "პალიტრაში დამატება"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "ტექსტურის ხატვის რეჟიმი"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "გადართე ტექსტურის ხატვის რეჟიმი 3D ხედში"
-
-
 msgid "Change selection for all vertices"
 msgstr "შეცვალე მონიშვნა ყველა წვეროსთვის"
 
@@ -92498,26 +92465,6 @@ msgid "The mesh is missing materials"
 msgstr "მეშს დაკარგული აქვს მასალები"
 
 
-msgid "Missing Stencil"
-msgstr "მოუძიებელი ტრაფარეტი"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "გამოსახულების ხატვას არ აქვს ტრაფარეტი"
-
-
-msgid "Missing Texture"
-msgstr "მოუძიებელი ტექსტურა"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "გამოსახულების ხატვას არ აქვს ტექსტურა, რომელზეც დახატავდა"
-
-
-msgid "Missing UVs"
-msgstr "დაკარგული UV-ები"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "მეშს არ აქვს UV შრე"
 
@@ -92532,10 +92479,6 @@ msgstr "აღმოაჩინე გამოსახულების ს�
 
 msgid "Single Image"
 msgstr "ერთი გამოსახულება"
-
-
-msgid "Set image for texture painting directly"
-msgstr "დააყენე გამოსახულება ტექსტურის პირდაპირ ხატვისთვის"
 
 
 msgid "Screen Grab Size"
@@ -96531,14 +96474,6 @@ msgstr "აქტივთა დისტანციური ბიბლი�
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "ჩართე წვდომა HTTP/HTTPS-ით მოწოდებულ აქტივთა ბიბლიოთეკებზე"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "ძერწვაში ტექსტურის ხატვა"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "გამოიყენე ტექსტურის ხატვა ძერწვის რეჟიმში"
 
 
 msgid "Shader Node Previews"
@@ -111248,14 +111183,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "იქნას თუ არა მოკვეცის მინიმალური მნიშვნელობა გამოყენებული"
 
 
-msgid "Texture Paint Slot"
-msgstr "ტექსტურის ხატვის სლოტი"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "სლოტი, რომელიც შეიცავს ინფორმაციას ტექსტურის ხატვის შესახებ"
-
-
 msgid "Icon"
 msgstr "ხატულა"
 
@@ -115419,10 +115346,6 @@ msgstr "აჩვენე ძვლის მონიშვნის გად
 
 msgid "Stencil Mask Opacity"
 msgstr "ტრაფარეტის ნიღბის გაუმჭვირვალობა"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "ტექსტურის ხატვის რეჟიმში ტრაფარეტის ნიღბის გადაფარების გაუმჭვირვალობა"
 
 
 msgid "Freeze Culling"
@@ -130916,10 +130839,6 @@ msgid "Armature Overlays"
 msgstr "არმატურის გადაფარებები"
 
 
-msgid "Texture Paint Overlays"
-msgstr "ტექსტურის ხატვის გადაფარებები"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "წვეროთა მოხატვის გადაფარებები"
 
@@ -132050,10 +131969,6 @@ msgid "Save As Asset..."
 msgstr "შენახვა აქტივად..."
 
 
-msgid "UV Map Needed"
-msgstr "საჭიროა UV რუკა"
-
-
 msgid "Point cache must be baked"
 msgstr "წერტილების ქეში უნდა გამოცხვეს"
 
@@ -132072,10 +131987,6 @@ msgstr "გამჭვირვალობის იგნორირებ�
 
 msgid "Detection Factor"
 msgstr "აღმოჩენის კოეფიციენტი"
-
-
-msgid "No Textures"
-msgstr "ტექსტურები არაა"
 
 
 msgctxt "Operator"
@@ -156828,11 +156739,6 @@ msgstr "შეფერადება"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "კადრირება"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "ტექსტურის ხატვა"
 
 
 msgctxt "WorkSpace"

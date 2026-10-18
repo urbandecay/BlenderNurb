@@ -3534,25 +3534,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    if (!DNA_struct_member_exists(
-            fd->filesdna, "View3DOverlay", "float", "texture_paint_mode_opacity"))
-    {
-      for (bScreen &screen : bmain->screens) {
-        for (ScrArea &area : screen.areabase) {
-          for (SpaceLink &sl : area.spacedata) {
-            if (sl.spacetype == SPACE_VIEW3D) {
-              constexpr eView3D_Flag2 V3D_SHOW_MODE_SHADE_OVERRIDE = eView3D_Flag2(1 << 15);
-              View3D *v3d = reinterpret_cast<View3D *>(&sl);
-              float alpha = (v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE) ? 0.0f : 1.0f;
-              v3d->overlay.texture_paint_mode_opacity = alpha;
-              v3d->overlay.vertex_paint_mode_opacity = alpha;
-              v3d->overlay.weight_paint_mode_opacity = alpha;
-            }
-          }
-        }
-      }
-    }
-
     if (!DNA_struct_member_exists(fd->filesdna, "View3DShading", "char", "background_type")) {
       for (bScreen &screen : bmain->screens) {
         for (ScrArea &area : screen.areabase) {

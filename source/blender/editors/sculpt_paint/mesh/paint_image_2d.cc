@@ -1590,7 +1590,7 @@ void paint_2d_stroke(void *ps,
                              IMB_colormanagement_space_is_srgb(byte_colorspace);
 
     /* OCIO_TODO: float buffers are now always linear, so always use color correction
-     *            this should probably be changed when texture painting color space is supported
+     *            this should probably be changed when image painting color space is supported
      */
     brush_painter_2d_require_imbuf(painter->brush,
                                    tile,
@@ -1711,7 +1711,7 @@ void paint_2d_redraw(const bContext *C, void *ps, bool final)
     if (s->tiles[i].need_redraw) {
       ImBuf *ibuf = BKE_image_acquire_ibuf(s->image, &s->tiles[i].iuser, nullptr);
 
-      imapaint_image_update(s->sima, s->image, ibuf, &s->tiles[i].iuser, false);
+      imapaint_image_update(s->sima, s->image, ibuf, &s->tiles[i].iuser);
 
       BKE_image_release_ibuf(s->image, ibuf, nullptr);
 
@@ -1739,16 +1739,6 @@ void paint_2d_redraw(const bContext *C, void *ps, bool final)
     WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, s->image);
     DEG_id_tag_update(&s->image->id, 0);
 
-    /* Ideally, we shouldn't have to tag the object as needing to be recalculated if using this
-     * paint mode, however, because the image isn't connected as part of the shader nodes, the draw
-     * code is unaware of the corresponding image tag. See #150957 for more details. */
-    const Scene *scene = CTX_data_scene(C);
-    Object *object = CTX_data_active_object(C);
-    if (object && object->type == OB_MESH && scene &&
-        scene->toolsettings->imapaint.mode == IMAGEPAINT_MODE_IMAGE)
-    {
-      DEG_id_tag_update(&object->id, ID_RECALC_SHADING);
-    }
   }
 }
 
@@ -2032,7 +2022,7 @@ void paint_2d_bucket_fill(const bContext *C,
     BLI_stack_free(stack);
   }
 
-  imapaint_image_update(sima, ima, ibuf, iuser, false);
+  imapaint_image_update(sima, ima, ibuf, iuser);
   ED_imapaint_clear_partial_redraw();
 
   BKE_image_release_ibuf(ima, ibuf, nullptr);
@@ -2156,7 +2146,7 @@ void paint_2d_gradient_fill(
     }
   }
 
-  imapaint_image_update(sima, ima, ibuf, iuser, false);
+  imapaint_image_update(sima, ima, ibuf, iuser);
   ED_imapaint_clear_partial_redraw();
 
   BKE_image_release_ibuf(ima, ibuf, nullptr);

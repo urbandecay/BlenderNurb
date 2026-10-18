@@ -13572,18 +13572,6 @@ msgid "Metallic"
 msgstr "Metallisch"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Aktiver Maltexturindex"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Index des aktiven Malsteckplatzes"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Index des aktiven Texturmalsteckplatzes"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Indexnummer für den \"Materialindex\" Renderpass"
 
@@ -13630,10 +13618,6 @@ msgstr "Wie intensiv (hell) die Glanzpunktreflexion ist"
 
 msgid "Texture Slot Images"
 msgstr "Bildertextursteckplatz"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Texturbilder, welche für das Texturbemalen verwendet werden"
 
 
 msgid "Texture Slots"
@@ -14218,10 +14202,6 @@ msgstr "Punktmalerei"
 
 msgid "Weight Paint"
 msgstr "Malereieinfluss"
-
-
-msgid "Texture Paint"
-msgstr "Texturmalerei"
 
 
 msgid "Particle Edit"
@@ -38282,18 +38262,6 @@ msgid "Missing Materials"
 msgstr "Fehlende Materialien"
 
 
-msgid "Missing Stencil"
-msgstr "Fehlende Schablone"
-
-
-msgid "Missing Texture"
-msgstr "Fehlende Textur"
-
-
-msgid "Missing UVs"
-msgstr "Fehlende UVs"
-
-
 msgid "Single Image"
 msgstr "Einzelnes Bild"
 
@@ -45352,10 +45320,6 @@ msgstr "Hat Maximum"
 
 msgid "Has Minimum"
 msgstr "Hat Minimum"
-
-
-msgid "Texture Paint Slot"
-msgstr "Texturmalereiposition"
 
 
 msgid "Icon"
@@ -52713,10 +52677,6 @@ msgstr "Auto Geschwindigkeit"
 
 msgid "Ignore Transparent"
 msgstr "Ignoriere Transparent"
-
-
-msgid "No Textures"
-msgstr "Keine Texturen"
 
 
 msgctxt "Operator"

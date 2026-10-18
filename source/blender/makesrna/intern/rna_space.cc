@@ -4030,7 +4030,7 @@ static IDFilterEnumPropertyItem rna_enum_space_file_id_filter_categories[] = {
      ICON_WORLD_DATA,
      "Environment",
      "Show worlds, lights, cameras and speakers"},
-    {FILTER_ID_BR | FILTER_ID_GD_LEGACY | FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC |
+    {FILTER_ID_BR | FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC |
          FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_CF | FILTER_ID_WS,
      "category_misc",
      ICON_OBJECT_DATA,
@@ -5402,17 +5402,9 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
                            "Keep size of normals constant in relation to 3D view");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
-  prop = RNA_def_property(srna, "texture_paint_mode_opacity", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "overlay.texture_paint_mode_opacity");
-  RNA_def_property_ui_text(
-      prop, "Stencil Mask Opacity", "Opacity of the texture paint mode stencil mask overlay");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
   prop = RNA_def_property(srna, "vertex_paint_mode_opacity", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "overlay.vertex_paint_mode_opacity");
-  RNA_def_property_ui_text(
-      prop, "Stencil Mask Opacity", "Opacity of the texture paint mode stencil mask overlay");
+  RNA_def_property_ui_text(prop, "Vertex Paint Opacity", "Opacity of the vertex paint overlay");
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
@@ -5457,14 +5449,6 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "overlay.flag", V3D_OVERLAY_SCULPT_SHOW_FACE_SETS);
   RNA_def_property_ui_text(prop, "Sculpt Show Face Sets", "");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
-  /* vertex opacity */
-  prop = RNA_def_property(srna, "vertex_opacity", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "vertex_opacity");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_text(prop, "Vertex Opacity", "Opacity for edit vertices");
-  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, ParameterFlag(0));
-  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
 
   /* Developer Debug overlay */
 

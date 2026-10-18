@@ -118,72 +118,6 @@ static void rna_Material_draw_update(Main * /*bmain*/, Scene * /*scene*/, Pointe
   WM_main_add_notifier(NC_MATERIAL | ND_SHADING_DRAW, ma);
 }
 
-static void rna_Material_texpaint_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
-{
-  Material *ma = static_cast<Material *>(ptr->data);
-  rna_iterator_array_begin(iter,
-                           ptr,
-                           static_cast<void *>(ma->texpaintslot),
-                           sizeof(TexPaintSlot),
-                           ma->tot_slots,
-                           0,
-                           nullptr);
-}
-
-static void rna_Material_active_paint_texture_index_update(bContext *C, PointerRNA *ptr)
-{
-  Main *bmain = CTX_data_main(C);
-  Material *ma = id_cast<Material *>(ptr->owner_id);
-
-  if (ma->nodetree) {
-    std::pair<bNodeTree *, bNode *> found = BKE_texpaint_slot_material_find_node(
-        ma, ma->paint_active_slot);
-
-    if (found.second) {
-      BLI_assert(found.first != nullptr);
-      bke::node_set_active(*found.first, *found.second);
-      /* Tag nodetree for viewport update (if node is found in a nested group). */
-      if (ma->nodetree != found.first) {
-        DEG_id_tag_update(&found.first->id, ID_RECALC_SYNC_TO_EVAL);
-      }
-    }
-  }
-
-  if (ma->texpaintslot && (ma->tot_slots > ma->paint_active_slot)) {
-    TexPaintSlot *slot = &ma->texpaintslot[ma->paint_active_slot];
-    Image *image = slot->ima;
-    if (image) {
-      ED_space_image_sync(bmain, image, false);
-    }
-
-    /* For compatibility reasons with vertex paint we activate the color attribute. */
-    if (const char *name = slot->attribute_name) {
-      Object *ob = CTX_data_active_object(C);
-      if (ob != nullptr && ob->type == OB_MESH) {
-        Mesh *mesh = id_cast<Mesh *>(ob->data);
-        if (mesh->runtime->edit_mesh) {
-          if (const BMDataLayerLookup attr = BM_data_layer_lookup(*mesh->runtime->edit_mesh->bm,
-                                                                  name))
-          {
-            BKE_id_attributes_active_color_set(&mesh->id, name);
-          }
-        }
-        else {
-          const bke::AttributeAccessor attributes = mesh->attributes();
-          if (bke::mesh::is_color_attribute(attributes.lookup_meta_data(name))) {
-            BKE_id_attributes_active_color_set(&mesh->id, name);
-          }
-        }
-        DEG_id_tag_update(&ob->id, 0);
-        WM_main_add_notifier(NC_GEOM | ND_DATA, &ob->id);
-      }
-    }
-  }
-
-  DEG_id_tag_update(&ma->id, 0);
-  WM_main_add_notifier(NC_MATERIAL | ND_SHADING, ma);
-}
-
 static int rna_Material_blend_method_get(PointerRNA *ptr)
 {
   Material *material = id_cast<Material *>(ptr->owner_id);
@@ -306,77 +240,6 @@ void rna_mtex_texture_slots_clear(ID *self_id, bContext *C, ReportList *reports,
   /* for redraw only */
   WM_event_add_notifier(C, NC_TEXTURE, CTX_data_scene(C));
 }
-
-static void rna_TexPaintSlot_uv_layer_get(PointerRNA *ptr, char *value)
-{
-  TexPaintSlot *data = static_cast<TexPaintSlot *>(ptr->data);
-
-  if (data->uvname != nullptr) {
-    strcpy(value, data->uvname);
-  }
-  else {
-    value[0] = '\0';
-  }
-}
-
-static int rna_TexPaintSlot_uv_layer_length(PointerRNA *ptr)
-{
-  TexPaintSlot *data = static_cast<TexPaintSlot *>(ptr->data);
-  return data->uvname == nullptr ? 0 : strlen(data->uvname);
-}
-
-static void rna_TexPaintSlot_uv_layer_set(PointerRNA *ptr, const char *value)
-{
-  TexPaintSlot *data = static_cast<TexPaintSlot *>(ptr->data);
-
-  if (data->uvname != nullptr) {
-    BLI_strncpy_utf8(data->uvname, value, MAX_CUSTOMDATA_LAYER_NAME_NO_PREFIX);
-  }
-}
-
-static void rna_TexPaintSlot_name_get(PointerRNA *ptr, char *value)
-{
-  TexPaintSlot *data = static_cast<TexPaintSlot *>(ptr->data);
-
-  if (data->ima != nullptr) {
-    strcpy(value, data->ima->id.name + 2);
-    return;
-  }
-
-  if (data->attribute_name != nullptr) {
-    strcpy(value, data->attribute_name);
-    return;
-  }
-
-  value[0] = '\0';
-}
-
-static int rna_TexPaintSlot_name_length(PointerRNA *ptr)
-{
-  TexPaintSlot *data = static_cast<TexPaintSlot *>(ptr->data);
-  if (data->ima != nullptr) {
-    return strlen(data->ima->id.name) - 2;
-  }
-  if (data->attribute_name != nullptr) {
-    return strlen(data->attribute_name);
-  }
-
-  return 0;
-}
-
-static int rna_TexPaintSlot_icon_get(PointerRNA *ptr)
-{
-  TexPaintSlot *data = static_cast<TexPaintSlot *>(ptr->data);
-  if (data->ima != nullptr) {
-    return ICON_IMAGE;
-  }
-  if (data->attribute_name != nullptr) {
-    return ICON_COLOR;
-  }
-
-  return ICON_NONE;
-}
-
 
 }  // namespace blender
 
@@ -750,7 +613,6 @@ void RNA_def_material(BlenderRNA *brna)
 
   /* common */
   rna_def_animdata_common(srna);
-  rna_def_texpaint_slots(brna, srna);
 
   rna_def_material_display(srna);
 
@@ -839,94 +701,6 @@ void rna_def_mtex_common(BlenderRNA *brna,
   RNA_def_property_range(prop, 0, MAX_MTEX - 1);
   RNA_def_property_ui_text(prop, "Active Texture Index", "Index of active texture slot");
   RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING_LINKS, update_index);
-}
-
-static void rna_def_tex_slot(BlenderRNA *brna)
-{
-  StructRNA *srna;
-  PropertyRNA *prop;
-
-  srna = RNA_def_struct(brna, "TexPaintSlot", nullptr);
-  RNA_def_struct_ui_text(
-      srna, "Texture Paint Slot", "Slot that contains information about texture painting");
-
-  prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  RNA_def_property_string_funcs(
-      prop, "rna_TexPaintSlot_name_get", "rna_TexPaintSlot_name_length", nullptr);
-  RNA_def_property_ui_text(prop, "Name", "Name of the slot");
-  RNA_def_struct_name_property(srna, prop);
-
-  prop = RNA_def_property(srna, "icon_value", PROP_INT, PROP_NONE);
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  RNA_def_property_int_funcs(prop, "rna_TexPaintSlot_icon_get", nullptr, nullptr);
-  RNA_def_property_ui_text(prop, "Icon", "Paint slot icon");
-
-  prop = RNA_def_property(srna, "uv_layer", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_maxlength(
-      prop, MAX_CUSTOMDATA_LAYER_NAME_NO_PREFIX); /* Else it uses the pointer size! */
-  RNA_def_property_string_sdna(prop, nullptr, "uvname");
-  RNA_def_property_string_funcs(prop,
-                                "rna_TexPaintSlot_uv_layer_get",
-                                "rna_TexPaintSlot_uv_layer_length",
-                                "rna_TexPaintSlot_uv_layer_set");
-  RNA_def_property_ui_text(prop, "UV Map", "Name of UV map");
-  RNA_def_property_update(prop, NC_GEOM | ND_DATA, "rna_Material_update");
-
-  prop = RNA_def_property(srna, "is_valid", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "valid", 1);
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Valid", "Slot has a valid image and UV map");
-}
-
-void rna_def_texpaint_slots(BlenderRNA *brna, StructRNA *srna)
-{
-  PropertyRNA *prop;
-
-  rna_def_tex_slot(brna);
-
-  /* mtex */
-  prop = RNA_def_property(srna, "texture_paint_images", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, nullptr, "texpaintslot", nullptr);
-  RNA_def_property_collection_funcs(prop,
-                                    "rna_Material_texpaint_begin",
-                                    "rna_iterator_array_next",
-                                    "rna_iterator_array_end",
-                                    "rna_iterator_array_dereference_get",
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr);
-  RNA_def_property_struct_type(prop, "Image");
-  RNA_def_property_ui_text(
-      prop, "Texture Slot Images", "Texture images used for texture painting");
-
-  prop = RNA_def_property(srna, "texture_paint_slots", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_funcs(prop,
-                                    "rna_Material_texpaint_begin",
-                                    "rna_iterator_array_next",
-                                    "rna_iterator_array_end",
-                                    "rna_iterator_array_get",
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr);
-  RNA_def_property_struct_type(prop, "TexPaintSlot");
-  RNA_def_property_ui_text(
-      prop, "Texture Slots", "Texture slots defining the mapping and influence of textures");
-
-  prop = RNA_def_property(srna, "paint_active_slot", PROP_INT, PROP_UNSIGNED);
-  RNA_def_property_range(prop, 0, SHRT_MAX);
-  RNA_def_property_ui_text(
-      prop, "Active Paint Texture Index", "Index of active texture paint slot");
-  RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-  RNA_def_property_update(
-      prop, NC_MATERIAL | ND_SHADING_LINKS, "rna_Material_active_paint_texture_index_update");
-
-  prop = RNA_def_property(srna, "paint_clone_slot", PROP_INT, PROP_UNSIGNED);
-  RNA_def_property_range(prop, 0, SHRT_MAX);
-  RNA_def_property_ui_text(prop, "Clone Paint Texture Index", "Index of clone texture paint slot");
-  RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING_LINKS, nullptr);
 }
 
 }  // namespace blender

@@ -18342,22 +18342,6 @@ msgid "Node tree for node based materials"
 msgstr "Дерево вузлів для матеріалів на основі вузлів"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Індекс активної мальованої текстури"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Індекс активного гнізда текстурного малювання"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Індекс клонованої текстури"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Індекс клонованого гнізда текстурного малювання"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Номер індексу для проходу рендера \"Індекс Матеріалу\""
 
@@ -18441,10 +18425,6 @@ msgstr "Інтенсивність (яскравість) бліку"
 
 msgid "Texture Slot Images"
 msgstr "Зображення текстурного гнізда"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Зображення, що використовуються для текстурного малювання"
 
 
 msgid "Texture Slots"
@@ -19341,10 +19321,6 @@ msgstr "Малювання Вершин"
 
 msgid "Weight Paint"
 msgstr "Малювання Вагомостей"
-
-
-msgid "Texture Paint"
-msgstr "Малювання Текстур"
 
 
 msgid "Particle Edit"
@@ -52050,10 +52026,6 @@ msgid "Add to Palette"
 msgstr "Додати у палітру"
 
 
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Перемкнути режим малювання текстури у 3D-вікні"
-
-
 msgid "Change selection for all vertices"
 msgstr "Зміна вибору для всіх вершин"
 
@@ -60015,26 +59987,6 @@ msgid "The mesh is missing materials"
 msgstr "Сіть не має матеріалів"
 
 
-msgid "Missing Stencil"
-msgstr "Відсутні"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Відсутній трафатет"
-
-
-msgid "Missing Texture"
-msgstr "Відсутня текстура"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Для малювання зображення немає текстури-полотна"
-
-
-msgid "Missing UVs"
-msgstr "Відсутні UV"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Сіть не має UV-шару"
 
@@ -60049,10 +60001,6 @@ msgstr "Виявляти гнізда зображень матеріалу"
 
 msgid "Single Image"
 msgstr "Одне зображення"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Задати зображення для текстурного малювання прямо"
 
 
 msgid "Screen Grab Size"
@@ -71229,14 +71177,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Чи використовувати мінімальне значення відсікання"
 
 
-msgid "Texture Paint Slot"
-msgstr "Гніздо текстурного малювання"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Гніздо, що містить інформацію про текстурне малювання"
-
-
 msgid "Slot has a valid image and UV map"
 msgstr "Гніздо має дійсні зображення та розкладку UV"
 
@@ -74136,10 +74076,6 @@ msgstr "Показувати накладку вибору кістки"
 
 msgid "Stencil Mask Opacity"
 msgstr "Безпрозорість Маски Трафарету"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Безпрозорість накладання маски трафарета у режимі малювання текстур"
 
 
 msgid "Canvas X-Ray"
@@ -81010,10 +80946,6 @@ msgid "Path Steps"
 msgstr "Кроки Шляху"
 
 
-msgid "UV Map Needed"
-msgstr "Необхідна Розкладка UV"
-
-
 msgid "Point cache must be baked"
 msgstr "Кеш точок має бути запечено"
 
@@ -81028,10 +80960,6 @@ msgstr "Авто-Скорість"
 
 msgid "Ignore Transparent"
 msgstr "Ігнорувати Прозоре"
-
-
-msgid "No Textures"
-msgstr "Нема Текстур"
 
 
 msgctxt "Operator"

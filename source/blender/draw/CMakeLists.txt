@@ -673,8 +673,6 @@ set(GLSL_SRC
   engines/overlay/shaders/overlay_outline_prepass_wire_vert.glsl
   engines/overlay/shaders/overlay_paint_face_vert.glsl
   engines/overlay/shaders/overlay_paint_point_vert.glsl
-  engines/overlay/shaders/overlay_paint_texture_frag.glsl
-  engines/overlay/shaders/overlay_paint_texture_vert.glsl
   engines/overlay/shaders/overlay_paint_weight_frag.glsl
   engines/overlay/shaders/overlay_paint_weight_vert.glsl
   engines/overlay/shaders/overlay_paint_wire_vert.glsl

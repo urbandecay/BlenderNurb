@@ -4482,7 +4482,7 @@ def km_image_paint(params):
     items = []
     keymap = (
         "Image Paint",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
+        {"space_type": 'IMAGE_EDITOR', "region_type": 'WINDOW'},
         {"items": items},
     )
 
@@ -4517,14 +4517,11 @@ def km_image_paint(params):
          {"properties": [("mode", 'SCALE'), ("texmode", 'SECONDARY')]}),
         ("brush.stencil_control", {"type": 'RIGHTMOUSE', "value": 'PRESS', "ctrl": True, "alt": True},
          {"properties": [("mode", 'ROTATION'), ("texmode", 'SECONDARY')]}),
-        ("wm.context_toggle", {"type": 'ONE', "value": 'PRESS'},
-         {"properties": [("data_path", "image_paint_object.data.use_paint_mask")]}),
         ("wm.context_toggle", {"type": 'S', "value": 'PRESS', "shift": True},
          {"properties": [("data_path", "tool_settings.image_paint.brush.use_smooth_stroke")]}),
         ("wm.context_menu_enum", {"type": 'E', "value": 'PRESS', "alt": True},
          {"properties": [("data_path", "tool_settings.image_paint.brush.stroke_method")]}),
-        *_template_items_context_panel("VIEW3D_PT_paint_texture_context_menu", params.context_menu_event),
-        *_template_asset_shelf_popup("VIEW3D_AST_brush_texture_paint", params.spacebar_action),
+        *_template_items_context_panel("IMAGE_PT_paint_context_menu", params.context_menu_event),
         *_template_asset_shelf_popup("IMAGE_AST_brush_paint", params.spacebar_action),
     ])
 

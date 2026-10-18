@@ -20033,22 +20033,6 @@ msgid "Node tree for node based materials"
 msgstr "Mti wa nodi kwa nyenzo za msingi wa nodi"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Kielezo cha Muundo wa Rangi Inayotumika"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Fahirisi ya nafasi inayotumika ya rangi ya unamu"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Kielezo cha Mchanganyiko wa Rangi ya Clone"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Fahirisi ya nafasi ya rangi ya muundo wa clone"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Nambari ya faharasa ya \"Kielezo cha Nyenzo\" kutoa pasi"
 
@@ -20163,10 +20147,6 @@ msgstr "Kuchanganywa"
 
 msgid "Texture Slot Images"
 msgstr "Picha Slot texture"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Picha za muundo zinazotumika kwa uchoraji wa maandishi"
 
 
 msgid "Texture Slots"
@@ -21263,10 +21243,6 @@ msgstr "Rangi ya Vertex"
 
 msgid "Weight Paint"
 msgstr "Rangi ya Uzito"
-
-
-msgid "Texture Paint"
-msgstr "Rangi ya Muundo"
 
 
 msgid "Particle Edit"
@@ -61751,10 +61727,6 @@ msgid "Add to Palette"
 msgstr "Ongeza kwa Palette"
 
 
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Geuza modi ya rangi ya unamu katika mwonekano wa 3D"
-
-
 msgid "Change selection for all vertices"
 msgstr "Badilisha uteuzi kwa wima zote"
 
@@ -71516,26 +71488,6 @@ msgid "The mesh is missing materials"
 msgstr "Matundu hayana nyenzo"
 
 
-msgid "Missing Stencil"
-msgstr "Stencil iliyokosa"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Uchoraji wa Picha hauna stencil"
-
-
-msgid "Missing Texture"
-msgstr "Muundo Unaokosa"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Uchoraji wa Picha hauna muundo wa kupaka rangi"
-
-
-msgid "Missing UVs"
-msgstr "UV zinazokosekana"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Safu ya UV haipo kwenye matundu"
 
@@ -71550,10 +71502,6 @@ msgstr "Tambua nafasi za picha kutoka kwa nyenzo"
 
 msgid "Single Image"
 msgstr "Picha Moja"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Weka picha kwa uchoraji wa maandishi moja kwa moja"
 
 
 msgid "Screen Grab Size"
@@ -74133,14 +74081,6 @@ msgstr "Zana Mpya za Curves"
 
 msgid "Enable additional features for the new curves data block"
 msgstr "Washa vipengele vya ziada kwa kizuizi kipya cha data cha curves"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Mchoro wa Rangi ya Umbile"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Tumia uchoraji wa maandishi katika Hali ya Uchongaji"
 
 
 msgid "Shader Node Previews"
@@ -84157,14 +84097,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Iwapo itatumia thamani ya chini zaidi ya kukata"
 
 
-msgid "Texture Paint Slot"
-msgstr "Slot ya rangi ya texture"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Nafasi ambayo ina habari kuhusu uchoraji wa maandishi"
-
-
 msgid "Icon"
 msgstr "Aikoni"
 
@@ -87321,10 +87253,6 @@ msgstr "Onyesha safu ya uteuzi wa mfupa"
 
 msgid "Stencil Mask Opacity"
 msgstr "Uwazi wa Kinyago cha Stencil"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Uwazi wa uwekaji wa kinyago cha stika cha hali ya unamu"
 
 
 msgid "Freeze Culling"
@@ -96924,10 +96852,6 @@ msgid "Armature Overlays"
 msgstr "Nyenyekeo za Silaha"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Nyelekezo za Rangi ya Umbile"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Miwekeleo ya Rangi ya Vertex"
 
@@ -97840,10 +97764,6 @@ msgid "Path Steps"
 msgstr "Hatua za Njia"
 
 
-msgid "UV Map Needed"
-msgstr "Ramani ya UV Inahitajika"
-
-
 msgid "Point cache must be baked"
 msgstr "Cache ya pointi lazima iokwe"
 
@@ -97858,10 +97778,6 @@ msgstr "Kasi-Otomatiki"
 
 msgid "Ignore Transparent"
 msgstr "Puuza Uwazi"
-
-
-msgid "No Textures"
-msgstr "Hakuna Miundo"
 
 
 msgctxt "Operator"
@@ -110603,11 +110519,6 @@ msgstr "Uchongaji"
 msgctxt "WorkSpace"
 msgid "Shading"
 msgstr "Kutia kivuli"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Rangi ya Muundo"
 
 
 msgctxt "WorkSpace"

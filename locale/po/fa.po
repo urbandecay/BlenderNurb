@@ -2762,10 +2762,6 @@ msgid "Weight Paint"
 msgstr "ﻥﺯﻭ ﯽﺷﺎﻘﻧ"
 
 
-msgid "Texture Paint"
-msgstr "ﺖﻓﺎﺑ ﯽﺷﺎﻘﻧ"
-
-
 msgid "Particle Edit"
 msgstr "ﺕﺍﺭﺫ ﺶﯾﺍﺮﯾﻭ"
 

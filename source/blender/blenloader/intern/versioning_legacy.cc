@@ -2458,18 +2458,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 248, 2)) {
-    Scene *sce;
-
-    /* NOTE: these will need to be added for painting. */
-    for (sce = static_cast<Scene *>(bmain->scenes.first); sce;
-         sce = static_cast<Scene *>(sce->id.next))
-    {
-      sce->toolsettings->imapaint.seam_bleed = 2;
-      sce->toolsettings->imapaint.normal_angle = 80;
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 248, 3)) {
     bScreen *screen;
 

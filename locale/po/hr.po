@@ -677,10 +677,6 @@ msgid "Vertex Paint"
 msgstr "Bojanje vrhova"
 
 
-msgid "Texture Paint"
-msgstr "Teksturiranje"
-
-
 msgid "Pose"
 msgstr "Poza"
 
@@ -2414,11 +2410,6 @@ msgstr "Renderiranje"
 msgctxt "WorkSpace"
 msgid "Shading"
 msgstr "Sjenčanje"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Teksturiranje"
 
 
 msgctxt "WorkSpace"

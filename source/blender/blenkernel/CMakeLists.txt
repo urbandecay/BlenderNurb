@@ -233,7 +233,6 @@ set(SRC
   intern/outliner_treehash.cc
   intern/packedFile.cc
   intern/paint.cc
-  intern/paint_canvas.cc
   intern/paint_runtime.cc
   intern/particle.cc
   intern/particle_child.cc
@@ -242,9 +241,6 @@ set(SRC
   intern/path_templates.cc
   intern/pbvh.cc
   intern/pbvh_bmesh.cc
-  intern/pbvh_pixels.cc
-  intern/pbvh_pixels_copy.cc
-  intern/pbvh_uv_islands.cc
   intern/pointcache.cc
   intern/pointcloud.cc
   intern/pointcloud_attributes.cc
@@ -471,7 +467,6 @@ set(SRC
   BKE_packedFile.hh
   BKE_paint.hh
   BKE_paint_bvh.hh
-  BKE_paint_bvh_pixels.hh
   BKE_paint_types.hh
   BKE_particle.h
   BKE_path_templates.hh
@@ -539,8 +534,6 @@ set(SRC
   intern/multires_unsubdivide.hh
   intern/ocean_intern.h
   intern/pbvh_intern.hh
-  intern/pbvh_pixels_copy.hh
-  intern/pbvh_uv_islands.hh
   intern/subdiv_converter.hh
   intern/subdiv_inline.hh
   intern/tracking_private.hh

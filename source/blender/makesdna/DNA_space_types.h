@@ -358,6 +358,9 @@ struct SpaceSeq {
   /** 2D cursor for transform. */
   float cursor[2] = {};
 
+  /* Reserved for the removed Grease Pencil data pointer. */
+  void *_pad_gpd = nullptr;
+
   struct SequencerPreviewOverlay preview_overlay;
   struct SequencerTimelineOverlay timeline_overlay;
   struct SequencerCacheOverlay cache_overlay;
@@ -645,6 +648,9 @@ struct SpaceImage {
   /** Sample line histogram. */
   struct Histogram sample_line_hist;
 
+  /* Reserved for the removed Grease Pencil data pointer. */
+  void *_pad_gpd = nullptr;
+
   /** UV editor 2d cursor. */
   float cursor[2] = {};
   /** User defined offset, image is centered. */
@@ -887,6 +893,9 @@ struct SpaceNode {
    * of the context.
    */
   struct bNodeTree *selected_node_group = nullptr;
+
+  /* Reserved for the removed Grease Pencil data pointer. */
+  void *_pad_gpd = nullptr;
 
   eSpaceNode_Gizmo_Flag gizmo_flag = {};
   char _pad2[7] = {};
@@ -1202,6 +1211,8 @@ struct SpreadsheetTableIDGeometry {
   SpreadsheetGeometryItemType geometry_item_type = SPREADSHEET_GEOMETRY_ITEM_TYPE_DOMAIN;
   SpreadsheetBundleTreeViewPath geometry_bundle_path = {};
   char _pad1[4] = {};
+  /* Reserved for the removed Grease Pencil layer index. */
+  int _pad_layer_index = 0;
 };
 
 struct SpreadsheetTable {

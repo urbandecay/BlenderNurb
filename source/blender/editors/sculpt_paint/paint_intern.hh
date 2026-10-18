@@ -450,10 +450,9 @@ struct ImagePaintPartialRedraw {
   rcti dirty_region;
 };
 
-bool image_texture_paint_poll(bContext *C);
 bool image_paint_poll_ignore_tool(bContext *C);
 void imapaint_image_update(
-    SpaceImage *sima, Image *image, ImBuf *ibuf, ImageUser *iuser, short texpaint);
+    SpaceImage *sima, Image *image, ImBuf *ibuf, ImageUser *iuser);
 ImagePaintPartialRedraw *get_imapaintpartial();
 void set_imapaintpartial(ImagePaintPartialRedraw *ippr);
 void imapaint_region_tiles(
@@ -480,22 +479,6 @@ void paint_2d_bucket_fill(const bContext *C,
                           void *ps);
 void paint_2d_gradient_fill(
     const bContext *C, Brush *br, const float mouse_init[2], const float mouse_final[2], void *ps);
-void *paint_proj_new_stroke(bContext *C,
-                            Object *ob,
-                            const float mouse[2],
-                            BrushStrokeMode mode,
-                            BrushSwitchMode brush_switch_mode);
-void paint_proj_stroke(const bContext *C,
-                       void *ps_handle_p,
-                       const float prev_pos[2],
-                       const float pos[2],
-                       bool eraser,
-                       float pressure,
-                       float distance,
-                       float size);
-void paint_proj_redraw(const bContext *C, void *ps_handle_p, bool final);
-void paint_proj_stroke_done(void *ps_handle_p);
-
 void paint_brush_color_get(const Paint *paint,
                            Brush *br,
                            std::optional<float3> &initial_hsv_jitter,
@@ -512,12 +495,7 @@ namespace ed::sculpt_paint {
 void PAINT_OT_sample_color(wmOperatorType *ot);
 }
 void PAINT_OT_brush_colors_flip(wmOperatorType *ot);
-void PAINT_OT_texture_paint_toggle(wmOperatorType *ot);
-void PAINT_OT_project_image(wmOperatorType *ot);
-void PAINT_OT_image_from_view(wmOperatorType *ot);
-void PAINT_OT_add_texture_paint_slot(wmOperatorType *ot);
 void PAINT_OT_image_paint(wmOperatorType *ot);
-void PAINT_OT_add_simple_uvs(wmOperatorType *ot);
 
 /* paint_image_2d_curve_mask.cc */
 

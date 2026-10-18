@@ -57,11 +57,6 @@ def sanity_check_general():
     t.assertEqual(window.workspace.name_full.split(".", 1)[0], "Shading")
 
     yield from ui.call_operator(e, "Add Workspace")
-    yield e.text("gt")  # General > Texture Paint
-    yield e.ret()
-    t.assertEqual(window.workspace.name_full.split(".", 1)[0], "Texture Paint")
-
-    yield from ui.call_operator(e, "Add Workspace")
     yield e.text("gu")  # General > UV Editing
     yield e.ret()
     t.assertEqual(window.workspace.name_full.split(".", 1)[0], "UV Editing")

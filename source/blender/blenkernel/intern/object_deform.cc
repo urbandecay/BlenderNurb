@@ -31,6 +31,7 @@
 #include "DNA_scene_types.h"
 
 #include "BKE_action.hh"
+#include "BKE_attribute.hh"
 #include "BKE_armature.hh"
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"

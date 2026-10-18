@@ -167,7 +167,6 @@ def ob_modes_permutations(ob, space):
         "sculpt": lambda: bpy.ops.object.mode_set(mode='SCULPT'),
         "vertex-paint": lambda: bpy.ops.object.mode_set(mode='VERTEX_PAINT'),
         "weight-paint": lambda: bpy.ops.object.mode_set(mode='WEIGHT_PAINT'),
-        "texture-paint": lambda: bpy.ops.object.mode_set(mode='TEXTURE_PAINT'),
     })
 
     ob_modes.add(lambda key: "sculpt" in key, [

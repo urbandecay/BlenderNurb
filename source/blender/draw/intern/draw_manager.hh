@@ -329,7 +329,7 @@ inline ResourceHandleRange Manager::resource_handle(const ObjectRef &ref, float 
   bool is_active_object = ref.is_active(object_active);
   bool is_active_edit_mode = object_active &&
                              (DRW_object_is_in_edit_mode(object_active) ||
-                              ELEM(object_active->mode, OB_MODE_TEXTURE_PAINT, OB_MODE_SCULPT)) &&
+                              object_active->mode == OB_MODE_SCULPT) &&
                              ref.object->mode == object_active->mode;
   if (ref.duplis_) {
     uint start = resource_len_;
@@ -372,7 +372,7 @@ inline ResourceHandleRange Manager::resource_handle(const ObjectRef &ref,
   bool is_active_object = ref.is_active(object_active);
   bool is_active_edit_mode = object_active &&
                              (DRW_object_is_in_edit_mode(object_active) ||
-                              ELEM(object_active->mode, OB_MODE_TEXTURE_PAINT, OB_MODE_SCULPT)) &&
+                              object_active->mode == OB_MODE_SCULPT) &&
                              ref.object->mode == object_active->mode;
   if (model_matrix) {
     matrix_buf.current().get_or_resize(resource_len_).sync(*model_matrix);
@@ -417,7 +417,7 @@ inline ResourceHandle Manager::resource_handle_for_psys(const ObjectRef &ref,
   bool is_active_object = ref.is_active(object_active);
   bool is_active_edit_mode = object_active &&
                              (DRW_object_is_in_edit_mode(object_active) ||
-                              ELEM(object_active->mode, OB_MODE_TEXTURE_PAINT, OB_MODE_SCULPT)) &&
+                              object_active->mode == OB_MODE_SCULPT) &&
                              ref.object->mode == object_active->mode;
   matrix_buf.current().get_or_resize(resource_len_).sync(model_matrix);
   bounds_buf.current().get_or_resize(resource_len_).sync();

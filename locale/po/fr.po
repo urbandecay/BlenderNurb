@@ -24983,22 +24983,6 @@ msgid "Node tree for node based materials"
 msgstr "Arborescence de nœuds pour les matériaux basés sur les nœuds"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Indice de la texture de peinture active"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Indice de l’emplacement de texture de peinture actif"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Indice de texture pour peinture par clonage"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Indice de l’emplacement de texture de clonage"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Numéro d’indice pour la passe de rendu « Indice de matériau »"
 
@@ -25129,10 +25113,6 @@ msgstr "Permet une transparence en couleur, mais incompatible avec les passes de
 
 msgid "Texture Slot Images"
 msgstr "Images d’emplacement de texture"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Images de texture utilisées pour la peinture de texture"
 
 
 msgid "Texture Slots"
@@ -26449,10 +26429,6 @@ msgstr "Peinture de sommets"
 
 msgid "Weight Paint"
 msgstr "Peinture de poids"
-
-
-msgid "Texture Paint"
-msgstr "Peinture de texture"
 
 
 msgid "Particle Edit"
@@ -79068,15 +79044,6 @@ msgid "Add to Palette"
 msgstr "Ajouter à la palette"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Mode peinture de texture"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "(Dés)activer le mode de peinture de texture dans la vue 3D"
-
-
 msgid "Change selection for all vertices"
 msgstr "Modifier la sélection pour tous les sommets"
 
@@ -92493,26 +92460,6 @@ msgid "The mesh is missing materials"
 msgstr "Le maillage a besoin de matériaux"
 
 
-msgid "Missing Stencil"
-msgstr "Pochoir manquant"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "La peinture d’image n’a pas de pochoir"
-
-
-msgid "Missing Texture"
-msgstr "Texture manquante"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "La peinture d’image n’a pas de texture sur laquelle peindre"
-
-
-msgid "Missing UVs"
-msgstr "UV manquantes"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Le maillage a besoin d’un calque UV"
 
@@ -92527,10 +92474,6 @@ msgstr "Détecter les emplacements d’images à partir du matériau"
 
 msgid "Single Image"
 msgstr "Image unique"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Définir directement l’image pour la peinture de texture"
 
 
 msgid "Screen Grab Size"
@@ -96526,14 +96469,6 @@ msgstr "Bibliothèques d’assets distantes"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "Activer les bibliothèques d’assets servies par HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Peinture de texture en mode sculpture"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Utiliser la peinture de textures en mode sculpture"
 
 
 msgid "Shader Node Previews"
@@ -111243,14 +111178,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "S’il faut utiliser une valeur de troncature minimum"
 
 
-msgid "Texture Paint Slot"
-msgstr "Emplacement de texture de peinture"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Emplacement contenant les informations sur la peinture de texture"
-
-
 msgid "Icon"
 msgstr "Icône"
 
@@ -115414,10 +115341,6 @@ msgstr "Afficher la sélection d’os en surimpression"
 
 msgid "Stencil Mask Opacity"
 msgstr "Opacité du masque de pochoir"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Opacité du masque de pochoir en surimpression dans le mode peinture de textures"
 
 
 msgid "Freeze Culling"
@@ -130915,10 +130838,6 @@ msgid "Armature Overlays"
 msgstr "Surimpressions d’armature"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Surimpressions de peinture de texture"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Surimpressions de peinture de sommets"
 
@@ -132049,10 +131968,6 @@ msgid "Save As Asset..."
 msgstr "Enregistrer comme asset…"
 
 
-msgid "UV Map Needed"
-msgstr "Carte UV nécessaire"
-
-
 msgid "Point cache must be baked"
 msgstr "Le cache de points doit être précalculé"
 
@@ -132071,10 +131986,6 @@ msgstr "Ignorer la transparence"
 
 msgid "Detection Factor"
 msgstr "Facteur de détection"
-
-
-msgid "No Textures"
-msgstr "Aucune texture"
 
 
 msgctxt "Operator"
@@ -156825,11 +156736,6 @@ msgstr "Shading"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Storyboarding"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Peinture de texture"
 
 
 msgctxt "WorkSpace"

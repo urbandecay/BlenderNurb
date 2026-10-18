@@ -23,8 +23,6 @@ enum class PaintMode : int8_t {
   /** Vertex color. */
   Vertex = 1,
   Weight = 2,
-  /** 3D view (projection painting). */
-  Texture3D = 3,
   /** Image space (2D painting). */
   Texture2D = 4,
   /** Curves. */

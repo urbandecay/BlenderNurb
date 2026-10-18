@@ -282,7 +282,6 @@ bool DRW_object_use_hide_faces(const Object *ob)
   if (ob->type == OB_MESH) {
     switch (ob->mode) {
       case OB_MODE_SCULPT:
-      case OB_MODE_TEXTURE_PAINT:
       case OB_MODE_VERTEX_PAINT:
       case OB_MODE_WEIGHT_PAINT:
         return true;

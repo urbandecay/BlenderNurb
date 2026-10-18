@@ -111,97 +111,6 @@ class EditExternally(Operator):
         return {'FINISHED'}
 
 
-class ProjectEdit(Operator):
-    """Edit a snapshot of the 3D Viewport in an external image editor"""
-    bl_idname = "image.project_edit"
-    bl_label = "Project Edit"
-    bl_options = {'REGISTER'}
-
-    _proj_hack = [""]
-
-    def execute(self, context):
-        import os
-
-        EXT = "png"  # could be made an option but for now ok
-
-        for image in bpy.data.images:
-            image.tag = True
-
-        # opengl buffer may fail, we can't help this, but best report it.
-        try:
-            bpy.ops.paint.image_from_view()
-        except RuntimeError as ex:
-            self.report({'ERROR'}, str(ex))
-            return {'CANCELLED'}
-
-        image_new = None
-        for image in bpy.data.images:
-            if not image.tag:
-                image_new = image
-                break
-
-        if not image_new:
-            self.report({'ERROR'}, "Could not make new image")
-            return {'CANCELLED'}
-
-        filepath = os.path.basename(bpy.data.filepath)
-        filepath = os.path.splitext(filepath)[0]
-        # fixes <memory> rubbish, needs checking
-        # filepath = bpy.path.clean_name(filepath)
-
-        if bpy.data.is_saved:
-            filepath = "//" + filepath
-        else:
-            filepath = os.path.join(bpy.app.tempdir, "project_edit")
-
-        obj = context.object
-
-        if obj:
-            filepath += "_" + bpy.path.clean_name(obj.name)
-
-        filepath_final = filepath + "." + EXT
-        i = 0
-
-        while os.path.exists(bpy.path.abspath(filepath_final)):
-            filepath_final = filepath + "{:03d}.{:s}".format(i, EXT)
-            i += 1
-
-        image_new.name = bpy.path.basename(filepath_final)
-        ProjectEdit._proj_hack[0] = image_new.name
-
-        image_new.filepath_raw = filepath_final  # TODO, filepath raw is crummy
-        image_new.file_format = 'PNG'
-        image_new.save()
-
-        filepath_final = bpy.path.abspath(filepath_final)
-
-        try:
-            bpy.ops.image.external_edit(filepath=filepath_final)
-        except RuntimeError as ex:
-            self.report({'ERROR'}, str(ex))
-
-        return {'FINISHED'}
-
-
-class ProjectApply(Operator):
-    """Project edited image back onto the object"""
-    bl_idname = "image.project_apply"
-    bl_label = "Project Apply"
-    bl_options = {'REGISTER'}
-
-    def execute(self, _context):
-        image_name = ProjectEdit._proj_hack[0]  # TODO, deal with this nicer
-        image = bpy.data.images.get((image_name, None))
-        if image is None:
-            self.report({'ERROR'}, rpt_("Could not find image '{:s}'").format(image_name))
-            return {'CANCELLED'}
-
-        image.reload()
-        bpy.ops.paint.project_image(image=image_name)
-
-        return {'FINISHED'}
-
-
 bl_file_extensions_image_movie = (*bpy.path.extensions_image, *bpy.path.extensions_movie)
 
 
@@ -315,8 +224,6 @@ class IMAGE_FH_drop_handler(FileHandler):
 
 classes = (
     EditExternally,
-    ProjectApply,
     IMAGE_OT_open_images,
     IMAGE_FH_drop_handler,
-    ProjectEdit,
 )

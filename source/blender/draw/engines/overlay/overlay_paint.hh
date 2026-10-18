@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include "BKE_image.hh"
-#include "BKE_paint.hh"
 #include "BKE_scene.hh"
 
 #include "DEG_depsgraph_query.hh"
@@ -22,8 +20,7 @@
 namespace blender::draw::overlay {
 
 /**
- * Display paint modes overlays.
- * Covers weight paint, vertex paint and texture paint.
+ * Display vertex and weight paint overlays.
  */
 class Paints : Overlay {
 
@@ -39,26 +36,19 @@ class Paints : Overlay {
   PassSimple::Sub *weight_opaque_ps_ = nullptr;
   /* Used when there's a valid pre-pass (depth ==). */
   PassSimple::Sub *weight_masked_transparency_ps_ = nullptr;
-  /* Black and white mask overlayed on top of mesh to preview painting influence. */
-  PassSimple paint_mask_ps_ = {"paint_mask_ps_"};
-
   bool show_weight_ = false;
   bool show_wires_ = false;
-  bool show_paint_mask_ = false;
   bool masked_transparency_support_ = false;
 
  public:
   void begin_sync(Resources &res, const State &state) final
   {
-    enabled_ =
-        state.is_space_v3d() && !res.is_selection() &&
-        ELEM(state.ctx_mode, CTX_MODE_PAINT_WEIGHT, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_TEXTURE);
+    enabled_ = state.is_space_v3d() && !res.is_selection() &&
+               ELEM(state.ctx_mode, CTX_MODE_PAINT_WEIGHT, CTX_MODE_PAINT_VERTEX);
 
     /* Init in any case to release the data. */
     paint_region_ps_.init();
     weight_ps_.init();
-    paint_mask_ps_.init();
-
     if (!enabled_) {
       return;
     }
@@ -131,29 +121,6 @@ class Paints : Overlay {
           DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ALPHA);
     }
 
-    if (state.ctx_mode == CTX_MODE_PAINT_TEXTURE) {
-      const ImagePaintSettings &paint_settings = state.scene->toolsettings->imapaint;
-      show_paint_mask_ = paint_settings.stencil &&
-                         (paint_settings.flag & IMAGEPAINT_PROJECT_LAYER_STENCIL);
-
-      if (show_paint_mask_) {
-        const bool mask_premult = (paint_settings.stencil->alpha_mode == IMA_ALPHA_PREMUL);
-        const bool mask_inverted = (paint_settings.flag & IMAGEPAINT_PROJECT_LAYER_STENCIL_INV);
-        gpu::Texture *mask_texture = BKE_image_get_gpu_texture(paint_settings.stencil, nullptr);
-
-        auto &pass = paint_mask_ps_;
-        pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ALPHA,
-                       state.clipping_plane_count);
-        pass.shader_set(res.shaders->paint_texture.get());
-        pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
-        pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
-        pass.bind_texture("mask_image", mask_texture);
-        pass.push_constant("maskPremult", mask_premult);
-        pass.push_constant("mask_invert_stencil", mask_inverted);
-        pass.push_constant("mask_color", float3(paint_settings.stencil_col));
-        pass.push_constant("opacity", state.overlay.texture_paint_mode_opacity);
-      }
-    }
   }
 
   void object_sync(Manager &manager,
@@ -183,12 +150,6 @@ class Paints : Overlay {
           return;
         }
         break;
-      case CTX_MODE_PAINT_TEXTURE:
-        if (ob_ref.object->mode != OB_MODE_TEXTURE_PAINT) {
-          /* Not matching context mode. */
-          return;
-        }
-        break;
       default:
         /* Not in paint mode. */
         return;
@@ -209,13 +170,6 @@ class Paints : Overlay {
         /* Drawing of vertex paint color is done by the render engine (i.e. workbench). */
         break;
       }
-      case CTX_MODE_PAINT_TEXTURE: {
-        if (show_paint_mask_) {
-          gpu::Batch *geom = DRW_cache_mesh_surface_texpaint_single_get(ob_ref.object);
-          paint_mask_ps_.draw(geom, manager.unique_handle(ob_ref));
-        }
-        break;
-      }
       default:
         BLI_assert_unreachable();
         return;
@@ -228,11 +182,7 @@ class Paints : Overlay {
           *DEG_get_original(ob_ref.object));
       const bool use_face_selection = (mesh_orig.editflag & ME_EDIT_PAINT_FACE_SEL);
       const bool use_vert_selection = (mesh_orig.editflag & ME_EDIT_PAINT_VERT_SEL);
-      /* Texture paint mode only draws the face selection without wires or vertices as we don't
-       * draw on the geometry data directly. */
-      const bool in_texture_paint_mode = state.ctx_mode == CTX_MODE_PAINT_TEXTURE;
-
-      if ((use_face_selection || show_wires_) && !in_texture_paint_mode) {
+      if (use_face_selection || show_wires_) {
         gpu::Batch *geom = DRW_cache_mesh_paint_overlay_edges_get(ob_ref.object);
         paint_region_edge_ps_->push_constant("use_select", use_face_selection);
         paint_region_edge_ps_->draw(geom, manager.unique_handle(ob_ref));
@@ -241,7 +191,7 @@ class Paints : Overlay {
         gpu::Batch *geom = DRW_cache_mesh_paint_overlay_surface_get(ob_ref.object);
         paint_region_face_ps_->draw(geom, manager.unique_handle(ob_ref));
       }
-      if (use_vert_selection && !in_texture_paint_mode) {
+      if (use_vert_selection) {
         gpu::Batch *geom = DRW_cache_mesh_paint_overlay_verts_get(ob_ref.object);
         paint_region_vert_ps_->draw(geom, manager.unique_handle(ob_ref));
       }
@@ -255,7 +205,6 @@ class Paints : Overlay {
     }
     GPU_framebuffer_bind(framebuffer);
     manager.submit(weight_ps_, view);
-    manager.submit(paint_mask_ps_, view);
     /* TODO(fclem): Draw this onto the line frame-buffer to get wide-line and anti-aliasing.
      * Just need to make sure the shaders output line data. */
     manager.submit(paint_region_ps_, view);

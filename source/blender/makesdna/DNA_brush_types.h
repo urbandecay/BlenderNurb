@@ -183,6 +183,8 @@ struct Brush {
   eBrushImagePaintType image_brush_type = IMAGE_PAINT_BRUSH_TYPE_DRAW;
   /** Enum eBrushMaskTool, only used if sculpt_brush_type is SCULPT_BRUSH_TYPE_MASK. */
   BrushMaskTool mask_tool = BRUSH_MASK_DRAW;
+  /* Reserved for the four removed Grease Pencil brush-mode enums. */
+  char _pad_gpencil_brush_modes[4] = {};
   /** Active curves sculpt brush type. */
   eBrushCurvesSculptType curves_sculpt_brush_type = CURVES_SCULPT_BRUSH_TYPE_COMB;
 
@@ -309,6 +311,8 @@ struct Brush {
   float mask_stencil_pos[2] = {256, 256};
   float mask_stencil_dimension[2] = {256, 256};
 
+  /* Reserved for the removed Grease Pencil brush settings pointer. */
+  void *_pad_gpencil_settings = nullptr;
   struct BrushCurvesSculptSettings *curves_sculpt_settings = nullptr;
 
   DNA_DEPRECATED int automasking_cavity_blur_steps = 0;

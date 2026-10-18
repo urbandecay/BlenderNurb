@@ -1556,7 +1556,7 @@ void RNA_def_main_brushes(BlenderRNA *brna, PropertyRNA *cprop)
   parm = RNA_def_enum(func,
                       "mode",
                       rna_enum_object_mode_items,
-                      OB_MODE_TEXTURE_PAINT,
+                      OB_MODE_SCULPT,
                       "",
                       "Paint Mode for the new brush");
   /* return type */

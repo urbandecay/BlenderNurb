@@ -10793,22 +10793,6 @@ msgid "Node tree for node based materials"
 msgstr "ﺪﻘﻋ ﻰﻠﻋ ﺔﻤﺋﺎﻘﻟﺍ ﺕﺎﻣﺎﺨﻠﻟ ﺓﺪﻘﻌﻟﺍ ﺓﺮﺠﺷ"
 
 
-msgid "Active Paint Texture Index"
-msgstr "ﻝﺎﻌّﻔﻟﺍ ﻢﺳﺮﻟﺍ ﺞﻴﺴﻧ ﻞﻴﻟﺩ"
-
-
-msgid "Index of active texture paint slot"
-msgstr "ﻝﺎﻌّﻔﻟﺍ ﻢﺳﺮﻟﺍ ﺞﻴﺴﻧ ﺔﺤﺘﻓ ﻞﻴﻟﺩ"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "ﺞﻴﺴﻨﻟﺍ ﻢﺳﺭ ﺦﺴﻧ ﻞﻴﻟﺩ"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "ﺦﺴﻨﻟﺍ ﻢﺳﺭ ﺞﻴﺴﻧ ﺔﺤﺘﻓ ﻞﻴﻟﺩ"
-
-
 msgid "Type of preview render"
 msgstr "ﺔﻨﻳﺎﻌﻤﻟﺍ ﺮﻴﻴﺼﺗ ﻉﻮﻧ"
 
@@ -10847,10 +10831,6 @@ msgstr "ﻖﻳﺮﺒﻟﺍ ﺱﺎﻜﻌﻧﺍ (ﻉﻮﻄﺳ) ﺓﺪّﺷ ﻥﻮ�
 
 msgid "Texture Slot Images"
 msgstr "ﺞﻴﺴﻨﻟﺍ ﺔﺤﺘﻓ ﺭﻮﺻ"
-
-
-msgid "Texture images used for texture painting"
-msgstr "ﺞﻴﺴﻨﻟﺍ ﻢﺳﺮﻟ ﺔﻣﺪﺨﺘﺴﻤﻟﺍ ﺞﻴﺴﻨﻟﺍ ﺭﻮﺻ"
 
 
 msgid "Texture Slots"
@@ -11431,10 +11411,6 @@ msgstr "ﻂﻘﻨﻟﺍ ﻦﻳﻮﻠﺗ"
 
 msgid "Weight Paint"
 msgstr "ﻥﺯﻮﻟﺍ ﻦﻳﻮﻠﺗ"
-
-
-msgid "Texture Paint"
-msgstr "ﺞﺳﺎﻨﻤﻟﺍ ﻦﻳﻮﻠﺗ"
 
 
 msgid "Particle Edit"
@@ -31729,10 +31705,6 @@ msgstr "Z ءﺎﺴﻛﺇ"
 
 msgid "Has Maximum"
 msgstr "ﻰﻠﻋﺍ ﺪﺣ ﻪﻳﺪﻟ"
-
-
-msgid "Texture Paint Slot"
-msgstr "ﺞﻴﺴﻧ ﻢﺳﺭ ﺔﺤﺘﻓ"
 
 
 msgid "Text bounding box for layout"

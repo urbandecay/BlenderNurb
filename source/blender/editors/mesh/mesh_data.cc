@@ -388,12 +388,6 @@ static wmOperatorStatus mesh_uv_texture_add_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-    Scene *scene = CTX_data_scene(C);
-    ED_paint_proj_mesh_data_check(*scene, *ob, nullptr, nullptr, nullptr, nullptr);
-    WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, nullptr);
-  }
-
   return OPERATOR_FINISHED;
 }
 
@@ -418,12 +412,6 @@ static wmOperatorStatus mesh_uv_texture_remove_exec(bContext *C, wmOperator *op)
   const StringRef name = mesh->active_uv_map_name();
   if (!BKE_attribute_remove(owner, name, op->reports)) {
     return OPERATOR_CANCELLED;
-  }
-
-  if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-    Scene *scene = CTX_data_scene(C);
-    ED_paint_proj_mesh_data_check(*scene, *ob, nullptr, nullptr, nullptr, nullptr);
-    WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, nullptr);
   }
 
   DEG_id_tag_update(&mesh->id, ID_RECALC_GEOMETRY);

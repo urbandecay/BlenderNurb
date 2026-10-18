@@ -148,20 +148,6 @@ static void mesh_cd_calc_active_uv_layer(const Object &object,
   }
 }
 
-static void mesh_cd_calc_active_mask_uv_layer(const Object &object,
-                                              const Mesh &mesh,
-                                              DRW_MeshCDMask &cd_used)
-{
-  const Mesh &me_final = editmesh_final_or_this(object, mesh);
-  StringRef name = me_final.stencil_uv_map_attribute;
-  if (name.is_empty()) {
-    name = mesh.active_uv_map_name();
-  }
-  if (!name.is_empty()) {
-    cd_used.uv.add_as(name);
-  }
-}
-
 static bool attribute_exists(const Mesh &mesh, const StringRef name)
 {
   if (BMEditMesh *em = mesh.runtime->edit_mesh.get()) {
@@ -625,14 +611,13 @@ void DRW_mesh_batch_cache_free(draw::MeshBatchCache *batch_cache)
 /** \name Public API
  * \{ */
 
-static void texpaint_request_active_uv(MeshBatchCache &cache, Object &object, Mesh &mesh)
+static void texture_color_request_active_uv(MeshBatchCache &cache, Object &object, Mesh &mesh)
 {
   mesh_cd_calc_active_uv_layer(object, mesh, cache.cd_needed);
 
   BLI_assert(!cache.cd_needed.uv.is_empty() &&
-             "No uv layer available in texpaint, but batches requested anyway!");
+             "No UV layer available for texture color display, but batches were requested!");
 
-  mesh_cd_calc_active_mask_uv_layer(object, mesh, cache.cd_needed);
 }
 
 static void request_active_and_default_color_attributes(const Object &object,
@@ -753,18 +738,18 @@ Span<gpu::Batch *> DRW_mesh_batch_cache_get_surface_shaded(
   return cache.surface_per_mat;
 }
 
-Span<gpu::Batch *> DRW_mesh_batch_cache_get_surface_texpaint(Object &object, Mesh &mesh)
+Span<gpu::Batch *> DRW_mesh_batch_cache_get_surface_texture_color(Object &object, Mesh &mesh)
 {
   MeshBatchCache &cache = *mesh_batch_cache_get(mesh);
-  texpaint_request_active_uv(cache, object, mesh);
+  texture_color_request_active_uv(cache, object, mesh);
   mesh_batch_cache_request_surface_batches(mesh, cache);
   return cache.surface_per_mat;
 }
 
-gpu::Batch *DRW_mesh_batch_cache_get_surface_texpaint_single(Object &object, Mesh &mesh)
+gpu::Batch *DRW_mesh_batch_cache_get_surface_texture_color_single(Object &object, Mesh &mesh)
 {
   MeshBatchCache &cache = *mesh_batch_cache_get(mesh);
-  texpaint_request_active_uv(cache, object, mesh);
+  texture_color_request_active_uv(cache, object, mesh);
   mesh_batch_cache_request_surface_batches(mesh, cache);
   return cache.batch.surface;
 }
@@ -915,8 +900,6 @@ static void edituv_request_active_uv(MeshBatchCache &cache, Object &object, Mesh
 {
   mesh_cd_calc_active_uv_layer(object, mesh, cache.cd_needed);
   mesh_cd_calc_edit_uv_layer(mesh, &cache.cd_needed);
-
-  mesh_cd_calc_active_mask_uv_layer(object, mesh, cache.cd_needed);
 }
 
 gpu::Batch *DRW_mesh_batch_cache_get_edituv_faces_stretch_area(Object &object,
@@ -1370,7 +1353,7 @@ void DRW_mesh_batch_cache_create_requested(TaskGraph &task_graph,
       /* Sculpt mode does not support selection, therefore the generic `is_paint_mode` check cannot
        * be used */
       const bool is_face_selectable =
-          ELEM(ob.mode, OB_MODE_VERTEX_PAINT, OB_MODE_WEIGHT_PAINT, OB_MODE_TEXTURE_PAINT) &&
+          ELEM(ob.mode, OB_MODE_VERTEX_PAINT, OB_MODE_WEIGHT_PAINT) &&
           use_face_selection;
 
       const IBOType ibo = is_face_selectable || is_editmode ? IBOType::UVTris : IBOType::Tris;

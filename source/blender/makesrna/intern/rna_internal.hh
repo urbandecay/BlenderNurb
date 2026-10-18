@@ -290,7 +290,6 @@ void rna_def_mtex_common(BlenderRNA *brna,
                          const char *name_slots,
                          const char *update,
                          const char *update_index);
-void rna_def_texpaint_slots(BlenderRNA *brna, StructRNA *srna);
 void rna_def_view_layer_common(BlenderRNA *brna, StructRNA *srna, bool scene);
 
 int rna_AssetMetaData_editable(const PointerRNA *ptr, const char **r_info);

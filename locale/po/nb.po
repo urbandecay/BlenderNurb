@@ -5733,11 +5733,6 @@ msgstr "Skyggelegging"
 
 
 msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Teksturmaling"
-
-
-msgctxt "WorkSpace"
 msgid "UV Editing"
 msgstr "UV-redigering"
 

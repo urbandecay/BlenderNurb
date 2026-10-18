@@ -123,17 +123,6 @@ static void version_geometry_nodes_properties(FileData &fd,
     IDP_AddToGroup(inputs, group);
 
     if (input->flag & NODE_INTERFACE_SOCKET_LAYER_SELECTION) {
-      IDP_AddToGroup(
-          group, bke::idprop::create("type", int(nodes::GeometryNodesInputType::Layer)).release());
-      const StringRefNull layer_name = [&]() {
-        const IDProperty *layer_name = IDP_GetPropertyTypeFromGroup(
-            old_props, identifier, IDP_STRING);
-        if (layer_name) {
-          return StringRefNull(IDP_string_get(layer_name));
-        }
-        return StringRefNull();
-      }();
-      IDP_AddToGroup(group, bke::idprop::create("layer_name", layer_name).release());
       continue;
     }
 

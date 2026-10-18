@@ -2012,7 +2012,6 @@ context_type_map = {
     "fluid": [("FluidModifier", False)],
     "curves": [("Curves", False)],
     "id": [("ID", False)],
-    "image_paint_object": [("Object", False)],
     "lattice": [("Lattice", False)],
     "light": [("Light", False)],
     "lightprobe": [("LightProbe", False)],

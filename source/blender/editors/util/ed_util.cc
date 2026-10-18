@@ -64,15 +64,6 @@ void ED_editors_init_for_undo(Main *bmain)
 {
   wmWindowManager *wm = static_cast<wmWindowManager *>(bmain->wm.first);
   for (wmWindow &win : wm->windows) {
-    Scene *scene = WM_window_get_active_scene(&win);
-    ViewLayer *view_layer = WM_window_get_active_view_layer(&win);
-    BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-    Object *ob = BKE_view_layer_active_object_get(view_layer);
-    if (ob && (ob->mode & OB_MODE_TEXTURE_PAINT)) {
-      BKE_texpaint_slots_refresh_object(scene, ob);
-      ED_paint_proj_mesh_data_check(*scene, *ob, nullptr, nullptr, nullptr, nullptr);
-    }
-
     /* Stop animation from playing.
      * TODO: There might be a way to keep the animation from playing, but sad->scene and
      * sad->view_layer pointers are outdated and would need to be updated somehow. */

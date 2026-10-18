@@ -47,10 +47,6 @@ struct Object;
 namespace bke::pbvh {
 class Node;
 class Tree;
-namespace pixels {
-struct PixelData;
-struct PixelNode;
-}  // namespace pixels
 }  // namespace bke::pbvh
 
 namespace bke::pbvh {
@@ -255,8 +251,6 @@ class Tree {
 
  public:
   std::variant<Vector<MeshNode>, Vector<GridsNode>, Vector<BMeshNode>> nodes_;
-
-  pixels::PixelData *pixels_ = nullptr;
 
   std::unique_ptr<DrawCache> draw_data;
 
@@ -503,8 +497,6 @@ void BKE_pbvh_node_fully_masked_set(bke::pbvh::Node &node, int fully_masked);
 bool BKE_pbvh_node_fully_masked_get(const bke::pbvh::Node &node);
 void BKE_pbvh_node_fully_unmasked_set(bke::pbvh::Node &node, int fully_masked);
 bool BKE_pbvh_node_fully_unmasked_get(const bke::pbvh::Node &node);
-
-void BKE_pbvh_mark_rebuild_pixels(bke::pbvh::Tree &pbvh);
 
 namespace bke::pbvh {
 

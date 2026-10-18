@@ -71,7 +71,6 @@ static void update_paint_modes_for_brush_assets(Main &bmain)
                 CTX_MODE_SCULPT,
                 CTX_MODE_PAINT_VERTEX,
                 CTX_MODE_PAINT_WEIGHT,
-                CTX_MODE_PAINT_TEXTURE,
                 CTX_MODE_SCULPT_CURVES))
       {
         continue;

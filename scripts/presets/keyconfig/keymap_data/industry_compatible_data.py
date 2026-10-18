@@ -2750,7 +2750,7 @@ def km_image_paint(params):
     items = []
     keymap = (
         "Image Paint",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
+        {"space_type": 'IMAGE_EDITOR', "region_type": 'WINDOW'},
         {"items": items},
     )
 
@@ -2785,20 +2785,15 @@ def km_image_paint(params):
          {"properties": [("mode", 'SCALE'), ("texmode", 'SECONDARY')]}),
         ("brush.stencil_control", {"type": 'RIGHTMOUSE', "value": 'PRESS', "ctrl": True, "alt": True},
          {"properties": [("mode", 'ROTATION'), ("texmode", 'SECONDARY')]}),
-        # Mask Modes
-        ("wm.context_toggle", {"type": 'ONE', "value": 'PRESS'},
-         {"properties": [("data_path", "image_paint_object.data.use_paint_mask")]}),
         # Stabilize Strokes
         ("wm.context_toggle", {"type": 'L', "value": 'PRESS'},
          {"properties": [("data_path", "tool_settings.image_paint.brush.use_smooth_stroke")]}),
         # Context menu.
         *_template_items_context_panel(
-            "VIEW3D_PT_paint_texture_context_menu",
+            "IMAGE_PT_paint_context_menu",
             {"type": 'RIGHTMOUSE', "value": 'PRESS'},
         ),
         # Tools
-        op_tool_cycle("builtin.select_box", {"type": 'Q', "value": 'PRESS'}),
-        op_asset_shelf_popup("VIEW3D_AST_brush_texture_paint", {"type": 'B', "value": 'PRESS'}),
         op_asset_shelf_popup("IMAGE_AST_brush_paint", {"type": 'B', "value": 'PRESS'}),
     ])
 

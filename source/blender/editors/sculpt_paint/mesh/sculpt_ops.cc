@@ -410,18 +410,6 @@ void object_sculpt_mode_enter(Main &bmain,
     BKE_report(reports, RPT_WARNING, "Object has negative scale, sculpting may be unpredictable");
   }
 
-  if (USER_EXPERIMENTAL_TEST(&U, use_sculpt_texture_paint)) {
-    BKE_texpaint_slots_refresh_object(&scene, &ob);
-
-    PaintModeSettings *paint_settings = &scene.toolsettings->paint_mode;
-    Image *image;
-    ImageUser *image_user;
-
-    if (BKE_paint_canvas_image_get(paint_settings, &ob, &image, &image_user)) {
-      ED_space_image_sync(&bmain, image, false);
-    }
-  }
-
   Paint *paint = BKE_paint_get_active_from_paintmode(&scene, PaintMode::Sculpt);
   BKE_paint_init(&bmain, &scene, PaintMode::Sculpt);
 

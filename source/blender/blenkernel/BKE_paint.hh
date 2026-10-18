@@ -70,7 +70,6 @@ struct Object;
 struct Paint;
 struct PaintCurve;
 enum class PaintMode : int8_t;
-struct PaintModeSettings;
 struct Palette;
 struct PaletteColor;
 struct RegionView3D;
@@ -262,7 +261,7 @@ void BKE_paint_palette_set(Paint *paint, Palette *palette);
 void BKE_paint_curve_clamp_endpoint_add_index(PaintCurve *pc, int add_index);
 
 /**
- * Return true when in vertex/weight/texture paint + face-select mode?
+ * Return true when in vertex/weight paint + face-select mode?
  */
 bool BKE_paint_select_face_test(const Object *ob);
 /**
@@ -491,18 +490,6 @@ struct SculptSession : NonCopyable, NonMovable {
    */
   bool needs_flush_to_id = false;
 
-  /**
-   * Some tools follows the shading chosen by the last used tool canvas.
-   * When not set the viewport shading color would be used.
-   *
-   * NOTE: This setting is temporarily until paint mode is added.
-   */
-  bool sticky_shading_color = false;
-
-  /**
-   * Last used painting canvas key.
-   */
-  std::optional<std::string> last_paint_canvas_key = {};
   float3 last_normal;
 
   std::unique_ptr<SculptTopologyIslandCache> topology_island_cache;
@@ -628,20 +615,6 @@ const pbvh::Tree *pbvh_get(const Object &object);
 }  // namespace bke::object
 bool BKE_object_sculpt_use_dyntopo(const Object *object);
 
-/* paint_canvas.cc */
-
-/**
- * Create a key that can be used to compare with previous ones to identify changes.
- * The resulting 'string' is owned by the caller.
- */
-std::string BKE_paint_canvas_key_get(PaintModeSettings *settings, Object *ob);
-
-bool BKE_paint_canvas_image_get(PaintModeSettings *settings,
-                                Object *ob,
-                                Image **r_image,
-                                ImageUser **r_image_user);
-std::optional<StringRef> BKE_paint_canvas_uvmap_name_get(const PaintModeSettings *settings,
-                                                         Object *ob);
 CurveMapping *BKE_sculpt_default_cavity_curve();
 CurveMapping *BKE_paint_default_curve();
 

@@ -288,7 +288,7 @@ class Instance : public DrawEngine {
 
       Span<gpu::Batch *> batches;
       if (object_state.color_type == V3D_SHADING_TEXTURE_COLOR) {
-        batches = DRW_cache_mesh_surface_texpaint_get(ob_ref.object);
+        batches = DRW_cache_mesh_surface_texture_color_get(ob_ref.object);
       }
       else {
         batches = DRW_cache_object_surface_material_get(
@@ -318,7 +318,7 @@ class Instance : public DrawEngine {
     else {
       gpu::Batch *batch;
       if (object_state.color_type == V3D_SHADING_TEXTURE_COLOR) {
-        batch = DRW_cache_mesh_surface_texpaint_single_get(ob_ref.object);
+        batch = DRW_cache_mesh_surface_texture_color_single_get(ob_ref.object);
       }
       else if (object_state.color_type == V3D_SHADING_VERTEX_COLOR) {
         if (ob_ref.object->mode & OB_MODE_VERTEX_PAINT) {

@@ -18437,22 +18437,6 @@ msgid "Node tree for node based materials"
 msgstr "以節點為基礎的材質節點樹"
 
 
-msgid "Active Paint Texture Index"
-msgstr "作用中繪製紋理索引"
-
-
-msgid "Index of active texture paint slot"
-msgstr "作用中紋理繪製槽的索引"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "拓製繪製紋理索引"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "拓製紋理繪製槽的索引"
-
-
 msgctxt "Material"
 msgid "Preview Render Type"
 msgstr "預覽算繪類型"
@@ -18551,10 +18535,6 @@ msgstr "已交混"
 
 msgid "Texture Slot Images"
 msgstr "紋理槽影像"
-
-
-msgid "Texture images used for texture painting"
-msgstr "用於紋理繪製的紋理影像"
 
 
 msgid "Texture Slots"
@@ -19379,10 +19359,6 @@ msgstr "頂點繪製"
 
 msgid "Weight Paint"
 msgstr "權重繪製"
-
-
-msgid "Texture Paint"
-msgstr "紋理繪製"
 
 
 msgid "Particle Edit"
@@ -52377,15 +52353,6 @@ msgid "Add to Palette"
 msgstr "加入至調色盤"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "紋理繪製模式"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "在 3D 檢視中切換紋理繪製模式"
-
-
 msgid "Change selection for all vertices"
 msgstr "更改所有頂點的選取"
 
@@ -60494,18 +60461,6 @@ msgid "Missing Materials"
 msgstr "遺失材質"
 
 
-msgid "Missing Stencil"
-msgstr "遺失模板"
-
-
-msgid "Missing Texture"
-msgstr "遺失紋理"
-
-
-msgid "Missing UVs"
-msgstr "遺失 UV"
-
-
 msgid "Single Image"
 msgstr "單一影像"
 
@@ -63761,10 +63716,6 @@ msgstr "新曲線工具"
 
 msgid "Paint Debug"
 msgstr "繪製除錯"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "雕塑紋理繪製"
 
 
 msgid "Shader Node Previews"
@@ -72643,14 +72594,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "是否使用最小截割值"
 
 
-msgid "Texture Paint Slot"
-msgstr "紋理繪製槽"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "包含紋理繪製有關資訊的槽"
-
-
 msgid "Icon"
 msgstr "圖示"
 
@@ -75330,10 +75273,6 @@ msgstr "顯示骨骼 X-Ray"
 
 msgid "Stencil Mask Opacity"
 msgstr "遮罩蠟紙不透明度"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "紋理繪製時遮罩蠟紙覆蓋在模型上的不透明度"
 
 
 msgid "Freeze Culling"
@@ -85844,10 +85783,6 @@ msgid "Save As Asset..."
 msgstr "另存為素材..."
 
 
-msgid "UV Map Needed"
-msgstr "需要 UV 映射"
-
-
 msgid "Point cache must be baked"
 msgstr "點快取必須烘焙"
 
@@ -85862,10 +85797,6 @@ msgstr "自動速度"
 
 msgid "Ignore Transparent"
 msgstr "忽略透明"
-
-
-msgid "No Textures"
-msgstr "無紋理"
 
 
 msgctxt "Operator"
@@ -96794,11 +96725,6 @@ msgstr "著色"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "分鏡腳本"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "紋理繪製"
 
 
 msgctxt "WorkSpace"

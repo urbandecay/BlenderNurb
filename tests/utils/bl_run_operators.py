@@ -259,11 +259,6 @@ def ctx_object_paint_sculpt():
     bpy.ops.object.mode_set(mode='SCULPT')
 
 
-def ctx_object_paint_texture():
-    bpy.ops.wm.read_factory_settings(use_empty=False)
-    bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
-
-
 # END UTILS TO EXPORT.
 
 
@@ -393,7 +388,6 @@ operator_pattern_exclude_for_silence = (
 # These operators are disruptive.
 operator_pattern_exclude_for_disruptive = (
     "image.external_edit",
-    "image.project_edit",
     "render.play_rendered_anim",
     "render.render",
     "wm.url_open",
@@ -835,7 +829,6 @@ def run_all(
             ctx_object_empty,
             ctx_object_empty_as_camera,
             ctx_object_paint_sculpt,
-            ctx_object_paint_texture,
             ctx_object_paint_vertex,
             ctx_object_paint_weight,
             ctx_object_pose,

@@ -21,7 +21,8 @@ enum eObjectMode : int {
   OB_MODE_SCULPT = 1 << 1,
   OB_MODE_VERTEX_PAINT = 1 << 2,
   OB_MODE_WEIGHT_PAINT = 1 << 3,
-  OB_MODE_TEXTURE_PAINT = 1 << 4,
+  /* Brush capability bit for Image Editor painting, not an Object mode. */
+  OB_MODE_IMAGE_PAINT = 1 << 4,
   OB_MODE_PARTICLE_EDIT = 1 << 5,
   OB_MODE_POSE = 1 << 6,
   OB_MODE_SCULPT_CURVES = 1 << 12,
@@ -40,7 +41,7 @@ enum eDrawType : char {
 
 /** Any mode where the brush system is used. */
 #define OB_MODE_ALL_PAINT \
-  (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)
+  (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)
 
 /** Any mode that uses object.runtime->sculpt_session. */
 #define OB_MODE_ALL_SCULPT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)

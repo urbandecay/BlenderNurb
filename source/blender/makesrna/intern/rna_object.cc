@@ -40,7 +40,6 @@ const EnumPropertyItem rna_enum_object_mode_items[] = {
     {OB_MODE_SCULPT, "SCULPT", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {OB_MODE_VERTEX_PAINT, "VERTEX_PAINT", ICON_VPAINT_HLT, "Vertex Paint", ""},
     {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
-    {OB_MODE_TEXTURE_PAINT, "TEXTURE_PAINT", ICON_TPAINT_HLT, "Texture Paint", ""},
     {OB_MODE_PARTICLE_EDIT, "PARTICLE_EDIT", ICON_PARTICLEMODE, "Particle Edit", ""},
     {OB_MODE_SCULPT_CURVES, "SCULPT_CURVES", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {0, nullptr, 0, nullptr, nullptr},
@@ -53,7 +52,6 @@ const EnumPropertyItem rna_enum_workspace_object_mode_items[] = {
     {OB_MODE_SCULPT, "SCULPT", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {OB_MODE_VERTEX_PAINT, "VERTEX_PAINT", ICON_VPAINT_HLT, "Vertex Paint", ""},
     {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
-    {OB_MODE_TEXTURE_PAINT, "TEXTURE_PAINT", ICON_TPAINT_HLT, "Texture Paint", ""},
     {OB_MODE_PARTICLE_EDIT, "PARTICLE_EDIT", ICON_PARTICLEMODE, "Particle Edit", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
@@ -1273,14 +1271,6 @@ static void rna_MaterialSlot_material_set(PointerRNA *ptr,
       G_MAIN, ob, static_cast<Material *>(value.data), index + 1, BKE_MAT_ASSIGN_EXISTING);
 }
 
-static bool rna_MaterialSlot_material_poll(PointerRNA *ptr, PointerRNA value)
-{
-  Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
-  Material *ma = static_cast<Material *>(value.data);
-
-  return true;
-}
-
 static int rna_MaterialSlot_link_get(PointerRNA *ptr)
 {
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
@@ -2284,7 +2274,7 @@ static void rna_def_material_slot(BlenderRNA *brna)
                                  "rna_MaterialSlot_material_get",
                                  "rna_MaterialSlot_material_set",
                                  nullptr,
-                                 "rna_MaterialSlot_material_poll");
+                                 nullptr);
   RNA_def_property_ui_text(prop, "Material", "Material data-block used by this material slot");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_MaterialSlot_update");
 
@@ -2876,7 +2866,7 @@ static void rna_def_object(BlenderRNA *brna)
                                  "rna_Object_active_material_get",
                                  "rna_Object_active_material_set",
                                  nullptr,
-                                 "rna_MaterialSlot_material_poll");
+                                 nullptr);
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);
   RNA_def_property_editable_func(prop, "rna_Object_active_material_editable");
   RNA_def_property_ui_text(prop, "Active Material", "Active material being displayed");

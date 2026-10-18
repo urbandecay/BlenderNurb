@@ -711,7 +711,7 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
       {0, nullptr, 0, nullptr, nullptr},
   };
 
-  /* texture paint mode */
+  /* Image Editor paint mode */
   static const EnumPropertyItem prop_soften_sharpen_items[] = {
       {BRUSH_DIR_IN,
        "SHARPEN",
@@ -766,7 +766,6 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
       }
 
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       switch (me->image_brush_type) {
         case IMAGE_PAINT_BRUSH_TYPE_SOFTEN:
           return prop_soften_sharpen_items;
@@ -823,7 +822,6 @@ static const EnumPropertyItem *rna_Brush_stroke_itemf(bContext *C,
   switch (mode) {
     case PaintMode::Sculpt:
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       return sculpt_stroke_method_items;
 
     default:
@@ -2830,8 +2828,8 @@ static void rna_def_brush(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
   prop = RNA_def_property(srna, "use_paint_image", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "ob_mode", OB_MODE_TEXTURE_PAINT);
-  RNA_def_property_ui_text(prop, "Use Texture", "Use this brush in texture paint mode");
+  RNA_def_property_boolean_sdna(prop, nullptr, "ob_mode", OB_MODE_IMAGE_PAINT);
+  RNA_def_property_ui_text(prop, "Use Image", "Use this brush in Image Editor painting");
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
   prop = RNA_def_property(srna, "use_paint_sculpt_curves", PROP_BOOLEAN, PROP_NONE);

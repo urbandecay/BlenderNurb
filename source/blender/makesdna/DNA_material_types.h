@@ -177,29 +177,6 @@ enum eMaterial_ThicknessMode : char {
   MA_THICKNESS_SLAB = 1,
 };
 
-struct TexPaintSlot {
-  DNA_DEFINE_CXX_METHODS(TexPaintSlot)
-
-  /** Image to be painted on. Mutual exclusive with attribute_name. */
-  struct Image *ima = nullptr;
-  struct ImageUser *image_user = nullptr;
-
-  /**
-   * Custom-data index for uv layer, #MAX_CUSTOMDATA_LAYER_NAME_NO_PREFIX.
-   * May reference #NodeShaderUVMap::uv_name.
-   */
-  char *uvname = nullptr;
-  /**
-   * Color attribute name when painting using color attributes. Mutual exclusive with ima.
-   * Points to the name of a CustomDataLayer.
-   */
-  char *attribute_name = nullptr;
-  /** Do we have a valid image and UV map or attribute. */
-  int valid = 0;
-  /** Copy of node interpolation setting. */
-  int interp = 0;
-};
-
 struct Material {
 #ifdef __cplusplus
   DNA_DEFINE_CXX_METHODS(Material)
@@ -249,10 +226,8 @@ struct Material {
   short line_priority = 0;
   short vcol_alpha = 0;
 
-  /* Texture painting slots. */
-  short paint_active_slot = 0;
-  short paint_clone_slot = 0;
-  short tot_slots = 0;
+  /* Reserved DNA space for removed image-paint slot indices. */
+  short _pad_paint_slots[3] = {};
 
   /* Displacement. */
   eMaterial_DisplacementMethod displacement_method = MA_DISPLACEMENT_BUMP;
@@ -277,11 +252,8 @@ struct Material {
 
   char _pad3[4] = {};
 
-  /**
-   * Cached slots for texture painting, must be refreshed via
-   * BKE_texpaint_slot_refresh_cache before using.
-   */
-  struct TexPaintSlot *texpaintslot = nullptr;
+  /* Reserved DNA space for the removed image-paint slot cache pointer. */
+  void *_pad_texpaintslot = nullptr;
 
   /** Runtime cache for GLSL materials. */
   ListBaseT<LinkData> gpumaterial = {nullptr, nullptr};

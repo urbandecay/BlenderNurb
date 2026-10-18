@@ -126,13 +126,6 @@ static void material_copy_data(Main *bmain,
     material_dst->preview = nullptr;
   }
 
-  if (material_src->texpaintslot != nullptr) {
-    /* TODO: Think we can also skip copying this data in the more generic `NO_MAIN` case? */
-    material_dst->texpaintslot = is_localized ? nullptr :
-                                                static_cast<TexPaintSlot *>(
-                                                    MEM_dupalloc(material_src->texpaintslot));
-  }
-
   material_dst->gpumaterial.clear_no_delete();
 
   /* TODO: Duplicate Engine Settings and set runtime to nullptr. */
@@ -152,8 +145,6 @@ static void material_free_data(ID *id)
     material->nodetree = nullptr;
   }
 
-  MEM_SAFE_DELETE(material->texpaintslot);
-
   BKE_previewimg_id_free(&material->id);
 
   BKE_icon_id_delete(id_cast<ID *>(material));
@@ -166,9 +157,6 @@ static void material_foreach_id(ID *id, LibraryForeachIDData *data)
   /* Node-trees **are owned by IDs**, treat them as mere sub-data and not real ID! */
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
       data, BKE_library_foreach_ID_embedded(data, (ID **)&material->nodetree));
-  if (material->texpaintslot != nullptr) {
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, material->texpaintslot->ima, IDWALK_CB_NOP);
-  }
 }
 
 static void material_foreach_working_space_color(ID *id,
@@ -187,7 +175,6 @@ static void material_blend_write(BlendWriter *writer, ID *id, const void *id_add
   Material *ma = id_cast<Material *>(id);
 
   /* Clean up, important in undo case to reduce false detection of changed datablocks. */
-  ma->texpaintslot = nullptr;
   ma->gpumaterial.clear_no_delete();
 
   /* Set deprecated #use_nodes for forward compatibility. */
@@ -212,8 +199,6 @@ static void material_blend_write(BlendWriter *writer, ID *id, const void *id_add
 static void material_blend_read_data(BlendDataReader *reader, ID *id)
 {
   Material *ma = id_cast<Material *>(id);
-
-  ma->texpaintslot = nullptr;
 
   BLO_read_struct(reader, PreviewImage, &ma->preview);
   BKE_previewimg_blend_read(reader, ma->preview);
@@ -1467,295 +1452,6 @@ int BKE_object_material_remove_all(Main *bmain, Object *ob)
   BKE_object_material_active_index_sanitize(ob);
 
   return removed;
-}
-
-static bNode *nodetree_uv_node_recursive(bNode *node)
-{
-  for (bNodeSocket &sock : node->inputs) {
-    if (sock.link) {
-      bNode *inode = sock.link->fromnode;
-      if (inode->typeinfo->nclass == NODE_CLASS_INPUT &&
-          inode->typeinfo->type_legacy == SH_NODE_UVMAP)
-      {
-        return inode;
-      }
-
-      return nodetree_uv_node_recursive(inode);
-    }
-  }
-
-  return nullptr;
-}
-
-/** Bitwise filter for updating paint slots. */
-enum ePaintSlotFilter {
-  PAINT_SLOT_IMAGE = 1 << 0,
-  PAINT_SLOT_COLOR_ATTRIBUTE = 1 << 1,
-};
-ENUM_OPERATORS(ePaintSlotFilter)
-
-using ForEachTexNodeCallback = bool (*)(bNodeTree *nodetree, bNode *node, void *userdata);
-static bool ntree_foreach_texnode_recursive(bNodeTree *nodetree,
-                                            ForEachTexNodeCallback callback,
-                                            void *userdata,
-                                            ePaintSlotFilter slot_filter)
-{
-  const bool do_image_nodes = (slot_filter & PAINT_SLOT_IMAGE) != 0;
-  const bool do_color_attributes = (slot_filter & PAINT_SLOT_COLOR_ATTRIBUTE) != 0;
-  for (bNode *node : nodetree->all_nodes()) {
-    if (do_image_nodes && node->typeinfo->nclass == NODE_CLASS_TEXTURE &&
-        node->typeinfo->type_legacy == SH_NODE_TEX_IMAGE && node->id)
-    {
-      if (!callback(nodetree, node, userdata)) {
-        return false;
-      }
-    }
-    if (do_color_attributes && node->typeinfo->type_legacy == SH_NODE_ATTRIBUTE) {
-      if (!callback(nodetree, node, userdata)) {
-        return false;
-      }
-    }
-    else if (node->is_group() && node->id) {
-      /* recurse into the node group and see if it contains any textures */
-      if (!ntree_foreach_texnode_recursive(
-              id_cast<bNodeTree *>(node->id), callback, userdata, slot_filter))
-      {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-static bool count_texture_nodes_cb(bNodeTree * /*nodetree*/, bNode * /*node*/, void *userdata)
-{
-  (*(static_cast<int *>(userdata)))++;
-  return true;
-}
-
-static int count_texture_nodes_recursive(bNodeTree *nodetree, ePaintSlotFilter slot_filter)
-{
-  int tex_nodes = 0;
-  ntree_foreach_texnode_recursive(nodetree, count_texture_nodes_cb, &tex_nodes, slot_filter);
-
-  return tex_nodes;
-}
-
-struct FillTexPaintSlotsData {
-  bNode *active_node;
-  const Object *ob;
-  Material *ma;
-  int index;
-  int slot_len;
-};
-
-static bool fill_texpaint_slots_cb(bNodeTree * /*nodetree*/, bNode *node, void *userdata)
-{
-  FillTexPaintSlotsData *fill_data = static_cast<FillTexPaintSlotsData *>(userdata);
-
-  Material *ma = fill_data->ma;
-  int index = fill_data->index;
-  fill_data->index++;
-
-  if (fill_data->active_node == node) {
-    ma->paint_active_slot = index;
-  }
-
-  switch (node->type_legacy) {
-    case SH_NODE_TEX_IMAGE: {
-      TexPaintSlot *slot = &ma->texpaintslot[index];
-      slot->ima = id_cast<Image *>(node->id);
-      NodeTexImage *storage = static_cast<NodeTexImage *>(node->storage);
-      slot->interp = storage->interpolation;
-      slot->image_user = &storage->iuser;
-      /* For new renderer, we need to traverse the tree back in search of a UV node. */
-      bNode *uvnode = nodetree_uv_node_recursive(node);
-
-      if (uvnode) {
-        NodeShaderUVMap *uv_storage = static_cast<NodeShaderUVMap *>(uvnode->storage);
-        slot->uvname = uv_storage->uv_map;
-        /* set a value to index so UI knows that we have a valid pointer for the mesh */
-        slot->valid = true;
-      }
-      else {
-        /* just invalidate the index here so UV map does not get displayed on the UI */
-        slot->valid = false;
-      }
-      break;
-    }
-
-    case SH_NODE_ATTRIBUTE: {
-      TexPaintSlot *slot = &ma->texpaintslot[index];
-      NodeShaderAttribute *storage = static_cast<NodeShaderAttribute *>(node->storage);
-      slot->attribute_name = storage->name;
-      if (storage->type == SHD_ATTRIBUTE_GEOMETRY) {
-        const Mesh *mesh = id_cast<const Mesh *>(fill_data->ob->data);
-        if (mesh->runtime->edit_mesh) {
-          const BMDataLayerLookup attr = BM_data_layer_lookup(*mesh->runtime->edit_mesh->bm,
-                                                              storage->name);
-          slot->valid = attr && bke::mesh::is_color_attribute({attr.domain, attr.type});
-        }
-        else {
-          const bke::AttributeAccessor attributes = mesh->attributes();
-          slot->valid = bke::mesh::is_color_attribute(attributes.lookup_meta_data(storage->name));
-        }
-      }
-
-      /* Do not show unsupported attributes. */
-      if (!slot->valid) {
-        slot->attribute_name = nullptr;
-        fill_data->index--;
-      }
-
-      break;
-    }
-  }
-
-  return fill_data->index != fill_data->slot_len;
-}
-
-static void fill_texpaint_slots_recursive(bNodeTree *nodetree,
-                                          bNode *active_node,
-                                          const Object *ob,
-                                          Material *ma,
-                                          int slot_len,
-                                          ePaintSlotFilter slot_filter)
-{
-  FillTexPaintSlotsData fill_data = {active_node, ob, ma, 0, slot_len};
-  ntree_foreach_texnode_recursive(nodetree, fill_texpaint_slots_cb, &fill_data, slot_filter);
-}
-
-/** Check which type of paint slots should be filled for the given object. */
-static ePaintSlotFilter material_paint_slot_filter(const Object *ob)
-{
-  ePaintSlotFilter slot_filter = PAINT_SLOT_IMAGE;
-  if (ob->mode == OB_MODE_SCULPT && USER_EXPERIMENTAL_TEST(&U, use_sculpt_texture_paint)) {
-    slot_filter |= PAINT_SLOT_COLOR_ATTRIBUTE;
-  }
-  return slot_filter;
-}
-
-void BKE_texpaint_slot_refresh_cache(Scene *scene, Material *ma, const Object *ob)
-{
-  if (!ma) {
-    return;
-  }
-
-  const ePaintSlotFilter slot_filter = material_paint_slot_filter(ob);
-
-  const TexPaintSlot *prev_texpaintslot = ma->texpaintslot;
-  const int prev_paint_active_slot = ma->paint_active_slot;
-  const int prev_paint_clone_slot = ma->paint_clone_slot;
-  const int prev_tot_slots = ma->tot_slots;
-
-  ma->texpaintslot = nullptr;
-  ma->tot_slots = 0;
-
-  if (scene->toolsettings->imapaint.mode == IMAGEPAINT_MODE_IMAGE) {
-    ma->paint_active_slot = 0;
-    ma->paint_clone_slot = 0;
-  }
-  else if (!(ma->nodetree)) {
-    ma->paint_active_slot = 0;
-    ma->paint_clone_slot = 0;
-  }
-  else {
-    int count = count_texture_nodes_recursive(ma->nodetree, slot_filter);
-
-    if (count == 0) {
-      ma->paint_active_slot = 0;
-      ma->paint_clone_slot = 0;
-    }
-    else {
-      ma->texpaintslot = MEM_new_array<TexPaintSlot>(count, "texpaint_slots");
-
-      bNode *active_node = bke::node_get_active_paint_canvas(*ma->nodetree);
-
-      fill_texpaint_slots_recursive(ma->nodetree, active_node, ob, ma, count, slot_filter);
-
-      ma->tot_slots = count;
-
-      if (ma->paint_active_slot >= count) {
-        ma->paint_active_slot = count - 1;
-      }
-
-      if (ma->paint_clone_slot >= count) {
-        ma->paint_clone_slot = count - 1;
-      }
-    }
-  }
-
-  /* Copy-on-eval needed when adding texture slot on an object with no materials.
-   * But do it only when slots actually change to avoid continuous depsgraph updates. */
-  if (ma->tot_slots != prev_tot_slots || ma->paint_active_slot != prev_paint_active_slot ||
-      ma->paint_clone_slot != prev_paint_clone_slot ||
-      (ma->texpaintslot && prev_texpaintslot &&
-       memcmp(ma->texpaintslot, prev_texpaintslot, sizeof(*ma->texpaintslot) * ma->tot_slots) !=
-           0))
-  {
-    DEG_id_tag_update(&ma->id, ID_RECALC_SHADING | ID_RECALC_SYNC_TO_EVAL);
-  }
-
-  MEM_SAFE_DELETE(prev_texpaintslot);
-}
-
-void BKE_texpaint_slots_refresh_object(Scene *scene, Object *ob)
-{
-  for (int i = 1; i < ob->totcol + 1; i++) {
-    Material *ma = BKE_object_material_get(ob, i);
-    BKE_texpaint_slot_refresh_cache(scene, ma, ob);
-  }
-}
-
-struct FindTexPaintNodeData {
-  TexPaintSlot *slot;
-  bNodeTree *r_nodetree;
-  bNode *r_node;
-};
-
-static bool texpaint_slot_node_find_cb(bNodeTree *nodetree, bNode *node, void *userdata)
-{
-  FindTexPaintNodeData *find_data = static_cast<FindTexPaintNodeData *>(userdata);
-  if (find_data->slot->ima && node->type_legacy == SH_NODE_TEX_IMAGE) {
-    Image *node_ima = id_cast<Image *>(node->id);
-    if (find_data->slot->ima == node_ima) {
-      find_data->r_nodetree = nodetree;
-      find_data->r_node = node;
-      return false;
-    }
-  }
-
-  if (find_data->slot->attribute_name && node->type_legacy == SH_NODE_ATTRIBUTE) {
-    NodeShaderAttribute *storage = static_cast<NodeShaderAttribute *>(node->storage);
-    if (STREQLEN(find_data->slot->attribute_name, storage->name, sizeof(storage->name))) {
-      find_data->r_nodetree = nodetree;
-      find_data->r_node = node;
-      return false;
-    }
-  }
-
-  return true;
-}
-
-std::pair<bNodeTree *, bNode *> BKE_texpaint_slot_material_find_node(Material *ma,
-                                                                     short texpaint_slot)
-{
-  if (ma->texpaintslot == nullptr) {
-    return {};
-  }
-
-  if (texpaint_slot >= ma->tot_slots) {
-    return {};
-  }
-
-  TexPaintSlot *slot = &ma->texpaintslot[texpaint_slot];
-  FindTexPaintNodeData find_data = {slot, nullptr};
-  ntree_foreach_texnode_recursive(ma->nodetree,
-                                  texpaint_slot_node_find_cb,
-                                  &find_data,
-                                  PAINT_SLOT_IMAGE | PAINT_SLOT_COLOR_ATTRIBUTE);
-
-  return std::pair<bNodeTree *, bNode *>(find_data.r_nodetree, find_data.r_node);
 }
 
 void ramp_blend(int type, float r_col[4], const float fac, const float col[4])

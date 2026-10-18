@@ -20315,14 +20315,6 @@ msgid "Metallic"
 msgstr "Kovinskost"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Indeks aktivne risalne teksture"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Indeks klonirne risalne teksture"
-
-
 msgctxt "Material"
 msgid "Preview Render Type"
 msgstr "Tip predogledne upodobitve"
@@ -20949,10 +20941,6 @@ msgstr "Barvanje oglišč"
 
 msgid "Weight Paint"
 msgstr "Barvanje teže"
-
-
-msgid "Texture Paint"
-msgstr "Barvanje tekstur"
 
 
 msgid "Particle Edit"
@@ -44147,11 +44135,6 @@ msgid "Sample Merged"
 msgstr "Vzorči združeno"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Način barvanja tekstur"
-
-
 msgid "Blur Iterations"
 msgstr "Iteracije zabrisa"
 
@@ -49650,18 +49633,6 @@ msgstr "Stresanje"
 
 msgid "Missing Materials"
 msgstr "Pogrešani materiali"
-
-
-msgid "Missing Stencil"
-msgstr "Pogrešana šablona"
-
-
-msgid "Missing Texture"
-msgstr "Pogrešana tekstura"
-
-
-msgid "Missing UVs"
-msgstr "Pogrešani UV"
 
 
 msgid "A UV layer is missing on the mesh"
@@ -69512,10 +69483,6 @@ msgid "Armature Overlays"
 msgstr "Pomagala okostja"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Pomagala za barvanje tekstur"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Pomagala za barvanje oglišč"
 
@@ -70620,10 +70587,6 @@ msgid "Save As Asset..."
 msgstr "Shrani kot sredstvo ..."
 
 
-msgid "UV Map Needed"
-msgstr "Potrebujem preslikavo UV"
-
-
 msgid "Point cache must be baked"
 msgstr "Točkovni predpomnilnik je treba zapeči"
 
@@ -70642,10 +70605,6 @@ msgstr "Prezri prozornost"
 
 msgid "Detection Factor"
 msgstr "Faktor zaznavanja"
-
-
-msgid "No Textures"
-msgstr "Ni tekstur"
 
 
 msgctxt "Operator"
@@ -80836,11 +80795,6 @@ msgstr "Senčenje"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Zgodboris"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Barvanje tekstur"
 
 
 msgctxt "WorkSpace"

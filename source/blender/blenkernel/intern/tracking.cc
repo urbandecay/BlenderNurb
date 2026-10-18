@@ -2511,7 +2511,6 @@ ImBuf *BKE_tracking_get_pattern_imbuf(const ImBuf *ibuf,
                                                track,
                                                marker,
                                                anchored,
-                                               false,
                                                num_samples_x,
                                                num_samples_y,
                                                nullptr);

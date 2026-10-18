@@ -182,7 +182,7 @@ _attribute_builder_overrides = {
     "context.tool_settings.snap_elements": (True, ) * 3,
     "context.selected_objects": (),
     "context.tool_settings.mesh_select_mode": (True, ) * 3,
-    "context.mode": 'PAINT_TEXTURE',
+    "context.mode": 'OBJECT',
 }
 
 

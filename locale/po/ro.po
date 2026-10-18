@@ -2105,10 +2105,6 @@ msgid "Weight Paint"
 msgstr "Pictare Greutate"
 
 
-msgid "Texture Paint"
-msgstr "Pictare Textură"
-
-
 msgid "Gain"
 msgstr "Creștere"
 

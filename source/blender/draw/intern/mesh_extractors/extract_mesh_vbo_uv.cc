@@ -42,14 +42,6 @@ static VectorSet<StringRef> mesh_extract_uv_format_init(GPUVertFormat *format,
     }
   }
 
-  const StringRef stencil_name = [&]() -> StringRef {
-    StringRef name = mesh.stencil_uv_map_attribute;
-    if (name.is_empty()) {
-      name = mesh.active_uv_map_name();
-    }
-    return name;
-  }();
-
   for (const StringRef name : uv_layers) {
     char attr_name[32], attr_safe_name[GPU_MAX_SAFE_ATTR_NAME];
     GPU_vertformat_safe_attr_name(name, attr_safe_name, GPU_MAX_SAFE_ATTR_NAME);
@@ -62,9 +54,6 @@ static VectorSet<StringRef> mesh_extract_uv_format_init(GPUVertFormat *format,
       GPU_vertformat_alias_add(format, "au");
       /* Alias to `pos` for edit uvs. */
       GPU_vertformat_alias_add(format, "pos");
-    }
-    if (name == stencil_name) {
-      GPU_vertformat_alias_add(format, "mu");
     }
   }
 

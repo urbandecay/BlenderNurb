@@ -25441,22 +25441,6 @@ msgid "Node tree for node based materials"
 msgstr "ノードベースのマテリアル用のノードツリー"
 
 
-msgid "Active Paint Texture Index"
-msgstr "アクティブペイントテクスチャインデックス"
-
-
-msgid "Index of active texture paint slot"
-msgstr "アクティブテクスチャペイントスロットのインデックス"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "クローンペイントテクスチャインデックス"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "クローンテクスチャペイントスロットのインデックス"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "「マテリアルインデックス」レンダーパス用のインデックス番号"
 
@@ -25594,10 +25578,6 @@ msgstr ""
 
 msgid "Texture Slot Images"
 msgstr "テクスチャスロット画像"
-
-
-msgid "Texture images used for texture painting"
-msgstr "テクスチャペインティング用のテクスチャ画像"
 
 
 msgid "Texture Slots"
@@ -26962,10 +26942,6 @@ msgstr "頂点ペイント"
 
 msgid "Weight Paint"
 msgstr "ウェイトペイント"
-
-
-msgid "Texture Paint"
-msgstr "テクスチャペイント"
 
 
 msgid "Particle Edit"
@@ -80154,15 +80130,6 @@ msgid "Add to Palette"
 msgstr "パレットに追加"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "テクスチャペイントモード"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "3Dビューのテクスチャペイントモードのオンオフ"
-
-
 msgid "Change selection for all vertices"
 msgstr "すべての頂点の選択を変更します"
 
@@ -93754,26 +93721,6 @@ msgid "The mesh is missing materials"
 msgstr "メッシュにマテリアルがありません"
 
 
-msgid "Missing Stencil"
-msgstr "ステンシルなし"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "画像ペインティングにステンシルがありません"
-
-
-msgid "Missing Texture"
-msgstr "テクスチャなし"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "画像ペインティングを行うテクスチャがありません"
-
-
-msgid "Missing UVs"
-msgstr "UVレイヤーなし"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "メッシュ上に UV レイヤーがありません"
 
@@ -93788,10 +93735,6 @@ msgstr "マテリアルの画像スロットを探します"
 
 msgid "Single Image"
 msgstr "単一画像"
-
-
-msgid "Set image for texture painting directly"
-msgstr "直接テクスチャペインティング用に画像を設定します"
 
 
 msgid "Screen Grab Size"
@@ -97833,14 +97776,6 @@ msgstr "リモートアセットライブラリ"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "HTTP/HTTPS によるアセットライブラリの提供を有効にします"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "スカルプトテクスチャペイント"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "スカルプトモード内でテクスチャペインティングを使用します"
 
 
 msgid "Shader Node Previews"
@@ -112913,14 +112848,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "最小クリッピング値を使用するかどうか"
 
 
-msgid "Texture Paint Slot"
-msgstr "テクスチャペイントスロット"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "テクスチャペインティング情報を含むスロット"
-
-
 msgid "Icon"
 msgstr "アイコン"
 
@@ -117098,10 +117025,6 @@ msgstr "ボーン選択オーバーレイを表示します"
 
 msgid "Stencil Mask Opacity"
 msgstr "ステンシルマスク不透明度"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "テクスチャペイントモードのステンシルマスクオーバーレイの不透明度"
 
 
 msgid "Freeze Culling"
@@ -132642,10 +132565,6 @@ msgid "Armature Overlays"
 msgstr "アーマチュアオーバーレイ"
 
 
-msgid "Texture Paint Overlays"
-msgstr "テクスチャペイントオーバーレイ"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "頂点ペイントオーバーレイ"
 
@@ -133776,10 +133695,6 @@ msgid "Save As Asset..."
 msgstr "アセットとして保存..."
 
 
-msgid "UV Map Needed"
-msgstr "UVマップが必要です"
-
-
 msgid "Point cache must be baked"
 msgstr "編集できるようにするには，メモリ内への"
 
@@ -133798,10 +133713,6 @@ msgstr "透過を無視"
 
 msgid "Detection Factor"
 msgstr "検出係数"
-
-
-msgid "No Textures"
-msgstr "テクスチャなし"
 
 
 msgctxt "Operator"
@@ -158781,11 +158692,6 @@ msgstr "シェーディング"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "ストーリーボード作成"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "テクスチャペイント"
 
 
 msgctxt "WorkSpace"

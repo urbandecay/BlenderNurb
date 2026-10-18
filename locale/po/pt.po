@@ -24986,22 +24986,6 @@ msgid "Node tree for node based materials"
 msgstr "Árvore de nós para materiais embasados em nós."
 
 
-msgid "Active Paint Texture Index"
-msgstr "Índice de textura de pintura activa"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Índice do compartimento de pintura de textura activo."
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Clonar o índice de pintura de textura"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Índice do clone do compartimento de pintura de textura activa."
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Número de índice de material para o passo de renderização."
 
@@ -25132,10 +25116,6 @@ msgstr "Permitir transparência de cor, mas incompatível com passagens de rende
 
 msgid "Texture Slot Images"
 msgstr "Compartimentos de imagens de textura"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Imagens de textura utilizadas para a pintura de texturas."
 
 
 msgid "Texture Slots"
@@ -26452,10 +26432,6 @@ msgstr "Pintura de vértices"
 
 msgid "Weight Paint"
 msgstr "Pintura de influência"
-
-
-msgid "Texture Paint"
-msgstr "Pintura de textura"
 
 
 msgid "Particle Edit"
@@ -79080,15 +79056,6 @@ msgid "Add to Palette"
 msgstr "Adicionar para a paleta"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Modo de Pintura de Textura"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Alterna para a pintura de textura na janela de visualização 3D."
-
-
 msgid "Change selection for all vertices"
 msgstr "Altera a selecção para todos os vértices."
 
@@ -92505,26 +92472,6 @@ msgid "The mesh is missing materials"
 msgstr "A malha não possui materiais."
 
 
-msgid "Missing Stencil"
-msgstr "Faltando estêncil"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "A pintura de imagem não possui um estêncil."
-
-
-msgid "Missing Texture"
-msgstr "Faltando texturas"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "A pintura de imagem não possui uma textura sobre a qual pintar."
-
-
-msgid "Missing UVs"
-msgstr "Faltando UVs"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "A malha não possui uma camada UV."
 
@@ -92539,10 +92486,6 @@ msgstr "Detectar compartimentos de imagens a partir do material"
 
 msgid "Single Image"
 msgstr "Única imagem"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Permite definir a imagem para pintura de textura diretamente."
 
 
 msgid "Screen Grab Size"
@@ -96534,14 +96477,6 @@ msgstr "Remover Bibliotecas de Recursos"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "Activar bibliotecas de recursos servidas através de HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Pintura de Textura em Escultura"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Usar pintura de textura em modo de escultura"
 
 
 msgid "Shader Node Previews"
@@ -111249,14 +111184,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Caso use o valor de corte mínimo."
 
 
-msgid "Texture Paint Slot"
-msgstr "Compartimento de pintura de textura"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Compartimento que contém informações sobre a pintura de texturas."
-
-
 msgid "Icon"
 msgstr "Ícone"
 
@@ -115420,10 +115347,6 @@ msgstr "Mostrar sobreposição de selecção de ossos"
 
 msgid "Stencil Mask Opacity"
 msgstr "Opacidade de Máscara de Stencil"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Opacidade da sobreposição de stencil de máscara o modo de pintura de textura"
 
 
 msgid "Freeze Culling"

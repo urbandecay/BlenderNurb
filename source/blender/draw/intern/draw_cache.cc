@@ -218,17 +218,17 @@ Span<gpu::Batch *> DRW_cache_mesh_surface_shaded_get(Object *ob,
       *ob, DRW_object_get_data_for_drawing<Mesh>(*ob), materials);
 }
 
-Span<gpu::Batch *> DRW_cache_mesh_surface_texpaint_get(Object *ob)
+Span<gpu::Batch *> DRW_cache_mesh_surface_texture_color_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_texpaint(*ob,
-                                                   DRW_object_get_data_for_drawing<Mesh>(*ob));
+  return DRW_mesh_batch_cache_get_surface_texture_color(
+      *ob, DRW_object_get_data_for_drawing<Mesh>(*ob));
 }
 
-gpu::Batch *DRW_cache_mesh_surface_texpaint_single_get(Object *ob)
+gpu::Batch *DRW_cache_mesh_surface_texture_color_single_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_texpaint_single(
+  return DRW_mesh_batch_cache_get_surface_texture_color_single(
       *ob, DRW_object_get_data_for_drawing<Mesh>(*ob));
 }
 
@@ -487,7 +487,7 @@ void drw_batch_cache_generate_requested(Object *ob, TaskGraph &task_graph)
   const enum eContextObjectMode mode = CTX_data_mode_enum_ex(
       draw_ctx->object_edit, draw_ctx->obact, draw_ctx->object_mode);
   const bool is_paint_mode = ELEM(
-      mode, CTX_MODE_SCULPT, CTX_MODE_PAINT_TEXTURE, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_WEIGHT);
+      mode, CTX_MODE_SCULPT, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_WEIGHT);
 
   const bool use_hide = ((ob->type == OB_MESH) &&
                          ((is_paint_mode && (ob == draw_ctx->obact) &&
@@ -529,7 +529,7 @@ void drw_batch_cache_generate_requested_evaluated_mesh_or_curve(Object *ob, Task
   const enum eContextObjectMode mode = CTX_data_mode_enum_ex(
       draw_ctx->object_edit, draw_ctx->obact, draw_ctx->object_mode);
   const bool is_paint_mode = ELEM(
-      mode, CTX_MODE_SCULPT, CTX_MODE_PAINT_TEXTURE, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_WEIGHT);
+      mode, CTX_MODE_SCULPT, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_WEIGHT);
 
   if (ob->type == OB_MESH) {
     const bool use_hide = ((is_paint_mode && (ob == draw_ctx->obact) &&

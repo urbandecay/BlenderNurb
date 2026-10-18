@@ -206,12 +206,6 @@ static wmOperatorStatus material_slot_add_exec(bContext *C, wmOperator * /*op*/)
 
   BKE_object_material_slot_add(bmain, ob);
 
-  if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-    Scene *scene = CTX_data_scene(C);
-    ED_paint_proj_mesh_data_check(*scene, *ob, nullptr, nullptr, nullptr, nullptr);
-    WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, nullptr);
-  }
-
   WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
   WM_event_add_notifier(C, NC_OBJECT | ND_OB_SHADING, ob);
   WM_event_add_notifier(C, NC_MATERIAL | ND_SHADING_PREVIEW, ob);
@@ -269,12 +263,6 @@ static wmOperatorStatus material_slot_remove_exec(bContext *C, wmOperator * /*op
   }
 
   BKE_object_material_slot_remove(CTX_data_main(C), ob);
-
-  if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-    Scene *scene = CTX_data_scene(C);
-    ED_paint_proj_mesh_data_check(*scene, *ob, nullptr, nullptr, nullptr, nullptr);
-    WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, nullptr);
-  }
 
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
@@ -715,11 +703,6 @@ static wmOperatorStatus material_slot_remove_unused_exec(bContext *C, wmOperator
   BKE_reportf(op->reports, RPT_INFO, "Removed %d slots", removed);
 
   Object *ob_active = CTX_data_active_object(C);
-  if (ob_active->mode & OB_MODE_TEXTURE_PAINT) {
-    Scene *scene = CTX_data_scene(C);
-    ED_paint_proj_mesh_data_check(*scene, *ob_active, nullptr, nullptr, nullptr, nullptr);
-    WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, nullptr);
-  }
 
   WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob_active);
   WM_event_add_notifier(C, NC_OBJECT | ND_OB_SHADING, ob_active);
@@ -761,12 +744,6 @@ static wmOperatorStatus material_slot_remove_all_exec(bContext *C, wmOperator *o
   }
 
   BKE_reportf(op->reports, RPT_INFO, "Removed %d materials", removed);
-
-  if (ob_active->mode == OB_MODE_TEXTURE_PAINT) {
-    Scene *scene = CTX_data_scene(C);
-    ED_paint_proj_mesh_data_check(*scene, *ob_active, nullptr, nullptr, nullptr, nullptr);
-    WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, nullptr);
-  }
 
   WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob_active);
   WM_event_add_notifier(C, NC_OBJECT | ND_OB_SHADING, ob_active);
@@ -2920,7 +2897,7 @@ static wmOperatorStatus paste_material_exec(bContext *C, wmOperator *op)
  * it means memory is properly freed in the case of allocations.. */
 #define SWAP_MEMBER(member) std::swap(ma->member, ma_from->member)
 
-  /* Intentionally skip texture painting slots and preview render. */
+  /* Intentionally skip cached paint slots and preview render. */
   SWAP_MEMBER(flag);
   SWAP_MEMBER(r);
   SWAP_MEMBER(g);

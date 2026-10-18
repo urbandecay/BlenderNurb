@@ -113,7 +113,7 @@ SECTIONS = (
             ("space_console", "Python interactive console."),
             ("space_file", "File selection."),
             ("space_graph", "Animation editor for F-Curves."),
-            ("space_image", "Image editor & texture painting."),
+            ("space_image", "Image editor & image painting."),
             ("space_info", "Info space (for logging)."),
             ("space_nla", "Animation non-linear-action editor."),
             ("space_node", "Node editor for compositor, geometry and other nodes."),

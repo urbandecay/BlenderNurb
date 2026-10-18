@@ -289,20 +289,6 @@ void ED_node_set_active(
       for (Material &ma : bmain->materials) {
         if (ma.nodetree && bke::node_tree_contains_tree(*ma.nodetree, *ntree)) {
           GPU_material_free(&ma.gpumaterial);
-
-          /* Sync to active texpaint slot, otherwise we can end up painting on a different slot
-           * than we are looking at. */
-          if (ma.texpaintslot) {
-            if (node->id != nullptr && GS(node->id->name) == ID_IM) {
-              Image *image = id_cast<Image *>(node->id);
-              for (int i = 0; i < ma.tot_slots; i++) {
-                if (ma.texpaintslot[i].ima == image) {
-                  ma.paint_active_slot = i;
-                  DEG_id_tag_update(&ma.id, ID_RECALC_SYNC_TO_EVAL);
-                }
-              }
-            }
-          }
         }
       }
 

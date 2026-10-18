@@ -127,6 +127,8 @@ struct MovieClip {
   struct MovieReader *anim = nullptr;
   /** Cache for different stuff, not in file. */
   struct MovieClipCache *cache = nullptr;
+  /* Reserved for the removed Grease Pencil data pointer. */
+  void *_pad_gpd = nullptr;
   /** Data for SfM tracking. */
   struct MovieTracking tracking;
   /**

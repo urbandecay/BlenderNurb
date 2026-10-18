@@ -87,8 +87,6 @@ class VIEW3D_HT_tool_header(Header):
             layout.popover("VIEW3D_PT_tools_brush_settings_advanced", text="Brush")
             if tool_mode != 'PAINT_WEIGHT':
                 layout.popover("VIEW3D_PT_tools_brush_texture")
-            if tool_mode == 'PAINT_TEXTURE':
-                layout.popover("VIEW3D_PT_tools_mask_texture")
             layout.popover("VIEW3D_PT_tools_brush_stroke")
             layout.popover("VIEW3D_PT_tools_brush_falloff")
             layout.popover("VIEW3D_PT_tools_brush_display")
@@ -101,9 +99,6 @@ class VIEW3D_HT_tool_header(Header):
             if is_valid_context:
                 draw_3d_brush_settings(layout, tool_mode)
         elif tool_mode == 'PAINT_WEIGHT':
-            if is_valid_context:
-                draw_3d_brush_settings(layout, tool_mode)
-        elif tool_mode == 'PAINT_TEXTURE':
             if is_valid_context:
                 draw_3d_brush_settings(layout, tool_mode)
         elif tool_mode == 'EDIT_ARMATURE':
@@ -140,7 +135,7 @@ class VIEW3D_HT_tool_header(Header):
             ob = context.object
             _row, sub = row_for_mirror()
             sub.prop(ob.pose, "use_mirror_x", text="X", toggle=True)
-        elif mode_string in {'EDIT_MESH', 'PAINT_WEIGHT', 'SCULPT', 'PAINT_VERTEX', 'PAINT_TEXTURE'}:
+        elif mode_string in {'EDIT_MESH', 'PAINT_WEIGHT', 'SCULPT', 'PAINT_VERTEX'}:
             # Mesh Modes, Use Mesh Symmetry
             ob = context.object
             row, sub = row_for_mirror()
@@ -177,8 +172,6 @@ class VIEW3D_HT_tool_header(Header):
             layout.popover_group(context=".vertexpaint", **popover_kw)
         elif mode_string == 'PAINT_WEIGHT':
             layout.popover_group(context=".weightpaint", **popover_kw)
-        elif mode_string == 'PAINT_TEXTURE':
-            layout.popover_group(context=".imagepaint", **popover_kw)
         elif mode_string == 'EDIT_TEXT':
             layout.popover_group(context=".text_edit", **popover_kw)
         elif mode_string == 'EDIT_ARMATURE':
@@ -258,23 +251,6 @@ class _draw_tool_settings_context_mode:
         # direction
         if capabilities.has_direction:
             layout.row().prop(brush, "direction", expand=True, text="")
-
-        return True
-
-    @staticmethod
-    def PAINT_TEXTURE(context, layout, tool):
-        if (tool is None) or (not tool.use_brushes):
-            return False
-
-        paint = context.tool_settings.image_paint
-        brush = paint.brush
-
-        BrushAssetShelf.draw_popup_selector(layout, context, brush)
-
-        if brush is None:
-            return False
-
-        brush_basic_texpaint_settings(layout, context, brush, compact=True)
 
         return True
 
@@ -518,7 +494,7 @@ class VIEW3D_HT_header(Header):
         else:
             if has_pose_mode or (object_mode not in {
                     'SCULPT', 'SCULPT_CURVES',
-                    'VERTEX_PAINT', 'WEIGHT_PAINT', 'TEXTURE_PAINT',
+                    'VERTEX_PAINT', 'WEIGHT_PAINT',
             }):
                 show_snap = True
             else:
@@ -676,15 +652,7 @@ class VIEW3D_HT_header(Header):
             row = layout.row()
             row.active = is_paint_tool and color_type == 'VERTEX'
 
-            if context.preferences.experimental.use_sculpt_texture_paint:
-                canvas_source = tool_settings.paint_mode.canvas_source
-                icon = 'GROUP_VCOL' if canvas_source == 'COLOR_ATTRIBUTE' else canvas_source
-                row.popover(panel="VIEW3D_PT_slots_paint_canvas", icon=icon)
-                # TODO: Update this boolean condition so that the Canvas button is only active when
-                # the appropriate color types are selected in Solid mode, I.E. 'TEXTURE'
-                row.active = is_paint_tool
-            else:
-                row.popover(panel="VIEW3D_PT_slots_color_attributes", icon='GROUP_VCOL')
+            row.popover(panel="VIEW3D_PT_slots_color_attributes", icon='GROUP_VCOL')
 
             layout.popover(
                 panel="VIEW3D_PT_sculpt_snapping",
@@ -711,17 +679,6 @@ class VIEW3D_HT_header(Header):
                 icon='SNAP_INCREMENT',
                 text="",
                 translate=False,
-            )
-        elif object_mode == 'TEXTURE_PAINT':
-            tool_mode = tool_settings.image_paint.mode
-            icon = 'MATERIAL' if tool_mode == 'MATERIAL' else 'IMAGE_DATA'
-
-            row = layout.row()
-            row.popover(panel="VIEW3D_PT_slots_projectpaint", icon=icon)
-            row.popover(
-                panel="VIEW3D_PT_mask",
-                icon=VIEW3D_HT_header._texture_mask_icon(tool_settings.image_paint),
-                text="",
             )
         else:
             # Transform settings depending on tool header visibility
@@ -766,8 +723,6 @@ class VIEW3D_HT_header(Header):
             sub.popover(panel="VIEW3D_PT_overlay_sculpt_curves", text="", icon='SCULPTMODE_HLT')
         elif mode_string == 'PAINT_WEIGHT':
             sub.popover(panel="VIEW3D_PT_overlay_weight_paint", text="", icon='WPAINT_HLT')
-        elif mode_string == 'PAINT_TEXTURE':
-            sub.popover(panel="VIEW3D_PT_overlay_texture_paint", text="", icon='TPAINT_HLT')
         elif mode_string == 'PAINT_VERTEX':
             sub.popover(panel="VIEW3D_PT_overlay_vertex_paint", text="", icon='VPAINT_HLT')
 
@@ -808,12 +763,6 @@ class VIEW3D_HT_header(Header):
         return 'CLIPUV_DEHLT' if automask_enabled else 'CLIPUV_HLT'
 
 
-    @staticmethod
-    def _texture_mask_icon(ipaint):
-        mask_enabled = ipaint.use_stencil_layer or ipaint.use_cavity
-        return 'CLIPUV_DEHLT' if mask_enabled else 'CLIPUV_HLT'
-
-
 class VIEW3D_MT_editor_menus(Menu):
     bl_label = ""
 
@@ -827,7 +776,7 @@ class VIEW3D_MT_editor_menus(Menu):
         layout.menu("VIEW3D_MT_view")
 
         # Select Menu
-        if mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX', 'PAINT_TEXTURE'}:
+        if mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX'}:
             mesh = obj.data
             if mesh.use_paint_mask:
                 layout.menu("VIEW3D_MT_select_paint_mask")
@@ -871,7 +820,7 @@ class VIEW3D_MT_editor_menus(Menu):
                 layout.template_node_operator_asset_root_items()
 
         elif obj:
-            if mode_string not in {'PAINT_TEXTURE', 'SCULPT_CURVES'}:
+            if mode_string != 'SCULPT_CURVES':
                 layout.menu("VIEW3D_MT_" + mode_string.lower())
             if mode_string == 'SCULPT':
                 layout.menu("VIEW3D_MT_mask")
@@ -1117,7 +1066,7 @@ class VIEW3D_MT_view(Menu):
 
         layout.separator()
 
-        if context.mode in {'PAINT_TEXTURE', 'PAINT_VERTEX', 'PAINT_WEIGHT', 'SCULPT'}:
+        if context.mode in {'PAINT_VERTEX', 'PAINT_WEIGHT', 'SCULPT'}:
             layout.operator("view3d.view_selected", text="Center Last Stroke")
         else:
             layout.operator("view3d.view_selected", text="Frame Selected")
@@ -6450,7 +6399,6 @@ class VIEW3D_PT_overlay_object(Panel):
         sub.prop(overlay, "show_motion_paths")
 
         can_show_object_origins = mode not in {
-            'PAINT_TEXTURE',
             'PAINT_2D',
             'SCULPT',
             'PAINT_VERTEX',
@@ -6969,28 +6917,6 @@ class VIEW3D_PT_overlay_bones(Panel):
             row.prop(overlay, "bone_wire_alpha")
 
 
-class VIEW3D_PT_overlay_texture_paint(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-    bl_label = "Texture Paint"
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == 'PAINT_TEXTURE'
-
-    def draw(self, context):
-        layout = self.layout
-        view = context.space_data
-        overlay = view.overlay
-        display_all = overlay.show_overlays
-
-        layout.label(text="Texture Paint Overlays")
-
-        col = layout.column()
-        col.active = display_all
-        col.prop(overlay, "texture_paint_mode_opacity")
-
-
 class VIEW3D_PT_overlay_vertex_paint(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'HEADER'
@@ -7458,54 +7384,6 @@ class VIEW3D_PT_paint_vertex_context_menu(Panel):
         )
 
 
-class VIEW3D_PT_paint_texture_context_menu(Panel):
-    # Used in both the 3DView as well as the Image Editor
-    # Only for popover, these are dummy values.
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'WINDOW'
-    bl_label = "Texture Paint"
-
-    @classmethod
-    def poll(cls, context):
-        # Since bl_space_type is ignored for popovers, we need to check if the Image Editor is in the right mode
-        space = context.space_data
-        if space is not None and space.type == 'IMAGE_EDITOR' and space.mode != 'PAINT':
-            return False
-        return True
-
-    def draw(self, context):
-        layout = self.layout
-
-        brush = context.tool_settings.image_paint.brush
-        capabilities = brush.image_paint_capabilities
-
-        if capabilities.has_color:
-            split = layout.split(factor=0.1)
-            UnifiedPaintPanel.prop_unified_color(split, context, brush, "color", text="")
-            UnifiedPaintPanel.prop_unified_color_picker(split, context, brush, "color", value_slider=True)
-            layout.prop(brush, "blend", text="")
-
-        if capabilities.has_radius:
-            UnifiedPaintPanel.prop_unified(
-                layout,
-                context,
-                brush,
-                "size",
-                unified_name="use_unified_size",
-                pressure_name="use_pressure_size",
-                slider=True,
-            )
-            UnifiedPaintPanel.prop_unified(
-                layout,
-                context,
-                brush,
-                "strength",
-                unified_name="use_unified_strength",
-                pressure_name="use_pressure_strength",
-                slider=True,
-            )
-
-
 class VIEW3D_PT_paint_weight_context_menu(Panel):
     # Only for popover, these are dummy values.
     bl_space_type = 'VIEW_3D'
@@ -7833,22 +7711,6 @@ class VIEW3D_AST_brush_weight_paint(AssetShelfHiddenByDefault, View3DAssetShelf,
     brush_type_prop = "weight_brush_type"
 
 
-class VIEW3D_AST_brush_texture_paint(View3DAssetShelf, bpy.types.AssetShelf):
-    mode = 'TEXTURE_PAINT'
-    mode_prop = "use_paint_image"
-    brush_type_prop = "image_brush_type"
-
-    @classmethod
-    def poll(cls, context):
-        if not super().poll(context):
-            return False
-        # bl_space_type from #View3DAssetShelf is ignored for popup asset shelves.
-        # Avoid this to be called from the Image Editor (both
-        # #IMAGE_AST_brush_paint and #VIEW3D_AST_brush_texture_paint are included
-        # in the #km_image_paint keymap). See #145987.
-        return context.space_data.type != 'IMAGE_EDITOR'
-
-
 classes = (
     VIEW3D_HT_header,
     VIEW3D_HT_tool_header,
@@ -8055,7 +7917,6 @@ classes = (
     VIEW3D_PT_overlay_edit_mesh_freestyle,
     VIEW3D_PT_overlay_edit_curve,
     VIEW3D_PT_overlay_edit_curves,
-    VIEW3D_PT_overlay_texture_paint,
     VIEW3D_PT_overlay_vertex_paint,
     VIEW3D_PT_overlay_weight_paint,
     VIEW3D_PT_overlay_bones,
@@ -8067,7 +7928,6 @@ classes = (
     VIEW3D_PT_transform_orientations,
     VIEW3D_PT_context_properties,
     VIEW3D_PT_paint_vertex_context_menu,
-    VIEW3D_PT_paint_texture_context_menu,
     VIEW3D_PT_paint_weight_context_menu,
     VIEW3D_PT_sculpt_automasking,
     VIEW3D_PT_sculpt_context_menu,
@@ -8080,7 +7940,6 @@ classes = (
     VIEW3D_AST_brush_sculpt_curves,
     VIEW3D_AST_brush_vertex_paint,
     VIEW3D_AST_brush_weight_paint,
-    VIEW3D_AST_brush_texture_paint,
 )
 
 

@@ -369,7 +369,7 @@ static void brush_asset_metadata_ensure(void *asset_ptr, AssetMetaData *asset_da
       std::tuple{"use_paint_sculpt", OB_MODE_SCULPT, "sculpt_brush_type"},
       std::tuple{"use_paint_vertex", OB_MODE_VERTEX_PAINT, "vertex_brush_type"},
       std::tuple{"use_paint_weight", OB_MODE_WEIGHT_PAINT, "weight_brush_type"},
-      std::tuple{"use_paint_image", OB_MODE_TEXTURE_PAINT, "image_brush_type"},
+      std::tuple{"use_paint_image", OB_MODE_IMAGE_PAINT, "image_brush_type"},
       /* Sculpt UVs in the image editor while in edit mode. */
       std::tuple{"use_paint_uv_sculpt", OB_MODE_EDIT, "image_brush_type"},
       std::tuple{"use_paint_sculpt_curves", OB_MODE_SCULPT_CURVES, "curves_sculpt_brush_type"},

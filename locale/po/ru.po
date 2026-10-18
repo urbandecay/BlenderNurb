@@ -24983,22 +24983,6 @@ msgid "Node tree for node based materials"
 msgstr "Дерево нод для материалов"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Индекс активной рисуемой текстуры"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Индекс слота активной клонируемой текстуры"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Индекс клонируемой текстуры"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Индекс слота клонируемой текстуры"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Номер для рендеринга индексов материалов"
 
@@ -25129,10 +25113,6 @@ msgstr "Допускает цветовую прозрачность, но не�
 
 msgid "Texture Slot Images"
 msgstr "Изображения текстурных слотов"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Изображения, используемые для текстурного рисования"
 
 
 msgid "Texture Slots"
@@ -26449,10 +26429,6 @@ msgstr "Рисование по вершинам"
 
 msgid "Weight Paint"
 msgstr "Рисование веса"
-
-
-msgid "Texture Paint"
-msgstr "Текстурирование"
 
 
 msgid "Particle Edit"
@@ -79065,15 +79041,6 @@ msgid "Add to Palette"
 msgstr "Добавить в палитру"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Режим текстурирования"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Переключить режим рисования текстуры в 3D-виде"
-
-
 msgid "Change selection for all vertices"
 msgstr "Изменить выделение всех вершин"
 
@@ -92490,26 +92457,6 @@ msgid "The mesh is missing materials"
 msgstr "У меша нет материалов"
 
 
-msgid "Missing Stencil"
-msgstr "Отсутствует трафарет"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Для рисования изображения нет трафарета"
-
-
-msgid "Missing Texture"
-msgstr "Нет текстуры"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Для рисования изображения нет текстуры-холста"
-
-
-msgid "Missing UVs"
-msgstr "Отсутствует UV-карты"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "У меша нет UV-координат"
 
@@ -92524,10 +92471,6 @@ msgstr "Определить слоты изображений из матери
 
 msgid "Single Image"
 msgstr "Одно изображение"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Напрямую установить изображение для рисования"
 
 
 msgid "Screen Grab Size"
@@ -96523,14 +96466,6 @@ msgstr "Удалённые библиотеки ассетов"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "Разрешить предоставление доступа к библиотекам ассетов по протоколу HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Текстурирование в скульптинге"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Использовать текстурное рисование в режиме скульптинга"
 
 
 msgid "Shader Node Previews"
@@ -111236,14 +111171,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Использовать минимум в качестве значения отсечения"
 
 
-msgid "Texture Paint Slot"
-msgstr "Слот текстурного рисования"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Слот, содержащий информацию о текстурном рисовании"
-
-
 msgid "Icon"
 msgstr "Значок"
 
@@ -115403,10 +115330,6 @@ msgstr "Показать наложение с выделением костей
 
 msgid "Stencil Mask Opacity"
 msgstr "Непрозрачность маски трафарета"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Непрозрачность наложения трафаретной маски в режиме рисования текстур"
 
 
 msgid "Freeze Culling"
@@ -130904,10 +130827,6 @@ msgid "Armature Overlays"
 msgstr "Наложения арматуры"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Наложения текстурного рисования"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Наложения рисования виршин"
 
@@ -132038,10 +131957,6 @@ msgid "Save As Asset..."
 msgstr "Сохранить как ассет…"
 
 
-msgid "UV Map Needed"
-msgstr "Нужна UV-карта"
-
-
 msgid "Point cache must be baked"
 msgstr "Выполните запекание кэша точек"
 
@@ -132060,10 +131975,6 @@ msgstr "Игнорировать прозрачность"
 
 msgid "Detection Factor"
 msgstr "Коэффициент обнаружения"
-
-
-msgid "No Textures"
-msgstr "Без текстур"
 
 
 msgctxt "Operator"
@@ -156816,11 +156727,6 @@ msgstr "Шейдинг"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Раскадровка"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Текстурирование"
 
 
 msgctxt "WorkSpace"

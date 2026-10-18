@@ -1015,12 +1015,6 @@ BaseSocketDeclarationBuilder &BaseSocketDeclarationBuilder::panel_toggle(const b
   return *this;
 }
 
-BaseSocketDeclarationBuilder &BaseSocketDeclarationBuilder::is_layer_name(const bool value)
-{
-  decl_base_->is_layer_name = value;
-  return *this;
-}
-
 BaseSocketDeclarationBuilder &BaseSocketDeclarationBuilder::is_volume_grid_name(const bool value)
 {
   decl_base_->is_volume_grid_name = value;

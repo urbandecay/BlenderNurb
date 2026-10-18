@@ -79,7 +79,6 @@ using VectorDrawFunc =
 #define ICON_TYPE_VECTOR 5
 #define ICON_TYPE_GEOM 6
 #define ICON_TYPE_EVENT 7 /* draw keymap entries using custom renderer. */
-#define ICON_TYPE_GPLAYER 8
 #define ICON_TYPE_BLANK 9
 
 struct DrawInfo {
@@ -598,27 +597,6 @@ DEF_ICON_NODE_SOCKET_DRAW(bundle, eNodeSocketDatatype::SOCK_BUNDLE)
 DEF_ICON_NODE_SOCKET_DRAW(closure, eNodeSocketDatatype::SOCK_CLOSURE)
 DEF_ICON_NODE_SOCKET_DRAW(int_vector, eNodeSocketDatatype::SOCK_INT_VECTOR)
 
-/* Dynamically render icon instead of rendering a plain color to a texture/buffer
- * This is not strictly a "vicon", as it needs access to icon->obj to get the color info,
- * but it works in a very similar way.
- */
-static void vicon_gplayer_color_draw(Icon *icon, int x, int y, int w, int h)
-{
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(icon->obj);
-
-  /* Just draw a colored rect - Like for vicon_colorset_draw() */
-  /* TODO: Make this have rounded corners, and maybe be a bit smaller.
-   * However, draw_roundbox_aa() draws the colors too dark, so can't be used.
-   */
-  uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", gpu::VertAttrType::SFLOAT_32_32);
-  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-
-  immUniformColor3fv(gpl->color);
-  immRectf(pos, x, y, x + w - 1, y + h - 1);
-
-  immUnbindProgram();
-}
-
 static DrawInfo *g_di_event_list = nullptr;
 
 int icon_from_event_type(short event_type, short event_value)
@@ -1043,9 +1021,6 @@ static DrawInfo *icon_create_drawinfo(Icon *icon)
   }
   else if (icon_data_type == ICON_DATA_STUDIOLIGHT) {
     di->type = ICON_TYPE_BUFFER;
-  }
-  else if (icon_data_type == ICON_DATA_GPLAYER) {
-    di->type = ICON_TYPE_GPLAYER;
   }
   else {
     BLI_assert(0);
@@ -1825,14 +1800,6 @@ static void icon_draw_size(float x,
       GPU_blend(GPU_BLEND_ALPHA);
     }
   }
-  else if (di->type == ICON_TYPE_GPLAYER) {
-    BLI_assert(icon->obj != nullptr);
-
-    /* Just draw a colored rect - Like for vicon_colorset_draw() */
-#ifndef WITH_HEADLESS
-    vicon_gplayer_color_draw(icon, int(x), int(y), w, h);
-#endif
-  }
 }
 
 static void id_preview_image_render_size(
@@ -2120,7 +2087,7 @@ int icon_from_object_mode(const int mode)
       return ICON_VPAINT_HLT;
     case OB_MODE_WEIGHT_PAINT:
       return ICON_WPAINT_HLT;
-    case OB_MODE_TEXTURE_PAINT:
+    case OB_MODE_IMAGE_PAINT:
       return ICON_TPAINT_HLT;
     case OB_MODE_PARTICLE_EDIT:
       return ICON_PARTICLEMODE;

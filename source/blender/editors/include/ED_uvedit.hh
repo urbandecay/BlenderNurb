@@ -353,7 +353,6 @@ void ED_uvedit_live_unwrap_re_solve();
 void ED_uvedit_live_unwrap_end(bool cancel);
 
 void ED_uvedit_live_unwrap(const Scene *scene, Span<Object *> objects);
-void ED_uvedit_add_simple_uvs(Main *bmain, const Scene *scene, Object *ob);
 
 /* `uvedit_draw.cc` */
 

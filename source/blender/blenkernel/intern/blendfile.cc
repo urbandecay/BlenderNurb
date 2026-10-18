@@ -1574,14 +1574,6 @@ UserDef *BKE_blendfile_userdef_from_defaults()
     BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
         userdef, "IMAGE_AST_brush_paint", "Brushes/Mesh Texture Paint/Utilities");
 
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Basic");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Erase");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Pixel Art");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Utilities");
 
     BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
         userdef, "NODE_AST_compositor", "Camera & Lens Effects");

@@ -6007,10 +6007,6 @@ msgid "Line Priority"
 msgstr "Приоритет линије"
 
 
-msgid "Index of active texture paint slot"
-msgstr "Индекс активног слота бојења текстуре"
-
-
 msgid "Type of preview render"
 msgstr "Тип родитељске везе"
 
@@ -6433,10 +6429,6 @@ msgstr "Бојење тачака "
 
 msgid "Weight Paint"
 msgstr "Бојење утицаја"
-
-
-msgid "Texture Paint"
-msgstr "Бојење текстуре"
 
 
 msgid "Particle Edit"

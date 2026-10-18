@@ -123,14 +123,11 @@ void ED_view3d_text_colors_get(const Scene *scene,
 }
 
 bool ED_view3d_has_workbench_in_texture_color(const Scene *scene,
-                                              const Object *ob,
+                                              const Object * /*ob*/,
                                               const View3D *v3d)
 {
   if (v3d->shading.type == OB_SOLID) {
     if (v3d->shading.color_type == V3D_SHADING_TEXTURE_COLOR) {
-      return true;
-    }
-    if (ob && ob->mode == OB_MODE_TEXTURE_PAINT) {
       return true;
     }
   }
@@ -766,7 +763,7 @@ bool ED_view3d_camera_lock_undo_test(const View3D *v3d, const RegionView3D *rv3d
 
 /**
  * Create a MEMFILE undo-step for locked camera movement when transforming the view.
- * Edit and texture paint mode don't use MEMFILE undo so undo push is skipped for them.
+ * Edit mode doesn't use MEMFILE undo so undo push is skipped for it.
  * NDOF and trackpad navigation would create an undo step on every gesture and we may end up with
  * unnecessary undo steps so undo push for them is not supported for now.
  * Operators that use smooth view for navigation are supported via an optional parameter field,

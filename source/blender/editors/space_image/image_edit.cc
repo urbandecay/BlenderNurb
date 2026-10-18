@@ -443,7 +443,7 @@ void ED_space_image_scopes_update(const bContext *C,
   if (sima->mode == SI_MODE_PAINT) {
     return;
   }
-  if (ob && ((ob->mode & (OB_MODE_TEXTURE_PAINT | OB_MODE_EDIT)) != 0)) {
+  if (ob && (ob->mode & OB_MODE_EDIT)) {
     return;
   }
 

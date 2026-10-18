@@ -630,8 +630,6 @@ static wmOperatorStatus sculpt_color_filter_invoke(bContext *C,
     return OPERATOR_FINISHED;
   }
 
-  ED_paint_brush_type_update_sticky_shading_color(C, &ob);
-
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
 }

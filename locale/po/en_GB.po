@@ -24244,22 +24244,6 @@ msgid "Node tree for node based materials"
 msgstr "Node tree for node based materials"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Active Paint Texture Index"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Index of active texture paint slot"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Clone Paint Texture Index"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Index of clone texture paint slot"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Index number for the \"Material Index\" render pass"
 
@@ -24390,10 +24374,6 @@ msgstr "Allows for coloured transparency, but incompatible with render passes an
 
 msgid "Texture Slot Images"
 msgstr "Texture Slot Images"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Texture images used for texture painting"
 
 
 msgid "Texture Slots"
@@ -25698,10 +25678,6 @@ msgstr "Vertex Paint"
 
 msgid "Weight Paint"
 msgstr "Weight Paint"
-
-
-msgid "Texture Paint"
-msgstr "Texture Paint"
 
 
 msgid "Particle Edit"
@@ -76594,15 +76570,6 @@ msgid "Add to Palette"
 msgstr "Add to Palette"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Texture Paint Mode"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Toggle texture paint mode in 3D view"
-
-
 msgid "Change selection for all vertices"
 msgstr "Change selection for all vertices"
 
@@ -89488,26 +89455,6 @@ msgid "The mesh is missing materials"
 msgstr "The mesh is missing materials"
 
 
-msgid "Missing Stencil"
-msgstr "Missing Stencil"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Image Painting does not have a stencil"
-
-
-msgid "Missing Texture"
-msgstr "Missing Texture"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Image Painting does not have a texture to paint on"
-
-
-msgid "Missing UVs"
-msgstr "Missing UVs"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "A UV layer is missing on the mesh"
 
@@ -89522,10 +89469,6 @@ msgstr "Detect image slots from the material"
 
 msgid "Single Image"
 msgstr "Single Image"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Set image for texture painting directly"
 
 
 msgid "Screen Grab Size"
@@ -93444,14 +93387,6 @@ msgstr "Recompute ID User Count On Save"
 
 msgid "Recompute all ID user-counts before saving to a blend-file. Allows to work around invalid user-count handling in code that may lead to loss of data due to wrongly detected unused data-blocks"
 msgstr "Recompute all ID user-counts before saving to a blend-file. Allows to work around invalid user-count handling in code that may lead to loss of data due to wrongly detected unused data-blocks"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Sculpt Texture Paint"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Use texture painting in Sculpt Mode"
 
 
 msgid "Shader Node Previews"
@@ -107391,14 +107326,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Whether to use minimum clipping value"
 
 
-msgid "Texture Paint Slot"
-msgstr "Texture Paint Slot"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Slot that contains information about texture painting"
-
-
 msgid "Icon"
 msgstr "Icon"
 
@@ -111494,10 +111421,6 @@ msgstr "Show the bone selection overlay"
 
 msgid "Stencil Mask Opacity"
 msgstr "Stencil Mask Opacity"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Opacity of the texture paint mode stencil mask overlay"
 
 
 msgid "Freeze Culling"
@@ -126341,10 +126264,6 @@ msgid "Armature Overlays"
 msgstr "Armature Overlays"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Texture Paint Overlays"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Vertex Paint Overlays"
 
@@ -127455,10 +127374,6 @@ msgid "Save As Asset..."
 msgstr "Save As Asset..."
 
 
-msgid "UV Map Needed"
-msgstr "UV Map Needed"
-
-
 msgid "Point cache must be baked"
 msgstr "Point cache must be baked"
 
@@ -127473,10 +127388,6 @@ msgstr "Auto-Velocity"
 
 msgid "Ignore Transparent"
 msgstr "Ignore Transparent"
-
-
-msgid "No Textures"
-msgstr "No Textures"
 
 
 msgctxt "Operator"
@@ -150223,11 +150134,6 @@ msgstr "Shading"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Storyboarding"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Texture Paint"
 
 
 msgctxt "WorkSpace"

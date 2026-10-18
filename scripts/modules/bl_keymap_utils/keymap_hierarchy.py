@@ -89,11 +89,7 @@ _km_hierarchy = [
             _km_expand_from_toolsystem('VIEW_3D', 'PAINT_WEIGHT'),
         ]),
         ('Paint Vertex Selection (Weight, Vertex)', 'EMPTY', 'WINDOW', []),
-        ('Paint Face Mask (Weight, Vertex, Texture)', 'EMPTY', 'WINDOW', []),
-        # image and view3d
-        ('Image Paint', 'EMPTY', 'WINDOW', [
-            _km_expand_from_toolsystem('VIEW_3D', 'PAINT_TEXTURE'),
-        ]),
+        ('Paint Face Mask (Weight, Vertex)', 'EMPTY', 'WINDOW', []),
         ('Sculpt', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'SCULPT'),
         ]),

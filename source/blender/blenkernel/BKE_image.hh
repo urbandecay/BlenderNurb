@@ -708,7 +708,7 @@ ImageGPUTextures BKE_image_get_gpu_material_texture_try(Image *image,
 bool BKE_image_has_gpu_texture_premultiplied_alpha(Image *image, ImBuf *ibuf);
 
 /**
- * Partial update of texture for texture painting.
+ * Partial update of an image after painting.
  * This is often much quicker than fully updating the texture for high resolution images.
  */
 void BKE_image_update_gputexture(Image *ima, ImageUser *iuser, int x, int y, int w, int h);
@@ -721,13 +721,6 @@ void BKE_image_update_gputexture(Image *ima, ImageUser *iuser, int x, int y, int
  */
 void BKE_image_update_gputexture_delayed(
     Image *ima, ImageTile *image_tile, ImBuf *ibuf, int x, int y, int w, int h);
-
-/**
- * Called on entering and exiting texture paint mode,
- * temporary disabling/enabling mipmapping on all images for quick texture
- * updates with glTexSubImage2D. images that didn't change don't have to be re-uploaded to OpenGL.
- */
-void BKE_image_paint_set_mipmap(Main *bmain, bool mipmap);
 
 /**
  * Delayed free of OpenGL buffers by main thread.

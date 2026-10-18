@@ -429,7 +429,7 @@ static bool paint_stroke_use_jitter(const PaintMode mode, const Brush &brush, co
   /* jitter-ed brush gives weird and unpredictable result for this
    * kinds of stroke, so manually disable jitter usage (sergey) */
   use_jitter &= (ELEM(brush.stroke_method, BRUSH_STROKE_DRAG_DOT, BRUSH_STROKE_ANCHORED)) == 0;
-  use_jitter &= !ELEM(mode, PaintMode::Texture2D, PaintMode::Texture3D) ||
+  use_jitter &= mode != PaintMode::Texture2D ||
                 !(invert && brush.image_brush_type == IMAGE_PAINT_BRUSH_TYPE_CLONE);
 
   return use_jitter;
@@ -472,33 +472,6 @@ void PaintStroke::add_step(bContext *C, wmOperator *op, const float2 mval, float
   const PaintMode mode = BKE_paintmode_get_active_from_context(C);
   const Brush &brush = *BKE_paint_brush_for_read(this->paint);
   bke::PaintRuntime *paint_runtime = this->paint->runtime;
-
-/* the following code is adapted from texture paint. It may not be needed but leaving here
- * just in case for reference (code in texpaint removed as part of refactoring).
- * It's strange that only texpaint had these guards. */
-#if 0
-  /* special exception here for too high pressure values on first touch in
-   * windows for some tablets, then we just skip first touch. */
-  if (tablet && (pressure >= 0.99f) &&
-      ((pop->s.brush.flag & BRUSH_SPACING_PRESSURE) ||
-       BKE_brush_use_alpha_pressure(pop->s.brush) || BKE_brush_use_size_pressure(pop->s.brush)))
-  {
-    return;
-  }
-
-  /* This can be removed once fixed properly in
-   * BKE_brush_painter_paint(
-   *     BrushPainter *painter, BrushFunc func,
-   *     float *pos, double time, float pressure, void *user);
-   * at zero pressure we should do nothing 1/2^12 is 0.0002
-   * which is the sensitivity of the most sensitive pen tablet available */
-  if (tablet && (pressure < 0.0002f) &&
-      ((pop->s.brush.flag & BRUSH_SPACING_PRESSURE) ||
-       BKE_brush_use_alpha_pressure(pop->s.brush) || BKE_brush_use_size_pressure(pop->s.brush)))
-  {
-    return;
-  }
-#endif
 
   /* copy last position -before- jittering, or space fill code
    * will create too many dabs */
@@ -1031,8 +1004,7 @@ bool paint_supports_dynamic_size(const Brush &br, const PaintMode mode)
       return bke::brush::supports_size_pressure(br);
       break;
 
-    case PaintMode::Texture2D: /* fall through */
-    case PaintMode::Texture3D:
+    case PaintMode::Texture2D:
       if ((br.image_brush_type == IMAGE_PAINT_BRUSH_TYPE_FILL) && (br.flag & BRUSH_USE_GRADIENT)) {
         return false;
       }
@@ -1069,8 +1041,7 @@ bool paint_supports_smooth_stroke(const Brush &brush,
 bool paint_supports_texture(const PaintMode mode)
 {
   /* omit: PAINT_WEIGHT, PAINT_SCULPT_UV, PAINT_INVALID */
-  return ELEM(
-      mode, PaintMode::Sculpt, PaintMode::Vertex, PaintMode::Texture3D, PaintMode::Texture2D);
+  return ELEM(mode, PaintMode::Sculpt, PaintMode::Vertex, PaintMode::Texture2D);
 }
 
 bool paint_supports_dynamic_tex_coords(const Brush &br, const PaintMode mode)

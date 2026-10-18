@@ -24983,22 +24983,6 @@ msgid "Node tree for node based materials"
 msgstr "Árbol de nodos de materiales basados en nodos"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Identificador de textura activa"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Identificador del contenedor de textura activo"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Identificador de textura de clonado"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Identificador del contenedor de textura de clonado activo"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Nº del identificador del material en la pasada \"Identificador de materiales\""
 
@@ -25129,10 +25113,6 @@ msgstr "Permite transparencias coloreadas, incompatible con pasadas de procesami
 
 msgid "Texture Slot Images"
 msgstr "Imágenes del contenedor de texturas"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Imágenes usadas para pintar texturas"
 
 
 msgid "Texture Slots"
@@ -26449,10 +26429,6 @@ msgstr "Pintar Vértices"
 
 msgid "Weight Paint"
 msgstr "Pintar Influencias"
-
-
-msgid "Texture Paint"
-msgstr "Pintar Texturas"
 
 
 msgid "Particle Edit"
@@ -79061,15 +79037,6 @@ msgid "Add to Palette"
 msgstr "Agregar a la paleta"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Modo Pintar Texturas"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Alterna el modo de pintura de texturas en la vista 3D"
-
-
 msgid "Change selection for all vertices"
 msgstr "Cambia la selección de todos los vértices"
 
@@ -92486,26 +92453,6 @@ msgid "The mesh is missing materials"
 msgstr "Faltan materiales en la malla"
 
 
-msgid "Missing Stencil"
-msgstr "Esténcil faltante"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "No hay esténcil para la pintura de imágenes"
-
-
-msgid "Missing Texture"
-msgstr "Textura faltante"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "No hay textura donde realizar la pintura de imágenes"
-
-
-msgid "Missing UVs"
-msgstr "UV faltantes"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Falta una capa UV en la malla"
 
@@ -92520,10 +92467,6 @@ msgstr "Detecta los contenedores de imagen del material"
 
 msgid "Single Image"
 msgstr "Imagen fija"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Define la imagen para poder pintar texturas con ella directamente"
 
 
 msgid "Screen Grab Size"
@@ -96515,14 +96458,6 @@ msgstr "Bibliotecas de recursos remotas"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "Habilita bibliotecas de recursos obtenidas a través de HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Pintar texturas en esculpido"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Usar pintura de texturas en modo Esculpido"
 
 
 msgid "Shader Node Previews"
@@ -111228,14 +111163,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Define si se usará un valor mínimo de recorte"
 
 
-msgid "Texture Paint Slot"
-msgstr "Contenedor pintura texturas"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Contenedor que contiene información acerca de pintura de texturas"
-
-
 msgid "Icon"
 msgstr "Ícono"
 
@@ -115399,10 +115326,6 @@ msgstr "Sobreimprime la selección de huesos"
 
 msgid "Stencil Mask Opacity"
 msgstr "Opacidad máscara de esténcil"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Opacidad de superposición de la máscara del esténcil del modo de pintura de texturas"
 
 
 msgid "Freeze Culling"
@@ -130900,10 +130823,6 @@ msgid "Armature Overlays"
 msgstr "Sobreimpresos esqueleto"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Sobreimpresos Pintar Texturas"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Sobreimpresos Pintar Vértices"
 
@@ -132034,10 +131953,6 @@ msgid "Save As Asset..."
 msgstr "Guardar como recurso..."
 
 
-msgid "UV Map Needed"
-msgstr "Se necesita un mapa UV"
-
-
 msgid "Point cache must be baked"
 msgstr "El caché de puntos debe ser capturado"
 
@@ -132056,10 +131971,6 @@ msgstr "Ignorar transparencia"
 
 msgid "Detection Factor"
 msgstr "Factor de detección"
-
-
-msgid "No Textures"
-msgstr "Sin texturas"
 
 
 msgctxt "Operator"
@@ -156812,11 +156723,6 @@ msgstr "Sombreado"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Guion gráfico"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Pintar texturas"
 
 
 msgctxt "WorkSpace"

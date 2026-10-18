@@ -822,7 +822,7 @@ class MeshUVs : Overlay {
     const bool is_uv_editable = is_edit_object && space_image->mode == SI_MODE_UV;
     /* Sculpt is left out here because selection does not exist in it. */
     const bool is_paint_mode = ELEM(
-        state.ctx_mode, CTX_MODE_PAINT_TEXTURE, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_WEIGHT);
+        state.ctx_mode, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_WEIGHT);
     const bool use_face_selection = (mesh_orig.editflag & ME_EDIT_PAINT_FACE_SEL);
     const bool is_face_selectable = (is_edit_object || (is_paint_mode && use_face_selection));
     const StringRef active_uv_map = mesh.active_or_default_uv_map_name();

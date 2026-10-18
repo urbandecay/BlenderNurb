@@ -1129,9 +1129,6 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
     case CTX_MODE_PAINT_VERTEX:
       ARRAY_SET_ITEMS(contexts, ".paint_common", ".vertexpaint");
       break;
-    case CTX_MODE_PAINT_TEXTURE:
-      ARRAY_SET_ITEMS(contexts, ".paint_common", ".imagepaint");
-      break;
     case CTX_MODE_PARTICLE:
       ARRAY_SET_ITEMS(contexts, ".paint_common", ".particlemode");
       break;
@@ -1252,7 +1249,7 @@ static void view3d_buttons_region_listener(const wmRegionListenerParams *params)
       }
       break;
     case NC_IMAGE:
-      /* Update for the image layers in texture paint. */
+      /* Update material texture display when an image changes. */
       if (wmn->action == NA_EDITED) {
         ED_region_tag_redraw(region);
       }

@@ -8,9 +8,6 @@
 
 #pragma once
 
-#include "BKE_paint.hh"
-
-#include "DNA_brush_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 
@@ -156,20 +153,6 @@ class Cursor : Overlay {
           return true;
         }
       }
-      /* exception: object in texture paint mode, clone brush, use_clone_layer disabled */
-      else if (state.object_mode & OB_MODE_TEXTURE_PAINT) {
-        const Paint *paint = BKE_paint_get_active(*DEG_get_bmain(state.depsgraph),
-                                                  const_cast<Scene *>(state.scene),
-                                                  const_cast<ViewLayer *>(state.view_layer));
-        const Brush *brush = (paint) ? BKE_paint_brush_for_read(paint) : nullptr;
-
-        if (brush && brush->image_brush_type == IMAGE_PAINT_BRUSH_TYPE_CLONE) {
-          if ((state.scene->toolsettings->imapaint.flag & IMAGEPAINT_PROJECT_LAYER_CLONE) == 0) {
-            return true;
-          }
-        }
-      }
-
       /* no exception met? then don't draw cursor! */
       return false;
     }

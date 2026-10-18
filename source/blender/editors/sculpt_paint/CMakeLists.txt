@@ -46,14 +46,12 @@ set(SRC
   curves/sculpt_smooth.cc
   curves/sculpt_snake_hook.cc
 
-  mesh/paint_canvas.cc
   mesh/paint_cursor.cc
   mesh/paint_hide.cc
   mesh/paint_image.cc
   mesh/paint_image_2d.cc
   mesh/paint_image_2d_curve_mask.cc
   mesh/paint_image_ops_paint.cc
-  mesh/paint_image_proj.cc
   mesh/paint_mask.cc
   mesh/paint_vertex.cc
   mesh/paint_vertex_color_ops.cc
@@ -79,7 +77,6 @@ set(SRC
   mesh/sculpt_mask_init.cc
   mesh/sculpt_ops.cc
   mesh/sculpt_paint_color.cc
-  mesh/sculpt_paint_image.cc
   mesh/sculpt_pose.cc
   mesh/sculpt_project.cc
   mesh/sculpt_smooth.cc

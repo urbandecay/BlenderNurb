@@ -16,7 +16,6 @@ from bl_ui.properties_paint_common import (
     brush_settings,
     brush_settings_advanced,
     draw_color_settings,
-    ClonePanel,
     BrushSelectPanel,
     TextureMaskPanel,
     ColorPalettePanel,
@@ -105,7 +104,7 @@ class IMAGE_MT_view(Menu):
             layout.operator("image.cycle_render_slot", text="Render Slot Cycle Previous").reverse = True
             layout.separator()
 
-        if paint.brush and (context.image_paint_object or sima.mode == 'PAINT'):
+        if paint.brush and sima.mode == 'PAINT':
             layout.prop(tool_settings, "show_uv_local_view", text="Show Same Material")
 
         layout.menu("INFO_MT_area")
@@ -1323,11 +1322,47 @@ class IMAGE_PT_paint_swatches(Panel, ImagePaintPanel, ColorPalettePanel):
     bl_options = {'DEFAULT_CLOSED'}
 
 
-class IMAGE_PT_paint_clone(Panel, ImagePaintPanel, ClonePanel):
-    bl_category = "Tool"
-    bl_context = ".paint_common_2d"
-    bl_parent_id = "IMAGE_PT_paint_settings"
-    bl_label = "Clone from Image/UV Map"
+class IMAGE_PT_paint_context_menu(Panel):
+    # Only for popover, these are dummy values.
+    bl_space_type = 'IMAGE_EDITOR'
+    bl_region_type = 'WINDOW'
+    bl_label = "Image Paint"
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space is not None and space.type == 'IMAGE_EDITOR' and space.mode == 'PAINT'
+
+    def draw(self, context):
+        layout = self.layout
+        brush = context.tool_settings.image_paint.brush
+        capabilities = brush.image_paint_capabilities
+
+        if capabilities.has_color:
+            split = layout.split(factor=0.1)
+            UnifiedPaintPanel.prop_unified_color(split, context, brush, "color", text="")
+            UnifiedPaintPanel.prop_unified_color_picker(split, context, brush, "color", value_slider=True)
+            layout.prop(brush, "blend", text="")
+
+        if capabilities.has_radius:
+            UnifiedPaintPanel.prop_unified(
+                layout,
+                context,
+                brush,
+                "size",
+                unified_name="use_unified_size",
+                pressure_name="use_pressure_size",
+                slider=True,
+            )
+            UnifiedPaintPanel.prop_unified(
+                layout,
+                context,
+                brush,
+                "strength",
+                unified_name="use_unified_strength",
+                pressure_name="use_pressure_strength",
+                slider=True,
+            )
 
 
 class IMAGE_PT_tools_brush_display(Panel, BrushButtonsPanel, DisplayPanel):
@@ -1461,7 +1496,7 @@ class ImageScopesPanel:
             return False
 
         ob = context.active_object
-        if ob and ob.mode in {'TEXTURE_PAINT', 'EDIT'}:
+        if ob and ob.mode == 'EDIT':
             return False
 
         return True
@@ -1871,8 +1906,8 @@ classes = (
     IMAGE_PT_paint_settings,
     IMAGE_PT_paint_color,
     IMAGE_PT_paint_swatches,
+    IMAGE_PT_paint_context_menu,
     IMAGE_PT_paint_settings_advanced,
-    IMAGE_PT_paint_clone,
     IMAGE_PT_tools_brush_texture,
     IMAGE_PT_tools_mask_texture,
     IMAGE_PT_paint_stroke,

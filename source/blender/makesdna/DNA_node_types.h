@@ -238,8 +238,6 @@ enum eNode_Flag : int {
   NODE_INIT = 1 << 16,
   /** A preview for the data in this node can be displayed in the spreadsheet editor. */
   // NODE_ACTIVE_PREVIEW = 1 << 18, /* deprecated */
-  /** Active node that is used to paint on. */
-  NODE_ACTIVE_PAINT_CANVAS = 1 << 19,
 };
 ENUM_OPERATORS(eNode_Flag)
 

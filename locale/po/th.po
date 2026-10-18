@@ -4536,10 +4536,6 @@ msgid "Weight Paint"
 msgstr "วาดน้ำหนัก"
 
 
-msgid "Texture Paint"
-msgstr "วาดพื้นผิว"
-
-
 msgid "Pose"
 msgstr "ท่าทาง"
 

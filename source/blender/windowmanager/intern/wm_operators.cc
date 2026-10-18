@@ -3110,8 +3110,8 @@ static int radial_control_get_properties(bContext *C, wmOperator *op)
     return 0;
   }
 
-  /* Slightly ugly; allow this property to not resolve correctly.
-   * Needed because 3d texture paint shares the same key-map as 2d image paint. */
+  /* Slightly ugly; allow this property to not resolve correctly when the active editor has no
+   * matching view zoom setting. */
   if (!radial_control_get_path(&ctx_ptr,
                                op,
                                "zoom_path",

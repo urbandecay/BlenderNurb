@@ -296,21 +296,6 @@ static void image_changed(Main *bmain, Image *ima)
   WM_main_add_notifier(NC_IMAGE | NA_EDITED, ima);
 }
 
-static void scene_changed(Main *bmain, Scene *scene)
-{
-  Object *ob;
-
-  /* glsl */
-  for (ob = static_cast<Object *>(bmain->objects.first); ob;
-       ob = static_cast<Object *>(ob->id.next))
-  {
-    if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-      BKE_texpaint_slots_refresh_object(scene, ob);
-      ED_paint_proj_mesh_data_check(*scene, *ob, nullptr, nullptr, nullptr, nullptr);
-    }
-  }
-}
-
 static void update_sequencer(const DEGEditorUpdateContext *update_ctx, Main *bmain, ID *id)
 {
   const uint ignored = ID_RECALC_SELECT | ID_RECALC_FRAME_CHANGE | ID_RECALC_AUDIO_FPS |
@@ -373,9 +358,6 @@ void ED_render_id_flush_update(const DEGEditorUpdateContext *update_ctx, ID *id)
       break;
     case ID_IM:
       image_changed(bmain, id_cast<Image *>(id));
-      break;
-    case ID_SCE:
-      scene_changed(bmain, id_cast<Scene *>(id));
       break;
     case ID_BR:
       BKE_brush_tag_unsaved_changes(reinterpret_cast<Brush *>(id));

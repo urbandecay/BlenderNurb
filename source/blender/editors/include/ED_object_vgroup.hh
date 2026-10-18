@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include <optional>
-
 namespace blender {
 
 struct EnumPropertyItem;
@@ -41,8 +39,7 @@ bool vgroup_array_copy(Object *ob, Object *ob_from);
 bool vgroup_parray_alloc(ID *id,
                          MDeformVert ***dvert_arr,
                          int *dvert_tot,
-                         bool use_vert_sel,
-                         std::optional<int> current_frame = {});
+                         bool use_vert_sel);
 /**
  * For use with tools that use vgroup_parray_alloc with \a use_vert_sel ==
  * true. This finds the unselected mirror deform verts and copies the weights to them from the

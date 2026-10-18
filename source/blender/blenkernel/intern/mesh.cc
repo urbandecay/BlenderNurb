@@ -205,10 +205,6 @@ static void mesh_copy_data(Main *bmain,
       MEM_dupalloc(mesh_src->active_uv_map_attribute));
   mesh_dst->default_uv_map_attribute = static_cast<char *>(
       MEM_dupalloc(mesh_src->default_uv_map_attribute));
-  mesh_dst->stencil_uv_map_attribute = static_cast<char *>(
-      MEM_dupalloc(mesh_src->stencil_uv_map_attribute));
-  mesh_dst->clone_uv_map_attribute = static_cast<char *>(
-      MEM_dupalloc(mesh_src->clone_uv_map_attribute));
 
   CustomData_init_from(
       &mesh_src->vert_data, &mesh_dst->vert_data, mask.vmask, mesh_dst->verts_num);
@@ -263,8 +259,6 @@ static void mesh_free_data(ID *id)
   MEM_SAFE_DELETE(mesh->default_color_attribute);
   MEM_SAFE_DELETE(mesh->active_uv_map_attribute);
   MEM_SAFE_DELETE(mesh->default_uv_map_attribute);
-  MEM_SAFE_DELETE(mesh->stencil_uv_map_attribute);
-  MEM_SAFE_DELETE(mesh->clone_uv_map_attribute);
   mesh->attribute_storage.wrap().~AttributeStorage();
   if (mesh->face_offset_indices) {
     implicit_sharing::free_shared_data(&mesh->face_offset_indices,
@@ -396,8 +390,6 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
   writer->write_string(mesh->default_color_attribute);
   writer->write_string(mesh->active_uv_map_attribute);
   writer->write_string(mesh->default_uv_map_attribute);
-  writer->write_string(mesh->stencil_uv_map_attribute);
-  writer->write_string(mesh->clone_uv_map_attribute);
 
   writer->write_pointer_array(mesh->totcol, mesh->mat);
   writer->write_struct_array(mesh->totselect, mesh->mselect);
@@ -467,8 +459,6 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
   BLO_read_string(reader, &mesh->default_color_attribute);
   BLO_read_string(reader, &mesh->active_uv_map_attribute);
   BLO_read_string(reader, &mesh->default_uv_map_attribute);
-  BLO_read_string(reader, &mesh->stencil_uv_map_attribute);
-  BLO_read_string(reader, &mesh->clone_uv_map_attribute);
 
   mesh->texspace_flag &= ~ME_TEXSPACE_FLAG_AUTO_EVALUATED;
 
@@ -678,12 +668,6 @@ void mesh_remove_invalid_attribute_strings(Mesh &mesh)
   }
   if (!mesh::is_uv_map(attributes.lookup_meta_data(mesh.default_uv_map_name()))) {
     MEM_SAFE_DELETE(mesh.default_uv_map_attribute);
-  }
-  if (!mesh::is_uv_map(attributes.lookup_meta_data(mesh.stencil_uv_map_attribute))) {
-    MEM_SAFE_DELETE(mesh.stencil_uv_map_attribute);
-  }
-  if (!mesh::is_uv_map(attributes.lookup_meta_data(mesh.clone_uv_map_attribute))) {
-    MEM_SAFE_DELETE(mesh.clone_uv_map_attribute);
   }
 }
 
@@ -1116,8 +1100,6 @@ static void clear_attribute_names(Mesh &mesh)
   MEM_SAFE_DELETE(mesh.default_color_attribute);
   MEM_SAFE_DELETE(mesh.active_uv_map_attribute);
   MEM_SAFE_DELETE(mesh.default_uv_map_attribute);
-  MEM_SAFE_DELETE(mesh.stencil_uv_map_attribute);
-  MEM_SAFE_DELETE(mesh.clone_uv_map_attribute);
 }
 
 void BKE_mesh_clear_geometry(Mesh *mesh)
@@ -1429,14 +1411,6 @@ static void copy_attribute_names(const Mesh &mesh_src, Mesh &mesh_dst)
   if (mesh_src.default_uv_map_attribute) {
     MEM_SAFE_DELETE(mesh_dst.default_uv_map_attribute);
     mesh_dst.default_uv_map_attribute = BLI_strdup(mesh_src.default_uv_map_attribute);
-  }
-  if (mesh_src.stencil_uv_map_attribute) {
-    MEM_SAFE_DELETE(mesh_dst.stencil_uv_map_attribute);
-    mesh_dst.stencil_uv_map_attribute = BLI_strdup(mesh_src.stencil_uv_map_attribute);
-  }
-  if (mesh_src.clone_uv_map_attribute) {
-    MEM_SAFE_DELETE(mesh_dst.clone_uv_map_attribute);
-    mesh_dst.clone_uv_map_attribute = BLI_strdup(mesh_src.clone_uv_map_attribute);
   }
 }
 

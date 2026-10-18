@@ -19594,22 +19594,6 @@ msgid "Node tree for node based materials"
 msgstr "Düğüm tabanlı malzemeler için düğüm ağacı"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Aktif Boya Dokusu Endeksi"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Aktif doku boya yuvasının dizini"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Klon Boya Doku İndeksi"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Klon doku boya yuvasının dizini"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "\"Malzeme Dizini\" render geçişi için dizin numarası"
 
@@ -19724,10 +19708,6 @@ msgstr "Karıştırılmış"
 
 msgid "Texture Slot Images"
 msgstr "Doku Yuvası Görüntüleri"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Doku boyama için kullanılan doku görüntüleri"
 
 
 msgid "Texture Slots"
@@ -20800,10 +20780,6 @@ msgstr "Tepecik Boyama"
 
 msgid "Weight Paint"
 msgstr "Ağırlık Boyama"
-
-
-msgid "Texture Paint"
-msgstr "Doku Boyama"
 
 
 msgid "Particle Edit"
@@ -63780,10 +63756,6 @@ msgid "Add to Palette"
 msgstr "Palete Ekle"
 
 
-msgid "Toggle texture paint mode in 3D view"
-msgstr "3B görünümde doku boyama modunu değiştir"
-
-
 msgid "Change selection for all vertices"
 msgstr "Tüm köşeler için seçimi değiştir"
 
@@ -74393,26 +74365,6 @@ msgid "The mesh is missing materials"
 msgstr "Ağda malzemeler eksik"
 
 
-msgid "Missing Stencil"
-msgstr "Eksik Şablon"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Resim Boyama'nın şablonu yok"
-
-
-msgid "Missing Texture"
-msgstr "Eksik Doku"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Resim Boyama, üzerine resim yapılacak bir dokuya sahip değildir"
-
-
-msgid "Missing UVs"
-msgstr "Eksik UV'ler"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Ağda bir UV tabakası eksik"
 
@@ -74427,10 +74379,6 @@ msgstr "Malzemeden görüntü yuvalarını algıla"
 
 msgid "Single Image"
 msgstr "Tek Görüntü"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Doku boyama için görüntüyü doğrudan ayarla"
 
 
 msgid "Screen Grab Size"
@@ -77909,14 +77857,6 @@ msgstr "Yeni Eğriler Araçları"
 
 msgid "Enable additional features for the new curves data block"
 msgstr "Yeni eğriler veri bloğu için ek özellikleri etkinleştirin"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Heykel Doku Boyası"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Heykel Modunda doku boyama kullanın"
 
 
 msgid "Shader Node Previews"
@@ -88853,14 +88793,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Minimum kırpma değerinin kullanılıp kullanılmayacağı"
 
 
-msgid "Texture Paint Slot"
-msgstr "Doku Boya Yuvası"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Doku boyama hakkında bilgi içeren yuva"
-
-
 msgid "Icon"
 msgstr "Simge"
 
@@ -92341,10 +92273,6 @@ msgstr "Kemik seçimi kaplamasını göster"
 
 msgid "Stencil Mask Opacity"
 msgstr "Şablon Maskesi Opaklığı"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Doku boyama modu şablon maskesi kaplamasının opaklığı"
 
 
 msgid "Freeze Culling"
@@ -104492,10 +104420,6 @@ msgid "Armature Overlays"
 msgstr "Armatür Kaplamaları"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Doku Boya Kaplamaları"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Vertex Boya Kaplamaları"
 
@@ -105514,10 +105438,6 @@ msgid "Delete Asset"
 msgstr "Varlığı Sil"
 
 
-msgid "UV Map Needed"
-msgstr "UV Haritası Gerekli"
-
-
 msgid "Point cache must be baked"
 msgstr "Nokta önbelleği pişirilmelidir"
 
@@ -105532,10 +105452,6 @@ msgstr "Otomatik Hız"
 
 msgid "Ignore Transparent"
 msgstr "Şeffaflığı Yoksay"
-
-
-msgid "No Textures"
-msgstr "Dokular Yok"
 
 
 msgctxt "Operator"
@@ -119813,11 +119729,6 @@ msgstr "Yontma"
 msgctxt "WorkSpace"
 msgid "Shading"
 msgstr "Gölgelendirme"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Doku Boyama"
 
 
 msgctxt "WorkSpace"

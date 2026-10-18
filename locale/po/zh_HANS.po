@@ -24985,22 +24985,6 @@ msgid "Node tree for node based materials"
 msgstr "节点材质的节点树"
 
 
-msgid "Active Paint Texture Index"
-msgstr "活动绘制纹理编号"
-
-
-msgid "Index of active texture paint slot"
-msgstr "活动绘制纹理槽编号"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "克隆绘制纹理编号"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "克隆纹理绘制槽编号"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "用于材质编号渲染通道的编号数值"
 
@@ -25131,10 +25115,6 @@ msgstr "允许彩色的透明，但与渲染通道和光线追踪不兼容。也
 
 msgid "Texture Slot Images"
 msgstr "纹理槽图像"
-
-
-msgid "Texture images used for texture painting"
-msgstr "用于纹理绘制的纹理图像"
 
 
 msgid "Texture Slots"
@@ -26451,10 +26431,6 @@ msgstr "顶点绘制"
 
 msgid "Weight Paint"
 msgstr "权重绘制"
-
-
-msgid "Texture Paint"
-msgstr "纹理绘制"
 
 
 msgid "Particle Edit"
@@ -79075,15 +79051,6 @@ msgid "Add to Palette"
 msgstr "添加到调色板"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "纹理绘制模式"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "在 3D 视图中切换纹理绘制模式"
-
-
 msgid "Change selection for all vertices"
 msgstr "改变全部顶点的选择"
 
@@ -92500,26 +92467,6 @@ msgid "The mesh is missing materials"
 msgstr "该网格材质缺失"
 
 
-msgid "Missing Stencil"
-msgstr "缺失镂版"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "图像绘制无镂版"
-
-
-msgid "Missing Texture"
-msgstr "缺失纹理"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "图像绘制无可供绘制的纹理"
-
-
-msgid "Missing UVs"
-msgstr "缺失UV"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "网格的某个UV层缺失"
 
@@ -92534,10 +92481,6 @@ msgstr "从材质侦测图像槽"
 
 msgid "Single Image"
 msgstr "单张图像"
-
-
-msgid "Set image for texture painting directly"
-msgstr "设置用于直接纹理绘制的图像"
 
 
 msgid "Screen Grab Size"
@@ -96533,14 +96476,6 @@ msgstr "远程资产库"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "启用通过HTTP/HTTPS服务的资产库"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "雕刻纹理绘制"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "在雕刻模式下使用纹理绘制"
 
 
 msgid "Shader Node Previews"
@@ -111250,14 +111185,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "是否使用最小剪切值"
 
 
-msgid "Texture Paint Slot"
-msgstr "纹理绘制槽"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "包含有关纹理绘制信息的槽"
-
-
 msgid "Icon"
 msgstr "图标"
 
@@ -115421,10 +115348,6 @@ msgstr "叠加显示选中骨骼"
 
 msgid "Stencil Mask Opacity"
 msgstr "镂版遮罩不透明度"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "纹理绘制模式下镂版遮罩叠加层的不透明度"
 
 
 msgid "Freeze Culling"
@@ -130922,10 +130845,6 @@ msgid "Armature Overlays"
 msgstr "骨架叠加层"
 
 
-msgid "Texture Paint Overlays"
-msgstr "纹理绘制叠加层"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "顶点绘制叠加层"
 
@@ -132056,10 +131975,6 @@ msgid "Save As Asset..."
 msgstr "另存为资产..."
 
 
-msgid "UV Map Needed"
-msgstr "需要UV映射"
-
-
 msgid "Point cache must be baked"
 msgstr "点缓存需经烘焙"
 
@@ -132078,10 +131993,6 @@ msgstr "忽略透明"
 
 msgid "Detection Factor"
 msgstr "检测系数"
-
-
-msgid "No Textures"
-msgstr "没有纹理"
 
 
 msgctxt "Operator"
@@ -156834,11 +156745,6 @@ msgstr "着色"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "故事板"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "纹理绘制"
 
 
 msgctxt "WorkSpace"

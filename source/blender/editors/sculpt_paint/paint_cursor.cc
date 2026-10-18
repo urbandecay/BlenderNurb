@@ -505,13 +505,6 @@ static bool paint_draw_tex_overlay(Paint *paint,
                             (brush->overlay_flags & BRUSH_OVERLAY_SECONDARY) != 0);
   int overlay_alpha = (primary) ? brush->texture_overlay_alpha : brush->mask_overlay_alpha;
 
-  if (mode == PaintMode::Texture3D) {
-    if (primary && brush->image_brush_type != IMAGE_PAINT_BRUSH_TYPE_DRAW) {
-      /* All non-draw tools don't use the primary texture (clone, smear, soften.. etc). */
-      return false;
-    }
-  }
-
   if (!(mtex->tex) ||
       !((mtex->brush_map_mode == MTEX_MAP_MODE_STENCIL) ||
         (valid && ELEM(mtex->brush_map_mode, MTEX_MAP_MODE_VIEW, MTEX_MAP_MODE_TILED))))
@@ -731,7 +724,7 @@ static bool paint_draw_alpha_overlay(
 {
   /* Color means that primary brush texture is colored and
    * secondary is used for alpha/mask control. */
-  bool col = ELEM(mode, PaintMode::Texture3D, PaintMode::Texture2D, PaintMode::Vertex);
+  bool col = ELEM(mode, PaintMode::Texture2D, PaintMode::Vertex);
 
   bool alpha_overlay_active = false;
 
@@ -958,7 +951,6 @@ static bool paint_use_2d_cursor(PaintMode mode)
     case PaintMode::Vertex:
     case PaintMode::Weight:
       return false;
-    case PaintMode::Texture3D:
     case PaintMode::Texture2D:
     case PaintMode::SculptCurves:
       return true;
@@ -1003,8 +995,7 @@ static bool paint_cursor_context_init(bContext *C,
   if (ELEM(pcontext.mode,
            PaintMode::Sculpt,
            PaintMode::Vertex,
-           PaintMode::Weight,
-           PaintMode::Texture3D))
+           PaintMode::Weight))
   {
     pcontext.base = CTX_data_active_base(C);
   }
@@ -1128,17 +1119,8 @@ static void paint_draw_legacy_3D_view_brush_cursor(PaintCursorContext &pcontext)
 
 static void paint_cursor_draw_3D_view_brush_cursor(PaintCursorContext &pcontext)
 {
-  BLI_assert(ELEM(pcontext.mode,
-                  PaintMode::Sculpt,
-                  PaintMode::Vertex,
-                  PaintMode::Weight,
-                  PaintMode::Texture3D));
-  /* These paint tools are not using the SculptSession, so they need to use the default 2D brush
-   * cursor in the 3D view. */
-  if (pcontext.mode == PaintMode::Texture3D) {
-    paint_draw_legacy_3D_view_brush_cursor(pcontext);
-    return;
-  }
+  BLI_assert(ELEM(
+      pcontext.mode, PaintMode::Sculpt, PaintMode::Vertex, PaintMode::Weight));
 
   BLI_assert(pcontext.ss);
 
@@ -1173,7 +1155,7 @@ static bool paint_cursor_is_3d_view_navigating(const PaintCursorContext &pcontex
 static bool paint_cursor_is_brush_cursor_enabled(const PaintCursorContext &pcontext)
 {
   if (pcontext.paint->flags & PAINT_SHOW_BRUSH) {
-    if (ELEM(pcontext.mode, PaintMode::Texture2D, PaintMode::Texture3D) &&
+    if (pcontext.mode == PaintMode::Texture2D &&
         pcontext.brush->image_brush_type == IMAGE_PAINT_BRUSH_TYPE_FILL)
     {
       return false;

@@ -206,7 +206,6 @@ static void blo_update_defaults_screen(bScreen *screen,
       /* Screen space cavity by default for faster performance. */
       v3d->shading.cavity_type = V3D_SHADING_CAVITY_CURVATURE;
       v3d->shading.flag |= V3D_SHADING_SPECULAR_HIGHLIGHT;
-      v3d->overlay.texture_paint_mode_opacity = 1.0f;
       v3d->overlay.weight_paint_mode_opacity = 1.0f;
       v3d->overlay.vertex_paint_mode_opacity = 1.0f;
       /* Update default Z bias for retopology overlay. */

@@ -119,19 +119,14 @@ static void uiTemplatePaintModeSelection(ui::Layout *layout, bContext *C)
   if (!ELEM(ob->mode, OB_MODE_SCULPT, OB_MODE_PARTICLE_EDIT)) {
     /* masks aren't used for sculpt and particle painting */
     PointerRNA meshptr = RNA_pointer_create_discrete(ob->data, RNA_Mesh, ob->data);
-    if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-      layout->prop(&meshptr, "use_paint_mask", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
-    }
-    else {
-      ui::Layout &row = layout->row(true);
-      row.prop(&meshptr, "use_paint_mask", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
-      row.prop(&meshptr, "use_paint_mask_vertex", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
+    ui::Layout &row = layout->row(true);
+    row.prop(&meshptr, "use_paint_mask", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
+    row.prop(&meshptr, "use_paint_mask_vertex", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
 
-      /* Show the bone selection mode icon only if there is a pose mode armature */
-      Object *ob_armature = BKE_object_pose_armature_get(ob);
-      if (ob_armature) {
-        row.prop(&meshptr, "use_paint_bone_selection", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
-      }
+    /* Show the bone selection mode icon only if there is a pose mode armature */
+    Object *ob_armature = BKE_object_pose_armature_get(ob);
+    if (ob_armature) {
+      row.prop(&meshptr, "use_paint_bone_selection", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
     }
   }
 }
@@ -148,8 +143,7 @@ void template_header3D_mode(ui::Layout *layout, bContext *C)
   bool is_paint = (ob && ELEM(ob->mode,
                               OB_MODE_SCULPT,
                               OB_MODE_VERTEX_PAINT,
-                              OB_MODE_WEIGHT_PAINT,
-                              OB_MODE_TEXTURE_PAINT));
+                              OB_MODE_WEIGHT_PAINT));
 
   uiTemplateEditModeSelection(layout, C);
   if ((obedit == nullptr) && is_paint) {

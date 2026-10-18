@@ -24160,22 +24160,6 @@ msgid "Node tree for node based materials"
 msgstr "노드 기반 머티리얼에 대한 노드 트리"
 
 
-msgid "Active Paint Texture Index"
-msgstr "활성 페인트 텍스처 인덱스"
-
-
-msgid "Index of active texture paint slot"
-msgstr "활성 텍스처 페인트 슬롯의 인덱스"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "클론 페인트 텍스처 인덱스"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "클론 텍스처 페인트 슬롯의 인덱스"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "\"머티리얼 인덱스\" 렌더링 패스에 대한 인덱스 번호"
 
@@ -24306,10 +24290,6 @@ msgstr "색상 투명도를 허용하지만 렌더 패스 및 레이트레이싱
 
 msgid "Texture Slot Images"
 msgstr "텍스처 슬롯 이미지"
-
-
-msgid "Texture images used for texture painting"
-msgstr "텍스처 페인팅에 대해 사용된 이미지 택스처"
 
 
 msgid "Texture Slots"
@@ -25598,10 +25578,6 @@ msgstr "버텍스 페인트"
 
 msgid "Weight Paint"
 msgstr "웨이트 페인트"
-
-
-msgid "Texture Paint"
-msgstr "텍스처 패인트"
 
 
 msgid "Particle Edit"
@@ -75901,15 +75877,6 @@ msgid "Add to Palette"
 msgstr "팔레트에 추가"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "텍스처 페인트 모드"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "3D 뷰에서 텍스처 페인트 모드를 토글"
-
-
 msgid "Change selection for all vertices"
 msgstr "모든 버텍스에 대한 선택을 변경"
 
@@ -88561,26 +88528,6 @@ msgid "The mesh is missing materials"
 msgstr "메시에 누락된 머티리얼"
 
 
-msgid "Missing Stencil"
-msgstr "누락된 스텐실"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "이미지 페인트하는 스텐실이 없습니다"
-
-
-msgid "Missing Texture"
-msgstr "누락된 텍스쳐"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "이미지 페인트하는 페인트 텍스처가 없습니다"
-
-
-msgid "Missing UVs"
-msgstr "누락된 UV"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "UV 레이어는 메시에 누락된"
 
@@ -88595,10 +88542,6 @@ msgstr "머티리얼에서 이미지 슬롯을 감지"
 
 msgid "Single Image"
 msgstr "싱글 이미지"
-
-
-msgid "Set image for texture painting directly"
-msgstr "텍스처 페인팅 직접에 대해 이미지를 설정"
 
 
 msgid "Screen Grab Size"
@@ -92501,14 +92444,6 @@ msgstr "새로운 커브 도구"
 
 msgid "Enable additional features for the new curves data block"
 msgstr "새 커브 데이터 블록에 추가 기능 활성화"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "스컬프트 텍스처 페인트"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "스컬프트 모드에서 텍스처 페인팅 사용"
 
 
 msgid "Shader Node Previews"
@@ -106168,14 +106103,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "최소의 클리핑 값을 사용할지 여부"
 
 
-msgid "Texture Paint Slot"
-msgstr "텍스처 페인트 슬롯"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "텍스처 페인팅에 대한 정보를 포함하는 슬롯"
-
-
 msgid "Icon"
 msgstr "아이콘"
 
@@ -110229,10 +110156,6 @@ msgstr "뼈대 선택 오버레이를 표시"
 
 msgid "Stencil Mask Opacity"
 msgstr "스텐실 마스크 불투명도"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "텍스처 페인트 모드 스텐실 마스크 오버레이의 불투명도"
 
 
 msgid "Freeze Culling"
@@ -124683,10 +124606,6 @@ msgid "Armature Overlays"
 msgstr "아마츄어 오버레이"
 
 
-msgid "Texture Paint Overlays"
-msgstr "텍스처 페인트 오버레이"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "버텍스 페인트 오버레이"
 
@@ -125782,10 +125701,6 @@ msgid "Save As Asset..."
 msgstr "다른 이름으로 저장"
 
 
-msgid "UV Map Needed"
-msgstr "필요한 UV 맵"
-
-
 msgid "Point cache must be baked"
 msgstr "포인트 캐시는 베이크해야 함"
 
@@ -125800,10 +125715,6 @@ msgstr "자동-속도"
 
 msgid "Ignore Transparent"
 msgstr "투명 무시"
-
-
-msgid "No Textures"
-msgstr "텍스처가 없음"
 
 
 msgctxt "Operator"
@@ -147786,11 +147697,6 @@ msgstr "쉐이딩함"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "스토리보드"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "텍스처 페인트함"
 
 
 msgctxt "WorkSpace"

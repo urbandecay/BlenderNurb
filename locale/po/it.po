@@ -17020,10 +17020,6 @@ msgid "Amount of mirror reflection for raytrace"
 msgstr "Ammontare della riflessione dello specchio per il raytrace"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Indice Pittura Texture Attiva"
-
-
 msgctxt "Material"
 msgid "Preview Render Type"
 msgstr "Tipo Anteprima Render"
@@ -17868,10 +17864,6 @@ msgstr "Pittura Vertici"
 
 msgid "Weight Paint"
 msgstr "Pittura Pesi"
-
-
-msgid "Texture Paint"
-msgstr "Pittura Texture"
 
 
 msgid "Particle Edit"
@@ -43916,11 +43908,6 @@ msgid "Add to Palette"
 msgstr "Aggiungi alla Tavolozza"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Modalità Pittura Texture"
-
-
 msgid "Change selection for all vertices"
 msgstr "Cambia la selezione per tutti i vertici"
 
@@ -49280,18 +49267,6 @@ msgid "Missing Materials"
 msgstr "Materiali Mancanti"
 
 
-msgid "Missing Stencil"
-msgstr "Stencil Mancante"
-
-
-msgid "Missing Texture"
-msgstr "Texture Mancante"
-
-
-msgid "Missing UVs"
-msgstr "UV Mancanti"
-
-
 msgid "Single Image"
 msgstr "Immagine Singola"
 
@@ -51544,14 +51519,6 @@ msgstr "Il numero del fotogramma corrente può essere impostato manualmente ad u
 
 msgid "Use Visual keying automatically for constrained objects"
 msgstr "Utilizza automaticamente un sistema Visuale per gli oggetti vincolati"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Pittura Texture in modo Scultura"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Utilizzare la Pittura Texture in Modalità Scultura"
 
 
 msgid "Animation Player"
@@ -56720,10 +56687,6 @@ msgstr "Ha Massimo"
 
 msgid "Has Minimum"
 msgstr "Ha Minimo"
-
-
-msgid "Texture Paint Slot"
-msgstr "Slot Pittura Texture"
 
 
 msgid "Icon"
@@ -63573,10 +63536,6 @@ msgid "in memory to enable editing!"
 msgstr "in memoria per abilitare la modifica!"
 
 
-msgid "No Textures"
-msgstr "No Texture"
-
-
 msgctxt "Operator"
 msgid "Add UVs"
 msgstr "Aggiungi UV"
@@ -68625,11 +68584,6 @@ msgstr "Scultura"
 msgctxt "WorkSpace"
 msgid "Shading"
 msgstr "Ombreggiatura"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Pittura Texture"
 
 
 msgctxt "WorkSpace"

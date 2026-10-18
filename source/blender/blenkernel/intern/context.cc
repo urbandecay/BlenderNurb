@@ -1440,9 +1440,6 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
       if (object_mode & OB_MODE_VERTEX_PAINT) {
         return CTX_MODE_PAINT_VERTEX;
       }
-      if (object_mode & OB_MODE_TEXTURE_PAINT) {
-        return CTX_MODE_PAINT_TEXTURE;
-      }
       if (object_mode & OB_MODE_PARTICLE_EDIT) {
         return CTX_MODE_PARTICLE;
       }
@@ -1481,7 +1478,6 @@ static const char *data_mode_strings[] = {
     "sculpt_mode",
     "weightpaint",
     "vertexpaint",
-    "imagepaint",
     "particlemode",
     "objectmode",
     "curves_sculpt",

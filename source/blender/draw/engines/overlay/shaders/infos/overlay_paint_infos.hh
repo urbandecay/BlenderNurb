@@ -15,7 +15,7 @@
 /* -------------------------------------------------------------------- */
 /** \name OVERLAY_shader_paint_face.
  *
- * Used for face selection mode in Weight, Vertex and Texture Paint.
+ * Used for face selection mode in Weight and Vertex Paint.
  * \{ */
 
 GPU_SHADER_CREATE_INFO(overlay_paint_face)
@@ -59,38 +59,6 @@ ADDITIONAL_INFO(draw_globals)
 GPU_SHADER_CREATE_END()
 
 CREATE_INFO_VARIANT(overlay_paint_point_clipped, overlay_paint_point, drw_clipped)
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name OVERLAY_shader_paint_texture.
- *
- * Used in Texture Paint mode for the Stencil Image Masking.
- * \{ */
-
-GPU_SHADER_INTERFACE_INFO(overlay_paint_texture_iface)
-SMOOTH(float2, uv_interp)
-GPU_SHADER_INTERFACE_END()
-
-GPU_SHADER_CREATE_INFO(overlay_paint_texture)
-DO_STATIC_COMPILATION()
-VERTEX_IN(0, float3, pos)
-VERTEX_IN(1, float2, mu) /* Masking uv map. */
-VERTEX_OUT(overlay_paint_texture_iface)
-SAMPLER(0, sampler2D, mask_image)
-PUSH_CONSTANT(float3, mask_color)
-PUSH_CONSTANT(float, opacity) /* `1.0f` by default. */
-PUSH_CONSTANT(bool, mask_invert_stencil)
-PUSH_CONSTANT(bool, mask_image_premultiplied)
-FRAGMENT_OUT(0, float4, frag_color)
-VERTEX_SOURCE("overlay_paint_texture_vert.glsl")
-FRAGMENT_SOURCE("overlay_paint_texture_frag.glsl")
-ADDITIONAL_INFO(draw_view)
-ADDITIONAL_INFO(draw_modelmat)
-ADDITIONAL_INFO(draw_globals)
-GPU_SHADER_CREATE_END()
-
-CREATE_INFO_VARIANT(overlay_paint_texture_clipped, overlay_paint_texture, drw_clipped)
 
 /** \} */
 
@@ -142,8 +110,8 @@ CREATE_INFO_VARIANT(overlay_paint_weight_fake_shading_clipped,
 /* -------------------------------------------------------------------- */
 /** \name OVERLAY_shader_paint_wire.
  *
- * Used in face selection mode to display edges of selected faces in Weight, Vertex and Texture
- * paint modes.
+ * Used in face selection mode to display edges of selected faces in Weight and Vertex paint
+ * modes.
  * \{ */
 
 GPU_SHADER_INTERFACE_INFO(overlay_paint_wire_iface)

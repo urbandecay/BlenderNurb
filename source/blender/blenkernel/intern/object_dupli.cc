@@ -32,6 +32,7 @@
 #include "BLI_vector_list.hh"
 
 #include "DNA_collection_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_curves_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_mesh_types.h"

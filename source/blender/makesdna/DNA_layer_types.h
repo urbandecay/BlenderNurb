@@ -256,6 +256,7 @@ struct ViewLayer {
   float pass_alpha_threshold = 0.5f;
   eViewLayerCryptomatteFlags cryptomatte_flag = VIEW_LAYER_CRYPTOMATTE_ACCURATE;
   short cryptomatte_levels = 6;
+  int _pad_grease_pencil_flags = 0;
   int samples = 0;
 
   struct Material *mat_override = nullptr;

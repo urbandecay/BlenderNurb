@@ -249,10 +249,6 @@ msgid "Weight Paint"
 msgstr "Акапан Ашәра"
 
 
-msgid "Texture Paint"
-msgstr "Атекстура Ашәра"
-
-
 msgid "Lattice"
 msgstr "Аҭыџьеихац"
 

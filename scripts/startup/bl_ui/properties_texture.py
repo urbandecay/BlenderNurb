@@ -725,7 +725,7 @@ class TEXTURE_PT_mapping(TextureSlotPanel, Panel):
         tex = context.texture_slot
 
         if isinstance(idblock, Brush):
-            if context.sculpt_object or context.image_paint_object:
+            if context.sculpt_object:
                 brush_texture_settings(layout, idblock, context.sculpt_object)
         else:
             col = flow.column()

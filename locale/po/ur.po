@@ -22474,22 +22474,6 @@ msgid "Node tree for node based materials"
 msgstr "ﯼﺮﭨ ﮈﻮﻧ ﮯﯿﻟ ﮯﮐ ﺩﺍﻮﻣ ﯽﻨﺒﻣ ﺮﭘ ﮈﻮﻧ"
 
 
-msgid "Active Paint Texture Index"
-msgstr "ﺲﮑﯾﮉﻧﺍ  ﺖﺧﺎﺳ ﭧﻨﯿﭘ ﻝﺎﻌﻓ"
-
-
-msgid "Index of active texture paint slot"
-msgstr "ﮧﯾﺭﺎﺷﺍ ﺎﮐ ﭦﻼ﻿ﺳ ﭧﻨﯿﭘ  ﺖﺧﺎﺳ ﻝﺎﻌﻓ"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "ﺲﮑﯾﮉﻧﺍ  ﺖﺧﺎﺳ ﭧﻨﯿﭘ ﻥﻮﻠﮐ"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "ﮧﯾﺭﺎﺷﺍ ﺎﮐ ﭦﻼ﻿ﺳ ﭧﻨﯿﭘ  ﺖﺧﺎﺳ ﻥﻮﻠﮐ"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "ﮯﮨ ﺎﺗﺮﮐ ﺶﯿﭘ ﺱﺎﭘ ﺮﺒﻤﻧ ﺲﮑﯾﮉﻧﺍ ﮯﺌﻟ ﮯﮐ \"ﺲﮑﯾﮉﻧﺍ ﺩﺍﻮﻣ\""
 
@@ -22620,10 +22604,6 @@ msgstr "ﮯﮨ ﺎﺗﺎﺟ ﺎﻧﺎﺟ ﯽﮭﺑ ﮯﺳ ﻡﺎﻧ ﮯﮐ ﮓ�
 
 msgid "Texture Slot Images"
 msgstr "ﺰﺠﯿﻣﺍ ﭦﻼ﻿ﺳ ﯽﮐ ﺖﺧﺎﺳ"
-
-
-msgid "Texture images used for texture painting"
-msgstr "ﺮﯾﻭﺎﺼﺗ ﯽﮐ ﺖﺧﺎﺳ ﯽﻟﺍﻭ ﮯﻧﻮﮨ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﮓﻨﭩﻨﯿﭘ ﯽﮐ ﺖﺧﺎﺳ"
 
 
 msgid "Texture Slots"
@@ -23858,10 +23838,6 @@ msgstr "ﭧﻨﯿﭘ ﺲﮑﯿﭨﺭﻭ"
 
 msgid "Weight Paint"
 msgstr "ﭧﻨﯿﭘ ﭧﯾﻭ"
-
-
-msgid "Texture Paint"
-msgstr "ﭧﻨﯿﭘ ﺮﭽﺴﮑﯿﭨ"
 
 
 msgid "Particle Edit"
@@ -70628,10 +70604,6 @@ msgid "Add to Palette"
 msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﮟﯿﻣ ﭧﯿﻠﯿﭘ"
 
 
-msgid "Toggle texture paint mode in 3D view"
-msgstr "3D ﮟﯾﺮﮐ ﻞﮔﻮﭨ ﻮﮐ ﮈﻮﻣ  ﭧﻨﯿﭘ  ﺖﺧﺎﺳ ﮟﯿﻣﻮﯾﻭ"
-
-
 msgid "Change selection for all vertices"
 msgstr "ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﻮﮐ ﺏﺎﺨﺘﻧﺍ ﮯﯿﻟ ﮯﮐ ﮞﻮﯿﭨﻮﭼ ﻡﺎﻤﺗ"
 
@@ -81974,26 +81946,6 @@ msgid "The mesh is missing materials"
 msgstr "ﮯﮨ ﺐﺋﺎﻏ ﺩﺍﻮﻣ ﮟﯿﻣ ﺶﯿﻣ"
 
 
-msgid "Missing Stencil"
-msgstr "ﮯﮨ ﺐﺋﺎﻏ ﻞﺴﻨﯿﭩﺳ"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "ﮯﮨ ﮟﯿﮩﻧ ﻞﺴﻨﯿﭩﺳ ﮟﯿﻣ ﮓﻨﭩﻨﯿﭘ ﯼﺮﯾﻮﺼﺗ"
-
-
-msgid "Missing Texture"
-msgstr "ﭦﻭﺎﻨﺑ ﮧﺘﭘﻻ﻿"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "ﮯﮨ ﮟﯿﮩﻧ ﺖﺧﺎﺳ ﯽﺋﻮﮐ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﭧﻨﯿﭘ ﮟﯿﻣ ﮓﻨﭩﻨﯿﭘ ﯼﺮﯾﻮﺼﺗ"
-
-
-msgid "Missing UVs"
-msgstr "s ﯼﻭﻮﯾ  ﺐﺋﺎﻏ"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "ﮯﮨ ﺐﺋﺎﻏ ﺕﺮﭙﯾﻭ ﻮﯿﮑﯾﺍ ﺮﭘ ﺶﯿﻣ"
 
@@ -82008,10 +81960,6 @@ msgstr "ﮟﯿﺋﺎﮕﻟ ﮧﺘﭘ ﺎﮐ ﺲﭨﻼ﻿ﺳ ﺞﯿﻣﺍ ﮯﺳ 
 
 msgid "Single Image"
 msgstr "ﺞﯿﻣﺍ ﻞﮕﻨﺳ"
-
-
-msgid "Set image for texture painting directly"
-msgstr "ﮟﯾﺮﮐ ﭧﯿﺳ ﺮﯾﻮﺼﺗ ﺖﺳﺍﺭ ﮦﺍﺮﺑ ﮯﯿﻟ ﮯﮐ ﮓﻨﭩﻨﯿﭘ ﺮﭽﺴﮑﯿﭨ"
 
 
 msgid "Screen Grab Size"
@@ -85678,14 +85626,6 @@ msgstr "ﺰﻟﻮﭨ  ﻢﺧ  ﮯﺌﻧ"
 
 msgid "Enable additional features for the new curves data block"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻌﻓ ﻮﮐ ﺕﺎﯿﺻﻮﺼﺧ ﯽﻓﺎﺿﺍ ﮯﯿﻟ ﮯﮐ ﮎﻼ﻿ﺑ ﺎﭩﯾﮈ  ﻢﺧ  ﮯﺌﻧ"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "ﭧﻨﯿﭘ ﺖﺧﺎﺳ  ﮧﻤﺴﺠﻣ"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﮓﻨﭩﻨﯿﭘ  ﺖﺧﺎﺳ ﮟﯿﻣ ﺭﻮﻃ ﭧﭙﻠﮑﺳﺍ"
 
 
 msgid "Shader Node Previews"
@@ -97830,14 +97770,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "ﮯﮨ ﺎﻧﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﻮﯿﻠﯾﻭ ﮓﻨﭙﻠﮐ ﻢﮐ ﺯﺍ ﻢﮐ ﺎﯾﺁ"
 
 
-msgid "Texture Paint Slot"
-msgstr "ﭦﻼ﻿ﺳ ﭧﻨﯿﭘ ﺮﭽﺴﮑﯿﭨ"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "ﮯﮨ ﻞﻤﺘﺸﻣ ﺮﭘ ﺕﺎﻣﻮﻠﻌﻣ ﮟﯿﻣ ﮮﺭﺎﺑ ﮯﮐ ﮓﻨﭩﻨﯿﭘ  ﺖﺧﺎﺳ ﻮﺟ ﭦﻼ﻿ﺳ"
-
-
 msgid "Icon"
 msgstr "ﻦﮑﯿﺋﺁ"
 
@@ -101471,10 +101403,6 @@ msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮯﻟﺭﻭﻭﺍ ﺏﺎﺨﺘﻧﺍ ﺎﮐ ﮞ�
 
 msgid "Stencil Mask Opacity"
 msgstr "ﻦﭘﻻ﻿ﺪﻨﮬﺩ ﯽﮐ ﮏﺳﺎﻣ ﻞﺴﻨﯿﭩﺳ"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "ﻦﭘﻻ﻿ﺪﻨﮬﺩ ﯽﮐ ﮯﻟﺭﻭﻭﺍ ﮏﺳﺎﻣ ﻞﺴﻨﯿﭩﺳ ﮈﻮﻣ ﭧﻨﯿﭘ ﺖﺧﺎﺳ"
 
 
 msgid "Freeze Culling"
@@ -114293,10 +114221,6 @@ msgid "Armature Overlays"
 msgstr "ﺰﯿﻟﺭﻭﻭﺍ ﺮﭽﻣﺭﺁ"
 
 
-msgid "Texture Paint Overlays"
-msgstr "ﺰﯿﻟﺭﻭﻭﺍ ﭧﻨﯿﭘ ﺮﭽﺴﮑﯿﭨ"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "ﺰﯿﻟﺭﻭﻭﺍ ﭧﻨﯿﭘ ﺲﮑﯿﭨﺭﻭ"
 
@@ -115320,10 +115244,6 @@ msgid "Save As Asset..."
 msgstr "...ﮧﺛﺎﺛﺍ ﮟﯾﺮﮐ ﻅﻮﻔﺤﻣ ﺭﻮﻄﺑ"
 
 
-msgid "UV Map Needed"
-msgstr "ﮯﮨ ﺕﺭﻭﺮﺿ ﯽﮐ ﮧﺸﻘﻧ  ﯼﻭﻮﯾ"
-
-
 msgid "Point cache must be baked"
 msgstr "ﮯﮨ ﯼﺭﻭﺮﺿ ﺎﻧﺎﮑﭘ ﻮﮐ ﮯﺸﯿﮐ ﭧﻨﺋﺍﻮﭘ"
 
@@ -115338,10 +115258,6 @@ msgstr "ﺭﺎﺘﻓﺭ ﻮﭨﺁ"
 
 msgid "Ignore Transparent"
 msgstr "ﮟﯾﺮﮐ ﺯﺍﺪﻧﺍ ﺮﻈﻧ ﻮﮐ ﻑﺎﻔﺷ"
-
-
-msgid "No Textures"
-msgstr "ﮟﯿﮩﻧ ﺖﺧﺎﺳ  ﯽﺋﻮﮐ"
 
 
 msgctxt "Operator"
@@ -131532,11 +131448,6 @@ msgstr "ﯼﺯﺎﺳ ﮧﻤﺴﺠﻣ"
 msgctxt "WorkSpace"
 msgid "Shading"
 msgstr "ﺖﮕﻧﺭ"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "ﭧﻨﯿﭘ ﺮﭽﺴﮑﯿﭨ"
 
 
 msgctxt "WorkSpace"

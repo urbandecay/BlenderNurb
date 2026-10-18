@@ -10518,10 +10518,6 @@ msgid "Weight Paint"
 msgstr "Kreslit hmotnost"
 
 
-msgid "Texture Paint"
-msgstr "Kresba textur"
-
-
 msgid "Particle Edit"
 msgstr "Úpravy částic"
 
@@ -30137,18 +30133,6 @@ msgid "The mesh is missing materials"
 msgstr "Síť postrádá materiály"
 
 
-msgid "Missing Stencil"
-msgstr "Chybí Šablona"
-
-
-msgid "Missing Texture"
-msgstr "Chybí Textura"
-
-
-msgid "Missing UVs"
-msgstr "Chybí UVs"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Chybí UV vrstva na síti"
 
@@ -39960,10 +39944,6 @@ msgstr "Použít obrázek kamery"
 
 msgid "Path Steps"
 msgstr "Kroky Cesty"
-
-
-msgid "UV Map Needed"
-msgstr "Je potřeba UV Mapa"
 
 
 msgid "Point cache must be baked"

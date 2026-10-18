@@ -495,7 +495,6 @@ class ShaderModule {
   StaticShader paint_region_edge = shader_clippable("overlay_paint_wire");
   StaticShader paint_region_face = shader_clippable("overlay_paint_face");
   StaticShader paint_region_vert = shader_clippable("overlay_paint_point");
-  StaticShader paint_texture = shader_clippable("overlay_paint_texture");
   StaticShader paint_weight = shader_clippable("overlay_paint_weight");
   /* TODO(fclem): Specialization constant. */
   StaticShader paint_weight_fake_shading = shader_clippable("overlay_paint_weight_fake_shading");

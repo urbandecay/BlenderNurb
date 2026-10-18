@@ -846,7 +846,7 @@ struct UserDef_Experimental {
    * when the release cycle is not alpha. */
   char use_new_curves_tools = 0;
   char use_extended_asset_browser = 0;
-  char use_sculpt_texture_paint = 0;
+  char _pad_sculpt_experimental = 0;
   char use_shader_node_previews = 0;
   /* As a temporary exception to the above sanitation rules, this flag is always ON. The work to
    * actually remove this flag is tracked in #158903. */
@@ -1077,7 +1077,8 @@ struct UserDef {
   int undomemory = 0;
   DNA_DEPRECATED float gpu_viewport_quality = 0;
   short gp_manhattandist = 1, gp_euclideandist = 2, gp_eraser = 25;
-  char _pad13[4] = {};
+  /* Reserved for the removed Grease Pencil preference flag plus original padding. */
+  char _pad13[6] = {};
   struct SolidLight light_param[4];
   float light_ambient[3] = {};
   eUserpref_Gizmo_Flag gizmo_flag = USER_GIZMO_DRAW;
@@ -1194,6 +1195,8 @@ struct UserDef {
   struct ColorBand coba_weight;
 
   float sculpt_paint_overlay_col[3] = {0, 0, 0};
+  /* Former default color for newly created Grease Pencil layers. */
+  char _pad_gpencil_new_layer_col[16] = {};
   /** Drag pixels (scaled by DPI). */
   char drag_threshold_mouse = 3;
   char drag_threshold_tablet = 10;

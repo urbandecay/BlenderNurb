@@ -29,7 +29,6 @@
 #include "BKE_object.hh"
 #include "BKE_paint.hh"
 #include "BKE_paint_bvh.hh"
-#include "BKE_paint_bvh_pixels.hh"
 #include "BKE_subdiv_ccg.hh"
 
 #include "DEG_depsgraph_query.hh"
@@ -605,9 +604,7 @@ template<> MutableSpan<BMeshNode> Tree::nodes()
 }
 
 Tree::~Tree()
-{
-  pixels_free(this);
-}
+= default;
 
 void Tree::tag_positions_changed(const IndexMask &node_mask)
 {
@@ -1662,13 +1659,6 @@ Bounds<float3> bounds_get(const Tree &pbvh)
 }  // namespace bke::pbvh
 
 /***************************** Node Access ***********************************/
-
-void BKE_pbvh_mark_rebuild_pixels(bke::pbvh::Tree &pbvh)
-{
-  if (pbvh.pixels_) {
-    pbvh.pixels_->flags.dirty = true;
-  }
-}
 
 void BKE_pbvh_node_fully_hidden_set(bke::pbvh::Node &node, int fully_hidden)
 {

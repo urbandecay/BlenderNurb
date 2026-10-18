@@ -579,15 +579,10 @@ void ED_operatortypes_paint()
   WM_operatortype_append(BRUSH_OT_asset_revert);
 
   /* image */
-  WM_operatortype_append(PAINT_OT_texture_paint_toggle);
   WM_operatortype_append(PAINT_OT_image_paint);
   WM_operatortype_append(PAINT_OT_sample_color);
   WM_operatortype_append(PAINT_OT_grab_clone);
-  WM_operatortype_append(PAINT_OT_project_image);
-  WM_operatortype_append(PAINT_OT_image_from_view);
   WM_operatortype_append(PAINT_OT_brush_colors_flip);
-  WM_operatortype_append(PAINT_OT_add_texture_paint_slot);
-  WM_operatortype_append(PAINT_OT_add_simple_uvs);
 
   /* weight */
   WM_operatortype_append(PAINT_OT_weight_paint_toggle);
@@ -679,13 +674,13 @@ void ED_keymap_paint(wmKeyConfig *keyconf)
       keyconf, "Paint Vertex Selection (Weight, Vertex)", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = vert_paint_poll;
 
-  /* Image/Texture Paint mode */
+  /* Image Editor Paint mode */
   keymap = WM_keymap_ensure(keyconf, "Image Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  keymap->poll = image_texture_paint_poll;
+  keymap->poll = ED_image_tools_paint_poll;
 
   /* face-mask mode */
   keymap = WM_keymap_ensure(
-      keyconf, "Paint Face Mask (Weight, Vertex, Texture)", SPACE_EMPTY, RGN_TYPE_WINDOW);
+      keyconf, "Paint Face Mask (Weight, Vertex)", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = facemask_paint_poll;
 
   /* paint stroke */

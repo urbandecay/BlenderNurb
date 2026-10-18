@@ -279,11 +279,6 @@ struct Mesh {
    * Typical access should be through #Mesh::default_uv_map_name() rather than direct.
    */
   char *default_uv_map_attribute = nullptr;
-  /** UV map selection used for texture paint masking. */
-  char *stencil_uv_map_attribute = nullptr;
-  /** UV map selection used for texture paint clone brush. */
-  char *clone_uv_map_attribute = nullptr;
-
   /**
    * User-defined symmetry flag that causes editing operations to maintain
    * symmetrical geometry. Supported by operations such as transform and weight-painting.

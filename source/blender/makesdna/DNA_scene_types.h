@@ -993,6 +993,8 @@ struct RenderData {
   /* Render simplify. */
   short simplify_subsurf = 6;
   short simplify_subsurf_render = 0;
+  /* Reserved for the removed Grease Pencil simplify setting. */
+  short _pad_simplify_gpencil = 0;
   float simplify_particles = 1.0f;
   float simplify_particles_render = 0;
   float simplify_volumes = 1.0f;
@@ -1173,16 +1175,6 @@ enum ePaintDebugFlags : int {
 };
 ENUM_OPERATORS(ePaintDebugFlags)
 
-/** #PaintModeSettings::mode */
-enum ePaintCanvasSource : char {
-  /** Paint on the active node of the active material slot. */
-  PAINT_CANVAS_SOURCE_MATERIAL = 0,
-  /** Paint on a selected image. */
-  PAINT_CANVAS_SOURCE_IMAGE = 1,
-  /** Paint on the active color attribute (vertex color) layer. */
-  PAINT_CANVAS_SOURCE_COLOR_ATTRIBUTE = 2,
-};
-
 struct MeshAutomaskingSettings {
   DNA_DEFINE_CXX_METHODS(MeshAutomaskingSettings)
 
@@ -1254,91 +1246,34 @@ struct Paint {
 /** \name Image Paint
  * \{ */
 
-/** #ImagePaintSettings::mode */
-/* Defines to let old texture painting use the new enum. */
-/* TODO(jbakker): rename usages. */
-#define IMAGEPAINT_MODE_MATERIAL PAINT_CANVAS_SOURCE_MATERIAL
-#define IMAGEPAINT_MODE_IMAGE PAINT_CANVAS_SOURCE_IMAGE
-
-/** #ImagePaintSettings::interp */
-enum eImagePaint_Interpolation : int {
-  IMAGEPAINT_INTERP_LINEAR = 0,
-  IMAGEPAINT_INTERP_CLOSEST = 1,
-};
-
 /** #ImagePaintSettings::flag */
 enum eImagePaint_Flag : short {
   IMAGEPAINT_DRAWING = 1 << 0,
   // IMAGEPAINT_DRAW_TOOL = 1 << 1,         /* Deprecated. */
   // IMAGEPAINT_DRAW_TOOL_DRAWING = 1 << 2, /* Deprecated. */
-
-  /* Projection painting only. */
-  IMAGEPAINT_PROJECT_XRAY = 1 << 4,
-  IMAGEPAINT_PROJECT_BACKFACE = 1 << 5,
-  IMAGEPAINT_PROJECT_FLAT = 1 << 6,
-  IMAGEPAINT_PROJECT_LAYER_CLONE = 1 << 7,
-  IMAGEPAINT_PROJECT_LAYER_STENCIL = 1 << 8,
-  IMAGEPAINT_PROJECT_LAYER_STENCIL_INV = 1 << 9,
 };
 ENUM_OPERATORS(eImagePaint_Flag)
 
-/** #ImagePaintSettings::missing_data */
-enum eImagePaint_MissingData : short {
-  IMAGEPAINT_MISSING_UVS = 1 << 0,
-  IMAGEPAINT_MISSING_MATERIAL = 1 << 1,
-  IMAGEPAINT_MISSING_TEX = 1 << 2,
-  IMAGEPAINT_MISSING_STENCIL = 1 << 3,
-};
-ENUM_OPERATORS(eImagePaint_MissingData)
-
-/** Texture/Image Editor. */
+/** Image Editor paint settings. */
 struct ImagePaintSettings {
   Paint paint;
 
   eImagePaint_Flag flag = {};
-  eImagePaint_MissingData missing_data = {};
 
-  /** For projection painting only. */
-  short seam_bleed = 2, normal_angle = 80;
-  /** Capture size for re-projection. */
-  short screen_grab_size[2] = {};
+  /* Keep the former projection-paint settings area for DNA layout compatibility. */
+  char _pad_before_clone[22] = {};
 
-  /** Mode used for texture painting. */
-  int mode = 0;
-
-  /** Workaround until we support true layer masks. */
-  struct Image *stencil = nullptr;
-  /** Clone layer for image mode for projective texture painting. */
+  /** Image used as the clone source in the Image Editor. */
   struct Image *clone = nullptr;
-  /** Canvas when the explicit system is used for painting. */
-  struct Image *canvas = nullptr;
-  float stencil_col[3] = {};
-  /** Dither amount used when painting on byte images. */
-  float dither = 0;
-  /** Display texture interpolation method. */
-  eImagePaint_Interpolation interp = IMAGEPAINT_INTERP_LINEAR;
-  char _pad[4] = {};
+
+  /* Keep the former projection-paint settings area for DNA layout compatibility. */
+  char _pad_after_clone[32] = {};
+
   /** Offset of clone image from canvas in Image editor. */
   float clone_offset[2] = {};
   /** Transparency for drawing of clone image in Image editor. */
   float clone_alpha = 0.5f;
-  char _pad2[4] = {};
-};
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Paint Mode Settings
- * \{ */
-
-struct PaintModeSettings {
-  /** Source to select canvas from to paint on. */
-  ePaintCanvasSource canvas_source = PAINT_CANVAS_SOURCE_MATERIAL;
-  char _pad[7] = {};
-
-  /** Selected image when canvas_source=PAINT_CANVAS_SOURCE_IMAGE. */
-  Image *canvas_image = nullptr;
-  ImageUser image_user;
+  char _pad_end[4] = {};
 };
 
 /** \} */
@@ -1951,6 +1886,30 @@ enum eTool_UvSticky : char {
   UV_STICKY_VERT = 2,
 };
 
+/* Reserved to preserve the on-disk size of a removed ToolSettings block. */
+struct ToolSettingsPadding {
+  char _pad0[8] = {};
+  void *_pad1 = nullptr;
+  ImageUser _pad2 = {};
+};
+
+struct ToolSettingsGreasePencilGuidePadding {
+  char _pad_flags[8] = {};
+  float _pad_angles_and_location[6] = {};
+  void *_pad_reference_object = nullptr;
+};
+
+struct ToolSettingsGreasePencilSculptPadding {
+  void *_pad_paintcursor = nullptr;
+  int _pad_flag = 0;
+  int _pad_lock_axis = 0;
+  float _pad_isect_threshold = 0.0f;
+  char _pad0[4] = {};
+  void *_pad_cur_falloff = nullptr;
+  void *_pad_cur_primitive = nullptr;
+  ToolSettingsGreasePencilGuidePadding _pad_guide;
+};
+
 struct ToolSettings {
   DNA_DEFINE_CXX_METHODS(ToolSettings)
 
@@ -1961,6 +1920,11 @@ struct ToolSettings {
   Sculpt *sculpt = nullptr;
   /** UV smooth. */
   UvSculpt uvsculpt;
+  /* Reserved for the four removed Grease Pencil paint-mode pointers. */
+  void *_pad_gp_paint = nullptr;
+  void *_pad_gp_vertexpaint = nullptr;
+  void *_pad_gp_sculptpaint = nullptr;
+  void *_pad_gp_weightpaint = nullptr;
   /** Curves sculpt. */
   CurvesSculpt *curves_sculpt = nullptr;
 
@@ -2006,13 +1970,18 @@ struct ToolSettings {
   /** Runtime only. */
   short autoik_chainlen = 0;
 
+  /* Reserved for removed Grease Pencil flags and drawing placement settings. */
+  char _pad_gpencil_tool_flags[12] = {};
   char _pad0[6] = {};
+
+  ToolSettingsGreasePencilSculptPadding _pad_gp_sculpt;
+  /* Reserved for the removed Grease Pencil interpolation curve pointer. */
+  void *_pad_gp_interpolate = nullptr;
 
   /** Image Paint (8 bytes aligned please!). */
   struct ImagePaintSettings imapaint;
 
-  /** Settings for paint mode. */
-  struct PaintModeSettings paint_mode;
+  struct ToolSettingsPadding _pad_image_mode;
 
   /** Particle Editing. */
   struct ParticleEditSettings particle;
@@ -2088,6 +2057,8 @@ struct ToolSettings {
   eTool_WeightUser weightuser = OB_DRAW_GROUPUSER_ACTIVE;
   /** Subset selection filter in wpaint. */
   eVGroupSelect vgroupsubset = WT_VGROUP_ALL;
+  /* Reserved for the removed Grease Pencil vertex selection mode. */
+  char _pad_gpencil_selectmode_vertex = 0;
 
   /* UV painting. */
   char uv_sculpt_settings = 0;
@@ -2580,6 +2551,9 @@ struct Scene {
   /* Units. */
   struct UnitSettings unit;
 
+  /* Reserved for the removed Grease Pencil annotation data pointer. */
+  void *_pad_gpd = nullptr;
+
   /* Movie Tracking. */
   /** Active movie clip. */
   struct MovieClip *clip = nullptr;
@@ -2622,6 +2596,8 @@ struct Scene {
 
   struct SceneDisplay display;
   struct SceneEEVEE eevee;
+  /* Reserved for the removed 16-byte Grease Pencil settings block. */
+  char _pad_grease_pencil_settings[16] = {};
   struct SceneHydra hydra;
 
   bke::SceneRuntime *runtime = nullptr;

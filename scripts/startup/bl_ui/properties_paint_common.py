@@ -156,7 +156,6 @@ class BrushAssetShelf:
             'SCULPT': "VIEW3D_AST_brush_sculpt",
             'PAINT_VERTEX': "VIEW3D_AST_brush_vertex_paint",
             'PAINT_WEIGHT': "VIEW3D_AST_brush_weight_paint",
-            'PAINT_TEXTURE': "VIEW3D_AST_brush_texture_paint",
             'PAINT_2D': "IMAGE_AST_brush_paint",
             'SCULPT_CURVES': "VIEW3D_AST_brush_sculpt_curves",
         }
@@ -242,11 +241,6 @@ class UnifiedPaintPanel:
             if space_type == 'IMAGE_EDITOR':
                 return 'PAINT_2D'
             elif space_type in {'VIEW_3D', 'PROPERTIES'}:
-                if mode == 'PAINT_TEXTURE':
-                    if tool_settings.image_paint:
-                        return mode
-                    else:
-                        return None
                 return mode
         return None
 
@@ -263,8 +257,6 @@ class UnifiedPaintPanel:
             return tool_settings.vertex_paint
         elif mode == 'PAINT_WEIGHT':
             return tool_settings.weight_paint
-        elif mode == 'PAINT_TEXTURE':
-            return tool_settings.image_paint
         elif mode == 'PARTICLE':
             return tool_settings.particle_edit
         # 2D paint settings
@@ -413,7 +405,7 @@ class ColorPalettePanel(BrushPanel):
         if (brush := settings.brush) is None:
             return False
 
-        if context.space_data.type == 'IMAGE_EDITOR' or context.image_paint_object:
+        if context.space_data.type == 'IMAGE_EDITOR':
             capabilities = brush.image_paint_capabilities
             return capabilities.has_color
 
@@ -433,66 +425,6 @@ class ColorPalettePanel(BrushPanel):
         layout.template_ID(settings, "palette", new="palette.new")
         if settings.palette:
             layout.template_palette(settings, "palette")
-
-
-class ClonePanel(BrushPanel):
-    bl_label = "Clone"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        if not super().poll(context):
-            return False
-
-        settings = cls.paint_settings(context)
-
-        mode = cls.get_brush_mode(context)
-        if mode == 'PAINT_TEXTURE':
-            brush = settings.brush
-            return brush.image_brush_type == 'CLONE'
-        return False
-
-    def draw_header(self, context):
-        settings = self.paint_settings(context)
-        self.layout.prop(settings, "use_clone_layer", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        settings = self.paint_settings(context)
-
-        layout.active = settings.use_clone_layer
-
-        ob = context.active_object
-        col = layout.column()
-
-        if settings.mode == 'MATERIAL':
-            if len(ob.material_slots) > 1:
-                col.label(text="Materials")
-                col.template_list(
-                    "MATERIAL_UL_matslots", "",
-                    ob, "material_slots",
-                    ob, "active_material_index",
-                    rows=2,
-                )
-
-            mat = ob.active_material
-            if mat:
-                col.label(text="Source Clone Slot")
-                col.template_list(
-                    "TEXTURE_UL_texpaintslots", "",
-                    mat, "texture_paint_slots",
-                    mat, "paint_clone_slot",
-                    rows=2,
-                )
-
-        elif settings.mode == 'IMAGE':
-            mesh = ob.data
-
-            clone_text = mesh.uv_layer_clone.name if mesh.uv_layer_clone else ""
-            col.label(text="Source Clone Image")
-            col.template_ID(settings, "clone_image")
-            col.label(text="Source Clone UV Map")
-            col.menu("VIEW3D_MT_tools_projectpaint_clone", text=clone_text, translate=False)
 
 
 class TextureMaskPanel(BrushPanel):
@@ -574,7 +506,7 @@ class StrokePanel(BrushPanel):
         if mode == 'SCULPT':
             col.row().prop(brush, "use_scene_spacing", text="Spacing Distance", expand=True)
 
-        if mode in {'PAINT_TEXTURE', 'PAINT_2D', 'SCULPT'}:
+        if mode in {'PAINT_2D', 'SCULPT'}:
             if brush.image_paint_capabilities.has_space_attenuation or brush.sculpt_capabilities.has_space_attenuation:
                 col.prop(brush, "use_space_attenuation")
 
@@ -762,7 +694,7 @@ class DisplayPanel(BrushPanel):
         # TODO: These settings are a mess. Both `has_overlay` and the following two blocks should read the
         # appropriate texture depending on the mode, see `BKE_brush_mask_texture_get` vs `BKE_brush_color_texture_get`
         texture_overlay_settings_active = brush.brush_capabilities.has_overlay and settings.show_brush
-        if mode in {'PAINT_2D', 'PAINT_TEXTURE', 'PAINT_VERTEX', 'SCULPT'}:
+        if mode in {'PAINT_2D', 'PAINT_VERTEX', 'SCULPT'}:
             row = col.row(align=True)
             row.active = texture_overlay_settings_active
             row.prop(brush, "texture_overlay_alpha", text="Texture Opacity")
@@ -773,7 +705,7 @@ class DisplayPanel(BrushPanel):
                     icon='HIDE_OFF' if brush.use_primary_overlay else 'HIDE_ON',
                 )
 
-        if mode in {'PAINT_TEXTURE', 'PAINT_2D'}:
+        if mode == 'PAINT_2D':
             row = col.row(align=True)
             row.active = texture_overlay_settings_active
             row.prop(brush, "mask_overlay_alpha", text="Mask Texture Opacity")
@@ -785,21 +717,8 @@ class DisplayPanel(BrushPanel):
                 )
 
 
-class VIEW3D_MT_tools_projectpaint_clone(Menu):
-    bl_label = "Clone Layer"
-
-    def draw(self, context):
-        layout = self.layout
-
-        for i, uv_layer in enumerate(context.active_object.data.uv_layers):
-            props = layout.operator("wm.context_set_int", text=uv_layer.name, translate=False)
-            props.data_path = "active_object.data.uv_layer_clone_index"
-            props.value = i
-
-
 def brush_settings(layout, context, brush, popover=False):
-    """ Draw simple brush settings for Sculpt,
-        Texture/Vertex/Weight Paint modes, or skip certain settings for the popover """
+    """Draw simple brush settings for Sculpt and Vertex/Weight Paint modes."""
 
     mode = UnifiedPaintPanel.get_brush_mode(context)
 
@@ -1059,8 +978,8 @@ def brush_settings(layout, context, brush, popover=False):
 
         # End sculpt_brush_type interface.
 
-    # 3D and 2D Texture Paint Mode.
-    elif mode in {'PAINT_TEXTURE', 'PAINT_2D'}:
+    # 2D image paint mode.
+    elif mode == 'PAINT_2D':
         capabilities = brush.image_paint_capabilities
 
         if brush.image_brush_type == 'FILL':
@@ -1135,8 +1054,8 @@ def brush_shared_settings(layout, context, brush, popover=False):
     weight = False
     direction = False
 
-    # 3D and 2D Texture Paint #
-    if mode in {'PAINT_TEXTURE', 'PAINT_2D'}:
+    # 2D image paint mode.
+    if mode == 'PAINT_2D':
         if not popover:
             blend_mode = brush.image_paint_capabilities.has_color
             size = brush.image_paint_capabilities.has_radius
@@ -1217,7 +1136,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
                 slider=True,
             )
             if not popover and size_pressure and mode in {
-                'PAINT_TEXTURE',
                 'PAINT_2D',
                 'SCULPT',
                 'PAINT_VERTEX',
@@ -1248,7 +1166,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
             slider=True,
         )
         if not popover and strength_pressure and mode in {
-            'PAINT_TEXTURE',
             'PAINT_2D',
             'SCULPT',
             'PAINT_VERTEX',
@@ -1341,8 +1258,8 @@ def brush_settings_advanced(layout, context, settings, brush, popover=False):
         if capabilities.has_color and popover:
             draw_color_jitter_panel(container, context, brush)
 
-    # 3D and 2D Texture Paint.
-    elif mode in {'PAINT_TEXTURE', 'PAINT_2D'}:
+    # 2D image paint mode.
+    elif mode == 'PAINT_2D':
         container.prop(brush, "image_brush_type")
 
         capabilities = brush.image_paint_capabilities
@@ -1585,41 +1502,8 @@ def brush_texture_settings(layout, brush, sculpt):
             col.prop(brush, "use_color_as_displacement", text="Vector Displacement")
 
 
-def brush_mask_texture_settings(layout, brush):
-    mask_tex_slot = brush.mask_texture_slot
-
-    layout.use_property_split = True
-    layout.use_property_decorate = False
-
-    # map_mode
-    layout.row().prop(mask_tex_slot, "mask_map_mode", text="Mask Mapping")
-
-    if mask_tex_slot.map_mode == 'STENCIL':
-        if brush.mask_texture and brush.mask_texture.type == 'IMAGE':
-            layout.operator("brush.stencil_fit_image_aspect").mask = True
-        layout.operator("brush.stencil_reset_transform").mask = True
-
-    col = layout.column()
-    col.prop(brush, "use_pressure_masking", text="Pressure Masking")
-    # angle and texture_angle_source
-    if mask_tex_slot.has_texture_angle:
-        col = layout.column()
-        col.prop(mask_tex_slot, "angle", text="Angle")
-        if mask_tex_slot.has_texture_angle_source:
-            col.prop(mask_tex_slot, "use_rake", text="Rake")
-
-            if brush.brush_capabilities.has_random_texture_angle and mask_tex_slot.has_random_texture_angle:
-                col.prop(mask_tex_slot, "use_random", text="Random")
-                if mask_tex_slot.use_random:
-                    col.prop(mask_tex_slot, "random_angle", text="Random Angle")
-
-    # scale and offset
-    col.prop(mask_tex_slot, "offset")
-    col.prop(mask_tex_slot, "scale")
-
-
 def brush_basic_texpaint_settings(layout, context, brush, *, compact=False):
-    """Draw Tool Settings header for Vertex Paint and 2D and 3D Texture Paint modes."""
+    """Draw Tool Settings header for Vertex Paint and 2D image paint."""
     capabilities = brush.image_paint_capabilities
 
     if capabilities.has_color:
@@ -1660,9 +1544,7 @@ def brush_basic_texpaint_settings(layout, context, brush, *, compact=False):
 
 
 
-classes = (
-    VIEW3D_MT_tools_projectpaint_clone,
-)
+classes = ()
 
 
 def register():

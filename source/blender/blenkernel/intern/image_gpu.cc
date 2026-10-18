@@ -390,7 +390,7 @@ static ImageGPUTextures image_get_gpu_texture(Image *ima,
   gpu_free_unused_buffers();
 
   /* Free GPU textures when requesting a different render pass/layer.
-   * When `iuser` isn't set (texture painting single image mode) we assume that
+   * When `iuser` isn't set (single-image painting) we assume that
    * the current `pass` and `layer` should be 0. */
   short requested_pass = iuser ? iuser->pass : 0;
   short requested_layer = iuser ? iuser->layer : 0;
@@ -937,32 +937,6 @@ void BKE_image_update_gputexture_delayed(
     rcti dirty_region;
     BLI_rcti_init(&dirty_region, x, x + w, y, y + h);
     BKE_image_partial_update_mark_region(ima, image_tile, ibuf, &dirty_region);
-  }
-}
-
-void BKE_image_paint_set_mipmap(Main *bmain, bool mipmap)
-{
-  for (Image &ima : bmain->images) {
-    if (BKE_image_has_gpu_texture(&ima)) {
-      if (ima.runtime->gpuflag & IMA_GPU_MIPMAP_COMPLETE) {
-        for (int a = 0; a < TEXTARGET_COUNT; a++) {
-          if (ELEM(a, TEXTARGET_2D, TEXTARGET_2D_ARRAY)) {
-            for (int eye = 0; eye < 2; eye++) {
-              gpu::Texture *tex = ima.runtime->gputexture[a][eye];
-              if (tex != nullptr) {
-                GPU_texture_mipmap_mode(tex, mipmap, true);
-              }
-            }
-          }
-        }
-      }
-      else {
-        BKE_image_free_gputextures(&ima);
-      }
-    }
-    else {
-      ima.runtime->gpuflag &= ~IMA_GPU_MIPMAP_COMPLETE;
-    }
   }
 }
 

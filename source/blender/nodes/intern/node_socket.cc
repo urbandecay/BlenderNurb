@@ -1321,20 +1321,10 @@ static bke::bNodeSocketType *make_socket_type_bool()
     RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
     make_common_type_prop(srna,
                           socket,
-                          nodes::geometry_nodes_input_type_items_value_or_attribute_or_layer,
+                          nodes::geometry_nodes_input_type_items_value_or_attribute,
                           nodes::GeometryNodesInputType::Value,
                           r_generated);
     make_common_attribute_name_prop(srna, socket, r_generated);
-    prop = RNA_def_string(
-        &srna,
-        "layer_name",
-        nullptr,
-        0,
-        r_generated.scope.add_value(fmt::format(fmt::runtime(TIP_("Layer for {}")), socket.name))
-            .c_str(),
-        socket.description);
-    RNA_def_property_flag(prop, PROP_FORCE_GEOMETRY_EVAL);
-    RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   };
   socktype->make_compositor_nodes_input_srna = [](const bNodeTree & /*tree*/,
                                                   StructRNA &srna,

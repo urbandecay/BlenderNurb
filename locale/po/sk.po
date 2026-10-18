@@ -24983,22 +24983,6 @@ msgid "Node tree for node based materials"
 msgstr "Uzol stromu pre uzol základného materiálu"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Index aktívnej maľby textúry"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Index zásuvky aktívnej maľby textúry"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Index klonu maľby textúry"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Index klonu aktívnej maľby textúry"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Číslo indexu \"index materiálu\" prekreslenie prechodu"
 
@@ -25129,10 +25113,6 @@ msgstr "Umožňuje farebnú priehľadnosť, ale je nekompatibilný s priechodmi 
 
 msgid "Texture Slot Images"
 msgstr "Zásuvka obrázkov textúry"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Obrázky textúr používané pre maľbu textúry"
 
 
 msgid "Texture Slots"
@@ -26449,10 +26429,6 @@ msgstr "Maľovanie vrcholov"
 
 msgid "Weight Paint"
 msgstr "Maľovanie váhy"
-
-
-msgid "Texture Paint"
-msgstr "Maľovanie textúry"
 
 
 msgid "Particle Edit"
@@ -79065,15 +79041,6 @@ msgid "Add to Palette"
 msgstr "Pridať do palety"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Režim Maľovanie textúry"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Prepína režim maľby textúry v 3D zobrazení"
-
-
 msgid "Change selection for all vertices"
 msgstr "Zmeniť výber všetkých vrcholov"
 
@@ -92490,26 +92457,6 @@ msgid "The mesh is missing materials"
 msgstr "Povrchové siete s chýbajúcimi materiálmi"
 
 
-msgid "Missing Stencil"
-msgstr "Chýbajúca šablóna"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Maľba obrázku nemá šablónu"
-
-
-msgid "Missing Texture"
-msgstr "Chýbajúce textúry"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Maľba obrázku nemá textúru na namaľovanie"
-
-
-msgid "Missing UVs"
-msgstr "Chýbajúce UV"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Povrchovej sieti chýba UV vrstva"
 
@@ -92524,10 +92471,6 @@ msgstr "Zisťovať zásuvky obrázkov z materiálu"
 
 msgid "Single Image"
 msgstr "Samostatný obrázok"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Nastaviť obrázok pre priame maľovanie textúry"
 
 
 msgid "Screen Grab Size"
@@ -96523,14 +96466,6 @@ msgstr "Vzdialené knižnice aktív"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "Povolí knižnice aktív poskytované cez HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Maľovanie tvarovania textúry"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Používa maľovania textúr v režime tvarovania"
 
 
 msgid "Shader Node Previews"
@@ -111236,14 +111171,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Použije minimálnu hodnotu orezania"
 
 
-msgid "Texture Paint Slot"
-msgstr "Zásuvka maľby textúry"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Zásuvka obsahujúca informácie o maľbe textúry"
-
-
 msgid "Icon"
 msgstr "Ikona"
 
@@ -115407,10 +115334,6 @@ msgstr "Zobrazí prekrytie výberu kostí"
 
 msgid "Stencil Mask Opacity"
 msgstr "Maska šablóny nepriehľadnosť"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Nepriehľadnosť prekrytia šablóny režimu masky maľovania textúry"
 
 
 msgid "Freeze Culling"
@@ -130904,10 +130827,6 @@ msgid "Armature Overlays"
 msgstr "Prekrytia armatúry"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Prekrytie farieb textúr"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Prekrytie maľovania vrcholov"
 
@@ -132038,10 +131957,6 @@ msgid "Save As Asset..."
 msgstr "Uložiť ako aktívum..."
 
 
-msgid "UV Map Needed"
-msgstr "Potrebná UV mapa"
-
-
 msgid "Point cache must be baked"
 msgstr "Bod zásobníka musí byť zapečený"
 
@@ -132060,10 +131975,6 @@ msgstr "Ignorovať priehľadné"
 
 msgid "Detection Factor"
 msgstr "Faktor detekcie"
-
-
-msgid "No Textures"
-msgstr "Bez textúr"
 
 
 msgctxt "Operator"
@@ -156804,11 +156715,6 @@ msgstr "Tieňovanie"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Vytváranie príbehových náčrtov"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Maľovanie textúry"
 
 
 msgctxt "WorkSpace"

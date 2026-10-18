@@ -691,7 +691,6 @@ static wmOperatorStatus paintcurve_draw_exec(bContext *C, wmOperator * /*op*/)
 
   switch (mode) {
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       name = "PAINT_OT_image_paint";
       break;
     case PaintMode::Weight:

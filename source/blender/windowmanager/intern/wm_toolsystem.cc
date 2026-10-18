@@ -445,38 +445,6 @@ static void toolsystem_brush_activate_from_toolref(Main *bmain,
   }
 }
 
-/**
- * Special case, the active brush data-block for the image & 3D viewport are shared.
- * This means changing the active brush tool in one space must change the tool
- * for the other space as well, see: #131062.
- */
-static void toolsystem_brush_sync_for_texture_paint(Main *bmain,
-                                                    WorkSpace *workspace,
-                                                    bToolRef *tref)
-{
-  if (tref->space_type == SPACE_VIEW3D) {
-    if (tref->mode == CTX_MODE_PAINT_TEXTURE) {
-      bToolKey tkey{};
-      tkey.space_type = SPACE_IMAGE;
-      tkey.mode = SI_MODE_PAINT;
-      bToolRef *tref_other = WM_toolsystem_ref_find(workspace, &tkey);
-      if (tref_other) {
-        toolsystem_ref_set_by_id_pending(bmain, tref_other, tref->idname);
-      }
-    }
-  }
-  else if (tref->space_type == SPACE_IMAGE) {
-    if (tref->mode == SI_MODE_PAINT) {
-      bToolKey tkey{};
-      tkey.space_type = SPACE_VIEW3D;
-      tkey.mode = CTX_MODE_PAINT_TEXTURE;
-      bToolRef *tref_other = WM_toolsystem_ref_find(workspace, &tkey);
-      if (tref_other) {
-        toolsystem_ref_set_by_id_pending(bmain, tref_other, tref->idname);
-      }
-    }
-  }
-}
 static void toolsystem_brush_clear_paint_reference(Main *bmain,
                                                    WorkSpace *workspace,
                                                    bToolRef *tref)
@@ -520,7 +488,6 @@ static void toolsystem_ref_link(Main *bmain, WorkSpace *workspace, bToolRef *tre
 
   if (tref_rt->flag & TOOLREF_FLAG_USE_BRUSHES) {
     toolsystem_brush_activate_from_toolref(bmain, workspace, tref);
-    toolsystem_brush_sync_for_texture_paint(bmain, workspace, tref);
   }
   else {
     toolsystem_brush_clear_paint_reference(bmain, workspace, tref);
@@ -1114,7 +1081,6 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
         case CTX_MODE_SCULPT:
         case CTX_MODE_PAINT_VERTEX:
         case CTX_MODE_PAINT_WEIGHT:
-        case CTX_MODE_PAINT_TEXTURE:
         case CTX_MODE_SCULPT_CURVES:
           return "builtin.brush";
         case CTX_MODE_PARTICLE:

@@ -24967,22 +24967,6 @@ msgid "Node tree for node based materials"
 msgstr "Arbre de nodes per a materials basats en nodes"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Índex del pintat de textura actiu"
-
-
-msgid "Index of active texture paint slot"
-msgstr "[Active Paint Texture Index]: Índex de la posella de pintat de textura activa"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Clonar - Índex de pintat de textura"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "[Clone Texture Paint Index]: Índex de la posella del pintat de textura per clonar"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Número d'índex per a la passada de revelat de «l'índex de material»"
 
@@ -25113,10 +25097,6 @@ msgstr "Permet la transparència de colors, però és incompatible amb les passa
 
 msgid "Texture Slot Images"
 msgstr "Imatges de les poselles de textures"
-
-
-msgid "Texture images used for texture painting"
-msgstr "[Texture Slot Images]: Imatges textura utilitzades per a pintar amb textura"
 
 
 msgid "Texture Slots"
@@ -26433,10 +26413,6 @@ msgstr "Pintar - vèrtexs"
 
 msgid "Weight Paint"
 msgstr "Pintar - pesos"
-
-
-msgid "Texture Paint"
-msgstr "Pintar - textures"
 
 
 msgid "Particle Edit"
@@ -79053,15 +79029,6 @@ msgid "Add to Palette"
 msgstr "Afegir a paleta"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Mode pintat de textura"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "[Texture Paint Toggle]: Alterna el mode pintat de textura en la vista 3D"
-
-
 msgid "Change selection for all vertices"
 msgstr "Canviar selecció per a tots els vèrtexs"
 
@@ -92478,26 +92445,6 @@ msgid "The mesh is missing materials"
 msgstr "[Missing Materials]: A la malla li falten materials"
 
 
-msgid "Missing Stencil"
-msgstr "Plantilla extraviada"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "[Missing Stencil]: El pintat d'imatge no té una plantilla"
-
-
-msgid "Missing Texture"
-msgstr "Textura extraviada"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "[Missing Texture]: El pintat d'imatge no té una textura on pintar"
-
-
-msgid "Missing UVs"
-msgstr "UVs extraviats"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "No es troba la capa d'UVs a la malla"
 
@@ -92512,10 +92459,6 @@ msgstr "Detecta els epígrafs d'imatge a partir del material"
 
 msgid "Single Image"
 msgstr "Imatge única"
-
-
-msgid "Set image for texture painting directly"
-msgstr "[Single Image]: Assigna la imatge de manera directa per a efectuar el pintat de textura"
 
 
 msgid "Screen Grab Size"
@@ -96511,14 +96454,6 @@ msgstr "Biblioteques de recursos remotes"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "[Remote Asset Libraries]: habilita que se serveixin les llibreries de recursos per HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Esculpir pintant textura"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Usa la pintura de textura en el mode esculpir"
 
 
 msgid "Shader Node Previews"
@@ -111228,14 +111163,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Si s'ha d'utilitzar el valor mínim de segat"
 
 
-msgid "Texture Paint Slot"
-msgstr "Epígraf de pintats de textura"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "[Texture Paint Slot]: Epígraf que conté informació sobre el pintat de textura"
-
-
 msgid "Icon"
 msgstr "Icona"
 
@@ -115399,10 +115326,6 @@ msgstr "Mostra la sobreimpressió de selecció de l'os"
 
 msgid "Stencil Mask Opacity"
 msgstr "Opacitat de la plantilla màscara"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "[Stencil Mask Opacity]: Opacitat de la sobreimpressió de la plantilla màscara en mode pintat de textura"
 
 
 msgid "Freeze Culling"
@@ -130892,10 +130815,6 @@ msgid "Armature Overlays"
 msgstr "Sobreimpressions d'esquelet"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Sob-impr. de pintat de textura"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Sobreimpressions de pintura de vèrtexs"
 
@@ -132026,10 +131945,6 @@ msgid "Save As Asset..."
 msgstr "Desar com a recurs..."
 
 
-msgid "UV Map Needed"
-msgstr "Cal mapa UV"
-
-
 msgid "Point cache must be baked"
 msgstr "S'ha de precuinar memòria cau dels punts"
 
@@ -132048,10 +131963,6 @@ msgstr "Ignorar transparència"
 
 msgid "Detection Factor"
 msgstr "Factor de detecció"
-
-
-msgid "No Textures"
-msgstr "Sense textures"
 
 
 msgctxt "Operator"
@@ -156796,11 +156707,6 @@ msgstr "Aspecció"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Guionatge gràfic"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Pintar textura"
 
 
 msgctxt "WorkSpace"

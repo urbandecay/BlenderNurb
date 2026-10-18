@@ -776,7 +776,7 @@ static void keymap_update_mesh_weight_paint_brushes(wmKeyMap *keymap)
   keymap_update_brushes(keymap, asset_prefix, tool_property, tool_tool_map, {}, asset_id_map);
 }
 
-static void keymap_update_mesh_texture_paint_brushes(wmKeyMap *keymap)
+static void keymap_update_image_paint_brushes(wmKeyMap *keymap)
 {
   constexpr StringRef asset_prefix = "brushes/essentials_brushes-mesh_texture.blend/Brush/";
   constexpr StringRef tool_property = "image_tool";
@@ -1566,7 +1566,7 @@ void blo_do_versions_userdef(UserDef *userdef)
         keymap_update_mesh_weight_paint_brushes(&keymap);
       }
       else if (STREQ("Image Paint", keymap.idname)) {
-        keymap_update_mesh_texture_paint_brushes(&keymap);
+        keymap_update_image_paint_brushes(&keymap);
       }
     }
   }
@@ -1671,14 +1671,6 @@ void blo_do_versions_userdef(UserDef *userdef)
     BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
         userdef, "IMAGE_AST_brush_paint", "Brushes/Mesh Texture Paint/Utilities");
 
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Basic");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Erase");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Pixel Art");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Utilities");
   }
 
   if (!USER_VERSION_ATLEAST(500, 94)) {

@@ -197,11 +197,6 @@ static bke::SocketValueVariant init_socket_cpp_value(const GeoNodesCallData *cal
           return std::move(*value);
         }
       }
-      if (type == GeometryNodesInputType::Layer) {
-        const std::string layer_name = RNA_string_get(input_props_ptr, "layer_name");
-        return bke::SocketValueVariant::From(
-            fn::GField::from_input<bke::NamedLayerSelectionFieldInput>(layer_name));
-      }
       break;
     }
     case SOCK_INT: {

@@ -883,90 +883,6 @@ static void rna_Mesh_uv_layer_default_index_set(PointerRNA *ptr, int value)
   BKE_mesh_tessface_clear(mesh);
 }
 
-static PointerRNA rna_Mesh_uv_layer_clone_get(PointerRNA *ptr)
-{
-  PointerRNA attr_ptr = rna_AttributeGroup_lookup_string(
-      *ptr, rna_mesh(ptr)->clone_uv_map_attribute, ATTR_DOMAIN_MASK_CORNER, CD_MASK_PROP_FLOAT2);
-  attr_ptr.type = RNA_MeshUVLoopLayer;
-  return attr_ptr;
-}
-
-static void rna_Mesh_uv_layer_clone_set(PointerRNA *ptr, PointerRNA value, ReportList *)
-{
-  Mesh *mesh = rna_mesh(ptr);
-  const StringRefNull name = rna_Attribute_name_get(value);
-  MEM_SAFE_DELETE(mesh->clone_uv_map_attribute);
-  if (name.is_empty()) {
-    return;
-  }
-  mesh->clone_uv_map_attribute = BLI_strdupn(name.c_str(), name.size());
-  BKE_mesh_tessface_clear(mesh);
-}
-
-static int rna_Mesh_uv_layer_clone_index_get(PointerRNA *ptr)
-{
-  Mesh *mesh = rna_mesh(ptr);
-  const VectorSet<StringRefNull> names = mesh->uv_map_names();
-  if (!names.contains_as(mesh->clone_uv_map_attribute)) {
-    return 0;
-  }
-  return names.index_of_as(mesh->clone_uv_map_attribute);
-}
-
-static void rna_Mesh_uv_layer_clone_index_set(PointerRNA *ptr, int value)
-{
-  Mesh *mesh = rna_mesh(ptr);
-  MEM_SAFE_DELETE(mesh->clone_uv_map_attribute);
-  const VectorSet<StringRefNull> names = mesh->uv_map_names();
-  if (!names.index_range().contains(value)) {
-    return;
-  }
-  mesh->clone_uv_map_attribute = BLI_strdupn(names[value].c_str(), names[value].size());
-  BKE_mesh_tessface_clear(mesh);
-}
-
-static PointerRNA rna_Mesh_uv_layer_stencil_get(PointerRNA *ptr)
-{
-  PointerRNA attr_ptr = rna_AttributeGroup_lookup_string(
-      *ptr, rna_mesh(ptr)->stencil_uv_map_attribute, ATTR_DOMAIN_MASK_CORNER, CD_MASK_PROP_FLOAT2);
-  attr_ptr.type = RNA_MeshUVLoopLayer;
-  return attr_ptr;
-}
-
-static void rna_Mesh_uv_layer_stencil_set(PointerRNA *ptr, PointerRNA value, ReportList *)
-{
-  Mesh *mesh = rna_mesh(ptr);
-  const StringRefNull name = rna_Attribute_name_get(value);
-  MEM_SAFE_DELETE(mesh->stencil_uv_map_attribute);
-  if (name.is_empty()) {
-    return;
-  }
-  mesh->stencil_uv_map_attribute = BLI_strdupn(name.c_str(), name.size());
-  BKE_mesh_tessface_clear(mesh);
-}
-
-static int rna_Mesh_uv_layer_stencil_index_get(PointerRNA *ptr)
-{
-  Mesh *mesh = rna_mesh(ptr);
-  const VectorSet<StringRefNull> names = mesh->uv_map_names();
-  if (!names.contains_as(mesh->stencil_uv_map_attribute)) {
-    return 0;
-  }
-  return names.index_of_as(mesh->stencil_uv_map_attribute);
-}
-
-static void rna_Mesh_uv_layer_stencil_index_set(PointerRNA *ptr, int value)
-{
-  Mesh *mesh = rna_mesh(ptr);
-  MEM_SAFE_DELETE(mesh->stencil_uv_map_attribute);
-  const VectorSet<StringRefNull> names = mesh->uv_map_names();
-  if (!names.index_range().contains(value)) {
-    return;
-  }
-  mesh->stencil_uv_map_attribute = BLI_strdupn(names[value].c_str(), names[value].size());
-  BKE_mesh_tessface_clear(mesh);
-}
-
 /* MeshUVLoopLayer */
 
 static std::optional<std::string> rna_MeshUVLoopLayer_path(const PointerRNA *ptr)
@@ -1057,13 +973,6 @@ static bool rna_MeshUVLoopLayer_active_get(PointerRNA *ptr)
   return rna_Attribute_name_get(*ptr) == rna_mesh(ptr)->active_uv_map_name();
 }
 
-static bool rna_MeshUVLoopLayer_clone_get(PointerRNA *ptr)
-{
-  Mesh *mesh = rna_mesh(ptr);
-  const StringRefNull name = rna_Attribute_name_get(*ptr);
-  return StringRef(mesh->clone_uv_map_attribute) == name;
-}
-
 static void rna_MeshUVLoopLayer_active_render_set(PointerRNA *ptr, bool value)
 {
   if (value) {
@@ -1078,21 +987,6 @@ static void rna_MeshUVLoopLayer_active_set(PointerRNA *ptr, bool value)
     Mesh *mesh = rna_mesh(ptr);
     mesh->uv_maps_active_set(rna_Attribute_name_get(*ptr));
   }
-}
-
-static void rna_MeshUVLoopLayer_clone_set(PointerRNA *ptr, bool value)
-{
-  if (!value) {
-    return;
-  }
-  Mesh *mesh = rna_mesh(ptr);
-  const StringRefNull name = rna_Attribute_name_get(*ptr);
-  MEM_SAFE_DELETE(mesh->clone_uv_map_attribute);
-  if (name.is_empty()) {
-    return;
-  }
-  mesh->clone_uv_map_attribute = BLI_strdupn(name.c_str(), name.size());
-  BKE_mesh_tessface_clear(mesh);
 }
 
 bool rna_MeshUVLoopLayer_data_lookup_int(PointerRNA *ptr, int index, PointerRNA *r_ptr)
@@ -2418,13 +2312,6 @@ static void rna_def_mloopuv(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Active Render", "Set the UV map as active for rendering");
   RNA_def_property_update(prop, 0, "rna_Mesh_update_data_legacy_deg_tag_all");
 
-  prop = RNA_def_property(srna, "active_clone", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_funcs(
-      prop, "rna_MeshUVLoopLayer_clone_get", "rna_MeshUVLoopLayer_clone_set");
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop, "Active Clone", "Set the map as active for cloning");
-  RNA_def_property_update(prop, 0, "rna_Mesh_update_data_legacy_deg_tag_all");
-
   prop = RNA_def_property(srna, "uv", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_struct_type(prop, "Float2AttributeValue");
   RNA_def_property_ui_text(prop, "UV", "UV coordinates on face corners");
@@ -3101,40 +2988,6 @@ static void rna_def_mesh(BlenderRNA *brna)
   RNA_def_property_override_flag(prop, PROPOVERRIDE_IGNORE);
   RNA_def_property_ui_text(prop, "UV Loop Layers", "All UV loop layers");
   rna_def_uv_layers(brna, prop);
-
-  prop = RNA_def_property(srna, "uv_layer_clone", PROP_POINTER, PROP_NONE);
-  RNA_def_property_struct_type(prop, "MeshUVLoopLayer");
-  RNA_def_property_pointer_funcs(
-      prop, "rna_Mesh_uv_layer_clone_get", "rna_Mesh_uv_layer_clone_set", nullptr, nullptr);
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_override_flag(prop, PROPOVERRIDE_IGNORE);
-  RNA_def_property_ui_text(
-      prop, "Clone UV Loop Layer", "UV loop layer to be used as cloning source");
-
-  prop = RNA_def_property(srna, "uv_layer_clone_index", PROP_INT, PROP_UNSIGNED);
-  RNA_def_property_int_funcs(prop,
-                             "rna_Mesh_uv_layer_clone_index_get",
-                             "rna_Mesh_uv_layer_clone_index_set",
-                             "rna_Mesh_uv_layer_index_range");
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop, "Clone UV Loop Layer Index", "Clone UV loop layer index");
-
-  prop = RNA_def_property(srna, "uv_layer_stencil", PROP_POINTER, PROP_NONE);
-  RNA_def_property_struct_type(prop, "MeshUVLoopLayer");
-  RNA_def_property_pointer_funcs(
-      prop, "rna_Mesh_uv_layer_stencil_get", "rna_Mesh_uv_layer_stencil_set", nullptr, nullptr);
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_override_flag(prop, PROPOVERRIDE_IGNORE);
-  RNA_def_property_ui_text(prop, "Mask UV Loop Layer", "UV loop layer to mask the painted area");
-
-  prop = RNA_def_property(srna, "uv_layer_stencil_index", PROP_INT, PROP_UNSIGNED);
-  RNA_def_property_int_funcs(prop,
-                             "rna_Mesh_uv_layer_stencil_index_get",
-                             "rna_Mesh_uv_layer_stencil_index_set",
-                             "rna_Mesh_uv_layer_index_range");
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop, "Mask UV Loop Layer Index", "Mask UV loop layer index");
-  RNA_def_property_update(prop, 0, "rna_Mesh_update_data_legacy_deg_tag_all");
 
   /* Vertex colors */
 

@@ -32,7 +32,6 @@
 #  include "DNA_space_types.h"
 
 #  include "ED_asset.hh"
-#  include "ED_paint.hh"
 #  include "ED_sequencer.hh"
 
 #  include "RNA_access.hh"
@@ -172,12 +171,6 @@ const EnumPropertyItem *rna_WorkSpace_tools_mode_itemf(bContext * /*C*/,
       return rna_enum_space_sequencer_view_type_items;
   }
   return rna_enum_dummy_DEFAULT_items;
-}
-
-static bool rna_WorkSpaceTool_use_paint_canvas_get(PointerRNA *ptr)
-{
-  bToolRef *tref = static_cast<bToolRef *>(ptr->data);
-  return ED_paint_brush_type_use_canvas(nullptr, tref);
 }
 
 static int rna_WorkSpaceTool_index_get(PointerRNA *ptr)
@@ -341,12 +334,6 @@ static void rna_def_workspace_tool(BlenderRNA *brna)
   RNA_def_property_enum_funcs(prop, nullptr, nullptr, "rna_WorkSpace_tools_mode_itemf");
   RNA_def_property_ui_text(prop, "Tool Mode", "");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-
-  prop = RNA_def_property(srna, "use_paint_canvas", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Index", "");
-  RNA_def_property_boolean_funcs(prop, "rna_WorkSpaceTool_use_paint_canvas_get", nullptr);
-  RNA_def_property_ui_text(prop, "Use Paint Canvas", "Does this tool use a painting canvas");
 
   RNA_define_verify_sdna(false);
 

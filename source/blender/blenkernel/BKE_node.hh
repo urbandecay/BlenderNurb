@@ -1116,14 +1116,8 @@ void node_parents_iterator(bNode *node, bool (*callback)(bNode *, void *), void 
  */
 bool node_is_dangling_reroute(const bNodeTree &ntree, const bNode &node);
 
-bNode *node_get_active_paint_canvas(bNodeTree &ntree);
-
-/**
- * \brief Does the given node supports the sub active flag.
- *
- * \param sub_activity: The active flag to check. #NODE_ACTIVE_TEXTURE / #NODE_ACTIVE_PAINT_CANVAS.
- */
-bool node_supports_active_flag(const bNode &node, int sub_activity);
+/** Whether the node can be the active texture node. */
+bool node_supports_active_texture(const bNode &node);
 
 void node_set_socket_availability(bNodeTree &ntree, bNodeSocket &sock, bool is_available);
 

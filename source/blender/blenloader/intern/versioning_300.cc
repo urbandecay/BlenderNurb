@@ -1132,16 +1132,6 @@ void do_versions_after_linking_300(FileData * /*fd*/, Main *bmain)
     for (Scene &scene : bmain->scenes) {
       ToolSettings *tool_settings = scene.toolsettings;
       ImagePaintSettings *imapaint = &tool_settings->imapaint;
-      if (imapaint->canvas != nullptr &&
-          ELEM(imapaint->canvas->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE))
-      {
-        imapaint->canvas = nullptr;
-      }
-      if (imapaint->stencil != nullptr &&
-          ELEM(imapaint->stencil->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE))
-      {
-        imapaint->stencil = nullptr;
-      }
       if (imapaint->clone != nullptr &&
           ELEM(imapaint->clone->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE))
       {

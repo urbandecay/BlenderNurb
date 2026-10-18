@@ -627,8 +627,10 @@ struct View3DOverlay {
   /** Weight paint mode settings. */
   eView3DOverlay_WPaintFlag wpaint_flag = {};
 
-  /** Alpha for texture, weight, vertex paint overlay. */
-  float texture_paint_mode_opacity = 1.0f;
+  /** Reserved DNA slot for removed mode opacity. */
+  float _pad_mode_opacity = 0.0f;
+
+  /** Alpha for weight and vertex paint overlay. */
   float vertex_paint_mode_opacity = 1.0f;
   float weight_paint_mode_opacity = 1.0f;
   float sculpt_mode_mask_opacity = 0.75f;
@@ -646,6 +648,8 @@ struct View3DOverlay {
   float wireframe_threshold = 1.0f;
   float wireframe_opacity = 1.0f;
   float retopology_offset = 0.01f;
+  /* Reserved for the removed Grease Pencil overlay fields (11 floats and one int). */
+  char _pad_gpencil_overlay[48] = {};
 
   /** Handles display type for curves. */
   eHandleDisplay handle_display = CURVE_HANDLE_SELECTED;
@@ -729,6 +733,7 @@ struct View3D {
   /** Optional bool for 3d cursor to define center. */
   short ob_center_cursor = 0;
   short scenelock = true;
+  short _pad_gp_flag = 0;
   eView3D_Flag flag = V3D_SELECT_OUTLINE;
   eView3D_Flag2 flag2 = V3D_SHOW_RECONSTRUCTION | V3D_SHOW_VIEWER |
                         V3D_SHOW_CAMERA_GUIDES | V3D_SHOW_CAMERA_PASSEPARTOUT;
@@ -755,6 +760,9 @@ struct View3D {
   short gridlines = 16;
   /** Number of subdivisions in the grid between each highlighted grid line. */
   short gridsubdiv = 10;
+  /* Reserved for the removed vertex opacity and annotation data pointer. */
+  float _pad_vertex_opacity = 0.0f;
+  void *_pad_gpd = nullptr;
 
   /** Stereoscopy settings. */
   eView3D_StereoFlag stereo3d_flag = V3D_S3D_DISPPLANE;

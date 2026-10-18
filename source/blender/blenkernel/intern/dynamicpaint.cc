@@ -262,7 +262,7 @@ struct PaintAdjData {
   int *flags;
   /** Size of n_target. */
   int total_targets;
-  /** Indices of border pixels (only for texture paint). */
+  /** Indices of border pixels (only for image-based output). */
   int *border;
   /** Size of border. */
   int total_border;

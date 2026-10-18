@@ -24983,22 +24983,6 @@ msgid "Node tree for node based materials"
 msgstr "Drzewo węzłów dla materiałów opartych na węzłach"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Wskaźnik aktywnej tekstury farby"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Indeks aktywnego gniazda malowania tekstury"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Indeks tekstury farby klonu"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Indeks gniazda malowania tekstury klonu"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Numer indeksu dla przebiegu renderowania „Indeks materiałów”"
 
@@ -25129,10 +25113,6 @@ msgstr "Umożliwia kolorową przezroczystość, ale jest niezgodny z przebiegami
 
 msgid "Texture Slot Images"
 msgstr "Obrazy gniazd tekstur"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Obrazy tekstur używane do malowania tekstur"
 
 
 msgid "Texture Slots"
@@ -26449,10 +26429,6 @@ msgstr "Farba wierzchołka"
 
 msgid "Weight Paint"
 msgstr "Farba wagi"
-
-
-msgid "Texture Paint"
-msgstr "Malowanie tekstury"
 
 
 msgid "Particle Edit"
@@ -79073,15 +79049,6 @@ msgid "Add to Palette"
 msgstr "Dodaj do palety"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Tryb malowania tekstury"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Przełącz tryb malowania tekstur w widoku 3D"
-
-
 msgid "Change selection for all vertices"
 msgstr "Zmień wybór dla wszystkich wierzchołków"
 
@@ -92498,26 +92465,6 @@ msgid "The mesh is missing materials"
 msgstr "Siatka nie ma materiałów"
 
 
-msgid "Missing Stencil"
-msgstr "Brak szablonu"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Malowanie obrazem nie ma szablonu"
-
-
-msgid "Missing Texture"
-msgstr "Brak tekstury"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Malowanie obrazem nie ma tekstury, na której można malować"
-
-
-msgid "Missing UVs"
-msgstr "Brak UV"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Brak warstwy UV na siatce"
 
@@ -92532,10 +92479,6 @@ msgstr "Wykryj gniazda obrazu z materiału"
 
 msgid "Single Image"
 msgstr "Pojedynczy obraz"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Ustaw obraz bezpośrednio do malowania tekstur"
 
 
 msgid "Screen Grab Size"
@@ -96531,14 +96474,6 @@ msgstr "Zdalne biblioteki zasobów"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "Włącz biblioteki zasobów obsługiwane przez HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Malowanie tekstury rzeźby"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Użyj malowania tekstur w trybie rzeźbienia"
 
 
 msgid "Shader Node Previews"
@@ -111248,14 +111183,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Czy użyć minimalnej wartości przycinania"
 
 
-msgid "Texture Paint Slot"
-msgstr "Gniazdo malowania tekstury"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Gniazdo zawierające informacje o malowaniu tekstur"
-
-
 msgid "Icon"
 msgstr "Ikona"
 
@@ -115419,10 +115346,6 @@ msgstr "Pokaż nakładkę wyboru kości"
 
 msgid "Stencil Mask Opacity"
 msgstr "Krycie maski szablonu"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Krycie nakładki maski szablonu w trybie malowania tekstury"
 
 
 msgid "Freeze Culling"
@@ -130916,10 +130839,6 @@ msgid "Armature Overlays"
 msgstr "Nakładki armatury"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Nakładki malowania tekstury"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Nakładki farby wierzchołka"
 
@@ -132050,10 +131969,6 @@ msgid "Save As Asset..."
 msgstr "Zapisz jako zasób..."
 
 
-msgid "UV Map Needed"
-msgstr "Potrzebna mapa UV"
-
-
 msgid "Point cache must be baked"
 msgstr "Punkt pamięci podręcznej musi zostać wypieczony"
 
@@ -132072,10 +131987,6 @@ msgstr "Ignoruj transparentność"
 
 msgid "Detection Factor"
 msgstr "Współczynnik detekcji"
-
-
-msgid "No Textures"
-msgstr "Brak tekstur"
 
 
 msgctxt "Operator"
@@ -156828,11 +156739,6 @@ msgstr "Cieniowanie"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Scenorysowanie"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Malowanie tekstury"
 
 
 msgctxt "WorkSpace"

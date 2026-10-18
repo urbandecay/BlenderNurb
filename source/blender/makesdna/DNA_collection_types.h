@@ -177,6 +177,9 @@ struct Collection {
 
   char _pad1[2] = {};
 
+  /* Reserved DNA bytes for the removed Grease Pencil Line Art settings. */
+  char _pad_lineart[4] = {};
+
   DNA_DEPRECATED struct ViewLayer *view_layer = nullptr;
 
   /* Keep last. */

@@ -622,7 +622,7 @@ void gpu::MTLTexture::update_sub(int mip,
     }
 
     /* Early exit if update size is zero. update_sub sometimes has a zero-sized
-     * extent when called from texture painting. */
+     * extent when called while painting into an image. */
     if (totalsize <= 0 || extent[0] <= 0) {
       MTL_LOG_WARNING(
           "MTLTexture::update_sub called with extent size of zero for one or more dimensions. "

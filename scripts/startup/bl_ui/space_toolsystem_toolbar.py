@@ -1897,15 +1897,7 @@ class _defs_vertex_paint:
         )
 
 
-class _defs_texture_paint:
-
-    @staticmethod
-    def poll_select_mask(context):
-        if context is None:
-            return True
-        ob = context.active_object
-        return (ob and ob.type == 'MESH' and
-                (ob.data.use_paint_mask))
+class _defs_image_paint:
 
     @ToolDef.from_fn
     def brush():
@@ -3002,11 +2994,11 @@ class IMAGE_PT_tools_active(ToolSelectPanelHelper, Panel):
         ],
         'PAINT': [
             _brush_tool,
-            _defs_texture_paint.blur,
-            _defs_texture_paint.smear,
-            _defs_texture_paint.clone,
-            _defs_texture_paint.fill,
-            _defs_texture_paint.mask,
+            _defs_image_paint.blur,
+            _defs_image_paint.smear,
+            _defs_image_paint.clone,
+            _defs_image_paint.fill,
+            _defs_image_paint.mask,
             None,
         ],
     }
@@ -3371,20 +3363,6 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_transform.scale,
             _defs_transform.transform,
             None,
-        ],
-        'PAINT_TEXTURE': [
-            _brush_tool,
-            _defs_texture_paint.blur,
-            _defs_texture_paint.smear,
-            _defs_texture_paint.clone,
-            _defs_texture_paint.fill,
-            _defs_texture_paint.mask,
-            None,
-            lambda context: (
-                VIEW3D_PT_tools_active._tools_select
-                if _defs_texture_paint.poll_select_mask(context)
-                else ()
-            ),
         ],
         'PAINT_VERTEX': [
             _brush_tool,

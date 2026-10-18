@@ -12711,10 +12711,6 @@ msgid "Metallic"
 msgstr "Metalik"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Indeks Tekstur Cat Aktif"
-
-
 msgctxt "Material"
 msgid "Flat"
 msgstr "Datar"
@@ -27220,10 +27216,6 @@ msgstr "Dunia"
 msgctxt "Image"
 msgid "Cube"
 msgstr "Kubus"
-
-
-msgid "Texture Paint Slot"
-msgstr "Slot Cat Tekstur"
 
 
 msgid "Brush Texture Slot"

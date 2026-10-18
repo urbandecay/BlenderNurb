@@ -6679,10 +6679,6 @@ msgid "Weight Paint"
 msgstr "Painomaalaus"
 
 
-msgid "Texture Paint"
-msgstr "Tekstuurimaalaus"
-
-
 msgid "Particle Edit"
 msgstr "Partikkelimuokkaus"
 
@@ -13480,10 +13476,6 @@ msgid "Locations"
 msgstr "Sijainnit"
 
 
-msgid "No Textures"
-msgstr "Ei tekstuureja"
-
-
 msgid "User Library"
 msgstr "Käyttäjäkirjasto"
 
@@ -16908,11 +16900,6 @@ msgstr "Veistäminen"
 msgctxt "WorkSpace"
 msgid "Shading"
 msgstr "Varjostaminen"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Tekstuurimaalaminen"
 
 
 msgctxt "WorkSpace"

@@ -265,11 +265,7 @@ static wmOperatorStatus palette_color_add_exec(bContext *C, wmOperator * /*op*/)
 
   const Brush *brush = BKE_paint_brush_for_read(paint);
   if (brush) {
-    if (ELEM(mode,
-             PaintMode::Texture3D,
-             PaintMode::Texture2D,
-             PaintMode::Vertex,
-             PaintMode::Sculpt))
+    if (ELEM(mode, PaintMode::Texture2D, PaintMode::Vertex, PaintMode::Sculpt))
     {
       copy_v3_v3(color->color, BKE_brush_color_get(paint, brush));
       color->value = 0.0;

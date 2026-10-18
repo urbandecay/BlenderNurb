@@ -1817,10 +1817,6 @@ msgid "Weight Paint"
 msgstr "לקשמ תעיבצ"
 
 
-msgid "Texture Paint"
-msgstr "םקרמ תעיבצ"
-
-
 msgid "Soft Body Settings"
 msgstr "ךר-ףוג תורדגה"
 
@@ -2629,15 +2625,6 @@ msgstr "הגוצתה ןוויכל תונופה תואפ לע קר עפשה"
 
 
 msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "םקרמ תעיבצ בצמ"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "תידממ-תלת הגוצתב םקרמ תעיבצ בצמ לעפה"
-
-
-msgctxt "Operator"
 msgid "Select Linked Vertices Pick"
 msgstr "תרשוקמ םידוקדוק תריחב רחב"
 
@@ -2726,10 +2713,6 @@ msgstr "תוריהמב טוונ"
 
 msgid "Properties of image and texture painting mode"
 msgstr "הנומתו םקרמ תעיבצ בצמ לש םינייפאמ"
-
-
-msgid "Set image for texture painting directly"
-msgstr "רישי ןפואב םקרמ תעיבצל הנומת עבק"
 
 
 msgid "Properties of vertex and weight paint mode"
@@ -2838,10 +2821,6 @@ msgstr "םיקיקלח בצמב הכרענ םיקיקלח תכרעמ"
 
 msgid "Particle system name"
 msgstr "םיקיקלח תכרעמ םש"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "לוסיפ בצמב םקרמ תעיבצב שמתשה"
 
 
 msgid "Show Recent Locations"

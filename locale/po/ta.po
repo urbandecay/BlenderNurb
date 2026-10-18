@@ -24339,22 +24339,6 @@ msgid "Node tree for node based materials"
 msgstr "முனை அடிப்படையிலான மூலப்பொருட்களுக்கான முனை மரம்"
 
 
-msgid "Active Paint Texture Index"
-msgstr "செயலில் வண்ணப்பூச்சு அமைப்பு அட்டவணை"
-
-
-msgid "Index of active texture paint slot"
-msgstr "செயலில் உள்ள அமைப்பு வண்ணப்பூச்சு ச்லாட்டின் அட்டவணை"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "நகலி பெயிண்ட் அமைப்பு அட்டவணை"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "நகலி அமைப்பு வண்ணப்பூச்சு ச்லாட்டின் அட்டவணை"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "\"மூலப்பொருள் குறியீட்டு\" வழங்குதல் பாசிற்கான குறியீட்டு எண்"
 
@@ -24485,10 +24469,6 @@ msgstr "வண்ண வெளிப்படைத்தன்மையை அ�
 
 msgid "Texture Slot Images"
 msgstr "அமைப்பு ச்லாட் படங்கள்"
-
-
-msgid "Texture images used for texture painting"
-msgstr "அமைப்பு ஓவியத்திற்கு பயன்படுத்தப்படும் அமைப்பு படங்கள்"
 
 
 msgid "Texture Slots"
@@ -25793,10 +25773,6 @@ msgstr "வெர்டெக்ச் பெயிண்ட்"
 
 msgid "Weight Paint"
 msgstr "எடை வண்ணப்பூச்சு"
-
-
-msgid "Texture Paint"
-msgstr "அமைப்பு வண்ணப்பூச்சு"
 
 
 msgid "Particle Edit"
@@ -77188,15 +77164,6 @@ msgid "Add to Palette"
 msgstr "தட்டில் சேர்க்கவும்"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "அமைப்பு வண்ணப்பூச்சு முறை"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "3d பார்வையில் அமைப்பு வண்ணப்பூச்சு பயன்முறையை மாற்றவும்"
-
-
 msgid "Change selection for all vertices"
 msgstr "எல்லா செங்குத்துகளுக்கும் தேர்வை மாற்றவும்"
 
@@ -90203,26 +90170,6 @@ msgid "The mesh is missing materials"
 msgstr "கண்ணி மூலப்பொருட்களைக் காணவில்லை"
 
 
-msgid "Missing Stencil"
-msgstr "ச்டென்சில் காணவில்லை"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "பட ஓவியம் ச்டென்சில் இல்லை"
-
-
-msgid "Missing Texture"
-msgstr "அமைப்பு இல்லை"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "பட ஓவியம் வண்ணம் தீட்ட ஒரு அமைப்பு இல்லை"
-
-
-msgid "Missing UVs"
-msgstr "புறஊதாஎச் காணவில்லை"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "கண்ணி மீது ஒரு புறஊதா அடுக்கு இல்லை"
 
@@ -90237,10 +90184,6 @@ msgstr "மூலப்பொருளிலிருந்து பட இட�
 
 msgid "Single Image"
 msgstr "ஒற்றை படம்"
-
-
-msgid "Set image for texture painting directly"
-msgstr "அமைப்பு ஓவியத்திற்கான படத்தை நேரடியாக அமைக்கவும்"
 
 
 msgid "Screen Grab Size"
@@ -94167,14 +94110,6 @@ msgstr "அடையாளம் பயனர் எண்ணிக்கைய�
 
 msgid "Recompute all ID user-counts before saving to a blend-file. Allows to work around invalid user-count handling in code that may lead to loss of data due to wrongly detected unused data-blocks"
 msgstr "கலப்பு-கோப்பில் சேமிப்பதற்கு முன் அனைத்து அடையாளம் பயனர் எண்ணிக்கையையும் மீண்டும் கணக்கிடவும். தவறாகக் கண்டறியப்பட்ட பயன்படுத்தப்படாத தரவுத் தொகுதிகள் காரணமாக தரவு இழப்புக்கு வழிவகுக்கும் குறியீட்டில் தவறான பயனர் எண்ணிக்கை கையாளுதலைச் சுற்றி வேலை செய்ய அனுமதிக்கிறது"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "சிற்பம் அமைப்பு வண்ணப்பூச்சு"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "சிற்பம் பயன்முறையில் அமைப்பு ஓவியத்தைப் பயன்படுத்தவும்"
 
 
 msgid "Shader Node Previews"
@@ -108200,14 +108135,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "குறைந்தபட்ச கிளிப்பிங் மதிப்பைப் பயன்படுத்த வேண்டுமா"
 
 
-msgid "Texture Paint Slot"
-msgstr "அமைப்பு வண்ணப்பூச்சு ச்லாட்"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "அமைப்பு ஓவியம் பற்றிய தகவல்களைக் கொண்ட ச்லாட்"
-
-
 msgid "Icon"
 msgstr "படவுரு"
 
@@ -112331,10 +112258,6 @@ msgstr "எலும்பு தேர்வு மேலடுக்கைக�
 
 msgid "Stencil Mask Opacity"
 msgstr "ச்டென்சில் மாச்க் ஒளிபுகாநிலை"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "அமைப்பு வண்ணப்பூச்சு பயன்முறை ச்டென்சில் மாச்க் மேலடுக்கின் ஒளிபுகாநிலை"
 
 
 msgid "Freeze Culling"
@@ -127256,10 +127179,6 @@ msgid "Armature Overlays"
 msgstr "ஆர்மேச்சர் மேலடுக்குகள்"
 
 
-msgid "Texture Paint Overlays"
-msgstr "அமைப்பு வண்ணப்பூச்சு மேலடுக்குகள்"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "வெர்டெக்ச் பெயிண்ட் மேலடுக்குகள்"
 
@@ -128390,10 +128309,6 @@ msgid "Save As Asset..."
 msgstr "சொத்தாக சேமிக்கவும் ..."
 
 
-msgid "UV Map Needed"
-msgstr "புறஊதா வரைபடம் தேவை"
-
-
 msgid "Point cache must be baked"
 msgstr "புள்ளி கேச் சுட வேண்டும்"
 
@@ -128408,10 +128323,6 @@ msgstr "ஆட்டோ-வேகம்"
 
 msgid "Ignore Transparent"
 msgstr "வெளிப்படையான புறக்கணிக்கவும்"
-
-
-msgid "No Textures"
-msgstr "அமைப்புகள் இல்லை"
 
 
 msgctxt "Operator"
@@ -151189,11 +151100,6 @@ msgstr "நிழல்"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "ச்டோரிபோர்டிங்"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "அமைப்பு வண்ணப்பூச்சு"
 
 
 msgctxt "WorkSpace"

@@ -348,7 +348,6 @@ bool BKE_paint_ensure_from_paintmode(Scene *sce, PaintMode mode)
       paint_ptr = reinterpret_cast<Paint **>(&ts->wpaint);
       break;
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       paint_tmp = reinterpret_cast<Paint *>(&ts->imapaint);
       paint_ptr = &paint_tmp;
       break;
@@ -378,7 +377,6 @@ Paint *BKE_paint_get_active_from_paintmode(Scene *sce, PaintMode mode)
       case PaintMode::Weight:
         return &ts->wpaint->paint;
       case PaintMode::Texture2D:
-      case PaintMode::Texture3D:
         return &ts->imapaint.paint;
       case PaintMode::SculptCurves:
         return &ts->curves_sculpt->paint;
@@ -402,7 +400,6 @@ const EnumPropertyItem *BKE_paint_get_tool_enum_from_paintmode(const PaintMode m
     case PaintMode::Weight:
       return rna_enum_brush_weight_brush_type_items;
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       return rna_enum_brush_image_brush_type_items;
     case PaintMode::SculptCurves:
       return rna_enum_brush_curves_sculpt_brush_type_items;
@@ -427,8 +424,6 @@ Paint *BKE_paint_get_active(const Main &bmain, Scene *sce, ViewLayer *view_layer
           return &ts->vpaint->paint;
         case OB_MODE_WEIGHT_PAINT:
           return &ts->wpaint->paint;
-        case OB_MODE_TEXTURE_PAINT:
-          return &ts->imapaint.paint;
         case OB_MODE_SCULPT_CURVES:
           return &ts->curves_sculpt->paint;
         default:
@@ -502,8 +497,6 @@ PaintMode BKE_paintmode_get_active_from_context(const bContext *C)
           return PaintMode::Vertex;
         case OB_MODE_WEIGHT_PAINT:
           return PaintMode::Weight;
-        case OB_MODE_TEXTURE_PAINT:
-          return PaintMode::Texture3D;
         case OB_MODE_SCULPT_CURVES:
           return PaintMode::SculptCurves;
         default:
@@ -529,8 +522,6 @@ PaintMode BKE_paintmode_get_from_tool(const bToolRef *tref)
         return PaintMode::Vertex;
       case CTX_MODE_PAINT_WEIGHT:
         return PaintMode::Weight;
-      case CTX_MODE_PAINT_TEXTURE:
-        return PaintMode::Texture3D;
       case CTX_MODE_SCULPT_CURVES:
         return PaintMode::SculptCurves;
     }
@@ -688,7 +679,6 @@ static const char *paint_brush_essentials_asset_file_name_from_paint_mode(
     case PaintMode::Weight:
       return "essentials_brushes-mesh_weight.blend";
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       return "essentials_brushes-mesh_texture.blend";
     case PaintMode::SculptCurves:
       return "essentials_brushes-curve_sculpt.blend";
@@ -827,7 +817,6 @@ static void paint_brush_default_essentials_name_get(const PaintMode paint_mode,
       }
       break;
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       name = "Paint Hard";
       if (brush_type) {
         switch (eBrushImagePaintType(*brush_type)) {
@@ -971,10 +960,10 @@ static void paint_runtime_init(const ToolSettings *ts, Paint *paint)
   }
 
   if (paint == &ts->imapaint.paint) {
-    paint->runtime->ob_mode = OB_MODE_TEXTURE_PAINT;
-    /* Note: This is an odd case where 3D Texture paint and Image Paint share the same struct.
-     * It would be equally valid to assign PaintMode::Texture2D to this. */
-    paint->runtime->paint_mode = PaintMode::Texture3D;
+    /* The Image Editor uses the image brush type. The corresponding object-mode bit is retained
+     * for brush compatibility, but is not an object editing mode. */
+    paint->runtime->ob_mode = OB_MODE_IMAGE_PAINT;
+    paint->runtime->paint_mode = PaintMode::Texture2D;
   }
   else if (ts->sculpt && paint == &ts->sculpt->paint) {
     paint->runtime->ob_mode = OB_MODE_SCULPT;
@@ -1003,7 +992,6 @@ uint BKE_paint_get_brush_type_offset_from_paintmode(const PaintMode mode)
 {
   switch (mode) {
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       return offsetof(Brush, image_brush_type);
     case PaintMode::Sculpt:
       return offsetof(Brush, sculpt_brush_type);
@@ -1023,7 +1011,7 @@ std::optional<int> BKE_paint_get_brush_type_from_obmode(const Brush *brush,
                                                         const eObjectMode ob_mode)
 {
   switch (ob_mode) {
-    case OB_MODE_TEXTURE_PAINT:
+    case OB_MODE_IMAGE_PAINT:
     case OB_MODE_EDIT:
       return brush->image_brush_type;
     case OB_MODE_SCULPT:
@@ -1044,7 +1032,6 @@ std::optional<int> BKE_paint_get_brush_type_from_paintmode(const Brush *brush,
 {
   switch (mode) {
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
       return brush->image_brush_type;
     case PaintMode::Sculpt:
       return brush->sculpt_brush_type;
@@ -1140,7 +1127,7 @@ bool BKE_paint_select_face_test(const Object *ob)
 {
   return ((ob != nullptr) && (ob->type == OB_MESH) && (ob->data != nullptr) &&
           ((id_cast<Mesh *>(ob->data))->editflag & ME_EDIT_PAINT_FACE_SEL) &&
-          (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)));
+          (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)));
 }
 
 bool BKE_paint_select_vert_test(const Object *ob)
@@ -1188,8 +1175,7 @@ eObjectMode BKE_paint_object_mode_from_paintmode(const PaintMode mode)
     case PaintMode::Weight:
       return OB_MODE_WEIGHT_PAINT;
     case PaintMode::Texture2D:
-    case PaintMode::Texture3D:
-      return OB_MODE_TEXTURE_PAINT;
+      return OB_MODE_IMAGE_PAINT;
     case PaintMode::SculptCurves:
       return OB_MODE_SCULPT_CURVES;
     case PaintMode::Invalid:
@@ -1643,7 +1629,6 @@ bool supports_scene_size(const PaintMode paint_mode)
       return true;
     case PaintMode::Vertex:
     case PaintMode::Weight:
-    case PaintMode::Texture3D:
       return false;
     case PaintMode::SculptCurves:
       return false;
@@ -1663,7 +1648,6 @@ bool supports_symmetry_tiling(const PaintMode paint_mode)
       return true;
     case PaintMode::Vertex:
     case PaintMode::Weight:
-    case PaintMode::Texture3D:
       return false;
     case PaintMode::SculptCurves:
       return false;
@@ -2087,7 +2071,7 @@ static bool sculpt_modifiers_active(const Scene *scene, const Sculpt *sd, Object
 static void sculpt_update_object(Depsgraph *depsgraph,
                                  Object *ob,
                                  Object *ob_eval,
-                                 bool is_paint_tool)
+                                 bool /*is_paint_tool*/)
 {
   using namespace blender::bke;
   Scene *scene = DEG_get_input_scene(depsgraph);
@@ -2170,27 +2154,6 @@ static void sculpt_update_object(Depsgraph *depsgraph,
     }
   }
 
-  if (is_paint_tool) {
-    /* We should rebuild the PBVH_pixels when painting canvas changes.
-     *
-     * The relevant changes are stored/encoded in the paint canvas key.
-     * These include the active uv map, and resolutions. */
-    if (USER_EXPERIMENTAL_TEST(&U, use_sculpt_texture_paint)) {
-      std::string paint_canvas_key = BKE_paint_canvas_key_get(&scene->toolsettings->paint_mode,
-                                                              ob);
-      if (!ss.last_paint_canvas_key || paint_canvas_key != ss.last_paint_canvas_key) {
-        ss.last_paint_canvas_key = paint_canvas_key;
-        BKE_pbvh_mark_rebuild_pixels(pbvh);
-      }
-    }
-
-    /* We could be more precise when we have access to the active tool. */
-    const bool use_paint_slots = (ob->mode & OB_MODE_SCULPT) != 0;
-    if (use_paint_slots) {
-      BKE_texpaint_slots_refresh_object(scene, ob);
-    }
-  }
-
   /* This solves a crash when running a sculpt brush in background mode, because there is no redraw
    * after entering sculpt mode to make sure normals are allocated. Recalculating normals with
    * every brush step is too expensive currently. */
@@ -2229,7 +2192,6 @@ void BKE_sculpt_update_object_before_eval(Object *ob_eval)
     IndexMaskMemory memory;
     const IndexMask node_mask = bke::pbvh::all_leaf_nodes(*pbvh, memory);
     pbvh->tag_positions_changed(node_mask);
-    BKE_pbvh_mark_rebuild_pixels(*pbvh);
   }
 }
 
@@ -2265,14 +2227,16 @@ void BKE_sculpt_color_layer_create_if_needed(Object *object)
   BKE_mesh_tessface_clear(orig_me);
 }
 
-void BKE_sculpt_update_object_for_edit(Depsgraph *depsgraph, Object *ob_orig, bool is_paint_tool)
+void BKE_sculpt_update_object_for_edit(Depsgraph *depsgraph,
+                                       Object *ob_orig,
+                                       bool /*is_paint_tool*/)
 {
   PRF_scope(ProfileCategory::Editor);
   BLI_assert(ob_orig == DEG_get_original(ob_orig));
 
   Object *ob_eval = DEG_get_evaluated(depsgraph, ob_orig);
 
-  sculpt_update_object(depsgraph, ob_orig, ob_eval, is_paint_tool);
+  sculpt_update_object(depsgraph, ob_orig, ob_eval, false);
 }
 
 void BKE_sculpt_mask_layers_ensure(Depsgraph *depsgraph,

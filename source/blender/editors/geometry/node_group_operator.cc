@@ -1201,7 +1201,7 @@ static StructRNA *get_input_socket_struct_rna(IDProperty &input_idprop,
                       name.c_str(),
                       description.c_str());
       make_common_type_prop(*srna,
-                            nodes::geometry_nodes_input_type_items_value_or_attribute_or_layer,
+                            nodes::geometry_nodes_input_type_items_value_or_attribute,
                             nodes::GeometryNodesInputType::Value);
       make_common_attribute_name_prop(*srna, name, description, input_idprop);
       break;

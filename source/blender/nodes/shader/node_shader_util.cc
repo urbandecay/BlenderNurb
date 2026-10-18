@@ -272,22 +272,13 @@ static void data_from_gpu_stack_list(ListBaseT<bNodeSocket> *sockets,
   }
 }
 
-bool bke::node_supports_active_flag(const bNode &node, int sub_activity)
+bool bke::node_supports_active_texture(const bNode &node)
 {
-  BLI_assert(ELEM(sub_activity, NODE_ACTIVE_TEXTURE, NODE_ACTIVE_PAINT_CANVAS));
-  switch (sub_activity) {
-    case NODE_ACTIVE_TEXTURE:
-      return node.typeinfo->nclass == NODE_CLASS_TEXTURE;
-    case NODE_ACTIVE_PAINT_CANVAS:
-      return ELEM(node.type_legacy, SH_NODE_TEX_IMAGE, SH_NODE_ATTRIBUTE);
-  }
-  return false;
+  return node.typeinfo->nclass == NODE_CLASS_TEXTURE;
 }
 
-static bNode *node_get_active(bNodeTree *ntree, int sub_activity)
+static bNode *node_get_active_texture_recursive(bNodeTree *ntree)
 {
-  BLI_assert(ELEM(sub_activity, NODE_ACTIVE_TEXTURE, NODE_ACTIVE_PAINT_CANVAS));
-  /* this is the node we texture paint and draw in textured draw */
   bNode *inactivenode = nullptr, *activetexnode = nullptr, *activegroup = nullptr;
   bool hasgroup = false;
 
@@ -296,14 +287,14 @@ static bNode *node_get_active(bNodeTree *ntree, int sub_activity)
   }
 
   for (bNode *node : ntree->all_nodes()) {
-    if (node->flag & sub_activity) {
+    if (node->flag & NODE_ACTIVE_TEXTURE) {
       activetexnode = node;
       /* if active we can return immediately */
       if (node->flag & NODE_ACTIVE) {
         return node;
       }
     }
-    else if (!inactivenode && bke::node_supports_active_flag(*node, sub_activity)) {
+    else if (!inactivenode && bke::node_supports_active_texture(*node)) {
       inactivenode = node;
     }
     else if (node->type_legacy == NODE_GROUP) {
@@ -318,7 +309,7 @@ static bNode *node_get_active(bNodeTree *ntree, int sub_activity)
 
   /* first, check active group for textures */
   if (activegroup) {
-    bNode *tnode = node_get_active(id_cast<bNodeTree *>(activegroup->id), sub_activity);
+    bNode *tnode = node_get_active_texture_recursive(id_cast<bNodeTree *>(activegroup->id));
     /* active node takes priority, so ignore any other possible nodes here */
     if (tnode) {
       return tnode;
@@ -333,8 +324,8 @@ static bNode *node_get_active(bNodeTree *ntree, int sub_activity)
     /* node active texture node in this tree, look inside groups */
     for (bNode *node : ntree->all_nodes()) {
       if (node->type_legacy == NODE_GROUP) {
-        bNode *tnode = node_get_active(id_cast<bNodeTree *>(node->id), sub_activity);
-        if (tnode && ((tnode->flag & sub_activity) || !inactivenode)) {
+        bNode *tnode = node_get_active_texture_recursive(id_cast<bNodeTree *>(node->id));
+        if (tnode && ((tnode->flag & NODE_ACTIVE_TEXTURE) || !inactivenode)) {
           return tnode;
         }
       }
@@ -348,12 +339,7 @@ namespace bke {
 
 bNode *node_get_active_texture(bNodeTree &ntree)
 {
-  return node_get_active(&ntree, NODE_ACTIVE_TEXTURE);
-}
-
-bNode *node_get_active_paint_canvas(bNodeTree &ntree)
-{
-  return node_get_active(&ntree, NODE_ACTIVE_PAINT_CANVAS);
+  return node_get_active_texture_recursive(&ntree);
 }
 }  // namespace bke
 

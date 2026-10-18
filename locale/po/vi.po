@@ -24475,22 +24475,6 @@ msgid "Node tree for node based materials"
 msgstr "Cây nút cho những chất liệu cơ sở nút"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Chỉ Số Chất Liệu Sơn đang Hoạt Động"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Chỉ số khe chất liệu sơn đang hoạt động"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Sao Chỉ Số Chất Liệu Sơn"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Chỉ số bản rập khe sơn chất liệu"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Chỉ số lượt kết xuất cho \"Chỉ Số Nguyên Vật Liệu\""
 
@@ -24621,10 +24605,6 @@ msgstr "Cho phép độ trong suốt có màu, song không tương thích với 
 
 msgid "Texture Slot Images"
 msgstr "Hình Ảnh trong Khe Chất Liệu"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Những hình ảnh chất liệu dùng để sơn chất liệu"
 
 
 msgid "Texture Slots"
@@ -25929,10 +25909,6 @@ msgstr "Sơn Điểm Đỉnh"
 
 msgid "Weight Paint"
 msgstr "Sơn Trọng Lượng"
-
-
-msgid "Texture Paint"
-msgstr "Sơn Chất Liệu"
 
 
 msgid "Particle Edit"
@@ -77580,15 +77556,6 @@ msgid "Add to Palette"
 msgstr "Thêm vào Bảng Pha Màu"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Bật/Tắt Sơn Chất Liệu"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Bật/Tắt chế độ sơn chất liệu trong khung nhìn 3D"
-
-
 msgid "Change selection for all vertices"
 msgstr "Đổi sự lựa chọn cho toàn bộ các điểm đỉnh"
 
@@ -90705,26 +90672,6 @@ msgid "The mesh is missing materials"
 msgstr "Khung lưới thiếu nguyên vật liệu"
 
 
-msgid "Missing Stencil"
-msgstr "Thiếu Khuôn In"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Sơn Hình Ảnh không có khuôn in"
-
-
-msgid "Missing Texture"
-msgstr "Thiếu Chất Liệu"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Sơn Hình Ảnh không có chất liệu nào để sơn lên cả"
-
-
-msgid "Missing UVs"
-msgstr "Thiếu UV"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Thiếu mất một tầng UV trên khung lưới"
 
@@ -90739,10 +90686,6 @@ msgstr "Phát hiện các khe hình ảnh từ nguyên vật liệu"
 
 msgid "Single Image"
 msgstr "Đơn Hình Ảnh"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Đặt hình ảnh cho quá trình sơn chất liệu trực tiếp"
 
 
 msgid "Screen Grab Size"
@@ -94693,14 +94636,6 @@ msgstr "Thư Viện Tài Sản Từ Xa"
 
 msgid "Enable asset libraries served over HTTP/HTTPS"
 msgstr "Bật các thư viện tài sản được cung cấp qua HTTP/HTTPS"
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Sơn Chất Liệu trong Điêu Khắc"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Sử dụng sơn chất liệu trong Chế Độ Điêu Khắc"
 
 
 msgid "Shader Node Previews"
@@ -108846,14 +108781,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Có sử dụng giá trị cắt xén tối thiểu hay không"
 
 
-msgid "Texture Paint Slot"
-msgstr "Khe Sơn Chất Liệu"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Khe chứa thông tin về quá trình sơn chất liệu"
-
-
 msgid "Icon"
 msgstr "Biểu Tượng"
 
@@ -113005,10 +112932,6 @@ msgstr "Hiển thị lớp vẽ lựa chọn xương"
 
 msgid "Stencil Mask Opacity"
 msgstr "Độ Đục của Khuôn-In Chắn Lọc"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Độ Đục của lớp vẽ lồng khuôn in chắn lọc trong chế độ sơn chất liệu"
 
 
 msgid "Freeze Culling"
@@ -127974,10 +127897,6 @@ msgid "Armature Overlays"
 msgstr "Lớp Vẽ Lồng Khung Rối"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Lớp Vẽ Lồng Sơn Chất Liệu"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Lớp Vẽ Lồng Sơn Điểm Đỉnh"
 
@@ -129098,10 +129017,6 @@ msgid "Save As Asset..."
 msgstr "Lưu làm Tài Sản..."
 
 
-msgid "UV Map Needed"
-msgstr "Cần có Ánh Xạ UV"
-
-
 msgid "Point cache must be baked"
 msgstr "Bộ đệm điểm phải được nướng"
 
@@ -129116,10 +129031,6 @@ msgstr "Vận Tốc Tự Động"
 
 msgid "Ignore Transparent"
 msgstr "Bỏ Qua Tính Trong Suốt"
-
-
-msgid "No Textures"
-msgstr "Không Có Chất Liệu"
 
 
 msgctxt "Operator"
@@ -152381,11 +152292,6 @@ msgstr "Tô Bóng"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Lập Bảng Phân Cảnh"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Sơn Chất Liệu"
 
 
 msgctxt "WorkSpace"

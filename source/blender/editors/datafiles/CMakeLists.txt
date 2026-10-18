@@ -390,16 +390,6 @@ if(WITH_BLENDER)
       ghost_disabled
       ghost_enabled
       gizmo
-      gp_caps_flat
-      gp_caps_round
-      gp_draw_stroke
-      gp_draw_fill
-      gp_draw_both
-      gp_multiframe_editing
-      gp_only_selected
-      gp_select_between_strokes
-      gp_select_points
-      gp_select_strokes
       graph
       grid
       grip
@@ -674,7 +664,6 @@ if(WITH_BLENDER)
       outliner_data_curves
       outliner_data_empty
       outliner_data_font
-      outliner_data_gp_layer
       outliner_data_lattice
       outliner_data_light
       outliner_data_lightprobe

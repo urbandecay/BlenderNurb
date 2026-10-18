@@ -24341,22 +24341,6 @@ msgid "Node tree for node based materials"
 msgstr "Nodträd för nodbaserade material"
 
 
-msgid "Active Paint Texture Index"
-msgstr "Aktiv färgtexturindex"
-
-
-msgid "Index of active texture paint slot"
-msgstr "Index för aktiv texturmålningsslot"
-
-
-msgid "Clone Paint Texture Index"
-msgstr "Klonera målartexturindex"
-
-
-msgid "Index of clone texture paint slot"
-msgstr "Index för klontexturens målarplats"
-
-
 msgid "Index number for the \"Material Index\" render pass"
 msgstr "Indexnummer för renderingspasset \"Materialindex\""
 
@@ -24487,10 +24471,6 @@ msgstr "Möjliggör färgad transparens, men är inte kompatibel med renderpass 
 
 msgid "Texture Slot Images"
 msgstr "Texturplatsbilder"
-
-
-msgid "Texture images used for texture painting"
-msgstr "Texturbilder som används för texturmålning"
 
 
 msgid "Texture Slots"
@@ -25791,10 +25771,6 @@ msgstr "Vertexfärg"
 
 msgid "Weight Paint"
 msgstr "Viktmålning"
-
-
-msgid "Texture Paint"
-msgstr "Texturmålning"
 
 
 msgid "Particle Edit"
@@ -77123,15 +77099,6 @@ msgid "Add to Palette"
 msgstr "Lägg till i paletten"
 
 
-msgctxt "Operator"
-msgid "Texture Paint Mode"
-msgstr "Texturmålningläge"
-
-
-msgid "Toggle texture paint mode in 3D view"
-msgstr "Växla mellan texturmålarläge i 3D-vy"
-
-
 msgid "Change selection for all vertices"
 msgstr "Ändra val för alla hörn"
 
@@ -90139,26 +90106,6 @@ msgid "The mesh is missing materials"
 msgstr "Nätet saknar material"
 
 
-msgid "Missing Stencil"
-msgstr "Saknad schablon"
-
-
-msgid "Image Painting does not have a stencil"
-msgstr "Bildmålning har ingen schablon"
-
-
-msgid "Missing Texture"
-msgstr "Saknad textur"
-
-
-msgid "Image Painting does not have a texture to paint on"
-msgstr "Bildmålning har ingen textur att måla på"
-
-
-msgid "Missing UVs"
-msgstr "Saknade UV-strålar"
-
-
 msgid "A UV layer is missing on the mesh"
 msgstr "Ett UV-skikt saknas på nätet"
 
@@ -90173,10 +90120,6 @@ msgstr "Upptäck bildplatser från materialet"
 
 msgid "Single Image"
 msgstr "Enkel bild"
-
-
-msgid "Set image for texture painting directly"
-msgstr "Ställ in bild för texturmålning direkt"
 
 
 msgid "Screen Grab Size"
@@ -94103,14 +94046,6 @@ msgstr "Beräkna om ID-användarantal vid sparande"
 
 msgid "Recompute all ID user-counts before saving to a blend-file. Allows to work around invalid user-count handling in code that may lead to loss of data due to wrongly detected unused data-blocks"
 msgstr "Beräkna om alla ID-användarräkningar innan du sparar till en blend-fil. Gör det möjligt att kringgå ogiltig hantering av användarräkningar i kod som kan leda till dataförlust på grund av felaktigt upptäckta oanvända datablock."
-
-
-msgid "Sculpt Texture Paint"
-msgstr "Skulptera texturmålning"
-
-
-msgid "Use texture painting in Sculpt Mode"
-msgstr "Använd texturmålning i skulpteringsläget"
 
 
 msgid "Shader Node Previews"
@@ -108125,14 +108060,6 @@ msgid "Whether to use minimum clipping value"
 msgstr "Om minimiklippningsvärde ska användas"
 
 
-msgid "Texture Paint Slot"
-msgstr "Texturmålningsslot"
-
-
-msgid "Slot that contains information about texture painting"
-msgstr "Slot som innehåller information om texturmålning"
-
-
 msgid "Icon"
 msgstr "Ikon"
 
@@ -112261,10 +112188,6 @@ msgstr "Visa överlägget för benval"
 
 msgid "Stencil Mask Opacity"
 msgstr "Stencilmaskens opacitet"
-
-
-msgid "Opacity of the texture paint mode stencil mask overlay"
-msgstr "Opacitet för texturmålningläget stencilmasköverlägg"
 
 
 msgid "Freeze Culling"
@@ -127179,10 +127102,6 @@ msgid "Armature Overlays"
 msgstr "Armaturöverdrag"
 
 
-msgid "Texture Paint Overlays"
-msgstr "Texturmålningöverlägg"
-
-
 msgid "Vertex Paint Overlays"
 msgstr "Vertex-färgöverlägg"
 
@@ -128313,10 +128232,6 @@ msgid "Save As Asset..."
 msgstr "Spara som tillgång..."
 
 
-msgid "UV Map Needed"
-msgstr "UV-karta behövs"
-
-
 msgid "Point cache must be baked"
 msgstr "Punktcache måste bakas"
 
@@ -128331,10 +128246,6 @@ msgstr "Auto-hastighet"
 
 msgid "Ignore Transparent"
 msgstr "Ignorera transparent"
-
-
-msgid "No Textures"
-msgstr "Inga texturer"
 
 
 msgctxt "Operator"
@@ -151214,11 +151125,6 @@ msgstr "Skuggning"
 msgctxt "WorkSpace"
 msgid "Storyboarding"
 msgstr "Storyboard"
-
-
-msgctxt "WorkSpace"
-msgid "Texture Paint"
-msgstr "Texturmålning"
 
 
 msgctxt "WorkSpace"

@@ -341,8 +341,6 @@ int BKE_idtype_idcode_to_index(const short idcode)
     CASE_IDINDEX(CA);
     CASE_IDINDEX(CF);
     CASE_IDINDEX(CU_LEGACY);
-    CASE_IDINDEX(GD_LEGACY);
-    CASE_IDINDEX(GP);
     CASE_IDINDEX(GR);
     CASE_IDINDEX(CV);
     CASE_IDINDEX(IM);
@@ -399,8 +397,6 @@ int BKE_idtype_idfilter_to_index(const uint64_t id_filter)
     CASE_IDINDEX(CA);
     CASE_IDINDEX(CF);
     CASE_IDINDEX(CU_LEGACY);
-    CASE_IDINDEX(GD_LEGACY);
-    CASE_IDINDEX(GP);
     CASE_IDINDEX(GR);
     CASE_IDINDEX(CV);
     CASE_IDINDEX(IM);

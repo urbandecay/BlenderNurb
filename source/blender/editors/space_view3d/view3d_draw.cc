@@ -1789,8 +1789,8 @@ void ED_view3d_draw_offscreen(Depsgraph *depsgraph,
   region->winy = orig.region_winy;
   region->winrct = orig.region_winrct;
 
-  /* Optionally do _not_ restore rv3d matrices (e.g. they are used/stored in the ImBuff for
-   * reprojection, see texture_paint_image_from_view_exec()). */
+  /* Optionally do _not_ restore rv3d matrices (e.g. they are used/stored in the ImBuf for
+   * reprojection). */
   if (restore_rv3d_mats) {
     ED_view3d_mats_rv3d_restore(static_cast<RegionView3D *>(region->regiondata), orig.rv3d_mats);
   }
@@ -2262,12 +2262,6 @@ static void validate_object_select_id(const Main &bmain,
 
   if (obact_eval && (obact_eval->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT) ||
                      BKE_paint_select_face_test(obact_eval)))
-  {
-    /* do nothing */
-  }
-  /* texture paint mode sampling */
-  else if (obact_eval && (obact_eval->mode & OB_MODE_TEXTURE_PAINT) &&
-           (v3d->shading.type > OB_WIRE))
   {
     /* do nothing */
   }

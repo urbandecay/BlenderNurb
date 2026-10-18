@@ -153,12 +153,6 @@ int BKE_object_material_index_get_with_hint(Object *ob, const Material *ma, int 
 
 int BKE_object_material_ensure(Main *bmain, Object *ob, Material *material);
 
-
-void BKE_texpaint_slot_refresh_cache(Scene *scene, Material *ma, const Object *ob);
-void BKE_texpaint_slots_refresh_object(Scene *scene, Object *ob);
-std::pair<bNodeTree *, bNode *> BKE_texpaint_slot_material_find_node(Material *ma,
-                                                                     short texpaint_slot);
-
 /** \} */
 
 /* -------------------------------------------------------------------- */

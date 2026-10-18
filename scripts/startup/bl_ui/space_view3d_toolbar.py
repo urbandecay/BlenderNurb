@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import bpy
-from bpy.types import Menu, Panel, UIList, WindowManager
+from bpy.types import Menu, Panel, WindowManager
 from bpy.app.translations import (
     pgettext_iface as iface_,
     contexts as i18n_contexts,
@@ -12,15 +12,12 @@ from bpy.app.translations import (
 from bl_ui.properties_paint_common import (
     UnifiedPaintPanel,
     BrushSelectPanel,
-    ClonePanel,
-    TextureMaskPanel,
     ColorPalettePanel,
     StrokePanel,
     SmoothStrokePanel,
     FalloffPanel,
     DisplayPanel,
     brush_texture_settings,
-    brush_mask_texture_settings,
     brush_settings,
     brush_settings_advanced,
     draw_color_settings,
@@ -230,18 +227,6 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
 # ********** default tools for paint modes ****************
 
 
-class TEXTURE_UL_texpaintslots(UIList):
-    def draw_item(self, _context, layout, _data, item, _icon, _active_data, _active_propname, _index):
-        # mat = data
-
-        # Hint that painting on linked images is prohibited
-        ima = _data.texture_paint_images.get(item.name)
-        if ima is not None and not ima.is_editable:
-            layout.enabled = False
-
-        layout.label(text=item.name, icon_value=item.icon_value)
-
-
 class View3DPaintPanel(View3DPanel, UnifiedPaintPanel):
     bl_category = "Tool"
 
@@ -370,10 +355,7 @@ class VIEW3D_PT_tools_brush_color(Panel, View3DPaintPanel):
         settings = cls.paint_settings(context)
         brush = settings.brush
 
-        if context.image_paint_object:
-            capabilities = brush.image_paint_capabilities
-            return capabilities.has_color
-        elif context.vertex_paint_object:
+        if context.vertex_paint_object:
             capabilities = brush.vertex_paint_capabilities
             return capabilities.has_color
         elif context.sculpt_object:
@@ -395,209 +377,6 @@ class VIEW3D_PT_tools_brush_swatches(Panel, View3DPaintPanel, ColorPalettePanel)
     bl_parent_id = "VIEW3D_PT_tools_brush_settings"
     bl_label = "Color Palette"
     bl_options = {'DEFAULT_CLOSED'}
-
-
-class VIEW3D_PT_tools_brush_clone(Panel, View3DPaintPanel, ClonePanel):
-    bl_context = ".paint_common"
-    bl_parent_id = "VIEW3D_PT_tools_brush_settings"
-    bl_label = "Clone from Paint Slot"
-    bl_options = {'DEFAULT_CLOSED'}
-
-
-class VIEW3D_MT_tools_projectpaint_uvlayer(Menu):
-    bl_label = "Clone Layer"
-
-    def draw(self, context):
-        layout = self.layout
-
-        for i, uv_layer in enumerate(context.active_object.data.uv_layers):
-            props = layout.operator("wm.context_set_int", text=uv_layer.name, translate=False)
-            props.data_path = "active_object.data.uv_layers.active_index"
-            props.value = i
-
-
-class SelectPaintSlotHelper:
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-
-    canvas_source_attr_name = "canvas_source"
-    canvas_image_attr_name = "canvas_image"
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        settings = context.tool_settings.image_paint
-        mode_settings = self.get_mode_settings(context)
-
-        ob = context.active_object
-
-        layout.prop(mode_settings, self.canvas_source_attr_name, text="Mode")
-        layout.separator()
-
-        have_image = False
-
-        match getattr(mode_settings, self.canvas_source_attr_name):
-            case 'MATERIAL':
-                if len(ob.material_slots) > 1:
-                    layout.template_list(
-                        "MATERIAL_UL_matslots", "layers",
-                        ob, "material_slots",
-                        ob, "active_material_index", rows=2,
-                    )
-                mat = ob.active_material
-                if mat and mat.texture_paint_images:
-                    row = layout.row()
-                    row.template_list(
-                        "TEXTURE_UL_texpaintslots", "",
-                        mat, "texture_paint_slots",
-                        mat, "paint_active_slot", rows=2,
-                    )
-
-                    if mat.texture_paint_slots:
-                        slot = mat.texture_paint_slots[mat.paint_active_slot]
-                    else:
-                        slot = None
-
-                    have_image = slot is not None
-                else:
-                    row = layout.row()
-
-                    box = row.box()
-                    box.label(text="No Textures")
-
-                sub = row.column(align=True)
-                sub.operator_menu_enum("paint.add_texture_paint_slot", "type", icon='ADD', text="")
-
-            case 'IMAGE':
-                mesh = ob.data
-                uv_text = mesh.uv_layers.active.name if mesh.uv_layers.active else ""
-                layout.template_ID(mode_settings, self.canvas_image_attr_name, new="image.new", open="image.open")
-                if settings.missing_uvs:
-                    layout.operator("paint.add_simple_uvs", icon='ADD', text="Add UVs")
-                else:
-                    layout.menu("VIEW3D_MT_tools_projectpaint_uvlayer", text=uv_text, translate=False)
-                have_image = getattr(mode_settings, self.canvas_image_attr_name) is not None
-
-                self.draw_image_interpolation(layout=layout, mode_settings=mode_settings)
-
-            case 'COLOR_ATTRIBUTE':
-                mesh = ob.data
-
-                row = layout.row()
-                col = row.column()
-                col.template_list(
-                    "MESH_UL_color_attributes_selector",
-                    "color_attributes",
-                    mesh,
-                    "color_attributes",
-                    mesh.color_attributes,
-                    "active_color_index",
-                    rows=3,
-                )
-
-                col = row.column(align=True)
-                col.operator("geometry.color_attribute_add", icon='ADD', text="")
-                col.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
-
-        if settings.missing_uvs:
-            layout.separator()
-            split = layout.split()
-            split.label(text="UV Map Needed", icon='INFO')
-            split.operator("paint.add_simple_uvs", icon='ADD', text="Add Simple UVs")
-        elif have_image:
-            layout.separator()
-            layout.operator("image.save_all_modified", text="Save All Images", icon='FILE_TICK')
-
-
-class VIEW3D_PT_slots_projectpaint(SelectPaintSlotHelper, View3DPanel, Panel):
-    bl_label = "Texture Slots"
-
-    canvas_source_attr_name = "mode"
-    canvas_image_attr_name = "canvas"
-
-    @classmethod
-    def poll(cls, context):
-        brush = context.tool_settings.image_paint.brush
-        return (brush is not None and context.active_object is not None)
-
-    def get_mode_settings(self, context):
-        return context.tool_settings.image_paint
-
-    def draw_image_interpolation(self, layout, mode_settings):
-        layout.prop(mode_settings, "interpolation", text="")
-
-    def draw_header(self, context):
-        tool = context.tool_settings.image_paint
-        ob = context.object
-        mat = ob.active_material
-
-        label = iface_("Texture Slots")
-
-        if tool.mode == 'MATERIAL':
-            if mat and mat.texture_paint_images and mat.texture_paint_slots:
-                label = mat.texture_paint_slots[mat.paint_active_slot].name
-        elif tool.canvas:
-            label = tool.canvas.name
-
-        self.bl_label = label
-
-
-class VIEW3D_PT_slots_paint_canvas(SelectPaintSlotHelper, View3DPanel, Panel):
-    bl_label = "Canvas"
-
-    @classmethod
-    def poll(cls, context):
-        if not context.preferences.experimental.use_sculpt_texture_paint:
-            return False
-
-        from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
-        tool = ToolSelectPanelHelper.tool_active_from_context(context)
-        if tool is None:
-            return False
-
-        is_paint_tool = False
-        if tool.use_brushes:
-            brush = context.tool_settings.sculpt.brush
-            if brush:
-                is_paint_tool = brush.sculpt_brush_type in {'PAINT', 'SMEAR'}
-        else:
-            # TODO: The property use_paint_canvas doesn't work anymore since its associated
-            # C++ function 'rna_WorkSpaceTool_use_paint_canvas_get' passes in a nullptr for
-            # the bContext. This property should be fixed in the future, but will require
-            # some extensive refactoring. For now, use the workaround above.
-            is_paint_tool = tool.use_paint_canvas
-
-        return is_paint_tool
-
-    def get_mode_settings(self, context):
-        return context.tool_settings.paint_mode
-
-    def draw_image_interpolation(self, **_kwargs):
-        pass
-
-    def draw_header(self, context):
-        paint = context.tool_settings.paint_mode
-        ob = context.object
-        me = ob.data
-        mat = ob.active_material
-
-        label = iface_("Canvas")
-
-        if paint.canvas_source == 'MATERIAL':
-            if mat and mat.texture_paint_images and mat.texture_paint_slots:
-                label = mat.texture_paint_slots[mat.paint_active_slot].name
-        elif paint.canvas_source == 'COLOR_ATTRIBUTE':
-            active_color = me.color_attributes.active_color
-            label = (
-                active_color.name if active_color else
-                iface_("Color Attribute")
-            )
-        elif paint.canvas_image:
-            label = paint.canvas_image.name
-
-        self.bl_label = label
 
 
 class VIEW3D_PT_slots_color_attributes(Panel):
@@ -686,67 +465,6 @@ class VIEW3D_PT_slots_vertex_groups(Panel):
             col.operator("object.vertex_group_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
 
-class VIEW3D_PT_mask(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-    bl_label = "Masking"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        pass
-
-
-class VIEW3D_PT_stencil_projectpaint(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-    bl_label = "Stencil Mask"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_parent_id = "VIEW3D_PT_mask"
-    bl_ui_units_x = 14
-
-    @classmethod
-    def poll(cls, context):
-        brush = context.tool_settings.image_paint.brush
-        ob = context.active_object
-        return (brush is not None and ob is not None)
-
-    def draw_header(self, context):
-        ipaint = context.tool_settings.image_paint
-        self.layout.prop(ipaint, "use_stencil_layer", text=self.bl_label if self.is_popover else "")
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        tool_settings = context.tool_settings
-        ipaint = tool_settings.image_paint
-        ob = context.active_object
-        mesh = ob.data
-
-        col = layout.column()
-        col.active = ipaint.use_stencil_layer
-
-        col.label(text="Stencil Image")
-        col.template_ID(ipaint, "stencil_image", new="image.new", open="image.open")
-
-        stencil_text = mesh.uv_layer_stencil.name if mesh.uv_layer_stencil else ""
-
-        col.separator()
-
-        split = col.split()
-        colsub = split.column()
-        colsub.alignment = 'RIGHT'
-        colsub.label(text="UV Layer")
-        split.column().menu("VIEW3D_MT_tools_projectpaint_stencil", text=stencil_text, translate=False)
-
-        col.separator()
-
-        row = col.row(align=True)
-        row.prop(ipaint, "stencil_color", text="Display Color")
-        row.prop(ipaint, "invert_stencil", text="", icon='IMAGE_ALPHA')
-
-
 class VIEW3D_PT_tools_brush_display(Panel, View3DPaintBrushPanel, DisplayPanel):
     bl_context = ".paint_common"
     bl_parent_id = "VIEW3D_PT_tools_brush_settings"
@@ -770,8 +488,6 @@ class VIEW3D_PT_tools_brush_texture(Panel, View3DPaintPanel):
         ):
             if context.sculpt_object or context.vertex_paint_object:
                 return True
-            elif context.image_paint_object:
-                return (brush.image_brush_type == 'DRAW')
         return False
 
     def draw(self, context):
@@ -785,32 +501,6 @@ class VIEW3D_PT_tools_brush_texture(Panel, View3DPaintPanel):
         col.template_ID_preview(tex_slot, "texture", new="texture.new", rows=3, cols=8)
 
         brush_texture_settings(col, brush, context.sculpt_object)
-
-
-class VIEW3D_PT_tools_mask_texture(Panel, View3DPaintPanel, TextureMaskPanel):
-    bl_category = "Tool"
-    bl_context = ".imagepaint"  # dot on purpose (access from topbar)
-    bl_parent_id = "VIEW3D_PT_tools_brush_settings"
-    bl_label = "Texture Mask"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_ui_units_x = 13
-
-    @classmethod
-    def poll(cls, context):
-        settings = cls.paint_settings(context)
-        return (settings and settings.brush and context.image_paint_object)
-
-    def draw(self, context):
-        layout = self.layout
-
-        brush = context.tool_settings.image_paint.brush
-
-        col = layout.column()
-        mask_tex_slot = brush.mask_texture_slot
-
-        col.template_ID_preview(mask_tex_slot, "texture", new="texture.new", rows=3, cols=8)
-
-        brush_mask_texture_settings(col, brush)
 
 
 class VIEW3D_PT_tools_brush_stroke(Panel, View3DPaintPanel, StrokePanel):
@@ -874,7 +564,7 @@ class VIEW3D_PT_tools_brush_falloff(Panel, View3DPaintPanel, FalloffPanel):
 
 
 class VIEW3D_PT_tools_brush_falloff_frontface(View3DPaintPanel, Panel):
-    bl_context = ".imagepaint"  # dot on purpose (access from topbar)
+    bl_context = ".paint_common"  # dot on purpose (access from topbar)
     bl_label = "Front-Face Falloff"
     bl_parent_id = "VIEW3D_PT_tools_brush_falloff"
     bl_options = {'DEFAULT_CLOSED'}
@@ -901,36 +591,6 @@ class VIEW3D_PT_tools_brush_falloff_frontface(View3DPaintPanel, Panel):
         row = layout.row()
         row.active = brush.use_frontface_falloff
         row.prop(brush, "falloff_angle", text="Angle")
-
-
-class VIEW3D_PT_tools_brush_falloff_normal(View3DPaintPanel, Panel):
-    bl_context = ".imagepaint"  # dot on purpose (access from topbar)
-    bl_label = "Normal Falloff"
-    bl_parent_id = "VIEW3D_PT_tools_brush_falloff"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.image_paint_object
-
-    def draw_header(self, context):
-        tool_settings = context.tool_settings
-        ipaint = tool_settings.image_paint
-
-        self.layout.prop(ipaint, "use_normal_falloff", text=self.bl_label if self.is_popover else "")
-
-    def draw(self, context):
-        tool_settings = context.tool_settings
-        ipaint = tool_settings.image_paint
-
-        layout = self.layout
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        row = layout.row()
-        row.active = ipaint.use_normal_falloff
-        row.prop(ipaint, "normal_angle", text="Angle")
 
 
 class VIEW3D_PT_sculpt_dyntopo(Panel, View3DPaintPanel):
@@ -1263,142 +923,6 @@ class VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar(Panel):
     draw = VIEW3D_PT_tools_vertexpaint_symmetry.draw
 
 
-# ********** default tools for texture-paint ****************
-
-
-class VIEW3D_PT_tools_imagepaint_options_external(Panel, View3DPaintPanel):
-    bl_context = ".imagepaint"  # dot on purpose (access from topbar)
-    bl_label = "External"
-    bl_parent_id = "VIEW3D_PT_tools_imagepaint_options"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        tool_settings = context.tool_settings
-        ipaint = tool_settings.image_paint
-
-        layout.prop(ipaint, "screen_grab_size", text="Screen Grab Size")
-
-        layout.separator()
-
-        flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=False)
-        col = flow.column()
-        col.operator("image.project_edit", text="Quick Edit")
-        col = flow.column()
-        col.operator("image.project_apply", text="Apply")
-        col = flow.column()
-        col.operator("paint.project_image", text="Apply Camera Image")
-
-
-class VIEW3D_PT_tools_imagepaint_symmetry(Panel, View3DPaintPanel):
-    bl_context = ".imagepaint"  # dot on purpose (access from topbar)
-    bl_label = "Symmetry"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        # When used in the tool header, this is explicitly included next to the XYZ symmetry buttons.
-        return (context.region.type != 'TOOL_HEADER')
-
-    def draw(self, context):
-        layout = self.layout
-
-        split = layout.split()
-
-        col = split.column()
-        col.alignment = 'RIGHT'
-        col.label(text="Mirror")
-
-        col = split.column()
-
-        row = col.row(align=True)
-        ob = context.object
-        mesh = ob.data
-        row.prop(mesh, "use_mirror_x", text="X", toggle=True)
-        row.prop(mesh, "use_mirror_y", text="Y", toggle=True)
-        row.prop(mesh, "use_mirror_z", text="Z", toggle=True)
-
-
-class VIEW3D_PT_tools_imagepaint_options(View3DPaintPanel, Panel):
-    bl_context = ".imagepaint"  # dot on purpose (access from topbar)
-    bl_label = "Options"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        brush = context.tool_settings.image_paint.brush
-        return (brush is not None)
-
-    def draw(self, context):
-        layout = self.layout
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        tool_settings = context.tool_settings
-        ipaint = tool_settings.image_paint
-
-        layout.prop(ipaint, "seam_bleed")
-        layout.prop(ipaint, "dither", slider=True)
-
-        col = layout.column()
-        col.prop(ipaint, "use_occlude")
-        col.prop(ipaint, "use_backface_culling", text="Backface Culling")
-
-
-class VIEW3D_PT_tools_imagepaint_options_cavity(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-    bl_label = "Cavity Mask"
-    bl_parent_id = "VIEW3D_PT_mask"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw_header(self, context):
-        tool_settings = context.tool_settings
-        ipaint = tool_settings.image_paint
-
-        self.layout.prop(ipaint, "use_cavity", text=self.bl_label if self.is_popover else "")
-
-    def draw(self, context):
-        layout = self.layout
-
-        tool_settings = context.tool_settings
-        ipaint = tool_settings.image_paint
-
-        col = layout.column()
-        col.active = ipaint.use_cavity
-        col.template_curve_mapping(ipaint, "cavity_curve", brush=True)
-
-
-class VIEW3D_PT_imagepaint_options(View3DPaintPanel):
-    bl_label = "Options"
-
-    @classmethod
-    def poll(cls, _context):
-        # This is currently unused, since there aren't any Vertex Paint mode specific options.
-        return False
-        # return (context.image_paint_object and context.tool_settings.image_paint)
-
-    def draw(self, _context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-
-class VIEW3D_MT_tools_projectpaint_stencil(Menu):
-    bl_label = "Mask Layer"
-
-    def draw(self, context):
-        layout = self.layout
-        for i, uv_layer in enumerate(context.active_object.data.uv_layers):
-            props = layout.operator("wm.context_set_int", text=uv_layer.name, translate=False)
-            props.data_path = "active_object.data.uv_layer_stencil_index"
-            props.value = i
-
-
 class VIEW3D_PT_tools_particlemode_options(View3DPanel, Panel):
     """Default tools for particle mode"""
     bl_category = "Tool"
@@ -1530,8 +1054,6 @@ classes = (
     VIEW3D_PT_tools_armatureedit_options,
     VIEW3D_PT_tools_posemode_options,
 
-    VIEW3D_PT_slots_projectpaint,
-    VIEW3D_PT_slots_paint_canvas,
     VIEW3D_PT_slots_color_attributes,
     VIEW3D_PT_slots_vertex_groups,
     VIEW3D_PT_tools_brush_select,
@@ -1539,16 +1061,11 @@ classes = (
     VIEW3D_PT_tools_brush_color,
     VIEW3D_PT_tools_brush_swatches,
     VIEW3D_PT_tools_brush_settings_advanced,
-    VIEW3D_PT_tools_brush_clone,
-    TEXTURE_UL_texpaintslots,
-    VIEW3D_MT_tools_projectpaint_uvlayer,
     VIEW3D_PT_tools_brush_texture,
-    VIEW3D_PT_tools_mask_texture,
     VIEW3D_PT_tools_brush_stroke,
     VIEW3D_PT_tools_brush_stroke_smooth_stroke,
     VIEW3D_PT_tools_brush_falloff,
     VIEW3D_PT_tools_brush_falloff_frontface,
-    VIEW3D_PT_tools_brush_falloff_normal,
     VIEW3D_PT_tools_brush_display,
     VIEW3D_PT_tools_weight_gradient,
 
@@ -1569,16 +1086,6 @@ classes = (
     VIEW3D_PT_tools_vertexpaint_symmetry,
     VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar,
     VIEW3D_PT_tools_vertexpaint_options,
-
-    VIEW3D_PT_mask,
-    VIEW3D_PT_stencil_projectpaint,
-    VIEW3D_PT_tools_imagepaint_options_cavity,
-
-    VIEW3D_PT_tools_imagepaint_symmetry,
-    VIEW3D_PT_tools_imagepaint_options,
-
-    VIEW3D_PT_tools_imagepaint_options_external,
-    VIEW3D_MT_tools_projectpaint_stencil,
 
     VIEW3D_PT_tools_particlemode,
     VIEW3D_PT_tools_particlemode_options,

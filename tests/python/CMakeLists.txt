@@ -1635,13 +1635,6 @@ if(TEST_SRC_DIR_EXISTS)
   )
 
   add_blender_test(
-    bl_texture_paint_brushes
-    --python ${CMAKE_CURRENT_LIST_DIR}/sculpt_paint/texture_paint_brushes_test.py
-    --
-    --testdir "${TEST_SRC_DIR}/mesh_paint"
-  )
-
-  add_blender_test(
     bl_sculpt_brush_curve_presets
     --python ${CMAKE_CURRENT_LIST_DIR}/sculpt_paint/brush_strength_curves_test.py
     --
@@ -1692,15 +1685,12 @@ if(WITH_UI_TESTS)
     test_undo.view3d_mesh_particle_edit_mode_simple
     test_undo.view3d_multi_mode_multi_window
     test_undo.view3d_multi_mode_select
-    test_undo.view3d_particle_edit_undo_from_texture_paint
     test_undo.view3d_sculpt_dyntopo_and_edit
     test_undo.view3d_sculpt_dyntopo_simple
     test_undo.view3d_sculpt_dyntopo_stroke_toggle
     test_undo.view3d_sculpt_with_memfile_step
     test_undo.view3d_sculpt_trim
     test_undo.view3d_simple
-    test_undo.view3d_texture_paint_complex
-    test_undo.view3d_texture_paint_simple
     test_workspace.sanity_check_general
     test_workspace.sanity_check_2d_animation
     test_workspace.sanity_check_sculpting

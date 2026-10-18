@@ -892,7 +892,7 @@ static bool image_undosys_step_encode(bContext *C, Main * /*bmain*/, UndoStep *u
     BLI_assert(C != nullptr);
     /* Happens when switching modes. */
     PaintMode paint_mode = BKE_paintmode_get_active_from_context(C);
-    BLI_assert(ELEM(paint_mode, PaintMode::Texture2D, PaintMode::Texture3D));
+    BLI_assert(paint_mode == PaintMode::Texture2D);
     us->paint_mode = paint_mode;
   }
 
@@ -955,7 +955,7 @@ static void image_undosys_step_decode_redo(ImageUndoStep *us)
 }
 
 static void image_undosys_step_decode(
-    bContext *C, Main *bmain, UndoStep *us_p, const eUndoStepDir dir, bool is_final)
+    bContext * /*C*/, Main *bmain, UndoStep *us_p, const eUndoStepDir dir, bool is_final)
 {
   /* NOTE: behavior for undo/redo closely matches sculpt undo. */
   BLI_assert(dir != STEP_INVALID);
@@ -966,21 +966,6 @@ static void image_undosys_step_decode(
   }
   else if (dir == STEP_REDO) {
     image_undosys_step_decode_redo(us);
-  }
-
-  if (us->paint_mode == PaintMode::Texture3D) {
-    ed::object::mode_set_ex(C, OB_MODE_TEXTURE_PAINT, false, nullptr);
-  }
-
-  /* Ideally, we shouldn't have to tag the object as needing to be recalculated if using this paint
-   * mode, however, because the image isn't connected as part of the shader nodes, the draw code
-   * is unaware of the corresponding image tag. See #150957 for more details. */
-  const Scene *scene = CTX_data_scene(C);
-  Object *object = CTX_data_active_object(C);
-  if (object && object->type == OB_MESH && scene &&
-      scene->toolsettings->imapaint.mode == IMAGEPAINT_MODE_IMAGE)
-  {
-    DEG_id_tag_update(&object->id, ID_RECALC_SHADING);
   }
 
   /* Refresh texture slots. */
@@ -1071,7 +1056,7 @@ static ImageUndoStep *image_undo_push_begin(const char *name, PaintMode paint_mo
   bContext *C = nullptr; /* special case, we never read from this. */
   UndoStep *us_p = BKE_undosys_step_push_init_with_type(ustack, C, name, BKE_UNDOSYS_TYPE_IMAGE);
   ImageUndoStep *us = reinterpret_cast<ImageUndoStep *>(us_p);
-  BLI_assert(ELEM(paint_mode, PaintMode::Texture2D, PaintMode::Texture3D, PaintMode::Sculpt));
+  BLI_assert(paint_mode == PaintMode::Texture2D);
   us->paint_mode = paint_mode;
   return us;
 }

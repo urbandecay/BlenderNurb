@@ -82,7 +82,7 @@ static Object *make_prim_init(bContext *C,
       break;
     default:
       /* Permit adding objects in a variety of modes, even those which are not typically associated
-       * with mesh-editing actions (e.g. Vertex & Texture Paint). This has been the case since 2.7x
+       * with mesh-editing actions (e.g. Vertex and Weight Paint). This has been the case since 2.7x
        * and as a result, the operators are often used in user created scripts. */
       obedit = ed::object::add_type(C, OB_MESH, idname, loc, rot, false, local_view_bits);
       ed::object::editmode_enter_ex(bmain, scene, obedit, 0);

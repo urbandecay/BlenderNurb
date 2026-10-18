@@ -2796,7 +2796,7 @@ static wmOperatorStatus image_new_invoke(bContext *C, wmOperator *op, const wmEv
 
 static void image_new_draw(bContext * /*C*/, wmOperator *op)
 {
-  /* TODO: Deduplicate with texture_paint_add_texture_paint_slot_ui */
+  /* TODO: Share this layout with the other image creation dialogs. */
   ui::Layout &layout = *op->layout;
 
   /* copy of WM_operator_props_dialog_popup() layout */

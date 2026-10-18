@@ -660,30 +660,24 @@ static void create_legacy_geometry_nodes_properties(Object &ob)
           continue;
         }
         const int type = IDP_int_get(type_prop);
-        if (type == int(nodes::GeometryNodesInputType::Layer)) {
-          if (const IDProperty *name = IDP_GetPropertyFromGroup(&prop, "layer_name")) {
-            IDProperty *legacy_prop = IDP_CopyProperty(name);
-            STRNCPY(legacy_prop->name, identifier.c_str());
-            IDP_AddToGroup(legacy_props, legacy_prop);
-          }
+        if (type > int(nodes::GeometryNodesInputType::Attribute)) {
+          continue;
         }
-        else {
-          if (const IDProperty *value = IDP_GetPropertyFromGroup(&prop, "value")) {
-            IDProperty *legacy_prop = IDP_CopyProperty(value);
-            STRNCPY(legacy_prop->name, identifier.c_str());
-            IDP_AddToGroup(legacy_props, legacy_prop);
-          }
+        if (const IDProperty *value = IDP_GetPropertyFromGroup(&prop, "value")) {
+          IDProperty *legacy_prop = IDP_CopyProperty(value);
+          STRNCPY(legacy_prop->name, identifier.c_str());
+          IDP_AddToGroup(legacy_props, legacy_prop);
+        }
 
-          const bool use_attribute = type == int(nodes::GeometryNodesInputType::Attribute);
-          IDP_AddToGroup(
-              legacy_props,
-              bke::idprop::create(identifier + "_use_attribute", int(use_attribute)).release());
+        const bool use_attribute = type == int(nodes::GeometryNodesInputType::Attribute);
+        IDP_AddToGroup(
+            legacy_props,
+            bke::idprop::create(identifier + "_use_attribute", int(use_attribute)).release());
 
-          if (const IDProperty *name = IDP_GetPropertyFromGroup(&prop, "attribute_name")) {
-            IDProperty *legacy_attr_prop = IDP_CopyProperty(name);
-            SNPRINTF(legacy_attr_prop->name, "%s_attribute_name", identifier.c_str());
-            IDP_AddToGroup(legacy_props, legacy_attr_prop);
-          }
+        if (const IDProperty *name = IDP_GetPropertyFromGroup(&prop, "attribute_name")) {
+          IDProperty *legacy_attr_prop = IDP_CopyProperty(name);
+          SNPRINTF(legacy_attr_prop->name, "%s_attribute_name", identifier.c_str());
+          IDP_AddToGroup(legacy_props, legacy_attr_prop);
         }
       }
     }

@@ -509,16 +509,6 @@ def ctx_object_paint_sculpt():
     bpy.ops.object.mode_set(mode='SCULPT')
 
 
-def ctx_object_paint_texture():
-    bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
-
-
-def ctx_object_paint_texture_with_face_mask():
-    bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
-    for mesh in bpy.data.meshes:
-        mesh.use_paint_mask = True
-
-
 def perform_coverage_test():
     def open_and_close_menu_search():
         MENU_CALLED_RUNTIME.clear()
@@ -547,8 +537,6 @@ def perform_coverage_test():
 
             # Paint modes.
             (ctx_object_paint_sculpt, 'VIEW_3D'),
-            (ctx_object_paint_texture, 'VIEW_3D'),
-            (ctx_object_paint_texture_with_face_mask, 'VIEW_3D'),
             (ctx_object_paint_vertex, 'VIEW_3D'),
             (ctx_object_paint_weight, 'VIEW_3D'),
             (ctx_object_paint_weight_with_vert_mask, 'VIEW_3D'),

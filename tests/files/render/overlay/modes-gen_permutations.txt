@@ -50,6 +50,3 @@ modes-gen_0049_vertex-paint_overlays-on-vertex
 modes-gen_0050_weight-paint_overlays-off
 modes-gen_0051_weight-paint_overlays-on-face
 modes-gen_0052_weight-paint_overlays-on-vertex
-modes-gen_0053_texture-paint_overlays-off
-modes-gen_0054_texture-paint_overlays-on-face
-modes-gen_0055_texture-paint_overlays-on-vertex

@@ -2058,8 +2058,7 @@ static void rna_def_node_socket_interface_material(BlenderRNA *brna, const char 
   prop = RNA_def_property(srna, "default_value", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, nullptr, "value");
   RNA_def_property_struct_type(prop, "Material");
-  RNA_def_property_pointer_funcs(
-      prop, nullptr, nullptr, nullptr, "rna_NodeTreeInterfaceSocketMaterial_default_value_poll");
+  RNA_def_property_pointer_funcs(prop, nullptr, nullptr, nullptr, nullptr);
   RNA_def_property_ui_text(prop, "Default Value", "Input value used for unconnected socket");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeTreeInterfaceItem_update");
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);

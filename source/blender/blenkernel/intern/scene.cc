@@ -620,27 +620,12 @@ static void scene_foreach_toolsettings(LibraryForeachIDData *data,
   scene_foreach_paint(
       data, &toolsett->imapaint.paint, do_undo_restore, reader, &toolsett_old->imapaint.paint);
   BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_IDSUPER_P(data,
-                                                    &toolsett->imapaint.stencil,
-                                                    do_undo_restore,
-                                                    SCENE_FOREACH_UNDO_RESTORE,
-                                                    reader,
-                                                    &toolsett_old->imapaint.stencil,
-                                                    IDWALK_CB_USER);
-  BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_IDSUPER_P(data,
                                                     &toolsett->imapaint.clone,
                                                     do_undo_restore,
                                                     SCENE_FOREACH_UNDO_RESTORE,
                                                     reader,
                                                     &toolsett_old->imapaint.clone,
                                                     IDWALK_CB_USER);
-  BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_IDSUPER_P(data,
-                                                    &toolsett->imapaint.canvas,
-                                                    do_undo_restore,
-                                                    SCENE_FOREACH_UNDO_RESTORE,
-                                                    reader,
-                                                    &toolsett_old->imapaint.canvas,
-                                                    IDWALK_CB_USER);
-
   /* These two Object pointers should just follow the normal Undo behavior. See #153065. */
   BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_IDSUPER_P(data,
                                                     &toolsett->anim_mirror_object,
@@ -1327,7 +1312,6 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       BKE_curveprofile_blend_read(reader, sce->toolsettings->custom_bevel_profile_preset);
     }
 
-    BLO_read_raw_address(reader, &sce->toolsettings->paint_mode.canvas_image);
     BLO_read_struct(reader, SequencerToolSettings, &sce->toolsettings->sequencer_tool_settings);
   }
 
