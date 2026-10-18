@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "node_geometry_util.hh"
 
@@ -12,7 +11,7 @@ namespace blender::nodes::node_geo_curve_length_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curve to compute the length of");
   b.add_output<decl::Float>("Length"_ustr);
 }
@@ -37,18 +36,6 @@ static void node_geo_exec(GeoNodeExecParams params)
     const Curves &curves_id = *geometry_set.get_curves();
     const bke::CurvesGeometry &curves = curves_id.geometry.wrap();
     length += curves_total_length(curves);
-  }
-  else if (geometry_set.has_grease_pencil()) {
-    using namespace bke::greasepencil;
-    const GreasePencil &grease_pencil = *geometry_set.get_grease_pencil();
-    for (const int layer_index : grease_pencil.layers().index_range()) {
-      const Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-      if (drawing == nullptr) {
-        continue;
-      }
-      const bke::CurvesGeometry &curves = drawing->strokes();
-      length += curves_total_length(curves);
-    }
   }
   else {
     params.set_default_remaining_outputs();

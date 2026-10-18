@@ -124,7 +124,6 @@ def main():
         ConversionPair('Legacy Curves 2', 'CubeWithEdges', 'CURVE', 'CURVE'),
         ConversionPair('Legacy Curves 3', 'Plane', 'CURVE', 'CURVE'),
         ConversionPair('Legacy Curves 4', 'HollowPlane', 'CURVE', 'CURVE'),
-        ConversionPair('Legacy Curves 5', 'Suzanne', 'CURVE', 'GREASEPENCIL'),
         ConversionPair('Legacy Curves 6', 'BezierCircle', 'CURVE', 'CURVE'),
         ConversionPair('Legacy Curves 7', 'BezierCurve', 'CURVE', 'CURVE'),
         ConversionPair('Legacy Curves 8', 'Text', 'CURVE', 'CURVE'),
@@ -136,17 +135,6 @@ def main():
         ConversionPair('Curves 6', 'BezierCircle', 'CURVES', 'CURVES'),
         ConversionPair('Curves 7', 'BezierCurve', 'CURVES', 'CURVES'),
         ConversionPair('Curves 8', 'Text', 'CURVES', 'CURVES'),
-        ConversionPair('GreasePencil 1', 'Cube', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 2', 'CubeWithEdges', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 3', 'Plane', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 4', 'HollowPlane', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 5', 'Suzanne', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 6', 'BezierCircle', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 7', 'BezierCurve', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 8', 'Text', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 9', 'Suzanne_Curves', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 10', 'BezierCircle_Curves', 'GREASEPENCIL', 'GREASEPENCIL'),
-        ConversionPair('GreasePencil 11', 'BezierCurve_Curves', 'GREASEPENCIL', 'GREASEPENCIL'),
     ]
 
     operator_test = RunTest(tests)

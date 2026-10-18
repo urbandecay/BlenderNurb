@@ -88,6 +88,9 @@ struct LibmvFrameAccessor : public FrameAccessor {
                       int track,
                       const Region* region,
                       FloatImage* destination) {
+    if (get_mask_for_track_callback_ == nullptr) {
+      return nullptr;
+    }
     float* float_buffer;
     int width, height;
     libmv_Region libmv_region;
@@ -116,7 +119,12 @@ struct LibmvFrameAccessor : public FrameAccessor {
     return cache_key;
   }
 
-  void ReleaseMask(Key key) { release_mask_callback_(key); }
+  void ReleaseMask(Key key)
+  {
+    if (release_mask_callback_ != nullptr) {
+      release_mask_callback_(key);
+    }
+  }
 
   bool GetClipDimensions(int /*clip*/, int* /*width*/, int* /*height*/) {
     return false;

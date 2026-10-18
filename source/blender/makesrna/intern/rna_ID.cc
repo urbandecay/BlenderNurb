@@ -40,8 +40,6 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_CU_LEGACY, "CURVE", ICON_CURVE_DATA, "Curve", ""},
     {ID_CV, "CURVES", ICON_CURVES_DATA, "Curves", ""},
     {ID_VF, "FONT", ICON_FONT_DATA, "Font", ""},
-    {ID_GD_LEGACY, "GREASEPENCIL", ICON_GREASEPENCIL, "Grease Pencil", ""},
-    {ID_GP, "GREASEPENCIL_V3", ICON_GREASEPENCIL, "Grease Pencil v3", ""},
     {ID_IM, "IMAGE", ICON_IMAGE_DATA, "Image", ""},
     {ID_KE, "KEY", ICON_SHAPEKEY_DATA, "Key", ""},
     {ID_LT, "LATTICE", ICON_LATTICE_DATA, "Lattice", ""},
@@ -135,16 +133,6 @@ const IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
     {FILTER_ID_CA, "filter_camera", ICON_CAMERA_DATA, "Cameras", "Show Camera data-blocks"},
     {FILTER_ID_CF, "filter_cachefile", ICON_FILE, "Cache Files", "Show Cache File data-blocks"},
     {FILTER_ID_CU_LEGACY, "filter_curve", ICON_CURVE_DATA, "Curves", "Show Curve data-blocks"},
-    {FILTER_ID_GD_LEGACY,
-     "filter_annotations",
-     ICON_OUTLINER_DATA_GREASEPENCIL,
-     "Annotations",
-     "Show Annotation data-blocks"},
-    {FILTER_ID_GP,
-     "filter_grease_pencil",
-     ICON_GREASEPENCIL,
-     "Grease Pencil",
-     "Show Grease Pencil data-blocks"},
     {FILTER_ID_GR, "filter_group", ICON_GROUP, "Collections", "Show Collection data-blocks"},
     {FILTER_ID_CV,
      "filter_curves",
@@ -431,12 +419,6 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == RNA_Curve) {
     return ID_CU_LEGACY;
   }
-  if (base_type == RNA_Annotation) {
-    return ID_GD_LEGACY;
-  }
-  if (base_type == RNA_GreasePencil) {
-    return ID_GP;
-  }
   if (base_type == RNA_Collection) {
     return ID_GR;
   }
@@ -551,10 +533,6 @@ StructRNA *ID_code_to_RNA_type(short idcode)
       return RNA_CacheFile;
     case ID_CU_LEGACY:
       return RNA_Curve;
-    case ID_GD_LEGACY:
-      return RNA_Annotation;
-    case ID_GP:
-      return RNA_GreasePencil;
     case ID_GR:
       return RNA_Collection;
     case ID_CV:

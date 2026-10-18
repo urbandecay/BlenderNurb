@@ -27,7 +27,6 @@ set(DEFSRC
   rna_action.cc
   rna_animation.cc
   rna_animviz.cc
-  rna_annotations.cc
   rna_armature.cc
   rna_asset.cc
   rna_attribute.cc
@@ -48,7 +47,6 @@ set(DEFSRC
   rna_dynamicpaint.cc
   rna_fcurve.cc
   rna_fluid.cc
-  rna_grease_pencil.cc
   rna_image.cc
   rna_key.cc
   rna_lattice.cc
@@ -81,7 +79,6 @@ set(DEFSRC
   rna_screen.cc
   rna_sculpt_paint.cc
   rna_sequencer.cc
-  rna_shader_fx.cc
   rna_sound.cc
   rna_space.cc
   rna_speaker.cc
@@ -120,7 +117,6 @@ set(APISRC
   rna_curve_api.cc
   rna_curves_api.cc
   rna_fcurve_api.cc
-  rna_grease_pencil_api.cc
   rna_image_api.cc
   rna_lattice_api.cc
   rna_main_api.cc
@@ -456,7 +452,6 @@ set(LIB
   bf_editor_curve
   bf_editor_curves
   bf_editor_gizmo_library
-  bf_editor_gpencil_legacy
   bf_editor_io
   bf_editor_mesh
   bf_editor_object

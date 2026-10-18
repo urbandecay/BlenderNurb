@@ -16,7 +16,6 @@
 #include <cstring>
 
 #include "DNA_armature_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
@@ -33,7 +32,6 @@
 #include "BKE_curve.hh"
 #include "BKE_curves_utils.hh"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_key.hh"
 #include "BKE_lattice.hh"
 #include "BKE_mball.hh"
@@ -295,12 +293,6 @@ struct XFormObjectData_MetaBall : public XFormObjectData {
   ~XFormObjectData_MetaBall() override = default;
 };
 
-struct XFormObjectData_GreasePencil : public XFormObjectData {
-  Array<float3> positions;
-  Array<float> radii;
-  ~XFormObjectData_GreasePencil() override = default;
-};
-
 struct XFormObjectData_Curves : public XFormObjectData {
   Array<float3> positions;
   Array<float> radii;
@@ -447,21 +439,6 @@ static std::unique_ptr<XFormObjectData> data_xform_create_ex(ID *id, bool is_edi
       xod->is_edit_mode = is_edit_mode;
       xod->elems.reinitialize(mb->elems.count());
       metaball_coords_and_quats_get(mb, xod->elems);
-      return xod;
-    }
-    case ID_GP: {
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(id);
-      const int elem_array_len = BKE_grease_pencil_stroke_point_count(*grease_pencil);
-      auto xod = std::make_unique<XFormObjectData_GreasePencil>();
-      xod->id = id;
-      if (!BKE_grease_pencil_has_curve_with_type(*grease_pencil, CURVE_TYPE_BEZIER)) {
-        xod->positions.reinitialize(elem_array_len);
-      }
-      else {
-        xod->positions.reinitialize(elem_array_len * 3);
-      }
-      xod->radii.reinitialize(elem_array_len);
-      BKE_grease_pencil_point_coords_get(*grease_pencil, xod->positions, xod->radii);
       return xod;
     }
     case ID_CV: {
@@ -616,13 +593,6 @@ void data_xform_by_mat4(XFormObjectData &xod_base, const float4x4 &transform)
       metaball_coords_and_quats_apply_with_mat4(mb, xod.elems, transform);
       break;
     }
-    case ID_GP: {
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(xod_base.id);
-      const auto &xod = reinterpret_cast<XFormObjectData_GreasePencil &>(xod_base);
-      BKE_grease_pencil_point_coords_apply_with_mat4(
-          *grease_pencil, xod.positions, xod.radii, transform);
-      break;
-    }
     case ID_CV: {
       Curves *curves_id = reinterpret_cast<Curves *>(xod_base.id);
       bke::CurvesGeometry &curves = curves_id->geometry.wrap();
@@ -740,12 +710,6 @@ void data_xform_restore(XFormObjectData &xod_base)
       metaball_coords_and_quats_apply(mb, xod.elems);
       break;
     }
-    case ID_GP: {
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(xod_base.id);
-      const auto &xod = reinterpret_cast<XFormObjectData_GreasePencil &>(xod_base);
-      BKE_grease_pencil_point_coords_apply(*grease_pencil, xod.positions, xod.radii);
-      break;
-    }
     case ID_CV: {
       Curves *curves_id = reinterpret_cast<Curves *>(xod_base.id);
       bke::CurvesGeometry &curves = curves_id->geometry.wrap();
@@ -811,18 +775,6 @@ void data_xform_tag_update(XFormObjectData &xod_base)
       /* Generic update. */
       MetaBall *mb = id_cast<MetaBall *>(xod_base.id);
       DEG_id_tag_update(&mb->id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
-      break;
-    }
-    case ID_GD_LEGACY: {
-      /* Generic update. */
-      bGPdata *gpd = id_cast<bGPdata *>(xod_base.id);
-      DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
-      break;
-    }
-    case ID_GP: {
-      /* Generic update. */
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(xod_base.id);
-      DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
       break;
     }
     case ID_CV: {

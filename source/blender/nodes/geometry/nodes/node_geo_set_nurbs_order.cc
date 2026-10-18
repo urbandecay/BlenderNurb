@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_type_conversions.hh"
 
 #include "FN_multi_function_builder.hh"
@@ -19,7 +18,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Curves"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to change the order of");
   b.add_output<decl::Geometry>("Curves"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Bool>("Selection"_ustr)
@@ -27,34 +26,6 @@ static void node_declare(NodeDeclarationBuilder &b)
       .hide_value()
       .evaluated_geometry_field();
   b.add_input<decl::Int>("Order"_ustr).default_value(4).min(2).max(127).evaluated_geometry_field();
-}
-
-static void set_grease_pencil_order(GreasePencil &grease_pencil,
-                                    const Field<bool> &selection,
-                                    const Field<int8_t> &order,
-                                    std::atomic<bool> &has_nurbs)
-{
-  using namespace blender::bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr) {
-      continue;
-    }
-    bke::CurvesGeometry &curves = drawing->strokes_for_write();
-    if (curves.has_curve_with_type(CURVE_TYPE_NURBS)) {
-      bke::try_capture_field_on_geometry(
-          curves.attributes_for_write(),
-          bke::GreasePencilLayerFieldContext(grease_pencil, AttrDomain::Curve, layer_index),
-          "nurbs_order",
-          bke::AttrDomain::Curve,
-          selection,
-          order);
-      has_nurbs = true;
-    }
-    else {
-      continue;
-    }
-  }
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -81,9 +52,6 @@ static void node_geo_exec(GeoNodeExecParams params)
                                            order_int8);
         has_nurbs = true;
       }
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      set_grease_pencil_order(*grease_pencil, selection, order_int8, has_nurbs);
     }
   });
 

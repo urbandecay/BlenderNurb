@@ -15,7 +15,6 @@ namespace blender {
 /** Settings for off-screen rendering. */
 enum eV3DOffscreenDrawFlag : int {
   V3D_OFSDRAW_NONE = (0),
-  V3D_OFSDRAW_SHOW_ANNOTATION = (1 << 0),
   V3D_OFSDRAW_OVERRIDE_SCENE_SETTINGS = (1 << 1),
   V3D_OFSDRAW_SHOW_GRIDFLOOR = (1 << 2),
   V3D_OFSDRAW_SHOW_SELECTION = (1 << 3),

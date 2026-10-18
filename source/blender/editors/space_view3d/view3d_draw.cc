@@ -27,7 +27,6 @@
 #include "BKE_context.hh"
 #include "BKE_customdata.hh"
 #include "BKE_global.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_image.hh"
 #include "BKE_key.hh"
 #include "BKE_layer.hh"
@@ -53,7 +52,6 @@
 #include "DRW_engine.hh"
 #include "DRW_select_buffer.hh"
 
-#include "ED_gpencil_legacy.hh"
 #include "ED_info.hh"
 #include "ED_scene.hh"
 #include "ED_screen.hh"
@@ -1064,14 +1062,6 @@ static void view3d_draw_border(const bContext *C, ARegion *region)
  * \{ */
 
 /**
- * Draw Info
- */
-static void view3d_draw_grease_pencil(const bContext * /*C*/)
-{
-  /* TODO: viewport. */
-}
-
-/**
  * Viewport Name
  */
 static const char *view3d_get_name(View3D *v3d, RegionView3D *rv3d)
@@ -1222,22 +1212,6 @@ static void draw_viewport_name(ARegion *region, View3D *v3d, int xoffset, int *y
   BLF_draw_default(xoffset, *yoffset, 0.0f, name, sizeof(tmpstr));
 }
 
-static bool is_grease_pencil_with_layer_keyframe(const Object &ob)
-{
-  if (ob.type != OB_GREASE_PENCIL) {
-    return false;
-  }
-
-  using namespace blender::bke::greasepencil;
-  const GreasePencil &grease_pencil = *id_cast<GreasePencil *>(ob.data);
-  for (const Layer *layer : grease_pencil.layers()) {
-    if (!layer->frames().is_empty()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /**
  * Draw info beside axes in top-left corner:
  * frame-number, collection, object name, bone name (if available), marker name (if available).
@@ -1352,11 +1326,6 @@ static void draw_selected_name(const Main &bmain,
           }
         }
       }
-    }
-
-    /* color depends on whether there is a keyframe */
-    if (is_grease_pencil_with_layer_keyframe(*ob)) {
-      ui::theme::font_theme_color_set(font_id, TH_TIME_GP_KEYFRAME);
     }
 
     if (animrig::id_frame_has_keyframe(id_cast<ID *>(ob),
@@ -1523,8 +1492,6 @@ void view3d_draw_region_info(const bContext *C, ARegion *region)
   const rcti *rect = ED_region_visible_rect(region);
 
   view3d_draw_border(C, region);
-  view3d_draw_grease_pencil(C);
-
   BLF_batch_draw_begin();
 
   if (v3d->gizmo_flag & (V3D_GIZMO_HIDE | V3D_GIZMO_HIDE_NAVIGATE)) {
@@ -1889,9 +1856,6 @@ void ED_view3d_draw_offscreen_simple(Depsgraph *depsgraph,
     v3d.flag2 = V3D_HIDE_OVERLAYS;
   }
   else {
-    if (draw_flags & V3D_OFSDRAW_SHOW_ANNOTATION) {
-      v3d.flag2 |= V3D_SHOW_ANNOTATION;
-    }
     if (draw_flags & V3D_OFSDRAW_SHOW_GRIDFLOOR) {
       v3d.gridflag |= V3D_SHOW_FLOOR | V3D_SHOW_X | V3D_SHOW_Y;
       v3d.grid = 1.0f;
@@ -2186,19 +2150,12 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(Depsgraph *depsgraph,
   v3d.shading.type = drawtype;
 
   v3d.flag2 = V3D_HIDE_OVERLAYS;
-  /* HACK: When rendering gpencil objects this opacity is used to mix vertex colors in when not in
-   * render mode (e.g. in the sequencer). */
-  v3d.overlay.gpencil_vertex_paint_opacity = 1.0f;
-
   /* Also initialize wire-frame properties to the default so it renders properly in sequencer.
    * Should find some way to use the viewport's current opacity and threshold,
    * but this is a start. */
   v3d.overlay.wireframe_opacity = 1.0f;
   v3d.overlay.wireframe_threshold = 0.5f;
 
-  if (draw_flags & V3D_OFSDRAW_SHOW_ANNOTATION) {
-    v3d.flag2 |= V3D_SHOW_ANNOTATION;
-  }
   if (draw_flags & V3D_OFSDRAW_SHOW_GRIDFLOOR) {
     v3d.gridflag |= V3D_SHOW_FLOOR | V3D_SHOW_X | V3D_SHOW_Y;
   }
@@ -2532,19 +2489,13 @@ void ED_view3d_depth_override(Depsgraph *depsgraph,
   if (viewport != nullptr) {
     switch (mode) {
       case V3D_DEPTH_ALL:
-        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, true, false, false);
-        break;
-      case V3D_DEPTH_NO_GPENCIL:
-        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, false, false, false);
-        break;
-      case V3D_DEPTH_GPENCIL_ONLY:
-        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, true, false, false);
+        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, false, false);
         break;
       case V3D_DEPTH_OBJECT_ONLY:
-        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, false, false, true);
+        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, false, true);
         break;
       case V3D_DEPTH_SELECTED_ONLY:
-        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, false, true, false);
+        DRW_draw_depth_loop(depsgraph, region, v3d, viewport, true, false);
         break;
     }
 

@@ -252,38 +252,7 @@ static void draw_backdrops(bAnimContext *ac,
       /* draw region twice: firstly backdrop, then the current range */
       immRectf(pos, v2d->cur.xmin, ymin, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymax);
     }
-    else if (ac->datatype == ANIMCONT_GPENCIL) {
-      uchar *color;
-      switch (ale->type) {
-        case ANIMTYPE_SUMMARY:
-          color = col_summary;
-          break;
-
-        case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-          color = sel ? col1a : col2a;
-          break;
-
-        case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-          color = col2b;
-          color[3] = sel ? col1[3] : col2b[3];
-          break;
-
-        default:
-          color = sel ? col1 : col2;
-          break;
-      }
-
-      /* Color overlay on frames between the start/end frames. */
-      immUniformColor4ubv(color);
-      immRectf(pos, ac->scene->r.sfra, ymin, ac->scene->r.efra, ymax);
-
-      /* Color overlay outside the start/end frame range get a more transparent overlay. */
-      immUniformColor3ubvAlpha(color, std::min(255, color[3] / 2));
-      immRectf(pos, v2d->cur.xmin, ymin, ac->scene->r.sfra, ymax);
-      immRectf(pos, ac->scene->r.efra, ymin, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymax);
-    }
     else if (ac->datatype == ANIMCONT_MASK) {
-      /* TODO: this is a copy of gpencil. */
       uchar *color;
       if (ale->type == ANIMTYPE_SUMMARY) {
         color = col_summary;
@@ -418,40 +387,6 @@ static void draw_keyframes(bAnimContext *ac,
                               action_flag);
         break;
       }
-      case ALE_GREASE_PENCIL_CEL:
-        ED_add_grease_pencil_cels_channel(draw_list,
-                                          ads,
-                                          static_cast<const GreasePencilLayer *>(ale->data),
-                                          ycenter,
-                                          scale_factor,
-                                          action_flag);
-        break;
-      case ALE_GREASE_PENCIL_GROUP:
-        ED_add_grease_pencil_layer_group_channel(
-            draw_list,
-            ads,
-            static_cast<const GreasePencilLayerTreeGroup *>(ale->data),
-            ycenter,
-            scale_factor,
-            action_flag);
-        break;
-      case ALE_GREASE_PENCIL_DATA:
-        ED_add_grease_pencil_datablock_channel(draw_list,
-                                               ac,
-                                               ale,
-                                               static_cast<const GreasePencil *>(ale->data),
-                                               ycenter,
-                                               scale_factor,
-                                               action_flag);
-        break;
-      case ALE_GPFRAME:
-        ED_add_grease_pencil_layer_legacy_channel(draw_list,
-                                                  ads,
-                                                  static_cast<bGPDlayer *>(ale->data),
-                                                  ycenter,
-                                                  scale_factor,
-                                                  action_flag);
-        break;
       case ALE_MASKLAY:
         ED_add_mask_layer_channel(draw_list,
                                   ads,

@@ -400,7 +400,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager & /*manager*/)
   Object *ob = ob_ref.object;
   const bool is_renderable_type = ELEM(ob->type,
                                        OB_CURVES,
-                                       OB_GREASE_PENCIL,
                                        OB_MESH,
                                        OB_POINTCLOUD,
                                        OB_VOLUME,

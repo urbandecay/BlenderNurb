@@ -8,7 +8,6 @@
 
 #include "DNA_curve_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
@@ -119,8 +118,6 @@ gpu::Batch *DRW_cache_object_face_wireframe_get(const Scene *scene, Object *ob)
       return DRW_pointcloud_batch_cache_get_dots(ob);
     case OB_VOLUME:
       return DRW_cache_volume_face_wireframe_get(ob);
-    case OB_GREASE_PENCIL:
-      return DRW_cache_grease_pencil_face_wireframe_get(scene, ob);
     default:
       return nullptr;
   }
@@ -478,8 +475,6 @@ void drw_batch_cache_validate(Object *ob)
     case OB_VOLUME:
       DRW_volume_batch_cache_validate(&DRW_object_get_data_for_drawing<Volume>(*ob));
       break;
-    case OB_GREASE_PENCIL:
-      DRW_grease_pencil_batch_cache_validate(&DRW_object_get_data_for_drawing<GreasePencil>(*ob));
     default:
       break;
   }

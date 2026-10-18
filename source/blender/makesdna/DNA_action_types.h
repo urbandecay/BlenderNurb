@@ -432,7 +432,6 @@ enum eDopeSheet_FilterFlag : int {
   ADS_FILTER_NOSPK = (1 << 21),
   ADS_FILTER_NOLINESTYLE = (1 << 22),
   ADS_FILTER_NOMODIFIERS = (1 << 23),
-  ADS_FILTER_NOGPENCIL = (1 << 24),
   /* NOTE: all new datablock filters will have to go in filterflag2 (see below) */
 
   /* NLA-specific filters */
@@ -537,8 +536,6 @@ enum eAnimEdit_Context : char {
   SACTCONT_ACTION = 0,
   /** List of all shape-keys on the active object, linked with their F-Curves. */
   SACTCONT_SHAPEKEY = 1,
-  /** Editing of grease-pencil data. */
-  SACTCONT_GPENCIL = 2,
   /** Dope-sheet (default). */
   SACTCONT_DOPESHEET = 3,
   /** Mask. */
@@ -1131,16 +1128,16 @@ struct bAction {
 /* ************************************************ */
 /* Action/Dope-sheet Editor */
 
-/** Storage for Dope-sheet/Grease-Pencil Editor data. */
+/** Storage for Dope-sheet Editor data. */
 struct bDopeSheet {
-  /** Currently ID_SCE (for Dope-sheet), and ID_SC (for Grease Pencil). */
+  /** Currently ID_SCE (for Dope-sheet). */
   ID *source = nullptr;
   /** Cache for channels (only initialized when pinned). */ /* XXX not used! */
   ListBase chanbase = {nullptr, nullptr};
 
   /** Object group for option to only include objects that belong to this Collection. */
   struct Collection *filter_grp = nullptr;
-  /** String to search for in displayed names of F-Curves, or NlaTracks/GP Layers/etc. */
+  /** String to search for in displayed names of F-Curves or NLA tracks. */
   char searchstr[64] = "";
 
   /** Flags to use for filtering data. */

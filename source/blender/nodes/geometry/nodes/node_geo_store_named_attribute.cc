@@ -11,7 +11,6 @@
 #include "RNA_enum_types.hh"
 
 #include "BKE_attribute_legacy_convert.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_mesh.hh"
 #include "BKE_type_conversions.hh"
@@ -88,23 +87,6 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
   }
 }
 
-/* Need to tag the drawings because it's not handled by try_capture_field_on_geometry
- * automatically yet.*/
-static void grease_pencil_add_missing_update_tags(const std::string &name,
-                                                  GeometrySet &geometry_set)
-{
-  GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
-  if (name == "fill_id") {
-    for (GreasePencilDrawingBase *base : grease_pencil.drawings()) {
-      if (base->type != GP_DRAWING) {
-        continue;
-      }
-      bke::greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(base)->wrap();
-      drawing.tag_fills_changed();
-    }
-  }
-}
-
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry"_ustr);
@@ -176,8 +158,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     geometry::foreach_real_geometry(geometry_set, [&](GeometrySet &geometry_set) {
       for (const GeometryComponent::Type type : {GeometryComponent::Type::Mesh,
                                                  GeometryComponent::Type::PointCloud,
-                                                 GeometryComponent::Type::Curve,
-                                                 GeometryComponent::Type::GreasePencil})
+                                                 GeometryComponent::Type::Curve})
       {
         if (geometry_set.has(type)) {
           GeometryComponent &component = geometry_set.get_component_for_write(type);
@@ -186,9 +167,6 @@ static void node_geo_exec(GeoNodeExecParams params)
               Mesh &mesh = *geometry_set.get_mesh_for_write();
               bke::mesh_ensure_default_color_attribute_on_add(mesh, name, domain, data_type);
               bke::mesh_ensure_default_uv_attribute_on_add(mesh, name, domain, data_type);
-            }
-            if (component.type() == GeometryComponent::Type::GreasePencil) {
-              grease_pencil_add_missing_update_tags(name, geometry_set);
             }
           }
           else if (component.attribute_domain_size(domain) != 0) {

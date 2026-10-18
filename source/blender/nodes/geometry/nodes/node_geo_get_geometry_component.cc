@@ -43,8 +43,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     case bke::GeometryComponent::Type::PointCloud:
     case bke::GeometryComponent::Type::Instance:
     case bke::GeometryComponent::Type::Volume:
-    case bke::GeometryComponent::Type::Curve:
-    case bke::GeometryComponent::Type::GreasePencil: {
+    case bke::GeometryComponent::Type::Curve: {
       if (const GeometryComponent *component = geometry.get_component(type)) {
         component_geo.add(*component);
         exists = true;

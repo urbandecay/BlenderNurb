@@ -317,16 +317,6 @@ msgstr "ﭧﻧﻮﻓ"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "ﺮﯾﻮﺼﺗ"
 
@@ -1094,18 +1084,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "ﮟﯿﮨ ﮯﺗﺮﮐ ﺖﺣﺎﺿﻭ ﯽﮐ ﮯﮐﺎﺧ ﺮﭘ ﻢﯾﺮﻓ ﺱﺍ  ﮟﯿﻤﺧ ﮉﻨﯿﮨ ﯼﺮﻓ"
 
 
-msgid "Annotation Frames"
-msgstr "ﻢﯾﺮﻓ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Collection of annotation frames"
-msgstr "ﻢﯾﺮﻓ ﺢﯾﺮﺸﺗ of ﮧﻋﻮﻤﺠﻣ"
-
-
-msgid "Annotation Layer"
-msgstr "ﮧﮩﺗ ﺢﯾﺮﺸﺗ"
-
-
 msgid "Collection of related sketches"
 msgstr "ﮧﻋﻮﻤﺠﻣ ﺎﮐ ﮞﻮﮐﺎﺧ ﮧﻘﻠﻌﺘﻣ"
 
@@ -1120,10 +1098,6 @@ msgstr "ﮯﮨ ﺎﮨﺭ ﺎﺟ ﺎﯾﺎﮭﮐﺩ ﮯﯿﻟ ﮯﮐ ﺕﺮﭘ �
 
 msgid "Hide"
 msgstr "ﮟﯿﺋﺎﭙﮭﭼ"
-
-
-msgid "Set annotation Visibility"
-msgstr "ﮟﯾﺮﮐ ﭧﯿﺳ ﺖﯿﺋﺮﻣ ﯽﮐ ﺢﯾﺮﺸﺗ"
 
 
 msgid "After Color"
@@ -1168,10 +1142,6 @@ msgstr "Use ﮓﻧﺭ ﺕﺭﻭﺮﺿ ﺐﺴﺣ for ﻝﺎﮭﮐ ﯽﮐ ﺯﺎ�
 
 msgid "Opacity"
 msgstr "ﻦﭘﻻ﻿ﺪﻨﮬﺩ"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "ﻦﭘﻻ﻿ﺪﻨﮬﺩ ﯽﮐ ﺕﺮﭘ ﯽﺤﯾﺮﺸﺗ"
 
 
 msgid "Color for all strokes in this layer"
@@ -1234,48 +1204,20 @@ msgid "Thickness"
 msgstr "ﯽﺋﺎﭨﻮﻣ"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "ﯽﺋﺎﭨﻮﻣ ﯽﮐ ﮎﻭﺮﭩﺳﺍ ﺢﯾﺮﺸﺗ"
-
-
 msgid "Onion Skinning"
 msgstr "ﻝﺎﮭﮐ ﯽﮐ ﺯﺎﯿﭘ"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮟﯿﻟﺎﮭﮐ ﯽﮐ ﺯﺎﯿﭘ ﺢﯾﺮﺸﺗ ﮟﯿﻣ ﺪﻌﺑ ﺭﻭﺍ ﮯﻠﮩﭘ ﮯﺳ ﻢﯾﺮﻓ ﮦﺩﻮﺟﻮﻣ"
-
-
-msgid "Annotation Layers"
-msgstr "ﮟﯿﮩﺗ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Collection of annotation layers"
-msgstr "ﮟﯿﮩﺗ ﺢﯾﺮﺸﺗ of ﮧﻋﻮﻤﺠﻣ"
 
 
 msgid "Active Layer Index"
 msgstr "ﺲﮑﯾﮉﻧﺍ  ﺕﺮﭘ  ﻝﺎﻌﻓ"
 
 
-msgid "Index of active annotation layer"
-msgstr "ﮧﮩﺗ ﺢﯾﺮﺸﺗ ﻝﺎﻌﻓ of ﺲﮑﯾﮉﻧﺍ"
-
-
 msgid "Active Note"
 msgstr "ﭦﻮﻧ ﻝﺎﻌﻓ"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻞﻣﺎﺷ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﺺﯿﺨﺸﺗ/ﭦﻮﻧ"
-
-
 msgid "Default"
 msgstr "ﮦﺪﺷ ﮯﻃ"
-
-
-msgid "Annotation Stroke"
-msgstr "ﮎﻭﺮﭩﺳﺍ ﺢﯾﺮﺸﺗ"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1292,10 +1234,6 @@ msgstr "ﺲﭩﻨﺋﺍﻮﭘ ﮎﻭﺮﭩﺳﺍ"
 
 msgid "Stroke data points"
 msgstr "ﺲﭩﻨﺋﺍﻮﭘ ﺎﭩﯾﮈ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgid "Annotation Stroke Point"
-msgstr "ﮧﻄﻘﻧ ﮎﻭﺮﭩﺳﺍ ﺢﯾﺮﺸﺗ"
 
 
 msgid "Data point for freehand stroke curve"
@@ -1859,10 +1797,6 @@ msgid "Show Action data-blocks"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﺲﮐﻼ﻿ﺑ ﺎﭩﯾﮈ ﻡﺍﺪﻗﺍ"
 
 
-msgid "Annotations"
-msgstr "ﺕﺎﺤﯾﺮﺸﺗ"
-
-
 msgid "Armatures"
 msgstr "ﺯﺮﭽﻣﺭﺁ"
 
@@ -1917,10 +1851,6 @@ msgstr "ﺲﭩﻧﻮﻓ"
 
 msgid "Show Font data-blocks"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﺲﮐﻼ﻿ﺑ ﺎﭩﯾﮈ ﭧﻧﻮﻓ"
-
-
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgid "Collections"
@@ -2337,10 +2267,6 @@ msgstr "ﺖﯿﺻﻮﺼﺧ ﺮﭘ ﺭﻮﻃ ﮯﮐ ﻝﺎﺜﻣ"
 
 msgid "Layer"
 msgstr "ﮧﮩﺗ"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "ﮧﮩﺗ ﯽﮐ on Grease Pencil ﻒﺻﻭ"
 
 
 msgid "Is Internal"
@@ -3003,14 +2929,6 @@ msgid "All Data-Blocks"
 msgstr "ﺲﮐﻼ﻿ﺑ ﺎﭩﯾﮈ ﻡﺎﻤﺗ"
 
 
-msgid "Annotation"
-msgstr "ﺢﯾﺮﺸﺗ"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "(Grease Pencil ﯽﺴﯿﮕﯿﻟ) ﺲﮐﻼ﻿ﺑ ﺎﭩﯾﮈ ﯽﺤﯾﺮﺸﺗ"
-
-
 msgid "Armature data-blocks"
 msgstr "ﺲﮐﻼ﻿ﺑ ﺎﭩﯾﮈ ﺮﭽﻣﺭﺁ"
 
@@ -3053,10 +2971,6 @@ msgstr "ﺲﭩﻧﻮﻓ ﺮﭩﮑﯾﻭ"
 
 msgid "Vector font data-blocks"
 msgstr "ﺲﮐﻼ﻿ﺑ ﺎﭩﯾﮈ ﭧﻧﻮﻓ ﺮﭩﮑﯾﻭ"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Grease Pencil ﺲﮐﻼ﻿ﺑ ﺎﭩﯾﮈ"
 
 
 msgid "Hair curve data-blocks"
@@ -3243,14 +3157,6 @@ msgid "Collection of actions"
 msgstr "ﮧﻋﻮﻤﺠﻣ ﺎﮐ ﻝﺎﻤﻋﺍ"
 
 
-msgid "Main Annotations"
-msgstr "ﺕﺎﺤﯾﺮﺸﺗ ﻦﯿﻣ"
-
-
-msgid "Collection of annotations"
-msgstr "ﺕﺎﺤﯾﺮﺸﺗ of ﮧﻋﻮﻤﺠﻣ"
-
-
 msgid "Main Armatures"
 msgstr "ﺯﺮﭽﻣﺭﺁ ﻦﯿﻣ"
 
@@ -3305,10 +3211,6 @@ msgstr "ﺲﭩﻧﻮﻓ ﻦﯿﻣ"
 
 msgid "Collection of fonts"
 msgstr "ﮧﻋﻮﻤﺠﻣ ﺎﮐ ﺲﭩﻧﻮﻓ"
-
-
-msgid "Main Grease Pencils"
-msgstr "Grease Pencil ﻦﯿﻣ"
 
 
 msgid "Main Hair Curves"
@@ -5002,10 +4904,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "ﮟﯾﮍﮑﺳ ﺎﯾ ﮟﯿﺋﺎﮬﮍﺑ ﮯﮐﺮﮐ ﻞﯾﺪﺒﺗ ﺮﭘ ﺭﻮﻃ ﮞﺎﺴﮑﯾ ﻮﮐ ﺰﺋﺎﺳ ﮯﮐ ﻥﺍ ﮯﺋﺎﺠﺑ ﮯﮐ ﮯﻧﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﻦﺸﯿﻟﻮﭘﺍﺮﭩﺴﮑﯾﺍ ﺎﯾ ﺎﻨﺷﺍﺮﺗ ﻮﮐ  ﮟﯿﻤﺧ"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Grease Pencil ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﺵﺮﺑ"
-
-
 msgid "Active Smooth"
 msgstr "ﺭﺍﻮﻤﮨ ﻝﺎﻌﻓ"
 
@@ -5062,23 +4960,8 @@ msgid "Use always Vertex Color mode"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺭﻮﻃ ﮓﻧﺭ ﮯﻧﻮﮐ ﮧﺸﯿﻤﮨ"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "ﻢﺴﻗ ﯽﮐ ﺲﭙﯿﮐ"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "ﻞﮑﺷ ﯽﮐ ﻡﺎﺘﺘﺧﺍ ﺭﻭﺍ ﺯﺎﻏﺁ ﮯﮐ ﺞﻟﺎﻓ"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "ﻝﻮﮔ"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "ﭧﯿﻠﻓ"
 
 
 msgid "Threshold"
@@ -5135,36 +5018,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "ﺩﺍﺪﻌﺗ ﯽﮐ ﺰﻠﺴﮑﭘ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﮦﺪﮨﺎﻌﻣ ﺎﯾ ﮯﻧﻼ﻿ﯿﮭﭘ ﻮﮐ ﮯﻗﻼ﻿ﻋ ﮯﮐ ﮯﻧﺮﮭﺑ"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "ﮈﻮﻣ"
-
-
 msgid "Eraser Mode"
 msgstr "ﮈﻮﻣ ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻑﺎﺻ"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "ﺎﻧﺮﮐ ﻞﯿﻠﺤﺗ"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "ﮟﯾﺮﮐ ﻢﺘﺧ ﻮﮐ ﯽﺋﺎﭨﻮﻣ ﺭﻭﺍ ﺖﻗﺎﻃ ﯽﮐ ﺲﭩﻨﺋﺍﻮﭘ ﮯﮐ ﻥﺍ ،ﮟﯿﺋﺎﭩﻣ ﻮﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "ﮧﻄﻘﻧ"
-
-
 msgid "Erase stroke points"
 msgstr "ﮟﯾﺩ ﺎﭩﻣ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "ﮎﻭﺮﭩﺳﺍ"
 
 
 msgid "Erase entire strokes"
@@ -5367,11 +5230,6 @@ msgstr "ﺭﺍﺮﮑﺗ"
 
 msgid "Number of times to smooth newly created strokes"
 msgstr "ﺩﺍﺪﻌﺗ ﯽﮐ ﺕﺎﻗﻭﺍ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﺭﺍﻮﻤﮨ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﮯﺌﮔ ﮯﺋﺎﻨﺑ ﮯﺌﻧ"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "ﺖﻗﺎﻃ"
 
 
 msgid "Color strength for new strokes (affect alpha factor of color)"
@@ -10481,14 +10339,6 @@ msgstr "ﮟﯾﺮﮐ ﻢﺘﺧ ﮧﺻﻼ﻿ﺧ"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "(ﺯﺮﭩﯾﮉﯾﺍ ﭧﯿﺷ ﭖﻭﮈ ﻑﺮﺻ) ﮟﯿﺋﺎﺟ ﭗﮭﭼ ﺰﻠﻨﯿﭼ ﻡﺎﻤﺗ ﺮﮕﯾﺩ ﺡﺮﻃ ﺱﺍ ،ﮟﯾﺮﮐ ﻢﺘﺧ ﻮﮐ ﯼﺮﻤﺳ ﺮﭘ ﮯﻧﺎﺟ ﮯﺋﺎﮭﮐﺩ"
-
-
-msgid "Display Grease Pencil"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﮯﻧﺎﮭﮐﺩ"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺭﻮﺼﺗ ﺎﮐ ﮞﻮﻤﯾﺮﻓ ﺭﻭﺍ ﺎﭩﯾﮈ ﺕﺎﯿﮐﺮﺣ  ﻖﻠﻌﺘﻣ ﮯﺳ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
 
 
 msgid "Display Hair"
@@ -16085,24 +15935,8 @@ msgid "Keep the computed view map and avoid recalculating it if mesh geometry is
 msgstr "ﮟﯾﺮﮐ ﺰﯾﺮﮔ ﮯﺳ ﮯﻨﻨﮔ ﮦﺭﺎﺑﻭﺩ ﮯﺳﺍ ﻮﺗ ﮯﮨ ﯽﺌﮔ ﯽﮐ ﮟﯿﮩﻧ ﯽﻠﯾﺪﺒﺗ ﯽﺋﻮﮐ ﮟﯿﻣ ﯼﺮﭩﯿﻣﻮﯿﺟ ﻝﺎﺟ ﺮﮔﺍ ﺭﻭﺍ ﮟﯿﮭﮐﺭ ﻮﮐ ﮯﺸﻘﻧ ﮯﮐﻮﯾﻭ ﯽﺑﺎﺴﺣ"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Grease Pencil ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﭧﯿﻟﻮﭘﺮﭩﻧﺍ"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Grease Pencil ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﺰﻟﻮﭨ ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ"
-
-
 msgid "Interpolation Curve"
 msgstr "ﻢﺧ ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Grease Pencil ﻢﺧ ﺕﺭﻭﺮﺿ ﺐﺴﺣ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻝﻭﺮﭩﻨﮐ ﻮﮐ ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ 'ﺲﻧﻮﮑﯿﺳ' ﻥﺎﯿﻣﺭﺩ ﮯﮐ ﮞﻮﻤﯾﺮﻓ"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "Grease Pencil ﮉﯿﺋﺎﮔ ﮧﻤﺴﺠﻣ"
 
 
 msgid "Guides for drawing"
@@ -16205,14 +16039,6 @@ msgid "Enable snapping to guides angle or spacing options"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻌﻓ ﻮﮐ ﮓﻨﭙﯿﻨﺳ ﺮﭘ ﺕﺍﺭﺎﯿﺘﺧﺍ ﮯﮐ ﯼﺭﺎﮐ ﮧﻔﻗﻭ ﺎﯾ ﮧﯾﻭﺍﺯ ﯽﺋﺎﻤﻨﮨﺭ"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﻢﺴﺠﻣ ﻞﺴﻨﯿﭘ ﯽﺟ"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Grease Pencil ﺕﺎﯿﺻﻮﺼﺧ ﯽﻣﻮﻤﻋ ﮯﯿﻟ ﮯﮐ ﺭﺍﺯﻭﺍ ﮯﮐ ﯼﺯﺎﺳ ﮧﻤﺴﺠﻣ ﮎﻭﺮﭩﺳﺍ"
-
-
 msgid "Threshold for stroke intersections"
 msgstr "ﺪﺣ ﮯﯿﻟ ﮯﮐ ﻦﺸﮑﯿﺳﺮﭩﻧﺍ ﮎﻭﺮﭩﺳﺍ"
 
@@ -16251,10 +16077,6 @@ msgstr "Z ﮎﻭﺮﭩﺳﺍ ﮯﮐ ﭧﮑﯿﺟﻭﺮﭘ ﮯﮐ ﻦﯿﻠﭘ �
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "ﮟﯾﺮﮐ ﮪﺪﯿﺳ ﮯﺳ ﺖﯿﻔﻗﺍﻭ ﺮﺳﺮﮐ 3D ﮦﺩﻮﺟﻮﻣ ﻮﮐ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "ﻢﺧ ﺕﺭﻭﺮﺿ ﺐﺴﺣ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻝﻭﺮﭩﻨﮐ ﻮﮐ ﻑﺁ ﻝﺎﻓ ﮯﮐ ﺮﺛﺍ ﺵﺮﺑ ﮯﻌﯾﺭﺫ ﮯﮐ ﮞﻮﻤﯾﺮﻓ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
 
 
 msgid "Custom curve to control primitive thickness"
@@ -16679,14 +16501,6 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻌﻓ ﻮﮐ ﮏﻠﮑﺋﺎﺳ ﺮﭘ ﺰﺸﯾﮈ ﮎﻭﺮﭩﺳﺍ ﯼﺩﺍﺮﻔﻧﺍ"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "Grease Pencil - ﮓﻨﺋﺍﺭﮈ"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "Grease Pencil -ﮟﯾﺮﮭﺑ"
-
-
 msgid "Attributes"
 msgstr "ﺕﺎﻔﺻ"
 
@@ -16731,14 +16545,6 @@ msgid "The number of keyframes this drawing is used by"
 msgstr "ﺩﺍﺪﻌﺗ ﯽﮐ ﮞﻮﻤﯾﺮﻓ ﯼﺪﯿﻠﮐ ﮯﻟﺍﻭ ﮯﻧﺎﺟ ﮯﯿﮐ ﻝﺎﻤﻌﺘﺳﺍ ﮯﻌﯾﺭﺫ ﮯﮐ ﮓﻨﺋﺍﺭﮈ ﺱﺍ"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Grease Pencil ﻢﯾﺮﻓ"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "A ﻢﯾﺮﻓ ﯽﮐ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
 msgid "The frame number in the scene"
 msgstr "ﺮﺒﻤﻧ ﻢﯾﺮﻓ ﮟﯿﻣ ﺮﻈﻨﻣ"
 
@@ -16775,18 +16581,6 @@ msgid "Frame Selection in the Dope Sheet"
 msgstr "ﺏﺎﺨﺘﻧﺍ ﺎﮐ ﻢﯾﺮﻓ ﮟﯿﻣ ﭧﯿﺷ ﭖﻭﮈ"
 
 
-msgid "Grease Pencil Frames"
-msgstr "Grease Pencil ﻢﯾﺮﻓ"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "ﻢﯾﺮﻓ of Grease Pencil ﮧﻋﻮﻤﺠﻣ"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Grease Pencil ﮞﻮﮩﺗ ﮓﻨﮑﺳﺎﻣ"
-
-
 msgid "List of Mask Layers"
 msgstr "ﺖﺳﺮﮩﻓ ﯽﮐ ﮞﻮﮩﺗ ﯽﮐ ﮏﺳﺎﻣ"
 
@@ -16801,10 +16595,6 @@ msgstr "ﮏﺳﺎﻣ ﺎﭩﻟﺍ"
 
 msgid "Mask layer name"
 msgstr "ﻡﺎﻧ ﺎﮐ ﺕﺮﭘ ﮏﺳﺎﻣ"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "ﮟﯾﺩ ﯽﺋﺎﻨﮑﭼ ﻮﮐ ﮞﻮﮩﺗ ﯽﮐ ﮏﺳﺎﻣ ﻞﺴﻨﭘ"
 
 
 msgid "Active Layer Mask Index"
@@ -16875,10 +16665,6 @@ msgid "Display onion skins before and after the current frame"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮟﯿﻟﺎﮭﮐ ﯽﮐ ﺯﺎﯿﭘ ﮟﯿﻣ ﺪﻌﺑ ﺭﻭﺍ ﮯﻠﮩﭘ ﮯﺳ ﻢﯾﺮﻓ ﮦﺩﻮﺟﻮﻣ"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Grease Pencil ﮧﮩﺗ ﯽﮐ"
-
-
 msgid "Collection of related drawings"
 msgstr "ﮧﻋﻮﻤﺠﻣ ﺎﮐ ﮓﻨﺋﺍﺭﮈ ﮧﻘﻠﻌﺘﻣ"
 
@@ -16897,10 +16683,6 @@ msgstr "ﯽﻨﺷﻭﺭ ﺖﺨﺳ"
 
 msgid "Divide"
 msgstr "ﺎﻧﺮﮐ ﻢﯿﺴﻘﺗ"
-
-
-msgid "Grease Pencil frames"
-msgstr "Grease Pencil ﻢﯾﺮﻓ"
 
 
 msgid "Ignore Material Locking"
@@ -16995,14 +16777,6 @@ msgid "Only include Layer in this View Layer render output (leave blank to inclu
 msgstr "(ﮟﯾﺩ ﮌﻮﮭﭼ ﯽﻟﺎﺧ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻞﻣﺎﺷ ﮧﺸﯿﻤﮨ) ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺕﺮﭘ ﻑﺮﺻ ﮟﯿﻣ ﭧﭘ ﭦﺅﺁ ﺭﮉﻨﯾﺭ  ﺕﺮﭘ  ﻮﯾﻭ ﺱﺍ"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "Grease Pencil ﮦﻭﺮﮔ ﮧﮩﺗ ﯽﮐ"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "Grease Pencil ﭖﻭﺮﮔ ﺎﮐ ﮞﻮﺗﺮﭘ"
-
-
 msgid "Color tag 1"
 msgstr "1 ﮓﯿﭨ ﻦﯿﮕﻧﺭ"
 
@@ -17035,28 +16809,8 @@ msgid "Color tag 8"
 msgstr "8 ﮓﯿﭨ ﻦﯿﮕﻧﺭ"
 
 
-msgid "Grease Pencil Group"
-msgstr "Grease Pencil ﮦﻭﺮﮔ"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "Grease Pencil ﮧﻋﻮﻤﺠﻣ ﺎﮐ ﮞﻮﮩﺗ ﯽﮐ"
-
-
 msgid "Active Layer Group"
 msgstr "ﮦﻭﺮﮔ ﺕﺮﭘ ﻝﺎﻌﻓ"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "ﮦﻭﺮﮔ ﺕﺮﭘ Grease Pencil ﻝﺎﻌﻓ"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Grease Pencil ﮞﻮﮩﺗ ﯽﮐ"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "ﺕﺮﭘ Grease Pencil ﻝﺎﻌﻓ"
 
 
 msgid "Editor header containing UI elements"
@@ -17325,10 +17079,6 @@ msgstr "ﺪﺣ ﯽﮐ ﻢﯾﺮﻓ ﯽﺘﺳﺩ"
 
 msgid "Manually specify the intended playback frame range for the action (this range is used by some tools, but does not affect animation evaluation)"
 msgstr "(ﮯﺗﺮﮐ ﮟﯿﮩﻧ ﺮﺛﺎﺘﻣ ﻮﮐ ﺺﯿﺨﺸﺗ ﯽﮐ ﺕﺎﯿﮐﺮﺣ  ﻦﮑﯿﻟ ،ﮟﯿﮨ ﮯﺗﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺰﻟﻮﭨ ﮫﭽﮐ ﻮﮐ ﺞﻨﯾﺭ ﺱﺍ) ﮟﯾﺮﮐ ﺖﺣﺎﺿﻭ ﯽﮐ ﺞﻨﯾﺭ ﻢﯾﺮﻓ ﮏﯿﺑ ﮯﻠﭘ ﮧﺑﻮﻠﻄﻣ ﮯﯿﻟ ﮯﮐ ﻡﺍﺪﻗﺍ ﺮﭘ ﺭﻮﻃ ﯽﺘﺳﺩ"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "ﮏﺑ ﭻﯿﮑﺳﺍ ﺢﯾﺮﺸﺗ ﮉﻨﯿﮨ ﯼﺮﻓ"
 
 
 msgid "Animation data for this data-block"
@@ -18209,23 +17959,8 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "ﮯﮨ ﺎﺗﻮﮨ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﮓﻨﭩﻨﭨ ﻮﺟ ﮯﮨ ﺎﺗﻮﮨ ﺎﮐ ﻢﺴﻗ ﺱﺍ ﺵﺮﺑ"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "ﻢﺴﻗ ﺵﺮﺑ"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "ﺭﺍﻮﻤﮨ"
-
-
 msgid "Smooth stroke points"
 msgstr "ﺲﭩﻨﺋﺍﻮﭘ ﮎﻭﺮﭩﺳﺍ ﺭﺍﻮﻤﮨ"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "ﯽﺋﺎﭨﻮﻣ"
 
 
 msgid "Adjust thickness of strokes"
@@ -18236,62 +17971,28 @@ msgid "Adjust color strength of strokes"
 msgstr "ﮟﯾﺮﮐ ﭧﺴﺟﮉﯾﺍ ﻮﮐ ﺖﻗﺎﻃ ﯽﮐ ﮓﻧﺭ ﮯﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "ﺎﻧﺮﮐ ﺐﯿﺗﺮﺗ ﮯﺑ"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "ﮟﯿﺋﺍﻭﺮﮐ ﻑﺭﺎﻌﺘﻣ ﻦﭘ ﺐﯿﺗﺮﺗ ﮯﺑ/ﺎﻧﺅﺎﻨﮭﮔ ﮟﯿﻣ ﮎﻭﺮﭩﺳ"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "ﻭﮍﮑﭘ"
 
 
 msgid "Translate the set of points initially within the brush circle"
 msgstr "ﮟﯾﺮﮐ ﮧﻤﺟﺮﺗ ﺎﮐ ﭧﯿﺳ ﮯﮐ ﺲﭩﻨﺋﺍﻮﭘ ﮟﯿﻣ ﮮﺮﺋﺍﺩ ﮯﮐ ﺵﺮﺑ ﺮﭘ ﺭﻮﻃ ﯽﺋﺍﺪﺘﺑﺍ"
 
 
-msgctxt "GPencil"
-msgid "Push"
-msgstr "ﺎﮑﮬﺩ"
-
-
 msgid "Move points out of the way, as if combing them"
 msgstr "ﮞﻮﮨ ﮯﮨﺭ ﺮﮐ ﯽﮭﮕﻨﮐ ﻮﮐ ﻥﺍ ﺎﯾﻮﮔ ،ﮟﯾﺩ ﺎﭩﮨ ﮯﺳ ﮯﺘﺳﺍﺭ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "ﮌﻮﻣ"
 
 
 msgid "Rotate points around the midpoint of the brush"
 msgstr "ﮟﯿﺋﺎﻤﮭﮔ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﺩﺮﮔ ﮯﮐ ﭧﻨﺋﺍﻮﭘ ﻂﺳﻭ ﮯﮐ ﺵﺮﺑ"
 
 
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "ﯽﮑﭨﻮﭼ"
-
-
 msgid "Pull points towards the midpoint of the brush"
 msgstr "ﮟﯿﭽﻨﯿﮭﮐ ﻑﺮﻃ ﯽﮐ ﻂﺳﻭ ﮯﮐ ﺵﺮﺑ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ"
 
 
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "ﻥﻮﻠﮐ"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "ﮟﯾﺮﮐ ﮞﺎﭙﺴﭼ ﮞﺎﯿﭘﺎﮐ ﯽﮐ ﮎﻭﺮﭩﺳﺍ ﮦﺪﺷ ﮦﺮﯿﺧﺫ ﺮﭘ ﮈﺭﻮﺑ ﭗﻠﮐ ﯽﻧﻭﺭﺪﻧﺍ"
-
-
-msgid "Gpencil Settings"
-msgstr "ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ  ﻞﺴﻨﯿﭘ ﯽﺟ"
 
 
 msgid "Brush Type"
@@ -20058,10 +19759,6 @@ msgid "Usage"
 msgstr "ﻝﺎﻤﻌﺘﺳﺍ"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "ﮯﺋﺎﺟ ﺎﯿﮐ ﻝﺎﻤﻌﺘﺳﺍ ﮯﺴﯿﮐ ﮟﯿﻣ ﻦﺸﯿﻟﻮﮑﻠﯿﮐ ﭦﺭﺁ ﻦﺋﻻ﻿ ﻮﮐ ﮧﻋﻮﻤﺠﻣ ﺱﺍ"
-
-
 msgid "Generate feature lines for this collection"
 msgstr "ﮟﯿﺋﺎﻨﺑ ﺰﻨﺋﻻ﻿ ﺮﭽﯿﻓ ﮯﯿﻟ ﮯﮐ ﮧﻋﻮﻤﺠﻣ ﺱﺍ"
 
@@ -20072,10 +19769,6 @@ msgstr "ﺖﯿﻟﻮﻤﺷ ﻑﺮﺻ"
 
 msgid "Only use the collection to produce occlusion"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻊﻤﺟ ﻑﺮﺻ ﻮﮐ ﮯﻋﻮﻤﺠﻣ"
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "ﮟﯾﺮﮐ ﮧﻧ ﻝﺎﻤﻌﺘﺳﺍ ﮟﯿﻣ ﭦﺭﺁ ﻦﺋﻻ﻿ ﻮﮐ ﮧﻋﻮﻤﺠﻣ ﺱﺍ"
 
 
 msgid "Intersection Only"
@@ -21350,10 +21043,6 @@ msgid "Enable or disable textured strokes"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻌﻓ ﺮﯿﻏ ﺎﯾ ﻝﺎﻌﻓ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﮯﻟﺍﻭ ﺖﺧﺎﺳ"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Grease Pencil ﮎﻼ﻿ﺑ ﺎﭩﯾﮈ"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "(ﮟﯿﺋﺎﮭﮐﺩ ﮧﻧ ﻢﯾﺮﻓ ﯽﺋﻮﮐ ﺪﻌﺑ ﮯﮐ ﭧﻧﺮﮐ = 0) ﺩﺍﺪﻌﺗ ﮦﺩﺎﯾﺯ ﮯﺳ ﮦﺩﺎﯾﺯ ﯽﮐ ﮞﻮﻤﯾﺮﻓ ﮯﯿﻟ ﮯﮐ ﮯﻧﺎﮭﮐﺩ ﺪﻌﺑ ﮯﮐ ﻢﯾﺮﻓ ﮦﺩﻮﺟﻮﻣ"
 
@@ -21364,14 +21053,6 @@ msgstr "(ﮟﯿﺋﺎﮭﮐﺩ ﮧﻧ ﻢﯾﺮﻓ ﯽﺋﻮﮐ ﮯﻠﮩﭘ ﮯ
 
 msgid "Layer Groups"
 msgstr "ﮦﻭﺮﮔ ﺕﺮﭘ"
-
-
-msgid "Grease Pencil layer groups"
-msgstr "Grease Pencil ﮦﻭﺮﮔ ﮧﮩﺗ ﯽﮐ"
-
-
-msgid "Grease Pencil layers"
-msgstr "Grease Pencil ﮟﯿﮩﺗ"
 
 
 msgid "Onion Opacity"
@@ -21396,10 +21077,6 @@ msgstr "ﮈﻮﻣ ﺎﮐ ﮯﻧﺮﮐ ﮯﻧﺎﮭﮐﺩ ﻢﯾﺮﻓ"
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "ﻢﯾﺮﻓ ﮟﯿﻣ ﺪﺣ ﻖﻠﻄﻣ ﯽﮐ ﻢﯾﺮﻓ ﮯﮐ ﺮﻈﻨﻣ"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "ﻢﯾﺮﻓ ﮟﯿﻣ ﺞﻨﯾﺭ ﮧﻘﻠﻌﺘﻣ ﯽﮐ ﺰﻤﯾﺮﻓ ﯽﮐ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
 
 
 msgid "Selected"
@@ -22761,14 +22438,6 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "ﮧﻋﻮﻤﺠﻣ ﺎﮐ ﯼﺯﺎﺳ ﮧﺸﻘﻧ ﯽﮐ ﮯﻧﺍﺮﮑﭨ ﺭﻭﺍ ﯽﻧﺎﮑﻣ ﻞﻘﻧ ﯽﻘﯿﻘﺣ ﮯﯿﻟ ﮯﮐ ﻞﯿﺼﻔﺗ ﺮﺘﮩﺑ"
 
 
-msgid "Grease Pencil Settings"
-msgstr "Grease Pencil ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ"
-
-
-msgid "Is Grease Pencil"
-msgstr "Grease Pencil ﮯﮨ"
-
-
 msgid "Line Color"
 msgstr "ﮓﻧﺭ ﺎﮐ ﻦﺋﻻ﻿"
 
@@ -22783,14 +22452,6 @@ msgstr "ﺢﯿﺟﺮﺗ ﯽﮐ ﻦﺋﻻ﻿"
 
 msgid "The line color of a higher priority is used at material boundaries"
 msgstr "ﮯﮨ ﺎﺗﺎﺟ ﺎﯿﮐ ﻝﺎﻤﻌﺘﺳﺍ ﮓﻧﺭ ﻦﺋﻻ﻿ ﺎﮐ ﺢﯿﺟﺮﺗ ﯽﻠﻋﺍ ﺮﭘ ﺩﻭﺪﺣ ﯼﺩﺎﻣ"
-
-
-msgid "Line Art Settings"
-msgstr "ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﭦﺭﺁ ﻦﺋﻻ﻿"
-
-
-msgid "Line Art settings for material"
-msgstr "ﺩﺍﻮﻣ for ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﭦﺭﺁ ﻦﺋﻻ﻿"
 
 
 msgid "Max Vertex Displacement"
@@ -24087,14 +23748,6 @@ msgid "Lightgroup that the object belongs to"
 msgstr "ﮯﮨ ﻖﻠﻌﺗ ﺎﮐ ﮯﺷ ﮯﺳ ﺲﺟ ﮦﻭﺮﮔ ﭧﺋﻻ﻿"
 
 
-msgid "Line Art"
-msgstr "ﻦﻓ ﻦﺋﻻ﻿"
-
-
-msgid "Line Art settings for the object"
-msgstr "ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮯﯿﻟ ﮯﮐ ﮯﺷ"
-
-
 msgid "Location of the object"
 msgstr "ﻡﺎﻘﻣ ﺎﮐ ﺰﯿﭼ"
 
@@ -24215,28 +23868,8 @@ msgid "Particle Edit"
 msgstr "ﭧﯾﮉﯾﺍ ﻞﮑﯿﭨﺭﺎﭘ"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Grease Pencil ﮟﯿﺋﺎﻨﺑ ﮧﻤﺴﺠﻣ ﺎﮐ ﮎﻭﺮﭩﺳﺍ"
-
-
 msgid "Draw Mode"
 msgstr "ﮈﻮﻣ ﺍﺭﮈ"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "ﮎﻭﺮﭩﺳ Grease Pencil ﭧﻨﯿﭘ"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "Grease Pencil ﮎﻭﺮﭩﺳﺍ ﭧﻨﯿﭘ ﻥﺯﻭ"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Grease Pencil ﮎﻭﺮﭩﺳﺍ ﭧﻨﯿﭘ ﮯﻧﻮﮐ"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -26037,10 +25670,6 @@ msgid "Constant acceleration in a given direction"
 msgstr "ﺖﻋﺮﺳ ﻞﻘﺘﺴﻣ ﮟﯿﻣ ﺖﻤﺳ ﯽﺌﮔ ﯼﺩ ﮏﯾﺍ"
 
 
-msgid "Grease Pencil settings for the scene"
-msgstr "ﮟﯾﺩ ﯽﺋﺎﻨﮑﭼ ﻮﮐ ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﻞﺴﻨﭘ ﮯﯿﻟ ﮯﮐ ﺮﻈﻨﻣ"
-
-
 msgid "Hydra"
 msgstr "ﺍﺭﮉﯿﺋﺎﮨ"
 
@@ -27829,26 +27458,6 @@ msgstr "UI ﺎﺗﺎﺟ ﺎﯿﮐ ﮟﯿﮩﻧ ﻝﺎﻤﻌﺘﺳﺍ ﮯﻌﯾ�
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "ﮟﯿﺋﺎﺟ ﺮﭘ ﮈﻮﻣ ﮯﺷ ﺱﺍ ﺖﻗﻭ ﮯﺗﺮﮐ ﻮﻟﺎﭼ ﻮﮐ ﺲﯿﭙﺳﺍ ﮎﺭﻭ"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "ﮈﻮﻣ ﭧﯾﮉﯾﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Grease Pencil ﮈﻮﻣ ﮧﻤﺴﺠﻣ"
-
-
-msgid "Grease Pencil Draw"
-msgstr "ﺍﺭﮈ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Grease Pencil ﭧﻨﯿﭘ ﮯﻧﻮﮐ"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Grease Pencil ﭧﻨﯿﭘ ﻥﺯﻭ"
 
 
 msgid "UI Tags"
@@ -32213,10 +31822,6 @@ msgid "Active point of masking layer"
 msgstr "ﭧﻨﺋﺍﻮﭘ ﻝﺎﻌﻓ ﺎﮐ ﺕﺮﭘ ﮓﻨﮑﺳﺎﻣ"
 
 
-msgid "Grease Pencil Color"
-msgstr "Grease Pencil ﮓﻧﺭ ﺎﮐ"
-
-
 msgid "Alignment"
 msgstr "ﯼﺪﻨﺑ ﻒﺻ"
 
@@ -32249,36 +31854,16 @@ msgid "Color for filling region bounded by each stroke"
 msgstr "ﮓﻧﺭ ﺎﮐ ﮯﻧﺮﮭﺑ ﻮﮐ ﮯﻗﻼ﻿ﻋ ﮯﺋﻮﮨ ﮮﮍﮑﺟ ﮯﺳ ﮎﻭﺮﭩﺳﺍ ﺮﮨ"
 
 
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "ﻞﺋﺎﭩﺳﺍ ﻞﻓ"
-
-
 msgid "Select style used to fill strokes"
 msgstr "ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﺯﺍﺪﻧﺍ ﻻ﻿ﺍﻭ ﮯﻧﻮﮨ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮭﺑ ﻮﮐ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "ﺱﻮﮭﭨ"
 
 
 msgid "Fill area with solid color"
 msgstr "ﮟﯾﺮﮭﺑ ﮧﮕﺟ ﮫﺗﺎﺳ ﮯﮐ ﮓﻧﺭ ﺱﻮﮭﭨ"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "ﻥﻼ﻿ﯿﻣ"
-
-
 msgid "Fill area with gradient color"
 msgstr "ﮟﯾﺮﮭﺑ ﻮﮐ ﮯﻗﻼ﻿ﻋ ﮫﺗﺎﺳ ﮯﮐ ﮓﻧﺭ ﻥﻼ﻿ﯿﻣ"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "ﺖﺧﺎﺳ"
 
 
 msgid "Fill area with image texture"
@@ -32339,11 +31924,6 @@ msgstr "ﮟﯾﺮﮐ ﺲﮑﻣ ﮓﻧﺭ"
 
 msgid "Color for mixing with primary filling color"
 msgstr "ﮓﻧﺭ ﮯﯿﻟ ﮯﮐ ﻁﻼ﻿ﺘﺧﺍ ﮫﺗﺎﺳ ﮯﮐ ﮓﻧﺭ ﮓﻨﻠﻓ ﯼﺩﺎﯿﻨﺑ"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "ﺲﮑﻣ"
 
 
 msgid "Mix Factor"
@@ -32410,11 +31990,6 @@ msgid "Show stroke lines of this material"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮟﯿﻨﺋﻻ﻿ ﮎﻭﺮﭩﺳﺍ ﯽﮐ ﺩﺍﻮﻣ ﺱﺍ"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "ﻞﺋﺎﭩﺳﺍ ﮎﻭﺮﭩﺳﺍ"
-
-
 msgid "Select style used to draw strokes"
 msgstr "ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﺯﺍﺪﻧﺍ ﻻ﻿ﺍﻭ ﮯﻧﻮﮨ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﺍﺭﮈ ﮎﻭﺮﭩﺳﺍ"
 
@@ -32453,10 +32028,6 @@ msgstr "ﭗﯿﻟﺭﻭﻭﺍ ﻒﻠﯿﺳ"
 
 msgid "Disable stencil and overlap self intersections with alpha materials"
 msgstr "ﮟﯾﺮﮐ ﭗﯿﻟﺭﻭﻭﺍ ﻮﮐ ﺩﻮﺧ ﮫﺗﺎﺳ ﮯﮐ ﻞﯾﺮﭩﯿﻣ ﺎﻔﻟﺍ ﺭﻭﺍ ﮟﯾﺮﮐ ﻝﺎﻌﻓ ﺮﯿﻏ ﻮﮐ ﻞﺴﻨﯿﭩﺳ"
-
-
-msgid "Material Line Art"
-msgstr "ﭦﺭﺁ ﻦﺋﻻ﻿ ﻞﯾﺮﯿﭩﻣ"
 
 
 msgid "Effectiveness"
@@ -34332,18 +33903,6 @@ msgid "Duplicate strokes into an array"
 msgstr "ﻒﺻ into an ﮎﻭﺮﭩﺳﺍ ﭧﯿﮑﯿﻠﭘﮈ"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "Grease Pencil ﮟﯿﺋﺎﻨﺑ ﺮﺋﺎﻔﯾﮈﻮﻣ"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﯽﺋﺎﺒﻤﻟ"
-
-
-msgid "Generate Line Art from scene geometries"
-msgstr "ﮟﯾﺮﮐ ﺭﺎﯿﺗ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮯﺳ ﯼﺮﭩﯿﻣﻮﯿﺟ ﺮﻈﻨﻣ"
-
-
 msgid "Duplicate strokes like a mirror"
 msgstr "ﮎﻭﺮﭩﺳﺍ ﻞﻘﻧ ﺡﺮﻃ ﯽﮐ ﮯﻨﯿﺋﺁ"
 
@@ -34362,10 +33921,6 @@ msgstr "ﮟﯿﺋﺎﻨﺑ ﻥﺎﺳﺁ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﮯﻟﺍﻭ �
 
 msgid "Subdivide"
 msgstr "ﻢﯿﺴﻘﺗ ﯽﻠﯾﺫ"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "Grease Pencil ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻢﯿﻣﺮﺗ ﻢﯿﺴﻘﺗ ﯽﻠﯾﺫ"
 
 
 msgid "Create an envelope shape"
@@ -36551,10 +36106,6 @@ msgid "Only modify strokes during the specified frame range"
 msgstr "ﮟﯾﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﮎﻭﺮﭩﺳﺍ ﻥﺍﺭﻭﺩ ﮯﮐ ﺞﻨﯾﺭ ﻢﯾﺮﻓ ﺹﻮﺼﺨﻣ ﻑﺮﺻ"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "Grease Pencil ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻢﯿﻣﺮﺗ ﮓﻧﺭ ﺎﮐ"
-
-
 msgid "Attributes to modify"
 msgstr "ﮟﯾﺮﮐ ﻢﯿﻣﺮﺗ to ﺕﺎﻔﺻ"
 
@@ -36599,10 +36150,6 @@ msgid "Color value factor"
 msgstr "ﻞﻣﺎﻋ ﺭﺪﻗ ﯽﮐ ﮓﻧﺭ"
 
 
-msgid "Grease Pencil Dash Modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﺶﯾﮈ"
-
-
 msgid "Create dot-dash effect for strokes"
 msgstr "ﮟﯿﺋﺎﻨﺑ ﺮﺛﺍ ﺶﯾﮈ ﭦﺍﮈ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ"
 
@@ -36617,10 +36164,6 @@ msgstr "ﺲﮑﯾﮉﻧﺍ ﭧﻨﻤﮕﯿﺳ ﺶﯾﮈ ﻝﺎﻌﻓ"
 
 msgid "Active index in the segment list"
 msgstr "ﺲﮑﯾﮉﻧﺍ ﻝﺎﻌﻓ ﮟﯿﻣ ﭧﺴﻟ ﭧﻨﻤﮕﯿﺳ"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﮧﻓﺎﻔﻟ"
 
 
 msgid "Envelope stroke effect modifier"
@@ -36728,10 +36271,6 @@ msgstr "ﻑﺁ ﻝﺎﻓ ﻡﺭﺎﻔﯿﻧﻮﯾ"
 
 msgid "Compensate for non-uniform object scale"
 msgstr "ﮟﯾﺮﮐ ﯽﻓﻼ﻿ﺗ ﯽﮐ ﮯﻧﺎﻤﯿﭘ ﮯﺷ ﮞﺎﺴﮑﯾ ﺮﯿﻏ"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﯽﻟﺎﺟ"
 
 
 msgid "Lattice object to deform with"
@@ -36870,14 +36409,6 @@ msgid "Use random values over time"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﺭﺍﺪﻗﺍ ﺐﯿﺗﺮﺗ ﮯﺑ ﮫﺗﺎﺳ ﮯﮐ ﺖﻗﻭ"
 
 
-msgid "Line Art Modifier"
-msgstr "ﺮﺋﺎﻔﯾﮈﻮﻣ ﭦﺭﺁ ﻦﺋﻻ﻿"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "ﺬﺧﺎﻣ ﺐﺨﺘﻨﻣ ﮯﺳ ﮎﻭﺮﭩﺳﺍ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮟﯾﺮﮐ ﺍﺪﯿﭘ"
-
-
 msgid "Image Threshold"
 msgstr "ﺪﺣ ﯽﮐ ﺮﯾﻮﺼﺗ"
 
@@ -36888,10 +36419,6 @@ msgstr "ﮯﮔ ﮟﯿﺋﺎﺟ ﮮﮍﮑﺟ ﮫﺗﺎﺳ ﮏﯾﺍ ﮯﺼﺣ ﮯ
 
 msgid "Crease Threshold"
 msgstr "ﮉﻟﻮﺸﯾﺮﮭﺗ ﺰﯾﺮﮐ"
-
-
-msgid "Angles smaller than this will be treated as creases. Crease angle priority: object Line Art crease override > mesh auto smooth angle > Line Art default crease."
-msgstr "ﺰﯾﺮﮐ ﭧﻟﺎﻔﯾﮈ ﭦﺭﺁ ﻦﺋﻻ﻿ <ﻞﮕﻨﯾﺍ ﮫﺗﻮﻤﺳﺍ ﻮﭨﺁ ﻝﺎﺟ <ﮉﺋﺍﺭ ﺭﻭﻭﺍ ﺰﯾﺮﮐ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮯﺷ :ﺢﯿﺟﺮﺗ ﯽﮐ ﻞﮕﻨﯾﺍ ﺰﯾﺮﮐ ﺎﮔ ﮯﺋﺎﺟ ﺎﮭﺠﻤﺳ ﺰﯾﺮﮐ ﻮﮐ ﮞﻮﯾﻭﺍﺯ ﮯﭨﻮﮭﭼ ﮯﺳ ﺱﺍ"
 
 
 msgid "Invert source vertex group values"
@@ -37010,10 +36537,6 @@ msgid "Camera Object"
 msgstr "ﭧﮑﯿﺠﺑﺁ ﮦﺮﻤﯿﮐ"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "ﮎﻭﺮﭩﺳﺍ ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﮯﺷ ﮦﺮﻤﯿﮐ ﺹﻮﺼﺨﻣ ﮯﯿﻟ ﮯﮐ ﮯﻧﺎﻨﺑ ﭦﺭﺁ ﻦﺋﻻ﻿"
-
-
 msgid "Generate strokes from the objects in this collection"
 msgstr "ﮟﯿﺋﺎﻨﺑ ﮎﻭﺮﭩﺳﺍ ﮯﺳ ءﺎﯿﺷﺍ ﺩﻮﺟﻮﻣ ﮟﯿﻣ ﮧﻋﻮﻤﺠﻣ ﺱﺍ"
 
@@ -37024,10 +36547,6 @@ msgstr "ﮟﯾﺮﮐ ﺍﺪﯿﭘ ﮎﻭﺮﭩﺳﺍ ﮯﺳ ﮯﺷ ﺱﺍ"
 
 msgid "Source Type"
 msgstr "ﻢﺴﻗ ﯽﮐ ﺬﺧﺎﻣ"
-
-
-msgid "Line Art stroke source type"
-msgstr "ﻢﺴﻗ ﯽﮐ ﺬﺧﺎﻣ ﮎﻭﺮﭩﺳﺍ ﭦﺭﺁ ﻦﺋﻻ﻿"
 
 
 msgid "Source Vertex Group"
@@ -37054,24 +36573,12 @@ msgid "Move strokes slightly towards the camera to avoid clipping while preserve
 msgstr "ﮟﯾﺮﮐ ﻞﻘﺘﻨﻣ ﺎﺳ ﺍﮌﻮﮭﺗ ﻑﺮﻃ ﯽﮐ ﮦﺮﻤﯿﮐ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﮯﯿﻟ ﮯﮐ ﮯﻨﭽﺑ ﮯﺳ ﮓﻨﭙﻠﮐ ﮯﺋﻮﮨ ﮯﺘﮭﮐﺭ ﻅﻮﻔﺤﻣ ﻮﮐ ﯽﺋﺍﺮﮩﮔ ﮯﯿﻟ ﮯﮐ ﭦﺭﻮﭘ ﻮﯾﻭ"
 
 
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "Grease Pencil ﮯﮨ ﺎﺗﺎﺟ ﺎﯿﮐ ﺾﯾﻮﻔﺗ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﮯﻟﺍﻭ ﮯﻧﻮﮨ ﺍﺪﯿﭘ ﮟﯿﻣ ﺲﺟ ﮧﮩﺗ ﯽﮐ"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "ﺩﺍﻮﻣ Grease Pencil ﮦﺩﺮﮐ ﺾﯾﻮﻔﺗ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﮦﺩﺮﮐ ﺭﺎﯿﺗ"
-
-
 msgid "Back Face Culling"
 msgstr "ﮓﻨﻠﮐ ﺲﯿﻓ ﮏﯿﺑ"
 
 
 msgid "Remove all back faces to speed up calculation, this will create edges in different occlusion levels than when disabled"
 msgstr "ﺎﮔ ﮯﺋﺎﻨﺑ ﮮﺭﺎﻨﮐ ﮟﯿﻣ ﮞﻮﺤﻄﺳ ﯽﮐ ﮞﻮﭨﻭﺎﮐﺭ ﻒﻠﺘﺨﻣ ﺖﺒﺴﻧ ﯽﮐ ﮯﻧﻮﮨ ﻝﺎﻌﻓ ﺮﯿﻏ ﮧﯾ ،ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﮞﻭﺮﮩﭼ ﻡﺎﻤﺗ ﮯﻠﮭﭽﭘ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﺰﯿﺗ ﻮﮐ ﺏﺎﺴﺣ"
-
-
-msgid "Use cached scene data from the first Line Art modifier in the stack. Certain settings will be unavailable."
-msgstr "ﯽﮔ ﮞﻮﮨ ﮟﯿﮩﻧ ﺏﺎﯿﺘﺳﺩ ﺕﺎﺒﯿﺗﺮﺗ ﮫﭽﮐ ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﭩﯾﮈ ﻦﯿﺳ ﮉﺸﯿﮐ ﮯﺳ ﺮﺋﺎﻔﯾﮈﻮﻣ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮯﻠﮩﭘ ﮟﯿﻣ ﮏﯿﭩﺳﺍ"
 
 
 msgid "Clipping Boundaries"
@@ -37206,10 +36713,6 @@ msgid "Generate strokes from intersections"
 msgstr "ﮟﯾﺮﮐ ﺍﺪﯿﭘ ﮎﻭﺮﭩﺳﺍ ﮯﺳ ﻦﺸﮑﯿﺳﺮﭩﻧﺍ"
 
 
-msgid "Mask bits to match from Collection Line Art settings"
-msgstr "ﺲﭩﺑ ﮏﺳﺎﻣ ﮯﯿﻟ ﮯﮐ ﮯﻨﻠﻣ ﮯﺳ ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﭦﺭﺁ ﻦﺋﻻ﻿ ﻦﺸﮑﯿﻠﮐ"
-
-
 msgid "Match Intersection"
 msgstr "ﻦﺸﮑﯿﺳﺮﭩﻧﺍ ﭖﻼ﻿ﻣ"
 
@@ -37274,10 +36777,6 @@ msgid "Generate strokes from borders between materials"
 msgstr "ﮟﯾﺮﮐ ﺍﺪﯿﭘ ﮎﻭﺮﭩﺳﺍ ﮯﺳ ﮞﻭﺪﺣﺮﺳ ﻥﺎﯿﻣﺭﺩ ﮯﮐ ﺩﺍﻮﻣ"
 
 
-msgid "Mask bits to match from Material Line Art settings"
-msgstr "ﺲﭩﺑ ﮏﺳﺎﻣ ﮯﯿﻟ ﮯﮐ ﮯﻨﻠﻣ ﮯﺳ ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﭦﺭﺁ ﻦﺋﻻ﻿ ﻞﯾﺮﭩﯿﻣ"
-
-
 msgid "Match Masks"
 msgstr "ﮏﺳﺎﻣ ﭻﯿﻣ"
 
@@ -37296,10 +36795,6 @@ msgstr "ﮟﯾﺮﮐ ﺭﺎﯿﺗ ﮎﻭﺮﭩﺳﺍ ﮯﺳ ﺪﺣ ﮏﯾﺍ ﯽ
 
 msgid "Instanced Objects"
 msgstr "ﭧﮑﯿﺠﺑﺁ ﯽﻟﺎﺜﻣ"
-
-
-msgid "Allow particle objects and face/vertex instances to show in Line Art"
-msgstr "ﮟﯾﺩ ﺕﺯﺎﺟﺍ ﯽﮐ ﮯﻧﺎﮭﮐﺩ ﻮﮐ ﮞﻮﻟﺎﺜﻣ ﯼﺩﻮﻤﻋ/ﮮﺮﮩﭼ ﺭﻭﺍ ﭧﮑﯿﺠﺑﺁ ﻞﮑﯿﭨﺭﺎﭘ ﮟﯿﻣ ﭦﺭﺁ ﻦﺋﻻ﻿"
 
 
 msgid "Offset Towards Custom Camera"
@@ -37332,10 +36827,6 @@ msgstr "ﮟﯾﺮﮐ ﭧﮑﯿﺟﻭﺮﭘ ﻮﮐ ﮞﻮﻨﺋﻻ﻿ ﺭﻮﭩ�
 
 msgid "Vertex group name for selected strokes"
 msgstr "ﻡﺎﻧ ﺎﮐ ﮦﻭﺮﮔ ﮯﻧﻮﮐ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﺐﺨﺘﻨﻣ"
-
-
-msgid "Grease Pencil Mirror Modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﮧﻨﯿﺋﺁ"
 
 
 msgid "Object used as center"
@@ -37394,10 +36885,6 @@ msgid "Fade the stroke thickness for each generated stroke"
 msgstr "ﮟﯾﺮﮐ ﻻ﻿ﺪﻨﮬﺩ ﻮﮐ ﯽﺋﺎﭨﻮﻣ ﯽﮐ ﮎﻭﺮﭩﺳﺍ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﮯﻟﺍﻭ ﮯﻧﻮﮨ ﺍﺪﯿﭘ ﺮﮨ"
 
 
-msgid "Grease Pencil Noise Modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﺭﻮﺷ"
-
-
 msgid "Noise effect modifier"
 msgstr "ﮦﺪﻨﻨﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﺮﺛﺍ ﺭﻮﺷ"
 
@@ -37454,10 +36941,6 @@ msgid "Noise Seed"
 msgstr "ﺞﯿﺑ ﺎﮐ ﺭﻮﺷ"
 
 
-msgid "Grease Pencil Offset Modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﭧﯿﺴﻓﺁ"
-
-
 msgid "Values for change location"
 msgstr "ﮟﯾﺭﺪﻗ ﮯﯿﻟ ﮯﮐ ﯽﻠﯾﺪﺒﺗ ﯽﮐ ﻡﺎﻘﻣ"
 
@@ -37496,10 +36979,6 @@ msgstr "ﺯﺎﻏﺁ ﮧﻄﻘﻧ ﭧﯿﺴﻓﺁ"
 
 msgid "Number of elements that will be grouped"
 msgstr "ﺎﮔ ﮯﺋﺎﺟ ﺎﯿﮐ ﮦﻭﺮﮔ ﮟﯿﮩﻨﺟ ﺩﺍﺪﻌﺗ ﯽﮐ ﺮﺻﺎﻨﻋ"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "Grease Pencil ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻢﯿﻣﺮﺗ ﻦﭘﻻ﻿ﺪﻨﮬﺩ"
 
 
 msgid "Opacity Factor"
@@ -37794,10 +37273,6 @@ msgid "Catmull-Clark"
 msgstr "ﮎﺭﻼ﻿ﮐ ﻞﻤﭩﯿﮐ"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "Grease Pencil ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﺖﺧﺎﺳ"
-
-
 msgid "Transform stroke texture coordinates Modifier"
 msgstr "ﺮﺋﺎﻔﯾﮈﻮﻣ ﺲﭩﯿﻨﯾﮈﺭﺁﻮﮐ  ﺖﺧﺎﺳ ﮎﻭﺮﭩﺳﺍ ﻡﺭﺎﻔﺴﻧﺍﺮﭨ"
 
@@ -37878,10 +37353,6 @@ msgid "Factor to scale the UVs"
 msgstr "ﺮﺼﻨﻋ ﺎﮐ ﮯﻧﺮﮐ ﺶﺋﺎﻤﯿﭘ ﯽﮐ s ﯼﻭﻮﯾ"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "Grease Pencil ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻢﯿﻣﺮﺗ ﯽﺋﺎﭨﻮﻣ"
-
-
 msgid "Adjust stroke thickness"
 msgstr "ﮟﯾﺮﮐ ﭧﺴﺟﮉﯾﺍ ﻮﮐ ﯽﺋﺎﭨﻮﻣ ﯽﮐ ﮎﻭﺮﭩﺳﺍ"
 
@@ -37908,10 +37379,6 @@ msgstr "ﯽﻧﺯﻭ"
 
 msgid "Use weight to modulate effect"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﻥﺯﻭ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﮧﻧﻮﻤﻧ ﻮﮐ ﺮﺛﺍ"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "Grease Pencil ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻢﯿﻣﺮﺗ ﺖﻗﻭ"
 
 
 msgid "Final frame of the range"
@@ -37972,10 +37439,6 @@ msgstr "ﮟﯿﮭﮐﺭ ﭖﻮﻟ"
 
 msgid "Retiming end frames and move to start of animation to keep loop"
 msgstr "ﺎﻧﻮﮨ ﻞﻘﺘﻨﻣ ﺮﭘ ﺯﺎﻏﺁ ﮯﮐ ﯼﺮﯾﺬﭘ ﺖﮐﺮﺣ ﮯﯿﻟ ﮯﮐ ﮯﻨﮭﮐﺭ ﭖﻮﻟ ﺭﻭﺍ ﺎﻧﺮﮐ ﻢﺋﺎﭨ ﮦﺭﺎﺑﻭﺩ ﻮﮐ ﮞﻮﻤﯾﺮﻓ ﯽﻣﺎﺘﺘﺧﺍ"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "Grease Pencil ﺮﺋﺎﻔﯾﮈﻮﻣ ﭧﻨﭨ"
 
 
 msgid "Color used for tinting"
@@ -43589,10 +43052,6 @@ msgid "Instances of objects or collections"
 msgstr "ﮟﯿﻟﺎﺜﻣ ﯽﮐ ﮞﻮﻋﻮﻤﺠﻣ ﺎﯾ ءﺎﯿﺷﺍ"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "ﻭﺰﺟ ﺎﮐ Grease Pencil ﻞﻤﺘﺸﻣ ﺮﭘ ﮞﻮﻤﺧ ﺭﻭﺍ ﮞﻮﺗﺮﭘ"
-
-
 msgid "Attribute Statistic"
 msgstr "ﺕﺎﯾﺭﺎﻤﺷ ﺏﺎﺴﺘﻧﺍ"
 
@@ -43949,14 +43408,6 @@ msgid "Sample each spline by splitting it into segments with the specified lengt
 msgstr "ﮟﯿﺋﺎﻨﺑ ﮧﻧﻮﻤﻧ ﮯﮐﺮﮐ ﻢﯿﺴﻘﺗ ﮟﯿﻣ ﮞﻮﺼﺣ ﮫﺗﺎﺳ ﮯﮐ ﯽﺋﺎﺒﻤﻟ ﺹﻮﺼﺨﻣ ﻮﮐ ﻦﺋﻼ﻿ﭙﺳﺍ ﺮﮨ"
 
 
-msgid "Curves to Grease Pencil"
-msgstr "to Grease Pencil  ﺭﺍﺩ ﻢﺧ"
-
-
-msgid "Convert the curves in each top-level instance into Grease Pencil layer"
-msgstr "ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﮟﯿﻣ ﺕﺮﭘ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﻮﮐ  ﺭﺍﺩ ﻢﺧ   ﮯﮐ ﻝﺎﺜﻣ ﻝﻮﯿﻟ ﭖﺎﭨ ﺮﮨ"
-
-
 msgid "Geometry Custom Group"
 msgstr "ﮦﻭﺮﮔ ﻢﭩﺴﮐ ﯼﺮﭩﯿﻣﻮﯿﺟ"
 
@@ -44279,14 +43730,6 @@ msgstr "Use ﮧﻤﺟﺮﺗ Y"
 
 msgid "Use Translation Z"
 msgstr "Use ﮧﻤﺟﺮﺗ Z"
-
-
-msgid "Grease Pencil to Curves"
-msgstr "Grease Pencil to   ﺭﺍﺩ ﻢﺧ"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "Grease Pencilﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﮟﯿﻣ ﮞﻮﻟﺎﺜﻣ ﻢﺧ ﻮﮐ ﮞﻮﮩﺗ ﯽﮐ"
 
 
 msgid "Grid to Mesh"
@@ -48343,10 +47786,6 @@ msgid "Layer Selection"
 msgstr "ﺏﺎﺨﺘﻧﺍ ﺎﮐ ﺕﺮﭘ"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "ﮟﯿﻟ ﺮﭘ ﺭﻮﻃ ﮯﮐ ﮉﻠﯿﻓ ﻦﺸﮑﯿﻠﺳ ﻮﮑﮨﻭﺮﮔ ﺮﺌﯿﻟ ﺎﯾ ﺮﺌﯿﻟ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
 msgid "Type of the socket generated by this interface item"
 msgstr "ﻢﺴﻗ ﯽﮐ ﭧﮐﺎﺳ ﮦﺩﺮﮐ ﺭﺎﯿﺗ ﮧﻌﯾﺭﺫ ﮯﮐ ﻢﭩﺋﺁ ﺲﯿﻓﺮﭩﻧﺍ ﺱﺍ"
 
@@ -48627,20 +48066,8 @@ msgid "Collection which defines light linking relation of this emitter"
 msgstr "ﮯﮨ ﺎﺗﺮﮐ ﺖﺣﺎﺿﻭ ﯽﮐ ﻖﻠﻌﺗ ﮯﻟﺍﻭ ﮯﻧﮌﻮﺟ ﻮﮐ ﯽﻨﺷﻭﺭ ﮯﮐ ﺮﭩﯿﻤﯾﺍ ﺱﺍ ﻮﺟ ﮧﻋﻮﻤﺠﻣ"
 
 
-msgid "Object Line Art"
-msgstr "ﭦﺭﺁ ﻦﺋﻻ﻿ ﺰﯿﭼ"
-
-
-msgid "Object Line Art settings"
-msgstr "ﺕﺎﺒﯿﺗﺮﺗ ﭦﺭﺁ ﻦﺋﻻ﻿ ﺰﯿﭼ"
-
-
 msgid "Angles smaller than this will be treated as creases"
 msgstr "ﺎﮔ ﮯﺋﺎﺟ ﺎﮭﺠﻤﺳ ﺰﯾﺮﮐ ﻮﮐ ﮞﻮﯾﻭﺍﺯ ﮯﭨﻮﮭﭼ ﮯﺳ ﺱﺍ"
-
-
-msgid "How to use this object in Line Art calculation"
-msgstr "ﮟﯾﺮﮐ ﮯﺴﯿﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﮯﺷ ﺱﺍ ﮟﯿﻣ ﻦﺸﯿﻟﻮﮑﻠﯿﮐ ﭦﺭﺁ ﻦﺋﻻ﻿"
 
 
 msgid "Inherit"
@@ -48657,10 +48084,6 @@ msgstr "ﮟﯿﺋﺎﻨﺑ ﺰﻨﺋﻻ﻿ ﺮﭽﯿﻓ ﮯﯿﻟ ﮯﮐ ﺎﭩ�
 
 msgid "Only use the object data to produce occlusion"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﺎﭩﯾﮈ ﮯﺷ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﺍﺪﯿﭘ ﺽﺍﺮﺘﻋﺍ ﻑﺮﺻ"
-
-
-msgid "Don't use this object for Line Art rendering"
-msgstr "ﮟﯾﺮﮐ ﮧﻧ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﮓﻧﺭﮉﻨﯾﺭ ﭦﺭﺁ ﻦﺋﻻ﻿ ﻮﮐ ﮯﺷ ﺱﺍ"
 
 
 msgid "Include this object but do not generate intersection lines"
@@ -50555,16 +49978,6 @@ msgstr "ﻝﺎﻤﻋﺍ list of ﮟﯾﺮﮐ ﺶﯾﺮﻔﯾﺭ"
 msgctxt "Operator"
 msgid "Refresh action list"
 msgstr "list ﻡﺍﺪﻗﺍ ﮟﯾﺮﮐ ﺶﯾﺮﻔﯾﺭ"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﭧﯿﺳ ﺶﯿﭘ ﺵﺮﺑ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﭧﯿﺳ ﺶﯿﭘ ﺩﺍﻮﻣ"
 
 
 msgid "Load a preset"
@@ -54129,22 +53542,6 @@ msgid "Place markers across the whole frame"
 msgstr "ﮟﯿﺋﺎﮕﻟ ﺮﮐﺭﺎﻣ ﮟﯿﻣ ﻢﯾﺮﻓ ﮮﺭﻮﭘ"
 
 
-msgid "Inside Annotated Area"
-msgstr "ﺭﺪﻧﺍ ﮯﮐ ﮯﻗﻼ﻿ﻋ ﮦﺪﺷ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "ﮟﯿﮨ ﮯﺌﮔ ﮯﯿﮐ ﻥﺎﯿﺑ ﮫﺗﺎﺳ ﮯﮐ ﺭﺍﺯﻭﺍ  ﺢﯾﺮﺸﺗ ﻮﺟ ﮟﯿﮭﮐﺭ ﺭﺪﻧﺍ ﮯﮐ ﮞﻮﻗﻼ﻿ﻋ ﻥﺍ ﻑﺮﺻ ﺮﮐﺭﺎﻣ"
-
-
-msgid "Outside Annotated Area"
-msgstr "ﺮﮨﺎﺑ ﮯﺳ ﮯﻗﻼ﻿ﻋ ﮦﺪﺷ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "ﮟﯿﮨ ﮯﺌﮔ ﮯﯿﮐ ﻥﺎﯿﺑ ﮫﺗﺎﺳ ﮯﮐ ﺭﺍﺯﻭﺍ  ﯽﺤﯾﺮﺸﺗ ﻮﺟ ﮟﯿﮭﮐﺭ ﺮﮨﺎﺑ ﮯﮐ ﮞﻮﻗﻼ﻿ﻋ ﻥﺍ ﻑﺮﺻ ﺮﮐﺭﺎﻣ"
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "ﻝﻮﯿﻟ ﮉﻟﻮﺸﯾﺮﮭﺗ ﮯﯿﻟ ﮯﮐ ﮯﻨﮭﺠﻤﺳ ﺎﮭﭼﺍ ﯽﻓﺎﮐ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﮏﯾﺮﭨ ﻮﮐ ﺖﯿﺻﻮﺼﺧ"
 
@@ -55915,10 +55312,6 @@ msgstr "ﮉﯿﺋﻼ﻿ﺳ ﺞﯾﺍ"
 
 msgid "Sequence Slide"
 msgstr "ﮉﯿﺋﻼ﻿ﺳ ﻞﺴﻠﺴﺗ"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "Grease Pencil ﻦﭘﻻ﻿ﺪﻨﮬﺩ"
 
 
 msgid "Set type of handles for selected control points"
@@ -58860,15 +58253,6 @@ msgid "Tweak the active gizmo"
 msgstr "ﮟﯾﺩ ﺖﻘﻓﺍﻮﻣ ﻮﮐ ﻮﻣﺰﯿﮔ ﻝﺎﻌﻓ"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "ﺍﺭﮈ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Make annotations on the active data"
-msgstr "ﮟﯿﺋﺎﻨﺑ ﺕﺎﺤﯾﺮﺸﺗ ﺮﭘ ﺎﭩﯾﮈ ﻝﺎﻌﻓ"
-
-
 msgid "End Arrow Style"
 msgstr "ﻞﺋﺎﭩﺳﺍ ﻭﺮﯾﺍ ﮉﻨﯾﺍ"
 
@@ -58949,10 +58333,6 @@ msgid "Eraser"
 msgstr "ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻑﺎﺻ"
 
 
-msgid "Erase Annotation strokes"
-msgstr "ﮟﯾﺩ ﺎﭩﻣ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﮯﮐ ﺢﯾﺮﺸﺗ"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "ﺮﭩﮑﯿﻓ ﮎﻭﺮﭩﺳﺍ ﺭﺰﺋﻼ﻿ﺒﯿﭩﺳ"
 
@@ -58972,55 +58352,6 @@ msgstr "ﮟﯾﺮﮐ ﺭﺎﻈﺘﻧﺍ ﺎﮐ ﮏﻠﮐ ﮯﻠﮩﭘ ﮯﺋﺎ�
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﻢﯾﺮﻓ ﻝﺎﻌﻓ"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﻢﯾﺮﻓ ﻝﺎﻌﻓ ﮯﯿﻟ ﮯﮐ ﺕﺮﭘ ﯽﺤﯾﺮﺸﺗ ﻝﺎﻌﻓ"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺎﯿﻧ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Add new Annotation data-block"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﮎﻼ﻿ﺑ ﺎﭩﯾﮈ ﯽﺤﯾﺮﺸﺗ ﺎﯿﻧ"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "ﮟﯾﺮﮐ ﻢﺘﺧ ﮏﻨﻟ ﺎﮐ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "ﮟﯾﺮﮐ ﻢﺘﺧ ﮏﻨﻟ ﺎﮐ ﮎﻼ﻿ﺑ ﺎﭩﯾﮈ ﯽﺤﯾﺮﺸﺗ ﻝﺎﻌﻓ"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺕﺮﭘ ﯽﺤﯾﺮﺸﺗ ﯽﺌﻧ"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﭦﻮﻧ ﺎﯾ ﺕﺮﭘ ﯽﺤﯾﺮﺸﺗ ﯽﺌﻧ ﮯﯿﻟ ﮯﮐ ﮎﻼ﻿ﺑ ﺎﭩﯾﮈ ﻝﺎﻌﻓ"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "ﮟﯾﺮﮐ ﻞﻘﺘﻨﻣ ﻮﮐ ﺕﺮﭘ ﯽﮐ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "ﮟﯾﺮﮐ ﻞﻘﺘﻨﻣ ﮯﭽﯿﻧ/ﺮﭘﻭﺍ ﻮﮐ ﺕﺮﭘ ﯽﺤﯾﺮﺸﺗ ﻝﺎﻌﻓ ﮟﯿﻣ ﺖﺳﺮﮩﻓ"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﺕﺮﭘ ﯽﮐ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Remove active Annotation layer"
-msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﺕﺮﭘ ﯽﺤﯾﺮﺸﺗ ﻝﺎﻌﻓ"
 
 
 msgctxt "Operator"
@@ -59800,17 +59131,8 @@ msgid "Reset viewable area to show selected keyframe range"
 msgstr "ﮟﯾﺩ ﺐﯿﺗﺮﺗ ﮦﺭﺎﺑﻭﺩ ﻮﮐ ﮧﻗﻼ﻿ﻋ ﻞﺑﺎﻗ ﮯﮐ ﮯﻨﮭﮑﯾﺩ ﮯﯿﻟ ﮯﮐ ﮯﻧﺎﮭﮐﺩ ﻮﮐ ﺞﻨﯾﺭ ﻢﯾﺮﻓ ﯽﮐ ﺐﺨﺘﻨﻣ"
 
 
-msgid "Delete the active Grease Pencil frame(s)"
-msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﻢﯾﺮﻓ Grease Pencil ﻝﺎﻌﻓ"
-
-
 msgid "Delete all"
 msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﺐﺳ"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﻮﮐ ﮯﺷ ﮟﯿﻣ"
 
 
 msgid "The end frame of animation"
@@ -59867,15 +59189,6 @@ msgstr "3D ﮟﯾﺮﮐ ﭧﮑﯿﺟﻭﺮﭘ ﮦﺭﺎﺑﻭﺩ ﻮﮐ ﮎﻭ�
 
 msgid "Step between generated frames"
 msgstr "ﮧﻠﺣﺮﻣ ﻥﺎﯿﻣﺭﺩ ﮯﮐ ﮞﻮﻤﯾﺮﻓ ﮦﺩﺮﮐ ﺭﺎﯿﺗ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "ﺍﺭﮈ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr "ﮟﯿﭽﻨﯿﮭﮐ ﮎﻭﺮﭩﺳﺍ ﺎﯿﻧ ﮏﯾﺍ ﮟﯿﻣ ﮯﺷ Grease Pencil ﻝﺎﻌﻓ"
 
 
 msgid "Apply brush normally"
@@ -59956,10 +59269,6 @@ msgid "Copy Strokes"
 msgstr "ﮟﯾﺮﮐ ﯽﭘﺎﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
-msgid "Copy the selected Grease Pencil points or strokes to the internal clipboard"
-msgstr "ﮟﯾﺮﮐ ﯽﭘﺎﮐ ﮟﯿﻣ ﮈﺭﻮﺑ ﭗﻠﮐ ﯽﻧﻭﺭﺪﻧﺍ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﺎﯾ ﺲﭩﻨﺋﺍﻮﭘ Grease Pencil ﮦﺩﺮﮐ ﺐﺨﺘﻨﻣ"
-
-
 msgctxt "Operator"
 msgid "Set Cyclical State"
 msgstr "ﮟﯾﺮﮐ ﭧﯿﺳ ﺖﻟﺎﺣ ﻞﮑﯿﻠﮑﯿﺋﺎﺳ"
@@ -59986,14 +59295,6 @@ msgid "Delete Frame"
 msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﻢﯾﺮﻓ"
 
 
-msgid "Delete Grease Pencil Frame(s)"
-msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﻢﯾﺮﻓ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "Grease Pencil ﮯﮨ ﺎﺗﺎﺟ ﺎﯿﮐ ﻝﺎﻤﻌﺘﺳﺍ ﮧﻘﯾﺮﻃ ﺎﮐ ﮯﻧﺮﮐ ﻑﺬﺣ ﻮﮐ ﮞﻮﻤﯾﺮﻓ ﮯﮐ"
-
-
 msgid "Deletes current frame in the active layer"
 msgstr "ﮯﮨ ﺎﺗﺮﮐ ﻑﺬﺣ ﻮﮐ ﻢﯾﺮﻓ ﮦﺩﻮﺟﻮﻣ ﮟﯿﻣ ﺕﺮﭘ ﻝﺎﻌﻓ"
 
@@ -60015,11 +59316,6 @@ msgid "Delete selected points without splitting strokes"
 msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﺐﺨﺘﻨﻣ ﺮﯿﻐﺑ ﮯﯿﮐ ﻢﯿﺴﻘﺗ ﻮﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "ﻢﺴﻗ"
-
-
 msgid "Method used for dissolving stroke points"
 msgstr "ﮧﻘﯾﺮﻃ ﻻ﻿ﺍﻭ ﮯﻧﻮﮨ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻞﯿﻠﺤﺗ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﮎﻭﺮﭩﺳﺍ"
 
@@ -60028,18 +59324,8 @@ msgid "Dissolve selected points"
 msgstr "ﮟﯾﺮﮐ ﻞﯿﻠﺤﺗ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﺐﺨﺘﻨﻣ"
 
 
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "ﺎﻧﺮﮐ ﻞﯿﻠﺤﺗ ﻥﺎﯿﻣﺭﺩ ﮯﮐ"
-
-
 msgid "Dissolve points between selected points"
 msgstr "ﮟﯾﺮﮐ ﻞﯿﻠﺤﺗ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﻥﺎﯿﻣﺭﺩ ﮯﮐ ﺲﭩﻨﺋﺍﻮﭘ ﺐﺨﺘﻨﻣ"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "ﮟﯾﺮﮐ ﻞﯿﻠﺤﺗ ﻮﮐ ﺐﺨﺘﻨﻣ ﺮﯿﻏ"
 
 
 msgid "Dissolve all unselected points"
@@ -60053,10 +59339,6 @@ msgstr "ﮟﯾﺮﮐ ﭧﯿﮑﯿﻠﭘﮈ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﺐﺨ�
 msgctxt "Operator"
 msgid "Duplicate Strokes"
 msgstr "ﮎﻭﺮﭩﺳﺍ ﭧﯿﮑﯿﻠﭘﮈ"
-
-
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "ﮟﯾﺮﮐ ﻞﻘﺘﻨﻣ ﮟﯿﮩﻧﺍ ﺭﻭﺍ ﮟﯿﺋﺎﻨﺑ ﮞﺎﯿﭘﺎﮐ ﯽﮐ ﮎﻭﺮﭩﺳﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﮦﺩﺮﮐ ﺐﺨﺘﻨﻣ"
 
 
 msgctxt "Operator"
@@ -60074,11 +59356,6 @@ msgstr "ﮟﯾﺮﮐ ﻞﻘﺘﻨﻣ ﮟﯿﮩﻧﺍ ﺭﻭﺍ ﮟﯿﻟﺎﮑ�
 
 msgid "Extrude Stroke Points"
 msgstr "ﺲﭩﻨﺋﺍﻮﭘ ﮎﻭﺮﭩﺳﺍ ﮈﻭﺮﭩﺴﮑﯾﺍ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "Grease Pencil ﮟﯾﺮﮭﺑ"
 
 
 msgid "Fill with color the shape formed by strokes"
@@ -60106,10 +59383,6 @@ msgid "Only delete selected keyframes"
 msgstr "ﺰﻤﯾﺮﻓ ﯽﮐ ﺐﺨﺘﻨﻣ ﮟﯾﺮﮐ ﻑﺬﺣ ﻑﺮﺻ"
 
 
-msgid "Make a copy of the active Grease Pencil frame(s)"
-msgstr "ﮟﯿﺋﺎﻨﺑ ﯽﭘﺎﮐ ﮏﯾﺍ ﯽﮐ ﻢﯾﺮﻓ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﻮﭩﮑﯾﺍ"
-
-
 msgid "Duplicate all"
 msgstr "ﮟﯿﺋﺎﻨﺑ ﻞﻘﻧ ﯽﮐ ﺐﺳ"
 
@@ -60129,11 +59402,6 @@ msgstr "ﮟﯾﺮﮐ ﻞﺧﺍﺩ ﻢﯾﺮﻓ ﯽﻟﺎﺧ ﮏﯾﺍ ﺮﭘ ﻢ
 
 msgid "Insert a blank frame in all editable layers"
 msgstr "ﮟﯾﺮﮐ ﻞﺧﺍﺩ ﻢﯾﺮﻓ ﯽﻟﺎﺧ ﮏﯾﺍ ﮟﯿﻣ ﮞﻮﮩﺗ ﻦﯾﻭﺪﺗ ﻞﺑﺎﻗ ﻡﺎﻤﺗ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Grease Pencil ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ"
 
 
 msgid "Exclude Breakdowns"
@@ -60173,40 +59441,6 @@ msgid "Interpolate Sequence"
 msgstr "ﻞﺴﻠﺴﺗ ﭧﯿﻟﻮﭘﺮﭩﻧﺍ"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "ﮟﯿﺋﺎﻨﺑ 'ﮟﯿﻣ ﻥﺎﯿﻣﺭﺩ' ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﭧﯿﻟﻮﭘﺮﭩﻧﺍ ﮯﺳ ﯽﻧﺎﺳﺁ ﻥﺎﯿﻣﺭﺩ ﮯﮐ ﮞﻮﻤﯾﺮﻓ ﮯﮐ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "ﮯﮭﭽﯿﭘ"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "ﺎﻧﺮﮐ ﯽﻣﺮﻧ"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "ﯽﻧﺎﺳﺁ ﺭﺎﮐﺩﻮﺧ"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "ﯽﻧﺎﺳﺁ ﮟﯿﻣ"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "ﺮﮨﺎﺑ ﮯﺳ ﯽﻧﺎﺳﺁ"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "ﯽﻧﺎﺳﺁ ﺮﮨﺎﺑ ﺭﻭﺍ ﺭﺪﻧﺍ"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "ﺩﺍﺪﻌﺗ ﯽﮐ ﮞﻮﻤﯾﺮﻓ ﻥﺎﯿﻣﺭﺩ ﮯﮐ ﮞﻮﻤﯾﺮﻓ ﮉﭩﯿﻟﻮﭘﺮﭩﻧﺍ ﮉﭩﯾﺮﻨﺟ"
 
@@ -60215,63 +59449,8 @@ msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "ﮧﻘﯾﺮﻃ ﺎﮐ ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ ﮯﯿﻟ ﮯﮐ ﮯﻧﻼ﻿ﭼ 'Interpolate Sequence' ﺭﺎﺑ ﯽﻠﮔﺍ"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "ﯼﺮﯿﮑﻟ"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "ﺕﺭﻭﺮﺿ ﺐﺴﺣ"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "ﮯﮨ ﯽﺌﮔ ﯽﮐ ﺖﺣﺎﺿﻭ ﯽﮐ ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ ﮯﮐ ﯽﺿﺮﻣ ﯽﻨﭘﺍ ﮯﺋﻮﮨ ﮯﺗﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﮧﺸﻘﻧ  ﻢﺧ  ﮏﯾﺍ"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "ﻝﮉﯿﺋﺎﺳﻮﻨﺋﺎﺳ"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "ﺭﻮﮐﻮﭼ"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "ﮏﺑﻮﯿﮐ"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "ﮏﭨﺭﺍﻮﮐ"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Quintic"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "ﯽﺘﯾﺎﻔﮐ"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "ﺮﻠﮐﺮﺳ"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "ﺎﻨﻟﺎﮭﭼﺍ"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "ﺭﺍﺪﮑﭽﻟ"
 
 
 msgctxt "Operator"
@@ -60279,17 +59458,9 @@ msgid "Set Active Layer"
 msgstr "Set ﺕﺮﭘ ﻝﺎﻌﻓ"
 
 
-msgid "Set the active Grease Pencil layer"
-msgstr "ﮟﯾﺮﮐ ﭧﯿﺳ ﻮﮐ ﺕﺮﭘ Grease Pencil ﻝﺎﻌﻓ"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺕﺮﭘ ﯽﺌﻧ"
-
-
-msgid "Add a new Grease Pencil layer in the active object"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺕﺮﭘ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﯽﺌﻧ ﮏﯾﺍ ﮟﯿﻣ ﮯﺷ ﻝﺎﻌﻓ"
 
 
 msgid "Name of the new layer"
@@ -60299,10 +59470,6 @@ msgstr "ﻡﺎﻧ ﺎﮐ ﺕﺮﭘ ﯽﺌﻧ"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "ﺕﺮﭘ ﭧﯿﮑﯿﻠﭘﮈ"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "ﮟﯿﺋﺎﻨﺑ ﯽﭘﺎﮐ ﮏﯾﺍ ﯽﮐ ﺕﺮﭘ Grease Pencil ﻝﺎﻌﻓ"
 
 
 msgid "Empty Keyframes"
@@ -60318,10 +59485,6 @@ msgid "Duplicate Layer to New Object"
 msgstr "ﮟﯾﺮﮐ ﻞﻘﻧ ﮟﯿﻣ ﮯﺷ ﮯﺌﻧ ﻮﮐ ﺕﺮﭘ"
 
 
-msgid "Make a copy of the active Grease Pencil layer to selected object"
-msgstr "ﮟﯿﺋﺎﻨﺑ ﯽﭘﺎﮐ ﮏﯾﺍ ﯽﮐ ﺕﺮﭘ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﻝﺎﻌﻓ ﺮﭘ ﮯﺷ ﺐﺨﺘﻨﻣ"
-
-
 msgid "All Frames"
 msgstr "ﻢﯾﺮﻓ ﻡﺎﻤﺗ"
 
@@ -60333,10 +59496,6 @@ msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻥﺎﺸﻧ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻞﻣﺎ
 msgctxt "Operator"
 msgid "Add New Layer Group"
 msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﮦﻭﺮﮔ ﺕﺮﭘ ﺎﯿﻧ"
-
-
-msgid "Add a new Grease Pencil layer group in the active object"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﮦﻭﺮﮔ  ﺕﺮﭘ  ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﺎﯿﻧ ﮏﯾﺍ ﮟﯿﻣ ﮯﺷ ﻝﺎﻌﻓ"
 
 
 msgid "Name of the new layer group"
@@ -60356,10 +59515,6 @@ msgid "Remove Layer Group"
 msgstr "ﮦﻭﺮﮔ ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﺕﺮﭘ"
 
 
-msgid "Remove Grease Pencil layer group in the active object"
-msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻮﮑﮨﻭﺮﮔ ﺮﺌﯿﻟ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﮟﯿﻣ ﭧﮑﯿﺠﺑﺁ ﻝﺎﻌﻓ"
-
-
 msgid "Keep children nodes"
 msgstr "ﺱﮈﻮﻧ ﮯﭽﺑ ﻮﮭﮐﺭ"
 
@@ -60371,10 +59526,6 @@ msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﯽﮨ ﻮﮑﮨﻭﺮﮔ ﻑﺮﺻ ﺭﻭﺍ ﮟ
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "ﮟﯿﺋﺎﭙﮭﭼ ﮟﯿﺗﺮﭘ"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "ﮟﯿﺋﺎﭙﮭﭼ ﻮﮐ ﮞﻮﮩﺗ ﯽﮐ Grease Pencil ﺐﺨﺘﻨﻣ ﺮﯿﻏ/ﺐﺨﺘﻨﻣ"
 
 
 msgid "Hide unselected rather than selected layers"
@@ -60401,10 +59552,6 @@ msgstr "ﮯﮨ ﺎﺗﺮﮐ ﺮﺛﺎﺘﻣ ﯽﮭﺑ ﻮﮐ ﺖﯿﺋﺮﻣ"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "ﮟﯾﺮﮐ ﻞﻔﻘﻣ ﻮﮐ ﮞﻮﺗﺮﭘ ﻡﺎﻤﺗ"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "ﮟﯾﺮﮐ ﮎﻻ﻿ ﮯﯿﻟ ﮯﮐ ﮯﻨﮐﻭﺭ ﮯﺳ ﮯﻧﻮﮨ ﻞﯾﺪﺒﺗ ﮯﺳ ﯽﻄﻠﻏ ﻮﮐ ﻥﺍ ﻮﮐ ﮞﻮﮩﺗ Grease Pencil ﻡﺎﻤﺗ"
 
 
 msgid "Lock Value"
@@ -60438,15 +59585,6 @@ msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﮏﺳﺎﻣ ﺕﺮﭘ"
 
 
 msgctxt "Operator"
-msgid "Reorder Grease Pencil Layer Mask"
-msgstr "ﮏﺳﺎﻣ ﮧﮩﺗ ﯽﮐ Grease Pencil ﮟﯾﺩ ﺐﯿﺗﺮﺗ ﮦﺭﺎﺑﻭﺩ"
-
-
-msgid "Reorder the active Grease Pencil mask layer up/down in the list"
-msgstr "ﮟﯾﺩ ﺐﯿﺗﺮﺗ ﮦﺭﺎﺑﻭﺩ ﮯﭽﯿﻧ/ﺮﭘﻭﺍ ﻮﮐ ﺮﺌﯿﻟ ﮏﺳﺎﻣ  Grease Pencilﻮﭩﮑﯾﺍ ﮟﯿﻣ ﺖﺳﺮﮩﻓ"
-
-
-msgctxt "Operator"
 msgid "Merge"
 msgstr "ﺎﻧﺮﮐ ﻢﺿ"
 
@@ -60461,26 +59599,14 @@ msgid "Remove Layer"
 msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﺕﺮﭘ"
 
 
-msgid "Remove the active Grease Pencil layer"
-msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﺕﺮﭘ Grease Pencil ﻝﺎﻌﻓ"
-
-
 msgctxt "Operator"
 msgid "Show All Layers"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮟﯿﺗﺮﭘ ﻡﺎﻤﺗ"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮟﯿﺗﺮﭘ Grease Pencil ﻡﺎﻤﺗ"
-
-
 msgctxt "Operator"
 msgid "Copy Materials to Selected Object"
 msgstr "ﮟﯾﺮﮐ ﯽﭘﺎﮐ ﮟﯿﻣ ﮯﺷ ﺐﺨﺘﻨﻣ ﻮﮐ ﺩﺍﻮﻣ"
-
-
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﮟﯿﻣ ﮯﺷ ﯼﺮﺳﻭﺩ ﻮﮐ ﺩﺍﻮﻣ ﮯﮐ Grease Pencil ﻝﺎﻌﻓ"
 
 
 msgid "Append only active material, uncheck to append all materials"
@@ -60490,10 +59616,6 @@ msgstr "ﮟﯾﺩ ﺎﭩﮨ ﻥﺎﺸﻧ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻞﻣﺎ
 msgctxt "Operator"
 msgid "Hide Materials"
 msgstr "،ﺩﺍﻮﻣ ﮟﯿﺋﺎﭙﮭﭼ"
-
-
-msgid "Hide active/inactive Grease Pencil material(s)"
-msgstr "ﮟﯿﺋﺎﭙﮭﭼ ﺩﺍﻮﻣ Grease Pencil ﻝﺎﻌﻓ ﺮﯿﻏ/ﻝﺎﻌﻓ"
 
 
 msgid "Hide inactive materials instead of the active one"
@@ -60516,10 +59638,6 @@ msgstr "ﮟﯾﺮﮐ ﺮﺛﺎﺘﻣ ﯽﮭﺑ ﻮﮐ ﺖﯿﺋﺮﻣ ،ﮦﻭ�
 msgctxt "Operator"
 msgid "Lock All Materials"
 msgstr "ﮟﯾﺮﮐ ﻞﻔﻘﻣ ﻮﮐ ﺩﺍﻮﻣ ﻡﺎﻤﺗ"
-
-
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "ﮟﯾﺩ ﺮﮐ ﺪﻨﺑ ﮯﯿﻟ ﮯﮐ ﮯﻨﮐﻭﺭ ﮯﺳ ﮯﻧﻮﮨ ﻞﯾﺪﺒﺗ ﮯﺳ ﯽﻄﻠﻏ ﻮﮐ ﻥﺍ ﻮﮐ ﺩﺍﻮﻣ Grease Pencil ﻡﺎﻤﺗ"
 
 
 msgctxt "Operator"
@@ -60545,17 +59663,9 @@ msgid "Show All Materials"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﺩﺍﻮﻣ ﻡﺎﻤﺗ"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "ﮟﯿﺋﺎﭙﮭﭼ ﻮﮐ ﺩﺍﻮﻣ Grease Pencil ﮦﺪﯿﺷﻮﭘ ﻡﺎﻤﺗ"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﺩﺍﻮﻣ"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﺮﯿﻏ/ﺐﺨﺘﻨﻣ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﻡﺎﻤﺗ ﮯﺋﻮﮨ ﮯﺗﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﺩﺍﻮﻣ ﮦﺩﻮﺟﻮﻣ"
 
 
 msgid "Unselect strokes"
@@ -60565,10 +59675,6 @@ msgstr "ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﺮﯿﻏ ﻮﮐ ﮎﻭﺮﭩﺳﺍ"
 msgctxt "Operator"
 msgid "Unlock All Materials"
 msgstr "ﮟﯾﺮﮐ ﻞﻔﻘﻣ ﺮﯿﻏ ﻮﮐ ﺩﺍﻮﻣ ﻡﺎﻤﺗ"
-
-
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "ﮯﮑﺳ ﺎﺟ ﯽﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﻥﺍ ﮧﮐﺎﺗ ﮟﯾﺮﮐ ﻞﻔﻘﻣ ﺮﯿﻏ ﻮﮐ ﺩﺍﻮﻣ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﻡﺎﻤﺗ"
 
 
 msgctxt "Operator"
@@ -60588,17 +59694,9 @@ msgid "Move selection to a new layer"
 msgstr "ﺕﺮﭘ ﯽﺌﻧ to a ﺏﺎﺨﺘﻧﺍ ﮟﯾﺮﮐ ﻞﻘﺘﻨﻣ"
 
 
-msgid "Target Grease Pencil Layer"
-msgstr "ﮧﮩﺗ Grease Pencil ﻑﺪﮨ"
-
-
 msgctxt "Operator"
 msgid "Strokes Paint Mode Toggle"
 msgstr "ﻞﮔﻮﭨ ﮈﻮﻣ ﭧﻨﯿﭘ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "ﮟﯿﻠﮑﻧ ﺮﮨﺎﺑ/ﻞﺧﺍﺩ ﮟﯿﻣ ﮈﻮﻣ ﭧﻨﯿﭘ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
 
 
 msgid "Return to Previous Mode"
@@ -60614,21 +59712,12 @@ msgid "Paste Strokes"
 msgstr "ﮎﻭﺮﭩﺳﺍ ﭧﺴﯿﭘ"
 
 
-msgid "Paste Grease Pencil points or strokes from the internal clipboard to the active layer"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﮞﺎﭙﺴﭼ ﺮﭘ ﺮﺌﯿﻟ ﻮﭩﮑﯾﺍ ﮯﺳ ﮈﺭﻮﺑ ﭗﻠﮐ ﯽﻧﻭﺭﺪﻧﺍ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﺎﯾ ﺲﭩﻨﺋﺍﻮﭘ"
-
-
 msgid "Paste on Back"
 msgstr "ﮟﯾﺮﮐ ﮞﺎﭙﺴﭼ ﺮﭘ ﺖﺸﭘ"
 
 
 msgid "Add pasted strokes behind all strokes"
 msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﮎﻭﺮﭩﺳ ﮞﺎﭙﺴﭼ ﮯﮭﭽﯿﭘ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﻡﺎﻤﺗ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Arc Shape"
-msgstr "Grease Pencil Arc ﻞﮑﺷ"
 
 
 msgid "Number of subdivisions per segment"
@@ -60641,31 +59730,6 @@ msgstr "ﻢﺴﻗ ﯽﮐ ﻞﮑﺷ"
 
 msgid "Polyline"
 msgstr "ﻦﺋﻻ﻿ ﯽﻟﻮﭘ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "Grease Pencil ﻞﮑﺷ ﯽﮐ ﺲﮐﺎﺑ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "Grease Pencil ﻞﮑﺷ ﯽﮐ ﻞﮐﺮﺳ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "Grease Pencil ﻞﮑﺷ ﻞﺑ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "Grease Pencil ﻞﮑﺷ ﯽﮐ ﻦﺋﻻ﻿"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "Grease Pencil ﻞﮑﺷ ﻦﺋﻻ﻿ ﯽﻟﻮﭘ"
 
 
 msgctxt "Operator"
@@ -60720,21 +59784,8 @@ msgstr "UV ۔ﮟﯾﺩ ﺐﯿﺗﺮﺗ ﮦﺭﺎﺑﻭﺩ ﺮﭘ ﺭﺍﺪﻗﺍ
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "Grease Pencil ﮧﻤﺴﺠﻣ"
-
-
-msgid "Sculpt strokes in the active Grease Pencil object"
-msgstr "ﮎﻭﺮﭩﺳﺍ ﭧﭙﻠﮑﺳﺍ ﮟﯿﻣ ﭧﮑﯿﺠﺑﺁ ﻞﺴﻨﭘ ﯽﺋﺎﻨﮑﭼ ﻝﺎﻌﻓ"
-
-
-msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "ﻞﮔﻮﭨ ﮈﻮﻣ ﭧﭙﻠﮑﺳﺍ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "Grease Pencil ﮟﯿﻠﮑﻧ ﺮﮨﺎﺑ/ﻞﺧﺍﺩ ﮟﯿﻣ ﮈﻮﻣ ﮧﻤﺴﺠﻣ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
 msgctxt "Operator"
@@ -60840,10 +59891,6 @@ msgstr "ﮟﯾﺮﮐ ﺭﺮﻘﻣ ﺩﺍﻮﻣ ﻝﺎﻌﻓ"
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﮈﻮﻣ"
-
-
-msgid "Change the selection mode for Grease Pencil strokes"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﻮﮐ ﮈﻮﻣ ﻦﺸﮑﯿﻠﺳ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
 msgid "Select only points"
@@ -61006,11 +60053,6 @@ msgid "Change direction of the points of the selected strokes"
 msgstr "ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﺖﻤﺳ ﯽﮐ ﺲﭩﻨﺋﺍﻮﭘ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﺐﺨﺘﻨﻣ"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "Grease Pencil ﺎﻨﺷﺍﺮﺗ"
-
-
 msgid "Delete stroke points in between intersecting strokes"
 msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﺲﭩﻨﺋﺍﻮﭘ ﮎﻭﺮﭩﺳﺍ ﻥﺎﯿﻣﺭﺩ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﮯﺋﻮﮨ ﮯﺘﭨﺎﮐ ﻮﮐ ﮮﺮﺳﻭﺩ ﮏﯾﺍ"
 
@@ -61033,15 +60075,6 @@ msgstr "ﮉﻨﯾﺍ ﯽﺋﺍﻭ"
 
 msgid "Y Start"
 msgstr "Y ﮟﯾﺮﮐ ﻉﻭﺮﺷ"
-
-
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "ﮯﺳ Grease Pencil ﻮﮐ ﺞﯿﻣﺍ ﺲﯾﺮﭨ"
-
-
-msgid "Extract Grease Pencil strokes from image"
-msgstr "ﮟﯿﻟﺎﮑﻧ ﮎﻭﺮﭩﺳﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﮯﺳ ﺮﯾﻮﺼﺗ"
 
 
 msgid "Trace Frame"
@@ -61137,15 +60170,6 @@ msgstr "ﮟﯾﺮﮐ ﺲﯾﺮﭨ ﻮﮐ ﺮﯾﻮﺼﺗ ﯽﻟﺍﻭ ﮯﻧﻮ�
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "Grease Pencil ﺲﮑﯿﭨﺭﻭ ﭧﻨﯿﭘ"
-
-
-msgid "Draw on vertex colors in the active Grease Pencil object"
-msgstr "۔ﮟﯾﺮﮐ ﺍﺭﮈ ﺮﭘ ﮞﻮﮕﻧﺭ ﯼﺩﻮﻤﻋ ﮟﯿﻣ ﭧﮑﯿﺠﺑﺁ ﻞﺴﻨﭘ ﯽﺋﺎﻨﮑﭼ ﻝﺎﻌﻓ"
-
-
-msgctxt "Operator"
 msgid "Vertex Paint Brightness/Contrast"
 msgstr "ﭧﺳﺍﺮﭩﻨﮐ/ﮏﻤﭼ ﯽﮐ ﭧﻨﯿﭘ ﺲﮑﯿﭨﺭﻭ"
 
@@ -61234,19 +60258,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "ﻞﮔﻮﭨ ﮈﻮﻣ ﮯﻧﻮﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "ﮟﯿﻠﮑﻧ ﺮﮨﺎﺑ/ﻞﺧﺍﺩ ﮟﯿﻣ ﮈﻮﻣ ﭧﻨﯿﭘ ﮯﻧﻮﮐ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "Grease Pencil ﻥﺯﻭ ﭧﻨﯿﭘ"
-
-
-msgid "Draw weight on stroke points in the active Grease Pencil object"
-msgstr "ﺽﺍﺮﺘﻋﺍ Grease Pencil ﻝﺎﻌﻓ in the ﮟﯿﭽﻨﯿﮭﮐ ﻥﺯﻭ ﺮﭘ ﺲﭩﻨﺋﺍﻮﭘ ﮎﻭﺮﭩﺳﺍ"
-
-
 msgctxt "Operator"
 msgid "Invert Weight"
 msgstr "ﻥﺯﻭ ﺎﭩﻟﺍ"
@@ -61277,10 +60288,6 @@ msgstr "ﮟﯾﺮﮐ ﯽﻔﻨﻣ/ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﻞﮔﻮﭨ ﮯﯿ�
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "ﻞﮔﻮﭨ ﮈﻮﻣ ﭧﯾﻭ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "ﮟﯿﻠﮑﻧ ﺮﮨﺎﺑ/ﻞﺧﺍﺩ ﮟﯿﻣ ﮈﻮﻣ ﭧﻨﯿﭘ ﭧﯾﻭ ﮯﯿﻟ ﮯﮐ ﮎﻭﺮﭩﺳﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
 
 
 msgctxt "Operator"
@@ -67409,10 +66416,6 @@ msgid "Curves from evaluated curve data"
 msgstr "ﺭﺎﺗ  ﮟﯿﻤﺧ ﮯﺳ ﺎﭩﯾﮈ ﻞﺑ ﮦﺪﺷ ﺺﯿﺨﺸﺗ"
 
 
-msgid "Grease Pencil from Curve or Mesh objects"
-msgstr "ﯽﺋﺎﻨﮑﭼ ﻞﺴﻨﭘ ﮯﺳ ءﺎﯿﺷﺍ ﻝﺎﺟ ﺎﯾ ﻢﺧ"
-
-
 msgid "Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices"
 msgstr "ﮯﮨ ﺎﺗﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺲﮐﺮﭩﯿﻣ ﯽﺋﻼ﻿ﺧ ﯽﻤﻟﺎﻋ ﮯﮨ ﺎﺗﺮﮐ ﯽﭘﺎﮐ ﻮﮐ ﺲﮐﺮﭩﯿﻣ ﮯﮐ ﻥﻮﺑ ﺯﺍﺪﻧﺍ ﺎﯾ ﮯﺷ ﻝﺎﻌﻓ ﮦﺩﻮﺟﻮﻣ ﺮﭘ ﮈﺭﻮﺑ ﭗﻠﮐ"
 
@@ -67770,19 +66773,6 @@ msgstr "ﮟﯾﺮﮐ ﺮﺛﺎﺘﻣ ﻮﮐ ءﺎﯿﺷﺍ ﺐﺨﺘﻨﻣ ﻡ�
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﻞﻣﺎﺷ"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﮯﺷ Grease Pencil ﮟﯿﻣ ﺮﻈﻨﻣ"
-
-
-msgid "Stroke offset for the Line Art modifier"
-msgstr "ﺮﺋﺎﻔﯾﮈﻮﻣ ﭦﺭﺁ ﻦﺋﻻ﻿ for the ﭧﯿﺴﻓﺁ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgctxt "Operator"
 msgid "Type"
 msgstr "ﻢﺴﻗ"
 
@@ -67804,33 +66794,6 @@ msgstr "ﮟﯿﺋﺎﻨﺑ ﮎﻭﺮﭩﺳﺍ ﮦﺩﺎﺳ ﮏﯾﺍ ﮫﺗﺎ�
 msgctxt "Operator"
 msgid "Monkey"
 msgstr "ﺭﺪﻨﺑ"
-
-
-msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "ﭦﺭﺁ ﻦﺋﻻ﻿ ﻦﯿﺳ"
-
-
-msgid "Quickly set up Line Art for the entire scene"
-msgstr "ﮟﯾﺩ ﺐﯿﺗﺮﺗ ﭦﺭﺁ ﻦﺋﻻ﻿ ﺮﭘ ﺭﻮﻃ ﯼﺭﻮﻓ ﮯﯿﻟ ﮯﮐ ﺮﻈﻨﻣ ﮮﺭﻮﭘ"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "ﭦﺭﺁ ﻦﺋﻻ﻿ ﻦﺸﮑﯿﻠﮐ"
-
-
-msgid "Quickly set up Line Art for the active collection"
-msgstr "ﮟﯾﺩ ﺐﯿﺗﺮﺗ ﭦﺭﺁ ﻦﺋﻻ﻿ ﺮﭘ ﺭﻮﻃ ﯼﺭﻮﻓ ﮯﯿﻟ ﮯﮐ ﮧﻋﻮﻤﺠﻣ ﻝﺎﻌﻓ"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "ﭦﺭﺁ ﻦﺋﻻ﻿ ﺰﯿﭼ"
-
-
-msgid "Quickly set up Line Art for the active object"
-msgstr "ﮟﯾﺩ ﺐﯿﺗﺮﺗ ﮯﺳ ﯼﺪﻠﺟ ﻮﮐ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮯﯿﻟ ﮯﮐ ﭧﮑﯿﺠﺑﺁ ﻮﭩﮑﯾﺍ"
 
 
 msgid "Show In Front"
@@ -68188,26 +67151,8 @@ msgid "Only delete the active light probe's baked lighting data"
 msgstr "ﮟﯾﺮﮐ ﻑﺬﺣ ﻮﮐ ﺎﭩﯾﮈ ﮓﻨﭩﺋﻻ﻿ ﮉﮑﯿﺑ ﮯﮐ ﺏﻭﺮﭘ ﭧﺋﻻ﻿ ﻝﺎﻌﻓ ﻑﺮﺻ"
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "ﭦﺭﺁ ﻦﺋﻻ﻿ ﮏﯿﺑ"
-
-
-msgid "Bake Line Art for current Grease Pencil object"
-msgstr "ﺽﺍﺮﺘﻋﺍ Grease Pencil ﭧﻧﺮﮐ for ﭦﺭﺁ ﻦﺋﻻ﻿ ﮏﯿﺑ"
-
-
 msgid "Bake All"
 msgstr "ﺎﻧﺎﮑﭘ ﻡﺎﻤﺗ"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "ﮟﯾﺮﮐ ﻑﺎﺻ ﻮﮐ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮉﮑﯿﺑ"
-
-
-msgid "Clear all strokes in current Grease Pencil object"
-msgstr "ﺽﺍﺮﺘﻋﺍ Grease Pencil ﭧﻧﺮﮐ in ﮎﻭﺮﭩﺳﺍ ﮟﯾﺮﮐ ﻑﺎﺻ ﻡﺎﻤﺗ"
 
 
 msgid "Link objects to a collection"
@@ -68298,14 +67243,6 @@ msgstr "ﮟﯾﺮﮐ ﯽﭘﺎﮐ ﻮﮐ ﮞﻮﻟﺍﻭ ﮯﻧﺮﮐ ﻢﯿﻣ�
 
 msgid "Replace Modifiers"
 msgstr "ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﻮﮐ ﺯﺮﺋﺎﻔﯾﮈﻮﻣ"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﯽﭘﺎﮐ ﻮﮐ ﺕﺍﺮﺛﺍ"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﻮﮐ ﺕﺍﺮﺛﺍ ﮯﮐ"
 
 
 msgctxt "Operator"
@@ -69548,10 +68485,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "ﺮﺛﺍ ﻞﻘﻧ ﺮﭘ  ﻡﺎﻘﻣ  ﯽﮨ ﮏﯾﺍ ﮟﯿﻣ ﮏﯿﭩﺳﺍ"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "ﻡﺎﻧ ﺎﮐ fxﺖﮕﻧﺭ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻢﯿﻣﺮﺗ"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "ﻭﺮﮐ ﮯﭽﯿﻧ ﻮﮐ ﭧﮑﻓﺍ"
@@ -69581,11 +68514,6 @@ msgstr "ﻭﺮﮐ ﺮﭘﻭﺍ ﻮﮐ ﭧﮑﻓﺍ"
 
 msgid "Move effect up in the stack"
 msgstr "ﮟﯿﺋﺎﺟ ﮯﻟ ﺮﭘﻭﺍ ﻮﮐ ﺮﺛﺍ ﮟﯿﻣ ﮏﯿﭩﺳﺍ"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "Grease Pencil ﮟﯾﺩ ﺎﭩﮨ ﻮﮐ ﺮﺛﺍ"
 
 
 msgctxt "Operator"
@@ -77462,14 +76390,6 @@ msgid "Force using this center value (when set)"
 msgstr "(ﮟﯾﺮﮐ ﭧﯿﺳ ﺐﺟ) ﮟﯾﺮﮐ ﺭﻮﺒﺠﻣ ﺮﭘ ﮯﻧﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﻮﮐ ﺭﺪﻗ ﯼﺰﮐﺮﻣ ﺱﺍ"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "ﮟﯾﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﮎﻭﺮﭩﺳﺍ Grease Pencil ﺐﺨﺘﻨﻣ"
-
-
 msgid "Use Snapping Options"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺕﺍﺭﺎﯿﺘﺧﺍ ﮯﮐ ﮓﻨﭙﯿﻨﺳ"
 
@@ -78132,15 +77052,6 @@ msgstr "(ﻞﮕﻨﺳ) ﮟﯿﺋﺎﻨﺑ ﮟﯿﻣ ﺪﻌﺑ ﺮﭘ ﺭﻮﻃ �
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "ﺮﯿﻐﺑ ﮯﯿﮐ ﺾﯾﻮﻔﺗ ﭧﮔﺭﺎﭨ ﯽﺋﻮﮐ ﮏﺗ ﯽﮭﺑﺍ ﺭﻭﺍ ﮟﯿﺋﺎﻨﺑ ﺭﻮﯿﺋﺍﺭﮈ ﮯﯿﻟ ﮯﮐ ﯽﭨﺮﭘﺍﺮﭘ ﺱﺍ ﻑﺮﺻ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "Grease Pencil ﺮﭘﺍﺭﮈ ﯽﺋﺁ"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "ﮟﯿﺋﺎﻨﺑ ﺩﺍﻮﻣ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﺭﻭﺍ ﮟﯿﻟ ﮧﻧﻮﻤﻧ ﺎﮐ ﮓﻧﺭ ﮯﺳ ﯽﮐﮍﮭﮐ ﺭﮉﻨﯿﻠﺑ"
 
 
 msgctxt "Operator"
@@ -80851,11 +79762,6 @@ msgid "Clip drawings to camera size when exporting in camera view"
 msgstr "ﮟﯾﺮﮐ ﭗﻠﮐ ﮟﯿﻣ ﺰﺋﺎﺳ ﮯﮐ ﮮﺮﻤﯿﮐ ﻮﮐ ﮓﻨﺋﺍﺭﮈ ﺖﻗﻭ ﮯﺗﺮﮐ ﭦﺭﻮﭙﺴﮑﯾﺍ ﮟﯿﻣ ﻮﯾﻭ ﮦﺮﻤﯿﮐ"
 
 
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "SVG ﮟﯾﺮﮐ ﺪﻣﺁﺭﺩ as Grease Pencil"
-
-
 msgid "Resolution of the generated strokes"
 msgstr "ﻞﺣ ﺎﮐ ﮎﻭﺮﭩﺳﺍ ﮯﻟﺍﻭ ﮯﻧﻮﮨ ﺍﺪﯿﭘ"
 
@@ -82996,10 +81902,6 @@ msgid "Curves Sculpt Paint"
 msgstr "ﭧﻨﯿﭘ ﮧﻤﺴﺠﻣ  ﻢﺧ"
 
 
-msgid "Grease Pencil Paint"
-msgstr "Grease Pencil ﭧﻨﯿﭘ"
-
-
 msgid "Paint Mode"
 msgstr "ﮈﻮﻣ ﭧﻨﯿﭘ"
 
@@ -83010,10 +81912,6 @@ msgstr "ﮟﯾﺮﮐ ﭧﻨﯿﭘ ﮯﺋﻮﮨ ﮯﺗﺮﮐ ﻝﺎﻤﻌﺘﺳ�
 
 msgid "Paint the material with a color attribute"
 msgstr "ﮟﯾﺮﮐ ﭧﻨﯿﭘ ﮯﺳ ﺖﯿﺻﻮﺼﺧ ﯽﮐ ﮓﻧﺭ ﻮﮐ ﺩﺍﻮﻣ"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "Grease Pencil ﭧﻨﯿﭘ ﮧﻤﺴﺠﻣ"
 
 
 msgid "Image Paint"
@@ -83881,26 +82779,6 @@ msgstr "ﺭﺍﺪﻗﺍ ﯽﮐ ﻞﺴﮑﭘ ﮧﻧﻮﻤﻧ ﮯﭽﯿﻧ ﮯﮐ 
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "ﺎﻧﺮﮐ ﺢﯾﺮﺸﺗ"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "ﻦﺋﻻ﻿ ﺢﯾﺮﺸﺗ"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Polygon ﮟﯾﺮﮐ ﺢﯾﺮﺸﺗ ﯽﮐ"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻑﺎﺻ ﺢﯾﺮﺸﺗ"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "ﺖﻘﻓﺍﻮﻣ"
 
@@ -83982,10 +82860,6 @@ msgstr "ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﺩﺍﻮﻣ"
 
 msgid "Material Presets"
 msgstr "ﭧﯿﺳ ﺶﯿﭘ ﯼﺩﺎﻣ"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "Grease Pencil ﺲﭨﻼ﻿ﺳ ﺩﺍﻮﻣ"
 
 
 msgid "Backdrop"
@@ -86361,32 +85235,12 @@ msgid "The opacity of unselected F-Curves against the background of the Graph Ed
 msgstr "ﻦﭘﻻ﻿ﺪﻨﮬﺩ ﯽﮐ ﮟﯿﻤﺧ-ﻑ ﺐﺨﺘﻨﻣ ﺮﯿﻏ ﻑﻼ﻿ﺧ ﮯﮐﻮﯾﻭ ﺲﭘ ﮯﮐ ﺮﭩﯾﮉﯾﺍ ﻑﺍﺮﮔ"
 
 
-msgid "Annotation Default Color"
-msgstr "ﮓﻧﺭ ﭧﻟﺎﻔﯾﮈ ﺎﮐ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Color of new annotation layers"
-msgstr "ﮓﻧﺭ ﺎﮐ ﮞﻮﺗﺮﭘ ﯽﺤﯾﺮﺸﺗ ﯽﺌﻧ"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "Grease Pencil ﺱﺍﺩﺭ ﻻ﻿ﺍﻭ ﮯﻧﺮﮐ ﻑﺎﺻ"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "ﺱﺍﺩﺭ ﺎﮐ 'ﺵﺮﺑ' ﯽﻓﺎﺻ"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Grease Pencil ﮧﻠﺻﺎﻓ ﻦﯾﮉﯿﻠﮐﻮﯾ"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "ﮧﻠﺻﺎﻓ ﺎﯿﮔ ﺎﯿﮐ ﻞﻘﺘﻨﻣ ﮯﻌﯾﺭﺫ ﮯﮐ ﺱﺅﺎﻣ ﺖﻗﻭ ﮯﺗﺮﮐ ﮓﻨﺋﺍﺭﮈ ﮎﻭﺮﭩﺳﺍ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻞﻣﺎﺷ"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Grease Pencil ﮧﻠﺻﺎﻓ ﻦﭩﮨ ﻦﯿﻣ"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -86576,10 +85430,6 @@ msgstr "ﺭﺎﺗ  ﮟﯿﻤﺧ ﭧﯿﮑﯿﻠﭘﮈ"
 
 msgid "Causes curves data to be duplicated with the object"
 msgstr "ﮯﮨ ﺎﺘﻨﺑ ﺐﺒﺳ ﺎﮐ ﮯﻧﺮﮐ ﻞﻘﻧ ﮫﺗﺎﺳ ﮯﮐ ﮯﺷ ﻮﮐ  ﮟﯿﻤﺧ"
-
-
-msgid "Duplicate Grease Pencil"
-msgstr "Grease Pencil ﻞﻘﻧ"
 
 
 msgid "Duplicate Lattice"
@@ -92111,10 +90961,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "ﺪﺼﯿﻓ ﺎﮐ  ﺕﺍﺭﺫ   ﮧﭽﺑ  ﯽﻤﻟﺎﻋ ﻥﺍﺭﻭﺩ ﮯﮐ ﮓﻧﺭﮉﻨﯾﺭ"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "Grease Pencil ﮟﯿﺋﺎﻨﺑ ﻥﺎﺳﺁ ﻮﮐ ﮓﻨﺋﺍﺭﮈ"
-
-
 msgid "Antialiasing"
 msgstr "ﮓﻧﺰﯿﻟﺎﯿﭩﻨﯾﺍ"
 
@@ -92129,10 +90975,6 @@ msgstr "ﺯﺮﺋﺎﻔﯾﮈﻮﻣ ﮯﻠﭙﺳﮈ"
 
 msgid "Playback Only"
 msgstr "ﮏﯿﺑ ﮯﻠﭘ ﻑﺮﺻ"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "ﮟﯿﺋﺎﻨﺑ ﻥﺎﺳﺁ ﻮﮐ Grease Pencil ﻥﺍﺭﻭﺩ ﮯﮐ ﮏﯿﺑ ﮯﻠﭘ ﺕﺎﯿﮐﺮﺣ  ﻑﺮﺻ"
 
 
 msgid "Display Shader Effects"
@@ -93771,10 +92613,6 @@ msgid "Control the quality of the volumetric effects. Higher resolution uses mor
 msgstr "ﮯﮨ ﺎﺗﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﯼﺭﻮﻤﯿﻣ ﮦﺩﺎﯾﺯ ﻦﺷﻮﯿﻟﻭﺰﯾﺭ ﯽﻠﻋﺍ ﮟﯾﺮﮐ ﻝﻭﺮﭩﻨﮐ ﻮﮐ ﺭﺎﯿﻌﻣ ﮯﮐ ﺕﺍﺮﺛﺍ ﯽﻤﺠﺣ"
 
 
-msgid "Grease Pencil Render"
-msgstr "Grease Pencil ﺭﮉﻨﯾﺭ"
-
-
 msgid "Render settings"
 msgstr "ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﺭﮉﻨﯾﺭ"
 
@@ -94068,14 +92906,6 @@ msgstr "ﮟﯾﺮﮐ ﺭﻮﺼﺗ ﺎﮐ ﺮﯾﻭﺎﺼﺗ ﻡﺎﺧ ﮦﺪﺷ 
 
 msgid "Preview Overlay Settings"
 msgstr "ﮟﯾﺮﮐ ﻮﯾﻮﯾﺮﭘ  ﺎﮐ ﺕﺎﺒﯿﺗﺮﺗ ﯽﮐ ﮯﻟﺭﻭﻭﺍ"
-
-
-msgid "Show Annotation"
-msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Show annotations for this view"
-msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﺕﺎﺤﯾﺮﺸﺗ ﮯﯿﻟ ﮯﮐﻮﯾﻭ ﺱﺍ"
 
 
 msgid "Image Outline"
@@ -94570,11 +93400,6 @@ msgid "Use object as center of rotation"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﮯﺷ ﺮﭘ ﺭﻮﻃ ﮯﮐ ﺰﮐﺮﻣ ﮯﮐ ﺵﺩﺮﮔ"
 
 
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "ﺮﮩﻟ"
-
-
 msgid "Use wave effect"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﺮﺛﺍ ﺮﮩﻟ"
 
@@ -95031,23 +93856,6 @@ msgid "Clip editor space data"
 msgstr "ﺎﭩﯾﮈ ﺲﯿﭙﺳﺍ ﺮﭩﯾﮉﯾﺍ ﭗﻠﮐ"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "ﺬﺧﺎﻣ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Where the annotation comes from"
-msgstr "ﮯﮨ ﯽﺗﺁ ﮯﺳ ﮞﺎﮩﮐ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "ﮯﮨ ﮯﺳ ﭗﻠﮐ ﯼﻭﻮﻣ ﻖﻠﻌﺗ ﺎﮐ ﺲﺟ ﮟﯿﺋﺎﮭﮐﺩ ﮎﻼ﻿ﺑ ﺎﭩﯾﮈ ﯽﺤﯾﺮﺸﺗ"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "ﮯﮨ ﮯﺳ ﮏﯾﺮﭨ ﻝﺎﻌﻓ ﻖﻠﻌﺗ ﺎﮐ ﺲﺟ ﮟﯿﺋﺎﮭﮐﺩ ﮎﻼ﻿ﺑ ﺎﭩﯾﮈ ﯽﺤﯾﺮﺸﺗ"
-
-
 msgid "Blending Factor"
 msgstr "ﺮﺼﻨﻋ ﺎﮐ ﭦﻭﻼ﻿ﻣ"
 
@@ -95473,10 +94281,6 @@ msgstr "ﺮﭩﯾﮉﯾﺍ ﯼﺪﯿﻠﮐ ﻞﮑﺷ"
 
 msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "ﮟﯾﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﮞﻮﻤﯾﺮﻓ ﯼﺪﯿﻠﮐ ﮟﯿﻣ ﻡﺍﺪﻗﺍ ﺰﯿﮐ ﭗﯿﺷ ﯽﮐ ﮯﺷ ﻝﺎﻌﻓ"
-
-
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "ﮟﯾﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﺕﺎﻗﻭﺍ ﮯﮐ ﮞﻮﮐﺎﺧ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﻡﺎﻤﺗ ﮟﯿﻣ ﻞﺋﺎﻓ"
 
 
 msgid "Edit timings for Mask Editor splines"
@@ -96316,10 +95120,6 @@ msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮟﯿﮩﮕﺟ ﯽﻟﺎﺧ"
 
 msgid "Show empty objects"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ءﺎﯿﺷﺍ ﯽﻟﺎﺧ"
-
-
-msgid "Show Grease Pencil"
-msgstr "Grease Pencil ﮟﯿﺋﺎﮭﮐﺩ"
 
 
 msgid "Show Lights"
@@ -98456,14 +97256,6 @@ msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﭧﭘ ﻥﺍ ﺭﻮﻄﺑ ﻮﮐ ﮦ
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﭧﭘ ﻥﺍ ﺭﻮﻄﺑ ﻮﮐ ﻦﺋﻻ﻿ ﻢﺋﺎﭨ ﺮﺴﻨﯾﻮﮑﯿﺳ ﮯﮐ ﻦﯿﺳ"
-
-
-msgid "Use Annotations"
-msgstr "ﮟﯾﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﺕﺎﺤﯾﺮﺸﺗ"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "OpenGL  ﮟﯿﺋﺎﮭﮐﺩ ﺕﺎﺤﯾﺮﺸﺗ ﮟﯿﻣ ﻮﯾﻮﯾﺮﭘ"
 
 
 msgid "Sequence strip defining a sound to be played over a period of time"
@@ -100808,18 +99600,6 @@ msgid "Face Retopology"
 msgstr "ﯽﺟﻮﻟﻮﭘﻮﭩﯾﺭ ﺲﯿﻓ"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Grease Pencil ﺲﮑﯿﭨﺭﻭ"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﭧﮑﯿﻠﺳ ﮯﻧﻮﮐ"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Grease Pencil ﺰﺋﺎﺳ ﮯﻧﻮﮐ"
-
-
 msgid "Face Normal"
 msgstr "ﻞﻣﺭﺎﻧ ﮦﺮﮩﭼ"
 
@@ -100854,14 +99634,6 @@ msgstr "ﺎﯿﮔ ﺎﯿﮐ ﺐﺨﺘﻨﻣ ﺰﯿﭼ"
 
 msgid "Skin Root"
 msgstr "ﮍﺟ ﯽﮐ ﺪﻠﺟ"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "ﻢﯾﺮﻓ ﯽﮐ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "Grease Pencil ﮓﻧﺭ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﯽﮨﺪﻧﺎﺸﻧ ﯽﮐ ﮞﻮﻤﯾﺮﻓ ﯽﮐ"
 
 
 msgid "Vertex Group Unreferenced"
@@ -101016,24 +99788,12 @@ msgid "Stick stroke to the view"
 msgstr "ﮟﯿﮭﮐﺭ ﺮﭘﻮﯾﻭ ﻮﮐ ﮎﻭﺮﭩﺳﺍ"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "(ﺮﻈﻨﻣ 3D) ﭧﻨﻤﺴﯿﻠﭘ ﮎﻭﺮﭩﺳﺍ ﺢﯾﺮﺸﺗ"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "3D ﮯﮨ ﺎﺗﺎﺟ ﺎﯿﮐ ﭧﯿﭩﻨﯾﺭﻭﺍ ﺡﺮﻃ ﺲﮐ ﻮﮐ ﮎﻭﺮﭩﺳﺍ ﯽﺤﯾﺮﺸﺗ ﮟﯿﻣ ﺲﯿﭙﺳﺍ"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "3D ﮟﯾﺮﮐ ﺍﺭﮈ ﮎﻭﺮﭩﺳﺍ ﺮﭘ ﻡﺎﻘﻣ ﮯﮐ ﺮﺳﺮﮐ"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "ﮟﯿﺋﺎﮕﻟ ﺮﭘ ﮞﻮﺤﻄﺳ ﻮﮐ ﮎﻭﺮﭩﺳﺍ"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "ﯽﺋﺎﭨﻮﻣ ﮎﻭﺮﭩﺳﺍ ﺢﯾﺮﺸﺗ"
 
 
 msgid "Auto-Keying Mode"
@@ -101058,14 +99818,6 @@ msgstr "ﮯﮨ ﺎﺗﺎﺟ ﺎﯿﮐ ﻝﺎﻤﻌﺘﺳﺍ ﮯﯿﻟ ﮯﮐ ﺖ
 
 msgid "Threshold distance for Auto Merge"
 msgstr "ﮧﻠﺻﺎﻓ ﺎﮐ ﺪﺣ ﮯﯿﻟ ﮯﮐ ﺝﺮﻣ ﻮﭨﺁ"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "Grease Pencil ﭧﯿﻟﻮﭘﺮﭩﻧﺍ"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Grease Pencil ﮧﻤﺴﺠﻣ"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -102289,10 +101041,6 @@ msgid "Strength of the fade effect"
 msgstr "ﺖﻗﺎﻃ ﯽﮐ ﺮﺛﺍ ﻻ﻿ﺪﻨﮬﺩ"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "Grease Pencil ﮯﮐ ﮏﯾﺍ ﻝﺎﻌﻓ ﮯﺋﺍﻮﺳ ﻦﭘﻻ﻿ﺪﻨﮬﺩ ﯽﮐ ﺕﺮﭘ ﯽﻟﺪﻨﮬﺩ ﮯﯿﻟ ﮯﮐ ﮞﻮﮩﺗ ﯽﮐ"
-
-
 msgid "Fade factor"
 msgstr "ﺮﺼﻨﻋ ﻻ﻿ﺪﻨﮬﺩ"
 
@@ -102753,20 +101501,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "ﮟﯿﺋﺎﮭﮐﺩ ﮟﯿﻨﺋﻻ﻿ ﺮﺋﺎﻔﯾﮈﻮﻣ ﺖﻗﻭ ﮯﺗﺮﮐ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﮎﻭﺮﭩﺳﺍ"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "ﭧﮑﯿﺠﺑﺁ Grease Pencil ﻻ﻿ﺪﻨﮬﺩ"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "ﮯﮐ ﻝﺎﻌﻓ ﮯﺋﺍﻮﺳ ،ﭧﮑﯿﺠﺑﺁ Grease Pencil ﻻ﻿ﺪﻨﮬﺩ"
-
-
 msgid "Fade Layers"
 msgstr "ﮟﯿﺗﺮﭘ ﯽﻟﺪﻨﮬﺩ"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "Grease Pencil ﮯﮐ ﮏﯾﺍ ﻝﺎﻌﻓ ﮯﺋﺍﻮﺳ ﮟﯾﺮﮐ ﻞﮔﻮﭨ ﻮﮐ ﭧﮨﻻ﻿ﺪﻨﮬﺩ ﮯﮐ ﮞﻮﮩﺗ ﯽﮐ"
 
 
 msgid "Fade Objects"
@@ -104790,46 +103526,6 @@ msgstr "3D ﮏﯿﺑ ﻝﺎﻓ) ﻡﺭﺎﻔﺴﻧﺍﺮﭨ :ﻝﻮﭨ ﻮﯾﻭ
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "ﺢﯾﺮﺸﺗ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "(ﮏﯿﺑ ﻝﺎﻓ) ﺢﯾﺮﺸﺗ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "ﻦﺋﻻ﻿ ﭧﯿﭨﻮﻨﯾﺍ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "(ﮏﯿﺑ ﻝﺎﻓ) ﻦﺋﻻ﻿ ﭧﯿﭨﻮﻨﯾﺍ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "ﻥﻮﮕﯿﻟﻮﭘ ﭧﯿﭨﻮﻨﯾﺍ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "(ﮏﯿﺑ ﻝﺎﻓ) ﻥﻮﮕﯿﻟﻮﭘ ﭧﯿﭨﻮﻨﯾﺍ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "ﺭﺰﯾﺮﯾﺍ ﭧﯿﭨﻮﻨﯾﺍ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "(ﮏﯿﺑ ﻝﺎﻓ) ﯽﻓﺎﺻ ﺢﯾﺮﺸﺗ :ﻝﻮﭨ ﻡﺎﻋ"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "3D ﮟﯾﺮﮐ ﺶﺋﺎﻤﯿﭘ :ﻝﻮﭨ ﻮﯾﻭ"
 
@@ -105232,11 +103928,6 @@ msgstr "3D ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﻦﺘﻣ ,ﻦﺘﻣ ﮟﯾﺮﮐ ﻢﯿ
 msgctxt "WindowManager"
 msgid "3D View Tool: Edit Text, Select Text (fallback)"
 msgstr "3D ﮟﯾﺮﮐ ﺐﺨﺘﻨﻣ ﻦﺘﻣ ,ﻦﺘﻣ ﮟﯾﺮﮐ ﻢﯿﻣﺮﺗ :ﻝﻮﭨ ﮟﯿﮭﮑﯾﺩ (fallback)"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "WindowManager"
@@ -106650,36 +105341,6 @@ msgstr "ﺮﭩﯾﮉﯾﺍ ﻑﺍﺮﮔ ﭗﻠﮐ"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "ﺮﭩﯾﮉﯾﺍ ﭧﯿﺷ ﭖﻭﮈ ﭗﻠﮐ"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "Grease Pencil ﮎﻭﺮﭩﺳﺍ ﺵﺮﺑ"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "ﮈﻮﻣ ﭧﯾﮉﯾﺍ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Grease Pencil ﮈﻮﻣ ﮧﻤﺴﺠﻣ"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "Grease Pencil ﭧﻨﯿﭘ ﻥﺯﻭ"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "Grease Pencil ﭧﻨﯿﭘ ﮯﻧﻮﮐ"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Fill Tool"
-msgstr "Grease Pencil ﻝﻮﭨ ﮟﯾﺮﮭﺑ"
 
 
 msgctxt "WindowManager"
@@ -109840,10 +108501,6 @@ msgid "Volume(s)"
 msgstr "ﻡﻮﯿﻟﺍﻭ"
 
 
-msgid "Grease Pencil(s)"
-msgstr "ﻞﺴﻨﭘ ﯽﻟﺍﻭ ﯽﺋﺎﻨﮑﭼ"
-
-
 msgid "Armature(s)"
 msgstr "ﺮﭽﻣﺭﺁ"
 
@@ -110648,10 +109305,6 @@ msgstr "ﺮﺳﺮﮐ ﮯﻠﭙﺳﮈ"
 
 msgid "Data Source:"
 msgstr ":ﺬﺧﺎﻣ ﺎﭩﯾﮈ"
-
-
-msgid "No annotation source"
-msgstr "ﮯﮨ ﮟﯿﮩﻧ ﮧﻌﯾﺭﺫ ﯽﺋﻮﮐ ﺎﮐ ﺢﯾﺮﺸﺗ"
 
 
 msgctxt "Operator"
@@ -112327,10 +110980,6 @@ msgid "Discontinuity (Euler) Filter"
 msgstr "ﺮﭩﻠﻓ (ﺮﻟﻮﯾﺍ) ﻞﻄﻌﺗ"
 
 
-msgid "Grease Pencil Objects"
-msgstr "Grease Pencil ﭧﮑﯿﺠﺑﺁ"
-
-
 msgctxt "Operator"
 msgid "Frame Preview Range"
 msgstr "ﺪﺣ ﯽﮐ ﻮﯾﻮﯾﺮﭘ ﻢﯾﺮﻓ"
@@ -113853,10 +112502,6 @@ msgid "Snap Increment"
 msgstr "ﮧﻓﺎﺿﺍ ﭗﯿﻨﺳ"
 
 
-msgid "Annotation:"
-msgstr ":ﺢﯾﺮﺸﺗ"
-
-
 msgid "Add cube to mesh interactively"
 msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺏﻮﯿﮐ ﮟﯿﻣ ﻝﺎﺟ ﻝﺎﻌﻓ ﺮﭩﻧﺍ"
 
@@ -114036,11 +112681,6 @@ msgstr "(*usd.) ﻞﯿﺼﻔﺗ ﯽﮐﻮﯾﻭ ﺮﯿﮕﻤﻟﺎﻋ"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "Grease Pencil ﺭﻮﻄﺑ ﯽﺟ ﯼﻭ ﺲﯾﺍ"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "(obj.) ﭧﻧﺮﻓ ﻮﯾﻭ"
 
@@ -114080,16 +112720,6 @@ msgstr "ﮟﯿﮩﻧ ﻢﭩﺋﺁ ﻝﺎﻌﻓ ﯽﺋﻮﮐ"
 
 msgid "No active marker"
 msgstr "ﮯﮨ ﮟﯿﮩﻧ ﺮﮐﺭﺎﻣ ﻝﺎﻌﻓ ﯽﺋﻮﮐ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "Grease Pencil ﺭﻮﻄﺑ ﮯﮐ ﯽﺟ ﯼﻭ ﺲﯾﺍ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "Grease Pencil ﺭﻮﻄﺑ ﮯﮐ ﻒﯾﺍ ﯼﮈ ﯽﭘ"
 
 
 msgctxt "Operator"
@@ -114915,11 +113545,6 @@ msgstr "ﺮﮑﯿﭙﺳ"
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "...ﻡﺍﺪﻗﺍ ﮏﯿﺑ"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﻮﮐ ﮯﺷ ﮟﯿﻣ..."
 
 
 msgctxt "Operator"
@@ -116508,22 +115133,6 @@ msgid "No object selected, using cursor"
 msgstr "ﯽﺌﮔ ﯽﮐ ﮟﯿﮩﻧ ﺐﺨﺘﻨﻣ ﮯﺷ ﯽﺋﻮﮐ ﮯﺋﻮﮨ ﮯﺗﺮﮐ ﻝﺎﻤﻌﺘﺳﺍ ﺎﮐ ﺮﺳﺮﮐ"
 
 
-msgid "Draw Grease Pencil"
-msgstr "ﮟﯿﭽﻨﯿﮭﮐ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
-
-
-msgid "Weight Grease Pencil"
-msgstr "Grease Pencil ﻥﺯﻭ"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "Grease Pencil ﮧﻤﺴﺠﻣ ﺎﮐ"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﺲﮑﯿﭨﺭﻭ"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "ﮟﯾﺮﮐ ﭧﺴﺟﮉﯾﺍ ﻮﮐ ﺭﻭﺎﭘ ﭧﺋﻻ﻿"
@@ -116690,11 +115299,6 @@ msgstr "ﺕﺎﻣﺎﻘﻣ ﭦﻭﺭ"
 
 msgid "Path Steps"
 msgstr "ﻞﺣﺍﺮﻣ ﮯﮐ ﮯﺘﺳﺍﺭ"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "ﯼﺭﮉﻧﺅﺎﺑ"
 
 
 msgid "No brush selected"
@@ -117466,10 +116070,6 @@ msgstr "ﮈﺅﻼ﻿ﮐ ﭧﻨﺋﺍﻮﭘ"
 
 msgid "LightProbe"
 msgstr "ﺏﻭﺮﭘ ﭧﺋﻻ﻿"
-
-
-msgid "GreasePencil"
-msgstr "ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
 
 
 msgid "objects"
@@ -118279,10 +116879,6 @@ msgstr "NLA ﺰﻟﻭﺮﭩﻨﮐ ﯽﭩﭘ"
 
 msgid "F-Curve visibility in Graph Editor"
 msgstr "ﺖﯿﺋﺮﻣ ﯽﮐ  ﻢﺧ-ﻒﯾﺎںﯿﻣ ﺮﭩﯾﮉﯾﺍ ﻑﺍﺮﮔ"
-
-
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "ﮯﮨ ﯽﺗﺁ ﺮﻈﻧ ﺕﺮﭘ ﯽﮐ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﮟﯿﻣ ﭦﺭﻮﭘ ﻮﯾﻭ"
 
 
 msgid "Toggle visibility of Channels in Graph Editor for editing"
@@ -119204,10 +117800,6 @@ msgid "Nothing to erase"
 msgstr "ﮟﯿﮩﻧ ﮫﭽﮐ ﮯﯿﻟ ﮯﮐ ﮯﻧﺎﭩﻣ"
 
 
-msgid "Failed to find Annotation data to draw into"
-msgstr "ﻡﺎﮐﺎﻧ ﮟﯿﻣ ﮯﻧﺮﮐ ﺵﻼ﻿ﺗ ﺎﭩﯾﮈ ﯽﺤﯾﺮﺸﺗ ﮯﯿﻟ ﮯﮐ ﮯﻨﭽﻨﯿﮭﮐ"
-
-
 msgid "Active region not set"
 msgstr "ﮯﮨ ﮟﯿﮩﻧ ﭧﯿﺳ ﮧﻗﻼ﻿ﻋ ﻝﺎﻌﻓ"
 
@@ -119236,10 +117828,6 @@ msgid "Eyes"
 msgstr "ﮟﯿﮭﮑﻧﺁ"
 
 
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Grease Pencil ﮟﯾﺮﮐ ﻞﯾﺪﺒﺗ ﻮﮐ ﮯﺷ ﮟﯿﻣ"
-
-
 msgid "Remove Loose Points"
 msgstr "ﺲﭩﻨﺋﺍﻮﭘ ﺯﻮﻟ ﮟﯾﺩ ﺎﭩﮨ"
 
@@ -119264,14 +117852,6 @@ msgid "The object has only one layer"
 msgstr "ﮯﮨ ﺕﺮﭘ ﮏﯾﺍ ﻑﺮﺻ ﮟﯿﻣ ﭧﮑﯿﺠﺑﺁ"
 
 
-msgid "No Grease Pencil frame to draw on"
-msgstr "ﮟﯿﮩﻧ ﻢﯾﺮﻓ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﯽﺋﻮﮐ ﮯﯿﻟ ﮯﮐ ﮯﻨﭽﻨﯿﮭﮐ"
-
-
-msgid "No active Grease Pencil layer"
-msgstr "ﮯﮨ ﮟﯿﮩﻧ ﺕﺮﭘ ﻞﺴﻨﭘ ﯽﺋﺎﻨﮑﭼ ﻝﺎﻌﻓ ﯽﺋﻮﮐ"
-
-
 msgid "There is no layer '%s'"
 msgstr "ﮯﮨ ﮟﯿﮩﻧ '%s‬‪' ﺕﺮﭘ ﯽﺋﻮﮐ"
 
@@ -119288,10 +117868,6 @@ msgid "Copied %d selected point(s)"
 msgstr "‪%d‬ ﮯﺌﮔ ﮯﯿﮐ ﯽﭘﺎﮐ ﺲﭩﻨﺋﺍﻮﭘ ﺐﺨﺘﻨﻣ"
 
 
-msgid "Add New Grease Pencil Layer"
-msgstr "ﮟﯾﺮﮐ ﻞﻣﺎﺷ ﺕﺮﭘ ﻞﺴﻨﭘ ﯽﺋﺎﻨﮑﭼ ﯽﺌﻧ"
-
-
 msgid "Cannot add active layer as mask"
 msgstr "ﺎﺘﮑﺳ ﺎﺟ ﺎﯿﮐ ﮟﯿﮩﻧ ﻞﻣﺎﺷ ﺮﭘ ﺭﻮﻃ ﮯﮐ ﮏﺳﺎﻣ ﻮﮐ ﺕﺮﭘ ﻝﺎﻌﻓ"
 
@@ -119306,10 +117882,6 @@ msgstr "ﺮﺻﺎﻗ ﮯﺳ ﮯﻧﺮﮐ ﺵﻼ﻿ﺗ ﺕﺮﭘ ﮯﯿﻟ ﮯﮐ
 
 msgid "No active layer to duplicate"
 msgstr "ﮟﯿﮩﻧ ﺕﺮﭘ ﻝﺎﻌﻓ ﯽﺋﻮﮐ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﻞﻘﻧ"
-
-
-msgid "All Line Art objects are now cleared of bakes"
-msgstr "ﮯﮨ ﺎﯿﮔ ﺎﯾﺩ ﺮﮐ ﻑﺎﺻ ﮯﺳ ﺲﮑﯿﺑ ﺏﺍ ﻮﮐ ءﺎﯿﺷﺍ ﭦﺭﺁ ﻦﺋﻻ﻿ ﻡﺎﻤﺗ"
 
 
 msgid "Baked strokes are cleared"
@@ -120060,10 +118632,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "ﮟﯾﺮﮐ ﺯﺅﺍﺮﺑ ﻮﮐ ﺰﮕﻨﭩﯿﺳ ﮦﺭﺫ ﮯﯿﻟ ﮯﮐ ﮯﻧﻮﮨ ﮏﻨﻟ"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "ﮟﯾﺮﮐ ﺯﺅﺍﺮﺑ ﻮﮐ ﺎﭩﯾﮈ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﮏﻨﻟ"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "ﮟﯾﺮﮐ ﺯﺅﺍﺮﺑ ﮯﯿﻟ ﮯﮐ ﮯﻧﺮﮐ ﮏﻨﻟ ﻮﮐ ﭗﻠﮐ ﯼﻭﻮﻣ"
 
@@ -120135,11 +118703,6 @@ msgstr "ﺎﯿﻧ"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "ﺎﯿﻧ"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "ﺎﯿﻧ"
 
@@ -120958,21 +119521,6 @@ msgstr "ﮉﻠﯿﻓ ﮉﺋﻮﻠﻓ"
 msgctxt "Object"
 msgid "Field"
 msgstr "ﻥﺍﺪﯿﻣ"
-
-
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "ﻞﺴﻨﯿﭘ ﯽﺟ"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "ﻦﯾﺯﻮﺳ"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "ﭦﺭﺁ ﻦﺋﻻ﻿"
 
 
 msgid "Cannot create editmode armature"
@@ -121803,20 +120351,12 @@ msgid "Removed effect: %s"
 msgstr "‬%s‪ :ﺮﺛﺍ ﺎﯿﮔ ﺎﯾﺩ ﺎﭩﮨ"
 
 
-msgid "Cannot edit shaderfxs in a library override"
-msgstr "ﯽﺘﮑﺳ ﺎﺟ ﯽﮐ ﮟﯿﮩﻧ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ shaderfxs ﮟﯿﻣ ﮉﺋﺍﺭ ﺭﻭﻭﺍ ﯼﺮﯾﺮﺒﺋﻻ﻿"
-
-
 msgid "Object type is not supported"
 msgstr "ﮯﮨ ﮟﯿﮩﻧ ﮧﺘﻓﺎﯾ ﻥﻭﺎﻌﺗ ﻢﺴﻗ ﯽﮐ ﺰﯿﭼ"
 
 
 msgid "Cannot edit library or override data"
 msgstr "ﺎﺘﮑﺳ ﺎﺟ ﺎﯿﮐ ﮟﯿﮩﻧ ﮉﺋﺍﺭ ﺭﻭﻭﺍ ﻮﮐ ﺎﭩﯾﮈ ﺎﯾ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ ﯼﺮﯾﺮﺒﺋﻻ﻿"
-
-
-msgid "Cannot edit shaderfxs coming from linked data in a library override"
-msgstr "ﯽﺘﮑﺳ ﺎﺟ ﯽﮐ ﮟﯿﮩﻧ ﺮﺋﺎﻔﯾﮈﻮﻣ ﮟﯿﻣ shaderfxs ﮯﻟﺍﻭ ﮯﻧﺁ ﮯﺳ ﺎﭩﯾﮈ ﮦﺩﺮﮐ ﮏﻨﻟ ﮟﯿﻣ ﮉﺋﺍﺭ ﺭﻭﻭﺍ ﯼﺮﯾﺮﺒﺋﻻ﻿"
 
 
 msgid "Apply current visible shape to the object data, and delete all shape keys"
@@ -121853,10 +120393,6 @@ msgstr "ﺎﺘﮑﺳ ﻮﮨ ﮟﯿﮩﻧ ﻮﮔﻻ﻿ ﺮﭘ ﺮﭽﻣﺭﺁ ﺭ
 
 msgid "Curves Object does not support this set origin operation"
 msgstr "ﮯﮨ ﺎﺗﺮﮐ ﮟﯿﮩﻧ ﭦﺭﻮﭙﺳ ﻮﮐ ﻦﺸﯾﺮﭘﺁ ﻦﺠﯾﺭﻭﺍ ﭧﯿﺳ ﺱﺍ ﮟﯾﺰﯿﭼ  ﮟﯿﻤﺧ"
-
-
-msgid "Grease Pencil Object does not support this set origin operation"
-msgstr "۔ﮯﮨ ﺎﺗﺮﮐ ﮟﯿﮩﻧ ﭦﺭﻮﭙﺳ ﻮﮐ ﻦﺸﯾﺮﭘﺁ ﻦﺠﯾﺭﻭﺍ ﭧﯿﺳ ﺱﺍ ﭧﮑﯿﺠﺑﺁ ﻞﺴﻨﭘ ﺲﯾﺮﮔ"
 
 
 msgid "Point cloud object does not support this set origin operation"
@@ -122656,20 +121192,12 @@ msgid "UV map or surface attachment is invalid"
 msgstr "ﮯﮨ ﻂﻠﻏ ﮧﮑﻠﺴﻨﻣ ﺎﮐ ﺢﻄﺳ ﺎﯾ ﮧﺸﻘﻧ  ﯼﻭﻮﯾ"
 
 
-msgid "No Grease Pencil frame to draw weight on"
-msgstr "ﮟﯿﮩﻧ ﻢﯾﺮﻓ Grease Penci ﯽﺋﻮﮐ ﮯﯿﻟ ﮯﮐ ﮯﻨﭽﻨﯿﮭﮐ ﻥﺯﻭ"
-
-
 msgid "Active group is locked, aborting"
 msgstr "ﻞﻤﺣ ﻁﺎﻘﺳﺍ ،ﮯﮨ ﻞﻔﻘﻣ ﮦﻭﺮﮔ ﻝﺎﻌﻓ"
 
 
 msgid "Fill tool needs active material"
 msgstr "ﮯﮨ ﺕﺭﻭﺮﺿ ﯽﮐ ﺩﺍﻮﻣ ﻝﺎﻌﻓ ﻮﮐ ﮯﻟﺁ ﮯﮐ ﮯﻧﺮﮭﺑ"
-
-
-msgid "GPencil Interpolation: "
-msgstr " :ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ ﻞﺴﻨﯿﭘ ﯽﺟ"
 
 
 msgid "ESC/RMB to cancel, Enter/LMB to confirm, WHEEL/MOVE to adjust factor"
@@ -122686,21 +121214,6 @@ msgstr "(ﮏﺗ ﯽﺋﺎﻣﺍﺭﮈ  ﮦﺩﺎﯾﺯ ﮯﺳ ﻢﮐ ﮯﺳ ﻢ�
 
 msgid "Simple physics-inspired easing effects"
 msgstr "ﺕﺍﺮﺛﺍ ﮯﮐ ﯽﻣﺮﻧ ﺮﺛﺎﺘﻣ ﮯﺳ ﺕﺎﯿﻌﯿﺒﻃ ﮦﺩﺎﺳ"
-
-
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "ﻦﺸﯿﻟﻮﭘﺮﭩﻧﺍ"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "(ﮯﺳ ﺖﻗﺎﻃ) ﯽﻣﺮﻧ"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "ﺕﺍﺮﺛﺍ ﮎﺮﺤﺘﻣ"
 
 
 msgid "Trace"
@@ -126083,10 +124596,6 @@ msgid "Unable to create new object"
 msgstr "ﺮﺻﺎﻗ ﮯﺳ ﮯﻧﺎﻨﺑ ﭧﮑﯿﺠﺑﺁ ﺎﯿﻧ"
 
 
-msgid "SVG has gradients, Grease Pencil color will be approximated"
-msgstr "SVG ﺎﮔ ﻮﮨ ﺎًﺒﯾﺮﻘﺗ ﮓﻧﺭ ﺎﮐ ﻞﺴﻨﭘ ﺲﯾﺮﮔ ،ﮟﯿﮨ ﭧﻨﯾﮉﯾﺮﮔ ﮟﯿﻣ"
-
-
 msgid "PLY Export: Unable to find collection '%s'"
 msgstr "PLY ﮧﻋﻮﻤﺠﻣ :ﺪﻣﺁﺮﺑ '‪%s‬' ﺮﺻﺎﻗ ﮯﺳ ﮯﻧﺮﮐ ﺵﻼ﻿ﺗ"
 
@@ -126573,14 +125082,6 @@ msgstr "ﻕﺎﺒﺳ ﻭ ﻕﺎﯿﺳ ﻂﻠﻏ ﮯﯿﻟ ﮯﮐ ﭧﯿﺳ ﮓ�
 
 msgid "Incomplete built-in keying set, appears to be missing type info"
 msgstr "ﮯﮨ ﺐﺋﺎﻏ ﺕﺎﻣﻮﻠﻌﻣ ﯽﮐ ﻢﺴﻗ ﮧﮐ ﮯﮨ ﺎﺘﮕﻟ ﺎﺴﯾﺍ ،ﭧﯿﺳ ﮓﻨﯿﮐ ﻥﺍ ﭧﻠﺑ ﻞﻤﮑﻣﺎﻧ"
-
-
-msgid "Frame not found in annotation layer"
-msgstr "ﻼ﻿ﻣ ﮟﯿﮩﻧ ﻢﯾﺮﻓ ﮟﯿﻣ ﺕﺮﭘ ﺢﯾﺮﺸﺗ"
-
-
-msgid "Layer not found in annotation data"
-msgstr "ﯽﻠﻣ ﮟﯿﮩﻧ ﺕﺮﭘ ﮟﯿﻣ ﺎﭩﯾﮈ ﯽﺤﯾﺮﺸﺗ"
 
 
 msgid "Frame already exists on this frame number %d"
@@ -128186,10 +126687,6 @@ msgid "Towards Custom Camera"
 msgstr "ﻑﺮﻃ ﯽﮐ ﮮﺮﻤﯿﮐ ﮯﮐ ﯽﺿﺮﻣ ﯽﻨﭘﺍ"
 
 
-msgid "Cached from the first Line Art modifier"
-msgstr "Cached ﮯﺳ the ﺮﺋﺎﻔﯾﮈﻮﻣ ﭦﺭﺁ ﻦﺋﻻ﻿ ﮯﻠﮩﭘ ﮯﺳ ﺐﺳ"
-
-
 msgid "Object is not in front"
 msgstr "ﮯﮨ ﮟﯿﮩﻧ ﮯﻨﻣﺎﺳ ﺽﺍﺮﺘﻋﺍ"
 
@@ -128200,15 +126697,6 @@ msgstr "ﮯﮨ ﺎﯿﮐ ﮏﯿﺑ ﺎﭩﯾﮈ ﮯﻧ ﺮﺋﺎﻔﯾﮈﻮﻣ"
 
 msgid "Object is shown in front"
 msgstr "ﮯﮨ ﺎﯿﮔ ﺎﯾﺎﮭﮐﺩ ﮯﻨﻣﺎﺳ ﺽﺍﺮﺘﻋﺍ"
-
-
-msgid "Lineart"
-msgstr "ﭦﺭﺎﻨﺋﻻ﻿"
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "ﻭﮉﯿﺷ ﭧﺳﺎﮐ"
 
 
 msgid "Edge Types"
@@ -133218,11 +131706,6 @@ msgstr "Game ﻦﺠﻧﺍ"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "ﺱﮈﻮﻧ ﯼﺮﭩﯿﻣﻮﯿﺟ"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "Preferences"

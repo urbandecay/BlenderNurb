@@ -50,7 +50,7 @@ class MaterialButtonsPanel:
     @classmethod
     def poll(cls, context):
         mat = context.material
-        return mat and (context.engine in cls.COMPAT_ENGINES) and not mat.grease_pencil
+        return mat and (context.engine in cls.COMPAT_ENGINES)
 
 
 class MATERIAL_PT_preview(MaterialButtonsPanel, Panel):
@@ -85,11 +85,6 @@ class EEVEE_MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
     def poll(cls, context):
         ob = context.object
         mat = context.material
-
-        if mat and mat.grease_pencil:
-            return False
-        if ob and ob.type == 'GREASEPENCIL':
-            return False
 
         return (
             (ob or mat) and
@@ -185,7 +180,7 @@ class EEVEE_MATERIAL_PT_volume(MaterialButtonsPanel, Panel):
     def poll(cls, context):
         engine = context.engine
         mat = context.material
-        return mat and (engine in cls.COMPAT_ENGINES) and not mat.grease_pencil
+        return mat and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
@@ -207,7 +202,7 @@ class EEVEE_MATERIAL_PT_displacement(MaterialButtonsPanel, Panel):
     def poll(cls, context):
         engine = context.engine
         mat = context.material
-        return mat and (engine in cls.COMPAT_ENGINES) and not mat.grease_pencil
+        return mat and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
@@ -230,7 +225,7 @@ class EEVEE_MATERIAL_PT_thickness(MaterialButtonsPanel, Panel):
     def poll(cls, context):
         engine = context.engine
         mat = context.material
-        return mat and (engine in cls.COMPAT_ENGINES) and not mat.grease_pencil
+        return mat and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
@@ -359,7 +354,7 @@ class MATERIAL_PT_viewport(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        return mat and not mat.grease_pencil
+        return mat
 
     def draw(self, context):
         layout = self.layout
@@ -373,41 +368,6 @@ class MATERIAL_PT_viewport(MaterialButtonsPanel, Panel):
         col.prop(mat, "roughness")
 
 
-class MATERIAL_PT_lineart(MaterialButtonsPanel, Panel):
-    bl_label = "Line Art"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 10
-
-    @classmethod
-    def poll(cls, context):
-        mat = context.material
-        return mat and not mat.grease_pencil
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        mat = context.material
-        lineart = mat.lineart
-
-        layout.prop(lineart, "use_material_mask", text="Material Mask")
-
-        col = layout.column(align=True)
-        col.active = lineart.use_material_mask
-        row = col.row(align=True, heading="Masks")
-        for i in range(8):
-            row.prop(lineart, "use_material_mask_bits", text=" ", index=i, toggle=True)
-            if i == 3:
-                row = col.row(align=True)
-
-        row = layout.row(align=True, heading="Custom Occlusion")
-        row.prop(lineart, "mat_occlusion", text="Levels")
-
-        row = layout.row(heading="Intersection Priority")
-        row.prop(lineart, "use_intersection_priority_override", text="")
-        subrow = row.row()
-        subrow.active = lineart.use_intersection_priority_override
-        subrow.prop(lineart, "intersection_priority", text="")
 
 
 class MATERIAL_PT_animation(MaterialButtonsPanel, Panel, PropertiesAnimationMixin):
@@ -447,7 +407,6 @@ classes = (
     EEVEE_MATERIAL_PT_settings,
     EEVEE_MATERIAL_PT_settings_surface,
     EEVEE_MATERIAL_PT_settings_volume,
-    MATERIAL_PT_lineart,
     MATERIAL_PT_viewport,
     EEVEE_MATERIAL_PT_viewport_settings,
     MATERIAL_PT_animation,

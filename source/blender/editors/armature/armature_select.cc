@@ -484,7 +484,6 @@ static bool armature_select_linked_impl(Object *ob, const bool select, const boo
   if (changed) {
     ED_armature_edit_sync_selection(arm->edbo);
     DEG_id_tag_update(&arm->id, ID_RECALC_SYNC_TO_EVAL);
-    WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, ob);
   }
 
   return changed;

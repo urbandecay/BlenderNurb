@@ -8,7 +8,6 @@
 
 #include "GEO_foreach_geometry.hh"
 
-#include "BKE_grease_pencil.hh"
 
 namespace blender::nodes::node_geo_material_replace_cc {
 
@@ -17,7 +16,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Geometry"_ustr)
-      .supported_type({GeometryComponent::Type::Mesh, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Mesh)
       .description("Geometry to replace materials on");
   b.add_output<decl::Geometry>("Geometry"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Material>("Old"_ustr);
@@ -45,11 +44,6 @@ static void node_geo_exec(GeoNodeExecParams params)
   geometry::foreach_real_geometry(geometry_set, [&](GeometrySet &geometry_set) {
     if (Mesh *mesh = geometry_set.get_mesh_for_write()) {
       replace_materials({mesh->mat, mesh->totcol}, old_material, new_material);
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      replace_materials({grease_pencil->material_array, grease_pencil->material_array_num},
-                        old_material,
-                        new_material);
     }
   });
 

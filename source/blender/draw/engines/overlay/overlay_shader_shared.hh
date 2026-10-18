@@ -91,9 +91,6 @@ enum [[host_shared]] StickBoneFlag : uint32_t {
 ENUM_OPERATORS(StickBoneFlag)
 #endif
 
-/* TODO(fclem): Convert into enum. */
-/* See: 'draw_cache_impl.hh' for matching includes. */
-#define VERT_GPENCIL_BEZT_HANDLE (1u << 30)
 /* data[0] (1st byte flags) */
 #define FACE_ACTIVE (1u << 0)
 #define FACE_SELECTED (1u << 1)
@@ -219,9 +216,6 @@ struct [[host_shared]] ThemeColors {
   float4 face_mode_select; /* Stands for face mode selection. */
   float4 face_retopology;
   float4 face_freestyle;
-  float4 gpencil_wire_edit;
-  float4 gpencil_vertex;
-  float4 gpencil_vertex_select;
   float4 normal;
   float4 vnormal;
   float4 lnormal;
@@ -311,9 +305,9 @@ struct [[host_shared]] ThemeSizes {
   float face_dot;
 
   float checker;
-  float vertex_gpencil;
   float _pad1;
   float _pad2;
+  float _pad3;
 };
 
 struct [[host_shared]] UniformData {

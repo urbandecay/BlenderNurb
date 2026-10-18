@@ -73,7 +73,6 @@ set(SRC
   nodes/node_geo_curve_topology_curve_of_point.cc
   nodes/node_geo_curve_topology_points_of_curve.cc
   nodes/node_geo_curve_trim.cc
-  nodes/node_geo_curves_to_grease_pencil.cc
   nodes/node_geo_deform_curves_on_surface.cc
   nodes/node_geo_delete_geometry.cc
   nodes/node_geo_distribute_points_in_grid.cc
@@ -108,7 +107,6 @@ set(SRC
   nodes/node_geo_gizmo_dial.cc
   nodes/node_geo_gizmo_linear.cc
   nodes/node_geo_gizmo_transform.cc
-  nodes/node_geo_grease_pencil_to_curves.cc
   nodes/node_geo_grid_advect.cc
   nodes/node_geo_grid_clip.cc
   nodes/node_geo_grid_curl.cc
@@ -159,7 +157,6 @@ set(SRC
   nodes/node_geo_input_mesh_island.cc
   nodes/node_geo_input_mesh_vertex_neighbors.cc
   nodes/node_geo_input_named_attribute.cc
-  nodes/node_geo_input_named_layer_selection.cc
   nodes/node_geo_input_normal.cc
   nodes/node_geo_input_object.cc
   nodes/node_geo_input_position.cc
@@ -183,7 +180,6 @@ set(SRC
   nodes/node_geo_material_selection.cc
   nodes/node_geo_menu_switch.cc
   nodes/node_geo_merge_by_distance.cc
-  nodes/node_geo_merge_layers.cc
   nodes/node_geo_merge_points.cc
   nodes/node_geo_mesh_bevel.cc
   nodes/node_geo_mesh_face_group_boundaries.cc
@@ -250,9 +246,6 @@ set(SRC
   nodes/node_geo_set_curve_tilt.cc
   nodes/node_geo_set_geometry_bundle.cc
   nodes/node_geo_set_geometry_name.cc
-  nodes/node_geo_set_grease_pencil_color.cc
-  nodes/node_geo_set_grease_pencil_depth_mode.cc
-  nodes/node_geo_set_grease_pencil_softness.cc
   nodes/node_geo_set_grid_background.cc
   nodes/node_geo_set_grid_transform.cc
   nodes/node_geo_set_id.cc

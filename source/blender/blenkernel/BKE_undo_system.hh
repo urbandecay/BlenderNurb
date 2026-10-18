@@ -22,7 +22,6 @@ struct UndoType;
 struct bContext;
 
 /* IDs */
-struct GreasePencil;
 struct Main;
 struct Mesh;
 struct Object;
@@ -41,7 +40,6 @@ struct UndoRefID {
     char name[MAX_ID_NAME]; \
     char library_filepath_abs[FILE_MAX]; \
   }
-UNDO_REF_ID_TYPE(GreasePencil);
 UNDO_REF_ID_TYPE(Mesh);
 UNDO_REF_ID_TYPE(Object);
 UNDO_REF_ID_TYPE(Scene);

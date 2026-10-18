@@ -25,8 +25,6 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   # BEGIN ICON_GEOM_NAMES
   brush.draw
   brush.generic
-  brush.gpencil_draw.erase
-  brush.gpencil_draw.fill
   brush.paint_texture.clone
   brush.paint_texture.soften
   brush.paint_texture.smear
@@ -75,28 +73,6 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   ops.generic.select_circle
   ops.generic.select_lasso
   ops.generic.select_paint
-  ops.gpencil.draw
-  ops.gpencil.draw.eraser
-  ops.gpencil.draw.line
-  ops.gpencil.draw.poly
-  ops.gpencil.edit_bend
-  ops.gpencil.edit_mirror
-  ops.gpencil.edit_shear
-  ops.gpencil.edit_to_sphere
-  ops.gpencil.extrude_move
-  ops.gpencil.primitive_arc
-  ops.gpencil.primitive_box
-  ops.gpencil.primitive_circle
-  ops.gpencil.primitive_curve
-  ops.gpencil.primitive_line
-  ops.gpencil.primitive_polyline
-  ops.gpencil.radius
-  ops.gpencil.sculpt_average
-  ops.gpencil.sculpt_blur
-  ops.gpencil.sculpt_clone
-  ops.gpencil.sculpt_smear
-  ops.gpencil.stroke_trim
-  ops.gpencil.transform_fill
   ops.mesh.bevel
   ops.mesh.bisect
   ops.mesh.dupli_extrude_cursor
@@ -425,8 +401,6 @@ if(WITH_BLENDER)
       gp_select_points
       gp_select_strokes
       graph
-      greasepencil
-      greasepencil_layer_group
       grid
       grip
       grip_v
@@ -606,7 +580,6 @@ if(WITH_BLENDER)
       mod_instance
       mod_lattice
       mod_length
-      mod_lineart
       mod_mask
       mod_meshdeform
       mod_mirror
@@ -702,7 +675,6 @@ if(WITH_BLENDER)
       outliner_data_empty
       outliner_data_font
       outliner_data_gp_layer
-      outliner_data_greasepencil
       outliner_data_lattice
       outliner_data_light
       outliner_data_lightprobe
@@ -719,7 +691,6 @@ if(WITH_BLENDER)
       outliner_ob_empty
       outliner_ob_font
       outliner_ob_force_field
-      outliner_ob_greasepencil
       outliner_ob_group_instance
       outliner_ob_image
       outliner_ob_lattice
@@ -832,7 +803,6 @@ if(WITH_BLENDER)
       seq_strip_meta
       seq_strip_modifier
       settings
-      shaderfx
       shading_bbox
       shading_rendered
       shading_solid
@@ -1070,7 +1040,6 @@ if(WITH_BLENDER)
 
     # Blend files.
     data_to_c_simple(../../../../release/datafiles/preview.blend SRC)
-    data_to_c_simple(../../../../release/datafiles/preview_grease_pencil.blend SRC)
 
     # Images.
     data_to_c_simple(../../../../release/datafiles/splash.png SRC)

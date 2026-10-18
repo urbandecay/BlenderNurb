@@ -8,7 +8,6 @@
 
 #include <limits>
 
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_image_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_object_types.h"
@@ -112,7 +111,7 @@ static SpaceLink *image_create(const ScrArea * /*area*/, const Scene * /*scene*/
   simage->spacetype = SPACE_IMAGE;
   simage->zoom = 1.0f;
   simage->lock = true;
-  simage->flag = SI_SHOW_GPENCIL | SI_USE_ALPHA | SI_COORDFLOATS;
+  simage->flag = SI_USE_ALPHA | SI_COORDFLOATS;
   simage->uv_opacity = 1.0f;
   simage->uv_face_opacity = 1.0f;
   simage->uv_edge_opacity = 1.0f;
@@ -879,14 +878,6 @@ static void image_main_region_listener(const wmRegionListenerParams *params)
         WM_gizmomap_tag_refresh(region->runtime->gizmo_map);
       }
       break;
-    case NC_GPENCIL:
-      if (ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-        ED_region_tag_redraw(region);
-      }
-      else if (wmn->data & ND_GPENCIL_EDITMODE) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_IMAGE:
       if (wmn->action == NA_PAINTING) {
         ED_region_tag_redraw(region);
@@ -1036,11 +1027,6 @@ static void image_buttons_region_listener(const wmRegionListenerParams *params)
     case NC_NODE:
       ED_region_tag_redraw(region);
       break;
-    case NC_GPENCIL:
-      if (ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_BRUSH:
       if (wmn->action == NA_EDITED) {
         ED_region_tag_redraw(region);
@@ -1076,11 +1062,6 @@ static void image_tools_region_listener(const wmRegionListenerParams *params)
 
   /* context changes */
   switch (wmn->category) {
-    case NC_GPENCIL:
-      if (wmn->data == ND_DATA || ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_BRUSH:
       /* NA_SELECTED is used on brush changes */
       if (ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
@@ -1170,14 +1151,6 @@ static void image_header_region_listener(const wmRegionListenerParams *params)
         ED_region_tag_redraw(region);
       }
       break;
-    case NC_GPENCIL:
-      if (wmn->data & ND_GPENCIL_EDITMODE) {
-        ED_region_tag_redraw(region);
-      }
-      else if (wmn->action == NA_EDITED) {
-        ED_region_tag_redraw(region);
-      }
-      break;
   }
 }
 
@@ -1198,12 +1171,11 @@ static void image_id_remap(ScrArea * /*area*/,
 {
   SpaceImage *simg = reinterpret_cast<SpaceImage *>(slink);
 
-  if (!mappings.contains_mappings_for_any(FILTER_ID_IM | FILTER_ID_GD_LEGACY | FILTER_ID_MSK)) {
+  if (!mappings.contains_mappings_for_any(FILTER_ID_IM | FILTER_ID_MSK)) {
     return;
   }
 
   mappings.apply(reinterpret_cast<ID **>(&simg->image), ID_REMAP_APPLY_ENSURE_REAL);
-  mappings.apply(reinterpret_cast<ID **>(&simg->gpd), ID_REMAP_APPLY_UPDATE_REFCOUNT);
   mappings.apply(reinterpret_cast<ID **>(&simg->mask_info.mask), ID_REMAP_APPLY_ENSURE_REAL);
 }
 
@@ -1218,7 +1190,6 @@ static void image_foreach_id(SpaceLink *space_link, LibraryForeachIDData *data)
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, simg->iuser.scene, IDWALK_CB_DIRECT_WEAK_LINK);
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(
       data, simg->mask_info.mask, IDWALK_CB_USER_ONE | IDWALK_CB_DIRECT_WEAK_LINK);
-  BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, simg->gpd, IDWALK_CB_USER | IDWALK_CB_DIRECT_WEAK_LINK);
   if (!is_readonly) {
     simg->scopes.ok = 0;
   }
@@ -1290,15 +1261,6 @@ static void image_space_blend_read_data(BlendDataReader * /*reader*/, SpaceLink 
   sima->scopes.vecscope_rgb = nullptr;
   sima->scopes.ok = 0;
 
-/* WARNING: gpencil data is no longer stored directly in sima after 2.5
- * so sacrifice a few old files for now to avoid crashes with new files!
- * committed: r28002 */
-#if 0
-  sima->gpd = newdataadr(fd, sima->gpd);
-  if (sima->gpd) {
-    BKE_gpencil_blend_read_data(fd, sima->gpd);
-  }
-#endif
 }
 
 static void image_space_blend_write(BlendWriter *writer, SpaceLink *sl)
@@ -1342,7 +1304,7 @@ void ED_spacetype_image()
   /* regions: main window */
   art = MEM_new_zeroed<ARegionType>("spacetype image region");
   art->regionid = RGN_TYPE_WINDOW;
-  art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_TOOL | ED_KEYMAP_FRAMES | ED_KEYMAP_GPENCIL;
+  art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_TOOL | ED_KEYMAP_FRAMES;
   art->init = image_main_region_init;
   art->draw = image_main_region_draw;
   art->listener = image_main_region_listener;

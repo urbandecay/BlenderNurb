@@ -32,7 +32,6 @@
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_mesh.hh"
 #include "BKE_pointcloud.hh"
 #include "BKE_report.hh"
@@ -55,8 +54,6 @@ AttributeOwner AttributeOwner::from_id(ID *id)
       return AttributeOwner(AttributeOwnerType::PointCloud, id);
     case ID_CV:
       return AttributeOwner(AttributeOwnerType::Curves, id);
-    case ID_GP:
-      return AttributeOwner(AttributeOwnerType::GreasePencil, id);
     default:
       return {};
   }
@@ -93,20 +90,6 @@ Curves *AttributeOwner::get_curves() const
   return reinterpret_cast<Curves *>(ptr_);
 }
 
-GreasePencil *AttributeOwner::get_grease_pencil() const
-{
-  BLI_assert(this->is_valid());
-  BLI_assert(type_ == AttributeOwnerType::GreasePencil);
-  return reinterpret_cast<GreasePencil *>(ptr_);
-}
-
-GreasePencilDrawing *AttributeOwner::get_grease_pencil_drawing() const
-{
-  BLI_assert(this->is_valid());
-  BLI_assert(type_ == AttributeOwnerType::GreasePencilDrawing);
-  return reinterpret_cast<GreasePencilDrawing *>(ptr_);
-}
-
 bke::AttributeStorage *AttributeOwner::get_storage() const
 {
   switch (type_) {
@@ -116,10 +99,6 @@ bke::AttributeStorage *AttributeOwner::get_storage() const
       return &this->get_pointcloud()->attribute_storage.wrap();
     case AttributeOwnerType::Curves:
       return &this->get_curves()->geometry.attribute_storage.wrap();
-    case AttributeOwnerType::GreasePencil:
-      return &this->get_grease_pencil()->attribute_storage.wrap();
-    case AttributeOwnerType::GreasePencilDrawing:
-      return &this->get_grease_pencil_drawing()->geometry.attribute_storage.wrap();
   }
   BLI_assert(false);
   return nullptr;
@@ -136,10 +115,6 @@ std::optional<bke::MutableAttributeAccessor> AttributeOwner::get_accessor() cons
       return this->get_pointcloud()->attributes_for_write();
     case AttributeOwnerType::Curves:
       return this->get_curves()->geometry.wrap().attributes_for_write();
-    case AttributeOwnerType::GreasePencil:
-      return this->get_grease_pencil()->attributes_for_write();
-    case AttributeOwnerType::GreasePencilDrawing:
-      return this->get_grease_pencil_drawing()->geometry.wrap().attributes_for_write();
   }
   BLI_assert(false);
   return std::nullopt;
@@ -674,10 +649,6 @@ bool BKE_attribute_required(const AttributeOwner &owner, const StringRef name)
       return BKE_curves_attribute_required(owner.get_curves(), name);
     case AttributeOwnerType::Mesh:
       return BKE_mesh_attribute_required(name);
-    case AttributeOwnerType::GreasePencil:
-      return false;
-    case AttributeOwnerType::GreasePencilDrawing:
-      return BKE_grease_pencil_drawing_attribute_required(owner.get_grease_pencil_drawing(), name);
   }
   return false;
 }
@@ -759,12 +730,6 @@ int *BKE_attributes_active_index_p(AttributeOwner &owner)
     }
     case AttributeOwnerType::Curves: {
       return &owner.get_curves()->geometry.attributes_active_index;
-    }
-    case AttributeOwnerType::GreasePencil: {
-      return &owner.get_grease_pencil()->attributes_active_index;
-    }
-    case AttributeOwnerType::GreasePencilDrawing: {
-      return &owner.get_grease_pencil_drawing()->geometry.attributes_active_index;
     }
   }
   return nullptr;

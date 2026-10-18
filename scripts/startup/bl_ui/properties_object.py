@@ -241,7 +241,6 @@ class OBJECT_PT_display(ObjectButtonsPanel, Panel):
         has_bounds = (is_geometry or obj_type in {'LATTICE', 'ARMATURE'})
         is_empty_image = (obj_type == 'EMPTY' and obj.empty_display_type == 'IMAGE')
         is_dupli = (obj.instance_type != 'NONE')
-        is_gpencil = (obj_type == 'GREASEPENCIL')
 
         col = layout.column(heading="Show")
         col.prop(obj, "show_name", text="Name")
@@ -265,7 +264,7 @@ class OBJECT_PT_display(ObjectButtonsPanel, Panel):
         sub.active = obj_type != 'CAMERA'
         sub.prop(obj, "display_type", text="Display As")
 
-        if is_geometry or is_dupli or is_empty_image or is_gpencil:
+        if is_geometry or is_dupli or is_empty_image:
             # Only useful with object having faces/materials...
             col.prop(obj, "color")
 
@@ -337,37 +336,6 @@ class OBJECT_PT_instancing_size(ObjectButtonsPanel, Panel):
         layout.prop(ob, "instance_faces_scale", text="Factor")
 
 
-class OBJECT_PT_lineart(ObjectButtonsPanel, Panel):
-    bl_label = "Line Art"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 10
-
-    @classmethod
-    def poll(cls, context):
-        ob = context.object
-        return (ob.type in {'MESH', 'FONT', 'CURVE', 'SURFACE', 'CURVES'})
-
-    def draw(self, context):
-        layout = self.layout
-        ob = context.object
-        lineart = ob.lineart
-
-        layout.use_property_split = True
-
-        layout.prop(lineart, "usage")
-        layout.use_property_split = True
-
-        row = layout.row(heading="Override Crease")
-        row.prop(lineart, "use_crease_override", text="")
-        subrow = row.row()
-        subrow.active = lineart.use_crease_override
-        subrow.prop(lineart, "crease_threshold", slider=True, text="")
-
-        row = layout.row(heading="Intersection Priority")
-        row.prop(lineart, "use_intersection_priority_override", text="")
-        subrow = row.row()
-        subrow.active = lineart.use_intersection_priority_override
-        subrow.prop(lineart, "intersection_priority", text="")
 
 
 class OBJECT_PT_motion_paths(MotionPathButtonsPanel, Panel):
@@ -461,10 +429,6 @@ class OBJECT_PT_visibility(ObjectButtonsPanel, Panel):
                 col.prop(ob, "hide_probe_volume", text="Volume", toggle=False, invert_checkbox=True)
                 col.prop(ob, "hide_probe_sphere", text="Sphere", toggle=False, invert_checkbox=True)
                 col.prop(ob, "hide_probe_plane", text="Plane", toggle=False, invert_checkbox=True)
-
-        if ob.type == 'GREASEPENCIL':
-            col = layout.column(heading="Grease Pencil")
-            col.prop(ob, "use_grease_pencil_lights", toggle=False)
 
         layout.separator()
         col = layout.column(heading="Mask")
@@ -661,7 +625,6 @@ classes = (
     OBJECT_PT_shadow_linking,
     OBJECT_PT_shadow_terminator,
     OBJECT_PT_visibility,
-    OBJECT_PT_lineart,
     OBJECT_PT_animation,
     OBJECT_PT_custom_props,
 )

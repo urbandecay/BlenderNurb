@@ -27,7 +27,6 @@ struct Object;
 struct ViewRender;
 struct SmoothView3DStore;
 struct SpaceLink;
-struct bGPdata;
 struct wmTimer;
 
 /** #View3DOverlay.handle_display */
@@ -181,7 +180,6 @@ ENUM_OPERATORS(eRegionView3D_NDOFFlag)
 enum eView3D_Flag2 : int {
   V3D_HIDE_OVERLAYS = 1 << 2,
   V3D_SHOW_VIEWER = 1 << 3,
-  V3D_SHOW_ANNOTATION = 1 << 4,
   V3D_LOCK_CAMERA = 1 << 5,
   V3D_FLAG2_UNUSED_6 = 1 << 6, /* cleared */
   V3D_SHOW_RECONSTRUCTION = 1 << 7,
@@ -200,33 +198,6 @@ enum eView3D_Flag2 : int {
   V3D_XR_SHOW_PASSTHROUGH = 1 << 20,
 };
 ENUM_OPERATORS(eView3D_Flag2)
-
-/** #View3D::gp_flag (short) */
-enum eView3D_GPFlag : short {
-  /** Fade all non GP objects. */
-  V3D_GP_FADE_OBJECTS = 1 << 0,
-  /** Activate paper grid. */
-  V3D_GP_SHOW_GRID = 1 << 1,
-  V3D_GP_SHOW_EDIT_LINES = 1 << 2,
-  V3D_GP_SHOW_MULTIEDIT_LINES = 1 << 3,
-  /** main switch at view level. */
-  V3D_GP_SHOW_ONION_SKIN = 1 << 4,
-  /** fade layers not active. */
-  V3D_GP_FADE_NOACTIVE_LAYERS = 1 << 5,
-  /** Fade other GPencil objects. */
-  V3D_GP_FADE_NOACTIVE_GPENCIL = 1 << 6,
-  /** Show Strokes Directions. */
-  V3D_GP_SHOW_STROKE_DIRECTION = 1 << 7,
-  /** Show Material names. */
-  V3D_GP_SHOW_MATERIAL_NAME = 1 << 8,
-  /** Show Canvas Grid on Top. */
-  V3D_GP_SHOW_GRID_XRAY = 1 << 9,
-  /** Force 3D depth rendering and ignore per-object stroke depth mode. */
-  V3D_GP_FORCE_STROKE_ORDER_3D = 1 << 10,
-  /** Onion skin for active object only. */
-  V3D_GP_ONION_SKIN_ACTIVE_OBJECT = 1 << 11,
-};
-ENUM_OPERATORS(eView3D_GPFlag)
 
 /** #View3DShading.flag */
 enum eView3DShading_Flag : short {
@@ -676,19 +647,6 @@ struct View3DOverlay {
   float wireframe_opacity = 1.0f;
   float retopology_offset = 0.01f;
 
-  /** Grease pencil settings. */
-  float gpencil_paper_opacity = 0.5f;
-  float gpencil_grid_opacity = 0.9f;
-  float gpencil_fade_layer = 0;
-
-  /* Grease Pencil canvas settings. */
-  float gpencil_grid_color[3] = {0.5f, 0.5f, 0.5f};
-  float gpencil_grid_scale[2] = {1.0f, 1.0f};
-  float gpencil_grid_offset[2] = {0.0f, 0.0f};
-  int gpencil_grid_subdivisions = 4;
-
-  /** Factor for mixing vertex paint with original color */
-  float gpencil_vertex_paint_opacity = 1.0f;
   /** Handles display type for curves. */
   eHandleDisplay handle_display = CURVE_HANDLE_SELECTED;
 
@@ -771,9 +729,8 @@ struct View3D {
   /** Optional bool for 3d cursor to define center. */
   short ob_center_cursor = 0;
   short scenelock = true;
-  eView3D_GPFlag gp_flag = V3D_GP_SHOW_EDIT_LINES;
   eView3D_Flag flag = V3D_SELECT_OUTLINE;
-  eView3D_Flag2 flag2 = V3D_SHOW_RECONSTRUCTION | V3D_SHOW_ANNOTATION | V3D_SHOW_VIEWER |
+  eView3D_Flag2 flag2 = V3D_SHOW_RECONSTRUCTION | V3D_SHOW_VIEWER |
                         V3D_SHOW_CAMERA_GUIDES | V3D_SHOW_CAMERA_PASSEPARTOUT;
 
   float lens = 50.0f, grid = 1.0f;
@@ -798,13 +755,6 @@ struct View3D {
   short gridlines = 16;
   /** Number of subdivisions in the grid between each highlighted grid line. */
   short gridsubdiv = 10;
-
-  /** Actually only used to define the opacity of the grease pencil vertex in edit mode. */
-  float vertex_opacity = 1.0f;
-
-  /* XXX deprecated? */
-  /** Grease-Pencil Data (annotation layers). */
-  DNA_DEPRECATED struct bGPdata *gpd = nullptr;
 
   /** Stereoscopy settings. */
   eView3D_StereoFlag stereo3d_flag = V3D_S3D_DISPPLANE;

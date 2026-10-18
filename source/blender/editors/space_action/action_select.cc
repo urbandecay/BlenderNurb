@@ -18,7 +18,6 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -29,14 +28,11 @@
 
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_nla.hh"
 
 #include "UI_view2d.hh"
 
 #include "ED_anim_api.hh"
-#include "ED_gpencil_legacy.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_keyframes_edit.hh"
 #include "ED_keyframes_keylist.hh"
 #include "ED_markers.hh"
@@ -146,14 +142,10 @@ static void actkeys_list_element_to_keylist(bAnimContext *ac,
         break;
       }
       case ALE_NONE:
-      case ALE_GPFRAME:
       case ALE_MASKLAY:
       case ALE_NLASTRIP:
       case ALE_ALL:
       case ALE_GROUP:
-      case ALE_GREASE_PENCIL_CEL:
-      case ALE_GREASE_PENCIL_DATA:
-      case ALE_GREASE_PENCIL_GROUP:
         break;
     }
   }
@@ -165,26 +157,6 @@ static void actkeys_list_element_to_keylist(bAnimContext *ac,
     /* TODO: why don't we just give groups key_data too? */
     bActionGroup *agrp = static_cast<bActionGroup *>(ale->data);
     action_group_to_keylist(ale->adt, agrp, keylist, 0, range);
-  }
-  else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-    /* TODO: why don't we just give grease pencil layers key_data too? */
-    grease_pencil_cels_to_keylist(
-        ale->adt, static_cast<const GreasePencilLayer *>(ale->data), keylist, 0);
-  }
-  else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER_GROUP) {
-    /* TODO: why don't we just give grease pencil layers key_data too? */
-    grease_pencil_layer_group_to_keylist(
-        ale->adt, static_cast<const GreasePencilLayerTreeGroup *>(ale->data), keylist, 0);
-  }
-  else if (ale->type == ANIMTYPE_GREASE_PENCIL_DATABLOCK) {
-    /* TODO: why don't we just give grease pencil layers key_data too? */
-    grease_pencil_data_block_to_keylist(
-        ale->adt, static_cast<const GreasePencil *>(ale->data), keylist, 0, false);
-  }
-  else if (ale->type == ANIMTYPE_GPLAYER) {
-    /* TODO: why don't we just give gplayers key_data too? */
-    bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-    gpl_to_keylist(ads, gpl, keylist);
   }
   else if (ale->type == ANIMTYPE_MASKLAYER) {
     /* TODO: why don't we just give masklayers key_data too? */
@@ -310,25 +282,11 @@ static void deselect_action_keys(bAnimContext *ac, short test, eEditKeyframes_Se
   /* See if we should be selecting or deselecting */
   if (test) {
     for (bAnimListElem &ale : anim_data) {
-      if (ale.type == ANIMTYPE_GPLAYER) {
-        if (ED_gpencil_layer_frame_select_check(static_cast<bGPDlayer *>(ale.data))) {
-          sel = SELECT_SUBTRACT;
-          break;
-        }
-      }
-      else if (ale.type == ANIMTYPE_MASKLAYER) {
+      if (ale.type == ANIMTYPE_MASKLAYER) {
         if (ED_masklayer_frame_select_check(static_cast<MaskLayer *>(ale.data))) {
           sel = SELECT_SUBTRACT;
           break;
         }
-      }
-      else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-        if (ed::greasepencil::has_any_frame_selected(
-                static_cast<GreasePencilLayer *>(ale.data)->wrap()))
-        {
-          sel = SELECT_SUBTRACT;
-        }
-        break;
       }
       else {
         if (ANIM_fcurve_keyframes_loop(
@@ -346,16 +304,8 @@ static void deselect_action_keys(bAnimContext *ac, short test, eEditKeyframes_Se
 
   /* Now set the flags */
   for (bAnimListElem &ale : anim_data) {
-    if (ale.type == ANIMTYPE_GPLAYER) {
-      ED_gpencil_layer_frame_select_set(static_cast<bGPDlayer *>(ale.data), sel);
-      ale.update |= ANIM_UPDATE_DEPS;
-    }
-    else if (ale.type == ANIMTYPE_MASKLAYER) {
+    if (ale.type == ANIMTYPE_MASKLAYER) {
       ED_masklayer_frame_select_set(static_cast<MaskLayer *>(ale.data), sel);
-    }
-    else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-      ed::greasepencil::select_all_frames(static_cast<GreasePencilLayer *>(ale.data)->wrap(), sel);
-      ale.update |= ANIM_UPDATE_DEPS;
     }
     else {
       ANIM_fcurve_keyframes_loop(
@@ -401,9 +351,6 @@ static wmOperatorStatus actkeys_deselectall_exec(bContext *C, wmOperator *op)
 
   /* set notifier that keyframe selection have changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(eAnimCont_Types(ac.datatype)))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -459,30 +406,6 @@ static void box_select_elem(
   bAnimContext *ac = sel_data->ac;
 
   switch (ale->type) {
-    case ANIMTYPE_GREASE_PENCIL_DATABLOCK: {
-      GreasePencil *grease_pencil = static_cast<GreasePencil *>(ale->data);
-      for (bke::greasepencil::Layer *layer : grease_pencil->layers_for_write()) {
-        ed::greasepencil::select_frames_range(
-            layer->wrap().as_node(), xmin, xmax, sel_data->selectmode);
-      }
-      ale->update |= ANIM_UPDATE_DEPS;
-      break;
-    }
-    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-    case ANIMTYPE_GREASE_PENCIL_LAYER:
-      ed::greasepencil::select_frames_range(
-          static_cast<GreasePencilLayerTreeNode *>(ale->data)->wrap(),
-          xmin,
-          xmax,
-          sel_data->selectmode);
-      ale->update |= ANIM_UPDATE_DEPS;
-      break;
-    case ANIMTYPE_GPLAYER: {
-      ED_gpencil_layer_frames_select_box(
-          static_cast<bGPDlayer *>(ale->data), xmin, xmax, sel_data->selectmode);
-      ale->update |= ANIM_UPDATE_DEPS;
-      break;
-    }
     case ANIMTYPE_MASKDATABLOCK: {
       Mask *mask = static_cast<Mask *>(ale->data);
       MaskLayer *masklay;
@@ -516,7 +439,7 @@ static void box_select_elem(
         ANIM_animdata_freelist(&anim_data);
       }
 
-      if (!ELEM(ac->datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+      if (ac->datatype != ANIMCONT_MASK) {
         ANIM_animchannel_keyframes_loop(
             &sel_data->ked, ac->ads, ale, sel_data->ok_cb, sel_data->select_cb, nullptr);
       }
@@ -666,9 +589,6 @@ static wmOperatorStatus actkeys_box_select_exec(bContext *C, wmOperator *op)
 
   /* set notifier that keyframe selection have changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(ac.datatype))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -726,39 +646,6 @@ static void region_select_elem(RegionSelectData *sel_data, bAnimListElem *ale, b
   bAnimContext *ac = sel_data->ac;
 
   switch (ale->type) {
-    case ANIMTYPE_GPLAYER: {
-      ED_gpencil_layer_frames_select_region(&sel_data->ked,
-                                            static_cast<bGPDlayer *>(ale->data),
-                                            sel_data->mode,
-                                            sel_data->selectmode);
-      ale->update |= ANIM_UPDATE_DEPS;
-      break;
-    }
-    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-    case ANIMTYPE_GREASE_PENCIL_LAYER: {
-      ed::greasepencil::select_frames_region(
-          &sel_data->ked,
-          static_cast<GreasePencilLayerTreeNode *>(ale->data)->wrap(),
-          sel_data->mode,
-          sel_data->selectmode);
-      ale->update |= ANIM_UPDATE_DEPS;
-      break;
-    }
-    case ANIMTYPE_GREASE_PENCIL_DATABLOCK: {
-      ListBaseT<bAnimListElem> anim_data = {nullptr, nullptr};
-      ANIM_animdata_filter(
-          ac, &anim_data, ANIMFILTER_DATA_VISIBLE, ac->data, eAnimCont_Types(ac->datatype));
-
-      for (bAnimListElem &ale2 : anim_data) {
-        if ((ale2.type == ANIMTYPE_GREASE_PENCIL_LAYER) && (ale2.id == ale->data)) {
-          region_select_elem(sel_data, &ale2, true);
-        }
-      }
-
-      ANIM_animdata_update(ac, &anim_data);
-      ANIM_animdata_freelist(&anim_data);
-      break;
-    }
     case ANIMTYPE_MASKDATABLOCK: {
       Mask *mask = static_cast<Mask *>(ale->data);
       MaskLayer *masklay;
@@ -795,7 +682,7 @@ static void region_select_elem(RegionSelectData *sel_data, bAnimListElem *ale, b
         ANIM_animdata_freelist(&anim_data);
       }
 
-      if (!ELEM(ac->datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+      if (ac->datatype != ANIMCONT_MASK) {
         ANIM_animchannel_keyframes_loop(
             &sel_data->ked, ac->ads, ale, sel_data->ok_cb, sel_data->select_cb, nullptr);
       }
@@ -934,9 +821,6 @@ static wmOperatorStatus actkeys_lassoselect_exec(bContext *C, wmOperator *op)
 
   /* send notifier that keyframe selection has changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(ac.datatype))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -1003,9 +887,6 @@ static wmOperatorStatus action_circle_select_exec(bContext *C, wmOperator *op)
 
   /* send notifier that keyframe selection has changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(ac.datatype))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -1088,17 +969,6 @@ static void markers_selectkeys_between(bAnimContext *ac)
   /* select keys in-between */
   for (bAnimListElem &ale : anim_data) {
     switch (ale.type) {
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
-        ed::greasepencil::select_frames_range(
-            static_cast<GreasePencilLayerTreeNode *>(ale.data)->wrap(), min, max, SELECT_ADD);
-        ale.update |= ANIM_UPDATE_DEPS;
-        break;
-      case ANIMTYPE_GPLAYER:
-        ED_gpencil_layer_frames_select_box(
-            static_cast<bGPDlayer *>(ale.data), min, max, SELECT_ADD);
-        ale.update |= ANIM_UPDATE_DEPS;
-        break;
-
       case ANIMTYPE_MASKLAYER:
         ED_masklayer_frames_select_box(static_cast<MaskLayer *>(ale.data), min, max, SELECT_ADD);
         break;
@@ -1135,41 +1005,13 @@ static void columnselect_action_keys(bAnimContext *ac, short mode)
   /* build list of columns */
   switch (mode) {
     case ACTKEYS_COLUMNSEL_KEYS: /* list of selected keys */
-      if (ac->datatype == ANIMCONT_GPENCIL) {
-        filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE);
-        ANIM_animdata_filter(ac, &anim_data, filter, ac->data, eAnimCont_Types(ac->datatype));
+      filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE);
+      ANIM_animdata_filter(ac, &anim_data, filter, ac->data, eAnimCont_Types(ac->datatype));
 
-        for (bAnimListElem &ale : anim_data) {
-          switch (ale.type) {
-            case ANIMTYPE_GPLAYER:
-              ED_gpencil_layer_make_cfra_list(
-                  static_cast<bGPDlayer *>(ale.data), &ked.cfra_elem_list, true);
-              break;
-            case ANIMTYPE_GREASE_PENCIL_LAYER:
-              ed::greasepencil ::create_keyframe_edit_data_selected_frames_list(
-                  &ked, static_cast<GreasePencilLayer *>(ale.data)->wrap());
-              break;
-            default:
-              /* Invalid channel type. */
-              BLI_assert_unreachable();
-          }
-        }
-      }
-      else {
-        filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE);
-        ANIM_animdata_filter(ac, &anim_data, filter, ac->data, eAnimCont_Types(ac->datatype));
-
-        for (bAnimListElem &ale : anim_data) {
-          if (ale.datatype == ALE_GPFRAME) {
-            ED_gpencil_layer_make_cfra_list(
-                static_cast<bGPDlayer *>(ale.data), &ked.cfra_elem_list, true);
-          }
-          else {
-            ked.data = &ale;
-            ANIM_fcurve_keyframes_loop(
-                &ked, static_cast<FCurve *>(ale.key_data), nullptr, bezt_to_cfraelem, nullptr);
-          }
-        }
+      for (bAnimListElem &ale : anim_data) {
+        ked.data = &ale;
+        ANIM_fcurve_keyframes_loop(
+            &ked, static_cast<FCurve *>(ale.key_data), nullptr, bezt_to_cfraelem, nullptr);
       }
       ANIM_animdata_freelist(&anim_data);
       break;
@@ -1209,16 +1051,7 @@ static void columnselect_action_keys(bAnimContext *ac, short mode)
       ked.f1 = ANIM_nla_tweakedit_remap(&ale, ce.cfra, NLATIME_CONVERT_UNMAP);
 
       /* select elements with frame number matching cfraelem */
-      if (ale.type == ANIMTYPE_GPLAYER) {
-        ED_gpencil_select_frame(static_cast<bGPDlayer *>(ale.data), ce.cfra, SELECT_ADD);
-        ale.update |= ANIM_UPDATE_DEPS;
-      }
-      else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-        ed::greasepencil::select_frame_at(
-            static_cast<GreasePencilLayer *>(ale.data)->wrap(), ce.cfra, SELECT_ADD);
-        ale.update |= ANIM_UPDATE_DEPS;
-      }
-      else if (ale.type == ANIMTYPE_MASKLAYER) {
+      if (ale.type == ANIMTYPE_MASKLAYER) {
         ED_mask_select_frame(static_cast<MaskLayer *>(ale.data), ce.cfra, SELECT_ADD);
       }
       else {
@@ -1260,9 +1093,6 @@ static wmOperatorStatus actkeys_columnselect_exec(bContext *C, wmOperator *op)
 
   /* set notifier that keyframe selection have changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(ac.datatype))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -1326,9 +1156,6 @@ static wmOperatorStatus actkeys_select_linked_exec(bContext *C, wmOperator * /*o
 
   /* set notifier that keyframe selection has changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(ac.datatype))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -1415,9 +1242,6 @@ static wmOperatorStatus actkeys_select_more_exec(bContext *C, wmOperator * /*op*
 
   /* set notifier that keyframe selection has changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(ac.datatype))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -1452,9 +1276,6 @@ static wmOperatorStatus actkeys_select_less_exec(bContext *C, wmOperator * /*op*
 
   /* set notifier that keyframe selection has changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_SELECTED, nullptr);
-  if (ANIM_animdata_can_have_greasepencil(eAnimCont_Types(ac.datatype))) {
-    WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN | NA_SELECTED, nullptr);
-  }
   return OPERATOR_FINISHED;
 }
 
@@ -1532,20 +1353,6 @@ static void actkeys_select_leftright(bAnimContext *ac,
   /* select keys */
   for (bAnimListElem &ale : anim_data) {
     switch (ale.type) {
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
-        ed::greasepencil::select_frames_range(
-            static_cast<GreasePencilLayerTreeNode *>(ale.data)->wrap(),
-            ked.f1,
-            ked.f2,
-            select_mode);
-        ale.update |= ANIM_UPDATE_DEPS;
-        break;
-      case ANIMTYPE_GPLAYER:
-        ED_gpencil_layer_frames_select_box(
-            static_cast<bGPDlayer *>(ale.data), ked.f1, ked.f2, select_mode);
-        ale.update |= ANIM_UPDATE_DEPS;
-        break;
-
       case ANIMTYPE_MASKLAYER:
         ED_masklayer_frames_select_box(
             static_cast<MaskLayer *>(ale.data), ked.f1, ked.f2, select_mode);
@@ -1713,37 +1520,7 @@ static void actkeys_mselect_single(bAnimContext *ac,
   ked.iterflags |= KED_F1_NLA_UNMAP;
 
   /* select the nominated keyframe on the given frame */
-  if (ale->type == ANIMTYPE_GPLAYER) {
-    ED_gpencil_select_frame(static_cast<bGPDlayer *>(ale->data), selx, select_mode);
-    ale->update |= ANIM_UPDATE_DEPS;
-  }
-  else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-    ed::greasepencil::select_frame_at(
-        static_cast<GreasePencilLayer *>(ale->data)->wrap(), selx, select_mode);
-    ale->update |= ANIM_UPDATE_DEPS;
-  }
-  else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER_GROUP) {
-    ed::greasepencil::select_frames_at(
-        static_cast<GreasePencilLayerTreeGroup *>(ale->data)->wrap(), selx, select_mode);
-  }
-  else if (ale->type == ANIMTYPE_GREASE_PENCIL_DATABLOCK) {
-    ListBaseT<bAnimListElem> anim_data = {nullptr, nullptr};
-    eAnimFilter_Flags filter;
-
-    filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_NODUPLIS);
-    ANIM_animdata_filter(ac, &anim_data, filter, ac->data, eAnimCont_Types(ac->datatype));
-
-    /* Loop over all keys that are represented by this data-block key. */
-    for (bAnimListElem &ale2 : anim_data) {
-      if ((ale2.type != ANIMTYPE_GREASE_PENCIL_LAYER) || (ale2.id != ale->data)) {
-        continue;
-      }
-      ed::greasepencil::select_frame_at(
-          static_cast<GreasePencilLayer *>(ale2.data)->wrap(), selx, select_mode);
-      ale2.update |= ANIM_UPDATE_DEPS;
-    }
-  }
-  else if (ale->type == ANIMTYPE_MASKLAYER) {
+  if (ale->type == ANIMTYPE_MASKLAYER) {
     ED_mask_select_frame(static_cast<MaskLayer *>(ale->data), selx, select_mode);
   }
   else {
@@ -1757,19 +1534,8 @@ static void actkeys_mselect_single(bAnimContext *ac,
       /* Loop over all keys that are represented by this summary key. */
       for (bAnimListElem &ale2 : anim_data) {
         switch (ale2.type) {
-          case ANIMTYPE_GPLAYER:
-            ED_gpencil_select_frame(static_cast<bGPDlayer *>(ale2.data), selx, select_mode);
-            ale2.update |= ANIM_UPDATE_DEPS;
-            break;
-
           case ANIMTYPE_MASKLAYER:
             ED_mask_select_frame(static_cast<MaskLayer *>(ale2.data), selx, select_mode);
-            break;
-
-          case ANIMTYPE_GREASE_PENCIL_LAYER:
-            ed::greasepencil::select_frame_at(
-                static_cast<GreasePencilLayer *>(ale2.data)->wrap(), selx, select_mode);
-            ale2.update |= ANIM_UPDATE_DEPS;
             break;
 
           default:
@@ -1781,7 +1547,7 @@ static void actkeys_mselect_single(bAnimContext *ac,
       ANIM_animdata_freelist(&anim_data);
     }
 
-    if (!ELEM(ac->datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+    if (ac->datatype != ANIMCONT_MASK) {
       ANIM_animchannel_keyframes_loop(&ked, ac->ads, ale, ok_cb, select_cb, nullptr);
     }
   }
@@ -1812,17 +1578,8 @@ static void actkeys_mselect_column(bAnimContext *ac, eEditKeyframes_Select selec
 
   for (bAnimListElem &ale : anim_data) {
     /* select elements with frame number matching cfra */
-    if (ale.type == ANIMTYPE_GPLAYER) {
-      ED_gpencil_select_frame(static_cast<bGPDlayer *>(ale.data), selx, select_mode);
-      ale.update |= ANIM_UPDATE_DEPS;
-    }
-    else if (ale.type == ANIMTYPE_MASKLAYER) {
+    if (ale.type == ANIMTYPE_MASKLAYER) {
       ED_mask_select_frame(static_cast<MaskLayer *>(ale.data), selx, select_mode);
-    }
-    else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-      ed::greasepencil::select_frame_at(
-          static_cast<GreasePencilLayer *>(ale.data)->wrap(), selx, select_mode);
-      ale.update |= ANIM_UPDATE_DEPS;
     }
     else {
       /* set frame for validation callback to refer to */
@@ -1852,17 +1609,8 @@ static void actkeys_mselect_channel_only(bAnimContext *ac,
   select_cb = ANIM_editkeyframes_select(select_mode);
 
   /* select all keyframes in this channel */
-  if (ale->type == ANIMTYPE_GPLAYER) {
-    ED_gpencil_select_frames(static_cast<bGPDlayer *>(ale->data), select_mode);
-    ale->update = ANIM_UPDATE_DEPS;
-  }
-  else if (ale->type == ANIMTYPE_MASKLAYER) {
+  if (ale->type == ANIMTYPE_MASKLAYER) {
     ED_mask_select_frames(static_cast<MaskLayer *>(ale->data), select_mode);
-  }
-  else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-    ed::greasepencil::select_all_frames(static_cast<GreasePencilLayer *>(ale->data)->wrap(),
-                                        select_mode);
-    ale->update |= ANIM_UPDATE_DEPS;
   }
   else {
     if (ale->type == ANIMTYPE_SUMMARY && ale->datatype == ALE_ALL) {
@@ -1873,11 +1621,7 @@ static void actkeys_mselect_channel_only(bAnimContext *ac,
       ANIM_animdata_filter(ac, &anim_data, filter, ac->data, eAnimCont_Types(ac->datatype));
 
       for (bAnimListElem &ale2 : anim_data) {
-        if (ale2.type == ANIMTYPE_GPLAYER) {
-          ED_gpencil_select_frames(static_cast<bGPDlayer *>(ale2.data), select_mode);
-          ale2.update |= ANIM_UPDATE_DEPS;
-        }
-        else if (ale2.type == ANIMTYPE_MASKLAYER) {
+        if (ale2.type == ANIMTYPE_MASKLAYER) {
           ED_mask_select_frames(static_cast<MaskLayer *>(ale2.data), select_mode);
         }
       }
@@ -1886,7 +1630,7 @@ static void actkeys_mselect_channel_only(bAnimContext *ac,
       ANIM_animdata_freelist(&anim_data);
     }
 
-    if (!ELEM(ac->datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+    if (ac->datatype != ANIMCONT_MASK) {
       ANIM_animchannel_keyframes_loop(nullptr, ac->ads, ale, nullptr, select_cb, nullptr);
     }
   }
@@ -1964,12 +1708,6 @@ static wmOperatorStatus mouse_action_keys(bAnimContext *ac,
                                     fcu,
                                     eAnim_ChannelType(ale->type));
           }
-          else if (ale->type == ANIMTYPE_GPLAYER) {
-            bGPdata *gpd = id_cast<bGPdata *>(ale->id);
-            bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-            ED_gpencil_set_active_channel(gpd, gpl);
-          }
           else if (ale->type == ANIMTYPE_ACTION_SLOT) {
             BLI_assert_msg(GS(ale->fcurve_owner_id->name) == ID_AC,
                            "fcurve_owner_id of an Action Slot should be an Action");
@@ -1978,25 +1716,6 @@ static wmOperatorStatus mouse_action_keys(bAnimContext *ac,
             slot->set_selected(true);
             action->slot_active_set(slot->handle);
           }
-        }
-      }
-      else if (ac->datatype == ANIMCONT_GPENCIL) {
-        /* Deselect all other channels first. */
-        ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_CLEAR);
-
-        /* Highlight the grease pencil channel, and set the corresponding layer as active. */
-        if (ale != nullptr && ale->data != nullptr && ale->type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-          ed::greasepencil::select_layer_channel(
-              *reinterpret_cast<GreasePencil *>(ale->id),
-              static_cast<bke::greasepencil::Layer *>(ale->data));
-        }
-
-        /* Highlight GPencil Layer (Legacy). */
-        if (ale != nullptr && ale->data != nullptr && ale->type == ANIMTYPE_GPLAYER) {
-          bGPdata *gpd = id_cast<bGPdata *>(ale->id);
-          bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-          ED_gpencil_set_active_channel(gpd, gpl);
         }
       }
       else if (ac->datatype == ANIMCONT_MASK) {

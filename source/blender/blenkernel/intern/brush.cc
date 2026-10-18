@@ -30,7 +30,6 @@
 #include "BKE_brush.hh"
 #include "BKE_colorband.hh"
 #include "BKE_colortools.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_idprop.hh"
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
@@ -102,29 +101,6 @@ static void brush_copy_data(Main * /*bmain*/,
   brush_dst->curve_strength = BKE_curvemapping_copy(brush_src->curve_strength);
   brush_dst->curve_jitter = BKE_curvemapping_copy(brush_src->curve_jitter);
 
-  if (brush_src->gpencil_settings != nullptr) {
-    brush_dst->gpencil_settings = MEM_new<BrushGpencilSettings>(
-        __func__, dna::shallow_copy(*(brush_src->gpencil_settings)));
-    brush_dst->gpencil_settings->curve_sensitivity = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_sensitivity);
-    brush_dst->gpencil_settings->curve_strength = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_strength);
-    brush_dst->gpencil_settings->curve_jitter = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_jitter);
-
-    brush_dst->gpencil_settings->curve_rand_pressure = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_rand_pressure);
-    brush_dst->gpencil_settings->curve_rand_strength = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_rand_strength);
-    brush_dst->gpencil_settings->curve_rand_uv = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_rand_uv);
-    brush_dst->gpencil_settings->curve_rand_hue = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_rand_hue);
-    brush_dst->gpencil_settings->curve_rand_saturation = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_rand_saturation);
-    brush_dst->gpencil_settings->curve_rand_value = BKE_curvemapping_copy(
-        brush_src->gpencil_settings->curve_rand_value);
-  }
   if (brush_src->curves_sculpt_settings != nullptr) {
     brush_dst->curves_sculpt_settings = MEM_new<BrushCurvesSculptSettings>(
         __func__, *(brush_src->curves_sculpt_settings));
@@ -159,20 +135,6 @@ static void brush_free_data(ID *id)
   BKE_curvemapping_free(brush->curve_strength);
   BKE_curvemapping_free(brush->curve_jitter);
 
-  if (brush->gpencil_settings != nullptr) {
-    BKE_curvemapping_free(brush->gpencil_settings->curve_sensitivity);
-    BKE_curvemapping_free(brush->gpencil_settings->curve_strength);
-    BKE_curvemapping_free(brush->gpencil_settings->curve_jitter);
-
-    BKE_curvemapping_free(brush->gpencil_settings->curve_rand_pressure);
-    BKE_curvemapping_free(brush->gpencil_settings->curve_rand_strength);
-    BKE_curvemapping_free(brush->gpencil_settings->curve_rand_uv);
-    BKE_curvemapping_free(brush->gpencil_settings->curve_rand_hue);
-    BKE_curvemapping_free(brush->gpencil_settings->curve_rand_saturation);
-    BKE_curvemapping_free(brush->gpencil_settings->curve_rand_value);
-
-    MEM_SAFE_DELETE(brush->gpencil_settings);
-  }
   if (brush->curves_sculpt_settings != nullptr) {
     BKE_curvemapping_free(brush->curves_sculpt_settings->curve_parameter_falloff);
     MEM_delete(brush->curves_sculpt_settings);
@@ -229,10 +191,6 @@ static void brush_foreach_id(ID *id, LibraryForeachIDData *data)
   Brush *brush = reinterpret_cast<Brush *>(id);
 
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, brush->paint_curve, IDWALK_CB_USER);
-  if (brush->gpencil_settings) {
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, brush->gpencil_settings->material, IDWALK_CB_USER);
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, brush->gpencil_settings->material_alt, IDWALK_CB_USER);
-  }
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(data, BKE_texture_mtex_foreach_id(data, &brush->mtex));
   BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(data,
                                           BKE_texture_mtex_foreach_id(data, &brush->mask_mtex));
@@ -286,37 +244,6 @@ static void brush_blend_write(BlendWriter *writer, ID *id, const void *id_addres
     BKE_curvemapping_blend_write(writer, brush->curve_jitter);
   }
 
-  if (brush->gpencil_settings) {
-    writer->write_struct(brush->gpencil_settings);
-
-    if (brush->gpencil_settings->curve_sensitivity) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_sensitivity);
-    }
-    if (brush->gpencil_settings->curve_strength) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_strength);
-    }
-    if (brush->gpencil_settings->curve_jitter) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_jitter);
-    }
-    if (brush->gpencil_settings->curve_rand_pressure) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_rand_pressure);
-    }
-    if (brush->gpencil_settings->curve_rand_strength) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_rand_strength);
-    }
-    if (brush->gpencil_settings->curve_rand_uv) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_rand_uv);
-    }
-    if (brush->gpencil_settings->curve_rand_hue) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_rand_hue);
-    }
-    if (brush->gpencil_settings->curve_rand_saturation) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_rand_saturation);
-    }
-    if (brush->gpencil_settings->curve_rand_value) {
-      BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_rand_value);
-    }
-  }
   if (brush->curves_sculpt_settings) {
     writer->write_struct(brush->curves_sculpt_settings);
     BKE_curvemapping_blend_write(writer, brush->curves_sculpt_settings->curve_parameter_falloff);
@@ -405,57 +332,6 @@ static void brush_blend_read_data(BlendDataReader *reader, ID *id)
     brush->curve_jitter = BKE_paint_default_curve();
   }
 
-  /* grease pencil */
-  BLO_read_struct(reader, BrushGpencilSettings, &brush->gpencil_settings);
-  if (brush->gpencil_settings != nullptr) {
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_sensitivity);
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_strength);
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_jitter);
-
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_rand_pressure);
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_rand_strength);
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_rand_uv);
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_rand_hue);
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_rand_saturation);
-    BLO_read_struct(reader, CurveMapping, &brush->gpencil_settings->curve_rand_value);
-
-    if (brush->gpencil_settings->curve_sensitivity) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_sensitivity);
-    }
-
-    if (brush->gpencil_settings->curve_strength) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_strength);
-    }
-
-    if (brush->gpencil_settings->curve_jitter) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_jitter);
-    }
-
-    if (brush->gpencil_settings->curve_rand_pressure) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_rand_pressure);
-    }
-
-    if (brush->gpencil_settings->curve_rand_strength) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_rand_strength);
-    }
-
-    if (brush->gpencil_settings->curve_rand_uv) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_rand_uv);
-    }
-
-    if (brush->gpencil_settings->curve_rand_hue) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_rand_hue);
-    }
-
-    if (brush->gpencil_settings->curve_rand_saturation) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_rand_saturation);
-    }
-
-    if (brush->gpencil_settings->curve_rand_value) {
-      BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_rand_value);
-    }
-  }
-
   BLO_read_struct(reader, BrushCurvesSculptSettings, &brush->curves_sculpt_settings);
   if (brush->curves_sculpt_settings) {
     BLO_read_struct(reader, CurveMapping, &brush->curves_sculpt_settings->curve_parameter_falloff);
@@ -481,23 +357,6 @@ static void brush_blend_read_data(BlendDataReader *reader, ID *id)
   brush->has_unsaved_changes = false;
 }
 
-static void brush_blend_read_after_liblink(BlendLibReader * /*reader*/, ID *id)
-{
-  Brush *brush = reinterpret_cast<Brush *>(id);
-
-  /* Update brush settings depending on availability of other IDs. */
-  if (brush->gpencil_settings != nullptr) {
-    if (brush->gpencil_settings->flag & GP_BRUSH_MATERIAL_PINNED) {
-      if (!brush->gpencil_settings->material) {
-        brush->gpencil_settings->flag &= ~GP_BRUSH_MATERIAL_PINNED;
-      }
-    }
-    else {
-      brush->gpencil_settings->material = nullptr;
-    }
-  }
-}
-
 static void brush_asset_metadata_ensure(void *asset_ptr, AssetMetaData *asset_data)
 {
   using namespace blender::bke;
@@ -513,13 +372,6 @@ static void brush_asset_metadata_ensure(void *asset_ptr, AssetMetaData *asset_da
       std::tuple{"use_paint_image", OB_MODE_TEXTURE_PAINT, "image_brush_type"},
       /* Sculpt UVs in the image editor while in edit mode. */
       std::tuple{"use_paint_uv_sculpt", OB_MODE_EDIT, "image_brush_type"},
-      std::tuple{"use_paint_grease_pencil", OB_MODE_PAINT_GREASE_PENCIL, "gpencil_brush_type"},
-      /* Note: Not defined in brush RNA, own name. */
-      std::tuple{
-          "use_sculpt_grease_pencil", OB_MODE_SCULPT_GREASE_PENCIL, "gpencil_sculpt_brush_type"},
-      std::tuple{
-          "use_vertex_grease_pencil", OB_MODE_VERTEX_GREASE_PENCIL, "gpencil_vertex_brush_type"},
-      std::tuple{"use_weight_gpencil", OB_MODE_WEIGHT_GREASE_PENCIL, "gpencil_weight_brush_type"},
       std::tuple{"use_paint_sculpt_curves", OB_MODE_SCULPT_CURVES, "curves_sculpt_brush_type"},
   };
 
@@ -570,7 +422,7 @@ IDTypeInfo IDType_ID_BR = {
 
     .blend_write = brush_blend_write,
     .blend_read_data = brush_blend_read_data,
-    .blend_read_after_liblink = brush_blend_read_after_liblink,
+    .blend_read_after_liblink = nullptr,
 
     .blend_read_undo_preserve = nullptr,
 
@@ -658,45 +510,11 @@ Brush *BKE_brush_add(Main *bmain, const char *name, const eObjectMode ob_mode)
   if (ob_mode == OB_MODE_SCULPT_CURVES) {
     BKE_brush_init_curves_sculpt_settings(brush);
   }
-  else if (ELEM(ob_mode,
-                OB_MODE_PAINT_GREASE_PENCIL,
-                OB_MODE_SCULPT_GREASE_PENCIL,
-                OB_MODE_WEIGHT_GREASE_PENCIL,
-                OB_MODE_VERTEX_GREASE_PENCIL))
-  {
-    BKE_brush_init_gpencil_settings(brush);
-  }
   else if (ob_mode == OB_MODE_SCULPT) {
     BKE_brush_init_mesh_automasking_settings(brush);
   }
 
   return brush;
-}
-
-void BKE_brush_init_gpencil_settings(Brush *brush)
-{
-  if (brush->gpencil_settings == nullptr) {
-    brush->gpencil_settings = MEM_new<BrushGpencilSettings>("BrushGpencilSettings");
-  }
-
-  brush->gpencil_settings->draw_smoothlvl = 1;
-  brush->gpencil_settings->flag = eGPDbrush_Flag{};
-  brush->gpencil_settings->flag |= GP_BRUSH_USE_PRESSURE;
-  brush->gpencil_settings->draw_strength = 1.0f;
-  brush->gpencil_settings->draw_jitter = 0.0f;
-  brush->gpencil_settings->flag |= GP_BRUSH_USE_JITTER_PRESSURE;
-
-  /* curves */
-  brush->gpencil_settings->curve_sensitivity = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  brush->gpencil_settings->curve_strength = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  brush->gpencil_settings->curve_jitter = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-
-  brush->gpencil_settings->curve_rand_pressure = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  brush->gpencil_settings->curve_rand_strength = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  brush->gpencil_settings->curve_rand_uv = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  brush->gpencil_settings->curve_rand_hue = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  brush->gpencil_settings->curve_rand_saturation = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  brush->gpencil_settings->curve_rand_value = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
 bool BKE_brush_delete(Main *bmain, Brush *brush)

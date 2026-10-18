@@ -259,7 +259,6 @@ GeometrySet join_geometries(
        GeometryComponent::Type::Instance,
        GeometryComponent::Type::Volume,
        GeometryComponent::Type::Curve,
-       GeometryComponent::Type::GreasePencil,
        GeometryComponent::Type::Edit});
 
   const Span<GeometryComponent::Type> types_to_join = component_types_to_join.has_value() ?

@@ -31,7 +31,6 @@
         "development_edit_operator": ("edit_operator_source", "Edit Operator Source"),
         "development_icon_get": ("icon_viewer", "Icon Viewer"),
         "development_iskeyfree": ("is_key_free", "Is key Free"),
-        "greasepencil_tools": ("grease_pencil_tools", "Grease Pencil Tools"),
         "io_anim_camera": ("export_camera_animation", "Export Camera Animation"),
         "io_anim_nuke_chan": ("nuke_animation_format_chan", "Nuke Animation Format (.chan)"),
         "io_export_dxf": ("export_autocad_dxf_format_dxf", "Export Autocad DXF Format (.dxf)"),

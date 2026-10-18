@@ -365,15 +365,6 @@ enum eText_Draw_Options : char {
 };
 ENUM_OPERATORS(eText_Draw_Options)
 
-/**
- * Grease Pencil Settings.
- * #UserDef.gp_settings
- */
-enum eGP_UserdefSettings : short {
-  GP_PAINT_UNUSED_0 = (1 << 0),
-};
-ENUM_OPERATORS(eGP_UserdefSettings)
-
 enum eUserpref_Gizmo_Flag : char {
   USER_GIZMO_DRAW = (1 << 0),
 };
@@ -913,7 +904,7 @@ struct UserDef {
   unsigned int dupflag = USER_DUP_MESH | USER_DUP_CURVE | USER_DUP_SURF | USER_DUP_LATTICE |
                          USER_DUP_FONT | USER_DUP_MBALL | USER_DUP_LAMP | USER_DUP_ARM |
                          USER_DUP_CAMERA | USER_DUP_SPEAKER | USER_DUP_ACT | USER_DUP_LIGHTPROBE |
-                         USER_DUP_GPENCIL | USER_DUP_CURVES | USER_DUP_POINTCLOUD;
+                         USER_DUP_CURVES | USER_DUP_POINTCLOUD;
   /** Preferences for the preferences. */
   eUserPref_PrefFlag pref_flag = USER_PREF_FLAG_SAVE;
   char savetime = 2;
@@ -1086,7 +1077,6 @@ struct UserDef {
   int undomemory = 0;
   DNA_DEPRECATED float gpu_viewport_quality = 0;
   short gp_manhattandist = 1, gp_euclideandist = 2, gp_eraser = 25;
-  eGP_UserdefSettings gp_settings = {};
   char _pad13[4] = {};
   struct SolidLight light_param[4];
   float light_ambient[3] = {};
@@ -1204,9 +1194,6 @@ struct UserDef {
   struct ColorBand coba_weight;
 
   float sculpt_paint_overlay_col[3] = {0, 0, 0};
-  /** Default color for newly created Grease Pencil layers. */
-  float gpencil_new_layer_col[4] = {0.38, 0.61, 0.78, 0.9};
-
   /** Drag pixels (scaled by DPI). */
   char drag_threshold_mouse = 3;
   char drag_threshold_tablet = 10;

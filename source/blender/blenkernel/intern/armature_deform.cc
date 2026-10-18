@@ -641,8 +641,7 @@ void BKE_armature_deform_coords_with_curves(const Object &ob_arm,
     return;
   }
 
-  /* Vertex groups must be provided explicitly, cannot rely on object vertex groups since this is
-   * used for Grease Pencil layers as well. */
+  /* Vertex groups must be provided explicitly, cannot rely on object vertex groups. */
   BLI_assert(dverts.size() == vert_coords.size());
 
   bke::armature_deform_coords(ob_arm,

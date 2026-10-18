@@ -20,7 +20,6 @@
 #define DNA_DEPRECATED_ALLOW
 
 #include "DNA_collection_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_mask_types.h"
@@ -427,8 +426,6 @@ static void node_foreach_id(ID *id, LibraryForeachIDData *data)
       data,
       ntree->owner_id,
       (IDWALK_CB_LOOPBACK | IDWALK_CB_NEVER_SELF | IDWALK_CB_READFILE_IGNORE));
-
-  BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, ntree->gpd, IDWALK_CB_USER);
 
   for (bNode *node : ntree->all_nodes()) {
     node_node_foreach_id(node, data);

@@ -705,13 +705,6 @@ class SocketTooltipBuilder {
                                       this->count_to_string(info.splines_num));
           break;
         }
-        case bke::GeometryComponent::Type::GreasePencil: {
-          const eval_log::GeometryInfoLog::GreasePencilInfo &info =
-              *geometry_log.grease_pencil_info;
-          component_str = fmt::format(fmt::runtime(TIP_("Grease Pencil: {} layers")),
-                                      this->count_to_string(info.layers_num));
-          break;
-        }
         case bke::GeometryComponent::Type::Edit: {
           if (geometry_log.edit_data_info.has_value()) {
             const eval_log::GeometryInfoLog::EditDataInfo &info = *geometry_log.edit_data_info;

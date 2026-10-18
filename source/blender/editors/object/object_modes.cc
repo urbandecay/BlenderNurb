@@ -40,7 +40,6 @@
 #include "DEG_depsgraph_query.hh"
 
 #include "ED_armature.hh"
-#include "ED_gpencil_legacy.hh"
 #include "ED_outliner.hh"
 #include "ED_paint.hh"
 #include "ED_physics.hh"
@@ -81,18 +80,6 @@ static const char *object_mode_op_string(eObjectMode mode)
   }
   if (mode == OB_MODE_POSE) {
     return "OBJECT_OT_posemode_toggle";
-  }
-  if (mode == OB_MODE_PAINT_GREASE_PENCIL) {
-    return "GREASE_PENCIL_OT_paintmode_toggle";
-  }
-  if (mode == OB_MODE_SCULPT_GREASE_PENCIL) {
-    return "GREASE_PENCIL_OT_sculptmode_toggle";
-  }
-  if (mode == OB_MODE_WEIGHT_GREASE_PENCIL) {
-    return "GREASE_PENCIL_OT_weightmode_toggle";
-  }
-  if (mode == OB_MODE_VERTEX_GREASE_PENCIL) {
-    return "GREASE_PENCIL_OT_vertexmode_toggle";
   }
   if (mode == OB_MODE_SCULPT_CURVES) {
     return "CURVES_OT_sculptmode_toggle";
@@ -136,13 +123,6 @@ bool mode_compat_test(const Object *ob, eObjectMode mode)
       break;
     case OB_CURVES:
       if (mode & (OB_MODE_EDIT | OB_MODE_SCULPT_CURVES)) {
-        return true;
-      }
-      break;
-    case OB_GREASE_PENCIL:
-      if (mode & (OB_MODE_EDIT | OB_MODE_PAINT_GREASE_PENCIL | OB_MODE_SCULPT_GREASE_PENCIL |
-                  OB_MODE_WEIGHT_GREASE_PENCIL | OB_MODE_VERTEX_GREASE_PENCIL))
-      {
         return true;
       }
       break;
@@ -329,18 +309,6 @@ static bool ed_object_mode_generic_exit_ex(
     }
     ED_object_particle_edit_mode_exit_ex(scene, ob);
   }
-  else if (ob->type == OB_GREASE_PENCIL) {
-    BLI_assert((ob->mode & OB_MODE_OBJECT) == 0);
-    if (only_test) {
-      return true;
-    }
-    ob->restore_mode = ob->mode;
-    ob->mode &= ~(OB_MODE_PAINT_GREASE_PENCIL | OB_MODE_EDIT | OB_MODE_SCULPT_GREASE_PENCIL |
-                  OB_MODE_WEIGHT_GREASE_PENCIL | OB_MODE_VERTEX_GREASE_PENCIL);
-
-    /* Inform all evaluated versions that we changed the mode. */
-    DEG_id_tag_update_ex(bmain, &ob->id, ID_RECALC_SYNC_TO_EVAL);
-  }
   else {
     if (only_test) {
       return false;
@@ -399,12 +367,6 @@ void posemode_set_for_weight_paint(bContext *C, Main *bmain, Object *ob, const b
   for (; md; md = md->next) {
     if (md->type == eModifierType_Armature) {
       ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-      Object *ob_arm = amd->object;
-      ed_object_posemode_set_for_weight_paint_ex(C, bmain, ob_arm, is_mode_set);
-    }
-    else if (md->type == eModifierType_GreasePencilArmature) {
-      GreasePencilArmatureModifierData *amd = reinterpret_cast<GreasePencilArmatureModifierData *>(
-          md);
       Object *ob_arm = amd->object;
       ed_object_posemode_set_for_weight_paint_ex(C, bmain, ob_arm, is_mode_set);
     }

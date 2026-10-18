@@ -134,7 +134,6 @@ void BKE_main_clear(Main &bmain)
       switch ((eID_Index)a) {
         CASE_ID_INDEX(INDEX_ID_LI);
         CASE_ID_INDEX(INDEX_ID_AC);
-        CASE_ID_INDEX(INDEX_ID_GD_LEGACY);
         CASE_ID_INDEX(INDEX_ID_NT);
         CASE_ID_INDEX(INDEX_ID_VF);
         CASE_ID_INDEX(INDEX_ID_TXT);
@@ -1057,10 +1056,6 @@ ListBaseT<ID> *which_libbase(Main *bmain, short type)
       return &(bmain->particles.cast<ID>());
     case ID_WM:
       return &(bmain->wm.cast<ID>());
-    case ID_GD_LEGACY:
-      return &(bmain->gpencils.cast<ID>());
-    case ID_GP:
-      return &(bmain->grease_pencils.cast<ID>());
     case ID_MC:
       return &(bmain->movieclips.cast<ID>());
     case ID_MSK:
@@ -1096,12 +1091,7 @@ MainListsArray BKE_main_lists_get(Main &bmain)
 
   lb[INDEX_ID_KE] = &(bmain.shapekeys.cast<ID>());
 
-  /* Referenced by gpencil, so needs to be before that to avoid crashes. */
   lb[INDEX_ID_PAL] = &(bmain.palettes.cast<ID>());
-
-  /* Referenced by nodes, objects, view, scene etc, before to free after. */
-  lb[INDEX_ID_GD_LEGACY] = &(bmain.gpencils.cast<ID>());
-  lb[INDEX_ID_GP] = &(bmain.grease_pencils.cast<ID>());
 
   lb[INDEX_ID_NT] = &(bmain.nodetrees.cast<ID>());
   lb[INDEX_ID_IM] = &(bmain.images.cast<ID>());

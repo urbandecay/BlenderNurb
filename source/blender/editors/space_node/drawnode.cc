@@ -1067,21 +1067,6 @@ static bool socket_needs_attribute_search(bNode &node, bNodeSocket &socket)
   return socket.runtime->declaration->is_attribute_name;
 }
 
-static bool socket_needs_layer_search(const bNode &node, const bNodeSocket &socket)
-{
-  const nodes::NodeDeclaration *node_decl = node.declaration();
-  if (node_decl == nullptr) {
-    return false;
-  }
-  if (node_decl->skip_updating_sockets) {
-    return false;
-  }
-  if (socket.in_out == SOCK_OUT) {
-    return false;
-  }
-  return socket.runtime->declaration->is_layer_name;
-}
-
 static bool socket_needs_volume_grid_search(const bNode &node, const bNodeSocket &socket)
 {
   const nodes::NodeDeclaration *node_decl = node.declaration();
@@ -1288,16 +1273,6 @@ static void std_node_socket_draw(
           ui::Layout *row = &layout->split(0.4f, false);
           row->label(label, ICON_NONE);
           node_geometry_add_attribute_search_button(*C, *node, *ptr, *row);
-        }
-      }
-      else if (socket_needs_layer_search(*node, *sock)) {
-        if (optional_label) {
-          node_geometry_add_layer_search_button(*C, *node, *ptr, *layout, label);
-        }
-        else {
-          ui::Layout *row = &layout->split(0.4f, false);
-          row->label(label, ICON_NONE);
-          node_geometry_add_layer_search_button(*C, *node, *ptr, *row);
         }
       }
       else if (socket_needs_volume_grid_search(*node, *sock)) {
@@ -1594,11 +1569,7 @@ static void std_node_socket_interface_draw(ID *id,
   }
 
   if (interface_socket->flag & NODE_INTERFACE_SOCKET_INPUT && node_tree->type == NTREE_GEOMETRY) {
-    if (type == SOCK_BOOLEAN) {
-      col->prop(&ptr, "layer_selection_field", DEFAULT_FLAGS, std::nullopt, ICON_NONE);
-    }
     ui::Layout *sub = &col->column(false);
-    sub->active_set(!is_layer_selection_field(*interface_socket));
     sub->prop(&ptr, "hide_in_modifier", DEFAULT_FLAGS, std::nullopt, ICON_NONE);
     sub->prop(&ptr, "structure_type", DEFAULT_FLAGS, IFACE_("Shape"), ICON_NONE);
   }

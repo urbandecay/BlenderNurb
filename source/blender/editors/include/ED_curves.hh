@@ -105,7 +105,6 @@ class PenToolOperation {
 
   std::optional<int> active_drawing_index;
   Vector<float4x4> layer_to_world_per_curves;
-  /* Only used for Grease Pencil. */
   Vector<float4x4> layer_to_object_per_curves;
 
   virtual ~PenToolOperation() = default;

@@ -1979,7 +1979,6 @@ context_type_map = {
     # Support multiple types for each item, where each list item is a possible type:
     # `context_member: [(RNA type, is_collection), ...]`
     "active_action": [("Action", False)],
-    "active_annotation_layer": [("AnnotationLayer", False)],
     "active_bone": [("EditBone", False), ("Bone", False)],
     "active_file": [("FileSelectEntry", False)],
     "active_node": [("Node", False)],
@@ -1990,8 +1989,6 @@ context_type_map = {
     "active_editable_fcurve": [("FCurve", False)],
     "active_nla_strip": [("NlaStrip", False)],
     "active_nla_track": [("NlaTrack", False)],
-    "annotation_data": [("GreasePencil", False)],
-    "annotation_data_owner": [("ID", False)],
     "armature": [("Armature", False)],
     "asset": [("AssetRepresentation", False)],
     "asset_library_reference": [("AssetLibraryReference", False)],
@@ -2013,8 +2010,6 @@ context_type_map = {
     "editable_objects": [("Object", True)],
     "editable_fcurves": [("FCurve", True)],
     "fluid": [("FluidModifier", False)],
-    "gpencil": [("GreasePencil", False)],
-    "grease_pencil": [("GreasePencil", False)],
     "curves": [("Curves", False)],
     "id": [("ID", False)],
     "image_paint_object": [("Object", False)],

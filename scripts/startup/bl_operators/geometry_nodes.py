@@ -57,16 +57,12 @@ def geometry_node_group_empty_tool_new(context):
         group.is_type_curve = True
     elif ob_type == 'POINTCLOUD':
         group.is_type_pointcloud = True
-    elif ob_type == 'GREASEPENCIL':
-        group.is_type_grease_pencil = True
     else:
         group.is_type_mesh = True
 
     mode = ob.mode if ob else 'OBJECT'
-    if mode in {'SCULPT', 'SCULPT_CURVES', 'SCULPT_GREASE_PENCIL'}:
+    if mode in {'SCULPT', 'SCULPT_CURVES'}:
         group.is_mode_sculpt = True
-    elif mode == 'PAINT_GREASE_PENCIL':
-        group.is_mode_paint = True
     elif mode == 'EDIT':
         group.is_mode_edit = True
     else:
@@ -79,7 +75,7 @@ def geometry_modifier_poll(context):
     ob = context.object
 
     # Test object support for geometry node modifier
-    if not ob or ob.type not in {'MESH', 'POINTCLOUD', 'VOLUME', 'CURVE', 'FONT', 'CURVES', 'GREASEPENCIL', 'EMPTY'}:
+    if not ob or ob.type not in {'MESH', 'POINTCLOUD', 'VOLUME', 'CURVE', 'FONT', 'CURVES', 'EMPTY'}:
         return False
 
     return True

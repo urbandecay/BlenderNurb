@@ -20,7 +20,6 @@
 #include "DNA_camera_types.h"
 #include "DNA_curves_types.h"
 #include "DNA_genfile.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
@@ -52,7 +51,6 @@
 #include "BKE_attribute_legacy_convert.hh"
 #include "BKE_colortools.hh"
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_idprop.hh"
 #include "BKE_image_format.hh"
 #include "BKE_lib_id.hh"
@@ -261,10 +259,6 @@ static void update_brush_sizes(Main &bmain)
     apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->vpaint));
     apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->wpaint));
     apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->sculpt));
-    apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->gp_paint));
-    apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->gp_vertexpaint));
-    apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->gp_sculptpaint));
-    apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->gp_weightpaint));
     apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->curves_sculpt));
     apply_to_paint(reinterpret_cast<Paint *>(&scene.toolsettings->imapaint));
   }
@@ -884,10 +878,6 @@ static void for_each_mode_paint_settings(Scene &scene,
   func(scene, reinterpret_cast<Paint *>(scene.toolsettings->vpaint));
   func(scene, reinterpret_cast<Paint *>(scene.toolsettings->wpaint));
   func(scene, reinterpret_cast<Paint *>(scene.toolsettings->sculpt));
-  func(scene, reinterpret_cast<Paint *>(scene.toolsettings->gp_paint));
-  func(scene, reinterpret_cast<Paint *>(scene.toolsettings->gp_vertexpaint));
-  func(scene, reinterpret_cast<Paint *>(scene.toolsettings->gp_sculptpaint));
-  func(scene, reinterpret_cast<Paint *>(scene.toolsettings->gp_weightpaint));
   func(scene, reinterpret_cast<Paint *>(scene.toolsettings->curves_sculpt));
   func(scene, reinterpret_cast<Paint *>(&scene.toolsettings->imapaint));
 }
@@ -1467,48 +1457,6 @@ static void do_version_remove_lzo_and_lzma_compression(FileData *fd, Object *obj
   }
 
   pidlist.free_no_destruct();
-}
-
-static void do_version_convert_gp_jitter_values(Brush *brush)
-{
-  /* Because this change is backported into the 4.5 branch, we need to avoid performing versioning
-   * in case the user updated their custom brush assets between using 4.5 and 5.0 to avoid
-   * overwriting their changes.
-   *
-   * See #142104
-   */
-  if ((brush->flag2 & BRUSH_JITTER_COLOR) != 0 || !is_zero_v3(brush->hsv_jitter)) {
-    return;
-  }
-
-  BrushGpencilSettings *settings = brush->gpencil_settings;
-  float old_hsv_jitter[3] = {
-      settings->random_hue, settings->random_saturation, settings->random_value};
-  if (!is_zero_v3(old_hsv_jitter)) {
-    brush->flag2 |= BRUSH_JITTER_COLOR;
-  }
-  copy_v3_v3(brush->hsv_jitter, old_hsv_jitter);
-  if (brush->curve_rand_hue) {
-    BKE_curvemapping_free_data(brush->curve_rand_hue);
-    BKE_curvemapping_copy_data(brush->curve_rand_hue, settings->curve_rand_hue);
-  }
-  else {
-    brush->curve_rand_hue = BKE_curvemapping_copy(settings->curve_rand_hue);
-  }
-  if (brush->curve_rand_saturation) {
-    BKE_curvemapping_free_data(brush->curve_rand_saturation);
-    BKE_curvemapping_copy_data(brush->curve_rand_saturation, settings->curve_rand_saturation);
-  }
-  else {
-    brush->curve_rand_saturation = BKE_curvemapping_copy(settings->curve_rand_saturation);
-  }
-  if (brush->curve_rand_value) {
-    BKE_curvemapping_free_data(brush->curve_rand_value);
-    BKE_curvemapping_copy_data(brush->curve_rand_value, settings->curve_rand_value);
-  }
-  else {
-    brush->curve_rand_value = BKE_curvemapping_copy(settings->curve_rand_value);
-  }
 }
 
 /* The Sun beams node was removed and the Glare node should be used instead, so we need to
@@ -3541,16 +3489,6 @@ void blo_do_versions_500(FileData *fd, Library * /*lib*/, Main *bmain)
     for (Curves &curves : bmain->hair_curves) {
       bke::curves_convert_customdata_to_storage(curves.geometry.wrap());
     }
-    for (GreasePencil &grease_pencil : bmain->grease_pencils) {
-      bke::grease_pencil_convert_customdata_to_storage(grease_pencil);
-      for (const int i : IndexRange(grease_pencil.drawing_array_num)) {
-        GreasePencilDrawingBase *drawing_base = grease_pencil.drawing_array[i];
-        if (drawing_base->type == GP_DRAWING) {
-          GreasePencilDrawing *drawing = reinterpret_cast<GreasePencilDrawing *>(drawing_base);
-          bke::curves_convert_customdata_to_storage(drawing->geometry.wrap());
-        }
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 34)) {
@@ -3647,14 +3585,6 @@ void blo_do_versions_500(FileData *fd, Library * /*lib*/, Main *bmain)
           }
           return true;
         });
-      }
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 40)) {
-    for (Brush &brush : bmain->brushes) {
-      if (brush.gpencil_settings) {
-        do_version_convert_gp_jitter_values(&brush);
       }
     }
   }
@@ -3874,22 +3804,6 @@ void blo_do_versions_500(FileData *fd, Library * /*lib*/, Main *bmain)
     FOREACH_NODETREE_END;
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 58)) {
-    for (Object &object : bmain->objects) {
-      for (ModifierData &modifier : object.modifiers) {
-        if (modifier.type != eModifierType_GreasePencilLineart) {
-          continue;
-        }
-        GreasePencilLineartModifierData *lmd = reinterpret_cast<GreasePencilLineartModifierData *>(
-            &modifier);
-        if (lmd->radius != 0.0f) {
-          continue;
-        }
-        lmd->radius = float(lmd->thickness_legacy) *
-                      bke::greasepencil::LEGACY_RADIUS_CONVERSION_FACTOR;
-      }
-    }
-  }
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 61)) {
     FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
       if (ntree->type != NTREE_COMPOSIT) {

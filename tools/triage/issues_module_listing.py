@@ -38,7 +38,6 @@ modules = {
     "Module/Asset System": ModuleInfo(name="Asset System", labelid="1708"),
     "Module/Core": ModuleInfo(name="Core", labelid="269"),
     "Module/Development Management": ModuleInfo(name="Development Management", labelid="270"),
-    "Module/Grease Pencil": ModuleInfo(name="Grease Pencil", labelid="273"),
     "Module/Modeling": ModuleInfo(name="Modeling", labelid="274"),
     "Module/Nodes & Physics": ModuleInfo(name="Nodes & Physics", labelid="275"),
     "Module/Pipeline & IO": ModuleInfo(name="Pipeline & I/O", labelid="276"),

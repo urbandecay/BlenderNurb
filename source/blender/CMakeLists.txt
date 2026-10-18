@@ -34,10 +34,7 @@ set(SRC_DNA_INC
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_fluid_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_freestyle_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_genfile.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_gpencil_legacy_types.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_gpencil_modifier_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_gpu_types.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_grease_pencil_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_image_enums.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_image_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_key_types.h
@@ -45,7 +42,6 @@ set(SRC_DNA_INC
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_layer_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_light_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_lightprobe_types.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_lineart_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_linestyle_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_listBase.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_mask_types.h
@@ -75,7 +71,6 @@ set(SRC_DNA_INC
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_sdna_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_sequence_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_session_uid_types.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_shader_fx_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_sound_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_space_enums.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_space_types.h
@@ -122,7 +117,6 @@ add_subdirectory(bmesh)
 add_subdirectory(draw)
 add_subdirectory(draw/intern/shaders)
 add_subdirectory(draw/engines/eevee/shaders)
-add_subdirectory(draw/engines/gpencil/shaders)
 add_subdirectory(draw/engines/overlay/shaders)
 add_subdirectory(draw/engines/workbench/shaders)
 add_subdirectory(render)
@@ -143,7 +137,6 @@ add_subdirectory(imbuf/intern/openexr)
 add_subdirectory(nodes)
 add_subdirectory(modifiers)
 add_subdirectory(sequencer)
-add_subdirectory(shader_fx)
 add_subdirectory(io)
 add_subdirectory(functions)
 add_subdirectory(makesdna)

@@ -3,11 +3,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 
 #include "DNA_curves_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_pointcloud_types.h"
 
@@ -454,49 +452,6 @@ static void node_geo_exec(GeoNodeExecParams params)
         },
         transferred_names,
         found_attribute_using_pattern);
-  }
-
-  if (src_geo.has_grease_pencil() && dst_geo.has_grease_pencil()) {
-    using namespace bke::greasepencil;
-    const GreasePencil &src_grease_pencil = *src_geo.get_grease_pencil();
-    GreasePencil &dst_grease_pencil = *dst_geo.get_grease_pencil_for_write();
-    const int src_layer_num = src_grease_pencil.layers().size();
-    const int dst_layer_num = dst_grease_pencil.layers().size();
-    /* Could also support custom mapping of src to dst layers. */
-    const int common_layer_num = std::min(src_layer_num, dst_layer_num);
-    for (const int layer_i : IndexRange(common_layer_num)) {
-      const Layer &src_layer = src_grease_pencil.layer(layer_i);
-      const Drawing *src_drawing = src_grease_pencil.get_eval_drawing(src_layer);
-      if (!src_drawing) {
-        continue;
-      }
-      Layer &dst_layer = dst_grease_pencil.layer(layer_i);
-      Drawing *dst_drawing = dst_grease_pencil.get_eval_drawing(dst_layer);
-      if (!dst_drawing) {
-        continue;
-      }
-      const bke::CurvesGeometry &src_curves = src_drawing->strokes();
-      bke::CurvesGeometry &dst_curves = dst_drawing->strokes_for_write();
-      const bke::AttributeAccessor src_attributes = src_curves.attributes();
-      bke::MutableAttributeAccessor dst_attributes = dst_curves.attributes_for_write();
-      transfer_attributes(
-          patterns,
-          exclude_names,
-          src_attributes,
-          dst_attributes,
-          src_id_fields,
-          dst_id_fields,
-          [&](ResourceScope &scope, const bke::AttrDomain domain) -> fn::FieldContext & {
-            return scope.construct<bke::GreasePencilLayerFieldContext>(
-                src_grease_pencil, domain, layer_i);
-          },
-          [&](ResourceScope &scope, const bke::AttrDomain domain) -> fn::FieldContext & {
-            return scope.construct<bke::GreasePencilLayerFieldContext>(
-                dst_grease_pencil, domain, layer_i);
-          },
-          transferred_names,
-          found_attribute_using_pattern);
-    }
   }
 
   transferred_names.remove_if([&](const StringRef name) { return name.startswith("."); });

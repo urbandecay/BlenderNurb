@@ -85,15 +85,8 @@ the associated fix commit into the wrong category.
   version numbers from reports when they first encounter them.
 - The script does not know about long term projects. So some fix
 commits that obviously shouldn't go into the release notes can end up
-in the output.
-  - Take for example Grease Pencil v3 (GPv3). GPv3 was in development
-  for multiple versions of Blender. As a result there are bug reports
-  from 4.2 Alpha and 4.3 (the version it officially released in).
-  If a fix commit in 4.3 claims to fix one of the reports made in 4.2,
-  then that fix commit will show up in the list of "commits that fixed
-  old issues" list. Which is incorrect as GPv3 was only released in 4.3.
-  - These commits will need to be manually removed before posting the
-  list to the release notes.
+in the output. These commits need to be manually removed before the
+list is posted to the release notes.
 
 ### Filling out bug report forms with relevant information
 This script relies on bug reports having enough information in the

@@ -217,7 +217,7 @@
 
 /* Textures. */
 /** WARNING: Don't forget to update the reserved slots info. */
-/* Used anywhere. (Starts at index 2, since 0 and 1 are used by draw_gpencil) */
+/* Used anywhere. (Starts at index 2 to reserve the first two texture slots.) */
 #define RBUFS_UTILITY_TEX_SLOT 2
 #define HIZ_TEX_SLOT 3
 /* Only during surface shading (forward and deferred eval). */

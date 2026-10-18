@@ -6,7 +6,6 @@
 
 #include <optional>
 
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_pointcloud_types.h"
 
@@ -251,15 +250,6 @@ void pointcloud_convert_customdata_to_storage(PointCloud &pointcloud)
       {{AttrDomain::Point, {pointcloud.pdata_legacy, pointcloud.totpoint}}},
       pointcloud.attribute_storage.wrap());
   CustomData_reset(&pointcloud.pdata_legacy);
-}
-
-void grease_pencil_convert_customdata_to_storage(GreasePencil &grease_pencil)
-{
-  attribute_legacy_convert_customdata_to_storage(
-      {{AttrDomain::Layer,
-        {grease_pencil.layers_data_legacy, int(grease_pencil.layers().size())}}},
-      grease_pencil.attribute_storage.wrap());
-  CustomData_reset(&grease_pencil.layers_data_legacy);
 }
 
 static const CustomData &get_custom_data(const Mesh &mesh, const AttrDomain domain)

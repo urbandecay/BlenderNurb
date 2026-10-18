@@ -1370,7 +1370,6 @@ static ImBuf *seq_render_scene_strip_ex(const RenderData *context,
 
   const bool is_rendering = G.is_rendering;
   const bool is_preview = !context->render && (context->scene->r.seq_prev_type) != OB_RENDER;
-  const bool use_gpencil = (strip->flag & SEQ_SCENE_NO_ANNOTATION) == 0;
   double frame = double(scene->r.sfra) + double(frame_index) + double(strip->anim_startofs);
 
 #if 0 /* UNUSED */
@@ -1411,7 +1410,6 @@ static ImBuf *seq_render_scene_strip_ex(const RenderData *context,
                                     0;
 
     uint draw_flags = V3D_OFSDRAW_NONE;
-    draw_flags |= (use_gpencil) ? V3D_OFSDRAW_SHOW_ANNOTATION : 0;
     draw_flags |= (use_scene_settings) ? (V3D_OFSDRAW_OVERRIDE_SCENE_SETTINGS |
                                           V3D_OFSDRAW_NO_WORLD_BACKGROUND_OVERRIDE) :
                                          0;

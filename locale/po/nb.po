@@ -430,16 +430,6 @@ msgstr "Skrift"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Bilde"
 
@@ -1284,10 +1274,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "Bevegelses sti punkter vil bakes inn i kameraområdet av det gjeldende kameraet. Det betyr, de bare vil se riktig ut gjennom det kameraet. Bytting av kamera ved bruk av markører støttes ikke."
 
 
-msgid "Annotation Frame"
-msgstr "Merknadsbilde"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "Samling av relaterte skisser på et angitt bilde"
 
@@ -1312,18 +1298,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "Frihåndskurver som tilpasser skissen på dette bildet"
 
 
-msgid "Annotation Frames"
-msgstr "Merknadsbilder"
-
-
-msgid "Collection of annotation frames"
-msgstr "Samling av merknadsbilder"
-
-
-msgid "Annotation Layer"
-msgstr "Merknadslag"
-
-
 msgid "Collection of related sketches"
 msgstr "Samling av relaterte skisser"
 
@@ -1338,10 +1312,6 @@ msgstr "Bildet som vises nå for dette gjeldende laget"
 
 msgid "Hide"
 msgstr "Skjul"
-
-
-msgid "Set annotation Visibility"
-msgstr "Velg synlighet for merknader"
 
 
 msgid "After Color"
@@ -1386,10 +1356,6 @@ msgstr "Bruk tilpassede farget for kutting av løk i stedet for temaet"
 
 msgid "Opacity"
 msgstr "Ugjennomsiktighet"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Ugjennomsiktighet for merknadslag"
 
 
 msgid "Color for all strokes in this layer"
@@ -1452,48 +1418,20 @@ msgid "Thickness"
 msgstr "Tykkelse"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Tykkelsen på merknadsstrøkene"
-
-
 msgid "Onion Skinning"
 msgstr "Løkkutting"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "Vis merknads løkskall før og etter det gjeldende bildet"
-
-
-msgid "Annotation Layers"
-msgstr "Merknadslag"
-
-
-msgid "Collection of annotation layers"
-msgstr "Samling av merknadslag"
 
 
 msgid "Active Layer Index"
 msgstr "Gjeldende lagindeks"
 
 
-msgid "Index of active annotation layer"
-msgstr "Indeks for gjeldende merknadslag"
-
-
 msgid "Active Note"
 msgstr "Gjeldende notat"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "Notat / lag å legge merknadsstrøk til"
-
-
 msgid "Default"
 msgstr "Standard"
-
-
-msgid "Annotation Stroke"
-msgstr "Merknadsstrøk"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1506,10 +1444,6 @@ msgstr "Strøkpunkter"
 
 msgid "Stroke data points"
 msgstr "Data for strøkpunkter"
-
-
-msgid "Annotation Stroke Point"
-msgstr "Merknadsstrøkpunkter"
 
 
 msgid "Data point for freehand stroke curve"
@@ -2057,14 +1991,6 @@ msgid "Show Action data-blocks"
 msgstr "Vis handlings datablokker"
 
 
-msgid "Annotations"
-msgstr "Merknader"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "Vis merknader for datablokker"
-
-
 msgid "Armatures"
 msgstr "Armaturer"
 
@@ -2119,14 +2045,6 @@ msgstr "Skrifter"
 
 msgid "Show Font data-blocks"
 msgstr "Vis skrift datablokker"
-
-
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "Vis Grease Pencil datablokker"
 
 
 msgid "Collections"
@@ -2551,10 +2469,6 @@ msgstr "Egenskap på instans"
 
 msgid "Layer"
 msgstr "Lag"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Egenskap på Grease Pencil lag"
 
 
 msgid "Is Internal"
@@ -3268,14 +3182,6 @@ msgid "Action data-blocks"
 msgstr "Handlings datablokker"
 
 
-msgid "Annotation"
-msgstr "Merknader"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "Merknads datablokker (gammel Grease Pencil)"
-
-
 msgid "Armature data-blocks"
 msgstr "Armatur datablokker"
 
@@ -3322,10 +3228,6 @@ msgstr "Vektor-skrifttyper"
 
 msgid "Vector font data-blocks"
 msgstr "Vektor-skrifttyper datablokker"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Grease Pencil datablokker"
 
 
 msgid "Hair curve data-blocks"
@@ -3512,14 +3414,6 @@ msgid "Collection of actions"
 msgstr "Samling av handlinger"
 
 
-msgid "Main Annotations"
-msgstr "Hovedmerknader"
-
-
-msgid "Collection of annotations"
-msgstr "Samling av merknader"
-
-
 msgid "Main Armatures"
 msgstr "Hoved armaturer"
 
@@ -3574,14 +3468,6 @@ msgstr "Hovedskrifttyper"
 
 msgid "Collection of fonts"
 msgstr "Samling av skrifttyper"
-
-
-msgid "Main Grease Pencils"
-msgstr "Hoved Grease Pencils"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "Samling av Grease Pencils"
 
 
 msgid "Main Hair Curves"

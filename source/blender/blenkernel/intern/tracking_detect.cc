@@ -8,7 +8,6 @@
  * This file contains blender-side implementation of feature detection.
  */
 
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_object_types.h" /* SELECT */
 
@@ -20,70 +19,19 @@
 
 namespace blender {
 
-/* Check whether point is inside grease pencil stroke. */
-static bool check_point_in_stroke(bGPDstroke *stroke, float x, float y)
-{
-  int count = 0;
-  bGPDspoint *points = stroke->points;
-
-  /* Count intersections of horizontal ray coming from the point.
-   * Point will be inside layer if and only if number of intersection
-   * is uneven.
-   *
-   * Well, if layer has got self-intersections, this logic wouldn't
-   * work, but such situation is crappy anyway.
-   */
-
-  for (int i = 0, prev = stroke->totpoints - 1; i < stroke->totpoints; prev = i, i++) {
-    if ((points[i].y < y && points[prev].y >= y) || (points[prev].y < y && points[i].y >= y)) {
-      float fac = (y - points[i].y) / (points[prev].y - points[i].y);
-
-      if (points[i].x + fac * (points[prev].x - points[i].x) < x) {
-        count++;
-      }
-    }
-  }
-
-  return (count % 2) ? true : false;
-}
-
-/* Check whether point is inside any stroke of grease pencil layer. */
-static bool check_point_in_layer(bGPDlayer *layer, float x, float y)
-{
-  bGPDframe *frame = static_cast<bGPDframe *>(layer->frames.first);
-
-  while (frame) {
-    bGPDstroke *stroke = static_cast<bGPDstroke *>(frame->strokes.first);
-
-    while (stroke) {
-      if (check_point_in_stroke(stroke, x, y)) {
-        return true;
-      }
-
-      stroke = stroke->next;
-    }
-    frame = frame->next;
-  }
-
-  return false;
-}
-
 /* Get features detected by libmv and create tracks on the clip for them. */
 static void detect_retrieve_libmv_features(MovieTracking *tracking,
                                            ListBaseT<MovieTrackingTrack> *tracksbase,
                                            libmv_Features *features,
                                            int framenr,
                                            int width,
-                                           int height,
-                                           bGPDlayer *layer,
-                                           bool place_outside_layer)
+                                           int height)
 {
   int a;
 
   a = libmv_countFeatures(features);
   while (a--) {
     double x, y, size, score;
-    bool ok = true;
     float xu, yu;
 
     libmv_getFeature(features, a, &x, &y, &score, &size);
@@ -94,17 +42,11 @@ static void detect_retrieve_libmv_features(MovieTracking *tracking,
     xu = (x + 0.5) / width;
     yu = (y + 0.5) / height;
 
-    if (layer) {
-      ok = check_point_in_layer(layer, xu, yu) != place_outside_layer;
-    }
-
-    if (ok) {
-      MovieTrackingTrack *track = BKE_tracking_track_add(
-          tracking, tracksbase, xu, yu, framenr, width, height);
-      track->flag |= TRACK_SELECT;
-      track->pat_flag |= TRACK_SELECT;
-      track->search_flag |= TRACK_SELECT;
-    }
+    MovieTrackingTrack *track = BKE_tracking_track_add(
+        tracking, tracksbase, xu, yu, framenr, width, height);
+    track->flag |= TRACK_SELECT;
+    track->pat_flag |= TRACK_SELECT;
+    track->search_flag |= TRACK_SELECT;
   }
 }
 
@@ -112,8 +54,6 @@ static void run_configured_detector(MovieTracking *tracking,
                                     ListBaseT<MovieTrackingTrack> *tracksbase,
                                     ImBuf *ibuf,
                                     int framenr,
-                                    bGPDlayer *layer,
-                                    bool place_outside_layer,
                                     libmv_DetectOptions *options)
 {
   libmv_Features *features = nullptr;
@@ -126,8 +66,7 @@ static void run_configured_detector(MovieTracking *tracking,
   }
 
   if (features != nullptr) {
-    detect_retrieve_libmv_features(
-        tracking, tracksbase, features, framenr, ibuf->x, ibuf->y, layer, place_outside_layer);
+    detect_retrieve_libmv_features(tracking, tracksbase, features, framenr, ibuf->x, ibuf->y);
 
     libmv_featuresDestroy(features);
   }
@@ -139,9 +78,7 @@ void BKE_tracking_detect_fast(MovieTracking *tracking,
                               int framenr,
                               int margin,
                               int min_trackness,
-                              int min_distance,
-                              bGPDlayer *layer,
-                              bool place_outside_layer)
+                              int min_distance)
 {
   libmv_DetectOptions options = {0};
 
@@ -150,8 +87,7 @@ void BKE_tracking_detect_fast(MovieTracking *tracking,
   options.min_distance = min_distance;
   options.fast_min_trackness = min_trackness;
 
-  run_configured_detector(
-      tracking, tracksbase, ibuf, framenr, layer, place_outside_layer, &options);
+  run_configured_detector(tracking, tracksbase, ibuf, framenr, &options);
 }
 
 void BKE_tracking_detect_harris(MovieTracking *tracking,
@@ -160,9 +96,7 @@ void BKE_tracking_detect_harris(MovieTracking *tracking,
                                 int framenr,
                                 int margin,
                                 float threshold,
-                                int min_distance,
-                                bGPDlayer *layer,
-                                bool place_outside_layer)
+                                int min_distance)
 {
   libmv_DetectOptions options = {0};
 
@@ -171,8 +105,7 @@ void BKE_tracking_detect_harris(MovieTracking *tracking,
   options.min_distance = min_distance;
   options.harris_threshold = threshold;
 
-  run_configured_detector(
-      tracking, tracksbase, ibuf, framenr, layer, place_outside_layer, &options);
+  run_configured_detector(tracking, tracksbase, ibuf, framenr, &options);
 }
 
 }  // namespace blender

@@ -95,45 +95,6 @@ CREATE_INFO_VARIANT(overlay_outline_prepass_wire_clipped,
                     overlay_outline_prepass_wire,
                     drw_clipped)
 
-GPU_SHADER_NAMED_INTERFACE_INFO(overlay_outline_prepass_gpencil_flat_iface, gp_interp_flat)
-FLAT(float4, aspect)
-FLAT(float2, sspos_0)
-FLAT(float4, sspos_1)
-FLAT(float4, sspos_2)
-FLAT(float2, sspos_3)
-FLAT(float3, point_length)
-GPU_SHADER_NAMED_INTERFACE_END(gp_interp_flat)
-GPU_SHADER_NAMED_INTERFACE_INFO(overlay_outline_prepass_gpencil_noperspective_iface,
-                                gp_interp_noperspective)
-NO_PERSPECTIVE(float4, thickness)
-NO_PERSPECTIVE(float, hardness)
-GPU_SHADER_NAMED_INTERFACE_END(gp_interp_noperspective)
-
-GPU_SHADER_CREATE_INFO(overlay_outline_prepass_gpencil)
-DO_STATIC_COMPILATION()
-TYPEDEF_SOURCE("overlay_shader_shared.hh")
-PUSH_CONSTANT(bool, is_transform)
-VERTEX_OUT(overlay_outline_prepass_iface)
-VERTEX_OUT(overlay_outline_prepass_gpencil_flat_iface)
-VERTEX_OUT(overlay_outline_prepass_gpencil_noperspective_iface)
-VERTEX_SOURCE("overlay_outline_prepass_gpencil_vert.glsl")
-PUSH_CONSTANT(bool, gp_stroke_order3d) /* TODO(fclem): Move to a GPencil object UBO. */
-PUSH_CONSTANT(float4, gp_depth_plane)  /* TODO(fclem): Move to a GPencil object UBO. */
-/* Using uint because 16bit uint can contain more ids than int. */
-FRAGMENT_OUT(0, uint, out_object_id)
-FRAGMENT_SOURCE("overlay_outline_prepass_gpencil_frag.glsl")
-DEPTH_WRITE(DepthWrite::ANY)
-ADDITIONAL_INFO(draw_view)
-ADDITIONAL_INFO(draw_modelmat)
-ADDITIONAL_INFO(draw_globals)
-ADDITIONAL_INFO(draw_gpencil)
-ADDITIONAL_INFO(draw_object_infos)
-GPU_SHADER_CREATE_END()
-
-CREATE_INFO_VARIANT(overlay_outline_prepass_gpencil_clipped,
-                    overlay_outline_prepass_gpencil,
-                    drw_clipped)
-
 GPU_SHADER_CREATE_INFO(overlay_outline_prepass_pointcloud)
 DO_STATIC_COMPILATION()
 VERTEX_SOURCE("overlay_outline_prepass_pointcloud_vert.glsl")

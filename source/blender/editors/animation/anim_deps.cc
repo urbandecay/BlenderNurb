@@ -12,8 +12,6 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -30,8 +28,6 @@
 #include "BKE_anim_data.hh"
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
-#include "BKE_gpencil_legacy.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_screen.hh"
 #include "BKE_workspace.hh"
 
@@ -237,28 +233,6 @@ static void animchan_sync_fcurve(bAnimListElem *ale)
   }
 }
 
-/* perform syncing updates for GPencil Layers */
-static void animchan_sync_gplayer(bAnimListElem *ale)
-{
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-  /* Make sure the selection flags agree with the "active" flag.
-   * The selection flags are used in the Dope-sheet only, whereas
-   * the active flag is used everywhere else. Hence, we try to
-   * sync these here so that it all seems to be have as the user
-   * expects - #50184
-   *
-   * Assume that we only really do this when the active status changes.
-   * (NOTE: This may prove annoying if it means selection is always lost)
-   */
-  if (gpl->flag & GP_LAYER_ACTIVE) {
-    gpl->flag |= GP_LAYER_SELECT;
-  }
-  else {
-    gpl->flag &= ~GP_LAYER_SELECT;
-  }
-}
-
 /* ---------------- */
 
 void ANIM_sync_animchannels_to_data(const bContext *C)
@@ -295,16 +269,6 @@ void ANIM_sync_animchannels_to_data(const bContext *C)
         animchan_sync_fcurve(&ale);
         break;
 
-      case ANIMTYPE_GPLAYER:
-        animchan_sync_gplayer(&ale);
-        break;
-      case ANIMTYPE_GREASE_PENCIL_LAYER: {
-        using namespace blender::bke::greasepencil;
-        GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale.id);
-        Layer *layer = static_cast<Layer *>(ale.data);
-        layer->set_selected(grease_pencil->is_layer_active(layer));
-        break;
-      }
 
       case ANIMTYPE_NONE:
       case ANIMTYPE_ANIMDATA:
@@ -334,15 +298,12 @@ void ANIM_sync_animchannels_to_data(const bContext *C)
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
       case ANIMTYPE_DSLIGHTPROBE:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
       case ANIMTYPE_MASKDATABLOCK:
       case ANIMTYPE_MASKLAYER:
       case ANIMTYPE_NLATRACK:
@@ -359,26 +320,7 @@ void ANIM_sync_animchannels_to_data(const bContext *C)
 void ANIM_animdata_update(bAnimContext *ac, ListBaseT<bAnimListElem> *anim_data)
 {
   for (bAnimListElem &ale : *anim_data) {
-    if (ale.type == ANIMTYPE_GPLAYER) {
-      bGPDlayer *gpl = static_cast<bGPDlayer *>(ale.data);
-
-      if (ale.update & ANIM_UPDATE_ORDER) {
-        ale.update &= ~ANIM_UPDATE_ORDER;
-        if (gpl) {
-          BKE_gpencil_layer_frames_sort(gpl, nullptr);
-        }
-      }
-
-      if (ale.update & ANIM_UPDATE_DEPS) {
-        ale.update &= ~ANIM_UPDATE_DEPS;
-        ANIM_list_elem_update(ac->bmain, ac->scene, &ale);
-      }
-      /* disable handles to avoid crash */
-      if (ale.update & ANIM_UPDATE_HANDLES) {
-        ale.update &= ~ANIM_UPDATE_HANDLES;
-      }
-    }
-    else if (ale.datatype == ALE_MASKLAY) {
+    if (ale.datatype == ALE_MASKLAY) {
       MaskLayer *masklay = static_cast<MaskLayer *>(ale.data);
 
       if (ale.update & ANIM_UPDATE_ORDER) {
@@ -431,19 +373,6 @@ void ANIM_animdata_update(bAnimContext *ac, ListBaseT<bAnimListElem> *anim_data)
         ale.update &= ~ANIM_UPDATE_DEPS;
         ANIM_list_elem_update(ac->bmain, ac->scene, &ale);
       }
-    }
-    else if (ELEM(ale.type,
-                  ANIMTYPE_GREASE_PENCIL_LAYER,
-                  ANIMTYPE_GREASE_PENCIL_LAYER_GROUP,
-                  ANIMTYPE_GREASE_PENCIL_DATABLOCK))
-    {
-      if (ale.update & ANIM_UPDATE_DEPS) {
-        ale.update &= ~ANIM_UPDATE_DEPS;
-        ANIM_list_elem_update(ac->bmain, ac->scene, &ale);
-      }
-      /* Order appears to be already handled in `grease_pencil_layer_apply_trans_data` when
-       * translating. */
-      ale.update &= ~(ANIM_UPDATE_HANDLES | ANIM_UPDATE_ORDER);
     }
     else if (ale.update) {
 #if 0

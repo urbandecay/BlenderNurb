@@ -34,7 +34,6 @@
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil_vertex_groups.hh"
 #include "BKE_lattice.hh"
 #include "BKE_library.hh"
 #include "BKE_mesh.hh"
@@ -58,7 +57,6 @@
 #include "WM_types.hh"
 
 #include "ED_curves.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_mesh.hh"
 #include "ED_object.hh"
 #include "ED_object_vgroup.hh"
@@ -153,8 +151,7 @@ void vgroup_data_clamp_range(ID *id, const int total)
 bool vgroup_parray_alloc(ID *id,
                          MDeformVert ***dvert_arr,
                          int *dvert_tot,
-                         const bool use_vert_sel,
-                         std::optional<int> current_frame)
+                         const bool use_vert_sel)
 {
   *dvert_tot = 0;
   *dvert_arr = nullptr;
@@ -249,37 +246,6 @@ bool vgroup_parray_alloc(ID *id,
         }
         return false;
       }
-      case ID_GP: {
-        if (!current_frame) {
-          return false;
-        }
-        GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(id);
-        bke::greasepencil::Layer *layer = grease_pencil->get_active_layer();
-        if (!layer) {
-          return false;
-        }
-        bke::greasepencil::Drawing *drawing = grease_pencil->get_editable_drawing_at(
-            *layer, *current_frame);
-        if (!drawing) {
-          return false;
-        }
-        bke::CurvesGeometry &curves = drawing->strokes_for_write();
-        MutableSpan<MDeformVert> dverts = curves.deform_verts_for_write();
-
-        if (!dverts.is_empty()) {
-          const int points_num = curves.points_num();
-          *dvert_tot = points_num;
-          *dvert_arr = MEM_new_array_uninitialized<MDeformVert *>(points_num, __func__);
-
-          for (int i = 0; i < points_num; i++) {
-            (*dvert_arr)[i] = &dverts[i];
-          }
-
-          return true;
-        }
-        return false;
-      }
-
       default:
         break;
     }
@@ -1043,80 +1009,8 @@ void vgroup_select_by_name(Object *ob, const char *name)
 /** \name Operator Function Implementations
  * \{ */
 
-static void vgroup_grease_pencil_select_verts(const Scene &scene,
-                                              const ToolSettings &tool_settings,
-                                              const bDeformGroup *def_group,
-                                              const bool select,
-                                              Object &object)
-{
-  using namespace bke;
-  using namespace ed::greasepencil;
-  const bke::AttrDomain selection_domain = ED_grease_pencil_edit_selection_domain_get(
-      &tool_settings);
-  GreasePencil *grease_pencil = id_cast<GreasePencil *>(object.data);
-
-  Vector<MutableDrawingInfo> drawings = retrieve_editable_drawings(scene, *grease_pencil);
-  for (MutableDrawingInfo &info : drawings) {
-    bke::CurvesGeometry &curves = info.drawing.strokes_for_write();
-    ListBaseT<bDeformGroup> &vertex_group_names = curves.vertex_group_names;
-
-    const int def_nr = BKE_defgroup_name_index(&vertex_group_names, def_group->name);
-    if (def_nr < 0) {
-      /* No vertices assigned to the group in this drawing. */
-      continue;
-    }
-
-    const Span<MDeformVert> dverts = curves.deform_verts();
-    if (dverts.is_empty()) {
-      continue;
-    }
-
-    GSpanAttributeWriter selection = ed::curves::ensure_selection_attribute(
-        curves, selection_domain, bke::AttrType::Bool);
-    switch (selection_domain) {
-      case AttrDomain::Point:
-        threading::parallel_for(curves.points_range(), 4096, [&](const IndexRange range) {
-          for (const int point_i : range) {
-            if (BKE_defvert_find_index(&dverts[point_i], def_nr)) {
-              selection.span.typed<bool>()[point_i] = select;
-            }
-          }
-        });
-        break;
-      case AttrDomain::Curve: {
-        const OffsetIndices<int> points_by_curve = curves.points_by_curve();
-        threading::parallel_for(curves.curves_range(), 1024, [&](const IndexRange range) {
-          for (const int curve_i : range) {
-            const IndexRange points = points_by_curve[curve_i];
-            bool any_point_in_group = false;
-            for (const int point_i : points) {
-              if (BKE_defvert_find_index(&dverts[point_i], def_nr)) {
-                any_point_in_group = true;
-                break;
-              }
-            }
-            if (any_point_in_group) {
-              selection.span.typed<bool>()[curve_i] = select;
-            }
-          }
-        });
-        break;
-      }
-      default:
-        BLI_assert_unreachable();
-        break;
-    }
-    selection.finish();
-  }
-
-  DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-}
-
 /* only in editmode */
-static void vgroup_select_verts(const ToolSettings &tool_settings,
-                                Object *ob,
-                                Scene &scene,
-                                int select)
+static void vgroup_select_verts(Object *ob, const int select)
 {
   const int def_nr = BKE_object_defgroup_active_index_get(ob) - 1;
 
@@ -1201,9 +1095,6 @@ static void vgroup_select_verts(const ToolSettings &tool_settings,
         }
       }
     }
-  }
-  else if (ob->type == OB_GREASE_PENCIL) {
-    vgroup_grease_pencil_select_verts(scene, tool_settings, def_group, select, *ob);
   }
 }
 
@@ -1387,8 +1278,7 @@ static bool vgroup_normalize_all(Object *ob,
                                  const int vgroup_tot,
                                  const bool lock_active,
                                  const bool soft_lock_active,
-                                 ReportList *reports,
-                                 std::optional<int> current_frame = {})
+                                 ReportList *reports)
 {
   BLI_assert(vgroup_tot == BLI_listbase_count(BKE_object_defgroup_list(ob)));
 
@@ -1398,7 +1288,7 @@ static bool vgroup_normalize_all(Object *ob,
 
   MDeformVert **dvert_array = nullptr;
   int dvert_tot = 0;
-  vgroup_parray_alloc(ob->data, &dvert_array, &dvert_tot, use_vert_sel, current_frame);
+  vgroup_parray_alloc(ob->data, &dvert_array, &dvert_tot, use_vert_sel);
 
   if (!dvert_array) {
     return false;
@@ -1458,8 +1348,7 @@ static bool vgroup_normalize_all(Object *ob,
 static void vgroup_normalize_all_deform_if_active_is_deform(Object *ob,
                                                             const int def_nr,
                                                             const bool soft_lock_active,
-                                                            ReportList *reports,
-                                                            std::optional<int> current_frame = {})
+                                                            ReportList *reports)
 {
   BLI_assert(BLI_findlink(BKE_object_defgroup_list(ob), def_nr));
   const int defgroup_tot = BKE_object_defgroup_count(ob);
@@ -1471,8 +1360,7 @@ static void vgroup_normalize_all_deform_if_active_is_deform(Object *ob,
     const bool *vgroup_validmap = BKE_object_defgroup_subset_from_select_type(
         ob, WT_VGROUP_BONE_DEFORM, &vgroup_tot, &subset_count);
 
-    vgroup_normalize_all(
-        ob, vgroup_validmap, vgroup_tot, false, soft_lock_active, reports, current_frame);
+    vgroup_normalize_all(ob, vgroup_validmap, vgroup_tot, false, soft_lock_active, reports);
     MEM_SAFE_DELETE(vgroup_validmap);
   }
 
@@ -2444,19 +2332,6 @@ static void vgroup_assign_verts(Object *ob, Scene &scene, const int def_nr, cons
       }
     }
   }
-  else if (ob->type == OB_GREASE_PENCIL) {
-    GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-    const bDeformGroup *defgroup = static_cast<const bDeformGroup *>(
-        BLI_findlink(BKE_object_defgroup_list(ob), def_nr));
-
-    {
-      using namespace ed::greasepencil;
-      Vector<MutableDrawingInfo> drawings = retrieve_editable_drawings(scene, *grease_pencil);
-      for (MutableDrawingInfo info : drawings) {
-        bke::greasepencil::assign_to_vertex_group(info.drawing, defgroup->name, weight);
-      }
-    }
-  }
 }
 
 /** \} */
@@ -2661,82 +2536,17 @@ void OBJECT_OT_vertex_group_add(wmOperatorType *ot)
 /** \name Vertex Group Remove Operator
  * \{ */
 
-static void grease_pencil_clear_from_vgroup(Scene &scene,
-                                            Object &ob,
-                                            bDeformGroup *dg,
-                                            const bool use_selection,
-                                            const bool all_drawings = false)
-{
-  using namespace ed::greasepencil;
-  GreasePencil &grease_pencil = *id_cast<GreasePencil *>(ob.data);
-
-  if (all_drawings) {
-    /* When removing vgroup, iterate over all the drawing. */
-    for (GreasePencilDrawingBase *base : grease_pencil.drawings()) {
-      if (base->type != GP_DRAWING) {
-        continue;
-      }
-      bke::greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(base)->wrap();
-      bke::greasepencil::remove_from_vertex_group(drawing, dg->name, use_selection);
-    }
-    /* Remove vgroup from the list. */
-    BKE_object_defgroup_remove(&ob, dg);
-  }
-  else {
-    Vector<MutableDrawingInfo> drawings = retrieve_editable_drawings(scene, grease_pencil);
-    for (const MutableDrawingInfo &info : drawings) {
-      bke::greasepencil::remove_from_vertex_group(info.drawing, dg->name, use_selection);
-    }
-  }
-}
-
-static void grease_pencil_clear_from_all_vgroup(Scene &scene,
-                                                Object &ob,
-                                                const bool use_selection,
-                                                const bool all_drawings = false,
-                                                const bool only_unlocked = false)
-{
-  const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(&ob);
-
-  bDeformGroup *dg = static_cast<bDeformGroup *>(defbase->first);
-  while (dg) {
-    bDeformGroup *next_group = dg->next;
-    if (!only_unlocked || (dg->flag & DG_LOCK_WEIGHT) == 0) {
-      grease_pencil_clear_from_vgroup(scene, ob, dg, use_selection, all_drawings);
-    }
-    dg = next_group;
-  }
-}
-
 static wmOperatorStatus vertex_group_remove_exec(bContext *C, wmOperator *op)
 {
   Object *ob = context_object(C);
-  Scene &scene = *CTX_data_scene(C);
   const bool all_vgroup = RNA_boolean_get(op->ptr, "all");
   const bool only_unlocked = RNA_boolean_get(op->ptr, "all_unlocked");
 
-  if (ob->type == OB_GREASE_PENCIL) {
-    if (all_vgroup || only_unlocked) {
-      grease_pencil_clear_from_all_vgroup(scene, *ob, false, true, only_unlocked);
-    }
-    else {
-      const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(ob);
-      bDeformGroup *dg = static_cast<bDeformGroup *>(
-          BLI_findlink(defbase, BKE_object_defgroup_active_index_get(ob) - 1));
-
-      if (!dg) {
-        return OPERATOR_CANCELLED;
-      }
-      grease_pencil_clear_from_vgroup(scene, *ob, dg, false, true);
-    }
+  if (all_vgroup || only_unlocked) {
+    BKE_object_defgroup_remove_all_ex(ob, only_unlocked);
   }
   else {
-    if (all_vgroup || only_unlocked) {
-      BKE_object_defgroup_remove_all_ex(ob, only_unlocked);
-    }
-    else {
-      vgroup_delete_active(ob);
-    }
+    vgroup_delete_active(ob);
   }
 
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
@@ -2794,14 +2604,7 @@ static wmOperatorStatus vertex_group_assign_exec(bContext *C, wmOperator *op)
   vgroup_assign_verts(ob, scene, def_nr, ts->vgroup_weight);
 
   if (ts->auto_normalize) {
-    if (ob->type == OB_GREASE_PENCIL) {
-      const int current_frame = scene.r.cfra;
-      vgroup_normalize_all_deform_if_active_is_deform(
-          ob, def_nr, true, op->reports, current_frame);
-    }
-    else {
-      vgroup_normalize_all_deform_if_active_is_deform(ob, def_nr, true, op->reports);
-    }
+    vgroup_normalize_all_deform_if_active_is_deform(ob, def_nr, true, op->reports);
   }
 
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
@@ -2873,15 +2676,10 @@ static wmOperatorStatus vertex_group_remove_from_exec(bContext *C, wmOperator *o
 {
   const bool use_all_groups = RNA_boolean_get(op->ptr, "use_all_groups");
   const bool use_all_verts = RNA_boolean_get(op->ptr, "use_all_verts");
-  Scene &scene = *CTX_data_scene(C);
-
   Object *ob = context_object(C);
 
   if (use_all_groups) {
-    if (ob->type == OB_GREASE_PENCIL) {
-      grease_pencil_clear_from_all_vgroup(scene, *ob, true);
-    }
-    else if (BKE_object_defgroup_clear_all(ob, true) == false) {
+    if (BKE_object_defgroup_clear_all(ob, true) == false) {
       return OPERATOR_CANCELLED;
     }
   }
@@ -2889,14 +2687,7 @@ static wmOperatorStatus vertex_group_remove_from_exec(bContext *C, wmOperator *o
     const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(ob);
     bDeformGroup *dg = static_cast<bDeformGroup *>(
         BLI_findlink(defbase, BKE_object_defgroup_active_index_get(ob) - 1));
-    if (dg == nullptr) {
-      return OPERATOR_CANCELLED;
-    }
-
-    if (ob->type == OB_GREASE_PENCIL) {
-      grease_pencil_clear_from_vgroup(scene, *ob, dg, !use_all_verts);
-    }
-    else if (BKE_object_defgroup_clear(ob, dg, !use_all_verts) == false) {
+    if (dg == nullptr || BKE_object_defgroup_clear(ob, dg, !use_all_verts) == false) {
       return OPERATOR_CANCELLED;
     }
   }
@@ -2905,14 +2696,7 @@ static wmOperatorStatus vertex_group_remove_from_exec(bContext *C, wmOperator *o
   if (ts->auto_normalize) {
     const int def_nr = BKE_object_defgroup_active_index_get(ob) - 1;
     if (def_nr >= 0) {
-      if (ob->type == OB_GREASE_PENCIL) {
-        const int current_frame = scene.r.cfra;
-        vgroup_normalize_all_deform_if_active_is_deform(
-            ob, def_nr, true, op->reports, current_frame);
-      }
-      else {
-        vgroup_normalize_all_deform_if_active_is_deform(ob, def_nr, true, op->reports);
-      }
+      vgroup_normalize_all_deform_if_active_is_deform(ob, def_nr, true, op->reports);
     }
   }
 
@@ -2957,15 +2741,13 @@ void OBJECT_OT_vertex_group_remove_from(wmOperatorType *ot)
 
 static wmOperatorStatus vertex_group_select_exec(bContext *C, wmOperator * /*op*/)
 {
-  const ToolSettings &tool_settings = *CTX_data_scene(C)->toolsettings;
   Object *ob = context_object(C);
-  Scene &scene = *CTX_data_scene(C);
 
   if (!ob || !ID_IS_EDITABLE(ob) || ID_IS_OVERRIDE_LIBRARY(ob)) {
     return OPERATOR_CANCELLED;
   }
 
-  vgroup_select_verts(tool_settings, ob, scene, 1);
+  vgroup_select_verts(ob, 1);
   DEG_id_tag_update(ob->data, ID_RECALC_SYNC_TO_EVAL | ID_RECALC_SELECT);
   WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob->data);
 
@@ -2995,11 +2777,9 @@ void OBJECT_OT_vertex_group_select(wmOperatorType *ot)
 
 static wmOperatorStatus vertex_group_deselect_exec(bContext *C, wmOperator * /*op*/)
 {
-  const ToolSettings &tool_settings = *CTX_data_scene(C)->toolsettings;
   Object *ob = context_object(C);
-  Scene &scene = *CTX_data_scene(C);
 
-  vgroup_select_verts(tool_settings, ob, scene, 0);
+  vgroup_select_verts(ob, 0);
   DEG_id_tag_update(ob->data, ID_RECALC_SYNC_TO_EVAL | ID_RECALC_SELECT);
   WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob->data);
 
@@ -3199,15 +2979,8 @@ static wmOperatorStatus vertex_group_normalize_all_exec(bContext *C, wmOperator 
     changed = false;
   }
   else {
-    if (ob->type == OB_GREASE_PENCIL) {
-      int current_frame = CTX_data_scene(C)->r.cfra;
-      changed = vgroup_normalize_all(
-          ob, vgroup_validmap, vgroup_tot, lock_active, false, op->reports, current_frame);
-    }
-    else {
-      changed = vgroup_normalize_all(
-          ob, vgroup_validmap, vgroup_tot, lock_active, false, op->reports);
-    }
+    changed = vgroup_normalize_all(
+        ob, vgroup_validmap, vgroup_tot, lock_active, false, op->reports);
   }
 
   MEM_delete(vgroup_validmap);
@@ -3921,12 +3694,7 @@ static wmOperatorStatus vgroup_do_remap(Object *ob, const char *name_array, wmOp
     BLI_assert(sort_map[i] != -1);
   }
 
-  if (ob->type == OB_GREASE_PENCIL) {
-    /* For Grease Pencil objects we don't have to do anything, because all drawings in the object
-     * store their own set of #vertex_group_names. So changing the vertex group order on object
-     * level is just a UI matter, no remapping in drawings is needed. */
-  }
-  else if (ob->mode == OB_MODE_EDIT) {
+  if (ob->mode == OB_MODE_EDIT) {
     if (ob->type == OB_MESH) {
       BMEditMesh *em = BKE_editmesh_from_object(ob);
       const int cd_dvert_offset = CustomData_get_offset(&em->bm->vdata, CD_MDEFORMVERT);

@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "RNA_enum_types.hh"
 
@@ -18,7 +17,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to change the normals on");
   b.add_output<decl::Geometry>("Curve"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Bool>("Selection"_ustr)
@@ -65,27 +64,6 @@ static void set_curve_normal(bke::CurvesGeometry &curves,
   curves.tag_normals_changed();
 }
 
-static void set_grease_pencil_normal(GreasePencil &grease_pencil,
-                                     const NormalMode mode,
-                                     const Field<bool> &selection_field,
-                                     const Field<float3> &custom_normal)
-{
-  using namespace blender::bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr) {
-      continue;
-    }
-    set_curve_normal(
-        drawing->strokes_for_write(),
-        mode,
-        bke::GreasePencilLayerFieldContext(grease_pencil, AttrDomain::Curve, layer_index),
-        bke::GreasePencilLayerFieldContext(grease_pencil, AttrDomain::Point, layer_index),
-        selection_field,
-        custom_normal);
-  }
-}
-
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Curve"_ustr);
@@ -105,9 +83,6 @@ static void node_geo_exec(GeoNodeExecParams params)
                        bke::CurvesFieldContext(*curves_id, AttrDomain::Point),
                        selection_field,
                        custom_normal);
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      set_grease_pencil_normal(*grease_pencil, mode, selection_field, custom_normal);
     }
   });
 

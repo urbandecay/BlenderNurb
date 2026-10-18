@@ -580,10 +580,6 @@ const uchar *get_color_ptr(bTheme *btheme, int spacetype, int colorid)
         case TH_FRAME_AFTER:
           cp = ts->after_current_frame;
           break;
-        case TH_TIME_GP_KEYFRAME:
-          cp = ts->time_gp_keyframe;
-          break;
-
         case TH_NURB_ULINE:
           cp = ts->nurb_uline;
           break;

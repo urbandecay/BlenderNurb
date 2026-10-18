@@ -52,9 +52,8 @@ enum class AttrDomain : int8_t {
   Curve = 4,
   /* Instance. */
   Instance = 5,
-  /* A layer in a grease pencil data-block. */
-  Layer = 6,
+  Reserved6 = 6,
 };
-#define ATTR_DOMAIN_NUM 7
+#define ATTR_DOMAIN_NUM 6
 
 }  // namespace blender::bke

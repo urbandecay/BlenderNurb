@@ -128,8 +128,6 @@ enum ModifierTypeFlag {
   /** Accepts #BMesh input (without conversion). */
   eModifierTypeFlag_AcceptsBMesh = (1 << 11),
 
-  /** Accepts #GreasePencil data input. */
-  eModifierTypeFlag_AcceptsGreasePencil = (1 << 12),
 };
 ENUM_OPERATORS(ModifierTypeFlag)
 

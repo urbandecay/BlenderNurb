@@ -28,7 +28,6 @@ from bpy.app.translations import (
     contexts as i18n_contexts,
 )
 
-
 def _rna_path_prop_search_for_context_impl(context, edit_text, unique_attrs):
     # Use the same logic as auto-completing in the Python console to expand the data-path.
     from _bl_console_utils.autocomplete import intellisense
@@ -2487,18 +2486,6 @@ class WM_OT_tool_set_by_brush_type(Operator):
                 continue
 
             # Never automatically activate these tools, they use a brush type that we want to use
-            # the main brush for (e.g. grease pencil primitive tools use 'DRAW' brush type, which
-            # is the most general one).
-            if item.idname in {
-                    "builtin.arc",
-                    "builtin.curve",
-                    "builtin.line",
-                    "builtin.box",
-                    "builtin.circle",
-                    "builtin.polyline",
-            }:
-                continue
-
             if item.options is not None and ('USE_BRUSHES' in item.options) and item.brush_type is not None:
                 if item.brush_type == self.brush_type:
                     tool_id = item.idname
@@ -2615,7 +2602,6 @@ class WM_OT_toolbar_prompt(Operator):
             if idname == "wm.tool_set_by_id":
                 tool_idname = properties["name"]
                 name = tool_map_id_to_label[tool_idname]
-                name = name.replace("Annotate ", "")
             else:
                 continue
 
@@ -2806,7 +2792,6 @@ class WM_OT_batch_rename(Operator):
             ('CURVE', "Curves", "", 'CURVE_DATA', 4),
             ('META', "Metaballs", "", 'META_DATA', 5),
             ('VOLUME', "Volumes", "", 'VOLUME_DATA', 6),
-            ('GREASEPENCIL', "Grease Pencils", "", 'OUTLINER_DATA_GREASEPENCIL', 7),
             ('ARMATURE', "Armatures", "", 'ARMATURE_DATA', 8),
             ('LATTICE', "Lattices", "", 'LATTICE_DATA', 9),
             ('LIGHT', "Lights", "", 'LIGHT_DATA', 10),
@@ -2955,7 +2940,6 @@ class WM_OT_batch_rename(Operator):
             'CURVE': ("curves", iface_("Curve(s)"), bpy.types.Curve),
             'META': ("metaballs", iface_("Metaball(s)"), bpy.types.MetaBall),
             'VOLUME': ("volumes", iface_("Volume(s)"), bpy.types.Volume),
-            'GREASEPENCIL': ("grease_pencils", iface_("Grease Pencil(s)"), bpy.types.GreasePencil),
             'ARMATURE': ("armatures", iface_("Armature(s)"), bpy.types.Armature),
             'LATTICE': ("lattices", iface_("Lattice(s)"), bpy.types.Lattice),
             'LIGHT': ("lights", iface_("Light(s)"), bpy.types.Light),

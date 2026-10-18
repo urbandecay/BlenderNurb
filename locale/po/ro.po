@@ -317,11 +317,6 @@ msgstr "Acțiune"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Creion de Grăsime"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Imagine"
 
@@ -1118,10 +1113,6 @@ msgid "Curves"
 msgstr "Curbe"
 
 
-msgid "Grease Pencil"
-msgstr "Creion de Grăsime"
-
-
 msgid "Collections"
 msgstr "Colecții"
 
@@ -1654,10 +1645,6 @@ msgid "Vector font data-blocks"
 msgstr "Blocurile de date ale fontului vector"
 
 
-msgid "Grease Pencil data-blocks"
-msgstr "Blocurile de date ale Creionului de Grăsime"
-
-
 msgid "Image data-blocks"
 msgstr "Blocurile de date ale imaginilor"
 
@@ -2092,10 +2079,6 @@ msgstr "Sculptare"
 
 msgid "Tool"
 msgstr "Instrument"
-
-
-msgid "Line Art"
-msgstr "Artă liniară"
 
 
 msgid "Object Mode"
@@ -2644,11 +2627,6 @@ msgstr "Recent"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Adnotare"
-
-
-msgctxt "Operator"
 msgid "Select Box"
 msgstr "Cutie de Selectare"
 
@@ -2779,16 +2757,6 @@ msgstr "Fereastră"
 msgctxt "WindowManager"
 msgid "Object Mode"
 msgstr "Mod Obiect"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "Unealtă Generică: Adnotare"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Creion de Grăsime"
 
 
 msgctxt "WindowManager"
@@ -3351,10 +3319,6 @@ msgid "Browse Brush to be linked"
 msgstr "Răsfoiți Pensula care urmează să fie conectate"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Răsfoiți Datele Creionului de Grăsime care urmează să fie conectat"
-
-
 msgid "Browse ID data to be linked"
 msgstr "Răsfoiți Datele ID care urmează să fie conectate"
 
@@ -3385,11 +3349,6 @@ msgstr "Nou"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Nou"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Nou"
 

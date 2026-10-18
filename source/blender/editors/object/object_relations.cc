@@ -85,8 +85,6 @@
 
 #include "ED_armature.hh"
 #include "ED_curve.hh"
-#include "ED_gpencil_legacy.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_mesh.hh"
 #include "ED_object.hh"
 #include "ED_screen.hh"
@@ -628,8 +626,7 @@ static bool parent_set_with_depsgraph(ReportList *reports,
        */
       /* XXX currently this should only happen for meshes, curves, surfaces,        * and lattices
        * - this stuff isn't available for meta-balls yet. */
-      if (ELEM(
-              ob->type, OB_MESH, OB_CURVES_LEGACY, OB_SURF, OB_FONT, OB_LATTICE, OB_GREASE_PENCIL))
+      if (ELEM(ob->type, OB_MESH, OB_CURVES_LEGACY, OB_SURF, OB_FONT, OB_LATTICE))
       {
         ModifierData *md;
 
@@ -649,35 +646,17 @@ static bool parent_set_with_depsgraph(ReportList *reports,
             break;
           case PAR_LATTICE: /* lattice deform */
             if (BKE_modifiers_is_deformed_by_lattice(ob) != par) {
-              const bool is_grease_pencil = ob->type == OB_GREASE_PENCIL;
-              const ModifierType lattice_modifier_type = is_grease_pencil ?
-                                                             eModifierType_GreasePencilLattice :
-                                                             eModifierType_Lattice;
-              md = modifier_add(reports, bmain, scene, ob, nullptr, lattice_modifier_type);
+              md = modifier_add(reports, bmain, scene, ob, nullptr, eModifierType_Lattice);
               if (md) {
-                if (is_grease_pencil) {
-                  reinterpret_cast<GreasePencilLatticeModifierData *>(md)->object = par;
-                }
-                else {
-                  reinterpret_cast<LatticeModifierData *>(md)->object = par;
-                }
+                reinterpret_cast<LatticeModifierData *>(md)->object = par;
               }
             }
             break;
           default: /* armature deform */
             if (BKE_modifiers_is_deformed_by_armature(ob) != par) {
-              if (ob->type == OB_GREASE_PENCIL) {
-                md = modifier_add(
-                    reports, bmain, scene, ob, nullptr, eModifierType_GreasePencilArmature);
-                if (md) {
-                  (reinterpret_cast<GreasePencilArmatureModifierData *>(md))->object = par;
-                }
-              }
-              else {
-                md = modifier_add(reports, bmain, scene, ob, nullptr, eModifierType_Armature);
-                if (md) {
-                  (reinterpret_cast<ArmatureModifierData *>(md))->object = par;
-                }
+              md = modifier_add(reports, bmain, scene, ob, nullptr, eModifierType_Armature);
+              if (md) {
+                (reinterpret_cast<ArmatureModifierData *>(md))->object = par;
               }
             }
             break;
@@ -753,21 +732,6 @@ static bool parent_set_with_depsgraph(ReportList *reports,
       WM_cursor_wait(false);
     }
     /* Get corrected inverse. */
-    ob->partype = PAROBJECT;
-
-    invert_m4_m4(ob->parentinv, BKE_object_calc_parent(depsgraph, scene, ob).ptr());
-  }
-  else if (is_armature_parent && (ob->type == OB_GREASE_PENCIL) && (par->type == OB_ARMATURE)) {
-    if (partype == PAR_ARMATURE_NAME) {
-      ed::greasepencil::add_armature_vertex_groups(*ob, *par);
-    }
-    else if (partype == PAR_ARMATURE_ENVELOPE) {
-      ed::greasepencil::add_armature_envelope_weights(*scene, *ob, *par);
-    }
-    else if (partype == PAR_ARMATURE_AUTO) {
-      ed::greasepencil::add_armature_automatic_weights(*scene, *ob, *par);
-    }
-    /* get corrected inverse */
     ob->partype = PAROBJECT;
 
     invert_m4_m4(ob->parentinv, BKE_object_calc_parent(depsgraph, scene, ob).ptr());
@@ -1001,16 +965,15 @@ static wmOperatorStatus parent_set_invoke_menu(bContext *C, wmOperatorType *ot)
              OB_CURVES_LEGACY,
              OB_SURF,
              OB_FONT,
-             OB_GREASE_PENCIL,
              OB_LATTICE))
     {
       can_support.armature_deform = true;
       can_support.envelope_weights = true;
     }
-    if (ELEM(child->type, OB_MESH, OB_GREASE_PENCIL, OB_LATTICE)) {
+    if (ELEM(child->type, OB_MESH, OB_LATTICE)) {
       can_support.empty_groups = true;
     }
-    if (ELEM(child->type, OB_MESH, OB_GREASE_PENCIL)) {
+    if (child->type == OB_MESH) {
       can_support.automatic_weights = true;
     }
     if (child->type == OB_CURVES) {
@@ -1481,9 +1444,8 @@ enum {
   MAKE_LINKS_MODIFIERS = 6,
   MAKE_LINKS_CONSTRAINTS = 7,
   MAKE_LINKS_FONTS = 8,
-  MAKE_LINKS_SHADERFX = 9,
-  MAKE_LINKS_LIGHT_LINKING = 10,
-  MAKE_LINKS_SHADOW_LINKING = 11,
+  MAKE_LINKS_LIGHT_LINKING = 9,
+  MAKE_LINKS_SHADOW_LINKING = 10,
 };
 
 /* Matches has_geometry_visibility() from Python.
@@ -1521,11 +1483,7 @@ static bool allow_make_links_data(const int type, Object *ob_src, Object *ob_dst
       }
       break;
     case MAKE_LINKS_MATERIALS:
-      if (OB_TYPE_SUPPORT_MATERIAL(ob_src->type) && OB_TYPE_SUPPORT_MATERIAL(ob_dst->type) &&
-          /* Linking non-grease-pencil materials to a grease-pencil object causes issues.
-           * We make sure that if one of the objects is a grease-pencil object, the other must be
-           * as well. */
-          ((ob_src->type == OB_GREASE_PENCIL) == (ob_dst->type == OB_GREASE_PENCIL)))
+      if (OB_TYPE_SUPPORT_MATERIAL(ob_src->type) && OB_TYPE_SUPPORT_MATERIAL(ob_dst->type))
       {
         return true;
       }
@@ -1548,11 +1506,6 @@ static bool allow_make_links_data(const int type, Object *ob_src, Object *ob_dst
     case MAKE_LINKS_FONTS:
       if ((ob_src->data != ob_dst->data) && (ob_src->type == OB_FONT) && (ob_dst->type == OB_FONT))
       {
-        return true;
-      }
-      break;
-    case MAKE_LINKS_SHADERFX:
-      if ((ob_src->type == OB_GREASE_PENCIL) && (ob_dst->type == OB_GREASE_PENCIL)) {
         return true;
       }
       break;
@@ -1699,11 +1652,6 @@ static wmOperatorStatus make_links_data_exec(bContext *C, wmOperator *op)
                               ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
             break;
           }
-          case MAKE_LINKS_SHADERFX:
-            shaderfx_link(ob_dst, ob_src);
-            DEG_id_tag_update(&ob_dst->id,
-                              ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
-            break;
           case MAKE_LINKS_LIGHT_LINKING:
             BKE_light_linking_copy_receiver_collection(bmain, *ob_dst, *ob_src);
             break;
@@ -1782,11 +1730,6 @@ void OBJECT_OT_make_links_data(wmOperatorType *ot)
       RNA_ENUM_ITEM_SEPR,
       {MAKE_LINKS_MODIFIERS, "MODIFIERS", 0, "Copy Modifiers", "Replace Modifiers"},
       {MAKE_LINKS_CONSTRAINTS, "CONSTRAINTS", 0, "Copy Constraints", "Replace Constraints"},
-      {MAKE_LINKS_SHADERFX,
-       "EFFECTS",
-       0,
-       "Copy Grease Pencil Effects",
-       "Replace Grease Pencil Effects"},
       {MAKE_LINKS_LIGHT_LINKING,
        "LIGHT_LINKING",
        0,
@@ -2056,13 +1999,6 @@ static void single_obdata_users(
                                                  LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
             break;
           case OB_VOLUME:
-            ob->data = ID_NEW_SET(ob->data,
-                                  BKE_id_copy_ex(bmain,
-                                                 static_cast<const ID *>(ob->data),
-                                                 nullptr,
-                                                 LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
-            break;
-          case OB_GREASE_PENCIL:
             ob->data = ID_NEW_SET(ob->data,
                                   BKE_id_copy_ex(bmain,
                                                  static_cast<const ID *>(ob->data),

@@ -269,9 +269,7 @@ static wmOperatorStatus palette_color_add_exec(bContext *C, wmOperator * /*op*/)
              PaintMode::Texture3D,
              PaintMode::Texture2D,
              PaintMode::Vertex,
-             PaintMode::Sculpt,
-             PaintMode::GPencil,
-             PaintMode::VertexGPencil))
+             PaintMode::Sculpt))
     {
       copy_v3_v3(color->color, BKE_brush_color_get(paint, brush));
       color->value = 0.0;

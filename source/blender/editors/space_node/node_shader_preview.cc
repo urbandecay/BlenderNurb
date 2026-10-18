@@ -789,7 +789,7 @@ static void ensure_nodetree_previews(const bContext &C,
       displayed_nodetree->runtime->previews_refresh_state;
   tree_previews.rendering_preview_type = preview_type;
 
-  ED_preview_ensure_dbase(false);
+  ED_preview_ensure_dbase();
 
   wmJob *wm_job = WM_jobs_get(CTX_wm_manager(&C),
                               CTX_wm_window(&C),

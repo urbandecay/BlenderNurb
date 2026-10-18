@@ -326,31 +326,6 @@ CREATE_INFO_VARIANT(overlay_image_depth_bias_selectable_clipped, overlay_image_d
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name GPencil Canvas
- * \{ */
-
-GPU_SHADER_CREATE_INFO(overlay_gpencil_canvas)
-DO_STATIC_COMPILATION()
-VERTEX_OUT(overlay_extra_iface)
-PUSH_CONSTANT(float4, color)
-PUSH_CONSTANT(float3, axis_x)
-PUSH_CONSTANT(float3, axis_y)
-PUSH_CONSTANT(float3, origin)
-PUSH_CONSTANT(int, half_line_count)
-FRAGMENT_OUT(0, float4, frag_color)
-FRAGMENT_OUT(1, float4, line_output)
-VERTEX_SOURCE("overlay_edit_gpencil_canvas_vert.glsl")
-FRAGMENT_SOURCE("overlay_extra_frag.glsl")
-ADDITIONAL_INFO(draw_mesh)
-ADDITIONAL_INFO(draw_view)
-ADDITIONAL_INFO(draw_globals)
-GPU_SHADER_CREATE_END()
-
-CREATE_INFO_VARIANT(overlay_gpencil_canvas_clipped, overlay_gpencil_canvas, drw_clipped)
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Particle
  * \{ */
 

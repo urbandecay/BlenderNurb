@@ -317,16 +317,6 @@ msgstr "Yazıtipi"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Gres Kalemi"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Gres Kalemi v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Görsel"
 
@@ -1066,10 +1056,6 @@ msgid "Bake to active Camera"
 msgstr "Aktif Kameraya Fırınla"
 
 
-msgid "Annotation Frame"
-msgstr "Açıklama Çerçevesi"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "Belirli bir çerçevedeki ilgili eskizlerin koleksiyonu"
 
@@ -1108,10 +1094,6 @@ msgstr "Bu katman için şu anda görüntülenen çerçeve"
 
 msgid "Hide"
 msgstr "Gizle"
-
-
-msgid "Set annotation Visibility"
-msgstr "Açıklama Görünürlüğünü Ayarla"
 
 
 msgid "After Color"
@@ -1156,10 +1138,6 @@ msgstr "Tema yerine soğan zarı için özel renkler kullanın"
 
 msgid "Opacity"
 msgstr "Matlık"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Açıklama Katmanı Opaklığı"
 
 
 msgid "Color for all strokes in this layer"
@@ -1222,40 +1200,20 @@ msgid "Thickness"
 msgstr "Kalınlık"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Açıklama vuruşlarının kalınlığı"
-
-
 msgid "Onion Skinning"
 msgstr "Soğan Kabuğu Soyma"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "Geçerli kareden önce ve sonra açıklama soğan görünümlerini görüntüle"
 
 
 msgid "Active Layer Index"
 msgstr "Aktif Katman İndeksi"
 
 
-msgid "Index of active annotation layer"
-msgstr "Etkin açıklama katmanının dizini"
-
-
 msgid "Active Note"
 msgstr "Aktif Not"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "Açıklama vuruşları eklemek için Not/Katman"
-
-
 msgid "Default"
 msgstr "Saptanmış"
-
-
-msgid "Annotation Stroke"
-msgstr "Açıklama Vuruşu"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1272,10 +1230,6 @@ msgstr "İnme Noktaları"
 
 msgid "Stroke data points"
 msgstr "İnme veri noktaları"
-
-
-msgid "Annotation Stroke Point"
-msgstr "Açıklama Vuruş Noktası"
 
 
 msgid "Data point for freehand stroke curve"
@@ -1815,10 +1769,6 @@ msgid "Show Action data-blocks"
 msgstr "Eylem veri bloklarını göster"
 
 
-msgid "Annotations"
-msgstr "Açıklamalar"
-
-
 msgid "Armatures"
 msgstr "Armatürler"
 
@@ -1873,10 +1823,6 @@ msgstr "Yazı tipleri"
 
 msgid "Show Font data-blocks"
 msgstr "Font veri bloklarını göster"
-
-
-msgid "Grease Pencil"
-msgstr "Gres Kalemi"
 
 
 msgid "Collections"
@@ -2289,10 +2235,6 @@ msgstr "Örnekteki öznitelik"
 
 msgid "Layer"
 msgstr "Katman"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Gres kalemi katmanında öznitelik"
 
 
 msgid "Is Internal"
@@ -2943,14 +2885,6 @@ msgid "Action data-blocks"
 msgstr "Eylem veri blokları"
 
 
-msgid "Annotation"
-msgstr "Dipnot"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "Açıklama veri blokları (eski Grease Pencil)"
-
-
 msgid "Armature data-blocks"
 msgstr "Armatür veri blokları"
 
@@ -2993,10 +2927,6 @@ msgstr "Vektör Yazıtipleri"
 
 msgid "Vector font data-blocks"
 msgstr "Vektör Yazıtipi veri blokları"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Gres Kalemi veri blokları"
 
 
 msgid "Hair curve data-blocks"
@@ -3237,10 +3167,6 @@ msgstr "Ana Yazıtipleri"
 
 msgid "Collection of fonts"
 msgstr "Yazıtipleri koleksiyonu"
-
-
-msgid "Main Grease Pencils"
-msgstr "Ana Gres Kalemleri"
 
 
 msgid "Main Hair Curves"
@@ -4940,10 +4866,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "Kırpma veya ekstrapolasyon kullanmak yerine, boyutlarını eşit şekilde değiştirerek eğrileri büyütün veya küçültün"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Gres Kalemi Fırçası Ayarları"
-
-
 msgid "Active Smooth"
 msgstr "Etkin Pürüzsüz"
 
@@ -5000,23 +4922,8 @@ msgid "Use always Vertex Color mode"
 msgstr "Her zaman Tepecik Rengi kipini kullan"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Başlık Türü"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "Vuruşun başlangıç ve bitiş şekli"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Yuvarlak"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Düz"
 
 
 msgid "Threshold"
@@ -5078,11 +4985,6 @@ msgstr "Vuruşları silin, noktaların gücünü ve kalınlığını azaltın"
 
 msgid "Erase stroke points"
 msgstr "Vuruş noktalarını sil"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Felç"
 
 
 msgid "Erase entire strokes"
@@ -5277,11 +5179,6 @@ msgstr "Yinelemeler"
 
 msgid "Number of times to smooth newly created strokes"
 msgstr "Yeni oluşturulan vuruşları yumuşatmak için gereken zaman sayısı"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Güçlülük"
 
 
 msgid "Color strength for new strokes (affect alpha factor of color)"
@@ -9194,14 +9091,6 @@ msgstr "Değişken Geri Dönüşü Hata Olarak"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "Özet gösterildiğinde daraltılır, böylece diğer tüm kanallar gizlenir (Yalnızca Dope Sheet editörleri)"
-
-
-msgid "Display Grease Pencil"
-msgstr "Ekran Gres Kalemi"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Grease Pencil ile ilgili animasyon verilerinin ve karelerinin görselleştirilmesini ekleyin"
 
 
 msgid "Include visualization of hair related animation data"
@@ -14052,20 +13941,8 @@ msgid "View Map Cache"
 msgstr "Harita Önbelleğini Görüntüle"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Grease Pencil Interpolasyon Ayarları"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Grease Pencil enterpolasyon araçları için ayarlar"
-
-
 msgid "Interpolation Curve"
 msgstr "Enterpolasyon Eğrisi"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Grease Pencil çerçeveleri arasındaki 'sıra' enterpolasyonunu kontrol etmek için özel eğri"
 
 
 msgid "Guides for drawing"
@@ -14166,14 +14043,6 @@ msgstr "Snapping'i kullanın"
 
 msgid "Enable snapping to guides angle or spacing options"
 msgstr "Kılavuz açılarına veya aralık seçeneklerine yapışmayı etkinleştirin"
-
-
-msgid "GPencil Sculpt Settings"
-msgstr "Gres Kalemiyle Yontma Ayarları"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Grease Pencil vuruş şekillendirme araçlarının genel özellikleri"
 
 
 msgid "Threshold for stroke intersections"
@@ -14606,10 +14475,6 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "Bireysel vuruş çizgilerinde döngüselliği etkinleştir"
 
 
-msgid "A Grease Pencil drawing"
-msgstr "Bir Grease Pencil çizimi"
-
-
 msgid "Attributes"
 msgstr "Nitelikler"
 
@@ -14636,14 +14501,6 @@ msgstr "Referans"
 
 msgid "The number of keyframes this drawing is used by"
 msgstr "Bu çizimin kullandığı anahtar kare sayısı"
-
-
-msgid "Grease Pencil Frame"
-msgstr "Yağlı Kalem Çerçevesi"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "Bir Grease Pencil anahtar karesi"
 
 
 msgid "The frame number in the scene"
@@ -14674,14 +14531,6 @@ msgid "A key generated automatically by a tool, not manually created"
 msgstr "Bir araç tarafından otomatik olarak oluşturulan, elle oluşturulmayan bir anahtar"
 
 
-msgid "Grease Pencil Frames"
-msgstr "Yağlı Kalem Çerçeveleri"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Yağlı Kalem Maskeleme Katmanları"
-
-
 msgid "List of Mask Layers"
 msgstr "Maske Katmanları Listesi"
 
@@ -14696,10 +14545,6 @@ msgstr "Maskeyi ters çevir"
 
 msgid "Mask layer name"
 msgstr "Maske katman adı"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Yağlı Kalem Maske Katmanları"
 
 
 msgid "Active Layer Mask Index"
@@ -14768,10 +14613,6 @@ msgstr "Maskeleri kullanın"
 
 msgid "Display onion skins before and after the current frame"
 msgstr "Mevcut kareden önce ve sonra soğan kabuklarını görüntüle"
-
-
-msgid "Grease Pencil Layer"
-msgstr "Eskiz Kalemi Katmanı"
 
 
 msgid "Blend Mode"
@@ -14908,14 +14749,6 @@ msgstr "Renk etiketi 7"
 
 msgid "Color tag 8"
 msgstr "Renk etiketi 8"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Yağlı Kalem Katmanları"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Aktif Grease Kalem katmanı"
 
 
 msgid "Editor header containing UI elements"
@@ -15117,10 +14950,6 @@ msgstr "Döngüsel Animasyon"
 
 msgid "Manual Frame Range"
 msgstr "Manuel Çerçeve Aralığı"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "Serbest el açıklamalı eskiz defteri"
 
 
 msgid "Animation data for this data-block"
@@ -15821,23 +15650,8 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "Fırça, fırça darbelerini renklendirmek için kullanılan türdendir"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "Fırça Tipi"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Pürüzsüz"
-
-
 msgid "Smooth stroke points"
 msgstr "Pürüzsüz vuruş noktaları"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Kalınlık"
 
 
 msgid "Adjust thickness of strokes"
@@ -15848,62 +15662,28 @@ msgid "Adjust color strength of strokes"
 msgstr "Vuruşların renk yoğunluğunu ayarlayın"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Rastgeleleştir"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "Vuruşlara titreme/rastgelelik katın"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "Tut"
 
 
 msgid "Translate the set of points initially within the brush circle"
 msgstr "Nokta kümesini başlangıçta fırça çemberi içinde çevirin"
 
 
-msgctxt "GPencil"
-msgid "Push"
-msgstr "İt"
-
-
 msgid "Move points out of the way, as if combing them"
 msgstr "Noktaları sanki tarıyormuş gibi yoldan çekin"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "Bük"
 
 
 msgid "Rotate points around the midpoint of the brush"
 msgstr "Fırçanın orta noktası etrafındaki noktaları döndürün"
 
 
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "Çimdikle"
-
-
 msgid "Pull points towards the midpoint of the brush"
 msgstr "Fırçanın orta noktasına doğru çekin"
 
 
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Klonla"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "Dahili panoda saklanan vuruşların kopyalarını yapıştırın"
-
-
-msgid "Gpencil Settings"
-msgstr "Gpencil Ayarları"
 
 
 msgid "Brush Type"
@@ -17527,10 +17307,6 @@ msgid "Usage"
 msgstr "Kullanım"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "Bu koleksiyon Çizgi Sanatı hesaplamasında nasıl kullanılır"
-
-
 msgid "Generate feature lines for this collection"
 msgstr "Bu koleksiyon için özellik satırları oluşturun"
 
@@ -17541,10 +17317,6 @@ msgstr "Sadece Oklüzyon"
 
 msgid "Only use the collection to produce occlusion"
 msgstr "Koleksiyonu yalnızca tıkanıklık oluşturmak için kullanın"
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "Bu koleksiyonu Çizgi Sanatında kullanmayın"
 
 
 msgid "Intersection Only"
@@ -18579,10 +18351,6 @@ msgid "Enable or disable textured strokes"
 msgstr "Dokulu vuruşları etkinleştirin veya devre dışı bırakın"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Grease Pencil veri bloğu"
-
-
 msgid "Layer Groups"
 msgstr "Katman Grupları"
 
@@ -18609,10 +18377,6 @@ msgstr "Çerçeveleri görüntüleme modu"
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "Sahne karesinin mutlak aralığındaki kareler"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "Grease Pencil anahtar karelerinin göreli aralığındaki kareler"
 
 
 msgid "Selected"
@@ -19802,14 +19566,6 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "Daha ince ayrıntılar için gerçek yer değiştirme ve çıkıntı eşlemesinin birleşimi"
 
 
-msgid "Grease Pencil Settings"
-msgstr "Grease Kalem Ayarları"
-
-
-msgid "Is Grease Pencil"
-msgstr "Grease Kalem mi"
-
-
 msgid "Line Color"
 msgstr "Çizgi Rengi"
 
@@ -19820,14 +19576,6 @@ msgstr "Freestyle çizgi oluşturma için kullanılan çizgi rengi"
 
 msgid "Line Priority"
 msgstr "Hat Önceliği"
-
-
-msgid "Line Art Settings"
-msgstr "Çizgi Sanatı Ayarları"
-
-
-msgid "Line Art settings for material"
-msgstr "Malzeme için Çizgi Sanatı ayarları"
 
 
 msgid "Max Vertex Displacement"
@@ -20958,14 +20706,6 @@ msgid "Lightgroup that the object belongs to"
 msgstr "Nesnenin ait olduğu ışık grubu"
 
 
-msgid "Line Art"
-msgstr "Çizgi Sanatı"
-
-
-msgid "Line Art settings for the object"
-msgstr "Nesne için Çizgi Sanatı ayarları"
-
-
 msgid "Location of the object"
 msgstr "Nesnenin konumu"
 
@@ -21070,28 +20810,8 @@ msgid "Particle Edit"
 msgstr "Parçacık Düzenleme"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "Gres Kalemi Vuruşlarını Düzenle"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Gres Kalemi Vuruşlarını Yont"
-
-
 msgid "Draw Mode"
 msgstr "Çizim Kipi"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "Gres Kalemi Vuruşları Boya"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "Yağlı Kalem Ağırlığı Boya Darbeleri"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Grease Pencil Vertex Boya Darbeleri"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -22800,10 +22520,6 @@ msgid "Constant acceleration in a given direction"
 msgstr "Belirli bir yönde sabit ivme"
 
 
-msgid "Grease Pencil settings for the scene"
-msgstr "Sahne için Yağlı Kalem ayarları"
-
-
 msgid "Hydra"
 msgstr "Hydra"
 
@@ -24457,26 +24173,6 @@ msgstr "Çalışma Alanı Eklentileri filtresinde Etkin Eklenti"
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "Çalışma alanını etkinleştirirken bu nesne moduna geçin"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Gres Kalemi Düzenleme Kipi"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Gres Kalemi Yontma Kipi"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Yağlı Kalem Çizimi"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Grease Kalem Vertex Boya"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Yağlı Kalem Ağırlığında Boya"
 
 
 msgid "UI Tags"
@@ -28529,10 +28225,6 @@ msgid "Active point of masking layer"
 msgstr "Maskeleme katmanının aktif noktası"
 
 
-msgid "Grease Pencil Color"
-msgstr "Yağlı Kalem Rengi"
-
-
 msgid "Alignment"
 msgstr "Hizalama"
 
@@ -28557,36 +28249,16 @@ msgid "Color for filling region bounded by each stroke"
 msgstr "Her bir çizgiyle sınırlanan bölgeyi doldurmak için renk"
 
 
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "Doldurma Stili"
-
-
 msgid "Select style used to fill strokes"
 msgstr "Konturları doldurmak için kullanılan stili seçin"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "Katı"
 
 
 msgid "Fill area with solid color"
 msgstr "Alanı düz renkle doldur"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "Gradyan"
-
-
 msgid "Fill area with gradient color"
 msgstr "Alanı degrade renkle doldur"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "Doku"
 
 
 msgid "Fill area with image texture"
@@ -28643,11 +28315,6 @@ msgstr "Renk Karışımı"
 
 msgid "Color for mixing with primary filling color"
 msgstr "Birincil dolgu rengiyle karıştırılacak renk"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "Karışım"
 
 
 msgid "Mix Factor"
@@ -28714,11 +28381,6 @@ msgid "Show stroke lines of this material"
 msgstr "Bu malzemenin vuruş çizgilerini göster"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "Vuruş Stili"
-
-
 msgid "Select style used to draw strokes"
 msgstr "Vuruşları çizmek için kullanılan stili seçin"
 
@@ -28753,10 +28415,6 @@ msgstr "Kendi kendine örtüşme"
 
 msgid "Disable stencil and overlap self intersections with alpha materials"
 msgstr "Şablonu devre dışı bırak ve alfa malzemelerle kendi kesişimlerini üst üste getir"
-
-
-msgid "Material Line Art"
-msgstr "Malzeme Çizgi Sanatı"
 
 
 msgid "Effectiveness"
@@ -30505,10 +30163,6 @@ msgid "Duplicate strokes into an array"
 msgstr "Vuruşları bir diziye kopyala"
 
 
-msgid "Generate Line Art from scene geometries"
-msgstr "Sahne geometrisinden Çizgi Sanatı Oluşturun"
-
-
 msgid "Duplicate strokes like a mirror"
 msgstr "Ayna gibi vuruşları çoğaltın"
 
@@ -30527,10 +30181,6 @@ msgstr "Nokta sayısını azaltarak vuruşu basitleştirin"
 
 msgid "Subdivide"
 msgstr "Alt bölümlere ayırmak"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "Grease Pencil alt bölüm değiştiricisi"
 
 
 msgid "Create an envelope shape"
@@ -32794,14 +32444,6 @@ msgid "Use random values over time"
 msgstr "Zaman içinde rastgele değerler kullanın"
 
 
-msgid "Line Art Modifier"
-msgstr "Çizgi Sanatı Değiştiricisi"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "Seçili kaynaktan Çizgi Sanatı vuruşları oluşturun"
-
-
 msgid "Image Threshold"
 msgstr "Görüntü Eşiği"
 
@@ -32910,10 +32552,6 @@ msgid "Camera Object"
 msgstr "Kamera Nesnesi"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "Çizgi Sanatı vuruşları oluşturmak için belirtilen kamera nesnesini kullanın"
-
-
 msgid "Generate strokes from the objects in this collection"
 msgstr "Bu koleksiyondaki nesnelerden vuruşlar oluşturun"
 
@@ -32926,10 +32564,6 @@ msgid "Source Type"
 msgstr "Kaynak Türü"
 
 
-msgid "Line Art stroke source type"
-msgstr "Çizgi Sanatı vuruş kaynağı türü"
-
-
 msgid "Source Vertex Group"
 msgstr "Kaynak Vertex Group"
 
@@ -32940,14 +32574,6 @@ msgstr "Açı Bölme"
 
 msgid "Stroke Depth Offset"
 msgstr "Vuruş Derinliği Ofseti"
-
-
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "Oluşturulan vuruşların atanacağı Yağlı Kalem katmanı"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "Oluşturulan vuruşlara atanan Grease Pencil malzemesi"
 
 
 msgid "Back Face Culling"
@@ -33070,10 +32696,6 @@ msgid "Generate strokes from intersections"
 msgstr "Kesişimlerden vuruşlar oluşturun"
 
 
-msgid "Mask bits to match from Collection Line Art settings"
-msgstr "Koleksiyon Çizgi Sanatı ayarlarıyla eşleşen maske parçaları"
-
-
 msgid "Match Intersection"
 msgstr "Maç Kavşağı"
 
@@ -33136,10 +32758,6 @@ msgstr "Malzemeyi Kullan"
 
 msgid "Generate strokes from borders between materials"
 msgstr "Malzemeler arasındaki sınırlardan vuruşlar oluşturun"
-
-
-msgid "Mask bits to match from Material Line Art settings"
-msgstr "Malzeme Çizgi Sanatı ayarlarıyla eşleşen maske parçaları"
 
 
 msgid "Match Masks"
@@ -38891,10 +38509,6 @@ msgid "Instances of objects or collections"
 msgstr "Nesne veya koleksiyon örnekleri"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "Katmanlar ve eğriler verilerini içeren Grease Pencil bileşeni"
-
-
 msgid "Attribute Statistic"
 msgstr "Öznitelik İstatistiği"
 
@@ -39207,10 +38821,6 @@ msgid "Sample each spline by splitting it into segments with the specified lengt
 msgstr "Her spline'ı belirtilen uzunluktaki parçalara bölerek örnekleyin"
 
 
-msgid "Curves to Grease Pencil"
-msgstr "Eğrilerden Grease Kalemine"
-
-
 msgid "Geometry Custom Group"
 msgstr "Geometri Özel Grubu"
 
@@ -39469,10 +39079,6 @@ msgstr "Bir değer için görünüm alanında doğrusal bir araç göster"
 
 msgid "Show a transform gizmo in the viewport"
 msgstr "Görünüm alanında bir dönüşüm aleti göster"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "Grease Pencil katmanlarını eğri örneklerine dönüştürün"
 
 
 msgid "Grid to Mesh"
@@ -43036,10 +42642,6 @@ msgid "Layer Selection"
 msgstr "Katman Seçimi"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "Seçim alanı olarak Grease Pencil Layer veya Layer Group'u alın"
-
-
 msgid "Type of the socket generated by this interface item"
 msgstr "Bu arayüz öğesi tarafından oluşturulan soketin türü"
 
@@ -43288,20 +42890,8 @@ msgid "Collection which defines light linking relation of this emitter"
 msgstr "Bu yayıcının ışık bağlama ilişkisini tanımlayan koleksiyon"
 
 
-msgid "Object Line Art"
-msgstr "Nesne Çizgi Sanatı"
-
-
-msgid "Object Line Art settings"
-msgstr "Nesne Çizgi Sanatı ayarları"
-
-
 msgid "Angles smaller than this will be treated as creases"
 msgstr "Bundan daha küçük açılar kırışıklık olarak değerlendirilecektir"
-
-
-msgid "How to use this object in Line Art calculation"
-msgstr "Bu nesnenin Çizgi Sanatı hesaplamasında nasıl kullanılacağı"
 
 
 msgid "Inherit"
@@ -43318,10 +42908,6 @@ msgstr "Bu nesnenin verileri için özellik çizgileri oluştur"
 
 msgid "Only use the object data to produce occlusion"
 msgstr "Tıkanıklık oluşturmak için yalnızca nesne verilerini kullanın"
-
-
-msgid "Don't use this object for Line Art rendering"
-msgstr "Bu nesneyi Çizgi Sanatı oluşturma için kullanmayın"
 
 
 msgid "Include this object but do not generate intersection lines"
@@ -44998,16 +44584,6 @@ msgstr "Biçem Modülü Dosyası Aç"
 
 msgid "Refresh list of actions"
 msgstr "Eylem listesini yenile"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "Grease Kalem Fırça Ön Ayarını Ekle"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Grease Kalem Malzeme Ön Ayarını Ekle"
 
 
 msgid "Load a preset"
@@ -48312,22 +47888,6 @@ msgid "Place markers across the whole frame"
 msgstr "İşaretleyicileri tüm çerçeveye yerleştirin"
 
 
-msgid "Inside Annotated Area"
-msgstr "Açıklamalı Alan İçinde"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "İşaretleyicileri yalnızca Açıklama aracıyla ana hatları çizilen alanların içine yerleştirin"
-
-
-msgid "Outside Annotated Area"
-msgstr "Açıklamalı Alan Dışında"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "İşaretleyicileri yalnızca Açıklama aracıyla belirtilen alanların dışına yerleştirin"
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "İzleme için yeterli bir özellik olarak kabul edilecek eşik seviyesi"
 
@@ -50013,10 +49573,6 @@ msgstr "Kenar Kaydırak"
 
 msgid "Sequence Slide"
 msgstr "Sıra Slaytı"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "Yağlı Kalem Opaklığı"
 
 
 msgid "Set type of handles for selected control points"
@@ -52690,15 +52246,6 @@ msgid "Tweak the active gizmo"
 msgstr "Aktif aygıtı ayarlayın"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Açıklama Çizimi"
-
-
-msgid "Make annotations on the active data"
-msgstr "Etkin veriler üzerinde açıklamalar yapın"
-
-
 msgid "End Arrow Style"
 msgstr "Son Ok Stili"
 
@@ -52779,10 +52326,6 @@ msgid "Eraser"
 msgstr "Silgi"
 
 
-msgid "Erase Annotation strokes"
-msgstr "Açıklama vuruşlarını sil"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "Stabilizatör Vuruş Faktörü"
 
@@ -52802,55 +52345,6 @@ msgstr "Hemen boyamak yerine ilk tıklamayı bekleyin"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Etkin Çerçeveyi Sil"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "Etkin Açıklama Katmanı için etkin çerçeveyi silin"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "Açıklama Yeni Ekle"
-
-
-msgid "Add new Annotation data-block"
-msgstr "Yeni Açıklama veri bloğu ekle"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Açıklama Bağlantıyı Kaldır"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "Etkin Açıklama veri bloğunun bağlantısını kaldır"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Yeni Açıklama Katmanı Ekle"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "Etkin veri bloğu için yeni Açıklama katmanı veya not ekleyin"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Açıklama Katmanını Taşı"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "Etkin Açıklama katmanını listede yukarı/aşağı taşıyın"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Açıklama Katmanını Kaldır"
-
-
-msgid "Remove active Annotation layer"
-msgstr "Etkin Açıklama katmanını kaldırın"
 
 
 msgctxt "Operator"
@@ -53510,11 +53004,6 @@ msgid "Reset viewable area to show selected keyframe range"
 msgstr "Görüntülenebilir alanı seçili anahtar kare aralığını gösterecek şekilde sıfırla"
 
 
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Pişirme Nesnesi Yağlı Kaleme Dönüştürme"
-
-
 msgid "The end frame of animation"
 msgstr "Animasyonun son karesi"
 
@@ -53565,15 +53054,6 @@ msgstr "3B imlecin yönelimini kullanarak vuruşları yeniden yansıtın"
 
 msgid "Step between generated frames"
 msgstr "Oluşturulan çerçeveler arasında adım"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Yağlı Kalem Çizimi"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr "Etkin Grease Pencil nesnesinde yeni bir çizgi çizin"
 
 
 msgid "Apply brush normally"
@@ -53672,14 +53152,6 @@ msgid "Delete Frame"
 msgstr "Çerçeveyi Sil"
 
 
-msgid "Delete Grease Pencil Frame(s)"
-msgstr "Grease Pencil Çerçevesini(Çerçevelerini) Sil"
-
-
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "Grease Pencil çerçevelerini silmek için kullanılan yöntem"
-
-
 msgid "Deletes current frame in the active layer"
 msgstr "Etkin katmandaki geçerli kareyi siler"
 
@@ -53701,11 +53173,6 @@ msgid "Delete selected points without splitting strokes"
 msgstr "Vuruşları bölmeden seçili noktaları sil"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Tip"
-
-
 msgid "Method used for dissolving stroke points"
 msgstr "Vuruş noktalarını çözmek için kullanılan yöntem"
 
@@ -53714,18 +53181,8 @@ msgid "Dissolve selected points"
 msgstr "Seçili noktaları çözün"
 
 
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "Arasında Çözülmek"
-
-
 msgid "Dissolve points between selected points"
 msgstr "Seçilen noktalar arasındaki noktaları çözün"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "Çöz Seçimi Kaldır"
 
 
 msgid "Dissolve all unselected points"
@@ -53739,10 +53196,6 @@ msgstr "Seçilen noktaları çoğalt"
 msgctxt "Operator"
 msgid "Duplicate Strokes"
 msgstr "Yinelenen Vuruşlar"
-
-
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "Seçili Grease Pencil darbelerinin kopyalarını oluşturun ve bunları taşıyın"
 
 
 msgctxt "Operator"
@@ -53760,11 +53213,6 @@ msgstr "Seçili noktaları dışarı çıkarın ve taşıyın"
 
 msgid "Extrude Stroke Points"
 msgstr "Ekstrüde Vuruş Noktaları"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "Yağlı Kalem Dolgusu"
 
 
 msgid "Fill with color the shape formed by strokes"
@@ -53788,10 +53236,6 @@ msgid "Only delete selected keyframes"
 msgstr "Yalnızca seçili anahtar kareleri sil"
 
 
-msgid "Make a copy of the active Grease Pencil frame(s)"
-msgstr "Aktif Grease Pencil çerçevesinin/çerçevelerinin bir kopyasını oluşturun"
-
-
 msgid "Duplicate all"
 msgstr "Tümünü kopyala"
 
@@ -53811,11 +53255,6 @@ msgstr "Mevcut sahne karesine boş bir kare ekle"
 
 msgid "Insert a blank frame in all editable layers"
 msgstr "Tüm düzenlenebilir katmanlara boş bir çerçeve ekle"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Grease Pencil İnterpolasyonu"
 
 
 msgid "Exclude Breakdowns"
@@ -53859,40 +53298,6 @@ msgid "Interpolate Sequence"
 msgstr "Sırayı Ara Değerlendir"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "Grease Pencil çerçeveleri arasında sorunsuz bir şekilde geçiş yapmak için 'ara'lar oluşturun"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "Geri"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "Kolaylaştırma"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "Otomatik Kolaylaştırma"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "Kolay Giriş"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "Kolay Çıkış"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "Kolayca girip çıkın"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "Oluşturulan interpole edilmiş çerçeveler arasındaki çerçeve sayısı"
 
@@ -53901,63 +53306,8 @@ msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "Bir sonraki sefer 'Sıra Ara Değerlemesi' çalıştırıldığında kullanılacak ara değerleme yöntemi"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "Doğrusal"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Gelenek"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "Eğri haritası kullanılarak tanımlanan özel enterpolasyon"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "Sinüzoidal"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "İkinci dereceden"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "Kübik"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "Dördüncül"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Beşinci"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "Üstel"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "Dairesel"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "Sıçrama"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "Elastik"
 
 
 msgid "New stroke from selected points/strokes"
@@ -53969,10 +53319,6 @@ msgid "Add New Layer"
 msgstr "Yeni Katman Ekle"
 
 
-msgid "Add a new Grease Pencil layer in the active object"
-msgstr "Etkin nesneye yeni bir Grease Pencil katmanı ekleyin"
-
-
 msgid "Name of the new layer"
 msgstr "Yeni katmanın adı"
 
@@ -53980,10 +53326,6 @@ msgstr "Yeni katmanın adı"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "Katmanı çoğalt"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Etkin Grease Pencil katmanının bir kopyasını oluşturun"
 
 
 msgid "Empty Keyframes"
@@ -53999,10 +53341,6 @@ msgid "Duplicate Layer to New Object"
 msgstr "Katmanı Yeni Nesne Olarak Çoğalt"
 
 
-msgid "Make a copy of the active Grease Pencil layer to selected object"
-msgstr "Etkin Grease Pencil katmanının bir kopyasını seçili nesneye yap"
-
-
 msgid "All Frames"
 msgstr "Tüm Çerçeveler"
 
@@ -54014,10 +53352,6 @@ msgstr "Yalnızca etkin Katmanı kopyala, tüm katmanları eklemek için işaret
 msgctxt "Operator"
 msgid "Add New Layer Group"
 msgstr "Yeni Grup Katmanı Ekle"
-
-
-msgid "Add a new Grease Pencil layer group in the active object"
-msgstr "Etkin nesneye yeni bir Grease Pencil katman grubu ekleyin"
 
 
 msgid "Name of the new layer group"
@@ -54046,10 +53380,6 @@ msgid "Hide Layer(s)"
 msgstr "Katman(lar)ı Gizle"
 
 
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "Seçili/seçili olmayan Grease Pencil katmanlarını gizle"
-
-
 msgid "Hide unselected rather than selected layers"
 msgstr "Seçili katmanlar yerine seçilmemiş katmanları gizle"
 
@@ -54074,10 +53404,6 @@ msgstr "Ayrıca görünürlüğü de etkiler"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "Tüm Katmanları Kilitle"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "Tüm Grease Pencil katmanlarının yanlışlıkla değiştirilmesini önlemek için bunları kilitleyin"
 
 
 msgid "Lock Value"
@@ -54137,17 +53463,9 @@ msgid "Remove Layer"
 msgstr "Katmanı Kaldır"
 
 
-msgid "Remove the active Grease Pencil layer"
-msgstr "Aktif Grease Pencil katmanını kaldırın"
-
-
 msgctxt "Operator"
 msgid "Show All Layers"
 msgstr "Tüm Katmanları Göster"
-
-
-msgid "Show all Grease Pencil layers"
-msgstr "Tüm Grease Pencil katmanlarını göster"
 
 
 msgctxt "Operator"
@@ -54155,16 +53473,8 @@ msgid "Copy Materials to Selected Object"
 msgstr "Malzemeleri Seçili Nesneye Kopyala"
 
 
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "Etkin Grease Pencil'ın Malzemelerini diğer nesneye ekle"
-
-
 msgid "Append only active material, uncheck to append all materials"
 msgstr "Yalnızca etkin materyali ekle, tüm materyalleri eklemek için işaretini kaldır"
-
-
-msgid "Hide active/inactive Grease Pencil material(s)"
-msgstr "Etkin/etkin olmayan Grease Pencil malzemesini/malzemelerini gizle"
 
 
 msgid "Hide inactive materials instead of the active one"
@@ -54183,10 +53493,6 @@ msgstr "Düzenlenebilirliği değiştirmenin yanı sıra görünürlüğü de et
 msgctxt "Operator"
 msgid "Lock All Materials"
 msgstr "Tüm Malzemeleri Kilitle"
-
-
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "Tüm Grease Pencil malzemelerini yanlışlıkla değiştirilmesini önlemek için kilitleyin"
 
 
 msgctxt "Operator"
@@ -54212,17 +53518,9 @@ msgid "Show All Materials"
 msgstr "Tüm Malzemeleri Göster"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "Tüm gizli Grease Pencil materyallerini göster"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "Malzeme Seçin"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "Mevcut malzemeyi kullanarak tüm Grease Pencil vuruşlarını seç/seçimini kaldır"
 
 
 msgid "Unselect strokes"
@@ -54232,10 +53530,6 @@ msgstr "Vuruşları seçmeyi kaldır"
 msgctxt "Operator"
 msgid "Unlock All Materials"
 msgstr "Tüm Materyallerin Kilidini Açın"
-
-
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "Tüm Grease Pencil materyallerinin kilidini açın, böylece düzenlenebilirler"
 
 
 msgctxt "Operator"
@@ -54254,10 +53548,6 @@ msgstr "Seçimi yeni bir katmana taşı"
 msgctxt "Operator"
 msgid "Strokes Paint Mode Toggle"
 msgstr "Vuruşlar Boya Modu Geçişi"
-
-
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "Grease Pencil darbeleri için boya moduna gir/çık"
 
 
 msgid "Return to Previous Mode"
@@ -54295,31 +53585,6 @@ msgstr "Şekil türü"
 
 msgid "Polyline"
 msgstr "Çoklu çizgi"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "Gres Kalem Kutusu Şekli"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "Gres Kalemi Daire Şekli"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "Gres Kalemi Eğri Şekil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "Gres Kalemi Çizgi Şekli"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "Gres Kalemi Polyline Şekli"
 
 
 msgid "Change the display order of the selected strokes"
@@ -54360,17 +53625,9 @@ msgid "Reset UV transformation to default values"
 msgstr "UV dönüşümünü varsayılan değerlere sıfırla"
 
 
-msgid "Sculpt strokes in the active Grease Pencil object"
-msgstr "Etkin Grease Pencil nesnesinde vuruşları şekillendirin"
-
-
 msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "Strokes Heykel Modu Geçişi"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "Grease Pencil darbeleri için heykel moduna gir/çık"
 
 
 msgctxt "Operator"
@@ -54472,10 +53729,6 @@ msgstr "Aktif malzemeyi ayarla"
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "Mod Seç"
-
-
-msgid "Change the selection mode for Grease Pencil strokes"
-msgstr "Grease Pencil darbeleri için seçim modunu değiştirin"
 
 
 msgid "Select only points"
@@ -54653,15 +53906,6 @@ msgid "Y Start"
 msgstr "Y Başla"
 
 
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "İz Resmini Yağlı Kaleme Dönüştür"
-
-
-msgid "Extract Grease Pencil strokes from image"
-msgstr "Resimden Grease Pencil çizgilerini çıkarın"
-
-
 msgid "Trace Frame"
 msgstr "İz Çerçevesi"
 
@@ -54736,10 +53980,6 @@ msgstr "Mevcut Çerçevede Başlat"
 
 msgid "Trace Image starting in current image frame"
 msgstr "Mevcut görüntü karesinden başlayan İz Görüntüsü"
-
-
-msgid "Draw on vertex colors in the active Grease Pencil object"
-msgstr "Etkin Grease Pencil nesnesindeki tepe noktası renklerini çizin"
 
 
 msgctxt "Operator"
@@ -54827,15 +54067,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "Vuruşlar Vertex Modu Geçişi"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "Grease Pencil darbeleri için tepe noktası boyama moduna gir/çık"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "Yağlı Kalem Boya Ağırlığı"
-
-
 msgid "Invert the weight of active vertex group"
 msgstr "Etkin tepe noktası grubunun ağırlığını tersine çevir"
 
@@ -54857,10 +54088,6 @@ msgstr "Ağırlık boya çizim aracı için Ekle/Çıkart'ı açın"
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "Vuruş Ağırlık Modu Geçişi"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "Grease Pencil vuruşları için ağırlık boya moduna gir/çık"
 
 
 msgctxt "Operator"
@@ -60651,10 +59878,6 @@ msgid "Curves from evaluated curve data"
 msgstr "Değerlendirilen eğri verilerinden eğriler"
 
 
-msgid "Grease Pencil from Curve or Mesh objects"
-msgstr "Eğri veya Ağ nesnelerinden Grease Kalemi"
-
-
 msgctxt "Operator"
 msgid "Corrective Smooth Bind"
 msgstr "Düzeltme Pürüzsüz Bağlama"
@@ -60954,19 +60177,6 @@ msgstr "Yalnızca etkin nesne yerine seçili tüm nesneleri etkiler"
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Gres Kalemi Ekle"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "Sahneye bir Grease Pencil nesnesi ekleyin"
-
-
-msgid "Stroke offset for the Line Art modifier"
-msgstr "Çizgi Sanatı değiştiricisi için vuruş ofseti"
-
-
-msgctxt "Operator"
 msgid "Stroke"
 msgstr "Vuruş"
 
@@ -60978,28 +60188,6 @@ msgstr "Temel renklerle basit bir vuruş oluşturun"
 msgctxt "Operator"
 msgid "Monkey"
 msgstr "Maymun"
-
-
-msgid "Quickly set up Line Art for the entire scene"
-msgstr "Tüm sahne için Çizgi Sanatı'nı hızla kurun"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "Koleksiyon Çizgi Sanatı"
-
-
-msgid "Quickly set up Line Art for the active collection"
-msgstr "Aktif koleksiyon için Line Art'ı hızla kurun"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "Nesne Çizgi Sanatı"
-
-
-msgid "Quickly set up Line Art for the active object"
-msgstr "Etkin nesne için Çizgi Sanatı'nı hızla ayarlayın"
 
 
 msgid "Show In Front"
@@ -61349,26 +60537,8 @@ msgid "Only delete the active light probe's baked lighting data"
 msgstr "Yalnızca aktif ışık probunun pişmiş aydınlatma verilerini silin"
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "Pişirme Çizgi Sanatı"
-
-
-msgid "Bake Line Art for current Grease Pencil object"
-msgstr "Mevcut Grease Pencil nesnesi için Bake Line Art"
-
-
 msgid "Bake All"
 msgstr "Hepsini pişir"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "Temiz Pişmiş Çizgi Sanatı"
-
-
-msgid "Clear all strokes in current Grease Pencil object"
-msgstr "Mevcut Grease Pencil nesnesindeki tüm vuruşları temizle"
 
 
 msgid "Link objects to a collection"
@@ -61459,14 +60629,6 @@ msgstr "Kopyalama Değiştiricileri"
 
 msgid "Replace Modifiers"
 msgstr "Değiştiricileri Değiştir"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Grease Kalem Efektlerini Kopyala"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "Grease Kalem Efektlerini Değiştirin"
 
 
 msgctxt "Operator"
@@ -62623,10 +61785,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "Yığında aynı konumda yinelenen etki"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "Düzenlenecek shaderfx'in adı"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "Aşağı Hareket Efekti"
@@ -62652,11 +61810,6 @@ msgstr "Yukarı Hareket Etkisi"
 
 msgid "Move effect up in the stack"
 msgstr "Efekti yığında yukarı taşı"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "Yağlı Kalem Etkisini Kaldır"
 
 
 msgctxt "Operator"
@@ -70089,14 +69242,6 @@ msgid "Force using this center value (when set)"
 msgstr "Bu merkez değerini kullanarak zorla (ayarlandığında)"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Grease Kalemini Düzenle"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Seçili Grease Pencil vuruşlarını düzenle"
-
-
 msgid "Use Snapping Options"
 msgstr "Yakalama Seçeneklerini Kullan"
 
@@ -70735,15 +69880,6 @@ msgstr "Daha Sonra Manuel Olarak Oluştur (Tek)"
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "Yalnızca bu özellik için ve henüz herhangi bir hedef atamadan sürücü oluşturun"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "Yağlı Kalem Damlalık"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "Blender Penceresinden bir renk örneği alın ve Grease Pencil materyali oluşturun"
 
 
 msgctxt "Operator"
@@ -73281,11 +72417,6 @@ msgid "Clip drawings to camera size when exporting in camera view"
 msgstr "Kamera görünümünde dışa aktarırken çizimleri kamera boyutuna göre kesin"
 
 
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "SVG'yi Grease Pencil olarak içe aktar"
-
-
 msgid "Resolution of the generated strokes"
 msgstr "Oluşturulan darbelerin çözünürlüğü"
 
@@ -75190,10 +74321,6 @@ msgid "Curves Sculpt Paint"
 msgstr "Eğriler Heykel Boya"
 
 
-msgid "Grease Pencil Paint"
-msgstr "Yağlı Kalem Boya"
-
-
 msgid "Paint Mode"
 msgstr "Boya Modu"
 
@@ -75204,10 +74331,6 @@ msgstr "Aktif malzeme temel rengini kullanarak boya"
 
 msgid "Paint the material with a color attribute"
 msgstr "Malzemeyi bir renk niteliğiyle boyayın"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "Yağlı Kalem Heykel Boyası"
 
 
 msgid "Image Paint"
@@ -76034,26 +75157,6 @@ msgstr "İmlecin altındaki örnek piksel değerleri"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Açıklama"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Satırı Açıklama"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Poligonu Açıklama"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Açıklama Silgisi"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "Çimdik"
 
@@ -76130,10 +75233,6 @@ msgstr "Malzeme ayarları"
 
 msgid "Material Presets"
 msgstr "Malzeme Ön Ayarları"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "Grease Kalem Malzeme Yuvaları"
 
 
 msgid "Backdrop"
@@ -78435,32 +77534,12 @@ msgid "Unselected F-Curve Opacity"
 msgstr "Seçilmemiş F-Eğrisi Opaklığı"
 
 
-msgid "Annotation Default Color"
-msgstr "Açıklama Varsayılan Rengi"
-
-
-msgid "Color of new annotation layers"
-msgstr "Yeni açıklama katmanlarının rengi"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "Grease Kalem Silgi Yarıçapı"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "Silgi 'fırçasının' yarıçapı"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Yağlı Kalem Öklid Mesafesi"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "Vuruş çizilirken fare ile hareket ettirilen mesafe dahil edilir"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Grease Kalem Manhattan Mesafesi"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -83310,10 +82389,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "İşleme sırasında küresel çocuk parçacık yüzdesi"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "Grease Kalem çizimini basitleştirin"
-
-
 msgid "Antialiasing"
 msgstr "Kenar yumuşatma"
 
@@ -83328,10 +82403,6 @@ msgstr "Görüntü değiştiricileri"
 
 msgid "Playback Only"
 msgstr "Sadece Oynatma"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "Grease Pencil'ı yalnızca animasyon oynatma sırasında basitleştirin"
 
 
 msgid "Display Shader Effects"
@@ -84794,10 +83865,6 @@ msgid "Start distance of the volumetric effect"
 msgstr "Hacimsel etkinin başlangıç mesafesi"
 
 
-msgid "Grease Pencil Render"
-msgstr "Yağlı Kalem Render"
-
-
 msgid "Render settings"
 msgstr "Render ayarları"
 
@@ -85067,14 +84134,6 @@ msgstr "Önbelleğe alınmış ham görüntüleri görselleştirin"
 
 msgid "Preview Overlay Settings"
 msgstr "Önizleme Kaplama Ayarları"
-
-
-msgid "Show Annotation"
-msgstr "Açıklamayı Göster"
-
-
-msgid "Show annotations for this view"
-msgstr "Bu görünüm için açıklamaları göster"
 
 
 msgid "Image Outline"
@@ -85565,11 +84624,6 @@ msgid "Use object as center of rotation"
 msgstr "Nesneyi dönüş merkezi olarak kullan"
 
 
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "Dalga"
-
-
 msgid "Use wave effect"
 msgstr "Dalga efekti kullan"
 
@@ -86014,23 +85068,6 @@ msgid "Clip editor space data"
 msgstr "Klip düzenleyici alan verileri"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Açıklama Kaynağı"
-
-
-msgid "Where the annotation comes from"
-msgstr "Açıklama nereden geliyor"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "Film klibine ait olan açıklama veri bloğunu göster"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "Etkin parçaya ait olan açıklama veri bloğunu göster"
-
-
 msgid "Blending Factor"
 msgstr "Karıştırma Faktörü"
 
@@ -86447,10 +85484,6 @@ msgstr "Şekil Anahtarı Düzenleyicisi"
 
 msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "Etkin nesnenin Şekil Anahtarları eylemindeki anahtar kareleri düzenle"
-
-
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "Dosyadaki tüm Grease Pencil çizimleri için zamanlamaları düzenle"
 
 
 msgid "Edit timings for Mask Editor splines"
@@ -87238,10 +86271,6 @@ msgstr "Boşları Göster"
 
 msgid "Show empty objects"
 msgstr "Boş nesneleri göster"
-
-
-msgid "Show Grease Pencil"
-msgstr "Gres Kalemini Göster"
 
 
 msgid "Show Lights"
@@ -89258,14 +88287,6 @@ msgstr "Sahnenin 3B kamerasını giriş olarak kullanın"
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "Sahnenin Dizici zaman çizelgesini giriş olarak kullanın"
-
-
-msgid "Use Annotations"
-msgstr "Açıklamaları Kullan"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "OpenGL önizlemelerinde Açıklamaları Göster"
 
 
 msgctxt "Sound"
@@ -91571,18 +90592,6 @@ msgid "Face Retopology"
 msgstr "Yüz Retopolojisi"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Gres Kalemi Vertex"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Gres Kalemi Vertex Select"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Gres Kalemi Köşe Boyutu"
-
-
 msgid "Face Normal"
 msgstr "Yüz Normal"
 
@@ -91617,14 +90626,6 @@ msgstr "Nesne Seçildi"
 
 msgid "Skin Root"
 msgstr "Cilt Kökü"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "Yağlı Kalem Anahtar Kare"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "Grease Pencil anahtar karelerini belirtmek için renk"
 
 
 msgid "Vertex Group Unreferenced"
@@ -91771,24 +90772,12 @@ msgid "Stick stroke to the view"
 msgstr "Görünüme sopa vuruşu"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "Açıklama Vuruş Yerleşimi (3B Görünüm)"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "Açıklama vuruşları 3B alanda nasıl yönlendirilir"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "3B imleç konumunda çizgi çiz"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "Yüzeylere vuruş uygulayın"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "Açıklama Vuruş Kalınlığı"
 
 
 msgid "Auto-Keying Mode"
@@ -91813,14 +90802,6 @@ msgstr "Bir profilin yolunu tanımlamak için kullanılır"
 
 msgid "Threshold distance for Auto Merge"
 msgstr "Otomatik Birleştirme için eşik mesafesi"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "Grease Pencil Ara Değerleme"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Yağlı Kalem Heykel"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -92946,10 +91927,6 @@ msgid "Strength of the fade effect"
 msgstr "Solma efektinin gücü"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "Grease Pencil katmanları için etkin katman hariç katman opaklığını azaltın"
-
-
 msgid "Fade factor"
 msgstr "Solma faktörü"
 
@@ -93394,20 +92371,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "Vuruşları düzenlerken Düzenleme Satırlarını Göster"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "Solma Gres Kalem Nesneleri"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "Solma Grease Kalem Nesneleri, aktif olan hariç"
-
-
 msgid "Fade Layers"
 msgstr "Katmanları Soluklaştır"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "Aktif katman hariç Grease Pencil katmanlarının solmasını aç/kapat"
 
 
 msgid "Fade Objects"
@@ -95261,46 +94226,6 @@ msgstr "3B Görünüm Aracı: Dönüştür (yedek)"
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "Genel Araç: Açıklama"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "Genel Araç: Açıklama (yedek)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "Genel Araç: Satırı Açıklama"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "Genel Araç: Satırı Açıklama (yedek)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "Genel Araç: Poligonu Açıklama"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "Genel Araç: Poligonu Açıklama (yedek)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "Genel Araç: Açıklama Silgisi"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "Genel Araç: Açıklama Silgisi (yedek)"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "3D Görünüm Aracı: Ölçüm"
 
@@ -95703,11 +94628,6 @@ msgstr "3D Görünüm Aracı: Metni Düzenle, Metni Seç"
 msgctxt "WindowManager"
 msgid "3D View Tool: Edit Text, Select Text (fallback)"
 msgstr "3D Görünüm Aracı: Metni Düzenle, Metni Seç (yedek)"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Yağlı kalem"
 
 
 msgctxt "WindowManager"
@@ -97096,16 +96016,6 @@ msgstr "Klip Grafik Düzenleyicisi"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "Klip Döküm Kağıdı Düzenleyicisi"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "Yağlı Kalem Ağırlığında Boya"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Fill Tool"
-msgstr "Yağ Kalemi Doldurma Aracı"
 
 
 msgctxt "WindowManager"
@@ -99927,10 +98837,6 @@ msgid "Volume(s)"
 msgstr "Birimler)"
 
 
-msgid "Grease Pencil(s)"
-msgstr "Yağlı Kalem(ler)"
-
-
 msgid "Armature(s)"
 msgstr "Armatür(ler)"
 
@@ -100714,10 +99620,6 @@ msgstr "İmleci görüntüle"
 
 msgid "Data Source:"
 msgstr "Veri Kaynağı:"
-
-
-msgid "No annotation source"
-msgstr "Açıklama kaynağı yok"
 
 
 msgctxt "Operator"
@@ -102364,10 +101266,6 @@ msgid "Discontinuity (Euler) Filter"
 msgstr "Süreksizlik (Euler) Filtresi"
 
 
-msgid "Grease Pencil Objects"
-msgstr "Yağlı Kalem Nesneleri"
-
-
 msgctxt "Operator"
 msgid "Frame Preview Range"
 msgstr "Çerçeve Önizleme Aralığı"
@@ -103852,10 +102750,6 @@ msgid "Intersections"
 msgstr "Kavşaklar"
 
 
-msgid "Annotation:"
-msgstr "Dipnot:"
-
-
 msgid "Add cube to mesh interactively"
 msgstr "Küpü etkileşimli olarak ağa ekle"
 
@@ -104045,11 +102939,6 @@ msgstr "Evrensel Sahne Açıklaması (.usd*)"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVG Grease Kalemi Olarak"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "Dalga cephesi (.obj)"
 
@@ -104089,16 +102978,6 @@ msgstr "Etkin öğe yok"
 
 msgid "No active marker"
 msgstr "Aktif işaretleyici yok"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "Yağlı Kalem SVG olarak"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "Yağlı Kalem PDF olarak"
 
 
 msgctxt "Operator"
@@ -104870,11 +103749,6 @@ msgstr "Konuşmacı"
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "Pişirme Eylemi..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "Fırında Pişirilen Nesneyi Yağlı Kaleme Dönüştür..."
 
 
 msgctxt "Operator"
@@ -106453,22 +105327,6 @@ msgid "No object selected, using cursor"
 msgstr "Hiçbir nesne seçilmedi, imleç kullanılıyor"
 
 
-msgid "Draw Grease Pencil"
-msgstr "Çizim Gres Kalemi"
-
-
-msgid "Weight Grease Pencil"
-msgstr "Ağırlık Gres Kalemi"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "Yontma Gres Kalemi"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "Tepecik Gres Kalemi"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "Işık Gücünü Ayarla"
@@ -106640,11 +105498,6 @@ msgstr "Kök Pozisyonları"
 
 msgid "Path Steps"
 msgstr "Yol Adımları"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "Sınır"
 
 
 msgid "No brush selected"
@@ -107179,10 +106032,6 @@ msgstr "Nokta bulutu"
 
 msgid "LightProbe"
 msgstr "Işık Sondası"
-
-
-msgid "GreasePencil"
-msgstr "Gres Kalemi"
 
 
 msgid "No new files have been packed"
@@ -107932,10 +106781,6 @@ msgstr "NLA Şerit Kontrolleri"
 
 msgid "F-Curve visibility in Graph Editor"
 msgstr "Grafik Düzenleyicide F-Eğrisi görünürlüğü"
-
-
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "Grease Pencil katmanı görünüm alanında görünür"
 
 
 msgid "Toggle visibility of Channels in Graph Editor for editing"
@@ -108724,10 +107569,6 @@ msgid "Nothing to erase"
 msgstr "Silinecek bir şey yok"
 
 
-msgid "Failed to find Annotation data to draw into"
-msgstr "İçine çizim yapılacak Açıklama verisi bulunamadı"
-
-
 msgid "Active region not set"
 msgstr "Etkin bölge ayarlanmadı"
 
@@ -108756,10 +107597,6 @@ msgid "Eyes"
 msgstr "Gözler"
 
 
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Pişirme Nesnesi Yağlı Kaleme Dönüştürme"
-
-
 msgid "Remove Loose Points"
 msgstr "Gevşek Noktaları Kaldır"
 
@@ -108782,10 +107619,6 @@ msgstr "Nesnenin yalnızca bir malzemesi var"
 
 msgid "The object has only one layer"
 msgstr "Nesnenin yalnızca bir katmanı var"
-
-
-msgid "No Grease Pencil frame to draw on"
-msgstr "Üzerine çizim yapmak için Grease Pencil çerçevesi yok"
 
 
 msgid "There is no layer '%s'"
@@ -108818,10 +107651,6 @@ msgstr "Eklenecek katman bulunamadı"
 
 msgid "No active layer to duplicate"
 msgstr "Kopyalanacak etkin katman yok"
-
-
-msgid "All Line Art objects are now cleared of bakes"
-msgstr "Tüm Çizgi Sanatı nesneleri artık pişirmelerden temizlendi"
 
 
 msgid "Baked strokes are cleared"
@@ -109488,10 +108317,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Bağlantı kurulacak Parçacık Ayarlarına Göz Atın"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Bağlantılanacak gres kalemi verisine göz at"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Bağlanacak Film Klibine Göz Atın"
 
@@ -109563,11 +108388,6 @@ msgstr "Yeni"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Yeni"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Yeni"
 
@@ -110319,21 +109139,6 @@ msgid "Field"
 msgstr "Alan"
 
 
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "GKalem"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "Suzanne"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "Çizgi Sanatı"
-
-
 msgid "Cannot create editmode armature"
 msgstr "Düzenleme modu armatürü oluşturulamıyor"
 
@@ -111074,20 +109879,12 @@ msgid "Removed effect: %s"
 msgstr "Kaldırılan etki: %s"
 
 
-msgid "Cannot edit shaderfxs in a library override"
-msgstr "Bir kütüphane geçersiz kılma işleminde shaderfx'leri düzenleyemezsiniz"
-
-
 msgid "Object type is not supported"
 msgstr "Nesne türü desteklenmiyor"
 
 
 msgid "Cannot edit library or override data"
 msgstr "Kütüphane düzenlenemez veya veriler geçersiz kılınamaz"
-
-
-msgid "Cannot edit shaderfxs coming from linked data in a library override"
-msgstr "Bir kitaplık geçersiz kılma işleminde bağlantılı verilerden gelen shaderfx'leri düzenleyemiyorum"
 
 
 msgid "Lock all shape keys of the active object"
@@ -111120,10 +109917,6 @@ msgstr "Çok kullanıcılı bir armatüre uygulanamaz"
 
 msgid "Curves Object does not support this set origin operation"
 msgstr "Curves Nesnesi bu set orijin işlemini desteklemiyor"
-
-
-msgid "Grease Pencil Object does not support this set origin operation"
-msgstr "Grease Pencil Nesnesi bu set orijin işlemini desteklemiyor"
 
 
 msgid "Point cloud object does not support this set origin operation"
@@ -111887,20 +110680,12 @@ msgid "UV map or surface attachment is invalid"
 msgstr "UV haritası veya yüzey eki geçersiz"
 
 
-msgid "No Grease Pencil frame to draw weight on"
-msgstr "Üzerine ağırlık çizmek için Grease Kalem çerçevesi yok"
-
-
 msgid "Active group is locked, aborting"
 msgstr "Etkin grup kilitlendi, iptal ediliyor"
 
 
 msgid "Fill tool needs active material"
 msgstr "Doldurma aracının aktif malzemeye ihtiyacı var"
-
-
-msgid "GPencil Interpolation: "
-msgstr "GPencil Enterpolasyonu: "
 
 
 msgid "ESC/RMB to cancel, Enter/LMB to confirm, WHEEL/MOVE to adjust factor"
@@ -111913,21 +110698,6 @@ msgstr "Anahtar kareler arasındaki standart geçişler"
 
 msgid "Simple physics-inspired easing effects"
 msgstr "Basit fizikten esinlenen kolaylaştırma efektleri"
-
-
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "Enterpolasyon"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "(Güçle) Kolaylaştırma"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "Dinamik Efektler"
 
 
 msgid "Trace"
@@ -114902,10 +113672,6 @@ msgid "Unable to create new object"
 msgstr "Yeni nesne oluşturulamıyor"
 
 
-msgid "SVG has gradients, Grease Pencil color will be approximated"
-msgstr "SVG'de degradeler var, Grease Pencil rengi yaklaşık olarak hesaplanacak"
-
-
 msgid "PLY Export: Unable to find collection '%s'"
 msgstr "PLY Export: '%s' koleksiyonu bulunamadı"
 
@@ -115348,14 +114114,6 @@ msgstr "Anahtarlama kümesi için geçersiz bağlam"
 
 msgid "Incomplete built-in keying set, appears to be missing type info"
 msgstr "Eksik yerleşik anahtarlama seti, tür bilgisi eksik görünüyor"
-
-
-msgid "Frame not found in annotation layer"
-msgstr "Açıklama katmanında çerçeve bulunamadı"
-
-
-msgid "Layer not found in annotation data"
-msgstr "Açıklama verilerinde katman bulunamadı"
 
 
 msgid "Frame already exists on this frame number %d"
@@ -116772,10 +115530,6 @@ msgid "Towards Custom Camera"
 msgstr "Özel Kameraya Doğru"
 
 
-msgid "Cached from the first Line Art modifier"
-msgstr "İlk Line Art değiştiricisinden önbelleğe alındı"
-
-
 msgid "Object is not in front"
 msgstr "Nesne ön tarafta değil"
 
@@ -116786,15 +115540,6 @@ msgstr "Değiştirici verileri pişirdi"
 
 msgid "Object is shown in front"
 msgstr "Nesne ön tarafta gösterilir"
-
-
-msgid "Cached from the first Line Art modifier."
-msgstr "İlk Line Art değiştiricisinden önbelleğe alındı."
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "Gölge Dökümü"
 
 
 msgid "Edge Types"

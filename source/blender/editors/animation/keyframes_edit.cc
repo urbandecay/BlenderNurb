@@ -342,8 +342,6 @@ static short summary_keyframes_loop(KeyframeEditData *ked,
   for (bAnimListElem &ale : anim_data) {
     switch (ale.datatype) {
       case ALE_MASKLAY:
-      case ALE_GPFRAME:
-      case ALE_GREASE_PENCIL_CEL:
         break;
 
       case ALE_FCURVE:
@@ -445,12 +443,8 @@ short ANIM_animchannel_keyframes_loop(KeyframeEditData *ked,
           ked, static_cast<bAnimContext *>(ale->data), key_ok, key_cb, fcu_cb);
 
     case ALE_NONE:
-    case ALE_GPFRAME:
     case ALE_MASKLAY:
     case ALE_NLASTRIP:
-    case ALE_GREASE_PENCIL_CEL:
-    case ALE_GREASE_PENCIL_DATA:
-    case ALE_GREASE_PENCIL_GROUP:
       break;
   }
 

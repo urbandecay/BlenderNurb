@@ -18,8 +18,6 @@ set(INC_GLSL
   ../../../../gpu/shaders/common
   ../../../../gpu/shaders/infos
 
-  # For grease pencil.
-  ../../gpencil
 )
 
 set(SRC_GLSL_VERT

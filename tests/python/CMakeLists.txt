@@ -364,16 +364,6 @@ add_blender_test(
 )
 
 add_blender_test(
-  script_pyapi_grease_pencil
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_grease_pencil.py
-)
-
-add_blender_test(
-  script_pyapi_annotations
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_annotations.py
-)
-
-add_blender_test(
   script_pyapi_blf_buffer
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_blf.py
   --
@@ -961,8 +951,6 @@ if((WITH_CYCLES OR WITH_GPU_RENDER_TESTS) AND TEST_SRC_DIR_EXISTS)
   # endif()
 
   if(WITH_GPU_RENDER_TESTS)
-    list(APPEND render_tests grease_pencil)
-    list(APPEND workbench_tests grease_pencil)
   endif()
 
   list(SORT render_tests)
@@ -1243,7 +1231,6 @@ if(TEST_SRC_DIR_EXISTS)
     essentials
     foreach_geometry_element_zone
     geometry
-    grease_pencil
     import
     instance
     list

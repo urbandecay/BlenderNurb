@@ -170,10 +170,7 @@ class VKDescriptorSetTracker {
 
   VKDescriptorSetTracker() {}
 
-  /**
-   * Update the descriptor set. Reuses previous descriptor set when no changes are detected. This
-   * improves performance when working with large grease pencil scenes.
-   */
+  /** Update the descriptor set, reusing its current layout when possible. */
   void update_descriptor_set(VKContext &context,
                              render_graph::VKResourceAccessInfo &resource_access_info,
                              render_graph::VKPipelineData &r_pipeline_data);

@@ -36,7 +36,6 @@
 
 #include "ED_armature.hh"
 #include "ED_asset.hh"
-#include "ED_gpencil_legacy.hh"
 #include "ED_image.hh"
 #include "ED_mesh.hh"
 #include "ED_object.hh"

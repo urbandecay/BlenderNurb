@@ -12,7 +12,6 @@
 #include "BKE_curves.hh"
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_gtest_base.hh"
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
@@ -24,7 +23,6 @@
 
 #include "DNA_armature_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 
@@ -45,7 +43,6 @@ enum class TargetDataType {
   Mesh,
   EditMesh,
   Curves,
-  GreasePencil,
 };
 
 enum class InterpolationTest {
@@ -265,42 +262,6 @@ class ArmatureDeformTestBase {
     return ob;
   }
 
-  /* Creates grease pencil with a mix of vertices in "Bone1" and "Bone2" groups. */
-  Object *create_test_grease_pencil_object() const
-  {
-    Object *ob = BKE_object_add_only_object(bmain, OB_GREASE_PENCIL, "Test Grease Pencil Object");
-    GreasePencil *grease_pencil = BKE_grease_pencil_add(bmain, "Test Grease Pencil");
-    ob->data = id_cast<ID *>(grease_pencil);
-
-    bke::greasepencil::Layer &layer = grease_pencil->add_layer("Test");
-    greasepencil::Drawing &drawing = grease_pencil->insert_frame(layer, 1)->wrap();
-    bke::CurvesGeometry &curves = drawing.geometry.wrap();
-
-    curves.resize(vertex_positions().size(), 3);
-    curves.offsets_for_write().copy_from(curve_offsets());
-
-    curves.positions_for_write().copy_from(vertex_positions());
-    MutableSpan<MDeformVert> dverts = curves.deform_verts_for_write();
-    for (const int i : dverts.index_range()) {
-      const float weight0 = vertex_weights_bone1()[i];
-      const float weight1 = vertex_weights_bone2()[i];
-
-      if (weight0 > 0.0f) {
-        BKE_defvert_add_index_notest(&dverts[i], 0, weight0);
-      }
-      if (weight1 > 0.0f) {
-        BKE_defvert_add_index_notest(&dverts[i], 1, weight1);
-      }
-    }
-    curves.tag_topology_changed();
-    curves.tag_positions_changed();
-
-    BKE_object_defgroup_new(ob, "Bone1");
-    BKE_object_defgroup_new(ob, "Bone2");
-
-    return ob;
-  }
-
   /* Select the expected positions result based on data type and parameters. */
   static Span<float3> expected_positions(const TargetDataType target_type,
                                          const WeightingTest weighting,
@@ -341,13 +302,11 @@ class ArmatureDeformTestBase {
                                                 float3(1.5f, 0, 1.5f),
                                                 float3(3.5f, 0, 1.5f)};
 
-    /* Curves data type does not support vertext groups. */
+    /* Curves data type does not support vertex groups. */
     const bool vgroups_supported = ELEM(
-        target_type, TargetDataType::Mesh, TargetDataType::EditMesh, TargetDataType::GreasePencil);
-    /* Might be a bug: Mesh and GreasePencil allows masking even in envelope mode, but EditMesh
-     * does not! Curves does not have vgroups and therefore masking in the first place. */
-    const bool allow_masking_with_envelope = ELEM(
-        target_type, TargetDataType::Mesh, TargetDataType::GreasePencil);
+        target_type, TargetDataType::Mesh, TargetDataType::EditMesh);
+    /* Mesh allows masking even in envelope mode, while EditMesh does not. */
+    const bool allow_masking_with_envelope = target_type == TargetDataType::Mesh;
     const bool vertex_groups_enabled = ELEM(
         weighting, WeightingTest::VertexGroups, WeightingTest::EnvelopeAndVertexGroups);
     const bool masked = (masking == MaskingTest::VertexGroup) &&
@@ -576,49 +535,6 @@ class ArmatureDeformTestBase {
     BKE_id_delete(bmain, ob_target);
   }
 
-  void grease_pencil_test(const InterpolationTest interpolation,
-                          const OutputValueTest output,
-                          const WeightingTest weighting,
-                          const MaskingTest masking)
-  {
-    Object *ob_arm = this->create_test_armature_object();
-    Object *ob_target = this->create_test_grease_pencil_object();
-    GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob_target->data);
-
-    BLI_assert(!grease_pencil->drawings().is_empty());
-    GreasePencilDrawingBase *drawing_base = grease_pencil->drawings()[0];
-    BLI_assert(drawing_base->type == GP_DRAWING);
-    greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(drawing_base)->wrap();
-    bke::CurvesGeometry &curves = drawing.geometry.wrap();
-
-    Array<float3x3> deform_mats;
-    std::optional<MutableSpan<float3x3>> deform_mats_opt;
-    if (output == OutputValueTest::PositionAndDeformMatrix) {
-      deform_mats = identity_deform_mats();
-      deform_mats_opt = deform_mats;
-    }
-
-    const int deform_flag = get_deform_flag(interpolation, weighting);
-    const char *defgrp_name = get_defgrp_name(masking);
-    BKE_armature_deform_coords_with_curves(*ob_arm,
-                                           *ob_target,
-                                           &grease_pencil->vertex_group_names,
-                                           curves.positions_for_write(),
-                                           std::nullopt,
-                                           deform_mats_opt,
-                                           curves.deform_verts(),
-                                           deform_flag,
-                                           defgrp_name);
-
-    EXPECT_EQ_SPAN(expected_positions(TargetDataType::GreasePencil, weighting, masking),
-                   curves.positions());
-    if (output == OutputValueTest::PositionAndDeformMatrix) {
-      EXPECT_EQ_SPAN(expected_deform_mats(weighting), deform_mats.as_span());
-    }
-
-    BKE_id_delete(bmain, ob_arm);
-    BKE_id_delete(bmain, ob_target);
-  }
 };
 
 #ifdef USE_PARAMETERIZED_TESTS
@@ -682,17 +598,6 @@ TEST_P(ArmatureDeformParamTest, CurvesDeformParameterized)
   MaskingTest masking = std::get<3>(params);
 
   curves_test(interpolation, output, weighting, masking);
-}
-
-TEST_P(ArmatureDeformParamTest, GreasePencilDeformParameterized)
-{
-  const ArmatureDeformTestParams &params = this->GetParam();
-  InterpolationTest interpolation = std::get<0>(params);
-  OutputValueTest output = std::get<1>(params);
-  WeightingTest weighting = std::get<2>(params);
-  MaskingTest masking = std::get<3>(params);
-
-  grease_pencil_test(interpolation, output, weighting, masking);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -842,25 +747,6 @@ TEST_F(ArmatureDeformTest, CurvesDeform)
       {
         for (MaskingTest mask : {MaskingTest::All, MaskingTest::VertexGroup}) {
           curves_test(ipol, output, weight, mask);
-        }
-      }
-    }
-  }
-}
-
-TEST_F(ArmatureDeformTest, GreasePencilDeform)
-{
-  for (InterpolationTest ipol : {InterpolationTest::Linear, InterpolationTest::DualQuaternion}) {
-    for (OutputValueTest output :
-         {OutputValueTest::Position, OutputValueTest::PositionAndDeformMatrix})
-    {
-      for (WeightingTest weight : {WeightingTest::None,
-                                   WeightingTest::Envelope,
-                                   WeightingTest::VertexGroups,
-                                   WeightingTest::EnvelopeAndVertexGroups})
-      {
-        for (MaskingTest mask : {MaskingTest::All, MaskingTest::VertexGroup}) {
-          grease_pencil_test(ipol, output, weight, mask);
         }
       }
     }

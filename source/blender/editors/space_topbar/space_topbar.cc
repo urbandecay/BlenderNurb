@@ -132,11 +132,6 @@ static void topbar_main_region_listener(const wmRegionListenerParams *params)
         ED_region_tag_redraw(region);
       }
       break;
-    case NC_GPENCIL:
-      if (wmn->data == ND_DATA) {
-        ED_region_tag_redraw(region);
-      }
-      break;
   }
 }
 

@@ -382,7 +382,7 @@ static void autotrack_context_init_tracks_for_clip(AutoTrackContext *context, in
     autotrack_track->is_trackable = autotrack_is_track_trackable(context, autotrack_track);
 
     tracking_configure_tracker(
-        &track, nullptr, context->is_backwards, &autotrack_track->track_region_options);
+        &track, context->is_backwards, &autotrack_track->track_region_options);
   }
 }
 

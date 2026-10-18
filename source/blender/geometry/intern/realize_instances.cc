@@ -20,8 +20,6 @@
 #include "BKE_curves.hh"
 #include "BKE_customdata.hh"
 #include "BKE_geometry_nodes_gizmos_transforms.hh"
-#include "BKE_grease_pencil.hh"
-#include "BKE_grease_pencil_fills.hh"
 #include "BKE_instances.hh"
 #include "BKE_material.hh"
 #include "BKE_mesh.hh"
@@ -195,22 +193,6 @@ struct RealizeCurveTask {
   uint32_t id = 0;
 };
 
-struct GreasePencilRealizeInfo {
-  const GreasePencil *grease_pencil = nullptr;
-  /** Matches the order in #AllGreasePencilsInfo.attributes. */
-  Array<std::optional<GVArray>> attributes;
-  /** Maps old material indices to new material indices. */
-  Array<int> material_index_map;
-};
-
-struct RealizeGreasePencilTask {
-  /** Index where the first layer is realized in the final grease pencil. */
-  int start_index;
-  const GreasePencilRealizeInfo *grease_pencil_info;
-  float4x4 transform;
-  AttributeFallbacksArray attribute_fallbacks;
-};
-
 struct RealizeEditDataTask {
   const bke::GeometryComponentEditData *edit_data;
   float4x4 transform;
@@ -266,17 +248,6 @@ struct AllCurvesInfo {
   bool create_custom_normal_attribute = false;
 };
 
-struct AllGreasePencilsInfo {
-  /** Ordering of all attributes that are propagated to the output grease pencil generically. */
-  OrderedAttributes attributes;
-  /** Ordering of the original grease pencils that are joined. */
-  VectorSet<const GreasePencil *> order;
-  /** Preprocessed data about every original grease pencil. This is ordered by #order. */
-  Array<GreasePencilRealizeInfo> realize_info;
-  /** Ordered materials on the output grease pencil. */
-  VectorSet<Material *> materials;
-};
-
 struct AllInstancesInfo {
   /** Stores an array of void pointer to attributes for each component. */
   Vector<AttributeFallbacksArray> attribute_fallback;
@@ -291,7 +262,6 @@ struct GatherTasks {
   Vector<RealizePointCloudTask> pointcloud_tasks;
   Vector<RealizeMeshTask> mesh_tasks;
   Vector<RealizeCurveTask> curve_tasks;
-  Vector<RealizeGreasePencilTask> grease_pencil_tasks;
   Vector<RealizeEditDataTask> edit_data_tasks;
 
   /* Volumes only have very simple support currently. Only the first found volume is put into the
@@ -316,7 +286,6 @@ struct GatherOffsets {
     int64_t custom_knot = 0;
     int64_t fill_id = 0;
   } curves_offsets;
-  int64_t grease_pencil_layer_offset = 0;
 };
 
 struct GatherTasksInfo {
@@ -324,7 +293,6 @@ struct GatherTasksInfo {
   const AllPointCloudsInfo &pointclouds;
   const AllMeshesInfo &meshes;
   const AllCurvesInfo &curves;
-  const AllGreasePencilsInfo &grease_pencils;
   const OrderedAttributes &instances_attriubutes;
   bool create_id_attribute_on_any_component = false;
 
@@ -360,8 +328,6 @@ struct InstanceContext {
   AttributeFallbacksArray meshes;
   /** Ordered by #AllCurvesInfo.attributes. */
   AttributeFallbacksArray curves;
-  /** Ordered by #AllGreasePencilsInfo.attributes. */
-  AttributeFallbacksArray grease_pencils;
   /** Ordered by #AllInstancesInfo.attributes. */
   AttributeFallbacksArray instances;
   /** Id mixed from all parent instances. */
@@ -371,7 +337,6 @@ struct InstanceContext {
       : pointclouds(gather_info.pointclouds.attributes.size()),
         meshes(gather_info.meshes.attributes.size()),
         curves(gather_info.curves.attributes.size()),
-        grease_pencils(gather_info.grease_pencils.attributes.size()),
         instances(gather_info.instances_attriubutes.size())
   {
     // empty
@@ -701,8 +666,6 @@ static void gather_realize_tasks_for_instances(GatherTasksInfo &gather_info,
       gather_info, instances, gather_info.meshes.attributes);
   Vector<AttrFallbackData> curve_attributes_to_override = prepare_attribute_fallbacks(
       gather_info, instances, gather_info.curves.attributes);
-  Vector<AttrFallbackData> grease_pencil_attributes_to_override = prepare_attribute_fallbacks(
-      gather_info, instances, gather_info.grease_pencils.attributes);
   Vector<AttrFallbackData> instance_attributes_to_override = prepare_attribute_fallbacks(
       gather_info, instances, gather_info.instances_attriubutes);
 
@@ -733,7 +696,6 @@ static void gather_realize_tasks_for_instances(GatherTasksInfo &gather_info,
     set_fallbacks(pointcloud_attributes_to_override, instance_context.pointclouds.array);
     set_fallbacks(mesh_attributes_to_override, instance_context.meshes.array);
     set_fallbacks(curve_attributes_to_override, instance_context.curves.array);
-    set_fallbacks(grease_pencil_attributes_to_override, instance_context.grease_pencils.array);
     set_fallbacks(instance_attributes_to_override, instance_context.instances.array);
 
     uint32_t local_instance_id = 0;
@@ -838,23 +800,6 @@ static void gather_realize_tasks_recursive(GatherTasksInfo &gather_info,
           gather_info.r_offsets.curves_offsets.curve += curves->geometry.curve_num;
           gather_info.r_offsets.curves_offsets.custom_knot += curves->geometry.custom_knot_num;
           gather_info.r_offsets.curves_offsets.fill_id += curve_info.index_by_fill_id.size();
-        }
-        break;
-      }
-      case bke::GeometryComponent::Type::GreasePencil: {
-        const auto &grease_pencil_component = *static_cast<const bke::GreasePencilComponent *>(
-            component);
-        const GreasePencil *grease_pencil = grease_pencil_component.get();
-        if (grease_pencil != nullptr && !grease_pencil->layers().is_empty()) {
-          const int grease_pencil_index = gather_info.grease_pencils.order.index_of(grease_pencil);
-          const GreasePencilRealizeInfo &grease_pencil_info =
-              gather_info.grease_pencils.realize_info[grease_pencil_index];
-          gather_info.r_tasks.grease_pencil_tasks.append(
-              {int(gather_info.r_offsets.grease_pencil_layer_offset),
-               &grease_pencil_info,
-               base_transform,
-               base_instance_context.grease_pencils});
-          gather_info.r_offsets.grease_pencil_layer_offset += grease_pencil->layers().size();
         }
         break;
       }
@@ -1061,11 +1006,7 @@ static bke::GeometrySet::GatheredAttributes gather_attributes_to_propagate(
       if (component_type != bke::GeometryComponent::Type::Instance &&
           dst_domain == AttrDomain::Instance)
       {
-        if (component_type == bke::GeometryComponent::Type::GreasePencil) {
-          /* For Grease Pencil, we want to propagate the instance attributes to the layers. */
-          dst_domain = AttrDomain::Layer;
-        }
-        else if (component_type == bke::GeometryComponent::Type::Curve &&
+        if (component_type == bke::GeometryComponent::Type::Curve &&
                  !options.realize_to_point_domain)
         {
           /* For curves, storing the attribute on curves is more efficient. */
@@ -2593,231 +2534,6 @@ static void execute_realize_curve_tasks(const RealizeInstancesOptions &options,
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Grease Pencil
- * \{ */
-
-static OrderedAttributes gather_generic_grease_pencil_attributes_to_propagate(
-    const bke::GeometrySet &in_geometry_set,
-    const RealizeInstancesOptions &options,
-    const VariedDepthOptions &varied_depth_options)
-{
-  bke::GeometrySet::GatheredAttributes attributes_to_propagate = gather_attributes_to_propagate(
-      in_geometry_set, bke::GeometryComponent::Type::GreasePencil, options, varied_depth_options);
-  OrderedAttributes ordered_attributes;
-  for (const int i : attributes_to_propagate.names.index_range()) {
-    ordered_attributes.names.add_new(attributes_to_propagate.names[i]);
-    ordered_attributes.kinds.append(attributes_to_propagate.kinds[i]);
-  }
-  return ordered_attributes;
-}
-
-static void gather_grease_pencils_to_realize(const bke::GeometrySet &geometry_set,
-                                             VectorSet<const GreasePencil *> &r_grease_pencils)
-{
-  if (const GreasePencil *grease_pencil = geometry_set.get_grease_pencil()) {
-    if (!grease_pencil->layers().is_empty()) {
-      r_grease_pencils.add(grease_pencil);
-    }
-  }
-  if (const Instances *instances = geometry_set.get_instances()) {
-    instances->foreach_referenced_geometry([&](const bke::GeometrySet &instance_geometry_set) {
-      gather_grease_pencils_to_realize(instance_geometry_set, r_grease_pencils);
-    });
-  }
-}
-
-static AllGreasePencilsInfo preprocess_grease_pencils(
-    const bke::GeometrySet &geometry_set,
-    const RealizeInstancesOptions &options,
-    const VariedDepthOptions &varied_depth_options)
-{
-  PRF_scope(ProfileCategory::Default);
-  AllGreasePencilsInfo info;
-  info.attributes = gather_generic_grease_pencil_attributes_to_propagate(
-      geometry_set, options, varied_depth_options);
-
-  gather_grease_pencils_to_realize(geometry_set, info.order);
-  info.realize_info.reinitialize(info.order.size());
-  for (const int grease_pencil_index : info.realize_info.index_range()) {
-    GreasePencilRealizeInfo &grease_pencil_info = info.realize_info[grease_pencil_index];
-    const GreasePencil *grease_pencil = info.order[grease_pencil_index];
-    grease_pencil_info.grease_pencil = grease_pencil;
-
-    bke::AttributeAccessor attributes = grease_pencil->attributes();
-    grease_pencil_info.attributes.reinitialize(info.attributes.size());
-    for (const int attribute_index : info.attributes.index_range()) {
-      const StringRef name = info.attributes.names[attribute_index];
-      const bke::AttrType data_type = info.attributes.kinds[attribute_index].data_type;
-      const bke::AttrDomain domain = info.attributes.kinds[attribute_index].domain;
-      if (attributes.contains(name)) {
-        GVArray attribute = *attributes.lookup_or_default(name, domain, data_type);
-        grease_pencil_info.attributes[attribute_index].emplace(std::move(attribute));
-      }
-    }
-
-    grease_pencil_info.material_index_map.reinitialize(grease_pencil->material_array_num);
-    for (const int i : IndexRange(grease_pencil->material_array_num)) {
-      Material *material = grease_pencil->material_array[i];
-      grease_pencil_info.material_index_map[i] = info.materials.index_of_or_add(material);
-    }
-  }
-  return info;
-}
-
-static void execute_realize_grease_pencil_task(
-    const RealizeGreasePencilTask &task,
-    const OrderedAttributes &ordered_attributes,
-    GreasePencil &dst_grease_pencil,
-    MutableSpan<GSpanAttributeWriter> dst_attribute_writers)
-{
-  const GreasePencilRealizeInfo &grease_pencil_info = *task.grease_pencil_info;
-  const GreasePencil &src_grease_pencil = *grease_pencil_info.grease_pencil;
-  const Span<const bke::greasepencil::Layer *> src_layers = src_grease_pencil.layers();
-  const IndexRange dst_layers_slice{task.start_index, src_layers.size()};
-  const Span<bke::greasepencil::Layer *> dst_layers = dst_grease_pencil.layers_for_write().slice(
-      dst_layers_slice);
-
-  for (const int layer_i : src_layers.index_range()) {
-    const bke::greasepencil::Layer &src_layer = *src_layers[layer_i];
-    bke::greasepencil::Layer &dst_layer = *dst_layers[layer_i];
-    BKE_grease_pencil_copy_layer_parameters(src_layer, dst_layer);
-
-    dst_layer.set_name(src_layer.name());
-    dst_layer.set_local_transform(task.transform * src_layer.local_transform());
-
-    const bke::greasepencil::Drawing *src_drawing = src_grease_pencil.get_eval_drawing(src_layer);
-    if (!src_drawing) {
-      continue;
-    }
-    bke::greasepencil::Drawing &dst_drawing = *dst_grease_pencil.get_eval_drawing(dst_layer);
-
-    const bke::CurvesGeometry &src_curves = src_drawing->strokes();
-    bke::CurvesGeometry &dst_curves = dst_drawing.strokes_for_write();
-    dst_curves = src_curves;
-
-    /* Remap materials. */
-    bke::MutableAttributeAccessor dst_attributes = dst_curves.attributes_for_write();
-    bke::SpanAttributeWriter<int> material_indices =
-        dst_attributes.lookup_or_add_for_write_span<int>("material_index", bke::AttrDomain::Curve);
-    for (int &material_index : material_indices.span) {
-      if (material_index >= 0 && material_index < src_grease_pencil.material_array_num) {
-        material_index = grease_pencil_info.material_index_map[material_index];
-      }
-    }
-    material_indices.finish();
-  }
-
-  copy_generic_attributes_to_result(
-      grease_pencil_info.attributes,
-      task.attribute_fallbacks,
-      ordered_attributes,
-      [&](const bke::AttrDomain domain) {
-        BLI_assert(domain == bke::AttrDomain::Layer);
-        UNUSED_VARS_NDEBUG(domain);
-        return dst_layers_slice;
-      },
-      dst_attribute_writers);
-}
-
-static void transform_grease_pencil_layers(Span<bke::greasepencil::Layer *> layers,
-                                           const float4x4 &transform)
-{
-  for (bke::greasepencil::Layer *layer : layers) {
-    layer->set_local_transform(transform * layer->local_transform());
-  }
-}
-
-static void execute_realize_grease_pencil_tasks(
-    const AllGreasePencilsInfo &all_grease_pencils_info,
-    const GatherOffsets &offsets,
-    const Span<RealizeGreasePencilTask> tasks,
-    const OrderedAttributes &ordered_attributes,
-    RealizeInstancesResult &r_result)
-{
-  if (tasks.is_empty()) {
-    return;
-  }
-
-  PRF_scope(ProfileCategory::Default);
-  if (tasks.size() == 1) {
-    const RealizeGreasePencilTask &task = tasks.first();
-    GreasePencil *new_gp = BKE_grease_pencil_copy_for_eval(task.grease_pencil_info->grease_pencil);
-    if (!skip_transform(task.transform)) {
-      transform_grease_pencil_layers(new_gp->layers_for_write(), task.transform);
-    }
-    add_instance_attributes_to_single_geometry(
-        ordered_attributes, task.attribute_fallbacks, new_gp->attributes_for_write());
-    r_result.geometry.replace_grease_pencil(new_gp);
-    return;
-  }
-
-  const int64_t new_layers_num = offsets.grease_pencil_layer_offset;
-  if (!valid_int_num(new_layers_num)) {
-    r_result.errors.append(RPT_("Realized grease pencil has too many layers."));
-    return;
-  }
-
-  /* Allocate new grease pencil. */
-  GreasePencil *dst_grease_pencil = BKE_grease_pencil_new_nomain();
-  BKE_grease_pencil_copy_parameters(*tasks.first().grease_pencil_info->grease_pencil,
-                                    *dst_grease_pencil);
-  r_result.geometry.replace_grease_pencil(dst_grease_pencil);
-
-  /* Allocate all layers. */
-  dst_grease_pencil->add_layers_with_empty_drawings_for_eval(new_layers_num);
-
-  /* Transfer material pointers. The material indices are updated for each task separately. */
-  if (!all_grease_pencils_info.materials.is_empty()) {
-    MEM_SAFE_DELETE(dst_grease_pencil->material_array);
-    dst_grease_pencil->material_array_num = all_grease_pencils_info.materials.size();
-    dst_grease_pencil->material_array = MEM_new_array_zeroed<Material *>(
-        dst_grease_pencil->material_array_num, __func__);
-    uninitialized_copy_n(all_grease_pencils_info.materials.data(),
-                         dst_grease_pencil->material_array_num,
-                         dst_grease_pencil->material_array);
-  }
-
-  /* Prepare generic output attributes. */
-  bke::MutableAttributeAccessor dst_attributes = dst_grease_pencil->attributes_for_write();
-  Vector<GSpanAttributeWriter> dst_attribute_writers;
-  for (const int attribute_index : ordered_attributes.index_range()) {
-    const StringRef name = ordered_attributes.names[attribute_index];
-    const bke::AttrType data_type = ordered_attributes.kinds[attribute_index].data_type;
-    if (try_join_single_value_attribute(
-            tasks.size(),
-            ordered_attributes,
-            [&](const int task_index) -> TaskAttrInfo {
-              return {.attributes = tasks[task_index].grease_pencil_info->attributes,
-                      .fallbacks = tasks[task_index].attribute_fallbacks};
-            },
-            attribute_index,
-            dst_attributes))
-    {
-      dst_attribute_writers.append({});
-      continue;
-    }
-    dst_attribute_writers.append(
-        dst_attributes.lookup_or_add_for_write_only_span(name, bke::AttrDomain::Layer, data_type));
-  }
-
-  /* Actually execute all tasks. */
-  threading::parallel_for(tasks.index_range(), 100, [&](const IndexRange task_range) {
-    for (const int task_index : task_range) {
-      const RealizeGreasePencilTask &task = tasks[task_index];
-      execute_realize_grease_pencil_task(
-          task, ordered_attributes, *dst_grease_pencil, dst_attribute_writers);
-    }
-  });
-
-  /* Tag modified attributes. */
-  for (GSpanAttributeWriter &dst_attribute : dst_attribute_writers) {
-    dst_attribute.finish();
-  }
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Edit Data
  * \{ */
 
@@ -2937,8 +2653,6 @@ RealizeInstancesResult realize_instances(bke::GeometrySet geometry_set,
       geometry_set, options, varied_depth_option);
   AllMeshesInfo all_meshes_info = preprocess_meshes(geometry_set, options, varied_depth_option);
   AllCurvesInfo all_curves_info = preprocess_curves(geometry_set, options, varied_depth_option);
-  AllGreasePencilsInfo all_grease_pencils_info = preprocess_grease_pencils(
-      geometry_set, options, varied_depth_option);
   OrderedAttributes all_instance_attributes = gather_generic_instance_attributes_to_propagate(
       geometry_set, options, varied_depth_option);
 
@@ -2949,7 +2663,6 @@ RealizeInstancesResult realize_instances(bke::GeometrySet geometry_set,
   GatherTasksInfo gather_info = {all_pointclouds_info,
                                  all_meshes_info,
                                  all_curves_info,
-                                 all_grease_pencils_info,
                                  all_instance_attributes,
                                  create_id_attribute,
                                  varied_depth_option.selection,
@@ -3009,11 +2722,6 @@ RealizeInstancesResult realize_instances(bke::GeometrySet geometry_set,
                                 gather_info.r_tasks.curve_tasks,
                                 all_curves_info.attributes,
                                 result);
-    execute_realize_grease_pencil_tasks(all_grease_pencils_info,
-                                        gather_info.r_offsets,
-                                        gather_info.r_tasks.grease_pencil_tasks,
-                                        all_grease_pencils_info.attributes,
-                                        result);
     execute_realize_edit_data_tasks(gather_info.r_tasks.edit_data_tasks, result.geometry);
   });
   if (gather_info.r_tasks.first_volume) {

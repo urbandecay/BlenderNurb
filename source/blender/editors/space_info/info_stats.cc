@@ -13,7 +13,6 @@
 
 #include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
@@ -42,7 +41,6 @@
 #include "BKE_curve.hh"
 #include "BKE_curves.hh"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_key.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
@@ -189,29 +187,6 @@ static void stats_object(Object *ob,
         stats->totlampsel++;
       }
       break;
-    case OB_GREASE_PENCIL: {
-      if (!is_selected) {
-        break;
-      }
-
-      const GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-
-      for (const GreasePencilDrawingBase *drawing_base : grease_pencil->drawings()) {
-        const GreasePencilDrawing *drawing = reinterpret_cast<const GreasePencilDrawing *>(
-            drawing_base);
-        const bke::CurvesGeometry &curves = drawing->wrap().strokes();
-
-        stats->totpoints += curves.points_num();
-        stats->totgpstroke += curves.curves_num();
-      }
-
-      for (const bke::greasepencil::Layer *layer : grease_pencil->layers()) {
-        stats->totgpframe += layer->frames().size();
-      }
-
-      stats->totgplayer += grease_pencil->layers().size();
-      break;
-    }
     case OB_CURVES: {
       const Curves &curves_id = *id_cast<Curves *>(ob->data);
       const bke::CurvesGeometry &curves = curves_id.geometry.wrap();
@@ -475,7 +450,7 @@ static void stats_update(const Main *bmain,
 
   memset(stats, 0x0, sizeof(*stats));
 
-  if (obedit && (ob->type != OB_GREASE_PENCIL)) {
+  if (obedit) {
     /* Edit Mode. */
     FOREACH_OBJECT_BEGIN (bmain, scene, view_layer, ob_iter) {
       if (ob_iter->base_flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) {
@@ -636,18 +611,6 @@ static void get_stats_string(char *info,
 
   if (ob) {
     *ofs += BLI_snprintf_utf8_rlen(info + *ofs, len - *ofs, "%s | ", ob->id.name + 2);
-  }
-
-  if ((ob) && (ob->type == OB_GREASE_PENCIL)) {
-    *ofs += BLI_snprintf_utf8_rlen(info + *ofs,
-                                   len - *ofs,
-
-                                   IFACE_("Layers:%s | Frames:%s | Strokes:%s | Points:%s"),
-                                   stats_fmt->totgplayer,
-                                   stats_fmt->totgpframe,
-                                   stats_fmt->totgpstroke,
-                                   stats_fmt->totpoints);
-    return;
   }
 
   if (ob && ob->mode == OB_MODE_EDIT) {
@@ -944,13 +907,7 @@ void ED_info_draw_stats(
     return;
   }
 
-  if ((ob) && ob->type == OB_GREASE_PENCIL) {
-    stats_row(col1, labels[LAYERS], col2, stats_fmt.totgplayer, nullptr, y, height);
-    stats_row(col1, labels[FRAMES], col2, stats_fmt.totgpframe, nullptr, y, height);
-    stats_row(col1, labels[STROKES], col2, stats_fmt.totgpstroke, nullptr, y, height);
-    stats_row(col1, labels[POINTS], col2, stats_fmt.totpoints, nullptr, y, height);
-  }
-  else if (ob && ob->mode == OB_MODE_EDIT) {
+  if (ob && ob->mode == OB_MODE_EDIT) {
     if (ob->type == OB_MESH) {
       stats_row(col1, labels[VERTS], col2, stats_fmt.totvertsel, stats_fmt.totvert, y, height);
       stats_row(col1, labels[EDGES], col2, stats_fmt.totedgesel, stats_fmt.totedge, y, height);

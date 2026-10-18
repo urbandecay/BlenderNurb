@@ -28,10 +28,6 @@ struct bAction;
 struct bActionGroup;
 struct bAnimContext;
 struct bDopeSheet;
-struct bGPDlayer;
-struct GreasePencil;
-struct GreasePencilLayer;
-struct GreasePencilLayerTreeGroup;
 
 /**
  * Draw simple diamond-shape keyframe.
@@ -114,38 +110,6 @@ void ED_add_summary_channel(ChannelDrawList *channel_list,
                             float yscale_fac,
                             int saction_flag);
 
-/* Grease Pencil cels channels */
-void ED_add_grease_pencil_cels_channel(ChannelDrawList *channel_list,
-                                       bDopeSheet *ads,
-                                       const GreasePencilLayer *layer,
-                                       float ypos,
-                                       float yscale_fac,
-                                       int saction_flag);
-
-/* Grease Pencil layer group channels */
-void ED_add_grease_pencil_layer_group_channel(ChannelDrawList *channel_list,
-                                              bDopeSheet *ads,
-                                              const GreasePencilLayerTreeGroup *layer_group,
-                                              float ypos,
-                                              float yscale_fac,
-                                              int saction_flag);
-
-/* Grease Pencil data channels */
-void ED_add_grease_pencil_datablock_channel(ChannelDrawList *channel_list,
-                                            bAnimContext *ac,
-                                            bAnimListElem *ale,
-                                            const GreasePencil *grease_pencil,
-                                            const float ypos,
-                                            const float yscale_fac,
-                                            int saction_flag);
-
-/* Grease Pencil Layer */
-void ED_add_grease_pencil_layer_legacy_channel(ChannelDrawList *channel_list,
-                                               bDopeSheet *ads,
-                                               bGPDlayer *gpl,
-                                               float ypos,
-                                               float yscale_fac,
-                                               int saction_flag);
 /* Mask Layer */
 void ED_add_mask_layer_channel(ChannelDrawList *channel_list,
                                bDopeSheet *ads,

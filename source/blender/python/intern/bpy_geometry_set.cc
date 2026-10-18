@@ -336,18 +336,6 @@ static PyObject *BPy_GeometrySet_get_volume(BPy_GeometrySet *self, void * /*clos
   return pyrna_id_CreatePyObject(reinterpret_cast<ID *>(self->geometry.get_volume_for_write()));
 }
 
-PyDoc_STRVAR(
-    /* Wrap. */
-    bpy_geometry_set_grease_pencil_doc,
-    "The Grease Pencil data-block in the geometry set.\n"
-    "\n"
-    ":type: :class:`bpy.types.GreasePencil`\n");
-static PyObject *BPy_GeometrySet_get_grease_pencil(BPy_GeometrySet *self, void * /*closure*/)
-{
-  return pyrna_id_CreatePyObject(
-      reinterpret_cast<ID *>(self->geometry.get_grease_pencil_for_write()));
-}
-
 static PyGetSetDef BPy_GeometrySet_getseters[] = {
     {
         "name",
@@ -389,13 +377,6 @@ static PyGetSetDef BPy_GeometrySet_getseters[] = {
         reinterpret_cast<getter>(BPy_GeometrySet_get_volume),
         nullptr,
         bpy_geometry_set_volume_doc,
-        nullptr,
-    },
-    {
-        "grease_pencil",
-        reinterpret_cast<getter>(BPy_GeometrySet_get_grease_pencil),
-        nullptr,
-        bpy_geometry_set_grease_pencil_doc,
         nullptr,
     },
     {nullptr},

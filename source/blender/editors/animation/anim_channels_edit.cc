@@ -20,7 +20,6 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_key_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_object_types.h"
@@ -35,8 +34,6 @@
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_global.hh"
-#include "BKE_gpencil_legacy.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_library.hh"
@@ -111,65 +108,6 @@ static bool get_normalized_fcurve_bounds(FCurve *fcu,
   return true;
 }
 
-static bool get_gpencil_bounds(bGPDlayer *gpl, const float range[2], rctf *r_bounds)
-{
-  bool found_start = false;
-  int start_frame = 0;
-  int end_frame = 1;
-  for (bGPDframe &gpf : gpl->frames) {
-    if (gpf.framenum < range[0]) {
-      continue;
-    }
-    if (gpf.framenum > range[1]) {
-      break;
-    }
-    if (!found_start) {
-      start_frame = gpf.framenum;
-      found_start = true;
-    }
-    end_frame = gpf.framenum;
-  }
-  r_bounds->xmin = start_frame;
-  r_bounds->xmax = end_frame;
-  r_bounds->ymin = 0;
-  r_bounds->ymax = 1;
-
-  return found_start;
-}
-
-static bool get_grease_pencil_layer_bounds(const GreasePencilLayer *gplayer,
-                                           const float range[2],
-                                           rctf *r_bounds)
-{
-  using namespace blender::bke::greasepencil;
-  const Layer &layer = gplayer->wrap();
-
-  bool found_start = false;
-  int start_frame = 0;
-  int end_frame = 1;
-
-  for (const FramesMapKeyT key : layer.sorted_keys()) {
-    if (key < range[0]) {
-      continue;
-    }
-    if (key > range[1]) {
-      break;
-    }
-
-    if (!found_start) {
-      start_frame = key;
-      found_start = true;
-    }
-    end_frame = key;
-  }
-  r_bounds->xmin = start_frame;
-  r_bounds->xmax = end_frame;
-  r_bounds->ymin = 0;
-  r_bounds->ymax = 1;
-
-  return found_start;
-}
-
 static bool get_channel_bounds(bAnimContext *ac,
                                bAnimListElem *ale,
                                const float range[2],
@@ -178,16 +116,6 @@ static bool get_channel_bounds(bAnimContext *ac,
 {
   bool found_bounds = false;
   switch (ale->datatype) {
-    case ALE_GPFRAME: {
-      bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-      found_bounds = get_gpencil_bounds(gpl, range, r_bounds);
-      break;
-    }
-    case ALE_GREASE_PENCIL_CEL:
-      found_bounds = get_grease_pencil_layer_bounds(
-          static_cast<const GreasePencilLayer *>(ale->data), range, r_bounds);
-      break;
-
     case ALE_FCURVE: {
       FCurve *fcu = static_cast<FCurve *>(ale->key_data);
       found_bounds = get_normalized_fcurve_bounds(
@@ -208,8 +136,6 @@ static bool get_channel_bounds(bAnimContext *ac,
     case ALE_GROUP:
     case ALE_ACTION_LAYERED:
     case ALE_ACTION_SLOT:
-    case ALE_GREASE_PENCIL_DATA:
-    case ALE_GREASE_PENCIL_GROUP:
       return false;
   }
   return found_bounds;
@@ -297,7 +223,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
@@ -308,12 +233,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
         if (ale->adt) {
           ACHANNEL_SET_FLAG(ale->adt, ACHANNEL_SETFLAG_CLEAR, ADT_UI_ACTIVE);
         }
-        break;
-      }
-      case ANIMTYPE_GPLAYER: {
-        bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-        ACHANNEL_SET_FLAG(gpl, ACHANNEL_SETFLAG_CLEAR, GP_LAYER_ACTIVE);
         break;
       }
       case ANIMTYPE_NONE:
@@ -327,9 +246,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_FILLDRIVERS:
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
       case ANIMTYPE_MASKDATABLOCK:
       case ANIMTYPE_MASKLAYER:
       case ANIMTYPE_PALETTE:
@@ -380,7 +296,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_DSSPK:
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSTEX:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
@@ -394,11 +309,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
         break;
       }
 
-      case ANIMTYPE_GPLAYER: {
-        bGPDlayer *gpl = static_cast<bGPDlayer *>(channel_data);
-        gpl->flag |= GP_LAYER_ACTIVE;
-        break;
-      }
       /* unhandled currently, but may be interesting */
       case ANIMTYPE_MASKLAYER:
       case ANIMTYPE_SHAPEKEY:
@@ -435,7 +345,6 @@ bool ANIM_is_active_channel(bAnimListElem *ale)
     case ANIMTYPE_DSLAT:
     case ANIMTYPE_DSLINESTYLE:
     case ANIMTYPE_DSSPK:
-    case ANIMTYPE_DSGPENCIL:
     case ANIMTYPE_DSMCLIP:
     case ANIMTYPE_DSHAIR:
     case ANIMTYPE_DSPOINTCLOUD:
@@ -453,14 +362,6 @@ bool ANIM_is_active_channel(bAnimListElem *ale)
       FCurve *fcu = static_cast<FCurve *>(ale->data);
       return fcu->flag & FCURVE_ACTIVE;
     }
-    case ANIMTYPE_GPLAYER: {
-      bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-      return gpl->flag & GP_LAYER_ACTIVE;
-    }
-    case ANIMTYPE_GREASE_PENCIL_LAYER: {
-      GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale->id);
-      return grease_pencil->is_layer_active(static_cast<bke::greasepencil::Layer *>(ale->data));
-    }
     case ANIMTYPE_ACTION_SLOT: {
       animrig::Slot *slot = reinterpret_cast<animrig::Slot *>(ale->data);
       return slot->is_active();
@@ -475,8 +376,6 @@ bool ANIM_is_active_channel(bAnimListElem *ale)
     case ANIMTYPE_NLACONTROLS:
     case ANIMTYPE_FILLDRIVERS:
     case ANIMTYPE_SHAPEKEY:
-    case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
     case ANIMTYPE_MASKDATABLOCK:
     case ANIMTYPE_MASKLAYER:
     case ANIMTYPE_NLATRACK:
@@ -597,7 +496,6 @@ static eAnimChannels_SetFlag anim_channels_selection_flag_for_toggle(
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
@@ -609,11 +507,6 @@ static eAnimChannels_SetFlag anim_channels_selection_flag_for_toggle(
         }
         break;
       }
-      case ANIMTYPE_GPLAYER:
-        if (ale.flag & GP_LAYER_SELECT) {
-          return ACHANNEL_SETFLAG_CLEAR;
-        }
-        break;
       case ANIMTYPE_MASKLAYER:
         if (ale.flag & MASK_LAYERFLAG_SELECT) {
           return ACHANNEL_SETFLAG_CLEAR;
@@ -625,9 +518,6 @@ static eAnimChannels_SetFlag anim_channels_selection_flag_for_toggle(
       case ANIMTYPE_SUMMARY:
       case ANIMTYPE_NLACONTROLS:
       case ANIMTYPE_FILLDRIVERS:
-      case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
       case ANIMTYPE_MASKDATABLOCK:
       case ANIMTYPE_PALETTE:
       case ANIMTYPE_NUM_TYPES:
@@ -768,7 +658,6 @@ static void anim_channels_select_set(bAnimContext *ac,
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
@@ -784,18 +673,6 @@ static void anim_channels_select_set(bAnimContext *ac,
         }
         break;
       }
-      case ANIMTYPE_GREASE_PENCIL_LAYER: {
-        using namespace blender::bke::greasepencil;
-        Layer *layer = static_cast<Layer *>(ale.data);
-        ACHANNEL_SET_FLAG(&(layer->base), sel, GP_LAYER_TREE_NODE_SELECT);
-        break;
-      }
-      case ANIMTYPE_GPLAYER: {
-        bGPDlayer *gpl = static_cast<bGPDlayer *>(ale.data);
-
-        ACHANNEL_SET_FLAG(gpl, sel, GP_LAYER_SELECT);
-        break;
-      }
       case ANIMTYPE_MASKLAYER: {
         MaskLayer *masklay = static_cast<MaskLayer *>(ale.data);
 
@@ -808,8 +685,6 @@ static void anim_channels_select_set(bAnimContext *ac,
       case ANIMTYPE_SUMMARY:
       case ANIMTYPE_NLACONTROLS:
       case ANIMTYPE_FILLDRIVERS:
-      case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
       case ANIMTYPE_MASKDATABLOCK:
       case ANIMTYPE_PALETTE:
       case ANIMTYPE_NUM_TYPES:
@@ -1283,23 +1158,6 @@ static AnimChanRearrangeFp rearrange_get_mode_func(eRearrangeAnimChan_Mode mode)
   }
 }
 
-/* get rearranging function, given 'rearrange' mode (grease pencil is inverted) */
-static AnimChanRearrangeFp rearrange_gpencil_get_mode_func(eRearrangeAnimChan_Mode mode)
-{
-  switch (mode) {
-    case REARRANGE_ANIMCHAN_TOP:
-      return rearrange_island_bottom;
-    case REARRANGE_ANIMCHAN_UP:
-      return rearrange_island_down;
-    case REARRANGE_ANIMCHAN_DOWN:
-      return rearrange_island_up;
-    case REARRANGE_ANIMCHAN_BOTTOM:
-      return rearrange_island_top;
-    default:
-      return nullptr;
-  }
-}
-
 /* Rearrange Islands Generics ------------------------------------- */
 
 /* add channel into list of islands */
@@ -1334,12 +1192,6 @@ static void rearrange_animchannel_add_to_islands(ListBaseT<tReorderChannelIsland
       NlaTrack *nlt = reinterpret_cast<NlaTrack *>(channel);
 
       is_sel = SEL_NLT(nlt);
-      break;
-    }
-    case ANIMTYPE_GPLAYER: {
-      bGPDlayer *gpl = reinterpret_cast<bGPDlayer *>(channel);
-
-      is_sel = SEL_GPL(gpl);
       break;
     }
     default:
@@ -2049,113 +1901,6 @@ static void rearrange_nla_control_channels(bAnimContext *ac,
 
 /* ------------------- */
 
-static void rearrange_grease_pencil_channels(bAnimContext *ac, eRearrangeAnimChan_Mode mode)
-{
-  using namespace blender::bke::greasepencil;
-  ListBaseT<bAnimListElem> anim_data = {nullptr, nullptr};
-  Vector<Layer *> layer_list;
-  int filter = ANIMFILTER_DATA_VISIBLE;
-
-  ANIM_animdata_filter(
-      ac, &anim_data, eAnimFilter_Flags(filter), ac->data, eAnimCont_Types(ac->datatype));
-
-  if (mode == REARRANGE_ANIMCHAN_TOP) {
-    for (bAnimListElem &ale : anim_data.items_reversed()) {
-      GreasePencil &grease_pencil = *reinterpret_cast<GreasePencil *>(ale.id);
-      Layer *layer = static_cast<Layer *>(ale.data);
-      if (layer->is_selected()) {
-        grease_pencil.move_node_top(layer->as_node());
-        DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
-      }
-    }
-  }
-  else {
-    for (bAnimListElem &ale : anim_data) {
-      GreasePencil &grease_pencil = *reinterpret_cast<GreasePencil *>(ale.id);
-      Layer *layer = static_cast<Layer *>(ale.data);
-
-      switch (mode) {
-        case REARRANGE_ANIMCHAN_UP: {
-          if (layer->is_selected()) {
-            grease_pencil.move_node_up(layer->as_node());
-          }
-          break;
-        }
-        case REARRANGE_ANIMCHAN_DOWN: {
-          if (layer->is_selected()) {
-            grease_pencil.move_node_down(layer->as_node());
-          }
-          break;
-        }
-        case REARRANGE_ANIMCHAN_BOTTOM: {
-          if (layer->is_selected()) {
-            grease_pencil.move_node_bottom(layer->as_node());
-          }
-          break;
-        }
-        case REARRANGE_ANIMCHAN_TOP:
-          /* Handled separately before the switch case. */
-          break;
-      }
-      DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
-    }
-  }
-
-  anim_data.free_no_destruct();
-}
-
-static void rearrange_gpencil_channels(bAnimContext *ac, eRearrangeAnimChan_Mode mode)
-{
-  ListBaseT<bAnimListElem> anim_data = {nullptr, nullptr};
-  int filter;
-
-  /* get rearranging function */
-  AnimChanRearrangeFp rearrange_func = rearrange_gpencil_get_mode_func(mode);
-
-  if (rearrange_func == nullptr) {
-    return;
-  }
-
-  /* get Grease Pencil datablocks */
-  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_ANIMDATA |
-            ANIMFILTER_LIST_CHANNELS);
-  ANIM_animdata_filter(
-      ac, &anim_data, eAnimFilter_Flags(filter), ac->data, eAnimCont_Types(ac->datatype));
-
-  for (bAnimListElem &ale : anim_data) {
-    /* only consider grease pencil container channels */
-    if (ale.type != ANIMTYPE_DSGPENCIL) {
-      continue;
-    }
-
-    ListBaseT<bAnimListElem> anim_data_visible = {nullptr, nullptr};
-    bGPdata *gpd = static_cast<bGPdata *>(ale.data);
-
-    /* only consider layers if this datablock is open */
-    if ((gpd->flag & GP_DATA_EXPAND) == 0) {
-      continue;
-    }
-
-    /* Filter visible data. */
-    rearrange_animchannels_filter_visible(&anim_data_visible, ac, ANIMTYPE_GPLAYER);
-
-    /* Rearrange data-block's layers. */
-    rearrange_animchannel_islands(
-        &gpd->layers, rearrange_func, mode, ANIMTYPE_GPLAYER, &anim_data_visible);
-
-    /* free visible layers data */
-    anim_data_visible.free_no_destruct();
-
-    /* Tag to recalc geometry */
-    DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
-  }
-
-  /* free GPD channel data */
-  ANIM_animdata_freelist(&anim_data);
-
-  WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
-}
-
 /* ------------------- */
 
 static wmOperatorStatus animchannels_rearrange_exec(bContext *C, wmOperator *op)
@@ -2172,12 +1917,8 @@ static wmOperatorStatus animchannels_rearrange_exec(bContext *C, wmOperator *op)
   mode = eRearrangeAnimChan_Mode(RNA_enum_get(op->ptr, "direction"));
 
   /* method to move channels depends on the editor */
-  if (ac.datatype == ANIMCONT_GPENCIL) {
-    /* Grease Pencil channels */
-    rearrange_grease_pencil_channels(&ac, mode);
-  }
-  else if (ac.datatype == ANIMCONT_MASK) {
-    /* Grease Pencil channels */
+  if (ac.datatype == ANIMCONT_MASK) {
+    /* Mask channels are not currently movable. */
     printf("Mask does not supported for moving yet\n");
   }
   else if (ac.datatype == ANIMCONT_ACTION) {
@@ -2187,10 +1928,6 @@ static wmOperatorStatus animchannels_rearrange_exec(bContext *C, wmOperator *op)
   else {
     ListBaseT<bAnimListElem> anim_data = {nullptr, nullptr};
     int filter;
-
-    if (ELEM(ac.datatype, ANIMCONT_DOPESHEET, ANIMCONT_TIMELINE)) {
-      rearrange_gpencil_channels(&ac, mode);
-    }
 
     /* get animdata blocks */
     filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_ANIMDATA |
@@ -2665,17 +2402,12 @@ static bool animchannels_delete_containers(const bContext *C, bAnimContext *ac)
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
       case ANIMTYPE_DSLIGHTPROBE:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GPLAYER:
-      case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
       case ANIMTYPE_MASKDATABLOCK:
       case ANIMTYPE_MASKLAYER:
       case ANIMTYPE_NLATRACK:
@@ -2779,35 +2511,6 @@ static wmOperatorStatus animchannels_delete_exec(bContext *C, wmOperator * /*op*
         ED_anim_ale_fcurve_delete(ac, ale);
         break;
 
-      case ANIMTYPE_GPLAYER: {
-        /* Grease Pencil layer */
-        bGPdata *gpd = reinterpret_cast<bGPdata *>(ale.id);
-        bGPDlayer *gpl = static_cast<bGPDlayer *>(ale.data);
-
-        /* try to delete the layer's data and the layer itself */
-        BKE_gpencil_layer_delete(gpd, gpl);
-        ale.update = ANIM_UPDATE_DEPS;
-
-        /* Free Grease Pencil data block when last annotation layer is removed, see: #112683. */
-        if (gpd->flag & GP_DATA_ANNOTATIONS && gpd->layers.first == nullptr) {
-          BKE_gpencil_free_data(gpd, true);
-
-          Scene *scene = CTX_data_scene(C);
-          scene->gpd = nullptr;
-
-          Main *bmain = CTX_data_main(C);
-          BKE_id_free_us(bmain, gpd);
-        }
-        break;
-      }
-      case ANIMTYPE_GREASE_PENCIL_LAYER: {
-        using namespace blender::bke::greasepencil;
-        GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale.id);
-        Layer *layer = static_cast<Layer *>(ale.data);
-        grease_pencil->remove_layer(*layer);
-        DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-        break;
-      }
       case ANIMTYPE_MASKLAYER: {
         /* Mask layer */
         Mask *mask = reinterpret_cast<Mask *>(ale.id);
@@ -2845,15 +2548,12 @@ static wmOperatorStatus animchannels_delete_exec(bContext *C, wmOperator * /*op*
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
       case ANIMTYPE_DSLIGHTPROBE:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
       case ANIMTYPE_MASKDATABLOCK:
       case ANIMTYPE_NLATRACK:
       case ANIMTYPE_NLAACTION:
@@ -3675,17 +3375,12 @@ static void box_select_anim_channels(bAnimContext *ac, const rcti &rect, short s
         case ANIMTYPE_DSLAT:
         case ANIMTYPE_DSLINESTYLE:
         case ANIMTYPE_DSSPK:
-        case ANIMTYPE_DSGPENCIL:
         case ANIMTYPE_DSMCLIP:
         case ANIMTYPE_DSHAIR:
         case ANIMTYPE_DSPOINTCLOUD:
         case ANIMTYPE_DSVOLUME:
         case ANIMTYPE_DSLIGHTPROBE:
         case ANIMTYPE_SHAPEKEY:
-        case ANIMTYPE_GPLAYER:
-        case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-        case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-        case ANIMTYPE_GREASE_PENCIL_LAYER:
         case ANIMTYPE_MASKDATABLOCK:
         case ANIMTYPE_MASKLAYER:
         case ANIMTYPE_NLAACTION:
@@ -3777,8 +3472,7 @@ static bool rename_anim_channels(bAnimContext *ac, int channel_index)
   int filter;
   bool success = false;
 
-  /* Filter relevant channels (note that grease-pencil/annotations are not displayed in Graph
-   * Editor). */
+  /* Filter relevant channels. */
   filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS);
   if (ELEM(ac->datatype, ANIMCONT_FCURVES, ANIMCONT_NLA)) {
     filter |= ANIMFILTER_FCURVESONLY;
@@ -4336,111 +4030,6 @@ static int click_select_channel_nlacontrols(bAnimListElem *ale)
   return (ND_ANIMCHAN | NA_EDITED);
 }
 
-static int click_select_channel_gplayer(bContext *C,
-                                        bAnimContext *ac,
-                                        bAnimListElem *ale,
-                                        const short /* eEditKeyframes_Select or -1 */ selectmode,
-                                        const int filter)
-{
-  bGPdata *gpd = reinterpret_cast<bGPdata *>(ale->id);
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-  /* select/deselect */
-  if (selectmode == SELECT_INVERT) {
-    /* invert selection status of this layer only */
-    gpl->flag ^= GP_LAYER_SELECT;
-  }
-  else if (selectmode == SELECT_EXTEND_RANGE) {
-    ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_EXTEND_RANGE);
-    animchannel_select_range(ac, ale);
-  }
-  else {
-    /* select layer by itself */
-    ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_CLEAR);
-    gpl->flag |= GP_LAYER_SELECT;
-  }
-
-  /* change active layer, if this is selected (since we must always have an active layer).
-   * Similar to outliner, do not change active element when selecting elements in range. */
-  if ((gpl->flag & GP_LAYER_SELECT) && (selectmode != SELECT_EXTEND_RANGE)) {
-    ANIM_set_active_channel(ac,
-                            ac->data,
-                            eAnimCont_Types(ac->datatype),
-                            eAnimFilter_Flags(filter),
-                            gpl,
-                            ANIMTYPE_GPLAYER);
-    /* update other layer status */
-    BKE_gpencil_layer_active_set(gpd, gpl);
-    DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY);
-  }
-
-  /* Grease Pencil updates */
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, nullptr);
-  return (ND_ANIMCHAN | NA_EDITED); /* Animation Editors updates */
-}
-
-static int click_select_channel_grease_pencil_datablock(bAnimListElem *ale)
-{
-  GreasePencil *grease_pencil = static_cast<GreasePencil *>(ale->data);
-
-  /* Toggle expand:
-   * - Although the triangle widget already allows this,
-   *   the whole channel can also be used for this purpose.
-   */
-  grease_pencil->flag ^= GREASE_PENCIL_ANIM_CHANNEL_EXPANDED;
-
-  return (ND_ANIMCHAN | NA_EDITED);
-}
-
-static int click_select_channel_grease_pencil_layer_group(bContext *C, bAnimListElem *ale)
-{
-  using namespace blender::bke::greasepencil;
-  LayerGroup &layer_group = static_cast<GreasePencilLayerTreeGroup *>(ale->data)->wrap();
-
-  /* Toggle expand:
-   * - Although the triangle widget already allows this,
-   *   the whole channel can also be used for this purpose.
-   */
-  layer_group.set_expanded(!layer_group.is_expanded());
-  WM_event_add_notifier(C, NC_SPACE | ND_SPACE_PROPERTIES | NA_EDITED, nullptr);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
-  return (ND_ANIMCHAN | NA_EDITED);
-}
-
-static int click_select_channel_grease_pencil_layer(bContext *C,
-                                                    bAnimContext *ac,
-                                                    bAnimListElem *ale,
-                                                    const short selectmode,
-                                                    const int /*filter*/)
-{
-  using namespace blender::bke::greasepencil;
-  Layer *layer = static_cast<Layer *>(ale->data);
-  GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale->id);
-
-  if (selectmode == SELECT_INVERT) {
-    layer->set_selected(!layer->is_selected());
-  }
-  else if (selectmode == SELECT_EXTEND_RANGE) {
-    ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_EXTEND_RANGE);
-    animchannel_select_range(ac, ale);
-  }
-  else {
-    ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_CLEAR);
-    layer->set_selected(true);
-  }
-
-  /* Active channel is not changed during range select. */
-  if (layer->is_selected() && (selectmode != SELECT_EXTEND_RANGE)) {
-    grease_pencil->set_active_layer(layer);
-    WM_msg_publish_rna_prop(
-        CTX_wm_message_bus(C), &grease_pencil->id, grease_pencil, GreasePencilv3Layers, active);
-    DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-  }
-
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
-  return (ND_ANIMCHAN | NA_EDITED);
-}
-
 static int click_select_channel_maskdatablock(bAnimListElem *ale)
 {
   Mask *mask = static_cast<Mask *>(ale->data);
@@ -4550,7 +4139,6 @@ static int mouse_anim_channels(bContext *C,
     case ANIMTYPE_DSLAT:
     case ANIMTYPE_DSLINESTYLE:
     case ANIMTYPE_DSSPK:
-    case ANIMTYPE_DSGPENCIL:
     case ANIMTYPE_DSMCLIP:
     case ANIMTYPE_DSHAIR:
     case ANIMTYPE_DSPOINTCLOUD:
@@ -4573,18 +4161,6 @@ static int mouse_anim_channels(bContext *C,
       break;
     case ANIMTYPE_NLACONTROLS:
       notifierFlags |= click_select_channel_nlacontrols(ale);
-      break;
-    case ANIMTYPE_GPLAYER:
-      notifierFlags |= click_select_channel_gplayer(C, ac, ale, selectmode, filter);
-      break;
-    case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      notifierFlags |= click_select_channel_grease_pencil_datablock(ale);
-      break;
-    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-      notifierFlags |= click_select_channel_grease_pencil_layer_group(C, ale);
-      break;
-    case ANIMTYPE_GREASE_PENCIL_LAYER:
-      notifierFlags |= click_select_channel_grease_pencil_layer(C, ac, ale, selectmode, filter);
       break;
     case ANIMTYPE_MASKDATABLOCK:
       notifierFlags |= click_select_channel_maskdatablock(ale);

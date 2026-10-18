@@ -942,17 +942,12 @@ void draw_nla_main_data(bAnimContext *ac, SpaceNla *snla, ARegion *region)
         case ANIMTYPE_DSLAT:
         case ANIMTYPE_DSLINESTYLE:
         case ANIMTYPE_DSSPK:
-        case ANIMTYPE_DSGPENCIL:
         case ANIMTYPE_DSMCLIP:
         case ANIMTYPE_DSHAIR:
         case ANIMTYPE_DSPOINTCLOUD:
         case ANIMTYPE_DSVOLUME:
         case ANIMTYPE_DSLIGHTPROBE:
         case ANIMTYPE_SHAPEKEY:
-        case ANIMTYPE_GPLAYER:
-        case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-        case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-        case ANIMTYPE_GREASE_PENCIL_LAYER:
         case ANIMTYPE_MASKDATABLOCK:
         case ANIMTYPE_MASKLAYER:
         case ANIMTYPE_PALETTE:

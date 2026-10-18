@@ -33,8 +33,6 @@ def create_object_data(obj_type, name):
         return bpy.data.pointclouds.new(name)
     if obj_type == 'VOLUME':
         return bpy.data.volumes.new(name)
-    if obj_type == 'GREASEPENCIL':
-        return bpy.data.grease_pencils.new(name)
     if obj_type == 'ARMATURE':
         return bpy.data.armatures.new(name)
     if obj_type == 'LATTICE':

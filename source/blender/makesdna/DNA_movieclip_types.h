@@ -22,7 +22,6 @@ struct MovieReader;
 struct MovieClipProxy;
 struct MovieTrackingMarker;
 struct MovieTrackingTrack;
-struct bGPdata;
 namespace gpu {
 class Texture;
 }  // namespace gpu
@@ -128,9 +127,6 @@ struct MovieClip {
   struct MovieReader *anim = nullptr;
   /** Cache for different stuff, not in file. */
   struct MovieClipCache *cache = nullptr;
-  /** Grease pencil data. */
-  struct bGPdata *gpd = nullptr;
-
   /** Data for SfM tracking. */
   struct MovieTracking tracking;
   /**

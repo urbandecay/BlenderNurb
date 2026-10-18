@@ -173,8 +173,6 @@ class AttributeBuilder_Seq(AttributeBuilder):
 
 
 _attribute_builder_overrides = {
-    "context.gpencil.layers": AttributeBuilder_Seq("context.gpencil.layers", "layers"),
-    "context.gpencil_data.layers": AttributeBuilder_Seq("context.gpencil_data.layers", "layers"),
     "context.object.material_slots": (),
     "context.selected_nodes": (),
     "context.selected_strips": (),

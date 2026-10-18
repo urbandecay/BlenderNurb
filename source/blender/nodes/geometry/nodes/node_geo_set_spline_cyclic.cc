@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "GEO_foreach_geometry.hh"
 
@@ -16,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Curve"_ustr, "Geometry"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to change the cyclic state of");
   b.add_output<decl::Geometry>("Curve"_ustr, "Geometry"_ustr)
       .propagate_all_geometry()
@@ -41,24 +40,6 @@ static void set_curve_cyclic(bke::CurvesGeometry &curves,
                                      cyclic);
 }
 
-static void set_grease_pencil_cyclic(GreasePencil &grease_pencil,
-                                     const Field<bool> &selection,
-                                     const Field<bool> &cyclic)
-{
-  using namespace blender::bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr) {
-      continue;
-    }
-    set_curve_cyclic(
-        drawing->strokes_for_write(),
-        bke::GreasePencilLayerFieldContext(grease_pencil, AttrDomain::Curve, layer_index),
-        selection,
-        cyclic);
-  }
-}
-
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry"_ustr);
@@ -70,9 +51,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       bke::CurvesGeometry &curves = curves_id->geometry.wrap();
       const bke::CurvesFieldContext field_context{*curves_id, AttrDomain::Curve};
       set_curve_cyclic(curves, field_context, selection, cyclic);
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      set_grease_pencil_cyclic(*grease_pencil, selection, cyclic);
     }
   });
 

@@ -370,8 +370,8 @@ static void draw_filled_lasso(wmGesture *gt, const int2 *lasso_pt_extra)
   }
 }
 
-/* TODO: Extract this common functionality so it can be shared between Sculpt brushes, the annotate
- * tool, and this common logic. */
+/* TODO: Extract this common functionality so it can be shared between Sculpt brushes and this
+ * common logic. */
 static void draw_lasso_smooth_stroke_indicator(wmGesture *gt, const uint shdr_pos)
 {
   float (*lasso)[2] = static_cast<float (*)[2]>(gt->customdata);

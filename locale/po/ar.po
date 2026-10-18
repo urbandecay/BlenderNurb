@@ -872,10 +872,6 @@ msgid "Fonts"
 msgstr "ﻁﻮﻄﺨﻟﺍ"
 
 
-msgid "Grease Pencil"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻣ ﻢﻠﻗ"
-
-
 msgid "Images"
 msgstr "ﺭﻮﺼﻟﺍ"
 
@@ -5169,14 +5165,6 @@ msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet
 msgstr "(ﻂﻘﻓ ﻂﻴﻄﺨﺘﻟﺍ ﺔﻗﺭﻭ ﺕﺍﺭﺮﺤﻣ) ﻯﺮﺧﻷ﻿ﺍ ﺕﺍﻮﻨﻘﻟﺍ ﻞﻛ ﻲﻔﺘﺨﺗ ﻰﺘﺣ ،ﺮﻬﻈﻳ ﺎﻣﺪﻨﻋ ﺺﺨﻠﻤﻟﺍ ﻱﻮﻃﺍ"
 
 
-msgid "Display Grease Pencil"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺽﺮﻋﺇ"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻘﺑ ﺔﻘﻠﻌﺘﻤﻟﺍ ﺮﻃﻷ﻿ﺍ ﻭ ﺔﻛﺮﺤﻟﺍ ﺕﺎﻧﺎﻴﺑ ﺔﻨﻳﺎﻌﻣ ﻦﻤّﺿ"
-
-
 msgid "Show Hidden"
 msgstr "ﻲﻔﺨﻟﺍ ﺮﻬﻇﺃ"
 
@@ -8366,10 +8354,6 @@ msgid "Reference"
 msgstr "ﻊﺟﺮﻣ"
 
 
-msgid "Grease Pencil Frame"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺭﺎﻃﺇ"
-
-
 msgid "Regular"
 msgstr "ﻱﺩﺎﻋ"
 
@@ -8380,10 +8364,6 @@ msgstr "ﺲﻜﻋﺇ"
 
 msgid "Repeat"
 msgstr "ﺮﻳﺮﻜﺗ"
-
-
-msgid "Grease Pencil Layer"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺔﻘﺒﻃ"
 
 
 msgid "Blend Mode"
@@ -8496,10 +8476,6 @@ msgstr "ﺔﻔﻗﻮﻟﺍ ﺕﺎﻣﻼ﻿ﻋ"
 
 msgid "Markers specific to this action, for labeling poses"
 msgstr "ﺕﺎﻔﻗﻮﻟﺍ ﺔﻧﻮﻨﻌﻟ ,ﺙﺪﺤﻟﺍ ﺍﺬﻬﺑ ﺔﺻﺎﺨﻟﺍ ﺕﺎﻣﻼ﻿ﻌﻟﺍ"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "ﺓﺩﻮﺴﻤﻟﺍ ﺕﺎﻈﺣﻼ﻿ﻤﻟ ﺮﺣ ﻢﺳﺭ"
 
 
 msgid "Feature Set"
@@ -10795,10 +10771,6 @@ msgstr "ﺔﻣﺎﺨﻟﺍ ﺮﺸﻧ ﻥﻮﻟ"
 
 msgid "Displacement Method"
 msgstr "ﻖﺜﺒﻟﺍ ﺔﻘﻳﺮﻃ"
-
-
-msgid "Grease Pencil Settings"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺕﺍﺩﺍﺪﻋﺇ"
 
 
 msgid "Line Color"
@@ -22194,11 +22166,6 @@ msgstr "ﺢﻴﺗﺎﻔﻤﻟﺍ ﻢﻌّﻧ"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﻢﺳﺭﺍ"
-
-
-msgctxt "Operator"
 msgid "Erase"
 msgstr "ﺢﺴﻣﺇ"
 
@@ -22267,10 +22234,6 @@ msgstr "ﺔﻘﺒﻄﻟﺍ ﻑﺬﺣﺇ"
 msgctxt "Operator"
 msgid "Show All Layers"
 msgstr "ﺕﺎﻘﺒﻄﻟﺍ ﻞﻛ ﺮﻬﻇﺍ"
-
-
-msgid "Show all Grease Pencil layers"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻣ ﻢﻠﻗ ﺕﺎﻘﺒﻃ ﻞﻛ ﺮﻬﻇﺃ"
 
 
 msgctxt "Operator"
@@ -26620,14 +26583,6 @@ msgid "To 3D Object"
 msgstr "ﻲﺛﻼ﻿ﺛ ﻦﺋﺎﻛ ﻰﻟﺍ"
 
 
-msgid "Edit Grease Pencil"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺭﺮﺣ"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "ﺓﺭﺎﺘﺨﻤﻟﺍ ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺕﺎﺒﻄﺷ ﺭﺮﺣ"
-
-
 msgctxt "Operator"
 msgid "Create Orientation"
 msgstr "ﺕﺎﻬﺟﻮﺘﻟﺍ ﺊﺸﻧﺍ"
@@ -29017,24 +28972,12 @@ msgid "Add/Replace"
 msgstr "ﻝﺪّﺑ/ﻒﺿﺃ"
 
 
-msgid "Grease Pencil Eraser Radius"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺓﺎﺤﻤﻣ ﺮﻄﻗ ﻒﺼﻧ"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "ﺓﺎﺷﺮﻔﻟﺍ ﺓﺎﺤﻤﻣ ﺮﻄﻗ ﻒﺼﻧ"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻘﻟ ﻖﻤﻌﻟﺍ ﺔﻓﺎﺴﻣ"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "ﻦﻴﻤﻀﺘﻠﻟ ﺔﺒﻄﺸﻟﺍ ﻢﺳﺭ ﺪﻨﻋ ﺓﺭﺄﻔﻟﺎﺑ ﺔﻋﻮﻄﻘﻤﻟﺍ ﺔﻓﺎﺴﻤﻟﺍ"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻘﻟ ﻦﺗﺎﻬﻨﻣ ﺔﻓﺎﺴﻣ"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -32408,10 +32351,6 @@ msgid "Face Area Text"
 msgstr "ﻪﺟﻭﻷ﻿ﺍ ﺔﻘﻄﻨﻣ ﺺﻧ"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺔﻄﻘﻧ"
-
-
 msgid "Face Normal"
 msgstr "ﻪﺟﻭﻷ﻿ﺍ ﺕﺎﻤﻇﺎﻧ"
 
@@ -32426,10 +32365,6 @@ msgstr "ﺭﺎﺘﺨﻣ ﻦﺋﺎﻛ"
 
 msgid "Skin Root"
 msgstr "ﺓﺮﺸﻘﻟﺍ ﺭﺬﺟ"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺭﺎﻃﺍ ﺡﺎﺘﻔﻣ"
 
 
 msgid "Theme Widget Color Set"
@@ -33083,11 +33018,6 @@ msgstr "ﺔﻜﺒﺷ"
 msgctxt "WindowManager"
 msgid "Font"
 msgstr "ﻂﺨﻟﺍ"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ"
 
 
 msgctxt "WindowManager"
@@ -35432,10 +35362,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "ﺔﻄﺒﺗﺮﻣ ﻥﻮﻜﺘﻟ ﺕﺎﺌﻳﺰﺠﻟﺍ ﺕﺍﺩﺍﺪﻋﺇ ﺢﻔﺼﺗ"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr " ﺔﻄﺒﺗﺮﻣ ﻥﻮﻜﺘﻟ ﺕﺎﻈﺣﻼ﻿ﻤﻟﺍ ﻢﻠﻗ ﺕﺎﻧﺎﻴﺑ ﺢﻔﺼﺗ"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "ﺔﻄﺒﺗﺮﻣ ﻥﻮﻜﺘﻟ ﻢﻠﻔﻟﺍ ﺔﺻﺎﺼﻗ ﻰﻟﺍ ﺢﻔﺼﺗ"
 
@@ -35482,11 +35408,6 @@ msgstr "ﺪﻳﺪﺟ"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "ﺪﻳﺪﺟ"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "ﺪﻳﺪﺟ"
 

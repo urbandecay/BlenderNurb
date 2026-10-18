@@ -195,11 +195,6 @@ msgstr "Šriftas"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Eskizavimo pieštukas"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Vaizdas/Nuotrauka/Paveikslas (-ėlis)"
 
@@ -1184,37 +1179,12 @@ msgid "Material"
 msgstr "Medžiaga"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Galų tipas"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Apvalu"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Plokščia"
-
-
 msgid "Threshold"
 msgstr "Slenkstis"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Veiksena"
-
-
 msgid "Eraser Mode"
 msgstr "Trintuko/-imo veiksena"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Potepis"
 
 
 msgid "All"
@@ -3447,11 +3417,6 @@ msgid "Open"
 msgstr "Atidaryti"
 
 
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Pasirinktinis/-ė"
-
-
 msgid "New Layer"
 msgstr "Naujas sluoksnis"
 
@@ -4524,11 +4489,6 @@ msgstr "Nauja/-s/-i"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Nauja/-s/-i"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Nauja/-s/-i"
 

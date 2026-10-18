@@ -464,7 +464,6 @@ class ShaderModule {
   StaticShader facing = shader_clippable("overlay_facing");
   StaticShader grid = {"overlay_grid_next"};
   StaticShader grid_background = {"overlay_grid_background"};
-  StaticShader grid_grease_pencil = shader_clippable("overlay_gpencil_canvas");
   StaticShader grid_image = {"overlay_grid_image"};
   StaticShader lattice_points = shader_clippable("overlay_edit_lattice_point");
   StaticShader lattice_wire = shader_clippable("overlay_edit_lattice_wire");
@@ -490,7 +489,6 @@ class ShaderModule {
   StaticShader motion_path_vert = shader_clippable("overlay_motion_path_point");
   StaticShader outline_detect = {"overlay_outline_detect"};
   StaticShader outline_prepass_curves = shader_clippable("overlay_outline_prepass_curves");
-  StaticShader outline_prepass_gpencil = shader_clippable("overlay_outline_prepass_gpencil");
   StaticShader outline_prepass_mesh = shader_clippable("overlay_outline_prepass_mesh");
   StaticShader outline_prepass_pointcloud = shader_clippable("overlay_outline_prepass_pointcloud");
   StaticShader outline_prepass_wire = shader_clippable("overlay_outline_prepass_wire");
@@ -532,7 +530,6 @@ class ShaderModule {
   StaticShader armature_stick = shader_selectable("overlay_armature_stick");
   StaticShader armature_wire = shader_selectable("overlay_armature_wire");
   StaticShader depth_curves = shader_selectable("overlay_depth_curves");
-  StaticShader depth_grease_pencil = shader_selectable("overlay_depth_gpencil");
   StaticShader depth_mesh = shader_selectable("overlay_depth_mesh");
   StaticShader depth_mesh_conservative = shader_selectable("overlay_depth_mesh_conservative");
   StaticShader depth_pointcloud = shader_selectable("overlay_depth_pointcloud");
@@ -579,16 +576,6 @@ class ShaderModule {
   StaticShader shader_selectable_no_clip(const char *create_info_name);
 };
 
-struct GreasePencilDepthPlane {
-  /* Plane data to reference as push constant.
-   * Will be computed just before drawing. */
-  float4 plane;
-  /* Center and size of the bounding box of the Grease Pencil object. */
-  Bounds<float3> bounds;
-  /* Grease-pencil object resource handle. */
-  ResourceHandle handle;
-};
-
 struct Resources : public select::SelectMap {
   ShaderModule *shaders = nullptr;
 
@@ -632,14 +619,6 @@ struct Resources : public select::SelectMap {
   /* 1px texture containing only maximum depth. To be used for fulfilling bindings when depth
    * texture is not available or not needed. */
   Texture dummy_depth_tx = {"dummy_depth_tx"};
-
-  /* Global vector for all grease pencil depth planes.
-   * Managed by the grease pencil overlay module.
-   * This is to avoid passing the grease pencil overlay class to other overlay and
-   * keep draw_grease_pencil as a static function.
-   * Memory is reference, so we have to use a container with fixed memory. */
-  detail::SubPassVector<GreasePencilDepthPlane, 16> depth_planes;
-  int64_t depth_planes_count = 0;
 
   draw::UniformBuffer<UniformData> globals_buf;
   UniformData &theme = globals_buf;
@@ -709,7 +688,6 @@ struct Resources : public select::SelectMap {
     shaders->curve_edit_line.ensure_compile_async();
     shaders->curve_edit_points.ensure_compile_async();
     shaders->depth_curves.ensure_compile_async();
-    shaders->depth_grease_pencil.ensure_compile_async();
     shaders->depth_mesh.ensure_compile_async();
     shaders->depth_pointcloud.ensure_compile_async();
     shaders->extra_grid.ensure_compile_async();
@@ -744,7 +722,6 @@ struct Resources : public select::SelectMap {
     shaders->motion_path_vert.ensure_compile_async();
     shaders->outline_detect.ensure_compile_async();
     shaders->outline_prepass_curves.ensure_compile_async();
-    shaders->outline_prepass_gpencil.ensure_compile_async();
     shaders->outline_prepass_mesh.ensure_compile_async();
     shaders->outline_prepass_pointcloud.ensure_compile_async();
     shaders->outline_prepass_wire.ensure_compile_async();

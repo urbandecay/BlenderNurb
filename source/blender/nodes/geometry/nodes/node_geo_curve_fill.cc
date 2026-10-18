@@ -8,14 +8,11 @@
 #include "BLI_math_vector_types.hh"
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
-#include "BKE_instances.hh"
 #include "BKE_mesh.hh"
 
 #include "BLI_task.hh"
 
 #include "GEO_foreach_geometry.hh"
-#include "GEO_join_geometries.hh"
 
 #include "node_geometry_util.hh"
 
@@ -47,7 +44,7 @@ static const EnumPropertyItem fill_rule_items[] = {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description(
           "Curves to fill. All curves are treated as cyclic and projected to the XY plane");
   b.add_input<decl::Int>("Group ID"_ustr)
@@ -314,48 +311,6 @@ static void curve_fill_calculate(GeometrySet &geometry_set,
     geometry_set.replace_curves(nullptr);
   }
 
-  if (geometry_set.has_grease_pencil()) {
-    using namespace blender::bke::greasepencil;
-    const GreasePencil &grease_pencil = *geometry_set.get_grease_pencil();
-    Vector<Mesh *> mesh_by_layer(grease_pencil.layers().size(), nullptr);
-    for (const int layer_index : grease_pencil.layers().index_range()) {
-      const Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-      if (drawing == nullptr) {
-        continue;
-      }
-      const bke::CurvesGeometry &src_curves = drawing->strokes();
-      if (src_curves.is_empty()) {
-        continue;
-      }
-      const Array<meshintersect::CDT_result<double>> results = do_group_aware_cdt(
-          src_curves, output_type, group_index);
-      mesh_by_layer[layer_index] = cdts_to_mesh(results);
-    }
-    if (!mesh_by_layer.is_empty()) {
-      auto instances = std::make_unique<bke::Instances>(mesh_by_layer.size());
-      MutableSpan<int> handles = instances->reference_handles_for_write();
-      instances->transforms_for_write().fill(float4x4::identity());
-      for (const int i : mesh_by_layer.index_range()) {
-        Mesh *mesh = mesh_by_layer[i];
-        if (!mesh) {
-          /* Add an empty reference so the number of layers and instances match.
-           * This makes it easy to reconstruct the layers afterwards and keep their attributes.
-           * Although in this particular case we don't propagate the attributes. */
-          handles[i] = instances->add_reference(bke::InstanceReference());
-          continue;
-        }
-        GeometrySet temp_set = GeometrySet::from_mesh(mesh);
-        handles[i] = instances->add_reference(bke::InstanceReference{temp_set});
-      }
-      auto &dst_component = geometry_set.get_component_for_write<InstancesComponent>();
-      GeometrySet new_instances = geometry::join_geometries(
-          {GeometrySet::from_instances(dst_component.release()),
-           GeometrySet::from_instances(std::move(instances))},
-          {});
-      dst_component.replace(new_instances.get_component_for_write<InstancesComponent>().release());
-    }
-    geometry_set.replace_grease_pencil(nullptr);
-  }
 }
 
 static void node_geo_exec(GeoNodeExecParams params)

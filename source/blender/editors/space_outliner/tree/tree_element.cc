@@ -25,9 +25,6 @@
 #include "tree_element_defgroup.hh"
 #include "tree_element_driver.hh"
 #include "tree_element_edit_bone.hh"
-#include "tree_element_gpencil_effect.hh"
-#include "tree_element_gpencil_layer.hh"
-#include "tree_element_grease_pencil_node.hh"
 #include "tree_element_id.hh"
 #include "tree_element_label.hh"
 #include "tree_element_layer_collection.hh"
@@ -91,14 +88,6 @@ std::unique_ptr<AbstractTreeElement> AbstractTreeElement::create_from_type(const
     case TSE_NLA_ACTION:
       return std::make_unique<TreeElementNLAAction>(legacy_te,
                                                     *reinterpret_cast<bAction *>(owner_id));
-    case TSE_GP_LAYER:
-      return std::make_unique<TreeElementGPencilLayer>(legacy_te,
-                                                       *static_cast<bGPDlayer *>(create_data));
-    case TSE_GREASE_PENCIL_NODE:
-      return std::make_unique<TreeElementGreasePencilNode>(
-          legacy_te,
-          *reinterpret_cast<GreasePencil *>(owner_id),
-          *static_cast<bke::greasepencil::TreeNode *>(create_data));
     case TSE_R_LAYER_BASE:
       return std::make_unique<TreeElementViewLayerBase>(legacy_te,
                                                         *reinterpret_cast<Scene *>(owner_id));
@@ -142,13 +131,6 @@ std::unique_ptr<AbstractTreeElement> AbstractTreeElement::create_from_type(const
     case TSE_EBONE:
       return std::make_unique<TreeElementEditBone>(
           legacy_te, *owner_id, *static_cast<EditBone *>(create_data));
-    case TSE_GPENCIL_EFFECT:
-      return std::make_unique<TreeElementGPencilEffect>(legacy_te,
-                                                        *reinterpret_cast<Object *>(owner_id),
-                                                        *static_cast<ShaderFxData *>(create_data));
-    case TSE_GPENCIL_EFFECT_BASE:
-      return std::make_unique<TreeElementGPencilEffectBase>(legacy_te,
-                                                            *reinterpret_cast<Object *>(owner_id));
     case TSE_DEFGROUP_BASE:
       return std::make_unique<TreeElementDeformGroupBase>(legacy_te,
                                                           *reinterpret_cast<Object *>(owner_id));

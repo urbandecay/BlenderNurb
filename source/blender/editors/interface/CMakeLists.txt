@@ -25,7 +25,6 @@ set(SRC
   eyedroppers/eyedropper_datablock.cc
   eyedroppers/eyedropper_depth.cc
   eyedroppers/eyedropper_driver.cc
-  eyedroppers/eyedropper_grease_pencil_color.cc
   eyedroppers/interface_eyedropper.cc
   interface.cc
   interface_align.cc
@@ -69,8 +68,6 @@ set(SRC
   templates/interface_template_curve_mapping.cc
   templates/interface_template_curve_profile.cc
   templates/interface_template_event.cc
-  templates/interface_template_grease_pencil_layer_search.cc
-  templates/interface_template_grease_pencil_layer_tree.cc
   templates/interface_template_icon.cc
   templates/interface_template_id.cc
   templates/interface_template_keymap.cc
@@ -89,7 +86,6 @@ set(SRC
   templates/interface_template_search.cc
   templates/interface_template_search_menu.cc
   templates/interface_template_search_operator.cc
-  templates/interface_template_shader_fx.cc
   templates/interface_template_status.cc
   templates/interface_template_strip_modifiers.cc
   templates/interface_templates.cc

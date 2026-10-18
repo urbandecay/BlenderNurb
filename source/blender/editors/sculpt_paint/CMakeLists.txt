@@ -46,35 +46,6 @@ set(SRC
   curves/sculpt_smooth.cc
   curves/sculpt_snake_hook.cc
 
-  grease_pencil/draw_ops.cc
-  grease_pencil/erase.cc
-  grease_pencil/fill.cc
-  grease_pencil/interpolate.cc
-  grease_pencil/paint.cc
-  grease_pencil/paint_common.cc
-  grease_pencil/paint_cursor.cc
-  grease_pencil/sculpt_clone.cc
-  grease_pencil/sculpt_grab.cc
-  grease_pencil/sculpt_pinch.cc
-  grease_pencil/sculpt_push.cc
-  grease_pencil/sculpt_randomize.cc
-  grease_pencil/sculpt_smooth.cc
-  grease_pencil/sculpt_strength.cc
-  grease_pencil/sculpt_thickness.cc
-  grease_pencil/sculpt_twist.cc
-  grease_pencil/tint.cc
-  grease_pencil/trace.cc
-  grease_pencil/trace_util.cc
-  grease_pencil/vertex_average.cc
-  grease_pencil/vertex_blur.cc
-  grease_pencil/vertex_paint.cc
-  grease_pencil/vertex_replace.cc
-  grease_pencil/vertex_smear.cc
-  grease_pencil/weight_average.cc
-  grease_pencil/weight_blur.cc
-  grease_pencil/weight_draw.cc
-  grease_pencil/weight_smear.cc
-
   mesh/paint_canvas.cc
   mesh/paint_cursor.cc
   mesh/paint_hide.cc
@@ -120,10 +91,6 @@ set(SRC
   paint_intern.hh
 
   curves/sculpt_intern.hh
-
-  grease_pencil/grease_pencil_intern.hh
-  grease_pencil/trace_util.hh
-  grease_pencil/weight_paint.hh
 
   mesh/mesh_brush_common.hh
   mesh/paint_hide.hh

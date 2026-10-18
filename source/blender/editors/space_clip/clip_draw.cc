@@ -6,7 +6,6 @@
  * \ingroup spclip
  */
 
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_scene_types.h"
 
@@ -29,7 +28,6 @@
 #include "BKE_tracking.hh"
 
 #include "ED_clip.hh"
-#include "ED_gpencil_legacy.hh"
 #include "ED_mask.hh"
 #include "ED_screen.hh"
 #include "ED_util.hh"
@@ -1723,16 +1721,14 @@ static void draw_distortion(SpaceClip *sc,
   const int n = 10;
   float tpos[2], grid[11][11][2];
   MovieTracking *tracking = &clip->tracking;
-  bGPdata *gpd = nullptr;
   float aspy = 1.0f / tracking->camera.pixel_aspect;
   float dx = float(width) / n, dy = float(height) / n * aspy;
-  float offsx = 0.0f, offsy = 0.0f;
 
   if (!tracking->camera.focal) {
     return;
   }
 
-  if ((sc->flag & SC_SHOW_GRID) == 0 && (sc->flag & SC_MANUAL_CALIBRATION) == 0) {
+  if ((sc->flag & SC_SHOW_GRID) == 0) {
     return;
   }
 
@@ -1836,83 +1832,6 @@ static void draw_distortion(SpaceClip *sc,
     }
   }
 
-  if (sc->gpencil_src != SC_GPENCIL_SRC_TRACK) {
-    gpd = clip->gpd;
-  }
-
-  if (sc->flag & SC_MANUAL_CALIBRATION && gpd) {
-    bGPDlayer *layer = static_cast<bGPDlayer *>(gpd->layers.first);
-
-    while (layer) {
-      bGPDframe *frame = static_cast<bGPDframe *>(layer->frames.first);
-
-      if (layer->flag & GP_LAYER_HIDE) {
-        layer = layer->next;
-        continue;
-      }
-
-      immUniformColor4fv(layer->color);
-
-      GPU_line_width(layer->thickness);
-      GPU_point_size(float(layer->thickness + 2));
-
-      while (frame) {
-        bGPDstroke *stroke = static_cast<bGPDstroke *>(frame->strokes.first);
-
-        while (stroke) {
-          if (stroke->flag & GP_STROKE_2DSPACE) {
-            if (stroke->totpoints > 1) {
-              for (int i = 0; i < stroke->totpoints - 1; i++) {
-                float pos[2], npos[2], dpos[2], len;
-                int steps;
-
-                pos[0] = (stroke->points[i].x + offsx) * width;
-                pos[1] = (stroke->points[i].y + offsy) * height * aspy;
-
-                npos[0] = (stroke->points[i + 1].x + offsx) * width;
-                npos[1] = (stroke->points[i + 1].y + offsy) * height * aspy;
-
-                len = len_v2v2(pos, npos);
-                steps = ceil(len / 5.0f);
-
-                /* we want to distort only long straight lines */
-                if (stroke->totpoints == 2) {
-                  BKE_tracking_undistort_v2(tracking, width, height, pos, pos);
-                  BKE_tracking_undistort_v2(tracking, width, height, npos, npos);
-                }
-
-                sub_v2_v2v2(dpos, npos, pos);
-                mul_v2_fl(dpos, 1.0f / steps);
-
-                immBegin(GPU_PRIM_LINE_STRIP, steps + 1);
-
-                for (int j = 0; j <= steps; j++) {
-                  BKE_tracking_distort_v2(tracking, width, height, pos, tpos);
-                  immVertex2f(position, tpos[0] / width, tpos[1] / (height * aspy));
-
-                  add_v2_v2(pos, dpos);
-                }
-
-                immEnd();
-              }
-            }
-            else if (stroke->totpoints == 1) {
-              immBegin(GPU_PRIM_POINTS, 1);
-              immVertex2f(position, stroke->points[0].x + offsx, stroke->points[0].y + offsy);
-              immEnd();
-            }
-          }
-
-          stroke = stroke->next;
-        }
-
-        frame = frame->next;
-      }
-
-      layer = layer->next;
-    }
-  }
-
   immUnbindProgram();
 
   GPU_matrix_pop();
@@ -1997,47 +1916,6 @@ void clip_draw_cache_and_notes(const bContext *C, SpaceClip *sc, ARegion *region
   if (clip) {
     draw_movieclip_cache(sc, region, clip, scene);
     draw_movieclip_notes(sc, region);
-  }
-}
-
-void clip_draw_grease_pencil(bContext *C, int onlyv2d)
-{
-  SpaceClip *sc = CTX_wm_space_clip(C);
-  MovieClip *clip = ED_space_clip_get_clip(sc);
-
-  if (!clip) {
-    return;
-  }
-
-  if (onlyv2d) {
-    bool is_track_source = sc->gpencil_src == SC_GPENCIL_SRC_TRACK;
-    /* if manual calibration is used then grease pencil data
-     * associated with the clip is already drawn in draw_distortion
-     */
-    if ((sc->flag & SC_MANUAL_CALIBRATION) == 0 || is_track_source) {
-      GPU_matrix_push();
-      GPU_matrix_mul(sc->unistabmat);
-
-      if (is_track_source) {
-        const MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(
-            &clip->tracking);
-        MovieTrackingTrack *active_track = tracking_object->active_track;
-
-        if (active_track) {
-          const int framenr = ED_space_clip_get_clip_frame_number(sc);
-          MovieTrackingMarker *marker = BKE_tracking_marker_get(active_track, framenr);
-
-          GPU_matrix_translate_2fv(marker->pos);
-        }
-      }
-
-      ED_annotation_draw_2dimage(C);
-
-      GPU_matrix_pop();
-    }
-  }
-  else {
-    ED_annotation_draw_view2d(C, false);
   }
 }
 

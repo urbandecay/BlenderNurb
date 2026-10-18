@@ -320,9 +320,8 @@ void Film::init(const int2 &extent, const rcti *output_rect)
                                                    inst_.v3d->shading.render_pass) |
                                                viewport_compositor_enabled_passes_;
 
-      if (inst_.overlays_enabled() || inst_.gpencil_engine_enabled()) {
-        /* Overlays and Grease Pencil needs the depth for correct compositing.
-         * Using the render pass ensure we store the center depth. */
+      if (inst_.overlays_enabled()) {
+        /* Using the render pass ensures we store the center depth. */
         enabled_passes |= EEVEE_RENDER_PASS_DEPTH;
       }
 

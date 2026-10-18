@@ -39,7 +39,6 @@
 #include "BKE_attribute.hh"
 #include "BKE_curve.hh"
 #include "BKE_effect.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_idprop.hh"
 #include "BKE_main.hh"
 #include "BKE_mesh_legacy_convert.hh"
@@ -1295,13 +1294,6 @@ void blo_do_versions_400(FileData *fd, Library * /*lib*/, Main *bmain)
       const int R_IMF_FLAG_ZBUF_LEGACY = 1 << 0;
       for (Scene &scene : bmain->scenes) {
         scene.r.im_format.flag &= ~R_IMF_FLAG_ZBUF_LEGACY;
-      }
-    }
-
-    /* Reset the layer opacity for all layers to 1. */
-    for (GreasePencil &grease_pencil : bmain->grease_pencils) {
-      for (bke::greasepencil::Layer *layer : grease_pencil.layers_for_write()) {
-        layer->opacity = 1.0f;
       }
     }
 

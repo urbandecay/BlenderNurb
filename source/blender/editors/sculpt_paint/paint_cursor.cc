@@ -960,11 +960,7 @@ static bool paint_use_2d_cursor(PaintMode mode)
       return false;
     case PaintMode::Texture3D:
     case PaintMode::Texture2D:
-    case PaintMode::VertexGPencil:
-    case PaintMode::SculptGPencil:
-    case PaintMode::WeightGPencil:
     case PaintMode::SculptCurves:
-    case PaintMode::GPencil:
       return true;
     case PaintMode::Invalid:
       BLI_assert_unreachable();
@@ -1085,15 +1081,10 @@ static void paint_update_mouse_cursor(PaintCursorContext &pcontext)
     return;
   }
 
-  if (ELEM(pcontext.mode, PaintMode::GPencil, PaintMode::VertexGPencil)) {
-    WM_cursor_set(pcontext.win, WM_CURSOR_DOT);
-  }
-  else {
-    /* Don't use paint cursor when overlapping with the size circle. */
-    const int brush_size = BKE_brush_size_get(pcontext.paint, pcontext.brush);
-    const bool small = brush_size < 28 && brush_size > 12;
-    WM_cursor_set(pcontext.win, small ? WM_CURSOR_DOT : WM_CURSOR_PAINT);
-  }
+  /* Don't use paint cursor when overlapping with the size circle. */
+  const int brush_size = BKE_brush_size_get(pcontext.paint, pcontext.brush);
+  const bool small = brush_size < 28 && brush_size > 12;
+  WM_cursor_set(pcontext.win, small ? WM_CURSOR_DOT : WM_CURSOR_PAINT);
 }
 
 static void paint_draw_2D_view_brush_cursor_default(PaintCursorContext &pcontext)
@@ -1121,10 +1112,6 @@ static void paint_draw_2D_view_brush_cursor(PaintCursorContext &pcontext)
 {
   PRF_scope(ProfileCategory::Draw);
   switch (pcontext.mode) {
-    case PaintMode::GPencil:
-    case PaintMode::VertexGPencil:
-      grease_pencil_cursor_draw(pcontext);
-      break;
     default:
       paint_draw_2D_view_brush_cursor_default(pcontext);
   }
@@ -1269,13 +1256,6 @@ static void paint_draw_cursor(bContext *C, const int2 &xy, const float2 &tilt, v
   }
 
   if (!paint_cursor_is_brush_cursor_enabled(pcontext)) {
-    /* For Grease Pencil draw mode, we want to we only render a small mouse cursor (dot) if the
-     * paint cursor is disabled so that the default mouse cursor doesn't get in the way of tablet
-     * users. See #130089. But don't overwrite a modal cursor, allowing modal operators to set one
-     * temporarily. */
-    if (pcontext.mode == PaintMode::GPencil && pcontext.win->modalcursor == 0) {
-      WM_cursor_set(pcontext.win, WM_CURSOR_DOT);
-    }
     return;
   }
   if (paint_cursor_is_3d_view_navigating(pcontext)) {

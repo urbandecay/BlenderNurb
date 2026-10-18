@@ -53,7 +53,6 @@
 #include "BKE_modifier.hh"
 #include "BKE_node.hh"
 #include "BKE_particle.h"
-#include "BKE_shader_fx.hh"
 #include "BKE_sound.hh"
 #include "BKE_vfont.hh"
 #include "BKE_volume.hh"
@@ -502,7 +501,6 @@ int main(int argc,
   BKE_idtype_init();
   BKE_modifier_init();
   seq::modifiers_init();
-  BKE_shaderfx_init();
   BKE_volumes_init();
   DEG_register_node_types();
 

@@ -22,7 +22,6 @@ set(SRC
   transform_convert_curve.cc
   transform_convert_curves.cc
   transform_convert_graph.cc
-  transform_convert_grease_pencil.cc
   transform_convert_lattice.cc
   transform_convert_mask.cc
   transform_convert_mball.cc
@@ -64,7 +63,6 @@ set(SRC
   transform_mode_edge_rotate_normal.cc
   transform_mode_edge_seq_slide.cc
   transform_mode_edge_slide.cc
-  transform_mode_gpopacity.cc
   transform_mode_maskshrinkfatten.cc
   transform_mode_mirror.cc
   transform_mode_push_pull.cc

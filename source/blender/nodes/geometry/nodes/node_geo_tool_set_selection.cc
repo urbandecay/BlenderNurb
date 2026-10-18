@@ -106,7 +106,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   }
   GeometrySet geometry = params.extract_input<GeometrySet>("Geometry"_ustr);
   const eObjectMode mode = params.user_data()->call_data->operator_data->mode;
-  if (ELEM(mode, OB_MODE_OBJECT, OB_MODE_PAINT_GREASE_PENCIL)) {
+  if (mode == OB_MODE_OBJECT) {
     params.error_message_add(NodeWarningType::Error,
                              "Selection control is not supported in this mode");
     params.set_output("Geometry"_ustr, std::move(geometry));
@@ -181,17 +181,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       if (domain == AttrDomain::Point) {
         bke::try_capture_field_on_geometry(
             geometry.get_component_for_write<PointCloudComponent>(), ".selection", domain, field);
-      }
-    }
-    if (geometry.has_grease_pencil()) {
-      /* Grease Pencil only supports boolean selection. */
-      const Field<bool> field = *conversions.try_convert<bool>(selection);
-      if (ELEM(domain, AttrDomain::Point, AttrDomain::Curve)) {
-        bke::try_capture_field_on_geometry(
-            geometry.get_component_for_write<GreasePencilComponent>(),
-            ".selection",
-            domain,
-            field);
       }
     }
   });

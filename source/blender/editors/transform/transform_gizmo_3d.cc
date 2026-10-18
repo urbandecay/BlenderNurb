@@ -30,7 +30,6 @@
 #include "BKE_curves_utils.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_global.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_layer.hh"
 #include "BKE_library.hh"
 #include "BKE_object.hh"
@@ -47,8 +46,6 @@
 #include "ED_curves.hh"
 #include "ED_gizmo_library.hh"
 #include "ED_gizmo_utils.hh"
-#include "ED_gpencil_legacy.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_object.hh"
 #include "ED_particle.hh"
 #include "ED_screen.hh"
@@ -799,57 +796,6 @@ static int gizmo_3d_foreach_selected(const bContext *C,
       }
       FOREACH_EDIT_OBJECT_END();
     }
-    else if (obedit->type == OB_GREASE_PENCIL) {
-      FOREACH_EDIT_OBJECT_BEGIN (ob_iter, use_mat_local) {
-        GreasePencil &grease_pencil = *id_cast<GreasePencil *>(ob_iter->data);
-
-        float4x4 mat_local = float4x4::identity();
-        if (use_mat_local) {
-          mat_local = obedit->world_to_object() * ob_iter->object_to_world();
-        }
-
-        const Vector<ed::greasepencil::MutableDrawingInfo> drawings =
-            ed::greasepencil::retrieve_editable_drawings(*scene, grease_pencil);
-        threading::parallel_for_each(
-            drawings, [&](const ed::greasepencil::MutableDrawingInfo &info) {
-              const bke::CurvesGeometry &curves = info.drawing.strokes();
-
-              const bke::crazyspace::GeometryDeformation deformation =
-                  bke::crazyspace::get_evaluated_grease_pencil_drawing_deformation(
-                      *depsgraph, *ob, info.drawing);
-
-              const float4x4 layer_transform =
-                  mat_local * grease_pencil.layer(info.layer_index).to_object_space(*ob_iter);
-
-              IndexMaskMemory memory;
-              const IndexMask editable_points = ed::greasepencil::retrieve_editable_points(
-                  *ob, info.drawing, info.layer_index, memory);
-              const IndexMask bezier_points = bke::curves::curve_type_point_selection(
-                  curves, CURVE_TYPE_BEZIER, memory);
-
-              auto run_points = [&](const Span<float3> positions, const StringRef selection_name) {
-                const IndexMask selected_points = ed::curves::retrieve_selected_points(
-                    curves, selection_name, bezier_points, memory);
-                const IndexMask selected_editable_points = IndexMask::from_intersection(
-                    editable_points, selected_points, memory);
-
-                totsel += selected_editable_points.size();
-                selected_editable_points.foreach_index([&](const int point_i) {
-                  run_coord_with_matrix(positions[point_i], true, layer_transform.ptr());
-                });
-              };
-
-              run_points(deformation.positions, ".selection");
-
-              if (curves.has_curve_with_type(CURVE_TYPE_BEZIER)) {
-                run_points(*curves.handle_positions_left(), ".selection_handle_left");
-                run_points(*curves.handle_positions_right(), ".selection_handle_right");
-              }
-            });
-      }
-      FOREACH_EDIT_OBJECT_END();
-    }
-
 #undef FOREACH_EDIT_OBJECT_BEGIN
 #undef FOREACH_EDIT_OBJECT_END
   }

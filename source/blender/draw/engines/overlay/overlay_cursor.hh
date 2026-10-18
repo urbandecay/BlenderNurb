@@ -174,11 +174,6 @@ class Cursor : Overlay {
       return false;
     }
 
-    if (state.object_mode & OB_MODE_WEIGHT_GREASE_PENCIL) {
-      /* grease pencil hide always in some modes */
-      return false;
-    }
-
     return true;
   }
 

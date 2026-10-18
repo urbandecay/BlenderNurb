@@ -22,7 +22,6 @@ struct Object;
 struct Scene;
 struct bNode;
 struct bNodeTree;
-struct MaterialGPencilStyle;
 
 namespace bke {
 class MutableAttributeAccessor;
@@ -81,8 +80,6 @@ void BKE_object_material_remap_calc(Object *ob_dst, Object *ob_src, short *remap
  */
 void BKE_object_material_from_eval_data(Main *bmain, Object *ob_orig, const ID *data_eval);
 Material *BKE_material_add(Main *bmain, const char *name);
-Material *BKE_gpencil_material_add(Main *bmain, const char *name);
-void BKE_gpencil_material_attr_init(Material *ma);
 void BKE_material_make_node_previews_dirty(Material *ma);
 
 /* UNUSED */
@@ -156,8 +153,6 @@ int BKE_object_material_index_get_with_hint(Object *ob, const Material *ma, int 
 
 int BKE_object_material_ensure(Main *bmain, Object *ob, Material *material);
 
-Material *BKE_gpencil_material(Object *ob, short act);
-MaterialGPencilStyle *BKE_gpencil_material_settings(Object *ob, short act);
 
 void BKE_texpaint_slot_refresh_cache(Scene *scene, Material *ma, const Object *ob);
 void BKE_texpaint_slots_refresh_object(Scene *scene, Object *ob);
@@ -263,7 +258,6 @@ Material *BKE_material_default_empty();
 Material *BKE_material_default_holdout();
 Material *BKE_material_default_surface();
 Material *BKE_material_default_volume();
-Material *BKE_material_default_gpencil();
 
 void BKE_material_defaults_free_gpu();
 

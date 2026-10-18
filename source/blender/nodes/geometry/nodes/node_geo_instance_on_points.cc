@@ -8,7 +8,6 @@
 #include "BLI_task.hh"
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 
 #include "GEO_foreach_geometry.hh"
@@ -218,54 +217,6 @@ static void node_geo_exec(GeoNodeExecParams params)
         }
       }
     }
-    if (geometry_set.has_grease_pencil()) {
-      using namespace bke::greasepencil;
-      const GreasePencil &grease_pencil = *geometry_set.get_grease_pencil();
-      auto instances_per_layer = std::make_unique<bke::Instances>();
-
-      Vector<int> handles;
-      Vector<float4x4> transforms;
-      for (const int layer_index : grease_pencil.layers().index_range()) {
-        const Layer &layer = grease_pencil.layer(layer_index);
-        const Drawing *drawing = grease_pencil.get_eval_drawing(layer);
-        if (drawing == nullptr) {
-          continue;
-        }
-        const float4x4 &layer_transform = layer.local_transform();
-        const bke::CurvesGeometry &src_curves = drawing->strokes();
-        if (src_curves.is_empty()) {
-          /* Add an empty reference so the number of layers and instances match.
-           * This makes it easy to reconstruct the layers afterwards and keep their attributes.
-           * Although in this particular case we don't propagate the attributes. */
-          handles.append(instances_per_layer->add_reference(bke::InstanceReference()));
-          transforms.append(layer_transform);
-          continue;
-        }
-        /* TODO: Attributes are not propagating from the curves or the points. */
-        const bke::GreasePencilLayerFieldContext field_context(
-            grease_pencil, AttrDomain::Point, layer_index);
-        if (std::unique_ptr<bke::Instances> layer_instances = add_instances_from_component(
-                src_curves.attributes(), instance, field_context, params, attribute_filter))
-        {
-          GeometrySet temp_set = GeometrySet::from_instances(std::move(layer_instances));
-          handles.append(instances_per_layer->add_reference(bke::InstanceReference{temp_set}));
-          transforms.append(layer_transform);
-        }
-      }
-
-      instances_per_layer->resize(handles.size());
-      instances_per_layer->reference_handles_for_write().copy_from(handles);
-      instances_per_layer->transforms_for_write().copy_from(transforms);
-
-      bke::copy_attributes(geometry_set.get_grease_pencil()->attributes(),
-                           bke::AttrDomain::Layer,
-                           bke::AttrDomain::Instance,
-                           attribute_filter,
-                           instances_per_layer->attributes_for_write());
-
-      component_instances.append(GeometrySet::from_instances(std::move(instances_per_layer)));
-    }
-
     GeometrySet dst_instances = geometry::join_geometries(component_instances, attribute_filter);
 
     geometry_set.keep_only({GeometryComponent::Type::Edit});

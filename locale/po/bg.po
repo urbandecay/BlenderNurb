@@ -324,14 +324,6 @@ msgid "Collection of actions"
 msgstr "Колекция от действия"
 
 
-msgid "Main Annotations"
-msgstr "Главни анотации"
-
-
-msgid "Collection of annotations"
-msgstr "Колекция от анотации"
-
-
 msgid "Main Brushes"
 msgstr "Главни четки"
 

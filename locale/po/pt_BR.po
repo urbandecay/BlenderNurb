@@ -385,16 +385,6 @@ msgstr "Fonte"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Imagem"
 
@@ -1737,10 +1727,6 @@ msgid "Fonts"
 msgstr "Fontes"
 
 
-msgid "Grease Pencil"
-msgstr "Lápis de cera"
-
-
 msgid "Images"
 msgstr "Imagens"
 
@@ -2027,10 +2013,6 @@ msgstr "Atributo na instância"
 
 msgid "Layer"
 msgstr "Camadas"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Atributo na camada Grease Pencil"
 
 
 msgid "Is Internal"
@@ -2855,10 +2837,6 @@ msgstr "Fontes principais"
 
 msgid "Collection of fonts"
 msgstr "Coleção de fontes"
-
-
-msgid "Main Grease Pencils"
-msgstr "Lápis de cera principais"
 
 
 msgid "Main Images"
@@ -7443,14 +7421,6 @@ msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet
 msgstr "Recolhe o sumário quando mostrado, de maneira que todos os outros canais sejam ocultados (somente para os editores da tabela de animação)."
 
 
-msgid "Display Grease Pencil"
-msgstr "Mostrar lápis de cera"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Inclui a visualização dos dados e quadros de animação relacionados ao lápis de cera."
-
-
 msgid "Show Hidden"
 msgstr "Mostrar ocultos"
 
@@ -11174,20 +11144,8 @@ msgid "View Map Cache"
 msgstr "Cache de mapa de visualização"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Definições de interpolação de lápis de cera"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Definições para as ferramentas de interpolação de lápis de cera."
-
-
 msgid "Interpolation Curve"
 msgstr "Curva de interpolação"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Curva personalizada para controlar a interpolação da \"sequência\" entre os quadros de lápis de cera."
 
 
 msgid "Spacing"
@@ -11208,10 +11166,6 @@ msgstr "Linhas paralelas"
 
 msgid "Grid"
 msgstr "Grade"
-
-
-msgid "GPencil Sculpt Settings"
-msgstr "Definições de escultura para lápis de cera"
 
 
 msgid "Project strokes to plane locked to Y"
@@ -11359,10 +11313,6 @@ msgid "Reference"
 msgstr "Referência"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Quadro de lápis de cera"
-
-
 msgid "A keyframe that is part of a moving hold"
 msgstr "Um quadro-chave que é parte de um mantenimento de moção. Usado para evitar paradas estáticas abruptas em poses exageradas."
 
@@ -11373,10 +11323,6 @@ msgstr "Para poses exageradas, ou outras finalidades conforme necessário."
 
 msgid "A filler or baked keyframe for keying on ones, or some other purpose as needed"
 msgstr "Para preenchimentos ou quadros-chave gerados e gravados para chaves de interpolação, ou outras finalidades conforme necessário."
-
-
-msgid "Grease Pencil Frames"
-msgstr "Quadros de lápis de cera"
 
 
 msgid "Invert mask"
@@ -11397,10 +11343,6 @@ msgstr "Repetir"
 
 msgid "Frame Start"
 msgstr "Quadro inicial"
-
-
-msgid "Grease Pencil Layer"
-msgstr "Camada de lápis de cera"
 
 
 msgid "Blend Mode"
@@ -11433,10 +11375,6 @@ msgstr "Índice de passo"
 
 msgid "Translation"
 msgstr "Movimento"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Camadas de lápis de cera"
 
 
 msgid "Statistical view of the levels of color in an image"
@@ -11542,10 +11480,6 @@ msgstr "Marcadores de pose"
 
 msgid "Markers specific to this action, for labeling poses"
 msgstr "Marcadores específicos para esta ação, para rotular poses."
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "Bloco de anotações de rascunho a mão livre."
 
 
 msgid "Animation data for this data-block"
@@ -13603,15 +13537,6 @@ msgid "Enable or disable textured strokes"
 msgstr "Habilita ou desabilita traços texturizados."
 
 
-msgid "Grease Pencil data-block"
-msgstr "Bloco de dados de lápis de cera."
-
-
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "Filtrar por Tipo"
-
-
 msgid "Selected"
 msgstr "Selecionados"
 
@@ -14264,10 +14189,6 @@ msgstr "Deslocamento e ressaltos"
 
 msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "Combinação de deslocamento verdadeiro e mapa de relevos, pra detalhes mais refinados."
-
-
-msgid "Grease Pencil Settings"
-msgstr "Configurações para lápis de cera"
 
 
 msgid "Line Color"
@@ -15024,10 +14945,6 @@ msgstr "Pintura de textura"
 
 msgid "Particle Edit"
 msgstr "Edição de partículas"
-
-
-msgid "Edit Grease Pencil Strokes"
-msgstr "Editar traços de lápis de cera"
 
 
 msgid "Draw Mode"
@@ -28272,10 +28189,6 @@ msgid "Object cast shadows in the 3D viewport"
 msgstr "Objetos projetam sombras na janela de exibição 3D"
 
 
-msgid "Object Line Art"
-msgstr "Arte de Linhas do Objeto"
-
-
 msgid "Inherit"
 msgstr "Herdar"
 
@@ -29092,16 +29005,6 @@ msgstr "Abre um arquivo de módulo de estilo."
 msgctxt "Operator"
 msgid "Open Style Module File"
 msgstr "Abrir arquivo de módulo de estilo"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "Adicionar Predefinição de Pincéis de Lápis de Cera"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Adicionar Material Predefinido de Lápis de Cera"
 
 
 msgctxt "Operator"
@@ -34241,15 +34144,6 @@ msgid "Gizmo Tweak"
 msgstr "Apetrecho Ajuste"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Desenho de Anotação"
-
-
-msgid "Make annotations on the active data"
-msgstr "Permite fazer anotações dentro dos dados ativos."
-
-
 msgid "Arrow"
 msgstr "Seta"
 
@@ -34293,31 +34187,6 @@ msgstr "Esperar pelo primeiro clique ao invés de pintar imediatamente."
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Apagar o quadro ativo"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "Anotação - Adicinar Nova"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Desvincular Anotação"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Adicionar Nova Camada de Anotação"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Mover Camada de Anotação"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Remover Camada de Anotação"
 
 
 msgctxt "Operator"
@@ -34605,22 +34474,12 @@ msgid "Reset viewable area to show selected keyframe range"
 msgstr "Redefine a área visível para mostrar a faixa de quadros-chave selecionada."
 
 
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Capturar Transformação do Objeto para Lápis de Cera"
-
-
 msgid "Projection Type"
 msgstr "Tipo de projeção"
 
 
 msgid "Reproject the strokes to end up on the same plane, as if drawn from the current viewpoint using 'Cursor' Stroke Placement"
 msgstr "Reprojeta os trações para que sejam encerrados dentro do mesmo plano, como se fossem desenhados a partir da janela de exibição atual usando o posicionamento dos traços no cursor."
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Desenho com lápis de cera"
 
 
 msgid "Apply brush normally"
@@ -34690,18 +34549,9 @@ msgid "Delete selected points without splitting strokes"
 msgstr "Apaga os pontos selecionados sem dividir os traços."
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Tipo"
-
-
 msgctxt "Operator"
 msgid "Duplicate Strokes"
 msgstr "Duplicar traços"
-
-
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "Cria cópias dos traços selecionados de lápis de cera e permite movê-los."
 
 
 msgctxt "Operator"
@@ -34710,18 +34560,8 @@ msgstr "Extrudar Pontos do Traço"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "Preenchimento do Lápis de Cera"
-
-
-msgctxt "Operator"
 msgid "Insert Blank Frame"
 msgstr "Inserir quadro em branco"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Interpolação de lápis de cera"
 
 
 msgid "No Flip"
@@ -34737,101 +34577,12 @@ msgid "Interpolate Sequence"
 msgstr "Sequência de interpolação"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "Gera valores de inserção intra-quadros para interpolação suavizada entre os quadros de lápis de cera."
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "Trás"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "Afrouxamento"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "Afrouxamento Automático"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "Afrouxar Entrada"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "Afrouxar Saída"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "Afrouxar Entrada e Saída"
-
-
 msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "O método de interpolação a ser usado na próxima vez que a \"Sequência interpolada\" é executada."
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "Linear"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Personalizar"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "Uma interpolação personalizada definida usando uma curva como mapa."
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "Senoidal"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "Quadrático(a)"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "Cúbico(a)"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "Quártico(a)"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Quíntico(a)"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "Exponencial"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "Circular"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "Rebatimentos"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "Elástico"
 
 
 msgctxt "Operator"
@@ -34844,10 +34595,6 @@ msgid "Duplicate Layer"
 msgstr "Duplicar camada"
 
 
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Cria uma cópia da camada de lápis de cera ativa."
-
-
 msgctxt "Operator"
 msgid "Duplicate Layer to New Object"
 msgstr "Duplicar Camada para Novo Objeto"
@@ -34856,10 +34603,6 @@ msgstr "Duplicar Camada para Novo Objeto"
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "Ocultar camada(s)"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "Oculta as camadas de lápis de cera selecionadas ou não selecionadas."
 
 
 msgid "Hide unselected rather than selected layers"
@@ -34873,10 +34616,6 @@ msgstr "Afetar a visibilidade"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "Travar todas as camadas"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "Bloqueia todas as camadas de lápis de cera para evitar que elas sejam modificadas acidentalmente."
 
 
 msgctxt "Operator"
@@ -34902,10 +34641,6 @@ msgstr "Remover camada"
 msgctxt "Operator"
 msgid "Show All Layers"
 msgstr "Mostrar todas as camadas"
-
-
-msgid "Show all Grease Pencil layers"
-msgstr "Mostrar todas as camadas de lápis de cera"
 
 
 msgctxt "Operator"
@@ -34935,10 +34670,6 @@ msgstr "Travar Materiais não Utilizados"
 msgctxt "Operator"
 msgid "Show All Materials"
 msgstr "Mostrar Todos os Materiais"
-
-
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "Revela todas os materiais de Lápis de Cera ocultados"
 
 
 msgctxt "Operator"
@@ -34971,31 +34702,6 @@ msgstr "Tipo de forma"
 
 msgid "Polyline"
 msgstr "Polilinha"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "Forma de Caixa do Lápis de Cera"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "Forma de Círculo do Lápis de Cera"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "Forma de Curva do Lápis de Cera"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "Forma de Linha do Lápis de Cera"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "Forma de Polilinha do Lápis de Cera"
 
 
 msgid "Bring to Front"
@@ -39227,11 +38933,6 @@ msgstr "Alternar Atributo de Entrada"
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Adicionar Lápis de cera"
-
-
-msgctxt "Operator"
 msgid "Monkey"
 msgstr "Macaco"
 
@@ -39397,16 +39098,6 @@ msgstr "Apagar Cache de luz"
 
 msgid "All Light Probes"
 msgstr "Todas as Sondas de Luz"
-
-
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "Capturar Arte de Linha"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "Limpar Arte de Linhas Capturadas"
 
 
 msgctxt "Operator"
@@ -44911,14 +44602,6 @@ msgid "Force using this center value (when set)"
 msgstr "Força a utilização deste valor de centro (quando definido)."
 
 
-msgid "Edit Grease Pencil"
-msgstr "Edição de lápis de cera"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Permite a edição dos traços de lápis de cera selecionados."
-
-
 msgid "Use Snapping Options"
 msgstr "Usar as opções de atração"
 
@@ -48197,21 +47880,6 @@ msgstr "Amostra"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Anotar"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Anotar Linha"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Anotar Polígono"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "Ajustar"
 
@@ -49896,24 +49564,12 @@ msgid "Collection Instance Empty Size"
 msgstr "Tamanho Vazio da Instância de Coleção"
 
 
-msgid "Grease Pencil Eraser Radius"
-msgstr "Raio do apagador do lápis de cera"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "Raio do pincel do lápis de cera durante o funcionamento como apagador."
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Distância euclidiana do lápis de cera"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "Distância movida pelo mouse para inclusão durante o desenho de traços."
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Distância Manhattan para o lápis de cera"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -54029,11 +53685,6 @@ msgid "Clip editor space data"
 msgstr "Espaço de dados do editor de clipes."
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Fonte da Anotação"
-
-
 msgid "2D Cursor Location"
 msgstr "Localização do cursor 2D"
 
@@ -54386,10 +54037,6 @@ msgstr "Editor de chaves de formato"
 
 msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "Permite edição dos quadros-chave dentro da ação ativa das chaves de formato do objeto."
-
-
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "Permite a edição das temporizações de todos os rascunhos de lápis de cera no arquivo."
 
 
 msgid "Edit timings for Mask Editor splines"
@@ -57449,18 +57096,6 @@ msgid "Face Area Text"
 msgstr "Texto das áreas das faces"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Vértice de lápis de cera"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Selecionar vértices de lápis de cera"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Tamanho dos vértices de lápis de cera"
-
-
 msgid "Face Normal"
 msgstr "Normais das faces"
 
@@ -57475,14 +57110,6 @@ msgstr "Objetos selecionados"
 
 msgid "Skin Root"
 msgstr "Raízes das coberturas"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "Quadros-chave de lápis de cera"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "A cor para indicar os quadros-chave de lápis de cera."
 
 
 msgid "Vertex Group Unreferenced"
@@ -57591,14 +57218,6 @@ msgstr "Modo de auto inserção de chaves"
 
 msgid "Add & Replace"
 msgstr "Adicionar e substituir"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "Interpolação de lápis de cera"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Escultura para lápis de cera"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -58592,11 +58211,6 @@ msgstr "Treliça"
 msgctxt "WindowManager"
 msgid "Font"
 msgstr "Fonte"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Lápis de cera"
 
 
 msgctxt "WindowManager"
@@ -60976,16 +60590,6 @@ msgstr "Notas de lançamento"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "Lápis de cera como SVG"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "Lápis de cera como PDF"
-
-
-msgctxt "Operator"
 msgid "Developer Documentation"
 msgstr "Documentação de Desenvolvedores"
 
@@ -61404,11 +61008,6 @@ msgstr "Alto-falante"
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "Gerar e gravar ação..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "Capturar Transformações do Objeto para o Lápis de Cera..."
 
 
 msgctxt "Operator"
@@ -62653,10 +62252,6 @@ msgid "NLA Strip Controls"
 msgstr "Controles das faixas de animação não linear"
 
 
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "A camada de lápis de cera está visível dentro da janela de exibição."
-
-
 msgid "Make channels grouped under this channel visible"
 msgstr "Torna visíveis os canais agrupados dentro deste canal."
 
@@ -63425,10 +63020,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Permite navegar entre os dados de configurações de partículas a ser vinculados."
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Permite navegar entre os dados de lápis de cera a ser vinculados."
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Permite navegar entre os dados de clipes de filme a ser vinculados."
 
@@ -63484,11 +63075,6 @@ msgstr "Novo(a)"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Novo(a)"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Novo(a)"
 

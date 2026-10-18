@@ -4,7 +4,7 @@
 
 /** \file
  * \ingroup DNA
- * Some enums shared between mesh and grease pencil modifiers.
+ * Some enums shared between modifier types.
  */
 
 #pragma once
@@ -12,62 +12,6 @@
 #include "BLI_enum_flags.hh"
 
 namespace blender {
-
-/* Grease Pencil Modifiers */
-
-enum eArrayGpencil_Flag : int {
-  GP_ARRAY_INVERT_LAYER = (1 << 2),
-  GP_ARRAY_INVERT_PASS = (1 << 3),
-  GP_ARRAY_INVERT_LAYERPASS = (1 << 5),
-  GP_ARRAY_INVERT_MATERIAL = (1 << 6),
-  GP_ARRAY_USE_OFFSET = (1 << 7),
-  GP_ARRAY_USE_RELATIVE = (1 << 8),
-  GP_ARRAY_USE_OB_OFFSET = (1 << 9),
-  GP_ARRAY_UNIFORM_RANDOM_SCALE = (1 << 10),
-};
-ENUM_OPERATORS(eArrayGpencil_Flag)
-
-enum eTextureGpencil_Fit : short {
-  GP_TEX_FIT_STROKE = 0,
-  GP_TEX_CONSTANT_LENGTH = 1,
-};
-
-enum eNoiseGpencil_Flag : int {
-  GP_NOISE_USE_RANDOM = (1 << 0),
-  GP_NOISE_MOD_LOCATION = (1 << 1),  /* Deprecated (only for versioning). */
-  GP_NOISE_MOD_STRENGTH = (1 << 2),  /* Deprecated (only for versioning). */
-  GP_NOISE_MOD_THICKNESS = (1 << 3), /* Deprecated (only for versioning). */
-  GP_NOISE_FULL_STROKE = (1 << 4),
-  GP_NOISE_CUSTOM_CURVE = (1 << 5),
-  GP_NOISE_INVERT_LAYER = (1 << 6),
-  GP_NOISE_INVERT_PASS = (1 << 7),
-  GP_NOISE_INVERT_VGROUP = (1 << 8),
-  GP_NOISE_MOD_UV = (1 << 9), /* Deprecated (only for versioning). */
-  GP_NOISE_INVERT_LAYERPASS = (1 << 10),
-  GP_NOISE_INVERT_MATERIAL = (1 << 11),
-};
-ENUM_OPERATORS(eNoiseGpencil_Flag)
-
-enum eNoiseRandomGpencil_Mode : short {
-  GP_NOISE_RANDOM_STEP = 0,
-  GP_NOISE_RANDOM_KEYFRAME = 1,
-};
-
-enum eLengthGpencil_Flag : int {
-  GP_LENGTH_INVERT_LAYER = (1 << 0),
-  GP_LENGTH_INVERT_PASS = (1 << 1),
-  GP_LENGTH_INVERT_LAYERPASS = (1 << 2),
-  GP_LENGTH_INVERT_MATERIAL = (1 << 3),
-  GP_LENGTH_USE_CURVATURE = (1 << 4),
-  GP_LENGTH_INVERT_CURVATURE = (1 << 5),
-  GP_LENGTH_USE_RANDOM = (1 << 6),
-};
-ENUM_OPERATORS(eLengthGpencil_Flag)
-
-enum eLengthGpencil_Type : int {
-  GP_LENGTH_RELATIVE = 0,
-  GP_LENGTH_ABSOLUTE = 1,
-};
 
 /* Shrink-wrap Modifier */
 

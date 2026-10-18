@@ -16,9 +16,6 @@ from bpy.app.translations import (
 )
 from bl_ui import anim, node_add_menu
 from bl_ui.utils import PresetPanel
-from bl_ui.properties_grease_pencil_common import (
-    AnnotationDataPanel,
-)
 from bl_ui.space_toolsystem_common import (
     ToolActivePanelHelper,
 )
@@ -67,7 +64,7 @@ class NODE_HT_header(Header):
 
                 NODE_MT_editor_menus.draw_collapsible(context, layout)
                 types_that_support_material = {
-                    'MESH', 'CURVE', 'SURFACE', 'FONT', 'META', 'GPENCIL', 'VOLUME', 'CURVES', 'POINTCLOUD',
+                    'MESH', 'CURVE', 'SURFACE', 'FONT', 'META', 'VOLUME', 'CURVES', 'POINTCLOUD',
                 }
 
                 layout.separator_spacer()
@@ -566,7 +563,6 @@ class NODE_PT_geometry_node_tool_object_types(Panel):
         types = [
             ("is_type_mesh", "Mesh", 'MESH_DATA'),
             ("is_type_curve", "Hair Curves", 'CURVES_DATA'),
-            ("is_type_grease_pencil", "Grease Pencil", 'OUTLINER_OB_GREASEPENCIL'),
             ("is_type_pointcloud", "Point Cloud", 'POINTCLOUD_DATA'),
         ]
 
@@ -602,11 +598,6 @@ class NODE_PT_geometry_node_tool_mode(Panel):
             row = col.row(align=True)
             row.label(text=name, icon=icon)
             row.prop(group, prop, text="")
-
-        if group.is_type_grease_pencil:
-            row = col.row(align=True)
-            row.label(text="Draw Mode", icon='GREASEPENCIL')
-            row.prop(group, "is_mode_paint", text="")
 
 
 class NODE_PT_geometry_node_tool_options(Panel):
@@ -992,7 +983,6 @@ class NODE_PT_overlay(Panel):
         col.separator()
 
         col.prop(overlay, "show_context_path", text="Context Path")
-        col.prop(snode, "show_annotation", text="Annotations")
 
         if snode.supports_previews:
             col.separator()
@@ -1141,21 +1131,6 @@ class NODE_PT_node_tree_animation(Panel):
         anim.draw_action_and_slot_selector_for_id(col, group)
 
 
-# Grease Pencil properties
-class NODE_PT_annotation(AnnotationDataPanel, Panel):
-    bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "View"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    # NOTE: this is just a wrapper around the generic GP Panel
-
-    @classmethod
-    def poll(cls, context):
-        snode = context.space_data
-        return snode is not None and snode.node_tree is not None
-
-
 # Adapt properties editor panel to display in node editor. We have to
 # copy the class rather than inherit due to the way bpy registration works.
 def node_panel(cls):
@@ -1248,7 +1223,6 @@ classes = (
     NODE_PT_active_tool,
     NODE_PT_backdrop,
     NODE_PT_quality,
-    NODE_PT_annotation,
     NODE_PT_overlay,
     NODE_PT_active_node_properties,
     NODE_PT_active_node_custom_properties,

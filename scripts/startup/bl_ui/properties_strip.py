@@ -68,7 +68,7 @@ class STRIP_PT_strip(StripButtonsPanel, Panel):
                 'ADD', 'SUBTRACT', 'ALPHA_OVER', 'ALPHA_UNDER', 'MULTIPLY',
                 'GLOW', 'SPEED', 'MULTICAM', 'GAUSSIAN_BLUR', 'COLORMIX',
         }:
-            icon_header = 'SHADERFX'
+            icon_header = 'SEQ_STRIP_MODIFIER'
         elif strip_type in {
                 'CROSS', 'GAMMA_CROSS', 'WIPE', 'COMPOSITOR',
         }:
@@ -667,7 +667,6 @@ class STRIP_PT_scene(StripButtonsPanel, Panel):
 
         if strip.scene_input == 'CAMERA':
             layout = layout.column(heading="Show")
-            layout.prop(strip, "use_annotations", text="Annotations")
             if scene:
                 # Warning, this is not a good convention to follow.
                 # Expose here because setting the alpha from the "Render" menu is very inconvenient.

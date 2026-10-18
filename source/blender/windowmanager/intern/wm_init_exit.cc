@@ -87,8 +87,6 @@
 
 #include "ED_anim_api.hh"
 #include "ED_asset.hh"
-#include "ED_gpencil_legacy.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_image.hh"
 #include "ED_keyframes_edit.hh"
 #include "ED_keyframing.hh"
@@ -605,7 +603,6 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
   BKE_tracking_clipboard_free();
   BKE_mask_clipboard_free();
   BKE_vfont_clipboard_free();
-  ed::greasepencil::clipboard_free();
   UV_clipboard_free();
   wm_clipboard_free();
 
@@ -633,7 +630,6 @@ void WM_exit_ex(bContext *C, const bool do_python_exit, const bool do_user_exit_
   ANIM_drivers_copybuf_free();
   ANIM_driver_vars_copybuf_free();
   ANIM_fmodifiers_copybuf_free();
-  ED_gpencil_anim_copybuf_free();
 
   /* Free gizmo-maps after freeing blender,
    * so no deleted data get accessed during cleaning up of areas. */

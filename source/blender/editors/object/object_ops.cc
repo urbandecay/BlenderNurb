@@ -91,7 +91,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_empty_add);
   WM_operatortype_append(OBJECT_OT_lightprobe_add);
   WM_operatortype_append(OBJECT_OT_empty_image_add);
-  WM_operatortype_append(OBJECT_OT_grease_pencil_add);
   WM_operatortype_append(OBJECT_OT_light_add);
   WM_operatortype_append(OBJECT_OT_camera_add);
   WM_operatortype_append(OBJECT_OT_speaker_add);
@@ -144,20 +143,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_skin_armature_create);
   WM_operatortype_append(OBJECT_OT_geometry_nodes_input_attribute_toggle);
   WM_operatortype_append(OBJECT_OT_geometry_node_tree_copy_assign);
-  WM_operatortype_append(OBJECT_OT_grease_pencil_dash_modifier_segment_add);
-  WM_operatortype_append(OBJECT_OT_grease_pencil_dash_modifier_segment_remove);
-  WM_operatortype_append(OBJECT_OT_grease_pencil_dash_modifier_segment_move);
-  WM_operatortype_append(OBJECT_OT_grease_pencil_time_modifier_segment_add);
-  WM_operatortype_append(OBJECT_OT_grease_pencil_time_modifier_segment_remove);
-  WM_operatortype_append(OBJECT_OT_grease_pencil_time_modifier_segment_move);
-
-  /* Shader FX. */
-  WM_operatortype_append(OBJECT_OT_shaderfx_add);
-  WM_operatortype_append(OBJECT_OT_shaderfx_remove);
-  WM_operatortype_append(OBJECT_OT_shaderfx_move_up);
-  WM_operatortype_append(OBJECT_OT_shaderfx_move_down);
-  WM_operatortype_append(OBJECT_OT_shaderfx_move_to_index);
-  WM_operatortype_append(OBJECT_OT_shaderfx_copy);
 
   WM_operatortype_append(OBJECT_OT_correctivesmooth_bind);
   WM_operatortype_append(OBJECT_OT_meshdeform_bind);

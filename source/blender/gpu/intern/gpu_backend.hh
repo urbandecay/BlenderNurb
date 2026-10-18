@@ -92,9 +92,6 @@ static inline ColorTheme4f get_debug_group_color(StringRefNull name)
   if (name == "External") {
     return ColorTheme4f(0.0, 0.0, 1.0, 1.0);
   }
-  if (name == "GpencilMode") {
-    return ColorTheme4f(1.0, 1.0, 0.0, 1.0);
-  }
   if (name == "UV/Image") {
     return ColorTheme4f(0.0, 1.0, 1.0, 1.0);
   }

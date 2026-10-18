@@ -125,8 +125,6 @@ struct ID;
 struct ImBuf;
 struct bContext;
 struct bContextStore;
-struct GreasePencil;
-struct GreasePencilLayerTreeNode;
 struct ReportList;
 struct wmDrag;
 struct wmDropBox;
@@ -405,7 +403,6 @@ struct wmNotifier {
 #define NC_PAINTCURVE (20 << 24)
 #define NC_MOVIECLIP (21 << 24)
 #define NC_MASK (22 << 24)
-#define NC_GPENCIL (23 << 24)
 #define NC_LINESTYLE (24 << 24)
 #define NC_CAMERA (25 << 24)
 #define NC_LIGHTPROBE (26 << 24)
@@ -434,7 +431,6 @@ struct wmNotifier {
 #define ND_LAYOUTBROWSE (1 << 16)
 #define ND_LAYOUTDELETE (2 << 16)
 #define ND_ANIMPLAY (4 << 16)
-#define ND_GPENCIL (5 << 16)
 #define ND_LAYOUTSET (6 << 16)
 #define ND_SKETCH (7 << 16)
 #define ND_WORKSPACE_SET (8 << 16)
@@ -500,7 +496,6 @@ struct wmNotifier {
 #define ND_LOD (30 << 16)
 /** For camera & sequencer viewport update, also with #NC_SCENE. */
 #define ND_DRAW_RENDER_VIEWPORT (31 << 16)
-#define ND_SHADERFX (32 << 16)
 /* For updating motion paths in 3dview. */
 #define ND_DRAW_ANIMVIZ (33 << 16)
 #define ND_BONE_COLLECTION (34 << 16)
@@ -533,9 +528,6 @@ struct wmNotifier {
 #define ND_FCURVES_ORDER (75 << 16)
 #define ND_NLA_ORDER (76 << 16)
 #define ND_KEYFRAME_AUTO (77 << 16)
-
-/* NC_GPENCIL. */
-#define ND_GPENCIL_EDITMODE (85 << 16)
 
 /* NC_GEOM Geometry. */
 /* Mesh, Curve, MetaBall, Armature, etc. */
@@ -610,7 +602,6 @@ struct wmNotifier {
 #define NS_MODE_POSE (9 << 8)
 #define NS_MODE_PARTICLE (10 << 8)
 #define NS_EDITMODE_CURVES (11 << 8)
-#define NS_EDITMODE_GREASE_PENCIL (12 << 8)
 #define NS_EDITMODE_POINTCLOUD (13 << 8)
 
 /* Subtype 3d view editing. */
@@ -1278,8 +1269,6 @@ enum eWM_DragDataType : int8_t {
   WM_DRAG_COLOR,
   WM_DRAG_DATASTACK,
   WM_DRAG_ASSET_CATALOG,
-  WM_DRAG_GREASE_PENCIL_LAYER,
-  WM_DRAG_GREASE_PENCIL_GROUP,
   WM_DRAG_NODE_TREE_INTERFACE,
   WM_DRAG_BONE_COLLECTION,
   WM_DRAG_SHAPE_KEY,
@@ -1334,11 +1323,6 @@ struct wmDragPath {
   /** Bit flag of file types in #paths. */
   int file_types_bit_flag; /* #eFileSel_File_Types. */
   std::string tooltip;
-};
-
-struct wmDragGreasePencilLayer {
-  GreasePencil *grease_pencil;
-  GreasePencilLayerTreeNode *node;
 };
 
 using WMDropboxTooltipFunc = std::string (*)(bContext *C,

@@ -193,10 +193,6 @@ void ED_view3d_lastview_store(RegionView3D *rv3d);
 enum eV3DDepthOverrideMode {
   /** Redraw viewport with all objects. */
   V3D_DEPTH_ALL = 0,
-  /** Redraw viewport without Grease Pencil. */
-  V3D_DEPTH_NO_GPENCIL,
-  /** Redraw viewport with Grease Pencil only. */
-  V3D_DEPTH_GPENCIL_ONLY,
   /** Redraw viewport with active object only. */
   V3D_DEPTH_OBJECT_ONLY,
   /** Redraw viewport with objects from the supplied collection only. */
@@ -1410,11 +1406,6 @@ void ED_view3d_gizmo_mesh_preselect_get_active(const bContext *C,
 void ED_view3d_gizmo_mesh_preselect_clear(wmGizmo *gz);
 
 /* view3d_gizmo_ruler.cc */
-
-/**
- * Remove all rulers when Annotation layer is removed.
- */
-void ED_view3d_gizmo_ruler_remove_by_gpencil_layer(struct bContext *C, bGPDlayer *gpl);
 
 /* `space_view3d.cc` */
 

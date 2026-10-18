@@ -22,8 +22,6 @@
 #include "DNA_ID.h"
 #include "DNA_curve_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_material_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_node_types.h"
@@ -51,7 +49,6 @@
 #include "BKE_curves.hh"
 #include "BKE_displist.h"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_icons.hh"
 #include "BKE_idtype.hh"
 #include "BKE_image.hh"
@@ -136,11 +133,6 @@ static void material_copy_data(Main *bmain,
                                                     MEM_dupalloc(material_src->texpaintslot));
   }
 
-  if (material_src->gp_style != nullptr) {
-    material_dst->gp_style = static_cast<MaterialGPencilStyle *>(
-        MEM_dupalloc(material_src->gp_style));
-  }
-
   material_dst->gpumaterial.clear_no_delete();
 
   /* TODO: Duplicate Engine Settings and set runtime to nullptr. */
@@ -162,8 +154,6 @@ static void material_free_data(ID *id)
 
   MEM_SAFE_DELETE(material->texpaintslot);
 
-  MEM_SAFE_DELETE(material->gp_style);
-
   BKE_previewimg_id_free(&material->id);
 
   BKE_icon_id_delete(id_cast<ID *>(material));
@@ -179,10 +169,6 @@ static void material_foreach_id(ID *id, LibraryForeachIDData *data)
   if (material->texpaintslot != nullptr) {
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, material->texpaintslot->ima, IDWALK_CB_NOP);
   }
-  if (material->gp_style != nullptr) {
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, material->gp_style->sima, IDWALK_CB_USER);
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, material->gp_style->ima, IDWALK_CB_USER);
-  }
 }
 
 static void material_foreach_working_space_color(ID *id,
@@ -194,11 +180,6 @@ static void material_foreach_working_space_color(ID *id,
   fn.single(&material->specr);
   fn.single(material->line_col);
 
-  if (material->gp_style) {
-    fn.single(material->gp_style->stroke_rgba);
-    fn.single(material->gp_style->fill_rgba);
-    fn.single(material->gp_style->mix_rgba);
-  }
 }
 
 static void material_blend_write(BlendWriter *writer, ID *id, const void *id_address)
@@ -226,10 +207,6 @@ static void material_blend_write(BlendWriter *writer, ID *id, const void *id_add
 
   BKE_previewimg_blend_write(writer, ma->preview);
 
-  /* grease pencil settings */
-  if (ma->gp_style) {
-    writer->write_struct(ma->gp_style);
-  }
 }
 
 static void material_blend_read_data(BlendDataReader *reader, ID *id)
@@ -243,7 +220,6 @@ static void material_blend_read_data(BlendDataReader *reader, ID *id)
 
   ma->gpumaterial.clear_no_delete();
 
-  BLO_read_struct(reader, MaterialGPencilStyle, &ma->gp_style);
 }
 
 IDTypeInfo IDType_ID_MA = {
@@ -277,34 +253,6 @@ IDTypeInfo IDType_ID_MA = {
     .lib_override_apply_post = nullptr,
 };
 
-void BKE_gpencil_material_attr_init(Material *ma)
-{
-  if ((ma) && (ma->gp_style == nullptr)) {
-    ma->gp_style = MEM_new<MaterialGPencilStyle>("Grease Pencil Material Settings");
-
-    MaterialGPencilStyle *gp_style = ma->gp_style;
-    /* set basic settings */
-    gp_style->stroke_rgba[3] = 1.0f;
-    gp_style->fill_rgba[3] = 1.0f;
-    ARRAY_SET_ITEMS(gp_style->mix_rgba, 1.0f, 1.0f, 1.0f, 1.0f);
-    ARRAY_SET_ITEMS(gp_style->texture_scale, 1.0f, 1.0f);
-    gp_style->texture_offset[0] = -0.5f;
-    gp_style->texture_pixsize = 100.0f;
-    gp_style->mix_factor = 0.5f;
-    gp_style->placement_mode = GP_MATERIAL_PLACEMENT_RADIUS;
-    gp_style->placement_count = 1;
-    gp_style->placement_density = 10.0f;
-    gp_style->placement_radius_spacing = 100.0f;
-    gp_style->random_size_factor = 0.0f;
-    gp_style->random_strength_factor = 0.0f;
-    gp_style->random_rotation_factor = 0.0f;
-    gp_style->random_hue_factor = 0.0f;
-    gp_style->random_saturation_factor = 0.0f;
-    gp_style->random_value_factor = 0.0f;
-    gp_style->random_noise_scale = 1.0f;
-  }
-}
-
 static void nodetree_mark_previews_dirty_reccursive(bNodeTree *tree)
 {
   if (tree == nullptr) {
@@ -335,19 +283,6 @@ Material *BKE_material_add(Main *bmain, const char *name)
   return ma;
 }
 
-Material *BKE_gpencil_material_add(Main *bmain, const char *name)
-{
-  Material *ma;
-
-  ma = BKE_material_add(bmain, name);
-
-  /* grease pencil settings */
-  if (ma != nullptr) {
-    BKE_gpencil_material_attr_init(ma);
-  }
-  return ma;
-}
-
 Material ***BKE_object_material_array_p(Object *ob)
 {
   if (ob->type == OB_MESH) {
@@ -373,10 +308,6 @@ Material ***BKE_object_material_array_p(Object *ob)
   if (ob->type == OB_VOLUME) {
     Volume *volume = id_cast<Volume *>(ob->data);
     return &(volume->mat);
-  }
-  if (ob->type == OB_GREASE_PENCIL) {
-    GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-    return &(grease_pencil->material_array);
   }
   return nullptr;
 }
@@ -407,10 +338,6 @@ short *BKE_object_material_len_p(Object *ob)
     Volume *volume = id_cast<Volume *>(ob->data);
     return &(volume->totcol);
   }
-  if (ob->type == OB_GREASE_PENCIL) {
-    GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-    return &(grease_pencil->material_array_num);
-  }
   return nullptr;
 }
 
@@ -426,16 +353,12 @@ Material ***BKE_id_material_array_p(ID *id)
       return &((id_cast<Curve *>(id))->mat);
     case ID_MB:
       return &((id_cast<MetaBall *>(id))->mat);
-    case ID_GD_LEGACY:
-      return &((id_cast<bGPdata *>(id))->mat);
     case ID_CV:
       return &((id_cast<Curves *>(id))->mat);
     case ID_PT:
       return &((id_cast<PointCloud *>(id))->mat);
     case ID_VO:
       return &((id_cast<Volume *>(id))->mat);
-    case ID_GP:
-      return &((id_cast<GreasePencil *>(id))->material_array);
     default:
       break;
   }
@@ -454,16 +377,12 @@ short *BKE_id_material_len_p(ID *id)
       return &((id_cast<Curve *>(id))->totcol);
     case ID_MB:
       return &((id_cast<MetaBall *>(id))->totcol);
-    case ID_GD_LEGACY:
-      return &((id_cast<bGPdata *>(id))->totcol);
     case ID_CV:
       return &((id_cast<Curves *>(id))->totcol);
     case ID_PT:
       return &((id_cast<PointCloud *>(id))->totcol);
     case ID_VO:
       return &((id_cast<Volume *>(id))->totcol);
-    case ID_GP:
-      return &((id_cast<GreasePencil *>(id))->material_array_num);
     default:
       break;
   }
@@ -481,9 +400,6 @@ static void material_data_index_remove_id(ID *id, short index)
       break;
     case ID_CU_LEGACY:
       BKE_curve_material_index_remove(id_cast<Curve *>(id), index);
-      break;
-    case ID_GP:
-      BKE_grease_pencil_material_index_remove(reinterpret_cast<GreasePencil *>(id), index);
       break;
     case ID_MB:
     case ID_CV:
@@ -521,9 +437,6 @@ bool BKE_object_material_slot_used(Object *object, short actcol)
     case ID_MB:
       /* Meta-elements don't support materials at the moment. */
       return false;
-    case ID_GP:
-      return BKE_grease_pencil_material_index_used(reinterpret_cast<GreasePencil *>(ob_data),
-                                                   actcol - 1);
     default:
       return false;
   }
@@ -738,14 +651,6 @@ Material **BKE_object_material_get_p(Object *ob, short act)
 Material *BKE_object_material_get(Object *ob, short act)
 {
   Material **ma_p = BKE_object_material_get_p(ob, act);
-  /* Grease Pencil objects currently make the assumption that the returned material has Grease
-   * Pencil settings. Ensure that this is the case otherwise return `nullptr`. */
-  if (ob->type == OB_GREASE_PENCIL && ma_p != nullptr) {
-    Material *ma = *ma_p;
-    if (ma != nullptr) {
-      return ma->gp_style != nullptr ? ma : nullptr;
-    }
-  }
   return ma_p ? *ma_p : nullptr;
 }
 
@@ -843,15 +748,9 @@ std::optional<int> BKE_id_material_index_max_eval(const ID &id)
       return reinterpret_cast<const Curves &>(id).geometry.wrap().material_index_max();
     case ID_PT:
       return reinterpret_cast<const PointCloud &>(id).material_index_max();
-    case ID_GP:
-      return reinterpret_cast<const GreasePencil &>(id).material_index_max();
     case ID_VO:
     case ID_MB:
       /* Always use the first material. */
-      return 0;
-    case ID_GD_LEGACY:
-      /* Is not rendered anymore. */
-      BLI_assert_unreachable();
       return 0;
     default:
       break;
@@ -953,32 +852,6 @@ int BKE_object_material_ensure(Main *bmain, Object *ob, Material *material)
     return ob->totcol - 1;
   }
   return index;
-}
-
-Material *BKE_gpencil_material(Object *ob, short act)
-{
-  Material *ma = BKE_object_material_get(ob, act);
-  if (ma != nullptr) {
-    return ma;
-  }
-
-  /* XXX FIXME This is critical abuse of the 'default material' feature, these IDs should never be
-   * used/returned as 'regular' data. */
-  return BKE_material_default_gpencil();
-}
-
-MaterialGPencilStyle *BKE_gpencil_material_settings(Object *ob, short act)
-{
-  Material *ma = BKE_object_material_get(ob, act);
-  if (ma != nullptr) {
-    if (ma->gp_style == nullptr) {
-      BKE_gpencil_material_attr_init(ma);
-    }
-
-    return ma->gp_style;
-  }
-
-  return BKE_material_default_gpencil()->gp_style;
 }
 
 /**
@@ -1281,9 +1154,6 @@ void BKE_object_material_remap(Object *ob, const uint *remap)
   else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF, OB_FONT)) {
     BKE_curve_material_remap(id_cast<Curve *>(ob->data), remap, ob->totcol);
   }
-  else if (ob->type == OB_GREASE_PENCIL) {
-    BKE_grease_pencil_material_remap(id_cast<GreasePencil *>(ob->data), remap, ob->totcol);
-  }
   else if (ob->type == OB_CURVES) {
     BKE_curves_material_remap(id_cast<Curves *>(ob->data), remap, ob->totcol);
   }
@@ -1535,8 +1405,8 @@ bool BKE_object_material_slot_remove(Main *bmain, Object *ob)
     }
   }
 
-  /* check indices from mesh and grease pencil. */
-  if (ELEM(ob->type, OB_MESH, OB_CURVES_LEGACY, OB_SURF, OB_FONT, OB_GREASE_PENCIL)) {
+  /* check indices from mesh and curves. */
+  if (ELEM(ob->type, OB_MESH, OB_CURVES_LEGACY, OB_SURF, OB_FONT)) {
     material_data_index_remove_id(ob->data, actcol - 1);
     if (ob->runtime->curve_cache) {
       BKE_displist_free(&ob->runtime->curve_cache->disp);
@@ -2155,27 +2025,17 @@ static Material *default_material_empty = nullptr;
 static Material *default_material_holdout = nullptr;
 static Material *default_material_surface = nullptr;
 static Material *default_material_volume = nullptr;
-static Material *default_material_gpencil = nullptr;
 
 static Material **default_materials[] = {&default_material_empty,
                                          &default_material_holdout,
                                          &default_material_surface,
                                          &default_material_volume,
-                                         &default_material_gpencil,
                                          nullptr};
 
 static Material *material_default_create(Material **ma_p, const char *name)
 {
   *ma_p = BKE_id_new_nomain<Material>(name);
   return *ma_p;
-}
-
-static void material_default_gpencil_init(Material **ma_p)
-{
-  Material *ma = material_default_create(ma_p, "Default GPencil");
-
-  BKE_gpencil_material_attr_init(ma);
-  add_v3_fl(&ma->gp_style->stroke_rgba[0], 0.6f);
 }
 
 static void material_default_surface_init(Material **ma_p)
@@ -2267,11 +2127,6 @@ Material *BKE_material_default_volume()
   return default_material_volume;
 }
 
-Material *BKE_material_default_gpencil()
-{
-  return default_material_gpencil;
-}
-
 void BKE_material_defaults_free_gpu()
 {
   for (int i = 0; default_materials[i]; i++) {
@@ -2296,7 +2151,6 @@ void BKE_materials_init()
   material_default_surface_init(&default_material_surface);
   material_default_volume_init(&default_material_volume);
   material_default_holdout_init(&default_material_holdout);
-  material_default_gpencil_init(&default_material_gpencil);
 }
 
 void BKE_materials_exit()

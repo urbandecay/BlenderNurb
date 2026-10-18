@@ -112,12 +112,6 @@ void BKE_animdata_main_cb(Main *bmain, const FunctionRef<void(ID *, AnimData *)>
   /* line styles */
   ANIMDATA_IDS_CB(bmain->linestyles.first);
 
-  /* grease pencil */
-  ANIMDATA_IDS_CB(bmain->gpencils.first);
-
-  /* grease pencil */
-  ANIMDATA_IDS_CB(bmain->grease_pencils.first);
-
   /* palettes */
   ANIMDATA_IDS_CB(bmain->palettes.first);
 

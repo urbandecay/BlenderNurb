@@ -185,17 +185,6 @@ def ctx_editmode_hair_empty():
     bpy.ops.object.mode_set(mode='EDIT')
 
 
-def ctx_editmode_grease_pencil():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    bpy.ops.object.grease_pencil_add(type='MONKEY')
-    bpy.ops.object.mode_set(mode='EDIT')
-
-
-def ctx_editmode_grease_pencil_empty():
-    bpy.ops.object.grease_pencil_add(type='EMPTY')
-    bpy.ops.object.mode_set(mode='EDIT')
-
-
 def ctx_editmode_mball():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.object.metaball_add()
@@ -461,7 +450,6 @@ operator_pattern_exclude_for_bugs_needs_undo_stack = (
 operator_pattern_exclude_for_bugs_without_gui = (
     "buttons.clear_filter",  # Null `space->runtime` in background mode.
     "buttons.toggle_pin",  # Technically a bug but doesn't make sense in background mode.
-    "gpencil.layer_annotation_remove",  # TODO: looks like this could be fixed.
     "outliner.animdata_operation",  # TODO: looks like poll should handle this.
     "outliner.collection_new",  # `space_outliner->runtime` is null.
     "outliner.delete",  # TODO: looks like poll should handle this.
@@ -867,10 +855,6 @@ def run_all(
             # Hair.
             ctx_editmode_hair,
             ctx_editmode_hair_empty,
-
-            # Grease pencil.
-            ctx_editmode_grease_pencil,
-            ctx_editmode_grease_pencil_empty,
 
             # Other.
             ctx_editmode_mball,

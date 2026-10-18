@@ -76,8 +76,6 @@
 #include "ED_asset.hh"
 #include "ED_asset_menu_utils.hh"
 #include "ED_curve.hh"
-#include "ED_gpencil_legacy.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_image.hh"
 #include "ED_keyframes_keylist.hh"
 #include "ED_lattice.hh"
@@ -196,8 +194,7 @@ Vector<Object *> objects_in_mode_or_selected(bContext *C,
      * irrespective of selection. */
     ob = ob_active;
   }
-  else if (ob_active && (ob_active->mode &
-                         (OB_MODE_ALL_PAINT | OB_MODE_ALL_SCULPT | OB_MODE_ALL_PAINT_GPENCIL)))
+  else if (ob_active && (ob_active->mode & (OB_MODE_ALL_PAINT | OB_MODE_ALL_SCULPT)))
   {
     /* When painting, limit to active. */
     ob = ob_active;
@@ -758,7 +755,7 @@ static bool editmode_load_free_ex(Main *bmain,
       ED_mball_editmball_free(obedit);
     }
   }
-  else if (ELEM(obedit->type, OB_CURVES, OB_GREASE_PENCIL, OB_POINTCLOUD)) {
+  else if (ELEM(obedit->type, OB_CURVES, OB_POINTCLOUD)) {
     /* Object doesn't have specific edit mode data, so pass. */
   }
   else {
@@ -969,11 +966,6 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
     ok = true;
     WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_CURVES, scene);
   }
-  else if (ob->type == OB_GREASE_PENCIL) {
-    ok = true;
-    ed::greasepencil::ensure_selection_domain(scene->toolsettings, ob);
-    WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_GREASE_PENCIL, scene);
-  }
   else if (ob->type == OB_POINTCLOUD) {
     ok = true;
     WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_POINTCLOUD, scene);
@@ -1026,8 +1018,7 @@ static wmOperatorStatus editmode_toggle_exec(bContext *C, wmOperator *op)
 
   if (!is_mode_set) {
     editmode_enter_ex(bmain, scene, obact, 0);
-    /* Grease Pencil does not support multi-object editing. */
-    if ((obact->type != OB_GREASE_PENCIL) && ((obact->mode & mode_flag) != 0)) {
+    if ((obact->mode & mode_flag) != 0) {
       FOREACH_SELECTED_OBJECT_BEGIN (view_layer, v3d, ob) {
         if ((ob != obact) && (ob->type == obact->type)) {
           editmode_enter_ex(bmain, scene, ob, EM_NO_CONTEXT);

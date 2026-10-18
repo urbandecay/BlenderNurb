@@ -430,16 +430,6 @@ msgstr "フォント"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "グリースペンシル"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "グリースペンシルv3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "画像"
 
@@ -1304,10 +1294,6 @@ msgstr ""
 "対応していません."
 
 
-msgid "Annotation Frame"
-msgstr "アノテーションフレーム"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "特定のフレームに関連したスケッチ集"
 
@@ -1332,18 +1318,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "フリーハンド曲線がこのフレーム上のスケッチを定義します"
 
 
-msgid "Annotation Frames"
-msgstr "アノテーションフレーム"
-
-
-msgid "Collection of annotation frames"
-msgstr "アノテーションフレームの集合"
-
-
-msgid "Annotation Layer"
-msgstr "アノテーションレイヤー"
-
-
 msgid "Collection of related sketches"
 msgstr "関連スケッチの一群"
 
@@ -1358,10 +1332,6 @@ msgstr "フレームは現在，このレイヤーに表示されています"
 
 msgid "Hide"
 msgstr "隠す"
-
-
-msgid "Set annotation Visibility"
-msgstr "アノテーションの可視性を設定します"
 
 
 msgid "After Color"
@@ -1406,10 +1376,6 @@ msgstr "オニオンスキンにテーマではなくカスタムカラーを使
 
 msgid "Opacity"
 msgstr "不透明度"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "アノテーションレイヤー不透明度"
 
 
 msgid "Color for all strokes in this layer"
@@ -1472,48 +1438,20 @@ msgid "Thickness"
 msgstr "幅"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "アノテーションのストロークの幅"
-
-
 msgid "Onion Skinning"
 msgstr "オニオンスキン"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "現在のフレーム前後のアノテーションのオニオンスキンを表示します"
-
-
-msgid "Annotation Layers"
-msgstr "アノテーションレイヤー"
-
-
-msgid "Collection of annotation layers"
-msgstr "アノテーションレイヤーの集合"
 
 
 msgid "Active Layer Index"
 msgstr "アクティブレイヤーインデックス"
 
 
-msgid "Index of active annotation layer"
-msgstr "アクティブアノテーションレイヤーのインデックス"
-
-
 msgid "Active Note"
 msgstr "アクティブメモ"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "アノテーションストロークを追加するメモ/レイヤー"
-
-
 msgid "Default"
 msgstr "デフォルト"
-
-
-msgid "Annotation Stroke"
-msgstr "アノテーションストローク"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1560,32 +1498,12 @@ msgid "Stroke data points"
 msgstr "ストロークデータの点"
 
 
-msgid "Annotation Stroke Point"
-msgstr "アノテーションストロークポイント"
-
-
 msgid "Data point for freehand stroke curve"
 msgstr "フリーハンド曲線用のデータ点"
 
 
 msgid "Coordinates"
 msgstr "座標"
-
-
-msgid "Annotation Stroke Points"
-msgstr "アノテーションストロークポイント"
-
-
-msgid "Collection of annotation stroke points"
-msgstr "アノテーションストロークポイントの集合"
-
-
-msgid "Annotation Strokes"
-msgstr "アノテーションストローク"
-
-
-msgid "Collection of annotation strokes"
-msgstr "アノテーションストロークの集合"
 
 
 msgid "Any Type"
@@ -2234,14 +2152,6 @@ msgid "Show Action data-blocks"
 msgstr "アクションデータブロックを表示します"
 
 
-msgid "Annotations"
-msgstr "アノテーション"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "アノテーションデータブロックを表示します"
-
-
 msgid "Armatures"
 msgstr "アーマチュア"
 
@@ -2296,14 +2206,6 @@ msgstr "フォント"
 
 msgid "Show Font data-blocks"
 msgstr "フォントデータブロックを表示します"
-
-
-msgid "Grease Pencil"
-msgstr "グリースペンシル"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "グリースペンシルデータブロックを表示します"
 
 
 msgid "Collections"
@@ -2738,10 +2640,6 @@ msgstr "インスタンスの属性"
 
 msgid "Layer"
 msgstr "レイヤー"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "グリースペンシルレイヤーの属性"
 
 
 msgid "Is Internal"
@@ -3477,14 +3375,6 @@ msgid "Read-only list of all IDs listed in Blender data-base"
 msgstr "Blender データベースにリストアップされた全 ID のリスト (読み込み専用)"
 
 
-msgid "Annotation"
-msgstr "アノテーション"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "アノテーションデータブロック（旧グリースペンシル）"
-
-
 msgid "Armature data-blocks"
 msgstr "アーマチュアデータブロック"
 
@@ -3531,10 +3421,6 @@ msgstr "ベクトルフォント"
 
 msgid "Vector font data-blocks"
 msgstr "ベクトルフォントデータブロック"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "グリースペンシルデータブロック"
 
 
 msgid "Hair curve data-blocks"
@@ -3721,14 +3607,6 @@ msgid "Collection of actions"
 msgstr "アクションの集合"
 
 
-msgid "Main Annotations"
-msgstr "メインアノテーション"
-
-
-msgid "Collection of annotations"
-msgstr "アノテーションの集合"
-
-
 msgid "Main Armatures"
 msgstr "メインアーマチュア"
 
@@ -3783,14 +3661,6 @@ msgstr "メインフォント"
 
 msgid "Collection of fonts"
 msgstr "フォントの集合"
-
-
-msgid "Main Grease Pencils"
-msgstr "メイングリースペンシル"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "グリースペンシルの集合"
 
 
 msgid "Main Hair Curves"
@@ -5799,14 +5669,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "トリミングや延長ではなく，サイズを均一に変更することで，カーブを伸長または収縮します"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "グリースペンシルブラシ設定"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "グリースペンシルブラシ用の設定"
-
-
 msgid "Active Smooth"
 msgstr "アクティブスムーズ"
 
@@ -5863,23 +5725,8 @@ msgid "Use always Vertex Color mode"
 msgstr "常に頂点カラーモードを使用します"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "端のタイプ"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "ストロークの開始と終了の形状"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "半円"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "フラット"
 
 
 msgid "Threshold"
@@ -5959,36 +5806,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "フィルエリアを拡大，または縮小するピクセル数"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "モード"
-
-
 msgid "Eraser Mode"
 msgstr "消しゴムモード"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "溶解"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "ストロークを削除し，ポイントの強さと幅をフェードアウトします"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "ポイント"
-
-
 msgid "Erase stroke points"
 msgstr "ストロークポイントを削除します"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "ストローク"
 
 
 msgid "Erase entire strokes"
@@ -6070,27 +5897,12 @@ msgid "Use edit lines as fill boundary limits"
 msgstr "境界を塗りつぶすのに編集ラインを使用します"
 
 
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "クロージャモード"
-
-
 msgid "Types of stroke extensions used for closing gaps"
 msgstr "隙間を埋めるストローク延長タイプ"
 
 
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "延長"
-
-
 msgid "Extend strokes in straight lines"
 msgstr "直線でストロークを延長します"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "半径"
 
 
 msgid "Connect endpoints that are close together"
@@ -6265,11 +6077,6 @@ msgid "Number of times to smooth newly created strokes"
 msgstr "新規作成されたストロークを滑らかにする回数"
 
 
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "強さ"
-
-
 msgid "Color strength for new strokes (affect alpha factor of color)"
 msgstr "新規ストロークの色の強さ（色のアルファ係数に影響）"
 
@@ -6370,23 +6177,8 @@ msgstr ""
 "このしきい値内のポイントは直線として処理されます."
 
 
-msgctxt "GPencil"
-msgid "Stroke Mode"
-msgstr "ストロークモード"
-
-
 msgid "Mode to use when creating strokes"
 msgstr "ストローク生成に使用するモード"
-
-
-msgctxt "GPencil"
-msgid "Fill"
-msgstr "フィル"
-
-
-msgctxt "GPencil"
-msgid "Both"
-msgstr "両方"
 
 
 msgid "Active Layer"
@@ -12181,14 +11973,6 @@ msgstr "概要の折り畳み"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "概要表示時に折り畳みます．他のすべてのチャンネルは非表示になります（ドープシートエディタのみ）"
-
-
-msgid "Display Grease Pencil"
-msgstr "グリースペンシルを表示"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "グリースペンシルに関連するアニメーションデータとフレームを表示します"
 
 
 msgid "Display Hair"
@@ -18214,24 +17998,8 @@ msgid "Keep the computed view map and avoid recalculating it if mesh geometry is
 msgstr "計算済みのビューマップを保持し，メッシュ形状に変更がない場合に再計算を回避します"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "グリースペンシル補間設定"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "グリースペンシルの補間ツールの設定"
-
-
 msgid "Interpolation Curve"
 msgstr "補間カーブ"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "グリースペンシルフレーム間の「連続」補間をコントロールするカスタムカーブ"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "グリースペンシルスカルプトガイド"
 
 
 msgid "Guides for drawing"
@@ -18334,14 +18102,6 @@ msgid "Enable snapping to guides angle or spacing options"
 msgstr "ガイドの角度または間隔オプションでスナップを有効にします"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "グリペンスカルプト設定"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "グリースペンシルストローク用スカルプトツールの全体的なプロパティ"
-
-
 msgid "Threshold for stroke intersections"
 msgstr "ストローク交差用のしきい値"
 
@@ -18380,10 +18140,6 @@ msgstr "Z 軸を固定した平面にストロークを投影します"
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "ストロークを現在の3Dカーソルの方向に揃えます"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "グリースペンシルフレームによるブラシエフェクトの減衰をコントロールするカスタムカーブ"
 
 
 msgid "Custom curve to control primitive thickness"
@@ -18880,14 +18636,6 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "ストロークの各破線のループを有効にします"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "グリースペンシルドローイング"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "グリースペンシルのドローイング"
-
-
 msgid "Attributes"
 msgstr "属性"
 
@@ -18932,75 +18680,32 @@ msgid "The number of keyframes this drawing is used by"
 msgstr "このドローイングが使用しているキーフレームの数"
 
 
-msgid "Grease Pencil Frame"
-msgstr "グリースペンシルフレーム"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "グリースペンシルのキーフレーム"
-
-
 msgid "The frame number in the scene"
 msgstr "シーンでのフレーム番号"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "キーフレームタイプ"
 
 
 msgid "Type of keyframe"
 msgstr "キーフレームのタイプ"
 
 
-msgctxt "GPencil"
-msgid "Keyframe"
-msgstr "キーフレーム"
-
-
 msgid "Normal keyframe, e.g. for key poses"
 msgstr "通常のキーフレーム（例：キーポーズ）"
-
-
-msgctxt "GPencil"
-msgid "Breakdown"
-msgstr "中割"
 
 
 msgid "A breakdown pose, e.g. for transitions between key poses"
 msgstr "中割ポーズ（例：キーポーズ間の遷移）"
 
 
-msgctxt "GPencil"
-msgid "Moving Hold"
-msgstr "ムービングホールド"
-
-
 msgid "A keyframe that is part of a moving hold"
 msgstr "ムービングホールドの一部のキーフレーム"
-
-
-msgctxt "GPencil"
-msgid "Extreme"
-msgstr "エクストリーム"
 
 
 msgid "An 'extreme' pose, or some other purpose as needed"
 msgstr "「キメ」のポーズ，または必要に応じて他に使用"
 
 
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "ジッター"
-
-
 msgid "A filler or baked keyframe for keying on ones, or some other purpose as needed"
 msgstr "キーイング用のつなぎや，ベイク済のキーフレーム，または必要に応じて他に使用"
-
-
-msgctxt "GPencil"
-msgid "Generated"
-msgstr "生成"
 
 
 msgid "A key generated automatically by a tool, not manually created"
@@ -19009,18 +18714,6 @@ msgstr "手動ではなく，ツールによって自動的に生成されたキ
 
 msgid "Frame Selection in the Dope Sheet"
 msgstr "ドープシートでのフレーム選択"
-
-
-msgid "Grease Pencil Frames"
-msgstr "グリースペンシルフレーム"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "グリースペンシルフレームの集合"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "グリースペンシルマスキングレイヤー"
 
 
 msgid "List of Mask Layers"
@@ -19037,14 +18730,6 @@ msgstr "マスクを反転"
 
 msgid "Mask layer name"
 msgstr "マスクレイヤー名"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "グリースペンシルマスクレイヤー"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "グリースペンシルマスクレイヤーの集合"
 
 
 msgid "Active Layer Mask Index"
@@ -19105,10 +18790,6 @@ msgstr "セグメントの開始フレーム"
 
 msgid "Tree Node"
 msgstr "ツリーノード"
-
-
-msgid "Grease Pencil node in the layer tree. Either a layer or a group"
-msgstr "レイヤーツリー内のグリースペンシルノード．レイヤーまたはグループのいずれか"
 
 
 msgid "Channel Color"
@@ -19173,10 +18854,6 @@ msgid "Display onion skins before and after the current frame"
 msgstr "現在のフレーム前後のオニオンスキンを表示します"
 
 
-msgid "Grease Pencil Layer"
-msgstr "グリースペンシルレイヤー"
-
-
 msgid "Collection of related drawings"
 msgstr "関連するドローの集合"
 
@@ -19195,10 +18872,6 @@ msgstr "ハードライト"
 
 msgid "Divide"
 msgstr "除算"
-
-
-msgid "Grease Pencil frames"
-msgstr "グリースペンシルフレーム"
 
 
 msgid "Ignore Material Locking"
@@ -19319,14 +18992,6 @@ msgstr ""
 "（常に含まれるようにするには空白にしておいてください）"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "グリースペンシルレイヤーグループ"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "グリースペンシルレイヤーのグループ"
-
-
 msgid "The direct children of this layer group. Ordered by stack order, meaning the first child is the bottom most child in the layer tree."
 msgstr "このレイヤーグループの直接の子．スタックの順序で並べられ，レイヤーツリーの最も下が最初の子になります."
 
@@ -19371,28 +19036,8 @@ msgid "The layer group is expanded in the UI"
 msgstr "このレイヤーグループが UI 内に展開中です"
 
 
-msgid "Grease Pencil Group"
-msgstr "グリースペンシルグループ"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "グリースペンシルレイヤーの集合"
-
-
 msgid "Active Layer Group"
 msgstr "アクティブレイヤーグループ"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "アクティブグリースペンシルレイヤーグループ"
-
-
-msgid "Grease Pencil Layers"
-msgstr "グリースペンシルレイヤー"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "アクティブグリースペンシルレイヤー"
 
 
 msgid "Editor header containing UI elements"
@@ -19730,10 +19375,6 @@ msgid "Manually specify the intended playback frame range for the action (this r
 msgstr ""
 "このアクションに手動で設定した再生フレーム範囲\n"
 "（この範囲は一部のツールで使用されますが，アニメーションの評価には影響しません）"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "フリーハンドの注釈スケッチ"
 
 
 msgid "Animation data for this data-block"
@@ -20763,23 +20404,8 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "ストロークのチンティングに使用されるブラシタイプ"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "ブラシタイプ"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "スムーズ"
-
-
 msgid "Smooth stroke points"
 msgstr "ストロークポイントをスムージングします"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "幅"
 
 
 msgid "Adjust thickness of strokes"
@@ -20790,62 +20416,28 @@ msgid "Adjust color strength of strokes"
 msgstr "ストロークの色の強さを調整します"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "ランダム化"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "ストロークにジッター/ランダム要素を加えます"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "グラブ"
 
 
 msgid "Translate the set of points initially within the brush circle"
 msgstr "ブラシサークル内の最初のポイント群を移動します"
 
 
-msgctxt "GPencil"
-msgid "Push"
-msgstr "プッシュ"
-
-
 msgid "Move points out of the way, as if combing them"
 msgstr "髪をすくようにポイントを押し出します"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "ツイスト"
 
 
 msgid "Rotate points around the midpoint of the brush"
 msgstr "ブラシ中央を中心にポイントを回転します"
 
 
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "ピンチ"
-
-
 msgid "Pull points towards the midpoint of the brush"
 msgstr "ブラシ中央に向けてポイントを引っ張ります"
 
 
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "クローン"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "内部クリップボードに格納されたストロークのコピーを貼り付けます"
-
-
-msgid "Gpencil Settings"
-msgstr "グリースペンシル設定"
 
 
 msgid "Brush Type"
@@ -21552,68 +21144,28 @@ msgid "How powerful the effect of the brush is when applied"
 msgstr "適用時のブラシの影響力"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "ストローク方法"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "ドット"
-
-
 msgid "Apply paint on each mouse move step"
 msgstr "マウス移動の各ステップにペイントを適用します"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "ドラッグドット"
 
 
 msgid "Allows a single dot to be carefully positioned"
 msgstr "各ドットを細かく配置できるようにします"
 
 
-msgctxt "GPencil"
-msgid "Space"
-msgstr "間隔"
-
-
 msgid "Limit brush application to the distance specified by spacing"
 msgstr "指定の間隔でブラシを適用します"
-
-
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "エアブラシ"
 
 
 msgid "Keep applying paint effect while holding mouse (spray)"
 msgstr "マウスをクリックしている間ペイントし続けます (スプレー)"
 
 
-msgctxt "GPencil"
-msgid "Anchored"
-msgstr "アンカー"
-
-
 msgid "Keep the brush anchored to the initial location"
 msgstr "ブラシを初期位置に留め続けます"
 
 
-msgctxt "GPencil"
-msgid "Line"
-msgstr "ライン"
-
-
 msgid "Draw a line with dabs separated according to spacing"
 msgstr "間隔設定に従い直線をドローします"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "カーブ"
 
 
 msgid "Define the stroke curve with a Bézier curve (dabs are separated according to spacing)"
@@ -21911,10 +21463,6 @@ msgid "Use Paint"
 msgstr "ペイントを使用"
 
 
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "このブラシをグリースペンシルドローモードで使用します"
-
-
 msgid "Use this brush in texture paint mode"
 msgstr "テクスチャペイントモードでこのブラシを使用します"
 
@@ -22077,10 +21625,6 @@ msgstr "間隔毎の強さを調整"
 
 msgid "Automatically adjust strength to give consistent results for different spacings"
 msgstr "自動的に強さを調整し，違う間隔でも同じ結果にします"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "このブラシをグリースペンシル頂点カラーモードで使用します"
 
 
 msgid "Use Pressure for Wet Mix"
@@ -22899,10 +22443,6 @@ msgid "Usage"
 msgstr "使用方法"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "ラインアート計算にこのコレクションを使用する方法"
-
-
 msgid "Generate feature lines for this collection"
 msgstr "このコレクションの特徴ラインを生成します"
 
@@ -22913,10 +22453,6 @@ msgstr "遮蔽のみ"
 
 msgid "Only use the collection to produce occlusion"
 msgstr "遮蔽の生成にのみコレクションを使用します"
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "ラインアートにこのコレクションを使用しません"
 
 
 msgid "Intersection Only"
@@ -24270,10 +23806,6 @@ msgid "Enable or disable textured strokes"
 msgstr "テクスチャストロークをON/OFFします"
 
 
-msgid "Grease Pencil data-block"
-msgstr "グリースペンシルデータブロック"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "現在のフレームより後の最大表示フレーム数（0で現在より後のフレームを表示しない）"
 
@@ -24286,14 +23818,6 @@ msgid "Layer Groups"
 msgstr "レイヤーグループ"
 
 
-msgid "Grease Pencil layer groups"
-msgstr "グリースペンシルレイヤーグループ"
-
-
-msgid "Grease Pencil layers"
-msgstr "グリースペンシルレイヤー"
-
-
 msgid "Onion Opacity"
 msgstr "オニオンの不透明度"
 
@@ -24302,18 +23826,8 @@ msgid "Change fade opacity of displayed onion frames"
 msgstr "オニオンフレーム表示の不透明度の減衰を変更します"
 
 
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "タイプで絞り込み"
-
-
 msgid "Type of keyframe (for filtering)"
 msgstr "キーフレームのタイプ（フィルタリング用）"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "すべて"
 
 
 msgid "Include all Keyframe types"
@@ -24326,10 +23840,6 @@ msgstr "フレームの表示モード"
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "シーンフレームの絶対範囲内のフレーム"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "グリースペンシルキーフレームの相対範囲内のフレーム"
 
 
 msgid "Selected"
@@ -24360,12 +23870,6 @@ msgstr ""
 
 msgid "2D Layers"
 msgstr "2Dレイヤー"
-
-
-msgid "Display strokes using Grease Pencil layer order and stroke order to define depth"
-msgstr ""
-"グリースペンシルレイヤーの順序とストロークの順序を使用し，\n"
-"ストロークの表示深度を決めます"
 
 
 msgid "3D Location"
@@ -25899,22 +25403,6 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "細かいディテール用の，ディスプレイスメントとバンプマッピングの組み合わせ"
 
 
-msgid "Grease Pencil Settings"
-msgstr "グリースペンシル設定"
-
-
-msgid "Grease Pencil color settings for material"
-msgstr "マテリアル用のグリースペンシルカラー設定"
-
-
-msgid "Is Grease Pencil"
-msgstr "グリースペンシル"
-
-
-msgid "True if this material has Grease Pencil data"
-msgstr "このマテリアルにグリースペンシルデータがある時に True"
-
-
 msgid "Line Color"
 msgstr "ラインカラー"
 
@@ -25929,14 +25417,6 @@ msgstr "ライン優先度"
 
 msgid "The line color of a higher priority is used at material boundaries"
 msgstr "優先度の高いラインカラーはマテリアル境界で使用されます"
-
-
-msgid "Line Art Settings"
-msgstr "ラインアート設定"
-
-
-msgid "Line Art settings for material"
-msgstr "マテリアル用のラインアート設定"
 
 
 msgid "Max Vertex Displacement"
@@ -26637,10 +26117,6 @@ msgid "MovieClip data-block referencing an external movie file"
 msgstr "外部動画ファイルを参照する動画クリップデータブロック"
 
 
-msgid "Annotation data for this movie clip"
-msgstr "この動画クリップ用のアノテーションデータ"
-
-
 msgid "Display Aspect for this clip, does not affect rendering"
 msgstr "このクリップの表示アスペクト比，レンダリングには影響しません"
 
@@ -26703,10 +26179,6 @@ msgstr "プロキシ画像をカスタムディレクトリに作成します（
 
 msgid "Node tree consisting of linked nodes used for shading, textures and compositing"
 msgstr "シェーディング，テクスチャ，コンポジティングで使用される，ノードの連結からなるノードツリー"
-
-
-msgid "Annotation data"
-msgstr "アノテーションデータ"
 
 
 msgid "The node tree label"
@@ -26903,10 +26375,6 @@ msgstr "このノードグループはツールとして使用されます"
 
 msgid "The node group is used for curves"
 msgstr "このノードグループはカーブで使用されます"
-
-
-msgid "The node group is used for Grease Pencil"
-msgstr "このノードグループはグリースペンシルで使用されます"
 
 
 msgid "Mesh"
@@ -27382,14 +26850,6 @@ msgid "Lightgroup that the object belongs to"
 msgstr "このオブジェクトが属しているライトグループ"
 
 
-msgid "Line Art"
-msgstr "ラインアート"
-
-
-msgid "Line Art settings for the object"
-msgstr "オブジェクト用のラインアート設定"
-
-
 msgid "Location of the object"
 msgstr "オブジェクトの座標"
 
@@ -27512,28 +26972,8 @@ msgid "Particle Edit"
 msgstr "パーティクル編集"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "グリースペンシルのストローク編集"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "グリースペンシルのストロークスカルプト"
-
-
 msgid "Draw Mode"
 msgstr "ドローモード"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "グリースペンシルのストロークペイント"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "グリースペンシルのストロークウェイトペイント"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "グリースペンシルのストローク頂点ペイント"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -27915,10 +27355,6 @@ msgid "Use alpha blending instead of alpha test (can produce sorting artifacts)"
 msgstr ""
 "アルファテストではなくアルファブレンディングを使用します\n"
 "（ソートによりアーティファクトが生じることがあります）"
-
-
-msgid "Lights affect Grease Pencil object"
-msgstr "光がグリースペンシルオブジェクトに影響します"
 
 
 msgid "Scale to Face Sizes"
@@ -29260,10 +28696,6 @@ msgid "Allows playing back frames before the playback start frame"
 msgstr "再生開始フレームより前のフレームの再生を許可します"
 
 
-msgid "Data-block used for annotations in the 3D view"
-msgstr "3Dビューポート内のアノテーションに使用するデータブロック"
-
-
 msgid "Distance Model"
 msgstr "距離モデル"
 
@@ -29450,10 +28882,6 @@ msgstr "レンダリング中/各フレーム再生中に，順方向にスキ�
 
 msgid "Constant acceleration in a given direction"
 msgstr "与えられた位置方向の一定加速度"
-
-
-msgid "Grease Pencil settings for the scene"
-msgstr "このシーンのグリースペンシル設定"
 
 
 msgid "Hydra"
@@ -31475,26 +30903,6 @@ msgstr ""
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "ワークスペースがアクティブになった時，このオブジェクトモードに切り替えます"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "グリースペンシル編集モード"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "グリースペンシルスカルプトモード"
-
-
-msgid "Grease Pencil Draw"
-msgstr "グリースペンシルドロー"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "グリースペンシル頂点ペイント"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "グリースペンシルウェイトペイント"
 
 
 msgid "UI Tags"
@@ -36151,10 +35559,6 @@ msgid "Active point of masking layer"
 msgstr "マスキングレイヤーのアクティブポイント"
 
 
-msgid "Grease Pencil Color"
-msgstr "グリースペンシルカラー"
-
-
 msgid "Alignment"
 msgstr "配置"
 
@@ -36191,36 +35595,16 @@ msgid "Color for filling region bounded by each stroke"
 msgstr "各ストロークの境界で領域を塗りつぶす色"
 
 
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "フィルスタイル"
-
-
 msgid "Select style used to fill strokes"
 msgstr "ストロークのフィルに使用するスタイルを選択します"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "ソリッド"
 
 
 msgid "Fill area with solid color"
 msgstr "単色でフィルします"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "グラデーション"
-
-
 msgid "Fill area with gradient color"
 msgstr "グラデーションカラーでフィルします"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "テクスチャ"
 
 
 msgid "Fill area with image texture"
@@ -36285,11 +35669,6 @@ msgstr "カラーミックス"
 
 msgid "Color for mixing with primary filling color"
 msgstr "プライマリのフィルカラーとミックスする色"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "ミックス"
 
 
 msgid "Mix Factor"
@@ -36408,11 +35787,6 @@ msgid "Show stroke lines of this material"
 msgstr "このマテリアルのストロークラインを表示します"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "ストロークタイプ"
-
-
 msgid "Select style used to draw strokes"
 msgstr "ストロークのドローに使用するスタイルを選択します"
 
@@ -36459,10 +35833,6 @@ msgstr "ランダム化"
 
 msgid "Use material randomization"
 msgstr "マテリアルのランダム化を使用します"
-
-
-msgid "Material Line Art"
-msgstr "ラインアートマテリアル"
 
 
 msgid "Effectiveness"
@@ -38444,18 +37814,6 @@ msgid "Duplicate strokes into an array"
 msgstr "配列にストロークをコピーします"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "グリースペンシルビルドモディファイアー"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "グリースペンシル長さモディファイアー"
-
-
-msgid "Generate Line Art from scene geometries"
-msgstr "シーン内の形状からラインアートを生成します"
-
-
 msgid "Duplicate strokes like a mirror"
 msgstr "鏡像のようにストロークをコピーします"
 
@@ -38474,10 +37832,6 @@ msgstr "ストロークのポイント数を減らし，単純化します"
 
 msgid "Subdivide"
 msgstr "細分化"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "グリースペンシル細分化モディファイアー"
 
 
 msgid "Create an envelope shape"
@@ -38608,16 +37962,8 @@ msgid "Deform stroke points using objects"
 msgstr "オブジェクトを使用しストロークポイントを変形します"
 
 
-msgid "Generate noise wobble in Grease Pencil strokes"
-msgstr "グリースペンシルのストロークにノイズによる揺れを生成します"
-
-
 msgid "Change stroke location, rotation, or scale"
 msgstr "ストロークの位置・回転・スケールを変更します"
-
-
-msgid "Smooth Grease Pencil strokes"
-msgstr "グリースペンシルのストロークを滑らかにします"
 
 
 msgid "Change stroke thickness"
@@ -40587,27 +39933,12 @@ msgid "How strokes are being built"
 msgstr "ストロークが生成される方法"
 
 
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "順次"
-
-
 msgid "Strokes appear/disappear one after the other, but only a single one changes at a time"
 msgstr "ストロークの出現・消失が次々に起こりますが，同時に変更されるのは一つのストロークのみです"
 
 
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "並列"
-
-
 msgid "Multiple strokes appear/disappear at once"
 msgstr "複数のストロークが一度に出現・消失します"
-
-
-msgctxt "GPencil"
-msgid "Additive"
-msgstr "追加"
 
 
 msgid "Builds only new strokes (assuming 'additive' drawing)"
@@ -40728,10 +40059,6 @@ msgid "Only modify strokes during the specified frame range"
 msgstr "指定したフレーム範囲期間内のストロークのみ変更します"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "グリースペンシルカラーモディファイアー"
-
-
 msgid "Attributes to modify"
 msgstr "変更する属性"
 
@@ -40776,10 +40103,6 @@ msgid "Color value factor"
 msgstr "色の V（明度）係数"
 
 
-msgid "Grease Pencil Dash Modifier"
-msgstr "グリースペンシル点線モディファイアー"
-
-
 msgid "Create dot-dash effect for strokes"
 msgstr "ストロークに点線のエフェクトを生成します"
 
@@ -40794,10 +40117,6 @@ msgstr "アクティブ点線セグメントインデックス"
 
 msgid "Active index in the segment list"
 msgstr "このセグメントリスト内のアクティブインデックス"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "グリースペンシルエンベロープモディファイアー"
 
 
 msgid "Envelope stroke effect modifier"
@@ -40905,10 +40224,6 @@ msgstr "フォールオフの均一化"
 
 msgid "Compensate for non-uniform object scale"
 msgstr "均一でないオブジェクトスケールを補います"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "グリースペンシルラティスモディファイアー"
 
 
 msgid "Lattice object to deform with"
@@ -41049,14 +40364,6 @@ msgid "Use random values over time"
 msgstr "時間の経過とともに乱数を使用します"
 
 
-msgid "Line Art Modifier"
-msgstr "ラインアートモディファイアー"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "選択中のソースからラインアートストロークを生成します"
-
-
 msgid "Image Threshold"
 msgstr "画像のしきい値"
 
@@ -41067,12 +40374,6 @@ msgstr "この値より画像の距離が小さいセグメントは一緒につ
 
 msgid "Crease Threshold"
 msgstr "クリースのしきい値"
-
-
-msgid "Angles smaller than this will be treated as creases. Crease angle priority: object Line Art crease override > mesh auto smooth angle > Line Art default crease."
-msgstr ""
-"この値より角度が小さい物をクリースとして処理します．\n"
-"クリース角度の優先順位：オブジェクトラインアートクリースオーバライド ＞ メッシュ自動スムーズ角度 ＞ ラインアートデフォルトクリース."
 
 
 msgid "Fill Strokes"
@@ -41162,47 +40463,22 @@ msgstr ""
 "シャドウ「カメラ」の範囲を表わします."
 
 
-msgctxt "GPencil"
-msgid "Shadow Region Filtering"
-msgstr "シャドウ範囲のフィルタリング"
-
-
 msgid "Select feature lines that comes from lit or shaded regions. Will not affect cast shadow and light contour since they are at the border."
 msgstr ""
 "受光または陰の領域から特徴ラインを選択します．\n"
 "境界にある影の投射や光の輪郭には影響しません."
 
 
-msgctxt "GPencil"
-msgid "None"
-msgstr "なし"
-
-
 msgid "Not filtering any lines based on illumination region"
 msgstr "光の当たる領域のラインをフィルタリングしません"
-
-
-msgctxt "GPencil"
-msgid "Illuminated"
-msgstr "光の当たる領域"
 
 
 msgid "Only selecting lines from illuminated regions"
 msgstr "光の当たる領域のラインのみ選択します"
 
 
-msgctxt "GPencil"
-msgid "Shaded"
-msgstr "陰の領域"
-
-
 msgid "Only selecting lines from shaded regions"
 msgstr "陰の領域のラインのみ選択します"
-
-
-msgctxt "GPencil"
-msgid "Illuminated (Enclosed Shapes)"
-msgstr "光の当たる領域（閉じた形状）"
 
 
 msgid "Selecting lines from lit regions, and make the combination of contour, light contour and shadow lines into enclosed shapes"
@@ -41233,10 +40509,6 @@ msgid "Camera Object"
 msgstr "カメラオブジェクト"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "指定したカメラオブジェクトをラインアートの生成に使用します"
-
-
 msgid "Generate strokes from the objects in this collection"
 msgstr "このコレクション内のオブジェクトからストロークを生成します"
 
@@ -41247,10 +40519,6 @@ msgstr "このオブジェクトからストロークを生成します"
 
 msgid "Source Type"
 msgstr "ソースタイプ"
-
-
-msgid "Line Art stroke source type"
-msgstr "ラインアートストロークのソースタイプ"
 
 
 msgid "Source Vertex Group"
@@ -41279,14 +40547,6 @@ msgstr ""
 "深度を維持しつつ，クリッピングを回避します"
 
 
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "生成したストロークに割り当てるグリースペンシルレイヤー"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "生成したストロークに割り当てるグリースペンシルマテリアル"
-
-
 msgid "Back Face Culling"
 msgstr "裏面を無視"
 
@@ -41295,12 +40555,6 @@ msgid "Remove all back faces to speed up calculation, this will create edges in 
 msgstr ""
 "裏面をすべて無視して計算速度を上げます．\n"
 "無効時と遮蔽レベルが違うエッジが作成されます"
-
-
-msgid "Use cached scene data from the first Line Art modifier in the stack. Certain settings will be unavailable."
-msgstr ""
-"スタック内の最初のラインアートモディファイアーのシーンデータの\n"
-"キャッシュを使用します．一部の設定は利用できなくなります."
 
 
 msgid "Clipping Boundaries"
@@ -41443,10 +40697,6 @@ msgid "Generate strokes from intersections"
 msgstr "交差からストロークを生成します"
 
 
-msgid "Mask bits to match from Collection Line Art settings"
-msgstr "コレクションラインアート設定にマッチするマスク部分"
-
-
 msgid "Match Intersection"
 msgstr "交差にマッチ"
 
@@ -41511,10 +40761,6 @@ msgid "Generate strokes from borders between materials"
 msgstr "マテリアル境界からストロークを生成します"
 
 
-msgid "Mask bits to match from Material Line Art settings"
-msgstr "マテリアルラインアート設定とマッチするマスクビット"
-
-
 msgid "Match Masks"
 msgstr "複数のマスクにマッチ"
 
@@ -41533,10 +40779,6 @@ msgstr "オクルージョンレベルの範囲からストロークを生成し
 
 msgid "Instanced Objects"
 msgstr "インスタンスオブジェクト"
-
-
-msgid "Allow particle objects and face/vertex instances to show in Line Art"
-msgstr "ラインアート内にパーティクルオブジェクトや面/頂点インスタンスを表示できるようにします"
 
 
 msgid "Offset Towards Custom Camera"
@@ -41571,10 +40813,6 @@ msgstr "光源オブジェクトを使用し，輪郭を投影します"
 
 msgid "Vertex group name for selected strokes"
 msgstr "選択ストロークの頂点グループ名"
-
-
-msgid "Grease Pencil Mirror Modifier"
-msgstr "グリースペンシルミラーモディファイアー"
 
 
 msgid "Object used as center"
@@ -41633,10 +40871,6 @@ msgid "Fade the stroke thickness for each generated stroke"
 msgstr "生成された各ストロークの幅をフェードします"
 
 
-msgid "Grease Pencil Noise Modifier"
-msgstr "グリースペンシルノイズモディファイアー"
-
-
 msgid "Noise effect modifier"
 msgstr "ノイズエフェクトのモディファイアー"
 
@@ -41681,18 +40915,8 @@ msgid "Where to perform randomization"
 msgstr "ランダム化する部分"
 
 
-msgctxt "GPencil"
-msgid "Steps"
-msgstr "ステップ数"
-
-
 msgid "Randomize every number of frames"
 msgstr "数フレーム毎にランダム化します"
-
-
-msgctxt "GPencil"
-msgid "Keyframes"
-msgstr "キーフレーム"
 
 
 msgid "Randomize on keyframes only"
@@ -41701,10 +40925,6 @@ msgstr "キーフレームのみランダム化します"
 
 msgid "Noise Seed"
 msgstr "ノイズシード"
-
-
-msgid "Grease Pencil Offset Modifier"
-msgstr "グリースペンシルオフセットモディファイアー"
 
 
 msgid "Values for change location"
@@ -41745,10 +40965,6 @@ msgstr "開始位置をずらします"
 
 msgid "Number of elements that will be grouped"
 msgstr "グループ化する要素の数"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "グリースペンシル不透明度モディファイアー"
 
 
 msgid "Opacity Factor"
@@ -42043,10 +41259,6 @@ msgid "Catmull-Clark"
 msgstr "カトマルクラーク"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "グリースペンシルテクスチャモディファイアー"
-
-
 msgid "Transform stroke texture coordinates Modifier"
 msgstr "ストロークのテクスチャ座標をトランスフォームするモディファイアー"
 
@@ -42127,10 +41339,6 @@ msgid "Factor to scale the UVs"
 msgstr "UV を拡大縮小する係数"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "グリースペンシル幅モディファイアー"
-
-
 msgid "Adjust stroke thickness"
 msgstr "ストロークの幅を調整します"
 
@@ -42157,10 +41365,6 @@ msgstr "ウェイト"
 
 msgid "Use weight to modulate effect"
 msgstr "エフェクトの変更に重み付けを使用します"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "グリースペンシルタイムモディファイアー"
 
 
 msgid "Final frame of the range"
@@ -42223,10 +41427,6 @@ msgstr "ループを維持"
 
 msgid "Retiming end frames and move to start of animation to keep loop"
 msgstr "最終フレームをアニメーションの始めに移動し，ループを維持します"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "グリースペンシルチントモディファイアー"
 
 
 msgid "Color used for tinting"
@@ -45969,12 +45169,6 @@ msgid "Use Mask"
 msgstr "マスクを使用"
 
 
-msgid "Use a Grease Pencil data-block as a mask to use only specified areas of pattern when tracking"
-msgstr ""
-"トラッキング時に指定した範囲のパターンのみ使用するため\n"
-"グリースペンシルデータブロックをマスクとして使用します"
-
-
 msgid "Normalize light intensities while tracking (slower)"
 msgstr "トラッキング時にライトの強さを正規化します (遅くなります)"
 
@@ -46183,10 +45377,6 @@ msgstr "動画トラッキング トラックデータ"
 
 msgid "Match-moving track data for tracking"
 msgstr "トラッキング用のマッチムーブ トラックデータ"
-
-
-msgid "Annotation data for this track"
-msgstr "このトラックのアノテーションデータ"
 
 
 msgid "Average error of re-projection"
@@ -48789,10 +47979,6 @@ msgid "Instances of objects or collections"
 msgstr "オブジェクトまたはコレクションのインスタンス"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "レイヤーとカーブデータを含むグリースペンシル成分"
-
-
 msgid "Volume component containing volume grids"
 msgstr "ボリュームグリッドを含むボリューム成分"
 
@@ -49225,16 +48411,6 @@ msgstr "各スプラインを指定のポイント数で均一にサンプリン
 
 msgid "Sample each spline by splitting it into segments with the specified length"
 msgstr "各スプラインを指定の長さで分割しサンプリングします"
-
-
-msgid "Curves to Grease Pencil"
-msgstr "カーブのグリースペンシル化"
-
-
-msgid "Convert the curves in each top-level instance into Grease Pencil layer"
-msgstr ""
-"カーブの各トップレベルのインスタンスを\n"
-"グリースペンシルレイヤーに変換します"
 
 
 msgid "Geometry Custom Group"
@@ -49680,14 +48856,6 @@ msgid "Use Translation Z"
 msgstr "移動 Z を使用"
 
 
-msgid "Grease Pencil to Curves"
-msgstr "グリースペンシルのカーブ化"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "グリースペンシルレイヤーをカーブインスタンスに変換します"
-
-
 msgid "Advect Grid"
 msgstr "グリッド移流"
 
@@ -50069,10 +49237,6 @@ msgid "Named Layer Selection"
 msgstr "名前付きレイヤー選択"
 
 
-msgid "Output a selection of a Grease Pencil layer"
-msgstr "グリースペンシルレイヤーの選択を出力します"
-
-
 msgid "Retrieve a unit length vector indicating the direction pointing away from the geometry at each element"
 msgstr "各要素の形状から離れる方向を示す単位ベクトルを取得します"
 
@@ -50271,10 +49435,6 @@ msgstr "指定の距離内の頂点やポイントを統合します"
 
 msgid "Merge Layers"
 msgstr "レイヤー統合"
-
-
-msgid "Join groups of Grease Pencil layers into one"
-msgstr "グリースペンシルレイヤーのグループを一つに統合します"
 
 
 msgid "Determines how to choose which layers are merged"
@@ -50935,14 +50095,6 @@ msgid "Set the name of a geometry for easier debugging"
 msgstr "デバッグ用にジオメトリに名前を設定します"
 
 
-msgid "Set Grease Pencil Color"
-msgstr "グリースペンシルカラー設定"
-
-
-msgid "Set color and opacity attributes on Grease Pencil geometry"
-msgstr "色と不透明度の属性をグリースペンシルジオメトリに設定します"
-
-
 msgid "Set the color and opacity for the points of the stroke"
 msgstr "ストロークのポイントに色と不透明度を設定します"
 
@@ -50951,24 +50103,8 @@ msgid "Set the color and opacity for the stroke fills"
 msgstr "ストロークのフィルに色と不透明度を設定します"
 
 
-msgid "Set Grease Pencil Depth"
-msgstr "グリースペンシル深度設定"
-
-
-msgid "Set the Grease Pencil depth order to use"
-msgstr "グリースペンシルで使用する深度の基準を設定します"
-
-
 msgid "Depth Order"
 msgstr "深度の基準"
-
-
-msgid "Set Grease Pencil Softness"
-msgstr "グリースペンシルソフト設定"
-
-
-msgid "Set softness attribute on Grease Pencil geometry"
-msgstr "グリースペンシルジオメトリに softness 属性を設定します"
 
 
 msgid "Set Grid Background"
@@ -54980,10 +54116,6 @@ msgid "Layer Selection"
 msgstr "レイヤー選択"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "グリースペンシルレイヤーまたはレイヤーグループを選択フィールドとして取ります"
-
-
 msgid "Menu Expanded"
 msgstr "メニュー展開"
 
@@ -55349,20 +54481,8 @@ msgid "Collection which defines light linking relation of this emitter"
 msgstr "このエミッターとのライトリンキング関係を定義するコレクション"
 
 
-msgid "Object Line Art"
-msgstr "オブジェクトラインアート"
-
-
-msgid "Object Line Art settings"
-msgstr "オブジェクトラインアート設定"
-
-
 msgid "Angles smaller than this will be treated as creases"
 msgstr "この値より小さい角度はクリースとして処理されます"
-
-
-msgid "How to use this object in Line Art calculation"
-msgstr "ラインアート計算にこのオブジェクトを使用する方法"
 
 
 msgid "Inherit"
@@ -55379,10 +54499,6 @@ msgstr "このオブジェクトデータ用の特徴ラインを生成します
 
 msgid "Only use the object data to produce occlusion"
 msgstr "遮蔽の生成にのみオブジェクトデータを使用します"
-
-
-msgid "Don't use this object for Line Art rendering"
-msgstr "このオブジェクトをラインアートレンダリングに使用しません"
 
 
 msgid "Include this object but do not generate intersection lines"
@@ -57598,24 +56714,6 @@ msgstr "アクションのリストをフレッシュします"
 msgctxt "Operator"
 msgid "Refresh action list"
 msgstr "アクションリストをリフレッシュ"
-
-
-msgid "Add or remove Grease Pencil brush preset"
-msgstr "グリースペンシルブラシのプリセットを追加・削除します"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "グリースペンシルブラシプリセットを追加"
-
-
-msgid "Add or remove Grease Pencil material preset"
-msgstr "グリースペンシルマテリアルプリセットを追加・削除します"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "グリースペンシルマテリアルプリセットを追加"
 
 
 msgid "Load a preset"
@@ -61607,22 +60705,6 @@ msgid "Place markers across the whole frame"
 msgstr "フレーム全体にマーカーを置きます"
 
 
-msgid "Inside Annotated Area"
-msgstr "アノテート領域内"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "マーカーをアノテーションツールによる輪郭の中にだけに置きます"
-
-
-msgid "Outside Annotated Area"
-msgstr "アノテート領域外"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "マーカーをアノテーションツールによる輪郭の外にだけに置きます"
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "特徴点がトラッキングに充分と見なされるしきい値"
 
@@ -63524,10 +62606,6 @@ msgstr "辺をスライド"
 
 msgid "Sequence Slide"
 msgstr "シーケンスを移動"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "グリースペンシル不透明度"
 
 
 msgid "Set type of handles for selected control points"
@@ -66877,15 +65955,6 @@ msgid "Tweak the active gizmo"
 msgstr "アクティブギズモを長押しします"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "アノテーションドロー"
-
-
-msgid "Make annotations on the active data"
-msgstr "アクティブデータに注釈を付けます"
-
-
 msgid "End Arrow Style"
 msgstr "終点の矢印スタイル"
 
@@ -66966,10 +66035,6 @@ msgid "Eraser"
 msgstr "消しゴム"
 
 
-msgid "Erase Annotation strokes"
-msgstr "アノテーションストロークを削除"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "ストローク安定化の係数"
 
@@ -66991,55 +66056,6 @@ msgstr "いきなりペイントせず，最初のクリックを待ちます"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "アクティブフレームを削除"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "アクティブアノテーションレイヤーのアクティブフレームを削除します"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "アノテーションを新規追加"
-
-
-msgid "Add new Annotation data-block"
-msgstr "新規アノテーションデータブロックを追加します"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "アノテーションをリンク解除"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "アクティブアノテーションデータブロックをリンク解除します"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "新規アノテーションレイヤーを追加"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "アクティブデータブロックに新規アノテーションレイヤーまたはメモを追加します"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "アノテーションレイヤーを移動"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "アクティブアノテーションレイヤーをリスト内で上下に移動します"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "アノテーションレイヤーを削除"
-
-
-msgid "Remove active Annotation layer"
-msgstr "アクティブアノテーションレイヤーを削除します"
 
 
 msgctxt "Operator"
@@ -67891,27 +66907,12 @@ msgid "Delete Active Frame(s)"
 msgstr "アクティブフレームを削除"
 
 
-msgid "Delete the active Grease Pencil frame(s)"
-msgstr "アクティブグリースペンシルフレームを削除します"
-
-
 msgid "Delete all"
 msgstr "すべて削除"
 
 
 msgid "Delete active keyframes of all layers"
 msgstr "全レイヤーのアクティブキーフレームを削除します"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "トランスフォームをグリースペンシルにベイク"
-
-
-msgid "Bake Grease Pencil object transform to Grease Pencil keyframes"
-msgstr ""
-"グリースペンシルオブジェクトのトランスフォームを\n"
-"グリースペンシルのキーフレームにベイクします"
 
 
 msgid "The end frame of animation"
@@ -67968,17 +66969,6 @@ msgstr "3Dカーソルの方向を使用し，ストロークを再投影しま�
 
 msgid "Step between generated frames"
 msgstr "生成するフレーム間のステップ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "グリースペンシルドロー"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr ""
-"アクティブなグリースペンシルオブジェクト内に\n"
-"新規ストロークをドローイングします"
 
 
 msgctxt "Operator"
@@ -68111,10 +67101,6 @@ msgid "Copy Strokes"
 msgstr "ストロークをコピー"
 
 
-msgid "Copy the selected Grease Pencil points or strokes to the internal clipboard"
-msgstr "選択中のグリースペンシルポイントまたはストロークを内部クリップボードにコピーします"
-
-
 msgctxt "Operator"
 msgid "Set Cyclical State"
 msgstr "ループ状態を設定"
@@ -68173,21 +67159,9 @@ msgid "Delete Breakdown Frames"
 msgstr "中割フレームを削除"
 
 
-msgid "Remove breakdown frames generated by interpolating between two Grease Pencil frames"
-msgstr "グリースペンシルフレームの補間で生成された中割フレームを削除します"
-
-
 msgctxt "Operator"
 msgid "Delete Frame"
 msgstr "フレームを削除"
-
-
-msgid "Delete Grease Pencil Frame(s)"
-msgstr "グリースペンシルフレームを削除"
-
-
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "グリースペンシルフレームを削除する方法"
 
 
 msgid "Deletes current frame in the active layer"
@@ -68211,11 +67185,6 @@ msgid "Delete selected points without splitting strokes"
 msgstr "ストロークを分割せずに選択中のポイントを削除します"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "タイプ"
-
-
 msgid "Method used for dissolving stroke points"
 msgstr "ストロークポイントを溶解する方法"
 
@@ -68224,18 +67193,8 @@ msgid "Dissolve selected points"
 msgstr "選択したポイントを溶解します"
 
 
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "間を溶解"
-
-
 msgid "Dissolve points between selected points"
 msgstr "選択したポイント間のポイントを溶解します"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "非選択を溶解"
 
 
 msgid "Dissolve all unselected points"
@@ -68251,22 +67210,8 @@ msgid "Duplicate Strokes"
 msgstr "ストロークを複製"
 
 
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "選択中のグリースペンシルストロークをコピーし，移動します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Erase"
-msgstr "グリースペンシルボックス消しゴム"
-
-
 msgid "Erase points in the box region"
 msgstr "ボックス領域内のポイントを削除します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Erase Lasso"
-msgstr "グリースペンシル投げ縄消しゴム"
 
 
 msgid "Erase points in the lasso region"
@@ -68288,11 +67233,6 @@ msgstr "選択したポイントを押し出して移動します"
 
 msgid "Extrude Stroke Points"
 msgstr "ストロークポイントを押し出し"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "グリースペンシルフィル"
 
 
 msgid "Fill with color the shape formed by strokes"
@@ -68325,10 +67265,6 @@ msgid "Duplicate Active Frame(s)"
 msgstr "アクティブフレームを複製"
 
 
-msgid "Make a copy of the active Grease Pencil frame(s)"
-msgstr "アクティブグリースペンシルフレームのコピーを作成します"
-
-
 msgid "Duplicate all"
 msgstr "すべて複製"
 
@@ -68348,15 +67284,6 @@ msgstr "ブランクフレームを現在のシーンフレームに挿入しま
 
 msgid "Insert a blank frame in all editable layers"
 msgstr "ブランクフレームを編集可能な全レイヤーに挿入します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "グリースペンシルを補間"
-
-
-msgid "Interpolate Grease Pencil strokes between frames"
-msgstr "グリースペンシルのストロークをフレーム間で補間します"
 
 
 msgid "Exclude Breakdowns"
@@ -68406,44 +67333,6 @@ msgid "Interpolate Sequence"
 msgstr "シーケンスを補間"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "複数の「中割」を生成し，グリースペンシルフレーム間をスムーズに補間します"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "後"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "イージング"
-
-
-msgid "Which ends of the segment between the preceding and following Grease Pencil frames easing interpolation is applied to"
-msgstr "グリースペンシルフレームの前後のどちら側の区間の端にイージング補間を適用するか"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "自動イージング"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "イーズイン"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "イーズアウト"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "イーズイン・アウト"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "生成される補間フレームのフレーム数"
 
@@ -68452,63 +67341,8 @@ msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "次回の「シーケンスを補間」実行時に使用する補間方法"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "リニア"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "カスタム"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "カーブマップで設定されたカスタム補間"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "正弦曲線"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "二次式"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "三次式"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "四次式"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "五次式"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "指数"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "円形"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "バウンス"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "ゴム状"
 
 
 msgctxt "Operator"
@@ -68558,17 +67392,9 @@ msgid "Set Active Layer"
 msgstr "アクティブレイヤーを設定"
 
 
-msgid "Set the active Grease Pencil layer"
-msgstr "アクティブグリースペンシルレイヤーを設定します"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "新規レイヤーを追加"
-
-
-msgid "Add a new Grease Pencil layer in the active object"
-msgstr "新規グリースペンシルレイヤーをアクティブオブジェクトに追加します"
 
 
 msgid "Name of the new layer"
@@ -68578,10 +67404,6 @@ msgstr "新規レイヤーの名前"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "レイヤーをコピー"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "アクティブグリースペンシルレイヤーのコピーを作成します"
 
 
 msgid "Empty Keyframes"
@@ -68597,10 +67419,6 @@ msgid "Duplicate Layer to New Object"
 msgstr "レイヤーを新規オブジェクトに複製"
 
 
-msgid "Make a copy of the active Grease Pencil layer to selected object"
-msgstr "アクティブグリースペンシルレイヤーを選択中のオブジェクトにコピーします"
-
-
 msgid "All Frames"
 msgstr "全フレーム"
 
@@ -68614,17 +67432,8 @@ msgid "Add New Layer Group"
 msgstr "新規レイヤーグループを追加"
 
 
-msgid "Add a new Grease Pencil layer group in the active object"
-msgstr "新規グリースペンシルレイヤーグループをアクティブオブジェクトに追加します"
-
-
 msgid "Name of the new layer group"
 msgstr "新規レイヤーグループの名前"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Group Color Tag"
-msgstr "グリースペンシルグループカラータグ"
 
 
 msgid "Change layer group icon"
@@ -68640,10 +67449,6 @@ msgid "Remove Layer Group"
 msgstr "レイヤーグループを削除"
 
 
-msgid "Remove Grease Pencil layer group in the active object"
-msgstr "アクティブオブジェクトからグリースペンシルレイヤーグループを削除します"
-
-
 msgid "Keep children nodes"
 msgstr "子ノードを維持"
 
@@ -68655,10 +67460,6 @@ msgstr "グループ自体のみ削除し，グループの子ノードを維持
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "レイヤーを非表示"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "選択中/非選択のグリースペンシルレイヤーを隠します"
 
 
 msgid "Hide unselected rather than selected layers"
@@ -68685,10 +67486,6 @@ msgstr "可視性にも影響します"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "全レイヤーをロック"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "全グリースペンシルレイヤーをロックし，不意に変更されるのを防ぎます"
 
 
 msgid "Lock Value"
@@ -68722,15 +67519,6 @@ msgstr "マスクレイヤーを削除"
 
 
 msgctxt "Operator"
-msgid "Reorder Grease Pencil Layer Mask"
-msgstr "グリースペンシルレイヤーマスクを並べ替え"
-
-
-msgid "Reorder the active Grease Pencil mask layer up/down in the list"
-msgstr "アクティブグリースペンシルマスクレイヤーをリスト内で上下に並べ替えます"
-
-
-msgctxt "Operator"
 msgid "Merge"
 msgstr "マージ"
 
@@ -68756,17 +67544,9 @@ msgid "Reorder Layer"
 msgstr "レイヤーを並べ替え"
 
 
-msgid "Move the active Grease Pencil layer or Group"
-msgstr "アクティブグリースペンシルレイヤーまたはグループを移動します"
-
-
 msgctxt "Operator"
 msgid "Remove Layer"
 msgstr "レイヤーを削除"
-
-
-msgid "Remove the active Grease Pencil layer"
-msgstr "アクティブグリースペンシルレイヤーを削除します"
 
 
 msgctxt "Operator"
@@ -68774,17 +67554,9 @@ msgid "Show All Layers"
 msgstr "全レイヤーを表示"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "すべてのグリースペンシルレイヤーを表示します"
-
-
 msgctxt "Operator"
 msgid "Copy Materials to Selected Object"
 msgstr "選択中のオブジェクトにマテリアルをコピーします"
-
-
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "アクティブグリースペンシルのマテリアルを他のオブジェクトにアペンドします"
 
 
 msgid "Append only active material, uncheck to append all materials"
@@ -68794,10 +67566,6 @@ msgstr "全マテリアルへのアペンドのチェックを外し，アクテ
 msgctxt "Operator"
 msgid "Hide Materials"
 msgstr "マテリアルを隠す"
-
-
-msgid "Hide active/inactive Grease Pencil material(s)"
-msgstr "アクティブ/非アクティブのグリースペンシルマテリアルを非表示にします"
 
 
 msgid "Hide inactive materials instead of the active one"
@@ -68820,10 +67588,6 @@ msgstr "編集の切り替えに加え，表示にも影響するようにしま
 msgctxt "Operator"
 msgid "Lock All Materials"
 msgstr "全マテリアルをロック"
-
-
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "全グリースペンシルマテリアルをロックし，不意に変更されるのを防ぎます"
 
 
 msgctxt "Operator"
@@ -68849,17 +67613,9 @@ msgid "Show All Materials"
 msgstr "全マテリアルを表示"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "非表示の全グリースペンシルマテリアルを再表示します"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "マテリアルで選択"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "現在のマテリアルを使用してグリースペンシルストロークを選択・選択解除します"
 
 
 msgid "Unselect strokes"
@@ -68869,10 +67625,6 @@ msgstr "ストロークを選択解除"
 msgctxt "Operator"
 msgid "Unlock All Materials"
 msgstr "全マテリアルをロック解除"
-
-
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "全グリースペンシルマテリアルのロックを解除し，編集可能にします"
 
 
 msgctxt "Operator"
@@ -68900,10 +67652,6 @@ msgid "Group to add the new layer to"
 msgstr "新規レイヤーを追加するグループ"
 
 
-msgid "Target Grease Pencil Layer"
-msgstr "ターゲットグリースペンシルレイヤー"
-
-
 msgctxt "Operator"
 msgid "Outline"
 msgstr "アウトライン"
@@ -68926,10 +67674,6 @@ msgid "Strokes Paint Mode Toggle"
 msgstr "ストロークペイントモード切り替え"
 
 
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "グリースペンシルストロークのペイントモードを切り替えます"
-
-
 msgid "Return to Previous Mode"
 msgstr "前のモードに戻る"
 
@@ -68941,10 +67685,6 @@ msgstr "前のモードに戻ります"
 msgctxt "Operator"
 msgid "Paste Strokes"
 msgstr "ストロークを貼り付け"
-
-
-msgid "Paste Grease Pencil points or strokes from the internal clipboard to the active layer"
-msgstr "グリースペンシルポイントまたはストロークを内部クリップボードからアクティブレイヤーに貼り付けます"
 
 
 msgid "Keep World Transform"
@@ -68971,20 +67711,6 @@ msgid "Paste by Layer"
 msgstr "レイヤーで貼り付け"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Pen"
-msgstr "グリースペンシルペン"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Arc Shape"
-msgstr "グリースペンシル弧シェイプ"
-
-
-msgid "Create predefined Grease Pencil stroke arcs"
-msgstr "定義済みのグリースペンシルストローク弧を作成します"
-
-
 msgid "Number of subdivisions per segment"
 msgstr "セグメント毎の細分化数"
 
@@ -68995,51 +67721,6 @@ msgstr "形状の種類"
 
 msgid "Polyline"
 msgstr "ポリライン"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "グリースペンシルボックスシェイプ"
-
-
-msgid "Create predefined Grease Pencil stroke boxes"
-msgstr "定義済みのグリースペンシルストロークボックスを作成します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "グリースペンシルサークルシェイプ"
-
-
-msgid "Create predefined Grease Pencil stroke circles"
-msgstr "定義済みのグリースペンシルストロークサークルを作成します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "グリースペンシルカーブシェイプ"
-
-
-msgid "Create predefined Grease Pencil stroke curve shapes"
-msgstr "定義済みのグリースペンシルストロークカーブ形状を作成します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "グリースペンシルラインシェイプ"
-
-
-msgid "Create predefined Grease Pencil stroke lines"
-msgstr "定義済みのグリースペンシルストロークラインを作成します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "グリースペンシルポリラインシェイプ"
-
-
-msgid "Create predefined Grease Pencil stroke polylines"
-msgstr "定義済みのグリースペンシルストロークポリラインを作成します"
 
 
 msgid "Which relative layer (above or below) to use as a mask"
@@ -69117,21 +67798,8 @@ msgstr "UV のトランスフォームをデフォルト値に戻します"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "グリースペンシルスカルプト"
-
-
-msgid "Sculpt strokes in the active Grease Pencil object"
-msgstr "アクティブグリースペンシルオブジェクトのストロークをスカルプトします"
-
-
-msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "ストロークスカルプトモード切り替え"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "グリースペンシルストロークのスカルプトモードを切り替えます"
 
 
 msgctxt "Operator"
@@ -69212,10 +67880,6 @@ msgstr "現在のストロークの選択からランダムにポイントを選
 
 msgid "Select all strokes with similar characteristics"
 msgstr "同じ特性を持つストロークをすべて選択します"
-
-
-msgid "Separate the selected geometry into a new Grease Pencil object"
-msgstr "選択中のジオメトリを新規グリースペンシルオブジェクトに分離します"
 
 
 msgid "Separate selected geometry"
@@ -69301,10 +67965,6 @@ msgstr "アクティブマテリアルを設定します"
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "選択モード"
-
-
-msgid "Change the selection mode for Grease Pencil strokes"
-msgstr "グリースペンシルストロークの選択モードを変更します"
 
 
 msgid "Select only points"
@@ -69502,11 +68162,6 @@ msgid "Change direction of the points of the selected strokes"
 msgstr "選択中のストロークのポイントの方向を変更します"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "グリースペンシルトリム"
-
-
 msgid "Delete stroke points in between intersecting strokes"
 msgstr "交差するストローク間のストロークポイントを削除します"
 
@@ -69540,15 +68195,6 @@ msgid "Y Start"
 msgstr "Yの始点"
 
 
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "グリースペンシルへ画像をトレース"
-
-
-msgid "Extract Grease Pencil strokes from image"
-msgstr "画像からグリースペンシルのストロークを抽出します"
-
-
 msgid "Trace Frame"
 msgstr "トレース元"
 
@@ -69567,10 +68213,6 @@ msgstr "現在のフレームの画像をトレースします"
 
 msgid "Trace full sequence"
 msgstr "連番画像をすべてトレースします"
-
-
-msgid "Target Grease Pencil"
-msgstr "ターゲットグリースペンシル"
 
 
 msgid "New Object"
@@ -69643,17 +68285,6 @@ msgstr "現在のフレームから開始"
 
 msgid "Trace Image starting in current image frame"
 msgstr "現在のフレームの画像からトレースを開始します"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "グリースペンシルペイント頂点"
-
-
-msgid "Draw on vertex colors in the active Grease Pencil object"
-msgstr ""
-"アクティブグリースペンシルオブジェクト内に\n"
-"頂点カラーをドローします"
 
 
 msgctxt "Operator"
@@ -69751,21 +68382,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "ストローク頂点モード切り替え"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "グリースペンシルストロークの頂点ペイントモードを切り替えます"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "グリースペンシルペイントウェイト"
-
-
-msgid "Draw weight on stroke points in the active Grease Pencil object"
-msgstr ""
-"アクティブグリースペンシルオブジェクト内の\n"
-"ストロークポイントにウェイトをドローします"
-
-
 msgctxt "Operator"
 msgid "Invert Weight"
 msgstr "ウェイトを反転"
@@ -69796,10 +68412,6 @@ msgstr "ウェイトペイントドローツールの加算/減算を切り替�
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "ストロークウェイトモード切り替え"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "グリースペンシルストロークのウェイトペイントモードを切り替えます"
 
 
 msgctxt "Operator"
@@ -77032,10 +75644,6 @@ msgid "Curves from evaluated curve data"
 msgstr "評価済みカーブデータからカーブ"
 
 
-msgid "Grease Pencil from Curve or Mesh objects"
-msgstr "カーブやメッシュからグリースペンシル"
-
-
 msgid "Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices"
 msgstr ""
 "現在アクティブなオブジェクトまたはポーズボーンの行列をクリップボードにコピーします．\n"
@@ -77419,23 +76027,6 @@ msgstr "アクティブオブジェクトだけでなく，選択中のすべて
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "グリースペンシルを追加"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "グリースペンシルオブジェクトをシーンに追加します"
-
-
-msgid "Stroke offset for the Line Art modifier"
-msgstr "ラインアートモディファイアー用のストロークのオフセット"
-
-
-msgid "Display strokes using Grease Pencil layers to define order"
-msgstr "グリースペンシルレイヤーを使用し，ストロークの表示順を決めます"
-
-
-msgctxt "Operator"
 msgid "Type"
 msgstr "タイプ"
 
@@ -77443,10 +76034,6 @@ msgstr "タイプ"
 msgctxt "Operator"
 msgid "Blank"
 msgstr "ブランク"
-
-
-msgid "Create an empty Grease Pencil object"
-msgstr "空のグリースペンシルオブジェクトを作成します"
 
 
 msgctxt "Operator"
@@ -77463,47 +76050,8 @@ msgid "Monkey"
 msgstr "モンキー"
 
 
-msgid "Construct a Suzanne Grease Pencil object"
-msgstr "グリースペンシルオブジェクトにスザンヌを生成します"
-
-
-msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "シーンラインアート"
-
-
-msgid "Quickly set up Line Art for the entire scene"
-msgstr "シーン全体用のラインアートをすばやく設定します"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "コレクションラインアート"
-
-
-msgid "Quickly set up Line Art for the active collection"
-msgstr "アクティブコレクション用のラインアートをすばやく設定します"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "オブジェクトラインアート"
-
-
-msgid "Quickly set up Line Art for the active object"
-msgstr "アクティブオブジェクト用のラインアートをすばやく設定します"
-
-
 msgid "Show In Front"
 msgstr "最前面に表示"
-
-
-msgid "Show Line Art Grease Pencil in front of everything"
-msgstr "すべての前にグリースペンシルラインアートを表示します"
-
-
-msgid "Use lights for this Grease Pencil object"
-msgstr "このグリースペンシルオブジェクトにライトを使用します"
 
 
 msgctxt "Operator"
@@ -77913,34 +76461,8 @@ msgid "Only delete the active light probe's baked lighting data"
 msgstr "アクティブライトプローブのベイク済みライティングデータのみ削除します"
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "ラインアートをベイク"
-
-
-msgid "Bake Line Art for current Grease Pencil object"
-msgstr "ラインアートを現在のグリースペンシルオブジェクトにベイクします"
-
-
 msgid "Bake All"
 msgstr "すべてベイク"
-
-
-msgid "Bake all Line Art modifiers"
-msgstr "全ラインアートモディファイアーをベイクします"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "ベイク済ラインアートをクリア"
-
-
-msgid "Clear all strokes in current Grease Pencil object"
-msgstr "現在のグリースペンシルオブジェクト内の全ストロークをクリアします"
-
-
-msgid "Clear all Line Art modifier bakes"
-msgstr "全ラインアートモディファイアーのベイクをクリアします"
 
 
 msgid "Link objects to a collection"
@@ -78051,14 +76573,6 @@ msgstr "コンストレイントをコピー"
 
 msgid "Replace Constraints"
 msgstr "コンストレイントを置き換え"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "グリースペンシルエフェクトをコピー"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "グリースペンシルエフェクトを置き換え"
 
 
 msgid "Copy Light Linking"
@@ -78296,10 +76810,6 @@ msgstr "モディファイアーを適用し，スタックから削除します
 
 msgid "Apply to all keyframes"
 msgstr "全キーフレームに適用"
-
-
-msgid "For Grease Pencil objects, apply the modifier to all the keyframes"
-msgstr "グリースペンシルオブジェクトにて，モディファイアーをすべてのキーフレームに適用します"
 
 
 msgid "For mesh objects, merge UV coordinates that share a vertex to account for imprecision in some modifiers"
@@ -79367,10 +77877,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "スタックの同じ場所にエフェクトを複製します"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "編集するシェーダーFXの名前"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "エフェクトを下に移動"
@@ -79400,15 +77906,6 @@ msgstr "エフェクトを上に移動"
 
 msgid "Move effect up in the stack"
 msgstr "スタック内のエフェクトを上位に移動します"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "グリースペンシルエフェクトを削除"
-
-
-msgid "Remove a effect from the active Grease Pencil object"
-msgstr "アクティブグリースペンシルオブジェクトからエフェクトを削除します"
 
 
 msgctxt "Operator"
@@ -88496,14 +86993,6 @@ msgid "Force using this center value (when set)"
 msgstr "（セット時に）この原点値を強制的に使用します"
 
 
-msgid "Edit Grease Pencil"
-msgstr "グリースペンシル編集"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "選択中のグリースペンシルストロークを編集します"
-
-
 msgid "Use Snapping Options"
 msgstr "スナップのオプションを使用"
 
@@ -89214,20 +87703,6 @@ msgstr "後で手動設定(シングル)"
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "このプロパティのみドライバーを作成し，ターゲットには何も設定しません"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "グリースペンシルスポイト"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "Blender ウィンドウから色を取得し，グリースペンシルマテリアルを作成します"
-
-
-msgctxt "GPencil"
-msgid "Material Mode"
-msgstr "マテリアルモード"
 
 
 msgctxt "Operator"
@@ -92167,11 +90642,6 @@ msgstr "ボリューム"
 
 
 msgctxt "ID"
-msgid "Grease Pencils"
-msgstr "グリースペンシル"
-
-
-msgctxt "ID"
 msgid "Armatures"
 msgstr "アーマチュア"
 
@@ -92457,10 +90927,6 @@ msgid "Export to PDF"
 msgstr "PDFにエクスポート"
 
 
-msgid "Export Grease Pencil to PDF"
-msgstr "グリースペンシルをPDFにエクスポート"
-
-
 msgid "Which frames to include in the export"
 msgstr "エクスポートするフレーム"
 
@@ -92516,25 +90982,12 @@ msgid "Export to SVG"
 msgstr "SVGにエクスポート"
 
 
-msgid "Export Grease Pencil to SVG"
-msgstr "グリースペンシルをSVGにエクスポート"
-
-
 msgid "Clip Camera"
 msgstr "カメラでクリップ"
 
 
 msgid "Clip drawings to camera size when exporting in camera view"
 msgstr "カメラビューでのエクスポート時，ドローをカメラサイズでクリッピングします"
-
-
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "SVGをグリースペンシルにインポート"
-
-
-msgid "Import SVG into Grease Pencil"
-msgstr "SVGをグリースペンシル内にインポートします"
 
 
 msgid "Center on Bounds"
@@ -95229,10 +93682,6 @@ msgid "Curves Sculpt Paint"
 msgstr "カーブスカルプトペイント"
 
 
-msgid "Grease Pencil Paint"
-msgstr "グリースペンシルペイント"
-
-
 msgid "Paint Mode"
 msgstr "ペイントモード"
 
@@ -95243,10 +93692,6 @@ msgstr "アクティブマテリアルのベースカラーを使用しペイン
 
 msgid "Paint the material with a color attribute"
 msgstr "単色のカラー属性でマテリアルをペイントします"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "グリースペンシルスカルプトペイント"
 
 
 msgid "Image Paint"
@@ -95705,10 +94150,6 @@ msgstr "ストロークの基準"
 
 msgid "Drawing Plane"
 msgstr "ドロー平面"
-
-
-msgid "Grease Pencil Options"
-msgstr "グリースペンシルオプション"
 
 
 msgid "Quad View"
@@ -96186,26 +94627,6 @@ msgstr "カーソルの下のピクセル値を取得します"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "アノテート"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "アノテートライン"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "アノテートポリゴン"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "アノテート消しゴム"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "長押し"
 
@@ -96302,10 +94723,6 @@ msgstr "マテリアル設定"
 
 msgid "Material Presets"
 msgstr "マテリアルプリセット"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "グリースペンシルマテリアルスロット"
 
 
 msgid "Backdrop"
@@ -98906,32 +97323,12 @@ msgid "The opacity of unselected F-Curves against the background of the Graph Ed
 msgstr "非選択 F カーブのグラフエディター背景に対する不透明度"
 
 
-msgid "Annotation Default Color"
-msgstr "アノテーションデフォルトカラー"
-
-
-msgid "Color of new annotation layers"
-msgstr "新規アノテーションレイヤーの色"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "グリースペンシル消しゴム半径"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "消しゴムの半径"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "グリースペンシルユークリッド距離"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "ストロークを描く際にマウスで移動した距離"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "グリースペンシルマンハッタン距離"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -99123,14 +97520,6 @@ msgstr "ヘアーカーブを複製"
 
 msgid "Causes curves data to be duplicated with the object"
 msgstr "ヘアーカーブデータがオブジェクトと共に複製されるようになります"
-
-
-msgid "Duplicate Grease Pencil"
-msgstr "グリースペンシルを複製"
-
-
-msgid "Causes Grease Pencil data to be duplicated with the object"
-msgstr "グリースペンシルデータがオブジェクトと共に複製されるようになります"
 
 
 msgid "Duplicate Lattice"
@@ -106000,10 +104389,6 @@ msgid "Render Ambient Occlusion in this Layer"
 msgstr "このレイヤーの AO をレンダリングします"
 
 
-msgid "Render Grease Pencil on this layer"
-msgstr "このレイヤーのグリースペンシルをレンダリングします"
-
-
 msgid "Render motion blur in this Layer, if enabled in the scene"
 msgstr "シーンで有効時，このレイヤーのモーションブラーをレンダリングします"
 
@@ -106610,10 +104995,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "レンダリング中の全体的な子パーティクルのパーセンテージ"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "グリースペンシルのドローイングを簡略化します"
-
-
 msgid "Antialiasing"
 msgstr "アンチエイリアシング"
 
@@ -106628,10 +105009,6 @@ msgstr "モディファイアーを表示"
 
 msgid "Playback Only"
 msgstr "再生のみ"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "アニメーション再生中のみ，グリースペンシルを簡略化します"
 
 
 msgid "Display Shader Effects"
@@ -108409,10 +106786,6 @@ msgstr ""
 "解像度が高いとメモリの使用量が増えます."
 
 
-msgid "Grease Pencil Render"
-msgstr "グリースペンシルレンダー"
-
-
 msgid "Render settings"
 msgstr "レンダー設定"
 
@@ -108447,14 +106820,6 @@ msgstr ""
 
 msgid "Motion Blur Steps"
 msgstr "モーションブラーステップ数"
-
-
-msgid "Controls accuracy of motion blur, more steps result in longer render time. Only used when Motion Blur is enabled. Set to 0 to disable motion blur for Grease Pencil"
-msgstr ""
-"モーションブラーの精度を制御し，ステップ数が増えると\n"
-"レンダリング時間が長くなります．\n"
-"モーションブラー有効時のみ使用され，０に設定すると，\n"
-"グリースペンシルでモーションブラーが無効になります"
 
 
 msgid "Scene Hydra"
@@ -108778,14 +107143,6 @@ msgid "Preview Overlay Settings"
 msgstr "プレビューオーバーレイ設定"
 
 
-msgid "Show Annotation"
-msgstr "アノテーションを表示"
-
-
-msgid "Show annotations for this view"
-msgstr "このビュー用のアノテーションを表示します"
-
-
 msgid "Display center composition guide"
 msgstr "中心に構図ガイドを表示します"
 
@@ -109100,10 +107457,6 @@ msgid "Snap current frame to strip start or end"
 msgstr "現在のフレームをストリップ開始または終了位置にスナップします"
 
 
-msgid "Effect affecting the Grease Pencil object"
-msgstr "グリースペンシルオブジェクトに影響するエフェクト"
-
-
 msgid "Effect name"
 msgstr "エフェクト名"
 
@@ -109370,11 +107723,6 @@ msgstr "オブジェクトを使用"
 
 msgid "Use object as center of rotation"
 msgstr "オブジェクトを回転の中心に使用します"
-
-
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "波"
 
 
 msgid "Use wave effect"
@@ -109841,23 +108189,6 @@ msgid "Clip editor space data"
 msgstr "クリップエディタースペースデータ"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "アノテーションソース"
-
-
-msgid "Where the annotation comes from"
-msgstr "どこのアノテーションか"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "動画クリップに属するアノテーションデータブロックを表示します"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "アクティブトラックに属するアノテーションデータブロックを表示します"
-
-
 msgid "Blending Factor"
 msgstr "ブレンド係数"
 
@@ -110293,10 +108624,6 @@ msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "アクティブオブジェクトのシェイプキーアクションのキーフレームを編集します"
 
 
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "ファイル内のすべてのグリースペンシルスケッチのタイミングを編集します"
-
-
 msgid "Edit timings for Mask Editor splines"
 msgstr "マスクエディタースプラインのタイミングを編集します"
 
@@ -110591,10 +108918,6 @@ msgstr "画像エディタースペース"
 
 msgid "Image and UV editor space data"
 msgstr "画像とUVエディタースペースデータ"
-
-
-msgid "Annotation data for this space"
-msgstr "このスペース用のアノテーションデータ"
 
 
 msgid "Display Channels"
@@ -111244,14 +109567,6 @@ msgid "Show empty objects"
 msgstr "エンプティオブジェクトを表示します"
 
 
-msgid "Show Grease Pencil"
-msgstr "グリースペンシルを表示"
-
-
-msgid "Show Grease Pencil objects"
-msgstr "グリースペンシルオブジェクトを表示します"
-
-
 msgid "Show Lights"
 msgstr "ライトを表示"
 
@@ -111524,10 +109839,6 @@ msgstr "シーケンスエディタースペース"
 
 msgid "Sequence editor space data"
 msgstr "シーケンスエディタースペースデータ"
-
-
-msgid "Annotation data for this Preview region"
-msgstr "このプレビュー領域用のアノテーションデータ"
 
 
 msgid "Display Channel"
@@ -112138,10 +110449,6 @@ msgid "Allow selection of text objects"
 msgstr "テキストオブジェクトの選択を可能にします"
 
 
-msgid "Allow selection of Grease Pencil objects"
-msgstr "グリースペンシルオブジェクトの選択を可能にします"
-
-
 msgid "Allow selection of lattices"
 msgstr "ラティスの選択を可能にします"
 
@@ -112346,10 +110653,6 @@ msgstr "レンダービューでフレームサイズ内の領域を使用しま
 
 msgid "Display 2D cursor"
 msgstr "2Dカーソルを表示"
-
-
-msgid "Display overlays like cursor and annotations"
-msgstr "カーソルやアノテーションのようなオーバーレイを表示します"
 
 
 msgid "Display overlays"
@@ -112929,10 +111232,6 @@ msgstr "ジオメトリデータを含むテーブル"
 
 msgid "Layer Index"
 msgstr "レイヤーインデックス"
-
-
-msgid "Index of the Grease Pencil layer"
-msgstr "グリースペンシルレイヤーのインデックス"
 
 
 msgid "Path to the data that is displayed"
@@ -113865,14 +112164,6 @@ msgstr "シーンの3Dカメラを入力として使用します"
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "シーンのシーケンサータイムラインを入力として使用します"
-
-
-msgid "Use Annotations"
-msgstr "アノテーションを使用"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "OpenGL プレビューでアノテーションを表示します"
 
 
 msgid "View Layer of the scene to render (uses the default if unset)"
@@ -116649,26 +114940,6 @@ msgid "Face Retopology"
 msgstr "面のリトポロジー"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "グリースペンシル頂点"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "グリースペンシル頂点選択"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "グリースペンシル頂点サイズ"
-
-
-msgid "Grease Pencil Wire Edit"
-msgstr "グリースペンシルワイヤ編集"
-
-
-msgid "Grease Pencil wireframe color when in edit mode"
-msgstr "編集モードでのグリースペンシルのワイヤーフレームカラー"
-
-
 msgid "Grid Axis Brightness"
 msgstr "グリッド軸の輝度"
 
@@ -116715,14 +114986,6 @@ msgstr "選択中のオブジェクト"
 
 msgid "Skin Root"
 msgstr "スキンのルート"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "グリースペンシルキーフレーム"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "グリースペンシルキーフレームの色"
 
 
 msgid "Vertex Group Unreferenced"
@@ -116919,24 +115182,12 @@ msgid "Stick stroke to the view"
 msgstr "ビューにストロークを貼り付けます"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "アノテーションストロークの配置（3Dビュー）"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "3D空間内でアノテーションストロークを配置する方法"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "3Dカーソルの位置にストロークをドローします"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "サーフェスにストロークを貼り付けます"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "アノテーションストローク幅"
 
 
 msgid "Auto-Keying Mode"
@@ -116961,14 +115212,6 @@ msgstr "断面のパスの定義に使用します"
 
 msgid "Threshold distance for Auto Merge"
 msgstr "自動マージ用の距離のしきい値"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "グリースペンシル補間"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "グリースペンシルスカルプト"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -118371,10 +116614,6 @@ msgid "Strength of the fade effect"
 msgstr "フェードエフェクトの強さ"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "グリースペンシルレイヤーでアクティブレイヤー以外のレイヤーの不透明度を減衰します"
-
-
 msgid "Fade factor"
 msgstr "フェード係数"
 
@@ -118889,20 +117128,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "ストローク編集中に編集ラインを表示します"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "グリースペンシルオブジェクトをフェード"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "アクティブ以外のグリースペンシルオブジェクトを薄くします"
-
-
 msgid "Fade Layers"
 msgstr "レイヤーの減衰"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "アクティブレイヤー以外のグリースペンシルレイヤーの減衰を切り替えます"
 
 
 msgid "Fade Objects"
@@ -118915,10 +117142,6 @@ msgstr "視認性を上げるため，フルカラーレイヤーとビューポ
 
 msgid "Use Grid"
 msgstr "グリッドを使用"
-
-
-msgid "Display a grid over Grease Pencil paper"
-msgstr "グリースペンシルのペーパー上にグリッドを表示します"
 
 
 msgid "Lines Only"
@@ -119589,10 +117812,6 @@ msgid "Render cryptomatte object pass, for isolating objects in compositing"
 msgstr ""
 "Cryptomatte オブジェクトパスをレンダリングします\n"
 "（コンポジティングでのオブジェクトの孤立化用）"
-
-
-msgid "Deliver Grease Pencil render result in a separate pass"
-msgstr "グリースペンシルのレンダリング結果を別々のパスに渡します"
 
 
 msgid "World Override"
@@ -121470,46 +119689,6 @@ msgstr "3Dビューツール：トランスフォーム（予備）"
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "汎用ツール：アノテート"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "汎用ツール：アノテート（予備）"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "汎用ツール：アノテートライン"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "汎用ツール：アノテートライン（予備）"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "汎用ツール：アノテートポリゴン"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "汎用ツール：アノテートポリゴン（予備）"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "汎用ツール：アノテート消しゴム"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "汎用ツール：アノテート消しゴム（予備）"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "3Dビューツール：メジャー"
 
@@ -121952,11 +120131,6 @@ msgstr "3Dビューツール：テキスト編集，テキスト選択"
 msgctxt "WindowManager"
 msgid "3D View Tool: Edit Text, Select Text (fallback)"
 msgstr "3Dビューツール：テキスト編集，テキスト選択（予備）"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "グリースペンシル"
 
 
 msgctxt "WindowManager"
@@ -123649,41 +121823,6 @@ msgstr "クリップグラフエディター"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "クリップドープシートエディター"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Draw Mode"
-msgstr "グリースペンシルドローモード"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "グリースペンシルブラシストローク"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "グリースペンシル編集モード"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "グリースペンシルスカルプトモード"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "グリースペンシルウェイトペイント"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "グリースペンシル頂点ペイント"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Fill Tool"
-msgstr "グリースペンシルフィルツール"
 
 
 msgctxt "WindowManager"
@@ -127866,10 +126005,6 @@ msgid "Volume(s)"
 msgstr "ボリューム"
 
 
-msgid "Grease Pencil(s)"
-msgstr "グリースペンシル"
-
-
 msgid "Armature(s)"
 msgstr "アーマチュア"
 
@@ -128848,10 +126983,6 @@ msgstr "カーソルを表示"
 
 msgid "Data Source:"
 msgstr "データソース:"
-
-
-msgid "No annotation source"
-msgstr "アノテーションソースがありません"
 
 
 msgctxt "Operator"
@@ -130677,10 +128808,6 @@ msgstr "イージングモード"
 msgctxt "Operator"
 msgid "Discontinuity (Euler) Filter"
 msgstr "不連続(オイラー)フィルター"
-
-
-msgid "Grease Pencil Objects"
-msgstr "グリースペンシルオブジェクト"
 
 
 msgctxt "Operator"
@@ -132521,10 +130648,6 @@ msgstr ""
 " • [Shift]: ドラッグ中にサーフェスの厚さを計測"
 
 
-msgid "Annotation:"
-msgstr "アノテーション:"
-
-
 msgid ""
 "Use multiple operators in an interactive way to add, delete, or move geometry\n"
 " • {:s} - Add geometry by moving the cursor close to an element\n"
@@ -132731,11 +130854,6 @@ msgstr "Universal Scene Description (.usd*)"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVGをグリースペンシルへ"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "Wavefront (.obj)"
 
@@ -132780,16 +130898,6 @@ msgstr "アクティブアイテムがありません"
 
 msgid "No active marker"
 msgstr "アクティブマーカーがありません"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "グリースペンシルをSVGへ"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "グリースペンシルをPDFへ"
 
 
 msgctxt "Operator"
@@ -133729,11 +131837,6 @@ msgstr "メッシュ平面..."
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "アクションをベイク..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "オブジェクトのトランスフォームをGPにベイク..."
 
 
 msgctxt "Operator"
@@ -135459,22 +133562,6 @@ msgid "No object selected, using cursor"
 msgstr "オブジェクトが未選択なため，カーソルを使用します"
 
 
-msgid "Draw Grease Pencil"
-msgstr "グリースペンシルドロー"
-
-
-msgid "Weight Grease Pencil"
-msgstr "グリースペンシルウェイト"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "グリースペンシルスカルプト"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "グリースペンシル頂点"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "ライトパワーを調整"
@@ -135668,11 +133755,6 @@ msgstr "根元の位置"
 
 msgid "Path Steps"
 msgstr "パスステップ"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "境界"
 
 
 msgid "No brush selected"
@@ -136414,14 +134496,6 @@ msgid "GP_Layer"
 msgstr "GPレイヤー"
 
 
-msgid "annotations"
-msgstr "アノテーション"
-
-
-msgid "grease_pencils"
-msgstr "グリースペンシル"
-
-
 msgid "Renamed attribute '%s' to '%s' in object '%s' on layer '%s' on frame %d!"
 msgstr "属性「%s」を「%s」にリネームしました（オブジェクト「%s」レイヤー「%s」フレーム「%d」）!"
 
@@ -136693,10 +134767,6 @@ msgstr "ポイントクラウド"
 
 msgid "LightProbe"
 msgstr "ライトプローブ"
-
-
-msgid "GreasePencil"
-msgstr "グリースペンシル"
 
 
 msgid "objects"
@@ -137838,10 +135908,6 @@ msgstr "NLAストリップコントロール"
 
 msgid "F-Curve visibility in Graph Editor"
 msgstr "グラフエディター内のFカーブの表示設定"
-
-
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "ビューにグリースペンシルレイヤーを表示します"
 
 
 msgid "Toggle visibility of Channels in Graph Editor for editing"
@@ -139304,24 +137370,12 @@ msgid "Nothing to erase"
 msgstr "消す物がありません"
 
 
-msgid "Failed to find Annotation data to draw into"
-msgstr "ドローするアノテーションデータブロックがありません"
-
-
 msgid "Active region not set"
 msgstr "アクティブ領域が未設定です"
 
 
-msgid "Nowhere for Grease Pencil data to go"
-msgstr "グリースペンシルデータの移動先がありません"
-
-
 msgid "Cannot delete locked layers"
 msgstr "ロックレイヤーは削除できません"
-
-
-msgid "No Grease Pencil data"
-msgstr "グリースペンシルデータがありません"
 
 
 msgid "No active frame to delete"
@@ -139342,10 +137396,6 @@ msgstr "肌（影）"
 
 msgid "Eyes"
 msgstr "目"
-
-
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "トランスフォームをグリースペンシルにベイク"
 
 
 msgid "Remove Loose Points"
@@ -139372,16 +137422,8 @@ msgid "The object has only one layer"
 msgstr "オブジェクトにレイヤーが一つしかありません"
 
 
-msgid "No active Grease Pencil layer to paste into"
-msgstr "貼り付け先のアクティブグリースペンシルレイヤーがありません"
-
-
 msgid "Active layer is not editable"
 msgstr "アクティブレイヤーが編集不可です"
-
-
-msgid "No Grease Pencil frame to draw on"
-msgstr "ドローするグリースペンシルフレームがありません"
 
 
 msgid "Couldn't find matching layer, pasting into active layer"
@@ -139390,14 +137432,6 @@ msgstr "マッチするレイヤーがありません．アクティブレイヤ
 
 msgid "No camera in the scene"
 msgstr "シーンにカメラがありません"
-
-
-msgid "No active Grease Pencil layer"
-msgstr "アクティブグリースペンシルレイヤーがありません"
-
-
-msgid "Active object is not a selected Grease Pencil"
-msgstr "アクティブオブジェクトは選択中のグリースペンシルではありません"
 
 
 msgid "There is no layer '%s'"
@@ -139418,10 +137452,6 @@ msgstr "%d 個の選択ポイントをコピーしました"
 
 msgid "No active layer"
 msgstr "アクティブカメラがありません"
-
-
-msgid "Add New Grease Pencil Layer"
-msgstr "新規グリースペンシルレイヤーを追加"
 
 
 msgid "No active group"
@@ -139448,20 +137478,8 @@ msgid "No active layer to duplicate"
 msgstr "複製するアクティブレイヤーがありません"
 
 
-msgid "All Line Art objects are now cleared of bakes"
-msgstr "全ラインアートオブジェクトのベイクをクリアしました"
-
-
 msgid "Baked strokes are cleared"
 msgstr "ベイク済みのストロークをクリアしました"
-
-
-msgid "No active object, or active object isn't a Grease Pencil object"
-msgstr "アクティブオブジェクトなし，あるいはアクティブオブジェクトがグリースペンシルではありません"
-
-
-msgid "Baking Line Art..."
-msgstr "ラインアートをベイク中..."
 
 
 msgid "Active layer is locked or hidden"
@@ -139574,11 +137592,6 @@ msgstr "現在： "
 
 msgid ", Ctrl: Stroke, Shift: Fill, Shift+Ctrl: Both"
 msgstr "，[Ctrl]:ストローク，[Shift]:フィル，[Shift]+[Ctrl]:両方"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material"
-msgstr "グリースペンシルマテリアルを追加"
 
 
 msgid "Press a key"
@@ -140437,36 +138450,6 @@ msgid "Reorder Layers"
 msgstr "レイヤーを並べ替え"
 
 
-msgctxt "Operator"
-msgid "Active Grease Pencil Layer"
-msgstr "グリースペンシルレイヤーをアクティブ化"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer"
-msgstr "グリースペンシルレイヤーをリネーム"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Layer"
-msgstr "グリースペンシルレイヤーを削除"
-
-
-msgctxt "Operator"
-msgid "Active Grease Pencil Group"
-msgstr "グリースペンシルグループをアクティブ化"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer Group"
-msgstr "グリースペンシルレイヤーグループをリネーム"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Group"
-msgstr "グリースペンシルグループを削除"
-
-
 msgid "ID-Block:"
 msgstr "IDブロック:"
 
@@ -140589,10 +138572,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "リンクするパーティクル設定を閲覧"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "リンクするグリースペンシルを閲覧"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "リンクする動画クリップを閲覧"
 
@@ -140689,11 +138668,6 @@ msgstr "新規"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "新規"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "新規"
 
@@ -141059,14 +139033,6 @@ msgstr "エクスポートオプション"
 
 msgid "Unable to find valid 3D View area"
 msgstr "有効な3Dビュー領域がありません"
-
-
-msgid "Active object is not a Grease Pencil object"
-msgstr "アクティブオブジェクトはグリースペンシルではありません"
-
-
-msgid "No frames selected in the Grease Pencil object"
-msgstr "グリースペンシルオブジェクトに選択中のフレームがありません"
 
 
 msgid "Unable to export PDF"
@@ -141796,21 +139762,6 @@ msgid "Field"
 msgstr "フィールド"
 
 
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "グリースペンシル"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "スザンヌ"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "ラインアート"
-
-
 msgid "Cannot create editmode armature"
 msgstr "編集モードでアーマチュアを作成できません"
 
@@ -141875,10 +139826,6 @@ msgid "Deleted %u object(s)"
 msgstr "%u個のオブジェクトを削除しました"
 
 
-msgid "Object '%s' has no evaluated Curve or Grease Pencil data"
-msgstr "オブジェクト「%s」に評価済みカーブまたはグリースペンシルデータがありません"
-
-
 msgid "Object '%s' has no evaluated Point Cloud data"
 msgstr "オブジェクト「%s」に評価済みポイントクラウドデータがありません"
 
@@ -141887,16 +139834,8 @@ msgid "Object '%s' has no evaluated Mesh data"
 msgstr "オブジェクト「%s」に評価済メッシュデータがありません"
 
 
-msgid "Object '%s' has no evaluated Grease Pencil data"
-msgstr "オブジェクト「%s」に評価済みグリースペンシルデータがありません"
-
-
 msgid "Object '%s' has no evaluated mesh or curves data"
 msgstr "オブジェクト「%s」に評価済みメッシュやカーブデータがありません"
-
-
-msgid "Object '%s' has no evaluated Grease Pencil or Curves data"
-msgstr "オブジェクト「%s」に評価済みグリースペンシルまたはカーブデータがありません"
 
 
 msgid "Object '%s' has no evaluated curves data"
@@ -142558,14 +140497,6 @@ msgid "Evaluated geometry from modifier does not contain a point cloud"
 msgstr "モディファイアーの評価済みジオメトリにポイントクラウドがありません"
 
 
-msgid "Cannot apply this modifier to Grease Pencil geometry"
-msgstr "このモディファイアーはグリースペンシルジオメトリに適用できません"
-
-
-msgid "Evaluated geometry from modifier does not contain Grease Pencil geometry"
-msgstr "モディファイアーの評価済みジオメトリにグリースペンシルジオメトリがありません"
-
-
 msgid "Modifiers cannot be applied in edit mode"
 msgstr "モディファイアーは編集モードでは適用できません"
 
@@ -142890,20 +140821,12 @@ msgid "Removed effect: %s"
 msgstr "エフェクト「%s」を削除しました"
 
 
-msgid "Cannot edit shaderfxs in a library override"
-msgstr "ライブラリオーバーライド内のシェーダー FX は編集できません"
-
-
 msgid "Object type is not supported"
 msgstr "未対応のオブジェクトタイプです"
 
 
 msgid "Cannot edit library or override data"
 msgstr "ライブラリやオーバーライドデータは編集できません"
-
-
-msgid "Cannot edit shaderfxs coming from linked data in a library override"
-msgstr "ライブラリオーバーライド内のリンクデータのシェーダー FX は編集できません"
 
 
 msgid "Apply current visible shape to the object data, and delete all shape keys"
@@ -142964,10 +140887,6 @@ msgstr "共用アーマチュアに適用できません"
 
 msgid "Curves Object does not support this set origin operation"
 msgstr "ヘアーカーブオブジェクトはこの原点設定操作に未対応です"
-
-
-msgid "Grease Pencil Object does not support this set origin operation"
-msgstr "グリースペンシルオブジェクトはこの原点設定オプションに未対応です"
 
 
 msgid "Point cloud object does not support this set origin operation"
@@ -144178,24 +142097,12 @@ msgid "UV map or surface attachment is invalid"
 msgstr "UV マップまたはサーフェスへの植え付けが無効です"
 
 
-msgid "No editable Grease Pencil layer"
-msgstr "編集可能なグリースペンシルレイヤーがありません"
-
-
-msgid "No Grease Pencil frame to draw weight on"
-msgstr "ウェイトをドローするグリースペンシルフレームがありません"
-
-
 msgid "Active group is locked, aborting"
 msgstr "アクショングループがロックされているため中止します"
 
 
 msgid "Fill tool needs active material"
 msgstr "フィルツールはアクティブマテリアルが必要です"
-
-
-msgid "GPencil Interpolation: "
-msgstr "グリースペンシル補間："
 
 
 msgid "ESC/RMB to cancel, Enter/LMB to confirm, WHEEL/MOVE to adjust factor"
@@ -144214,27 +142121,8 @@ msgid "Simple physics-inspired easing effects"
 msgstr "シンプルな物理演算風のイージングエフェクト"
 
 
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "補間"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "イージング(強さ準拠)"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "ダイナミックエフェクト"
-
-
 msgid "Trace"
 msgstr "トレース"
-
-
-msgid "Target object not a Grease Pencil, ignoring!"
-msgstr "ターゲットオブジェクトがグリースペンシルではないので無視します！"
 
 
 msgid "Target object library-data, ignoring!"
@@ -144575,10 +142463,6 @@ msgstr "マスクモードではキーフレームの貼り付けはできませ
 
 msgid "No data in the internal clipboard to paste"
 msgstr "内部クリップボード内に貼り付けるデータがありませんでした"
-
-
-msgid "Keyframe pasting is not available for Grease Pencil or mask mode"
-msgstr "グリースペンシルやマスクモードではキーフレームの貼り付けはできません"
 
 
 msgid "No selected F-Curves to paste into"
@@ -146236,10 +144120,6 @@ msgid "Curve: {} points, {} splines"
 msgstr "カーブ - ポイント：{}，スプライン：{}"
 
 
-msgid "Grease Pencil: {} layers"
-msgstr "グリースペンシル - レイヤー：{}"
-
-
 msgid "Edit: {}, {}, {}"
 msgstr "編集 - {}, {}, {}"
 
@@ -146716,16 +144596,6 @@ msgstr "ポーズボーンをリネーム"
 
 
 msgctxt "Operator"
-msgid "Rename Annotation Layer"
-msgstr "アノテーションレイヤーをリネーム"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Drawing"
-msgstr "グリースペンシルドローイングをリネーム"
-
-
-msgctxt "Operator"
 msgid "Rename View Layer"
 msgstr "ビューレイヤーをリネーム"
 
@@ -147136,16 +145006,6 @@ msgstr "編集ボーン操作"
 msgctxt "Operator"
 msgid "Sequencer operation"
 msgstr "シーケンサー操作"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Layer operation"
-msgstr "グリースペンシルレイヤー操作"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Node operation"
-msgstr "グリースペンシルノード操作"
 
 
 msgid "No Library Overrides"
@@ -148000,21 +145860,6 @@ msgstr "頂点ウェイト"
 
 msgid "Curve Data"
 msgstr "カーブデータ"
-
-
-msgctxt "GPencil"
-msgid "Normal"
-msgstr "法線"
-
-
-msgctxt "GPencil"
-msgid "Endpoint"
-msgstr "終端"
-
-
-msgctxt "GPencil"
-msgid "Bézier"
-msgstr "ベジエ"
 
 
 msgid "No active object found"
@@ -148967,10 +146812,6 @@ msgid "Realized curves data has too many elements."
 msgstr "実体化後のカーブデータの要素が多すぎです."
 
 
-msgid "Realized grease pencil has too many layers."
-msgstr "実体化後のグリースペンシルのレイヤーが多すぎです."
-
-
 msgid "Error writing frame"
 msgstr "フレーム保存エラー"
 
@@ -149178,10 +147019,6 @@ msgstr "SVG が読み込みできません"
 
 msgid "Unable to create new object"
 msgstr "新規オブジェクトが作成できません"
-
-
-msgid "SVG has gradients, Grease Pencil color will be approximated"
-msgstr "SVG にグラデーションがあります．グリースペンシルカラーで近似します"
 
 
 msgid "PLY Export: Unable to find collection '%s'"
@@ -149879,14 +147716,6 @@ msgstr "キーイングセットに無効のコンテクストです"
 
 msgid "Incomplete built-in keying set, appears to be missing type info"
 msgstr "ビルトインキーイングセットが不完全です"
-
-
-msgid "Frame not found in annotation layer"
-msgstr "アノテーションレイヤーにフレームがありません"
-
-
-msgid "Layer not found in annotation data"
-msgstr "アノテーションデータにレイヤーがありません"
 
 
 msgid "Stroke has no points"
@@ -150595,10 +148424,6 @@ msgstr "vertex_indices_set 内にインデックス「%d」が重複していま
 
 msgid "Input '%s' not found"
 msgstr "入力「%s」がありません"
-
-
-msgid "Cannot assign material '%s', it has to be used by the Grease Pencil object already"
-msgstr "マテリアル「%s」を割り当てできません．すでにグリースペンシルオブジェクトで使用中である必要があります"
 
 
 msgid "Unable to create new strip"
@@ -151924,10 +149749,6 @@ msgid "Towards Custom Camera"
 msgstr "カスタムカメラ方向"
 
 
-msgid "Cached from the first Line Art modifier"
-msgstr "最初のラインアートモディファイアーをキャッシュしました"
-
-
 msgid "Object is not in front"
 msgstr "オブジェクトは最前面ではありません"
 
@@ -151938,19 +149759,6 @@ msgstr "モディファイアーにベイク済データがあります"
 
 msgid "Object is shown in front"
 msgstr "オブジェクトは最前面に表示されています"
-
-
-msgid "Cached from the first Line Art modifier."
-msgstr "最初のラインアートモディファイアーをキャッシュしました."
-
-
-msgid "Lineart"
-msgstr "ラインアート"
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "影を生成"
 
 
 msgid "Edge Types"
@@ -154574,10 +152382,6 @@ msgstr ""
 "バウンディングボックスを計算するには実体化する必要があります"
 
 
-msgid "For curves, point clouds, and Grease Pencil, take the radius attribute into account when computing the bounds."
-msgstr "カメラ，ポイントクラウド，グリースペンシルで境界を計算する時，半径（radius）属性を考慮します."
-
-
 msgid "A cube mesh enclosing the input geometry"
 msgstr "入力ジオメトリを囲む立方体メッシュ"
 
@@ -155657,10 +153461,6 @@ msgid "Layers as Instances"
 msgstr "レイヤーをインスタンス化"
 
 
-msgid "Grease Pencil data to convert to curves"
-msgstr "カーブに変換するグリースペンシルデータ"
-
-
 msgid "Select the layers to convert"
 msgstr "変換するレイヤーの選択"
 
@@ -156385,10 +154185,6 @@ msgstr "既存の辺に沿ったメッシュ頂点のみマージされます．
 
 msgid "Point cloud or mesh to merge points of"
 msgstr "ポイントを統合するポイントクラウドまたはメッシュ"
-
-
-msgid "Grease Pencil data to merge layers of"
-msgstr "レイヤーを統合するグリースペンシルデータ"
 
 
 msgid "Merge ID"
@@ -157407,18 +155203,6 @@ msgstr "バンドルをオーバーライドするジオメトリ"
 
 msgid "Geometry to override the name of"
 msgstr "名前をオーバーライドするジオメトリ"
-
-
-msgid "Grease Pencil to change the color of"
-msgstr "色を変更するグリースペンシル"
-
-
-msgid "Grease Pencil to set the depth order of"
-msgstr "深度の基準を設定するグリースペンシル"
-
-
-msgid "Grease Pencil to set the softness of"
-msgstr "柔らかさを設定するグリースペンシル"
 
 
 msgid "Update Inactive"
@@ -161183,11 +158967,6 @@ msgstr "ゲームエンジン"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "ジオメトリノード"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "グリースペンシル"
 
 
 msgctxt "Preferences"

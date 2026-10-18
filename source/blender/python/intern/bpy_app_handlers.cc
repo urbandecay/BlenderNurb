@@ -73,12 +73,6 @@ static PyTypeObject BlenderAppCbType;
   "the scene data-block"
 #define PYDOC_COMPOSITE_TYPE "\n\n:type: list[Callable[[bpy.types.Scene], None]]"
 
-#define ANNOTATION_ARG \
-  "Accepts two arguments: " \
-  "the annotation data-block and dependency graph"
-#define PYDOC_ANNOTATION_TYPE \
-  "\n\n:type: list[Callable[[bpy.types.GreasePencil, bpy.types.Depsgraph], None]]"
-
 #define BLENDIMPORT_ARG \
   "Accepts one argument: " \
   "a BlendImportContext"
@@ -141,8 +135,6 @@ static PyStructSequence_Field app_cb_info_fields[] = {
      "on loading factory preferences (after)" PYDOC_HANDLER_TYPE_NONE},
     {"load_factory_startup_post", "on loading factory startup (after)" PYDOC_HANDLER_TYPE_NONE},
     {"xr_session_start_pre", "on starting an xr session (before)" PYDOC_HANDLER_TYPE_NONE},
-    {"annotation_pre", "on drawing an annotation (before). " ANNOTATION_ARG PYDOC_ANNOTATION_TYPE},
-    {"annotation_post", "on drawing an annotation (after). " ANNOTATION_ARG PYDOC_ANNOTATION_TYPE},
     {"object_bake_pre", "before starting a bake job. " OBJECT_BAKE_ARG PYDOC_OBJECT_BAKE_TYPE},
     {"object_bake_complete",
      "on completing a bake job; will be called in the main "

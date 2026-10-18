@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "GEO_foreach_geometry.hh"
 #include "GEO_subdivide_curves.hh"
@@ -17,7 +16,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to subdivide");
   b.add_output<decl::Geometry>("Curve"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Int>("Cuts"_ustr)
@@ -52,39 +51,6 @@ static Curves *subdivide_curves(const Curves &src_curves_id,
   return dst_curves_id;
 }
 
-static void subdivide_grease_pencil_curves(GreasePencil &grease_pencil,
-                                           Field<int> &cuts_field,
-                                           const AttributeFilter &attribute_filter)
-{
-  using namespace bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-
-    if (drawing == nullptr) {
-      continue;
-    }
-
-    const bke::CurvesGeometry &src_curves = drawing->strokes();
-    const bke::GreasePencilLayerFieldContext field_context{
-        grease_pencil, AttrDomain::Point, layer_index};
-
-    fn::FieldEvaluator evaluator{field_context, src_curves.points_num()};
-    evaluator.add(cuts_field);
-    evaluator.evaluate();
-    const VArray<int> cuts = evaluator.get_evaluated<int>(0);
-
-    if (cuts.is_single() && cuts.get_internal_single() < 1) {
-      continue;
-    }
-
-    bke::CurvesGeometry dst_curves = geometry::subdivide_curves(
-        src_curves, src_curves.curves_range(), cuts, attribute_filter);
-
-    drawing->strokes_for_write() = std::move(dst_curves);
-    drawing->tag_topology_changed();
-  }
-}
-
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Curve"_ustr);
@@ -100,10 +66,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       if (dst_curves_id) {
         geometry_set.replace_curves(dst_curves_id);
       }
-    }
-    if (geometry_set.has_grease_pencil()) {
-      GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
-      subdivide_grease_pencil_curves(grease_pencil, cuts_field, attribute_filter);
     }
   });
   params.set_output("Curve"_ustr, geometry_set);

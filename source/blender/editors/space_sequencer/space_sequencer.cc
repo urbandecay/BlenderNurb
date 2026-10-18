@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstring>
 
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_scene_types.h"
 
@@ -21,8 +20,6 @@
 
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
-#include "BKE_lib_query.hh"
-#include "BKE_lib_remap.hh"
 #include "BKE_screen.hh"
 
 #include "ED_screen.hh"
@@ -78,7 +75,7 @@ static SpaceLink *sequencer_create(const ScrArea * /*area*/, const Scene *scene)
   sseq->view = SEQ_VIEW_SEQUENCE;
   sseq->mainb = SEQ_DRAW_IMG_IMBUF;
   sseq->flag = SEQ_USE_ALPHA | SEQ_SHOW_MARKERS | SEQ_ZOOM_TO_FIT | SEQ_SHOW_OVERLAY;
-  sseq->preview_overlay.flag = SEQ_PREVIEW_SHOW_GPENCIL | SEQ_PREVIEW_SHOW_OUTLINE_SELECTED |
+  sseq->preview_overlay.flag = SEQ_PREVIEW_SHOW_OUTLINE_SELECTED |
                                SEQ_PREVIEW_SHOW_METADATA | SEQ_PREVIEW_SHOW_COMPOSITION_GUIDES;
   sseq->timeline_overlay.flag = SEQ_TIMELINE_SHOW_STRIP_NAME | SEQ_TIMELINE_SHOW_STRIP_SOURCE |
                                 SEQ_TIMELINE_SHOW_STRIP_DURATION | SEQ_TIMELINE_SHOW_GRID |
@@ -202,11 +199,6 @@ static void sequencer_free(SpaceLink *sl)
   SpaceSeq *sseq = reinterpret_cast<SpaceSeq *>(sl);
   MEM_delete(sseq->runtime);
 
-#if 0
-  if (sseq->gpd) {
-    BKE_gpencil_free_data(sseq->gpd);
-  }
-#endif
 }
 
 /* Space-type init callback. */
@@ -276,7 +268,6 @@ static SpaceLink *sequencer_duplicate(SpaceLink *sl)
   sseqn->runtime = MEM_new<SpaceSeq_Runtime>(__func__);
 
   /* Clear or remove stuff from old. */
-  // sseq->gpd = gpencil_data_duplicate(sseq->gpd, false);
 
   return reinterpret_cast<SpaceLink *>(sseqn);
 }
@@ -303,11 +294,6 @@ static void sequencer_listener(const wmSpaceTypeListenerParams *params)
     case NC_SPACE:
       if (wmn->data == ND_SPACE_SEQUENCER) {
         sequencer_scopes_tag_refresh(area, params->scene);
-      }
-      break;
-    case NC_GPENCIL:
-      if (wmn->data & ND_GPENCIL_EDITMODE) {
-        ED_area_tag_redraw(area);
       }
       break;
   }
@@ -885,7 +871,6 @@ static void sequencer_preview_region_listener(const wmRegionListenerParams *para
         case ND_POSE:
         case ND_DRAW:
         case ND_MODIFIER:
-        case ND_SHADERFX:
         case ND_CONSTRAINT:
         case ND_KEYS:
         case ND_PARTICLE:
@@ -954,11 +939,6 @@ static void sequencer_preview_region_listener(const wmRegionListenerParams *para
       }
       break;
 
-    case NC_GPENCIL:
-      if (ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_SCENE:
       switch (wmn->data) {
         /* To handle changes in 3D viewport. */
@@ -1036,11 +1016,6 @@ static void sequencer_buttons_region_listener(const wmRegionListenerParams *para
 
   /* Context changes. */
   switch (wmn->category) {
-    case NC_GPENCIL:
-      if (ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_SCENE:
       switch (wmn->data) {
         case ND_FRAME:
@@ -1061,20 +1036,6 @@ static void sequencer_buttons_region_listener(const wmRegionListenerParams *para
       }
       break;
   }
-}
-
-static void sequencer_id_remap(ScrArea * /*area*/,
-                               SpaceLink *slink,
-                               const bke::id::IDRemapper &mappings)
-{
-  SpaceSeq *sseq = reinterpret_cast<SpaceSeq *>(slink);
-  mappings.apply(reinterpret_cast<ID **>(&sseq->gpd), ID_REMAP_APPLY_DEFAULT);
-}
-
-static void sequencer_foreach_id(SpaceLink *space_link, LibraryForeachIDData *data)
-{
-  SpaceSeq *sseq = reinterpret_cast<SpaceSeq *>(space_link);
-  BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, sseq->gpd, IDWALK_CB_USER | IDWALK_CB_DIRECT_WEAK_LINK);
 }
 
 /* ************************************* */
@@ -1109,19 +1070,6 @@ static void sequencer_space_blend_read_data(BlendDataReader * /*reader*/, SpaceL
   SpaceSeq *sseq = reinterpret_cast<SpaceSeq *>(sl);
   sseq->runtime = MEM_new<SpaceSeq_Runtime>(__func__);
 
-  /* grease pencil data is not a direct data and can't be linked from direct_link*
-   * functions, it should be linked from lib_link* functions instead
-   *
-   * otherwise it'll lead to lost grease data on open because it'll likely be
-   * read from file after all other users of grease pencil and newdataadr would
-   * simple return nullptr here (sergey)
-   */
-#if 0
-  if (sseq->gpd) {
-    sseq->gpd = newdataadr(fd, sseq->gpd);
-    BKE_gpencil_blend_read_data(fd, sseq->gpd);
-  }
-#endif
 }
 
 static void sequencer_space_blend_write(BlendWriter *writer, SpaceLink *sl)
@@ -1200,8 +1148,6 @@ void ED_spacetype_sequencer()
   st->dropboxes = sequencer_dropboxes;
   st->refresh = sequencer_refresh;
   st->listener = sequencer_listener;
-  st->id_remap = sequencer_id_remap;
-  st->foreach_id = sequencer_foreach_id;
   st->blend_read_data = sequencer_space_blend_read_data;
   st->blend_read_after_liblink = nullptr;
   st->blend_write = sequencer_space_blend_write;
@@ -1234,7 +1180,7 @@ void ED_spacetype_sequencer()
   art->on_view2d_changed = sequencer_preview_region_view2d_changed;
   art->draw = sequencer_preview_region_draw;
   art->listener = sequencer_preview_region_listener;
-  art->keymapflag = ED_KEYMAP_TOOL | ED_KEYMAP_GIZMO | ED_KEYMAP_GPENCIL;
+  art->keymapflag = ED_KEYMAP_TOOL | ED_KEYMAP_GIZMO;
   BLI_addhead(&st->regiontypes, art);
 
   /* List-view/buttons. */

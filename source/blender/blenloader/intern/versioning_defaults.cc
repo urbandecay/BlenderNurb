@@ -28,7 +28,6 @@
 
 #include "DNA_camera_types.h"
 #include "DNA_curveprofile_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_light_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_material_types.h"
@@ -48,7 +47,6 @@
 #include "BKE_colortools.hh"
 #include "BKE_curveprofile.h"
 #include "BKE_customdata.hh"
-#include "BKE_gpencil_legacy.h"
 #include "BKE_idprop.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
@@ -215,9 +213,6 @@ static void blo_update_defaults_screen(bScreen *screen,
       v3d->overlay.retopology_offset = 0.01f;
       /* Clear this deprecated bit for later reuse. */
       v3d->overlay.edit_flag &= ~V3D_OVERLAY_EDIT_EDGES_DEPRECATED;
-      /* grease pencil settings */
-      v3d->vertex_opacity = 1.0f;
-      v3d->gp_flag |= V3D_GP_SHOW_EDIT_LINES;
       /* Remove dither pattern in wireframe mode. */
       v3d->shading.xray_alpha_wire = 0.0f;
       v3d->clip_start = 0.01f;
@@ -228,8 +223,6 @@ static void blo_update_defaults_screen(bScreen *screen,
       /* Disable Curve Normals. */
       v3d->overlay.edit_flag &= ~V3D_OVERLAY_EDIT_CU_NORMALS;
       v3d->overlay.normals_constant_screen_size = 7.0f;
-      /* Always enable Grease Pencil vertex color overlay by default. */
-      v3d->overlay.gpencil_vertex_paint_opacity = 1.0f;
       /* Always use theme color for wireframe by default. */
       v3d->shading.wire_color_type = V3D_SHADING_SINGLE_COLOR;
 
@@ -314,8 +307,6 @@ static void blo_update_defaults_screen(bScreen *screen,
         View3D *v3d = static_cast<View3D *>(area.spacedata.first);
         /* Set Material Color by default. */
         v3d->shading.color_type = V3D_SHADING_MATERIAL_COLOR;
-        /* Enable Annotations. */
-        v3d->flag2 |= V3D_SHOW_ANNOTATION;
       }
     }
   }
@@ -335,10 +326,6 @@ void BLO_update_defaults_workspace(WorkSpace *workspace, const char *app_templat
       BKE_workspace_tool_remove(workspace, static_cast<bToolRef *>(workspace->tools.first));
     }
 
-    /* For 2D animation template. */
-    if (STREQ(workspace->id.name + 2, "Drawing")) {
-      workspace->object_mode = OB_MODE_PAINT_GREASE_PENCIL;
-    }
 
     /* For Sculpting template. */
     if (STREQ(workspace->id.name + 2, "Sculpting")) {
@@ -480,26 +467,6 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
   ts->snap_angle_increment_2d_precision = default_snap_angle_increment_precision;
   ts->snap_angle_increment_3d_precision = default_snap_angle_increment_precision;
 
-  /* Be sure `curfalloff` and primitive are initialized. */
-  if (ts->gp_sculpt.cur_falloff == nullptr) {
-    ts->gp_sculpt.cur_falloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-    CurveMapping *gp_falloff_curve = ts->gp_sculpt.cur_falloff;
-    BKE_curvemapping_init(gp_falloff_curve);
-    BKE_curvemap_reset(gp_falloff_curve->cm,
-                       &gp_falloff_curve->clipr,
-                       CURVE_PRESET_GAUSS,
-                       CurveMapSlopeType::Positive);
-  }
-  if (ts->gp_sculpt.cur_primitive == nullptr) {
-    ts->gp_sculpt.cur_primitive = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-    CurveMapping *gp_primitive_curve = ts->gp_sculpt.cur_primitive;
-    BKE_curvemapping_init(gp_primitive_curve);
-    BKE_curvemap_reset(gp_primitive_curve->cm,
-                       &gp_primitive_curve->clipr,
-                       CURVE_PRESET_BELL,
-                       CurveMapSlopeType::Positive);
-  }
-
   if (ts->sculpt) {
     ts->sculpt->flags = Sculpt().flags;
   }
@@ -558,9 +525,6 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
   blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->vpaint));
   blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->wpaint));
   blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->sculpt));
-  blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->gp_paint));
-  blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->gp_vertexpaint));
-  blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->gp_sculptpaint));
   blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->curves_sculpt));
   blo_update_defaults_paint(reinterpret_cast<Paint *>(&ts->imapaint));
 
@@ -580,106 +544,6 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
   /* For all app templates. */
   for (WorkSpace &workspace : bmain->workspaces) {
     BLO_update_defaults_workspace(&workspace, app_template);
-  }
-
-  /* Grease pencil materials and paint modes setup. */
-  {
-    /* Rename and fix materials and enable default object lights on. */
-    if (app_template && STREQ(app_template, "2D_Animation")) {
-      Material *ma = nullptr;
-      do_versions_rename_id(bmain, ID_MA, "Black", "Solid Stroke");
-      do_versions_rename_id(bmain, ID_MA, "Red", "Squares Stroke");
-      do_versions_rename_id(bmain, ID_MA, "Grey", "Solid Fill");
-      do_versions_rename_id(bmain, ID_MA, "Black Dots", "Dots Stroke");
-
-      /* Dots Stroke. */
-      ma = static_cast<Material *>(
-          BLI_findstring(&bmain->materials, "Dots Stroke", offsetof(ID, name) + 2));
-      if (ma == nullptr) {
-        ma = BKE_gpencil_material_add(bmain, "Dots Stroke");
-      }
-      ma->gp_style->mode = GP_MATERIAL_MODE_DOT;
-
-      /* Squares Stroke. */
-      ma = static_cast<Material *>(
-          BLI_findstring(&bmain->materials, "Squares Stroke", offsetof(ID, name) + 2));
-      if (ma == nullptr) {
-        ma = BKE_gpencil_material_add(bmain, "Squares Stroke");
-      }
-      ma->gp_style->mode = GP_MATERIAL_MODE_SQUARE;
-
-      /* Change Solid Stroke settings. */
-      ma = static_cast<Material *>(
-          BLI_findstring(&bmain->materials, "Solid Stroke", offsetof(ID, name) + 2));
-      if (ma != nullptr) {
-        ma->gp_style->mix_rgba[3] = 1.0f;
-        ma->gp_style->texture_offset[0] = -0.5f;
-        ma->gp_style->mix_factor = 0.5f;
-      }
-
-      /* Change Solid Fill settings. */
-      ma = static_cast<Material *>(
-          BLI_findstring(&bmain->materials, "Solid Fill", offsetof(ID, name) + 2));
-      if (ma != nullptr) {
-        ma->gp_style->flag &= ~GP_MATERIAL_STROKE_SHOW;
-        ma->gp_style->mix_rgba[3] = 1.0f;
-        ma->gp_style->texture_offset[0] = -0.5f;
-        ma->gp_style->mix_factor = 0.5f;
-      }
-
-      Object *ob = static_cast<Object *>(
-          BLI_findstring(&bmain->objects, "Stroke", offsetof(ID, name) + 2));
-      if (ob && ob->type == OB_GPENCIL_LEGACY) {
-        ob->dtx |= OB_USE_GPENCIL_LIGHTS;
-      }
-    }
-
-    /* Add library weak references to avoid duplicating materials from essentials. */
-    const std::optional<std::string> assets_path = BKE_appdir_folder_id(BLENDER_SYSTEM_DATAFILES,
-                                                                        "assets/brushes");
-    if (assets_path.has_value()) {
-      const std::string assets_blend_path = *assets_path + "/essentials_brushes-gp_draw.blend";
-      for (Material &material : bmain->materials) {
-        BKE_main_library_weak_reference_add(
-            &material.id, assets_blend_path.c_str(), material.id.name);
-      }
-    }
-
-    /* Reset grease pencil paint modes. */
-    for (Scene &scene : bmain->scenes) {
-      ToolSettings *ts = scene.toolsettings;
-
-      /* Ensure new Paint modes. */
-      BKE_paint_ensure_from_paintmode(&scene, PaintMode::VertexGPencil);
-      BKE_paint_ensure_from_paintmode(&scene, PaintMode::SculptGPencil);
-      BKE_paint_ensure_from_paintmode(&scene, PaintMode::WeightGPencil);
-
-      /* Enable cursor. */
-      if (ts->gp_paint) {
-        ts->gp_paint->paint.flags |= PAINT_SHOW_BRUSH;
-      }
-
-      /* Ensure Palette by default. */
-      if (ts->gp_paint) {
-        BKE_gpencil_palette_ensure(bmain, &scene);
-      }
-    }
-
-    if (app_template && (STR_ELEM(app_template, "2D_Animation", "Storyboarding"))) {
-      /* Since !153036, the base colors for stroke & fill were getting versioned to have 0% opacity
-       * if the stroke/fill was disabled. This meant that in a new file using the following App
-       * Templates, the "Solid Stroke" material wouldn't show anything when trying to draw a fill.
-       * This sets the fill to a mid grey to make sure users don't run into this issue. */
-
-      /* Change Solid Stroke settings. */
-      Material *ma = static_cast<Material *>(
-          BLI_findstring(&bmain->materials, "Solid Stroke", offsetof(ID, name) + 2));
-      if (ma != nullptr) {
-        /* Black Stroke and Grey Fill. */
-        copy_v4_fl4(ma->gp_style->stroke_rgba, 0.0f, 0.0f, 0.0f, 1.0f);
-        copy_v4_fl4(ma->gp_style->fill_rgba, 0.5f, 0.5f, 0.5f, 1.0f);
-      }
-    }
   }
 
   /* For builtin templates only. */
@@ -739,28 +603,11 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
       scene.flag &= ~SCE_FRAME_DROP;
     }
 
-    /* Change default selection mode for Grease Pencil. */
-    if (app_template && STREQ(app_template, "2D_Animation")) {
-      ToolSettings *ts = scene.toolsettings;
-      ts->gpencil_selectmode_edit = GP_SELECTMODE_STROKE;
-    }
   }
 
   /* Objects */
   do_versions_rename_id(bmain, ID_OB, "Lamp", "Light");
   do_versions_rename_id(bmain, ID_LA, "Lamp", "Light");
-
-  if (app_template && STREQ(app_template, "2D_Animation")) {
-    for (Object &object : bmain->objects) {
-      if (object.type == OB_GPENCIL_LEGACY) {
-        /* Set grease pencil object in drawing mode */
-        bGPdata *gpd = id_cast<bGPdata *>(object.data);
-        object.mode = OB_MODE_PAINT_GREASE_PENCIL;
-        gpd->flag |= GP_DATA_STROKE_PAINTMODE;
-        break;
-      }
-    }
-  }
 
   for (Object &object : bmain->objects) {
     const Object dob;
@@ -892,15 +739,6 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
     }
   }
 
-  /* Grease Pencil Anti-Aliasing. */
-  {
-    for (Scene &scene : bmain->scenes) {
-      scene.grease_pencil_settings.smaa_threshold = 1.0f;
-      scene.grease_pencil_settings.smaa_threshold_render = 0.25f;
-      scene.grease_pencil_settings.aa_samples = 8;
-      scene.grease_pencil_settings.motion_blur_steps = 8;
-    }
-  }
 }
 
 }  // namespace blender

@@ -78,10 +78,6 @@
  *  \ingroup blender
  */
 
-/** \defgroup shader_fx Shader Effects
- *  \ingroup blender
- */
-
 /** \defgroup data DNA, RNA and .blend access
  *  \ingroup blender */
 
@@ -140,10 +136,6 @@
  */
 
 /** \defgroup edgizmolib gizmo library
- *  \ingroup editors
- */
-
-/** \defgroup edgpencil gpencil
  *  \ingroup editors
  */
 

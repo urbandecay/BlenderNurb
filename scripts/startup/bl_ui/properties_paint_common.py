@@ -158,10 +158,6 @@ class BrushAssetShelf:
             'PAINT_WEIGHT': "VIEW3D_AST_brush_weight_paint",
             'PAINT_TEXTURE': "VIEW3D_AST_brush_texture_paint",
             'PAINT_2D': "IMAGE_AST_brush_paint",
-            'PAINT_GREASE_PENCIL': "VIEW3D_AST_brush_gpencil_paint",
-            'SCULPT_GREASE_PENCIL': "VIEW3D_AST_brush_gpencil_sculpt",
-            'WEIGHT_GREASE_PENCIL': "VIEW3D_AST_brush_gpencil_weight",
-            'VERTEX_GREASE_PENCIL': "VIEW3D_AST_brush_gpencil_vertex",
             'SCULPT_CURVES': "VIEW3D_AST_brush_sculpt_curves",
         }
         mode = UnifiedPaintPanel.get_brush_mode(context)
@@ -276,15 +272,6 @@ class UnifiedPaintPanel:
             return tool_settings.image_paint
         elif mode == 'SCULPT_CURVES':
             return tool_settings.curves_sculpt
-        # Grease Pencil settings
-        elif mode == 'PAINT_GREASE_PENCIL':
-            return tool_settings.gpencil_paint
-        elif mode == 'SCULPT_GREASE_PENCIL':
-            return tool_settings.gpencil_sculpt_paint
-        elif mode == 'WEIGHT_GREASE_PENCIL':
-            return tool_settings.gpencil_weight_paint
-        elif mode == 'VERTEX_GREASE_PENCIL':
-            return tool_settings.gpencil_vertex_paint
         return None
 
     @staticmethod
@@ -1195,18 +1182,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
         strength_pressure = tool not in {'SLIDE', 'ADD', 'DELETE'}
         size_pressure = True
 
-    # Grease Pencil #
-    if mode == 'PAINT_GREASE_PENCIL':
-        size_mode = True
-        size = True
-        strength = True
-
-    # Grease Pencil #
-    if mode == 'SCULPT_GREASE_PENCIL':
-        size = True
-        strength = True
-        size_pressure = True
-
     ### Draw settings. ###
     ups = UnifiedPaintPanel.paint_settings(context).unified_paint_settings
 
@@ -1365,15 +1340,6 @@ def brush_settings_advanced(layout, context, settings, brush, popover=False):
 
         if capabilities.has_color and popover:
             draw_color_jitter_panel(container, context, brush)
-
-    elif mode == 'SCULPT_GREASE_PENCIL':
-        gp_settings = brush.gpencil_settings
-
-        col = container.column(heading="Affect", align=True)
-        col.prop(gp_settings, "use_edit_position", text="Position")
-        col.prop(gp_settings, "use_edit_strength", text="Strength", text_ctxt=i18n_contexts.id_gpencil)
-        col.prop(gp_settings, "use_edit_thickness", text="Thickness")
-        col.prop(gp_settings, "use_edit_uv", text="UV")
 
     # 3D and 2D Texture Paint.
     elif mode in {'PAINT_TEXTURE', 'PAINT_2D'}:
@@ -1686,284 +1652,12 @@ def brush_basic_texpaint_settings(layout, context, brush, *, compact=False):
     )
 
 
-def brush_basic__draw_color_selector(context, layout, brush, gp_settings):
-    tool_settings = context.scene.tool_settings
-    settings = tool_settings.gpencil_paint
-    ma = gp_settings.material
-
-    row = layout.row(align=True)
-    if not gp_settings.use_material_pin:
-        ma = context.object.active_material
-    icon_id = 0
-    txt_ma = ""
-    if ma:
-        ma.id_data.preview_ensure()
-        if ma.id_data.preview:
-            icon_id = ma.id_data.preview.icon_id
-            txt_ma = ma.name
-            maxw = 25
-            if len(txt_ma) > maxw:
-                txt_ma = txt_ma[:maxw - 5] + '..' + txt_ma[-3:]
-
-    sub = row.row(align=True)
-    sub.enabled = not gp_settings.use_material_pin
-    sub.ui_units_x = 8
-    sub.popover(
-        panel="TOPBAR_PT_grease_pencil_materials",
-        text=txt_ma,
-        translate=False,
-        icon_value=icon_id,
-    )
-
-    row.prop(gp_settings, "use_material_pin", text="")
-
-    if brush.gpencil_brush_type in {'DRAW', 'FILL'}:
-        row.separator(factor=1.0)
-        sub_row = row.row(align=True)
-        pin_draw_mode = gp_settings.pin_draw_mode
-        sub_row.enabled = not pin_draw_mode
-        if pin_draw_mode:
-            sub_row.prop_enum(gp_settings, "brush_draw_mode", 'MATERIAL', text="", icon='MATERIAL')
-            sub_row.prop_enum(gp_settings, "brush_draw_mode", 'VERTEXCOLOR', text="", icon='VPAINT_HLT')
-        else:
-            sub_row.prop_enum(settings, "color_mode", 'MATERIAL', text="", icon='MATERIAL')
-            sub_row.prop_enum(settings, "color_mode", 'VERTEXCOLOR', text="", icon='VPAINT_HLT')
-
-        show_vertex_color = ((not pin_draw_mode) and settings.color_mode == 'VERTEXCOLOR') or \
-            (pin_draw_mode and gp_settings.brush_draw_mode == 'VERTEXCOLOR')
-
-        if show_vertex_color:
-            sub_row = row.row(align=True)
-            sub_row.enabled = show_vertex_color
-            sub_row.scale_x = 0.8
-            sub_row.prop_with_popover(brush, "color", text="", panel="TOPBAR_PT_grease_pencil_vertex_color")
-        row.prop(gp_settings, "pin_draw_mode", text="")
 
 
-def brush_basic_grease_pencil_paint_settings(layout, context, brush, props, *, compact=False):
-    gp_settings = brush.gpencil_settings
-    paint = context.tool_settings.gpencil_paint
-    tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-    if gp_settings is None:
-        return
-
-    is_primitive_tool = tool.idname in {
-        "builtin.arc",
-        "builtin.curve",
-        "builtin.line",
-        "builtin.box",
-        "builtin.circle",
-        "builtin.polyline",
-    }
-
-    grease_pencil_brush_type = brush.gpencil_brush_type
-
-    if grease_pencil_brush_type in {'DRAW', 'ERASE', 'TINT'} or is_primitive_tool:
-        size = "size"
-        if brush.use_locked_size == 'SCENE' and (grease_pencil_brush_type == 'DRAW' or is_primitive_tool):
-            size = "unprojected_size"
-        row = layout.row(align=True)
-        row.prop(brush, size, slider=True, text="Size")
-        row.prop(brush, "use_pressure_size", text="")
-        if not compact:
-            row.prop(
-                paint,
-                "show_size_curve",
-                text="",
-                icon='DOWNARROW_HLT' if paint.show_size_curve else 'RIGHTARROW',
-                emboss=False,
-            )
-            if paint.show_size_curve:
-                col = layout.column()
-                col.active = brush.use_pressure_size
-                col.template_curve_mapping(gp_settings, "curve_sensitivity", brush=True, show_presets=True)
-
-        row = layout.row(align=True)
-        row.prop(brush, "strength", slider=True, text="Strength")
-        row.prop(brush, "use_pressure_strength", text="")
-        if not compact:
-            row.prop(
-                paint,
-                "show_strength_curve",
-                text="",
-                icon='DOWNARROW_HLT' if paint.show_strength_curve else 'RIGHTARROW',
-                emboss=False,
-            )
-            if paint.show_strength_curve:
-                col = layout.column()
-                col.active = brush.use_pressure_strength
-                col.template_curve_mapping(gp_settings, "curve_strength", brush=True, show_presets=True)
-
-    if props:
-        layout.prop(props, "subdivision")
-
-    # Brush details
-    if is_primitive_tool:
-        row = layout.row(align=True)
-        if context.region.type == 'TOOL_HEADER':
-            row.prop_enum(brush.gpencil_settings, "stroke_type", 'STROKE', text="", icon='GP_DRAW_STROKE')
-            row.prop_enum(brush.gpencil_settings, "stroke_type", 'FILL', text="", icon='GP_DRAW_FILL')
-            row.prop_enum(brush.gpencil_settings, "stroke_type", 'BOTH', text="", icon='GP_DRAW_BOTH')
-        else:
-            row.prop(brush.gpencil_settings, "stroke_type")
-
-        row = layout.row(align=True)
-        if context.region.type == 'TOOL_HEADER':
-            row.prop(gp_settings, "caps_type", text="", expand=True)
-        else:
-            row.prop(gp_settings, "caps_type", text="Caps Type")
-
-        row = layout.row(align=True)
-        settings = context.tool_settings.gpencil_sculpt
-        if compact:
-            row.prop(settings, "use_thickness_curve", text="", icon='SPHERECURVE')
-            sub = row.row(align=True)
-            sub.active = settings.use_thickness_curve
-            sub.popover(
-                panel="TOPBAR_PT_gpencil_primitive",
-                text="Thickness Profile",
-            )
-        else:
-            row.prop(settings, "use_thickness_curve", text="Use Thickness Profile")
-            sub = row.row(align=True)
-            if settings.use_thickness_curve:
-                # Pressure curve.
-                layout.template_curve_mapping(settings, "thickness_primitive_curve", brush=True)
-    elif grease_pencil_brush_type == 'DRAW':
-        row = layout.row(align=True)
-        if compact:
-            row.prop_enum(brush.gpencil_settings, "stroke_type", 'STROKE', text="", icon='GP_DRAW_STROKE')
-            row.prop_enum(brush.gpencil_settings, "stroke_type", 'FILL', text="", icon='GP_DRAW_FILL')
-            row.prop_enum(brush.gpencil_settings, "stroke_type", 'BOTH', text="", icon='GP_DRAW_BOTH')
-        else:
-            row.prop(brush.gpencil_settings, "stroke_type")
-
-        row = layout.row(align=True)
-        if compact:
-            row.prop(gp_settings, "caps_type", text="", expand=True)
-        else:
-            row.prop(gp_settings, "caps_type", text="Caps Type")
-    elif brush.gpencil_brush_type == 'FILL':
-        use_property_split_prev = layout.use_property_split
-        if compact:
-            row = layout.row(align=True)
-            row.prop(gp_settings, "fill_direction", text="", expand=True)
-        else:
-            layout.use_property_split = False
-            row = layout.row(align=True)
-            row.prop(gp_settings, "fill_direction", expand=True)
-
-        row = layout.row(align=True)
-        if gp_settings.fill_solver == 'PIXEL':
-            row = layout.row(align=True)
-            row.prop(gp_settings, "fill_factor")
-            row = layout.row(align=True)
-            row.prop(gp_settings, "dilate")
-            row = layout.row(align=True)
-            row.prop(brush, "size", text="Thickness")
-            layout.use_property_split = use_property_split_prev
-        else:
-            size = "size"
-            if brush.use_locked_size == 'SCENE':
-                size = "unprojected_size"
-            row = layout.row(align=True)
-            row.prop(brush, size, slider=True, text="Size")
-    elif grease_pencil_brush_type == 'ERASE':
-        layout.prop(gp_settings, "eraser_mode", expand=True)
-        layout.prop(gp_settings, "use_active_layer_only")
-        if gp_settings.eraser_mode in {'HARD', 'SOFT'}:
-            layout.prop(gp_settings, "use_keep_caps_eraser")
-    elif grease_pencil_brush_type == 'TINT':
-        if context.region.type == 'TOOL_HEADER':
-            row = layout.row(align=True)
-            row.prop_enum(gp_settings, "vertex_mode", 'STROKE', text="", icon='GP_DRAW_STROKE')
-            row.prop_enum(gp_settings, "vertex_mode", 'FILL', text="", icon='GP_DRAW_FILL')
-            row.prop_enum(gp_settings, "vertex_mode", 'BOTH', text="", icon='GP_DRAW_BOTH')
-        else:
-            layout.prop(gp_settings, "vertex_mode", text="Stroke Mode")
-
-        layout.popover("VIEW3D_PT_tools_brush_falloff")
-        layout.prop(gp_settings, "use_active_layer_only")
 
 
-def brush_basic_grease_pencil_weight_settings(layout, context, brush, *, compact=False):
-    UnifiedPaintPanel.prop_unified(
-        layout,
-        context,
-        brush,
-        "size",
-        pressure_name="use_pressure_size",
-        unified_name="use_unified_size",
-        text="Size",
-        slider=True,
-        header=compact,
-    )
-
-    capabilities = brush.sculpt_capabilities
-    pressure_name = "use_pressure_strength" if capabilities.has_strength_pressure else None
-    UnifiedPaintPanel.prop_unified(
-        layout,
-        context,
-        brush,
-        "strength",
-        pressure_name=pressure_name,
-        unified_name="use_unified_strength",
-        text="Strength",
-        header=compact,
-    )
-
-    if brush.gpencil_weight_brush_type in {'WEIGHT'}:
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "weight",
-            unified_name="use_unified_weight",
-            text="Weight",
-            slider=True,
-            header=compact,
-        )
-        layout.prop(brush, "direction", expand=True, text="" if compact else "Direction")
 
 
-def brush_basic_grease_pencil_vertex_settings(layout, context, brush, *, compact=False):
-    if brush.gpencil_vertex_brush_type == 'DRAW':
-        layout.prop(brush, "blend", text="Blend")
-        layout.separator()
-
-    UnifiedPaintPanel.prop_unified(
-        layout,
-        context,
-        brush,
-        "size",
-        pressure_name="use_pressure_size",
-        unified_name="use_unified_size",
-        text="Size",
-        slider=True,
-        header=compact,
-    )
-
-    if brush.gpencil_vertex_brush_type in {'DRAW', 'BLUR', 'SMEAR'}:
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "strength",
-            pressure_name="use_pressure_strength",
-            unified_name="use_unified_strength",
-            text="Strength",
-            header=compact,
-        )
-
-    gp_settings = brush.gpencil_settings
-    if brush.gpencil_vertex_brush_type in {'DRAW', 'REPLACE'}:
-        if context.region.type == 'TOOL_HEADER':
-            row = layout.row(align=True)
-            row.prop_enum(gp_settings, "vertex_mode", 'STROKE', text="", icon='GP_DRAW_STROKE')
-            row.prop_enum(gp_settings, "vertex_mode", 'FILL', text="", icon='GP_DRAW_FILL')
-            row.prop_enum(gp_settings, "vertex_mode", 'BOTH', text="", icon='GP_DRAW_BOTH')
-        else:
-            layout.prop(gp_settings, "vertex_mode", text="Stroke Mode")
 
 
 classes = (

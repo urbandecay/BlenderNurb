@@ -12,7 +12,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BKE_grease_pencil.hh"
 #include "BKE_library.hh"
 
 #include "BLI_listbase.h"
@@ -20,8 +19,6 @@
 #include "BLI_rect.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mask_types.h"
 
 #include "GPU_immediate.hh"
@@ -188,7 +185,6 @@ struct DrawKeylistUIData {
   float half_icon_size;
   float smaller_size;
   float ipo_size;
-  float gpencil_size;
   float screenspace_margin;
   float sel_color[4];
   float unsel_color[4];
@@ -218,7 +214,6 @@ static void channel_ui_data_init(DrawKeylistUIData *ctx,
   ctx->half_icon_size = 0.5f * ctx->icon_size;
   ctx->smaller_size = 0.35f * ctx->icon_size;
   ctx->ipo_size = 0.1f * ctx->icon_size;
-  ctx->gpencil_size = ctx->smaller_size * 0.8f;
   ctx->screenspace_margin = (0.35f * float(UI_UNIT_X)) / ui::view2d_scale_get_x(v2d);
 
   ctx->show_ipo = (saction_flag & SACTION_SHOW_INTERPOLATION) != 0;
@@ -241,36 +236,6 @@ static void channel_ui_data_init(DrawKeylistUIData *ctx,
   ctx->sel_mhcol[3] *= 0.8f;
   copy_v4_v4(ctx->unsel_mhcol, ctx->unsel_color);
   ctx->unsel_mhcol[3] *= 0.8f;
-}
-
-static void draw_keylist_block_gpencil(const DrawKeylistUIData *ctx,
-                                       const ActKeyColumn *ab,
-                                       float ypos)
-{
-  ui::draw_roundbox_corner_set(ui::CNR_TOP_RIGHT | ui::CNR_BOTTOM_RIGHT);
-  float size = 1.0f;
-  switch (ab->next->key_type) {
-    case BEZT_KEYTYPE_BREAKDOWN:
-    case BEZT_KEYTYPE_MOVEHOLD:
-    case BEZT_KEYTYPE_JITTER:
-    case BEZT_KEYTYPE_GENERATED:
-      size *= 0.5f;
-      break;
-    case BEZT_KEYTYPE_KEYFRAME:
-      size *= 0.8f;
-      break;
-    case BEZT_KEYTYPE_EXTREME:
-      break;
-  }
-
-  rctf box;
-  box.xmin = ab->cfra;
-  box.xmax = min_ff(ab->next->cfra - (ctx->screenspace_margin * size), ab->next->cfra);
-  box.ymin = ypos - ctx->gpencil_size;
-  box.ymax = ypos + ctx->gpencil_size;
-
-  ui::draw_roundbox_4fv(
-      &box, true, 0.25f * float(UI_UNIT_X), (ab->block.sel) ? ctx->sel_mhcol : ctx->unsel_mhcol);
 }
 
 static void draw_keylist_block_moving_hold(const DrawKeylistUIData *ctx,
@@ -339,13 +304,8 @@ static void draw_keylist_block_interpolation_line(const DrawKeylistUIData *ctx,
 
 static void draw_keylist_block(const DrawKeylistUIData *ctx, const ActKeyColumn *ab, float ypos)
 {
-  /* Draw grease pencil bars between keyframes. */
-  if ((ab->next != nullptr) && (ab->block.flag & ACTKEYBLOCK_FLAG_GPENCIL)) {
-    draw_keylist_block_gpencil(ctx, ab, ypos);
-  }
-  else {
-    /* Draw other types. */
-    draw_roundbox_corner_set(ui::CNR_NONE);
+  /* Draw other types. */
+  draw_roundbox_corner_set(ui::CNR_NONE);
 
     int valid_hold = actkeyblock_get_valid_hold(ab);
     if (valid_hold != 0) {
@@ -362,7 +322,6 @@ static void draw_keylist_block(const DrawKeylistUIData *ctx, const ActKeyColumn 
       /* draw an interpolation line */
       draw_keylist_block_interpolation_line(ctx, ab, ypos);
     }
-  }
 }
 
 static void draw_keylist_blocks(const DrawKeylistUIData *ctx,
@@ -425,10 +384,6 @@ enum class ChannelType {
   ACTION_SLOT,
   ACTION_LEGACY,
   ACTION_GROUP,
-  GREASE_PENCIL_CELS,
-  GREASE_PENCIL_GROUP,
-  GREASE_PENCIL_DATA,
-  GREASE_PENCIL_LAYER,
   MASK_LAYER,
 };
 
@@ -458,10 +413,6 @@ struct ChannelListElement {
   bAction *act;
   animrig::Slot *action_slot;
   bActionGroup *agrp;
-  bGPDlayer *gpl;
-  const GreasePencilLayer *grease_pencil_layer;
-  const GreasePencilLayerTreeGroup *grease_pencil_layer_group;
-  const GreasePencil *grease_pencil;
   MaskLayer *masklay;
 };
 
@@ -524,28 +475,6 @@ static void build_channel_keylist(ChannelListElement *elem, float2 range)
     }
     case ChannelType::ACTION_GROUP: {
       action_group_to_keylist(elem->adt, elem->agrp, elem->keylist, elem->saction_flag, range);
-      break;
-    }
-    case ChannelType::GREASE_PENCIL_CELS: {
-      grease_pencil_cels_to_keylist(
-          elem->adt, elem->grease_pencil_layer, elem->keylist, elem->saction_flag);
-      break;
-    }
-    case ChannelType::GREASE_PENCIL_GROUP: {
-      grease_pencil_layer_group_to_keylist(
-          elem->adt, elem->grease_pencil_layer_group, elem->keylist, elem->saction_flag);
-      break;
-    }
-    case ChannelType::GREASE_PENCIL_DATA: {
-      if (elem->ac->datatype != ANIMCONT_GPENCIL && elem->adt) {
-        action_to_keylist(elem->adt, elem->adt->action, elem->keylist, elem->saction_flag, range);
-      }
-      grease_pencil_data_block_to_keylist(
-          elem->adt, elem->grease_pencil, elem->keylist, elem->saction_flag, false);
-      break;
-    }
-    case ChannelType::GREASE_PENCIL_LAYER: {
-      gpl_to_keylist(elem->ads, elem->gpl, elem->keylist);
       break;
     }
     case ChannelType::MASK_LAYER: {
@@ -833,80 +762,6 @@ void ED_add_action_slot_channel(ChannelDrawList *channel_list,
   draw_elem->adt = ale->adt;
   draw_elem->act = &action;
   draw_elem->action_slot = &slot;
-  draw_elem->channel_locked = locked;
-}
-
-void ED_add_grease_pencil_datablock_channel(ChannelDrawList *channel_list,
-                                            bAnimContext *ac,
-                                            bAnimListElem *ale,
-                                            const GreasePencil *grease_pencil,
-                                            const float ypos,
-                                            const float yscale_fac,
-                                            int saction_flag)
-{
-  ChannelListElement *draw_elem = channel_list_add_element(channel_list,
-                                                           ChannelType::GREASE_PENCIL_DATA,
-                                                           ypos,
-                                                           yscale_fac,
-                                                           eSAction_Flag(saction_flag));
-  /* GreasePencil properties can be animated via an Action, so the GP-related
-   * animation data is not limited to GP drawings. */
-  draw_elem->animated_id = ale->id;
-  draw_elem->adt = ale->adt;
-  draw_elem->act = ale->adt ? ale->adt->action : nullptr;
-  draw_elem->grease_pencil = grease_pencil;
-  draw_elem->ac = ac;
-}
-
-void ED_add_grease_pencil_cels_channel(ChannelDrawList *channel_list,
-                                       bDopeSheet *ads,
-                                       const GreasePencilLayer *layer,
-                                       const float ypos,
-                                       const float yscale_fac,
-                                       int saction_flag)
-{
-  ChannelListElement *draw_elem = channel_list_add_element(channel_list,
-                                                           ChannelType::GREASE_PENCIL_CELS,
-                                                           ypos,
-                                                           yscale_fac,
-                                                           eSAction_Flag(saction_flag));
-  draw_elem->ads = ads;
-  draw_elem->grease_pencil_layer = layer;
-  draw_elem->channel_locked = layer->wrap().is_locked();
-}
-
-void ED_add_grease_pencil_layer_group_channel(ChannelDrawList *channel_list,
-                                              bDopeSheet *ads,
-                                              const GreasePencilLayerTreeGroup *layer_group,
-                                              const float ypos,
-                                              const float yscale_fac,
-                                              int saction_flag)
-{
-  ChannelListElement *draw_elem = channel_list_add_element(channel_list,
-                                                           ChannelType::GREASE_PENCIL_GROUP,
-                                                           ypos,
-                                                           yscale_fac,
-                                                           eSAction_Flag(saction_flag));
-  draw_elem->ads = ads;
-  draw_elem->grease_pencil_layer_group = layer_group;
-  draw_elem->channel_locked = layer_group->wrap().is_locked();
-}
-
-void ED_add_grease_pencil_layer_legacy_channel(ChannelDrawList *channel_list,
-                                               bDopeSheet *ads,
-                                               bGPDlayer *gpl,
-                                               float ypos,
-                                               float yscale_fac,
-                                               int saction_flag)
-{
-  bool locked = (gpl->flag & GP_LAYER_LOCKED) != 0;
-  ChannelListElement *draw_elem = channel_list_add_element(channel_list,
-                                                           ChannelType::GREASE_PENCIL_LAYER,
-                                                           ypos,
-                                                           yscale_fac,
-                                                           eSAction_Flag(saction_flag));
-  draw_elem->ads = ads;
-  draw_elem->gpl = gpl;
   draw_elem->channel_locked = locked;
 }
 

@@ -667,10 +667,6 @@ msgid "Fonts"
 msgstr "Fontovi"
 
 
-msgid "Grease Pencil"
-msgstr "Skiciranje"
-
-
 msgid "Images"
 msgstr "Slike"
 
@@ -3080,14 +3076,6 @@ msgid "Include visualization of curve related animation data"
 msgstr "Uključi prikaz podataka vezanih za prikaz animacije krivih"
 
 
-msgid "Display Grease Pencil"
-msgstr "Prikaži skiciran crtež"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Uključi prikaz podataka skiciranog crteža animacije i kadrova"
-
-
 msgid "Show Hidden"
 msgstr "Prikaži sakriveno"
 
@@ -4813,10 +4801,6 @@ msgid "Reference"
 msgstr "Referenca"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Skicirani kadar"
-
-
 msgid "Regular"
 msgstr "Normalno"
 
@@ -4831,10 +4815,6 @@ msgstr "Ponovi"
 
 msgid "Frame Start"
 msgstr "Početni kadar"
-
-
-msgid "Grease Pencil Layer"
-msgstr "Sloj skice"
 
 
 msgid "Divide"
@@ -6013,10 +5993,6 @@ msgstr "Difuzna boja"
 
 msgid "Diffuse color of the material"
 msgstr "Difuzna boja materijala"
-
-
-msgid "Grease Pencil Settings"
-msgstr "Podešavanje skiciranja"
 
 
 msgid "Line Color"
@@ -13755,10 +13731,6 @@ msgid "Default fill color"
 msgstr "Tekuća boja ispune"
 
 
-msgid "Make annotations on the active data"
-msgstr "Dodaje oznake na aktivne podatke"
-
-
 msgid "Way to interpret mouse movements"
 msgstr "Način interpretiranja kretanja miša"
 
@@ -13859,11 +13831,6 @@ msgstr "Generiši mek šum (mekan prelaz)"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Skiciranje"
-
-
-msgctxt "Operator"
 msgid "Erase"
 msgstr "Obriši"
 
@@ -13900,10 +13867,6 @@ msgid "Duplicate Strokes"
 msgstr "Dupliraj poteze"
 
 
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "Pravi kopiju izabranih poteza skice i pomera ih"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "Dodaj novi sloj"
@@ -13914,17 +13877,9 @@ msgid "Duplicate Layer"
 msgstr "Dupliraj sloj"
 
 
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Duplira aktivni sloj skice"
-
-
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "Sakrij sloj/slojeve"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "Sakriva izabrane/neizrabrane slojeve skice"
 
 
 msgid "Hide unselected rather than selected layers"
@@ -13949,10 +13904,6 @@ msgstr "Ukloni sloj"
 msgctxt "Operator"
 msgid "Show All Layers"
 msgstr "Prikaži sve slojeve"
-
-
-msgid "Show all Grease Pencil layers"
-msgstr "Pirkaži sve slojeve skice"
 
 
 msgctxt "Operator"
@@ -17942,14 +17893,6 @@ msgid "Bend selected items between the 3D cursor and the mouse"
 msgstr "Savija izabrane stavke između 3D kursora i miša"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Izmeni skicu"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Uređuje izabrane poteze skice"
-
-
 msgid "Use Snapping Options"
 msgstr "Koristi opcije lepljenja"
 
@@ -19773,10 +19716,6 @@ msgid "Add/Replace"
 msgstr "Zameni..."
 
 
-msgid "Grease Pencil Eraser Radius"
-msgstr "Izbriši ivice"
-
-
 msgid "New Handles Type"
 msgstr "Nova vrsta ručke"
 
@@ -21046,10 +20985,6 @@ msgid "Action Editor"
 msgstr "Uređivač akcija"
 
 
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "Uređuje vremena svih skica u datoteci"
-
-
 msgid "Show Sliders"
 msgstr "Prikaži klizače"
 
@@ -21973,18 +21908,6 @@ msgstr "Tekst dužine ivice"
 
 msgid "Face Angle Text"
 msgstr "Tekst ugla stranice"
-
-
-msgid "Grease Pencil Vertex"
-msgstr "Temena skice"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Izbor temena skice"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Veličina temena skice"
 
 
 msgid "Face Normal"
@@ -24213,11 +24136,6 @@ msgstr "Novo"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Novo"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Novo"
 

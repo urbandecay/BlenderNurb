@@ -11,8 +11,6 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -29,7 +27,6 @@
 #include "BKE_action.hh"
 #include "BKE_armature.hh"
 #include "BKE_context.hh"
-#include "BKE_gpencil_legacy.h"
 #include "BKE_layer.hh"
 #include "BKE_library.hh"
 #include "BKE_object.hh"
@@ -41,7 +38,6 @@
 #include "ED_anim_api.hh"
 #include "ED_armature.hh"
 #include "ED_clip.hh"
-#include "ED_gpencil_legacy.hh"
 
 #include "SEQ_channels.hh"
 #include "SEQ_select.hh"
@@ -91,12 +87,6 @@ const char *screen_context_dir[] = {
     "active_nla_strip",
     "selected_nla_strips", /* nla editor */
     "selected_movieclip_tracks",
-    /* Legacy Grease Pencil */
-    "annotation_data",
-    "annotation_data_owner",
-    "active_annotation_layer",
-    /* Grease Pencil */
-    "grease_pencil",
     "active_operator",
     "active_action",
     "selected_visible_actions",
@@ -771,73 +761,6 @@ static eContextResult screen_ctx_selected_movieclip_tracks(const bContext *C,
   return CTX_RESULT_OK;
 }
 
-static eContextResult screen_ctx_annotation_data(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  bScreen *screen = CTX_wm_screen(C);
-  ScrArea *area = CTX_wm_area(C);
-  Scene *scene = WM_window_get_active_scene(win);
-  bGPdata *gpd = ED_annotation_data_get_active_direct(id_cast<ID *>(screen), area, scene);
-
-  if (gpd) {
-    CTX_data_id_pointer_set(result, &gpd->id);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_annotation_data_owner(const bContext *C,
-                                                       bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  bScreen *screen = CTX_wm_screen(C);
-  ScrArea *area = CTX_wm_area(C);
-  Scene *scene = WM_window_get_active_scene(win);
-
-  /* Pointer to which data/datablock owns the reference to the Grease Pencil data being used. */
-  PointerRNA ptr;
-  bGPdata **gpd_ptr = ED_annotation_data_get_pointers_direct(
-      id_cast<ID *>(screen), area, scene, &ptr);
-
-  if (gpd_ptr) {
-    CTX_data_pointer_set_ptr(result, &ptr);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_active_annotation_layer(const bContext *C,
-                                                         bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  bScreen *screen = CTX_wm_screen(C);
-  ScrArea *area = CTX_wm_area(C);
-  Scene *scene = WM_window_get_active_scene(win);
-  bGPdata *gpd = ED_annotation_data_get_active_direct(id_cast<ID *>(screen), area, scene);
-
-  if (gpd) {
-    bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
-
-    if (gpl) {
-      CTX_data_pointer_set(result, &gpd->id, RNA_AnnotationLayer, gpl);
-      return CTX_RESULT_OK;
-    }
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_grease_pencil_data(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  if (obact && obact->type == OB_GREASE_PENCIL) {
-    GreasePencil *grease_pencil = id_cast<GreasePencil *>(obact->data);
-    CTX_data_id_pointer_set(result, &grease_pencil->id);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
 static eContextResult screen_ctx_active_operator(const bContext *C, bContextDataResult *result)
 {
   wmOperator *op = nullptr;
@@ -1228,10 +1151,6 @@ static const Map<StringRef, context_callback> &ensure_ed_screen_context_function
     map.add("active_nla_strip", screen_ctx_active_nla_strip);
     map.add("selected_nla_strips", screen_ctx_selected_nla_strips);
     map.add("selected_movieclip_tracks", screen_ctx_selected_movieclip_tracks);
-    map.add("annotation_data", screen_ctx_annotation_data);
-    map.add("annotation_data_owner", screen_ctx_annotation_data_owner);
-    map.add("active_annotation_layer", screen_ctx_active_annotation_layer);
-    map.add("grease_pencil", screen_ctx_grease_pencil_data);
     map.add("active_operator", screen_ctx_active_operator);
     map.add("active_action", screen_ctx_active_action);
     map.add("selected_visible_actions", screen_ctx_selected_visible_actions);

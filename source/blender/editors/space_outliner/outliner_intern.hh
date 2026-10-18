@@ -159,13 +159,11 @@ struct TreeElementIcon {
         ID_AC, \
         ID_BR, \
         ID_PA, \
-        ID_GD_LEGACY, \
         ID_LS, \
         ID_LP, \
         ID_CV, \
         ID_PT, \
-        ID_VO, \
-        ID_GP) || /* Only in blend-file mode ... :/ */ \
+        ID_VO) || /* Only in blend-file mode ... :/ */ \
    ELEM(GS((_id)->name), \
         ID_SCR, \
         ID_WM, \

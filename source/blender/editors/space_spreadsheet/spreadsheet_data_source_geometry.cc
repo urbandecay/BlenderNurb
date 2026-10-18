@@ -16,7 +16,6 @@
 #include "BKE_geometry_set.hh"
 #include "BKE_geometry_set_instances.hh"
 #include "BKE_global.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_mesh.hh"
@@ -233,10 +232,6 @@ void GeometryDataSource::foreach_default_column_ids(
     fn({const_cast<char *>("Name")}, false);
   }
 
-  if (component_->type() == bke::GeometryComponent::Type::GreasePencil) {
-    fn({const_cast<char *>("Name")}, false);
-  }
-
   attributes->foreach_attribute([&](const bke::AttributeIter &iter) {
     if (iter.domain != domain_) {
       return;
@@ -308,24 +303,6 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
         return std::make_unique<ColumnValues>(
             column_id.name, VArray<float3>::from_std_func(domain_num, [transforms](int64_t index) {
               return math::to_scale<true>(transforms[index]);
-            }));
-      }
-    }
-  }
-  else if (component_->type() == bke::GeometryComponent::Type::GreasePencil) {
-    if (const GreasePencil *grease_pencil =
-            static_cast<const bke::GreasePencilComponent &>(*component_).get())
-    {
-      if (domain_ == bke::AttrDomain::Layer && STREQ(column_id.name, "Name")) {
-        const Span<const bke::greasepencil::Layer *> layers = grease_pencil->layers();
-        return std::make_unique<ColumnValues>(
-            column_id.name,
-            VArray<std::string>::from_std_func(domain_num, [layers](int64_t index) {
-              StringRefNull name = layers[index]->name();
-              if (name.is_empty()) {
-                name = IFACE_("(Layer)");
-              }
-              return std::string(name);
             }));
       }
     }
@@ -565,24 +542,7 @@ IndexMask GeometryDataSource::apply_selection_filter(LinearAllocator<> &memory) 
 
 std::optional<const bke::AttributeAccessor> GeometryDataSource::get_component_attributes() const
 {
-  if (component_->type() != bke::GeometryComponent::Type::GreasePencil) {
-    return component_->attributes();
-  }
-  const GreasePencil *grease_pencil = geometry_set_.get_grease_pencil();
-  if (!grease_pencil) {
-    return {};
-  }
-  if (domain_ == bke::AttrDomain::Layer) {
-    return grease_pencil->attributes();
-  }
-  if (layer_index_ >= 0 && layer_index_ < grease_pencil->layers().size()) {
-    if (const bke::greasepencil::Drawing *drawing = grease_pencil->get_eval_drawing(
-            grease_pencil->layer(layer_index_)))
-    {
-      return drawing->strokes().attributes();
-    }
-  }
-  return {};
+  return component_->attributes();
 }
 
 void VolumeDataSource::foreach_default_column_ids(
@@ -1146,11 +1106,6 @@ bke::SocketValueVariant root_display_data_get(const SpaceSpreadsheet *sspreadshe
       return bke::SocketValueVariant::From(bke::GeometrySet::from_curves(
           &const_cast<Curves &>(curves_id), bke::GeometryOwnershipType::ReadOnly));
     }
-    else if (object_orig->type == OB_GREASE_PENCIL) {
-      const GreasePencil &grease_pencil = *id_cast<const GreasePencil *>(object_orig->data);
-      return bke::SocketValueVariant::From(bke::GeometrySet::from_grease_pencil(
-          &const_cast<GreasePencil &>(grease_pencil), bke::GeometryOwnershipType::ReadOnly));
-    }
     return {};
   }
 
@@ -1296,7 +1251,6 @@ static std::unique_ptr<DataSource> data_source_from_geometry(
       const bke::AttrDomain domain = (bke::AttrDomain)geometry_id.attribute_domain;
       const auto component_type = bke::GeometryComponent::Type(
           geometry_id.geometry_component_type);
-      const int layer_index = geometry_id.layer_index;
       if (!geometry.has(component_type)) {
         return {};
       }
@@ -1309,8 +1263,7 @@ static std::unique_ptr<DataSource> data_source_from_geometry(
                                                   std::move(geometry),
                                                   component_type,
                                                   domain,
-                                                  show_internal_attributes,
-                                                  layer_index);
+                                                  show_internal_attributes);
     }
     case SPREADSHEET_GEOMETRY_ITEM_TYPE_BUNDLE: {
       const nodes::BundlePtr &bundle_ptr = geometry.bundle_ptr();

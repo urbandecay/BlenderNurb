@@ -61,37 +61,15 @@ void main()
   }
 #endif
   gl_Position = drw_point_world_to_homogenous(world_pos);
-  float end_point_size_factor = 1.0f;
 
   if (use_weight) {
     final_color = float4(weight_to_rgb(selection), 1.0f);
   }
   else {
-    float4 color_selected = use_grease_pencil ? theme.colors.gpencil_vertex_select :
-                                                theme.colors.vert_select;
-    float4 color_not_selected = use_grease_pencil ? theme.colors.gpencil_vertex :
-                                                    theme.colors.vert;
-    final_color = mix(color_not_selected, color_selected, selection);
-
-#if 1 /* Should be checking CURVES_POINT */
-    if (do_stroke_endpoints) {
-      bool is_stroke_start = (vflag & GP_EDIT_STROKE_START) != 0u;
-      bool is_stroke_end = (vflag & GP_EDIT_STROKE_END) != 0u;
-
-      if (is_stroke_start) {
-        end_point_size_factor *= 2.0f;
-        final_color.rgb = float3(0.0f, 1.0f, 0.0f);
-      }
-      else if (is_stroke_end) {
-        end_point_size_factor *= 1.5f;
-        final_color.rgb = float3(1.0f, 0.0f, 0.0f);
-      }
-    }
-#endif
+    final_color = mix(theme.colors.vert, theme.colors.vert_select, selection);
   }
 
-  float vsize = use_grease_pencil ? theme.sizes.vertex_gpencil : theme.sizes.vert;
-  gl_PointSize = vsize * 2.0f * end_point_size_factor;
+  gl_PointSize = theme.sizes.vert * 2.0f;
 
   view_clipping_distances(world_pos);
 }

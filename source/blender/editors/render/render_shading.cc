@@ -818,12 +818,7 @@ static wmOperatorStatus new_material_exec(bContext *C, wmOperator * /*op*/)
   }
   else {
     const char *name = DATA_("Material");
-    if (!(ob != nullptr && ob->type == OB_GREASE_PENCIL)) {
-      ma = BKE_material_add(bmain, name);
-    }
-    else {
-      ma = BKE_gpencil_material_add(bmain, name);
-    }
+    ma = BKE_material_add(bmain, name);
     nodes::node_tree_shader_default(C, bmain, &ma->id);
   }
 
@@ -2925,11 +2920,7 @@ static wmOperatorStatus paste_material_exec(bContext *C, wmOperator *op)
  * it means memory is properly freed in the case of allocations.. */
 #define SWAP_MEMBER(member) std::swap(ma->member, ma_from->member)
 
-  /* Intentionally skip:
-   * - Texture painting slots.
-   * - Preview render.
-   * - Grease pencil styles (we could although they reference many ID's themselves).
-   */
+  /* Intentionally skip texture painting slots and preview render. */
   SWAP_MEMBER(flag);
   SWAP_MEMBER(r);
   SWAP_MEMBER(g);
@@ -2952,8 +2943,6 @@ static wmOperatorStatus paste_material_exec(bContext *C, wmOperator *op)
   SWAP_MEMBER(blend_method);
   SWAP_MEMBER(blend_shadow);
   SWAP_MEMBER(blend_flag);
-
-  SWAP_MEMBER(lineart);
 
 #undef SWAP_MEMBER
 

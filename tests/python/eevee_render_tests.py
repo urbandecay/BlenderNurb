@@ -409,10 +409,6 @@ def main():
         # Because of aov_transparency noise pattern
         report.set_fail_percent(0.5)
         report.set_fail_threshold(8.0 / 255.0)
-    elif test_dir_name.startswith('grease_pencil'):
-        # TAA dependent look? To be investigated.
-        report.set_fail_percent(0.1)
-        report.set_fail_threshold(6.0 / 255.0)
     elif test_dir_name.startswith('raycast') and gpu_vendor == "AMD":
         # Some slight contour differences on AMD
         report.set_fail_percent(0.37)

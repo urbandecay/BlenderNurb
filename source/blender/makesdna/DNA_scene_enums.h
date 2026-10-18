@@ -156,7 +156,6 @@ ENUM_OPERATORS(eScenePassType)
 #define RE_PASSNAME_CRYPTOMATTE_ASSET "CryptoAsset"
 #define RE_PASSNAME_CRYPTOMATTE_MATERIAL "CryptoMaterial"
 
-#define RE_PASSNAME_GREASE_PENCIL "Grease Pencil"
 
 /** #SceneRenderLayer::layflag */
 enum eSceneLayer_Flag : int {
@@ -170,8 +169,6 @@ enum eSceneLayer_Flag : int {
   SCE_LAY_AO = 1 << 7,
   SCE_LAY_VOLUMES = 1 << 8,
   SCE_LAY_MOTION_BLUR = 1 << 9,
-  SCE_LAY_GREASE_PENCIL = 1 << 10,
-
   /* Flags between (1 << 9) and (1 << 15) are set to 1 already, for future options. */
 
   SCE_LAY_FLAG_DEFAULT = ((1 << 15) - 1),

@@ -7,14 +7,12 @@
 #  include "gpu_shader_compat.hh"
 
 #  include "draw_shader_shared.hh"
-#  include "gpencil_shader_shared.hh"
 
 #  include "draw_view_infos.hh"
 #endif
 
 #ifdef GLSL_CPP_STUBS
 #  define CURVES_SHADER
-#  define DRW_GPENCIL_INFO
 #endif
 
 #include "draw_defines.hh"
@@ -77,16 +75,6 @@ GPU_SHADER_CREATE_END()
 
 GPU_SHADER_CREATE_INFO(draw_volume)
 ADDITIONAL_INFO(draw_modelmat)
-GPU_SHADER_CREATE_END()
-
-GPU_SHADER_CREATE_INFO(draw_gpencil)
-TYPEDEF_SOURCE("gpencil_shader_shared.hh")
-DEFINE("DRW_GPENCIL_INFO")
-SAMPLER(0, samplerBuffer, gp_pos_tx)
-SAMPLER(1, samplerBuffer, gp_col_tx)
-ADDITIONAL_INFO(draw_resource_id_varying)
-ADDITIONAL_INFO(draw_view)
-ADDITIONAL_INFO(draw_object_infos)
 GPU_SHADER_CREATE_END()
 
 /** \} */

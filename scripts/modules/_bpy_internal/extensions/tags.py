@@ -20,7 +20,6 @@ addons = {
     "Development",
     "Game Engine",
     "Geometry Nodes",
-    "Grease Pencil",
     "Import-Export",
     "Lighting",
     "Material",

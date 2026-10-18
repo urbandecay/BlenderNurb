@@ -21,7 +21,6 @@
 #include "BKE_compute_contexts.hh"
 #include "BKE_curves.hh"
 #include "BKE_geometry_nodes_gizmos_transforms.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_node_legacy_types.hh"
@@ -34,7 +33,6 @@
 #include "BKE_volume_grid.hh"
 #include "BKE_volume_openvdb.hh"
 
-#include "DNA_grease_pencil_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_space_types.h"
 
@@ -100,7 +98,6 @@ GeometryInfoLog::GeometryInfoLog(const bke::GeometrySet &geometry_set)
                                            bke::GeometryComponent::Type::Instance,
                                            bke::GeometryComponent::Type::Mesh,
                                            bke::GeometryComponent::Type::PointCloud,
-                                           bke::GeometryComponent::Type::GreasePencil,
                                            bke::GeometryComponent::Type::Volume};
 
   /* Keep track handled attribute names to make sure that we do not return the same name twice.
@@ -180,22 +177,6 @@ GeometryInfoLog::GeometryInfoLog(const bke::GeometrySet &geometry_set)
           }
         }
 #endif /* WITH_OPENVDB */
-        break;
-      }
-      case bke::GeometryComponent::Type::GreasePencil: {
-        const auto &grease_pencil_component = *static_cast<const bke::GreasePencilComponent *>(
-            component);
-        if (const GreasePencil *grease_pencil = grease_pencil_component.get()) {
-          GreasePencilInfo &info = this->grease_pencil_info.emplace(GreasePencilInfo());
-          info.layers_num = grease_pencil->layers().size();
-          Set<StringRef> unique_layer_names;
-          for (const bke::greasepencil::Layer *layer : grease_pencil->layers()) {
-            const StringRefNull layer_name = layer->name();
-            if (unique_layer_names.add(layer_name)) {
-              info.layer_names.append(layer_name);
-            }
-          }
-        }
         break;
       }
     }
@@ -695,36 +676,6 @@ void NodeTreeLog::ensure_evaluated_gizmo_nodes()
   }
 
   reduced_evaluated_gizmo_nodes_ = true;
-}
-
-void NodeTreeLog::ensure_layer_names()
-{
-  if (reduced_layer_names_) {
-    return;
-  }
-
-  this->ensure_socket_values();
-
-  auto handle_value_log = [&](const ValueLog &value_log) {
-    const GeometryInfoLog *geo_log = dynamic_cast<const GeometryInfoLog *>(&value_log);
-    if (geo_log == nullptr || !geo_log->grease_pencil_info.has_value()) {
-      return;
-    }
-    for (const std::string &name : geo_log->grease_pencil_info->layer_names) {
-      this->all_layer_names.append(name);
-    }
-  };
-
-  for (const destruct_ptr<NodeLog> &node_log : this->nodes.values()) {
-    for (const ValueLog *value_log : node_log->input_values_.values()) {
-      handle_value_log(*value_log);
-    }
-    for (const ValueLog *value_log : node_log->output_values_.values()) {
-      handle_value_log(*value_log);
-    }
-  }
-
-  reduced_layer_names_ = true;
 }
 
 void NodeTreeLog::ensure_node_image_previews()

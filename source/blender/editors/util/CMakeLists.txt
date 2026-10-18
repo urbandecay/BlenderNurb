@@ -43,8 +43,6 @@ set(SRC
   ../include/ED_geometry.hh
   ../include/ED_gizmo_library.hh
   ../include/ED_gizmo_utils.hh
-  ../include/ED_gpencil_legacy.hh
-  ../include/ED_grease_pencil.hh
   ../include/ED_id_management.hh
   ../include/ED_image.hh
   ../include/ED_info.hh

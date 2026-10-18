@@ -266,9 +266,6 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
   if (RNA_struct_is_a(ptr->type, RNA_LightProbe) && ELEM(type, -1, OB_LIGHTPROBE)) {
     return true;
   }
-  if (RNA_struct_is_a(ptr->type, RNA_GreasePencil) && ELEM(type, -1, OB_GREASE_PENCIL)) {
-    return true;
-  }
   if (RNA_struct_is_a(ptr->type, RNA_Curves) && ELEM(type, -1, OB_CURVES)) {
     return true;
   }
@@ -313,7 +310,6 @@ static bool buttons_context_path_modifier(ButsContextPath *path)
              OB_FONT,
              OB_SURF,
              OB_LATTICE,
-             OB_GREASE_PENCIL,
              OB_CURVES,
              OB_POINTCLOUD,
              OB_VOLUME))
@@ -324,19 +320,6 @@ static bool buttons_context_path_modifier(ButsContextPath *path)
         path->len++;
       }
 
-      return true;
-    }
-  }
-
-  return false;
-}
-
-static bool buttons_context_path_shaderfx(ButsContextPath *path)
-{
-  if (buttons_context_path_object(path)) {
-    Object *ob = static_cast<Object *>(path->ptr[path->len - 1].data);
-
-    if (ob && ob->type == OB_GREASE_PENCIL) {
       return true;
     }
   }
@@ -677,7 +660,7 @@ static bool buttons_context_path(
     case BCONTEXT_WORLD:
       found = buttons_context_path_world(path);
       break;
-    case BCONTEXT_COLLECTION: /* This is for Line Art collection flags */
+    case BCONTEXT_COLLECTION:
       found = buttons_context_path_collection(C, path, window);
       break;
     case BCONTEXT_TOOL:
@@ -690,9 +673,6 @@ static bool buttons_context_path(
       break;
     case BCONTEXT_MODIFIER:
       found = buttons_context_path_modifier(path);
-      break;
-    case BCONTEXT_SHADERFX:
-      found = buttons_context_path_shaderfx(path);
       break;
     case BCONTEXT_DATA:
       found = buttons_context_path_data(path, -1);
@@ -925,8 +905,6 @@ const char *buttons_context_dir[] = {
     "dynamic_paint",
     "line_style",
     "collection",
-    "gpencil",
-    "grease_pencil",
     "curves",
     "pointcloud",
     "volume",
@@ -1245,14 +1223,6 @@ int /*eContextResult*/ buttons_context(const bContext *C,
   }
   if (CTX_data_equals(member, "line_style")) {
     set_pointer_type(path, result, RNA_FreestyleLineStyle);
-    return CTX_RESULT_OK;
-  }
-  if (CTX_data_equals(member, "gpencil")) {
-    set_pointer_type(path, result, RNA_Annotation);
-    return CTX_RESULT_OK;
-  }
-  if (CTX_data_equals(member, "grease_pencil")) {
-    set_pointer_type(path, result, RNA_GreasePencil);
     return CTX_RESULT_OK;
   }
   if (CTX_data_equals(member, "strip")) {

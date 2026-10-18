@@ -18,9 +18,6 @@ set(INC_GLSL
   ../../../../gpu/shaders/common
   ../../../../gpu/shaders/infos
 
-  ../../gpencil
-  ../../gpencil/shaders/infos
-
   ../../select
   ../../select/shaders
 )
@@ -38,7 +35,6 @@ set(SRC_GLSL_VERT
   overlay_armature_wire_vert.glsl
   overlay_clipbound_vert.glsl
   overlay_depth_only_curves_vert.glsl
-  overlay_depth_only_gpencil_vert.glsl
   overlay_depth_only_mesh_conservative_vert.glsl
   overlay_depth_only_pointcloud_vert.glsl
   overlay_depth_only_vert.glsl
@@ -47,7 +43,6 @@ set(SRC_GLSL_VERT
   overlay_edit_curve_point_vert.glsl
   overlay_edit_curve_wire_vert.glsl
   overlay_edit_curves_handle_vert.glsl
-  overlay_edit_gpencil_canvas_vert.glsl
   overlay_edit_lattice_point_vert.glsl
   overlay_edit_lattice_wire_vert.glsl
   overlay_edit_pointcloud_vert.glsl
@@ -80,7 +75,6 @@ set(SRC_GLSL_VERT
   overlay_motion_path_line_vert.glsl
   overlay_motion_path_point_vert.glsl
   overlay_outline_prepass_curves_vert.glsl
-  overlay_outline_prepass_gpencil_vert.glsl
   overlay_outline_prepass_pointcloud_vert.glsl
   overlay_outline_prepass_vert.glsl
   overlay_outline_prepass_wire_vert.glsl
@@ -114,7 +108,6 @@ set(SRC_GLSL_FRAG
   overlay_armature_wire_frag.glsl
   overlay_background_frag.glsl
   overlay_depth_only_frag.glsl
-  overlay_depth_only_gpencil_frag.glsl
   overlay_edit_mesh_analysis_frag.glsl
   overlay_edit_mesh_frag.glsl
   overlay_edit_uv_edges_frag.glsl
@@ -129,7 +122,6 @@ set(SRC_GLSL_FRAG
   overlay_motion_path_line_frag.glsl
   overlay_outline_detect_frag.glsl
   overlay_outline_prepass_frag.glsl
-  overlay_outline_prepass_gpencil_frag.glsl
   overlay_paint_texture_frag.glsl
   overlay_paint_weight_frag.glsl
   overlay_particle_frag.glsl

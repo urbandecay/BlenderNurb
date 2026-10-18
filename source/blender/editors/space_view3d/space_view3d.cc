@@ -12,7 +12,6 @@
 #include <cstring>
 
 #include "DNA_collection_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -29,7 +28,6 @@
 #include "BKE_asset.hh"
 #include "BKE_context.hh"
 #include "BKE_global.hh"
-#include "BKE_gpencil_legacy.h"
 #include "BKE_idprop.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
@@ -359,10 +357,6 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
       wm->runtime->defaultconf, "Vertex Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Weight Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
   /* pose is not modal, operator poll checks for this */
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Pose", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
@@ -402,38 +396,6 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
 
   keymap = WM_keymap_ensure(
       wm->runtime->defaultconf, "Sculpt Curves", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  /* NOTE: Grease Pencil handlers used to be added using #ED_KEYMAP_GPENCIL in
-   * `ed_default_handlers` because it needed to be added to multiple editors (as other editors use
-   * annotations.). But for OB_GREASE_PENCIL, we only need it to register the keymaps for the
-   * 3D View. */
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Selection", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Edit Mode", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Draw Mode", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Sculpt Mode", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Vertex Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Brush Stroke", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Grease Pencil Fill Tool", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   /* Edit-font key-map swallows almost all (because of text input). */
@@ -652,7 +614,6 @@ static void view3d_main_region_listener(const wmRegionListenerParams *params)
         case ND_POSE:
         case ND_DRAW:
         case ND_MODIFIER:
-        case ND_SHADERFX:
         case ND_CONSTRAINT:
         case ND_KEYS:
         case ND_PARTICLE:
@@ -842,11 +803,6 @@ static void view3d_main_region_listener(const wmRegionListenerParams *params)
           break;
       }
 
-      break;
-    case NC_GPENCIL:
-      if (wmn->data == ND_DATA || ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-        ED_region_tag_redraw(region);
-      }
       break;
     case NC_WORKSPACE:
       /* In case the region displays workspace settings. */
@@ -1045,14 +1001,6 @@ static void view3d_header_region_listener(const wmRegionListenerParams *params)
           break;
       }
       break;
-    case NC_GPENCIL:
-      if (wmn->data & ND_GPENCIL_EDITMODE) {
-        ED_region_tag_redraw(region);
-      }
-      else if (wmn->action == NA_EDITED) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_BRUSH:
       ED_region_tag_redraw(region);
       break;
@@ -1086,11 +1034,6 @@ static void view3d_header_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_SPACE:
       if (wmn->data == ND_SPACE_VIEW3D) {
-        ED_region_tag_redraw(region);
-      }
-      break;
-    case NC_GPENCIL:
-      if (wmn->data == ND_DATA) {
         ED_region_tag_redraw(region);
       }
       break;
@@ -1171,21 +1114,6 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
     case CTX_MODE_EDIT_LATTICE:
       ARRAY_SET_ITEMS(contexts, ".lattice_edit");
       break;
-    case CTX_MODE_EDIT_GREASE_PENCIL:
-      ARRAY_SET_ITEMS(contexts, ".grease_pencil_edit");
-      break;
-    case CTX_MODE_PAINT_GREASE_PENCIL:
-      ARRAY_SET_ITEMS(contexts, ".grease_pencil_paint");
-      break;
-    case CTX_MODE_SCULPT_GREASE_PENCIL:
-      ARRAY_SET_ITEMS(contexts, ".paint_common", ".grease_pencil_sculpt");
-      break;
-    case CTX_MODE_WEIGHT_GREASE_PENCIL:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_weight");
-      break;
-    case CTX_MODE_VERTEX_GREASE_PENCIL:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_vertex");
-      break;
     case CTX_MODE_EDIT_POINTCLOUD:
       ARRAY_SET_ITEMS(contexts, ".pointcloud_edit");
       break;
@@ -1210,40 +1138,8 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
     case CTX_MODE_OBJECT:
       ARRAY_SET_ITEMS(contexts, ".objectmode");
       break;
-    case CTX_MODE_PAINT_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_paint");
-      break;
-    case CTX_MODE_SCULPT_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_sculpt");
-      break;
-    case CTX_MODE_WEIGHT_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_weight");
-      break;
-    case CTX_MODE_VERTEX_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_vertex");
-      break;
     case CTX_MODE_SCULPT_CURVES:
       ARRAY_SET_ITEMS(contexts, ".paint_common", ".curves_sculpt");
-      break;
-    default:
-      break;
-  }
-
-  switch (mode) {
-    case CTX_MODE_PAINT_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_paint");
-      break;
-    case CTX_MODE_SCULPT_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_sculpt");
-      break;
-    case CTX_MODE_WEIGHT_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_weight");
-      break;
-    case CTX_MODE_EDIT_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_edit");
-      break;
-    case CTX_MODE_VERTEX_GPENCIL_LEGACY:
-      ARRAY_SET_ITEMS(contexts, ".greasepencil_vertex");
       break;
     default:
       break;
@@ -1318,7 +1214,6 @@ static void view3d_buttons_region_listener(const wmRegionListenerParams *params)
         case ND_DRAW:
         case ND_KEYS:
         case ND_MODIFIER:
-        case ND_SHADERFX:
           ED_region_tag_redraw(region);
           break;
       }
@@ -1353,11 +1248,6 @@ static void view3d_buttons_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_ID:
       if (wmn->action == NA_RENAME) {
-        ED_region_tag_redraw(region);
-      }
-      break;
-    case NC_GPENCIL:
-      if ((wmn->data & (ND_DATA | ND_GPENCIL_EDITMODE)) || (wmn->action == NA_EDITED)) {
         ED_region_tag_redraw(region);
       }
       break;
@@ -1557,9 +1447,6 @@ static void view3d_space_blend_read_data(BlendDataReader *reader, SpaceLink *sl)
 
   v3d->runtime = View3D_Runtime{};
 
-  if (BLO_read_struct_nonnull(reader, bGPdata, &v3d->gpd)) {
-    BKE_gpencil_blend_read_data(reader, v3d->gpd);
-  }
   BLO_read_struct(reader, RegionView3D, &v3d->localvd);
 
   /* render can be quite heavy, set to solid on load */
@@ -1619,7 +1506,7 @@ void ED_spacetype_view3d()
   /* regions: main window */
   art = MEM_new_zeroed<ARegionType>("spacetype view3d main region");
   art->regionid = RGN_TYPE_WINDOW;
-  art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_TOOL | ED_KEYMAP_GPENCIL;
+  art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_TOOL;
   art->draw = view3d_main_region_draw;
   art->init = view3d_main_region_init;
   art->exit = view3d_main_region_exit;

@@ -15,7 +15,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_ID.h"
-#include "DNA_gpencil_legacy_types.h"
 
 #include "BLI_fileops.h"
 #include "BLI_linklist_lockfree.h"
@@ -117,9 +116,6 @@ static void icon_free_data(int icon_id, Icon *icon)
     }
     case ICON_DATA_PREVIEW:
       (static_cast<PreviewImage *>(icon->obj))->runtime->icon_id = 0;
-      break;
-    case ICON_DATA_GPLAYER:
-      (static_cast<bGPDlayer *>(icon->obj))->runtime.icon_id = 0;
       break;
     case ICON_DATA_GEOM:
       (static_cast<Icon_Geom *>(icon->obj))->icon_id = 0;
@@ -304,44 +300,6 @@ int BKE_icon_id_ensure(ID *id)
   }
 
   return icon_id_ensure_create_icon(id);
-}
-
-static int icon_gplayer_color_ensure_create_icon(bGPDlayer *gpl)
-{
-  BLI_assert(BLI_thread_is_main());
-
-  /* NOTE: The color previews for GP Layers don't really need
-   * to be "rendered" to image per-se (as it will just be a plain
-   * colored rectangle), we need to define icon data here so that
-   * we can store a pointer to the layer data in icon->obj.
-   */
-  Icon *icon = icon_create(gpl->runtime.icon_id, ICON_DATA_GPLAYER, gpl);
-  icon->flag = ICON_FLAG_MANAGED;
-
-  return gpl->runtime.icon_id;
-}
-
-int BKE_icon_gplayer_color_ensure(bGPDlayer *gpl)
-{
-  /* Never handle icons in non-main thread! */
-  BLI_assert(BLI_thread_is_main());
-
-  if (!gpl || G.background) {
-    return 0;
-  }
-
-  if (gpl->runtime.icon_id) {
-    return gpl->runtime.icon_id;
-  }
-
-  gpl->runtime.icon_id = get_next_free_id();
-
-  if (!gpl->runtime.icon_id) {
-    CLOG_ERROR(&LOG, "not enough IDs");
-    return 0;
-  }
-
-  return icon_gplayer_color_ensure_create_icon(gpl);
 }
 
 int BKE_icon_preview_ensure(ID *id, PreviewImage *preview)

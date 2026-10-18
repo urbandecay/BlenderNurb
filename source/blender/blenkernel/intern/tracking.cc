@@ -17,12 +17,10 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_camera_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_object_types.h" /* SELECT */
 #include "DNA_scene_types.h"
 
-#include "BLI_bitmap_draw_2d.h"
 #include "BLI_ghash.h"
 #include "BLI_hash.hh"
 #include "BLI_index_range.hh"
@@ -200,9 +198,6 @@ static void tracking_tracks_copy(TrackingCopyContext *ctx,
     MovieTrackingTrack *track_dst = MEM_new<MovieTrackingTrack>(__func__, track_src);
     if (track_src.markers) {
       track_dst->markers = MEM_dupalloc(track_src.markers);
-    }
-    if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
-      id_us_plus(&track_dst->gpd->id);
     }
     BLI_addtail(tracks_dst, track_dst);
 
@@ -1050,129 +1045,6 @@ MovieTrackingTrack *BKE_tracking_track_get_for_selection_index(
   *r_tracksbase = nullptr;
 
   return nullptr;
-}
-
-static bGPDlayer *track_mask_gpencil_layer_get(const MovieTrackingTrack *track)
-{
-  bGPDlayer *layer;
-
-  if (!track->gpd) {
-    return nullptr;
-  }
-
-  layer = static_cast<bGPDlayer *>(track->gpd->layers.first);
-
-  while (layer) {
-    if (layer->flag & GP_LAYER_ACTIVE) {
-      bGPDframe *frame = static_cast<bGPDframe *>(layer->frames.first);
-      bool ok = false;
-
-      while (frame) {
-        if (frame->strokes.first) {
-          ok = true;
-          break;
-        }
-
-        frame = frame->next;
-      }
-
-      if (ok) {
-        return layer;
-      }
-    }
-
-    layer = layer->next;
-  }
-
-  return nullptr;
-}
-
-struct TrackMaskSetPixelData {
-  float *mask;
-  int mask_width;
-  int mask_height;
-};
-
-static void track_mask_set_pixel_cb(int x, int x_end, int y, void *user_data)
-{
-  TrackMaskSetPixelData *data = static_cast<TrackMaskSetPixelData *>(user_data);
-  size_t index = size_t(y) * data->mask_width + x;
-  size_t index_end = size_t(y) * data->mask_width + x_end;
-  do {
-    data->mask[index] = 1.0f;
-  } while (++index != index_end);
-}
-
-static void track_mask_gpencil_layer_rasterize(const int frame_width,
-                                               const int frame_height,
-                                               const float region_min[2],
-                                               const bGPDlayer *layer,
-                                               float *mask,
-                                               const int mask_width,
-                                               const int mask_height)
-{
-  const bGPDframe *frame = static_cast<const bGPDframe *>(layer->frames.first);
-  TrackMaskSetPixelData data;
-
-  data.mask = mask;
-  data.mask_width = mask_width;
-  data.mask_height = mask_height;
-
-  while (frame) {
-    const bGPDstroke *stroke = static_cast<const bGPDstroke *>(frame->strokes.first);
-
-    while (stroke) {
-      const bGPDspoint *stroke_points = stroke->points;
-      if (stroke->flag & GP_STROKE_2DSPACE) {
-        Array<int2> mask_points(stroke->totpoints);
-        for (const int i : mask_points.index_range()) {
-          mask_points[i][0] = stroke_points[i].x * frame_width - region_min[0];
-          mask_points[i][1] = stroke_points[i].y * frame_height - region_min[1];
-        }
-        /* TODO: add an option to control whether AA is enabled or not */
-        BLI_bitmap_draw_2d_poly_v2i_n(
-            0, 0, mask_width, mask_height, mask_points, track_mask_set_pixel_cb, &data);
-      }
-      stroke = stroke->next;
-    }
-    frame = frame->next;
-  }
-}
-
-float *tracking_track_get_mask_for_region(const int frame_width,
-                                          const int frame_height,
-                                          const float region_min[2],
-                                          const float region_max[2],
-                                          const MovieTrackingTrack *track)
-{
-  float *mask = nullptr;
-  const bGPDlayer *layer = track_mask_gpencil_layer_get(track);
-  if (layer != nullptr) {
-    const int mask_width = region_max[0] - region_min[0];
-    const int mask_height = region_max[1] - region_min[1];
-    mask = MEM_new_array_zeroed<float>(mask_width * mask_height, "track mask");
-    track_mask_gpencil_layer_rasterize(
-        frame_width, frame_height, region_min, layer, mask, mask_width, mask_height);
-  }
-  return mask;
-}
-
-float *BKE_tracking_track_get_mask(const int frame_width,
-                                   const int frame_height,
-                                   const MovieTrackingTrack *track,
-                                   const MovieTrackingMarker *marker)
-{
-  /* Convert normalized space marker's search area to pixel-space region. */
-  const float region_min[2] = {
-      marker->search_min[0] * frame_width,
-      marker->search_min[1] * frame_height,
-  };
-  const float region_max[2] = {
-      marker->search_max[0] * frame_width,
-      marker->search_max[1] * frame_height,
-  };
-  return tracking_track_get_mask_for_region(
-      frame_width, frame_height, region_min, region_max, track);
 }
 
 float BKE_tracking_track_get_weight_for_marker(MovieClip *clip,
@@ -2534,7 +2406,6 @@ ImBuf *BKE_tracking_sample_pattern(const int frame_width,
                                    const MovieTrackingTrack *track,
                                    const MovieTrackingMarker *marker,
                                    const bool from_anchor,
-                                   const bool use_mask,
                                    const int num_samples_x,
                                    const int num_samples_y,
                                    float pos[2])
@@ -2542,7 +2413,6 @@ ImBuf *BKE_tracking_sample_pattern(const int frame_width,
   ImBuf *pattern_ibuf;
   double src_pixel_x[5], src_pixel_y[5];
   double warped_position_x, warped_position_y;
-  float *mask = nullptr;
 
   if (num_samples_x <= 0 || num_samples_y <= 0) {
     return nullptr;
@@ -2580,10 +2450,6 @@ ImBuf *BKE_tracking_sample_pattern(const int frame_width,
     }
   }
 
-  if (use_mask) {
-    mask = BKE_tracking_track_get_mask(frame_width, frame_height, track, marker);
-  }
-
   if (search_ibuf->float_data()) {
     libmv_samplePlanarPatchFloat(search_ibuf->float_data(),
                                  search_ibuf->x,
@@ -2593,7 +2459,7 @@ ImBuf *BKE_tracking_sample_pattern(const int frame_width,
                                  src_pixel_y,
                                  num_samples_x,
                                  num_samples_y,
-                                 mask,
+                                 nullptr,
                                  pattern_ibuf->float_data_for_write(),
                                  &warped_position_x,
                                  &warped_position_y);
@@ -2607,7 +2473,7 @@ ImBuf *BKE_tracking_sample_pattern(const int frame_width,
                                 src_pixel_y,
                                 num_samples_x,
                                 num_samples_y,
-                                mask,
+                                nullptr,
                                 pattern_ibuf->byte_data_for_write(),
                                 &warped_position_x,
                                 &warped_position_y);
@@ -2616,10 +2482,6 @@ ImBuf *BKE_tracking_sample_pattern(const int frame_width,
   if (pos) {
     pos[0] = warped_position_x;
     pos[1] = warped_position_y;
-  }
-
-  if (mask) {
-    MEM_delete(mask);
   }
 
   return pattern_ibuf;

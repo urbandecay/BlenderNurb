@@ -311,9 +311,6 @@ TreeElement *AbstractTreeDisplay::add_element(ListBaseT<TreeElement> *lb,
   else if (ELEM(type, TSE_ACTION_SLOT)) {
     /* pass */
   }
-  else if (ELEM(type, TSE_GP_LAYER, TSE_GREASE_PENCIL_NODE)) {
-    /* pass */
-  }
   else if (ELEM(type, TSE_LAYER_COLLECTION, TSE_SCENE_COLLECTION_BASE, TSE_VIEW_COLLECTION_BASE)) {
     /* pass */
   }
@@ -321,9 +318,6 @@ TreeElement *AbstractTreeDisplay::add_element(ListBaseT<TreeElement> *lb,
     /* pass */
   }
   else if (ELEM(type, TSE_BONE, TSE_EBONE)) {
-    /* pass */
-  }
-  else if (ELEM(type, TSE_GPENCIL_EFFECT_BASE, TSE_GPENCIL_EFFECT)) {
     /* pass */
   }
   else if (ELEM(type, TSE_DEFGROUP, TSE_DEFGROUP_BASE)) {
@@ -938,11 +932,6 @@ static bool outliner_element_visible_get(const Main &bmain,
           break;
         case OB_CAMERA:
           if (exclude_filter & SO_FILTER_NO_OB_CAMERA) {
-            return false;
-          }
-          break;
-        case OB_GREASE_PENCIL:
-          if (exclude_filter & SO_FILTER_NO_OB_GREASE_PENCIL) {
             return false;
           }
           break;

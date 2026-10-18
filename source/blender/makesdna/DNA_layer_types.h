@@ -60,12 +60,6 @@ enum eViewLayerEEVEEPassType : int {
 #define EEVEE_RENDER_PASS_MAX_BIT 21
 ENUM_OPERATORS(eViewLayerEEVEEPassType)
 
-/* #ViewLayer::grease_pencil_flags */
-enum eViewLayerGreasePencilFlags : int {
-  GREASE_PENCIL_AS_SEPARATE_PASS = (1 << 0),
-};
-ENUM_OPERATORS(eViewLayerGreasePencilFlags)
-
 /* #ViewLayerAOV.type */
 enum eViewLayerAOVType : int {
   AOV_TYPE_VALUE = 0,
@@ -262,8 +256,6 @@ struct ViewLayer {
   float pass_alpha_threshold = 0.5f;
   eViewLayerCryptomatteFlags cryptomatte_flag = VIEW_LAYER_CRYPTOMATTE_ACCURATE;
   short cryptomatte_levels = 6;
-  eViewLayerGreasePencilFlags grease_pencil_flags = {};
-
   int samples = 0;
 
   struct Material *mat_override = nullptr;

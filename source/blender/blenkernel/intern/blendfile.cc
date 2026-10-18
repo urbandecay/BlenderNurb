@@ -553,27 +553,6 @@ static void reuse_editable_asset_bmain_data_for_blendfile(ReuseOldBMainData *reu
 }
 
 /**
- * Grease pencil brushes may have a material pinned that is from the current file. Moving local
- * scene data to a different #Main is tricky, so in that case, unpin the material.
- */
-static void unpin_file_local_grease_pencil_brush_materials(const ReuseOldBMainData *reuse_data)
-{
-  ID *old_id_iter;
-  FOREACH_MAIN_LISTBASE_ID_BEGIN (&reuse_data->old_bmain->brushes, old_id_iter) {
-    const Brush *brush = reinterpret_cast<Brush *>(old_id_iter);
-    if (brush->gpencil_settings && brush->gpencil_settings->material &&
-        /* Don't unpin if this material is linked, then it can be preserved for the new file. */
-        !ID_IS_LINKED(brush->gpencil_settings->material))
-    {
-      /* Unpin material and clear pointer. */
-      brush->gpencil_settings->flag &= ~GP_BRUSH_MATERIAL_PINNED;
-      brush->gpencil_settings->material = nullptr;
-    }
-  }
-  FOREACH_MAIN_LISTBASE_ID_END;
-}
-
-/**
  * Does a complete replacement of data in `new_bmain` by data from `old_bmain`. Original new data
  * are moved to the `old_bmain`, and will be freed together with it.
  *
@@ -1015,7 +994,6 @@ static void setup_app_data(bContext *C,
     BKE_main_idmap_destroy(reuse_data.id_map);
 
     if (reuse_editable_assets) {
-      unpin_file_local_grease_pencil_brush_materials(&reuse_data);
       /* Keep linked brush asset data, similar to UI data. Only does a known
        * subset know. Could do everything, but that risks dragging along more
        * scene data than we want. */
@@ -1604,20 +1582,6 @@ UserDef *BKE_blendfile_userdef_from_defaults()
         userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Pixel Art");
     BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
         userdef, "VIEW3D_AST_brush_texture_paint", "Brushes/Mesh Texture Paint/Utilities");
-
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_paint", "Brushes/Grease Pencil Draw/Draw");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_paint", "Brushes/Grease Pencil Draw/Erase");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_paint", "Brushes/Grease Pencil Draw/Utilities");
-
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_sculpt", "Brushes/Grease Pencil Sculpt/Contrast");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_sculpt", "Brushes/Grease Pencil Sculpt/Transform");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_sculpt", "Brushes/Grease Pencil Sculpt/Utilities");
 
     BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
         userdef, "NODE_AST_compositor", "Camera & Lens Effects");

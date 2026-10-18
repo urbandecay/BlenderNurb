@@ -3164,11 +3164,6 @@ static wmOperatorStatus drop_material_exec(bContext *C, wmOperator *op)
   BLI_assert(mat_slot.data);
   const int target_slot = RNA_int_get(&mat_slot, "slot_index") + 1;
 
-  /* only drop grease pencil material on grease pencil objects */
-  if ((ma->gp_style != nullptr) && (ob->type != OB_GREASE_PENCIL)) {
-    return OPERATOR_CANCELLED;
-  }
-
   BKE_object_material_assign(bmain, ob, ma, target_slot, BKE_MAT_ASSIGN_USERPREF);
 
   WM_event_add_notifier(C, NC_OBJECT | ND_OB_SHADING, ob);
@@ -3245,7 +3240,6 @@ void operatortypes_ui()
   WM_operatortype_append(UI_OT_eyedropper_depth);
   WM_operatortype_append(UI_OT_eyedropper_driver);
   WM_operatortype_append(UI_OT_eyedropper_bone);
-  WM_operatortype_append(UI_OT_eyedropper_grease_pencil_color);
   WM_menutype_add(UI_MT_color_space_select());
 }
 

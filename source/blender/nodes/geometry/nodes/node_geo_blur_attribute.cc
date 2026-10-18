@@ -408,9 +408,8 @@ class BlurAttributeFieldInput final : public bke::GeometryFieldInput {
         }
         break;
       case GeometryComponent::Type::Curve:
-      case GeometryComponent::Type::GreasePencil:
         if (context.domain() == AttrDomain::Point) {
-          if (const bke::CurvesGeometry *curves = context.curves_or_strokes()) {
+          if (const bke::CurvesGeometry *curves = context.curves()) {
             result_buffer = blur_on_curves(
                 *curves, iterations_, neighbor_weights, buffer_a, buffer_b);
           }

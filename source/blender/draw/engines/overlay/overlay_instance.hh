@@ -25,7 +25,6 @@
 #include "overlay_fade.hh"
 #include "overlay_fluid.hh"
 #include "overlay_force_field.hh"
-#include "overlay_grease_pencil.hh"
 #include "overlay_grid.hh"
 #include "overlay_lattice.hh"
 #include "overlay_light.hh"
@@ -88,7 +87,6 @@ class Instance : public DrawEngine {
     Fade fade;
     Fluids fluids = {selection_type_};
     ForceFields force_fields = {selection_type_};
-    GreasePencil grease_pencil;
     Lattices lattices;
     Lights lights = {selection_type_};
     LightProbes light_probes = {selection_type_};

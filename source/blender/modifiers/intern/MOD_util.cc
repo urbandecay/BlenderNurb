@@ -263,32 +263,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
   INIT_TYPE(VolumeDisplace);
   INIT_TYPE(VolumeToMesh);
   INIT_TYPE(Nodes);
-  INIT_TYPE(GreasePencilOpacity);
-  INIT_TYPE(GreasePencilSubdiv);
-  INIT_TYPE(GreasePencilColor);
-  INIT_TYPE(GreasePencilTint);
-  INIT_TYPE(GreasePencilSmooth);
-  INIT_TYPE(GreasePencilOffset);
-  INIT_TYPE(GreasePencilNoise);
-  INIT_TYPE(GreasePencilMirror);
-  INIT_TYPE(GreasePencilThickness);
-  INIT_TYPE(GreasePencilLattice);
-  INIT_TYPE(GreasePencilDash);
-  INIT_TYPE(GreasePencilMultiply);
-  INIT_TYPE(GreasePencilLength);
-  INIT_TYPE(GreasePencilWeightAngle);
-  INIT_TYPE(GreasePencilArray);
-  INIT_TYPE(GreasePencilWeightProximity);
-  INIT_TYPE(GreasePencilHook);
-  INIT_TYPE(GreasePencilLineart);
-  INIT_TYPE(GreasePencilArmature);
-  INIT_TYPE(GreasePencilTime);
-  INIT_TYPE(GreasePencilSimplify);
-  INIT_TYPE(GreasePencilEnvelope);
-  INIT_TYPE(GreasePencilOutline);
-  INIT_TYPE(GreasePencilShrinkwrap);
-  INIT_TYPE(GreasePencilBuild);
-  INIT_TYPE(GreasePencilTexture);
 #undef INIT_TYPE
 }
 

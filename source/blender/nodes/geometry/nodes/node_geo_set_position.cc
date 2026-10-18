@@ -5,7 +5,6 @@
 #include "DNA_pointcloud_types.h"
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_mesh.hh"
 
@@ -84,25 +83,6 @@ static void set_curves_position(bke::CurvesGeometry &curves,
   curves.calculate_bezier_auto_handles();
 }
 
-static void set_position_in_grease_pencil(GreasePencil &grease_pencil,
-                                          const Field<bool> &selection_field,
-                                          const Field<float3> &position_field)
-{
-  using namespace blender::bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr || drawing->strokes().is_empty()) {
-      continue;
-    }
-    set_curves_position(
-        drawing->strokes_for_write(),
-        bke::GreasePencilLayerFieldContext(grease_pencil, bke::AttrDomain::Point, layer_index),
-        selection_field,
-        position_field);
-    drawing->tag_positions_changed();
-  }
-}
-
 static void set_instances_position(bke::Instances &instances,
                                    const Field<bool> &selection_field,
                                    const Field<float3> &position_field)
@@ -152,9 +132,6 @@ static void node_geo_exec(GeoNodeExecParams params)
                         bke::CurvesFieldContext(*curves_id, bke::AttrDomain::Point),
                         selection_field,
                         position_field);
-  }
-  if (GreasePencil *grease_pencil = geometry.get_grease_pencil_for_write()) {
-    set_position_in_grease_pencil(*grease_pencil, selection_field, position_field);
   }
   if (bke::Instances *instances = geometry.get_instances_for_write()) {
     set_instances_position(*instances, selection_field, position_field);

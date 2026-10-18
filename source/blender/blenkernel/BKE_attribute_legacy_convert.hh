@@ -19,7 +19,6 @@ namespace bke {
 class CurvesGeometry;
 }
 struct PointCloud;
-struct GreasePencil;
 struct Mesh;
 
 namespace bke {
@@ -50,9 +49,6 @@ void curves_convert_customdata_to_storage(CurvesGeometry &curves);
 
 /** See #mesh_convert_customdata_to_storage. */
 void pointcloud_convert_customdata_to_storage(PointCloud &pointcloud);
-
-/** See #mesh_convert_customdata_to_storage. */
-void grease_pencil_convert_customdata_to_storage(GreasePencil &grease_pencil);
 
 /** Abstraction for copying #CustomData layers and #AttributeStorage attributes. */
 class LegacyMeshInterpolator {

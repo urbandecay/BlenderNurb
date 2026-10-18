@@ -596,7 +596,6 @@ ID *template_id_liboverride_hierarchy_make(
     case ID_CA:
     case ID_SPK:
     case ID_AR:
-    case ID_GD_LEGACY:
     case ID_CV:
     case ID_PT:
     case ID_VO:
@@ -888,8 +887,6 @@ static StringRef template_id_browse_tip(const StructRNA *type)
         return N_("Browse Brush to be linked");
       case ID_PA:
         return N_("Browse Particle Settings to be linked");
-      case ID_GD_LEGACY:
-        return N_("Browse Grease Pencil Data to be linked");
       case ID_MC:
         return N_("Browse Movie Clip to be linked");
       case ID_MSK:
@@ -910,8 +907,6 @@ static StringRef template_id_browse_tip(const StructRNA *type)
         return N_("Browse Point Cloud Data to be linked");
       case ID_VO:
         return N_("Browse Volume Data to be linked");
-      case ID_GP:
-        return N_("Browse Grease Pencil Data to be linked");
 
         /* Use generic text. */
       case ID_LI:
@@ -985,7 +980,6 @@ static Button *template_id_def_new_but(Block *block,
                             BLT_I18NCONTEXT_ID_CURVES,
                             BLT_I18NCONTEXT_ID_CURVE_LEGACY,
                             BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
-                            BLT_I18NCONTEXT_ID_GPENCIL,
                             BLT_I18NCONTEXT_ID_IMAGE,
                             BLT_I18NCONTEXT_ID_LATTICE,
                             BLT_I18NCONTEXT_ID_LIGHT,
@@ -1779,34 +1773,6 @@ void template_id_preview(Layout *layout,
               1.0f,
               false,
               hide_buttons);
-}
-
-void template_greasepencil_color_preview(Layout *layout,
-                                         bContext *C,
-                                         PointerRNA *ptr,
-                                         const StringRefNull propname,
-                                         int rows,
-                                         int cols,
-                                         float scale,
-                                         int filter)
-{
-  template_id(*layout,
-              C,
-              ptr,
-              propname,
-              nullptr,
-              nullptr,
-              nullptr,
-              nullptr,
-              nullptr,
-              UI_ID_BROWSE | UI_ID_PREVIEWS | UI_ID_DELETE,
-              rows,
-              cols,
-              filter,
-              false,
-              scale < 0.5f ? 0.5f : scale,
-              false,
-              false);
 }
 
 void template_id_tabs(Layout *layout,

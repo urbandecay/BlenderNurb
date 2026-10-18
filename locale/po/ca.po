@@ -430,16 +430,6 @@ msgstr "Font"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Llapis de greix"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Llapis de greix v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Imatge"
 
@@ -1284,14 +1274,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "[Bake to active Camera]: Els punts d'un trajecte de moviment es precuinaran en l'espai de càmera de la càmera activa. Això implica que només es veuran correctament en mirar a través d'aquesta càmera. El canvi de càmeres no és compatible amb l'ús de marcadors."
 
 
-msgid "Annotation Frame"
-msgstr "Fotograma d'anotació"
-
-
-msgid "Collection of related sketches on a particular frame"
-msgstr "[Annotation Frame]: Col·lecció d'esbossos relacionats amb un fotograma concret"
-
-
 msgid "Frame Number"
 msgstr "Número de fotograma"
 
@@ -1312,22 +1294,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "Corbes a mà alçada que defineixen l'esbós en aquest fotograma"
 
 
-msgid "Annotation Frames"
-msgstr "Fotograma d'anotacions"
-
-
-msgid "Collection of annotation frames"
-msgstr "[Annotation Frames]: Col·lecció de fotogrames d'anotacions"
-
-
-msgid "Annotation Layer"
-msgstr "Capa d'anotació"
-
-
-msgid "Collection of related sketches"
-msgstr "[Annotation Layer]: Col·lecció d'esbossos relacionats"
-
-
 msgid "Active Frame"
 msgstr "Fotograma actiu"
 
@@ -1338,10 +1304,6 @@ msgstr "Fotograma que s'està mostrant per a aquesta capa"
 
 msgid "Hide"
 msgstr "Oculta"
-
-
-msgid "Set annotation Visibility"
-msgstr "Determinar visibilitat d'anotació"
 
 
 msgid "After Color"
@@ -1386,10 +1348,6 @@ msgstr "[Custom Onion Skin Colors]: Fa servir colors de pela de ceba personalitz
 
 msgid "Opacity"
 msgstr "Opacitat"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Anotació - Opacitat de capa"
 
 
 msgid "Color for all strokes in this layer"
@@ -1452,52 +1410,20 @@ msgid "Thickness"
 msgstr "Gruix"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Gruix dels traços d'anotació"
-
-
 msgid "Onion Skinning"
 msgstr "Pells de ceba"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "[Onion Skinning]: Mostra les pells de ceba d'anotacions abans i després del fotograma en curs"
-
-
-msgid "Annotation Layers"
-msgstr "Capes d'anotació"
-
-
-msgid "Collection of annotation layers"
-msgstr "[Annotation Layers]: Col·lecció de capes d'anotacions"
 
 
 msgid "Active Layer Index"
 msgstr "Índex de capa activa"
 
 
-msgid "Index of active annotation layer"
-msgstr "[Active Layer Index]: Índex de la capa d'anotació activa"
-
-
 msgid "Active Note"
 msgstr "Nota activa"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "[Active Note]: Nota/Capa a la qual afegir traços d'anotació"
-
-
 msgid "Default"
 msgstr "Per defecte"
-
-
-msgid "Annotation Stroke"
-msgstr "Traç d'anotació"
-
-
-msgid "Freehand curve defining part of a sketch"
-msgstr "[Annotation Stroke]: Corba a mà alçada que defineix part d'un esbós"
 
 
 msgid "Display Mode"
@@ -1540,32 +1466,8 @@ msgid "Stroke data points"
 msgstr "[Stroke Points]: Punts de dades del traç"
 
 
-msgid "Annotation Stroke Point"
-msgstr "Punt de traç d'anotació"
-
-
-msgid "Data point for freehand stroke curve"
-msgstr "[Grease Pencil Stroke Point]: Punt de dades per a la corba del traç a mà alçada"
-
-
 msgid "Coordinates"
 msgstr "Coordenades"
-
-
-msgid "Annotation Stroke Points"
-msgstr "Punts de traç d'anotacions"
-
-
-msgid "Collection of annotation stroke points"
-msgstr "[Annotation Stroke Points]: Col·lecció de punts de traç d'anotacions"
-
-
-msgid "Annotation Strokes"
-msgstr "Traços d'anotació"
-
-
-msgid "Collection of annotation strokes"
-msgstr "[Annotation Strokes]: Col·lecció de traços d'anotacions"
 
 
 msgid "Any Type"
@@ -2193,14 +2095,6 @@ msgid "Show Action data-blocks"
 msgstr "Mostrar blocs de dades d'accions"
 
 
-msgid "Annotations"
-msgstr "Anotacions"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "Mostrar blocs de dades d'anotacions"
-
-
 msgid "Armatures"
 msgstr "Esquelets"
 
@@ -2255,14 +2149,6 @@ msgstr "Fonts"
 
 msgid "Show Font data-blocks"
 msgstr "[Fonts]: Mostra blocs de dades de fonts"
-
-
-msgid "Grease Pencil"
-msgstr "Llapis de greix"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "Mostrar blocs de dades de Llapis de greix"
 
 
 msgid "Collections"
@@ -2695,10 +2581,6 @@ msgstr "[Instance]: Atribut d'instància"
 
 msgid "Layer"
 msgstr "Capa"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "[Layer]: Atribut de capa de Llapis de greix"
 
 
 msgid "Is Internal"
@@ -3428,14 +3310,6 @@ msgid "Read-only list of all IDs listed in Blender data-base"
 msgstr "Llista no editable de tots els IDs llistats a la base de dades de Blender"
 
 
-msgid "Annotation"
-msgstr "Anotació"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "[Annotation]: Blocs de dades d'anotacions (Llapis de greix antiquat)"
-
-
 msgid "Armature data-blocks"
 msgstr "[Armatures]: Blocs de dades d'esquelets"
 
@@ -3482,10 +3356,6 @@ msgstr "Fonts vectorials"
 
 msgid "Vector font data-blocks"
 msgstr "[Vector Fonts]: Blocs de dades de fonts vectorials"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "[Grease Pencil]: Blocs de dades del llapis de greix"
 
 
 msgid "Hair curve data-blocks"
@@ -3672,14 +3542,6 @@ msgid "Collection of actions"
 msgstr "Col·lecció d'accions"
 
 
-msgid "Main Annotations"
-msgstr "Anotacions principals"
-
-
-msgid "Collection of annotations"
-msgstr "Col·lecció d'anotacions"
-
-
 msgid "Main Armatures"
 msgstr "Esquelets principals"
 
@@ -3734,14 +3596,6 @@ msgstr "Fonts principals"
 
 msgid "Collection of fonts"
 msgstr "[Main Fonts]: Col·lecció de fonts"
-
-
-msgid "Main Grease Pencils"
-msgstr "Llapis de greix principals"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "Col·lecció de Llapis de greix"
 
 
 msgid "Main Hair Curves"
@@ -5723,14 +5577,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "[Scale Uniform]: Engrandeix o encongeix corbes canviant-ne la mida uniformement en lloc de despuntar-les o extrapolar-les"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Llapis de greix - Paràmetres del pinzell"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "Paràmetres del pinzell de Llapis de greix"
-
-
 msgid "Active Smooth"
 msgstr "Suavitzat actiu"
 
@@ -5787,23 +5633,8 @@ msgid "Use always Vertex Color mode"
 msgstr "[Vertex Color]: Usa sempre el mode de color de vèrtex"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Tipus d'extrems"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "[Caps Type]: La forma del capdamunt o el capdavall del traç"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Rodó"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Aplanat"
 
 
 msgid "Threshold"
@@ -5883,36 +5714,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "[Dilate/Contract]: Nombre de píxels per expandir o contraure l'àrea d'emplenament"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Mode"
-
-
 msgid "Eraser Mode"
 msgstr "Mode esborrar"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "Dissoldre"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "[Dissolve]: Esborra els traços, esvaint la força i gruix els punts"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "Punt"
-
-
 msgid "Erase stroke points"
 msgstr "Esborrar punts de traç"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Traç"
 
 
 msgid "Erase entire strokes"
@@ -5994,27 +5805,12 @@ msgid "Use edit lines as fill boundary limits"
 msgstr "[Edit Lines]: Utilitza les línies d'edició per emplenar dins els límits de contorn"
 
 
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "Mode de tancament"
-
-
 msgid "Types of stroke extensions used for closing gaps"
 msgstr "[Closure mode]: Tipus d'extensió de traç usat per tancar buits"
 
 
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "Estendre"
-
-
 msgid "Extend strokes in straight lines"
 msgstr "Ampliar traços en línies rectes"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "Radi"
 
 
 msgid "Connect endpoints that are close together"
@@ -6183,11 +5979,6 @@ msgid "Number of times to smooth newly created strokes"
 msgstr "[Iterations]: Nombre de vegades que s'han de suavitzar els traços nous"
 
 
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Intensitat"
-
-
 msgid "Color strength for new strokes (affect alpha factor of color)"
 msgstr "Intensitat del color per a traços nous (afecta el factor alfa del color)"
 
@@ -6284,23 +6075,8 @@ msgid "Threshold in screen space used for the simplify algorithm. Points within 
 msgstr "Llindar a l'espai de pantalla utilitzat per a l'algorisme de simplificació. Els punts dins el llindar es tracten com si estiguessin en línia recta."
 
 
-msgctxt "GPencil"
-msgid "Stroke Mode"
-msgstr "Mode de traç"
-
-
 msgid "Mode to use when creating strokes"
 msgstr "[Stroke Mode]: El mode d'ús en la creació de traços"
-
-
-msgctxt "GPencil"
-msgid "Fill"
-msgstr "Emplenar"
-
-
-msgctxt "GPencil"
-msgid "Both"
-msgstr "Ambdós"
 
 
 msgid "Active Layer"
@@ -11983,14 +11759,6 @@ msgstr "Replegar resum"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "[Collapse Summary]: Torna a plegar el resum quan es mostra, de manera que la resta de canals queden amagats (sols editors de guió tècnic)"
-
-
-msgid "Display Grease Pencil"
-msgstr "Mostrar llapis de greix"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "[Display Grease Pencil]: Inclou la visualització de les dades d'animació i els fotogrames lligats al Llapis de greix"
 
 
 msgid "Display Hair"
@@ -17887,24 +17655,8 @@ msgid "Keep the computed view map and avoid recalculating it if mesh geometry is
 msgstr "[View Map Cache]: Manté el mapa de visionat calculat i evita de recalcular-lo si la geometria de la malla no ha canviat"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Llapis de greix - Paràmetres d'interpolació"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Paràmetres per a les eines d'interpolació del Llapis de greix"
-
-
 msgid "Interpolation Curve"
 msgstr "Corba d'interpolació"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "[Interpolation Curve]: Corba maniobrera per controlar la «seqüència» interpolació entre els fotogrames del Llapis de greix"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "Guia d'escultura amb Llapis de greix"
 
 
 msgid "Guides for drawing"
@@ -18007,14 +17759,6 @@ msgid "Enable snapping to guides angle or spacing options"
 msgstr "[Use Snapping]: Habilita l'acoblament a guies, angles o a opcions d'espaiat"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "Paràmetres d'escultura amb llapis-dG"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "[GPencil Sculpt Settings]: Propietats generals per a les eines d'escultura amb el traç de Llapis de greix"
-
-
 msgid "Threshold for stroke intersections"
 msgstr "Marge per a la intersecció de traços"
 
@@ -18053,10 +17797,6 @@ msgstr "[Top (X-Y)]: Projecta els traços vers el pla travat en Z"
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "Alinea els traços amb l'orientació actual del cursor 3D"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "Corba maniobrera per a controlar l'efecte de dissipació de pinzellada per a fotogrames de Llapis de greix"
 
 
 msgid "Custom curve to control primitive thickness"
@@ -18545,14 +18285,6 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "Habilita cíclic en guionets de traç o individuals"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "Dibuix de Llapis de greix"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "Un dibuix fet amb Llapis de greix"
-
-
 msgid "Attributes"
 msgstr "Atributs"
 
@@ -18597,75 +18329,32 @@ msgid "The number of keyframes this drawing is used by"
 msgstr "El nombre de fotogrames en què s'usa un dibuix"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Llapis de greix - fotograma"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "Una fotofita de llapis de greix"
-
-
 msgid "The frame number in the scene"
 msgstr "El nombre de fotofites de l'escena"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "Tipus de fotofita"
 
 
 msgid "Type of keyframe"
 msgstr "Tipus de fotofita"
 
 
-msgctxt "GPencil"
-msgid "Keyframe"
-msgstr "Fotofita"
-
-
 msgid "Normal keyframe, e.g. for key poses"
 msgstr "Fotofita normal, p. ex. per a poses clau"
-
-
-msgctxt "GPencil"
-msgid "Breakdown"
-msgstr "Partionament"
 
 
 msgid "A breakdown pose, e.g. for transitions between key poses"
 msgstr "Una posa partionada, per exemple per a les transicions entre poses clau"
 
 
-msgctxt "GPencil"
-msgid "Moving Hold"
-msgstr "Aguantar en moviment"
-
-
 msgid "A keyframe that is part of a moving hold"
 msgstr "[Moving Hold]: Fotofita que forma part d'un aguantat en moviment"
-
-
-msgctxt "GPencil"
-msgid "Extreme"
-msgstr "Extrema"
 
 
 msgid "An 'extreme' pose, or some other purpose as needed"
 msgstr "[Extreme]: Una posa «extrema» o algun altre propòsit segons convingui"
 
 
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "Trontoll"
-
-
 msgid "A filler or baked keyframe for keying on ones, or some other purpose as needed"
 msgstr "[Jitter]: Una fotofita de complement o precuinada per fita-x-foto o per algun altre propòsit segons convingui"
-
-
-msgctxt "GPencil"
-msgid "Generated"
-msgstr "Generades"
 
 
 msgid "A key generated automatically by a tool, not manually created"
@@ -18674,18 +18363,6 @@ msgstr "Una fita generada automàticament per alguna eina, no creada manualment"
 
 msgid "Frame Selection in the Dope Sheet"
 msgstr "Selecció el fotograma en el guió tècnic"
-
-
-msgid "Grease Pencil Frames"
-msgstr "Llapis de greix - fotogrames"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "Col·lecció de fotogrames de llapis de greix"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Llapis de greix - capes màscara"
 
 
 msgid "List of Mask Layers"
@@ -18702,14 +18379,6 @@ msgstr "Inverteix la màscara"
 
 msgid "Mask layer name"
 msgstr "[Layer]: Nom de la capa màscara"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Llapis de greix - emmascarar capes"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "[Grease Pencil Mask Layers]: Col·lecció de capes màscara de Llapis de greix"
 
 
 msgid "Active Layer Mask Index"
@@ -18772,10 +18441,6 @@ msgid "Tree Node"
 msgstr "Node de l'arbre"
 
 
-msgid "Grease Pencil node in the layer tree. Either a layer or a group"
-msgstr "Node del Llapis de greix a l'arbre de capes. O bé una capa o bé un grup"
-
-
 msgid "Channel Color"
 msgstr "Color de canal"
 
@@ -18836,10 +18501,6 @@ msgid "Display onion skins before and after the current frame"
 msgstr "Mostrar pells de ceba abans i després del fotograma en curs"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Llapis de greix - capa"
-
-
 msgid "Collection of related drawings"
 msgstr "Col·lecció de dibuixos relacionats"
 
@@ -18858,10 +18519,6 @@ msgstr "Llum dura"
 
 msgid "Divide"
 msgstr "Divisió"
-
-
-msgid "Grease Pencil frames"
-msgstr "Fotogrames de Llapis de greix"
 
 
 msgid "Ignore Material Locking"
@@ -18980,14 +18637,6 @@ msgid "Only include Layer in this View Layer render output (leave blank to inclu
 msgstr "[ViewLayer]: Inclou només la capa dins d'aquesta Capa de visionat en el revelat finalment egressat (deixa en blanc perquè sempre s'hi inclogui)"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "Llapis de greix - grup de capes"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "Agrupar totes les capes de Llapis de greix"
-
-
 msgid "The direct children of this layer group. Ordered by stack order, meaning the first child is the bottom most child in the layer tree."
 msgstr "Els fills directes d'aquest grup de capes. Ordenats segons l'estiba, que vol dir que el primer fill de baix de tot és el fill més baix de l'arbre de capes."
 
@@ -19032,28 +18681,8 @@ msgid "The layer group is expanded in the UI"
 msgstr "El grup de capes s'expandeix en la IU"
 
 
-msgid "Grease Pencil Group"
-msgstr "Grup de Llapis de greix"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "[Grease Pencil Layers]: Col·lecció de capes de Llapis de greix"
-
-
 msgid "Active Layer Group"
 msgstr "Grup de capes actiu"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "Grup de capes actiu de Llapis de greix"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Llapis de greix - capes"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Capa activa de Llapis de greix"
 
 
 msgid "Editor header containing UI elements"
@@ -19378,10 +19007,6 @@ msgstr "Interval manual de fotogrames"
 
 msgid "Manually specify the intended playback frame range for the action (this range is used by some tools, but does not affect animation evaluation)"
 msgstr "[Manual Frame Range]: Especifica manualment l'interval de projecció de fotogrames consignat per a l'acció (aquest interval l'utilitzen algunes eines, però no afecta l'avaluació de l'animació)"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "Llibreta de notes a mà"
 
 
 msgid "Animation data for this data-block"
@@ -20386,23 +20011,8 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "El pinzell és del tipus utilitzat per a fer traços de tenyit"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "Tipus de pinzell"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Suavitzar"
-
-
 msgid "Smooth stroke points"
 msgstr "Suavitzar punts del traç"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Gruix"
 
 
 msgid "Adjust thickness of strokes"
@@ -20413,62 +20023,28 @@ msgid "Adjust color strength of strokes"
 msgstr "Ajusta intensitat de color dels traços"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Aleatoritzar"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "Introdueix trontoll/aleatorietat en els traços"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "Capturar"
 
 
 msgid "Translate the set of points initially within the brush circle"
 msgstr "Transposa el joc de punts que inicialment eren dins del cercle del pinzell"
 
 
-msgctxt "GPencil"
-msgid "Push"
-msgstr "Pitjar"
-
-
 msgid "Move points out of the way, as if combing them"
 msgstr "Treu del mig dels punts, com si els pentinés"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "Roscar"
 
 
 msgid "Rotate points around the midpoint of the brush"
 msgstr "Gira els punts al voltant del punt mitjà del pinzell"
 
 
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "Pinçar"
-
-
 msgid "Pull points towards the midpoint of the brush"
 msgstr "Estira els punts envers el punt mitjà del pinzell"
 
 
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Clonar"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "Enganxa còpies dels traços emmagatzemades al porta-retalls intern"
-
-
-msgid "Gpencil Settings"
-msgstr "Paràmetres del llapis-dG"
 
 
 msgid "Brush Type"
@@ -21163,68 +20739,28 @@ msgid "How powerful the effect of the brush is when applied"
 msgstr "[Strength]: Com de potent és l'efecte del pinzell en aplicar-lo"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "Mètode de traç"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "Punts"
-
-
 msgid "Apply paint on each mouse move step"
 msgstr "[Dots]: Aplica pintura a cada moviment del ratolí"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "Punt arrossegat"
 
 
 msgid "Allows a single dot to be carefully positioned"
 msgstr "[Drag Dot]: Permet que es pugui posicionar amb cura un punt individual"
 
 
-msgctxt "GPencil"
-msgid "Space"
-msgstr "Espai"
-
-
 msgid "Limit brush application to the distance specified by spacing"
 msgstr "[Space]: Limita l'aplicació del pinzell a la distància especificada per l'espaiat"
-
-
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "Aerògraf"
 
 
 msgid "Keep applying paint effect while holding mouse (spray)"
 msgstr "[Airbrush]: Manté l'aplicació l'efecte de pintat mentre es té activat el ratolí (esprai)"
 
 
-msgctxt "GPencil"
-msgid "Anchored"
-msgstr "Ancorat"
-
-
 msgid "Keep the brush anchored to the initial location"
 msgstr "[Anchored]: Manté el pinzell ancorat a la ubicació inicial"
 
 
-msgctxt "GPencil"
-msgid "Line"
-msgstr "Línia"
-
-
 msgid "Draw a line with dabs separated according to spacing"
 msgstr "[Line]: Traça una línia amb pinzellades que se separen segons l'espaiat"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "Corba"
 
 
 msgid "Define the stroke curve with a Bézier curve (dabs are separated according to spacing)"
@@ -21515,10 +21051,6 @@ msgid "Use Paint"
 msgstr "Usar pintar"
 
 
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "Usa aquest pinzell en mode de dibuix de Llapis de greix"
-
-
 msgid "Use this brush in texture paint mode"
 msgstr "[Texture Paint]: Usa aquest pinzell en mode pintat de textura"
 
@@ -21681,10 +21213,6 @@ msgstr "Ajustar intensitat d'espaiat"
 
 msgid "Automatically adjust strength to give consistent results for different spacings"
 msgstr "[Adjust Strength for Spacing]: Ajusta automàticament la força per a donar resultats coherents per a diferents espaiats"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "Usa aquest pinzell en el mode de color de vèrtex de Llapis de greix"
 
 
 msgid "Use Pressure for Wet Mix"
@@ -22490,10 +22018,6 @@ msgid "Usage"
 msgstr "Ús a fer-ne"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "[Usage]: Com usar aquesta col·lecció en calcular el dibuix lineal"
-
-
 msgid "Generate feature lines for this collection"
 msgstr "[Include]: Genera línies destacades per a aquesta col·lecció"
 
@@ -22504,10 +22028,6 @@ msgstr "Només oclusió"
 
 msgid "Only use the collection to produce occlusion"
 msgstr "[Occlusion Only]: Utilitza la col·lecció només per a produir oclusió"
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "[Exclude]: No empreu aquesta col·lecció per dibuix lineal"
 
 
 msgid "Intersection Only"
@@ -23850,10 +23370,6 @@ msgid "Enable or disable textured strokes"
 msgstr "[Use Textures]: Habilita o deshabilita els traços amb textura"
 
 
-msgid "Grease Pencil data-block"
-msgstr "[Grease Pencil Data]: Bloc de dades del Llapis de greix"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "Nombre màxim de fotogrames a mostrar després del fotograma en curs (0 = no mostra cap fotograma després de l'actual)"
 
@@ -23866,14 +23382,6 @@ msgid "Layer Groups"
 msgstr "Grups de capes"
 
 
-msgid "Grease Pencil layer groups"
-msgstr "Llapis de greix - grups de capes"
-
-
-msgid "Grease Pencil layers"
-msgstr "Capes de Llapis de greix"
-
-
 msgid "Onion Opacity"
 msgstr "Opacitat de la ceba"
 
@@ -23882,18 +23390,8 @@ msgid "Change fade opacity of displayed onion frames"
 msgstr "[Onion Opacity]: Canvia l'opacitat de fosa dels fotogrames que es mostren en pell de ceba"
 
 
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "Filtrar per tipus"
-
-
 msgid "Type of keyframe (for filtering)"
 msgstr "[Filter by Type]: Tipus de fotofita (per al filtratge)"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "Tots"
 
 
 msgid "Include all Keyframe types"
@@ -23906,10 +23404,6 @@ msgstr "Mode per mostrar fotogrames"
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "[Mode to display frames]: Fotogrames en l'interval absolut del fotograma de l'escena"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "Fotogrames en l'interval relatiu de les fotofites del Llapis de greix"
 
 
 msgid "Selected"
@@ -23938,10 +23432,6 @@ msgstr "[Stroke Depth Order]: Defineix com s'ordenen els traços en l'espai 3D (
 
 msgid "2D Layers"
 msgstr "Capes 2D"
-
-
-msgid "Display strokes using Grease Pencil layer order and stroke order to define depth"
-msgstr "Mostra els traços utilitzant l'ordre de capes i de traços de Llapis de greix per definir la profunditat"
 
 
 msgid "3D Location"
@@ -25441,22 +24931,6 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "Combinació de desplaçament real i mapejat de relleu per a detalls més fins"
 
 
-msgid "Grease Pencil Settings"
-msgstr "Llapis de greix - paràmetres"
-
-
-msgid "Grease Pencil color settings for material"
-msgstr "Paràmetres del color de Llapis de greix per al material"
-
-
-msgid "Is Grease Pencil"
-msgstr "ÉS Llapis de greix"
-
-
-msgid "True if this material has Grease Pencil data"
-msgstr "VER si aquest material conté dades de Llapis de greix"
-
-
 msgid "Line Color"
 msgstr "Color de línia"
 
@@ -25471,14 +24945,6 @@ msgstr "Prioritat de línia"
 
 msgid "The line color of a higher priority is used at material boundaries"
 msgstr "El color de línia d'una prioritat més alta s'utilitza als límits dels materials"
-
-
-msgid "Line Art Settings"
-msgstr "Paràmetres de dibuix lineal"
-
-
-msgid "Line Art settings for material"
-msgstr "Paràmetres del dibuix lineal per a material"
 
 
 msgid "Max Vertex Displacement"
@@ -26141,10 +25607,6 @@ msgid "MovieClip data-block referencing an external movie file"
 msgstr "Bloc de dades de vídeo que referencia un document de vídeo extern"
 
 
-msgid "Annotation data for this movie clip"
-msgstr "Dades d'anotacions d'aquest clip de vídeo"
-
-
 msgid "Display Aspect for this clip, does not affect rendering"
 msgstr "Proporció de visualització d'aquest clip de vídeo, no afecta el revelat"
 
@@ -26203,10 +25665,6 @@ msgstr "[Proxy Custom Directory]: Crea les imatges supletòries en un directori 
 
 msgid "Node tree consisting of linked nodes used for shading, textures and compositing"
 msgstr "Arbre de nodes que consisteix en nodes enllaçats utilitzats per a l'aspecte, textures i compositació"
-
-
-msgid "Annotation data"
-msgstr "Dades d'anotacions"
 
 
 msgid "The node tree label"
@@ -26403,10 +25861,6 @@ msgstr "El grup de nodes és usat com a eina"
 
 msgid "The node group is used for curves"
 msgstr "El grup de nodes és usat per a corbes"
-
-
-msgid "The node group is used for Grease Pencil"
-msgstr "El grup de nodes és usat per al Llapis de greix"
 
 
 msgid "Mesh"
@@ -26869,14 +26323,6 @@ msgid "Lightgroup that the object belongs to"
 msgstr "[Lightgroup]: Grup de llums al qual pertany l'objecte"
 
 
-msgid "Line Art"
-msgstr "Dibuix lineal"
-
-
-msgid "Line Art settings for the object"
-msgstr "Paràmetres de dibuix lineal per a l'objecte"
-
-
 msgid "Location of the object"
 msgstr "[Location]: Ubicació de l'objecte"
 
@@ -26997,28 +26443,8 @@ msgid "Particle Edit"
 msgstr "Editar partícules"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "[Grease Pencil Edit Mode]: Per editar els traços del Llapis de greix"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "[Grease Pencil Sculpt Mode] Per editar els traços del Llapis de greix com si s'esculpissin"
-
-
 msgid "Draw Mode"
 msgstr "Mode dibuix"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "[Grease Pencil Draw]: Per pintar traços del Llapis de greix"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "[Grease Pencil Weight Paint]: Per pintar pesos als traços del Llapis de greix"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "[Grease Pencil Vertex Paint]: Per pintar els vèrtexs dels traços del Llapis de greix"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -27386,10 +26812,6 @@ msgstr "Usar alfa"
 
 msgid "Use alpha blending instead of alpha test (can produce sorting artifacts)"
 msgstr "[Use Alpha]: Usa la fusió d'alfa en lloc del test alfa (pot desencadenar tares d'ordenació)"
-
-
-msgid "Lights affect Grease Pencil object"
-msgstr "Les llums afecten l'objecte Llapis de greix"
 
 
 msgid "Scale to Face Sizes"
@@ -28721,10 +28143,6 @@ msgid "Allows playing back frames before the playback start frame"
 msgstr "[Allow Preroll]: Permet de reproduir fotogrames anteriors del fotograma inicial"
 
 
-msgid "Data-block used for annotations in the 3D view"
-msgstr "[Annotations]: Bloc de dades per a les anotacions de la vista 3D"
-
-
 msgid "Distance Model"
 msgstr "Model de distància"
 
@@ -28911,10 +28329,6 @@ msgstr "[Frame Step]: Nombre de fotogrames a saltar-se mentre es revela/reprodue
 
 msgid "Constant acceleration in a given direction"
 msgstr "Acceleració constant en una direcció específica"
-
-
-msgid "Grease Pencil settings for the scene"
-msgstr "Llapis de greix - paràmetres de l'escena"
 
 
 msgid "Hydra"
@@ -30926,26 +30340,6 @@ msgstr "Biblioteca de recursos actius a mostrar a la IU, no utilitzat pel navega
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "[(Object) Mode]: Canvia a aquest mode en activar-ne l'obrador"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Llapis de greix - mode edició"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Llapis de greix - mode esculpir"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Llapis de greix - dibuixar"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Llapis de greix - pintura de vèrtexs"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Llapis de greix - pintura de pesos"
 
 
 msgid "UI Tags"
@@ -35570,10 +34964,6 @@ msgid "Active point of masking layer"
 msgstr "Punt actiu de capa màscara"
 
 
-msgid "Grease Pencil Color"
-msgstr "Llapis de greix - color"
-
-
 msgid "Alignment"
 msgstr "Alineació"
 
@@ -35610,36 +35000,16 @@ msgid "Color for filling region bounded by each stroke"
 msgstr "[Fill Color]: Color per a la regió d'emplenat limitada per cada traç"
 
 
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "Estil d'emplenat"
-
-
 msgid "Select style used to fill strokes"
 msgstr "[Fill Style]: Selecciona l'estil utilitzat per emplenar els traços"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "Sòlid"
 
 
 msgid "Fill area with solid color"
 msgstr "Emplenar àrea amb color sòlid"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "Degradat"
-
-
 msgid "Fill area with gradient color"
 msgstr "Emplenar àrea amb degradat de color"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "Textura"
 
 
 msgid "Fill area with image texture"
@@ -35704,11 +35074,6 @@ msgstr "Color de mescla"
 
 msgid "Color for mixing with primary filling color"
 msgstr "[Mix Color]: Color per barrejar-lo amb color d'emplenament primari"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "Mesclar"
 
 
 msgid "Mix Factor"
@@ -35827,11 +35192,6 @@ msgid "Show stroke lines of this material"
 msgstr "[Show Stroke]: Mostra les línies de traç d'aquest material"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "Estil del traç"
-
-
 msgid "Select style used to draw strokes"
 msgstr "[Stroke Style]: Selecciona l'estil utilitzat per dibuixar els traços"
 
@@ -35878,10 +35238,6 @@ msgstr "Aleatorització"
 
 msgid "Use material randomization"
 msgstr "[Randomization]: Fa una aleatorització del material"
-
-
-msgid "Material Line Art"
-msgstr "Material de dibuix lineal"
 
 
 msgid "Effectiveness"
@@ -37854,18 +37210,6 @@ msgid "Duplicate strokes into an array"
 msgstr "Duplica els traços en corrua"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "Llapis de greix - modificador confegir"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "Llapis de greix - modificador llargada"
-
-
-msgid "Generate Line Art from scene geometries"
-msgstr "Generar dibuix lineal a partir de geometries d'escena"
-
-
 msgid "Duplicate strokes like a mirror"
 msgstr "[Mirror]: Duplica els traços com un mirall"
 
@@ -37884,10 +37228,6 @@ msgstr "Simplifica el traç reduint el nombre de punts"
 
 msgid "Subdivide"
 msgstr "Subdividir"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "Llapis de greix - modificador subdivisor"
 
 
 msgid "Create an envelope shape"
@@ -38014,16 +37354,8 @@ msgid "Deform stroke points using objects"
 msgstr "[Hook]: Deforma punts del traç a través d'objectes"
 
 
-msgid "Generate noise wobble in Grease Pencil strokes"
-msgstr "Generar soroll d'oscil·lant en traços de Llapis de greix"
-
-
 msgid "Change stroke location, rotation, or scale"
 msgstr "Canvia la ubicació, gir o escala del traç"
-
-
-msgid "Smooth Grease Pencil strokes"
-msgstr "Suavitzar traços de Llapis de greix"
 
 
 msgid "Change stroke thickness"
@@ -39981,27 +39313,12 @@ msgid "How strokes are being built"
 msgstr "Com es van confegint els traços"
 
 
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "Seqüencial"
-
-
 msgid "Strokes appear/disappear one after the other, but only a single one changes at a time"
 msgstr "[Sequential]: Els traços apareixen/desapareixen un darrere l'altre, però només un de sol canvia en cada moment"
 
 
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "Concurrent"
-
-
 msgid "Multiple strokes appear/disappear at once"
 msgstr "Múltiples traços apareixen/desapareixen alhora"
-
-
-msgctxt "GPencil"
-msgid "Additive"
-msgstr "Additiu"
 
 
 msgid "Builds only new strokes (assuming 'additive' drawing)"
@@ -40120,10 +39437,6 @@ msgid "Only modify strokes during the specified frame range"
 msgstr "Només modifica els traços durant l'interval de fotogrames especificat"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "Llapis de greix - modificador de color"
-
-
 msgid "Attributes to modify"
 msgstr "Atributs a modificar"
 
@@ -40168,10 +39481,6 @@ msgid "Color value factor"
 msgstr "Factor de valor de color"
 
 
-msgid "Grease Pencil Dash Modifier"
-msgstr "Llapis de greix - modificador guionet"
-
-
 msgid "Create dot-dash effect for strokes"
 msgstr "[Dash Modifier]: Crea un efecte de punt-guionet en els traços"
 
@@ -40186,10 +39495,6 @@ msgstr "Índex de segment guionet actiu"
 
 msgid "Active index in the segment list"
 msgstr "Índex actiu a la llista de segments"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "Llapis de greix - modificador funda"
 
 
 msgid "Envelope stroke effect modifier"
@@ -40297,10 +39602,6 @@ msgstr "Decaïment uniforme"
 
 msgid "Compensate for non-uniform object scale"
 msgstr "[Uniform Falloff]: Compensa per l'escalat no uniforme de l'objecte"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "Llapis de greix - modificador reticular"
 
 
 msgid "Lattice object to deform with"
@@ -40439,14 +39740,6 @@ msgid "Use random values over time"
 msgstr "Usar valors aleatoris progressivament"
 
 
-msgid "Line Art Modifier"
-msgstr "Modificador dibuix lineal"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "[Line Art]: Genera traços de Dibuix lineal des de la font seleccionada"
-
-
 msgid "Image Threshold"
 msgstr "Llindar d'imatge"
 
@@ -40457,10 +39750,6 @@ msgstr "[Image Threshold]: Encadena junts els segments amb una distància d'imat
 
 msgid "Crease Threshold"
 msgstr "Llindar de cairat"
-
-
-msgid "Angles smaller than this will be treated as creases. Crease angle priority: object Line Art crease override > mesh auto smooth angle > Line Art default crease."
-msgstr "[Crease Threshold]: Els angles menors que el consignat es tractaran com a caires. Prioritat de l'angle de cairat: sobreseïment de cairat d'objecte de dibuix lineal > angle d'autosuavitzat de malla > cairat per defecte de dibuix lineal."
 
 
 msgid "Fill Strokes"
@@ -40547,45 +39836,20 @@ msgid "Represents the \"Orthographic Scale\" of an orthographic camera. If the c
 msgstr "Representa l'«Escala ortogràfica» d'una càmera ortogràfica. Si la càmera es posiciona en la ubicació del llum amb aquesta escala, representarà la cobertura de la \"càmera\" d'ombra."
 
 
-msgctxt "GPencil"
-msgid "Shadow Region Filtering"
-msgstr "Filtre de la regió d'ombra"
-
-
 msgid "Select feature lines that comes from lit or shaded regions. Will not affect cast shadow and light contour since they are at the border."
 msgstr "[Shadow Region Filtering]: Selecciona línies destacades a partir de regions il·luminades o ombrejades. No afecta a la irradiació d'ombres i el contorn de llum pel fet de què estiguin en el límit."
-
-
-msgctxt "GPencil"
-msgid "None"
-msgstr "No-cap"
 
 
 msgid "Not filtering any lines based on illumination region"
 msgstr "No es filtra cap línia basada en la regió d'il·luminació"
 
 
-msgctxt "GPencil"
-msgid "Illuminated"
-msgstr "Il·luminades"
-
-
 msgid "Only selecting lines from illuminated regions"
 msgstr "[Illuminated]: Selecciona només les línies de les regions il·luminades"
 
 
-msgctxt "GPencil"
-msgid "Shaded"
-msgstr "Ombrejades"
-
-
 msgid "Only selecting lines from shaded regions"
 msgstr "[Shaded]: Selecciona només les línies de les regions ombrejades"
-
-
-msgctxt "GPencil"
-msgid "Illuminated (Enclosed Shapes)"
-msgstr "Il·luminades (formes delimitades)"
 
 
 msgid "Selecting lines from lit regions, and make the combination of contour, light contour and shadow lines into enclosed shapes"
@@ -40616,10 +39880,6 @@ msgid "Camera Object"
 msgstr "Objecte càmera"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "[Camera Object]: Usa l'objecte càmera especificat per a generar traços de dibuix lineal"
-
-
 msgid "Generate strokes from the objects in this collection"
 msgstr "Genera traços a partir d'objectes de la col·lecció"
 
@@ -40630,10 +39890,6 @@ msgstr "Genera traços a partir d'aquest objecte"
 
 msgid "Source Type"
 msgstr "Tipus d'origen"
-
-
-msgid "Line Art stroke source type"
-msgstr "Tipus d'origen del traç de dibuix lineal"
 
 
 msgid "Source Vertex Group"
@@ -40660,24 +39916,12 @@ msgid "Move strokes slightly towards the camera to avoid clipping while preserve
 msgstr "[Stroke Depth Offset]: Mou els traços lleugerament envers la càmera per evitar el segat alhora que es preserva la profunditat en el mirador"
 
 
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "Llapis de greix - capa on assignar els traços generats"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "Llapis de greix - material assignat als traços generats"
-
-
 msgid "Back Face Culling"
 msgstr "Esporgat de cares posteriors"
 
 
 msgid "Remove all back faces to speed up calculation, this will create edges in different occlusion levels than when disabled"
 msgstr "[Back Face Culling]: Suprimeix totes les cares posteriors per a accelerar el càlcul, cosa que crearà arestes en diferents nivells d'oclusió que quan estigui deshabilitat"
-
-
-msgid "Use cached scene data from the first Line Art modifier in the stack. Certain settings will be unavailable."
-msgstr "Usa les dades de cau de l'escena des del primer modificador de dibuix lineal de l'estiba. Alguns paràmetres no estaran disponibles."
 
 
 msgid "Clipping Boundaries"
@@ -40820,10 +40064,6 @@ msgid "Generate strokes from intersections"
 msgstr "[Use Intersection]: Genera traços a partir d'interseccions"
 
 
-msgid "Mask bits to match from Collection Line Art settings"
-msgstr "Emmascara bits per conlligar amb la configuració de la Col·lecció de Lineament"
-
-
 msgid "Match Intersection"
 msgstr "Conlligar intersecció"
 
@@ -40888,10 +40128,6 @@ msgid "Generate strokes from borders between materials"
 msgstr "[Use Material]: Genera traços a partir dels límits entre materials"
 
 
-msgid "Mask bits to match from Material Line Art settings"
-msgstr "Emmascara bits a conlligar a partir de la configuració de la Col·lecció de Lineament"
-
-
 msgid "Match Masks"
 msgstr "Conlligar màscares"
 
@@ -40910,10 +40146,6 @@ msgstr "[Use Occlusion Range]: Genera traços des d'un rang determinat de nivell
 
 msgid "Instanced Objects"
 msgstr "Objectes instanciats"
-
-
-msgid "Allow particle objects and face/vertex instances to show in Line Art"
-msgstr "Permet que els objectes partícula i les instàncies de cares/vèrtexs es mostrin en el dibuix lineal"
 
 
 msgid "Offset Towards Custom Camera"
@@ -40946,10 +40178,6 @@ msgstr "[Use Shadow]: Les línies de contorn del projecte es generen mitjançant
 
 msgid "Vertex group name for selected strokes"
 msgstr "Nom del grup de vèrtexs per als traços seleccionats"
-
-
-msgid "Grease Pencil Mirror Modifier"
-msgstr "Llapis de greix - modificador emmirallar"
 
 
 msgid "Object used as center"
@@ -41008,10 +40236,6 @@ msgid "Fade the stroke thickness for each generated stroke"
 msgstr "[Fade]: Esvaeix el gruix del traç per a cada traç que es genera"
 
 
-msgid "Grease Pencil Noise Modifier"
-msgstr "Llapis de greix - modificador soroll"
-
-
 msgid "Noise effect modifier"
 msgstr "[Noise Modifier]: Modificador amb efectes de soroll"
 
@@ -41056,18 +40280,8 @@ msgid "Where to perform randomization"
 msgstr "On es realitza l'aleatorització"
 
 
-msgctxt "GPencil"
-msgid "Steps"
-msgstr "Tandes"
-
-
 msgid "Randomize every number of frames"
 msgstr "Aleatoritza cada nombre de fotogrames"
-
-
-msgctxt "GPencil"
-msgid "Keyframes"
-msgstr "Fotofites"
 
 
 msgid "Randomize on keyframes only"
@@ -41076,10 +40290,6 @@ msgstr "Aleatoritza només a les fotofites"
 
 msgid "Noise Seed"
 msgstr "Llavor de soroll"
-
-
-msgid "Grease Pencil Offset Modifier"
-msgstr "Llapis de greix - modificador desplaçament"
 
 
 msgid "Values for change location"
@@ -41120,10 +40330,6 @@ msgstr "[Start Offset]: Punt d'inici de la desviació"
 
 msgid "Number of elements that will be grouped"
 msgstr "Nombre d'elements que s'agruparan"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "Llapis de greix - modificador d'opacitat"
 
 
 msgid "Opacity Factor"
@@ -41418,10 +40624,6 @@ msgid "Catmull-Clark"
 msgstr "Catmull-Clark"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "Llapis de greix - modificador textura"
-
-
 msgid "Transform stroke texture coordinates Modifier"
 msgstr "Modificador transformatiu de les coordenades de la textura aplicada al traç"
 
@@ -41502,10 +40704,6 @@ msgid "Factor to scale the UVs"
 msgstr "Factor per escalar els UVs"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "Llapis de greix - modificador gruix"
-
-
 msgid "Adjust stroke thickness"
 msgstr "Ajustar gruix de traç"
 
@@ -41532,10 +40730,6 @@ msgstr "Ponderat"
 
 msgid "Use weight to modulate effect"
 msgstr "[Weighted]: Utilitza pesos per modular l'efecte"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "Llapis de greix - modificador temps"
 
 
 msgid "Final frame of the range"
@@ -41596,10 +40790,6 @@ msgstr "Mantenir bucle"
 
 msgid "Retiming end frames and move to start of animation to keep loop"
 msgstr "[Keep Loop]: Redefinir la temporització dels fotogrames finals i desplaçar-se cap a l'inici de l'animació per tal de mantenir el bucle"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "Llapis de greix - modificador tenyit"
 
 
 msgid "Color used for tinting"
@@ -45315,10 +44505,6 @@ msgid "Use Mask"
 msgstr "Usar màscara"
 
 
-msgid "Use a Grease Pencil data-block as a mask to use only specified areas of pattern when tracking"
-msgstr "Usa de màscara un bloc de dades de Llapis de greix per així restringir l'ús a àrees específiques d'un patró en rastrejar"
-
-
 msgid "Normalize light intensities while tracking (slower)"
 msgstr "[Normalize]: Normalitza les intensitats de llum en rastrejar (més lent)"
 
@@ -45521,10 +44707,6 @@ msgstr "Dades de rastres per al rastreig de vídeo"
 
 msgid "Match-moving track data for tracking"
 msgstr "[Movie tracking track data]: Dades de moviment conlligat de rastres per als rastretjos"
-
-
-msgid "Annotation data for this track"
-msgstr "Dades d'anotacions d'aquest rastre"
 
 
 msgid "Average error of re-projection"
@@ -48093,10 +47275,6 @@ msgid "Instances of objects or collections"
 msgstr "Instàncies d'objectes o col·leccions"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "Component de Llapis de greix que conté capes i dades de corbes"
-
-
 msgid "Volume component containing volume grids"
 msgstr "[Volume]: Component de volum que conté graelles volumètriques"
 
@@ -48523,14 +47701,6 @@ msgstr "Generar cada spline en base a distribuir uniformement el nombre especifi
 
 msgid "Sample each spline by splitting it into segments with the specified length"
 msgstr "Genera cada spline en base a dividir-lo en segments de la longitud especificada"
-
-
-msgid "Curves to Grease Pencil"
-msgstr "Corbes a lapis de greix"
-
-
-msgid "Convert the curves in each top-level instance into Grease Pencil layer"
-msgstr "Converteix les corbes de cada instància de nivell superior en una capa de Llapis de greix"
 
 
 msgid "Geometry Custom Group"
@@ -48969,14 +48139,6 @@ msgid "Use Translation Z"
 msgstr "Usar traslació Z"
 
 
-msgid "Grease Pencil to Curves"
-msgstr "Llapis de greix a corbes"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "Converteix capes de Llapis de greix en instàncies de corbes"
-
-
 msgid "Advect Grid"
 msgstr "Graella d'advecció"
 
@@ -49350,10 +48512,6 @@ msgid "Named Layer Selection"
 msgstr "Selecció de capa anomenada"
 
 
-msgid "Output a selection of a Grease Pencil layer"
-msgstr "Egressa una selecció d'una capa de Llapis de greix"
-
-
 msgid "Retrieve a unit length vector indicating the direction pointing away from the geometry at each element"
 msgstr "Extreu un vector d'unitat de longitud que indica l'orientació en direcció contrària a la geometria a cada element"
 
@@ -49552,10 +48710,6 @@ msgstr "[Merge by Distance]: Fusiona vèrtexs o punts dins d'una distància dona
 
 msgid "Merge Layers"
 msgstr "Fusionar capes"
-
-
-msgid "Join groups of Grease Pencil layers into one"
-msgstr "Uneix grups de capes de Llapis de greix en una de sola"
 
 
 msgid "Determines how to choose which layers are merged"
@@ -50198,14 +49352,6 @@ msgid "Set the name of a geometry for easier debugging"
 msgstr "Defineix el nom d'una geometria per millorar la depuració"
 
 
-msgid "Set Grease Pencil Color"
-msgstr "Determinar color de Llapis de greix"
-
-
-msgid "Set color and opacity attributes on Grease Pencil geometry"
-msgstr "Determina els atributs de color i l'opacitat de geometria de Llapis de greix"
-
-
 msgid "Set the color and opacity for the points of the stroke"
 msgstr "Determina el color i l'opacitat dels punts del traç"
 
@@ -50214,24 +49360,8 @@ msgid "Set the color and opacity for the stroke fills"
 msgstr "Determina el color i l'opacitat dels emplenats de traços"
 
 
-msgid "Set Grease Pencil Depth"
-msgstr "Determinar profunditat de Llapis de greix"
-
-
-msgid "Set the Grease Pencil depth order to use"
-msgstr "Determina l'ordre de profunditat de Llapis de greix a utilitzar"
-
-
 msgid "Depth Order"
 msgstr "Ordre de profunditat"
-
-
-msgid "Set Grease Pencil Softness"
-msgstr "Definir suavitzat de Llapis de greix"
-
-
-msgid "Set softness attribute on Grease Pencil geometry"
-msgstr "Determina els atributs de suavitzat de la geometria de Llapis de greix"
 
 
 msgid "Set Grid Background"
@@ -54183,10 +53313,6 @@ msgid "Layer Selection"
 msgstr "Selecció de capa"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "Agafeu com a camp de selecció una capa de Llapis de greix o Grup de capes"
-
-
 msgid "Menu Expanded"
 msgstr "Menú expandit"
 
@@ -54546,20 +53672,8 @@ msgid "Collection which defines light linking relation of this emitter"
 msgstr "Col·lecció que defineix les relacions d'endoil·luminació d'aquest emissor"
 
 
-msgid "Object Line Art"
-msgstr "Objecte lineament"
-
-
-msgid "Object Line Art settings"
-msgstr "[Object Line Art]: Paràmetres d'objecte de dibuix lineal"
-
-
 msgid "Angles smaller than this will be treated as creases"
 msgstr "[Crease Threshhold]: Els angles menors que aquest tindran la qualificació de caires"
-
-
-msgid "How to use this object in Line Art calculation"
-msgstr "[Line Art][Usage]: Com emprar aquest objecte en el càlcul del dibuix lineal"
 
 
 msgid "Inherit"
@@ -54576,10 +53690,6 @@ msgstr "[Include]: Inclou aquest objecte en la generació de línies destacades"
 
 msgid "Only use the object data to produce occlusion"
 msgstr "[Occlusion Only]: Agafa les dades de l'objecte només per a produir oclusió"
-
-
-msgid "Don't use this object for Line Art rendering"
-msgstr "[Exclude]: No empra aquest objecte en el revelat de Dibuix lineal"
 
 
 msgid "Include this object but do not generate intersection lines"
@@ -56762,24 +55872,6 @@ msgstr "Refrescar llista d'accions"
 msgctxt "Operator"
 msgid "Refresh action list"
 msgstr "Actualitzar llista d'accions"
-
-
-msgid "Add or remove Grease Pencil brush preset"
-msgstr "Afegeix o suprimeix el predefinit de pinzell de Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "Afegir predefinit de pinzell llapis de greix"
-
-
-msgid "Add or remove Grease Pencil material preset"
-msgstr "Afegeix o suprimeix la preconfiguració de material del llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Afegir predefinit de material de llapis de greix"
 
 
 msgid "Load a preset"
@@ -60720,22 +59812,6 @@ msgid "Place markers across the whole frame"
 msgstr "[Whole Frame]: Col·loca els marcadors per tot el fotograma"
 
 
-msgid "Inside Annotated Area"
-msgstr "Dins de l'àrea anotada"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "[Inside Annotated Area]: Col·loca els marcadors només dins de les àrees consignades amb l'eina d'anotacions"
-
-
-msgid "Outside Annotated Area"
-msgstr "Fora de l'àrea anotada"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "Col·loca els marcadors només fora de les àrees consignades amb l'eina d'anotació"
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "Nivell llindar per considerar que un element és prou de bon rastrejar"
 
@@ -62628,10 +61704,6 @@ msgstr "Escórrer arestes"
 
 msgid "Sequence Slide"
 msgstr "Lliscament de seqüència"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "Llapis de greix - opacitat"
 
 
 msgid "Set type of handles for selected control points"
@@ -65879,15 +64951,6 @@ msgid "Tweak the active gizmo"
 msgstr "[Gizmo Tweak]: Retoca el flòstic actiu"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Anotació - Dibuixar"
-
-
-msgid "Make annotations on the active data"
-msgstr "[Annotation Draw]: Fa anotacions sobre les dades actives"
-
-
 msgid "End Arrow Style"
 msgstr "Estil de fletxa final"
 
@@ -65968,10 +65031,6 @@ msgid "Eraser"
 msgstr "Goma d'esborrar"
 
 
-msgid "Erase Annotation strokes"
-msgstr "Esborra els traços d’anotacions"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "Factor estabilitzador de traç"
 
@@ -65991,55 +65050,6 @@ msgstr "Esperar el primer clic en lloc de pintar immediatament"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Eliminar fotograma actiu"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "Elimina el fotograma actiu per a la capa d'anotació activa"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "Anotació - Afegir nova"
-
-
-msgid "Add new Annotation data-block"
-msgstr "[Annotation Add New]: Afegeix un bloc de dades nou per anotacions"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Anotació - Desvincular"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "[Annotation Unlink]: Desenllaça el bloc de dades d'anotació actiu"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Afegir nova capa d'anotació"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "[Add New Annotation Layer]: Afegir una nova capa d'anotació o una nota per al bloc de dades actiu"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Moure capa d'anotació"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "Mou la capa d'anotació activa amunt/avall de la llista"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Suprimir capa d'anotació"
-
-
-msgid "Remove active Annotation layer"
-msgstr "Suprimeix la capa d'anotació activa"
 
 
 msgctxt "Operator"
@@ -66885,25 +65895,12 @@ msgid "Delete Active Frame(s)"
 msgstr "Eliminar fotograma(es) actiu(s)"
 
 
-msgid "Delete the active Grease Pencil frame(s)"
-msgstr "Elimina el(s) fotograma(s) actiu(s) de Llapis de greix"
-
-
 msgid "Delete all"
 msgstr "Eliminar tots"
 
 
 msgid "Delete active keyframes of all layers"
 msgstr "Elimina les fotofites actives de totes les capes"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Precuinar Transformació d'objecte a Llapis de greix"
-
-
-msgid "Bake Grease Pencil object transform to Grease Pencil keyframes"
-msgstr "[Bake Object Transform to Grease Pencil]: Precuina la transformació de l'objecte Llapis de greix convertint-la en fotofites de Llapis de greix"
 
 
 msgid "The end frame of animation"
@@ -66960,15 +65957,6 @@ msgstr "Reprojectar els traços usant l'orientació del cursor 3D"
 
 msgid "Step between generated frames"
 msgstr "Espai entre els fotogrames generats"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Dibuix de llapis de greix"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr "[Grease Pencil Draw]: Dibuixa un traç nou en l'objecte actiu del Llapis de greix"
 
 
 msgctxt "Operator"
@@ -67101,10 +66089,6 @@ msgid "Copy Strokes"
 msgstr "Copiar traços"
 
 
-msgid "Copy the selected Grease Pencil points or strokes to the internal clipboard"
-msgstr "Copia els punts o traços seleccionats de Llapis de greix al porta-retalls intern"
-
-
 msgctxt "Operator"
 msgid "Set Cyclical State"
 msgstr "Determinar estat cíclic"
@@ -67163,21 +66147,9 @@ msgid "Delete Breakdown Frames"
 msgstr "Eliminar fotogrames de partionament"
 
 
-msgid "Remove breakdown frames generated by interpolating between two Grease Pencil frames"
-msgstr "Elimina els fotogrames de partionament gent una interpolació entre dos fotogrames de Llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Delete Frame"
 msgstr "Suprimir fotograma"
-
-
-msgid "Delete Grease Pencil Frame(s)"
-msgstr "Elimina el fotograma de llapis de greix"
-
-
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "Mètode usat per a suprimir les dades de Llapis de greix"
 
 
 msgid "Deletes current frame in the active layer"
@@ -67201,11 +66173,6 @@ msgid "Delete selected points without splitting strokes"
 msgstr "[Dissolve]: Elimina els punts seleccionats sense dividir traços"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Tipus"
-
-
 msgid "Method used for dissolving stroke points"
 msgstr "Mètode utilitzat per dissoldre punts del traç"
 
@@ -67214,18 +66181,8 @@ msgid "Dissolve selected points"
 msgstr "Dissoldre punts seleccionats"
 
 
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "Dissoldre entremig"
-
-
 msgid "Dissolve points between selected points"
 msgstr "[Dissolve Between]: Dissol els punts entre els seleccionats"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "Dissoldre desselecció"
 
 
 msgid "Dissolve all unselected points"
@@ -67241,22 +66198,8 @@ msgid "Duplicate Strokes"
 msgstr "Duplicar traços"
 
 
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "Fer còpies dels traços seleccionats del Llapis de greix i moure'ls"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Erase"
-msgstr "Esborrat de caixa amb Llapis de greix"
-
-
 msgid "Erase points in the box region"
 msgstr "Esborra punts dins la regió de la caixa"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Erase Lasso"
-msgstr "Esborrat de llaç amb Llapis de greix"
 
 
 msgid "Erase points in the lasso region"
@@ -67278,15 +66221,6 @@ msgstr "Extrudir els punts seleccionats i moure'ls"
 
 msgid "Extrude Stroke Points"
 msgstr "Extrudir punts de traç"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "Emplenar amb llapis de greix"
-
-
-msgid "Fill with color the shape formed by strokes"
-msgstr "[Grease Pencil Fill]: Emplena de color la figura formada pels traços"
 
 
 msgid "Find boundary of unfilled instead of filled regions"
@@ -67315,10 +66249,6 @@ msgid "Duplicate Active Frame(s)"
 msgstr "Duplicar fotograma(es) actiu(s)"
 
 
-msgid "Make a copy of the active Grease Pencil frame(s)"
-msgstr "[Duplicate Active Frame(s)]: Fa una còpia del/s fotograma/es actiu/s de Llapis de greix"
-
-
 msgid "Duplicate all"
 msgstr "Duplicar tot"
 
@@ -67338,15 +66268,6 @@ msgstr "Inserir un fotograma en blanc dins el present enquadrament de l'escena"
 
 msgid "Insert a blank frame in all editable layers"
 msgstr "Inserir un fotograma en blanc en totes les capes editables"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Interpolació de llapis de greix"
-
-
-msgid "Interpolate Grease Pencil strokes between frames"
-msgstr "[Grease Pencil Interpolation]: Interpola els traços de Llapis de greix entre fotogrames"
 
 
 msgid "Exclude Breakdowns"
@@ -67394,44 +66315,6 @@ msgid "Interpolate Sequence"
 msgstr "Interpolar seqüència"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "[Interpolate Sequence]: Genera «intermedis» per a interpolar suaument entre els fotogrames del Llapis de greix"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "Enrere"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "Gradualització"
-
-
-msgid "Which ends of the segment between the preceding and following Grease Pencil frames easing interpolation is applied to"
-msgstr "[Easing]: A quins extrems del segment entre els fotogrames de Llapis de greix anterior i posterior s'aplica la interpolació de fosa de fotogrames"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "Autogradualització"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "Gradualitat inicial"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "Gradualitat final"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "Gradualitat inicial i final"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "Nombre de fotogrames entre els fotogrames interpolats generats"
 
@@ -67440,63 +66323,8 @@ msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "Mètode d'interpolació que s'utilitzarà la propera vegada que s'executi «Interpolar seqüència»"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "Lineal"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Personalitzat"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "Interpolació adaptable definida mitjançant un mapa de corbes"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "Sinusoidal"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "Quadràtica"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "Cúbica"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "Quàrtica"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Quíntica"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "Exponencial"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "Circular"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "Rebot"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "Elàstica"
 
 
 msgctxt "Operator"
@@ -67546,17 +66374,9 @@ msgid "Set Active Layer"
 msgstr "Consignar capa activa"
 
 
-msgid "Set the active Grease Pencil layer"
-msgstr "Consignar la capa activa de Llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "Afegir nova capa"
-
-
-msgid "Add a new Grease Pencil layer in the active object"
-msgstr "Afegir una capa de Llapis de greix a l'objecte actiu"
 
 
 msgid "Name of the new layer"
@@ -67566,10 +66386,6 @@ msgstr "Nom de la nova capa"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "Duplicar capa"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Fa una còpia de la capa activa del Llapis de greix"
 
 
 msgid "Empty Keyframes"
@@ -67585,10 +66401,6 @@ msgid "Duplicate Layer to New Object"
 msgstr "Duplicar la capa a un objecte nou"
 
 
-msgid "Make a copy of the active Grease Pencil layer to selected object"
-msgstr "Fa una còpia de la capa activa del Llapis de greix a l'objecte seleccionat"
-
-
 msgid "All Frames"
 msgstr "Tots els fotogrames"
 
@@ -67602,17 +66414,8 @@ msgid "Add New Layer Group"
 msgstr "Afegir nou grup de capes"
 
 
-msgid "Add a new Grease Pencil layer group in the active object"
-msgstr "Afegeix un nou grup de capes de Llapis de greix a l'objecte actiu"
-
-
 msgid "Name of the new layer group"
 msgstr "Nom del nou grup de capes"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Group Color Tag"
-msgstr "Llapis de greix - etiqueta de color del grup"
 
 
 msgid "Change layer group icon"
@@ -67628,10 +66431,6 @@ msgid "Remove Layer Group"
 msgstr "Suprimir grup de capes"
 
 
-msgid "Remove Grease Pencil layer group in the active object"
-msgstr "Suprimeix el grup de capes de Llapis de greix de l'objecte actiu"
-
-
 msgid "Keep children nodes"
 msgstr "Mantenir nodes fills"
 
@@ -67643,10 +66442,6 @@ msgstr "Manté els nodes fills del grup i només suprimeix el grup com a tal"
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "Ocultar capa/es"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "[Hide Layer(s)]: Amaga les capes seleccionades/no seleccionades del Llapis de greix"
 
 
 msgid "Hide unselected rather than selected layers"
@@ -67673,10 +66468,6 @@ msgstr "Afectar també visibilitat"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "Bloquejar totes les capes"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "Bloqueja totes les capes de Llapis de greix per evitar que es modifiquin accidentalment"
 
 
 msgid "Lock Value"
@@ -67710,15 +66501,6 @@ msgstr "[Remove Mask Layer]: Suprimeix la màscara de capa"
 
 
 msgctxt "Operator"
-msgid "Reorder Grease Pencil Layer Mask"
-msgstr "Reordenar la màscara de capa del Llapis de greix"
-
-
-msgid "Reorder the active Grease Pencil mask layer up/down in the list"
-msgstr "Reordenar capa activa de màscara de Llapis de greix amunt/avall de la llista"
-
-
-msgctxt "Operator"
 msgid "Merge"
 msgstr "Fusionar"
 
@@ -67744,17 +66526,9 @@ msgid "Reorder Layer"
 msgstr "Reordenar capa"
 
 
-msgid "Move the active Grease Pencil layer or Group"
-msgstr "Mou la capa activa o Grup de Llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Remove Layer"
 msgstr "Suprimir capa"
-
-
-msgid "Remove the active Grease Pencil layer"
-msgstr "Suprimir la capa activa de Llapis de greix"
 
 
 msgctxt "Operator"
@@ -67762,17 +66536,9 @@ msgid "Show All Layers"
 msgstr "Mostrar totes les capes"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "Mostrar totes les capes de Llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Copy Materials to Selected Object"
 msgstr "Copiar materials a l'objecte seleccionat"
-
-
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "Incorporar materials del Llapis de greix actiu a un altre objecte"
 
 
 msgid "Append only active material, uncheck to append all materials"
@@ -67782,10 +66548,6 @@ msgstr "Incorporar només el material actiu, desmarca per a incorporar tots els 
 msgctxt "Operator"
 msgid "Hide Materials"
 msgstr "Ocultar materials"
-
-
-msgid "Hide active/inactive Grease Pencil material(s)"
-msgstr "[Hide Material(s)]: Amaga el(s) material(s) actiu(s)/no actius(s) de Llapis de greix"
 
 
 msgid "Hide inactive materials instead of the active one"
@@ -67808,10 +66570,6 @@ msgstr "A més de permutar l'editabilitat, també afecta la visibilitat"
 msgctxt "Operator"
 msgid "Lock All Materials"
 msgstr "Bloquejar tots els materials"
-
-
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "Bloqueja tots els materials de Llapis de greix per evitar que es modifiquin accidentalment"
 
 
 msgctxt "Operator"
@@ -67837,17 +66595,9 @@ msgid "Show All Materials"
 msgstr "Mostrar tots els materials"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "Desocultar tots els materials ocults de Llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "Seleccionar material"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "Selecciona/desselecciona tots els traços de Llapis de greix que fan ús del material en curs"
 
 
 msgid "Unselect strokes"
@@ -67857,10 +66607,6 @@ msgstr "Desseleccionar traços"
 msgctxt "Operator"
 msgid "Unlock All Materials"
 msgstr "Desbloca tots els materials"
-
-
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "Desbloca tots els materials de Llapis de greix perquè es puguin editar"
 
 
 msgctxt "Operator"
@@ -67888,10 +66634,6 @@ msgid "Group to add the new layer to"
 msgstr "[Target Group]: Grup a on afegir la nova capa"
 
 
-msgid "Target Grease Pencil Layer"
-msgstr "Capa referent del Llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Outline"
 msgstr "Contorn"
@@ -67914,10 +66656,6 @@ msgid "Strokes Paint Mode Toggle"
 msgstr "Permutar mode pintat de traç"
 
 
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "[Strokes Paint Mode Toggle]: Entra/Surt el mode pintat de traços del Llapis de greix"
-
-
 msgid "Return to Previous Mode"
 msgstr "Tornar al mode anterior"
 
@@ -67929,10 +66667,6 @@ msgstr "Torna al mode anterior"
 msgctxt "Operator"
 msgid "Paste Strokes"
 msgstr "Enganxar traços"
-
-
-msgid "Paste Grease Pencil points or strokes from the internal clipboard to the active layer"
-msgstr "Enganxar punts de Llapis de greix des del portaretalls intern a la capa activa"
 
 
 msgid "Keep World Transform"
@@ -67959,20 +66693,6 @@ msgid "Paste by Layer"
 msgstr "Enganxar per capa"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Pen"
-msgstr "Pen del Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Arc Shape"
-msgstr "Llapis de greix - forma d'arc"
-
-
-msgid "Create predefined Grease Pencil stroke arcs"
-msgstr "Crea traços predefinits de Llapis de greix en forma d'arc"
-
-
 msgid "Number of subdivisions per segment"
 msgstr "Nombre de subdivisions per segment"
 
@@ -67983,51 +66703,6 @@ msgstr "Tipus de forma"
 
 msgid "Polyline"
 msgstr "Polilínia"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "Forma de capsa de llapis de greix"
-
-
-msgid "Create predefined Grease Pencil stroke boxes"
-msgstr "Crea traços predefinits de Llapis de greix en forma de caixa"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "Llapis de greix - forma de cercle"
-
-
-msgid "Create predefined Grease Pencil stroke circles"
-msgstr "Crea traços predefinits de llapis de greix en forma de cercles"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "Llapis de greix - forma de corba"
-
-
-msgid "Create predefined Grease Pencil stroke curve shapes"
-msgstr "Crea traços predefinits de Llapis de greix en forma de corba"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "Llapis de greix - forma de línia"
-
-
-msgid "Create predefined Grease Pencil stroke lines"
-msgstr "Crea traços predefinits de llapis de greix en forma de línia"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "Llapis de greix - forma de polilínia"
-
-
-msgid "Create predefined Grease Pencil stroke polylines"
-msgstr "Crea traços predefinits de Llapis de greix en forma de polilínia"
 
 
 msgid "Which relative layer (above or below) to use as a mask"
@@ -68103,21 +66778,8 @@ msgstr "Restableix la transformació d'UVs als valors per defecte"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "Esculpir amb Llapis de greix"
-
-
-msgid "Sculpt strokes in the active Grease Pencil object"
-msgstr "[Grease Pencil Sculpt]: Esculpeix traços en l'objecte actiu del Llapis de greix"
-
-
-msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "Permutar mode esculpir de traç"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "Entra/Surt del mode esculpir de traç de Llapis de greix"
 
 
 msgctxt "Operator"
@@ -68198,10 +66860,6 @@ msgstr "[Select Random]: Selecciona punts aleatòriament des dels traços selecc
 
 msgid "Select all strokes with similar characteristics"
 msgstr "Selecciona tots els traços de característiques similars"
-
-
-msgid "Separate the selected geometry into a new Grease Pencil object"
-msgstr "Separa la geometria seleccionada i en fa un nou objecte de Llapis de greix"
 
 
 msgid "Separate selected geometry"
@@ -68287,10 +66945,6 @@ msgstr "[Set Material]: Consigna el material actiu"
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "Mode de selecció"
-
-
-msgid "Change the selection mode for Grease Pencil strokes"
-msgstr "[Select Mode]: Canvia el mode de selecció dels traços de Llapis de greix"
 
 
 msgid "Select only points"
@@ -68488,11 +67142,6 @@ msgid "Change direction of the points of the selected strokes"
 msgstr "[Flip Stroke]: Canvia la direcció dels punts dels traços seleccionats"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "Retallat de Llapis de greix"
-
-
 msgid "Delete stroke points in between intersecting strokes"
 msgstr "Elimina punts de traç d'entre traços intersecants"
 
@@ -68526,15 +67175,6 @@ msgid "Y Start"
 msgstr "Inici d'Y"
 
 
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "Traç imatge per llapis de greix"
-
-
-msgid "Extract Grease Pencil strokes from image"
-msgstr "[Trace Image to Grease Pencil]: Delimita traços de Llapis de greix a partir de la imatge"
-
-
 msgid "Trace Frame"
 msgstr "Traçar fotograma"
 
@@ -68553,10 +67193,6 @@ msgstr "Traçar el fotograma en curs de la imatge"
 
 msgid "Trace full sequence"
 msgstr "Traça la seqüència completa"
-
-
-msgid "Target Grease Pencil"
-msgstr "Llapis de greix referent"
 
 
 msgid "New Object"
@@ -68629,15 +67265,6 @@ msgstr "Iniciar en el fotograma en curs"
 
 msgid "Trace Image starting in current image frame"
 msgstr "Delimita la imatge començant pel fotograma en curs de la imatge"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "Llapis de greix - pintar vèrtexs"
-
-
-msgid "Draw on vertex colors in the active Grease Pencil object"
-msgstr "Dibuixa sobre colors de vèrtex en l'objecte actiu del Llapis de greix"
 
 
 msgctxt "Operator"
@@ -68733,19 +67360,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "Permutar mode vèrtex de traços"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "Entra/Surt del mode de pintat de vèrtexs amb traços de Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "Llapis de greix- Pes de pintat"
-
-
-msgid "Draw weight on stroke points in the active Grease Pencil object"
-msgstr "[Grease Pencil Paint Weight]: Dibuixa el pes sobre els punts de traçat en l'objecte actiu del Llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Invert Weight"
 msgstr "Invertir pes"
@@ -68776,10 +67390,6 @@ msgstr "Permutar sumar/restar en l'eina de dibuix de pintura de pesos"
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "Permutar mode de pesos de traç"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "Entra/Surt del mode pintat de pesos amb traços del Llapis de greix"
 
 
 msgctxt "Operator"
@@ -75975,10 +74585,6 @@ msgid "Curves from evaluated curve data"
 msgstr "[Curves]: Corbes de dades de corbes avaluades"
 
 
-msgid "Grease Pencil from Curve or Mesh objects"
-msgstr "[Grease Pencil]: Llapis de greix a partir d'objectes Corba o Malla"
-
-
 msgid "Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices"
 msgstr "[Copy Global Transform]: Es copia al porta-retalls la matriu de l'objecte o os de posa actualment actiu. Són matrius d'espai-món"
 
@@ -76354,23 +74960,6 @@ msgstr "Afecta tots els objectes seleccionats i no només l'objecte actiu"
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Afegir llapis de greix"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "[Add Grease Pencil]: Afegeix un objecte a l'escena traçat amb Llapis de greix"
-
-
-msgid "Stroke offset for the Line Art modifier"
-msgstr "Desplaçament de traç per al modificador de dibuix lineal"
-
-
-msgid "Display strokes using Grease Pencil layers to define order"
-msgstr "Mostra els traços utilitzant capes de Llapis de greix per definir l'ordre"
-
-
-msgctxt "Operator"
 msgid "Type"
 msgstr "Tipus"
 
@@ -76378,10 +74967,6 @@ msgstr "Tipus"
 msgctxt "Operator"
 msgid "Blank"
 msgstr "En blanc"
-
-
-msgid "Create an empty Grease Pencil object"
-msgstr "[Blank]: Crea un objecte llapis de greix buit"
 
 
 msgctxt "Operator"
@@ -76398,47 +74983,8 @@ msgid "Monkey"
 msgstr "Mona"
 
 
-msgid "Construct a Suzanne Grease Pencil object"
-msgstr "[Monkey]: Construeix un objecte Susanna de Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "Dibuix lineal d'escena"
-
-
-msgid "Quickly set up Line Art for the entire scene"
-msgstr "[Scene Line Art]: Configura ràpidament el Dibuix lineal per l'escena sencera"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "Dibuix lineal de col·lecció"
-
-
-msgid "Quickly set up Line Art for the active collection"
-msgstr "[Collection Line Art]: Configura ràpidament el Dibuix lineal per a la col·lecció activa"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "Objecte lineament"
-
-
-msgid "Quickly set up Line Art for the active object"
-msgstr "[Object Line Art]: Configura ràpidament el Dibuix lineal per a l'objecte actiu"
-
-
 msgid "Show In Front"
 msgstr "Mostrar davant de tot"
-
-
-msgid "Show Line Art Grease Pencil in front of everything"
-msgstr "[Show In Front]: Mostra Dibuix lineal de Llapis de greix per davant de tot"
-
-
-msgid "Use lights for this Grease Pencil object"
-msgstr "Usar llums per a aquest objecte Llapis de greix"
 
 
 msgctxt "Operator"
@@ -76846,34 +75392,8 @@ msgid "Only delete the active light probe's baked lighting data"
 msgstr "Eliminar només les dades precuinades d'il·luminació de la sonda de llum activa"
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "Precuinar dibuix lineal"
-
-
-msgid "Bake Line Art for current Grease Pencil object"
-msgstr "[Bake Line Art]: Precuina el dibuix lineal de l'objecte llapis-dG actual"
-
-
 msgid "Bake All"
 msgstr "Precuinar tot"
-
-
-msgid "Bake all Line Art modifiers"
-msgstr "Precuinar tots els modificadors de Dibuix lineal"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "Retira dibuix lineal precuinat"
-
-
-msgid "Clear all strokes in current Grease Pencil object"
-msgstr "Retira tots els traços de l'objecte Llapis de greix actual"
-
-
-msgid "Clear all Line Art modifier bakes"
-msgstr "Retirar tots els precuinats de modificador de Dibuix lineal"
 
 
 msgid "Link objects to a collection"
@@ -76984,14 +75504,6 @@ msgstr "Copiar restriccions"
 
 msgid "Replace Constraints"
 msgstr "Substitueix les Restriccions"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Copiar efectes de llapis de greix"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "[Copy Grease Pencil Effects]: Substitueix els efectes del llapis de greix"
 
 
 msgid "Copy Light Linking"
@@ -77229,10 +75741,6 @@ msgstr "[Apply]: Aplica el modificador i el suprimeix de l'estiba"
 
 msgid "Apply to all keyframes"
 msgstr "Aplicar a totes les fotofites"
-
-
-msgid "For Grease Pencil objects, apply the modifier to all the keyframes"
-msgstr "Per a objecte Llapis de greix, aplica el modificador a totes les fotofites"
 
 
 msgid "For mesh objects, merge UV coordinates that share a vertex to account for imprecision in some modifiers"
@@ -78288,10 +76796,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "Duplica l'efecte en la mateixa posició de l'estiba"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "Nom del l'aspector d'efectes especials a editar"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "Abaixar efecte"
@@ -78321,15 +76825,6 @@ msgstr "Elevar efecte"
 
 msgid "Move effect up in the stack"
 msgstr "Mou l'efecte amunt en l'estiba"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "Suprimir efecte llapis de greix"
-
-
-msgid "Remove a effect from the active Grease Pencil object"
-msgstr "Suprimeix un efecte de l'objecte Llapis de greix actiu"
 
 
 msgctxt "Operator"
@@ -87337,14 +85832,6 @@ msgid "Force using this center value (when set)"
 msgstr "[Center Override]: Força l'ús d'aquest valor de centre (quan està definit)"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Editar llapis de greix"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Edita els traços de Llapis de greix seleccionats"
-
-
 msgid "Use Snapping Options"
 msgstr "Usar opcions d'acoblament"
 
@@ -88052,20 +86539,6 @@ msgstr "Crear manualment més tard (únic)"
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "Crea un controlador només per a aquesta propietat i sense assignar-l'hi encara cap referent"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "Pipeta de llapis de greix"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "Pesca un color des de la finestra del Blender i crea material amb Llapis de greix"
-
-
-msgctxt "GPencil"
-msgid "Material Mode"
-msgstr "Mode de materials"
 
 
 msgctxt "Operator"
@@ -90981,11 +89454,6 @@ msgstr "Volums"
 
 
 msgctxt "ID"
-msgid "Grease Pencils"
-msgstr "Llapis de greix"
-
-
-msgctxt "ID"
 msgid "Armatures"
 msgstr "Esquelets"
 
@@ -91271,10 +89739,6 @@ msgid "Export to PDF"
 msgstr "Exportar a PDF"
 
 
-msgid "Export Grease Pencil to PDF"
-msgstr "[Export to PDF]: Exporta Llapis de greix a PDF"
-
-
 msgid "Which frames to include in the export"
 msgstr "Quins fotogrames s'inclouran a l'exportació"
 
@@ -91328,25 +89792,12 @@ msgid "Export to SVG"
 msgstr "Exportar a SVG"
 
 
-msgid "Export Grease Pencil to SVG"
-msgstr "[Export to SVG]: Exporta Llapis de greix a SVG"
-
-
 msgid "Clip Camera"
 msgstr "Retallar a càmera"
 
 
 msgid "Clip drawings to camera size when exporting in camera view"
 msgstr "Retalla els dibuixos a la mida de la càmera en exportar en vista de càmera"
-
-
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "Importar SVG com llapis de greix"
-
-
-msgid "Import SVG into Grease Pencil"
-msgstr "[Import SVG as Grease Pencil]: Importa un SVG com a Llapis de greix"
 
 
 msgid "Center on Bounds"
@@ -93955,10 +92406,6 @@ msgid "Curves Sculpt Paint"
 msgstr "Pintat d'esculpir amb corbes"
 
 
-msgid "Grease Pencil Paint"
-msgstr "Llapis de greix- Pintar"
-
-
 msgid "Paint Mode"
 msgstr "Mode pintat"
 
@@ -93969,10 +92416,6 @@ msgstr "Pintar usant el color base del material actiu"
 
 msgid "Paint the material with a color attribute"
 msgstr "Pintar el material amb un atribut de color"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "Llapis de greix - esculpir pintant"
 
 
 msgid "Image Paint"
@@ -94429,10 +92872,6 @@ msgstr "Emplaçament del traç"
 
 msgid "Drawing Plane"
 msgstr "Pla de dibuix"
-
-
-msgid "Grease Pencil Options"
-msgstr "Llapis de greix - opcions"
 
 
 msgid "Quad View"
@@ -94910,26 +93349,6 @@ msgstr "Pesca valors dels píxels sota el cursor"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Anotar"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Línia d'anotacions"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Polígon d'anotacions"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Esborrador d'anotacions"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "Retocar"
 
@@ -95026,10 +93445,6 @@ msgstr "Paràmetres de materials"
 
 msgid "Material Presets"
 msgstr "Predefinits de material"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "Llapis de greix- Epígrafs de materials"
 
 
 msgid "Backdrop"
@@ -97609,32 +96024,12 @@ msgid "The opacity of unselected F-Curves against the background of the Graph Ed
 msgstr "[Unselected F-Curve Opacity]: L'opacitat de les corbes-F no seleccionades contra el fons de l'Editor de gràfiques"
 
 
-msgid "Annotation Default Color"
-msgstr "Anotació - Color per defecte"
-
-
-msgid "Color of new annotation layers"
-msgstr "Color de noves capes d'anotacions"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "Llapis de greix - radi d'esborrador"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "Radi del «pinzell» esborrador"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Llapis de greix - distància euclidiana"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "Distància en què es mou el ratolí quan es dibuixa el traç a incloure"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Llapis de greix - distància Manhattan"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -97824,14 +96219,6 @@ msgstr "Duplicar corbes"
 
 msgid "Causes curves data to be duplicated with the object"
 msgstr "Fa que les dades de corbes es dupliquin amb l'objecte"
-
-
-msgid "Duplicate Grease Pencil"
-msgstr "Duplicar Llapis de greix"
-
-
-msgid "Causes Grease Pencil data to be duplicated with the object"
-msgstr "[Duplicate GPencil]: Fa que les dades del Llapis de greix es dupliquin amb l'objecte"
 
 
 msgid "Duplicate Lattice"
@@ -104435,10 +102822,6 @@ msgid "Render Ambient Occlusion in this Layer"
 msgstr "Revelar oclusió ambiental en aquesta capa"
 
 
-msgid "Render Grease Pencil on this layer"
-msgstr "[Grease Pencil]: Revela el Llapis de greix en aquesta capa"
-
-
 msgid "Render motion blur in this Layer, if enabled in the scene"
 msgstr "[(Use) Motion Blur]: Revela la borra de moviment en aquesta capa, si està habilitat en l'escena"
 
@@ -105036,10 +103419,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "[Simplify Child Particles]: Percentatge global de partícules filles durant el revelat"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "[Simplify (GPencil)]: Simplifica el dibuix de Llapis de greix"
-
-
 msgid "Antialiasing"
 msgstr "Antialiàsing"
 
@@ -105054,10 +103433,6 @@ msgstr "[Modifiers]: Visualitza els modificadors"
 
 msgid "Playback Only"
 msgstr "Només reproduir"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "[Playback Only]: Simplifica el Llapis de greix només mentre reprodueix l'animació"
 
 
 msgid "Display Shader Effects"
@@ -106772,10 +105147,6 @@ msgid "Control the quality of the volumetric effects. Higher resolution uses mor
 msgstr "[Resolution]: Controla la qualitat dels efectes volumètrics. Una resolució més alta utilitza més memòria."
 
 
-msgid "Grease Pencil Render"
-msgstr "Revelat de llapis de greix"
-
-
 msgid "Render settings"
 msgstr "Paràmetres de revelat"
 
@@ -106806,10 +105177,6 @@ msgstr "[SMAA Threshold Render]: Llindar per a l'algorisme de detecció de vores
 
 msgid "Motion Blur Steps"
 msgstr "Passos de borra moviment"
-
-
-msgid "Controls accuracy of motion blur, more steps result in longer render time. Only used when Motion Blur is enabled. Set to 0 to disable motion blur for Grease Pencil"
-msgstr "[Motion Blur Steps]: Controla la precisió de la borra de moviment. Com més passos, més temps de revelat. Només es fa servir quan hi ha la Borra de moviment habilitada. Poseu-ho a 0 per deshabilitar la borra de moviment del Llapis de greix"
 
 
 msgid "Scene Hydra"
@@ -107131,14 +105498,6 @@ msgid "Preview Overlay Settings"
 msgstr "Configuració de sobreimpressió de previsionat"
 
 
-msgid "Show Annotation"
-msgstr "Mostrar anotació"
-
-
-msgid "Show annotations for this view"
-msgstr "[Show Annotation]: Mostra les anotacions en aquesta vista"
-
-
 msgid "Display center composition guide"
 msgstr "Mostrar la guia de composició del centre"
 
@@ -107451,10 +105810,6 @@ msgid "Snap current frame to strip start or end"
 msgstr "[Snap Current Frame to Strips]: Estampeix el fotograma en curs per a l'inici o final d'un segment"
 
 
-msgid "Effect affecting the Grease Pencil object"
-msgstr "Efecte que afecta l'objecte Llapis de greix"
-
-
 msgid "Effect name"
 msgstr "Nom de l'efecte"
 
@@ -107721,11 +106076,6 @@ msgstr "Usar objecte"
 
 msgid "Use object as center of rotation"
 msgstr "Utilitza l'objecte com a centre de rotació"
-
-
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "Ona"
 
 
 msgid "Use wave effect"
@@ -108192,23 +106542,6 @@ msgid "Clip editor space data"
 msgstr "Dades de l'espai editor de clips"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Font de l'anotació"
-
-
-msgid "Where the annotation comes from"
-msgstr "[Annotation Source]: D'on prové l'anotació"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "Mostra el bloc de dades d'anotacions que pertany al clip de vídeo"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "Mostra el bloc de dades d'anotacions que pertany al rastre actiu"
-
-
 msgid "Blending Factor"
 msgstr "Factor de fusió"
 
@@ -108644,10 +106977,6 @@ msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "[Shape Key Editor]: Edita les fotofites en l'acció de Morfofites de l'objecte actiu"
 
 
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "Editar els temps per a tots els esbossos de Llapis de greix del document"
-
-
 msgid "Edit timings for Mask Editor splines"
 msgstr "Editar els temps per als splines de l'editor de màscares"
 
@@ -108930,10 +107259,6 @@ msgstr "Espai editor d'imatges"
 
 msgid "Image and UV editor space data"
 msgstr "[Space Image Editor]: Dades d'espai d'imatge i editor d'UVs"
-
-
-msgid "Annotation data for this space"
-msgstr "Dades d'anotacions d'aquest espai"
 
 
 msgid "Display Channels"
@@ -109575,14 +107900,6 @@ msgid "Show empty objects"
 msgstr "[Empty] Mostra els objectes fantasma"
 
 
-msgid "Show Grease Pencil"
-msgstr "Mostrar llapis de greix"
-
-
-msgid "Show Grease Pencil objects"
-msgstr "[Grease Pencil]: Mostra els objectes de Llapis de greix"
-
-
 msgid "Show Lights"
 msgstr "Mostrar llums"
 
@@ -109855,10 +108172,6 @@ msgstr "Espai editor de seqüències"
 
 msgid "Sequence editor space data"
 msgstr "Dades de l'espai editor de seqüències"
-
-
-msgid "Annotation data for this Preview region"
-msgstr "Dades d'anotacions d'aquesta regió de Previsionat"
 
 
 msgid "Display Channel"
@@ -110465,10 +108778,6 @@ msgid "Allow selection of text objects"
 msgstr "[Text]: Permet la selecció dels objectes de text"
 
 
-msgid "Allow selection of Grease Pencil objects"
-msgstr "[Grease Pencil]: Permet la selecció dels objectes Llapis de greix"
-
-
 msgid "Allow selection of lattices"
 msgstr "[Lattice]: Permet la selecció de les retícules"
 
@@ -110671,10 +108980,6 @@ msgstr "[Render Region]: Agafa una regió del mirador revelat dins del límit de
 
 msgid "Display 2D cursor"
 msgstr "Mostrar cursor 2D"
-
-
-msgid "Display overlays like cursor and annotations"
-msgstr "Mostra sobreimpressions com el cursor i les anotacions"
 
 
 msgid "Display overlays"
@@ -111248,10 +109553,6 @@ msgstr "La taula conté dades de geometria"
 
 msgid "Layer Index"
 msgstr "Índex de capes"
-
-
-msgid "Index of the Grease Pencil layer"
-msgstr "Índex de la capa de Llapis de greix"
 
 
 msgid "Path to the data that is displayed"
@@ -112180,14 +110481,6 @@ msgstr "Usa la càmera 3D de l'escena com a ingressió"
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "Usa com a ingressió el cronograma del Seqüenciador de l'escena"
-
-
-msgid "Use Annotations"
-msgstr "Usar anotacions"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "Mostra les anotacions als previsionats d'OpenGL"
 
 
 msgid "View Layer of the scene to render (uses the default if unset)"
@@ -114962,26 +113255,6 @@ msgid "Face Retopology"
 msgstr "Retopologia de cares"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Llapis de greix - vèrtex"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Llapis de greix - selecció de vèrtexs"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Llapis de greix - mida de vèrtexs"
-
-
-msgid "Grease Pencil Wire Edit"
-msgstr "Edició de trama de Llapis de greix"
-
-
-msgid "Grease Pencil wireframe color when in edit mode"
-msgstr "[Grease Pencil Wire Edit]: El color de trama del Llapis de greix en mode edició"
-
-
 msgid "Grid Axis Brightness"
 msgstr "Brillantor d'eixos de graella"
 
@@ -115028,14 +113301,6 @@ msgstr "Objecte seleccionat"
 
 msgid "Skin Root"
 msgstr "Arrel de pell"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "Fotofita de llapis de greix"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "Color per a indicar les fotofites de Llapis de greix"
 
 
 msgid "Vertex Group Unreferenced"
@@ -115230,24 +113495,12 @@ msgid "Stick stroke to the view"
 msgstr "[View]: Enganxa el traç directe sobre la vista"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "Anotació - Ubicació dels traços (Vista 3D)"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "[Placement]: Com s'orienten els traços d'anotació en l'espai 3D"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "[3D Cursor]: Dibuixa el traç en la ubicació del cursor 3D"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "[Surface]: Adhereix el traç a superfícies"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "Anotació - Gruix del traç"
 
 
 msgid "Auto-Keying Mode"
@@ -115276,14 +113529,6 @@ msgstr "[Curve Profile Widget]: Serveix per definir el camí d'un perfil"
 
 msgid "Threshold distance for Auto Merge"
 msgstr "[Merge Threshold]: Distància llindar per a autofusió"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "Interpolació de llapis de greix"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Esculpir amb llapis de greix"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -116674,10 +114919,6 @@ msgid "Strength of the fade effect"
 msgstr "[Fade Inactive Geometry]: Intensitat de l'efecte d'esvaïment"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "Capa d'esvaïment per a capes de Llapis de greix exceptuant l'activa"
-
-
 msgid "Fade factor"
 msgstr "Factor d'esvaïment"
 
@@ -117188,20 +115429,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "Mostra les línies d'edició quan s'editen traços"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "Esvaeix objectes de llapis de greix"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "Esvaeix els objectes del Llapis de greix, excepte l'actiu"
-
-
 msgid "Fade Layers"
 msgstr "Esvair capes"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "[Fade Layers]: Permuta l'esvaïment de les capes de Llapis de greix excepte l'activa"
 
 
 msgid "Fade Objects"
@@ -117214,10 +115443,6 @@ msgstr "Esvaeix tots els objectes del mirador amb una capa completa de color per
 
 msgid "Use Grid"
 msgstr "Usar quadrícula"
-
-
-msgid "Display a grid over Grease Pencil paper"
-msgstr "Visualitza una graella per damunt del paper de Llapis de greix"
 
 
 msgid "Lines Only"
@@ -117880,10 +116105,6 @@ msgstr "Objecte Criptotrepa"
 
 msgid "Render cryptomatte object pass, for isolating objects in compositing"
 msgstr "[Cryptomatte Object]: Revela la passada d'objecte Criptotrepa, per a aïllar els objectes en compositar"
-
-
-msgid "Deliver Grease Pencil render result in a separate pass"
-msgstr "[Grease Pencil]: Aporta el resultat de revelar el Llapis de greix en una passada a part"
 
 
 msgid "World Override"
@@ -119740,46 +117961,6 @@ msgstr "Eina de Vista 3D: transformar (pla B)"
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "Eina genèrica: Anotacions"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "Eina genèrica: Anotacions (pla B)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "Eina genèrica: línia d'anotacions"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "Eina genèrica: línia d'anotacions (pla B)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "Eina genèrica: polígon d'anotacions"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "Eina genèrica: polígon d'anotacions (pla B)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "Eina genèrica: esborrador d'anotacions"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "Eina genèrica: esborrador d'anotacions (pla B)"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "Eina de vista 3D: mesurar"
 
@@ -120222,11 +118403,6 @@ msgstr "Eina de vista 3D: Editar text, Seleccionar text"
 msgctxt "WindowManager"
 msgid "3D View Tool: Edit Text, Select Text (fallback)"
 msgstr "Eina de vista 3D: Editar text, Seleccionar text (2a opció)"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Llapis de greix"
 
 
 msgctxt "WindowManager"
@@ -121919,41 +120095,6 @@ msgstr "Editor de gràfiques de clip"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "Editor clips al guió tècnic"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Draw Mode"
-msgstr "Mode de dibuix de Llapis de greix"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "Llapis de greix - traç del pinzell"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "Llapis de greix - mode edició"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Llapis de greix - mode esculpir"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "Llapis de greix - pintat de pesos"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "Llapis de greix - pintat de vèrtexs"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Fill Tool"
-msgstr "Llapis de greix - eina emplenar"
 
 
 msgctxt "WindowManager"
@@ -126114,10 +124255,6 @@ msgid "Volume(s)"
 msgstr "Volum(s)"
 
 
-msgid "Grease Pencil(s)"
-msgstr "Llapis de greix"
-
-
 msgid "Armature(s)"
 msgstr "Esquelet(s)"
 
@@ -127096,10 +125233,6 @@ msgstr "Mostrar cursor"
 
 msgid "Data Source:"
 msgstr "Font de dades:"
-
-
-msgid "No annotation source"
-msgstr "No hi ha font d'anotacions"
 
 
 msgctxt "Operator"
@@ -128925,10 +127058,6 @@ msgstr "Mode de gradualitat"
 msgctxt "Operator"
 msgid "Discontinuity (Euler) Filter"
 msgstr "Filtre de discontinuïtat (euler)"
-
-
-msgid "Grease Pencil Objects"
-msgstr "Objectes llapis de greix"
 
 
 msgctxt "Operator"
@@ -130769,10 +128898,6 @@ msgstr ""
 " • Maj per mesurar el gruix de superfície en arrosegar"
 
 
-msgid "Annotation:"
-msgstr "Anotació:"
-
-
 msgid ""
 "Use multiple operators in an interactive way to add, delete, or move geometry\n"
 " • {:s} - Add geometry by moving the cursor close to an element\n"
@@ -130979,11 +129104,6 @@ msgstr "Descripció d'escena universal (.usd, .usdc, .usda)"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVG com a llapis de greix"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "Wavefront (.obj)"
 
@@ -131028,16 +129148,6 @@ msgstr "No hi ha cap element actiu"
 
 msgid "No active marker"
 msgstr "No hi ha cap marcador actiu"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "Llapis de greix en SVG"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "Llapis de greix en PDF"
 
 
 msgctxt "Operator"
@@ -131977,11 +130087,6 @@ msgstr "Malla pla..."
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "Precuinar acció..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "Precuinar Transformació d'objecte a llapis de greix..."
 
 
 msgctxt "Operator"
@@ -133707,22 +131812,6 @@ msgid "No object selected, using cursor"
 msgstr "Sense objecte seleccionat, s'usarà el cursor"
 
 
-msgid "Draw Grease Pencil"
-msgstr "Dibuixar amb llapis de greix"
-
-
-msgid "Weight Grease Pencil"
-msgstr "Pesos amb llapis de greix"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "Esculpir amb llapis de greix"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "Vèrtex de llapis de greix"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "Ajustar potència de llum"
@@ -133916,11 +132005,6 @@ msgstr "Posicions d'arrels"
 
 msgid "Path Steps"
 msgstr "Trams de trajecte"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "Rebava"
 
 
 msgid "No brush selected"
@@ -134662,14 +132746,6 @@ msgid "GP_Layer"
 msgstr "Capa_LdG"
 
 
-msgid "annotations"
-msgstr "anotacions"
-
-
-msgid "grease_pencils"
-msgstr "grease_pencils"
-
-
 msgid "Renamed attribute '%s' to '%s' in object '%s' on layer '%s' on frame %d!"
 msgstr "Atribut reanomenat de '%s' a '%s' a l'objecte '%s' de la capa '%s' del fotograma %d!"
 
@@ -134941,10 +133017,6 @@ msgstr "NúvPunts"
 
 msgid "LightProbe"
 msgstr "SondaLlum"
-
-
-msgid "GreasePencil"
-msgstr "Llapis de greix"
 
 
 msgid "objects"
@@ -136088,10 +134160,6 @@ msgstr "Controls de segment d'ANL"
 
 msgid "F-Curve visibility in Graph Editor"
 msgstr "Visibilitat de corba-F a l'editor de gràfiques"
-
-
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "La capa Llapis de greix és visible al mirador"
 
 
 msgid "Toggle visibility of Channels in Graph Editor for editing"
@@ -137550,24 +135618,12 @@ msgid "Nothing to erase"
 msgstr "No hi ha res a esborrar"
 
 
-msgid "Failed to find Annotation data to draw into"
-msgstr "No s'han pogut trobar les dades d'anotació on dibuixar-hi"
-
-
 msgid "Active region not set"
 msgstr "No s'ha definit la regió activa"
 
 
-msgid "Nowhere for Grease Pencil data to go"
-msgstr "Les dades de Llapis de greix no tenen lloc on anar"
-
-
 msgid "Cannot delete locked layers"
 msgstr "Les capes bloquejades no es poden eliminar"
-
-
-msgid "No Grease Pencil data"
-msgstr "No hi ha dades de Llapis de greix"
 
 
 msgid "No active frame to delete"
@@ -137588,10 +135644,6 @@ msgstr "Ombra_pell"
 
 msgid "Eyes"
 msgstr "Ulls"
-
-
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Transformació de precuinat d'objecte sobre Llapis de greix"
 
 
 msgid "Remove Loose Points"
@@ -137618,16 +135670,8 @@ msgid "The object has only one layer"
 msgstr "L'objecte té una sola capa"
 
 
-msgid "No active Grease Pencil layer to paste into"
-msgstr "No hi ha cap capa activa de Llapis de greix a on enganxar-ho"
-
-
 msgid "Active layer is not editable"
 msgstr "La capa activa no és editable"
-
-
-msgid "No Grease Pencil frame to draw on"
-msgstr "No hi ha quadre de Llapis de greix on treballar"
 
 
 msgid "Couldn't find matching layer, pasting into active layer"
@@ -137636,14 +135680,6 @@ msgstr "No s'ha pogut trobar la capa coincident, s'enganxa a la capa activa"
 
 msgid "No camera in the scene"
 msgstr "L'escena està sense càmera"
-
-
-msgid "No active Grease Pencil layer"
-msgstr "No hi ha cap capa activa de Llapis de greix"
-
-
-msgid "Active object is not a selected Grease Pencil"
-msgstr "L'objecte actiu no és un Llapis de greix seleccionat"
 
 
 msgid "There is no layer '%s'"
@@ -137664,10 +135700,6 @@ msgstr "S'han copiat %d els punts seleccionats"
 
 msgid "No active layer"
 msgstr "No hi ha capes actives"
-
-
-msgid "Add New Grease Pencil Layer"
-msgstr "Afegir nova capa de Llapis de greix"
 
 
 msgid "No active group"
@@ -137694,20 +135726,8 @@ msgid "No active layer to duplicate"
 msgstr "Sense capa activa per duplicar"
 
 
-msgid "All Line Art objects are now cleared of bakes"
-msgstr "Tots els objectes de dibuix lineal han quedat lliures de precuinats"
-
-
 msgid "Baked strokes are cleared"
 msgstr "S'han retirat els traços precuinats"
-
-
-msgid "No active object, or active object isn't a Grease Pencil object"
-msgstr "No hi ha objecte actiu o el que hi ha no és un objecte de Llapis de greix"
-
-
-msgid "Baking Line Art..."
-msgstr "Precuinant el dibuix lineal..."
 
 
 msgid "Active layer is locked or hidden"
@@ -137820,11 +135840,6 @@ msgstr "Actual; "
 
 msgid ", Ctrl: Stroke, Shift: Fill, Shift+Ctrl: Both"
 msgstr ", Ctrl: Traçar, Shift: Emplenar, Shift+Ctrl: Ambdós"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material"
-msgstr "Afegir material de llapis de greix"
 
 
 msgid "Press a key"
@@ -138693,36 +136708,6 @@ msgid "Reorder Layers"
 msgstr "Reordenar capes"
 
 
-msgctxt "Operator"
-msgid "Active Grease Pencil Layer"
-msgstr "Capa activa de Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer"
-msgstr "Reanomenar la capa del Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Layer"
-msgstr "Eliminar la capa del Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Active Grease Pencil Group"
-msgstr "Grup de capes actiu del Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer Group"
-msgstr "Reanomenar grup de capes del Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Group"
-msgstr "Eliminar grup de Llapis de greix"
-
-
 msgid "ID-Block:"
 msgstr "Bloc d'IDs:"
 
@@ -138843,10 +136828,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Per explorar els paràmetres de partícules que es poden vincular"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Explora les Dades de Llapis de greix que es volen vincular"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Explorar el clip de vídeo per vincular"
 
@@ -138943,11 +136924,6 @@ msgstr "Nova"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Nou"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Nou"
 
@@ -139313,14 +137289,6 @@ msgstr "Opcions d'exportació"
 
 msgid "Unable to find valid 3D View area"
 msgstr "No s'ha pogut trobar una àrea de vista 3D vàlida"
-
-
-msgid "Active object is not a Grease Pencil object"
-msgstr "L'objecte actiu no és un objecte Llapis de greix"
-
-
-msgid "No frames selected in the Grease Pencil object"
-msgstr "No s'han seleccionat fotogrames de l'objecte Llapis de greix"
 
 
 msgid "Unable to export PDF"
@@ -140050,21 +138018,6 @@ msgid "Field"
 msgstr "Camp"
 
 
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "Llapis-dG"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "Susanna"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "DibuixLineal"
-
-
 msgid "Cannot create editmode armature"
 msgstr "No s'ha pogut crear esquelet en mode d'edició"
 
@@ -140129,10 +138082,6 @@ msgid "Deleted %u object(s)"
 msgstr "S'ha(n) eliminat %u objecte(s)"
 
 
-msgid "Object '%s' has no evaluated Curve or Grease Pencil data"
-msgstr "L'objecte '%s' no té dades de Corba o Llapis de greix avaluades"
-
-
 msgid "Object '%s' has no evaluated Point Cloud data"
 msgstr "L'objecte '%s' no té dades avaluades de Núvol de punts"
 
@@ -140141,16 +138090,8 @@ msgid "Object '%s' has no evaluated Mesh data"
 msgstr "L'objecte '%s' no té dades avaluades de Malla"
 
 
-msgid "Object '%s' has no evaluated Grease Pencil data"
-msgstr "L'objecte '%s' no té dades avaluades de Llapis de greix"
-
-
 msgid "Object '%s' has no evaluated mesh or curves data"
 msgstr "L'objecte '%s' no té dades de corbes o malles avaluades"
-
-
-msgid "Object '%s' has no evaluated Grease Pencil or Curves data"
-msgstr "L'objecte '%s' no té dades de Corbes o Llapis de greix avaluades"
 
 
 msgid "Object '%s' has no evaluated curves data"
@@ -140806,14 +138747,6 @@ msgid "Evaluated geometry from modifier does not contain a point cloud"
 msgstr "La geometria avaluada des del modificador no conté un núvol de punts"
 
 
-msgid "Cannot apply this modifier to Grease Pencil geometry"
-msgstr "No es pot aplicar aquest modificador a la geometria de Llapis de greix"
-
-
-msgid "Evaluated geometry from modifier does not contain Grease Pencil geometry"
-msgstr "La geometria avaluada des del modificador no conté cap geometria de Llapis de greix"
-
-
 msgid "Modifiers cannot be applied in edit mode"
 msgstr "Els modificadors no es poden aplicar en mode d'edició"
 
@@ -141138,20 +139071,12 @@ msgid "Removed effect: %s"
 msgstr "Efecte suprimit: %s"
 
 
-msgid "Cannot edit shaderfxs in a library override"
-msgstr "No es pot editar aspectors-fx en un sobreseïment de biblioteca"
-
-
 msgid "Object type is not supported"
 msgstr "El tipus d'objecte no està admès"
 
 
 msgid "Cannot edit library or override data"
 msgstr "No es poden editar la biblioteca o les dades de sobreseïment"
-
-
-msgid "Cannot edit shaderfxs coming from linked data in a library override"
-msgstr "No s'ha pogut editar aspectors-fx procedents de dades vinculades en un sobreseïment de biblioteca"
 
 
 msgid "Apply current visible shape to the object data, and delete all shape keys"
@@ -141212,10 +139137,6 @@ msgstr "No es pot aplicar a un esquelet multiusador"
 
 msgid "Curves Object does not support this set origin operation"
 msgstr "L'objecte corbes no admet aquesta operació de definir origen"
-
-
-msgid "Grease Pencil Object does not support this set origin operation"
-msgstr "L'objecte Llapis de greix no admet aquesta operació de definició d'origen"
 
 
 msgid "Point cloud object does not support this set origin operation"
@@ -142432,14 +140353,6 @@ msgid "UV map or surface attachment is invalid"
 msgstr "El mapa UV o l'adhesió a la superfície no és vàlid/a"
 
 
-msgid "No editable Grease Pencil layer"
-msgstr "No hi ha cap capa editable de Llapis de greix"
-
-
-msgid "No Grease Pencil frame to draw weight on"
-msgstr "No hi ha quadre de Llapis de greix on dibuixar pes"
-
-
 msgid "Active group is locked, aborting"
 msgstr "El grup actiu està bloquejat, avortant"
 
@@ -142450,10 +140363,6 @@ msgstr "No s'ha creat cap emplenat"
 
 msgid "Fill tool needs active material"
 msgstr "L'eina Emplenar necessita material actiu"
-
-
-msgid "GPencil Interpolation: "
-msgstr "Interpolació del Llapis-dG: "
 
 
 msgid "ESC/RMB to cancel, Enter/LMB to confirm, WHEEL/MOVE to adjust factor"
@@ -142472,27 +140381,8 @@ msgid "Simple physics-inspired easing effects"
 msgstr "Efectes simples de gradualitat inspirats en la física"
 
 
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "Interpolació"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "Gradualitat (per la força)"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "Efectes dinàmics"
-
-
 msgid "Trace"
 msgstr "Traçar"
-
-
-msgid "Target object not a Grease Pencil, ignoring!"
-msgstr "L'objecte referent no és de Llapis de greix, s'ignorarà!"
 
 
 msgid "Target object library-data, ignoring!"
@@ -142833,10 +140723,6 @@ msgstr "L'enganxament de fotofites no està disponible per al mode màscara"
 
 msgid "No data in the internal clipboard to paste"
 msgstr "El porta-retalls intern no té dades a enganxar"
-
-
-msgid "Keyframe pasting is not available for Grease Pencil or mask mode"
-msgstr "L'enganxament de fotofites no està disponible per als modes Llapis de greix o màscara"
 
 
 msgid "No selected F-Curves to paste into"
@@ -144489,10 +142375,6 @@ msgid "Curve: {} points, {} splines"
 msgstr "Corba: {} punts, {} splines"
 
 
-msgid "Grease Pencil: {} layers"
-msgstr "Llapis de greix: {} capes"
-
-
 msgid "Edit: {}, {}, {}"
 msgstr "Edició: {}, {}, {}"
 
@@ -144969,16 +142851,6 @@ msgstr "Reanomenar os de posa"
 
 
 msgctxt "Operator"
-msgid "Rename Annotation Layer"
-msgstr "Reanomenar capa d'anotació"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Drawing"
-msgstr "Reanomenar dibuix de Llapis de greix"
-
-
-msgctxt "Operator"
 msgid "Rename View Layer"
 msgstr "Reanomenar capa de visionat"
 
@@ -145393,16 +143265,6 @@ msgstr "Operació en os editable"
 msgctxt "Operator"
 msgid "Sequencer operation"
 msgstr "Operació del seqüenciador"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Layer operation"
-msgstr "Operació de capa de Llapis de greix"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Node operation"
-msgstr "Operació del node Llapis de greix"
 
 
 msgid "No Library Overrides"
@@ -146255,26 +144117,6 @@ msgstr "Pesos de vèrtexs"
 
 msgid "Curve Data"
 msgstr "Dades de corba"
-
-
-msgctxt "GPencil"
-msgid "Normal"
-msgstr "Normal"
-
-
-msgctxt "GPencil"
-msgid "Endpoint"
-msgstr "Extrem"
-
-
-msgctxt "GPencil"
-msgid "Bézier"
-msgstr "Bézier"
-
-
-msgctxt "GPencil"
-msgid "Endpoint Bézier"
-msgstr "Bézier d'extrem"
 
 
 msgid "No active object found"
@@ -147239,10 +145081,6 @@ msgid "Realized curves data has too many elements."
 msgstr "Les dades de corba realitzades tenen massa elements."
 
 
-msgid "Realized grease pencil has too many layers."
-msgstr "El llapis de greix realitzat té massa capes."
-
-
 msgid "Error writing frame"
 msgstr "Error en escriure fotograma"
 
@@ -147450,10 +145288,6 @@ msgstr "No s'ha pogut obrir SVG"
 
 msgid "Unable to create new object"
 msgstr "No s'ha pogut crear un nou objecte"
-
-
-msgid "SVG has gradients, Grease Pencil color will be approximated"
-msgstr "El SVG té gradients, el color del Llapis de greix s'hi aproximarà"
 
 
 msgid "PLY Export: Unable to find collection '%s'"
@@ -148151,14 +145985,6 @@ msgstr "El context per al joc de fitoatributs no és vàlid"
 
 msgid "Incomplete built-in keying set, appears to be missing type info"
 msgstr "Joc de fitoatributs predefinit incomplet, sembla que falta la informació del tipus"
-
-
-msgid "Frame not found in annotation layer"
-msgstr "El fotograma no està localitzable dins la capsa d'anotacions"
-
-
-msgid "Layer not found in annotation data"
-msgstr "No s'ha trobat la capa en les dades d'anotacions"
 
 
 msgid "Stroke has no points"
@@ -148867,10 +146693,6 @@ msgstr "Duplicar l'índex %d en el vertex_indices_set (jo d'índexs de vèrtexs)
 
 msgid "Input '%s' not found"
 msgstr "No s'ha trobat la ingressió '%s'"
-
-
-msgid "Cannot assign material '%s', it has to be used by the Grease Pencil object already"
-msgstr "No es pot assignar el material '%s', l'ha d'utilitzar ja l'objecte Llapis de greix"
 
 
 msgid "Unable to create new strip"
@@ -150193,10 +148015,6 @@ msgid "Towards Custom Camera"
 msgstr "Vers a la càmera expressa"
 
 
-msgid "Cached from the first Line Art modifier"
-msgstr "Emmagatzemat en cau des del primer modificador de dibuix lineal"
-
-
 msgid "Object is not in front"
 msgstr "L'objecte no està al davant"
 
@@ -150207,19 +148025,6 @@ msgstr "El modificador té dades precuinades"
 
 msgid "Object is shown in front"
 msgstr "L'objecte es mostra al davant"
-
-
-msgid "Cached from the first Line Art modifier."
-msgstr "Emmagatzemat en cau des del primer modificador de Dibuix lineal."
-
-
-msgid "Lineart"
-msgstr "Dibuix lineal"
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "Irradiar ombra"
 
 
 msgid "Edge Types"
@@ -152746,10 +150551,6 @@ msgid "Geometry to compute the bounding box of. Instances have to be realized be
 msgstr "Geometria a partir de la qual calcular la capsa contenidora. Abans que es pugui calcular la capsa contenidora completa, s'han de realitzar les instàncies"
 
 
-msgid "For curves, point clouds, and Grease Pencil, take the radius attribute into account when computing the bounds."
-msgstr "Per a corbes, núvols de punts i Llapis de greix, tingueu en compte l'atribut radi en calcular els límits."
-
-
 msgid "A cube mesh enclosing the input geometry"
 msgstr "Una malla cub que enclou la geometria d'ingressió"
 
@@ -153794,10 +151595,6 @@ msgid "Layers as Instances"
 msgstr "Capes com a instàncies"
 
 
-msgid "Grease Pencil data to convert to curves"
-msgstr "Dades de Llapis de greix per convertir en corbes"
-
-
 msgid "Select the layers to convert"
 msgstr "Seleccionar les capes a convertir"
 
@@ -154503,10 +152300,6 @@ msgstr "Només fusiona els vèrtexs de malla seguint les arestes existents. Aque
 
 msgid "Point cloud or mesh to merge points of"
 msgstr "Núvol de punts o malla on es volen fusionar punts"
-
-
-msgid "Grease Pencil data to merge layers of"
-msgstr "Dades de Llapis de greix on fusionar capes"
 
 
 msgid "Merge ID"
@@ -155523,18 +153316,6 @@ msgstr "Geometria el lot de la qual cal sobreseure"
 
 msgid "Geometry to override the name of"
 msgstr "Geometria el nom de la qual cal sobreseure"
-
-
-msgid "Grease Pencil to change the color of"
-msgstr "Llapis de greix a qui cal canviar el color"
-
-
-msgid "Grease Pencil to set the depth order of"
-msgstr "Llapis de greix a qui s'ha de definir l'ordre de profunditat"
-
-
-msgid "Grease Pencil to set the softness of"
-msgstr "Llapis de greix a qui s'ha de definir el suavitzat"
 
 
 msgid "Update Inactive"
@@ -159201,11 +156982,6 @@ msgstr "Motor de jocs"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "Nodes de geometria"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Llapis de greix"
 
 
 msgctxt "Preferences"

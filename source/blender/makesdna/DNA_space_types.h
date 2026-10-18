@@ -41,7 +41,6 @@ struct Script;
 struct SpaceGraph;
 struct Text;
 struct bDopeSheet;
-struct bGPdata;
 struct bNodeTree;
 struct wmOperator;
 struct wmTimer;
@@ -359,9 +358,6 @@ struct SpaceSeq {
   /** 2D cursor for transform. */
   float cursor[2] = {};
 
-  /** Grease-pencil data. */
-  struct bGPdata *gpd = nullptr;
-
   struct SequencerPreviewOverlay preview_overlay;
   struct SequencerTimelineOverlay timeline_overlay;
   struct SequencerCacheOverlay cache_overlay;
@@ -649,9 +645,6 @@ struct SpaceImage {
   /** Sample line histogram. */
   struct Histogram sample_line_hist;
 
-  /** Grease pencil data. */
-  struct bGPdata *gpd = nullptr;
-
   /** UV editor 2d cursor. */
   float cursor[2] = {};
   /** User defined offset, image is centered. */
@@ -895,9 +888,6 @@ struct SpaceNode {
    */
   struct bNodeTree *selected_node_group = nullptr;
 
-  /** Grease-pencil data. */
-  struct bGPdata *gpd = nullptr;
-
   eSpaceNode_Gizmo_Flag gizmo_flag = {};
   char _pad2[7] = {};
 
@@ -1022,7 +1012,7 @@ struct SpaceClip {
 
   /** Flags. */
   eSpaceClip_Flag flag = SC_SHOW_MARKER_PATTERN | SC_SHOW_TRACK_PATH |
-                         SC_SHOW_GRAPH_TRACKS_MOTION | SC_SHOW_GRAPH_FRAMES | SC_SHOW_ANNOTATION;
+                         SC_SHOW_GRAPH_TRACKS_MOTION | SC_SHOW_GRAPH_FRAMES;
   /** Editor mode (editing context being displayed). */
   eSpaceClip_Mode mode = SC_MODE_TRACKING;
   /** Type of the clip editor view. */
@@ -1045,9 +1035,7 @@ struct SpaceClip {
   /** Movie postprocessing (#MovieClipPostprocFlag). */
   int postproc_flag = 0;
 
-  /* grease pencil */
-  eSpaceClip_GPencil_Source gpencil_src = SC_GPENCIL_SRC_CLIP;
-  char _pad2[2] = {};
+  char _pad2[4] = {};
 
   /** Pivot point for transforms. */
   eView3D_Around around = V3D_AROUND_CENTER_MEDIAN;
@@ -1214,8 +1202,6 @@ struct SpreadsheetTableIDGeometry {
   SpreadsheetGeometryItemType geometry_item_type = SPREADSHEET_GEOMETRY_ITEM_TYPE_DOMAIN;
   SpreadsheetBundleTreeViewPath geometry_bundle_path = {};
   char _pad1[4] = {};
-  /** Grease Pencil layer index for grease pencil component. */
-  int layer_index = 0;
 };
 
 struct SpreadsheetTable {

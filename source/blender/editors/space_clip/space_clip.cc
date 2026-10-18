@@ -136,15 +136,6 @@ static void clip_scopes_tag_refresh(ScrArea *area)
   sc->scopes.ok = false;
 }
 
-static void clip_scopes_check_gpencil_change(ScrArea *area)
-{
-  SpaceClip *sc = static_cast<SpaceClip *>(area->spacedata.first);
-
-  if (sc->gpencil_src == SC_GPENCIL_SRC_TRACK) {
-    clip_scopes_tag_refresh(area);
-  }
-}
-
 static void clip_area_sync_frame_from_scene(ScrArea *area, const Scene *scene)
 {
   SpaceClip *space_clip = static_cast<SpaceClip *>(area->spacedata.first);
@@ -322,15 +313,6 @@ static void clip_listener(const wmSpaceTypeListenerParams *params)
     case NC_SPACE:
       if (wmn->data == ND_SPACE_CLIP) {
         clip_scopes_tag_refresh(area);
-        ED_area_tag_redraw(area);
-      }
-      break;
-    case NC_GPENCIL:
-      if (wmn->action == NA_EDITED) {
-        clip_scopes_check_gpencil_change(area);
-        ED_area_tag_redraw(area);
-      }
-      else if (wmn->data & ND_GPENCIL_EDITMODE) {
         ED_area_tag_redraw(area);
       }
       break;
@@ -763,11 +745,6 @@ static void clip_main_region_draw(const bContext *C, ARegion *region)
 
   clip_draw_cache_and_notes(C, sc, region);
 
-  if (sc->overlay.flag & SC_SHOW_OVERLAYS && sc->flag & SC_SHOW_ANNOTATION) {
-    /* Grease Pencil */
-    clip_draw_grease_pencil(const_cast<bContext *>(C), true);
-  }
-
   /* callback */
   /* TODO(sergey): For being consistent with space image the projection needs to be configured
    * the way how the commented out code does it. This works correct for tracking data, but it
@@ -781,30 +758,8 @@ static void clip_main_region_draw(const bContext *C, ARegion *region)
   /* reset view matrix */
   ui::view2d_view_restore(C);
 
-  if (sc->overlay.flag & SC_SHOW_OVERLAYS && sc->flag & SC_SHOW_ANNOTATION) {
-    /* draw Grease Pencil - screen space only */
-    clip_draw_grease_pencil(const_cast<bContext *>(C), false);
-  }
   if ((sc->gizmo_flag & SCLIP_GIZMO_HIDE) == 0) {
     WM_gizmomap_draw(region->runtime->gizmo_map, C, WM_GIZMOMAP_DRAWSTEP_2D);
-  }
-}
-
-static void clip_main_region_listener(const wmRegionListenerParams *params)
-{
-  ARegion *region = params->region;
-  const wmNotifier *wmn = params->notifier;
-
-  /* context changes */
-  switch (wmn->category) {
-    case NC_GPENCIL:
-      if (wmn->action == NA_EDITED) {
-        ED_region_tag_redraw(region);
-      }
-      else if (wmn->data & ND_GPENCIL_EDITMODE) {
-        ED_region_tag_redraw(region);
-      }
-      break;
   }
 }
 
@@ -1111,11 +1066,6 @@ static void clip_props_region_listener(const wmRegionListenerParams *params)
         ED_region_tag_redraw(region);
       }
       break;
-    case NC_GPENCIL:
-      if (wmn->action == NA_EDITED) {
-        ED_region_tag_redraw(region);
-      }
-      break;
   }
 }
 
@@ -1158,11 +1108,6 @@ static void clip_properties_region_listener(const wmRegionListenerParams *params
 
   /* context changes */
   switch (wmn->category) {
-    case NC_GPENCIL:
-      if (ELEM(wmn->data, ND_DATA, ND_GPENCIL_EDITMODE)) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_BRUSH:
       if (wmn->action == NA_EDITED) {
         ED_region_tag_redraw(region);
@@ -1258,8 +1203,7 @@ void ED_spacetype_clip()
   art->poll = clip_main_region_poll;
   art->init = clip_main_region_init;
   art->draw = clip_main_region_draw;
-  art->listener = clip_main_region_listener;
-  art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_FRAMES | ED_KEYMAP_UI | ED_KEYMAP_GPENCIL;
+  art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_FRAMES | ED_KEYMAP_UI;
 
   BLI_addhead(&st->regiontypes, art);
 

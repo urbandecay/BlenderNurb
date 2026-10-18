@@ -46,7 +46,7 @@ void BKE_object_defgroup_active_index_set(Object *ob, int new_index);
 
 /**
  * Return the ID's vertex group names.
- * Supports Mesh (ME), Lattice (LT), and GreasePencil (GD) IDs.
+ * Supports Mesh (ME) and Lattice (LT) IDs.
  * \return ListBaseT of bDeformGroup pointers.
  */
 const ListBaseT<bDeformGroup> *BKE_id_defgroup_list_get(const ID *id);

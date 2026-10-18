@@ -430,16 +430,6 @@ msgstr "Шрифт"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Изображение"
 
@@ -1284,10 +1274,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "Точки траектории движения будут запекаться в пространстве камеры активной камеры. Это означает, что они будут выглядеть правильно только при взгляде через эту камеру. Переключение камер с помощью маркеров не поддерживается."
 
 
-msgid "Annotation Frame"
-msgstr "Кадр аннотации"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "Коллекция связанных набросков на заданном кадре"
 
@@ -1312,18 +1298,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "Набор линий, образующих набросок на этом кадре"
 
 
-msgid "Annotation Frames"
-msgstr "Кадры аннотаций"
-
-
-msgid "Collection of annotation frames"
-msgstr "Коллекция кадров аннотаций"
-
-
-msgid "Annotation Layer"
-msgstr "Слой аннотации"
-
-
 msgid "Collection of related sketches"
 msgstr "Коллекция связанных набросков"
 
@@ -1338,10 +1312,6 @@ msgstr "Кадр, отображаемый в данный момент для �
 
 msgid "Hide"
 msgstr "Скрыть"
-
-
-msgid "Set annotation Visibility"
-msgstr "Установить видимость аннотаций"
 
 
 msgid "After Color"
@@ -1386,10 +1356,6 @@ msgstr "Использовать пользовательские цвета д�
 
 msgid "Opacity"
 msgstr "Непрозрачность"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Непрозрачность слоя аннотаций"
 
 
 msgid "Color for all strokes in this layer"
@@ -1452,48 +1418,20 @@ msgid "Thickness"
 msgstr "Толщина"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Толщина штрихов аннотации"
-
-
 msgid "Onion Skinning"
 msgstr "Калькирование"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "Показывать полупрозрачные аннотации от предшествующих и последующих кадров"
-
-
-msgid "Annotation Layers"
-msgstr "Слои аннотаций"
-
-
-msgid "Collection of annotation layers"
-msgstr "Коллекция слоёв аннотаций"
 
 
 msgid "Active Layer Index"
 msgstr "Индекс активного слоя"
 
 
-msgid "Index of active annotation layer"
-msgstr "Индекс активного слоя аннотации"
-
-
 msgid "Active Note"
 msgstr "Активная заметка"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "Заметка/слой, на которую добавляются штрихи аннотации"
-
-
 msgid "Default"
 msgstr "По умолчанию"
-
-
-msgid "Annotation Stroke"
-msgstr "Штрих аннотации"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1540,32 +1478,12 @@ msgid "Stroke data points"
 msgstr "Точки данных штриха"
 
 
-msgid "Annotation Stroke Point"
-msgstr "Точка штриха аннотации"
-
-
 msgid "Data point for freehand stroke curve"
 msgstr "Точка данных для штриха кривой"
 
 
 msgid "Coordinates"
 msgstr "Координаты"
-
-
-msgid "Annotation Stroke Points"
-msgstr "Точки штриха аннотации"
-
-
-msgid "Collection of annotation stroke points"
-msgstr "Коллекция точек штриха аннотации"
-
-
-msgid "Annotation Strokes"
-msgstr "Штрихи аннотации"
-
-
-msgid "Collection of annotation strokes"
-msgstr "Коллекция штрихов аннотации"
 
 
 msgid "Any Type"
@@ -2193,14 +2111,6 @@ msgid "Show Action data-blocks"
 msgstr "Показать датаблоки действий"
 
 
-msgid "Annotations"
-msgstr "Аннотации"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "Показать датаблоки аннотаций"
-
-
 msgid "Armatures"
 msgstr "Арматуры"
 
@@ -2255,14 +2165,6 @@ msgstr "Шрифты"
 
 msgid "Show Font data-blocks"
 msgstr "Показать датаблоки шрифтов"
-
-
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "Показать датаблоки Grease Pencil"
 
 
 msgid "Collections"
@@ -2695,10 +2597,6 @@ msgstr "Атрибут экземпляра"
 
 msgid "Layer"
 msgstr "Слой"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Атрибут слоя Grease Pencil"
 
 
 msgid "Is Internal"
@@ -3428,14 +3326,6 @@ msgid "Read-only list of all IDs listed in Blender data-base"
 msgstr "Список всех идентификаторов, перечисленных в базе данных Blender'а, доступен только для чтения"
 
 
-msgid "Annotation"
-msgstr "Аннотация"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "Блоки данных аннотаций (старая система Grease Pencil)"
-
-
 msgid "Armature data-blocks"
 msgstr "Датаблоки арматур"
 
@@ -3482,10 +3372,6 @@ msgstr "Векторные шрифты"
 
 msgid "Vector font data-blocks"
 msgstr "Датаблоки векторных шрифтов"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Датаблоки Grease Pencil"
 
 
 msgid "Hair curve data-blocks"
@@ -3672,14 +3558,6 @@ msgid "Collection of actions"
 msgstr "Коллекция действий"
 
 
-msgid "Main Annotations"
-msgstr "Основные аннотации"
-
-
-msgid "Collection of annotations"
-msgstr "Коллекция аннотаций"
-
-
 msgid "Main Armatures"
 msgstr "Основные арматуры"
 
@@ -3734,14 +3612,6 @@ msgstr "Основные шрифты"
 
 msgid "Collection of fonts"
 msgstr "Коллекция шрифтов"
-
-
-msgid "Main Grease Pencils"
-msgstr "Основные Grease Pencil"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "Коллекция Grease Pencil"
 
 
 msgid "Main Hair Curves"
@@ -5723,14 +5593,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "Увеличивать или уменьшать кривые, равномерно изменяя их размер, вместо того чтобы использовать обрезку или экстраполяцию"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Параметры кисти Grease Pencil"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "Параметры кисти Grease Pencil"
-
-
 msgid "Active Smooth"
 msgstr "Активное сглаживание"
 
@@ -5787,23 +5649,8 @@ msgid "Use always Vertex Color mode"
 msgstr "Всегда использовать режим цвета вершин"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Тип конца"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "Форма начала и конца штриха"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Круг"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Плоский"
 
 
 msgid "Threshold"
@@ -5883,36 +5730,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "Количество пикселей для расширения или сокращения области заливки"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Режим"
-
-
 msgid "Eraser Mode"
 msgstr "Режим ластика"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "Растворить"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "Стирать штрихи, уменьшая их толщину и интенсивность"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "Точка"
-
-
 msgid "Erase stroke points"
 msgstr "Удалять точки штрихов"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Штрих"
 
 
 msgid "Erase entire strokes"
@@ -5994,27 +5821,12 @@ msgid "Use edit lines as fill boundary limits"
 msgstr "Использовать линии редактирования для заполнения границ"
 
 
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "Режим зазоров"
-
-
 msgid "Types of stroke extensions used for closing gaps"
 msgstr "Виды удлинителей штрихов, используемых для закрытия зазоров"
 
 
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "Продлить"
-
-
 msgid "Extend strokes in straight lines"
 msgstr "Удлинить штрихи по прямым линиям"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "Радиус"
 
 
 msgid "Connect endpoints that are close together"
@@ -6183,11 +5995,6 @@ msgid "Number of times to smooth newly created strokes"
 msgstr "Количество шагов сглаживания для новых штрихов"
 
 
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Интенсивность"
-
-
 msgid "Color strength for new strokes (affect alpha factor of color)"
 msgstr "Интенсивность цвета для новых штрихов (влияет на альфа-канал цвета)"
 
@@ -6284,23 +6091,8 @@ msgid "Threshold in screen space used for the simplify algorithm. Points within 
 msgstr "Порог в экранном пространстве, используемый для алгоритма упрощения. Точки в пределах этого порога обрабатываются так, как если бы они находились на прямой линии."
 
 
-msgctxt "GPencil"
-msgid "Stroke Mode"
-msgstr "Режим штриха"
-
-
 msgid "Mode to use when creating strokes"
 msgstr "Режим, используемый при создании штрихов"
-
-
-msgctxt "GPencil"
-msgid "Fill"
-msgstr "Заполнить"
-
-
-msgctxt "GPencil"
-msgid "Both"
-msgstr "Оба"
 
 
 msgid "Active Layer"
@@ -11983,14 +11775,6 @@ msgstr "Сворачивать сводку"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "Сворачивать сводку при отображении так, чтобы все остальные каналы становились скрытыми (только для экспозиционных листов)"
-
-
-msgid "Display Grease Pencil"
-msgstr "Показать Grease Pencil"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Включить визуализацию данных анимации, связанных с Grease Pencil и кадрами"
 
 
 msgid "Display Hair"
@@ -17887,24 +17671,8 @@ msgid "Keep the computed view map and avoid recalculating it if mesh geometry is
 msgstr "Сохранять рассчитанную видовую карту и не пересчитывать её, если геометрия не изменяется"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Настройки интерполяции Grease Pencil"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Настройки для инструментов интерполяции Grease Pencil"
-
-
 msgid "Interpolation Curve"
 msgstr "Кривая интерполяции"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Особая кривая для управления интерполяцией последовательности между кадрами Grease Pencil"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "Направляющая скульптинга Grease Pencil"
 
 
 msgid "Guides for drawing"
@@ -18007,14 +17775,6 @@ msgid "Enable snapping to guides angle or spacing options"
 msgstr "Использовать привязку для рисования ровных линий с сохранением угла или расстояния между ними"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "Настройки скульптинга Grease Pencil"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Общие свойства инструментов скульптинга штрихов Grease Pencil"
-
-
 msgid "Threshold for stroke intersections"
 msgstr "Порог пересечения линий"
 
@@ -18053,10 +17813,6 @@ msgstr "Проецировать штрихи на плоскость, прив�
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "Выровнять штрихи по текущей ориентации 3D-курсора"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "Особая кривая для управления ослаблением эффекта кисти по кадрам Grease Pencil"
 
 
 msgid "Custom curve to control primitive thickness"
@@ -18545,14 +18301,6 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "Включить цикличность на отдельных штрихах тире"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "Рисование Grease Pencil"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "Рисунок Grease Pencil"
-
-
 msgid "Attributes"
 msgstr "Атрибуты"
 
@@ -18597,75 +18345,32 @@ msgid "The number of keyframes this drawing is used by"
 msgstr "Количество ключевых кадров, которые использует этот рисунок"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Кадр Grease Pencil"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "Ключевой кадр Grease Pencil"
-
-
 msgid "The frame number in the scene"
 msgstr "Номер кадра в сцене"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "Тип ключевого кадра"
 
 
 msgid "Type of keyframe"
 msgstr "Тип ключевого кадра"
 
 
-msgctxt "GPencil"
-msgid "Keyframe"
-msgstr "Ключевой кадр"
-
-
 msgid "Normal keyframe, e.g. for key poses"
 msgstr "Обычный ключевой кадр, например, для ключевых поз"
-
-
-msgctxt "GPencil"
-msgid "Breakdown"
-msgstr "Перенос"
 
 
 msgid "A breakdown pose, e.g. for transitions between key poses"
 msgstr "Поза разбивки, например, для перемещения между ключевыми позами"
 
 
-msgctxt "GPencil"
-msgid "Moving Hold"
-msgstr "Удержание движения"
-
-
 msgid "A keyframe that is part of a moving hold"
 msgstr "Ключевой кадр, являющийся частью удерживаемых движений"
-
-
-msgctxt "GPencil"
-msgid "Extreme"
-msgstr "Экстремум"
 
 
 msgid "An 'extreme' pose, or some other purpose as needed"
 msgstr "«Предельная» поза (или другая нестандартная поза)"
 
 
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "Колебание"
-
-
 msgid "A filler or baked keyframe for keying on ones, or some other purpose as needed"
 msgstr "Заполнитель или запечённый ключевой кадр для особых задач"
-
-
-msgctxt "GPencil"
-msgid "Generated"
-msgstr "Сгенерировать"
 
 
 msgid "A key generated automatically by a tool, not manually created"
@@ -18674,18 +18379,6 @@ msgstr "Ключ, автоматически сгенерированный ин
 
 msgid "Frame Selection in the Dope Sheet"
 msgstr "Выделение кадров в экспозиционном листе"
-
-
-msgid "Grease Pencil Frames"
-msgstr "Кадры Grease Pencil"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "Коллекция кадров Grease Pencil"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Слои маски Grease Pencil"
 
 
 msgid "List of Mask Layers"
@@ -18702,14 +18395,6 @@ msgstr "Инвертировать маску"
 
 msgid "Mask layer name"
 msgstr "Имя слоя маски"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Слои маски Grease Pencil"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "Коллекция маскирующих слоёв Grease Pencil"
 
 
 msgid "Active Layer Mask Index"
@@ -18772,10 +18457,6 @@ msgid "Tree Node"
 msgstr "Нода дерева"
 
 
-msgid "Grease Pencil node in the layer tree. Either a layer or a group"
-msgstr "Нода Grease Pencil в дереве слоёв. Либо слой, либо группа"
-
-
 msgid "Channel Color"
 msgstr "Цвет канала"
 
@@ -18836,10 +18517,6 @@ msgid "Display onion skins before and after the current frame"
 msgstr "Показывать полупрозрачные рисунки от предшествующих и последующих кадров"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Слой Grease Pencil"
-
-
 msgid "Collection of related drawings"
 msgstr "Коллекция связанных набросков"
 
@@ -18858,10 +18535,6 @@ msgstr "Жёсткий свет"
 
 msgid "Divide"
 msgstr "Разделить"
-
-
-msgid "Grease Pencil frames"
-msgstr "Кадры Grease Pencil"
 
 
 msgid "Ignore Material Locking"
@@ -18980,14 +18653,6 @@ msgid "Only include Layer in this View Layer render output (leave blank to inclu
 msgstr "Включать этот слой в этот вывод слоя визуализации (оставьте пустым, чтобы включать везде)"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "Группа слоёв Grease Pencil"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "Группа слоёв Grease Pencil"
-
-
 msgid "The direct children of this layer group. Ordered by stack order, meaning the first child is the bottom most child in the layer tree."
 msgstr "Непосредственные потомки этой группы слоёв. Упорядочены по порядку в стеке, то есть первый потомок — расположен в самом низу в дереве слоёв."
 
@@ -19032,28 +18697,8 @@ msgid "The layer group is expanded in the UI"
 msgstr "Группа слоёв будет развёрнута в пользовательском интерфейсе"
 
 
-msgid "Grease Pencil Group"
-msgstr "Группа Grease Pencil"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "Коллекция слоёв Grease Pencil"
-
-
 msgid "Active Layer Group"
 msgstr "Активная группа слоёв"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "Активная группа слоёв Grease Pencil"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Слои Grease Pencil"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Активный слой Grease Pencil"
 
 
 msgid "Editor header containing UI elements"
@@ -19378,10 +19023,6 @@ msgstr "Ручной диапазон кадров"
 
 msgid "Manually specify the intended playback frame range for the action (this range is used by some tools, but does not affect animation evaluation)"
 msgstr "Вручную указать предполагаемый диапазон кадров воспроизведения для действия (этот диапазон используется некоторыми инструментами, но не влияет на оценку анимации)"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "Инструмент для набросков и аннотаций"
 
 
 msgid "Animation data for this data-block"
@@ -20386,23 +20027,8 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "Кисть относится к типу кистей, используемых для тонирования штрихов"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "Тип кисти"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Гладкая"
-
-
 msgid "Smooth stroke points"
 msgstr "Сглаживать точки штрихов"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Толщина"
 
 
 msgid "Adjust thickness of strokes"
@@ -20413,62 +20039,28 @@ msgid "Adjust color strength of strokes"
 msgstr "Настроить интенсивность цвета штрихов"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Рандомизировать"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "Производить колебание/случайность в штрихи"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "Захватить"
 
 
 msgid "Translate the set of points initially within the brush circle"
 msgstr "Перенести набор точек в радиусе окружности кисти"
 
 
-msgctxt "GPencil"
-msgid "Push"
-msgstr "Отталкивание"
-
-
 msgid "Move points out of the way, as if combing them"
 msgstr "Переместить точки аналогично инструменту причёсывания"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "Скручивание"
 
 
 msgid "Rotate points around the midpoint of the brush"
 msgstr "Повернуть точки вокруг средней точки кисти"
 
 
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "Щипок"
-
-
 msgid "Pull points towards the midpoint of the brush"
 msgstr "Притянуть точки к средней точке кисти"
 
 
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Клонирование"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "Вставить копию штрихов из буфера обмена"
-
-
-msgid "Gpencil Settings"
-msgstr "Настройки Grease Pencil"
 
 
 msgid "Brush Type"
@@ -21163,68 +20755,28 @@ msgid "How powerful the effect of the brush is when applied"
 msgstr "Сила эффекта применения кисти"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "Метод штриха"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "Точки"
-
-
 msgid "Apply paint on each mouse move step"
 msgstr "Наносить краску на каждом шаге движения курсора"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "Перетаскиваемая точка"
 
 
 msgid "Allows a single dot to be carefully positioned"
 msgstr "Для точного позиционирования каждой точки"
 
 
-msgctxt "GPencil"
-msgid "Space"
-msgstr "Пропуск"
-
-
 msgid "Limit brush application to the distance specified by spacing"
 msgstr "Ограничить применение штриха на расстояние, заданное интервалом"
-
-
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "Краскораспылитель"
 
 
 msgid "Keep applying paint effect while holding mouse (spray)"
 msgstr "Продолжать применять эффект рисования при удержании кнопки мышки (спрей)"
 
 
-msgctxt "GPencil"
-msgid "Anchored"
-msgstr "С якорем"
-
-
 msgid "Keep the brush anchored to the initial location"
 msgstr "Привязать кисть к исходному положению"
 
 
-msgctxt "GPencil"
-msgid "Line"
-msgstr "Линия"
-
-
 msgid "Draw a line with dabs separated according to spacing"
 msgstr "Рисовать линии с участками штрихов, разделёнными заданным интервалом"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "Кривая"
 
 
 msgid "Define the stroke curve with a Bézier curve (dabs are separated according to spacing)"
@@ -21515,10 +21067,6 @@ msgid "Use Paint"
 msgstr "Использовать для покраски"
 
 
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "Использовать эту кисть в режиме рисования Grease Pencil"
-
-
 msgid "Use this brush in texture paint mode"
 msgstr "Использовать эту кисть в режиме текстурирования"
 
@@ -21681,10 +21229,6 @@ msgstr "Настроить величину интервалов"
 
 msgid "Automatically adjust strength to give consistent results for different spacings"
 msgstr "Автоматическая регулировка интенсивности для поддержания согласованности результатов на разных интервалах"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "Использовать эту кисть в цветовом режиме точек Grease Pencil"
 
 
 msgid "Use Pressure for Wet Mix"
@@ -22490,10 +22034,6 @@ msgid "Usage"
 msgstr "Использование"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "То, как использовать эту коллекцию при расчёте Line Art"
-
-
 msgid "Generate feature lines for this collection"
 msgstr "Сгенерировать линии для этой коллекции"
 
@@ -22504,10 +22044,6 @@ msgstr "Только перекрытие"
 
 msgid "Only use the collection to produce occlusion"
 msgstr "Использовать коллекцию только для создания окклюзии (перекрытия)"
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "Не использовать эту коллекцию в Line Art"
 
 
 msgid "Intersection Only"
@@ -23850,10 +23386,6 @@ msgid "Enable or disable textured strokes"
 msgstr "Включить или отключить текстурированные штрихи"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Датаблок Grease Pencil"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "Максимальное количество кадров, отображаемых после текущего кадра (\"0\" = не показывать ни одного кадра после текущего)"
 
@@ -23866,14 +23398,6 @@ msgid "Layer Groups"
 msgstr "Группы слоёв"
 
 
-msgid "Grease Pencil layer groups"
-msgstr "Группы слоёв Grease Pencil"
-
-
-msgid "Grease Pencil layers"
-msgstr "Слои Grease Pencil"
-
-
 msgid "Onion Opacity"
 msgstr "Непрозрачность калькирования"
 
@@ -23882,18 +23406,8 @@ msgid "Change fade opacity of displayed onion frames"
 msgstr "Настройка значения непрозрачности кадров кальки"
 
 
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "Фильтровать по типу"
-
-
 msgid "Type of keyframe (for filtering)"
 msgstr "Тип ключевого кадра (для фильтрации)"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "Все"
 
 
 msgid "Include all Keyframe types"
@@ -23906,10 +23420,6 @@ msgstr "Режим отображения кадров"
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "Кадры в абсолютном диапазоне кадра сцены"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "Кадры в относительном диапазоне ключевых кадров Grease Pencil"
 
 
 msgid "Selected"
@@ -23938,10 +23448,6 @@ msgstr "Определяет порядок расположения штрих�
 
 msgid "2D Layers"
 msgstr "2D-Слои"
-
-
-msgid "Display strokes using Grease Pencil layer order and stroke order to define depth"
-msgstr "Отображать штрихи с использованием порядка расположения слоёв Grease Pencil и порядка расположения штрихов для определения глубины"
 
 
 msgid "3D Location"
@@ -25441,22 +24947,6 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "Комбинация настоящего смещения геометрии и имитации картой неровностей для более мелких деталей"
 
 
-msgid "Grease Pencil Settings"
-msgstr "Настройки Grease Pencil"
-
-
-msgid "Grease Pencil color settings for material"
-msgstr "Настройки цвета Grease Pencil для материала"
-
-
-msgid "Is Grease Pencil"
-msgstr "Является Grease Pencil"
-
-
-msgid "True if this material has Grease Pencil data"
-msgstr "Истинно, если у материала есть данные Grease Pencil"
-
-
 msgid "Line Color"
 msgstr "Цвет линий"
 
@@ -25471,14 +24961,6 @@ msgstr "Приоритет линий"
 
 msgid "The line color of a higher priority is used at material boundaries"
 msgstr "Использовать цвет линий с более высоким приоритетом на границе материалов"
-
-
-msgid "Line Art Settings"
-msgstr "Настройки Line Art"
-
-
-msgid "Line Art settings for material"
-msgstr "Настройки Line Art для материала"
 
 
 msgid "Max Vertex Displacement"
@@ -26141,10 +25623,6 @@ msgid "MovieClip data-block referencing an external movie file"
 msgstr "Датаблок видеофрагмента, ссылающийся на внешний видеофайл"
 
 
-msgid "Annotation data for this movie clip"
-msgstr "Данные, принадлежащие заметкам к этому видеофрагменту"
-
-
 msgid "Display Aspect for this clip, does not affect rendering"
 msgstr "Соотношение сторон при просмотре, не влияет на рендеринг"
 
@@ -26203,10 +25681,6 @@ msgstr "Создавать прокси-изображения в особой �
 
 msgid "Node tree consisting of linked nodes used for shading, textures and compositing"
 msgstr "Древо нод, состоящее из связанных нод для шейдинга, текстурирования и компо́зитинга"
-
-
-msgid "Annotation data"
-msgstr "Данные аннотаций"
 
 
 msgid "The node tree label"
@@ -26403,10 +25877,6 @@ msgstr "Группа нод используется как инструмент
 
 msgid "The node group is used for curves"
 msgstr "Группа нод используется для кривых"
-
-
-msgid "The node group is used for Grease Pencil"
-msgstr "Группа нод используется для Grease Pencil"
 
 
 msgid "Mesh"
@@ -26869,14 +26339,6 @@ msgid "Lightgroup that the object belongs to"
 msgstr "Группа освещения, к которой принадлежит объект"
 
 
-msgid "Line Art"
-msgstr "Line Art"
-
-
-msgid "Line Art settings for the object"
-msgstr "Настройки Line Art для объекта"
-
-
 msgid "Location of the object"
 msgstr "Положение объекта"
 
@@ -26997,28 +26459,8 @@ msgid "Particle Edit"
 msgstr "Редактирование частиц"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "Редактировать штрихи Grease Pencil"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Скульптинг штрихов Grease Pencil"
-
-
 msgid "Draw Mode"
 msgstr "Режим рисования"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "Рисование штрихов Grease Pencil"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "Рисования весов штрихов Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Штрихи рисования точками Grease Pencil"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -27386,10 +26828,6 @@ msgstr "С альфа-каналом"
 
 msgid "Use alpha blending instead of alpha test (can produce sorting artifacts)"
 msgstr "Использовать смеше́ние прозрачностей вместо альфа-теста (может вызвать артефакты сортировки)"
-
-
-msgid "Lights affect Grease Pencil object"
-msgstr "Источники света воздействуют на объект Grease Pencil"
 
 
 msgid "Scale to Face Sizes"
@@ -28721,10 +28159,6 @@ msgid "Allows playing back frames before the playback start frame"
 msgstr "Позволяет воспроизводить кадры, предшествующие начальному кадру воспроизведения"
 
 
-msgid "Data-block used for annotations in the 3D view"
-msgstr "Блок данных, используемый для аннотаций в 3D-виде"
-
-
 msgid "Distance Model"
 msgstr "Модель расстояния"
 
@@ -28911,10 +28345,6 @@ msgstr "Количество кадров, пропускаемых при ре�
 
 msgid "Constant acceleration in a given direction"
 msgstr "Гравитационная постоянная по заданному направлению"
-
-
-msgid "Grease Pencil settings for the scene"
-msgstr "Настройки Grease Pencil для сцены"
 
 
 msgid "Hydra"
@@ -30926,26 +30356,6 @@ msgstr "Активная библиотека ассетов для отобра
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "Переходить в объектный режим при активации этого рабочего пространства"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Режим редактирования Grease Pencil"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Режим скульптинга Grease Pencil"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Рисование Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Рисование точек Grease Pencil"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Рисование весов Grease Pencil"
 
 
 msgid "UI Tags"
@@ -35570,10 +34980,6 @@ msgid "Active point of masking layer"
 msgstr "Активная точка маскирующего слоя"
 
 
-msgid "Grease Pencil Color"
-msgstr "Цвет Grease Pencil"
-
-
 msgid "Alignment"
 msgstr "Выравнивание"
 
@@ -35610,36 +35016,16 @@ msgid "Color for filling region bounded by each stroke"
 msgstr "Цвет заливки областей, ограниченных штрихами"
 
 
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "Стиль заливки"
-
-
 msgid "Select style used to fill strokes"
 msgstr "Стиль заливки штрихов"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "Цельный"
 
 
 msgid "Fill area with solid color"
 msgstr "Заливать область одним цветом"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "Градиент"
-
-
 msgid "Fill area with gradient color"
 msgstr "Заливать область градиентом"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "Текстура"
 
 
 msgid "Fill area with image texture"
@@ -35704,11 +35090,6 @@ msgstr "Смешать цвета"
 
 msgid "Color for mixing with primary filling color"
 msgstr "Цвет для смеси с основным цветом заливки"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "Смешать"
 
 
 msgid "Mix Factor"
@@ -35827,11 +35208,6 @@ msgid "Show stroke lines of this material"
 msgstr "Показать обводку для этого материала"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "Стиль штриха"
-
-
 msgid "Select style used to draw strokes"
 msgstr "Стиль отрисовки обводки"
 
@@ -35878,10 +35254,6 @@ msgstr "Рандомизация"
 
 msgid "Use material randomization"
 msgstr "Использовать рандомизацию материала"
-
-
-msgid "Material Line Art"
-msgstr "Материал Line Art"
 
 
 msgid "Effectiveness"
@@ -37854,18 +37226,6 @@ msgid "Duplicate strokes into an array"
 msgstr "Дублировать штрихи в массив"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "Модификатор сборки Grease Pencil"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "Модификатор длины Grease Pencil"
-
-
-msgid "Generate Line Art from scene geometries"
-msgstr "Генерация Line Art из геометрии сцены"
-
-
 msgid "Duplicate strokes like a mirror"
 msgstr "Зеркально продублировать штрихи"
 
@@ -37884,10 +37244,6 @@ msgstr "Упростить штрихи, уменьшив количество �
 
 msgid "Subdivide"
 msgstr "Подразделить"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "Модификатор подразделения Grease Pencil"
 
 
 msgid "Create an envelope shape"
@@ -38014,16 +37370,8 @@ msgid "Deform stroke points using objects"
 msgstr "Деформировать штрихи с помощью объектов"
 
 
-msgid "Generate noise wobble in Grease Pencil strokes"
-msgstr "Создание шумового колебания при штриховке grease pencil"
-
-
 msgid "Change stroke location, rotation, or scale"
 msgstr "Изменить положение, вращение и масштаб штрихов"
-
-
-msgid "Smooth Grease Pencil strokes"
-msgstr "Сгладить штрихи Grease Pencil"
 
 
 msgid "Change stroke thickness"
@@ -39973,35 +39321,16 @@ msgid "Start Frame (when Restrict Frame Range is enabled)"
 msgstr "Начальный кадр (если включено ограничение диапазона кадров)"
 
 
-msgid "Maximum number of frames that the build effect can run for (unless another GP keyframe occurs before this time has elapsed)"
-msgstr "Максимальное количество кадров, на которых выполняется эффект сборки (если не встречается другой ключевой кадр Grease Pencil до истечения этого времени)"
-
-
 msgid "How strokes are being built"
 msgstr "Как будет производится построение штрихов"
-
-
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "Последовательно"
 
 
 msgid "Strokes appear/disappear one after the other, but only a single one changes at a time"
 msgstr "Штрихи появляются/исчезают друг за другом, но только по одному изменению за раз"
 
 
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "Параллельно"
-
-
 msgid "Multiple strokes appear/disappear at once"
 msgstr "Несколько штрихов появляются/исчезают одновременно"
-
-
-msgctxt "GPencil"
-msgid "Additive"
-msgstr "Добавление"
 
 
 msgid "Builds only new strokes (assuming 'additive' drawing)"
@@ -40034,10 +39363,6 @@ msgstr "Максимальный промежуток между штрихам�
 
 msgid "Delay"
 msgstr "Задержка"
-
-
-msgid "Number of frames after each GP keyframe before the modifier has any effect"
-msgstr "Количество кадров после каждого ключевого кадра Grease Pencil перед началом действия модификатора"
 
 
 msgid "Output Vertex group"
@@ -40120,10 +39445,6 @@ msgid "Only modify strokes during the specified frame range"
 msgstr "Модифицировать штрихи только в течении указанного диапазона времени"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "Модификатор цвета Grease Pencil"
-
-
 msgid "Attributes to modify"
 msgstr "Атрибуты для модификации"
 
@@ -40168,10 +39489,6 @@ msgid "Color value factor"
 msgstr "Коэффициент яркости цвета"
 
 
-msgid "Grease Pencil Dash Modifier"
-msgstr "Модификатор Grease Pencil \"Точка-тире\""
-
-
 msgid "Create dot-dash effect for strokes"
 msgstr "Создание эффекта точек и тире для штрихов"
 
@@ -40186,10 +39503,6 @@ msgstr "Индекс сегмента активной тире"
 
 msgid "Active index in the segment list"
 msgstr "Активный индекс в списке сегментов"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "Модификатор оболочки Grease Pencil"
 
 
 msgid "Envelope stroke effect modifier"
@@ -40297,10 +39610,6 @@ msgstr "Равномерный спад"
 
 msgid "Compensate for non-uniform object scale"
 msgstr "Компенсировать неравномерное масштабирование объекта"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "Модификатор решётки для Grease Pencil"
 
 
 msgid "Lattice object to deform with"
@@ -40439,14 +39748,6 @@ msgid "Use random values over time"
 msgstr "Использовать случайные значения во времени"
 
 
-msgid "Line Art Modifier"
-msgstr "Модификатор Line Art"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "Сгенерировать штрихи Line Art из выбранного источника"
-
-
 msgid "Image Threshold"
 msgstr "Порог изображений"
 
@@ -40457,10 +39758,6 @@ msgstr "Сегменты на расстоянии между изображен
 
 msgid "Crease Threshold"
 msgstr "Порог складки"
-
-
-msgid "Angles smaller than this will be treated as creases. Crease angle priority: object Line Art crease override > mesh auto smooth angle > Line Art default crease."
-msgstr "Углы меньше этого будут рассматриваться в качестве складок. Приоритет угла сгиба: переопределение складки объекта Line Art > угол автоматического сглаживания меша > складка Line Art по умолчанию."
 
 
 msgid "Fill Strokes"
@@ -40547,45 +39844,20 @@ msgid "Represents the \"Orthographic Scale\" of an orthographic camera. If the c
 msgstr "Представляет собой \"ортогональный масштаб\" ортографической камеры. Если камера расположена в месте расположения источника света с этим масштабом, она будет представлять покрытие теневой \"камеры\"."
 
 
-msgctxt "GPencil"
-msgid "Shadow Region Filtering"
-msgstr "Фильтрация теневых областей"
-
-
 msgid "Select feature lines that comes from lit or shaded regions. Will not affect cast shadow and light contour since they are at the border."
 msgstr "Выделить линии, которые исходят из освещённых или затенённых областей. Не повлияет на контур тени и света, поскольку они находятся на границе."
-
-
-msgctxt "GPencil"
-msgid "None"
-msgstr "Нет"
 
 
 msgid "Not filtering any lines based on illumination region"
 msgstr "Не фильтрует линии по освещённости области"
 
 
-msgctxt "GPencil"
-msgid "Illuminated"
-msgstr "Освещённые"
-
-
 msgid "Only selecting lines from illuminated regions"
 msgstr "Выбор только тех линий, которые находятся в освещённых областях"
 
 
-msgctxt "GPencil"
-msgid "Shaded"
-msgstr "С затенением"
-
-
 msgid "Only selecting lines from shaded regions"
 msgstr "Выбор только тех линий, которые находятся в затенённых областях"
-
-
-msgctxt "GPencil"
-msgid "Illuminated (Enclosed Shapes)"
-msgstr "Освещённые (замкнутые формы)"
 
 
 msgid "Selecting lines from lit regions, and make the combination of contour, light contour and shadow lines into enclosed shapes"
@@ -40616,10 +39888,6 @@ msgid "Camera Object"
 msgstr "Объект-камера"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "Использовать указанный объект-камеру для создания штрихов Line Art"
-
-
 msgid "Generate strokes from the objects in this collection"
 msgstr "Генерировать штрихи из объектов этой коллекции"
 
@@ -40630,10 +39898,6 @@ msgstr "Генерировать штрихи из этого объекта"
 
 msgid "Source Type"
 msgstr "Тип источника"
-
-
-msgid "Line Art stroke source type"
-msgstr "Тип источника штрихов Line Art"
 
 
 msgid "Source Vertex Group"
@@ -40660,24 +39924,12 @@ msgid "Move strokes slightly towards the camera to avoid clipping while preserve
 msgstr "Слегка переместить штрихи в сторону камеры, чтобы избежать обрезки и сохранить глубину вьюпорта"
 
 
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "Слой Grease Pencil, которому назначаются сгенерированные штрихи"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "Материал Grease Pencil, назначаемый сгенерированным штрихам"
-
-
 msgid "Back Face Culling"
 msgstr "Не отображать задние грани"
 
 
 msgid "Remove all back faces to speed up calculation, this will create edges in different occlusion levels than when disabled"
 msgstr "Удалить все задние грани, чтобы ускорить расчёт. Это создаст края на других уровнях окклюзии, чем при отключении этой функции"
-
-
-msgid "Use cached scene data from the first Line Art modifier in the stack. Certain settings will be unavailable."
-msgstr "Использовать кэшированные данные сцены из первого модификатора Line Art в стеке. Некоторые настройки будут недоступны."
 
 
 msgid "Clipping Boundaries"
@@ -40820,10 +40072,6 @@ msgid "Generate strokes from intersections"
 msgstr "Генерировать штрихи из пересечений"
 
 
-msgid "Mask bits to match from Collection Line Art settings"
-msgstr "Маска битов для сопоставления настроек коллекции Line Art"
-
-
 msgid "Match Intersection"
 msgstr "Соответствие пересечению"
 
@@ -40888,10 +40136,6 @@ msgid "Generate strokes from borders between materials"
 msgstr "Генерировать штрихи из границ между материалами"
 
 
-msgid "Mask bits to match from Material Line Art settings"
-msgstr "Маска битов для сопоставления материалов коллекции Line Art"
-
-
 msgid "Match Masks"
 msgstr "Соответствовать маскам"
 
@@ -40910,10 +40154,6 @@ msgstr "Генерировать штрихи из диапазона уровн
 
 msgid "Instanced Objects"
 msgstr "Экземпляры объектов"
-
-
-msgid "Allow particle objects and face/vertex instances to show in Line Art"
-msgstr "Разрешить отображение объектов-частиц и экземпляров граней/вершин в Line Art"
 
 
 msgid "Offset Towards Custom Camera"
@@ -40946,10 +40186,6 @@ msgstr "Проецировать контурные линии с использ
 
 msgid "Vertex group name for selected strokes"
 msgstr "Имя группы вершин для выделенных штрихов"
-
-
-msgid "Grease Pencil Mirror Modifier"
-msgstr "Модификатор Grease Pencil \"Зеркало\""
 
 
 msgid "Object used as center"
@@ -41008,10 +40244,6 @@ msgid "Fade the stroke thickness for each generated stroke"
 msgstr "Спад толщины штриха для каждого сгенерированного штриха"
 
 
-msgid "Grease Pencil Noise Modifier"
-msgstr "Модификатор шума для Grease Pencil"
-
-
 msgid "Noise effect modifier"
 msgstr "Модификатор с эффектом шума"
 
@@ -41056,18 +40288,8 @@ msgid "Where to perform randomization"
 msgstr "Определить, где производить рандомизацию"
 
 
-msgctxt "GPencil"
-msgid "Steps"
-msgstr "Шаги"
-
-
 msgid "Randomize every number of frames"
 msgstr "Рандомизировать номер каждого кадра"
-
-
-msgctxt "GPencil"
-msgid "Keyframes"
-msgstr "Ключевые кадры"
 
 
 msgid "Randomize on keyframes only"
@@ -41076,10 +40298,6 @@ msgstr "Рандомизировать только по ключевым кад
 
 msgid "Noise Seed"
 msgstr "Вариация шума"
-
-
-msgid "Grease Pencil Offset Modifier"
-msgstr "Модификатор для смещения Grease Pencil"
 
 
 msgid "Values for change location"
@@ -41120,10 +40338,6 @@ msgstr "Сместить начальную точку"
 
 msgid "Number of elements that will be grouped"
 msgstr "Количество элементов, которые будут сгруппированы"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "Модификатор непрозрачности Grease Pencil"
 
 
 msgid "Opacity Factor"
@@ -41418,10 +40632,6 @@ msgid "Catmull-Clark"
 msgstr "Кэтмулл-Кларк"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "Модификатор текстуры Grease Pencil"
-
-
 msgid "Transform stroke texture coordinates Modifier"
 msgstr "Трансформировать текстурные координаты штриха с помощью модификатора"
 
@@ -41502,10 +40712,6 @@ msgid "Factor to scale the UVs"
 msgstr "Множитель для масштабирования UV"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "Модификатор толщины Grease Pencil"
-
-
 msgid "Adjust stroke thickness"
 msgstr "Отрегулировать толщину штриха"
 
@@ -41532,10 +40738,6 @@ msgstr "Взвешенно"
 
 msgid "Use weight to modulate effect"
 msgstr "Использовать вес для изменения эффекта"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "Модификатор времени Grease Pencil"
 
 
 msgid "Final frame of the range"
@@ -41596,10 +40798,6 @@ msgstr "Поддерживать цикличность"
 
 msgid "Retiming end frames and move to start of animation to keep loop"
 msgstr "Пересчитать конечные кадры и переходить на начало анимации, чтобы зациклить её"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "Модификатор оттенка Grease Pencil"
 
 
 msgid "Color used for tinting"
@@ -45315,10 +44513,6 @@ msgid "Use Mask"
 msgstr "Использовать маску"
 
 
-msgid "Use a Grease Pencil data-block as a mask to use only specified areas of pattern when tracking"
-msgstr "Использовать датаблок Grease Pencil чтобы задать маску областей шаблонов при отслеживании"
-
-
 msgid "Normalize light intensities while tracking (slower)"
 msgstr "Нормализовать значения интенсивности света при трекинге (медленнее)"
 
@@ -45521,10 +44715,6 @@ msgstr "Данные трека для трекинга видеофрагмен
 
 msgid "Match-moving track data for tracking"
 msgstr "Данные трека восстановления траектории для трекинга"
-
-
-msgid "Annotation data for this track"
-msgstr "Данные, принадлежащие заметкам для этого трека"
 
 
 msgid "Average error of re-projection"
@@ -48093,10 +47283,6 @@ msgid "Instances of objects or collections"
 msgstr "Экземпляры объектов или коллекций"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "Компонент-Grease Pencil, содержащий данные слоёв и кривых"
-
-
 msgid "Volume component containing volume grids"
 msgstr "Компонент-объём, содержащий сетки объёма"
 
@@ -48523,14 +47709,6 @@ msgstr "Сэмплировать каждый сплайн, равномерно
 
 msgid "Sample each spline by splitting it into segments with the specified length"
 msgstr "Сэмплировать каждый сплайн, разбив его на сегменты указанной длины"
-
-
-msgid "Curves to Grease Pencil"
-msgstr "Кривые в Grease Pencil"
-
-
-msgid "Convert the curves in each top-level instance into Grease Pencil layer"
-msgstr "Преобразовать кривые в каждом экземпляре верхнего уровня в слой Grease Pencil"
 
 
 msgid "Geometry Custom Group"
@@ -48969,14 +48147,6 @@ msgid "Use Translation Z"
 msgstr "Использовать смещение по Z"
 
 
-msgid "Grease Pencil to Curves"
-msgstr "Grease Pencil в кривые"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "Преобразовать слои Grease Pencil в экземпляры кривых"
-
-
 msgid "Advect Grid"
 msgstr "Адвекция сетки"
 
@@ -49350,10 +48520,6 @@ msgid "Named Layer Selection"
 msgstr "Выделение названного слоя"
 
 
-msgid "Output a selection of a Grease Pencil layer"
-msgstr "Выводит выделение слоя Grease Pencil"
-
-
 msgid "Retrieve a unit length vector indicating the direction pointing away from the geometry at each element"
 msgstr "Получить вектор единичной длины, указывающий направление от геометрии в каждом элементе"
 
@@ -49552,10 +48718,6 @@ msgstr "Объединить вершины или точки на заданн�
 
 msgid "Merge Layers"
 msgstr "Объединить слои"
-
-
-msgid "Join groups of Grease Pencil layers into one"
-msgstr "Объединить группы слоёв Grease Pencil в один"
 
 
 msgid "Determines how to choose which layers are merged"
@@ -50198,14 +49360,6 @@ msgid "Set the name of a geometry for easier debugging"
 msgstr "Установить имя для геометрии для более лёгкой отладки"
 
 
-msgid "Set Grease Pencil Color"
-msgstr "Установить цвет Grease Pencil"
-
-
-msgid "Set color and opacity attributes on Grease Pencil geometry"
-msgstr "Установить атрибуты цвета и непрозрачности для геометрии Grease Pencil"
-
-
 msgid "Set the color and opacity for the points of the stroke"
 msgstr "Установить цвет и непрозрачность для точек штриха"
 
@@ -50214,24 +49368,8 @@ msgid "Set the color and opacity for the stroke fills"
 msgstr "Установить цвет и непрозрачность для заполнения штрихов"
 
 
-msgid "Set Grease Pencil Depth"
-msgstr "Порядок расположения Grease Pencil"
-
-
-msgid "Set the Grease Pencil depth order to use"
-msgstr "Установить порядок глубины расположения для использования Grease Pencil"
-
-
 msgid "Depth Order"
 msgstr "Порядок расположения"
-
-
-msgid "Set Grease Pencil Softness"
-msgstr "Установить мягкость Grease Pencil"
-
-
-msgid "Set softness attribute on Grease Pencil geometry"
-msgstr "Установить атрибут мягкости для геометрии Grease Pencil"
 
 
 msgid "Set Grid Background"
@@ -54183,10 +53321,6 @@ msgid "Layer Selection"
 msgstr "Выбор слоя"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "В качестве поля выбора используйте слой или группу слоёв Grease Pencil"
-
-
 msgid "Menu Expanded"
 msgstr "Развёрнутое меню"
 
@@ -54546,20 +53680,8 @@ msgid "Collection which defines light linking relation of this emitter"
 msgstr "Коллекция, которая определяет связи световой привязки для этого излучателя"
 
 
-msgid "Object Line Art"
-msgstr "Объект Line Art"
-
-
-msgid "Object Line Art settings"
-msgstr "Настройки объекта Line Art"
-
-
 msgid "Angles smaller than this will be treated as creases"
 msgstr "Углы меньше этого значения будут рассматриваться как складки"
-
-
-msgid "How to use this object in Line Art calculation"
-msgstr "Как использовать этот объект при расчёте Line Art"
 
 
 msgid "Inherit"
@@ -54576,10 +53698,6 @@ msgstr "Сгенерировать линии для данных этого о�
 
 msgid "Only use the object data to produce occlusion"
 msgstr "Использовать только данные объекта для создания окклюзии"
-
-
-msgid "Don't use this object for Line Art rendering"
-msgstr "Не использовать этот объект для рендеринга Line Art"
 
 
 msgid "Include this object but do not generate intersection lines"
@@ -56762,24 +55880,6 @@ msgstr "Обновить список действий"
 msgctxt "Operator"
 msgid "Refresh action list"
 msgstr "Обновить список действий"
-
-
-msgid "Add or remove Grease Pencil brush preset"
-msgstr "Добавить или удалить пресет кисти Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "Добавить предустановку кисти Grease Pencil"
-
-
-msgid "Add or remove Grease Pencil material preset"
-msgstr "Добавить или удалить пресет материала Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Добавить пресет материала Grease Pencil"
 
 
 msgid "Load a preset"
@@ -60720,22 +59820,6 @@ msgid "Place markers across the whole frame"
 msgstr "Помещать маркеры по всему кадру"
 
 
-msgid "Inside Annotated Area"
-msgstr "Внутри области аннотации"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "Размещать маркеры непосредственно внутри областей, обозначенных инструментом \"Аннотации (annotation)\""
-
-
-msgid "Outside Annotated Area"
-msgstr "Вне области аннотации"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "Размещать маркеры непосредственно за пределами областей, обозначенных инструментом \"Аннотации (annotation)\""
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "Пороговый уровень для оценки пригодности элементов для отслеживания"
 
@@ -62628,10 +61712,6 @@ msgstr "Сдвиг ребра"
 
 msgid "Sequence Slide"
 msgstr "Сдвинуть секвенцию"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "Непрозрачность Grease Pencil"
 
 
 msgid "Set type of handles for selected control points"
@@ -65879,15 +64959,6 @@ msgid "Tweak the active gizmo"
 msgstr "Подстроить активный гизмо"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Рисование аннотации"
-
-
-msgid "Make annotations on the active data"
-msgstr "Создать пометки на активных данных"
-
-
 msgid "End Arrow Style"
 msgstr "Стиль окончания стрелки"
 
@@ -65968,10 +65039,6 @@ msgid "Eraser"
 msgstr "Ластик"
 
 
-msgid "Erase Annotation strokes"
-msgstr "Удаление штрихов аннотации"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "Коэфф. стабилизации штриха"
 
@@ -65991,55 +65058,6 @@ msgstr "Ожидать первого нажатия, а не рисовать �
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Удалить активный кадр"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "Удалить активный кадр для активного слоя аннотаций"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "Добавить новую аннотацию"
-
-
-msgid "Add new Annotation data-block"
-msgstr "Добавить новый блок данных аннотации"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Отсоединить аннотацию"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "Отсоединить датаблок аннотации"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Добавить новый слой аннотаций"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "Добавить новый слой аннотаций или заметку для активного блока данных"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Переместить слой аннотаций"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "Переместить активный слой аннотаций вверх/вниз по списку"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Удалить слой аннотаций"
-
-
-msgid "Remove active Annotation layer"
-msgstr "Удалить активный слой аннотаций"
 
 
 msgctxt "Operator"
@@ -66885,25 +65903,12 @@ msgid "Delete Active Frame(s)"
 msgstr "Удалить активный кадр(ы)"
 
 
-msgid "Delete the active Grease Pencil frame(s)"
-msgstr "Удалить активный кадр(ы) Grease Pencil"
-
-
 msgid "Delete all"
 msgstr "Удалить всё"
 
 
 msgid "Delete active keyframes of all layers"
 msgstr "Удалить активные ключевые кадры всех слоёв"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Запечь трансформацию объекта для Grease Pencil"
-
-
-msgid "Bake Grease Pencil object transform to Grease Pencil keyframes"
-msgstr "Запечь трансформацию объекта Grease Pencil в ключевые кадры Grease Pencil"
 
 
 msgid "The end frame of animation"
@@ -66960,15 +65965,6 @@ msgstr "Перепроецировать штрихи, используя ори
 
 msgid "Step between generated frames"
 msgstr "Шаг между сгенерированными кадрами"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Рисовать Grease Pencil"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr "Нарисовать новый штрих в активном объекте Grease Pencil"
 
 
 msgctxt "Operator"
@@ -67101,10 +66097,6 @@ msgid "Copy Strokes"
 msgstr "Копировать штрихи"
 
 
-msgid "Copy the selected Grease Pencil points or strokes to the internal clipboard"
-msgstr "Копировать выделенные точки или штрихи Grease Pencil в буфер обмена"
-
-
 msgctxt "Operator"
 msgid "Set Cyclical State"
 msgstr "Установить замкнутость"
@@ -67163,21 +66155,9 @@ msgid "Delete Breakdown Frames"
 msgstr "Удалить кадры распределения"
 
 
-msgid "Remove breakdown frames generated by interpolating between two Grease Pencil frames"
-msgstr "Удалить кадры разбивки, полученные путём интерполяции между двумя кадрами Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Delete Frame"
 msgstr "Удалить кадр"
-
-
-msgid "Delete Grease Pencil Frame(s)"
-msgstr "Удалить кадр(ы) Grease Pencil"
-
-
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "Метод, используемый для удаления кадров Grease Pencil"
 
 
 msgid "Deletes current frame in the active layer"
@@ -67201,11 +66181,6 @@ msgid "Delete selected points without splitting strokes"
 msgstr "Удалить выделенные точки без разделения штрихов"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Тип"
-
-
 msgid "Method used for dissolving stroke points"
 msgstr "Метод, используемый для растворения точек штриха"
 
@@ -67214,18 +66189,8 @@ msgid "Dissolve selected points"
 msgstr "Растворить выделенные точки"
 
 
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "Растворить между"
-
-
 msgid "Dissolve points between selected points"
 msgstr "Растворить точки между выделенными точками"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "Растворить невыделенное"
 
 
 msgid "Dissolve all unselected points"
@@ -67241,22 +66206,8 @@ msgid "Duplicate Strokes"
 msgstr "Дублировать штрихи"
 
 
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "Создать копии выделенных штрихов Grease Pencil и переместить их"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Erase"
-msgstr "Ластик-рамка для Grease Pencil"
-
-
 msgid "Erase points in the box region"
 msgstr "Стереть точки в области рамки"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Erase Lasso"
-msgstr "Ластик-лассо для Grease Pencil"
 
 
 msgid "Erase points in the lasso region"
@@ -67278,11 +66229,6 @@ msgstr "Экструдировать выделенные точки и пере
 
 msgid "Extrude Stroke Points"
 msgstr "Экструдировать точки штрихов"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "Заливка Grease Pencil"
 
 
 msgid "Fill with color the shape formed by strokes"
@@ -67315,10 +66261,6 @@ msgid "Duplicate Active Frame(s)"
 msgstr "Дублировать активный кадр(ы)"
 
 
-msgid "Make a copy of the active Grease Pencil frame(s)"
-msgstr "Копировать активный кадр(ы) Grease Pencil"
-
-
 msgid "Duplicate all"
 msgstr "Дублировать всё"
 
@@ -67338,15 +66280,6 @@ msgstr "Вставить пустой кадр в текущий кадр сце
 
 msgid "Insert a blank frame in all editable layers"
 msgstr "Вставить пустой кадр во все редактируемые слои"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Интерполяция Grease Pencil"
-
-
-msgid "Interpolate Grease Pencil strokes between frames"
-msgstr "Интерполировать штрихи Grease Pencil между кадрами"
 
 
 msgid "Exclude Breakdowns"
@@ -67394,44 +66327,6 @@ msgid "Interpolate Sequence"
 msgstr "Интерполировать секвенцию"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "Создать промежуточные кадры для плавной интерполяции между кадрами Grease Pencil"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "Сзади"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "Ослабление"
-
-
-msgid "Which ends of the segment between the preceding and following Grease Pencil frames easing interpolation is applied to"
-msgstr "К какому концу применять сглаживающую интерполяцию между предшествующим и последующим кадром Grease Pencil"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "Автоматическое ослабление"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "Вход"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "Выход"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "Вхождение и выхождение"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "Количество кадров между сгенерированными интерполированными кадрами"
 
@@ -67440,63 +66335,8 @@ msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "Метод интерполяции, который будет использоваться при следующей интерполяции последовательности"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "Линейная"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Пользовательская"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "Определить особую интерполяцию с помощью кривой"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "Синусоидальное"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "Квадратичное"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "Кубическая"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "Четвёртой степени"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Пятой степени"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "Экспоненциальное"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "Круговое"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "Отскоки"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "Эластичность"
 
 
 msgctxt "Operator"
@@ -67546,17 +66386,9 @@ msgid "Set Active Layer"
 msgstr "Установить активный слой"
 
 
-msgid "Set the active Grease Pencil layer"
-msgstr "Установить активный слой Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "Добавить новый слой"
-
-
-msgid "Add a new Grease Pencil layer in the active object"
-msgstr "Добавить новый слой Grease Pencil для активного объекта"
 
 
 msgid "Name of the new layer"
@@ -67566,10 +66398,6 @@ msgstr "Имя нового слоя"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "Дублировать слой"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Создать копию активного слоя Grease Pencil"
 
 
 msgid "Empty Keyframes"
@@ -67585,10 +66413,6 @@ msgid "Duplicate Layer to New Object"
 msgstr "Дублировать слой в новый объект"
 
 
-msgid "Make a copy of the active Grease Pencil layer to selected object"
-msgstr "Копировать активный слой Grease Pencil для выделенного объекта"
-
-
 msgid "All Frames"
 msgstr "Все кадры"
 
@@ -67602,17 +66426,8 @@ msgid "Add New Layer Group"
 msgstr "Добавить новую группу слоёв"
 
 
-msgid "Add a new Grease Pencil layer group in the active object"
-msgstr "Добавить новую группу слоёв Grease Pencil для активного объекта"
-
-
 msgid "Name of the new layer group"
 msgstr "Имя новой группы слоёв"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Group Color Tag"
-msgstr "Цветовой тег группы Grease Pencil"
 
 
 msgid "Change layer group icon"
@@ -67628,10 +66443,6 @@ msgid "Remove Layer Group"
 msgstr "Удалить группу слоёв"
 
 
-msgid "Remove Grease Pencil layer group in the active object"
-msgstr "Удалить группу слоёв Grease Pencil в активном объекте"
-
-
 msgid "Keep children nodes"
 msgstr "Сохранять дочерние ноды"
 
@@ -67643,10 +66454,6 @@ msgstr "Сохранить дочерние ноды группы и удали�
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "Скрыть слои"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "Скрыть выделенные/невыделенные слои Grease Pencil"
 
 
 msgid "Hide unselected rather than selected layers"
@@ -67673,10 +66480,6 @@ msgstr "Также влиять и на видимость"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "Заблокировать все слои"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "Заблокировать все слои Grease Pencil для защиты от случайного изменения"
 
 
 msgid "Lock Value"
@@ -67710,15 +66513,6 @@ msgstr "Удалить маску слоя"
 
 
 msgctxt "Operator"
-msgid "Reorder Grease Pencil Layer Mask"
-msgstr "Переставить слой маски Grease Pencil"
-
-
-msgid "Reorder the active Grease Pencil mask layer up/down in the list"
-msgstr "Переставить активный слой маски Grease Pencil вверх или вниз по списку"
-
-
-msgctxt "Operator"
 msgid "Merge"
 msgstr "Объединить"
 
@@ -67744,17 +66538,9 @@ msgid "Reorder Layer"
 msgstr "Переставить слой"
 
 
-msgid "Move the active Grease Pencil layer or Group"
-msgstr "Переместить активный слой или группу Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Remove Layer"
 msgstr "Удалить слой"
-
-
-msgid "Remove the active Grease Pencil layer"
-msgstr "Удалить активный слой Grease Pencil"
 
 
 msgctxt "Operator"
@@ -67762,17 +66548,9 @@ msgid "Show All Layers"
 msgstr "Показать все слои"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "Показать все слои Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Copy Materials to Selected Object"
 msgstr "Скопировать материал на выделенный объект"
-
-
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "Добавить материалы активного Grease Pencil к другому объекту"
 
 
 msgid "Append only active material, uncheck to append all materials"
@@ -67782,10 +66560,6 @@ msgstr "Добавить только активный материал, сни�
 msgctxt "Operator"
 msgid "Hide Materials"
 msgstr "Скрыть материалы"
-
-
-msgid "Hide active/inactive Grease Pencil material(s)"
-msgstr "Скрыть активный(-е)/неактивный(-е) материал(ы) Grease Pencil"
 
 
 msgid "Hide inactive materials instead of the active one"
@@ -67808,10 +66582,6 @@ msgstr "В дополнение к переключению редактируе
 msgctxt "Operator"
 msgid "Lock All Materials"
 msgstr "Заблокировать все материалы"
-
-
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "Заблокировать все материалы Grease Pencil, чтобы защитить их от случайного изменения"
 
 
 msgctxt "Operator"
@@ -67837,17 +66607,9 @@ msgid "Show All Materials"
 msgstr "Показать все материалы"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "Показать все скрытые материалы Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "Выделить материал"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "Выделить/снять выделение всех штрихов Grease Pencil, использующих текущий материал"
 
 
 msgid "Unselect strokes"
@@ -67857,10 +66619,6 @@ msgstr "Снять выделение со штрихов"
 msgctxt "Operator"
 msgid "Unlock All Materials"
 msgstr "Разблокировать все материалы"
-
-
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "Разблокировать все материалы Grease Pencil, чтобы их можно было редактировать"
 
 
 msgctxt "Operator"
@@ -67888,10 +66646,6 @@ msgid "Group to add the new layer to"
 msgstr "Группа, в которую следует добавить новый слой"
 
 
-msgid "Target Grease Pencil Layer"
-msgstr "Целевой слой Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Outline"
 msgstr "Обводка"
@@ -67914,10 +66668,6 @@ msgid "Strokes Paint Mode Toggle"
 msgstr "Переключить режим рисования штрихов"
 
 
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "Войти/выйти из режима рисования штрихов Grease Pencil"
-
-
 msgid "Return to Previous Mode"
 msgstr "Вернуться в предыдущий режим"
 
@@ -67929,10 +66679,6 @@ msgstr "Вернуться в предыдущий режим"
 msgctxt "Operator"
 msgid "Paste Strokes"
 msgstr "Вставить штрихи"
-
-
-msgid "Paste Grease Pencil points or strokes from the internal clipboard to the active layer"
-msgstr "Вставить точки или штрихи Grease Pencil из буфера обмена в активный слой"
 
 
 msgid "Keep World Transform"
@@ -67959,20 +66705,6 @@ msgid "Paste by Layer"
 msgstr "Вставить по слою"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Pen"
-msgstr "Карандаш Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Arc Shape"
-msgstr "Форма дуги Grease Pencil"
-
-
-msgid "Create predefined Grease Pencil stroke arcs"
-msgstr "Создать предустановленные штриховые дуги Grease Pencil"
-
-
 msgid "Number of subdivisions per segment"
 msgstr "Количество подразделений на сегмент"
 
@@ -67983,51 +66715,6 @@ msgstr "Тип формы"
 
 msgid "Polyline"
 msgstr "Полилиния"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "Grease Pencil - Прямоугольная форма"
-
-
-msgid "Create predefined Grease Pencil stroke boxes"
-msgstr "Создать предопределённые прямоугольные штрихи Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "Grease Pencil - Форма окружности"
-
-
-msgid "Create predefined Grease Pencil stroke circles"
-msgstr "Создать предопределённые штрихи-окружности Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "Форма кривой Grease Pencil"
-
-
-msgid "Create predefined Grease Pencil stroke curve shapes"
-msgstr "Создать предопределённую форма кривой штриха Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "Grease Pencil - Форма линии"
-
-
-msgid "Create predefined Grease Pencil stroke lines"
-msgstr "Создать предопределённые линии штриха Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "Grease Pencil - Форма полилинии"
-
-
-msgid "Create predefined Grease Pencil stroke polylines"
-msgstr "Создать предопределённые полилинии штриха Grease Pencil"
 
 
 msgid "Which relative layer (above or below) to use as a mask"
@@ -68103,21 +66790,8 @@ msgstr "Сбросить UV-трансформации к значениям п�
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "Скульптинг Grease Pencil"
-
-
-msgid "Sculpt strokes in the active Grease Pencil object"
-msgstr "Рисовать штрихи в активном объекте Grease Pencil"
-
-
-msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "Переключить режим скульптинга штрихов"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "Войти/выйти из режима скульптинга штрихов Grease Pencil"
 
 
 msgctxt "Operator"
@@ -68198,10 +66872,6 @@ msgstr "Выделить случайные точки из текущего в�
 
 msgid "Select all strokes with similar characteristics"
 msgstr "Выделить все штрихи со схожими характеристиками"
-
-
-msgid "Separate the selected geometry into a new Grease Pencil object"
-msgstr "Отделить выделенную геометрию для нового объекта Grease Pencil"
 
 
 msgid "Separate selected geometry"
@@ -68287,10 +66957,6 @@ msgstr "Установить активный материал"
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "Режим выделения"
-
-
-msgid "Change the selection mode for Grease Pencil strokes"
-msgstr "Изменить режим выделения для штрихов Grease Pencil"
 
 
 msgid "Select only points"
@@ -68488,11 +67154,6 @@ msgid "Change direction of the points of the selected strokes"
 msgstr "Поменять направление точек выделенных штрихов"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "Обрезать Grease Pencil"
-
-
 msgid "Delete stroke points in between intersecting strokes"
 msgstr "Удалить точки штрихов на месте их пересечения"
 
@@ -68526,15 +67187,6 @@ msgid "Y Start"
 msgstr "Y-Начало"
 
 
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "Трассировка изображения в Grease Pencil"
-
-
-msgid "Extract Grease Pencil strokes from image"
-msgstr "Извлечь штрихи Grease Pencil из изображения"
-
-
 msgid "Trace Frame"
 msgstr "Кадр трассировки"
 
@@ -68553,10 +67205,6 @@ msgstr "Трассировка текущего кадра изображени�
 
 msgid "Trace full sequence"
 msgstr "Трассировка всей секвенции"
-
-
-msgid "Target Grease Pencil"
-msgstr "Целевой Grease Pencil"
 
 
 msgid "New Object"
@@ -68629,15 +67277,6 @@ msgstr "Начать с текущего кадра"
 
 msgid "Trace Image starting in current image frame"
 msgstr "Трассировка изображения, начиная с текущего кадра изображения"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "Grease Pencil - рисование точек"
-
-
-msgid "Draw on vertex colors in the active Grease Pencil object"
-msgstr "Рисовать по цветам точек в активном объекте Grease Pencil"
 
 
 msgctxt "Operator"
@@ -68733,19 +67372,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "Переключение режима вершин штрихов"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "Вход/выход из режима рисования точек для штрихов Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "Рисование весов с Grease Pencil"
-
-
-msgid "Draw weight on stroke points in the active Grease Pencil object"
-msgstr "Нарисовать вес на точках штриха в активном объекте Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Invert Weight"
 msgstr "Инвертировать вес"
@@ -68776,10 +67402,6 @@ msgstr "Переключить \"Добавление/Вычитание\" дл�
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "Переключить на режим покраски весов штрихов"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "Войти/выйти в режим покраски весов Grease Pencil"
 
 
 msgctxt "Operator"
@@ -75975,10 +74597,6 @@ msgid "Curves from evaluated curve data"
 msgstr "Кривые из оценённых данных кривых"
 
 
-msgid "Grease Pencil from Curve or Mesh objects"
-msgstr "Grease Pencil из кривых или мешей"
-
-
 msgid "Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices"
 msgstr "Копирует матрицу текущего активного объекта или кости позы в буфер обмена. Использует матрицы мирового пространства"
 
@@ -76354,23 +74972,6 @@ msgstr "Влияет на все выделенные объекты, а не т
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Добавить Grease Pencil"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "Добавить объект Grease Pencil в сцену"
-
-
-msgid "Stroke offset for the Line Art modifier"
-msgstr "Смещение штрихов для модификатора Line Art"
-
-
-msgid "Display strokes using Grease Pencil layers to define order"
-msgstr "Отображать штрихи используя слои Grease Pencil, чтобы определить их порядок наложения"
-
-
-msgctxt "Operator"
 msgid "Type"
 msgstr "Тип"
 
@@ -76378,10 +74979,6 @@ msgstr "Тип"
 msgctxt "Operator"
 msgid "Blank"
 msgstr "Пустое"
-
-
-msgid "Create an empty Grease Pencil object"
-msgstr "Создать пустой объект Grease Pencil"
 
 
 msgctxt "Operator"
@@ -76398,47 +74995,8 @@ msgid "Monkey"
 msgstr "Обезьянка"
 
 
-msgid "Construct a Suzanne Grease Pencil object"
-msgstr "Создать объект Grease Pencil с Сюзанной"
-
-
-msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "Line Art для сцены"
-
-
-msgid "Quickly set up Line Art for the entire scene"
-msgstr "Быстрая настройка Line Art для всей сцены"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "Line Art для коллекции"
-
-
-msgid "Quickly set up Line Art for the active collection"
-msgstr "Быстрая настройка Line Art для активной коллекции"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "Line Art для объекта"
-
-
-msgid "Quickly set up Line Art for the active object"
-msgstr "Быстрая настройка Line Art для активного объекта"
-
-
 msgid "Show In Front"
 msgstr "Отображать спереди"
-
-
-msgid "Show Line Art Grease Pencil in front of everything"
-msgstr "Отображать Line Art Grease Pencil на переднем плане"
-
-
-msgid "Use lights for this Grease Pencil object"
-msgstr "Использовать источники освещения для этого объекта Grease Pencil"
 
 
 msgctxt "Operator"
@@ -76846,34 +75404,8 @@ msgid "Only delete the active light probe's baked lighting data"
 msgstr "Удалить только запечённые данные освещения активного светового зонда"
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "Запечь Line Art"
-
-
-msgid "Bake Line Art for current Grease Pencil object"
-msgstr "Запечь Line Art для текущего объекта Grease Pencil"
-
-
 msgid "Bake All"
 msgstr "Запечь всё"
-
-
-msgid "Bake all Line Art modifiers"
-msgstr "Запечь все модификаторы Line Art"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "Удалить запечённый Line Art"
-
-
-msgid "Clear all strokes in current Grease Pencil object"
-msgstr "Очистить все штрихи в текущем объекте Grease Pencil"
-
-
-msgid "Clear all Line Art modifier bakes"
-msgstr "Очистить все запекания модификаторов Line Art"
 
 
 msgid "Link objects to a collection"
@@ -76984,14 +75516,6 @@ msgstr "Копировать ограничители"
 
 msgid "Replace Constraints"
 msgstr "Заменить ограничители"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Копировать эффекты Grease Pencil"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "Заменить эффекты Grease Pencil"
 
 
 msgid "Copy Light Linking"
@@ -77229,10 +75753,6 @@ msgstr "Применить модификатор и удалить из сте�
 
 msgid "Apply to all keyframes"
 msgstr "Применить ко всем ключевым кадрам"
-
-
-msgid "For Grease Pencil objects, apply the modifier to all the keyframes"
-msgstr "Для объектов Grease Pencil, - применить модификатор ко всем ключевым кадрам"
 
 
 msgid "For mesh objects, merge UV coordinates that share a vertex to account for imprecision in some modifiers"
@@ -78288,10 +76808,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "Дублировать эффект в той же позиции в стеке"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "Название shaderfx для редактирования"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "Переместить эффект вниз"
@@ -78321,15 +76837,6 @@ msgstr "Переместить эффект вверх"
 
 msgid "Move effect up in the stack"
 msgstr "Переместить эффект вверх в стеке"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "Удалить эффект Grease Pencil"
-
-
-msgid "Remove a effect from the active Grease Pencil object"
-msgstr "Удалить эффект из активного объекта Grease Pencil"
 
 
 msgctxt "Operator"
@@ -87337,14 +85844,6 @@ msgid "Force using this center value (when set)"
 msgstr "Использовать это значение центра (если установлено)"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Редактировать Grease Pencil"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Редактировать выделенные штрихи Grease Pencil"
-
-
 msgid "Use Snapping Options"
 msgstr "Использовать настройки привязки"
 
@@ -88052,20 +86551,6 @@ msgstr "Создать позже вручную (одиночный)"
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "Создать драйвер только для этого свойства без назначения целей"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "Пипетка для Grease Pencil"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "Взять образец цвета из окна Blender'а и создать материал Grease Pencil"
-
-
-msgctxt "GPencil"
-msgid "Material Mode"
-msgstr "Режим материала"
 
 
 msgctxt "Operator"
@@ -90981,11 +89466,6 @@ msgstr "Диски"
 
 
 msgctxt "ID"
-msgid "Grease Pencils"
-msgstr "Объекты Grease Pencil"
-
-
-msgctxt "ID"
 msgid "Armatures"
 msgstr "Арматуры"
 
@@ -91271,10 +89751,6 @@ msgid "Export to PDF"
 msgstr "Экспорт в PDF"
 
 
-msgid "Export Grease Pencil to PDF"
-msgstr "Экспортировать Grease Pencil в PDF"
-
-
 msgid "Which frames to include in the export"
 msgstr "Какие кадры следует включить в экспорт"
 
@@ -91328,25 +89804,12 @@ msgid "Export to SVG"
 msgstr "Экспорт в SVG"
 
 
-msgid "Export Grease Pencil to SVG"
-msgstr "Экспортировать Grease Pencil в SVG"
-
-
 msgid "Clip Camera"
 msgstr "Обрезать по камере"
 
 
 msgid "Clip drawings to camera size when exporting in camera view"
 msgstr "Обрезать рисунки по размеру камеры при экспорте в режиме просмотра с камеры"
-
-
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "Импортировать SVG как Grease Pencil"
-
-
-msgid "Import SVG into Grease Pencil"
-msgstr "Импорт SVG в Grease Pencil"
 
 
 msgid "Center on Bounds"
@@ -93955,10 +92418,6 @@ msgid "Curves Sculpt Paint"
 msgstr "Скульптинг кривых - Рисовать"
 
 
-msgid "Grease Pencil Paint"
-msgstr "Рисование Grease Pencil"
-
-
 msgid "Paint Mode"
 msgstr "Режим рисования"
 
@@ -93969,10 +92428,6 @@ msgstr "Окрашивание с использованием базового 
 
 msgid "Paint the material with a color attribute"
 msgstr "Покрасить материал с помощью атрибута цвета"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "Скульптинг Grease Pencil - Рисовать"
 
 
 msgid "Image Paint"
@@ -94429,10 +92884,6 @@ msgstr "Расположение штрихов"
 
 msgid "Drawing Plane"
 msgstr "Плоскость рисования"
-
-
-msgid "Grease Pencil Options"
-msgstr "Опции Grease Pencil"
 
 
 msgid "Quad View"
@@ -94910,26 +93361,6 @@ msgstr "Показать цветовые характеристики в выд
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Аннотации"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Линия аннотации"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Многоугольник аннотации"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Ластик аннотаций"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "Подстройка"
 
@@ -95026,10 +93457,6 @@ msgstr "Настройки материалов"
 
 msgid "Material Presets"
 msgstr "Пресеты материалов"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "Слоты материалов Grease Pencil"
 
 
 msgid "Backdrop"
@@ -97609,32 +96036,12 @@ msgid "The opacity of unselected F-Curves against the background of the Graph Ed
 msgstr "Непрозрачность невыделенных F-кривых на фоне редактора графов"
 
 
-msgid "Annotation Default Color"
-msgstr "Цвет аннотаций по умолчанию"
-
-
-msgid "Color of new annotation layers"
-msgstr "Цвет новых слоёв аннотаций"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "Радиус ластика Grease Pencil"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "Радиус «кисти» ластика"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Евклидово расстояние Grease Pencil"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "Минимальное перемещение курсора, принимаемое в качестве штриха"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Манхэттенское расстояние Grease Pencil"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -97824,14 +96231,6 @@ msgstr "Дублировать кривые"
 
 msgid "Causes curves data to be duplicated with the object"
 msgstr "Дублировать данные кривых с объектом"
-
-
-msgid "Duplicate Grease Pencil"
-msgstr "Дублировать Grease Pencil"
-
-
-msgid "Causes Grease Pencil data to be duplicated with the object"
-msgstr "Производит дублирование данных Grease Pencil вместе с объектом"
 
 
 msgid "Duplicate Lattice"
@@ -104431,10 +102830,6 @@ msgid "Render Ambient Occlusion in this Layer"
 msgstr "Выполнять рендеринг окружающей окклюзии для этого слоя"
 
 
-msgid "Render Grease Pencil on this layer"
-msgstr "Обработать этот слой с Grease Pencil"
-
-
 msgid "Render motion blur in this Layer, if enabled in the scene"
 msgstr "Рендер размытия движений на этом слое, если оно включено в сцене"
 
@@ -105032,10 +103427,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "Общий процент частиц-потомков во время рендера"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "Упростить рисунки Grease Pencil"
-
-
 msgid "Antialiasing"
 msgstr "Сглаживание"
 
@@ -105050,10 +103441,6 @@ msgstr "Отображать модификаторы"
 
 msgid "Playback Only"
 msgstr "Только воспроизведение"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "Упростить Grease Pencil только по время воспроизведения анимации"
 
 
 msgid "Display Shader Effects"
@@ -106768,10 +105155,6 @@ msgid "Control the quality of the volumetric effects. Higher resolution uses mor
 msgstr "Контролировать качество объёмных эффектов. Более высокие разрешения используют больше памяти."
 
 
-msgid "Grease Pencil Render"
-msgstr "Рендеринг Grease Pencil"
-
-
 msgid "Render settings"
 msgstr "Настройки рендеринга"
 
@@ -106802,10 +105185,6 @@ msgstr "Порог для алгоритма обнаружения краёв (
 
 msgid "Motion Blur Steps"
 msgstr "Шаги размытия движения"
-
-
-msgid "Controls accuracy of motion blur, more steps result in longer render time. Only used when Motion Blur is enabled. Set to 0 to disable motion blur for Grease Pencil"
-msgstr "Управляет точностью размытия движения. Бо́льшее количество шагов приводит к увеличению времени рендеринга. Используется только при включённом размытии движения. Установите значение \"0\", чтобы отключить размытие движения для Grease Pencil"
 
 
 msgid "Scene Hydra"
@@ -107127,14 +105506,6 @@ msgid "Preview Overlay Settings"
 msgstr "Настройки превью наложения"
 
 
-msgid "Show Annotation"
-msgstr "Показывать аннотации"
-
-
-msgid "Show annotations for this view"
-msgstr "Отображать аннотации для этого вида"
-
-
 msgid "Display center composition guide"
 msgstr "Показать центральные композиционные линии"
 
@@ -107447,10 +105818,6 @@ msgid "Snap current frame to strip start or end"
 msgstr "Привязка текущего кадра к началу или концу дорожки"
 
 
-msgid "Effect affecting the Grease Pencil object"
-msgstr "Эффект влияющий на объект Grease Pencil"
-
-
 msgid "Effect name"
 msgstr "Название эффекта"
 
@@ -107717,11 +106084,6 @@ msgstr "Использовать объект"
 
 msgid "Use object as center of rotation"
 msgstr "Использовать объект как центр вращения"
-
-
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "Волна"
 
 
 msgid "Use wave effect"
@@ -108188,23 +106550,6 @@ msgid "Clip editor space data"
 msgstr "Данные пространства редактора клипов"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Источник аннотации"
-
-
-msgid "Where the annotation comes from"
-msgstr "Откуда взята аннотация"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "Показывать заметки, которые принадлежат видеофрагменту"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "Показывать заметки, которые принадлежат активному треку"
-
-
 msgid "Blending Factor"
 msgstr "Коэффициент смешивания"
 
@@ -108640,10 +106985,6 @@ msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "Редактировать ключевые кадры активного объекта для действия на ключах формы"
 
 
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "Редактировать тайминги для всех эскизов Grease Pencil в файле"
-
-
 msgid "Edit timings for Mask Editor splines"
 msgstr "Редактировать тайминги для сплайнов редактора масок"
 
@@ -108926,10 +107267,6 @@ msgstr "Пространство редактора изображений"
 
 msgid "Image and UV editor space data"
 msgstr "Данные пространства редактора изображений и UV"
-
-
-msgid "Annotation data for this space"
-msgstr "Данные, принадлежащие заметкам для этого пространства"
 
 
 msgid "Display Channels"
@@ -109571,14 +107908,6 @@ msgid "Show empty objects"
 msgstr "Показывать объекты-пустышки"
 
 
-msgid "Show Grease Pencil"
-msgstr "Отображать Grease Pencil"
-
-
-msgid "Show Grease Pencil objects"
-msgstr "Показать объекты Grease Pencil"
-
-
 msgid "Show Lights"
 msgstr "Показывать источники света"
 
@@ -109851,10 +108180,6 @@ msgstr "Пространство редактора последовательн
 
 msgid "Sequence editor space data"
 msgstr "Данные пространства редактора последовательности"
-
-
-msgid "Annotation data for this Preview region"
-msgstr "Данные, принадлежащие заметкам для этой области предпросмотра"
 
 
 msgid "Display Channel"
@@ -110461,10 +108786,6 @@ msgid "Allow selection of text objects"
 msgstr "Разрешить выделение текстовых объектов"
 
 
-msgid "Allow selection of Grease Pencil objects"
-msgstr "Разрешить выделение объектов Grease Pencil"
-
-
 msgid "Allow selection of lattices"
 msgstr "Разрешить выделение решёток"
 
@@ -110667,10 +108988,6 @@ msgstr "Использовать область в пределах размер
 
 msgid "Display 2D cursor"
 msgstr "Отображать 2D-курсор"
-
-
-msgid "Display overlays like cursor and annotations"
-msgstr "Показывать наложения, например: курсор и аннотации"
 
 
 msgid "Display overlays"
@@ -111244,10 +109561,6 @@ msgstr "Таблица, содержащая геометрические дан
 
 msgid "Layer Index"
 msgstr "Индекс слоя"
-
-
-msgid "Index of the Grease Pencil layer"
-msgstr "Индекс слоя Grease Pencil"
 
 
 msgid "Path to the data that is displayed"
@@ -112176,14 +110489,6 @@ msgstr "Использовать 3D-камеру сцены в качестве 
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "Использовать временную шкалу секвенсора сцены в качестве входа"
-
-
-msgid "Use Annotations"
-msgstr "Использовать аннотации"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "Показывать аннотации в превью OpenGL"
 
 
 msgid "View Layer of the scene to render (uses the default if unset)"
@@ -114958,26 +113263,6 @@ msgid "Face Retopology"
 msgstr "Ретопология граней"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Точка Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Выделенная точка Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Размер точки Grease Pencil"
-
-
-msgid "Grease Pencil Wire Edit"
-msgstr "Проволока Grease Pencil в реж. редактирования"
-
-
-msgid "Grease Pencil wireframe color when in edit mode"
-msgstr "Цвет проволоки штриха Grease Pencil в режиме редактирования"
-
-
 msgid "Grid Axis Brightness"
 msgstr "Яркость осей сетки"
 
@@ -115024,14 +113309,6 @@ msgstr "Выделенный объект"
 
 msgid "Skin Root"
 msgstr "Корень оболочки"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "Ключевой кадр Grease Pencil"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "Цвет ключевых кадров Grease Pencil"
 
 
 msgid "Vertex Group Unreferenced"
@@ -115226,24 +113503,12 @@ msgid "Stick stroke to the view"
 msgstr "Наложить штрихи на вид"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "Расположение аннотаций (3D-вид)"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "Расположение штрихов аннотаций в 3D-пространстве"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "Рисовать штрихи в позиции 3D-курсора"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "Наложить штрихи на поверхности"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "Толщина линий аннотаций"
 
 
 msgid "Auto-Keying Mode"
@@ -115272,18 +113537,6 @@ msgstr "Используется для определения пути проф
 
 msgid "Threshold distance for Auto Merge"
 msgstr "Пороговое расстояние для автообъединения"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "Интерполяция Grease Pencil"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Скульптинг Grease Pencil"
-
-
-msgid "Settings for stroke sculpting tools and brushes"
-msgstr "Свойства инструмента скульптинга штрихов Grease Pencil"
 
 
 msgid "Select Mode"
@@ -116670,10 +114923,6 @@ msgid "Strength of the fade effect"
 msgstr "Интенсивность эффекта исчезновения"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "Ослабить видимость слоёв Grease Pencil, за исключением активного"
-
-
 msgid "Fade factor"
 msgstr "Коэфф. затухания"
 
@@ -117184,20 +115433,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "Показывать линии редактирования при редактировании штрихов"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "Приглушить объекты Grease Pencil"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "Приглушить все объекты Grease Pencil, кроме активного"
-
-
 msgid "Fade Layers"
 msgstr "Приглушить слои"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "Переключатель, включающий приглушение всех слоёв Grease Pencil, кроме активного"
 
 
 msgid "Fade Objects"
@@ -117210,10 +115447,6 @@ msgstr "Приглушить все объекты вьюпорта с полу�
 
 msgid "Use Grid"
 msgstr "Использовать сетку"
-
-
-msgid "Display a grid over Grease Pencil paper"
-msgstr "Отображать сетку поверх бумаги Grease Pencil"
 
 
 msgid "Lines Only"
@@ -117876,10 +116109,6 @@ msgstr "Объект Cryptomatte"
 
 msgid "Render cryptomatte object pass, for isolating objects in compositing"
 msgstr "Рендерить проход объекта Cryptomatte, изолирующий объекты при компо́зитинге"
-
-
-msgid "Deliver Grease Pencil render result in a separate pass"
-msgstr "Доставить результат рендеринга Grease Pencil в отдельном проходе"
 
 
 msgid "World Override"
@@ -119736,46 +117965,6 @@ msgstr "Инструмент 3D-вида: Трансформировать (до
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "Общий инструмент: Аннотации"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "Общий инструмент: Аннотации (доп. вариант)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "Общий инструмент: Линия аннотации"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "Общий инструмент: Линия аннотации (доп. вариант)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "Общий инструмент: Многоугольник аннотации"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "Общий инструмент: Многоугольник аннотации (доп. вариант)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "Общий инструмент: Ластик аннотаций"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "Общий инструмент: Ластик аннотаций (доп. вариант)"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "Инструмент 3D-вида: Измерить"
 
@@ -120218,11 +118407,6 @@ msgstr "Инструмент 3D-вида: Редактировать текст,
 msgctxt "WindowManager"
 msgid "3D View Tool: Edit Text, Select Text (fallback)"
 msgstr "Инструмент 3D-вида: Редактировать текст, Выделить текст (доп. вариант)"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "WindowManager"
@@ -121915,41 +120099,6 @@ msgstr "Редактор графов видеофрагментов"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "Редактор экспозиционного листа видеофрагмента"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Draw Mode"
-msgstr "Режим рисования Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "Штрих кисти Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "Режим редактирования Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Режим скульптинга Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "Рисование весов Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "Рисование точками Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Fill Tool"
-msgstr "Инструмент заливки Grease Pencil"
 
 
 msgctxt "WindowManager"
@@ -126118,10 +124267,6 @@ msgid "Volume(s)"
 msgstr "Объём(ы)"
 
 
-msgid "Grease Pencil(s)"
-msgstr "Grease Pencil(s)"
-
-
 msgid "Armature(s)"
 msgstr "Арматура(-ы)"
 
@@ -127100,10 +125245,6 @@ msgstr "Отображать курсор"
 
 msgid "Data Source:"
 msgstr "Источник данных:"
-
-
-msgid "No annotation source"
-msgstr "Нет источника аннотации"
 
 
 msgctxt "Operator"
@@ -128929,10 +127070,6 @@ msgstr "Режим ослабления"
 msgctxt "Operator"
 msgid "Discontinuity (Euler) Filter"
 msgstr "Удаление отсутствия непрерывности (фильтр Эйлера)"
-
-
-msgid "Grease Pencil Objects"
-msgstr "Объекты Grease Pencil"
 
 
 msgctxt "Operator"
@@ -130773,10 +128910,6 @@ msgstr ""
 " • Shift при перетаскивании для измерения толщины поверхности"
 
 
-msgid "Annotation:"
-msgstr "Аннотация:"
-
-
 msgid ""
 "Use multiple operators in an interactive way to add, delete, or move geometry\n"
 " • {:s} - Add geometry by moving the cursor close to an element\n"
@@ -130983,11 +129116,6 @@ msgstr "Universal Scene Description (.usd*)"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVG как Grease Pencil"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "Wavefront (.obj)"
 
@@ -131032,16 +129160,6 @@ msgstr "Нет активного элемента"
 
 msgid "No active marker"
 msgstr "Нет активного маркера"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "Grease Pencil как SVG"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "Grease Pencil как PDF"
 
 
 msgctxt "Operator"
@@ -131981,11 +130099,6 @@ msgstr "Плоскость-меш..."
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "Запечь действие…"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "Запечь трансформацию объекта для Grease Pencil..."
 
 
 msgctxt "Operator"
@@ -133711,22 +131824,6 @@ msgid "No object selected, using cursor"
 msgstr "Нет выделенного объекта, используется курсор"
 
 
-msgid "Draw Grease Pencil"
-msgstr "Рисовать Grease Pencil"
-
-
-msgid "Weight Grease Pencil"
-msgstr "Вес Grease Pencil"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "Скульптинг Grease Pencil"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "Точка Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "Отрегулировать мощность освещения"
@@ -133920,11 +132017,6 @@ msgstr "Позиции корней"
 
 msgid "Path Steps"
 msgstr "Шаги пути"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "Граница"
 
 
 msgid "No brush selected"
@@ -134666,14 +132758,6 @@ msgid "GP_Layer"
 msgstr "СлойЭК"
 
 
-msgid "annotations"
-msgstr "аннотации"
-
-
-msgid "grease_pencils"
-msgstr "grease_pencils"
-
-
 msgid "Renamed attribute '%s' to '%s' in object '%s' on layer '%s' on frame %d!"
 msgstr "Атрибут \"%s\" переименован в \"%s\" в объекте \"%s\" на слое \"%s\" в кадре %d!"
 
@@ -134945,10 +133029,6 @@ msgstr "ОблакоТочек"
 
 msgid "LightProbe"
 msgstr "ЗондОсвещения"
-
-
-msgid "GreasePencil"
-msgstr "GreasePencil"
 
 
 msgid "objects"
@@ -136092,10 +134172,6 @@ msgstr "Элементы управления НЛА дорожками"
 
 msgid "F-Curve visibility in Graph Editor"
 msgstr "Видимость F-кривой в редакторе графов"
-
-
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "Слой Grease Pencil показывается во вьюпорте"
 
 
 msgid "Toggle visibility of Channels in Graph Editor for editing"
@@ -137554,24 +135630,12 @@ msgid "Nothing to erase"
 msgstr "Нечего удалять"
 
 
-msgid "Failed to find Annotation data to draw into"
-msgstr "Не удалось найти аннотационные данные для рисования"
-
-
 msgid "Active region not set"
 msgstr "Активный регион не задан"
 
 
-msgid "Nowhere for Grease Pencil data to go"
-msgstr "Некуда девать данные Grease Pencil"
-
-
 msgid "Cannot delete locked layers"
 msgstr "Невозможно удалить заблокированные слои"
-
-
-msgid "No Grease Pencil data"
-msgstr "Нет данных Grease Pencil"
 
 
 msgid "No active frame to delete"
@@ -137592,10 +135656,6 @@ msgstr "Кожа_тень"
 
 msgid "Eyes"
 msgstr "Глаза"
-
-
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Запечь трансформацию объекта для Grease Pencil"
 
 
 msgid "Remove Loose Points"
@@ -137622,16 +135682,8 @@ msgid "The object has only one layer"
 msgstr "Объект имеет только один слой"
 
 
-msgid "No active Grease Pencil layer to paste into"
-msgstr "Нет активного слоя Grease Pencil для вставки"
-
-
 msgid "Active layer is not editable"
 msgstr "Активный слой не подлежит редактированию"
-
-
-msgid "No Grease Pencil frame to draw on"
-msgstr "Нет кадра Grease Pencil для рисования"
 
 
 msgid "Couldn't find matching layer, pasting into active layer"
@@ -137640,14 +135692,6 @@ msgstr "Не удалось найти соответствующий слой, 
 
 msgid "No camera in the scene"
 msgstr "В сцене нет камеры"
-
-
-msgid "No active Grease Pencil layer"
-msgstr "Нет активного слоя Grease Pencil"
-
-
-msgid "Active object is not a selected Grease Pencil"
-msgstr "Активный объект не является выделенным Grease Pencil"
 
 
 msgid "There is no layer '%s'"
@@ -137668,10 +135712,6 @@ msgstr "Скопировано %d выделенных точек"
 
 msgid "No active layer"
 msgstr "Нет активного слоя"
-
-
-msgid "Add New Grease Pencil Layer"
-msgstr "Добавить новый слой Grease Pencil"
 
 
 msgid "No active group"
@@ -137698,20 +135738,8 @@ msgid "No active layer to duplicate"
 msgstr "Нет активного слоя для дублирования"
 
 
-msgid "All Line Art objects are now cleared of bakes"
-msgstr "Все объекты Line Art теперь очищены от запекания"
-
-
 msgid "Baked strokes are cleared"
 msgstr "Запечённые штрихи удаляются"
-
-
-msgid "No active object, or active object isn't a Grease Pencil object"
-msgstr "Нет активного объекта, или активный объект не является объектом Grease Pencil"
-
-
-msgid "Baking Line Art..."
-msgstr "Запекание Line Art..."
 
 
 msgid "Active layer is locked or hidden"
@@ -137824,11 +135852,6 @@ msgstr "Текущий: "
 
 msgid ", Ctrl: Stroke, Shift: Fill, Shift+Ctrl: Both"
 msgstr ", Ctrl: Штрих, Shift: Заполнить, Shift+Ctrl: Оба"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material"
-msgstr "Добавить материал Grease Pencil"
 
 
 msgid "Press a key"
@@ -138697,36 +136720,6 @@ msgid "Reorder Layers"
 msgstr "Переставить слои"
 
 
-msgctxt "Operator"
-msgid "Active Grease Pencil Layer"
-msgstr "Активный слой Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer"
-msgstr "Переименовать слой Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Layer"
-msgstr "Удалить слой Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Active Grease Pencil Group"
-msgstr "Активная группа Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer Group"
-msgstr "Переименовать группу слоёв Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Group"
-msgstr "Удалить группу Grease Pencil"
-
-
 msgid "ID-Block:"
 msgstr "ID-блок:"
 
@@ -138847,10 +136840,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Выбор связываемых настроек частиц"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Выбор связываемых данных Grease Pencil"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Выбор связываемого видеофрагмента"
 
@@ -138947,11 +136936,6 @@ msgstr "Создать"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Создать"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Создать"
 
@@ -139317,14 +137301,6 @@ msgstr "Параметры экспорта"
 
 msgid "Unable to find valid 3D View area"
 msgstr "Невозможно найти действительную площадь 3D-вида"
-
-
-msgid "Active object is not a Grease Pencil object"
-msgstr "Активный объект не является объектом Grease Pencil"
-
-
-msgid "No frames selected in the Grease Pencil object"
-msgstr "В объекте Grease Pencil не выделено ни одного кадра"
 
 
 msgid "Unable to export PDF"
@@ -140054,21 +138030,6 @@ msgid "Field"
 msgstr "Поле"
 
 
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "GPencil"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "Сюзанна"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "LineArt"
-
-
 msgid "Cannot create editmode armature"
 msgstr "Невозможно создать арматуру в режиме редактирования"
 
@@ -140133,10 +138094,6 @@ msgid "Deleted %u object(s)"
 msgstr "Удалено: %u объект(а, -ов)"
 
 
-msgid "Object '%s' has no evaluated Curve or Grease Pencil data"
-msgstr "Объект \"%s\" не имеет вычисленных данных кривой или Grease Pencil"
-
-
 msgid "Object '%s' has no evaluated Point Cloud data"
 msgstr "Объект \"%s\" не имеет вычисленных данных облака точек"
 
@@ -140145,16 +138102,8 @@ msgid "Object '%s' has no evaluated Mesh data"
 msgstr "Объект \"%s\" не имеет вычисленных меш-данных"
 
 
-msgid "Object '%s' has no evaluated Grease Pencil data"
-msgstr "Объект \"%s\" не имеет вычисленных данных Grease Pencil"
-
-
 msgid "Object '%s' has no evaluated mesh or curves data"
 msgstr "Объект \"%s\" не имеет вычисленных данных кривой или меш-данных"
-
-
-msgid "Object '%s' has no evaluated Grease Pencil or Curves data"
-msgstr "Объект \"%s\" не имеет вычисленных данных Grease Pencil или кривой"
 
 
 msgid "Object '%s' has no evaluated curves data"
@@ -140810,14 +138759,6 @@ msgid "Evaluated geometry from modifier does not contain a point cloud"
 msgstr "Геометрия, оценённая модификатором, не содержит облако точек"
 
 
-msgid "Cannot apply this modifier to Grease Pencil geometry"
-msgstr "Этот модификатор невозможно применить к геометрии Grease Pencil"
-
-
-msgid "Evaluated geometry from modifier does not contain Grease Pencil geometry"
-msgstr "Геометрия, оценённая модификатором, не содержит геометрию Grease Pencil"
-
-
 msgid "Modifiers cannot be applied in edit mode"
 msgstr "Невозможно применить модификатор в режиме редактирования"
 
@@ -141142,20 +139083,12 @@ msgid "Removed effect: %s"
 msgstr "Удалён эффект: %s"
 
 
-msgid "Cannot edit shaderfxs in a library override"
-msgstr "Невозможно редактировать эффекты шейдера в переопределении библиотеки"
-
-
 msgid "Object type is not supported"
 msgstr "Тип объекта не поддерживается"
 
 
 msgid "Cannot edit library or override data"
 msgstr "Невозможно редактировать данные из библиотеки или переопределять их"
-
-
-msgid "Cannot edit shaderfxs coming from linked data in a library override"
-msgstr "Невозможно редактировать эффекты шейдера, поступающие из связанных данных в переопределении библиотеки"
 
 
 msgid "Apply current visible shape to the object data, and delete all shape keys"
@@ -141216,10 +139149,6 @@ msgstr "Невозможно применить к арматуре с неск�
 
 msgid "Curves Object does not support this set origin operation"
 msgstr "Объект-кривая не поддерживает эту операцию установки ориджина"
-
-
-msgid "Grease Pencil Object does not support this set origin operation"
-msgstr "Объект Grease Pencil не поддерживает эту операцию установки ориджина"
 
 
 msgid "Point cloud object does not support this set origin operation"
@@ -142436,14 +140365,6 @@ msgid "UV map or surface attachment is invalid"
 msgstr "Недопустимая UV-карта или прикрепление к поверхности"
 
 
-msgid "No editable Grease Pencil layer"
-msgstr "Нет редактируемого слоя Grease Pencil"
-
-
-msgid "No Grease Pencil frame to draw weight on"
-msgstr "Нет кадров Grease Pencil, на которых можно было бы рисовать веса"
-
-
 msgid "Active group is locked, aborting"
 msgstr "Активная группа заблокирована, операция прервана"
 
@@ -142454,10 +140375,6 @@ msgstr "Заполнение создано не было"
 
 msgid "Fill tool needs active material"
 msgstr "Инструменту заливки требуется активный материал"
-
-
-msgid "GPencil Interpolation: "
-msgstr "Интерполяция Grease Pencil: "
 
 
 msgid "ESC/RMB to cancel, Enter/LMB to confirm, WHEEL/MOVE to adjust factor"
@@ -142476,27 +140393,8 @@ msgid "Simple physics-inspired easing effects"
 msgstr "Простые эффекты смягчения, основанные на физике"
 
 
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "Интерполяция"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "Ослабление (по силе)"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "Динамические эффекты"
-
-
 msgid "Trace"
 msgstr "Трассировка"
-
-
-msgid "Target object not a Grease Pencil, ignoring!"
-msgstr "Целевой объект не является типом Grease Pencil, он будет проигнорирован!"
 
 
 msgid "Target object library-data, ignoring!"
@@ -142837,10 +140735,6 @@ msgstr "Вставка ключевых кадров недоступна в р�
 
 msgid "No data in the internal clipboard to paste"
 msgstr "В буфере обмена нет данных для вставки"
-
-
-msgid "Keyframe pasting is not available for Grease Pencil or mask mode"
-msgstr "Вставка ключевых кадров недоступна для режима Grease Pencil или режима маски́рования"
 
 
 msgid "No selected F-Curves to paste into"
@@ -144493,10 +142387,6 @@ msgid "Curve: {} points, {} splines"
 msgstr "Кривая: {} точек, {} сплайнов"
 
 
-msgid "Grease Pencil: {} layers"
-msgstr "Grease Pencil: {} слоя(-ёв)"
-
-
 msgid "Edit: {}, {}, {}"
 msgstr "Редактировать: {}, {}, {}"
 
@@ -144973,16 +142863,6 @@ msgstr "Переименовать позовую кость"
 
 
 msgctxt "Operator"
-msgid "Rename Annotation Layer"
-msgstr "Переименовать слой аннотации"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Drawing"
-msgstr "Переименовать рисунок Grease Pencil"
-
-
-msgctxt "Operator"
 msgid "Rename View Layer"
 msgstr "Переименовать слой визуализации"
 
@@ -145397,16 +143277,6 @@ msgstr "Операция редактируемой кости"
 msgctxt "Operator"
 msgid "Sequencer operation"
 msgstr "Операция секвенсора"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Layer operation"
-msgstr "Операция слоя Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Node operation"
-msgstr "Операция ноды Grease Pencil"
 
 
 msgid "No Library Overrides"
@@ -146259,26 +144129,6 @@ msgstr "Веса вершин"
 
 msgid "Curve Data"
 msgstr "Данные кривой"
-
-
-msgctxt "GPencil"
-msgid "Normal"
-msgstr "Нормаль"
-
-
-msgctxt "GPencil"
-msgid "Endpoint"
-msgstr "Конечная точка"
-
-
-msgctxt "GPencil"
-msgid "Bézier"
-msgstr "Безье"
-
-
-msgctxt "GPencil"
-msgid "Endpoint Bézier"
-msgstr "Конечная точка Безье"
 
 
 msgid "No active object found"
@@ -147243,10 +145093,6 @@ msgid "Realized curves data has too many elements."
 msgstr "Данные реализованных кривых содержат слишком много элементов."
 
 
-msgid "Realized grease pencil has too many layers."
-msgstr "Реализованный Grease Pencil содержит слишком много слоёв."
-
-
 msgid "Error writing frame"
 msgstr "Ошибка записи кадра"
 
@@ -147454,10 +145300,6 @@ msgstr "Не удалось открыть SVG"
 
 msgid "Unable to create new object"
 msgstr "Не удалось создать новый объект"
-
-
-msgid "SVG has gradients, Grease Pencil color will be approximated"
-msgstr "SVG имеет градиенты, цвет Grease Pencil будет приближенным"
 
 
 msgid "PLY Export: Unable to find collection '%s'"
@@ -148155,14 +145997,6 @@ msgstr "Неверный контекст для ключевого набора
 
 msgid "Incomplete built-in keying set, appears to be missing type info"
 msgstr "Неполный встроенный ключевой набор, вероятно, отсутствует информация о типах"
-
-
-msgid "Frame not found in annotation layer"
-msgstr "Кадр не найден в слое аннотаций"
-
-
-msgid "Layer not found in annotation data"
-msgstr "Слой не найден в данных аннотации"
 
 
 msgid "Stroke has no points"
@@ -148871,10 +146705,6 @@ msgstr "Дублирующий индекс %d в списке vertex_indices_se
 
 msgid "Input '%s' not found"
 msgstr "Вход \"%s\" не был найден"
-
-
-msgid "Cannot assign material '%s', it has to be used by the Grease Pencil object already"
-msgstr "Невозможно назначить материал \"%s\", он уже должен использоваться объектом Grease Pencil"
 
 
 msgid "Unable to create new strip"
@@ -150197,10 +148027,6 @@ msgid "Towards Custom Camera"
 msgstr "К пользовательской камере"
 
 
-msgid "Cached from the first Line Art modifier"
-msgstr "Кэшировано из первого модификатора Line Art"
-
-
 msgid "Object is not in front"
 msgstr "Объект не находится спереди"
 
@@ -150211,19 +148037,6 @@ msgstr "Модификатор имеет запечённые данные"
 
 msgid "Object is shown in front"
 msgstr "Объект показан спереди"
-
-
-msgid "Cached from the first Line Art modifier."
-msgstr "Кэшировано из первого модификатора Line Art."
-
-
-msgid "Lineart"
-msgstr "Lineart"
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "Отбрасывает тени"
 
 
 msgid "Edge Types"
@@ -152750,10 +150563,6 @@ msgid "Geometry to compute the bounding box of. Instances have to be realized be
 msgstr "Геометрия, на основе которой рассчитывается габаритный контейнер. Для расчёта полного габаритного контейнера, - экземпляры должны быть преобразованы в реальную геометрию то самого расчёта"
 
 
-msgid "For curves, point clouds, and Grease Pencil, take the radius attribute into account when computing the bounds."
-msgstr "При вычислении границ для кривых, облаков точек и Grease Pencil - следует учитывать атрибут радиуса."
-
-
 msgid "A cube mesh enclosing the input geometry"
 msgstr "Кубический меш, охватывающая входную геометрию"
 
@@ -153806,10 +151615,6 @@ msgid "Layers as Instances"
 msgstr "Слои как экземпляры"
 
 
-msgid "Grease Pencil data to convert to curves"
-msgstr "Данные Grease Pencil, которые следует преобразовать в кривые"
-
-
 msgid "Select the layers to convert"
 msgstr "Выделить слои для конвертации"
 
@@ -154515,10 +152320,6 @@ msgstr "Объединять вершины меша только вдоль с�
 
 msgid "Point cloud or mesh to merge points of"
 msgstr "Облако точек или меш, точки которых следует объединить"
-
-
-msgid "Grease Pencil data to merge layers of"
-msgstr "Данные Grease Pencil, чьи слои следует объединить"
 
 
 msgid "Merge ID"
@@ -155535,18 +153336,6 @@ msgstr "Геометрия, для которой следует переопр�
 
 msgid "Geometry to override the name of"
 msgstr "Геометрия, для которой следует переопределить имя"
-
-
-msgid "Grease Pencil to change the color of"
-msgstr "Grease Pencil, геометрии которого следует изменить цвет"
-
-
-msgid "Grease Pencil to set the depth order of"
-msgstr "Grease Pencil, которому следует установить порядок глубины расположения"
-
-
-msgid "Grease Pencil to set the softness of"
-msgstr "Grease Pencil, которому следует установить мягкость"
 
 
 msgid "Update Inactive"
@@ -159213,11 +157002,6 @@ msgstr "Игровой движок"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "Геометрические ноды"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "Preferences"

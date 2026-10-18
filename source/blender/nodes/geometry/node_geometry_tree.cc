@@ -162,15 +162,4 @@ void register_node_tree_type_geo()
   bke::node_tree_type_add(*tt);
 }
 
-bool is_layer_selection_field(const bNodeTreeInterfaceSocket &socket)
-{
-  const bke::bNodeSocketType *typeinfo = socket.socket_typeinfo();
-  BLI_assert(typeinfo != nullptr);
-
-  if (typeinfo->type != SOCK_BOOLEAN) {
-    return false;
-  }
-  return (socket.flag & NODE_INTERFACE_SOCKET_LAYER_SELECTION) != 0;
-}
-
 }  // namespace blender

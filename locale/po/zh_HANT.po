@@ -430,16 +430,6 @@ msgstr "字型"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "蠟筆"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "蠟筆 v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "影像"
 
@@ -1272,10 +1262,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "運動路徑點將被烘焙至作用中攝影機的攝影機空間。這表示只有透過該攝影機觀看時，它們顯示才會正確。不支援使用標記切換攝影機。"
 
 
-msgid "Annotation Frame"
-msgstr "註解影格"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "特定影格上的相關草圖集盒"
 
@@ -1300,18 +1286,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "在此影格上定義草圖的隨手畫曲線"
 
 
-msgid "Annotation Frames"
-msgstr "註解影格"
-
-
-msgid "Collection of annotation frames"
-msgstr "註解影格的集盒"
-
-
-msgid "Annotation Layer"
-msgstr "註解層"
-
-
 msgid "Collection of related sketches"
 msgstr "相關草圖的集盒"
 
@@ -1326,10 +1300,6 @@ msgstr "此層正顯示的影格"
 
 msgid "Hide"
 msgstr "隱藏"
-
-
-msgid "Set annotation Visibility"
-msgstr "設定註解可見性"
 
 
 msgid "After Color"
@@ -1374,10 +1344,6 @@ msgstr "使用自訂色彩進行洋蔥皮化，而非佈景主題"
 
 msgid "Opacity"
 msgstr "不透明度"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "註解層不透明度"
 
 
 msgid "Color for all strokes in this layer"
@@ -1440,48 +1406,20 @@ msgid "Thickness"
 msgstr "厚度"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "註解筆觸的粗細度"
-
-
 msgid "Onion Skinning"
 msgstr "洋蔥皮化"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "顯示目前影格之前與之後的註解洋蔥皮"
-
-
-msgid "Annotation Layers"
-msgstr "註解層"
-
-
-msgid "Collection of annotation layers"
-msgstr "註解層的集盒"
 
 
 msgid "Active Layer Index"
 msgstr "作用中層索引"
 
 
-msgid "Index of active annotation layer"
-msgstr "作用中註解層的索引"
-
-
 msgid "Active Note"
 msgstr "作用中備註"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "要新增註解筆觸的筆記/層"
-
-
 msgid "Default"
 msgstr "預設"
-
-
-msgid "Annotation Stroke"
-msgstr "註解筆觸"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1498,10 +1436,6 @@ msgstr "筆觸點"
 
 msgid "Stroke data points"
 msgstr "筆觸資料點"
-
-
-msgid "Annotation Stroke Point"
-msgstr "註解筆觸點"
 
 
 msgid "Data point for freehand stroke curve"
@@ -2069,14 +2003,6 @@ msgid "Show Action data-blocks"
 msgstr "顯示作用中的資料區塊"
 
 
-msgid "Annotations"
-msgstr "註解"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "顯示註解數據組塊"
-
-
 msgid "Armatures"
 msgstr "骨架"
 
@@ -2131,14 +2057,6 @@ msgstr "字型"
 
 msgid "Show Font data-blocks"
 msgstr "顯示字型數據組塊"
-
-
-msgid "Grease Pencil"
-msgstr "蠟筆"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "顯示蠟筆數據組塊"
 
 
 msgid "Collections"
@@ -2563,10 +2481,6 @@ msgstr "實例的特性"
 
 msgid "Layer"
 msgstr "層"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "蠟筆分層的特性"
 
 
 msgid "Is Internal"
@@ -3279,14 +3193,6 @@ msgid "All Data-Blocks"
 msgstr "所有資料組塊"
 
 
-msgid "Annotation"
-msgstr "註解"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "註解數據組塊 (舊版蠟筆)"
-
-
 msgid "Armature data-blocks"
 msgstr "骨架數據組塊"
 
@@ -3333,10 +3239,6 @@ msgstr "向量字型"
 
 msgid "Vector font data-blocks"
 msgstr "向量字型數據組塊"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "蠟筆數據組塊"
 
 
 msgid "Hair curve data-blocks"
@@ -3523,14 +3425,6 @@ msgid "Collection of actions"
 msgstr "動作的集盒"
 
 
-msgid "Main Annotations"
-msgstr "主註記"
-
-
-msgid "Collection of annotations"
-msgstr "註解集盒"
-
-
 msgid "Main Armatures"
 msgstr "主要骨架"
 
@@ -3585,14 +3479,6 @@ msgstr "主要字型"
 
 msgid "Collection of fonts"
 msgstr "字型的集盒"
-
-
-msgid "Main Grease Pencils"
-msgstr "主要蠟筆"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "蠟筆的集盒"
 
 
 msgid "Main Hair Curves"
@@ -5082,10 +4968,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "透過均一地改變尺寸來擴大或收縮曲線, 而不是修剪或延伸曲線"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "蠟筆筆刷設定"
-
-
 msgid "Active Smooth"
 msgstr "平滑作用"
 
@@ -5126,23 +5008,8 @@ msgid "Use always Vertex Color mode"
 msgstr "啟用恆用頂點色彩模式"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "蓋帽類型"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "筆觸的啟始及結束的形狀"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "圓"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "平"
 
 
 msgid "Threshold"
@@ -5192,27 +5059,12 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "填充區域擴張或縮減的畫素數量"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "模式"
-
-
 msgid "Eraser Mode"
 msgstr "橡皮擦模式"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "點"
-
-
 msgid "Erase stroke points"
 msgstr "擦除筆觸頂點"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "筆觸"
 
 
 msgid "Closure Size"
@@ -5272,21 +5124,6 @@ msgstr "編輯線條"
 
 msgid "Use edit lines as fill boundary limits"
 msgstr "採用編輯的線段來做為填充界限"
-
-
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "閉合模式"
-
-
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "擴展"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "半徑"
 
 
 msgid "Precision"
@@ -5383,11 +5220,6 @@ msgid "Iterations"
 msgstr "迭代"
 
 
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "力量"
-
-
 msgid "Color strength for new strokes (affect alpha factor of color)"
 msgstr "新筆觸的色彩力度 (影響色彩的 alpha 係數)"
 
@@ -5466,11 +5298,6 @@ msgstr "顯示套索"
 
 msgid "Factor of Simplify using adaptive algorithm"
 msgstr "使用適應性演算法的簡化係數"
-
-
-msgctxt "GPencil"
-msgid "Both"
-msgstr "兩者"
 
 
 msgid "Active Layer"
@@ -9591,14 +9418,6 @@ msgstr "收起摘要"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "當顯示時收起摘要，以隱藏其他的所有頻道 (僅律表編輯器)"
-
-
-msgid "Display Grease Pencil"
-msgstr "顯示蠟筆"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "具現化蠟筆相關動畫資料與影格"
 
 
 msgid "Display Hair"
@@ -14105,10 +13924,6 @@ msgid "View Map Cache"
 msgstr "檢視映射快取"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "蠟筆插補設定"
-
-
 msgid "Interpolation Curve"
 msgstr "插補曲線"
 
@@ -14503,30 +14318,8 @@ msgid "User Count"
 msgstr "使用者數量"
 
 
-msgid "Grease Pencil Frame"
-msgstr "蠟筆影格"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "關鍵影格類型"
-
-
 msgid "Type of keyframe"
 msgstr "關鍵影格類型"
-
-
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "抖動"
-
-
-msgid "Grease Pencil Frames"
-msgstr "蠟筆影格"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "蠟筆遮罩分層"
 
 
 msgid "List of Mask Layers"
@@ -14591,10 +14384,6 @@ msgstr "上個節點"
 
 msgid "Use Masks"
 msgstr "使用遮罩"
-
-
-msgid "Grease Pencil Layer"
-msgstr "蠟筆分層"
 
 
 msgid "Blend Mode"
@@ -14701,16 +14490,8 @@ msgid "Color tag 8"
 msgstr "色彩標籤 8"
 
 
-msgid "Grease Pencil Group"
-msgstr "蠟筆群組"
-
-
 msgid "Active Layer Group"
 msgstr "作用中層群組"
-
-
-msgid "Grease Pencil Layers"
-msgstr "蠟筆分層"
 
 
 msgid "Statistical view of the levels of color in an image"
@@ -14902,10 +14683,6 @@ msgstr "循環動畫"
 
 msgid "Manual Frame Range"
 msgstr "手動影格範圍"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "隨手畫註記草圖簿"
 
 
 msgid "Feature Set"
@@ -15478,52 +15255,8 @@ msgid "Erase"
 msgstr "擦除"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "筆刷類型"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "平滑"
-
-
 msgid "Smooth stroke points"
 msgstr "平滑筆觸點"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "粗細"
-
-
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "隨機變化"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "抓取"
-
-
-msgctxt "GPencil"
-msgid "Push"
-msgstr "推送"
-
-
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "擠捏"
-
-
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "拓製"
-
-
-msgid "Gpencil Settings"
-msgstr "Gpencil 設定"
 
 
 msgid "Brush Type"
@@ -15957,23 +15690,8 @@ msgid "How powerful the effect of the brush is when applied"
 msgstr "當套用筆刷效果時的影響程度有多強"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "筆觸方法"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "點"
-
-
 msgid "Apply paint on each mouse move step"
 msgstr "套用每個滑鼠移動步的繪製"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "拖曳點"
 
 
 msgid "Allows a single dot to be carefully positioned"
@@ -15984,27 +15702,12 @@ msgid "Limit brush application to the distance specified by spacing"
 msgstr "限制筆刷應用至間隔指定的距離"
 
 
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "噴槍"
-
-
 msgid "Keep applying paint effect while holding mouse (spray)"
 msgstr "當按住滑鼠 (噴灑) 時持續套用繪製效果"
 
 
 msgid "Keep the brush anchored to the initial location"
 msgstr "讓筆刷維持錨定在初始位置"
-
-
-msgctxt "GPencil"
-msgid "Line"
-msgstr "直線"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "曲線"
 
 
 msgid "Shape Preservation"
@@ -16721,16 +16424,8 @@ msgid "Usage"
 msgstr "用法"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "計算線稿時如何使用這個集盒"
-
-
 msgid "Occlusion Only"
 msgstr "僅遮擋"
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "不要為線稿使用這個集盒"
 
 
 msgid "Intersection Only"
@@ -17769,11 +17464,6 @@ msgid "Onion Opacity"
 msgstr "洋蔥不透明度"
 
 
-msgctxt "GPencil"
-msgid "All"
-msgstr "全部"
-
-
 msgid "Selected"
 msgstr "所選項"
 
@@ -18719,14 +18409,6 @@ msgid "Displacement Only"
 msgstr "僅置換"
 
 
-msgid "Grease Pencil Settings"
-msgstr "蠟筆設定"
-
-
-msgid "Is Grease Pencil"
-msgstr "是蠟筆"
-
-
 msgid "Line Color"
 msgstr "線條色彩"
 
@@ -18741,14 +18423,6 @@ msgstr "線條優先"
 
 msgid "The line color of a higher priority is used at material boundaries"
 msgstr "用於材質邊界的高優先度線條色彩"
-
-
-msgid "Line Art Settings"
-msgstr "線稿設定"
-
-
-msgid "Line Art settings for material"
-msgstr "材質的線稿設定"
 
 
 msgid "Metallic"
@@ -19227,10 +18901,6 @@ msgid "Node tree consisting of linked nodes used for shading, textures and compo
 msgstr "由連結的節點組成的節點樹，用於著色、紋理、合成"
 
 
-msgid "Annotation data"
-msgstr "註解資料"
-
-
 msgid "The node tree label"
 msgstr "節點樹標籤"
 
@@ -19627,14 +19297,6 @@ msgid "Lightgroup"
 msgstr "燈光群組"
 
 
-msgid "Line Art"
-msgstr "線條圖"
-
-
-msgid "Line Art settings for the object"
-msgstr "物體的線稿設定"
-
-
 msgid "Location of the object"
 msgstr "物體的位置"
 
@@ -19725,10 +19387,6 @@ msgstr "紋理繪製"
 
 msgid "Particle Edit"
 msgstr "粒子編輯"
-
-
-msgid "Edit Grease Pencil Strokes"
-msgstr "編輯蠟筆筆觸"
 
 
 msgid "Draw Mode"
@@ -22750,22 +22408,6 @@ msgstr "作用中附加元件"
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "當啟用該工作空間時切換至這個物體模式"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "蠟筆編輯模式"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "蠟筆雕塑模式"
-
-
-msgid "Grease Pencil Draw"
-msgstr "蠟筆繪製"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "蠟筆權重繪製"
 
 
 msgid "UI Tags"
@@ -26358,10 +26000,6 @@ msgid "Active Point"
 msgstr "作用中的點"
 
 
-msgid "Grease Pencil Color"
-msgstr "蠟筆色彩"
-
-
 msgid "Alignment"
 msgstr "對齊"
 
@@ -26376,26 +26014,6 @@ msgstr "填入色彩"
 
 msgid "Color for filling region bounded by each stroke"
 msgstr "對各筆觸包圍的區塊填入的色彩"
-
-
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "填充樣式"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "單色"
-
-
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "漸層"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "紋理"
 
 
 msgid "Flip"
@@ -26430,11 +26048,6 @@ msgid "Mix Color"
 msgstr "混合色彩"
 
 
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "混合"
-
-
 msgid "Mix Factor"
 msgstr "混合係數"
 
@@ -26463,11 +26076,6 @@ msgid "Show Stroke"
 msgstr "顯示筆觸"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "筆觸樣式"
-
-
 msgid "Scale Factor for Texture"
 msgstr "紋理縮放係數"
 
@@ -26478,10 +26086,6 @@ msgstr "自身重疊"
 
 msgid "Randomization"
 msgstr "隨機化"
-
-
-msgid "Material Line Art"
-msgstr "材質線稿"
 
 
 msgid "Effectiveness"
@@ -27966,24 +27570,12 @@ msgid "Wireframe"
 msgstr "線框"
 
 
-msgid "Grease Pencil length modifier"
-msgstr "蠟筆長度修改器"
-
-
-msgid "Generate Line Art from scene geometries"
-msgstr "從場景幾何生成線稿"
-
-
 msgid "Multiple Strokes"
 msgstr "多重筆觸"
 
 
 msgid "Subdivide"
 msgstr "細分"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "蠟筆細分修改器"
 
 
 msgid "Cast"
@@ -29305,16 +28897,6 @@ msgid "Thickness Strength"
 msgstr "寬度強度"
 
 
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "循序"
-
-
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "並行"
-
-
 msgid "Speed Factor"
 msgstr "速度係數"
 
@@ -29355,10 +28937,6 @@ msgid "Use Fading"
 msgstr "使用淡化"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "蠟筆色彩修改器"
-
-
 msgid "Stroke & Fill"
 msgstr "筆觸 & 填充"
 
@@ -29377,10 +28955,6 @@ msgstr "使用自訂曲線"
 
 msgid "Color value factor"
 msgstr "色彩值係數"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "蠟筆封套修改器"
 
 
 msgid "Fills"
@@ -29436,10 +29010,6 @@ msgstr "鉤其親代骨骼的名稱 (如果可用的話)，也會重新計算並
 
 msgid "Uniform Falloff"
 msgstr "一致衰減"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "蠟筆晶格修改器"
 
 
 msgid "Lattice object to deform with"
@@ -29502,14 +29072,6 @@ msgid "Use Curvature"
 msgstr "使用曲率"
 
 
-msgid "Line Art Modifier"
-msgstr "線稿修改器"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "從所選來源生成線稿筆畫"
-
-
 msgid "Image Threshold"
 msgstr "影像閾值"
 
@@ -29550,11 +29112,6 @@ msgid "Shadow Camera Size"
 msgstr "陰影攝影機大小"
 
 
-msgctxt "GPencil"
-msgid "None"
-msgstr "無"
-
-
 msgid "Silhouette Filtering"
 msgstr "剪影過濾"
 
@@ -29571,16 +29128,8 @@ msgid "Camera Object"
 msgstr "攝影機物體"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "用指定的攝影機物體的角度來生成線稿筆畫"
-
-
 msgid "Source Type"
 msgstr "來源類型"
-
-
-msgid "Line Art stroke source type"
-msgstr "線稿筆畫來源類型"
 
 
 msgid "Source Vertex Group"
@@ -29691,10 +29240,6 @@ msgid "Match Output"
 msgstr "配對輸出"
 
 
-msgid "Grease Pencil Mirror Modifier"
-msgstr "蠟筆鏡像修改器"
-
-
 msgid "Mirror the X axis"
 msgstr "鏡像 X 軸"
 
@@ -29717,10 +29262,6 @@ msgstr "複本"
 
 msgid "Fade center"
 msgstr "淡化中心"
-
-
-msgid "Grease Pencil Noise Modifier"
-msgstr "蠟筆噪訊修改器"
 
 
 msgid "Noise effect modifier"
@@ -29747,20 +29288,12 @@ msgid "Noise Seed"
 msgstr "噪訊種子"
 
 
-msgid "Grease Pencil Offset Modifier"
-msgstr "蠟筆偏移修改器"
-
-
 msgid "Randomize stroke offset"
 msgstr "隨機化筆觸偏移"
 
 
 msgid "Start Offset"
 msgstr "起始偏移"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "蠟筆不透明度修改器"
 
 
 msgid "Opacity Factor"
@@ -29915,10 +29448,6 @@ msgid "Catmull-Clark"
 msgstr "卡特姆-克拉克"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "蠟筆紋理修改器"
-
-
 msgid "Fill Offset"
 msgstr "填入偏移"
 
@@ -29959,10 +29488,6 @@ msgid "Weighted"
 msgstr "加權重"
 
 
-msgid "Grease Pencil Time Modifier"
-msgstr "蠟筆時間修改器"
-
-
 msgid "Frame Scale"
 msgstr "影格縮放"
 
@@ -29985,10 +29510,6 @@ msgstr "自訂區間"
 
 msgid "Keep Loop"
 msgstr "維持循環"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "蠟筆染色修改器"
 
 
 msgid "Factor for tinting"
@@ -37200,14 +36721,6 @@ msgid "Receiver Collection"
 msgstr "接收者集合"
 
 
-msgid "Object Line Art"
-msgstr "物件線條圖"
-
-
-msgid "Object Line Art settings"
-msgstr "物體線稿設定"
-
-
 msgid "Inherit"
 msgstr "繼承"
 
@@ -42416,10 +41929,6 @@ msgid "Sequence Slide"
 msgstr "序段滑動"
 
 
-msgid "Grease Pencil Opacity"
-msgstr "蠟筆不透明度"
-
-
 msgid "Set type of handles for selected control points"
 msgstr "設定所選控制點的控制桿類型"
 
@@ -44389,15 +43898,6 @@ msgid "Gizmo Tweak"
 msgstr "操縱器調校"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "註記描繪"
-
-
-msgid "Make annotations on the active data"
-msgstr "為作用中資料建立註記"
-
-
 msgid "End Arrow Style"
 msgstr "終點箭頭樣式"
 
@@ -44473,20 +43973,6 @@ msgstr "穩定筆觸半徑"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "刪除作用中影格"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "註解新增"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "註記取消連結"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "解除連結作用中的註記資料組塊"
 
 
 msgctxt "Operator"
@@ -44873,11 +44359,6 @@ msgid "No Reproject"
 msgstr "不重投影"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "蠟筆繪製"
-
-
 msgid "Apply brush normally"
 msgstr "正常套用筆刷"
 
@@ -44989,34 +44470,9 @@ msgid "Dissolve"
 msgstr "消融"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "類型"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "消融之間"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "消融未選取項"
-
-
 msgctxt "Operator"
 msgid "Duplicate Strokes"
 msgstr "複製筆觸"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Erase Lasso"
-msgstr "Grease Pencil 橡皮擦套索"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "蠟筆填充"
 
 
 msgid "Duplicate all"
@@ -45026,11 +44482,6 @@ msgstr "複製全部"
 msgctxt "Operator"
 msgid "Insert Blank Frame"
 msgstr "插入空白影格"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "蠟筆插補"
 
 
 msgid "Exclude Breakdowns"
@@ -45052,71 +44503,6 @@ msgstr "使用選取項"
 msgctxt "Operator"
 msgid "Interpolate Sequence"
 msgstr "插補序段"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "後"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "緩變"
-
-
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "線性"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "自訂"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "正弦曲線"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "二次型"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "三次型"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "四次型"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "五次"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "指數型"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "圓型"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "彈跳"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "彈性"
 
 
 msgctxt "Operator"
@@ -45246,10 +44632,6 @@ msgid "Show All Layers"
 msgstr "顯示所有層"
 
 
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "將作用中的蠟筆材質附加到其他物件"
-
-
 msgctxt "Operator"
 msgid "Hide Materials"
 msgstr "隱藏材質"
@@ -45293,10 +44675,6 @@ msgid "New Layer"
 msgstr "新增層"
 
 
-msgid "Target Grease Pencil Layer"
-msgstr "目標蠟筆層"
-
-
 msgctxt "Operator"
 msgid "Outline"
 msgstr "輪廓"
@@ -45330,11 +44708,6 @@ msgstr "貼上至作用項"
 
 msgid "Paste by Layer"
 msgstr "依層貼上"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Pen"
-msgstr "蠟筆筆"
 
 
 msgid "Type of shape"
@@ -45387,11 +44760,6 @@ msgstr "重投影筆觸"
 msgctxt "Operator"
 msgid "Reset UVs"
 msgstr "重設 UV"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "蠟筆雕塑"
 
 
 msgctxt "Operator"
@@ -45564,11 +44932,6 @@ msgstr "細分筆觸"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "蠟筆修剪"
-
-
-msgctxt "Operator"
 msgid "Texture Gradient"
 msgstr "紋理漸層"
 
@@ -45601,10 +44964,6 @@ msgid "Trace full sequence"
 msgstr "追蹤完整序段"
 
 
-msgid "Target Grease Pencil"
-msgstr "目標蠟筆"
-
-
 msgid "New Object"
 msgstr "新增物體"
 
@@ -45635,11 +44994,6 @@ msgstr "多數"
 
 msgid "Choose pseudo-randomly"
 msgstr "選取偽隨機"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "蠟筆繪製頂點"
 
 
 msgctxt "Operator"
@@ -45677,11 +45031,6 @@ msgstr "在歸一化其他頂點群組時保持作用中群組的值"
 msgctxt "Operator"
 msgid "Smooth Vertex Group"
 msgstr "平滑頂點群組"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "蠟筆繪製權重"
 
 
 msgctxt "Operator"
@@ -50540,15 +49889,6 @@ msgstr "輸入名稱"
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "新增蠟筆"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "新增蠟筆物體至場景中"
-
-
-msgctxt "Operator"
 msgid "Type"
 msgstr "類型"
 
@@ -50566,16 +49906,6 @@ msgstr "筆觸"
 msgctxt "Operator"
 msgid "Monkey"
 msgstr "猴頭"
-
-
-msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "場景線條圖"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "集合線條圖"
 
 
 msgid "Show In Front"
@@ -50760,11 +50090,6 @@ msgstr "刪除光照快取"
 
 msgid "All Light Probes"
 msgstr "所有光照探針"
-
-
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "烘焙線條圖"
 
 
 msgid "Bake All"
@@ -57284,14 +56609,6 @@ msgid "Center Override"
 msgstr "置中覆蓋"
 
 
-msgid "Edit Grease Pencil"
-msgstr "編輯蠟筆"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "編輯選取的蠟筆筆觸"
-
-
 msgid "Use Snapping Options"
 msgstr "使用吸附選項"
 
@@ -57759,11 +57076,6 @@ msgstr "來自目標的單一"
 
 msgid "Match Indices"
 msgstr "配對索引編號"
-
-
-msgctxt "GPencil"
-msgid "Material Mode"
-msgstr "材質模式"
 
 
 msgid "Add-on to process"
@@ -59557,11 +58869,6 @@ msgstr "體積"
 
 
 msgctxt "ID"
-msgid "Grease Pencils"
-msgstr "蠟筆"
-
-
-msgctxt "ID"
 msgid "Armatures"
 msgstr "骨架"
 
@@ -61135,10 +60442,6 @@ msgid "Curves Sculpt Paint"
 msgstr "曲線雕刻繪製"
 
 
-msgid "Grease Pencil Paint"
-msgstr "蠟筆繪製"
-
-
 msgid "Paint Mode"
 msgstr "繪製模式"
 
@@ -61469,10 +60772,6 @@ msgstr "筆觸放置"
 
 msgid "Drawing Plane"
 msgstr "描繪平面"
-
-
-msgid "Grease Pencil Options"
-msgstr "蠟筆選項"
 
 
 msgid "Quad View"
@@ -61901,26 +61200,6 @@ msgstr "樣本"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "註記"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "註記線"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "註記多邊形"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "註記橡皮擦"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "調校"
 
@@ -62009,10 +61288,6 @@ msgstr "材質設定"
 
 msgid "Material Presets"
 msgstr "材質預設集"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "蠟筆材質槽"
 
 
 msgid "Backdrop"
@@ -64228,20 +63503,8 @@ msgid "Add/Replace"
 msgstr "新增/替換"
 
 
-msgid "Grease Pencil Eraser Radius"
-msgstr "蠟筆橡皮擦半徑"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "橡皮擦「筆刷」的半徑"
-
-
-msgid "Grease Pencil Euclidean Distance"
-msgstr "蠟筆尤拉距離"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "蠟筆曼哈頓距離"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -69264,10 +68527,6 @@ msgid "Exponential Sampling"
 msgstr "指數型取樣"
 
 
-msgid "Grease Pencil Render"
-msgstr "蠟筆算繪"
-
-
 msgid "Render settings"
 msgstr "算繪設定"
 
@@ -69485,10 +68744,6 @@ msgstr "最終影像"
 
 msgid "Raw Images"
 msgstr "Raw 影像"
-
-
-msgid "Show Annotation"
-msgstr "顯示註記"
 
 
 msgid "Image Outline"
@@ -69801,11 +69056,6 @@ msgstr "陰影色彩"
 
 msgid "Use Object"
 msgstr "使用物體"
-
-
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "波浪"
 
 
 msgid "Use wave effect"
@@ -70212,11 +69462,6 @@ msgid "Clip editor space data"
 msgstr "剪輯編輯器空間資料"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "註記來源"
-
-
 msgid "Blending Factor"
 msgstr "混合係數"
 
@@ -70589,10 +69834,6 @@ msgstr "外形鍵編輯器"
 
 msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "編輯作用中物體的外形鍵動作關鍵影格"
-
-
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "編輯檔案中所有蠟筆草圖的時機"
 
 
 msgid "Edit timings for Mask Editor splines"
@@ -71236,14 +70477,6 @@ msgstr "顯示空體"
 
 msgid "Show empty objects"
 msgstr "顯示空物體"
-
-
-msgid "Show Grease Pencil"
-msgstr "顯示蠟筆"
-
-
-msgid "Show Grease Pencil objects"
-msgstr "顯示蠟筆物體"
 
 
 msgid "Show Lights"
@@ -71902,10 +71135,6 @@ msgstr "允許選取空體"
 
 msgid "Allow selection of text objects"
 msgstr "允許選取文字物件"
-
-
-msgid "Allow selection of Grease Pencil objects"
-msgstr "允許選取 Grease Pencil 物件"
 
 
 msgid "Allow selection of lattices"
@@ -72940,14 +72169,6 @@ msgstr "場景片段"
 
 msgid "Camera Override"
 msgstr "攝影機凌駕"
-
-
-msgid "Use Annotations"
-msgstr "使用註解"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "在 OpenGL 預覽顯示註記"
 
 
 msgid "Sound Strip"
@@ -74872,10 +74093,6 @@ msgid "Face Retopology"
 msgstr "面再拓撲"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "蠟筆頂點"
-
-
 msgid "Face Normal"
 msgstr "面法向"
 
@@ -75034,14 +74251,6 @@ msgstr "新增與替換"
 
 msgid "Curves Sculpt"
 msgstr "曲線雕塑"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "蠟筆插補"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "蠟筆雕刻"
 
 
 msgid "Select Mode"
@@ -77423,46 +76632,6 @@ msgstr "3D 檢視工具：變換（備用）"
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "通用工具：註記"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "通用工具：註記（備用）"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "通用工具：註記線"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "通用工具：註記線（備用）"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "通用工具：註記多邊形"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "通用工具：註記多邊形（備用）"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "通用工具：註記橡皮擦"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "通用工具：註記橡皮擦（備用）"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "3D 檢視工具：測量"
 
@@ -77510,11 +76679,6 @@ msgstr "晶格"
 msgctxt "WindowManager"
 msgid "Font"
 msgstr "字型"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "蠟筆"
 
 
 msgctxt "WindowManager"
@@ -78336,31 +77500,6 @@ msgstr "剪輯圖表編輯器"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "剪輯律表編輯器"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "蠟筆筆刷筆觸"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "蠟筆編輯模式"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "蠟筆雕塑模式"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "蠟筆權重繪製"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "蠟筆頂點繪製"
 
 
 msgctxt "WindowManager"
@@ -80420,10 +79559,6 @@ msgstr "變幻球"
 
 msgid "Volume(s)"
 msgstr "容體"
-
-
-msgid "Grease Pencil(s)"
-msgstr "蠟筆"
 
 
 msgid "Armature(s)"
@@ -82725,10 +81860,6 @@ msgid "Discontinuity (Euler) Filter"
 msgstr "不連續性 (尤拉) 過濾器"
 
 
-msgid "Grease Pencil Objects"
-msgstr "蠟筆物體"
-
-
 msgctxt "Operator"
 msgid "Frame Preview Range"
 msgstr "檢視預覽範圍"
@@ -84158,10 +83289,6 @@ msgid "Snap Increment"
 msgstr "吸附增量"
 
 
-msgid "Annotation:"
-msgstr "註記："
-
-
 msgid "Weight: {:.3f}"
 msgstr "權重： {:.3f}"
 
@@ -85170,11 +84297,6 @@ msgstr "網格平面..."
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "烘焙動作..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "烘焙物體變換為蠟筆…"
 
 
 msgctxt "Operator"
@@ -86569,10 +85691,6 @@ msgid "No object selected, using cursor"
 msgstr "未選取物體，使用游標"
 
 
-msgid "Draw Grease Pencil"
-msgstr "描繪蠟筆"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "調整燈光功率"
@@ -86705,11 +85823,6 @@ msgstr "根部位置"
 
 msgid "Path Steps"
 msgstr "路徑步數"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "邊界"
 
 
 msgid "No brush selected"
@@ -87059,14 +86172,6 @@ msgid "GP_Layer"
 msgstr "蠟筆層"
 
 
-msgid "annotations"
-msgstr "註解"
-
-
-msgid "grease_pencils"
-msgstr "蠟筆"
-
-
 msgid "Socket_2"
 msgstr "接口2"
 
@@ -87210,10 +86315,6 @@ msgstr "點雲"
 
 msgid "LightProbe"
 msgstr "光照探針"
-
-
-msgid "GreasePencil"
-msgstr "蠟筆"
 
 
 msgid "objects"
@@ -88441,10 +87542,6 @@ msgid "No active group"
 msgstr "無作用中群組"
 
 
-msgid "Baking Line Art..."
-msgstr "烘焙線條圖中..."
-
-
 msgid "Panning"
 msgstr "平移"
 
@@ -88467,11 +87564,6 @@ msgstr "來自路徑「%s」的屬性不是浮點"
 
 msgid "Current: "
 msgstr "目前： "
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material"
-msgstr "新增蠟筆材質"
 
 
 msgid "Press a key"
@@ -89147,10 +88239,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "瀏覽要連結的粒子設定"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "瀏覽要連結的蠟筆"
-
-
 msgid "Browse Palette Data to be linked"
 msgstr "瀏覽要連結的色版資料"
 
@@ -89199,11 +88287,6 @@ msgstr "新增"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "新增"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "新增"
 
@@ -89937,21 +89020,6 @@ msgstr "流體場域"
 msgctxt "Object"
 msgid "Field"
 msgstr "力場"
-
-
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "蠟筆"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "蘇珊猴"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "線稿"
 
 
 msgid "Cannot create editmode armature"
@@ -90771,16 +89839,6 @@ msgstr "素材庫不可編輯"
 
 msgid "Asset file is not editable"
 msgstr "素材檔案不可編輯"
-
-
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "插補法"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "動態效果"
 
 
 msgid "Trace"
@@ -92167,16 +91225,6 @@ msgid "Sequencer operation"
 msgstr "序段操作"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Layer operation"
-msgstr "蠟筆分層操作"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Node operation"
-msgstr "蠟筆節點操作"
-
-
 msgid "Missing library"
 msgstr "遺失庫"
 
@@ -92579,16 +91627,6 @@ msgstr "頂點權重"
 
 msgid "Curve Data"
 msgstr "曲線資料"
-
-
-msgctxt "GPencil"
-msgid "Endpoint"
-msgstr "端點"
-
-
-msgctxt "GPencil"
-msgid "Bézier"
-msgstr "貝茲"
 
 
 msgctxt "Operator"
@@ -94375,10 +93413,6 @@ msgstr "過濾來源"
 
 msgid "Depth Offset"
 msgstr "深度偏移"
-
-
-msgid "Lineart"
-msgstr "線稿"
 
 
 msgid "Edge Types"
@@ -97894,11 +96928,6 @@ msgstr "遊戲引擎"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "幾何節點"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "蠟筆"
 
 
 msgctxt "Preferences"

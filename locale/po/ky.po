@@ -176,10 +176,6 @@ msgid "Fonts"
 msgstr "Ариптер"
 
 
-msgid "Grease Pencil"
-msgstr "Эскиз карандашы"
-
-
 msgid "Images"
 msgstr "Сүрөттөр"
 
@@ -2938,11 +2934,6 @@ msgstr "Арип"
 
 
 msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Эскиз карандашы"
-
-
-msgctxt "WindowManager"
 msgid "Particle"
 msgstr "Бөлүкчө"
 
@@ -3366,11 +3357,6 @@ msgstr "Жаңы"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Жаңы"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Жаңы"
 

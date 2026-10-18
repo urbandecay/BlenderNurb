@@ -38,7 +38,6 @@
 
 #include "BLF_api.hh"
 
-#include "ED_gpencil_legacy.hh"
 #include "ED_image.hh"
 #include "ED_mask.hh"
 #include "ED_render.hh"

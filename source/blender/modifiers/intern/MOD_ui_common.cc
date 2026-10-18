@@ -39,8 +39,7 @@
 namespace blender {
 
 /**
- * Poll function so these modifier panels don't show for other object types with modifiers (only
- * grease pencil currently).
+ * Poll function so these modifier panels don't show without an active object.
  */
 static bool modifier_ui_poll(const bContext *C, PanelType * /*pt*/)
 {
@@ -140,24 +139,6 @@ void modifier_vgroup_ui(ui::Layout &layout,
   }
 }
 
-void modifier_grease_pencil_curve_header_draw(const bContext * /*C*/, Panel *panel)
-{
-  ui::Layout &layout = *panel->layout;
-
-  PointerRNA *ptr = modifier_panel_get_property_pointers(panel, nullptr);
-
-  layout.prop(ptr, "use_custom_curve", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-}
-
-void modifier_grease_pencil_curve_panel_draw(const bContext * /*C*/, Panel *panel)
-{
-  ui::Layout &layout = *panel->layout;
-
-  PointerRNA *ptr = modifier_panel_get_property_pointers(panel, nullptr);
-
-  template_curve_mapping(&layout, ptr, "curve", 0, false, false, false, false, false);
-}
-
 /**
  * Check whether Modifier is a simulation or not. Used for switching to the
  * physics/particles context tab.
@@ -220,23 +201,9 @@ static void modifier_ops_extra_draw(bContext *C, ui::Layout *layout, void *md_v)
   layout->ui_units_x_set(4.0f);
 
   /* Apply. */
-  if (ob->type == OB_GREASE_PENCIL) {
-    layout->op("OBJECT_OT_modifier_apply",
-               CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Apply (Active Keyframe)"),
-               ICON_CHECKMARK);
-
-    op_ptr = layout->op("OBJECT_OT_modifier_apply",
-                        IFACE_("Apply (All Keyframes)"),
-                        ICON_KEYFRAME,
-                        wm::OpCallContext::InvokeDefault,
-                        UI_ITEM_NONE);
-    RNA_boolean_set(&op_ptr, "all_keyframes", true);
-  }
-  else {
-    layout->op("OBJECT_OT_modifier_apply",
-               CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Apply"),
-               ICON_CHECKMARK);
-  }
+  layout->op("OBJECT_OT_modifier_apply",
+             CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Apply"),
+             ICON_CHECKMARK);
 
   /* Apply as shapekey. */
   if (BKE_modifier_is_same_topology(md) && !BKE_modifier_is_non_geometrical(md)) {

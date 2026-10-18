@@ -8,7 +8,6 @@
 #include "BKE_compute_contexts.hh"
 #include "BKE_curves.hh"
 #include "BKE_geometry_fields.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_node_socket_value.hh"
 
@@ -39,7 +38,6 @@ struct ForeachGeometryElementEvalStorage;
 struct ForeachElementComponentID {
   GeometryComponent::Type component_type;
   AttrDomain domain;
-  std::optional<int> layer_index;
 };
 
 /**
@@ -65,16 +63,7 @@ struct ForeachElementComponent {
 
   void emplace_field_context(const GeometrySet &geometry)
   {
-    if (this->id.component_type == GeometryComponent::Type::GreasePencil &&
-        ELEM(this->id.domain, AttrDomain::Point, AttrDomain::Curve))
-    {
-      this->field_context.emplace(
-          *geometry.get_grease_pencil(), this->id.domain, *this->id.layer_index);
-    }
-    else {
-      this->field_context.emplace(*geometry.get_component(this->id.component_type),
-                                  this->id.domain);
-    }
+    this->field_context.emplace(*geometry.get_component(this->id.component_type), this->id.domain);
   }
 
   AttributeAccessor input_attributes() const
@@ -84,16 +73,6 @@ struct ForeachElementComponent {
 
   MutableAttributeAccessor attributes_for_write(GeometrySet &geometry) const
   {
-    if (this->id.component_type == GeometryComponent::Type::GreasePencil &&
-        ELEM(this->id.domain, AttrDomain::Point, AttrDomain::Curve))
-    {
-      BLI_assert(this->id.layer_index.has_value());
-      GreasePencil *grease_pencil = geometry.get_grease_pencil_for_write();
-      const bke::greasepencil::Layer &layer = grease_pencil->layer(*this->id.layer_index);
-      bke::greasepencil::Drawing *drawing = grease_pencil->get_eval_drawing(layer);
-      BLI_assert(drawing);
-      return drawing->strokes_for_write().attributes_for_write();
-    }
     GeometryComponent &component = geometry.get_component_for_write(this->id.component_type);
     return *component.attributes_for_write();
   }
@@ -431,28 +410,9 @@ class LazyFunctionForForeachGeometryElementZone : public LazyFunction {
     Vector<ForeachElementComponentID> component_ids;
     for (const GeometryComponent *src_component : eval_storage.main_geometry.get_components()) {
       const GeometryComponent::Type component_type = src_component->type();
-      if (src_component->type() == GeometryComponent::Type::GreasePencil &&
-          ELEM(iteration_domain, AttrDomain::Point, AttrDomain::Curve))
-      {
-        const GreasePencil &grease_pencil = *eval_storage.main_geometry.get_grease_pencil();
-        for (const int layer_i : grease_pencil.layers().index_range()) {
-          const bke::greasepencil::Drawing *drawing = grease_pencil.get_eval_drawing(
-              grease_pencil.layer(layer_i));
-          if (drawing == nullptr) {
-            continue;
-          }
-          const bke::CurvesGeometry &curves = drawing->strokes();
-          if (curves.is_empty()) {
-            continue;
-          }
-          component_ids.append({component_type, iteration_domain, layer_i});
-        }
-      }
-      else {
-        const int domain_size = src_component->attribute_domain_size(iteration_domain);
-        if (domain_size > 0) {
-          component_ids.append({component_type, iteration_domain});
-        }
+      const int domain_size = src_component->attribute_domain_size(iteration_domain);
+      if (domain_size > 0) {
+        component_ids.append({component_type, iteration_domain});
       }
     }
 
@@ -612,34 +572,6 @@ class LazyFunctionForForeachGeometryElementZone : public LazyFunction {
         Array<GeometrySet> element_geometries(element_instances.size());
         for (const int i : element_instances.index_range()) {
           element_geometries[i].replace_instances(element_instances[i]);
-        }
-        return element_geometries;
-      }
-      case GeometryComponent::Type::GreasePencil: {
-        const GreasePencil &main_grease_pencil = *main_geometry.get_grease_pencil();
-        Array<GreasePencil *> element_grease_pencils;
-        switch (id.domain) {
-          case AttrDomain::Layer: {
-            element_grease_pencils = geometry::extract_greasepencil_layers(
-                main_grease_pencil, mask, attribute_filter);
-            break;
-          }
-          case AttrDomain::Point: {
-            element_grease_pencils = geometry::extract_greasepencil_layer_points(
-                main_grease_pencil, *id.layer_index, mask, attribute_filter);
-            break;
-          }
-          case AttrDomain::Curve: {
-            element_grease_pencils = geometry::extract_greasepencil_layer_curves(
-                main_grease_pencil, *id.layer_index, mask, attribute_filter);
-            break;
-          }
-          default:
-            return std::nullopt;
-        }
-        Array<GeometrySet> element_geometries(element_grease_pencils.size());
-        for (const int i : element_geometries.index_range()) {
-          element_geometries[i].replace_grease_pencil(element_grease_pencils[i]);
         }
         return element_geometries;
       }
@@ -835,8 +767,6 @@ static std::optional<AttrDomain> get_foreach_attribute_propagation_target_domain
       return AttrDomain::Curve;
     case GeometryComponent::Type::Instance:
       return AttrDomain::Instance;
-    case GeometryComponent::Type::GreasePencil:
-      return AttrDomain::Layer;
     default:
       break;
   }
@@ -1071,7 +1001,6 @@ void LazyFunctionForReduceForeachGeometryElement::handle_generation_items_group(
            {GeometryComponent::Type::Mesh,
             GeometryComponent::Type::PointCloud,
             GeometryComponent::Type::Curve,
-            GeometryComponent::Type::GreasePencil,
             GeometryComponent::Type::Instance})
       {
         if (!geometry.has(dst_component_type)) {
@@ -1148,8 +1077,7 @@ void LazyFunctionForReduceForeachGeometryElement::handle_generation_items_group(
             for (const GeometryComponent::Type component_type :
                  {GeometryComponent::Type::Mesh,
                   GeometryComponent::Type::PointCloud,
-                  GeometryComponent::Type::Curve,
-                  GeometryComponent::Type::GreasePencil})
+                  GeometryComponent::Type::Curve})
             {
               if (sub_geometry.has(component_type)) {
                 bke::try_capture_field_on_geometry(

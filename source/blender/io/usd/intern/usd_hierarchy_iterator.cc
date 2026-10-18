@@ -388,7 +388,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
     case OB_SPEAKER:
     case OB_LIGHTPROBE:
     case OB_LATTICE:
-    case OB_GREASE_PENCIL:
       return nullptr;
 
     case OB_TYPE_MAX:

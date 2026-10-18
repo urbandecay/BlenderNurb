@@ -2224,7 +2224,7 @@ ModifierTypeInfo modifierType_Nodes = {
     /*flags*/
     (eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_AcceptsCVs |
      eModifierTypeFlag_SupportsEditmode | eModifierTypeFlag_EnableInEditmode |
-     eModifierTypeFlag_SupportsMapping | eModifierTypeFlag_AcceptsGreasePencil),
+     eModifierTypeFlag_SupportsMapping),
     /*icon*/ ICON_GEOMETRY_NODES,
 
     /*copy_data*/ copy_data,

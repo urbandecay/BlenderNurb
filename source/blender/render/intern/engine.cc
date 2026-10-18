@@ -723,7 +723,6 @@ static void engine_depsgraph_init(RenderEngine *engine, ViewLayer *view_layer)
     BKE_scene_graph_update_for_newframe_ex(engine->depsgraph, false);
   }
 
-  engine->has_grease_pencil = DRW_render_check_grease_pencil(engine->depsgraph);
 }
 
 static void engine_depsgraph_exit(RenderEngine *engine)
@@ -872,8 +871,7 @@ static bool possibly_using_gpu_compositor(const Render *re)
 static void engine_render_view_layer(Render *re,
                                      RenderEngine *engine,
                                      ViewLayer *view_layer_iter,
-                                     const bool use_engine,
-                                     const bool use_grease_pencil)
+                                     const bool use_engine)
 {
   /* Lock UI so scene can't be edited while we read from it in this render thread. */
   re->display->draw_lock();
@@ -893,8 +891,7 @@ static void engine_render_view_layer(Render *re,
     if (use_gpu_context) {
       DRW_render_context_enable(engine->re);
     }
-    else if (G.background && ((engine->has_grease_pencil && use_grease_pencil) ||
-                              possibly_using_gpu_compositor(re)))
+    else if (G.background && possibly_using_gpu_compositor(re))
     {
       /* Workaround for specific NVidia drivers which crash on Linux when OptiX context is
        * initialized prior to OpenGL context. This affects driver versions 545.29.06, 550.54.14,
@@ -946,19 +943,6 @@ static void engine_render_view_layer(Render *re,
 
     if (use_gpu_context) {
       DRW_render_context_disable(engine->re);
-    }
-  }
-
-  /* Optionally composite grease pencil over render result.
-   * Only do it if the passes are allocated (and the engine will not override the grease pencil
-   * when reading its result from EXR file and writing to the Blender side). */
-  if (engine->has_grease_pencil && use_grease_pencil && re->result->passes_allocated) {
-    /* NOTE: External engine might have been requested to free its
-     * dependency graph, which is only allowed if there is no grease
-     * pencil (pipeline is taking care of that). */
-    if (!RE_engine_test_break(engine) && engine->depsgraph != nullptr) {
-      CLOG_INFO(&LOG, "Rendering grease pencil");
-      DRW_render_gpencil(engine, engine->depsgraph);
     }
   }
 
@@ -1091,20 +1075,11 @@ bool RE_engine_render(Render *re, bool do_all)
   re->display->draw_unlock();
 
   /* Render view layers. */
-  bool delay_grease_pencil = false;
-
   if (type->render) {
     FOREACH_VIEW_LAYER_TO_RENDER_BEGIN (re, view_layer_iter) {
       CLOG_INFO(&LOG, "Start rendering: %s, %s", re->scene->id.name + 2, view_layer_iter->name);
       CLOG_INFO(&LOG, "Engine: %s", engine->type->name);
-      const bool use_grease_pencil = (view_layer_iter->layflag & SCE_LAY_GREASE_PENCIL) != 0;
-      engine_render_view_layer(re, engine, view_layer_iter, true, use_grease_pencil);
-
-      /* If render passes are not allocated the render engine deferred final pixels write for
-       * later. Need to defer the grease pencil for until after the engine has written the
-       * render result to Blender. */
-      delay_grease_pencil = use_grease_pencil && engine->has_grease_pencil &&
-                            !re->result->passes_allocated;
+      engine_render_view_layer(re, engine, view_layer_iter, true);
 
       if (RE_engine_test_break(engine)) {
         break;
@@ -1115,21 +1090,6 @@ bool RE_engine_render(Render *re, bool do_all)
 
   if (type->render_frame_finish) {
     type->render_frame_finish(engine);
-  }
-
-  /* Perform delayed grease pencil rendering. */
-  if (delay_grease_pencil) {
-    FOREACH_VIEW_LAYER_TO_RENDER_BEGIN (re, view_layer_iter) {
-      const bool use_grease_pencil = (view_layer_iter->layflag & SCE_LAY_GREASE_PENCIL) != 0;
-      if (!use_grease_pencil) {
-        continue;
-      }
-      engine_render_view_layer(re, engine, view_layer_iter, false, true);
-      if (RE_engine_test_break(engine)) {
-        break;
-      }
-    }
-    FOREACH_VIEW_LAYER_TO_RENDER_END;
   }
 
   /* Clear tile data */
@@ -1205,11 +1165,8 @@ void RE_engine_register_pass(RenderEngine *engine,
 
 void RE_engine_free_blender_memory(RenderEngine *engine)
 {
-  /* Weak way to save memory, but not crash grease pencil.
-   *
-   * TODO(sergey): Find better solution for this.
-   */
-  if (engine->has_grease_pencil || engine_keep_depsgraph(engine)) {
+  /* Keep the dependency graph for engines that request persistent data. */
+  if (engine_keep_depsgraph(engine)) {
     return;
   }
   engine_depsgraph_free(engine);

@@ -328,16 +328,6 @@ msgstr "ﻂﺧ"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "ﯽﻨﻏﻭﺭ ﺩﺍﺪﻣ"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "3 ﻥﮊﺭﻭ ﯽﻨﻏﻭﺭ ﺩﺍﺪﻣ"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "ﺲﮑﻋ"
 
@@ -1160,10 +1150,6 @@ msgid "Cache Files"
 msgstr "ﺶﮐ ﯼﺎﻫ ﻞﯾﺎﻓ"
 
 
-msgid "Grease Pencil"
-msgstr "ﯽﻨﻏﻭﺭ ﺩﺍﺪﻣ"
-
-
 msgid "Textures"
 msgstr "ﺎﻫ‌ﺖﻓﺎﺑ"
 
@@ -1412,24 +1398,9 @@ msgid "Material"
 msgstr "ﻩﺩﺎﻣ"
 
 
-msgctxt "GPencil"
-msgid "Round"
-msgstr "ﺩﺮﮔ"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "ﺖﺨﺗ"
-
-
 msgctxt "Amount"
 msgid "Smooth"
 msgstr "ﻑﺎﺻ"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "ﻡ‌ﺎﮑﺤﺘﺳﺍ"
 
 
 msgid "Hue"
@@ -2517,26 +2488,6 @@ msgid "Erase"
 msgstr "ﻥﺩﺮﮐ‌ﮎﺎﭘ"
 
 
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "ﻑﺎﺻ"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "ﺖﻣﺎﺨﺿ"
-
-
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "ﻥﺩﺮﮐ ﯽﻓﺩﺎﺼﺗ"
-
-
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "ﻥﺎﺴﻤﻫ ﻦﺘﺧﺎﺳ"
-
-
 msgid "Draw"
 msgstr "ﺩﺍﺯﺁ ﯽﺷﺎﻘﻧ"
 
@@ -3076,18 +3027,8 @@ msgid "Fill"
 msgstr "ﻥﺩﺮﮐ ﺮﭘ"
 
 
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "ﺖﻓﺎﺑ"
-
-
 msgid "Flip"
 msgstr "ﯼﺯﺎﺳ ﻪﻨﯾﺮﻗ"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "ﻁﻮﻠﺨﻣ"
 
 
 msgid "Math"
@@ -3903,11 +3844,6 @@ msgid "Limit"
 msgstr "ﻥﺩﺮﮐ ﺩﻭﺪﺤﻣ"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "ﯽﻄﺧ"
-
-
 msgid "By Material"
 msgstr "ﺩﺍﻮﻣ ﺎﺑ"
 
@@ -4504,11 +4440,6 @@ msgid "Gray Scale"
 msgstr "ﯼﺮﺘﺴﮐﺎﺧ ﺱﺎﯿﻘﻣ"
 
 
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "ﺝﻮﻣ"
-
-
 msgid "Mass Vertex Group"
 msgstr "ﺱﺃﺭ ﯽﻌﻤﺟ ﯼﺎﻫ ﻩﻭﺮﮔ"
 
@@ -5089,10 +5020,6 @@ msgid "Browse Brush to be linked"
 msgstr "ﻥﺩﺮﮐ‌ﮏﻨﯿﻟ ﯼﺍﺮﺑ ﻮﻣ ﻢﻠﻗ ﺶﻨﯾﺰﮔ"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "ﻥﺩﺮﮐ‌ﮏﻨﯿﻟ ﯼﺍﺮﺑ ﯽﻨﻏﻭﺭ ﺩﺍﺪﻣ ﻩٔﺩﺍﺩ ﺶﻨﯾﺰﮔ"
-
-
 msgid "Browse ID data to be linked"
 msgstr "ﻥﺩﺮﮐ‌ﮏﻨﯿﻟ ﯼﺍﺮﺑ ﯼﺩ−ﯼﺁ ﻩٔﺩﺍﺩ ﺶﻨﯾﺰﮔ"
 
@@ -5228,16 +5155,6 @@ msgstr "ﯽﮕﺘﻔﺷﺁ"
 msgctxt "Object"
 msgid "Drag"
 msgstr "ﮒﺭﺩ"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "ﻥﺍﺯﻮﺳ"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "ﺕﺭﺁ ﻦﯾﻻ﻿"
 
 
 msgid "Cannot create editmode armature"

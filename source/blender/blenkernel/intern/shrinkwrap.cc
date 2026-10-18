@@ -14,7 +14,6 @@
 #include <ctime>
 #include <memory.h>
 
-#include "DNA_gpencil_modifier_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"

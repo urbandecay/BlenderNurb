@@ -10,7 +10,6 @@ from bl_ui.utils import PresetPanel
 
 from bpy.types import Panel, Menu
 
-from bl_ui.properties_grease_pencil_common import GreasePencilSimplifyPanel
 from bl_ui.properties_render import draw_curves_settings, CompositorPerformanceButtonsPanel, CompositorDenoisePerformanceButtonsPanel
 from bl_ui.properties_view_layer import (
     ViewLayerCryptomattePanelHelper,
@@ -1024,7 +1023,6 @@ class CYCLES_RENDER_PT_filter(CyclesButtonsPanel, Panel):
         col.prop(view_layer, "use_solid", text="Surfaces")
         col.prop(view_layer, "use_strand", text="Curves")
         col.prop(view_layer, "use_volumes", text="Volumes")
-        col.prop(view_layer, "use_grease_pencil", text="Grease Pencil")
 
         col = layout.column(heading="Use")
         sub = col.row()
@@ -1068,7 +1066,6 @@ class CYCLES_RENDER_PT_passes_data(CyclesButtonsPanel, Panel):
         sub.active = not rd.use_motion_blur
         sub.prop(view_layer, "use_pass_vector")
         col.prop(view_layer, "use_pass_uv")
-        col.prop(view_layer, "use_pass_grease_pencil", text="Grease Pencil")
 
         prefs = context.preferences
         use_debug = prefs.experimental.use_cycles_debug and prefs.view.show_developer_ui
@@ -1277,10 +1274,7 @@ class CYCLES_PT_context_material(CyclesButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.type == 'GREASEPENCIL':
-            return False
-        else:
-            return (context.material or context.object) and CyclesButtonsPanel.poll(context)
+        return (context.material or context.object) and CyclesButtonsPanel.poll(context)
 
     def draw(self, context):
         layout = self.layout
@@ -1948,7 +1942,7 @@ class CYCLES_MATERIAL_PT_preview(CyclesButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        return mat and (not mat.grease_pencil) and CyclesButtonsPanel.poll(context)
+        return mat and CyclesButtonsPanel.poll(context)
 
     def draw(self, context):
         self.layout.template_preview(context.material)
@@ -1961,7 +1955,7 @@ class CYCLES_MATERIAL_PT_surface(CyclesButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        return mat and (not mat.grease_pencil) and CyclesButtonsPanel.poll(context)
+        return mat and CyclesButtonsPanel.poll(context)
 
     def draw(self, context):
         layout = self.layout
@@ -1982,7 +1976,7 @@ class CYCLES_MATERIAL_PT_volume(CyclesButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        return mat and (not mat.grease_pencil) and mat.node_tree and CyclesButtonsPanel.poll(context)
+        return mat and mat.node_tree and CyclesButtonsPanel.poll(context)
 
     def draw(self, context):
         layout = self.layout
@@ -2002,7 +1996,7 @@ class CYCLES_MATERIAL_PT_displacement(CyclesButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        return mat and (not mat.grease_pencil) and mat.node_tree and CyclesButtonsPanel.poll(context)
+        return mat and mat.node_tree and CyclesButtonsPanel.poll(context)
 
     def draw(self, context):
         layout = self.layout
@@ -2021,7 +2015,7 @@ class CYCLES_MATERIAL_PT_settings(CyclesButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        return mat and (not mat.grease_pencil) and CyclesButtonsPanel.poll(context)
+        return mat and CyclesButtonsPanel.poll(context)
 
     @staticmethod
     def draw_shared(self, mat):
@@ -2507,13 +2501,6 @@ class CYCLES_VIEW3D_PT_shading_lighting(Panel):
             col.prop(shading, "studiolight_background_alpha")
 
 
-class CYCLES_VIEW3D_PT_simplify_greasepencil(CyclesButtonsPanel, Panel, GreasePencilSimplifyPanel):
-    bl_label = "Grease Pencil"
-    bl_parent_id = "CYCLES_RENDER_PT_simplify"
-    COMPAT_ENGINES = {'CYCLES'}
-    bl_options = {'DEFAULT_CLOSED'}
-
-
 def draw_device(self, context):
     scene = context.scene
     layout = self.layout
@@ -2604,7 +2591,6 @@ classes = (
     CYCLES_RENDER_PT_simplify_viewport,
     CYCLES_RENDER_PT_simplify_render,
     CYCLES_RENDER_PT_simplify_culling,
-    CYCLES_VIEW3D_PT_simplify_greasepencil,
     CYCLES_VIEW3D_PT_shading_lighting,
     CYCLES_VIEW3D_PT_shading_render_pass,
     CYCLES_VIEW3D_PT_shading_debug,

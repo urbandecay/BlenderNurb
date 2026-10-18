@@ -91,10 +91,6 @@ void attribute_search_add_items(StringRef str,
                                 Span<const nodes::eval_log::GeometryAttributeInfo *> infos,
                                 SearchItems *items,
                                 bool is_first);
-void grease_pencil_layer_search_add_items(StringRef str,
-                                          Span<const std::string *> layer_names,
-                                          SearchItems &items,
-                                          bool is_first);
 
 bool asset_shelf_popover_invoke(bContext &C, StringRef asset_shelf_idname, ReportList &reports);
 /**

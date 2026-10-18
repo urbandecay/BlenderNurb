@@ -59,7 +59,6 @@ struct ImBuf;
 struct Material;
 struct PreviewImage;
 struct Tex;
-struct bGPdata;
 struct bNodeLink;
 struct bNode;
 struct NodeEnumDefinition;
@@ -323,8 +322,6 @@ enum GeometryNodeAssetTraitFlag {
   GEO_NODE_ASSET_MODIFIER = (1 << 6),
   GEO_NODE_ASSET_OBJECT = (1 << 7),
   GEO_NODE_ASSET_WAIT_FOR_CURSOR = (1 << 8),
-  GEO_NODE_ASSET_GREASE_PENCIL = (1 << 9),
-  /* Only used by Grease Pencil for now. */
   GEO_NODE_ASSET_PAINT = (1 << 10),
   GEO_NODE_ASSET_HIDE_MODIFIER_MANAGE_PANEL = (1 << 11),
 };
@@ -1886,8 +1883,6 @@ struct bNodeTree {
   /** User-defined description of the node tree. */
   char *description = nullptr;
 
-  /** Grease pencil data. */
-  struct bGPdata *gpd = nullptr;
   /** Node tree stores its own offset for consistent editor view. */
   float view_center[2] = {};
   /** Width of the current view. Used to store and set zoom level. */

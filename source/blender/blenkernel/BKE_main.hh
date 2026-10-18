@@ -73,8 +73,6 @@ struct ParticleSettings;
 struct Palette;
 struct PaintCurve;
 struct wmWindowManager;
-struct bGPdata;
-struct GreasePencil;
 struct MovieClip;
 struct Mask;
 struct FreestyleLineStyle;
@@ -91,7 +89,6 @@ struct Collection;
 struct Curve;
 struct Curves;
 struct FreestyleLineStyle;
-struct GreasePencil;
 struct Image;
 struct Key;
 struct Lattice;
@@ -117,7 +114,6 @@ struct WorkSpace;
 struct World;
 struct bAction;
 struct bArmature;
-struct bGPdata;
 struct bNodeTree;
 struct bScreen;
 struct bSound;
@@ -394,9 +390,6 @@ struct Main : NonCopyable, NonMovable {
   ListBaseT<PaintCurve> paintcurves = {};
   /** Singleton (exception). */
   ListBaseT<wmWindowManager> wm = {};
-  /** Legacy Grease Pencil. */
-  ListBaseT<bGPdata> gpencils = {};
-  ListBaseT<GreasePencil> grease_pencils = {};
   ListBaseT<MovieClip> movieclips = {};
   ListBaseT<Mask> masks = {};
   ListBaseT<FreestyleLineStyle> linestyles = {};

@@ -364,14 +364,8 @@ struct DRWContext {
    */
   void release_data();
 
-  /**
-   * Enable engines from context. Not needed for Mode::RENDER and Mode::CUSTOM.
-   *
-   * `render_engine_type` specify the engine to use in OB_MATERIAL or OB_RENDER modes.
-   * `gpencil_engine_needed` should be set to true if the grease pencil engine is needed.
-   */
-  void enable_engines(bool gpencil_engine_needed = false,
-                      RenderEngineType *render_engine_type = nullptr);
+  /** Enable engines from context. Not needed for Mode::RENDER and Mode::CUSTOM. */
+  void enable_engines(RenderEngineType *render_engine_type = nullptr);
 
   /** Free unused engine data. */
   void engines_data_validate();

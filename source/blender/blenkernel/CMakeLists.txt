@@ -8,7 +8,6 @@ set(INC
   ../makesrna
   ../modifiers
   ../nodes/geometry/include
-  ../shader_fx
   ../simulation
   ../windowmanager
   ../../../intern/eigen
@@ -122,7 +121,6 @@ set(SRC
   intern/geometry_compare.cc
   intern/geometry_component_curves.cc
   intern/geometry_component_edit_data.cc
-  intern/geometry_component_grease_pencil.cc
   intern/geometry_component_instances.cc
   intern/geometry_component_mesh.cc
   intern/geometry_component_pointcloud.cc
@@ -130,14 +128,6 @@ set(SRC
   intern/geometry_fields.cc
   intern/geometry_set.cc
   intern/geometry_set_instances.cc
-  intern/gpencil_geom_legacy.cc
-  intern/gpencil_legacy.cc
-  intern/gpencil_modifier_legacy.cc
-  intern/grease_pencil.cc
-  intern/grease_pencil_attributes.cc
-  intern/grease_pencil_convert_legacy.cc
-  intern/grease_pencil_fills.cc
-  intern/grease_pencil_vertex_groups.cc
   intern/gtest_setup.cc
   intern/icons.cc
   intern/icons_rasterize.cc
@@ -265,7 +255,6 @@ set(SRC
   intern/rigidbody.cc
   intern/scene.cc
   intern/screen.cc
-  intern/shader_fx.cc
   intern/shrinkwrap.cc
   intern/softbody.cc
   intern/sound.cc
@@ -407,14 +396,6 @@ set(SRC
   BKE_geometry_set.hh
   BKE_geometry_set_instances.hh
   BKE_global.hh
-  BKE_gpencil_geom_legacy.h
-  BKE_gpencil_legacy.h
-  BKE_gpencil_modifier_legacy.h
-  BKE_grease_pencil.h
-  BKE_grease_pencil.hh
-  BKE_grease_pencil_fills.hh
-  BKE_grease_pencil_legacy_convert.hh
-  BKE_grease_pencil_vertex_groups.hh
   BKE_gtest_base.hh
   BKE_gtest_setup.hh
   BKE_icons.hh
@@ -505,7 +486,6 @@ set(SRC
   BKE_scene.hh
   BKE_scene_runtime.hh
   BKE_screen.hh
-  BKE_shader_fx.hh
   BKE_shrinkwrap.hh
   BKE_softbody.h
   BKE_sound.hh
@@ -598,7 +578,6 @@ set(LIB
   PRIVATE bf::render
   bf_rna
   PRIVATE bf::sequencer
-  bf_shader_fx
   bf_simulation
   PRIVATE bf::extern::xxhash
   PRIVATE bf::intern::atomic
@@ -762,7 +741,6 @@ if(WITH_GTESTS)
     intern/deform_test.cc
     intern/fcurve_test.cc
     intern/file_handler_test.cc
-    intern/grease_pencil_test.cc
     intern/idprop_serialize_test.cc
     intern/idprop_test.cc
     intern/image_partial_update_test.cc

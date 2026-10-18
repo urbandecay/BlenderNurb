@@ -81,9 +81,7 @@ static void transform_snap_anim_flush_data_ex(
   float ival = td->iloc[0];
 
   AnimData *adt = nullptr;
-  if (!ELEM(t->spacetype, SPACE_NLA, SPACE_SEQ) && !(td->flag & TD_GREASE_PENCIL_FRAME)) {
-    /* #TD_GREASE_PENCIL_FRAME stores #bke::greasepencil::Layer* in
-     * `td->extra`, and not the #AnimData. */
+  if (!ELEM(t->spacetype, SPACE_NLA, SPACE_SEQ)) {
     adt = static_cast<AnimData *>(td->extra);
   }
 

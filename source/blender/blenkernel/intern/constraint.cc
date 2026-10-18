@@ -5616,8 +5616,7 @@ static const bke::GeometryComponent *find_source_component(const bke::GeometrySe
       bke::GeometryComponent::Type::Mesh,
       bke::GeometryComponent::Type::PointCloud,
       bke::GeometryComponent::Type::Curve,
-      bke::GeometryComponent::Type::Instance,
-      bke::GeometryComponent::Type::GreasePencil};
+      bke::GeometryComponent::Type::Instance};
   for (const bke::GeometryComponent::Type src_type : supported_types) {
     if (component_is_available(geometry, src_type, domain)) {
       return geometry.get_component(src_type);

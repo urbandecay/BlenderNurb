@@ -70,7 +70,6 @@ static void node_geo_exec(GeoNodeExecParams params)
              GeometryComponent::Type::PointCloud,
              GeometryComponent::Type::Curve,
              GeometryComponent::Type::Instance,
-             GeometryComponent::Type::GreasePencil,
          })
     {
       if (!geometry.has(type)) {

@@ -120,9 +120,6 @@ wmKeyMap *WM_keymap_guess_from_context(const bContext *C)
       case CTX_MODE_EDIT_LATTICE:
         km_id = "Lattice";
         break;
-      case CTX_MODE_EDIT_GREASE_PENCIL:
-        km_id = "Grease Pencil Edit Mode";
-        break;
       case CTX_MODE_EDIT_POINTCLOUD:
         km_id = "Point Cloud";
         break;
@@ -147,35 +144,8 @@ wmKeyMap *WM_keymap_guess_from_context(const bContext *C)
       case CTX_MODE_OBJECT:
         km_id = "Object Mode";
         break;
-      case CTX_MODE_PAINT_GPENCIL_LEGACY:
-        km_id = "Grease Pencil Stroke Paint Mode";
-        break;
-      case CTX_MODE_EDIT_GPENCIL_LEGACY:
-        km_id = "Grease Pencil Stroke Edit Mode";
-        break;
-      case CTX_MODE_SCULPT_GPENCIL_LEGACY:
-        km_id = "Grease Pencil Stroke Sculpt Mode";
-        break;
-      case CTX_MODE_WEIGHT_GPENCIL_LEGACY:
-        km_id = "Grease Pencil Stroke Weight Mode";
-        break;
-      case CTX_MODE_VERTEX_GPENCIL_LEGACY:
-        km_id = "Grease Pencil Stroke Vertex Mode";
-        break;
       case CTX_MODE_SCULPT_CURVES:
         km_id = "Sculpt Curves";
-        break;
-      case CTX_MODE_PAINT_GREASE_PENCIL:
-        km_id = "Grease Pencil Draw Mode";
-        break;
-      case CTX_MODE_SCULPT_GREASE_PENCIL:
-        km_id = "Grease Pencil Sculpt Mode";
-        break;
-      case CTX_MODE_WEIGHT_GREASE_PENCIL:
-        km_id = "Grease Pencil Weight Mode";
-        break;
-      case CTX_MODE_VERTEX_GREASE_PENCIL:
-        km_id = "Grease Pencil Vertex Mode";
         break;
     }
   }
@@ -253,13 +223,6 @@ wmKeyMap *WM_keymap_guess_opname(const bContext *C, const char *opname)
            STRPREFIX(opname, "SOUND_OT") || STRPREFIX(opname, "SCENE_OT"))
   {
     km = WM_keymap_find_all(wm, "Screen", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  }
-  /* Grease Pencil. */
-  else if (STRPREFIX(opname, "GPENCIL_OT")) {
-    km = WM_keymap_find_all(wm, "Grease Pencil", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  }
-  else if (STRPREFIX(opname, "GREASE_PENCIL_OT")) {
-    km = WM_keymap_find_all(wm, "Grease Pencil", SPACE_EMPTY, RGN_TYPE_WINDOW);
   }
   /* Markers. */
   else if (STRPREFIX(opname, "MARKER_OT")) {

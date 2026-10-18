@@ -551,13 +551,6 @@ void blo_do_versions_520(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 4)) {
-    for (Brush &brush : bmain->brushes) {
-      if (brush.gpencil_settings != nullptr) {
-        brush.blend = 0;
-      }
-    }
-  }
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 5)) {
     FOREACH_NODETREE_BEGIN (bmain, node_tree, id_owner) {
       for (bNode &node : node_tree->nodes) {
@@ -599,17 +592,6 @@ void blo_do_versions_520(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
     }
   }
 
-  /* Disable "unified" flags for Grease Pencil Draw mode. */
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 11)) {
-    for (Scene &scene : bmain->scenes) {
-      if (scene.toolsettings->gp_paint) {
-        UnifiedPaintSettings &settings =
-            scene.toolsettings->gp_paint->paint.unified_paint_settings;
-        settings.flag &= ~(UNIFIED_PAINT_SIZE | UNIFIED_PAINT_ALPHA | UNIFIED_PAINT_COLOR);
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 12)) {
     for (bScreen &screen : bmain->screens) {
       for (ScrArea &area : screen.areabase) {
@@ -635,26 +617,6 @@ void blo_do_versions_520(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 15)) {
     for (Scene &scene : bmain->scenes) {
       scene.r.scemode |= R_USE_TEXTURE_CACHE;
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 16)) {
-    for (Brush &brush : bmain->brushes) {
-      if (brush.gpencil_settings != nullptr) {
-        brush.gpencil_settings->curve_type = CURVE_TYPE_POLY;
-        brush.gpencil_settings->conversion_threshold = 0.001f;
-      }
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 17)) {
-    for (Material &materials : bmain->materials) {
-      if (materials.gp_style != nullptr) {
-        materials.gp_style->placement_mode = GP_MATERIAL_PLACEMENT_COUNT;
-        materials.gp_style->placement_count = 1;
-        materials.gp_style->placement_density = 10.0f;
-        materials.gp_style->placement_radius_spacing = 100.0f;
-      }
     }
   }
 
@@ -709,19 +671,6 @@ void blo_do_versions_520(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 21)) {
-    for (Material &materials : bmain->materials) {
-      if (materials.gp_style != nullptr) {
-        materials.gp_style->random_size_factor = 0.0f;
-        materials.gp_style->random_strength_factor = 0.0f;
-        materials.gp_style->random_rotation_factor = 0.0f;
-        materials.gp_style->random_hue_factor = 0.0f;
-        materials.gp_style->random_saturation_factor = 0.0f;
-        materials.gp_style->random_value_factor = 0.0f;
-        materials.gp_style->random_noise_scale = 1.0f;
-      }
-    }
-  }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 22)) {
     version_strip_modifier_show_preview_flag(*bmain);
@@ -841,15 +790,6 @@ void blo_do_versions_520(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 37)) {
     version_text_strip_abs_space_line(*bmain);
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 38)) {
-    for (Brush &brush : bmain->brushes) {
-      if (brush.gpencil_settings != nullptr) {
-        brush.gpencil_settings->fill_gap_factor = 0.4f;
-        brush.gpencil_settings->flag |= GP_BRUSH_FILL_INTERNAL_GAPS;
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 39)) {

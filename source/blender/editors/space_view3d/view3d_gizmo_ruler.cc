@@ -16,14 +16,12 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.hh"
-#include "BKE_gpencil_legacy.h"
 #include "BKE_layer.hh"
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
 #include "BKE_unit.hh"
 
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_object_types.h"
 #include "DNA_view3d_types.h"
 
@@ -487,20 +485,10 @@ static bool gizmo_ruler_check_for_operator(const wmGizmoGroup *gzgroup)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Ruler/Grease Pencil Conversion
+/** \name Ruler Utilities
  * \{ */
 
 /* Helper: Find the layer created as ruler. */
-static bGPDlayer *view3d_ruler_layer_get(bGPdata *gpd)
-{
-  for (bGPDlayer &gpl : gpd->layers) {
-    if (gpl.flag & GP_LAYER_IS_RULER) {
-      return &gpl;
-    }
-  }
-  return nullptr;
-}
-
 static RulerItem *gzgroup_ruler_item_first_get(wmGizmoGroup *gzgroup)
 {
 #ifndef NDEBUG
@@ -508,173 +496,6 @@ static RulerItem *gzgroup_ruler_item_first_get(wmGizmoGroup *gzgroup)
   BLI_assert(gzgroup->gizmos.first == ruler_info->snap_data.gizmo);
 #endif
   return reinterpret_cast<RulerItem *>((static_cast<wmGizmo *>(gzgroup->gizmos.first))->next);
-}
-
-#define RULER_ID "RulerData3D"
-
-/* GP data creation has to happen before the undo step is stored.
- * See also #116734. */
-static void view3d_ruler_gpencil_ensure(bContext *C)
-{
-  // RulerInfo *ruler_info = gzgroup->customdata;
-  Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  if (scene->gpd == nullptr) {
-    scene->gpd = BKE_gpencil_data_addnew(bmain, "Annotations");
-    DEG_id_tag_update_ex(bmain, &scene->id, ID_RECALC_SYNC_TO_EVAL);
-    DEG_relations_tag_update(bmain);
-  }
-}
-
-static bool view3d_ruler_to_gpencil(bContext *C, wmGizmoGroup *gzgroup)
-{
-  // RulerInfo *ruler_info = gzgroup->customdata;
-  Scene *scene = CTX_data_scene(C);
-
-  bGPdata *gpd;
-  bGPDlayer *gpl;
-  bGPDframe *gpf;
-  bGPDstroke *gps;
-  RulerItem *ruler_item;
-  const char *ruler_name = RULER_ID;
-  bool changed = false;
-
-  BLI_assert(scene->gpd != nullptr);
-  gpd = scene->gpd;
-
-  gpl = view3d_ruler_layer_get(gpd);
-  if (gpl == nullptr) {
-    gpl = BKE_gpencil_layer_addnew(gpd, ruler_name, false, false);
-    copy_v4_v4(gpl->color, U.gpencil_new_layer_col);
-    gpl->thickness = 1;
-    gpl->flag |= GP_LAYER_HIDE | GP_LAYER_IS_RULER;
-  }
-
-  gpf = BKE_gpencil_layer_frame_get(gpl, scene->r.cfra, GP_GETFRAME_ADD_NEW);
-  BKE_gpencil_free_strokes(gpf);
-
-  for (ruler_item = gzgroup_ruler_item_first_get(gzgroup); ruler_item;
-       ruler_item = reinterpret_cast<RulerItem *>(ruler_item->gz.next))
-  {
-    bGPDspoint *pt;
-    int j;
-
-    /* allocate memory for a new stroke */
-    gps = MEM_new<bGPDstroke>("gp_stroke");
-    if (ruler_item->flag & RULERITEM_USE_ANGLE) {
-      gps->totpoints = 3;
-      pt = gps->points = MEM_new_array<bGPDspoint>(gps->totpoints, "gp_stroke_points");
-      for (j = 0; j < 3; j++) {
-        copy_v3_v3(&pt->x, ruler_item->co[j]);
-        pt->pressure = 1.0f;
-        pt->strength = 1.0f;
-        pt++;
-      }
-    }
-    else {
-      gps->totpoints = 2;
-      pt = gps->points = MEM_new_array<bGPDspoint>(gps->totpoints, "gp_stroke_points");
-      for (j = 0; j < 3; j += 2) {
-        copy_v3_v3(&pt->x, ruler_item->co[j]);
-        pt->pressure = 1.0f;
-        pt->strength = 1.0f;
-        pt++;
-      }
-    }
-    gps->flag = GP_STROKE_3DSPACE;
-    gps->thickness = 3;
-    gps->hardness = 1.0f;
-    gps->fill_opacity_fac = 1.0f;
-    copy_v2_fl(gps->aspect_ratio, 1.0f);
-    gps->uv_scale = 1.0f;
-
-    BLI_addtail(&gpf->strokes, gps);
-    changed = true;
-  }
-
-  return changed;
-}
-
-static bool view3d_ruler_from_gpencil(const bContext *C, wmGizmoGroup *gzgroup)
-{
-  Scene *scene = CTX_data_scene(C);
-  bool changed = false;
-
-  if (scene->gpd) {
-    bGPDlayer *gpl;
-    gpl = view3d_ruler_layer_get(scene->gpd);
-    if (gpl) {
-      bGPDframe *gpf;
-      gpf = BKE_gpencil_layer_frame_get(gpl, scene->r.cfra, GP_GETFRAME_USE_PREV);
-      if (gpf) {
-        for (bGPDstroke &gps : gpf->strokes) {
-          bGPDspoint *pt = gps.points;
-          int j;
-          RulerItem *ruler_item = nullptr;
-          if (gps.totpoints == 3) {
-            ruler_item = ruler_item_add(gzgroup);
-            for (j = 0; j < 3; j++) {
-              copy_v3_v3(ruler_item->co[j], &pt->x);
-              pt++;
-            }
-            ruler_item->flag |= RULERITEM_USE_ANGLE;
-            changed = true;
-          }
-          else if (gps.totpoints == 2) {
-            ruler_item = ruler_item_add(gzgroup);
-            for (j = 0; j < 3; j += 2) {
-              copy_v3_v3(ruler_item->co[j], &pt->x);
-              pt++;
-            }
-            changed = true;
-          }
-        }
-      }
-    }
-  }
-
-  return changed;
-}
-
-void ED_view3d_gizmo_ruler_remove_by_gpencil_layer(bContext *C, bGPDlayer *gpl)
-{
-  wmWindowManager *wm = CTX_wm_manager(C);
-  for (wmWindow &win : wm->windows) {
-    const Scene *scene = WM_window_get_active_scene(&win);
-    if (!scene->gpd) {
-      continue;
-    }
-
-    bGPDlayer *gpl_scene = view3d_ruler_layer_get(scene->gpd);
-    if (gpl_scene != gpl) {
-      continue;
-    }
-
-    const bScreen *screen = WM_window_get_active_screen(&win);
-    for (ScrArea &area : screen->areabase) {
-      if (area.spacetype != SPACE_VIEW3D) {
-        continue;
-      }
-
-      ARegion *region = BKE_area_find_region_type(&area, RGN_TYPE_WINDOW);
-      if (!region) {
-        continue;
-      }
-
-      wmGizmoMap *gzmap = region->runtime->gizmo_map;
-      wmGizmoGroup *gzgroup = WM_gizmomap_group_find(gzmap, view3d_gzgt_ruler_id);
-
-      if (!gzgroup) {
-        continue;
-      }
-      RulerItem *ruler_item;
-      while ((ruler_item = gzgroup_ruler_item_first_get(gzgroup))) {
-        ruler_item_remove(C, gzgroup, ruler_item);
-      }
-
-      ED_region_tag_redraw_editor_overlays(region);
-    }
-  }
 }
 
 /** \} */
@@ -1238,9 +1059,6 @@ static wmOperatorStatus gizmo_ruler_invoke(bContext *C, wmGizmo *gz, const wmEve
 
   ruler_info->item_active = ruler_item_pick;
 
-  /* Ensures there is a valid GPencil data in current scene. */
-  view3d_ruler_gpencil_ensure(C);
-
   return OPERATOR_RUNNING_MODAL;
 }
 
@@ -1253,11 +1071,6 @@ static void gizmo_ruler_exit(bContext *C, wmGizmo *gz, const bool cancel)
     if (ruler_info->state == RULER_STATE_DRAG) {
       RNA_property_unset(ruler_info->snap_data.gizmo->ptr, ruler_info->snap_data.prop_prevpoint);
       ruler_state_set(ruler_info, RULER_STATE_NORMAL);
-    }
-    /* We could convert only the current gizmo, for now just re-generate. */
-    if (view3d_ruler_to_gpencil(C, gzgroup)) {
-      /* For immediate update when a ruler annotation layer was added. */
-      WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, nullptr);
     }
   }
 
@@ -1314,10 +1127,6 @@ static void WIDGETGROUP_ruler_setup(const bContext *C, wmGizmoGroup *gzgroup)
 
     wmOperatorType *ot = WM_operatortype_find("VIEW3D_OT_ruler_add", true);
     WM_gizmo_operator_set(gizmo, 0, ot, nullptr);
-  }
-
-  if (view3d_ruler_from_gpencil(C, gzgroup)) {
-    /* nop */
   }
 
   wmWindowManager *wm = CTX_wm_manager(C);
@@ -1473,10 +1282,6 @@ static wmOperatorStatus view3d_ruler_remove_invoke(bContext *C,
       else {
         ruler_item_remove(C, gzgroup, ruler_item);
       }
-
-      /* Update the annotation layer. */
-      view3d_ruler_gpencil_ensure(C);
-      view3d_ruler_to_gpencil(C, gzgroup);
 
       ED_region_tag_redraw_editor_overlays(region);
       return OPERATOR_FINISHED;

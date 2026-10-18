@@ -1419,8 +1419,6 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
         return CTX_MODE_EDIT_LATTICE;
       case OB_CURVES:
         return CTX_MODE_EDIT_CURVES;
-      case OB_GREASE_PENCIL:
-        return CTX_MODE_EDIT_GREASE_PENCIL;
       case OB_POINTCLOUD:
         return CTX_MODE_EDIT_POINTCLOUD;
       default:
@@ -1447,29 +1445,6 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
       }
       if (object_mode & OB_MODE_PARTICLE_EDIT) {
         return CTX_MODE_PARTICLE;
-      }
-      if (object_mode & OB_MODE_PAINT_GREASE_PENCIL) {
-        if (ob->type == OB_GREASE_PENCIL) {
-          return CTX_MODE_PAINT_GREASE_PENCIL;
-        }
-      }
-      if (object_mode & OB_MODE_EDIT_GPENCIL_LEGACY) {
-        return CTX_MODE_EDIT_GPENCIL_LEGACY;
-      }
-      if (object_mode & OB_MODE_SCULPT_GREASE_PENCIL) {
-        if (ob->type == OB_GREASE_PENCIL) {
-          return CTX_MODE_SCULPT_GREASE_PENCIL;
-        }
-      }
-      if (object_mode & OB_MODE_WEIGHT_GREASE_PENCIL) {
-        if (ob->type == OB_GREASE_PENCIL) {
-          return CTX_MODE_WEIGHT_GREASE_PENCIL;
-        }
-      }
-      if (object_mode & OB_MODE_VERTEX_GREASE_PENCIL) {
-        if (ob->type == OB_GREASE_PENCIL) {
-          return CTX_MODE_VERTEX_GREASE_PENCIL;
-        }
       }
       if (object_mode & OB_MODE_SCULPT_CURVES) {
         return CTX_MODE_SCULPT_CURVES;
@@ -1501,7 +1476,6 @@ static const char *data_mode_strings[] = {
     "mball_edit",
     "lattice_edit",
     "curves_edit",
-    "grease_pencil_edit",
     "pointcloud_edit",
     "posemode",
     "sculpt_mode",
@@ -1510,16 +1484,7 @@ static const char *data_mode_strings[] = {
     "imagepaint",
     "particlemode",
     "objectmode",
-    "greasepencil_paint",
-    "greasepencil_edit",
-    "greasepencil_sculpt",
-    "greasepencil_weight",
-    "greasepencil_vertex",
     "curves_sculpt",
-    "grease_pencil_paint",
-    "grease_pencil_sculpt",
-    "grease_pencil_weight",
-    "grease_pencil_vertex",
     nullptr,
 };
 BLI_STATIC_ASSERT(ARRAY_SIZE(data_mode_strings) == CTX_MODE_NUM + 1,

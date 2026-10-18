@@ -1091,17 +1091,6 @@ static void rna_def_trackingSettings(BlenderRNA *brna)
       prop, "Prepass", "Use a brute-force translation-only initialization when tracking");
   RNA_def_property_update(prop, NC_MOVIECLIP | ND_DISPLAY, nullptr);
 
-  /* default_use_brute */
-  prop = RNA_def_property(srna, "use_default_mask", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(
-      prop, nullptr, "default_algorithm_flag", TRACK_ALGORITHM_FLAG_USE_MASK);
-  RNA_def_property_ui_text(
-      prop,
-      "Use Mask",
-      "Use a Grease Pencil data-block as a mask to use only specified areas of pattern "
-      "when tracking");
-  RNA_def_property_update(prop, NC_MOVIECLIP | ND_DISPLAY, nullptr);
-
   /* default_use_normalization */
   prop = RNA_def_property(srna, "use_default_normalization", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(
@@ -1616,16 +1605,6 @@ static void rna_def_trackingTrack(BlenderRNA *brna)
       prop, "Prepass", "Use a brute-force translation only pre-track before refinement");
   RNA_def_property_update(prop, NC_MOVIECLIP | ND_DISPLAY, nullptr);
 
-  /* use_brute */
-  prop = RNA_def_property(srna, "use_mask", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "algorithm_flag", TRACK_ALGORITHM_FLAG_USE_MASK);
-  RNA_def_property_ui_text(
-      prop,
-      "Use Mask",
-      "Use a Grease Pencil data-block as a mask to use only specified areas of pattern "
-      "when tracking");
-  RNA_def_property_update(prop, NC_MOVIECLIP | ND_DISPLAY, nullptr);
-
   /* use_normalization */
   prop = RNA_def_property(srna, "use_normalization", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(
@@ -1758,16 +1737,6 @@ static void rna_def_trackingTrack(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, nullptr, "error");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Average Error", "Average error of re-projection");
-
-  /* Annotations */
-  prop = RNA_def_property(srna, "annotation", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "gpd");
-  RNA_def_property_struct_type(prop, "Annotation");
-  RNA_def_property_pointer_funcs(
-      prop, nullptr, nullptr, nullptr, "rna_GPencil_datablocks_annotations_poll");
-  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);
-  RNA_def_property_ui_text(prop, "Annotation", "Annotation data for this track");
-  RNA_def_property_update(prop, NC_MOVIECLIP | ND_DISPLAY, nullptr);
 
   /* weight */
   prop = RNA_def_property(srna, "weight", PROP_FLOAT, PROP_FACTOR);

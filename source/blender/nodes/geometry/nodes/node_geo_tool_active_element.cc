@@ -65,10 +65,6 @@ static void node_exec(GeoNodeExecParams params)
       params.set_output("Exists"_ustr, operator_data->active_face_index >= 0);
       params.set_output("Index"_ustr, std::max(0, operator_data->active_face_index));
       break;
-    case AttrDomain::Layer:
-      params.set_output("Exists"_ustr, operator_data->active_layer_index >= 0);
-      params.set_output("Index"_ustr, std::max(0, operator_data->active_layer_index));
-      break;
     default:
       params.set_default_remaining_outputs();
       BLI_assert_unreachable();
@@ -82,7 +78,6 @@ static void node_rna(StructRNA *srna)
       {int(AttrDomain::Point), "POINT", 0, "Point", ""},
       {int(AttrDomain::Edge), "EDGE", 0, "Edge", ""},
       {int(AttrDomain::Face), "FACE", 0, "Face", ""},
-      {int(AttrDomain::Layer), "LAYER", 0, "Layer", ""},
       {0, nullptr, 0, nullptr, nullptr},
   };
 

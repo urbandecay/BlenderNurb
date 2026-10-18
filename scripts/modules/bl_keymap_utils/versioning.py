@@ -166,7 +166,6 @@ def keyconfig_update(keyconfig_data, keyconfig_version):
             "view3d.edit_mesh_extrude_move_normal": ["alt_navigation"],
             "armature.extrude_move": ["TRANSFORM_OT_translate"],
             "curve.extrude_move": ["TRANSFORM_OT_translate"],
-            "gpencil.extrude_move": ["TRANSFORM_OT_translate"],
             "mesh.rip_edge_move": ["TRANSFORM_OT_translate"],
             "mesh.duplicate_move": ["TRANSFORM_OT_translate"],
             "object.duplicate_move": ["TRANSFORM_OT_translate"],
@@ -330,9 +329,6 @@ def keyconfig_update(keyconfig_data, keyconfig_version):
         else:
             print("Error versioning keymap: Missing \"User Interface\" keymap")
 
-    if keyconfig_version < (5, 1, 11):
-        rename_keymap({"Grease Pencil Paint Mode": "Grease Pencil Draw Mode"})
-
     if keyconfig_version < (5, 2, 21):
         if not has_copy:
             keyconfig_data = copy.deepcopy(keyconfig_data)
@@ -341,8 +337,6 @@ def keyconfig_update(keyconfig_data, keyconfig_version):
         for _km_name, _km_parms, km_items_data in keyconfig_data:
             for (item_op, _item_event, item_prop) in km_items_data["items"]:
                 if item_op in {
-                    "grease_pencil.brush_stroke",
-                    "grease_pencil.sculpt_paint",
                     "paint.image_paint",
                     "paint.vertex_paint",
                     "paint.weight_paint",

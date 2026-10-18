@@ -406,16 +406,6 @@ msgstr "Carattere"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Matita"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Immagine"
 
@@ -1204,10 +1194,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "I punti del percorso di movimento verranno inseriti nello spazio della camera attiva. Ciò significa che appariranno corretti solo quando si guarda attraverso quella camera. Il cambio di camera tramite marcatori non è supportato."
 
 
-msgid "Annotation Frame"
-msgstr "Fotogramma di Annotazione"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "Collezione di disegni correlati su un fotogramma particolare"
 
@@ -1232,18 +1218,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "Curve che definiscono il disegno a mano libera su questo fotogramma"
 
 
-msgid "Annotation Frames"
-msgstr "Fotogrammi di Annotazione"
-
-
-msgid "Collection of annotation frames"
-msgstr "Raccolta di fotogrammi di annotazione"
-
-
-msgid "Annotation Layer"
-msgstr "Livello di Annotazione"
-
-
 msgid "Collection of related sketches"
 msgstr "Raccolta di disegni relativi"
 
@@ -1258,10 +1232,6 @@ msgstr "Fotogramma attualmente visualizzato per questo livello"
 
 msgid "Hide"
 msgstr "Nascondi"
-
-
-msgid "Set annotation Visibility"
-msgstr "Imposta la Visibilità delle annotazioni"
 
 
 msgid "After Color"
@@ -1338,14 +1308,6 @@ msgstr "Spessore"
 
 msgid "Onion Skinning"
 msgstr "Strati a Cipolla"
-
-
-msgid "Annotation Layers"
-msgstr "Livelli di Annotazione"
-
-
-msgid "Collection of annotation layers"
-msgstr "Raccolta di livelli di annotazione"
 
 
 msgid "Active Layer Index"
@@ -1917,10 +1879,6 @@ msgid "Show Action data-blocks"
 msgstr "Mostra blocchi-dati Azione"
 
 
-msgid "Annotations"
-msgstr "Annotazioni"
-
-
 msgid "Armatures"
 msgstr "Armature"
 
@@ -1975,14 +1933,6 @@ msgstr "Fonts"
 
 msgid "Show Font data-blocks"
 msgstr "Mostra blocchi-dati Font"
-
-
-msgid "Grease Pencil"
-msgstr "Matita"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "Mostra blocchi-dati Grease Pencil"
 
 
 msgid "Collections"
@@ -2407,10 +2357,6 @@ msgstr "Attributo sull'istanza"
 
 msgid "Layer"
 msgstr "Livello"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Attributo sul livello Grease Pencil"
 
 
 msgid "Is Internal"
@@ -3053,10 +2999,6 @@ msgid "Action data-blocks"
 msgstr "Blocchi-dati Azione"
 
 
-msgid "Annotation"
-msgstr "Annotazione"
-
-
 msgid "Armature data-blocks"
 msgstr "Blocchi-dati Armatura"
 
@@ -3099,10 +3041,6 @@ msgstr "Font Vettoriali"
 
 msgid "Vector font data-blocks"
 msgstr "Blocchi-dati Caratteri vettoriali"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Blocchi-dati Grease Pencil"
 
 
 msgid "Hair curve data-blocks"
@@ -3285,14 +3223,6 @@ msgid "Collection of actions"
 msgstr "Raccolta di azioni"
 
 
-msgid "Main Annotations"
-msgstr "Annotazioni principali"
-
-
-msgid "Collection of annotations"
-msgstr "Raccolta di annotazioni"
-
-
 msgid "Main Armatures"
 msgstr "Principale Armature"
 
@@ -3347,14 +3277,6 @@ msgstr "Principale Caratteri"
 
 msgid "Collection of fonts"
 msgstr "Raccolta di caratteri"
-
-
-msgid "Main Grease Pencils"
-msgstr "Principale Matita"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "Raccolta di Grease Pencils"
 
 
 msgid "Main Hair Curves"
@@ -4884,14 +4806,6 @@ msgid "Scale Uniform"
 msgstr "Scala Uniforme"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Impostazioni Pennello Grease Pencil"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "Impostazioni per pennello Grease Pencil"
-
-
 msgid "Active Smooth"
 msgstr "Levigatura Attiva"
 
@@ -4948,23 +4862,8 @@ msgid "Use always Vertex Color mode"
 msgstr "Utilizza sempre la modalità Colore del Vertice"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Tipo di Tappi"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "La forma dell'inizio e della fine del tratto"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Rotondo"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Piatto"
 
 
 msgid "Threshold"
@@ -5021,36 +4920,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "Numero di pixel per espandere o contrarre l'area di riempimento"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Modalità"
-
-
 msgid "Eraser Mode"
 msgstr "Modalità Gomma"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "Dissolvi"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "Cancella i tratti, dissolvendo l'intensità e lo spessore dei loro punti"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "Punto"
-
-
 msgid "Erase stroke points"
 msgstr "Cancella i punti del tratto"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Tratto"
 
 
 msgid "Erase entire strokes"
@@ -5132,27 +5011,12 @@ msgid "Use edit lines as fill boundary limits"
 msgstr "Utilizza le linee di modifica come confini limite di riempimento"
 
 
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "Modalità di Chiusura"
-
-
 msgid "Types of stroke extensions used for closing gaps"
 msgstr "Tipi di estensione del tratto utilizzate per chiudere i divari"
 
 
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "Estendi"
-
-
 msgid "Extend strokes in straight lines"
 msgstr "Estende i tratti in linee rette"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "Raggio"
 
 
 msgid "Connect endpoints that are close together"
@@ -5275,11 +5139,6 @@ msgstr "Ripetizioni"
 
 msgid "Number of times to smooth newly created strokes"
 msgstr "Numero di volte che viene levigato un nuovo tratto creato"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Forza"
 
 
 msgid "Color strength for new strokes (affect alpha factor of color)"
@@ -9347,14 +9206,6 @@ msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet
 msgstr "Chiude il sommario quando mostrato, per cui tutti gli altri canali vengono nascosti. (solo nell'editor DopeSheet)"
 
 
-msgid "Display Grease Pencil"
-msgstr "Mostra Matita"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Include la visualizzazione dei dati di animazione e dei fotogrammi relativi a Grease Pencil"
-
-
 msgid "Display Hair"
 msgstr "Visualizza Capelli"
 
@@ -13323,10 +13174,6 @@ msgid "Interpolation Curve"
 msgstr "Curva Interpolazione"
 
 
-msgid "Grease Pencil Sculpt Guide"
-msgstr "Guida alla Scultura Grease Pencil"
-
-
 msgid "Guides for drawing"
 msgstr "Guide di disegno"
 
@@ -13369,14 +13216,6 @@ msgstr "Utilizza le Guide"
 
 msgid "Use Snapping"
 msgstr "Utilizza l'Ancoraggio"
-
-
-msgid "GPencil Sculpt Settings"
-msgstr "Impostazioni Scultura Matita"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Proprietà generali per gli strumenti di scultura del tratto Grease Pencil"
 
 
 msgid "Lock Axis"
@@ -13584,14 +13423,6 @@ msgid "Name of the dash segment"
 msgstr "Nome del segmento del tratteggio"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "Disegno Grease Pencil"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "Un disegno con Grease Pencil"
-
-
 msgid "Attributes"
 msgstr "Attributi"
 
@@ -13608,57 +13439,12 @@ msgid "User Count"
 msgstr "Numero di Utenti"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Fotogramma Matita"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "Un keyframe di Grease Pencil"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "Tipo Keyframe"
-
-
-msgctxt "GPencil"
-msgid "Keyframe"
-msgstr "Keyframe"
-
-
 msgid "Normal keyframe, e.g. for key poses"
 msgstr "Keyframe normale, per es. per pose chiave"
 
 
-msgctxt "GPencil"
-msgid "Extreme"
-msgstr "Estremo"
-
-
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "Tremolio"
-
-
-msgctxt "GPencil"
-msgid "Generated"
-msgstr "Generate"
-
-
 msgid "Frame Selection in the Dope Sheet"
 msgstr "Selezione Fotogramma nel Dope Sheet"
-
-
-msgid "Grease Pencil Frames"
-msgstr "Fotogrammi Matita"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "Raccolta di fotogrammi Grease Pencil"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Livelli Mascheramento di Grease Pencil"
 
 
 msgid "Set mask Visibility"
@@ -13667,14 +13453,6 @@ msgstr "Imposta la Visibilità della maschera"
 
 msgid "Invert mask"
 msgstr "Inverti maschera"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Livelli di Maschera per Grease Pencil"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "Raccolta di livelli di maschera di Grease Pencil"
 
 
 msgid "Active Layer Mask Index"
@@ -13729,10 +13507,6 @@ msgid "Use Masks"
 msgstr "Utilizza Maschere"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Livello Matita"
-
-
 msgid "Collection of related drawings"
 msgstr "Raccolta di disegni correlati"
 
@@ -13751,10 +13525,6 @@ msgstr "Luce Intensa"
 
 msgid "Divide"
 msgstr "Dividi"
-
-
-msgid "Grease Pencil frames"
-msgstr "Fotogrammi Grease Pencil"
 
 
 msgid "Local Matrix"
@@ -13813,14 +13583,6 @@ msgid "ViewLayer"
 msgstr "LivelloVisualizzazione"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "Gruppo di Livelli Grease Pencil"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "Gruppo di livelli Grease Pencil"
-
-
 msgid "Reset color tag"
 msgstr "Ripristina tag colore"
 
@@ -13857,28 +13619,8 @@ msgid "Color tag 8"
 msgstr "Tag colore 8"
 
 
-msgid "Grease Pencil Group"
-msgstr "Gruppo Grease Pencil"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "Raccolta di livelli Grease Pencil"
-
-
 msgid "Active Layer Group"
 msgstr "Gruppo Livelli Attivo"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "Gruppo di livelli Grease Pencil Attivo"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Livelli Matita"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Livello Grease Pencil Attivo"
 
 
 msgid "Statistical view of the levels of color in an image"
@@ -14042,10 +13784,6 @@ msgstr "Animazione ciclica"
 
 msgid "Manual Frame Range"
 msgstr "Intervallo Fotogrammi Manuale"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "Taccuino per annotazioni a mano libera"
 
 
 msgid "Animation data for this data-block"
@@ -14590,18 +14328,8 @@ msgid "Tint"
 msgstr "Tinta"
 
 
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Leviga"
-
-
 msgid "Smooth stroke points"
 msgstr "Leviga i punti del tratto"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Spessore"
 
 
 msgid "Adjust thickness of strokes"
@@ -14612,46 +14340,12 @@ msgid "Adjust color strength of strokes"
 msgstr "Regola la forza del colore dei tratti"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Rendi Casuale"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "Introduce del tremolio/casualità nei tratti"
 
 
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "Prendi"
-
-
-msgctxt "GPencil"
-msgid "Push"
-msgstr "Spingi"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "Torci"
-
-
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "Pizzica"
-
-
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Clona"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "Incolla copie dei tratti memorizzati negli appunti interni"
-
-
-msgid "Gpencil Settings"
-msgstr "Impostazioni Gpencil"
 
 
 msgid "Draw"
@@ -15008,56 +14702,16 @@ msgid "How powerful the effect of the brush is when applied"
 msgstr "Quanto è forte l'effetto del pennello quando viene applicato"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "Metodo Tratto"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "Punti"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "Trascina Punto"
-
-
 msgid "Allows a single dot to be carefully positioned"
 msgstr "Consente un punto singolo per essere posizionato con cura"
-
-
-msgctxt "GPencil"
-msgid "Space"
-msgstr "Spazio"
 
 
 msgid "Limit brush application to the distance specified by spacing"
 msgstr "Limita l'applicazione del pennello alla distanza specificata dalla spaziatura"
 
 
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "Aerografo"
-
-
-msgctxt "GPencil"
-msgid "Anchored"
-msgstr "Ancorato"
-
-
 msgid "Keep the brush anchored to the initial location"
 msgstr "Tiene il pennello ancorato alla posizione iniziale"
-
-
-msgctxt "GPencil"
-msgid "Line"
-msgstr "Linea"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "Curva"
 
 
 msgid "Per Vertex Displacement"
@@ -15158,10 +14812,6 @@ msgstr "Piano Originale"
 
 msgid "Use Paint"
 msgstr "Utilizza Pittura"
-
-
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "Utilizza questo pennello in modalità disegno Grease Pencil"
 
 
 msgid "Use this brush in texture paint mode"
@@ -15270,10 +14920,6 @@ msgstr "Tratto Omogeneo"
 
 msgid "Automatically adjust strength to give consistent results for different spacings"
 msgstr "Aggiusta automaticamente la forza per dare risultati consistenti per spaziature differenti"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "Utilizza questo pennello in modalità colorazione vertici di Grease Pencil"
 
 
 msgid "Value Jitter"
@@ -16443,10 +16089,6 @@ msgid "Use Textures"
 msgstr "Utilizza Texture"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Blocco-dati Matita"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "Numero massimo di fotogrammi da mostrare dopo quello corrente (0 = non mostra alcun fotogramma dopo quello corrente)"
 
@@ -16457,24 +16099,6 @@ msgstr "Numero massimo di fotogrammi da mostrare prima di quello corrente (0 = n
 
 msgid "Layer Groups"
 msgstr "Gruppi di Livelli"
-
-
-msgid "Grease Pencil layer groups"
-msgstr "Gruppi di livelli Grease Pencil"
-
-
-msgid "Grease Pencil layers"
-msgstr "Livelli Grease Pencil"
-
-
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "Filtra per Tipo"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "Tutti"
 
 
 msgid "Selected"
@@ -17376,24 +17000,12 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "Combinazione di displacement reale e mappatura bump per dettagli più fini"
 
 
-msgid "Grease Pencil Settings"
-msgstr "Impostazioni Matita"
-
-
-msgid "Is Grease Pencil"
-msgstr "È Grease Pencil"
-
-
 msgid "Line Color"
 msgstr "Colore Linea"
 
 
 msgid "Line Priority"
 msgstr "Priorità Linea"
-
-
-msgid "Line Art Settings"
-msgstr "Impostazioni Line Art"
 
 
 msgid "Max Vertex Displacement"
@@ -18178,10 +17790,6 @@ msgid "Shadow Catcher"
 msgstr "Cattura Ombre"
 
 
-msgid "Line Art"
-msgstr "Line Art"
-
-
 msgid "Location of the object"
 msgstr "Posizione dell'oggetto"
 
@@ -18268,22 +17876,6 @@ msgstr "Pittura Texture"
 
 msgid "Particle Edit"
 msgstr "Modifica Particelle"
-
-
-msgid "Edit Grease Pencil Strokes"
-msgstr "Modifica Tratti Matita"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Scolpisci Tratti Grease Pencil"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "Dipingi Tratti Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Tratti Pittura Vertici di Grease Pencil"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -18523,10 +18115,6 @@ msgstr "Scultura Topologia Dinamica"
 
 msgid "Use Alpha"
 msgstr "Utilizza Alfa"
-
-
-msgid "Lights affect Grease Pencil object"
-msgstr "Le luci hanno effetto sugli oggetti Grease Pencil"
 
 
 msgid "Scale instance based on face size"
@@ -21237,26 +20825,6 @@ msgstr "Apri Finestre"
 
 msgid "Active Add-on"
 msgstr "Add-on Attivo"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Modalità Modifica Grease Pencil"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Modalità Scultura Grease Pencil"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Disegno Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Pittura Vertici Grease Pencil"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Pittura Pesi Grease Pencil"
 
 
 msgid "Pin Scene"
@@ -24384,10 +23952,6 @@ msgid "Active Point"
 msgstr "Punto Attivo"
 
 
-msgid "Grease Pencil Color"
-msgstr "Colore Greace Pencil"
-
-
 msgid "Alignment"
 msgstr "Allineamento"
 
@@ -24402,26 +23966,6 @@ msgstr "Colore Riempimento"
 
 msgid "Color for filling region bounded by each stroke"
 msgstr "Colore di riempimento delle regioni circondate da ogni tratto"
-
-
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "Riempi Stile"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "Solido"
-
-
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "Gradiente"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "Texture"
 
 
 msgid "Flip"
@@ -24456,11 +24000,6 @@ msgid "Mix Color"
 msgstr "Mescola Colori"
 
 
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "Mischia"
-
-
 msgid "Mix Factor"
 msgstr "Fattore Miscela"
 
@@ -24483,15 +24022,6 @@ msgstr "Collocamento"
 
 msgid "Show Stroke"
 msgstr "Mostra Tratto"
-
-
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "Stile Tratto"
-
-
-msgid "Material Line Art"
-msgstr "Materiale Line Art"
 
 
 msgid "Effectiveness"
@@ -25850,24 +25380,12 @@ msgid "Convert faces into thickened edges"
 msgstr "Converti facce in spigoli spessi"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "Modificatore costruzione Grease Pencil"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "Modificatore lunghezza Grease Pencil"
-
-
 msgid "Multiple Strokes"
 msgstr "Tratti Multipli"
 
 
 msgid "Subdivide"
 msgstr "Suddividi"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "Modificatore Suddividi Grease Pencil"
 
 
 msgid "Cast"
@@ -25904,10 +25422,6 @@ msgstr "Distorci"
 
 msgid "Wave"
 msgstr "Onda"
-
-
-msgid "Smooth Grease Pencil strokes"
-msgstr "Leviga tratti Grease Pencil"
 
 
 msgid "Dynamic Paint"
@@ -27389,21 +26903,6 @@ msgid "Opacity Strength"
 msgstr "Intensità di Opacità"
 
 
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "Sequenziale"
-
-
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "Concorrente"
-
-
-msgctxt "GPencil"
-msgid "Additive"
-msgstr "Additivo"
-
-
 msgid "Speed Factor"
 msgstr "Fattore di Velocità"
 
@@ -27440,10 +26939,6 @@ msgid "Use Fading"
 msgstr "Utilizza Scolorimento"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "Modificatore Colore Grease Pencil"
-
-
 msgid "Stroke & Fill"
 msgstr "Tratto & Riempimento"
 
@@ -27454,14 +26949,6 @@ msgstr "Fattore di saturazione del colore"
 
 msgid "Use Custom Curve"
 msgstr "Utilizza Curva Personalizzata"
-
-
-msgid "Grease Pencil Dash Modifier"
-msgstr "Modificatore Tratteggio Grease Pencil"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "Modificatore Inviluppo Grease Pencil"
 
 
 msgid "Fills"
@@ -27523,10 +27010,6 @@ msgid "Uniform Falloff"
 msgstr "Decadimento Uniforme"
 
 
-msgid "Grease Pencil Lattice Modifier"
-msgstr "Modificatore Reticolo Grease Pencil"
-
-
 msgid "Lattice object to deform with"
 msgstr "Oggetto reticolo con cui deformare"
 
@@ -27579,10 +27062,6 @@ msgid "Use Curvature"
 msgstr "Utilizza Curvature"
 
 
-msgid "Line Art Modifier"
-msgstr "Modificatore Line Art"
-
-
 msgid "Image Threshold"
 msgstr "Soglia Immagine"
 
@@ -27613,16 +27092,6 @@ msgstr "Camera Ombra Vicina"
 
 msgid "Shadow Camera Size"
 msgstr "Dimensione Camera Ombra"
-
-
-msgctxt "GPencil"
-msgid "None"
-msgstr "Nessuno"
-
-
-msgctxt "GPencil"
-msgid "Shaded"
-msgstr "Ombreggiato"
 
 
 msgid "Camera Object"
@@ -27717,20 +27186,12 @@ msgid "Vertex group name for selected strokes"
 msgstr "Nome del gruppo di vertici per i tratti selezionati"
 
 
-msgid "Grease Pencil Mirror Modifier"
-msgstr "Modificatore Specchio Grease Pencil"
-
-
 msgid "Multiply Modifier"
 msgstr "Modificatore Moltiplicativo"
 
 
 msgid "Duplicates"
 msgstr "Duplicati"
-
-
-msgid "Grease Pencil Noise Modifier"
-msgstr "Modificatore Rumore Grease Pencil"
 
 
 msgid "Noise effect modifier"
@@ -27753,26 +27214,8 @@ msgid "Noise Offset"
 msgstr "Offset del Rumore"
 
 
-msgctxt "GPencil"
-msgid "Steps"
-msgstr "Passi"
-
-
-msgctxt "GPencil"
-msgid "Keyframes"
-msgstr "Keyframes"
-
-
 msgid "Noise Seed"
 msgstr "Seme del Rumore"
-
-
-msgid "Grease Pencil Offset Modifier"
-msgstr "Modificatore Offset Grease Pencil"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "Modificatore Opacitá Grease Pencil"
 
 
 msgid "Opacity Factor"
@@ -27955,10 +27398,6 @@ msgid "Catmull-Clark"
 msgstr "Catmull-Clark"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "Modificatore Texture Grease Pencil"
-
-
 msgid "Fill Offset"
 msgstr "Offset del Riempimento"
 
@@ -27987,20 +27426,12 @@ msgid "UV Scale"
 msgstr "Scala UV"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "Modificatore Spessore Grease Pencil"
-
-
 msgid "Uniform Thickness"
 msgstr "Spessore Uniforme"
 
 
 msgid "Weighted"
 msgstr "Ponderato"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "Modificatore Tempo Grease Pencil"
 
 
 msgid "Frame Scale"
@@ -28033,10 +27464,6 @@ msgstr "Intervallo Personalizzato"
 
 msgid "Keep Loop"
 msgstr "Mantieni Cicli"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "Modificatore Tinta Grease Pencil"
 
 
 msgid "Factor for tinting"
@@ -31611,10 +31038,6 @@ msgid "Use Translation Z"
 msgstr "Utilizza Traslazione Z"
 
 
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "Converti i livelli di Grease Pencil in istanze di curva"
-
-
 msgid "Advect Grid"
 msgstr "Griglia di Avvezione"
 
@@ -32996,10 +32419,6 @@ msgstr "Vincolo Oggetto Attivo"
 
 msgid "Shadow"
 msgstr "Ombra"
-
-
-msgid "Object Line Art settings"
-msgstr "Impostazioni Line Art Oggetto"
 
 
 msgid "Inherit"
@@ -38020,10 +37439,6 @@ msgid "Default fill color"
 msgstr "Colore di riempimento predefinito"
 
 
-msgid "Make annotations on the active data"
-msgstr "Crea delle annotazioni sui dati attivi"
-
-
 msgid "Arrow"
 msgstr "Freccia"
 
@@ -38067,11 +37482,6 @@ msgstr "Gomma"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Cancella Fotogramma Attivo"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Sposta Livello Annotazioni"
 
 
 msgctxt "Operator"
@@ -38330,11 +37740,6 @@ msgid "Projection Type"
 msgstr "Tipo Proiezione"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Disegno a Matita"
-
-
 msgid "Apply brush normally"
 msgstr "Applica il pennello normalmente"
 
@@ -38385,18 +37790,9 @@ msgid "Set Cyclical State"
 msgstr "Imposta Stato Ciclico"
 
 
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "Metodo utilizzato per cancellare i fotogrammi di Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Dissolve"
 msgstr "Dissolvi"
-
-
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Tipo"
 
 
 msgctxt "Operator"
@@ -38410,73 +37806,8 @@ msgstr "Aggiungi Fotogramma Blank"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Interpolazione Matita"
-
-
-msgctxt "Operator"
 msgid "Interpolate Sequence"
 msgstr "Interpola Sequenza"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "Indietro"
-
-
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "Lineare"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Personalizzato"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "Sinusoidale"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "Quadratico"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "Cubico"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "Quartico"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Quintico"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "Esponenziale"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "Circolare"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "Rimbalzo"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "Elastico"
 
 
 msgctxt "Operator"
@@ -38487,10 +37818,6 @@ msgstr "Aggiunge Nuovo Livello"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "Duplica Livello"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Crea una copia del livello Matita attivo"
 
 
 msgid "Empty Keyframes"
@@ -38506,10 +37833,6 @@ msgid "Hide Layer(s)"
 msgstr "Nascondi Livello/i"
 
 
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "Nascondi i livelli Matita selezionati/deselezionati"
-
-
 msgid "Hide unselected rather than selected layers"
 msgstr "Nasconde le non selezionate anziché le selezionate"
 
@@ -38521,10 +37844,6 @@ msgstr "Influenza Visibilità"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "Blocca Tutti i Livelli"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "Blocca tutti i livelli Matita per prevenire modifiche accidentali"
 
 
 msgctxt "Operator"
@@ -38547,20 +37866,12 @@ msgid "Show All Layers"
 msgstr "Mostra Tutti i Livelli"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "Mostra tutti i livelli Matita"
-
-
 msgid "In addition to toggling the editability, also affect the visibility"
 msgstr "Oltre ad alternare la modificabilità, influenza anche la visibilità"
 
 
 msgid "Lock any material not used in any selected stroke"
 msgstr "Blocca ogni materiale non utilizzato in nessun tratto selezionato"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "Seleziona/Deseleziona tutti i tratti Grease Pencil che utilizzano il colore corrente"
 
 
 msgid "Move selected strokes to another layer"
@@ -47400,14 +46711,6 @@ msgid "Transformation orientation"
 msgstr "Sistema di Assi"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Modifica Matita"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Modifica tratti matita selezionati"
-
-
 msgid "Use Snapping Options"
 msgstr "Utilizza le Opzioni di Snap"
 
@@ -49272,11 +48575,6 @@ msgid "Include all scene frames"
 msgstr "Includi tutti i fotogrammi della scena"
 
 
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "Importa SVG come Grease Pencil"
-
-
 msgid "Scene Unit"
 msgstr "Unità Scena"
 
@@ -50467,26 +49765,6 @@ msgstr "Linea Campioni"
 msgctxt "Operator"
 msgid "Sample"
 msgstr "Campione"
-
-
-msgctxt "Operator"
-msgid "Annotate"
-msgstr "Annota"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Annota Linea"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Annota Poligono"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Annota Gomma"
 
 
 msgctxt "Operator"
@@ -52052,24 +51330,12 @@ msgid "Add/Replace"
 msgstr "Aggiungi/Sostituisci"
 
 
-msgid "Grease Pencil Eraser Radius"
-msgstr "Raggio Cancellatore Matita"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "Raggio del pennello 'gomma'"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Distanza Euclidea Matita"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "Distanza percorsa dal mouse quando si disegna un tratto da includere"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Distanza Manhattan Matita"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -55249,11 +54515,6 @@ msgid "Shadow Color"
 msgstr "Colore Ombra"
 
 
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "Onda"
-
-
 msgid "Shape key in a shape keys data-block"
 msgstr "Shape key in un blocco-dati di shape keys"
 
@@ -58421,18 +57682,6 @@ msgid "Face Orientation Front"
 msgstr "Orientamento Faccia Anteriore"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Vertice Matita"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Vertice Matita Selezionato"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Dimensione Vertice Matita"
-
-
 msgid "Face Normal"
 msgstr "Normale Faccia"
 
@@ -58547,10 +57796,6 @@ msgstr "Aggiungi & Sostituisci"
 
 msgid "Threshold distance for Auto Merge"
 msgstr "Soglia distanza per Unione Automatica"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Scultura Matita"
 
 
 msgid "Stroke Placement (3D View)"
@@ -59675,11 +58920,6 @@ msgstr "Carattere"
 
 
 msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Matita"
-
-
-msgctxt "WindowManager"
 msgid "Pose"
 msgstr "Posa"
 
@@ -59997,11 +59237,6 @@ msgstr "Clip Editor Grafi"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "Clip Editor DopeSheet"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "Tratto Pennello Grease Pencil"
 
 
 msgctxt "WindowManager"
@@ -61076,10 +60311,6 @@ msgstr "Mostra Cursore"
 
 msgid "Data Source:"
 msgstr "Sorgente Dati:"
-
-
-msgid "No annotation source"
-msgstr "Nessuna fonte di annotazione"
 
 
 msgctxt "Operator"
@@ -62712,10 +61943,6 @@ msgid "Intersections"
 msgstr "Intersezioni"
 
 
-msgid "Annotation:"
-msgstr "Annotazione:"
-
-
 msgctxt "Operator"
 msgid "Install Application Template..."
 msgstr "Installa Modello Applicazione..."
@@ -62859,11 +62086,6 @@ msgstr "Generale"
 msgctxt "Operator"
 msgid "Alembic (.abc)"
 msgstr "Alembic (.abc)"
-
-
-msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVG come Grease Pencil"
 
 
 msgctxt "Operator"
@@ -65544,10 +64766,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Naviga Impostazioni Particella del Mondo da collegare"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Naviga Dati della Matita da collegare"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Naviga Filmato da collegare"
 
@@ -65600,11 +64818,6 @@ msgstr "Nuova"
 msgctxt "FreestyleLineStyle"
 msgid "New"
 msgstr "Nuovo"
-
-
-msgctxt "GPencil"
-msgid "New"
-msgstr "Nuova"
 
 
 msgctxt "Image"
@@ -66038,11 +65251,6 @@ msgstr "Turbolenza"
 msgctxt "Object"
 msgid "Field"
 msgstr "Campo"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "LineArt"
 
 
 msgid "Object not found"
@@ -66608,10 +65816,6 @@ msgstr "File non trovato '%s'"
 
 msgid "Active group is locked, aborting"
 msgstr "Il gruppo attivo è bloccato, comando annullato"
-
-
-msgid "GPencil Interpolation: "
-msgstr "Interpolazione GPencil: "
 
 
 msgid " UVs,"
@@ -67515,11 +66719,6 @@ msgid "Vertex Weights"
 msgstr "Pesi del Vertice"
 
 
-msgctxt "GPencil"
-msgid "Bézier"
-msgstr "Bézier"
-
-
 msgid "No active object found"
 msgstr "Nessun oggetto attivo trovato"
 
@@ -68385,10 +67584,6 @@ msgstr "Forza Backface Culling"
 
 msgid "Depth Offset"
 msgstr "Profondità Offset"
-
-
-msgid "Lineart"
-msgstr "Lineart"
 
 
 msgid "Light Reference"
@@ -69520,11 +68715,6 @@ msgstr "Motore di Gioco"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "Nodi Geometria"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "Preferences"

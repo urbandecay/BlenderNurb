@@ -6,10 +6,9 @@
  * \ingroup draw_engine
  *
  * Base engine for external render engines.
- * We use it for depth and non-mesh objects.
+ * Used to draw output from external render engines.
  */
 
-#include "BKE_paint.hh"
 #include "DRW_engine.hh"
 #include "DRW_render.hh"
 
@@ -17,7 +16,6 @@
 
 #include "BLT_translation.hh"
 
-#include "DNA_particle_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
 
@@ -33,11 +31,8 @@
 #include "RE_engine.h"
 #include "RE_pipeline.h"
 
-#include "draw_cache.hh"
-#include "draw_cache_impl.hh"
 #include "draw_command.hh"
 #include "draw_common.hh"
-#include "draw_pass.hh"
 #include "draw_sculpt.hh"
 #include "draw_view.hh"
 #include "draw_view_data.hh"
@@ -50,157 +45,8 @@ namespace blender {
 
 namespace draw::external {
 
-/**
- * A depth pass that write surface depth when it is needed.
- * Used only when grease pencil needs correct depth in the viewport.
- * Should ultimately be replaced by render engine depth output.
- */
-class Prepass {
- private:
-  PassMain ps_ = {"prepass"};
-  PassMain::Sub *mesh_ps_ = nullptr;
-  PassMain::Sub *curves_ps_ = nullptr;
-  PassMain::Sub *pointcloud_ps_ = nullptr;
-
-  /* Reuse overlay shaders. */
-  gpu::StaticShader depth_mesh = {"overlay_depth_mesh"};
-  gpu::StaticShader depth_curves = {"overlay_depth_curves"};
-  gpu::StaticShader depth_pointcloud = {"overlay_depth_pointcloud"};
-
-  draw::UniformBuffer<float4> dummy_buf;
-
- public:
-  void begin_sync()
-  {
-    dummy_buf.push_update();
-
-    ps_.init();
-    ps_.state_set(DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL);
-    /* Dummy binds. They are unused in the variant we use.
-     * Just avoid validation layers complaining. */
-    ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &dummy_buf);
-    ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &dummy_buf);
-    {
-      auto &sub = ps_.sub("Mesh");
-      sub.shader_set(depth_mesh.get());
-      mesh_ps_ = &sub;
-    }
-    {
-      auto &sub = ps_.sub("Curves");
-      sub.shader_set(depth_curves.get());
-      curves_ps_ = &sub;
-    }
-    {
-      auto &sub = ps_.sub("PointCloud");
-      sub.shader_set(depth_pointcloud.get());
-      pointcloud_ps_ = &sub;
-    }
-  }
-
-  void particle_sync(Manager &manager, const ObjectRef &ob_ref)
-  {
-    Object *ob = ob_ref.object;
-
-    ResourceHandleRange handle = {};
-
-    for (ParticleSystem &psys : ob->particlesystem) {
-      if (!DRW_object_is_visible_psys_in_active_context(ob, &psys)) {
-        continue;
-      }
-
-      const ParticleSettings *part = psys.part;
-      const int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-      if (draw_as == PART_DRAW_PATH && part->draw_as == PART_DRAW_REND) {
-        /* Case where the render engine should have rendered it, but we need to draw it for
-         * selection purpose. */
-        if (!handle.is_valid()) {
-          handle = manager.resource_handle_for_psys(ob_ref, ob_ref.particles_matrix());
-        }
-
-        gpu::Batch *geom = DRW_cache_particles_get_hair(ob, &psys, nullptr);
-        mesh_ps_->draw(geom, handle);
-        break;
-      }
-    }
-  }
-
-  void sculpt_sync(Manager &manager, const ObjectRef &ob_ref)
-  {
-    ResourceHandleRange handle = manager.unique_handle_for_sculpt(ob_ref);
-
-    for (SculptBatch &batch : sculpt_batches_get(ob_ref.object, SCULPT_BATCH_DEFAULT)) {
-      mesh_ps_->draw(batch.batch, handle);
-    }
-  }
-
-  void object_sync(Manager &manager, const ObjectRef &ob_ref, const DRWContext &draw_ctx)
-  {
-    bool is_solid = ob_ref.object->dt >= OB_SOLID ||
-                    !(ob_ref.object->visibility_flag & OB_HIDE_CAMERA);
-
-    if (!is_solid) {
-      return;
-    }
-
-    particle_sync(manager, ob_ref);
-
-    const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob_ref.object, draw_ctx.rv3d);
-
-    if (use_sculpt_pbvh) {
-      sculpt_sync(manager, ob_ref);
-      return;
-    }
-
-    gpu::Batch *geom_single = nullptr;
-    Span<gpu::Batch *> geom_list(&geom_single, 1);
-
-    PassMain::Sub *pass = nullptr;
-    switch (ob_ref.object->type) {
-      case OB_MESH:
-        geom_single = DRW_cache_mesh_surface_get(ob_ref.object);
-        pass = mesh_ps_;
-        break;
-      case OB_POINTCLOUD:
-        geom_single = pointcloud_sub_pass_setup(*pointcloud_ps_, ob_ref.object);
-        pass = pointcloud_ps_;
-        break;
-      case OB_CURVES: {
-        const char *error = nullptr;
-        /* We choose to ignore the error here as the external engine can display them properly.
-         * The overlays can still be broken but it should be detected in solid mode. */
-        geom_single = curves_sub_pass_setup(*curves_ps_, draw_ctx.scene, ob_ref.object, error);
-        pass = curves_ps_;
-        break;
-      }
-      default:
-        break;
-    }
-
-    if (pass == nullptr) {
-      return;
-    }
-
-    ResourceHandleRange res_handle = manager.unique_handle(ob_ref);
-
-    for (int material_id : geom_list.index_range()) {
-      pass->draw(geom_list[material_id], res_handle);
-    }
-  }
-
-  void submit(Manager &manager, View &view)
-  {
-    manager.submit(ps_, view);
-  }
-};
-
 class Instance : public DrawEngine {
   const DRWContext *draw_ctx = nullptr;
-
-  Prepass prepass;
-  /* Only do prepass if there is a need for it.
-   * This is only needed for GPencil integration. */
-  bool do_prepass = false;
-
   StringRefNull name_get() final
   {
     return "External";
@@ -209,26 +55,13 @@ class Instance : public DrawEngine {
   void init() final
   {
     draw_ctx = DRW_context_get();
-    do_prepass = DRW_render_check_grease_pencil(draw_ctx->depsgraph, draw_ctx->v3d);
   }
 
-  void begin_sync() final
-  {
-    if (do_prepass) {
-      prepass.begin_sync();
-    }
-  }
-
-  void object_sync(draw::ObjectRef &ob_ref, draw::Manager &manager) final
-  {
-    if (do_prepass) {
-      prepass.object_sync(manager, ob_ref, *draw_ctx);
-    }
-  }
-
+  void begin_sync() final {}
+  void object_sync(draw::ObjectRef &, draw::Manager &) final {}
   void end_sync() final {}
 
-  void draw_scene_do_v3d(draw::Manager &manager, draw::View &view)
+  void draw_scene_do_v3d()
   {
     RegionView3D *rv3d = draw_ctx->rv3d;
     ARegion *region = draw_ctx->region;
@@ -268,10 +101,6 @@ class Instance : public DrawEngine {
 
     GPU_matrix_pop();
     GPU_matrix_pop_projection();
-
-    if (do_prepass) {
-      prepass.submit(manager, view);
-    }
 
     /* Set render info. */
     if (render_engine->text[0] != '\0') {
@@ -348,10 +177,7 @@ class Instance : public DrawEngine {
     const DefaultFramebufferList *dfbl = draw_ctx->viewport_framebuffer_list_get();
 
     /* Clear the depth buffer to the value used by the background overlay so that the overlay is
-     * not happening outside of the drawn image.
-     *
-     * NOTE: The external engine only draws color. The depth is taken care of using the depth pass
-     * which initialized the depth to the values expected by the background overlay. */
+     * not happening outside of the drawn image. */
     GPU_framebuffer_clear_depth(dfbl->default_fb, 1.0f);
 
     GPU_matrix_push_projection();
@@ -377,10 +203,10 @@ class Instance : public DrawEngine {
     RE_engine_draw_release(re);
   }
 
-  void draw_scene_do(draw::Manager &manager, View &view)
+  void draw_scene_do()
   {
     if (draw_ctx->v3d != nullptr) {
-      draw_scene_do_v3d(manager, view);
+      draw_scene_do_v3d();
       return;
     }
 
@@ -395,10 +221,9 @@ class Instance : public DrawEngine {
     }
   }
 
-  void draw(draw::Manager &manager) final
+  void draw(draw::Manager &) final
   {
     /* TODO(fclem): Remove global access. */
-    View &view = View::default_get();
 
     const DefaultFramebufferList *dfbl = draw_ctx->viewport_framebuffer_list_get();
 
@@ -412,7 +237,7 @@ class Instance : public DrawEngine {
       GPU_framebuffer_clear_color(dfbl->default_fb, {0.0, 0.0, 0.0, 0.0});
 
       DRW_submission_start();
-      draw_scene_do(manager, view);
+      draw_scene_do();
       DRW_submission_end();
     }
   }

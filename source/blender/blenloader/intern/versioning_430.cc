@@ -24,7 +24,6 @@
 #include "BKE_context.hh"
 #include "BKE_customdata.hh"
 #include "BKE_file_handler.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_image_format.hh"
 #include "BKE_main.hh"
 #include "BKE_node.hh"
@@ -73,14 +72,6 @@ static void update_paint_modes_for_brush_assets(Main &bmain)
                 CTX_MODE_PAINT_VERTEX,
                 CTX_MODE_PAINT_WEIGHT,
                 CTX_MODE_PAINT_TEXTURE,
-                CTX_MODE_PAINT_GPENCIL_LEGACY,
-                CTX_MODE_PAINT_GREASE_PENCIL,
-                CTX_MODE_SCULPT_GPENCIL_LEGACY,
-                CTX_MODE_SCULPT_GREASE_PENCIL,
-                CTX_MODE_WEIGHT_GPENCIL_LEGACY,
-                CTX_MODE_WEIGHT_GREASE_PENCIL,
-                CTX_MODE_VERTEX_GREASE_PENCIL,
-                CTX_MODE_VERTEX_GPENCIL_LEGACY,
                 CTX_MODE_SCULPT_CURVES))
       {
         continue;
@@ -216,21 +207,6 @@ void blo_do_versions_430(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
             space_node->flag &= ~SNODE_FLAG_UNUSED_5;
           }
         }
-      }
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 403, 3)) {
-    for (Brush &brush : bmain->brushes) {
-      if (BrushGpencilSettings *settings = brush.gpencil_settings) {
-        /* Copy the `draw_strength` value to the `alpha` value. */
-        brush.alpha = settings->draw_strength;
-
-        /* We approximate the simplify pixel threshold by taking the previous threshold (world
-         * space) and dividing by the legacy radius conversion factor. This should generally give
-         * reasonable "pixel" threshold values, at least for previous GPv2 defaults. */
-        settings->simplify_px = settings->simplify_f /
-                                bke::greasepencil::LEGACY_RADIUS_CONVERSION_FACTOR * 0.1f;
       }
     }
   }
@@ -468,20 +444,6 @@ void blo_do_versions_430(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 403, 28)) {
-    for (bScreen &screen : bmain->screens) {
-      for (ScrArea &area : screen.areabase) {
-        for (SpaceLink &sl : area.spacedata) {
-          if (sl.spacetype == SPACE_VIEW3D) {
-            View3D *v3d = reinterpret_cast<View3D *>(&sl);
-            copy_v3_fl(v3d->overlay.gpencil_grid_color, 0.5f);
-            copy_v2_fl(v3d->overlay.gpencil_grid_scale, 1.0f);
-            copy_v2_fl(v3d->overlay.gpencil_grid_offset, 0.0f);
-            v3d->overlay.gpencil_grid_subdivisions = 4;
-          }
-        }
-      }
-    }
-
     FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
       if (ntree->type != NTREE_COMPOSIT) {
         continue;

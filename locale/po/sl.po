@@ -430,16 +430,6 @@ msgstr "Pisava"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil 3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Slika"
 
@@ -1284,10 +1274,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "Točke poti gibanja bodo vpete v prostor aktivne kamere. To pomeni, da se bodo pravilno prikazovale le, če jih boste gledali skozi to kamero. Preklapljanje kamer z oznakami ni podprto."
 
 
-msgid "Annotation Frame"
-msgstr "Okvir zaznamka"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "Zbirka povezanih skic na določenem okvirju"
 
@@ -1312,18 +1298,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "Prostoročne krivulje, ki določajo skico na tem okvirju"
 
 
-msgid "Annotation Frames"
-msgstr "Okvirji zaznamkov"
-
-
-msgid "Collection of annotation frames"
-msgstr "Zbirka okvirjev zaznamkov"
-
-
-msgid "Annotation Layer"
-msgstr "Plast zaznamka"
-
-
 msgid "Collection of related sketches"
 msgstr "Zbirka povezanih skic"
 
@@ -1338,10 +1312,6 @@ msgstr "Okvir, ki je trenutno prikazan za to plast"
 
 msgid "Hide"
 msgstr "Skrij"
-
-
-msgid "Set annotation Visibility"
-msgstr "Nastavi vidnost zaznamkov"
 
 
 msgid "After Color"
@@ -1386,10 +1356,6 @@ msgstr "Za čebuljenje uporabi po meri barve, ne tistih iz teme"
 
 msgid "Opacity"
 msgstr "Neprosojnost"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Motnost plasti zaznamka"
 
 
 msgid "Color for all strokes in this layer"
@@ -1452,48 +1418,20 @@ msgid "Thickness"
 msgstr "Debelina"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Debelina potez zaznamkov"
-
-
 msgid "Onion Skinning"
 msgstr "Čebuljenje"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "Prikaže čebulne plasti na zaznamkih pred in po trenutnem okvirju"
-
-
-msgid "Annotation Layers"
-msgstr "Plasti zaznamkov"
-
-
-msgid "Collection of annotation layers"
-msgstr "Zbirka plasti zaznamkov"
 
 
 msgid "Active Layer Index"
 msgstr "Indeks aktivne plasti"
 
 
-msgid "Index of active annotation layer"
-msgstr "Indeks aktivne plasti zaznamka"
-
-
 msgid "Active Note"
 msgstr "Aktivni zaznamek"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "Zaznamek/plast, na katero naj se dodajajo poteze"
-
-
 msgid "Default"
 msgstr "Privzeto"
-
-
-msgid "Annotation Stroke"
-msgstr "Poteza zaznamka"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1540,32 +1478,12 @@ msgid "Stroke data points"
 msgstr "Podatkovne točke poteze"
 
 
-msgid "Annotation Stroke Point"
-msgstr "Potezna točka zaznamka"
-
-
 msgid "Data point for freehand stroke curve"
 msgstr "Podatkovna točka za prostoročno potezno krivuljo"
 
 
 msgid "Coordinates"
 msgstr "Koordinate"
-
-
-msgid "Annotation Stroke Points"
-msgstr "Točke potez zaznamka"
-
-
-msgid "Collection of annotation stroke points"
-msgstr "Zbirka točk potez zaznamka"
-
-
-msgid "Annotation Strokes"
-msgstr "Poteze zaznamka"
-
-
-msgid "Collection of annotation strokes"
-msgstr "Zbirka potez zaznamkov"
 
 
 msgid "Any Type"
@@ -2193,14 +2111,6 @@ msgid "Show Action data-blocks"
 msgstr "Pokaže podatkovne bloke akcije"
 
 
-msgid "Annotations"
-msgstr "Zaznamki"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "Pokaže podatkovne bloke zaznamkov"
-
-
 msgid "Armatures"
 msgstr "Okostji"
 
@@ -2255,14 +2165,6 @@ msgstr "Pisave"
 
 msgid "Show Font data-blocks"
 msgstr "Pokaže podatkovne bloke pisav"
-
-
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "Pokaže podatkovne bloke Grease Pencil"
 
 
 msgid "Collections"
@@ -2695,10 +2597,6 @@ msgstr "Atribut na primerku"
 
 msgid "Layer"
 msgstr "Plast"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Atribut na plasti Grease Pencil"
 
 
 msgid "Is Internal"
@@ -3428,14 +3326,6 @@ msgid "Read-only list of all IDs listed in Blender data-base"
 msgstr "Nespremenljivi seznam vseh ID-jev, navedenih v Blenderjevi podatkovni bazi"
 
 
-msgid "Annotation"
-msgstr "Zaznamek"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "Podatkovni bloki zaznamkov (predhodnik Grease Pencila)"
-
-
 msgid "Armature data-blocks"
 msgstr "Podatkovni bloki okostij"
 
@@ -3482,10 +3372,6 @@ msgstr "Vektorske pisave"
 
 msgid "Vector font data-blocks"
 msgstr "Podatkovni bloki vektorskih pisav"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Podatkovni bloki za Grease Pencil"
 
 
 msgid "Hair curve data-blocks"
@@ -3672,14 +3558,6 @@ msgid "Collection of actions"
 msgstr "Zbirka akcij"
 
 
-msgid "Main Annotations"
-msgstr "Glavni zaznamki"
-
-
-msgid "Collection of annotations"
-msgstr "Zbirka zaznamkov"
-
-
 msgid "Main Armatures"
 msgstr "Glavni okostji"
 
@@ -3734,14 +3612,6 @@ msgstr "Glavne pisave"
 
 msgid "Collection of fonts"
 msgstr "Zbirka pisav"
-
-
-msgid "Main Grease Pencils"
-msgstr "Glavni Grease Pencili"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "Zbirka Grease Pencilov"
 
 
 msgid "Main Hair Curves"
@@ -5723,14 +5593,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "Podaljša ali skrči krivulje tako, da spreminja njihovo velikost enakomerno po vseh dimenzijah, namesto da jih poreže ali ekstrapolira"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Nastavitve čopiča Grease Pencil"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "Nastavitve čopiča za Grease Pencil"
-
-
 msgid "Active Smooth"
 msgstr "Aktivno glajenje"
 
@@ -5787,23 +5649,8 @@ msgid "Use always Vertex Color mode"
 msgstr "Vedno uporabi način barve oglišča"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Tip zaključkov"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "Oblika začetka in konca poteze"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Okrogel"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Raven"
 
 
 msgid "Threshold"
@@ -5883,36 +5730,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "Za koliko pikslov naj se razširi ali skrči zapolnitveno območje"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Način"
-
-
 msgid "Eraser Mode"
 msgstr "Način brisanja"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "Razblinjanje"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "Pobriše poteze tako, da moč in debelina točk postopno zbledita"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "Točka"
-
-
 msgid "Erase stroke points"
 msgstr "Pobriše točke poteze"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Poteza"
 
 
 msgid "Erase entire strokes"
@@ -5994,27 +5821,12 @@ msgid "Use edit lines as fill boundary limits"
 msgstr "Za polnilne meje uporabi urejevalne črte"
 
 
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "Način sklepanja"
-
-
 msgid "Types of stroke extensions used for closing gaps"
 msgstr "Tipi podaljškov potez za zapiranje vrzeli"
 
 
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "Razširi"
-
-
 msgid "Extend strokes in straight lines"
 msgstr "Poteze podaljša z ravnimi črtami"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "Polmer"
 
 
 msgid "Connect endpoints that are close together"
@@ -6183,11 +5995,6 @@ msgid "Number of times to smooth newly created strokes"
 msgstr "Kolikokrat naj se nove poteze zgladijo"
 
 
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Moč"
-
-
 msgid "Color strength for new strokes (affect alpha factor of color)"
 msgstr "Moč barve za nove poteze (vpliva na barvni množitelj alfa)"
 
@@ -6284,23 +6091,8 @@ msgid "Threshold in screen space used for the simplify algorithm. Points within 
 msgstr "Prag v prostoru zaslona, ki se uporablja za algoritem poenostavitve. Točke pod pragom obravnavamo, kot da ležijo na premici."
 
 
-msgctxt "GPencil"
-msgid "Stroke Mode"
-msgstr "Način poteze"
-
-
 msgid "Mode to use when creating strokes"
 msgstr "Način ustvarjanja potez"
-
-
-msgctxt "GPencil"
-msgid "Fill"
-msgstr "Zapolni"
-
-
-msgctxt "GPencil"
-msgid "Both"
-msgstr "Oboje"
 
 
 msgid "Active Layer"
@@ -11741,14 +11533,6 @@ msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet
 msgstr "Ob prikazu skrči povzetek, tako da so vsi ostali kanali skriti (velja samo za animacijski načrt)"
 
 
-msgid "Display Grease Pencil"
-msgstr "Prikaži Grease Pencil"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Vključi vizualizacijo animacijskih podatkov in okvirjev, povezanih z Grease Pencil"
-
-
 msgid "Display Hair"
 msgstr "Prikaži dlake"
 
@@ -16563,24 +16347,8 @@ msgid "View Map Cache"
 msgstr "Predpomnilnik glediščne teksture"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Interpolacijske nastavitve Grease Pencil"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Nastavitve za interpolacijska orodja Grease Pencil"
-
-
 msgid "Interpolation Curve"
 msgstr "Interpolacijska krivulja"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Prilagojena krivulja za krmiljenje 'sekvenčne' interpolacije med okvirji Grease Pencil"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "Kiparska vodnica Grease Pencil"
 
 
 msgid "Angle Snap"
@@ -16631,14 +16399,6 @@ msgid "Use Snapping"
 msgstr "Uporabi pritrjevanje"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "Kiparske nastavitve Grease Pencil"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Splošne lastnosti orodij za kiparjenje s potezami Grease Pencil"
-
-
 msgid "Lock Axis"
 msgstr "Zakleni os"
 
@@ -16661,10 +16421,6 @@ msgstr "Od zgoraj (X-Y)"
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "Poravna poteze s trenutno orientacijo 3D kazalca"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "Prilagojena krivulja za krmiljenje slabljenja učinka čopiča med okvirji Grease Pencil"
 
 
 msgid "Auto-Masking Layer"
@@ -16945,14 +16701,6 @@ msgid "Material Index"
 msgstr "Indeks materiala"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "Risba Grease Pencil"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "Risba, risana z Grease Pencil"
-
-
 msgid "Attributes"
 msgstr "Atributi"
 
@@ -16985,67 +16733,12 @@ msgid "User Count"
 msgstr "Število uporabnikov"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Okvir Grease Pencil"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "Ključni okvir Grease Pencil"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "Tip ključnega okvirja"
-
-
 msgid "Type of keyframe"
 msgstr "Tip ključnega okvirja"
 
 
-msgctxt "GPencil"
-msgid "Keyframe"
-msgstr "Ključni okvir"
-
-
-msgctxt "GPencil"
-msgid "Breakdown"
-msgstr "Razčlenitev"
-
-
-msgctxt "GPencil"
-msgid "Moving Hold"
-msgstr "Mirovanje v gibanju"
-
-
-msgctxt "GPencil"
-msgid "Extreme"
-msgstr "Ekstrem"
-
-
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "Tresenje"
-
-
-msgctxt "GPencil"
-msgid "Generated"
-msgstr "Generirani"
-
-
 msgid "Frame Selection in the Dope Sheet"
 msgstr "Izbor okvirjev v animacijskem načrtu"
-
-
-msgid "Grease Pencil Frames"
-msgstr "Okvirji Grease Pencil"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "Zbirka okvirjev Grease Pencil"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Plasti maskiranja Grease Pencil"
 
 
 msgid "List of Mask Layers"
@@ -17054,14 +16747,6 @@ msgstr "Seznam plasti maskiranja"
 
 msgid "Invert mask"
 msgstr "Obrne masko"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Plasti maskiranja Grease Pencil"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "Zbirka maskirnih plasti Grease Pencil"
 
 
 msgid "Active Layer Mask Index"
@@ -17096,10 +16781,6 @@ msgid "Tree Node"
 msgstr "Drevesno vozlišče"
 
 
-msgid "Grease Pencil node in the layer tree. Either a layer or a group"
-msgstr "Vozlišče Grease Pencil v drevesu plasti. Bodisi plast bodisi skupina"
-
-
 msgid "Channel Color"
 msgstr "Barva kanala"
 
@@ -17124,10 +16805,6 @@ msgid "Use Masks"
 msgstr "Uporabi maske"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Plast Grease Pencil"
-
-
 msgid "Collection of related drawings"
 msgstr "Zbirka sorodnih risb"
 
@@ -17146,10 +16823,6 @@ msgstr "Ostra svetloba"
 
 msgid "Divide"
 msgstr "Deljenje"
-
-
-msgid "Grease Pencil frames"
-msgstr "Okvirji Grease Pencil"
 
 
 msgid "Ignore Material Locking"
@@ -17208,14 +16881,6 @@ msgid "ViewLayer"
 msgstr "GlediščnaPlast"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "Skupina plasti Grease Pencil"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "Skupina plasti Grease Pencil"
-
-
 msgid "Reset color tag"
 msgstr "Ponastavi barvno značko"
 
@@ -17252,28 +16917,8 @@ msgid "Color tag 8"
 msgstr "Barvna značka 8"
 
 
-msgid "Grease Pencil Group"
-msgstr "Skupina Grease Pencil"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "Zbirka plasti Grease Pencil"
-
-
 msgid "Active Layer Group"
 msgstr "Aktivna skupina plasti"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "Aktivna skupina plasti Grease Pencil"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Plasti Grease Pencil"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Aktivna plast Grease Pencil"
 
 
 msgctxt "Color"
@@ -18054,55 +17699,6 @@ msgid "Tint"
 msgstr "Niansiranje"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "Tip čopiča"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Glajenje"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Debelina"
-
-
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Naključno"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "Prijem"
-
-
-msgctxt "GPencil"
-msgid "Push"
-msgstr "Potisk"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "Zvijanje"
-
-
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "Uščip"
-
-
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Kloniranje"
-
-
-msgid "Gpencil Settings"
-msgstr "Nastavitve Grease Pencil"
-
-
 msgid "Brush Type"
 msgstr "Tip čopiča"
 
@@ -18547,46 +18143,6 @@ msgid "Stencil Position"
 msgstr "Položaj šablone"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "Metoda poteze"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "Pike"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "Vlečena pika"
-
-
-msgctxt "GPencil"
-msgid "Space"
-msgstr "Prostor"
-
-
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "Sprej"
-
-
-msgctxt "GPencil"
-msgid "Anchored"
-msgstr "Zasidrano"
-
-
-msgctxt "GPencil"
-msgid "Line"
-msgstr "Črta"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "Krivulja"
-
-
 msgid "Per Vertex Displacement"
 msgstr "Na odmikanje posameznega oglišča"
 
@@ -18747,10 +18303,6 @@ msgid "Use Paint"
 msgstr "Uporabi barvanje"
 
 
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "Uporabi ta čopič v risalnem načinu Grease Pencil"
-
-
 msgid "Use Sculpt"
 msgstr "Uporabi kiparjenje"
 
@@ -18833,10 +18385,6 @@ msgstr "Gladka poteza"
 
 msgid "Adjust Strength for Spacing"
 msgstr "Prilagodi moč na razmik"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "Uporabi ta čopič v načinu barvanja oglišč Grease Pencil"
 
 
 msgid "Use Pressure for Wet Mix"
@@ -19834,38 +19382,16 @@ msgid "Use Textures"
 msgstr "Uporabi teksture"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Podatkovni blok Grease Pencil"
-
-
 msgid "Layer Groups"
 msgstr "Skupine plasti"
-
-
-msgid "Grease Pencil layer groups"
-msgstr "Skupine plasti Grease Pencil"
-
-
-msgid "Grease Pencil layers"
-msgstr "Plasti Grease Pencil"
 
 
 msgid "Onion Opacity"
 msgstr "Čebulna motnost"
 
 
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "Filtriranje po tipu"
-
-
 msgid "Type of keyframe (for filtering)"
 msgstr "Tip ključnega okvirja (za filtriranje)"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "Vse"
 
 
 msgid "Include all Keyframe types"
@@ -19874,10 +19400,6 @@ msgstr "Vključi vse tipe ključnih okvirjev"
 
 msgid "Mode to display frames"
 msgstr "Način prikazovanja okvirjev"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "Okvirji na relativnem intervalu med ključnimi okvirji Grease Pencil"
 
 
 msgid "Selected"
@@ -19898,10 +19420,6 @@ msgstr "Globinska razporeditev potez"
 
 msgid "2D Layers"
 msgstr "2D plasti"
-
-
-msgid "Display strokes using Grease Pencil layer order and stroke order to define depth"
-msgstr "Prekrivanje potez Grease Pencil določi z zaporedjem plasti in zaporedjem potez"
 
 
 msgid "3D Location"
@@ -20781,32 +20299,12 @@ msgid "Displacement and Bump"
 msgstr "Odmikanje in izbokline"
 
 
-msgid "Grease Pencil Settings"
-msgstr "Nastavitve Grease Pencil"
-
-
-msgid "Grease Pencil color settings for material"
-msgstr "Barvne nastavitve Grease Pencil za material"
-
-
-msgid "Is Grease Pencil"
-msgstr "Za Grease Pencil"
-
-
-msgid "True if this material has Grease Pencil data"
-msgstr "Drži, če ima ta material podatke tipa Grease Pencil"
-
-
 msgid "Line Color"
 msgstr "Barva črte"
 
 
 msgid "Line Priority"
 msgstr "Prioriteta črte"
-
-
-msgid "Line Art Settings"
-msgstr "Nastavitve Line Art"
 
 
 msgid "Max Vertex Displacement"
@@ -21121,10 +20619,6 @@ msgid "Proxy Custom Directory"
 msgstr "Shrani na lokacijo po meri"
 
 
-msgid "Annotation data"
-msgstr "Podatki zaznamkov"
-
-
 msgid "Use Group Interface"
 msgstr "Uporabi skupinski vmesnik"
 
@@ -21231,10 +20725,6 @@ msgstr "Modifikator"
 
 msgid "Tool"
 msgstr "Orodje"
-
-
-msgid "The node group is used for Grease Pencil"
-msgstr "Skupina vozlišč se uporablja za Grease Pencil"
 
 
 msgid "Mesh"
@@ -21401,10 +20891,6 @@ msgid "Lightgroup"
 msgstr "Svetlobna skupina"
 
 
-msgid "Line Art"
-msgstr "Line Art"
-
-
 msgid "Location of the object"
 msgstr "Lega predmeta"
 
@@ -21473,28 +20959,8 @@ msgid "Particle Edit"
 msgstr "Urejanje delcev"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "Uredi poteze Grease Pencil"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Kipari poteze Grease Pencil"
-
-
 msgid "Draw Mode"
 msgstr "Risalni način"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "Slikaj poteze Grease Pencil"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "Poteze barvanja uteži Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Poteze barvanja oglišč Grease Pencil"
 
 
 msgid "Motion Path"
@@ -21630,10 +21096,6 @@ msgstr "Prikleni starša kamere"
 
 msgid "Use Alpha"
 msgstr "Uporabi alfo"
-
-
-msgid "Lights affect Grease Pencil object"
-msgstr "Luči vplivajo na predmet Grease Pencil"
 
 
 msgid "Vertex Groups"
@@ -22319,10 +21781,6 @@ msgstr "Končni okvir predoglednega intervala"
 
 msgid "Preview Range Start Frame"
 msgstr "Začetni okvir predoglednega intervala"
-
-
-msgid "Grease Pencil settings for the scene"
-msgstr "Nastavitve Grease Pencil za sceno"
 
 
 msgid "Hydra"
@@ -23530,26 +22988,6 @@ msgstr "Aktivni dodatek"
 
 msgid "Active Add-on in the Workspace Add-ons filter"
 msgstr "Aktivni dodatek v filtru dodatkov delovnega prostora"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Urejevalni način Grease Pencil"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Kiparski način Grease Pencil"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Risanje Grease Pencil"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Barvanje oglišč Grease Pencil"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Barvanje teže Grease Pencil"
 
 
 msgid "UI Tags"
@@ -26310,10 +25748,6 @@ msgid "Active Point"
 msgstr "Aktivna točka"
 
 
-msgid "Grease Pencil Color"
-msgstr "Barva Grease Pencil"
-
-
 msgid "Alignment"
 msgstr "Poravnava"
 
@@ -26324,26 +25758,6 @@ msgstr "Fiksno"
 
 msgid "Fill Color"
 msgstr "Barva polnila"
-
-
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "Slog polnila"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "Enolično"
-
-
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "Preliv"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "Tekstura"
 
 
 msgid "Flip"
@@ -26368,11 +25782,6 @@ msgstr "Je poteza vidna"
 
 msgid "Mix Color"
 msgstr "Mešanje barve"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "Mešanje"
 
 
 msgid "Mix Factor"
@@ -26423,11 +25832,6 @@ msgid "Show Stroke"
 msgstr "Pokaži potezo"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "Slog poteze"
-
-
 msgid "Texture Orientation Angle"
 msgstr "Kot usmerjenosti teksture"
 
@@ -26446,10 +25850,6 @@ msgstr "Samoprekrivanje"
 
 msgid "Randomization"
 msgstr "Ponaključenje"
-
-
-msgid "Material Line Art"
-msgstr "Materialen Line Art"
 
 
 msgid "Effectiveness"
@@ -27610,24 +27010,12 @@ msgid "Wireframe"
 msgstr "Žični model"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "Modifikator grajenja Grease Pencil"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "Modifikator dolžine Grease Pencil"
-
-
 msgid "Multiple Strokes"
 msgstr "Več potez"
 
 
 msgid "Subdivide"
 msgstr "Razdeli"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "Delitveni modifikator Grease Pencil"
 
 
 msgid "Cast"
@@ -27676,14 +27064,6 @@ msgstr "Valovanje"
 
 msgid "Volume Displace"
 msgstr "Odmikanje volumna"
-
-
-msgid "Generate noise wobble in Grease Pencil strokes"
-msgstr "Generira vijugavost v potezah Grease Pencil"
-
-
-msgid "Smooth Grease Pencil strokes"
-msgstr "Zgladi poteze Grease Pencil"
 
 
 msgid "Dot Dash"
@@ -28365,21 +27745,6 @@ msgid "Thickness Strength"
 msgstr "Jakost debeline"
 
 
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "Zaporedno"
-
-
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "Vzporedno"
-
-
-msgctxt "GPencil"
-msgid "Additive"
-msgstr "Aditivno"
-
-
 msgid "Speed Factor"
 msgstr "Množitelj hitrosti"
 
@@ -28420,20 +27785,8 @@ msgid "Use Fading"
 msgstr "Uporabi bledenje"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "Barvni modifikator Grease Pencil"
-
-
 msgid "Stroke & Fill"
 msgstr "Poteza in polnilo"
-
-
-msgid "Grease Pencil Dash Modifier"
-msgstr "Črtkasti modifikator Grease Pencil"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "Modifikator ovojnice Grease Pencil"
 
 
 msgid "Fills"
@@ -28477,10 +27830,6 @@ msgstr "Relativna jakost kavlja"
 
 msgid "Uniform Falloff"
 msgstr "Enakomerno slabljenje"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "Modifikator kontrolne rešetke Grease Pencil"
 
 
 msgid "Length Modifier"
@@ -28567,31 +27916,6 @@ msgid "Shadow Camera Size"
 msgstr "Velikost senčne kamere"
 
 
-msgctxt "GPencil"
-msgid "Shadow Region Filtering"
-msgstr "Filtriranje senčnih območij"
-
-
-msgctxt "GPencil"
-msgid "None"
-msgstr "Brez"
-
-
-msgctxt "GPencil"
-msgid "Illuminated"
-msgstr "Osvetljeni deli"
-
-
-msgctxt "GPencil"
-msgid "Shaded"
-msgstr "Senčeno"
-
-
-msgctxt "GPencil"
-msgid "Illuminated (Enclosed Shapes)"
-msgstr "Osvetljeno (sklenjene oblike)"
-
-
 msgid "Silhouette Filtering"
 msgstr "Filtriranje po silhueti"
 
@@ -28614,14 +27938,6 @@ msgstr "Vrsta vira"
 
 msgid "Angle Splitting"
 msgstr "Cepljenje kotov"
-
-
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "Plast Grease Pencil, na kateri naj bodo generirane poteze"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "Material Grease Pencil, dodeljen generiranim potezam"
 
 
 msgid "Clipping Boundaries"
@@ -28688,10 +28004,6 @@ msgid "Match Output"
 msgstr "Ujemanje izhoda"
 
 
-msgid "Grease Pencil Mirror Modifier"
-msgstr "Modifikator zrcaljenja Grease Pencil"
-
-
 msgid "Multiply Modifier"
 msgstr "Modifikator Več potez"
 
@@ -28702,10 +28014,6 @@ msgstr "Dvojniki"
 
 msgid "Fade center"
 msgstr "Pojema na sredini"
-
-
-msgid "Grease Pencil Noise Modifier"
-msgstr "Modifikator šuma Grease Pencil"
 
 
 msgid "Position Factor"
@@ -28724,30 +28032,12 @@ msgid "Noise Offset"
 msgstr "Odmik šuma"
 
 
-msgctxt "GPencil"
-msgid "Steps"
-msgstr "Koraki"
-
-
-msgctxt "GPencil"
-msgid "Keyframes"
-msgstr "Ključni okvirji"
-
-
 msgid "Noise Seed"
 msgstr "Seme šuma"
 
 
-msgid "Grease Pencil Offset Modifier"
-msgstr "Odmični modifikator Grease Pencil"
-
-
 msgid "Start Offset"
 msgstr "Odmik začetka"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "Modifikator neprosojnosti Grease Pencil"
 
 
 msgid "Opacity Factor"
@@ -28842,10 +28132,6 @@ msgid "Catmull-Clark"
 msgstr "Catmull-Clark"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "Teksturni modifikator Grease Pencil"
-
-
 msgid "Fill Offset"
 msgstr "Odmik polnila"
 
@@ -28878,20 +28164,12 @@ msgid "UV Scale"
 msgstr "Velikost UV"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "Modifikator debeline Grease Pencil"
-
-
 msgid "Uniform Thickness"
 msgstr "Enakomerna debelina"
 
 
 msgid "Weighted"
 msgstr "Uteženo"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "Časovni modifikator Grease Pencil"
 
 
 msgid "Frame Scale"
@@ -28912,10 +28190,6 @@ msgstr "Doseg po meri"
 
 msgid "Keep Loop"
 msgstr "Ohrani zanko"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "Modifikator odtenka Grease Pencil"
 
 
 msgid "Tint Mode"
@@ -30603,10 +29877,6 @@ msgid "Use Mask"
 msgstr "Uporabi masko"
 
 
-msgid "Use a Grease Pencil data-block as a mask to use only specified areas of pattern when tracking"
-msgstr "Pri obrisovanju uporabi podatkovni blok Grease Pencil kot masko, ki določi, kateri deli vzorca naj se upoštevajo"
-
-
 msgid "Keyframe Selection"
 msgstr "Izbiranje ključnih okvirjev"
 
@@ -32017,10 +31287,6 @@ msgid "Component"
 msgstr "Komponenta"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "Komponenta Grease Pencil, ki vsebuje plasti in podatke o krivuljah"
-
-
 msgid "Attribute Statistic"
 msgstr "Statistika atributa"
 
@@ -32179,14 +31445,6 @@ msgstr "Krivulja v točke"
 
 msgid "Evaluated"
 msgstr "Poračunano"
-
-
-msgid "Curves to Grease Pencil"
-msgstr "Krivulje v Grease Pencil"
-
-
-msgid "Convert the curves in each top-level instance into Grease Pencil layer"
-msgstr "Pretvori krivulje v plast Grease Pencil"
 
 
 msgid "Geometry Custom Group"
@@ -32401,14 +31659,6 @@ msgid "Use Translation Z"
 msgstr "Uporabi premestitev Z"
 
 
-msgid "Grease Pencil to Curves"
-msgstr "Grease Pencil v krivulje"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "Pretvori plasti Grease Pencil v primerke krivulj"
-
-
 msgid "Grid Gradient"
 msgstr "Gradient regularne mreže"
 
@@ -32546,10 +31796,6 @@ msgid "Named Layer Selection"
 msgstr "Izbor imenovane plasti"
 
 
-msgid "Output a selection of a Grease Pencil layer"
-msgstr "Proizvede izbor na plasti Grease Pencil"
-
-
 msgid "Flat Corner Normals"
 msgstr "Normale ploskih vogalov"
 
@@ -32636,10 +31882,6 @@ msgstr "Združi po razdalji"
 
 msgid "Merge Layers"
 msgstr "Združi plasti"
-
-
-msgid "Join groups of Grease Pencil layers into one"
-msgstr "Združi skupine plasti Grease Pencil v eno"
 
 
 msgid "By Group ID"
@@ -32854,32 +32096,8 @@ msgid "Set Geometry Name"
 msgstr "Nastavi ime geometrije"
 
 
-msgid "Set Grease Pencil Color"
-msgstr "Nastavi barvo Grease Pencil"
-
-
-msgid "Set color and opacity attributes on Grease Pencil geometry"
-msgstr "Na geometrijo Grease Pencil nastavi atributa barve in neprosojnosti"
-
-
-msgid "Set Grease Pencil Depth"
-msgstr "Nastavi globino Grease Pencil"
-
-
-msgid "Set the Grease Pencil depth order to use"
-msgstr "Nastavi globinski vrstni red za Grease Pencil"
-
-
 msgid "Depth Order"
 msgstr "Globinska razvrstitev"
-
-
-msgid "Set Grease Pencil Softness"
-msgstr "Nastavi nežnost Grease Pencil"
-
-
-msgid "Set softness attribute on Grease Pencil geometry"
-msgstr "Geometričnim podatkom Grease Pencil dodeli atribut nežnosti"
 
 
 msgid "Set Grid Background"
@@ -34575,10 +33793,6 @@ msgid "Layer Selection"
 msgstr "Izbira plasti"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "Za izbirno polje vzame plast Grease Pencil ali skupino plasti"
-
-
 msgid "Menu Expanded"
 msgstr "Razprti meni"
 
@@ -35940,20 +35154,6 @@ msgstr "Prenese animacijo IK na PK"
 msgctxt "Operator"
 msgid "Refresh action list"
 msgstr "Osveži seznam akcij"
-
-
-msgid "Add or remove Grease Pencil brush preset"
-msgstr "Doda ali odstrani predlogo čopiča Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "Dodaj predlogo čopiča Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Dodaj predlogo materiala Grease Pencil"
 
 
 msgctxt "Operator"
@@ -39672,11 +38872,6 @@ msgid "Gizmo Tweak"
 msgstr "Pocukaj manipulator"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Riši zaznamek"
-
-
 msgid "Arrow"
 msgstr "Puščica"
 
@@ -39695,11 +38890,6 @@ msgstr "Riši prostoročno"
 
 msgid "Eraser"
 msgstr "Radirka"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Odpni zaznamek"
 
 
 msgctxt "Operator"
@@ -40038,34 +39228,9 @@ msgid "Dissolve"
 msgstr "Razblinjanje"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Tip"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "Razblini vmes"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "Razblini neizbrane"
-
-
 msgctxt "Operator"
 msgid "Duplicate Strokes"
 msgstr "Podvoji poteze"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Erase"
-msgstr "Pravokotno brisanje Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Erase Lasso"
-msgstr "Brisanje z lasom Grease Pencil"
 
 
 msgctxt "Operator"
@@ -40094,91 +39259,6 @@ msgid "Interpolate Sequence"
 msgstr "Interpoliraj sekvenco"
 
 
-msgctxt "GPencil"
-msgid "Back"
-msgstr "Poteg"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "Blag prehod"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "Samodejno blaženje"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "Blaži noter"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "Blaži ven"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "Blaženje noter in ven"
-
-
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "Linearno"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Po meri"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "Sinusoidno"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "Kvadratno"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "Kubično"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "Četrte stopnje"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Pete stopnje"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "Eksponentno"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "Krožno"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "Skakanje"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "Prožno"
-
-
 msgctxt "Operator"
 msgid "Join Selection"
 msgstr "Združi izbor"
@@ -40199,11 +39279,6 @@ msgstr "Prazni ključni okvirji"
 
 msgid "All Frames"
 msgstr "Vsi okvirji"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Group Color Tag"
-msgstr "Barvna značka skupine Grease Pencil"
 
 
 msgctxt "Operator"
@@ -40232,10 +39307,6 @@ msgstr "Združi"
 msgctxt "Operator"
 msgid "Reorder Layer"
 msgstr "Prerazporedi plast"
-
-
-msgid "Move the active Grease Pencil layer or Group"
-msgstr "Premakne aktivno plast ali skupino Grease Pencil"
 
 
 msgctxt "Operator"
@@ -40293,11 +39364,6 @@ msgid "Paste Strokes"
 msgstr "Prilepi poteze"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Pen"
-msgstr "Pisalo Grease Pencil"
-
-
 msgid "Polyline"
 msgstr "Lomljenka"
 
@@ -40348,11 +39414,6 @@ msgstr "Ponovno projicira izbrane poteze iz trenutnega gledišča, kakor da bi b
 msgctxt "Operator"
 msgid "Reset UVs"
 msgstr "Ponastavi UV-je"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "Kiparjenje Grease Pencil"
 
 
 msgctxt "Operator"
@@ -40493,11 +39554,6 @@ msgstr "Deli potezo"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "Prirez Grease Pencil"
-
-
-msgctxt "Operator"
 msgid "Texture Gradient"
 msgstr "Teksturni preliv"
 
@@ -40518,17 +39574,8 @@ msgid "Y Start"
 msgstr "Začetek Y"
 
 
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "Preriši sliko v Grease Pencil"
-
-
 msgid "Trace Frame"
 msgstr "Preriši okvir"
-
-
-msgid "Target Grease Pencil"
-msgstr "Tarčni Grease Pencil"
 
 
 msgid "New Object"
@@ -40561,11 +39608,6 @@ msgstr "Večina"
 
 msgid "Choose pseudo-randomly"
 msgstr "Izbere psevdonaključno"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "Barvanje oglišč Grease Pencil"
 
 
 msgid "Lock Active"
@@ -43639,21 +42681,6 @@ msgstr "Opica"
 
 
 msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "Scenski Line Art"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "Line Art zbirke"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "Line Art predmeta"
-
-
-msgctxt "Operator"
 msgid "Add Segment"
 msgstr "Dodaj segment"
 
@@ -43789,18 +42816,8 @@ msgid "All Light Probes"
 msgstr "Vse svetlobne sonde"
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "Zapeci Line Art"
-
-
 msgid "Bake All"
 msgstr "Zapeci vse"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "Počisti zapečeni Line Art"
 
 
 msgid "Collection UID"
@@ -43859,14 +42876,6 @@ msgstr "Kopiraj omejevalnike"
 
 msgid "Replace Constraints"
 msgstr "Zamenjaj omejevalnike"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Kopiraj učinke Grease Pencil"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "Zamenjaj učinke Grease Pencil"
 
 
 msgid "Copy Light Linking"
@@ -47541,10 +46550,6 @@ msgid "Center Override"
 msgstr "Povožnja središča"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Urejanje Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Create Orientation"
 msgstr "Ustvari orientacijo"
@@ -47805,11 +46810,6 @@ msgstr "Tip preslikave"
 
 msgid "Match Indices"
 msgstr "Ujemaj indekse"
-
-
-msgctxt "GPencil"
-msgid "Material Mode"
-msgstr "Način materiala"
 
 
 msgctxt "Operator"
@@ -49021,11 +48021,6 @@ msgstr "Volumni"
 
 
 msgctxt "ID"
-msgid "Grease Pencils"
-msgstr "Grease Pencili"
-
-
-msgctxt "ID"
 msgid "Armatures"
 msgstr "Okostji"
 
@@ -49230,24 +48225,12 @@ msgid "Export to PDF"
 msgstr "Izvozi v PDF"
 
 
-msgid "Export Grease Pencil to PDF"
-msgstr "Izvozi Grease Pencil v PDF"
-
-
 msgid "Include only active frame"
 msgstr "Upošteva samo aktivni okvir"
 
 
-msgid "Export Grease Pencil to SVG"
-msgstr "Izvozi Grease Pencil v SVG"
-
-
 msgid "Clip Camera"
 msgstr "Prireži na kamero"
-
-
-msgid "Import SVG into Grease Pencil"
-msgstr "Uvozi sliko SVG kot predmet tipa Grease Pencil"
 
 
 msgid "Scene Unit"
@@ -50637,10 +49620,6 @@ msgid "Curves Sculpt Paint"
 msgstr "Barvanje krivuljnega kiparjenja"
 
 
-msgid "Grease Pencil Paint"
-msgstr "Barvanje Grease Pencil"
-
-
 msgid "Paint Mode"
 msgstr "Način barvanja"
 
@@ -50895,10 +49874,6 @@ msgstr "Postavitev poteze"
 
 msgid "Drawing Plane"
 msgstr "Risalna ravnina"
-
-
-msgid "Grease Pencil Options"
-msgstr "Možnosti Grease Pencil"
 
 
 msgid "Quad View"
@@ -51353,26 +50328,6 @@ msgstr "Vzorčenje"
 
 msgid "Sample pixel values under the cursor"
 msgstr "Vzorči vrednosti pikslov pod kazalcem"
-
-
-msgctxt "Operator"
-msgid "Annotate"
-msgstr "Skicirka"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Skicirna daljica"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Skicirni večkotnik"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Skicirna radirka"
 
 
 msgctxt "Operator"
@@ -56375,10 +55330,6 @@ msgid "Sequencer Compositor Modifier Properties"
 msgstr "Lastnosti modifikatorjev sekvenčniškega stavitelja slik"
 
 
-msgid "Show Annotation"
-msgstr "Pokaži zaznamek"
-
-
 msgid "Image Outline"
 msgstr "Obris slike"
 
@@ -56525,10 +55476,6 @@ msgstr "Pritrdi trenutni okvir na trakove"
 
 msgid "Snap current frame to strip start or end"
 msgstr "Pritrdi trenutni okvir na začetek ali konec traku"
-
-
-msgid "Effect affecting the Grease Pencil object"
-msgstr "Učinek, ki deluje na predmet Grease Pencil"
 
 
 msgid "Effect name"
@@ -56783,11 +55730,6 @@ msgid "Use object as center of rotation"
 msgstr "Uporabi predmet kot središče rotacije"
 
 
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "Valovanje"
-
-
 msgid "Use wave effect"
 msgstr "Uporabi učinek valovanja"
 
@@ -56966,11 +55908,6 @@ msgstr "Uskladi vidni interval"
 
 msgid "Synchronize the visible timeline range with other time-based editors"
 msgstr "Uskladi vidni interval časovnega traku z drugimi časovno odvisnimi urejevalniki"
-
-
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Izvor zaznamka"
 
 
 msgid "Blending Factor"
@@ -57507,14 +56444,6 @@ msgid "Show empty objects"
 msgstr "Pokaže prazne predmete"
 
 
-msgid "Show Grease Pencil"
-msgstr "Pokaži Grease Pencil"
-
-
-msgid "Show Grease Pencil objects"
-msgstr "Pokaže predmete Grease Pencil"
-
-
 msgid "Show Lights"
 msgstr "Pokaži luči"
 
@@ -57993,10 +56922,6 @@ msgid "Allow selection of text objects"
 msgstr "Dovoli izbiro besedilnih predmetov"
 
 
-msgid "Allow selection of Grease Pencil objects"
-msgstr "Dovoli izbiro predmetov Grease Pencil"
-
-
 msgid "Allow selection of lattices"
 msgstr "Dovoli izbiro kontrolnih rešetk"
 
@@ -58386,10 +57311,6 @@ msgid "Layer Index"
 msgstr "Indeks plasti"
 
 
-msgid "Index of the Grease Pencil layer"
-msgstr "Indeks plasti Grease Pencil"
-
-
 msgid "Spreadsheet Tables"
 msgstr "Preglednice"
 
@@ -58768,10 +57689,6 @@ msgstr "Povožnja kamere"
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "Za vhod uporabi sekvenčnikov časovni trak te scene"
-
-
-msgid "Use Annotations"
-msgstr "Uporabi zaznamke"
 
 
 msgid "Sound Strip"
@@ -59787,10 +58704,6 @@ msgid "Face Retopology"
 msgstr "Retopologija lic"
 
 
-msgid "Grease Pencil Wire Edit"
-msgstr "Urejanje črt Grease Pencil"
-
-
 msgid "Major Grid Lines"
 msgstr "Glavne črte regularne mreže"
 
@@ -59865,10 +58778,6 @@ msgstr "Dodaj in zamenjaj"
 
 msgid "Curves Sculpt"
 msgstr "Kiparjenje krivulj"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Kiparjenje Grease Pencil"
 
 
 msgid "Select Mode"
@@ -61476,11 +60385,6 @@ msgstr "Pisava"
 
 
 msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "WindowManager"
 msgid "Point Cloud"
 msgstr "Oblak točk"
 
@@ -62048,36 +60952,6 @@ msgstr "Izrezek"
 msgctxt "WindowManager"
 msgid "Clip Editor"
 msgstr "Urejevalnik izrezkov"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Draw Mode"
-msgstr "Način risanja Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "Poteza čopiča Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "Urejevalni način Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Kiparski način Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "Barvanje teže Grease Pencil"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "Barvanje oglišč Grease Pencil"
 
 
 msgctxt "WindowManager"
@@ -64266,10 +63140,6 @@ msgid "Volume(s)"
 msgstr "Volumen/i"
 
 
-msgid "Grease Pencil(s)"
-msgstr "Grease Pencil/i"
-
-
 msgid "Armature(s)"
 msgstr "Okostje/i"
 
@@ -65136,10 +64006,6 @@ msgstr "Prikaži kazalec"
 
 msgid "Data Source:"
 msgstr "Vir podatkov:"
-
-
-msgid "No annotation source"
-msgstr "Ni nobenega vira zaznamkov"
 
 
 msgctxt "Operator"
@@ -66875,10 +65741,6 @@ msgstr "Način blaženja"
 msgctxt "Operator"
 msgid "Discontinuity (Euler) Filter"
 msgstr "Filter nezveznosti (Euler)"
-
-
-msgid "Grease Pencil Objects"
-msgstr "Predmeti Grease Pencil"
 
 
 msgctxt "Operator"
@@ -68694,10 +67556,6 @@ msgstr ""
 " • Dvigalka med vlečenjem omogoči merjenje debeline površine"
 
 
-msgid "Annotation:"
-msgstr "Zaznamek:"
-
-
 msgid ""
 "Use multiple operators in an interactive way to add, delete, or move geometry\n"
 " • {:s} - Add geometry by moving the cursor close to an element\n"
@@ -68904,11 +67762,6 @@ msgstr "Universal Scene Description (.usd*)"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVG kot Grease Pencil"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "Wavefront (.obj)"
 
@@ -68953,16 +67806,6 @@ msgstr "Ni aktivnega elementa"
 
 msgid "No active marker"
 msgstr "Ni aktivne oznake"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "Grease Pencil kot SVG"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "Grease Pencil kot PDF"
 
 
 msgctxt "Operator"
@@ -69868,11 +68711,6 @@ msgstr "Mrežna ravnina ..."
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "Zapeci akcijo ..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "Zapeci transformacijo predmeta v Grease Pencil ..."
 
 
 msgctxt "Operator"
@@ -71584,22 +70422,6 @@ msgid "No object selected, using cursor"
 msgstr "Noben predmet ni izbran, uporabljam kazalec"
 
 
-msgid "Draw Grease Pencil"
-msgstr "Risanje Grease Pencil"
-
-
-msgid "Weight Grease Pencil"
-msgstr "Uteži Grease Pencil"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "Kiparjenje Grease Pencil"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "Oglišča Grease Pencil"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "Prilagodi moč luči"
@@ -71777,11 +70599,6 @@ msgstr "Položaji korenov"
 
 msgid "Path Steps"
 msgstr "Koraki poti"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "Meje"
 
 
 msgid "No brush selected"
@@ -72151,14 +70968,6 @@ msgid "GP_Layer"
 msgstr "GP_Plast"
 
 
-msgid "annotations"
-msgstr "zaznamki"
-
-
-msgid "grease_pencils"
-msgstr "grease_pencils"
-
-
 msgid "Socket_2"
 msgstr "Vtičnica_2"
 
@@ -72326,10 +71135,6 @@ msgstr "OblakTočk"
 
 msgid "LightProbe"
 msgstr "SvetlobnaSonda"
-
-
-msgid "GreasePencil"
-msgstr "GreasePencil"
 
 
 msgid "objects"
@@ -73726,16 +72531,8 @@ msgid "Active region not set"
 msgstr "Aktivno področje ni nastavljeno"
 
 
-msgid "Nowhere for Grease Pencil data to go"
-msgstr "Podatkov Grease Pencil nimam kam dati"
-
-
 msgid "Cannot delete locked layers"
 msgstr "Ne morem izbrisati zaklenjenih plasti"
-
-
-msgid "No Grease Pencil data"
-msgstr "Ni podatkov Grease Pencil"
 
 
 msgid "No active frame to delete"
@@ -73766,14 +72563,6 @@ msgid "Active layer is not editable"
 msgstr "Aktivne plasti ni mogoče urejati"
 
 
-msgid "No active Grease Pencil layer"
-msgstr "Ni aktivne plasti Grease Pencil"
-
-
-msgid "Active object is not a selected Grease Pencil"
-msgstr "Aktivni predmet ni izbrani Grease Pencil"
-
-
 msgid "There is no layer '%s'"
 msgstr "Ni plasti '%s'"
 
@@ -73792,10 +72581,6 @@ msgstr "Kopiranih %d izbranih krivulj"
 
 msgid "No active layer"
 msgstr "Ni aktivne plasti"
-
-
-msgid "Add New Grease Pencil Layer"
-msgstr "Dodaj novo plast Grease Pencil"
 
 
 msgid "No active group"
@@ -73824,14 +72609,6 @@ msgstr "Ni aktivne plasti, ki bi jo lahko podvojil"
 
 msgid "Baked strokes are cleared"
 msgstr "Zapečene poteze so počiščene"
-
-
-msgid "No active object, or active object isn't a Grease Pencil object"
-msgstr "Ni aktivnega predmeta ali pa ta ni tipa Grease Pencil"
-
-
-msgid "Baking Line Art..."
-msgstr "Pečem Line Art ..."
 
 
 msgid "Active layer is locked or hidden"
@@ -73892,11 +72669,6 @@ msgstr "Trenutna: "
 
 msgid ", Ctrl: Stroke, Shift: Fill, Shift+Ctrl: Both"
 msgstr ", Krmilka: Poteza, Dvigalka: Polnilo, Krmilka+Dvigalka: Oboje"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material"
-msgstr "Dodaj material Grease Pencil"
 
 
 msgid "Press a key"
@@ -74568,36 +73340,6 @@ msgid "Reorder Layers"
 msgstr "Preuredi plasti"
 
 
-msgctxt "Operator"
-msgid "Active Grease Pencil Layer"
-msgstr "Aktivna plast Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer"
-msgstr "Preimenuj plast Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Layer"
-msgstr "Izbriši plast Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Active Grease Pencil Group"
-msgstr "Aktivna skupina Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer Group"
-msgstr "Preimenuj skupino plasti Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Group"
-msgstr "Izbriši skupino Grease Pencil"
-
-
 msgid "ID-Block:"
 msgstr "ID-blok:"
 
@@ -74690,10 +73432,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Brska po nastavitvah delcev, ki jih je mogoče povezati"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Brska po podatkih Grease Pencil, ki jih je mogoče povezati"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Brska po videoposnetkih, ki jih je mogoče povezati"
 
@@ -74776,11 +73514,6 @@ msgstr "Nova"
 msgctxt "FreestyleLineStyle"
 msgid "New"
 msgstr "Nov"
-
-
-msgctxt "GPencil"
-msgid "New"
-msgstr "Novo"
 
 
 msgctxt "Image"
@@ -75028,10 +73761,6 @@ msgstr "Možnosti izvoza"
 
 msgid "Unable to find valid 3D View area"
 msgstr "Ne najdem veljavnega območja 3D pogleda"
-
-
-msgid "Active object is not a Grease Pencil object"
-msgstr "Aktivni predmet ni tipa Grease Pencil"
 
 
 msgid "Unable to export PDF"
@@ -75493,21 +74222,6 @@ msgstr "KapljevinskoPolje"
 msgctxt "Object"
 msgid "Field"
 msgstr "Polje"
-
-
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "GPencil"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "Suzana"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "LineArt"
 
 
 msgid "Baking texture..."
@@ -76070,29 +74784,6 @@ msgstr "Izbriši sredstvo čopiča"
 
 msgid "File not found '%s'"
 msgstr "Ne najdem datoteke '%s'"
-
-
-msgid "No editable Grease Pencil layer"
-msgstr "Ni spremenljive plasti Grease Pencil"
-
-
-msgid "GPencil Interpolation: "
-msgstr "Interpolacija Grease Pencila: "
-
-
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "Interpolacija"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "Blaženje (po moči)"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "Dinamični učinki"
 
 
 msgid "Trace"
@@ -77041,10 +75732,6 @@ msgid "Curve: {} points, {} splines"
 msgstr "Krivulja: {} točk, {} zlepkov"
 
 
-msgid "Grease Pencil: {} layers"
-msgstr "Grease Pencil: {} plasti"
-
-
 msgid "Edit: {}, {}, {}"
 msgstr "Urejanje: {}, {}, {}"
 
@@ -77248,16 +75935,6 @@ msgstr "Preimenuj modifikator"
 
 
 msgctxt "Operator"
-msgid "Rename Annotation Layer"
-msgstr "Preimenuj plast zaznamka"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Drawing"
-msgstr "Preimenuj risbo Grease Pencil"
-
-
-msgctxt "Operator"
 msgid "Rename View Layer"
 msgstr "Preimenuj glediščno plast"
 
@@ -77384,16 +76061,6 @@ msgstr "Modifikatorska operacija"
 msgctxt "Operator"
 msgid "Bone operation"
 msgstr "Operacija kosti"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Layer operation"
-msgstr "Operacija plasti Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Node operation"
-msgstr "Operacija vozlišč Grease Pencil"
 
 
 msgid "No Library Overrides"
@@ -77848,21 +76515,6 @@ msgstr "Uteži oglišč"
 
 msgid "Curve Data"
 msgstr "Podatki krivulje"
-
-
-msgctxt "GPencil"
-msgid "Normal"
-msgstr "Normale"
-
-
-msgctxt "GPencil"
-msgid "Endpoint"
-msgstr "Končna točka"
-
-
-msgctxt "GPencil"
-msgid "Bézier"
-msgstr "Bézier"
 
 
 msgid "No active object found"
@@ -78997,15 +77649,6 @@ msgstr "Predmet ni spredaj"
 
 msgid "Object is shown in front"
 msgstr "Predmet je prikazan spredaj"
-
-
-msgid "Lineart"
-msgstr "Lineart"
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "Meče senco"
 
 
 msgid "Edge Types"
@@ -82375,11 +81018,6 @@ msgstr "Igralni pogon"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "Geo. vozlišča"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "Preferences"

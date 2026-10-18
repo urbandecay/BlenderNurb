@@ -12,7 +12,6 @@
 
 #include "BKE_attribute_math.hh"
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_mesh.hh"
 #include "BKE_pointcloud.hh"
@@ -342,9 +341,7 @@ static void duplicate_curves(GeometrySet &geometry_set,
                              const IndexAttributes &attribute_outputs,
                              const AttributeFilter &attribute_filter)
 {
-  geometry_set.keep_only({GeometryComponent::Type::Curve,
-                          GeometryComponent::Type::GreasePencil,
-                          GeometryComponent::Type::Edit});
+  geometry_set.keep_only({GeometryComponent::Type::Curve, GeometryComponent::Type::Edit});
   GeometryComponentEditData::remember_deformed_positions_if_necessary(geometry_set);
   if (const Curves *curves_id = geometry_set.get_curves()) {
     const bke::CurvesFieldContext field_context{*curves_id, AttrDomain::Curve};
@@ -357,29 +354,6 @@ static void duplicate_curves(GeometrySet &geometry_set,
     Curves *new_curves_id = bke::curves_new_nomain(std::move(new_curves));
     bke::curves_copy_parameters(*curves_id, *new_curves_id);
     geometry_set.replace_curves(new_curves_id);
-  }
-  if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-    using namespace bke::greasepencil;
-    threading::parallel_for(
-        grease_pencil->layers().index_range(), 16, [&](const IndexRange layers_range) {
-          for (const int layer_i : layers_range) {
-            Layer &layer = grease_pencil->layer(layer_i);
-            Drawing *drawing = grease_pencil->get_eval_drawing(layer);
-            if (!drawing) {
-              continue;
-            }
-            bke::CurvesGeometry &curves = drawing->strokes_for_write();
-            const bke::GreasePencilLayerFieldContext field_context{
-                *grease_pencil, AttrDomain::Curve, layer_i};
-            curves = duplicate_curves_CurveGeometry(curves,
-                                                    field_context,
-                                                    count_field,
-                                                    selection_field,
-                                                    attribute_outputs,
-                                                    attribute_filter);
-            drawing->tag_topology_changed();
-          }
-        });
   }
 }
 
@@ -863,42 +837,6 @@ static void duplicate_points_curve(GeometrySet &geometry_set,
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Duplicate Points (Grease Pencil)
- * \{ */
-
-static void duplicate_points_grease_pencil(GeometrySet &geometry_set,
-                                           const Field<int> &count_field,
-                                           const Field<bool> &selection_field,
-                                           const IndexAttributes &attribute_outputs,
-                                           const AttributeFilter &attribute_filter)
-{
-  using namespace bke::greasepencil;
-  GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
-  threading::parallel_for(
-      grease_pencil.layers().index_range(), 16, [&](const IndexRange layers_range) {
-        for (const int layer_i : layers_range) {
-          Layer &layer = grease_pencil.layer(layer_i);
-          Drawing *drawing = grease_pencil.get_eval_drawing(layer);
-          if (!drawing) {
-            continue;
-          }
-          bke::CurvesGeometry &curves = drawing->strokes_for_write();
-          const bke::GreasePencilLayerFieldContext field_context{
-              grease_pencil, AttrDomain::Point, layer_i};
-          curves = duplicate_points_CurvesGeometry(curves,
-                                                   field_context,
-                                                   count_field,
-                                                   selection_field,
-                                                   attribute_outputs,
-                                                   attribute_filter);
-          drawing->tag_topology_changed();
-        }
-      });
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Duplicate Points (Mesh)
  * \{ */
 
@@ -1029,99 +967,12 @@ static void duplicate_points(GeometrySet &geometry_set,
               geometry_set, count_field, selection_field, attribute_outputs, attribute_filter);
         }
         break;
-      case GeometryComponent::Type::GreasePencil: {
-        if (geometry_set.has_grease_pencil()) {
-          duplicate_points_grease_pencil(
-              geometry_set, count_field, selection_field, attribute_outputs, attribute_filter);
-        }
-        break;
-      }
       default:
         break;
     }
   }
   component_types.append(GeometryComponent::Type::Edit);
   geometry_set.keep_only(component_types);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Duplicate Layers
- * \{ */
-
-static void duplicate_layers(GeometrySet &geometry_set,
-                             const Field<int> &count_field,
-                             const Field<bool> &selection_field,
-                             const IndexAttributes &attribute_outputs,
-                             const AttributeFilter &attribute_filter)
-{
-  using namespace bke::greasepencil;
-  if (!geometry_set.has_grease_pencil()) {
-    geometry_set.clear();
-    return;
-  }
-  geometry_set.keep_only({GeometryComponent::Type::GreasePencil, GeometryComponent::Type::Edit});
-  GeometryComponentEditData::remember_deformed_positions_if_necessary(geometry_set);
-  const GreasePencil &src_grease_pencil = *geometry_set.get_grease_pencil();
-
-  bke::GreasePencilFieldContext field_context{src_grease_pencil};
-  FieldEvaluator evaluator{field_context, src_grease_pencil.layers().size()};
-  evaluator.add(count_field);
-  evaluator.set_selection(selection_field);
-  evaluator.evaluate();
-  const IndexMask selection = evaluator.get_evaluated_selection_as_mask();
-  const VArray<int> counts = evaluator.get_evaluated<int>(0);
-
-  Array<int> offset_data;
-  const OffsetIndices<int> duplicates = accumulate_counts_to_offsets(
-      selection, counts, offset_data);
-  const int new_layers_num = duplicates.total_size();
-  if (new_layers_num == 0) {
-    geometry_set.clear();
-    return;
-  }
-
-  GreasePencil *new_grease_pencil = BKE_grease_pencil_new_nomain();
-  BKE_grease_pencil_copy_parameters(src_grease_pencil, *new_grease_pencil);
-
-  new_grease_pencil->add_layers_with_empty_drawings_for_eval(new_layers_num);
-  static bke::CurvesGeometry static_empty_curves;
-  selection.foreach_index([&](const int src_layer_i, const int pos) {
-    const IndexRange range = duplicates[pos];
-    if (range.is_empty()) {
-      return;
-    }
-    const Layer &src_layer = src_grease_pencil.layer(src_layer_i);
-    const Drawing *src_drawing = src_grease_pencil.get_eval_drawing(src_layer);
-    const bke::CurvesGeometry &src_curves = src_drawing ? src_drawing->strokes() :
-                                                          static_empty_curves;
-    const StringRefNull src_layer_name = src_layer.name();
-    for (Layer *new_layer : new_grease_pencil->layers_for_write().slice(range)) {
-      BKE_grease_pencil_copy_layer_parameters(src_layer, *new_layer);
-      new_layer->set_name(src_layer_name);
-      Drawing *new_drawing = new_grease_pencil->get_eval_drawing(*new_layer);
-      new_drawing->strokes_for_write() = src_curves;
-    }
-  });
-
-  bke::gather_attributes_to_groups(src_grease_pencil.attributes(),
-                                   AttrDomain::Layer,
-                                   AttrDomain::Layer,
-                                   attribute_filter,
-                                   duplicates,
-                                   selection,
-                                   new_grease_pencil->attributes_for_write());
-
-  if (attribute_outputs.duplicate_index) {
-    create_duplicate_index_attribute(new_grease_pencil->attributes_for_write(),
-                                     AttrDomain::Layer,
-                                     selection,
-                                     attribute_outputs,
-                                     duplicates);
-  }
-
-  geometry_set.replace_grease_pencil(new_grease_pencil);
 }
 
 /** \} */
@@ -1243,10 +1094,6 @@ static void node_geo_exec(GeoNodeExecParams params)
           duplicate_points(
               geometry_set, count_field, selection_field, attribute_outputs, attribute_filter);
           break;
-        case AttrDomain::Layer:
-          duplicate_layers(
-              geometry_set, count_field, selection_field, attribute_outputs, attribute_filter);
-          break;
         default:
           BLI_assert_unreachable();
           break;
@@ -1271,7 +1118,6 @@ static void node_rna(StructRNA *srna)
       {int(AttrDomain::Edge), "EDGE", 0, "Edge", ""},
       {int(AttrDomain::Face), "FACE", 0, "Face", ""},
       {int(AttrDomain::Curve), "SPLINE", 0, "Spline", ""},
-      {int(AttrDomain::Layer), "LAYER", 0, "Layer", ""},
       {int(AttrDomain::Instance), "INSTANCE", 0, "Instance", ""},
       {0, nullptr, 0, nullptr, nullptr},
   };

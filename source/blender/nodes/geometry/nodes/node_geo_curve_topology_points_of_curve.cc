@@ -68,7 +68,7 @@ class PointsOfCurveInput final : public bke::GeometryFieldInput {
   GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
                                  const IndexMask &mask) const final
   {
-    const bke::CurvesGeometry *curves_ptr = context.curves_or_strokes();
+    const bke::CurvesGeometry *curves_ptr = context.curves();
     if (!curves_ptr) {
       return {};
     }

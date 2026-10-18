@@ -6,7 +6,6 @@
  * \ingroup spclip
  */
 
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_space_types.h"
 
 #include "BLI_listbase.h"
@@ -34,20 +33,6 @@ namespace blender {
 
 /********************** detect features operator *********************/
 
-static bGPDlayer *detect_get_layer(MovieClip *clip)
-{
-  if (clip->gpd == nullptr) {
-    return nullptr;
-  }
-
-  for (bGPDlayer &layer : clip->gpd->layers) {
-    if (layer.flag & GP_LAYER_ACTIVE) {
-      return &layer;
-    }
-  }
-  return nullptr;
-}
-
 static wmOperatorStatus detect_features_exec(bContext *C, wmOperator *op)
 {
   SpaceClip *sc = CTX_wm_space_clip(C);
@@ -57,22 +42,13 @@ static wmOperatorStatus detect_features_exec(bContext *C, wmOperator *op)
       clip, &sc->user, clip_flag, MovieClipCacheFlag::SkipCache);
   MovieTracking *tracking = &clip->tracking;
   MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(tracking);
-  const int placement = RNA_enum_get(op->ptr, "placement");
   const int margin = RNA_int_get(op->ptr, "margin");
   const int min_distance = RNA_int_get(op->ptr, "min_distance");
   const float threshold = RNA_float_get(op->ptr, "threshold");
   const int framenr = ED_space_clip_get_clip_frame_number(sc);
-  bGPDlayer *layer = nullptr;
-  int place_outside_layer = 0;
-
   if (!ibuf) {
     BKE_report(op->reports, RPT_ERROR, "Feature detection requires valid clip frame");
     return OPERATOR_CANCELLED;
-  }
-
-  if (placement != 0) {
-    layer = detect_get_layer(clip);
-    place_outside_layer = placement == 2;
   }
 
   /* Deselect existing tracks. */
@@ -85,9 +61,7 @@ static wmOperatorStatus detect_features_exec(bContext *C, wmOperator *op)
                              framenr,
                              margin,
                              threshold / 100000.0f,
-                             min_distance,
-                             layer,
-                             place_outside_layer);
+                             min_distance);
 
   IMB_freeImBuf(ibuf);
 
@@ -99,21 +73,6 @@ static wmOperatorStatus detect_features_exec(bContext *C, wmOperator *op)
 
 void CLIP_OT_detect_features(wmOperatorType *ot)
 {
-  static const EnumPropertyItem placement_items[] = {
-      {0, "FRAME", 0, "Whole Frame", "Place markers across the whole frame"},
-      {1,
-       "INSIDE_GPENCIL",
-       0,
-       "Inside Annotated Area",
-       "Place markers only inside areas outlined with the Annotation tool"},
-      {2,
-       "OUTSIDE_GPENCIL",
-       0,
-       "Outside Annotated Area",
-       "Place markers only outside areas outlined with the Annotation tool"},
-      {0, nullptr, 0, nullptr, nullptr},
-  };
-
   /* identifiers */
   ot->name = "Detect Features";
   ot->description = "Automatically detect features and place markers to track";
@@ -127,8 +86,6 @@ void CLIP_OT_detect_features(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* properties */
-  RNA_def_enum(
-      ot->srna, "placement", placement_items, 0, "Placement", "Placement for detected features");
   RNA_def_int(ot->srna,
               "margin",
               16,

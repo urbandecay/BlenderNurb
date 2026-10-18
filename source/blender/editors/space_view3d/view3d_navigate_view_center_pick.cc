@@ -38,7 +38,7 @@ static wmOperatorStatus viewcenter_pick_invoke(bContext *C, wmOperator *op, cons
     view3d_operator_needs_gpu(C);
 
     /* Ensure the depth buffer is updated for #ED_view3d_autodist. */
-    ED_view3d_depth_override(depsgraph, region, v3d, nullptr, V3D_DEPTH_NO_GPENCIL, true, nullptr);
+    ED_view3d_depth_override(depsgraph, region, v3d, nullptr, V3D_DEPTH_ALL, true, nullptr);
 
     if (ED_view3d_autodist(region, v3d, event->mval, ofs_new, nullptr)) {
       /* pass */

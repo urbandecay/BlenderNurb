@@ -2899,32 +2899,6 @@ static void rna_def_userdef_theme_spaces_face(StructRNA *srna, const bool has_fa
   }
 }
 
-static void rna_def_userdef_theme_spaces_gpencil(StructRNA *srna)
-{
-  PropertyRNA *prop;
-
-  prop = RNA_def_property(srna, "gp_wire_edit", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 4);
-  RNA_def_property_ui_text(
-      prop, "Grease Pencil Wire Edit", "Grease Pencil wireframe color when in edit mode");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  prop = RNA_def_property(srna, "gp_vertex", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Grease Pencil Vertex", "");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  prop = RNA_def_property(srna, "gp_vertex_select", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Grease Pencil Vertex Select", "");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  prop = RNA_def_property(srna, "gp_vertex_size", PROP_INT, PROP_PIXEL);
-  RNA_def_property_range(prop, 1, 10);
-  RNA_def_property_ui_text(prop, "Grease Pencil Vertex Size", "");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-}
-
 static void rna_def_userdef_theme_space_view3d(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -2976,17 +2950,6 @@ static void rna_def_userdef_theme_space_view3d(BlenderRNA *brna)
   prop = RNA_def_property(srna, "edge_width", PROP_INT, PROP_PIXEL);
   RNA_def_property_range(prop, 1, 32);
   RNA_def_property_ui_text(prop, "Edge Width", "");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  /* Grease Pencil */
-
-  rna_def_userdef_theme_spaces_gpencil(srna);
-
-  prop = RNA_def_property(srna, "text_grease_pencil", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_float_sdna(prop, nullptr, "time_gp_keyframe");
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(
-      prop, "Grease Pencil Keyframe", "Color for indicating Grease Pencil keyframes");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
   /* Object specific options */
@@ -5846,31 +5809,6 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
                            "Draw F-Curves using Anti-Aliasing (disable for better performance)");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_GRAPH, "rna_userdef_update");
 
-  /* grease pencil */
-  prop = RNA_def_property(srna, "grease_pencil_manhattan_distance", PROP_INT, PROP_PIXEL);
-  RNA_def_property_int_sdna(prop, nullptr, "gp_manhattandist");
-  RNA_def_property_range(prop, 0, 100);
-  RNA_def_property_ui_text(prop,
-                           "Grease Pencil Manhattan Distance",
-                           "Pixels moved by mouse per axis when drawing stroke");
-
-  prop = RNA_def_property(srna, "grease_pencil_euclidean_distance", PROP_INT, PROP_PIXEL);
-  RNA_def_property_int_sdna(prop, nullptr, "gp_euclideandist");
-  RNA_def_property_range(prop, 0, 100);
-  RNA_def_property_ui_text(prop,
-                           "Grease Pencil Euclidean Distance",
-                           "Distance moved by mouse when drawing stroke to include");
-
-  prop = RNA_def_property(srna, "grease_pencil_eraser_radius", PROP_INT, PROP_PIXEL);
-  RNA_def_property_int_sdna(prop, nullptr, "gp_eraser");
-  RNA_def_property_range(prop, 1, 500);
-  RNA_def_property_ui_text(prop, "Grease Pencil Eraser Radius", "Radius of eraser 'brush'");
-
-  prop = RNA_def_property(srna, "grease_pencil_default_color", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_float_sdna(prop, nullptr, "gpencil_new_layer_col");
-  RNA_def_property_array(prop, 4);
-  RNA_def_property_ui_text(prop, "Annotation Default Color", "Color of new annotation layers");
-
   /* sculpt and paint */
 
   prop = RNA_def_property(srna, "sculpt_paint_overlay_color", PROP_FLOAT, PROP_COLOR_GAMMA);
@@ -5970,12 +5908,6 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_LIGHTPROBE);
   RNA_def_property_ui_text(
       prop, "Duplicate Light Probe", "Causes light probe data to be duplicated with the object");
-
-  prop = RNA_def_property(srna, "use_duplicate_grease_pencil", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_GPENCIL);
-  RNA_def_property_ui_text(prop,
-                           "Duplicate Grease Pencil",
-                           "Causes Grease Pencil data to be duplicated with the object");
 
   prop = RNA_def_property(srna, "use_duplicate_curves", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_CURVES);

@@ -523,7 +523,6 @@ static std::optional<AttrDomain> read_attr_domain(const int8_t dna_domain)
     case int8_t(AttrDomain::Corner):
     case int8_t(AttrDomain::Curve):
     case int8_t(AttrDomain::Instance):
-    case int8_t(AttrDomain::Layer):
       return AttrDomain(dna_domain);
     default:
       return std::nullopt;

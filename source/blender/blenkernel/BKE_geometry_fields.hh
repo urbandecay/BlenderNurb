@@ -26,9 +26,6 @@ namespace bke {
 
 class CurvesGeometry;
 class GeometryFieldInput;
-namespace greasepencil {
-class Drawing;
-}
 
 class MeshFieldContext : public fn::FieldContext {
  private:
@@ -87,53 +84,6 @@ class PointCloudFieldContext : public fn::FieldContext {
   }
 };
 
-class GreasePencilFieldContext : public fn::FieldContext {
- private:
-  const GreasePencil &grease_pencil_;
-
- public:
-  GreasePencilFieldContext(const GreasePencil &grease_pencil) : grease_pencil_(grease_pencil) {}
-
-  const GreasePencil &grease_pencil() const
-  {
-    return grease_pencil_;
-  }
-};
-
-class GreasePencilLayerFieldContext : public fn::FieldContext {
- private:
-  const GreasePencil &grease_pencil_;
-  AttrDomain domain_;
-  int layer_index_;
-
- public:
-  GreasePencilLayerFieldContext(const GreasePencil &grease_pencil,
-                                AttrDomain domain,
-                                int layer_index)
-      : grease_pencil_(grease_pencil), domain_(domain), layer_index_(layer_index)
-  {
-  }
-
-  const GreasePencil &grease_pencil() const
-  {
-    return grease_pencil_;
-  }
-
-  AttrDomain domain() const
-  {
-    return domain_;
-  }
-
-  int layer_index() const
-  {
-    return layer_index_;
-  }
-
-  GVArray get_varray_for_input(const fn::FieldInput &field_input,
-                               const IndexMask &mask,
-                               ResourceScope &scope) const override;
-};
-
 class InstancesFieldContext : public fn::FieldContext {
  private:
   const Instances &instances_;
@@ -148,8 +98,8 @@ class InstancesFieldContext : public fn::FieldContext {
 };
 
 /**
- * A field context that can represent meshes, curves, point clouds, instances or grease pencil
- * layers, used for field inputs that can work for multiple geometry types.
+ * A field context that can represent meshes, curves, point clouds or instances, used for field
+ * inputs that can work for multiple geometry types.
  */
 class GeometryFieldContext : public fn::FieldContext {
  private:
@@ -162,11 +112,6 @@ class GeometryFieldContext : public fn::FieldContext {
   const GeometryComponent::Type type_;
   AttrDomain domain_;
   const Curves *curves_id_ = nullptr;
-  /**
-   * Only used when the type is grease pencil and the domain is either points or curves
-   * (not layers).
-   */
-  int grease_pencil_layer_index_;
 
   friend GeometryFieldInput;
 
@@ -175,13 +120,10 @@ class GeometryFieldContext : public fn::FieldContext {
   GeometryFieldContext(const GeometryComponent &component, AttrDomain domain);
   GeometryFieldContext(const void *geometry,
                        GeometryComponent::Type type,
-                       AttrDomain domain,
-                       int grease_pencil_layer_index);
+                       AttrDomain domain);
   GeometryFieldContext(const Mesh &mesh, AttrDomain domain);
   GeometryFieldContext(const CurvesGeometry &curves, AttrDomain domain);
   GeometryFieldContext(const Curves &curves_id, AttrDomain domain);
-  GeometryFieldContext(const GreasePencil &grease_pencil);
-  GeometryFieldContext(const GreasePencil &grease_pencil, AttrDomain domain, int layer_index);
   GeometryFieldContext(const PointCloud &points);
   GeometryFieldContext(const Instances &instances);
 
@@ -200,21 +142,11 @@ class GeometryFieldContext : public fn::FieldContext {
     return domain_;
   }
 
-  int grease_pencil_layer_index() const
-  {
-    BLI_assert(this->type_ == GeometryComponent::Type::GreasePencil);
-    BLI_assert(ELEM(this->domain_, AttrDomain::Layer, AttrDomain::Curve, AttrDomain::Point));
-    return grease_pencil_layer_index_;
-  }
-
   std::optional<AttributeAccessor> attributes() const;
   const Mesh *mesh() const;
   const CurvesGeometry *curves() const;
   const PointCloud *pointcloud() const;
-  const GreasePencil *grease_pencil() const;
-  const greasepencil::Drawing *grease_pencil_layer_drawing() const;
   const Instances *instances() const;
-  const CurvesGeometry *curves_or_strokes() const;
   const Curves *curves_id() const;
 };
 
@@ -380,23 +312,6 @@ class AttributeExistsFieldInput final : public bke::GeometryFieldInput {
                                  const IndexMask &mask) const final;
   void hash_unique(UniqueHashBytes &hash, fn::FieldHashDeep &deep_hash_cache) const override;
   NativeFieldDomain native_domain_info(const GeometryComponent &component) const override;
-};
-
-class NamedLayerSelectionFieldInput final : public bke::GeometryFieldInput {
- private:
-  std::string layer_name_;
-
- public:
-  NamedLayerSelectionFieldInput(std::string layer_name)
-      : bke::GeometryFieldInput(CPPType::get<bool>(), "Named Layer node"),
-        layer_name_(std::move(layer_name))
-  {
-  }
-
-  GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
-                                 const IndexMask &mask) const final;
-  void hash_unique(UniqueHashBytes &hash, fn::FieldHashDeep &deep_hash_cache) const override;
-  std::optional<AttrDomain> preferred_domain(const GeometryComponent &component) const override;
 };
 
 class IDAttributeFieldInput : public GeometryFieldInput {

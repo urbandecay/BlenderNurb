@@ -31,7 +31,6 @@
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
 #include "BKE_deform.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
@@ -287,11 +286,6 @@ void ED_armature_bone_rename(Main *bmain,
         else if (bDeformGroup *dg = BKE_object_defgroup_find_name(ob, oldname)) {
           STRNCPY_UTF8(dg->name, newname);
 
-          if (ob->type == OB_GREASE_PENCIL) {
-            /* Update vgroup names stored in CurvesGeometry */
-            BKE_grease_pencil_vgroup_name_update(ob, oldname, dg->name);
-          }
-
           DEG_id_tag_update(ob->data, ID_RECALC_GEOMETRY);
         }
       }
@@ -338,20 +332,6 @@ void ED_armature_bone_rename(Main *bmain,
           if (STREQ(cam->dof.focus_subtarget, oldname)) {
             STRNCPY_UTF8(cam->dof.focus_subtarget, newname);
             DEG_id_tag_update(&cam->id, ID_RECALC_SYNC_TO_EVAL);
-          }
-        }
-      }
-
-      if (ob->type == OB_GREASE_PENCIL) {
-        GreasePencil &grease_pencil = *id_cast<GreasePencil *>(ob->data);
-        for (bke::greasepencil::Layer *layer : grease_pencil.layers_for_write()) {
-          Object *parent = layer->parent;
-          if (parent == nullptr) {
-            continue;
-          }
-          StringRefNull bone_name = layer->parent_bone_name();
-          if (!bone_name.is_empty() && bone_name == StringRef(oldname)) {
-            layer->set_parent_bone_name(newname);
           }
         }
       }

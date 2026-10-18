@@ -432,16 +432,6 @@ msgstr "Font"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Pensil Grease"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Pensil Grease v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Gambar"
 
@@ -1286,10 +1276,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "Titik jalur gerak akan dipanggang ke dalam ruang kamera pada kamera aktif. Artinya titik tersebut hanya akan terlihat benar apabila melihat melalui kamera tersebut. Beralih ke kamera berbeda menggunakan penanda tidak didukung."
 
 
-msgid "Annotation Frame"
-msgstr "Anotasi Bingkai"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "Kunpulan sketsa terkait pada bingkai tertentu"
 
@@ -1314,18 +1300,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "Kurva bebas yang mendefinisikan sketsa pada frame ini"
 
 
-msgid "Annotation Frames"
-msgstr "Bingkai-bingkai Anotasi"
-
-
-msgid "Collection of annotation frames"
-msgstr "Koleksi annotation frames"
-
-
-msgid "Annotation Layer"
-msgstr "Lapisan Anotasi"
-
-
 msgid "Collection of related sketches"
 msgstr "Koleksi yang berkaitan dengan sketsa"
 
@@ -1340,10 +1314,6 @@ msgstr "Frame sedang ditampilkan untuk layer ini"
 
 msgid "Hide"
 msgstr "Sembunyikan"
-
-
-msgid "Set annotation Visibility"
-msgstr "Atur visibilitas anotasi"
 
 
 msgid "After Color"
@@ -1388,10 +1358,6 @@ msgstr "Menggunakan warna kustom untuk onion skinning, bukan warna tema"
 
 msgid "Opacity"
 msgstr "Opasitas"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Opasitas Lapisan Anotasi"
 
 
 msgid "Color for all strokes in this layer"
@@ -1454,32 +1420,12 @@ msgid "Thickness"
 msgstr "Ketebalan"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Ketebalan sapuan anotasi"
-
-
 msgid "Onion Skinning"
 msgstr "Onion Skinning"
 
 
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "Menampilkan onion skin anotasi sebelum dan sesudah frame saat ini"
-
-
-msgid "Annotation Layers"
-msgstr "Lapisan-lapisan Anotasi"
-
-
-msgid "Collection of annotation layers"
-msgstr "Kumpulan annotation layer"
-
-
 msgid "Active Layer Index"
 msgstr "Indeks Layer Aktif"
-
-
-msgid "Index of active annotation layer"
-msgstr "Indeks layer anotasi yang aktif"
 
 
 msgid "Active Note"
@@ -1488,10 +1434,6 @@ msgstr "Catatan Aktif"
 
 msgid "Default"
 msgstr "Default"
-
-
-msgid "Annotation Stroke"
-msgstr "Anotasi Guratan"
 
 
 msgid "Display Mode"
@@ -1504,10 +1446,6 @@ msgstr "Titik Guratan"
 
 msgid "Stroke data points"
 msgstr "Titik-titik data guratan"
-
-
-msgid "Annotation Stroke Point"
-msgstr "Anotasi Titik Guratan"
 
 
 msgid "Coordinates"
@@ -2043,10 +1981,6 @@ msgid "Show Action data-blocks"
 msgstr "Tampilkan Aksi data-blok"
 
 
-msgid "Annotations"
-msgstr "Anotasi-anotasi"
-
-
 msgid "Armatures"
 msgstr "Armatur"
 
@@ -2097,14 +2031,6 @@ msgstr "Font"
 
 msgid "Show Font data-blocks"
 msgstr "Tampilkan Font data-blok"
-
-
-msgid "Grease Pencil"
-msgstr "Pensil Grease"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "Tampilkan Pensil grease data-blok"
 
 
 msgid "Collections"
@@ -2509,10 +2435,6 @@ msgstr "Atribut di contoh"
 
 msgid "Layer"
 msgstr "Lapis"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Atribut di lapisan Pensil Grease"
 
 
 msgid "Is Internal"
@@ -3151,14 +3073,6 @@ msgid "Action data-blocks"
 msgstr "Aksi data-blok"
 
 
-msgid "Annotation"
-msgstr "Anotasi"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "Anotasi data-blok (Pencil Grease warisan)"
-
-
 msgid "Armature data-blocks"
 msgstr "Armatur data-blok"
 
@@ -3201,10 +3115,6 @@ msgstr "Font Vektor"
 
 msgid "Vector font data-blocks"
 msgstr "Font vektor data-blok"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Data-blok Pensil Grease"
 
 
 msgid "Hair curve data-blocks"
@@ -3391,14 +3301,6 @@ msgid "Collection of actions"
 msgstr "Koleksi Aksi"
 
 
-msgid "Main Annotations"
-msgstr "Anotasi Utama"
-
-
-msgid "Collection of annotations"
-msgstr "Koleksi anotasi-anotasi"
-
-
 msgid "Main Armatures"
 msgstr "Armatur Utama"
 
@@ -3453,14 +3355,6 @@ msgstr "Font Utama"
 
 msgid "Collection of fonts"
 msgstr "Koleksi Font"
-
-
-msgid "Main Grease Pencils"
-msgstr "Pensil Grease Utama"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "Koleksi Pensil-Pensil Grease"
 
 
 msgid "Main Hair Curves"
@@ -5146,14 +5040,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "Membesarkan atau mengecilkan kurva dengan mengubah ukurannya secara seragam, bukan menggunakan pemangkasan atau ekstrapolasi"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Pengaturan Kuas Pensil Grease"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "Pengaturan untuk kuas Pensil Grease"
-
-
 msgid "Active Smooth"
 msgstr "Kehalusan Aktif"
 
@@ -5210,23 +5096,8 @@ msgid "Use always Vertex Color mode"
 msgstr "Selalu gunakan mode Warna Titik Sudut"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Tipe Penutup"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "Bentuk mulai dan aktif sapuan"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Bulat"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Datar"
 
 
 msgid "Threshold"
@@ -5278,36 +5149,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "Jumlah pixel untuk dibesarkan atau dikontrak area isi"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Mode"
-
-
 msgid "Eraser Mode"
 msgstr "Mode Penghapus"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "Larut"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "Hapus sapuan, mengkaburkan kekuatan dan ketebalan titik mereka"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "Titik"
-
-
 msgid "Erase stroke points"
 msgstr "Hapus titik sapuan"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Sapuan"
 
 
 msgid "Erase entire strokes"
@@ -5502,11 +5353,6 @@ msgstr "Iterasi"
 
 msgid "Number of times to smooth newly created strokes"
 msgstr "Berapa kali untuk menghaluskan sapuan yang baru dibuat"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Kekuatan"
 
 
 msgid "Color strength for new strokes (affect alpha factor of color)"
@@ -8910,14 +8756,6 @@ msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet
 msgstr "Menjatuhkan ringkasan saat diperlihatkan, agar semua saluran lain disembunyikan (editor Dope Sheet saja)"
 
 
-msgid "Display Grease Pencil"
-msgstr "Tampilkan Pensil Grease"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Muatkan visualisasi Pensil Grease terkait data animasi dan frame"
-
-
 msgid "Display Hair"
 msgstr "Tampilkan Rambut"
 
@@ -11225,20 +11063,8 @@ msgid "Take face smoothness into account in view map calculation"
 msgstr "Pertimbangkan kehalusan wajah dalam perhitungan tampilan peta"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Pengaturan Interpolasi Pensil Grease"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Pengaturan untuk alat interpolasi Pensil Grease"
-
-
 msgid "Interpolation Curve"
 msgstr "Kurva Interpolasi"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "Pemandu Memahat Pensil Grease"
 
 
 msgid "Guides for drawing"
@@ -11291,10 +11117,6 @@ msgstr "Gunakan Panduan"
 
 msgid "Use Snapping"
 msgstr "Gunakan Gertakan"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Properti umum untuk alat memahat sapuan Pensil Grease"
 
 
 msgid "Threshold for stroke intersections"
@@ -11535,40 +11357,12 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "Mengaktifkan siklik pada garis-garis sapuan individual"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "Gambar Pensil Grease"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "Sebuah gambar Pensil Grease"
-
-
 msgid "Attributes"
 msgstr "Atribut-atribut"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Bingkai Pensil Grease"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "Sebuah Bingkai Kunci Pensil Grease"
-
-
 msgid "Type of keyframe"
 msgstr "Tipe keyframe"
-
-
-msgid "Grease Pencil Frames"
-msgstr "Frame Pensil Grease"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "Koleksi bingkai-bingkai Pensil Grease"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Layer Masking Pensil Grease"
 
 
 msgid "List of Mask Layers"
@@ -11585,14 +11379,6 @@ msgstr "Membalikkan masker"
 
 msgid "Mask layer name"
 msgstr "Nama layer masker"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Lapisan-lapisan Masker Pensil Grease"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "Koleksi lapisan-lapisan pemaskeran Pensil Grease"
 
 
 msgid "Active Layer Mask Index"
@@ -11619,14 +11405,6 @@ msgid "Frame Start"
 msgstr "Frame Mulai"
 
 
-msgid "Grease Pencil node in the layer tree. Either a layer or a group"
-msgstr "Simpul Pensil Grease di lapisan pohon. Dapat berupa lapisan atau kelompok"
-
-
-msgid "Grease Pencil Layer"
-msgstr "Layer Pensil Grease"
-
-
 msgid "Blend Mode"
 msgstr "Mode Blend"
 
@@ -11641,10 +11419,6 @@ msgstr "Cahaya Keras"
 
 msgid "Divide"
 msgstr "Membagi"
-
-
-msgid "Grease Pencil frames"
-msgstr "Bingkai-bingkai Pensil Grease"
 
 
 msgid "Layer Opacity"
@@ -11679,36 +11453,8 @@ msgid "ViewLayer"
 msgstr "TampilkanLayer"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "Kelompok Lapisan Pensil Grease"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "Kelompok lapisan-lapisan Pensil Grease"
-
-
-msgid "Grease Pencil Group"
-msgstr "Kelompok Pensil Grease"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "Koleksi lapisan-lapisan Pensil Grease"
-
-
 msgid "Active Layer Group"
 msgstr "Kelompok Titik Sudut Aktif"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "Kelompok lapisan Pensil Grease aktif"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Layer Pensil Grease"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Lapisan Pensil Grease Aktif"
 
 
 msgctxt "Color"
@@ -12085,50 +11831,6 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "Kuas adalah jenis yang digunakan untuk menghaluskan sapuan"
 
 
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Halus"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Ketebalan"
-
-
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Mengacak"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "Ambil"
-
-
-msgctxt "GPencil"
-msgid "Push"
-msgstr "Dorong"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "Melintir"
-
-
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "Cubit"
-
-
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Duplikasi"
-
-
-msgid "Gpencil Settings"
-msgstr "Pengaturan PensilG"
-
-
 msgid "Draw"
 msgstr "Gambar"
 
@@ -12318,11 +12020,6 @@ msgid "Elastic"
 msgstr "Elastik"
 
 
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "Titik-titik"
-
-
 msgid "How much the position of each individual vertex influences the final result"
 msgstr "Berapa banyak posisi tiap titik-titik sudut individu mempengaruhi hasil terakhir"
 
@@ -12363,10 +12060,6 @@ msgid "Use Paint"
 msgstr "Gunakan Cat"
 
 
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "Gunakan kuas ini di mode gambar Pensil Grease"
-
-
 msgid "Use Vertex"
 msgstr "Gunakan Titik Sudut"
 
@@ -12377,10 +12070,6 @@ msgstr "Gunakan kuas ini di mode cat titik sudut"
 
 msgid "Show texture in viewport"
 msgstr "Tampilkan tekstur di jendela tampilan"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "Gunakan kuas ini di mode warna titik sudut Pensil Grease"
 
 
 msgid "Forward"
@@ -12839,15 +12528,6 @@ msgstr "Penyortiran"
 
 msgid "Use Textures"
 msgstr "Gunakan Tekstur"
-
-
-msgid "Grease Pencil data-block"
-msgstr "Pensil Grease data-blok"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "Semua"
 
 
 msgid "Selected"
@@ -13921,26 +13601,6 @@ msgstr "Tambahan Aktif"
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "Ganti ke mode objek ini saat mengaktivasi spasi kerja"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Mode Edit Pensil Grease"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Mode Memahat Pensil Grease"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Menggambar Pensil Grease"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Cat Vertex Pensil Grease"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Cat Berat Pensil Grease"
 
 
 msgid "UI Tags"
@@ -15676,10 +15336,6 @@ msgid "Active Point"
 msgstr "Titik Aktif"
 
 
-msgid "Grease Pencil Color"
-msgstr "Warna Pensil Grease"
-
-
 msgid "Alignment"
 msgstr "Penjajaran"
 
@@ -16765,10 +16421,6 @@ msgstr "Berbobot"
 
 msgid "Chain"
 msgstr "Rantai"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "Pengubah KehalusanPensil Grease"
 
 
 msgid "Color used for tinting"
@@ -20659,11 +20311,6 @@ msgid "Tweak the active gizmo"
 msgstr "Menyesuaikan gizmo aktif"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Menggambar Anotasi"
-
-
 msgid "Segment"
 msgstr "Segmen"
 
@@ -20683,10 +20330,6 @@ msgstr "Stabilisasi Radius Garis Luar"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Hapus Frame Aktif"
-
-
-msgid "Add new Annotation data-block"
-msgstr "Tambah data-blok Anotasi baru"
 
 
 msgid "Only Curves"
@@ -20827,10 +20470,6 @@ msgstr "Tambah lapisan baru sebagai masker"
 msgctxt "Operator"
 msgid "Remove Mask Layer"
 msgstr "Warna Standar"
-
-
-msgid "Reorder the active Grease Pencil mask layer up/down in the list"
-msgstr "Susun ulang lapisan masker Pensil Grease aktif ke atas/bawah di daftar"
 
 
 msgctxt "Operator"
@@ -22299,14 +21938,6 @@ msgstr "Salin Pengubah"
 
 msgid "Replace Modifiers"
 msgstr "Menggantikan Pengubah"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Salin Efek Pensil Grease"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "Menggantikan Efek Pensil Grease"
 
 
 msgctxt "Operator"
@@ -24467,10 +24098,6 @@ msgid "To 3D Object"
 msgstr "Ke Objek 3D"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Edit Pensil Grease"
-
-
 msgctxt "Operator"
 msgid "Create Orientation"
 msgstr "Orientasi Transformasi"
@@ -25814,26 +25441,6 @@ msgstr "Palet Warna"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Annotasi"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Annotasi Garis"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Annotasi Poligon"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Annotasi Penghapus"
-
-
-msgctxt "Operator"
 msgid "Select Box"
 msgstr "Seleksi Kotak"
 
@@ -26189,10 +25796,6 @@ msgstr "Tampilan & Pengendalian"
 
 msgid "Collection Instance Empty Size"
 msgstr "Ukuran Kosong Contoh Koleksi"
-
-
-msgid "Color of new annotation layers"
-msgstr "Warna lapisan anotasi baru"
 
 
 msgid "Duplicate Camera"
@@ -26830,10 +26433,6 @@ msgid "Render Samples"
 msgstr "Sampel Render"
 
 
-msgid "Grease Pencil Render"
-msgstr "Render Pensil Grease"
-
-
 msgid "Render settings"
 msgstr "Pengaturan render"
 
@@ -27142,11 +26741,6 @@ msgid "Space Clip Editor"
 msgstr "Penyunting Grafik"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Sumber Anotasi"
-
-
 msgid "Show Blue Channel"
 msgstr "Saluran"
 
@@ -27370,10 +26964,6 @@ msgstr "Memperbolehkan seleksi kosong"
 
 msgid "Allow selection of text objects"
 msgstr "Memperbolehkan seleksi benda teks"
-
-
-msgid "Allow selection of Grease Pencil objects"
-msgstr "Memperbolehkan seleksi benda Pensil Grease"
 
 
 msgid "Allow selection of lattices"
@@ -27824,14 +27414,6 @@ msgid "Changed"
 msgstr "Saluran"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "Anotasi Penempatan Guratan (Tampilan 3D)"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "Anotasi Ketebalan Guratan"
-
-
 msgid "Select Mode"
 msgstr "Mode Seleksi"
 
@@ -28227,11 +27809,6 @@ msgstr "Metabola"
 msgctxt "WindowManager"
 msgid "Font"
 msgstr "Font"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Pensil Grease"
 
 
 msgctxt "WindowManager"
@@ -29170,10 +28747,6 @@ msgid "Data Source:"
 msgstr "Sumber Data:"
 
 
-msgid "No annotation source"
-msgstr "Tidak ada sumber anotasi"
-
-
 msgctxt "Operator"
 msgid "Selection to Cursor"
 msgstr "Seleksi ke Kursor"
@@ -29899,10 +29472,6 @@ msgid "Easing Mode"
 msgstr "Mode Pelonggaran"
 
 
-msgid "Grease Pencil Objects"
-msgstr "Objek Pensil Grease"
-
-
 msgctxt "Operator"
 msgid "Box Select (Axis Range)"
 msgstr "Seleksi Box (Jarak Sumbu)"
@@ -30550,10 +30119,6 @@ msgstr "Gizmo-gizmo:"
 
 msgid "Intersections"
 msgstr "Persilangan"
-
-
-msgid "Annotation:"
-msgstr "Anotasi:"
 
 
 msgctxt "Operator"
@@ -31249,10 +30814,6 @@ msgid "True Normal"
 msgstr "Normal Sesungguhnya"
 
 
-msgid "annotations"
-msgstr "anotasi-anotasi"
-
-
 msgid "Basis"
 msgstr "Basis"
 
@@ -31467,10 +31028,6 @@ msgid "Nothing selected"
 msgstr "Tidak ada yang terseleksi"
 
 
-msgid "Active object is not a selected Grease Pencil"
-msgstr "Benda aktif bukan Pensil Grease terseleksi"
-
-
 msgid "'%s' Layer is locked"
 msgstr "'%s' Lapisan terkunci"
 
@@ -31629,11 +31186,6 @@ msgid "Delete points"
 msgstr "Hapus Titik"
 
 
-msgctxt "Operator"
-msgid "Active Grease Pencil Group"
-msgstr "Kelompok Pensil Grease Aktif"
-
-
 msgid "Browse Scene to be linked"
 msgstr "Telusuri Adegan untuk dihubungkan"
 
@@ -31700,11 +31252,6 @@ msgstr "Baru"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Baru"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Baru"
 
@@ -31846,10 +31393,6 @@ msgstr "Opsi Ekspor"
 
 msgid "Unable to find valid 3D View area"
 msgstr "Tidak dapat mencari area 3D View yang valid"
-
-
-msgid "Active object is not a Grease Pencil object"
-msgstr "Benda aktif bukan merupakan benda Pensil Grease"
 
 
 msgid "Unable to export PDF"
@@ -32317,10 +31860,6 @@ msgstr "Jala permukaan tidak ada"
 
 msgid "Active group is locked, aborting"
 msgstr "Kelompok aktif terkunci, membatalkan"
-
-
-msgid "GPencil Interpolation: "
-msgstr "GPensil Interpolasi: "
 
 
 msgid "Trace"

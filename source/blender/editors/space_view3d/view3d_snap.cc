@@ -45,7 +45,6 @@
 
 #include "ED_anim_api.hh"
 #include "ED_curves.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_keyframing.hh"
 #include "ED_object.hh"
 #include "ED_pointcloud.hh"
@@ -1151,7 +1150,10 @@ static std::optional<Bounds<float3>> bounds_min_max_with_transform(const float4x
       [](const Bounds<float3> &a, const Bounds<float3> &b) { return bounds::merge(a, b); });
 }
 
-bool ED_view3d_minmax_verts(const Scene *scene, Object *obedit, float r_min[3], float r_max[3])
+bool ED_view3d_minmax_verts(const Scene * /*scene*/,
+                            Object *obedit,
+                            float r_min[3],
+                            float r_max[3])
 {
   using namespace blender::ed;
   TransVertStore tvs = {nullptr};
@@ -1212,46 +1214,6 @@ bool ED_view3d_minmax_verts(const Scene *scene, Object *obedit, float r_min[3], 
     }
     return false;
   }
-  if (obedit->type == OB_GREASE_PENCIL) {
-    Object &ob_orig = *DEG_get_original(obedit);
-    GreasePencil &grease_pencil = *id_cast<GreasePencil *>(ob_orig.data);
-
-    std::optional<Bounds<float3>> bounds = std::nullopt;
-
-    const Vector<greasepencil::MutableDrawingInfo> drawings =
-        greasepencil::retrieve_editable_drawings(*scene, grease_pencil);
-    for (const greasepencil::MutableDrawingInfo info : drawings) {
-      const bke::CurvesGeometry &curves = info.drawing.strokes();
-      if (curves.is_empty()) {
-        continue;
-      }
-
-      IndexMaskMemory memory;
-      const IndexMask points = greasepencil::retrieve_editable_and_selected_points(
-          ob_orig, info.drawing, info.layer_index, memory);
-      if (points.is_empty()) {
-        continue;
-      }
-
-      const bke::crazyspace::GeometryDeformation deformation =
-          bke::crazyspace::get_evaluated_grease_pencil_drawing_deformation(
-              obedit, ob_orig, info.drawing);
-
-      const bke::greasepencil::Layer &layer = grease_pencil.layer(info.layer_index);
-      const float4x4 layer_to_world = layer.to_world_space(*obedit);
-
-      bounds = bounds::merge(
-          bounds, bounds_min_max_with_transform(layer_to_world, deformation.positions, points));
-    }
-
-    if (bounds) {
-      minmax_v3v3_v3(r_min, r_max, bounds->min);
-      minmax_v3v3_v3(r_min, r_max, bounds->max);
-      return true;
-    }
-    return false;
-  }
-
   if (ED_transverts_check_obedit(obedit)) {
     ED_transverts_create_from_obedit(&tvs, obedit, TM_ALL_JOINTS | TM_CALC_MAPLOC);
   }

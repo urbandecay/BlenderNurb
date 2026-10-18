@@ -428,16 +428,6 @@ msgstr "Teckensnitt"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Fettpenna"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Fettpenna v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Bild"
 
@@ -1282,10 +1272,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "Rörelsebanans punkter kommer att bakas in i kamerarummet för den aktiva kameran. Det innebär att de endast kommer att se rätt ut när man tittar genom den kameran. Det går inte att byta kamera med hjälp av markörer."
 
 
-msgid "Annotation Frame"
-msgstr "Annoteringsbildruta"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "Samling av relaterade skisser på en viss bildruta"
 
@@ -1310,18 +1296,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "Frihandskurvor som definierar skissen på denna bildruta"
 
 
-msgid "Annotation Frames"
-msgstr "Annoteringsbildrutaar"
-
-
-msgid "Collection of annotation frames"
-msgstr "Samling av anteckningsbildrutor"
-
-
-msgid "Annotation Layer"
-msgstr "Annoteringslager"
-
-
 msgid "Collection of related sketches"
 msgstr "Samling av relaterade skisser"
 
@@ -1336,10 +1310,6 @@ msgstr "Bildruta som för närvarande visas för detta lager"
 
 msgid "Hide"
 msgstr "Dölj"
-
-
-msgid "Set annotation Visibility"
-msgstr "Ställ in synlighet för anteckningar"
 
 
 msgid "After Color"
@@ -1384,10 +1354,6 @@ msgstr "Använd anpassade färger för onion skinning istället för temat"
 
 msgid "Opacity"
 msgstr "Opacitet"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Annotationslagrets opacitet"
 
 
 msgid "Color for all strokes in this layer"
@@ -1450,48 +1416,20 @@ msgid "Thickness"
 msgstr "Tjocklek"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Tjocklek på anteckningsstreck"
-
-
 msgid "Onion Skinning"
 msgstr "Lökflåsning"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "Visa anteckningar före och efter den aktuella bildrutan"
-
-
-msgid "Annotation Layers"
-msgstr "Annotationslager"
-
-
-msgid "Collection of annotation layers"
-msgstr "Samling av anteckningslager"
 
 
 msgid "Active Layer Index"
 msgstr "Aktivt lagerindex"
 
 
-msgid "Index of active annotation layer"
-msgstr "Index för aktivt anteckningslager"
-
-
 msgid "Active Note"
 msgstr "Aktiv anteckning"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "Anteckning/lager för att lägga till anteckningsstreck till"
-
-
 msgid "Default"
 msgstr "Standard"
-
-
-msgid "Annotation Stroke"
-msgstr "Annotering Stroke"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1508,10 +1446,6 @@ msgstr "Stroke-poäng"
 
 msgid "Stroke data points"
 msgstr "Stroke-datapunkter"
-
-
-msgid "Annotation Stroke Point"
-msgstr "Annotering Stroke Point"
 
 
 msgid "Data point for freehand stroke curve"
@@ -2099,14 +2033,6 @@ msgid "Show Action data-blocks"
 msgstr "Visa åtgärdsdatablock"
 
 
-msgid "Annotations"
-msgstr "Kommentarer"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "Visa anteckningsdatablock"
-
-
 msgid "Armatures"
 msgstr "Armaturer"
 
@@ -2161,14 +2087,6 @@ msgstr "Typsnitt"
 
 msgid "Show Font data-blocks"
 msgstr "Visa teckensnittsdata-block"
-
-
-msgid "Grease Pencil"
-msgstr "Fettpenna"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "Visa Grease Pencil-datablock"
 
 
 msgid "Collections"
@@ -2593,10 +2511,6 @@ msgstr "Attribut på instans"
 
 msgid "Layer"
 msgstr "Lager"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Attribut på Grease Pencil-lager"
 
 
 msgid "Is Internal"
@@ -3314,14 +3228,6 @@ msgid "All Data-Blocks"
 msgstr "Alla datablock"
 
 
-msgid "Annotation"
-msgstr "Kommentar"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "Annoteringsdatablock (äldre Grease Pencil)"
-
-
 msgid "Armature data-blocks"
 msgstr "Armaturdatablock"
 
@@ -3368,10 +3274,6 @@ msgstr "Vektorfont"
 
 msgid "Vector font data-blocks"
 msgstr "Vektorfontdatablock"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Fettpenna-datablock"
 
 
 msgid "Hair curve data-blocks"
@@ -3558,14 +3460,6 @@ msgid "Collection of actions"
 msgstr "Samling av åtgärder"
 
 
-msgid "Main Annotations"
-msgstr "Huvudsakliga kommentarer"
-
-
-msgid "Collection of annotations"
-msgstr "Samling av anteckningar"
-
-
 msgid "Main Armatures"
 msgstr "Huvudarmaturer"
 
@@ -3620,14 +3514,6 @@ msgstr "Huvudtypsnitt"
 
 msgid "Collection of fonts"
 msgstr "Samling av typsnitt"
-
-
-msgid "Main Grease Pencils"
-msgstr "Huvudsakliga fettpennor"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "Samling av fettpennor"
 
 
 msgid "Main Hair Curves"
@@ -5605,14 +5491,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "Öka eller minska kurvor genom att ändra deras storlek enhetligt istället för att använda trimning eller extrapolering."
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Inställningar för fettpenna"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "Inställningar för Grease Pencil-pensel"
-
-
 msgid "Active Smooth"
 msgstr "Aktiv jämnhet"
 
@@ -5669,23 +5547,8 @@ msgid "Use always Vertex Color mode"
 msgstr "Använd alltid läget Vertex Color (Vertexfärg)"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "Kapsyltyp"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "Stroken början och slutets form"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Runda"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Platt"
 
 
 msgid "Threshold"
@@ -5742,36 +5605,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "Antal pixlar för att expandera eller kontrahera fyllningsområdet"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Läge"
-
-
 msgid "Eraser Mode"
 msgstr "Radera-läge"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "Upplös"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "Radera streck, tonar ut deras styrka och tjocklek"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "Punkt"
-
-
 msgid "Erase stroke points"
 msgstr "Radera streckpunkter"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Penseldrag"
 
 
 msgid "Erase entire strokes"
@@ -5853,27 +5696,12 @@ msgid "Use edit lines as fill boundary limits"
 msgstr "Använd redigeringslinjer som fyllnadsgränser"
 
 
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "Stängningsläge"
-
-
 msgid "Types of stroke extensions used for closing gaps"
 msgstr "Typer av slaglängdsförlängningar som används för att täppa till luckor"
 
 
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "Förläng"
-
-
 msgid "Extend strokes in straight lines"
 msgstr "Förläng strecken i raka linjer"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "Radie"
 
 
 msgid "Connect endpoints that are close together"
@@ -6014,11 +5842,6 @@ msgid "Number of times to smooth newly created strokes"
 msgstr "Antal gånger som nyskapade streck ska jämnas ut"
 
 
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Styrka"
-
-
 msgid "Color strength for new strokes (affect alpha factor of color)"
 msgstr "Färgstyrka för nya streck (påverkar färgens alfafaktor)"
 
@@ -6111,23 +5934,8 @@ msgid "Threshold in screen space used for the simplify algorithm. Points within 
 msgstr "Tröskelvärde i skärmytan som används för förenklingsalgoritmen. Punkter inom detta tröskelvärde behandlas som om de låg på en rak linje."
 
 
-msgctxt "GPencil"
-msgid "Stroke Mode"
-msgstr "Stroke-läge"
-
-
 msgid "Mode to use when creating strokes"
 msgstr "Läge som används vid skapande av streck"
-
-
-msgctxt "GPencil"
-msgid "Fill"
-msgstr "Fyll"
-
-
-msgctxt "GPencil"
-msgid "Both"
-msgstr "Båda"
 
 
 msgid "Active Layer"
@@ -11466,14 +11274,6 @@ msgstr "Sammanfattning av kollapsen"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "Dölj sammanfattningen när den visas, så att alla andra kanaler döljs (endast Dope Sheet-redaktörer)"
-
-
-msgid "Display Grease Pencil"
-msgstr "Visningsfettpenna"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Inkludera visualisering av animeringsdata och bildrutor relaterade till Grease Pencil."
 
 
 msgid "Display Hair"
@@ -17282,24 +17082,8 @@ msgid "Keep the computed view map and avoid recalculating it if mesh geometry is
 msgstr "Behåll den beräknade vykartan och undvik att beräkna om den om nätgeometrin är oförändrad."
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Inställningar för interpolering av fettpenna"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Inställningar för interpoleringsverktyg för fettpenna"
-
-
 msgid "Interpolation Curve"
 msgstr "Interpolationskurva"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Anpassad kurva för att styra interpolering av sekvenser mellan Grease Pencil-bildrutor"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "Guide till skulptering med fettpenna"
 
 
 msgid "Guides for drawing"
@@ -17402,14 +17186,6 @@ msgid "Enable snapping to guides angle or spacing options"
 msgstr "Aktivera snäppning till guider för vinkel- eller avståndsalternativ"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "GPencil Sculpt-inställningar"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Allmänna egenskaper för verktyg för att skulptera med fettpenna"
-
-
 msgid "Threshold for stroke intersections"
 msgstr "Tröskelvärde för stroke-korsningar"
 
@@ -17448,10 +17224,6 @@ msgstr "Projektstreck till plan låst till Z"
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "Justera streck efter aktuell 3D-markörorientering"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "Anpassad kurva för att kontrollera avklingningen av penseleffekten med Grease Pencil-bildrutor"
 
 
 msgid "Custom curve to control primitive thickness"
@@ -17928,14 +17700,6 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "Aktivera cyklisk på enskilda streckstreck"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "Fettpenna-teckning"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "En teckning med fettpenna"
-
-
 msgid "Attributes"
 msgstr "Attribut"
 
@@ -17980,75 +17744,32 @@ msgid "The number of keyframes this drawing is used by"
 msgstr "Antalet nyckelrutor som denna ritning används av"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Fettpenna Bildruta"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "En Grease Pencil-nyckelruta"
-
-
 msgid "The frame number in the scene"
 msgstr "Bildnumret i scenen"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "Nyckelbildstyp"
 
 
 msgid "Type of keyframe"
 msgstr "Typ av nyckelbildruta"
 
 
-msgctxt "GPencil"
-msgid "Keyframe"
-msgstr "Nyckelbildruta"
-
-
 msgid "Normal keyframe, e.g. for key poses"
 msgstr "Normal nyckelbildruta, t.ex. för nyckelpositioner"
-
-
-msgctxt "GPencil"
-msgid "Breakdown"
-msgstr "Nedbrytning"
 
 
 msgid "A breakdown pose, e.g. for transitions between key poses"
 msgstr "En nedbrytningspose, t.ex. för övergångar mellan nyckelposer"
 
 
-msgctxt "GPencil"
-msgid "Moving Hold"
-msgstr "Flytta håll"
-
-
 msgid "A keyframe that is part of a moving hold"
 msgstr "En nyckelbildruta som ingår i en rörlig hållning"
-
-
-msgctxt "GPencil"
-msgid "Extreme"
-msgstr "Extrem"
 
 
 msgid "An 'extreme' pose, or some other purpose as needed"
 msgstr "En \"extrem\" pose, eller något annat syfte efter behov"
 
 
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "Jitter"
-
-
 msgid "A filler or baked keyframe for keying on ones, or some other purpose as needed"
 msgstr "En fyllning eller bakad nyckelruta för nyckling på ena, eller något annat ändamål efter behov"
-
-
-msgctxt "GPencil"
-msgid "Generated"
-msgstr "Genererad"
 
 
 msgid "A key generated automatically by a tool, not manually created"
@@ -18057,18 +17778,6 @@ msgstr "En tangent som genereras automatiskt av ett verktyg, inte skapad manuell
 
 msgid "Frame Selection in the Dope Sheet"
 msgstr "Ramval i Dope Sheet"
-
-
-msgid "Grease Pencil Frames"
-msgstr "Fettpenna-bildrutor"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "Samling av Grease Pencil-bildrutor"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Fettpenna-maskeringslager"
 
 
 msgid "List of Mask Layers"
@@ -18085,14 +17794,6 @@ msgstr "Invertera mask"
 
 msgid "Mask layer name"
 msgstr "Masklagrets namn"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Fettpenna Mask Lager"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "Samling av maskeringlager för fettpenna"
 
 
 msgid "Active Layer Mask Index"
@@ -18155,10 +17856,6 @@ msgid "Tree Node"
 msgstr "Trädnod"
 
 
-msgid "Grease Pencil node in the layer tree. Either a layer or a group"
-msgstr "Fettpenna-nod i lagerträdet. Antingen ett lager eller en grupp"
-
-
 msgid "Channel Color"
 msgstr "Kanalfärg"
 
@@ -18219,10 +17916,6 @@ msgid "Display onion skins before and after the current frame"
 msgstr "Visa lökhudar före och efter den aktuella bildrutan"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Fettpenna-lager"
-
-
 msgid "Collection of related drawings"
 msgstr "Samling av relaterade ritningar"
 
@@ -18241,10 +17934,6 @@ msgstr "Hårt ljus"
 
 msgid "Divide"
 msgstr "Dela"
-
-
-msgid "Grease Pencil frames"
-msgstr "Fettpenna bildrutor"
 
 
 msgid "Ignore Material Locking"
@@ -18363,14 +18052,6 @@ msgid "Only include Layer in this View Layer render output (leave blank to inclu
 msgstr "Inkludera endast lager i denna vy Lagerrendering (lämna tomt för att alltid inkludera)"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "Fettpenna-lagergrupp"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "Grupp av fettpennlager"
-
-
 msgid "The direct children of this layer group. Ordered by stack order, meaning the first child is the bottom most child in the layer tree."
 msgstr "De direkta barnen i denna lagergrupp. Ordnade efter stapelordning, vilket innebär att det första barnet är det nedersta barnet i lagerträdet."
 
@@ -18415,28 +18096,8 @@ msgid "The layer group is expanded in the UI"
 msgstr "Lagret gruppen är expanderad i UI"
 
 
-msgid "Grease Pencil Group"
-msgstr "Fettpenna-gruppen"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "Samling av fettpennlager"
-
-
 msgid "Active Layer Group"
 msgstr "Aktiv lagergrupp"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "Aktiv lagergrupp för fettpenna"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Fettpenna-lager"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Aktivt lager för fettpenna"
 
 
 msgid "Editor header containing UI elements"
@@ -18761,10 +18422,6 @@ msgstr "Manuellt bildruteområde"
 
 msgid "Manually specify the intended playback frame range for the action (this range is used by some tools, but does not affect animation evaluation)"
 msgstr "Ange manuellt det avsedda uppspelningsramintervallet för åtgärden (detta intervall används av vissa verktyg, men påverkar inte animeringens utvärdering)."
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "Skissbok för frihandanteckningar"
 
 
 msgid "Animation data for this data-block"
@@ -19769,23 +19426,8 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "Penseln är av den typ som används för att tona streck."
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "Borsttyp"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Jämn"
-
-
 msgid "Smooth stroke points"
 msgstr "Jämna streckpunkter"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Tjocklek"
 
 
 msgid "Adjust thickness of strokes"
@@ -19796,62 +19438,28 @@ msgid "Adjust color strength of strokes"
 msgstr "Justera färgstyrkan på streck"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Slumpmässigt"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "Infoga jitter/slumpmässighet i streck"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "Grip"
 
 
 msgid "Translate the set of points initially within the brush circle"
 msgstr "Översätt den uppsättning punkter som ursprungligen ligger inom penselcirkeln."
 
 
-msgctxt "GPencil"
-msgid "Push"
-msgstr "Tryck"
-
-
 msgid "Move points out of the way, as if combing them"
 msgstr "Flytta punkterna ur vägen, som om du kammar dem."
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "Vridning"
 
 
 msgid "Rotate points around the midpoint of the brush"
 msgstr "Rotera punkter runt penselns mittpunkt"
 
 
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "Nyp"
-
-
 msgid "Pull points towards the midpoint of the brush"
 msgstr "Dra punkterna mot borstens mittpunkt."
 
 
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Klon"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "Klistra in kopior av strecken som lagrats i det interna urklipp"
-
-
-msgid "Gpencil Settings"
-msgstr "Gpencil-inställningar"
 
 
 msgid "Brush Type"
@@ -20525,68 +20133,28 @@ msgid "How powerful the effect of the brush is when applied"
 msgstr "Hur kraftfull effekten av borsten är när den appliceras"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "Stroke-metoden"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "Prickar"
-
-
 msgid "Apply paint on each mouse move step"
 msgstr "Applicera färg vid varje musrörelse"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "Dra punkt"
 
 
 msgid "Allows a single dot to be carefully positioned"
 msgstr "Gör det möjligt att noggrant placera en enda punkt"
 
 
-msgctxt "GPencil"
-msgid "Space"
-msgstr "Rymden"
-
-
 msgid "Limit brush application to the distance specified by spacing"
 msgstr "Begränsa penselappliceringen till det avstånd som anges av avståndet"
-
-
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "Airbrush"
 
 
 msgid "Keep applying paint effect while holding mouse (spray)"
 msgstr "Fortsätt att applicera färgeffekten medan du håller musen intryckt (spray)"
 
 
-msgctxt "GPencil"
-msgid "Anchored"
-msgstr "Förankrad"
-
-
 msgid "Keep the brush anchored to the initial location"
 msgstr "Håll borsten fastsatt på den ursprungliga platsen"
 
 
-msgctxt "GPencil"
-msgid "Line"
-msgstr "Linje"
-
-
 msgid "Draw a line with dabs separated according to spacing"
 msgstr "Rita en linje med prickar som är åtskilda enligt avståndet."
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "Kurva"
 
 
 msgid "Define the stroke curve with a Bézier curve (dabs are separated according to spacing)"
@@ -20869,10 +20437,6 @@ msgid "Use Paint"
 msgstr "Använd Paint"
 
 
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "Använd denna pensel i ritläget Fettpenna."
-
-
 msgid "Use this brush in texture paint mode"
 msgstr "Använd denna pensel i texturmålarläge"
 
@@ -21035,10 +20599,6 @@ msgstr "Justera styrka för avstånd"
 
 msgid "Automatically adjust strength to give consistent results for different spacings"
 msgstr "Justerar automatiskt styrkan för att ge jämna resultat för olika avstånd"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "Använd denna pensel i Grease Pencil-vertexfärgläge."
 
 
 msgid "Use Pressure for Wet Mix"
@@ -21844,10 +21404,6 @@ msgid "Usage"
 msgstr "Användning"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "Hur man använder denna samling i Line Art-beräkningar"
-
-
 msgid "Generate feature lines for this collection"
 msgstr "Skapa funktionslinjer för denna samling"
 
@@ -21858,10 +21414,6 @@ msgstr "Endast ocklusion"
 
 msgid "Only use the collection to produce occlusion"
 msgstr "Använd endast samlingen för att skapa ocklusion."
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "Använd inte denna samling i Line Art"
 
 
 msgid "Intersection Only"
@@ -23204,10 +22756,6 @@ msgid "Enable or disable textured strokes"
 msgstr "Aktivera eller inaktivera texturerade streck"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Fettpenna-datablock"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "Maximalt antal bildrutor som ska visas efter aktuell bildruta (0 = visa inga bildrutor efter aktuell bildruta)"
 
@@ -23220,14 +22768,6 @@ msgid "Layer Groups"
 msgstr "Lagringsgrupper"
 
 
-msgid "Grease Pencil layer groups"
-msgstr "Fettpenna-lagergrupper"
-
-
-msgid "Grease Pencil layers"
-msgstr "Fettpenneskikt"
-
-
 msgid "Onion Opacity"
 msgstr "Lökens opacitet"
 
@@ -23236,18 +22776,8 @@ msgid "Change fade opacity of displayed onion frames"
 msgstr "Ändra övertoningsgraden för visade lökramar"
 
 
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "Filtrera efter typ"
-
-
 msgid "Type of keyframe (for filtering)"
 msgstr "Typ av nyckelbildruta (för filtrering)"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "Alla"
 
 
 msgid "Include all Keyframe types"
@@ -23260,10 +22790,6 @@ msgstr "Läge för visning av bildrutor"
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "Bildrutor i absolut intervall för scenramen"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "Bildrutor i relativ räckvidd för Grease Pencil-nyckelramarna"
 
 
 msgid "Selected"
@@ -23292,10 +22818,6 @@ msgstr "Definierar hur strecken ordnas i 3D-utrymmet (för objekt som inte visas
 
 msgid "2D Layers"
 msgstr "2D-lager"
-
-
-msgid "Display strokes using Grease Pencil layer order and stroke order to define depth"
-msgstr "Visa streck med hjälp av Grease Pencil-lagerordning och streckordning för att definiera djupet."
 
 
 msgid "3D Location"
@@ -24783,22 +24305,6 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "Kombination av verklig förskjutning och bump mapping för finare detaljer"
 
 
-msgid "Grease Pencil Settings"
-msgstr "Inställningar för fettpenna"
-
-
-msgid "Grease Pencil color settings for material"
-msgstr "Färginställningar för fettpenna för material"
-
-
-msgid "Is Grease Pencil"
-msgstr "Är fettpenna"
-
-
-msgid "True if this material has Grease Pencil data"
-msgstr "Sant om detta material har Grease Pencil-data"
-
-
 msgid "Line Color"
 msgstr "Linjefärg"
 
@@ -24813,14 +24319,6 @@ msgstr "Linjeprioritet"
 
 msgid "The line color of a higher priority is used at material boundaries"
 msgstr "Linjefärgen med högre prioritet används vid materialgränser."
-
-
-msgid "Line Art Settings"
-msgstr "Inställningar för linjekonst"
-
-
-msgid "Line Art settings for material"
-msgstr "Linjekonstinställningar för material"
 
 
 msgid "Max Vertex Displacement"
@@ -25483,10 +24981,6 @@ msgid "MovieClip data-block referencing an external movie file"
 msgstr "MovieClip-datablock som refererar till en extern filmfil"
 
 
-msgid "Annotation data for this movie clip"
-msgstr "Annotationsdata för denna filmklipp"
-
-
 msgid "Display Aspect for this clip, does not affect rendering"
 msgstr "Bildformat för denna klipp påverkar inte renderingen."
 
@@ -25537,10 +25031,6 @@ msgstr "Skapa proxybilder i en anpassad katalog (standard är filmens plats)"
 
 msgid "Node tree consisting of linked nodes used for shading, textures and compositing"
 msgstr "Nodträd bestående av länkade noder som används för skuggning, texturer och komposition"
-
-
-msgid "Annotation data"
-msgstr "Annoteringsdata"
 
 
 msgid "The node tree label"
@@ -25733,10 +25223,6 @@ msgstr "Nodgruppen används som ett verktyg"
 
 msgid "The node group is used for curves"
 msgstr "Nodgruppen används för kurvor"
-
-
-msgid "The node group is used for Grease Pencil"
-msgstr "Nodgruppen används för Grease Pencil."
 
 
 msgid "Mesh"
@@ -26197,14 +25683,6 @@ msgid "Lightgroup that the object belongs to"
 msgstr "Ljuskälla som objektet tillhör"
 
 
-msgid "Line Art"
-msgstr "Linjekonst"
-
-
-msgid "Line Art settings for the object"
-msgstr "Linjekonstinställningar för objektet"
-
-
 msgid "Location of the object"
 msgstr "Objektets placering"
 
@@ -26323,28 +25801,8 @@ msgid "Particle Edit"
 msgstr "Partikelredigering"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "Redigera fettpennstreck"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Skulptera med fettpennstreck"
-
-
 msgid "Draw Mode"
 msgstr "Ritningsläge"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "Måla med fettpenna"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "Fettpenna Vikt Färgstreck"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Fettpenna Vertex-penseldrag"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -26704,10 +26162,6 @@ msgstr "Använd Alpha"
 
 msgid "Use alpha blending instead of alpha test (can produce sorting artifacts)"
 msgstr "Använd alfabländning istället för alfaprovning (kan ge sorteringsartefakter)"
-
-
-msgid "Lights affect Grease Pencil object"
-msgstr "Ljus påverkar Grease Pencil-objekt"
 
 
 msgid "Scale to Face Sizes"
@@ -28023,10 +27477,6 @@ msgid "Active Movie Clip that can be used by motion tracking constraints or as a
 msgstr "Aktiv filmklipp som kan användas av rörelsespårningsbegränsningar eller som kamerans bakgrundsbild"
 
 
-msgid "Data-block used for annotations in the 3D view"
-msgstr "Datablock som används för anteckningar i 3D-vyn"
-
-
 msgid "Distance Model"
 msgstr "Avståndsmodell"
 
@@ -28213,10 +27663,6 @@ msgstr "Antal bildrutor som ska hoppas över framåt vid rendering/uppspelning a
 
 msgid "Constant acceleration in a given direction"
 msgstr "Konstant acceleration i en given riktning"
-
-
-msgid "Grease Pencil settings for the scene"
-msgstr "Inställningar för fettpenna för scenen"
 
 
 msgid "Hydra"
@@ -30160,26 +29606,6 @@ msgstr "Aktivt tillgångsbibliotek som visas i användargränssnittet, används 
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "Växla till detta objektläge när du aktiverar arbetsytan"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Fettpenna-redigeringsläge"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Fettpenna Skulpteringsläge"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Fettpenna-teckning"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Fettpenna Vertex Paint"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Fettpenna Viktmålning"
 
 
 msgid "UI Tags"
@@ -34780,10 +34206,6 @@ msgid "Active point of masking layer"
 msgstr "Aktiv punkt i maskeringsskiktet"
 
 
-msgid "Grease Pencil Color"
-msgstr "Fettpenna Färg"
-
-
 msgid "Alignment"
 msgstr "Justering"
 
@@ -34816,36 +34238,16 @@ msgid "Color for filling region bounded by each stroke"
 msgstr "Färg för att fylla området som avgränsas av varje streck"
 
 
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "Fyllningsstil"
-
-
 msgid "Select style used to fill strokes"
 msgstr "Välj stil som används för att fylla streck"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "Solid"
 
 
 msgid "Fill area with solid color"
 msgstr "Fyll området med enfärgat"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "Gradient"
-
-
 msgid "Fill area with gradient color"
 msgstr "Fyll området med gradientfärg"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "Textur"
 
 
 msgid "Fill area with image texture"
@@ -34912,11 +34314,6 @@ msgid "Color for mixing with primary filling color"
 msgstr "Färg för blandning med primär fyllningsfärg"
 
 
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "Blanda"
-
-
 msgid "Mix Factor"
 msgstr "Mixfaktor"
 
@@ -34981,11 +34378,6 @@ msgid "Show stroke lines of this material"
 msgstr "Visa strecklinjer för detta material"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "Stroke-stil"
-
-
 msgid "Select style used to draw strokes"
 msgstr "Välj stil som används för att rita streck"
 
@@ -35024,10 +34416,6 @@ msgstr "Självöverlappning"
 
 msgid "Disable stencil and overlap self intersections with alpha materials"
 msgstr "Inaktivera stencil och överlappande självskärningar med alfamaterial"
-
-
-msgid "Material Line Art"
-msgstr "Material Linjekonst"
 
 
 msgid "Effectiveness"
@@ -36984,18 +36372,6 @@ msgid "Duplicate strokes into an array"
 msgstr "Duplicera streck till en matris"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "Modifierare för att bygga fettpenna"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "Modifierare för fettpennans längd"
-
-
-msgid "Generate Line Art from scene geometries"
-msgstr "Skapa linjekonst från scenens geometri"
-
-
 msgid "Duplicate strokes like a mirror"
 msgstr "Duplicera streck som en spegel"
 
@@ -37014,10 +36390,6 @@ msgstr "Förenkla strykning genom att minska antalet punkter"
 
 msgid "Subdivide"
 msgstr "Dela upp"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "Modifierare för underindelning av fettpenna"
 
 
 msgid "Create an envelope shape"
@@ -37144,16 +36516,8 @@ msgid "Deform stroke points using objects"
 msgstr "Deformera streckpunkter med hjälp av objekt"
 
 
-msgid "Generate noise wobble in Grease Pencil strokes"
-msgstr "Skapa brusfluktuationer i Grease Pencil-streck"
-
-
 msgid "Change stroke location, rotation, or scale"
 msgstr "Ändra slaglängd, rotation eller skala"
-
-
-msgid "Smooth Grease Pencil strokes"
-msgstr "Jämna streck med fettpenna"
 
 
 msgid "Change stroke thickness"
@@ -39111,27 +38475,12 @@ msgid "How strokes are being built"
 msgstr "Hur slag byggs upp"
 
 
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "Sekventiell"
-
-
 msgid "Strokes appear/disappear one after the other, but only a single one changes at a time"
 msgstr "Strokes visas/försvinner en efter en, men endast en ändras åt gången."
 
 
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "Samtidig"
-
-
 msgid "Multiple strokes appear/disappear at once"
 msgstr "Flera streck visas/försvinner samtidigt"
-
-
-msgctxt "GPencil"
-msgid "Additive"
-msgstr "Tillsats"
 
 
 msgid "Builds only new strokes (assuming 'additive' drawing)"
@@ -39250,10 +38599,6 @@ msgid "Only modify strokes during the specified frame range"
 msgstr "Ändra endast streck under det angivna bildintervallet"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "Fettpenna färgmodifierare"
-
-
 msgid "Attributes to modify"
 msgstr "Attribut att ändra"
 
@@ -39298,10 +38643,6 @@ msgid "Color value factor"
 msgstr "Färgvärdefaktor"
 
 
-msgid "Grease Pencil Dash Modifier"
-msgstr "Fettpenna-streckmodifierare"
-
-
 msgid "Create dot-dash effect for strokes"
 msgstr "Skapa punkt-streck-effekt för streck"
 
@@ -39316,10 +38657,6 @@ msgstr "Aktivt instrumentpanelsegmentindex"
 
 msgid "Active index in the segment list"
 msgstr "Aktivt index i segmentlistan"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "Fettpenna-kuvertmodifierare"
 
 
 msgid "Envelope stroke effect modifier"
@@ -39427,10 +38764,6 @@ msgstr "Enhetlig avtagning"
 
 msgid "Compensate for non-uniform object scale"
 msgstr "Kompensera för ojämn objektskala"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "Fettpenna-gittermodifierare"
 
 
 msgid "Lattice object to deform with"
@@ -39569,14 +38902,6 @@ msgid "Use random values over time"
 msgstr "Använd slumpmässiga värden över tid"
 
 
-msgid "Line Art Modifier"
-msgstr "Linjekonstmodifierare"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "Skapa linjekonststreck från vald källa"
-
-
 msgid "Image Threshold"
 msgstr "Bildtröskel"
 
@@ -39587,10 +38912,6 @@ msgstr "Segment med ett avstånd mellan bilderna som är mindre än detta kommer
 
 msgid "Crease Threshold"
 msgstr "Veckgräns"
-
-
-msgid "Angles smaller than this will be treated as creases. Crease angle priority: object Line Art crease override > mesh auto smooth angle > Line Art default crease."
-msgstr "Vinklar som är mindre än detta kommer att behandlas som veck. Prioritet för veckvinkel: objekt Linjekonst vecköverskrivning > mesh automatisk utjämningsvinkel > Linjekonst standardveck."
 
 
 msgid "Invert source vertex group values"
@@ -39669,45 +38990,20 @@ msgid "Represents the \"Orthographic Scale\" of an orthographic camera. If the c
 msgstr "Representerar den \"ortografiska skalan\" för en ortografisk kamera. Om kameran placeras på ljusets plats med denna skala kommer den att representera täckningen för skuggkameran."
 
 
-msgctxt "GPencil"
-msgid "Shadow Region Filtering"
-msgstr "Skuggregionfiltrering"
-
-
 msgid "Select feature lines that comes from lit or shaded regions. Will not affect cast shadow and light contour since they are at the border."
 msgstr "Välj linjer som kommer från upplysta eller skuggade områden. Påverkar inte kastade skuggor och ljuskonturer eftersom de ligger vid gränsen."
-
-
-msgctxt "GPencil"
-msgid "None"
-msgstr "Ingen"
 
 
 msgid "Not filtering any lines based on illumination region"
 msgstr "Ingen filtrering av linjer baserat på belysningsområde"
 
 
-msgctxt "GPencil"
-msgid "Illuminated"
-msgstr "Upplyst"
-
-
 msgid "Only selecting lines from illuminated regions"
 msgstr "Välj endast linjer från upplysta områden"
 
 
-msgctxt "GPencil"
-msgid "Shaded"
-msgstr "Skuggad"
-
-
 msgid "Only selecting lines from shaded regions"
 msgstr "Välj endast rader från skuggade områden"
-
-
-msgctxt "GPencil"
-msgid "Illuminated (Enclosed Shapes)"
-msgstr "Upplyst (slutna former)"
 
 
 msgid "Selecting lines from lit regions, and make the combination of contour, light contour and shadow lines into enclosed shapes"
@@ -39738,10 +39034,6 @@ msgid "Camera Object"
 msgstr "Kameraobjekt"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "Använd angivet kameraobjekt för att generera linjekonststreck"
-
-
 msgid "Generate strokes from the objects in this collection"
 msgstr "Skapa streck från objekten i denna samling"
 
@@ -39752,10 +39044,6 @@ msgstr "Skapa streck från detta objekt"
 
 msgid "Source Type"
 msgstr "Källtyp"
-
-
-msgid "Line Art stroke source type"
-msgstr "Linjekonstpenselkälltyp"
 
 
 msgid "Source Vertex Group"
@@ -39782,24 +39070,12 @@ msgid "Move strokes slightly towards the camera to avoid clipping while preserve
 msgstr "Flytta strecken något mot kameran för att undvika klippning samtidigt som djupet för visningsfönstret bevaras."
 
 
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "Fettpenna-lager som tilldelas de genererade strecken"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "Fettpenna-material tilldelat de genererade strecken"
-
-
 msgid "Back Face Culling"
 msgstr "Baksideklippning"
 
 
 msgid "Remove all back faces to speed up calculation, this will create edges in different occlusion levels than when disabled"
 msgstr "Ta bort alla baksidor för att påskynda beräkningen. Detta skapar kanter i olika ocklusionsnivåer än när funktionen är inaktiverad."
-
-
-msgid "Use cached scene data from the first Line Art modifier in the stack. Certain settings will be unavailable."
-msgstr "Använd cachade scendata från den första Line Art-modifieraren i stapeln. Vissa inställningar kommer inte att vara tillgängliga."
 
 
 msgid "Clipping Boundaries"
@@ -39942,10 +39218,6 @@ msgid "Generate strokes from intersections"
 msgstr "Generera streck från skärningspunkter"
 
 
-msgid "Mask bits to match from Collection Line Art settings"
-msgstr "Maskbitar som ska matchas från inställningarna för Collection Line Art"
-
-
 msgid "Match Intersection"
 msgstr "Matchning av skärningspunkter"
 
@@ -40010,10 +39282,6 @@ msgid "Generate strokes from borders between materials"
 msgstr "Generera streck från gränser mellan material"
 
 
-msgid "Mask bits to match from Material Line Art settings"
-msgstr "Maskbitar som ska matchas från inställningarna för Material Line Art"
-
-
 msgid "Match Masks"
 msgstr "Matchmasker"
 
@@ -40032,10 +39300,6 @@ msgstr "Generera streck från olika ocklusionsnivåer"
 
 msgid "Instanced Objects"
 msgstr "Instansierade objekt"
-
-
-msgid "Allow particle objects and face/vertex instances to show in Line Art"
-msgstr "Tillåt partikelobjekt och yt-/hörninstanser att visas i Line Art"
 
 
 msgid "Offset Towards Custom Camera"
@@ -40068,10 +39332,6 @@ msgstr "Projektera konturlinjer med hjälp av ett ljuskällaobjekt"
 
 msgid "Vertex group name for selected strokes"
 msgstr "Vertexgruppnamn för valda streck"
-
-
-msgid "Grease Pencil Mirror Modifier"
-msgstr "Fettpenna Spegelmodifierare"
 
 
 msgid "Object used as center"
@@ -40130,10 +39390,6 @@ msgid "Fade the stroke thickness for each generated stroke"
 msgstr "Tona ut strecktjockleken för varje genererat streck"
 
 
-msgid "Grease Pencil Noise Modifier"
-msgstr "Fettpenna-brusmodifierare"
-
-
 msgid "Noise effect modifier"
 msgstr "Modifierare för ljudeffekt"
 
@@ -40178,18 +39434,8 @@ msgid "Where to perform randomization"
 msgstr "Var randomisering ska utföras"
 
 
-msgctxt "GPencil"
-msgid "Steps"
-msgstr "Steg"
-
-
 msgid "Randomize every number of frames"
 msgstr "Slumpmässigt ordna varje antal bildrutor"
-
-
-msgctxt "GPencil"
-msgid "Keyframes"
-msgstr "Nyckelrutor"
 
 
 msgid "Randomize on keyframes only"
@@ -40198,10 +39444,6 @@ msgstr "Slumpmässigt endast på nyckelrutor"
 
 msgid "Noise Seed"
 msgstr "Brusfrö"
-
-
-msgid "Grease Pencil Offset Modifier"
-msgstr "Fettpenna Offset-modifierare"
 
 
 msgid "Values for change location"
@@ -40242,10 +39484,6 @@ msgstr "Förskjuten startpunkt"
 
 msgid "Number of elements that will be grouped"
 msgstr "Antal element som kommer att grupperas"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "Fettpenna Opacitetsmodifierare"
 
 
 msgid "Opacity Factor"
@@ -40540,10 +39778,6 @@ msgid "Catmull-Clark"
 msgstr "Catmull-Clark"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "Fettpenna Texturmodifierare"
-
-
 msgid "Transform stroke texture coordinates Modifier"
 msgstr "Transformera stroketexturkoordinater Modifierare"
 
@@ -40624,10 +39858,6 @@ msgid "Factor to scale the UVs"
 msgstr "Faktor för att skala UV-värdena"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "Modifierare för fetpenna-tjocklek"
-
-
 msgid "Adjust stroke thickness"
 msgstr "Justera streckets tjocklek"
 
@@ -40654,10 +39884,6 @@ msgstr "Viktad"
 
 msgid "Use weight to modulate effect"
 msgstr "Använd vikten för att modulera effekten"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "Fettpenna Tidsmodifierare"
 
 
 msgid "Final frame of the range"
@@ -40718,10 +39944,6 @@ msgstr "Behåll Loop"
 
 msgid "Retiming end frames and move to start of animation to keep loop"
 msgstr "Omtidsinställning av slutramar och flyttning till animationens början för att behålla loop"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "Fettpenna färgmodifierare"
 
 
 msgid "Color used for tinting"
@@ -44431,10 +43653,6 @@ msgid "Use Mask"
 msgstr "Använd mask"
 
 
-msgid "Use a Grease Pencil data-block as a mask to use only specified areas of pattern when tracking"
-msgstr "Använd ett Grease Pencil-datablock som mask för att endast använda angivna områden av mönstret vid spårning."
-
-
 msgid "Normalize light intensities while tracking (slower)"
 msgstr "Normalisera ljusintensiteten under spårning (långsammare)"
 
@@ -44637,10 +43855,6 @@ msgstr "Filmspårningsdata"
 
 msgid "Match-moving track data for tracking"
 msgstr "Match-moving-spårdata för spårning"
-
-
-msgid "Annotation data for this track"
-msgstr "Annotationsdata för detta spår"
 
 
 msgid "Average error of re-projection"
@@ -47061,10 +46275,6 @@ msgid "Instances of objects or collections"
 msgstr "Instanser av objekt eller samlingar"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "Fettpenna-komponent som innehåller lager- och kurvdata"
-
-
 msgid "Attribute Statistic"
 msgstr "Attributstatistik"
 
@@ -47463,14 +46673,6 @@ msgstr "Prova varje spline genom att fördela det angivna antalet punkter jämnt
 
 msgid "Sample each spline by splitting it into segments with the specified length"
 msgstr "Prova varje spline genom att dela upp den i segment med angiven längd."
-
-
-msgid "Curves to Grease Pencil"
-msgstr "Kurvor till fettpenna"
-
-
-msgid "Convert the curves in each top-level instance into Grease Pencil layer"
-msgstr "Konvertera kurvorna i varje instans på högsta nivå till Grease Pencil-lager."
 
 
 msgid "Geometry Custom Group"
@@ -47885,14 +47087,6 @@ msgid "Use Translation Z"
 msgstr "Använd översättning Z"
 
 
-msgid "Grease Pencil to Curves"
-msgstr "Fettpenna till kurvor"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "Konvertera Grease Pencil-lager till kurvinstanser"
-
-
 msgid "Advect Grid"
 msgstr "Advect rutnät"
 
@@ -48254,10 +47448,6 @@ msgid "Named Layer Selection"
 msgstr "Namngiven lagerval"
 
 
-msgid "Output a selection of a Grease Pencil layer"
-msgstr "Skriv ut ett urval av ett Grease Pencil-lager"
-
-
 msgid "Retrieve a unit length vector indicating the direction pointing away from the geometry at each element"
 msgstr "Hämta en enhetslängdvektor som anger riktningen bort från geometrin vid varje element."
 
@@ -48454,10 +47644,6 @@ msgstr "Sammanfoga hörn eller punkter inom ett visst avstånd"
 
 msgid "Merge Layers"
 msgstr "Sammanfoga lager"
-
-
-msgid "Join groups of Grease Pencil layers into one"
-msgstr "Sammanfoga grupper av Grease Pencil-lager till ett"
 
 
 msgid "Determines how to choose which layers are merged"
@@ -49068,14 +48254,6 @@ msgid "Set the name of a geometry for easier debugging"
 msgstr "Ange namnet på en geometri för enklare felsökning"
 
 
-msgid "Set Grease Pencil Color"
-msgstr "Ställ in färg på fettpenna"
-
-
-msgid "Set color and opacity attributes on Grease Pencil geometry"
-msgstr "Ställ in färg- och opacitetsattribut för Grease Pencil-geometri"
-
-
 msgid "Set the color and opacity for the points of the stroke"
 msgstr "Ställ in färg och opacitet för streckets punkter"
 
@@ -49084,24 +48262,8 @@ msgid "Set the color and opacity for the stroke fills"
 msgstr "Ställ in färg och opacitet för konturfyllningarna"
 
 
-msgid "Set Grease Pencil Depth"
-msgstr "Ställ in fettpennans djup"
-
-
-msgid "Set the Grease Pencil depth order to use"
-msgstr "Ställ in önskad djupordning för fettpennan"
-
-
 msgid "Depth Order"
 msgstr "Djupordning"
-
-
-msgid "Set Grease Pencil Softness"
-msgstr "Ställ in mjukheten för fettpennan"
-
-
-msgid "Set softness attribute on Grease Pencil geometry"
-msgstr "Ställ in mjukhetsattribut på Grease Pencil-geometri"
 
 
 msgid "Set Grid Background"
@@ -52893,10 +52055,6 @@ msgid "Layer Selection"
 msgstr "Lagerval"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "Välj Grease Pencil Layer eller Layer Group som urvalsfält"
-
-
 msgid "Menu Expanded"
 msgstr "Meny utökad"
 
@@ -53240,20 +52398,8 @@ msgid "Collection which defines light linking relation of this emitter"
 msgstr "Samling som definierar ljuslänkarelationen för denna sändare"
 
 
-msgid "Object Line Art"
-msgstr "Objektlinjekonst"
-
-
-msgid "Object Line Art settings"
-msgstr "Inställningar för objektlinjekonst"
-
-
 msgid "Angles smaller than this will be treated as creases"
 msgstr "Vinklar som är mindre än detta kommer att behandlas som veck."
-
-
-msgid "How to use this object in Line Art calculation"
-msgstr "Hur man använder detta objekt i Line Art-beräkningen"
 
 
 msgid "Inherit"
@@ -53270,10 +52416,6 @@ msgstr "Skapa funktionslinjer för detta objekts data"
 
 msgid "Only use the object data to produce occlusion"
 msgstr "Använd endast objektdata för att skapa ocklusion."
-
-
-msgid "Don't use this object for Line Art rendering"
-msgstr "Använd inte detta objekt för linjekonst-rendering."
 
 
 msgid "Include this object but do not generate intersection lines"
@@ -55408,24 +54550,6 @@ msgstr "Uppdatera lista över åtgärder"
 msgctxt "Operator"
 msgid "Refresh action list"
 msgstr "Uppdatera åtgärdslista"
-
-
-msgid "Add or remove Grease Pencil brush preset"
-msgstr "Lägg till eller ta bort förinställningar för Grease Pencil-penslar"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "Lägg till förinställning för fettpenna"
-
-
-msgid "Add or remove Grease Pencil material preset"
-msgstr "Lägg till eller ta bort förinställning för Grease Pencil-material"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Lägg till förinställning för fettpenna"
 
 
 msgid "Load a preset"
@@ -59188,22 +58312,6 @@ msgid "Place markers across the whole frame"
 msgstr "Placera markörer över hela bildrutan"
 
 
-msgid "Inside Annotated Area"
-msgstr "Inuti kommenterat område"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "Placera markörer endast inom områden som markerats med anteckningsverktyget."
-
-
-msgid "Outside Annotated Area"
-msgstr "Utanför det markerade området"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "Placera markörer endast utanför områden som markerats med anteckningsverktyget."
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "Tröskelnivå för att betrakta funktionen som tillräckligt bra för spårning"
 
@@ -61069,10 +60177,6 @@ msgstr "Kantglidning"
 
 msgid "Sequence Slide"
 msgstr "Sekvensbild"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "Fettpenna Opacitet"
 
 
 msgid "Set type of handles for selected control points"
@@ -64294,15 +63398,6 @@ msgid "Tweak the active gizmo"
 msgstr "Justera den aktiva gizmo"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Annotation Rita"
-
-
-msgid "Make annotations on the active data"
-msgstr "Gör anteckningar på den aktiva informationen"
-
-
 msgid "End Arrow Style"
 msgstr "Slutpilens stil"
 
@@ -64383,10 +63478,6 @@ msgid "Eraser"
 msgstr "Radergummi"
 
 
-msgid "Erase Annotation strokes"
-msgstr "Radera anteckningsstreck"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "Stabilisatorns slaglängdsfaktor"
 
@@ -64406,55 +63497,6 @@ msgstr "Vänta på första klicket istället för att måla direkt"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Ta bort aktiv bildruta"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "Ta bort den aktiva bildrutan för det aktiva anteckningslagret"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "Kommentar Lägg till ny"
-
-
-msgid "Add new Annotation data-block"
-msgstr "Lägg till nytt anteckningsdatablock"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Kommentar Avkoppla"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "Koppla bort aktivt anteckningsdatablock"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Lägg till nytt anteckningslager"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "Lägg till nytt anteckningslager eller anteckning för det aktiva datablocket"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Flytta anteckningslager"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "Flytta det aktiva anteckningslagret uppåt/nedåt i listan"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Ta bort anteckningslager"
-
-
-msgid "Remove active Annotation layer"
-msgstr "Ta bort aktivt anteckningslager"
 
 
 msgctxt "Operator"
@@ -65247,25 +64289,12 @@ msgid "Delete Active Frame(s)"
 msgstr "Ta bort aktiva bildrutor"
 
 
-msgid "Delete the active Grease Pencil frame(s)"
-msgstr "Ta bort den eller de aktiva Grease Pencil-bildrutorna"
-
-
 msgid "Delete all"
 msgstr "Ta bort alla"
 
 
 msgid "Delete active keyframes of all layers"
 msgstr "Ta bort aktiva nyckelrutor för alla lager"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Baka objektomvandling till Grease Pencil"
-
-
-msgid "Bake Grease Pencil object transform to Grease Pencil keyframes"
-msgstr "Baka Grease Pencil-objektet omvandlas till Grease Pencil-nyckelrutor"
 
 
 msgid "The end frame of animation"
@@ -65322,15 +64351,6 @@ msgstr "Reprojektera strecken med hjälp av 3D-markörens orientering"
 
 msgid "Step between generated frames"
 msgstr "Steg mellan genererade bildrutor"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Fettpenna-teckning"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr "Rita en ny streck i det aktiva Grease Pencil-objektet"
 
 
 msgctxt "Operator"
@@ -65463,10 +64483,6 @@ msgid "Copy Strokes"
 msgstr "Kopiera streck"
 
 
-msgid "Copy the selected Grease Pencil points or strokes to the internal clipboard"
-msgstr "Kopiera de markerade Grease Pencil-punkterna eller strecken till det interna urklipp"
-
-
 msgctxt "Operator"
 msgid "Set Cyclical State"
 msgstr "Ställ in cykliskt tillstånd"
@@ -65525,21 +64541,9 @@ msgid "Delete Breakdown Frames"
 msgstr "Ta bort uppdelningsramar"
 
 
-msgid "Remove breakdown frames generated by interpolating between two Grease Pencil frames"
-msgstr "Ta bort nedbrytningsramar som genererats genom interpolering mellan två Grease Pencil-bildrutor"
-
-
 msgctxt "Operator"
 msgid "Delete Frame"
 msgstr "Ta bort bildruta"
-
-
-msgid "Delete Grease Pencil Frame(s)"
-msgstr "Ta bort fettpennramar"
-
-
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "Metod för att radera Grease Pencil-bildrutor"
 
 
 msgid "Deletes current frame in the active layer"
@@ -65563,11 +64567,6 @@ msgid "Delete selected points without splitting strokes"
 msgstr "Ta bort valda punkter utan att dela streck"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Typ"
-
-
 msgid "Method used for dissolving stroke points"
 msgstr "Metod som används för att lösa upp strokepunkter"
 
@@ -65576,18 +64575,8 @@ msgid "Dissolve selected points"
 msgstr "Upplös valda punkter"
 
 
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "Upplös mellan"
-
-
 msgid "Dissolve points between selected points"
 msgstr "Upplös punkter mellan valda punkter"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "Upplös Avmarkera"
 
 
 msgid "Dissolve all unselected points"
@@ -65603,22 +64592,8 @@ msgid "Duplicate Strokes"
 msgstr "Duplicerade drag"
 
 
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "Gör kopior av de valda Grease Pencil-strecken och flytta dem"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Erase"
-msgstr "Fettpenna Box Radera"
-
-
 msgid "Erase points in the box region"
 msgstr "Radera punkter i rutan"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Erase Lasso"
-msgstr "Fettpenna Radera Lasso"
 
 
 msgid "Erase points in the lasso region"
@@ -65640,11 +64615,6 @@ msgstr "Extrudera valda punkter och flytta dem"
 
 msgid "Extrude Stroke Points"
 msgstr "Extrudera slagpunkter"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "Fettpenna Fyll"
 
 
 msgid "Fill with color the shape formed by strokes"
@@ -65677,10 +64647,6 @@ msgid "Duplicate Active Frame(s)"
 msgstr "Duplicera aktiva bildrutor"
 
 
-msgid "Make a copy of the active Grease Pencil frame(s)"
-msgstr "Gör en kopia av den aktiva Grease Pencil-bildrutan/bildrutorna."
-
-
 msgid "Duplicate all"
 msgstr "Duplicera alla"
 
@@ -65700,15 +64666,6 @@ msgstr "Infoga en tom bildruta i den aktuella scenramen"
 
 msgid "Insert a blank frame in all editable layers"
 msgstr "Infoga en tom bildruta i alla redigerbara lager"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Fettpenna-interpolering"
-
-
-msgid "Interpolate Grease Pencil strokes between frames"
-msgstr "Interpolera Grease Pencil-streck mellan bildrutor"
 
 
 msgid "Exclude Breakdowns"
@@ -65756,44 +64713,6 @@ msgid "Interpolate Sequence"
 msgstr "Interpolera sekvens"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "Skapa \"mellanbilder\" för att smidigt interpolera mellan Grease Pencil-bildrutor"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "Tillbaka"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "Lättnad"
-
-
-msgid "Which ends of the segment between the preceding and following Grease Pencil frames easing interpolation is applied to"
-msgstr "Vilka ändar av segmentet mellan föregående och efterföljande Grease Pencil-bildrutor som interpolering tillämpas på"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "Automatisk avrundning"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "Lätt att komma igång"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "Lätta på"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "Enkel in- och urstigning"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "Antal bildrutor mellan genererade interpolerade bildrutor"
 
@@ -65802,63 +64721,8 @@ msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "Interpoleringsmetod som ska användas nästa gång \"Interpolera sekvens\" körs"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "Linjär"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Anpassad"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "Anpassad interpolering definierad med hjälp av en kurvkarta"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "Sinusformad"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "Kvadratisk"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "Kubisk"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "Kvartisk"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "Kvintisk"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "Exponentiell"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "Cirkulär"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "Studs"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "Elastisk"
 
 
 msgctxt "Operator"
@@ -65908,17 +64772,9 @@ msgid "Set Active Layer"
 msgstr "Ställ in aktivt lager"
 
 
-msgid "Set the active Grease Pencil layer"
-msgstr "Ställ in det aktiva Grease Pencil-lagret"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "Lägg till nytt lager"
-
-
-msgid "Add a new Grease Pencil layer in the active object"
-msgstr "Lägg till ett nytt Grease Pencil-lager i det aktiva objektet"
 
 
 msgid "Name of the new layer"
@@ -65928,10 +64784,6 @@ msgstr "Namn på det nya lagret"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "Duplicera lager"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Gör en kopia av det aktiva Grease Pencil-lagret"
 
 
 msgid "Empty Keyframes"
@@ -65947,10 +64799,6 @@ msgid "Duplicate Layer to New Object"
 msgstr "Duplicera lager till nytt objekt"
 
 
-msgid "Make a copy of the active Grease Pencil layer to selected object"
-msgstr "Skapa en kopia av det aktiva Grease Pencil-lagret till det valda objektet"
-
-
 msgid "All Frames"
 msgstr "Alla bildrutor"
 
@@ -65964,17 +64812,8 @@ msgid "Add New Layer Group"
 msgstr "Lägg till ny lagergrupp"
 
 
-msgid "Add a new Grease Pencil layer group in the active object"
-msgstr "Lägg till en ny Grease Pencil-lagergrupp i det aktiva objektet"
-
-
 msgid "Name of the new layer group"
 msgstr "Namn på den nya lagergruppen"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Group Color Tag"
-msgstr "Fettpenna Gruppfärg Tagg"
 
 
 msgid "Change layer group icon"
@@ -65990,10 +64829,6 @@ msgid "Remove Layer Group"
 msgstr "Ta bort lagergrupp"
 
 
-msgid "Remove Grease Pencil layer group in the active object"
-msgstr "Ta bort Grease Pencil-lagergruppen i det aktiva objektet"
-
-
 msgid "Keep children nodes"
 msgstr "Behåll barnnoder"
 
@@ -66005,10 +64840,6 @@ msgstr "Behåll gruppens underordnade noder och ta bara bort själva gruppen."
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "Dölj lager"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "Dölj valda/icke valda Grease Pencil-lager"
 
 
 msgid "Hide unselected rather than selected layers"
@@ -66035,10 +64866,6 @@ msgstr "Påverkar även synligheten"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "Lås alla lager"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "Lås alla Grease Pencil-lager för att förhindra att de ändras av misstag."
 
 
 msgid "Lock Value"
@@ -66072,15 +64899,6 @@ msgstr "Ta bort lagermask"
 
 
 msgctxt "Operator"
-msgid "Reorder Grease Pencil Layer Mask"
-msgstr "Omordna fettpennans lagermask"
-
-
-msgid "Reorder the active Grease Pencil mask layer up/down in the list"
-msgstr "Ordna om det aktiva Grease Pencil-mask-lagret uppåt/nedåt i listan"
-
-
-msgctxt "Operator"
 msgid "Merge"
 msgstr "Sammanfoga"
 
@@ -66106,17 +64924,9 @@ msgid "Reorder Layer"
 msgstr "Omordna lager"
 
 
-msgid "Move the active Grease Pencil layer or Group"
-msgstr "Flytta det aktiva Grease Pencil-lagret eller gruppen"
-
-
 msgctxt "Operator"
 msgid "Remove Layer"
 msgstr "Ta bort lager"
-
-
-msgid "Remove the active Grease Pencil layer"
-msgstr "Ta bort det aktiva Grease Pencil-lagret"
 
 
 msgctxt "Operator"
@@ -66124,17 +64934,9 @@ msgid "Show All Layers"
 msgstr "Visa alla lager"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "Visa alla Grease Pencil-lager"
-
-
 msgctxt "Operator"
 msgid "Copy Materials to Selected Object"
 msgstr "Kopiera material till valt objekt"
-
-
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "Lägg till material från den aktiva fettpennan till ett annat objekt"
 
 
 msgid "Append only active material, uncheck to append all materials"
@@ -66144,10 +64946,6 @@ msgstr "Lägg endast till aktivt material, avmarkera för att lägga till allt m
 msgctxt "Operator"
 msgid "Hide Materials"
 msgstr "Dölj material"
-
-
-msgid "Hide active/inactive Grease Pencil material(s)"
-msgstr "Dölj aktiva/inaktiva Grease Pencil-material"
 
 
 msgid "Hide inactive materials instead of the active one"
@@ -66170,10 +64968,6 @@ msgstr "Förutom att växla mellan redigerbarhet påverkar det även synligheten
 msgctxt "Operator"
 msgid "Lock All Materials"
 msgstr "Lås alla material"
-
-
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "Lås alla Grease Pencil-material för att förhindra att de ändras av misstag."
 
 
 msgctxt "Operator"
@@ -66199,17 +64993,9 @@ msgid "Show All Materials"
 msgstr "Visa alla material"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "Visa alla dolda Grease Pencil-material"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "Välj material"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "Välj/avmarkera alla Grease Pencil-streck med aktuellt material"
 
 
 msgid "Unselect strokes"
@@ -66219,10 +65005,6 @@ msgstr "Avmarkera streck"
 msgctxt "Operator"
 msgid "Unlock All Materials"
 msgstr "Lås upp alla material"
-
-
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "Lås upp alla Grease Pencil-material så att de kan redigeras"
 
 
 msgctxt "Operator"
@@ -66240,10 +65022,6 @@ msgstr "Nytt lager"
 
 msgid "Move selection to a new layer"
 msgstr "Flytta markeringen till ett nytt lager"
-
-
-msgid "Target Grease Pencil Layer"
-msgstr "Mål Greasepenna Lager"
 
 
 msgctxt "Operator"
@@ -66268,10 +65046,6 @@ msgid "Strokes Paint Mode Toggle"
 msgstr "Strokes Växling av färgläge"
 
 
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "Öppna/stäng målarläget för Grease Pencil-streck"
-
-
 msgid "Return to Previous Mode"
 msgstr "Återgå till föregående läge"
 
@@ -66283,10 +65057,6 @@ msgstr "Återgå till föregående läge"
 msgctxt "Operator"
 msgid "Paste Strokes"
 msgstr "Klistra in streck"
-
-
-msgid "Paste Grease Pencil points or strokes from the internal clipboard to the active layer"
-msgstr "Klistra in fettpennspetsar eller streck från det interna urklipp till det aktiva lagret"
 
 
 msgid "Keep World Transform"
@@ -66313,20 +65083,6 @@ msgid "Paste by Layer"
 msgstr "Klistra in per lager"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Pen"
-msgstr "Fettpenna"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Arc Shape"
-msgstr "Fettpenna bågform"
-
-
-msgid "Create predefined Grease Pencil stroke arcs"
-msgstr "Skapa fördefinierade Grease Pencil-streckbågar"
-
-
 msgid "Number of subdivisions per segment"
 msgstr "Antal subdivisionar per segment"
 
@@ -66337,51 +65093,6 @@ msgstr "Typ av form"
 
 msgid "Polyline"
 msgstr "Polylinje"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "Fettpenna Box Form"
-
-
-msgid "Create predefined Grease Pencil stroke boxes"
-msgstr "Skapa fördefinierade Grease Pencil-streckrutor"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "Fettpenna cirkelform"
-
-
-msgid "Create predefined Grease Pencil stroke circles"
-msgstr "Skapa fördefinierade cirklar med Grease Pencil-streck"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "Fettpenna kurvform"
-
-
-msgid "Create predefined Grease Pencil stroke curve shapes"
-msgstr "Skapa fördefinierade Grease Pencil-streckkurvformer"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "Fettpenna Linjeform"
-
-
-msgid "Create predefined Grease Pencil stroke lines"
-msgstr "Skapa fördefinierade strecklinjer med Grease Pencil"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "Fettpenna Polylinjeform"
-
-
-msgid "Create predefined Grease Pencil stroke polylines"
-msgstr "Skapa fördefinierade polylinjer med Grease Pencil-streck"
 
 
 msgid "Which relative layer (above or below) to use as a mask"
@@ -66457,21 +65168,8 @@ msgstr "Återställ UV-transformationen till standardvärden"
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "Fettpenna Skulptur"
-
-
-msgid "Sculpt strokes in the active Grease Pencil object"
-msgstr "Skulptera streck i det aktiva Grease Pencil-objektet"
-
-
-msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "Strokes Skulpteringsläge Växla"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "Öppna/stäng skulpteringsläget för Grease Pencil-streck"
 
 
 msgctxt "Operator"
@@ -66544,10 +65242,6 @@ msgstr "Väljer slumpmässiga punkter från det aktuella streckvalet"
 
 msgid "Select all strokes with similar characteristics"
 msgstr "Välj alla streck med liknande egenskaper"
-
-
-msgid "Separate the selected geometry into a new Grease Pencil object"
-msgstr "Separera den valda geometrin till ett nytt Grease Pencil-objekt"
 
 
 msgid "Separate selected geometry"
@@ -66633,10 +65327,6 @@ msgstr "Ställ in aktivt material"
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "Välj läge"
-
-
-msgid "Change the selection mode for Grease Pencil strokes"
-msgstr "Ändra urvalsläget för Grease Pencil-streck"
 
 
 msgid "Select only points"
@@ -66834,11 +65524,6 @@ msgid "Change direction of the points of the selected strokes"
 msgstr "Ändra riktningen på punkterna i de markerade strecken"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "Fettpenna Trim"
-
-
 msgid "Delete stroke points in between intersecting strokes"
 msgstr "Ta bort streckpunkter mellan korsande streck"
 
@@ -66872,15 +65557,6 @@ msgid "Y Start"
 msgstr "Y Start"
 
 
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "Spåra bild till fettpenna"
-
-
-msgid "Extract Grease Pencil strokes from image"
-msgstr "Extrahera fettpennstreck från bilden"
-
-
 msgid "Trace Frame"
 msgstr "Spårram"
 
@@ -66899,10 +65575,6 @@ msgstr "Spåra bildens aktuella bildruta"
 
 msgid "Trace full sequence"
 msgstr "Spåra hela sekvensen"
-
-
-msgid "Target Grease Pencil"
-msgstr "Målfettpenna"
 
 
 msgid "New Object"
@@ -66975,15 +65647,6 @@ msgstr "Börja vid aktuell bildruta"
 
 msgid "Trace Image starting in current image frame"
 msgstr "Spåra bild med start i aktuell bildram"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "Fettpenna Måla Vertex"
-
-
-msgid "Draw on vertex colors in the active Grease Pencil object"
-msgstr "Rita med vertexfärger i det aktiva Grease Pencil-objektet"
 
 
 msgctxt "Operator"
@@ -67079,19 +65742,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "Strokes Vertex Mode Toggle"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "Öppna/stänga vertexmålningsläget för Grease Pencil-streck"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "Fettpenna Målarfärg Vikt"
-
-
-msgid "Draw weight on stroke points in the active Grease Pencil object"
-msgstr "Rita vikt på streckpunkter i det aktiva Grease Pencil-objektet"
-
-
 msgctxt "Operator"
 msgid "Invert Weight"
 msgstr "Invertera vikt"
@@ -67122,10 +65772,6 @@ msgstr "Växla mellan lägg till/dra ifrån för verktyget för viktmålning"
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "Strokes Viktläge Växla"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "Öppna/stäng färgläget för Grease Pencil-streck"
 
 
 msgctxt "Operator"
@@ -74053,10 +72699,6 @@ msgid "Curves from evaluated curve data"
 msgstr "Kurvor från utvärderade kurvdata"
 
 
-msgid "Grease Pencil from Curve or Mesh objects"
-msgstr "Fettpenna från kurv- eller nätobjekt"
-
-
 msgid "Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices"
 msgstr "Kopierar matrisen för det aktuella aktiva objektet eller posebenet till urklipp. Använder världsrumsmatriser."
 
@@ -74430,23 +73072,6 @@ msgstr "Påverka alla markerade objekt istället för bara det aktiva objektet"
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Lägg till fettpenna"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "Lägg till ett Grease Pencil-objekt i scenen"
-
-
-msgid "Stroke offset for the Line Art modifier"
-msgstr "Stroke-förskjutning för modifieraren Line Art"
-
-
-msgid "Display strokes using Grease Pencil layers to define order"
-msgstr "Visa streck med hjälp av Grease Pencil-lager för att definiera ordningen"
-
-
-msgctxt "Operator"
 msgid "Type"
 msgstr "Typ"
 
@@ -74454,10 +73079,6 @@ msgstr "Typ"
 msgctxt "Operator"
 msgid "Blank"
 msgstr "Blank"
-
-
-msgid "Create an empty Grease Pencil object"
-msgstr "Skapa ett tomt Grease Pencil-objekt"
 
 
 msgctxt "Operator"
@@ -74474,47 +73095,8 @@ msgid "Monkey"
 msgstr "Ape"
 
 
-msgid "Construct a Suzanne Grease Pencil object"
-msgstr "Konstruera ett Suzanne Grease Pencil-objekt"
-
-
-msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "Linjeteckning av scen"
-
-
-msgid "Quickly set up Line Art for the entire scene"
-msgstr "Ställ snabbt in Line Art för hela scenen"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "Samlingslinje konst"
-
-
-msgid "Quickly set up Line Art for the active collection"
-msgstr "Ställ snabbt in Line Art för den aktiva samlingen"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "Objektlinjekonst"
-
-
-msgid "Quickly set up Line Art for the active object"
-msgstr "Ställ snabbt in linjekonst för det aktiva objektet"
-
-
 msgid "Show In Front"
 msgstr "Visa framför"
-
-
-msgid "Show Line Art Grease Pencil in front of everything"
-msgstr "Visa linjeteckningspenna framför allt annat"
-
-
-msgid "Use lights for this Grease Pencil object"
-msgstr "Använd belysning för detta Grease Pencil-objekt"
 
 
 msgctxt "Operator"
@@ -74922,34 +73504,8 @@ msgid "Only delete the active light probe's baked lighting data"
 msgstr "Ta endast bort den aktiva ljussondens bakade belysningsdata."
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "Baka linjekonst"
-
-
-msgid "Bake Line Art for current Grease Pencil object"
-msgstr "Baka linjekonst för aktuellt fettpennobjekt"
-
-
 msgid "Bake All"
 msgstr "Baka allt"
-
-
-msgid "Bake all Line Art modifiers"
-msgstr "Baka alla Line Art-modifierare"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "Tydlig bakad linjekonst"
-
-
-msgid "Clear all strokes in current Grease Pencil object"
-msgstr "Rensa alla streck i det aktuella Grease Pencil-objektet"
-
-
-msgid "Clear all Line Art modifier bakes"
-msgstr "Rensa alla bakningar av linjekonstmodifierare"
 
 
 msgid "Link objects to a collection"
@@ -75052,14 +73608,6 @@ msgstr "Kopiera modifierare"
 
 msgid "Replace Modifiers"
 msgstr "Ersätt modifierare"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Kopiera fettpennseffekter"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "Ersätt fettpennseffekter"
 
 
 msgctxt "Operator"
@@ -75281,10 +73829,6 @@ msgstr "Tillämpa modifierare och ta bort från stapeln"
 
 msgid "Apply to all keyframes"
 msgstr "Tillämpa på alla nyckelrutor"
-
-
-msgid "For Grease Pencil objects, apply the modifier to all the keyframes"
-msgstr "För Grease Pencil-objekt, tillämpa modifieraren på alla nyckelrutor."
 
 
 msgid "For mesh objects, merge UV coordinates that share a vertex to account for imprecision in some modifiers"
@@ -76340,10 +74884,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "Duplicerad effekt på samma position i stapeln"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "Namnet på shaderfx som ska redigeras"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "Flytta ned-effekt"
@@ -76373,15 +74913,6 @@ msgstr "Uppåtgående effekt"
 
 msgid "Move effect up in the stack"
 msgstr "Flytta effekten uppåt i stapeln"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "Ta bort fettpennseffekten"
-
-
-msgid "Remove a effect from the active Grease Pencil object"
-msgstr "Ta bort en effekt från det aktiva Grease Pencil-objektet"
 
 
 msgctxt "Operator"
@@ -85167,14 +83698,6 @@ msgid "Force using this center value (when set)"
 msgstr "Tvinga användning av detta mittvärde (när det är inställt)"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Redigera fettpenna"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Redigera valda Grease Pencil-streck"
-
-
 msgid "Use Snapping Options"
 msgstr "Använd snäppningsalternativ"
 
@@ -85882,20 +84405,6 @@ msgstr "Skapa manuellt senare (enstaka)"
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "Skapa drivrutin endast för denna egenskap och utan att tilldela några mål ännu."
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "Fettpenna Pipett"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "Välj en färg från Blender-fönstret och skapa Grease Pencil-material."
-
-
-msgctxt "GPencil"
-msgid "Material Mode"
-msgstr "Materialläge"
 
 
 msgctxt "Operator"
@@ -88645,11 +87154,6 @@ msgstr "Volymer"
 
 
 msgctxt "ID"
-msgid "Grease Pencils"
-msgstr "Fettpennor"
-
-
-msgctxt "ID"
 msgid "Armatures"
 msgstr "Armaturer"
 
@@ -88935,10 +87439,6 @@ msgid "Export to PDF"
 msgstr "Exportera till PDF"
 
 
-msgid "Export Grease Pencil to PDF"
-msgstr "Exportera fettpenna till PDF"
-
-
 msgid "Which frames to include in the export"
 msgstr "Vilka bildrutor som ska inkluderas i exporten"
 
@@ -88992,25 +87492,12 @@ msgid "Export to SVG"
 msgstr "Exportera till SVG"
 
 
-msgid "Export Grease Pencil to SVG"
-msgstr "Exportera Grease Pencil till SVG"
-
-
 msgid "Clip Camera"
 msgstr "Klippkamera"
 
 
 msgid "Clip drawings to camera size when exporting in camera view"
 msgstr "Klipp ritningar till kamerastorlek vid export i kameravyn"
-
-
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "Importera SVG som Grease Pencil"
-
-
-msgid "Import SVG into Grease Pencil"
-msgstr "Importera SVG till Grease Pencil"
 
 
 msgid "Resolution of the generated strokes"
@@ -91580,10 +90067,6 @@ msgid "Curves Sculpt Paint"
 msgstr "Kurvor Skulptera Måla"
 
 
-msgid "Grease Pencil Paint"
-msgstr "Fettpennafärg"
-
-
 msgid "Paint Mode"
 msgstr "Målningsläge"
 
@@ -91594,10 +90077,6 @@ msgstr "Måla med den aktiva materialets grundfärg"
 
 msgid "Paint the material with a color attribute"
 msgstr "Måla materialet med ett färgattribut"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "Fettpenna Skulptera Måla"
 
 
 msgid "Image Paint"
@@ -92054,10 +90533,6 @@ msgstr "Strokeplacering"
 
 msgid "Drawing Plane"
 msgstr "Ritplan"
-
-
-msgid "Grease Pencil Options"
-msgstr "Alternativ för fettpenna"
 
 
 msgid "Quad View"
@@ -92527,26 +91002,6 @@ msgstr "Exempel på pixelvärden under markören"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Kommentera"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Kommentera rad"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Kommentera polygon"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Kommentera radergummi"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "Justera"
 
@@ -92643,10 +91098,6 @@ msgstr "Materialinställningar"
 
 msgid "Material Presets"
 msgstr "Materialförinställningar"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "Fettpenna Materialfack"
 
 
 msgid "Backdrop"
@@ -95181,32 +93632,12 @@ msgid "The opacity of unselected F-Curves against the background of the Graph Ed
 msgstr "Opaciteten hos icke valda F-kurvor mot bakgrunden i grafeditorn"
 
 
-msgid "Annotation Default Color"
-msgstr "Annotering Standardfärg"
-
-
-msgid "Color of new annotation layers"
-msgstr "Färg på nya anteckningslager"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "Radie för radergummi för fettpenna"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "Radien på radergummiets \"pensel\""
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Fettpenna Euklidiskt avstånd"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "Avstånd som musen rör sig när streck dras för att inkludera"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Fettpenna Manhattan Avstånd"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -95396,14 +93827,6 @@ msgstr "Duplicera kurvor"
 
 msgid "Causes curves data to be duplicated with the object"
 msgstr "Orsakar att kurvdata dupliceras med objektet"
-
-
-msgid "Duplicate Grease Pencil"
-msgstr "Duplicera fettpenna"
-
-
-msgid "Causes Grease Pencil data to be duplicated with the object"
-msgstr "Orsakar att Grease Pencil-data dupliceras med objektet"
 
 
 msgid "Duplicate Lattice"
@@ -101524,10 +99947,6 @@ msgid "Render Ambient Occlusion in this Layer"
 msgstr "Rendera omgivande ocklusion i detta lager"
 
 
-msgid "Render Grease Pencil on this layer"
-msgstr "Rendera Grease Pencil på detta lager"
-
-
 msgid "Render motion blur in this Layer, if enabled in the scene"
 msgstr "Rendera rörelseoskärpa i detta lager, om det är aktiverat i scenen"
 
@@ -102093,10 +100512,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "Procentandel globala barnpartiklar under rendering"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "Förenkla ritning med fettpenna"
-
-
 msgid "Antialiasing"
 msgstr "Antialiasing"
 
@@ -102111,10 +100526,6 @@ msgstr "Visningsmodifierare"
 
 msgid "Playback Only"
 msgstr "Endast uppspelning"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "Förenkla Grease Pencil endast under animeringsuppspelning"
 
 
 msgid "Display Shader Effects"
@@ -103781,10 +102192,6 @@ msgid "Control the quality of the volumetric effects. Higher resolution uses mor
 msgstr "Kontrollera kvaliteten på de volymetriska effekterna. Högre upplösning använder mer minne."
 
 
-msgid "Grease Pencil Render"
-msgstr "Fettpenna-rendering"
-
-
 msgid "Render settings"
 msgstr "Renderinginställningar"
 
@@ -103815,10 +102222,6 @@ msgstr "Tröskelvärde för kantdetekteringsalgoritm (högre värden kan rendera
 
 msgid "Motion Blur Steps"
 msgstr "Rörelseoskärpa Steg"
-
-
-msgid "Controls accuracy of motion blur, more steps result in longer render time. Only used when Motion Blur is enabled. Set to 0 to disable motion blur for Grease Pencil"
-msgstr "Kontrollerar noggrannheten för rörelseoskärpa. Fler steg resulterar i längre renderningstid. Används endast när rörelseoskärpa är aktiverat. Ställ in på 0 för att inaktivera rörelseoskärpa för Grease Pencil."
 
 
 msgid "Scene Hydra"
@@ -104132,14 +102535,6 @@ msgid "Preview Overlay Settings"
 msgstr "Förhandsgranska inställningar för överlägg"
 
 
-msgid "Show Annotation"
-msgstr "Visa anteckning"
-
-
-msgid "Show annotations for this view"
-msgstr "Visa anteckningar för denna vy"
-
-
 msgid "Image Outline"
 msgstr "Bildöversikt"
 
@@ -104382,10 +102777,6 @@ msgstr "Fäst aktuell bildruta på remsor"
 
 msgid "Snap current frame to strip start or end"
 msgstr "Fäst aktuell bildruta till början eller slutet av remsan"
-
-
-msgid "Effect affecting the Grease Pencil object"
-msgstr "Effekt som påverkar objektet Fettpenna"
 
 
 msgid "Effect name"
@@ -104654,11 +103045,6 @@ msgstr "Använd objekt"
 
 msgid "Use object as center of rotation"
 msgstr "Använd objekt som rotationscentrum"
-
-
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "Våg"
 
 
 msgid "Use wave effect"
@@ -105125,23 +103511,6 @@ msgid "Clip editor space data"
 msgstr "Klippredigeringsutrymme data"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Annotationskälla"
-
-
-msgid "Where the annotation comes from"
-msgstr "Varifrån anteckningen kommer"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "Visa anteckningsdatablock som tillhör filmklippet"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "Visa anteckningsdatablock som tillhör aktivt spår"
-
-
 msgid "Blending Factor"
 msgstr "Blandningsfaktor"
 
@@ -105577,10 +103946,6 @@ msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "Redigera nyckelrutor i det aktiva objektets Shape Keys-åtgärd"
 
 
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "Redigera tidsinställningar för alla Grease Pencil-skisser i filen"
-
-
 msgid "Edit timings for Mask Editor splines"
 msgstr "Redigera tidsinställningar för Mask Editor-splines"
 
@@ -105863,10 +104228,6 @@ msgstr "Rymdbildredigerare"
 
 msgid "Image and UV editor space data"
 msgstr "Bild- och UV-redigeringsutrymme data"
-
-
-msgid "Annotation data for this space"
-msgstr "Annotationsdata för detta utrymme"
 
 
 msgid "Display Channels"
@@ -106500,14 +104861,6 @@ msgid "Show empty objects"
 msgstr "Visa tomma objekt"
 
 
-msgid "Show Grease Pencil"
-msgstr "Visa fettpenna"
-
-
-msgid "Show Grease Pencil objects"
-msgstr "Visa Grease Pencil-objekt"
-
-
 msgid "Show Lights"
 msgstr "Visa belysning"
 
@@ -106780,10 +105133,6 @@ msgstr "Rymdsekvensredigerare"
 
 msgid "Sequence editor space data"
 msgstr "Sekvensredigerare rymddata"
-
-
-msgid "Annotation data for this Preview region"
-msgstr "Annoteringsdata för denna förhandsgranskningsregion"
 
 
 msgid "Display Channel"
@@ -107382,10 +105731,6 @@ msgid "Allow selection of text objects"
 msgstr "Tillåt val av textobjekt"
 
 
-msgid "Allow selection of Grease Pencil objects"
-msgstr "Tillåt val av Grease Pencil-objekt"
-
-
 msgid "Allow selection of lattices"
 msgstr "Tillåt val av gitter"
 
@@ -107588,10 +105933,6 @@ msgstr "Använd ett område inom ramstorleken för renderad visningsyta (när du
 
 msgid "Display 2D cursor"
 msgstr "Visa 2D-markör"
-
-
-msgid "Display overlays like cursor and annotations"
-msgstr "Visningsöverlägg som markör och anteckningar"
 
 
 msgid "Display overlays"
@@ -108161,10 +106502,6 @@ msgstr "Tabellen innehåller geometridata"
 
 msgid "Layer Index"
 msgstr "Lagerindex"
-
-
-msgid "Index of the Grease Pencil layer"
-msgstr "Index för lagret Grease Pencil"
 
 
 msgid "Path to the data that is displayed"
@@ -109049,14 +107386,6 @@ msgstr "Använd scenens 3D-kamera som indata"
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "Använd scenens sekvenserare-tidslinje som indata"
-
-
-msgid "Use Annotations"
-msgstr "Använd anteckningar"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "Visa anteckningar i OpenGL-förhandsvisningar"
 
 
 msgid "Sound Strip"
@@ -111819,26 +110148,6 @@ msgid "Face Retopology"
 msgstr "Ansiktsretopologi"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Fettpenna Vertex"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Fettpenna Vertex Select"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Fettpenna Vertexstorlek"
-
-
-msgid "Grease Pencil Wire Edit"
-msgstr "Fettpenna Trådredigering"
-
-
-msgid "Grease Pencil wireframe color when in edit mode"
-msgstr "Färg på fettpenna-trådmodell i redigeringsläge"
-
-
 msgid "Major Grid Lines"
 msgstr "Huvudsakliga rutnätlinjer"
 
@@ -111877,14 +110186,6 @@ msgstr "Objekt valt"
 
 msgid "Skin Root"
 msgstr "Hudrot"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "Fettpenna Keyframe"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "Färg för att markera nyckelrutor för fettpenna"
 
 
 msgid "Vertex Group Unreferenced"
@@ -112079,24 +110380,12 @@ msgid "Stick stroke to the view"
 msgstr "Håll dig till utsikten"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "Annoteringens placering (3D-vy)"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "Hur anteckningsstreck orienteras i 3D-utrymmet"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "Rita streck vid 3D-markörens position"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "Fäst slaget på ytorna"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "Anmärkning Strykningstjocklek"
 
 
 msgid "Auto-Keying Mode"
@@ -112125,14 +110414,6 @@ msgstr "Används för att definiera en profils sökväg"
 
 msgid "Threshold distance for Auto Merge"
 msgstr "Tröskelavstånd för automatisk sammanslagning"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "Fettpenna Interpolera"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Fettpenna Skulptur"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -113503,10 +111784,6 @@ msgid "Strength of the fade effect"
 msgstr "Styrkan hos fade-effekten"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "Tona ut lagrets opacitet för Grease Pencil-lager utom det aktiva"
-
-
 msgid "Fade factor"
 msgstr "Fade-faktor"
 
@@ -114014,20 +112291,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "Visa redigeringslinjer vid redigering av streck"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "Tonade fettpennobjekt"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "Tona bort fettpennobjekt, förutom det aktiva"
-
-
 msgid "Fade Layers"
 msgstr "Tonade lager"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "Växla mellan att tona ut Grease Pencil-lager utom det aktiva"
 
 
 msgid "Fade Objects"
@@ -114040,10 +112305,6 @@ msgstr "Tona ut alla objekt i visningsfönstret med ett helt färglager för att
 
 msgid "Use Grid"
 msgstr "Använd rutnät"
-
-
-msgid "Display a grid over Grease Pencil paper"
-msgstr "Visa ett rutnät över Grease Pencil-papper"
 
 
 msgid "Lines Only"
@@ -114702,10 +112963,6 @@ msgstr "Cryptomatte-objekt"
 
 msgid "Render cryptomatte object pass, for isolating objects in compositing"
 msgstr "Rendera Cryptomatte-objektpass för att isolera objekt i kompositioner"
-
-
-msgid "Deliver Grease Pencil render result in a separate pass"
-msgstr "Leverera Grease Pencil-renderingresultat i ett separat pass"
 
 
 msgid "World Override"
@@ -116319,46 +114576,6 @@ msgstr "3D-visningsverktyg: Transformera (fallback)"
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "Generiskt verktyg: Kommentera"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "Generiskt verktyg: Kommentera (fallback)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "Generiskt verktyg: Kommentera linje"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "Generiskt verktyg: Kommentera linje (fallback)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "Generiskt verktyg: Kommentera polygon"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "Generiskt verktyg: Kommentera polygon (fallback)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "Generiskt verktyg: Anteckningsraderare"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "Generiskt verktyg: Anteckningsraderare (reserv)"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "3D-visningsverktyg: Mäta"
 
@@ -116761,11 +114978,6 @@ msgstr "3D-visningsverktyg: Redigera text, markera text"
 msgctxt "WindowManager"
 msgid "3D View Tool: Edit Text, Select Text (fallback)"
 msgstr "3D-visningsverktyg: Redigera text, markera text (fallback)"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Fettpenna"
 
 
 msgctxt "WindowManager"
@@ -118412,41 +116624,6 @@ msgstr "Klippdiagramredigerare"
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "Klipp Dopesheet Editor"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Draw Mode"
-msgstr "Fettpenna-ritläge"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "Fettpenna Penseldrag"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "Fettpenna-redigeringsläge"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Fettpenna Skulpteringsläge"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "Fettpenna Viktmålning"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "Fettpenna Vertex Paint"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Fill Tool"
-msgstr "Fyllningsverktyg för fettpenna"
 
 
 msgctxt "WindowManager"
@@ -122503,10 +120680,6 @@ msgid "Volume(s)"
 msgstr "Volym(er)"
 
 
-msgid "Grease Pencil(s)"
-msgstr "Fettpenna(or)"
-
-
 msgid "Armature(s)"
 msgstr "Ankare"
 
@@ -123477,10 +121650,6 @@ msgstr "Visa markören"
 
 msgid "Data Source:"
 msgstr "Datakälla:"
-
-
-msgid "No annotation source"
-msgstr "Ingen källa för anteckningen"
 
 
 msgctxt "Operator"
@@ -125276,10 +123445,6 @@ msgid "Discontinuity (Euler) Filter"
 msgstr "Diskontinuitet (Euler) Filter"
 
 
-msgid "Grease Pencil Objects"
-msgstr "Fettpennaobjekt"
-
-
 msgctxt "Operator"
 msgid "Frame Preview Range"
 msgstr "Ramförhandsgranskningsområde"
@@ -127065,10 +125230,6 @@ msgid ""
 msgstr "Mät avstånd och vinklar • {:s} var som helst för ny mätning • Dra linjalsegmentet för att mäta en vinkel • {:s} för att ta bort den aktiva linjalen • Ctrl medan du drar för att snäppa • Shift medan du drar för att mäta yttjocklek"
 
 
-msgid "Annotation:"
-msgstr "Kommentar:"
-
-
 msgid ""
 "Use multiple operators in an interactive way to add, delete, or move geometry\n"
 " • {:s} - Add geometry by moving the cursor close to an element\n"
@@ -127271,11 +125432,6 @@ msgstr "Universell scenbeskrivning (.usd*)"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVG som Grease Pencil"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "Vågfront (.obj)"
 
@@ -127320,16 +125476,6 @@ msgstr "Inget aktivt objekt"
 
 msgid "No active marker"
 msgstr "Ingen aktiv markör"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "Fettpenna som SVG"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "Fettpenna som PDF"
 
 
 msgctxt "Operator"
@@ -128233,11 +126379,6 @@ msgstr "Nätplan..."
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "Baka..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "Baka objektomvandling till Grease Pencil..."
 
 
 msgctxt "Operator"
@@ -129958,22 +128099,6 @@ msgid "No object selected, using cursor"
 msgstr "Inget objekt valt, använder markören"
 
 
-msgid "Draw Grease Pencil"
-msgstr "Rita med fettpenna"
-
-
-msgid "Weight Grease Pencil"
-msgstr "Vikt Fettpenna"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "Skulptera fettpenna"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "Vertex fettpenna"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "Justera ljusstyrkan"
@@ -130167,11 +128292,6 @@ msgstr "Rotpositioner"
 
 msgid "Path Steps"
 msgstr "Steg i processen"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "Gräns"
 
 
 msgid "No brush selected"
@@ -130797,14 +128917,6 @@ msgid "GP_Layer"
 msgstr "GP_Lager"
 
 
-msgid "annotations"
-msgstr "anteckningar"
-
-
-msgid "grease_pencils"
-msgstr "fettpennor"
-
-
 msgid "Renamed attribute '%s' to '%s' in object '%s' on layer '%s' on frame %d!"
 msgstr "Attributet '%s' har bytt namn till '%s' i objektet '%s' på lager '%s' i bildruta %d!"
 
@@ -131068,10 +129180,6 @@ msgstr "PointCloud"
 
 msgid "LightProbe"
 msgstr "LightProbe"
-
-
-msgid "GreasePencil"
-msgstr "Fettpenna"
 
 
 msgid "objects"
@@ -132125,10 +130233,6 @@ msgstr "NLA-remsreglage"
 
 msgid "F-Curve visibility in Graph Editor"
 msgstr "F-kurvans synlighet i grafredigeraren"
-
-
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "Fettpenna-lagret är synligt i visningsfönstret"
 
 
 msgid "Toggle visibility of Channels in Graph Editor for editing"
@@ -133401,24 +131505,12 @@ msgid "Nothing to erase"
 msgstr "Inget att radera"
 
 
-msgid "Failed to find Annotation data to draw into"
-msgstr "Det gick inte att hitta anteckningsdata att rita in."
-
-
 msgid "Active region not set"
 msgstr "Aktiv region ej inställd"
 
 
-msgid "Nowhere for Grease Pencil data to go"
-msgstr "Ingenstans att spara Grease Pencil-data"
-
-
 msgid "Cannot delete locked layers"
 msgstr "Det går inte att ta bort låsta lager."
-
-
-msgid "No Grease Pencil data"
-msgstr "Inga Grease Pencil-data"
 
 
 msgid "No active frame to delete"
@@ -133439,10 +131531,6 @@ msgstr "Hudskugga"
 
 msgid "Eyes"
 msgstr "Ögon"
-
-
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "Baka objektomvandling till Grease Pencil"
 
 
 msgid "Remove Loose Points"
@@ -133469,28 +131557,12 @@ msgid "The object has only one layer"
 msgstr "Objektet har bara ett lager"
 
 
-msgid "No active Grease Pencil layer to paste into"
-msgstr "Inget aktivt Grease Pencil-lager att klistra in i"
-
-
 msgid "Active layer is not editable"
 msgstr "Aktivt lager kan inte redigeras"
 
 
-msgid "No Grease Pencil frame to draw on"
-msgstr "Ingen Grease Pencil-bildruta att rita på"
-
-
 msgid "Couldn't find matching layer, pasting into active layer"
 msgstr "Kunde inte hitta matchande lager, klistrar in i aktivt lager"
-
-
-msgid "No active Grease Pencil layer"
-msgstr "Inget aktivt Grease Pencil-lager"
-
-
-msgid "Active object is not a selected Grease Pencil"
-msgstr "Aktivt objekt är inte ett valt Grease Pencil"
 
 
 msgid "There is no layer '%s'"
@@ -133511,10 +131583,6 @@ msgstr "Kopierade %d valda punkter"
 
 msgid "No active layer"
 msgstr "Inget aktivt lager"
-
-
-msgid "Add New Grease Pencil Layer"
-msgstr "Lägg till nytt fettpennlager"
 
 
 msgid "No active group"
@@ -133541,20 +131609,8 @@ msgid "No active layer to duplicate"
 msgstr "Inget aktivt lager att duplicera"
 
 
-msgid "All Line Art objects are now cleared of bakes"
-msgstr "Alla Line Art-objekt är nu rensade från bakningar."
-
-
 msgid "Baked strokes are cleared"
 msgstr "Bakade slag rensas bort"
-
-
-msgid "No active object, or active object isn't a Grease Pencil object"
-msgstr "Inget aktivt objekt, eller det aktiva objektet är inte ett Grease Pencil-objekt."
-
-
-msgid "Baking Line Art..."
-msgstr "Bakningslinje konst..."
 
 
 msgid "Active layer is locked or hidden"
@@ -133663,11 +131719,6 @@ msgstr "Aktuell: "
 
 msgid ", Ctrl: Stroke, Shift: Fill, Shift+Ctrl: Both"
 msgstr ", Ctrl: Streck, Skift: Fyllning, Skift+Ctrl: Båda"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material"
-msgstr "Lägg till fettpenna-material"
 
 
 msgid "Press a key"
@@ -134506,36 +132557,6 @@ msgid "Reorder Layers"
 msgstr "Ordna om lager"
 
 
-msgctxt "Operator"
-msgid "Active Grease Pencil Layer"
-msgstr "Aktivt fettpenna-lager"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer"
-msgstr "Byt namn på Grease Pencil Layer"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Layer"
-msgstr "Ta bort fettpennskikt"
-
-
-msgctxt "Operator"
-msgid "Active Grease Pencil Group"
-msgstr "Aktiv fettpenna-grupp"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer Group"
-msgstr "Byt namn på Grease Pencil Layer Group"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Group"
-msgstr "Ta bort grupp med fettpennor"
-
-
 msgid "ID-Block:"
 msgstr "ID-blockering:"
 
@@ -134656,10 +132677,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Bläddra bland partikelinställningar som ska länkas"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Bläddra bland Grease Pencil-data som ska länkas"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Bläddra bland filmklipp som ska länkas"
 
@@ -134752,11 +132769,6 @@ msgstr "Ny"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Ny"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Ny"
 
@@ -135095,14 +133107,6 @@ msgstr "Exportera alternativ"
 
 msgid "Unable to find valid 3D View area"
 msgstr "Det går inte att hitta ett giltigt 3D-vyområde."
-
-
-msgid "Active object is not a Grease Pencil object"
-msgstr "Aktivt objekt är inte ett Grease Pencil-objekt"
-
-
-msgid "No frames selected in the Grease Pencil object"
-msgstr "Inga bildrutor valda i objektet Grease Pencil"
 
 
 msgid "Unable to export PDF"
@@ -135810,21 +133814,6 @@ msgid "Field"
 msgstr "Fält"
 
 
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "GPencil"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "Suzanne"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "LineArt"
-
-
 msgid "Cannot create editmode armature"
 msgstr "Kan inte skapa redigeringsläge för armatur"
 
@@ -135877,16 +133866,8 @@ msgid "Deleted %u object(s)"
 msgstr "Raderade %u objekt"
 
 
-msgid "Object '%s' has no evaluated Curve or Grease Pencil data"
-msgstr "Objektet '%s' har inga utvärderade kurv- eller fettpennadata."
-
-
 msgid "Object '%s' has no evaluated mesh or curves data"
 msgstr "Objektet '%s' har inga utvärderade mesh- eller kurvdata."
-
-
-msgid "Object '%s' has no evaluated Grease Pencil or Curves data"
-msgstr "Objektet '%s' har inga utvärderade Grease Pencil- eller Curves-data."
 
 
 msgid "Object '%s' has no evaluated curves data"
@@ -136522,14 +134503,6 @@ msgid "Evaluated geometry from modifier does not contain a point cloud"
 msgstr "Utvärderad geometri från modifieraren innehåller inte någon punktmoln."
 
 
-msgid "Cannot apply this modifier to Grease Pencil geometry"
-msgstr "Kan inte tillämpa denna modifierare på Grease Pencil-geometri"
-
-
-msgid "Evaluated geometry from modifier does not contain Grease Pencil geometry"
-msgstr "Utvärderad geometri från modifieraren innehåller inte Grease Pencil-geometri."
-
-
 msgid "Modifiers cannot be applied in edit mode"
 msgstr "Modifierare kan inte tillämpas i redigeringsläget."
 
@@ -136850,20 +134823,12 @@ msgid "Removed effect: %s"
 msgstr "Borttagen effekt: %s"
 
 
-msgid "Cannot edit shaderfxs in a library override"
-msgstr "Det går inte att redigera shaderfxs i en biblioteksöverskrivning."
-
-
 msgid "Object type is not supported"
 msgstr "Objekttyp stöds inte"
 
 
 msgid "Cannot edit library or override data"
 msgstr "Det går inte att redigera biblioteket eller åsidosätta data."
-
-
-msgid "Cannot edit shaderfxs coming from linked data in a library override"
-msgstr "Det går inte att redigera shaderfxs som kommer från länkade data i en biblioteksöverskrivning."
 
 
 msgid "Apply current visible shape to the object data, and delete all shape keys"
@@ -136922,10 +134887,6 @@ msgstr "Kan inte tillämpas på en armatur för flera användare"
 
 msgid "Curves Object does not support this set origin operation"
 msgstr "Curves Object stöder inte denna inställning av ursprung."
-
-
-msgid "Grease Pencil Object does not support this set origin operation"
-msgstr "Fettpennaobjekt stöder inte denna inställning av ursprungsposition."
 
 
 msgid "Point cloud object does not support this set origin operation"
@@ -137998,24 +135959,12 @@ msgid "UV map or surface attachment is invalid"
 msgstr "UV-karta eller ytanslutning är ogiltig"
 
 
-msgid "No editable Grease Pencil layer"
-msgstr "Inget redigerbart Grease Pencil-lager"
-
-
-msgid "No Grease Pencil frame to draw weight on"
-msgstr "Ingen fettpenna-bildruta att rita vikt på"
-
-
 msgid "Active group is locked, aborting"
 msgstr "Aktiv grupp är låst, avbryter"
 
 
 msgid "Fill tool needs active material"
 msgstr "Fyllningsverktyget behöver aktivt material"
-
-
-msgid "GPencil Interpolation: "
-msgstr "GPencil-interpolering: "
 
 
 msgid "ESC/RMB to cancel, Enter/LMB to confirm, WHEEL/MOVE to adjust factor"
@@ -138034,27 +135983,8 @@ msgid "Simple physics-inspired easing effects"
 msgstr "Enkla fysikinspirerade mjukgörande effekter"
 
 
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "Interpolering"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "Lättnad (efter styrka)"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "Dynamiska effekter"
-
-
 msgid "Trace"
 msgstr "Spår"
-
-
-msgid "Target object not a Grease Pencil, ignoring!"
-msgstr "Målobjektet är inte en Grease Pencil, ignoreras!"
 
 
 msgid "Target object library-data, ignoring!"
@@ -138379,10 +136309,6 @@ msgstr "Inklistring av nyckelrutor är inte tillgängligt för mask-läget."
 
 msgid "No data in the internal clipboard to paste"
 msgstr "Inga data i det interna urklipp att klistra in"
-
-
-msgid "Keyframe pasting is not available for Grease Pencil or mask mode"
-msgstr "Inklistring av nyckelrutor är inte tillgängligt för Grease Pencil eller mask-läge."
 
 
 msgid "No selected F-Curves to paste into"
@@ -139962,10 +137888,6 @@ msgid "Curve: {} points, {} splines"
 msgstr "Kurva: {} punkter, {} splines"
 
 
-msgid "Grease Pencil: {} layers"
-msgstr "Fettpenna: {} lager"
-
-
 msgid "Edit: {}, {}, {}"
 msgstr "Redigera: {}, {}, {}"
 
@@ -140353,16 +138275,6 @@ msgstr "Byt namn på ben"
 msgctxt "Operator"
 msgid "Rename Pose Bone"
 msgstr "Byt namn på pose-ben"
-
-
-msgctxt "Operator"
-msgid "Rename Annotation Layer"
-msgstr "Byt namn på anteckningslager"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Drawing"
-msgstr "Byt namn på teckning med fettpenna"
 
 
 msgctxt "Operator"
@@ -140755,16 +138667,6 @@ msgstr "Redigera benoperation"
 msgctxt "Operator"
 msgid "Sequencer operation"
 msgstr "Sekvenserare"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Layer operation"
-msgstr "Fettpenna Lageroperation"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Node operation"
-msgstr "Fettpenna Nodoperation"
 
 
 msgid "No Library Overrides"
@@ -142497,10 +140399,6 @@ msgid "Realized curves data has too many elements."
 msgstr "Realiserade kurvdata har för många element."
 
 
-msgid "Realized grease pencil has too many layers."
-msgstr "Det färdiga fettpennan har för många lager."
-
-
 msgid "Error writing frame"
 msgstr "Fel vid skrivning av bildruta"
 
@@ -142704,10 +140602,6 @@ msgstr "Kunde inte öppna SVG"
 
 msgid "Unable to create new object"
 msgstr "Det går inte att skapa ett nytt objekt."
-
-
-msgid "SVG has gradients, Grease Pencil color will be approximated"
-msgstr "SVG har gradienter, Grease Pencil-färgen kommer att approximeras"
 
 
 msgid "PLY Export: Unable to find collection '%s'"
@@ -143403,14 +141297,6 @@ msgid "Incomplete built-in keying set, appears to be missing type info"
 msgstr "Ofullständig inbyggd nyckelsats, verkar sakna typinformation"
 
 
-msgid "Frame not found in annotation layer"
-msgstr "Bildruta hittades inte i anteckningslagret"
-
-
-msgid "Layer not found in annotation data"
-msgstr "Lager hittades inte i anteckningsdata"
-
-
 msgid "Frame already exists on this frame number %d"
 msgstr "Bildrutan finns redan på detta bildrutenummer %d"
 
@@ -144065,10 +141951,6 @@ msgstr "Negativt vertexindex i vertex_indices_set"
 
 msgid "Duplicate index %d in vertex_indices_set"
 msgstr "Duplicerat index %d i vertex_indices_set"
-
-
-msgid "Cannot assign material '%s', it has to be used by the Grease Pencil object already"
-msgstr "Det går inte att tilldela materialet '%s', det måste redan användas av objektet Grease Pencil."
 
 
 msgid "Unable to create new strip"
@@ -145373,10 +143255,6 @@ msgid "Towards Custom Camera"
 msgstr "Mot anpassad kamera"
 
 
-msgid "Cached from the first Line Art modifier"
-msgstr "Cachad från den första Line Art-modifieraren"
-
-
 msgid "Object is not in front"
 msgstr "Objektet är inte framför"
 
@@ -145387,19 +143265,6 @@ msgstr "Modifieraren har bakat data"
 
 msgid "Object is shown in front"
 msgstr "Objektet visas framför"
-
-
-msgid "Cached from the first Line Art modifier."
-msgstr "Cachad från den första Line Art-modifieraren."
-
-
-msgid "Lineart"
-msgstr "Lineart"
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "Kastad skugga"
 
 
 msgid "Edge Types"
@@ -147754,10 +145619,6 @@ msgid "Geometry to compute the bounding box of. Instances have to be realized be
 msgstr "Geometri för att beräkna begränsningsrutan för. Instanser måste realiseras innan den fullständiga begränsningsrutan kan beräknas."
 
 
-msgid "For curves, point clouds, and Grease Pencil, take the radius attribute into account when computing the bounds."
-msgstr "För kurvor, punktmoln och Grease Pencil ska du ta hänsyn till radieattributet när du beräknar gränserna."
-
-
 msgid "A cube mesh enclosing the input geometry"
 msgstr "Ett kubnät som omsluter ingångsgeometrin"
 
@@ -148758,10 +146619,6 @@ msgid "Layers as Instances"
 msgstr "Lager som instanser"
 
 
-msgid "Grease Pencil data to convert to curves"
-msgstr "Fettpenna-data som ska konverteras till kurvor"
-
-
 msgid "Select the layers to convert"
 msgstr "Välj de lager som ska konverteras"
 
@@ -149439,10 +147296,6 @@ msgstr "Slå endast samman mesh-hörnpunkter längs befintliga kanter. Denna met
 
 msgid "Point cloud or mesh to merge points of"
 msgstr "Punktmoln eller nät för att slå samman punkter av"
-
-
-msgid "Grease Pencil data to merge layers of"
-msgstr "Fettpenna-data för att slå samman lager av"
 
 
 msgid "An identifier for the group of each face. All contiguous faces with the same value are in the same region"
@@ -150267,18 +148120,6 @@ msgstr "Geometri för att åsidosätta buntningen av"
 
 msgid "Geometry to override the name of"
 msgstr "Geometri för att åsidosätta namnet på"
-
-
-msgid "Grease Pencil to change the color of"
-msgstr "Fettpenna för att ändra färgen på"
-
-
-msgid "Grease Pencil to set the depth order of"
-msgstr "Fettpenna för att ställa in djupordningen för"
-
-
-msgid "Grease Pencil to set the softness of"
-msgstr "Fettpenna för att ställa in mjukheten hos"
 
 
 msgid "Update Inactive"
@@ -153551,11 +151392,6 @@ msgstr "Spelmotor"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "Geometrinoder"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Fettpenna"
 
 
 msgctxt "Preferences"

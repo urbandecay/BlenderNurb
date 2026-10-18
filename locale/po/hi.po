@@ -175,11 +175,6 @@ msgid "Expanded"
 msgstr "विस्तृत"
 
 
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "तैलीय पेंसिल v3"
-
-
 msgid "Off"
 msgstr "बंद"
 
@@ -382,10 +377,6 @@ msgstr "तूलिका"
 
 msgid "Fonts"
 msgstr "मुद्र्"
-
-
-msgid "Grease Pencil"
-msgstr "तैलीय पेंसिल"
 
 
 msgid "Images"
@@ -1593,20 +1584,12 @@ msgid "Reference"
 msgstr "संदर्भ"
 
 
-msgid "Grease Pencil Frame"
-msgstr "तैलीय पेंसिल गठन"
-
-
 msgid "Regular"
 msgstr "नियमित"
 
 
 msgid "Repeat"
 msgstr "दोहराएँ"
-
-
-msgid "Grease Pencil Layer"
-msgstr "तैलीय पेंसिल परत"
 
 
 msgid "Red Green Blue"
@@ -4981,11 +4964,6 @@ msgstr "वक्र"
 
 
 msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "तैलीय पेंसिल"
-
-
-msgctxt "WindowManager"
 msgid "Pose"
 msgstr "मुद्रा"
 
@@ -5918,11 +5896,6 @@ msgstr "नई"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "नई"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "नई"
 

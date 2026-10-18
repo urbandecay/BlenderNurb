@@ -10,7 +10,6 @@
 #include "DNA_volume_types.h"
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_material.hh"
 #include "BKE_mesh_types.hh"
 
@@ -26,8 +25,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .supported_type({GeometryComponent::Type::Mesh,
                        GeometryComponent::Type::Volume,
                        GeometryComponent::Type::PointCloud,
-                       GeometryComponent::Type::Curve,
-                       GeometryComponent::Type::GreasePencil});
+                       GeometryComponent::Type::Curve});
   b.add_output<decl::Geometry>("Geometry"_ustr)
       .propagate_all_geometry()
       .align_with_previous()
@@ -135,30 +133,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       BKE_id_material_eval_assign(&curves->id, 1, material);
       if (selection_field.depends_on_input()) {
         curves_selection_warning = true;
-      }
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      using namespace blender::bke::greasepencil;
-      for (const int layer_index : grease_pencil->layers().index_range()) {
-        Drawing *drawing = grease_pencil->get_eval_drawing(grease_pencil->layer(layer_index));
-        if (drawing == nullptr) {
-          continue;
-        }
-        bke::CurvesGeometry &curves = drawing->strokes_for_write();
-        if (curves.is_empty()) {
-          continue;
-        }
-
-        const bke::GreasePencilLayerFieldContext field_context{
-            *grease_pencil, AttrDomain::Curve, layer_index};
-        MutableAttributeAccessor attributes = curves.attributes_for_write();
-        assign_material_to_id_geometry(&grease_pencil->id,
-                                       field_context,
-                                       selection_field,
-                                       attributes,
-                                       AttrDomain::Curve,
-                                       material,
-                                       curves.runtime->max_material_index_cache);
       }
     }
   });

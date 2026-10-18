@@ -16,7 +16,6 @@
 #include "BLI_string_utf8.h"
 
 #include "DNA_ID.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_material_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
@@ -31,7 +30,6 @@
 #include "BKE_compute_context_cache.hh"
 #include "BKE_compute_contexts.hh"
 #include "BKE_context.hh"
-#include "BKE_gpencil_legacy.h"
 #include "BKE_idprop.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
@@ -590,7 +588,7 @@ static SpaceLink *node_create(const ScrArea * /*area*/, const Scene * /*scene*/)
   snode->runtime = MEM_new<SpaceNode_Runtime>(__func__);
   snode->spacetype = SPACE_NODE;
 
-  snode->flag = SNODE_SHOW_GPENCIL | SNODE_USE_ALPHA;
+  snode->flag = SNODE_USE_ALPHA;
   snode->overlay.flag = (SN_OVERLAY_SHOW_OVERLAYS | SN_OVERLAY_SHOW_WIRE_COLORS |
                          SN_OVERLAY_SHOW_PATH | SN_OVERLAY_SHOW_PREVIEWS |
                          SN_OVERLAY_SHOW_RENDER_REGION);
@@ -853,11 +851,6 @@ static void node_area_listener(const wmSpaceTypeListenerParams *params)
     case NC_WM:
       if (wmn->data == ND_UNDO) {
         node_area_tag_tree_recalc(snode, area);
-      }
-      break;
-    case NC_GPENCIL:
-      if (ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-        ED_area_tag_redraw(area);
       }
       break;
   }
@@ -1326,14 +1319,6 @@ static void node_region_listener(const wmRegionListenerParams *params)
         ED_region_tag_redraw(region);
       }
       break;
-    case NC_GPENCIL:
-      if (wmn->action == NA_EDITED) {
-        ED_region_tag_redraw(region);
-      }
-      else if (wmn->data & ND_GPENCIL_EDITMODE) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_VIEWER_PATH:
       ED_region_tag_redraw(region);
       break;
@@ -1448,13 +1433,6 @@ static void node_id_remap(ID *old_id, ID *new_id, SpaceNode *snode)
         snode->flag &= ~SNODE_PIN;
       }
       snode->from = new_id;
-    }
-  }
-  else if (GS(old_id->name) == ID_GD_LEGACY) {
-    if (id_cast<ID *>(snode->gpd) == old_id) {
-      snode->gpd = id_cast<bGPdata *>(new_id);
-      id_us_min(old_id);
-      id_us_plus(new_id);
     }
   }
   else if (GS(old_id->name) == ID_NT) {
@@ -1675,11 +1653,6 @@ static void node_space_blend_read_data(BlendDataReader *reader, SpaceLink *sl)
 {
   SpaceNode *snode = reinterpret_cast<SpaceNode *>(sl);
 
-  if (snode->gpd) {
-    BLO_read_struct(reader, bGPdata, &snode->gpd);
-    BKE_gpencil_blend_read_data(reader, snode->gpd);
-  }
-
   BLO_read_struct_list(reader, bNodeTreePath, &snode->treepath);
   snode->edittree = nullptr;
   snode->runtime = MEM_new<SpaceNode_Runtime>(__func__);
@@ -1747,7 +1720,7 @@ void ED_spacetype_node()
   art->init = node_main_region_init;
   art->draw = node_main_region_draw;
   art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_GIZMO | ED_KEYMAP_TOOL | ED_KEYMAP_VIEW2D |
-                    ED_KEYMAP_FRAMES | ED_KEYMAP_GPENCIL;
+                    ED_KEYMAP_FRAMES;
   art->listener = node_region_listener;
   art->cursor = node_cursor;
   art->event_cursor = true;

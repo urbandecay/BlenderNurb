@@ -211,8 +211,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   else {
     static const Array<GeometryComponent::Type> types = {GeometryComponent::Type::Mesh,
                                                          GeometryComponent::Type::PointCloud,
-                                                         GeometryComponent::Type::Curve,
-                                                         GeometryComponent::Type::GreasePencil};
+                                                         GeometryComponent::Type::Curve};
 
     geometry::foreach_real_geometry(geometry_set, [&](GeometrySet &geometry_set) {
       for (const GeometryComponent::Type type : types) {

@@ -40,8 +40,6 @@ void TreeElementIDObject::expand(SpaceOutliner & /*space_outliner*/) const
   expand_materials();
   expand_constraints();
   expand_modifiers();
-  expand_gpencil_modifiers();
-  expand_gpencil_effects();
   expand_vertex_groups();
   expand_duplicated_group();
 }
@@ -93,25 +91,9 @@ void TreeElementIDObject::expand_modifiers() const
   add_element(&legacy_te_.subtree, &object_.id, nullptr, &legacy_te_, TSE_MODIFIER_BASE, 0);
 }
 
-void TreeElementIDObject::expand_gpencil_modifiers() const
-{
-  if (object_.greasepencil_modifiers.is_empty()) {
-    return;
-  }
-  add_element(&legacy_te_.subtree, &object_.id, nullptr, &legacy_te_, TSE_MODIFIER_BASE, 0);
-}
-
-void TreeElementIDObject::expand_gpencil_effects() const
-{
-  if (object_.shader_fx.is_empty()) {
-    return;
-  }
-  add_element(&legacy_te_.subtree, &object_.id, nullptr, &legacy_te_, TSE_GPENCIL_EFFECT_BASE, 0);
-}
-
 void TreeElementIDObject::expand_vertex_groups() const
 {
-  if (!ELEM(object_.type, OB_MESH, OB_LATTICE, OB_GREASE_PENCIL)) {
+  if (!ELEM(object_.type, OB_MESH, OB_LATTICE)) {
     return;
   }
   const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(&object_);

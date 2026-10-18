@@ -411,7 +411,7 @@ class ObjectRef {
       return true;
     }
 
-    if (ob_mode & (OB_MODE_ALL_PAINT | OB_MODE_ALL_PAINT_GPENCIL)) {
+    if (ob_mode & OB_MODE_ALL_PAINT) {
       return true;
     }
 
@@ -436,8 +436,6 @@ class ObjectRef {
           return ctx_mode == CTX_MODE_EDIT_CURVES;
         case OB_POINTCLOUD:
           return ctx_mode == CTX_MODE_EDIT_POINTCLOUD;
-        case OB_GREASE_PENCIL:
-          return ctx_mode == CTX_MODE_EDIT_GREASE_PENCIL;
         case OB_VOLUME:
           /* No edit mode yet. */
           return false;

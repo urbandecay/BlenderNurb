@@ -76,7 +76,6 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
-#include "ED_gpencil_legacy.hh"
 #include "ED_node.hh"
 #include "ED_node_preview.hh"
 #include "ED_screen.hh"
@@ -4841,10 +4840,6 @@ void node_draw_space(const bContext &C, ARegion &region)
     GPU_line_smooth(false);
     GPU_blend(GPU_BLEND_NONE);
 
-    if (snode.overlay.flag & SN_OVERLAY_SHOW_OVERLAYS && snode.flag & SNODE_SHOW_GPENCIL) {
-      /* Draw grease-pencil annotations. */
-      ED_annotation_draw_view2d(&C, true);
-    }
   }
   else {
 
@@ -4858,11 +4853,6 @@ void node_draw_space(const bContext &C, ARegion &region)
   ui::view2d_view_restore(&C);
 
   if (snode.overlay.flag & SN_OVERLAY_SHOW_OVERLAYS) {
-    if (snode.flag & SNODE_SHOW_GPENCIL && snode.treepath.last) {
-      /* Draw grease-pencil (screen strokes, and also paint-buffer). */
-      ED_annotation_draw_view2d(&C, false);
-    }
-
     /* Draw context path. */
     if (snode.overlay.flag & SN_OVERLAY_SHOW_PATH) {
       draw_tree_path(C, region);

@@ -73,7 +73,7 @@ enum ePreviewRenderMethod {
 bool ED_check_engine_supports_preview(const Scene *scene);
 const char *ED_preview_collection_name(ePreviewType pr_type);
 
-void ED_preview_ensure_dbase(bool with_gpencil);
+void ED_preview_ensure_dbase();
 void ED_preview_free_dbase();
 
 /**

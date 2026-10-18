@@ -24,7 +24,6 @@ print(geometry.mesh)
 print(geometry.pointcloud)
 print(geometry.curves)
 print(geometry.volume)
-print(geometry.grease_pencil)
 
 # Access the mesh without final subdivision applied.
 print(geometry.mesh_base)

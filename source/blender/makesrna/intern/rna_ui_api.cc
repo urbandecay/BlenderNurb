@@ -2078,33 +2078,6 @@ void RNA_api_ui_layout(StructRNA *srna)
                   "",
                   "Add panels for bone constraints instead of object constraints");
 
-  func = RNA_def_function(srna, "template_shaderfx", "template_shader_fx");
-  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
-  RNA_def_function_ui_description(func, "Generates the panels for the shader effect stack");
-
-  func = RNA_def_function(
-      srna, "template_greasepencil_color", "template_greasepencil_color_preview");
-  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
-  api_ui_item_rna_common(func);
-  RNA_def_int(
-      func, "rows", 0, 0, INT_MAX, "Number of thumbnail preview rows to display", "", 0, INT_MAX);
-  RNA_def_int(func,
-              "cols",
-              0,
-              0,
-              INT_MAX,
-              "Number of thumbnail preview columns to display",
-              "",
-              0,
-              INT_MAX);
-  RNA_def_float(func, "scale", 1.0f, 0.1f, 1.5f, "Scale of the image thumbnails", "", 0.5f, 1.0f);
-  RNA_def_enum(func,
-               "filter",
-               id_template_filter_items,
-               ui::TEMPLATE_ID_FILTER_ALL,
-               "",
-               "Optionally limit the items which can be selected");
-
   func = RNA_def_function(srna, "template_constraint_header", "template_constraint_header");
   RNA_def_function_ui_description(func, "Generates the header for constraint panels");
   parm = RNA_def_pointer(func, "data", "Constraint", "", "Constraint data");
@@ -2542,11 +2515,6 @@ void RNA_api_ui_layout(StructRNA *srna)
 
   func = RNA_def_function(srna, "template_bone_collection_tree", "template_bone_collection_tree");
   RNA_def_function_ui_description(func, "Show bone collections tree");
-  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
-
-  func = RNA_def_function(
-      srna, "template_grease_pencil_layer_tree", "template_grease_pencil_layer_tree");
-  RNA_def_function_ui_description(func, "View of the active Grease Pencil layer tree");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 
   func = RNA_def_function(srna, "template_node_tree_interface", "template_tree_interface");

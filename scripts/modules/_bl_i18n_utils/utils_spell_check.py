@@ -628,7 +628,6 @@ class SpellChecker:
         "enum", "enums",
         "gizmogroup",
         "gon", "gons",  # N-GON(s)
-        "gpencil",
         "idcol",
         "ipos",
         "keyframe", "keyframes", "keyframing", "keyframed",
@@ -651,7 +650,6 @@ class SpellChecker:
         "poselib",
         "pushpull",
         "qe",  # keys...
-        "shaderfx", "shaderfxs",
         "shapekey", "shapekeys",
         "shrinkfatten",
         "shrinkwrap",

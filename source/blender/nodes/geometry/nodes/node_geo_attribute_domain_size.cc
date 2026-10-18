@@ -5,7 +5,6 @@
 #include "NOD_rna_define.hh"
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 
 #include "DNA_mesh_types.h"
@@ -56,12 +55,6 @@ static void node_declare(NodeDeclarationBuilder &b)
                                 node.custom1 = int16_t(GeometryComponent::Type::Instance);
                               })
                               .available(false);
-  auto &total_layers = b.add_output<decl::Int>("Layer Count"_ustr)
-                           .make_available([](bNode &node) {
-                             node.custom1 = int16_t(GeometryComponent::Type::GreasePencil);
-                           })
-                           .available(false);
-
   const bNode *node = b.node_or_null();
   if (node != nullptr) {
     switch (GeometryComponent::Type(node->custom1)) {
@@ -80,9 +73,6 @@ static void node_declare(NodeDeclarationBuilder &b)
         break;
       case GeometryComponent::Type::Instance:
         total_instances.available(true);
-        break;
-      case GeometryComponent::Type::GreasePencil:
-        total_layers.available(true);
         break;
       default:
         break;
@@ -150,16 +140,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       }
       break;
     }
-    case GeometryComponent::Type::GreasePencil: {
-      if (const GreasePencil *grease_pencil = geometry_set.get_grease_pencil()) {
-        const AttributeAccessor attributes = grease_pencil->attributes();
-        params.set_output("Layer Count"_ustr, attributes.domain_size(AttrDomain::Layer));
-      }
-      else {
-        params.set_default_remaining_outputs();
-      }
-      break;
-    }
     default:
       params.set_default_remaining_outputs();
       break;
@@ -184,8 +164,7 @@ static void node_rna(StructRNA *srna)
                                                int(GeometryComponent::Type::Mesh),
                                                int(GeometryComponent::Type::Curve),
                                                int(GeometryComponent::Type::PointCloud),
-                                               int(GeometryComponent::Type::Instance),
-                                               int(GeometryComponent::Type::GreasePencil));
+                                               int(GeometryComponent::Type::Instance));
                                  });
       });
 }

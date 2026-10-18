@@ -12,7 +12,6 @@ static void node_declare(NodeDeclarationBuilder &b)
       .description("Geometry to split into separate components");
   b.add_output<decl::Geometry>("Mesh"_ustr).propagate_all_geometry();
   b.add_output<decl::Geometry>("Curve"_ustr).propagate_all_geometry();
-  b.add_output<decl::Geometry>("Grease Pencil"_ustr).propagate_all_geometry();
   b.add_output<decl::Geometry>("Point Cloud"_ustr).propagate_all_geometry();
   b.add_output<decl::Geometry>("Volume"_ustr)
       .translation_context(BLT_I18NCONTEXT_ID_ID)
@@ -26,7 +25,6 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   GeometrySet meshes;
   GeometrySet curves;
-  GeometrySet grease_pencil;
   GeometrySet pointclouds;
   GeometrySet volumes;
   GeometrySet instances;
@@ -35,7 +33,6 @@ static void node_geo_exec(GeoNodeExecParams params)
   if (!name.is_empty()) {
     meshes.set_name(name);
     curves.set_name(name);
-    grease_pencil.set_name(name);
     pointclouds.set_name(name);
     volumes.set_name(name);
     instances.set_name(name);
@@ -43,7 +40,6 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   meshes.copy_bundle_from(geometry_set);
   curves.copy_bundle_from(geometry_set);
-  grease_pencil.copy_bundle_from(geometry_set);
   pointclouds.copy_bundle_from(geometry_set);
   volumes.copy_bundle_from(geometry_set);
   instances.copy_bundle_from(geometry_set);
@@ -53,9 +49,6 @@ static void node_geo_exec(GeoNodeExecParams params)
   }
   if (geometry_set.has<CurveComponent>()) {
     curves.add(*geometry_set.get_component<CurveComponent>());
-  }
-  if (geometry_set.has<GreasePencilComponent>()) {
-    grease_pencil.add(*geometry_set.get_component<GreasePencilComponent>());
   }
   if (geometry_set.has<PointCloudComponent>()) {
     pointclouds.add(*geometry_set.get_component<PointCloudComponent>());
@@ -69,7 +62,6 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   params.set_output("Mesh"_ustr, meshes);
   params.set_output("Curve"_ustr, curves);
-  params.set_output("Grease Pencil"_ustr, grease_pencil);
   params.set_output("Point Cloud"_ustr, pointclouds);
   params.set_output("Volume"_ustr, volumes);
   params.set_output("Instances"_ustr, instances);

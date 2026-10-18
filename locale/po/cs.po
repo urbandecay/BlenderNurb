@@ -337,16 +337,6 @@ msgstr "Písmo"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Skicovací tužka"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Skicovací tužka v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Obrázek"
 
@@ -1576,10 +1566,6 @@ msgid "Actions"
 msgstr "Akce"
 
 
-msgid "Annotations"
-msgstr "Poznámky"
-
-
 msgid "Armatures"
 msgstr "Kostra"
 
@@ -1606,10 +1592,6 @@ msgstr "Křivky vlasů"
 
 msgid "Fonts"
 msgstr "Fonts"
-
-
-msgid "Grease Pencil"
-msgstr "Skicovací tužka"
 
 
 msgid "Collections"
@@ -1910,10 +1892,6 @@ msgstr "Atribut na instanci"
 
 msgid "Layer"
 msgstr "Vrstva"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Atribut na vrstvě skicovací tužky"
 
 
 msgid "Is Internal"
@@ -2300,10 +2278,6 @@ msgid "Action data-blocks"
 msgstr "Datové bloky akcí"
 
 
-msgid "Annotation"
-msgstr "Poznámky"
-
-
 msgid "Armature data-blocks"
 msgstr "Datové bloky kostry"
 
@@ -2334,10 +2308,6 @@ msgstr "Cesta k souboru .blend"
 
 msgid "Vector Fonts"
 msgstr "Vektorová písma"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Datové bloky Grease Pencil"
 
 
 msgid "Hair curve data-blocks"
@@ -2526,10 +2496,6 @@ msgstr "Hlavní písma"
 
 msgid "Collection of fonts"
 msgstr "Kolekce písem"
-
-
-msgid "Main Grease Pencils"
-msgstr "Hlavní skicovací tužky"
 
 
 msgid "Main Images"
@@ -8246,10 +8212,6 @@ msgid "Reference"
 msgstr "Rozdíl"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Snímek skicovací tužky"
-
-
 msgid "Regular"
 msgstr "Normální"
 
@@ -8264,10 +8226,6 @@ msgstr "Opakovat"
 
 msgid "Frame Start"
 msgstr "Počáteční snímek"
-
-
-msgid "Grease Pencil Layer"
-msgstr "Vrstva pro skicovací tužku"
 
 
 msgid "Blend Mode"
@@ -10018,10 +9976,6 @@ msgstr "Displacement metoda"
 
 msgid "Method to use for the displacement"
 msgstr "Skript linky pro tuto událost"
-
-
-msgid "Line Art Settings"
-msgstr "Nastavení Kresby Tužkou"
 
 
 msgid "Amount of mirror reflection for raytrace"
@@ -12170,22 +12124,6 @@ msgstr "Pracovní prostor"
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "Přepnout do tohoto objektového režimu, při aktivaci pracovního prostředí"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Režim úprav skicovací tužky"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Modelářský režim skicovací tužky"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Kresba skicovací tužkou"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Kreslení vertexů skicovací tužkou"
 
 
 msgid "Use UI Tags"
@@ -21722,15 +21660,6 @@ msgid "Default fill color"
 msgstr "Vynásobí jednotlivé barevné složky"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Poznamenat"
-
-
-msgid "Make annotations on the active data"
-msgstr "Vytvořit poznámky do aktivního pohledu"
-
-
 msgid "Way to interpret mouse movements"
 msgstr "Způsob ztvárnění pohybů myši"
 
@@ -21762,30 +21691,6 @@ msgstr "Smazat"
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Renderovat plošky z obou stran"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "Přidat Novou Poznámku"
-
-
-msgid "Add new Annotation data-block"
-msgstr "Nový poznámkový data blok"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Odepnout Poznámku"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Přidat Novou Poznámkovou Vrstvu"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Odebrat Poznámkovou Vrstvu"
 
 
 msgctxt "Operator"
@@ -21923,11 +21828,6 @@ msgstr "Vyrovná úhly označených plošek"
 
 msgid "Square Threshold"
 msgstr "Práh"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Kresba skicovací tužkou"
 
 
 msgctxt "Operator"
@@ -24758,11 +24658,6 @@ msgstr "Přepíná silové pole"
 
 msgid "Toggle object's force field"
 msgstr "Přepíní objekty silového pole"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Přidat Skicovací Tužku"
 
 
 msgctxt "Operator"
@@ -30644,21 +30539,6 @@ msgstr "Vzorkovat hodnoty obrazových bodů pod kurzorem"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Poznamenat"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Poznámková čára"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Guma Poznámky"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "Upravit"
 
@@ -32009,10 +31889,6 @@ msgid "Add/Replace"
 msgstr "Přidat/nahradit"
 
 
-msgid "Grease Pencil Eraser Radius"
-msgstr "Poloměr mazání pro skicovací tužku"
-
-
 msgid "New Handles Type"
 msgstr "Mód Úchopu"
 
@@ -33285,10 +33161,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "Procento globálních potomků částic během vykreslování"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "Zjednodušit kreslení skicovací tužkou"
-
-
 msgid "Antialiasing"
 msgstr "Vyhlazení zubatých hran"
 
@@ -33303,10 +33175,6 @@ msgstr "Zobrazit modifikátory"
 
 msgid "Playback Only"
 msgstr "Pouze přehrávání"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "Zjednodušit skicovací tužku pouze během přehrávání animace"
 
 
 msgid "Display Shader Effects"
@@ -34083,11 +33951,6 @@ msgstr "Nelineární video editor"
 
 msgid "Clip editor space data"
 msgstr "NLA editor"
-
-
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Zdroj Poznámek"
 
 
 msgid "2D Cursor Location"
@@ -36079,18 +35942,6 @@ msgid "Face Orientation Front"
 msgstr "Orientace Plochy Do Předu"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Vertex Skicovací Tužky"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Vývěr Vertexu Skicovací Tužky"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Velikost Vertexu Skicovací Tužku"
-
-
 msgid "Face Normal"
 msgstr "Normála Plochy"
 
@@ -36101,10 +35952,6 @@ msgstr "Velikost Původu Objektu"
 
 msgid "Object Selected"
 msgstr "Vybraný Objekt"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "Klíčový Snímek Skicovací Tužky"
 
 
 msgid "Vertex Group Unreferenced"
@@ -38931,10 +38778,6 @@ msgid "Intersections"
 msgstr "Křižovatky"
 
 
-msgid "Annotation:"
-msgstr "Poznámky:"
-
-
 msgid "Add cube to mesh interactively"
 msgstr "Přidat krychli k síti interaktivně"
 
@@ -40817,10 +40660,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Procházet Nastavení Částic k připojení"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Procházet Data Skicovací Tužky k připojení"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Procházet Filmový Klip k připojení"
 
@@ -40883,11 +40722,6 @@ msgstr "Nový"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Nový"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Nový"
 

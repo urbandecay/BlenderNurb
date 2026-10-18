@@ -64,7 +64,7 @@ static wmOperatorStatus view3d_zoom_border_exec(bContext *C, wmOperator *op)
                            region,
                            v3d,
                            nullptr,
-                           V3D_DEPTH_NO_GPENCIL,
+                           V3D_DEPTH_ALL,
                            true,
                            nullptr);
   {

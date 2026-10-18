@@ -1289,11 +1289,6 @@ msgid "Local View"
 msgstr "Bista Lokala"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Arkatzez marraztu"
-
-
 msgid "Limit"
 msgstr "Limitea"
 
@@ -1985,11 +1980,6 @@ msgstr "Berria"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Berria"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Berria"
 

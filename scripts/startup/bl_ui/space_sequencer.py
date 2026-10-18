@@ -12,10 +12,6 @@ from bpy.app.translations import (
     contexts as i18n_contexts,
     pgettext_iface as iface_,
 )
-from bl_ui.properties_grease_pencil_common import (
-    AnnotationDataPanel,
-    AnnotationOnionSkin,
-)
 from bl_ui.space_toolsystem_common import (
     ToolActivePanelHelper,
 )
@@ -226,7 +222,6 @@ class SEQUENCER_PT_preview_overlay(Panel):
         col.prop(overlay_settings, "show_image_outline")
         col.prop(ed, "show_overlay_frame", text="Frame Overlay")
         col.prop(overlay_settings, "show_metadata", text="Metadata")
-        col.prop(overlay_settings, "show_annotation", text="Annotations")
 
         col = split.column()
         col.prop(overlay_settings, "show_cursor")
@@ -737,7 +732,7 @@ class SEQUENCER_MT_add(Menu):
         col.enabled = nonsound < 3
 
         layout.operator_context = 'INVOKE_DEFAULT'
-        layout.menu("SEQUENCER_MT_add_effect", icon='SHADERFX')
+        layout.menu("SEQUENCER_MT_add_effect", icon='SEQ_STRIP_MODIFIER')
 
         col = layout.column()
         col.menu("SEQUENCER_MT_add_transitions", icon='ARROW_LEFTRIGHT')
@@ -1949,48 +1944,9 @@ class SEQUENCER_PT_view_composition_guides(SequencerButtonsPanel_Output, Panel):
         DATA_PT_camera_display_composition_guides.draw_panel(self.layout, overlay_settings)
 
 
-class SEQUENCER_PT_annotation(AnnotationDataPanel, SequencerButtonsPanel_Output, Panel):
-    bl_space_type = 'SEQUENCE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "View"
-
-    @staticmethod
-    def has_preview(context):
-        st = context.space_data
-        return st.view_type in {'PREVIEW', 'SEQUENCER_PREVIEW'}
-
-    @classmethod
-    def poll(cls, context):
-        return cls.has_preview(context)
-
     # NOTE: this is just a wrapper around the generic GP Panel
     # But, it should only show up when there are images in the preview region
 
-
-class SEQUENCER_PT_annotation_onion(AnnotationOnionSkin, SequencerButtonsPanel_Output, Panel):
-    bl_space_type = 'SEQUENCE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "View"
-    bl_parent_id = "SEQUENCER_PT_annotation"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @staticmethod
-    def has_preview(context):
-        st = context.space_data
-        return st.view_type in {'PREVIEW', 'SEQUENCER_PREVIEW'}
-
-    @classmethod
-    def poll(cls, context):
-        if context.annotation_data_owner is None:
-            return False
-        elif type(context.annotation_data_owner) is bpy.types.Object:
-            return False
-        else:
-            gpl = context.active_annotation_layer
-            if gpl is None:
-                return False
-
-        return cls.has_preview(context)
 
     # NOTE: this is just a wrapper around the generic GP Panel
     # But, it should only show up when there are images in the preview region
@@ -2142,8 +2098,6 @@ classes = (
     SEQUENCER_PT_view_composition_guides,
     SEQUENCER_PT_preview,
 
-    SEQUENCER_PT_annotation,
-    SEQUENCER_PT_annotation_onion,
 
     SEQUENCER_PT_snapping,
     SEQUENCER_PT_preview_snapping,

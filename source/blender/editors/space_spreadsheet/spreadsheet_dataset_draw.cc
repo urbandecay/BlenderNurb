@@ -15,7 +15,6 @@
 
 #include "BKE_context.hh"
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_volume.hh"
@@ -50,7 +49,6 @@ class GeometryInstancesTreeView;
 
 struct GeometryDomainDataId {
   bke::GeometryComponent::Type component_type;
-  std::optional<int> layer_index;
   std::optional<bke::AttrDomain> domain;
 };
 
@@ -63,9 +61,8 @@ struct GeometryDataIdentifier {
   std::variant<GeometryDomainDataId, GeometryBundleItemId> id;
 
   GeometryDataIdentifier(bke::GeometryComponent::Type component_type,
-                         std::optional<int> layer_index,
                          std::optional<bke::AttrDomain> domain)
-      : id(GeometryDomainDataId{component_type, layer_index, domain})
+      : id(GeometryDomainDataId{component_type, domain})
   {
   }
 
@@ -295,7 +292,7 @@ class MeshDomainViewItem : public DataSetViewItem {
 
   std::optional<GeometryDataIdentifier> get_geometry_data_id() const override
   {
-    return GeometryDataIdentifier{bke::GeometryComponent::Type::Mesh, std::nullopt, domain_};
+    return GeometryDataIdentifier{bke::GeometryComponent::Type::Mesh, domain_};
   }
 
   void build_row(ui::Layout &row) override
@@ -341,7 +338,7 @@ class CurvesDomainViewItem : public DataSetViewItem {
 
   std::optional<GeometryDataIdentifier> get_geometry_data_id() const override
   {
-    return GeometryDataIdentifier{bke::GeometryComponent::Type::Curve, std::nullopt, domain_};
+    return GeometryDataIdentifier{bke::GeometryComponent::Type::Curve, domain_};
   }
 
   void build_row(ui::Layout &row) override
@@ -350,102 +347,6 @@ class CurvesDomainViewItem : public DataSetViewItem {
     row.label(label_, icon);
 
     const int count = curves_ ? curves_->geometry.wrap().attributes().domain_size(domain_) : 0;
-    draw_count(*this, count);
-  }
-};
-
-class GreasePencilViewItem : public DataSetViewItem {
-  bool has_grease_pencil_;
-
- public:
-  GreasePencilViewItem(const bool has_grease_pencil) : has_grease_pencil_(has_grease_pencil)
-  {
-    label_ = IFACE_("Grease Pencil");
-  }
-
-  void build_row(ui::Layout &row) override
-  {
-    if (!has_grease_pencil_) {
-      row.active_set(false);
-    }
-    row.label(label_, ICON_OUTLINER_DATA_GREASEPENCIL);
-  }
-};
-
-class GreasePencilLayersViewItem : public DataSetViewItem {
- private:
-  const GreasePencil *grease_pencil_;
-
- public:
-  GreasePencilLayersViewItem(const GreasePencil *grease_pencil) : grease_pencil_(grease_pencil)
-  {
-    label_ = IFACE_("Layer");
-  }
-
-  std::optional<GeometryDataIdentifier> get_geometry_data_id() const override
-  {
-    return GeometryDataIdentifier{
-        bke::GeometryComponent::Type::GreasePencil, std::nullopt, bke::AttrDomain::Layer};
-  }
-
-  void build_row(ui::Layout &row) override
-  {
-    const int count = grease_pencil_ ? grease_pencil_->layers().size() : 0;
-    row.label(label_, ICON_OUTLINER_DATA_GP_LAYER);
-    draw_count(*this, count);
-  }
-};
-
-class GreasePencilLayerViewItem : public DataSetViewItem {
- private:
-  const bke::greasepencil::Layer &layer_;
-
- public:
-  GreasePencilLayerViewItem(const GreasePencil &grease_pencil, const int layer_index)
-      : layer_(grease_pencil.layer(layer_index))
-  {
-    label_ = std::to_string(layer_index);
-  }
-
-  void build_row(ui::Layout &row) override
-  {
-    StringRefNull name = layer_.name();
-    if (name.is_empty()) {
-      name = IFACE_("(Layer)");
-    }
-    row.label(name, ICON_CURVE_DATA);
-  }
-};
-
-class GreasePencilLayerCurvesDomainViewItem : public DataSetViewItem {
- private:
-  const GreasePencil &grease_pencil_;
-  int layer_index_;
-  bke::AttrDomain domain_;
-
- public:
-  GreasePencilLayerCurvesDomainViewItem(const GreasePencil &grease_pencil,
-                                        const int layer_index,
-                                        const bke::AttrDomain domain)
-      : grease_pencil_(grease_pencil), layer_index_(layer_index), domain_(domain)
-  {
-    label_ = curves_domain_to_label(domain);
-  }
-
-  std::optional<GeometryDataIdentifier> get_geometry_data_id() const override
-  {
-    return GeometryDataIdentifier{
-        bke::GeometryComponent::Type::GreasePencil, layer_index_, domain_};
-  }
-
-  void build_row(ui::Layout &row) override
-  {
-    const BIFIconID icon = curves_domain_to_icon(domain_);
-    row.label(label_, icon);
-
-    const bke::greasepencil::Drawing *drawing = grease_pencil_.get_eval_drawing(
-        grease_pencil_.layer(layer_index_));
-    const int count = drawing ? drawing->strokes().attributes().domain_size(domain_) : 0;
     draw_count(*this, count);
   }
 };
@@ -481,8 +382,7 @@ class PointsViewItem : public DataSetViewItem {
 
   std::optional<GeometryDataIdentifier> get_geometry_data_id() const override
   {
-    return GeometryDataIdentifier{
-        bke::GeometryComponent::Type::PointCloud, std::nullopt, bke::AttrDomain::Point};
+    return GeometryDataIdentifier{bke::GeometryComponent::Type::PointCloud, bke::AttrDomain::Point};
   }
 
   void build_row(ui::Layout &row) override
@@ -505,8 +405,7 @@ class VolumeGridsViewItem : public DataSetViewItem {
 
   std::optional<GeometryDataIdentifier> get_geometry_data_id() const override
   {
-    return GeometryDataIdentifier{
-        bke::GeometryComponent::Type::Volume, std::nullopt, std::nullopt};
+    return GeometryDataIdentifier{bke::GeometryComponent::Type::Volume, std::nullopt};
   }
 
   void build_row(ui::Layout &row) override
@@ -533,8 +432,7 @@ class InstancesViewItem : public DataSetViewItem {
 
   std::optional<GeometryDataIdentifier> get_geometry_data_id() const override
   {
-    return GeometryDataIdentifier{
-        bke::GeometryComponent::Type::Instance, std::nullopt, bke::AttrDomain::Instance};
+    return GeometryDataIdentifier{bke::GeometryComponent::Type::Instance, bke::AttrDomain::Instance};
   }
 
   void build_row(ui::Layout &row) override
@@ -657,9 +555,6 @@ class GeometryDataSetTreeView : public ui::AbstractTreeView {
     const Curves *curves = geometry.get_curves();
     this->build_tree_for_curves(curves, parent);
 
-    const GreasePencil *grease_pencil = geometry.get_grease_pencil();
-    this->build_tree_for_grease_pencil(grease_pencil, parent);
-
     const PointCloud *pointcloud = geometry.get_pointcloud();
     this->build_tree_for_pointcloud(pointcloud, parent);
 
@@ -697,29 +592,6 @@ class GeometryDataSetTreeView : public ui::AbstractTreeView {
 
     curves_item.add_tree_item<CurvesDomainViewItem>(curves, bke::AttrDomain::Point);
     curves_item.add_tree_item<CurvesDomainViewItem>(curves, bke::AttrDomain::Curve);
-  }
-
-  void build_tree_for_grease_pencil(const GreasePencil *grease_pencil,
-                                    ui::TreeViewItemContainer &parent)
-  {
-    auto &grease_pencil_item = parent.add_tree_item<GreasePencilViewItem>(grease_pencil !=
-                                                                          nullptr);
-    grease_pencil_item.uncollapse_by_default();
-    if (!grease_pencil) {
-      return;
-    }
-
-    auto &layers_item = grease_pencil_item.add_tree_item<GreasePencilLayersViewItem>(
-        grease_pencil);
-    const Span<const bke::greasepencil::Layer *> layers = grease_pencil->layers();
-    for (const int layer_i : layers.index_range()) {
-      auto &layer_item = layers_item.add_tree_item<GreasePencilLayerViewItem>(*grease_pencil,
-                                                                              layer_i);
-      layer_item.add_tree_item<GreasePencilLayerCurvesDomainViewItem>(
-          *grease_pencil, layer_i, bke::AttrDomain::Point);
-      layer_item.add_tree_item<GreasePencilLayerCurvesDomainViewItem>(
-          *grease_pencil, layer_i, bke::AttrDomain::Curve);
-    }
   }
 
   void build_tree_for_pointcloud(const PointCloud *pointcloud, ui::TreeViewItemContainer &parent)
@@ -886,10 +758,6 @@ void DataSetViewItem::on_activate(bContext &C)
     if (domain_data_id->domain) {
       sspreadsheet.geometry_id.attribute_domain = uint8_t(*domain_data_id->domain);
     }
-    if (domain_data_id->layer_index) {
-      sspreadsheet.geometry_id.layer_index = *domain_data_id->layer_index;
-    }
-
     /* These updates also make sure that the attribute domain is set properly based on the
      * component type. */
     RNA_property_update(&C, &ptr, RNA_struct_find_property(&ptr, "attribute_domain"));
@@ -924,11 +792,6 @@ std::optional<bool> DataSetViewItem::should_be_active() const
     }
     if (domain_data_id->domain) {
       if (bke::AttrDomain(sspreadsheet.geometry_id.attribute_domain) != domain_data_id->domain) {
-        return false;
-      }
-    }
-    if (domain_data_id->layer_index) {
-      if (sspreadsheet.geometry_id.layer_index != *domain_data_id->layer_index) {
         return false;
       }
     }

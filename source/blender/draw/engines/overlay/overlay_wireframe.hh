@@ -156,15 +156,6 @@ class Wireframe : Overlay {
       case OB_CURVES:
         /* TODO(fclem): Not yet implemented. */
         break;
-      case OB_GREASE_PENCIL: {
-        if (show_surface_wire) {
-          gpu::Batch *geom = DRW_cache_grease_pencil_face_wireframe_get(state.scene,
-                                                                        ob_ref.object);
-          coloring.curves_ps_->draw(
-              geom, manager.unique_handle(ob_ref), res.select_id(ob_ref).get());
-        }
-        break;
-      }
       case OB_MESH: {
         /* Force display in edit mode when overlay is off in wireframe mode (see #78484). */
         const bool wireframe_no_overlay = state.hide_overlays && state.is_wireframe_mode;

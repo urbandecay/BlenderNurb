@@ -60,9 +60,6 @@ const EnumPropertyItem rna_enum_keyframe_handle_type_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-/* NOTE: this is a near exact duplicate of `gpencil_interpolation_type_items`,
- * Changes here will likely apply there too. */
-
 const EnumPropertyItem rna_enum_beztriple_interpolation_mode_items[] = {
     /* Interpolation. */
     RNA_ENUM_ITEM_HEADING(CTX_N_(BLT_I18NCONTEXT_ID_ACTION, "Interpolation"),

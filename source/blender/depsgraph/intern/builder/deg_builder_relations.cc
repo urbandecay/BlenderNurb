@@ -32,7 +32,6 @@
 #include "DNA_constraint_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_key_types.h"
 #include "DNA_light_types.h"
 #include "DNA_lightprobe_types.h"
@@ -62,8 +61,6 @@
 #include "BKE_constraint.h"
 #include "BKE_effect.h"
 #include "BKE_fcurve_driver.h"
-#include "BKE_gpencil_modifier_legacy.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_idprop.hh"
 #include "BKE_image.hh"
 #include "BKE_key.hh"
@@ -76,7 +73,6 @@
 #include "BKE_node.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_pointcache.h"
-#include "BKE_shader_fx.hh"
 #include "BKE_shrinkwrap.hh"
 
 #include "RNA_access.hh"
@@ -578,8 +574,6 @@ void DepsgraphRelationBuilder::build_id(ID *id)
     case ID_CV:
     case ID_PT:
     case ID_VO:
-    case ID_GD_LEGACY:
-    case ID_GP:
       build_object_data_geometry_datablock(id);
       break;
     case ID_SPK:
@@ -781,20 +775,6 @@ void DepsgraphRelationBuilder::build_object(Object *object)
 
   /* Modifiers. */
   build_object_modifiers(object);
-
-  /* Grease Pencil Modifiers. */
-  if (object->greasepencil_modifiers.first != nullptr) {
-    BuilderWalkUserData data;
-    data.builder = this;
-    BKE_gpencil_modifiers_foreach_ID_link(object, modifier_walk, &data);
-  }
-
-  /* Shader FX. */
-  if (object->shader_fx.first != nullptr) {
-    BuilderWalkUserData data;
-    data.builder = this;
-    BKE_shaderfx_foreach_ID_link(object, modifier_walk, &data);
-  }
 
   /* Constraints. */
   if (object->constraints.first != nullptr) {
@@ -1010,7 +990,7 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
     case OB_CURVES:
     case OB_POINTCLOUD:
     case OB_VOLUME:
-    case OB_GREASE_PENCIL: {
+    {
       build_object_data_geometry(object);
       /* TODO(sergey): Only for until we support granular
        * update of curves. */
@@ -1041,7 +1021,6 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
       build_object_data_speaker(object);
       break;
     case OB_EMPTY:
-    case OB_GPENCIL_LEGACY:
     case OB_TYPE_MAX:
       break;
   }
@@ -2627,24 +2606,6 @@ void DepsgraphRelationBuilder::build_object_data_geometry(Object *object)
   add_relation(ComponentKey(&object->id, NodeType::GEOMETRY),
                OperationKey(&object->id, NodeType::INSTANCING, OperationCode::INSTANCE_GEOMETRY),
                "Transform -> Instance Geometry");
-  /* Shader FX. */
-  if (object->shader_fx.first != nullptr) {
-    ModifierUpdateDepsgraphContext ctx = {};
-    ctx.scene = scene_;
-    ctx.object = object;
-    for (ShaderFxData &fx : object->shader_fx) {
-      const ShaderFxTypeInfo *fxi = BKE_shaderfx_get_info(ShaderFxType(fx.type));
-      if (fxi->update_depsgraph) {
-        DepsNodeHandle handle = create_node_handle(obdata_ubereval_key);
-        ctx.node = reinterpret_cast<blender::DepsNodeHandle *>(&handle);
-        fxi->update_depsgraph(&fx, &ctx);
-      }
-      if (BKE_shaderfx_depends_ontime(&fx)) {
-        TimeSourceKey time_src_key;
-        add_relation(time_src_key, obdata_ubereval_key, "Time Source");
-      }
-    }
-  }
   /* Materials. */
   build_materials(&object->id, object->mat, object->totcol);
   /* Geometry collision. */
@@ -2787,50 +2748,6 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
     }
     case ID_LT:
       break;
-    case ID_GD_LEGACY: /* Grease Pencil */
-    {
-      bGPdata *gpd = id_cast<bGPdata *>(obdata);
-
-      /* Geometry cache needs to be recalculated on frame change
-       * (e.g. to fix crashes after scrubbing the timeline when
-       * onion skinning is enabled, since the ghosts need to be
-       * re-added to the cache once scrubbing ends). */
-      TimeSourceKey time_key;
-      ComponentKey geometry_key(obdata, NodeType::GEOMETRY);
-      add_relation(time_key, geometry_key, "GP Frame Change");
-
-      /* Geometry cache also needs to be recalculated when Material
-       * settings change (e.g. when fill.opacity changes on/off,
-       * we need to rebuild the bGPDstroke->triangles caches). */
-      for (int i = 0; i < gpd->totcol; i++) {
-        Material *ma = gpd->mat[i];
-        if ((ma != nullptr) && (ma->gp_style != nullptr)) {
-          OperationKey material_key(&ma->id, NodeType::SHADING, OperationCode::MATERIAL_UPDATE);
-          add_relation(material_key, geometry_key, "Material -> GP Data");
-        }
-      }
-
-      /* Layer parenting need react to the parent object transformation. */
-      for (bGPDlayer &gpl : gpd->layers) {
-        if (gpl.parent != nullptr) {
-          ComponentKey gpd_geom_key(&gpd->id, NodeType::GEOMETRY);
-
-          if (gpl.partype == PARBONE) {
-            ComponentKey bone_key(&gpl.parent->id, NodeType::BONE, gpl.parsubstr);
-            OperationKey armature_key(
-                &gpl.parent->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_FINAL);
-
-            add_relation(bone_key, gpd_geom_key, "Bone Parent");
-            add_relation(armature_key, gpd_geom_key, "Armature Parent");
-          }
-          else {
-            ComponentKey transform_key(&gpl.parent->id, NodeType::TRANSFORM);
-            add_relation(transform_key, gpd_geom_key, "GPencil Parent Layer");
-          }
-        }
-      }
-      break;
-    }
     case ID_CV: {
       Curves *curves_id = reinterpret_cast<Curves *>(obdata);
       if (curves_id->surface != nullptr) {
@@ -2852,35 +2769,6 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
         TimeSourceKey time_key;
         ComponentKey geometry_key(obdata, NodeType::GEOMETRY);
         add_relation(time_key, geometry_key, "Volume sequence time");
-      }
-      break;
-    }
-    case ID_GP: {
-      GreasePencil &grease_pencil = *reinterpret_cast<GreasePencil *>(obdata);
-
-      /* Update geometry when time is changed. */
-      TimeSourceKey time_key;
-      ComponentKey geometry_key(&grease_pencil.id, NodeType::GEOMETRY);
-      add_relation(time_key, geometry_key, "Grease Pencil Frame Change");
-
-      /* Add relations for layer parents. */
-      for (const bke::greasepencil::Layer *layer : grease_pencil.layers()) {
-        Object *parent = layer->parent;
-        if (parent == nullptr) {
-          continue;
-        }
-        if (parent->type == OB_ARMATURE && !layer->parent_bone_name().is_empty()) {
-          ComponentKey bone_key(&parent->id, NodeType::BONE, layer->parent_bone_name().c_str());
-          OperationKey armature_key(
-              &parent->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_FINAL);
-
-          add_relation(bone_key, geometry_key, "Grease Pencil Layer Bone Parent");
-          add_relation(armature_key, geometry_key, "Grease Pencil Layer Armature Parent");
-        }
-        else {
-          ComponentKey transform_key(&parent->id, NodeType::TRANSFORM);
-          add_relation(transform_key, geometry_key, "Grease Pencil Layer Object Parent");
-        }
       }
       break;
     }

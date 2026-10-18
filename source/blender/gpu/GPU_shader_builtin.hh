@@ -53,8 +53,6 @@ enum GPUBuiltinShader {
   GPU_SHADER_2D_IMAGE_OVERLAYS_STEREO_MERGE,
   /** Merge viewport overlay texture with the render output. */
   GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR,
-  /** Used for drawing of annotations (former grease pencil). */
-  GPU_SHADER_GPENCIL_STROKE,
   /** Draw rounded area borders with silky smooth anti-aliasing without any over-draw. */
   GPU_SHADER_2D_AREA_BORDERS,
   /** Multi usage widget shaders for drawing buttons and other UI elements. */

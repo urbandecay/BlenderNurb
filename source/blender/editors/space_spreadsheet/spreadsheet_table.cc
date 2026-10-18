@@ -42,7 +42,6 @@ void spreadsheet_table_id_copy_content_geometry(SpreadsheetTableIDGeometry &dst,
   dst.geometry_component_type = src.geometry_component_type;
   dst.attribute_domain = src.attribute_domain;
   dst.object_eval_state = src.object_eval_state;
-  dst.layer_index = src.layer_index;
   dst.instance_ids = MEM_dupalloc(src.instance_ids);
   dst.instance_ids_num = src.instance_ids_num;
   copy_bundle_path(dst.viewer_item_bundle_path, src.viewer_item_bundle_path);
@@ -209,7 +208,7 @@ bool spreadsheet_table_id_match(const SpreadsheetTableID &a, const SpreadsheetTa
                  &a_.viewer_path, &b_.viewer_path, VIEWER_PATH_EQUAL_FLAG_IGNORE_ITERATION) &&
              a_.geometry_component_type == b_.geometry_component_type &&
              a_.attribute_domain == b_.attribute_domain &&
-             a_.object_eval_state == b_.object_eval_state && a_.layer_index == b_.layer_index &&
+             a_.object_eval_state == b_.object_eval_state &&
              blender::Span(a_.instance_ids, a_.instance_ids_num) ==
                  blender::Span(b_.instance_ids, b_.instance_ids_num) &&
              bundle_path_match(a_.viewer_item_bundle_path, b_.viewer_item_bundle_path) &&

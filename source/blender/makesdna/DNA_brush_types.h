@@ -21,130 +21,6 @@ namespace blender {
 struct CurveMapping;
 struct Image;
 struct MTex;
-struct Material;
-
-struct BrushGpencilSettings {
-  DNA_DEFINE_CXX_METHODS(BrushGpencilSettings)
-
-  /** Amount of smoothing to apply to newly created strokes. */
-  float draw_smoothfac = 0;
-  /** Fill zoom factor */
-  float fill_factor = 0;
-  /** Amount of alpha strength to apply to newly created strokes. */
-  float draw_strength = 0;
-  /** Amount of jitter to apply to newly created strokes. */
-  float draw_jitter = 0;
-  /** Angle when the brush has full thickness. */
-  float draw_angle = 0;
-  /** Factor to apply when angle change (only 90 degrees). */
-  float draw_angle_factor = 0;
-  /** Factor of randomness for pressure. */
-  float draw_random_press = 0;
-  /** Factor of strength for strength. */
-  float draw_random_strength = 0;
-  /** Number of times to apply smooth factor to new strokes. */
-  short draw_smoothlvl = 0;
-  /** Number of times to subdivide new strokes. */
-  short draw_subdivide = 0;
-  /** Layers used for fill. */
-  eGP_FillLayerModes fill_layer_mode = GP_FILL_GPLMODE_VISIBLE;
-  short fill_direction = 0;
-
-  /** Factor for transparency. */
-  float fill_threshold = 0;
-  short fill_solver = 0;
-  /* Type of caps: eGPDstroke_Caps. */
-  int8_t caps_type = 0;
-  char _pad1[1] = {};
-
-  eGPDbrush_Flag2 flag2 = {};
-
-  /** Number of simplify steps. */
-  int fill_simplylvl = 0;
-  /** Type of control lines drawing mode. */
-  eGP_FillDrawModes fill_draw_mode = GP_FILL_DMODE_BOTH;
-  /** Type of gap filling extension to use. */
-  eGP_FillExtendModes fill_extend_mode = GP_FILL_EMODE_EXTEND;
-
-  /** Maximum distance before generate new point for very fast mouse movements. */
-  int input_samples = 0;
-  /** Random factor for UV rotation. */
-  float uv_random = 0;
-  /** Moved to 'Brush.gpencil_brush_type'. */
-  DNA_DEPRECATED int brush_type = 0;
-  /** Soft, hard or stroke. */
-  eGP_BrushEraserMode eraser_mode = GP_BRUSH_ERASER_SOFT;
-  /** Smooth while drawing factor. */
-  float active_smooth = 0;
-  /** Factor to apply to strength for soft eraser. */
-  float era_strength_f = 0;
-  /** Factor to apply to thickness for soft eraser. */
-  float era_thickness_f = 0;
-  /** Internal grease pencil drawing flags. */
-  eGPDbrush_Flag flag = {};
-
-  /** gradient control along y for color */
-  float hardness = 0;
-  /** factor xy of shape for dots gradients */
-  float aspect_ratio[2] = {};
-  /** Simplify adaptive factor */
-  float simplify_f = 0;
-
-  /** Mix color-factor. */
-  float vertex_factor = 0;
-  eGp_Vertex_Mode vertex_mode = GPPAINT_MODE_STROKE;
-
-  eGP_Sculpt_Flag sculpt_flag = {};
-  eGP_Sculpt_Mode_Flag sculpt_mode_flag = {};
-  char _pad2[2] = {};
-  /** Brush preselected mode (Active/Material/Vertex-color). */
-  eGP_BrushMode brush_draw_mode = GP_BRUSH_MODE_ACTIVE;
-
-  /** Randomness for Hue. */
-  float random_hue = 0;
-  /** Randomness for Saturation. */
-  float random_saturation = 0;
-  /** Randomness for Value. */
-  float random_value = 0;
-
-  eBrushColorJitterSettings_Flag color_jitter_flag = {};
-  char _pad3[4] = {};
-
-  /** Factor to extend stroke extremes using fill tool. */
-  float fill_extend_fac = 0;
-  /** Number of pixels to dilate fill area. */
-  int dilate_pixels = 0;
-
-  struct CurveMapping *curve_sensitivity = nullptr;
-  struct CurveMapping *curve_strength = nullptr;
-  struct CurveMapping *curve_jitter = nullptr;
-  struct CurveMapping *curve_rand_pressure = nullptr;
-  struct CurveMapping *curve_rand_strength = nullptr;
-  struct CurveMapping *curve_rand_uv = nullptr;
-  struct CurveMapping *curve_rand_hue = nullptr;
-  struct CurveMapping *curve_rand_saturation = nullptr;
-  struct CurveMapping *curve_rand_value = nullptr;
-
-  /** Factor for external line thickness conversion to outline. */
-  float outline_fac = 0;
-  /** Screen space simplify threshold. Points within this margin are treated as a straight line. */
-  float simplify_px = 0;
-  /** Threshold distance for converting curve types. */
-  float conversion_threshold = 0;
-  /* #CurveType Used for converting. */
-  int8_t curve_type = 0;
-  char _pad4[3] = {};
-  /* Fill Tool gap detection factor. */
-  float fill_gap_factor = 0;
-  char _pad5[4] = {};
-
-  /* optional link of material to replace default in context */
-  /** Material. */
-  struct Material *material = nullptr;
-  /** Material Alternative for secondary operations. */
-  struct Material *material_alt = nullptr;
-};
-
 struct BrushCurvesSculptSettings {
   /** Number of curves added by the add brush. */
   int add_amount = 0;
@@ -307,14 +183,6 @@ struct Brush {
   eBrushImagePaintType image_brush_type = IMAGE_PAINT_BRUSH_TYPE_DRAW;
   /** Enum eBrushMaskTool, only used if sculpt_brush_type is SCULPT_BRUSH_TYPE_MASK. */
   BrushMaskTool mask_tool = BRUSH_MASK_DRAW;
-  /** Active grease pencil brush type. */
-  eBrushGPaintType gpencil_brush_type = GPAINT_BRUSH_TYPE_DRAW;
-  /** Active grease pencil vertex brush type. */
-  eBrushGPVertexType gpencil_vertex_brush_type = GPVERTEX_BRUSH_TYPE_DRAW;
-  /** Active grease pencil sculpt brush type. */
-  eBrushGPSculptType gpencil_sculpt_brush_type = GPSCULPT_BRUSH_TYPE_SMOOTH;
-  /** Active grease pencil weight brush type. */
-  eBrushGPWeightType gpencil_weight_brush_type = GPWEIGHT_BRUSH_TYPE_DRAW;
   /** Active curves sculpt brush type. */
   eBrushCurvesSculptType curves_sculpt_brush_type = CURVES_SCULPT_BRUSH_TYPE_COMB;
 
@@ -441,7 +309,6 @@ struct Brush {
   float mask_stencil_pos[2] = {256, 256};
   float mask_stencil_dimension[2] = {256, 256};
 
-  struct BrushGpencilSettings *gpencil_settings = nullptr;
   struct BrushCurvesSculptSettings *curves_sculpt_settings = nullptr;
 
   DNA_DEPRECATED int automasking_cavity_blur_steps = 0;

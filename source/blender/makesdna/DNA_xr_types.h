@@ -138,7 +138,7 @@ struct XrSessionSettings {
   float base_pose_location[3] = {};
   float base_pose_angle = 0;
 
-  /** View3D draw flags (V3D_OFSDRAW_NONE, V3D_OFSDRAW_SHOW_ANNOTATION, ...). */
+  /** View3D draw flags (V3D_OFSDRAW_NONE, ...). */
   char draw_flags = 0;
   /** Draw style for controller visualization. */
   char controller_draw_style = 0;

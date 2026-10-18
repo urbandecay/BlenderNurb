@@ -60,7 +60,6 @@ set(SRC
   intern/draw_attributes.cc
   intern/draw_cache_impl_curve.cc
   intern/draw_cache_impl_curves.cc
-  intern/draw_cache_impl_grease_pencil.cc
   intern/draw_cache_impl_lattice.cc
   intern/draw_cache_impl_mesh.cc
   intern/draw_cache_impl_particles.cc
@@ -136,12 +135,6 @@ set(SRC
   engines/workbench/workbench_state.cc
   engines/workbench/workbench_volume.cc
   engines/external/external_engine.cc
-  engines/gpencil/gpencil_antialiasing.cc
-  engines/gpencil/gpencil_cache_utils.cc
-  engines/gpencil/gpencil_draw_data.cc
-  engines/gpencil/gpencil_engine_c.cc
-  engines/gpencil/gpencil_render.cc
-  engines/gpencil/gpencil_shader_fx.cc
   engines/select/select_engine.cc
   engines/select/select_instance.cc
   engines/overlay/overlay_armature.cc
@@ -221,9 +214,6 @@ set(SRC
   engines/eevee/eevee_volume.hh
   engines/eevee/eevee_world.hh
   engines/external/external_engine.h
-  engines/gpencil/gpencil_engine.hh
-  engines/gpencil/gpencil_engine_private.hh
-  engines/gpencil/gpencil_shader.hh
   engines/image/image_batches.hh
   engines/image/image_buffer_cache.hh
   engines/image/image_drawing_mode_image_space.hh
@@ -257,7 +247,6 @@ set(SRC
   engines/overlay/overlay_fade.hh
   engines/overlay/overlay_fluid.hh
   engines/overlay/overlay_force_field.hh
-  engines/overlay/overlay_grease_pencil.hh
   engines/overlay/overlay_grid.hh
   engines/overlay/overlay_image.hh
   engines/overlay/overlay_instance.hh
@@ -328,8 +317,6 @@ set(GLSL_SRC
 
   engines/image/shaders/infos/engine_image_infos.hh
 
-  engines/gpencil/shaders/infos/gpencil_infos.hh
-  engines/gpencil/shaders/infos/gpencil_vfx_infos.hh
 
   engines/overlay/shaders/infos/overlay_armature_infos.hh
   engines/overlay/shaders/infos/overlay_background_infos.hh
@@ -571,7 +558,6 @@ set(GLSL_SRC
   intern/shaders/draw_command_generate_comp.glsl
   intern/shaders/draw_debug_draw_display_frag.glsl
   intern/shaders/draw_debug_draw_display_vert.glsl
-  intern/shaders/draw_grease_pencil_lib.glsl
   intern/shaders/draw_intersect_lib.glsl
   intern/shaders/draw_math_geom_lib.glsl
   intern/shaders/draw_model_lib.glsl
@@ -593,23 +579,6 @@ set(GLSL_SRC
   intern/draw_shader_shared.hh
   intern/draw_subdiv_defines.hh
   intern/draw_subdiv_shader_shared.hh
-
-  engines/gpencil/shaders/gpencil_frag.glsl
-  engines/gpencil/shaders/gpencil_vert.glsl
-  engines/gpencil/shaders/gpencil_antialiasing_accumulation_frag.glsl
-  engines/gpencil/shaders/gpencil_antialiasing_frag.glsl
-  engines/gpencil/shaders/gpencil_antialiasing_vert.glsl
-  engines/gpencil/shaders/gpencil_common_lib.glsl
-  engines/gpencil/shaders/gpencil_fullscreen_vert.glsl
-  engines/gpencil/shaders/gpencil_layer_blend_frag.glsl
-  engines/gpencil/shaders/gpencil_mask_invert_frag.glsl
-  engines/gpencil/shaders/gpencil_depth_merge_frag.glsl
-  engines/gpencil/shaders/gpencil_depth_merge_vert.glsl
-  engines/gpencil/shaders/gpencil_depth_pass_merge_frag.glsl
-  engines/gpencil/shaders/gpencil_vfx_frag.glsl
-
-  engines/gpencil/gpencil_defines.hh
-  engines/gpencil/gpencil_shader_shared.hh
 
   engines/select/shaders/select_id_vert.glsl
   engines/select/shaders/select_id_frag.glsl
@@ -642,8 +611,6 @@ set(GLSL_SRC
   engines/overlay/shaders/overlay_common_lib.glsl
   engines/overlay/shaders/overlay_depth_only_curves_vert.glsl
   engines/overlay/shaders/overlay_depth_only_frag.glsl
-  engines/overlay/shaders/overlay_depth_only_gpencil_frag.glsl
-  engines/overlay/shaders/overlay_depth_only_gpencil_vert.glsl
   engines/overlay/shaders/overlay_depth_only_mesh_conservative_vert.glsl
   engines/overlay/shaders/overlay_depth_only_pointcloud_vert.glsl
   engines/overlay/shaders/overlay_depth_only_vert.glsl
@@ -652,7 +619,6 @@ set(GLSL_SRC
   engines/overlay/shaders/overlay_edit_curve_point_vert.glsl
   engines/overlay/shaders/overlay_edit_curve_wire_vert.glsl
   engines/overlay/shaders/overlay_edit_curves_handle_vert.glsl
-  engines/overlay/shaders/overlay_edit_gpencil_canvas_vert.glsl
   engines/overlay/shaders/overlay_edit_lattice_point_vert.glsl
   engines/overlay/shaders/overlay_edit_lattice_wire_vert.glsl
   engines/overlay/shaders/overlay_edit_mesh_analysis_frag.glsl
@@ -702,8 +668,6 @@ set(GLSL_SRC
   engines/overlay/shaders/overlay_outline_detect_frag.glsl
   engines/overlay/shaders/overlay_outline_prepass_curves_vert.glsl
   engines/overlay/shaders/overlay_outline_prepass_frag.glsl
-  engines/overlay/shaders/overlay_outline_prepass_gpencil_frag.glsl
-  engines/overlay/shaders/overlay_outline_prepass_gpencil_vert.glsl
   engines/overlay/shaders/overlay_outline_prepass_pointcloud_vert.glsl
   engines/overlay/shaders/overlay_outline_prepass_vert.glsl
   engines/overlay/shaders/overlay_outline_prepass_wire_vert.glsl
@@ -777,9 +741,6 @@ set(GLSL_INC
   ../gpu/shaders/common
   ../gpu/shaders/infos
 
-  engines/gpencil
-  engines/gpencil/shaders
-  engines/gpencil/shaders/infos
   engines/workbench
   engines/workbench/shaders
   engines/workbench/shaders/infos

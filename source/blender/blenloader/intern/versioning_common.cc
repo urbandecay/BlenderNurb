@@ -23,7 +23,6 @@
 #include "BLI_string_utf8.h"
 
 #include "BKE_animsys.h"
-#include "BKE_grease_pencil_legacy_convert.hh"
 #include "BKE_idprop.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_override.hh"
@@ -54,15 +53,9 @@
 
 namespace blender {
 
-short do_versions_new_to_old_idcode_get(const short id_code_new)
+short do_versions_new_to_old_idcode_get(const short /*id_code_new*/)
 {
-  switch (id_code_new) {
-    case ID_GP:
-      /* ID_GD_LEGACY (Grease Pencil v2) is now converted to ID_GP (Grease Pencil v3). */
-      return ID_GD_LEGACY;
-    default:
-      return ID_LINK_PLACEHOLDER;
-  }
+  return ID_LINK_PLACEHOLDER;
 }
 
 ARegion *do_versions_add_region_if_not_found(ListBaseT<ARegion> *regionbase,
@@ -831,14 +824,7 @@ void do_versions_after_setup(Main *new_bmain,
   }
 
   if (!blendfile_or_libraries_versions_atleast(new_bmain, 404, 2)) {
-    /* Version all the action assignments of just-versioned datablocks. This MUST happen before the
-     * GreasePencil conversion, as that assumes the Action Slots have already been assigned. */
     animrig::versioning::convert_legacy_action_assignments(*new_bmain, reports->reports);
-  }
-
-  if (!blendfile_or_libraries_versions_atleast(new_bmain, 403, 3)) {
-    /* Convert all the legacy grease pencil objects. This does not touch annotations. */
-    bke::greasepencil::convert::legacy_main(*new_bmain, lapp_context, *reports);
   }
 
   if (!blendfile_or_libraries_versions_atleast(new_bmain, 500, 4)) {

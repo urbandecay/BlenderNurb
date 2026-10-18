@@ -28,7 +28,6 @@ struct Base;
 struct BoundBox;
 struct Curve;
 struct Depsgraph;
-struct HookGpencilModifierData;
 struct HookModifierData;
 struct ID;
 struct KeyBlock;
@@ -80,10 +79,9 @@ void BKE_object_free_derived_caches(Object *ob);
 void BKE_object_free_caches(Object *object);
 
 void BKE_object_modifier_hook_reset(Object *ob, HookModifierData *hmd);
-void BKE_object_modifier_gpencil_hook_reset(Object *ob, HookGpencilModifierData *hmd);
 
 /**
- * \return True if the object's type supports regular modifiers (not grease pencil modifiers).
+ * \return True if the object's type supports regular modifiers.
  */
 bool BKE_object_supports_modifiers(const Object *ob);
 bool BKE_object_support_modifier_type_check(const Object *ob, int modifier_type);
@@ -128,7 +126,6 @@ bool BKE_object_modifier_stack_copy(Object *ob_dst,
                                     int flag_subdata);
 void BKE_object_link_modifiers(Object *ob_dst, const Object *ob_src);
 void BKE_object_free_modifiers(Object *ob, int flag);
-void BKE_object_free_shaderfx(Object *ob, int flag);
 
 bool BKE_object_exists_check(Main *bmain, const Object *obtest);
 /**

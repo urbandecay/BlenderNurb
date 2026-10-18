@@ -2,10 +2,6 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "DNA_grease_pencil_types.h"
-
-#include "BKE_grease_pencil.hh"
-
 #include "GEO_fillet_curves.hh"
 #include "GEO_foreach_geometry.hh"
 
@@ -34,7 +30,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to generate rounded corners on");
   b.add_output<decl::Geometry>("Curve"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Float>("Radius"_ustr)
@@ -97,37 +93,6 @@ static bke::CurvesGeometry fillet_curve(const bke::CurvesGeometry &src_curves,
   return bke::CurvesGeometry();
 }
 
-static void fillet_grease_pencil(GreasePencil &grease_pencil,
-                                 const GeometryNodeCurveFilletMode mode,
-                                 const std::optional<Field<int>> &count_field,
-                                 const Field<float> &radius_field,
-                                 const bool limit_radius,
-                                 const AttributeFilter &attribute_filter)
-{
-  using namespace blender::bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr) {
-      continue;
-    }
-    const bke::CurvesGeometry &src_curves = drawing->strokes();
-    if (src_curves.is_empty()) {
-      continue;
-    }
-    const bke::GreasePencilLayerFieldContext field_context(
-        grease_pencil, AttrDomain::Curve, layer_index);
-    bke::CurvesGeometry dst_curves = fillet_curve(src_curves,
-                                                  mode,
-                                                  field_context,
-                                                  count_field,
-                                                  radius_field,
-                                                  limit_radius,
-                                                  attribute_filter);
-    drawing->strokes_for_write() = std::move(dst_curves);
-    drawing->tag_topology_changed();
-  }
-}
-
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Curve"_ustr);
@@ -159,11 +124,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       Curves *dst_curves_id = bke::curves_new_nomain(std::move(dst_curves));
       bke::curves_copy_parameters(curves_id, *dst_curves_id);
       geometry_set.replace_curves(dst_curves_id);
-    }
-    if (geometry_set.has_grease_pencil()) {
-      GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
-      fillet_grease_pencil(
-          grease_pencil, mode, count_field, radius_field, limit_radius, attribute_filter);
     }
   });
 

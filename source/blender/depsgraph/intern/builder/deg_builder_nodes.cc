@@ -59,8 +59,6 @@
 #include "BKE_constraint.h"
 #include "BKE_curve.hh"
 #include "BKE_fcurve_driver.h"
-#include "BKE_gpencil_modifier_legacy.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_idprop.hh"
 #include "BKE_image.hh"
 #include "BKE_key.hh"
@@ -82,7 +80,6 @@
 #include "BKE_pointcache.h"
 #include "BKE_rigidbody.h"
 #include "BKE_scene.hh"
-#include "BKE_shader_fx.hh"
 #include "BKE_sound.hh"
 #include "BKE_volume.hh"
 #include "BKE_world.h"
@@ -628,11 +625,9 @@ void DepsgraphNodeBuilder::build_id(ID *id, const bool force_be_visible)
     case ID_MB:
     case ID_CU_LEGACY:
     case ID_LT:
-    case ID_GD_LEGACY:
     case ID_CV:
     case ID_PT:
     case ID_VO:
-    case ID_GP:
       build_object_data_geometry_datablock(id);
       break;
     case ID_SPK:
@@ -803,18 +798,6 @@ void DepsgraphNodeBuilder::build_object(int base_index,
   }
   /* Modifiers. */
   build_object_modifiers(object);
-  /* Grease Pencil Modifiers. */
-  if (object->greasepencil_modifiers.first != nullptr) {
-    BuilderWalkUserData data;
-    data.builder = this;
-    BKE_gpencil_modifiers_foreach_ID_link(object, modifier_walk, &data);
-  }
-  /* Shader FX. */
-  if (object->shader_fx.first != nullptr) {
-    BuilderWalkUserData data;
-    data.builder = this;
-    BKE_shaderfx_foreach_ID_link(object, modifier_walk, &data);
-  }
   /* Constraints. */
   if (object->constraints.first != nullptr) {
     BuilderWalkUserData data;
@@ -1004,9 +987,6 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
     case OB_VOLUME:
       build_object_data_geometry(object);
       break;
-    case OB_GREASE_PENCIL:
-      build_object_data_grease_pencil(object);
-      break;
     case OB_ARMATURE:
       build_rig(object);
       break;
@@ -1055,20 +1035,6 @@ void DepsgraphNodeBuilder::build_object_data_lightprobe(Object *object)
   LightProbe *probe = id_cast<LightProbe *>(object->data);
   build_lightprobe(probe);
   add_operation_node(&object->id, NodeType::PARAMETERS, OperationCode::LIGHT_PROBE_EVAL);
-}
-
-void DepsgraphNodeBuilder::build_object_data_grease_pencil(Object *object)
-{
-  GreasePencil &grease_pencil = *id_cast<GreasePencil *>(object->data);
-  /* Build the layer parents. */
-  for (const bke::greasepencil::Layer *layer : grease_pencil.layers()) {
-    Object *parent = layer->parent;
-    if (parent == nullptr) {
-      continue;
-    }
-    build_object(-1, parent, DEG_ID_LINKED_INDIRECTLY, false);
-  }
-  build_object_data_geometry(object);
 }
 
 void DepsgraphNodeBuilder::build_object_data_speaker(Object *object)
@@ -1890,17 +1856,6 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
                                    [obdata_cow](blender::Depsgraph *depsgraph) {
                                      BKE_volume_eval_geometry(depsgraph,
                                                               id_cast<Volume *>(obdata_cow));
-                                   });
-      op_node->set_as_entry();
-      break;
-    }
-    case ID_GP: {
-      op_node = add_operation_node(obdata,
-                                   NodeType::GEOMETRY,
-                                   OperationCode::GEOMETRY_EVAL,
-                                   [obdata_cow](blender::Depsgraph *depsgraph) {
-                                     BKE_grease_pencil_eval_geometry(
-                                         depsgraph, reinterpret_cast<GreasePencil *>(obdata_cow));
                                    });
       op_node->set_as_entry();
       break;

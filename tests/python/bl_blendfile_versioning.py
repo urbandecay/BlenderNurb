@@ -82,10 +82,6 @@ class TestBlendFileOpenLinkSaveAllTestFiles(TestHelper):
             #         '/home/guest/blender/main/build_main_release/tests/blendfile_io/data_files/icosphere.obj'"
             "import_obj.blend",
 
-            # grease_pencil/grease_pencil_paper_pig.blend
-            # Error: on save and/or reload, creates memleaks.
-            "grease_pencil_paper_pig.blend",
-
             # modeling/geometry_nodes/import/import_ply.blend
             # Error: on reload, 'read_ply_to_mesh: PLY Importer: icosphere: Invalid PLY header.'
             "import_ply.blend",

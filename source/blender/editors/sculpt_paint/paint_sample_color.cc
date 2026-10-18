@@ -49,7 +49,6 @@
 #include "IMB_imbuf_types.hh"
 #include "IMB_interp.hh"
 
-#include "ED_grease_pencil.hh"
 #include "ED_image.hh"
 #include "ED_screen.hh"
 #include "ED_view3d.hh"
@@ -569,8 +568,7 @@ static bool sample_color_poll(bContext *C)
     return false;
   }
   return (image_paint_poll_ignore_tool(C) || vertex_paint_poll_ignore_tool(C) ||
-          sculpt_mode_poll(C) || ed::greasepencil::grease_pencil_painting_poll(C) ||
-          ed::greasepencil::grease_pencil_vertex_painting_poll(C));
+          sculpt_mode_poll(C));
 }
 
 void PAINT_OT_sample_color(wmOperatorType *ot)

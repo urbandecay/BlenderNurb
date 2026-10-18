@@ -2797,30 +2797,6 @@ RenderPass *RE_pass_find_by_name(RenderLayer *rl, const char *name, const char *
   return nullptr;
 }
 
-RenderPass *RE_create_gp_pass(RenderResult *rr, const char *layername, const char *viewname)
-{
-  RenderLayer *rl = RE_GetRenderLayer(rr, layername);
-  /* only create render layer if not exist */
-  if (!rl) {
-    rl = MEM_new<RenderLayer>(layername);
-    BLI_addtail(&rr->layers, rl);
-    STRNCPY(rl->name, layername);
-    rl->layflag = SCE_LAY_SOLID;
-    rl->passflag = SCE_PASS_COMBINED;
-    rl->rectx = rr->rectx;
-    rl->recty = rr->recty;
-  }
-
-  /* Clear previous pass if exist or the new image will be over previous one. */
-  RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_COMBINED, viewname);
-  if (rp) {
-    IMB_freeImBuf(rp->ibuf);
-    BLI_freelinkN(&rl->passes, rp);
-  }
-  /* create a totally new pass */
-  return render_layer_add_pass(rr, rl, 4, RE_PASSNAME_COMBINED, viewname, "RGBA", true);
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */

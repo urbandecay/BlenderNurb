@@ -217,8 +217,7 @@ static void root_catalogs_draw(const bContext *C, Menu *menu)
              OB_CURVES_LEGACY,
              OB_FONT,
              OB_SURF,
-             OB_VOLUME,
-             OB_GREASE_PENCIL))
+             OB_VOLUME))
     {
       menus.add_new("Generate");
     }

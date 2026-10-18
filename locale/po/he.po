@@ -207,16 +207,6 @@ msgstr "תומוקע"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "הנומת"
 
@@ -613,10 +603,6 @@ msgstr "םילוקיע"
 
 msgid "Hair Curves"
 msgstr "רעיש ילוקיע"
-
-
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgid "Collections"
@@ -1095,29 +1081,14 @@ msgid "Vertex Color"
 msgstr "דוקדוק עבצ"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "בצמ"
-
-
 msgctxt "Brush"
 msgid "Direction"
 msgstr "ןוויכ"
 
 
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "סוידר"
-
-
 msgctxt "Amount"
 msgid "Smooth"
 msgstr "קלח"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "המצוע"
 
 
 msgid "Saturation"
@@ -1663,22 +1634,6 @@ msgid "Tool Header"
 msgstr "ילכ תרתוכ"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Grease Pencil תבכש"
-
-
-msgid "Grease Pencil Layer Group"
-msgstr "Grease Pencil תובכש תצובק"
-
-
-msgid "Grease Pencil Group"
-msgstr "Grease Pencil תצובק"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Grease Pencil תובכש"
-
-
 msgid "Red Green Blue"
 msgstr "לוחכ קורי םודא"
 
@@ -1717,11 +1672,6 @@ msgstr "ירודכ"
 
 
 msgctxt "Curves"
-msgid "Smooth"
-msgstr "קלח"
-
-
-msgctxt "GPencil"
 msgid "Smooth"
 msgstr "קלח"
 
@@ -1774,14 +1724,6 @@ msgstr "ביתנ"
 
 msgid "Mean"
 msgstr "עצוממ"
-
-
-msgid "Grease Pencil layer groups"
-msgstr "Grease Pencil תובכש תוצובק"
-
-
-msgid "Grease Pencil layers"
-msgstr "Grease Pencil תובכש"
 
 
 msgid "Show Cone"
@@ -2153,10 +2095,6 @@ msgid "Switch to this object mode when activating the workspace"
 msgstr "לעפומ הז הדובע בחרמ רשאכ טקייבוא בצמל רבעה"
 
 
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Grease Pencil‭ לוסיפ בצמ"
-
-
 msgid "Screen layouts of a workspace"
 msgstr "הדובע תביבס לש ךסמ תוסירפ"
 
@@ -2231,10 +2169,6 @@ msgstr "קלח"
 
 msgid "Calculate Holes"
 msgstr "םירוח בשח"
-
-
-msgid "Grease Pencil Color"
-msgstr "Grease Pencil יאבצ"
 
 
 msgid "Face Data"
@@ -2985,10 +2919,6 @@ msgid "Force Field"
 msgstr "חוכ הדש"
 
 
-msgid "Grease Pencil Sculpt"
-msgstr "Grease Pencil לוסיפ"
-
-
 msgid "Only Locations"
 msgstr "דבלב םימוקימ"
 
@@ -3015,11 +2945,6 @@ msgstr "האיגש תעדוה"
 
 msgid "Cancel"
 msgstr "לוטיב"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "WindowManager"
@@ -3231,11 +3156,6 @@ msgstr "רודכ"
 
 msgid "Profile Shape"
 msgstr "ליפורפ תרוצ"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "ןזוס"
 
 
 msgid "Vertex select needs to be enabled in weight paint mode"

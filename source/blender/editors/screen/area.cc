@@ -2147,14 +2147,6 @@ static void ed_default_handlers(wmWindowManager *wm,
   }
 
   /* Keep last because of LMB/RMB handling, see: #57527. */
-  if (flag & ED_KEYMAP_GPENCIL) {
-    /* grease pencil */
-    {
-      wmKeyMap *keymap = WM_keymap_ensure(
-          wm->runtime->defaultconf, "Grease Pencil", SPACE_EMPTY, RGN_TYPE_WINDOW);
-      WM_event_add_keymap_handler(handlers, keymap);
-    }
-  }
 }
 
 void ED_area_update_region_sizes(wmWindowManager *wm, wmWindow *win, ScrArea *area)

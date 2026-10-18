@@ -49,7 +49,6 @@ struct MovieClip;
 struct Object;
 struct Scene;
 struct World;
-struct bGPdata;
 struct bNodeTree;
 struct KeyingSet;
 struct TransformOrientation;
@@ -994,7 +993,6 @@ struct RenderData {
   /* Render simplify. */
   short simplify_subsurf = 6;
   short simplify_subsurf_render = 0;
-  short simplify_gpencil = 0;
   float simplify_particles = 1.0f;
   float simplify_particles_render = 0;
   float simplify_volumes = 1.0f;
@@ -1534,35 +1532,6 @@ struct UvSculpt {
   char _pad[7] = {};
 };
 
-/** Grease pencil drawing brushes. */
-struct GpPaint {
-  Paint paint;
-  int flag = 0;
-  /** Mode of paint (Materials or Vertex Color). */
-  int mode = 0;
-};
-
-/** Grease pencil vertex paint. */
-struct GpVertexPaint {
-  Paint paint;
-  int flag = 0;
-  char _pad[4] = {};
-};
-
-/** Grease pencil sculpt paint. */
-struct GpSculptPaint {
-  Paint paint;
-  int flag = 0;
-  char _pad[4] = {};
-};
-
-/** Grease pencil weight paint. */
-struct GpWeightPaint {
-  Paint paint;
-  int flag = 0;
-  char _pad[4] = {};
-};
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1577,132 +1546,6 @@ struct VPaint {
 };
 
 /** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Grease-Pencil Stroke Sculpting
- * \{ */
-
-/** #GP_Sculpt_Settings::lock_axis */
-enum eGP_Lockaxis_Types : int {
-  GP_LOCKAXIS_VIEW = 0,
-  GP_LOCKAXIS_X = 1,
-  GP_LOCKAXIS_Y = 2,
-  GP_LOCKAXIS_Z = 3,
-  GP_LOCKAXIS_CURSOR = 4,
-};
-
-/** #GP_Sculpt_Settings::flag */
-enum eGP_Sculpt_SettingsFlag : int {
-  /** Enable falloff for multi-frame editing. */
-  GP_SCULPT_SETT_FLAG_FRAME_FALLOFF = (1 << 0),
-  /** Apply primitive curve. */
-  GP_SCULPT_SETT_FLAG_PRIMITIVE_CURVE = (1 << 1),
-  /** Scale thickness. */
-  GP_SCULPT_SETT_FLAG_SCALE_THICKNESS = (1 << 3),
-  /** Stroke Auto-Masking for sculpt. */
-  GP_SCULPT_SETT_FLAG_AUTOMASK_STROKE = (1 << 4),
-  /** Stroke Layer Auto-Masking for sculpt. */
-  GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_STROKE = (1 << 5),
-  /** Stroke Material Auto-Masking for sculpt. */
-  GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_STROKE = (1 << 6),
-  /** Active Layer Auto-Masking for sculpt. */
-  GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_ACTIVE = (1 << 7),
-  /** Active Material Auto-Masking for sculpt. */
-  GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_ACTIVE = (1 << 8),
-};
-ENUM_OPERATORS(eGP_Sculpt_SettingsFlag)
-
-/** #GP_Sculpt_Settings::gpencil_selectmode_sculpt */
-enum eGP_Sculpt_SelectMaskFlag : char {
-  /** Only affect selected points. */
-  GP_SCULPT_MASK_SELECTMODE_POINT = (1 << 0),
-  /** Only affect selected strokes. */
-  GP_SCULPT_MASK_SELECTMODE_STROKE = (1 << 1),
-  /** Only affect selected segments. */
-  GP_SCULPT_MASK_SELECTMODE_SEGMENT = (1 << 2),
-};
-ENUM_OPERATORS(eGP_Sculpt_SelectMaskFlag)
-
-/** #GP_Sculpt_Settings::gpencil_selectmode_vertex */
-enum eGP_Vertex_SelectMaskFlag : char {
-  /** Only affect selected points. */
-  GP_VERTEX_MASK_SELECTMODE_POINT = (1 << 0),
-  /** Only affect selected strokes. */
-  GP_VERTEX_MASK_SELECTMODE_STROKE = (1 << 1),
-  /** Only affect selected segments. */
-  GP_VERTEX_MASK_SELECTMODE_SEGMENT = (1 << 2),
-};
-ENUM_OPERATORS(eGP_Vertex_SelectMaskFlag)
-
-/** #GP_Interpolate_Settings::flag */
-enum eGP_Interpolate_SettingsFlag : short {
-  /** Apply interpolation to all layers. */
-  GP_TOOLFLAG_INTERPOLATE_ALL_LAYERS = (1 << 0),
-  /** Apply interpolation to only selected. */
-  GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED = (1 << 1),
-  /** Exclude breakdown keyframe type as extreme. */
-  GP_TOOLFLAG_INTERPOLATE_EXCLUDE_BREAKDOWNS = (1 << 2),
-};
-ENUM_OPERATORS(eGP_Interpolate_SettingsFlag)
-
-/** #GP_Interpolate_Settings::type */
-enum eGP_Interpolate_Type : short {
-  /** Traditional Linear Interpolation. */
-  GP_IPO_LINEAR = 0,
-
-  /** CurveMap Defined Interpolation. */
-  GP_IPO_CURVEMAP = 1,
-
-  /* Easing Equations. */
-  GP_IPO_BACK = 3,
-  GP_IPO_BOUNCE = 4,
-  GP_IPO_CIRC = 5,
-  GP_IPO_CUBIC = 6,
-  GP_IPO_ELASTIC = 7,
-  GP_IPO_EXPO = 8,
-  GP_IPO_QUAD = 9,
-  GP_IPO_QUART = 10,
-  GP_IPO_QUINT = 11,
-  GP_IPO_SINE = 12,
-};
-
-/** Settings for a GPencil Speed Guide. */
-struct GP_Sculpt_Guide {
-  char use_guide = 0;
-  char use_snapping = 0;
-  char reference_point = 0;
-  char type = 0;
-  char _pad2[4] = {};
-  float angle = 0;
-  float angle_snap = 0;
-  float spacing = 20.0f;
-  float location[3] = {};
-  struct Object *reference_object = nullptr;
-};
-
-/** GPencil Stroke Sculpting Settings. */
-struct GP_Sculpt_Settings {
-  /** Runtime. */
-  void *paintcursor = nullptr;
-  eGP_Sculpt_SettingsFlag flag = {};
-  /** Lock drawing to one axis. */
-  eGP_Lockaxis_Types lock_axis = GP_LOCKAXIS_VIEW;
-  /** Threshold for intersections. */
-  float isect_threshold = 0;
-  char _pad[4] = {};
-  /** Multi-frame edit falloff effect by frame. */
-  struct CurveMapping *cur_falloff = nullptr;
-  /** Curve used for primitive tools. */
-  struct CurveMapping *cur_primitive = nullptr;
-  /** Guides used for paint tools. */
-  struct GP_Sculpt_Guide guide;
-};
-
-/** Settings for GP Interpolation Operators. */
-struct GP_Interpolate_Settings {
-  /** Custom interpolation curve (for use with GP_IPO_CURVEMAP). */
-  struct CurveMapping *custom_ipo = nullptr;
-};
 
 /** #CurvePaintSettings::flag */
 enum eCurvePaint_Flag : char {
@@ -1960,13 +1803,6 @@ enum eTool_UvSculptFlag : int {
 };
 ENUM_OPERATORS(eTool_UvSculptFlag)
 
-/** #GpPaint::flag */
-enum eGpPaint_Flag : int {
-  GPPAINT_FLAG_USE_MATERIAL = 0,
-  GPPAINT_FLAG_USE_VERTEXCOLOR = 1,
-};
-ENUM_OPERATORS(eGpPaint_Flag)
-
 /** #VPaint::flag */
 enum eVPaint_Flag : char {
   /** Weight paint only. */
@@ -2115,87 +1951,6 @@ enum eTool_UvSticky : char {
   UV_STICKY_VERT = 2,
 };
 
-/** #ToolSettings::gpencil_flags */
-enum eGPencil_Flags : char {
-  /** Enables multi-frame editing. */
-  GP_USE_MULTI_FRAME_EDITING = (1 << 0),
-  /** When creating new frames, the last frame gets used as the basis for the new one. */
-  GP_TOOL_FLAG_RETAIN_LAST = (1 << 1),
-  /** Add the strokes below all strokes in the layer. */
-  GP_TOOL_FLAG_PAINT_ONBACK = (1 << 2),
-  /** Show compact list of colors. */
-  GP_TOOL_FLAG_THUMBNAIL_LIST = (1 << 3),
-  /** Generate weight data for new strokes. */
-  GP_TOOL_FLAG_CREATE_WEIGHTS = (1 << 4),
-  /** Auto-merge with last stroke. */
-  GP_TOOL_FLAG_AUTOMERGE_STROKE = (1 << 5),
-};
-ENUM_OPERATORS(eGPencil_Flags)
-
-/** #Scene::r.simplify_gpencil */
-enum eGPencil_SimplifyFlags : short {
-  /** Simplify. */
-  SIMPLIFY_GPENCIL_ENABLE = (1 << 0),
-  /** Simplify on play. */
-  SIMPLIFY_GPENCIL_ON_PLAY = (1 << 1),
-  /** Simplify fill on viewport. */
-  SIMPLIFY_GPENCIL_FILL = (1 << 2),
-  /** Simplify modifier on viewport. */
-  SIMPLIFY_GPENCIL_MODIFIER = (1 << 3),
-  /** Simplify Shader FX. */
-  SIMPLIFY_GPENCIL_FX = (1 << 5),
-  /** Simplify layer tint. */
-  SIMPLIFY_GPENCIL_TINT = (1 << 7),
-  /** Simplify Anti-aliasing. */
-  SIMPLIFY_GPENCIL_AA = (1 << 8),
-};
-ENUM_OPERATORS(eGPencil_SimplifyFlags)
-
-/** `ToolSettings.gpencil_*_align` - Stroke Placement mode flags. */
-enum eGPencil_Placement_Flags : char {
-  /** New strokes are added in viewport/data space (i.e. not screen space). */
-  GP_PROJECT_VIEWSPACE = (1 << 0),
-
-  // /** Viewport space, but relative to render canvas (Sequencer Preview Only) */
-  // GP_PROJECT_CANVAS = (1 << 1), /* UNUSED */
-
-  /** Project into the screen's Z values. */
-  GP_PROJECT_DEPTH_VIEW = (1 << 2),
-  GP_PROJECT_DEPTH_STROKE = (1 << 3),
-
-  /** "Use Endpoints". */
-  GP_PROJECT_DEPTH_STROKE_ENDPOINTS = (1 << 4),
-  GP_PROJECT_CURSOR = (1 << 5),
-  GP_PROJECT_DEPTH_STROKE_FIRST = (1 << 6),
-
-  /** Surface project, "Only project on selected objects". */
-  GP_PROJECT_DEPTH_ONLY_SELECTED = static_cast<char>(1 << 7),
-};
-ENUM_OPERATORS(eGPencil_Placement_Flags)
-
-/** #ToolSettings::gpencil_selectmode */
-enum eGPencil_Selectmode_types : char {
-  GP_SELECTMODE_POINT = 0,
-  GP_SELECTMODE_STROKE = 1,
-  GP_SELECTMODE_SEGMENT = 2,
-};
-
-/** #ToolSettings::gpencil_guide_types */
-enum eGPencil_GuideTypes : char {
-  GP_GUIDE_CIRCULAR = 0,
-  GP_GUIDE_RADIAL = 1,
-  GP_GUIDE_PARALLEL = 2,
-  GP_GUIDE_GRID = 3,
-  GP_GUIDE_ISO = 4,
-};
-
-/** #ToolSettings::gpencil_guide_references */
-enum eGPencil_Guide_Reference : char {
-  GP_GUIDE_REF_CURSOR = 0,
-  GP_GUIDE_REF_CUSTOM = 1,
-  GP_GUIDE_REF_OBJECT = 2,
-};
-
 struct ToolSettings {
   DNA_DEFINE_CXX_METHODS(ToolSettings)
 
@@ -2206,14 +1961,6 @@ struct ToolSettings {
   Sculpt *sculpt = nullptr;
   /** UV smooth. */
   UvSculpt uvsculpt;
-  /** Gpencil paint. */
-  GpPaint *gp_paint = nullptr;
-  /** Gpencil vertex paint. */
-  GpVertexPaint *gp_vertexpaint = nullptr;
-  /** Gpencil sculpt paint. */
-  GpSculptPaint *gp_sculptpaint = nullptr;
-  /** Gpencil weight paint. */
-  GpWeightPaint *gp_weightpaint = nullptr;
   /** Curves sculpt. */
   CurvesSculpt *curves_sculpt = nullptr;
 
@@ -2259,35 +2006,7 @@ struct ToolSettings {
   /** Runtime only. */
   short autoik_chainlen = 0;
 
-  /* Grease Pencil. */
-  /** Flags/options for how the tool works. */
-  eGPencil_Flags gpencil_flags = {};
-
-  /** Stroke placement settings: 3D View. */
-  eGPencil_Placement_Flags gpencil_v3d_align = GP_PROJECT_VIEWSPACE;
-  /** General 2D Editor. */
-  eGPencil_Placement_Flags gpencil_v2d_align = GP_PROJECT_VIEWSPACE;
-
-  /* Annotations. */
-  /** Stroke placement settings - 3D View. */
-  eGPencil_Placement_Flags annotate_v3d_align = GP_PROJECT_VIEWSPACE | GP_PROJECT_CURSOR;
-  /** Default stroke thickness for annotation strokes. */
-  short annotate_thickness = 3;
-
-  /** Normal offset used when drawing on surfaces. */
-  float gpencil_surface_offset = 0;
-
-  /** Stroke selection mode for Edit. */
-  eGPencil_Selectmode_types gpencil_selectmode_edit = GP_SELECTMODE_POINT;
-  /** Stroke selection mode for Sculpt. */
-  eGP_Sculpt_SelectMaskFlag gpencil_selectmode_sculpt = {};
   char _pad0[6] = {};
-
-  /** Grease Pencil Sculpt. */
-  struct GP_Sculpt_Settings gp_sculpt;
-
-  /** Grease Pencil Interpolation Tool(s). */
-  struct GP_Interpolate_Settings gp_interpolate;
 
   /** Image Paint (8 bytes aligned please!). */
   struct ImagePaintSettings imapaint;
@@ -2369,9 +2088,6 @@ struct ToolSettings {
   eTool_WeightUser weightuser = OB_DRAW_GROUPUSER_ACTIVE;
   /** Subset selection filter in wpaint. */
   eVGroupSelect vgroupsubset = WT_VGROUP_ALL;
-
-  /** Stroke selection mode for Vertex Paint. */
-  eGP_Vertex_SelectMaskFlag gpencil_selectmode_vertex = {};
 
   /* UV painting. */
   char uv_sculpt_settings = 0;
@@ -2720,13 +2436,6 @@ struct SceneEEVEE {
   float light_threshold = 0.01f;
 };
 
-struct SceneGpencil {
-  float smaa_threshold = 1.0f;
-  float smaa_threshold_render = 0.25f;
-  int aa_samples = 8;
-  int motion_blur_steps = 8;
-};
-
 /** #SceneHydra->export_method */
 enum eSceneHydra_ExportMethod : int {
   SCE_HYDRA_EXPORT_HYDRA = 0,
@@ -2871,9 +2580,6 @@ struct Scene {
   /* Units. */
   struct UnitSettings unit;
 
-  /** Grease Pencil - Annotations. */
-  struct bGPdata *gpd = nullptr;
-
   /* Movie Tracking. */
   /** Active movie clip. */
   struct MovieClip *clip = nullptr;
@@ -2916,7 +2622,6 @@ struct Scene {
 
   struct SceneDisplay display;
   struct SceneEEVEE eevee;
-  struct SceneGpencil grease_pencil_settings;
   struct SceneHydra hydra;
 
   bke::SceneRuntime *runtime = nullptr;

@@ -18,8 +18,6 @@ set(INC
   ../compositor/shaders/infos
   ../draw/engines/eevee
   ../draw/engines/eevee/shaders/infos
-  ../draw/engines/gpencil
-  ../draw/engines/gpencil/shaders/infos
   ../draw/engines/image/shaders/infos
   ../draw/engines/overlay/shaders/infos
   ../draw/engines/select
@@ -501,7 +499,6 @@ set(GLSL_SRC
   shaders/infos/gpu_shader_3D_smooth_color_infos.hh
   shaders/infos/gpu_shader_3D_uniform_color_infos.hh
   shaders/infos/gpu_shader_fullscreen_infos.hh
-  shaders/infos/gpu_shader_gpencil_stroke_infos.hh
   shaders/infos/gpu_shader_icon_infos.hh
   shaders/infos/gpu_shader_index_infos.hh
   shaders/infos/gpu_shader_keyframe_shape_infos.hh
@@ -733,8 +730,6 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_voronoi.glsl
   shaders/material/gpu_shader_material_wireframe.glsl
 
-  shaders/gpu_shader_gpencil_stroke_vert.glsl
-  shaders/gpu_shader_gpencil_stroke_frag.glsl
 
   shaders/gpu_shader_display_fallback_vert.glsl
   shaders/gpu_shader_display_fallback_frag.glsl

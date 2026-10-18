@@ -28,7 +28,6 @@
 #include "BKE_lib_remap.hh"
 #include "BKE_modifier.hh"
 #include "BKE_screen.hh"
-#include "BKE_shader_fx.hh"
 
 #include "BLT_translation.hh"
 
@@ -178,7 +177,7 @@ void ED_buttons_visible_tabs_menu(bContext *C, ui::Layout *layout, void * /*arg*
       "show_properties_output",      "show_properties_view_layer",
       "show_properties_scene",       "show_properties_world",
       "show_properties_collection",  "show_properties_object",
-      "show_properties_modifiers",   "show_properties_effects",
+      "show_properties_modifiers",
       "show_properties_particles",   "show_properties_physics",
       "show_properties_constraints", "show_properties_data",
       "show_properties_bone",        "show_properties_bone_constraints",
@@ -233,7 +232,6 @@ Vector<eSpaceButtons_Context> ED_buttons_tabs_list(const SpaceProperties *sbuts,
 
   add_tab(BCONTEXT_OBJECT);
   add_tab(BCONTEXT_MODIFIER);
-  add_tab(BCONTEXT_SHADERFX);
   add_tab(BCONTEXT_PARTICLE);
   add_tab(BCONTEXT_PHYSICS);
   add_tab(BCONTEXT_CONSTRAINT);
@@ -285,8 +283,6 @@ static const char *buttons_main_region_context_string(const short mainb)
       return "bone";
     case BCONTEXT_MODIFIER:
       return "modifier";
-    case BCONTEXT_SHADERFX:
-      return "shaderfx";
     case BCONTEXT_CONSTRAINT:
       return "constraint";
     case BCONTEXT_BONE_CONSTRAINT:
@@ -798,9 +794,6 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
           buttons_area_redraw(area, BCONTEXT_CONSTRAINT);
           buttons_area_redraw(area, BCONTEXT_BONE_CONSTRAINT);
           break;
-        case ND_SHADERFX:
-          buttons_area_redraw(area, BCONTEXT_SHADERFX);
-          break;
         case ND_PARTICLE:
           if (wmn->action == NA_EDITED) {
             buttons_area_redraw(area, BCONTEXT_PARTICLE);
@@ -903,16 +896,6 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
             ED_area_tag_redraw(area);
           }
           break;
-      }
-      break;
-    case NC_GPENCIL:
-      if (wmn->data == ND_DATA) {
-        if (ELEM(wmn->action, NA_EDITED, NA_ADDED, NA_REMOVED, NA_SELECTED, NA_RENAME)) {
-          ED_area_tag_redraw(area);
-        }
-      }
-      else if (wmn->action == NA_EDITED) {
-        ED_area_tag_redraw(area);
       }
       break;
     case NC_NODE:
@@ -1119,15 +1102,6 @@ void ED_spacetype_buttons()
     const ModifierTypeInfo *mti = BKE_modifier_get_info(ModifierType(i));
     if (mti != nullptr && mti->panel_register != nullptr) {
       mti->panel_register(art);
-    }
-  }
-  for (int i = 0; i < NUM_SHADER_FX_TYPES; i++) {
-    if (i == eShaderFxType_Light_deprecated) {
-      continue;
-    }
-    const ShaderFxTypeInfo *fxti = BKE_shaderfx_get_info(ShaderFxType(i));
-    if (fxti != nullptr && fxti->panel_register != nullptr) {
-      fxti->panel_register(art);
     }
   }
   /* Register the panel types from strip modifiers. The actual panels are built per strip modifier

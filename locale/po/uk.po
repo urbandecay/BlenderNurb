@@ -308,11 +308,6 @@ msgstr "Шрифт"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Нарисний олівець"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Зображення"
 
@@ -899,10 +894,6 @@ msgid "Hide"
 msgstr "Схов"
 
 
-msgid "Set annotation Visibility"
-msgstr "Задати Видимість анотації"
-
-
 msgid "After Color"
 msgstr "Колір Після"
 
@@ -995,16 +986,8 @@ msgid "Thickness"
 msgstr "Товщина"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Товщина штрихів анотацій"
-
-
 msgid "Onion Skinning"
 msgstr "Покривання Калькою"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "Показати покриви кальки анотацій перед та після поточного кадру"
 
 
 msgid "Active Layer Index"
@@ -1013,10 +996,6 @@ msgstr "Індекс активного шару"
 
 msgid "Active Note"
 msgstr "Активна Нотатка"
-
-
-msgid "Note/Layer to add annotation strokes to"
-msgstr "Нотатка/Шар для додання штрихів анотації"
 
 
 msgid "Default"
@@ -1399,10 +1378,6 @@ msgid "Show Action data-blocks"
 msgstr "Показ блоків даних Дії"
 
 
-msgid "Annotations"
-msgstr "Анотації"
-
-
 msgid "Armatures"
 msgstr "Арматури"
 
@@ -1449,10 +1424,6 @@ msgstr "Шрифти"
 
 msgid "Show Font data-blocks"
 msgstr "Показ блоків даних Шрифту"
-
-
-msgid "Grease Pencil"
-msgstr "Нарисний олівець"
 
 
 msgid "Collections"
@@ -2255,10 +2226,6 @@ msgid "Action data-blocks"
 msgstr "Блоки даних дій"
 
 
-msgid "Annotation"
-msgstr "Анотація"
-
-
 msgid "Armature data-blocks"
 msgstr "Блоки даних арматур"
 
@@ -2533,10 +2500,6 @@ msgstr "Основні шрифти"
 
 msgid "Collection of fonts"
 msgstr "Колекція шрифтів"
-
-
-msgid "Main Grease Pencils"
-msgstr "Основні нарисні олівці"
 
 
 msgid "Main Images"
@@ -3778,10 +3741,6 @@ msgid "Minimum Distance"
 msgstr "Найменша відстань"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Параметри пензля нарисного олівця"
-
-
 msgid "Active Smooth"
 msgstr "Активне Згладжування"
 
@@ -4049,11 +4008,6 @@ msgstr "Повтори"
 
 msgid "Number of times to smooth newly created strokes"
 msgstr "Кількість разів згладження новостворених штрихів"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Інтенсивність"
 
 
 msgid "Color strength for new strokes (affect alpha factor of color)"
@@ -8516,14 +8470,6 @@ msgstr "Згорнути підсумок"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "Згорнути зведення при показі так, щоб всі інші канали були приховані (лише для Аркушів експозицій)"
-
-
-msgid "Display Grease Pencil"
-msgstr "Показ Нарисного Олівця"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Включати візуалізацію Нарисного Олівця залежно від даних та кадрів анімації"
 
 
 msgid "Display Hair"
@@ -13584,20 +13530,8 @@ msgid "Keep the computed view map and avoid recalculating it if mesh geometry is
 msgstr "Зберігати розраховану розкладку вигляду і уникати повторного розрахунку, якщо геометрія сіті не змінилась"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Параметри інтерполяції Нарисного олівця"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Параметри для інструментів інтерполяції Нарисного олівця"
-
-
 msgid "Interpolation Curve"
 msgstr "Крива інтерполяції"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Нетипова крива для керування інтерполяцією 'відеоряду' між кадрами Нарисного олівця"
 
 
 msgid "Guides for drawing"
@@ -13700,14 +13634,6 @@ msgid "Enable snapping to guides angle or spacing options"
 msgstr "Увімкнення підхоплення для опції кута та інтервалу напрямних"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "Параметри ліпки нарисного олівця"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "Загальні властивості для засобів ліплення штриха Нарисного Олівця"
-
-
 msgid "Threshold for stroke intersections"
 msgstr "Поріг для перетину штрихів"
 
@@ -13746,10 +13672,6 @@ msgstr "Проєктувати штрихи на площину блокован
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "Вирівняти штрихи за поточною орієнтацією 3D-курсора"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "Нетипова крива для керування спадом впливу пензля по кадрах Нарисного Олівця"
 
 
 msgid "Custom curve to control primitive thickness"
@@ -14066,10 +13988,6 @@ msgid "Reference"
 msgstr "Орієнтир"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Кадр нарисного олівця"
-
-
 msgid "Type of keyframe"
 msgstr "Тип ключкадру"
 
@@ -14094,14 +14012,6 @@ msgid "A filler or baked keyframe for keying on ones, or some other purpose as n
 msgstr "Заповнювач або запечений ключовий кадр для особливих цілей"
 
 
-msgid "Grease Pencil Frames"
-msgstr "Кадри нарисних олівців"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Шари Маскування Нарисного Олівця"
-
-
 msgid "List of Mask Layers"
 msgstr "Список Шарів Маски"
 
@@ -14116,10 +14026,6 @@ msgstr "Інвертувати маску"
 
 msgid "Mask layer name"
 msgstr "Назва шару маски"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Шари Маски Нарисного Олівця"
 
 
 msgid "Active Layer Mask Index"
@@ -14156,10 +14062,6 @@ msgstr "Початковий кадр"
 
 msgid "Display onion skins before and after the current frame"
 msgstr "Показати покриви кальки перед та після поточного кадру"
-
-
-msgid "Grease Pencil Layer"
-msgstr "Шар нарисного олівця"
 
 
 msgid "Blend Mode"
@@ -14224,14 +14126,6 @@ msgstr "Шар Огляду"
 
 msgid "Only include Layer in this View Layer render output (leave blank to include always)"
 msgstr "Включає лише Шар у вивід рендера цього Шару Огляду (залиште порожнім для включання завжди)"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Шари нарисного олівця"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Активний шар Нарисного Олівця"
 
 
 msgid "Statistical view of the levels of color in an image"
@@ -14377,10 +14271,6 @@ msgstr "Мітки пози"
 
 msgid "Markers specific to this action, for labeling poses"
 msgstr "Мітки, специфічні для даної дії, для маркування поз"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "Блокнот для нарисів та нотаток"
 
 
 msgid "Animation data for this data-block"
@@ -14964,10 +14854,6 @@ msgstr "Обернути точки навколо серединної точк
 
 msgid "Pull points towards the midpoint of the brush"
 msgstr "Стягнути точки у напрямі центра пензля"
-
-
-msgid "Gpencil Settings"
-msgstr "Устави Нарисного Олівця"
 
 
 msgid "Draw"
@@ -17437,10 +17323,6 @@ msgid "Enable or disable textured strokes"
 msgstr "Увімкнути чи вимкнути текстурні штрихи"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Блоки даних нарисного олівця"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "Максимальна кількість кадрів для показу після поточного кадру (0 = не показувати жодні кадри після поточного)"
 
@@ -17471,10 +17353,6 @@ msgstr "Режим для показу кадрів"
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "Кадри в абсолютному діапазоні кадрів сцени"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "Кадри у відносному діапазоні ключкадрів Нарисного Олівця"
 
 
 msgid "Selected"
@@ -18434,14 +18312,6 @@ msgstr "Зміщення і вигинання"
 
 msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "Комбінація справжнього зміщення та розкладки вигинання для кращої детальності"
-
-
-msgid "Grease Pencil Settings"
-msgstr "Параметри Нарисного Олівця"
-
-
-msgid "Is Grease Pencil"
-msgstr "Є Нарисним Олівцем"
 
 
 msgid "Line Color"
@@ -19479,26 +19349,6 @@ msgstr "Малювання Текстур"
 
 msgid "Particle Edit"
 msgstr "Редагування Частинок"
-
-
-msgid "Edit Grease Pencil Strokes"
-msgstr "Редагувати Штрихи Нарисного Олівця"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Ліплення Штрихів Нарисного Олівця"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "Малювання Штрихів Нарисного Олівця"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "Малювання Вагомостей Штрихів Нарисного Олівця"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Малювання Вершин Штрихів Нарисного Олівця"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -21068,10 +20918,6 @@ msgid "Constant acceleration in a given direction"
 msgstr "Постійне прискорення в даному напрямі"
 
 
-msgid "Grease Pencil settings for the scene"
-msgstr "Устави Нарисного Олівця для сцени"
-
-
 msgid "NLA Tweak Mode"
 msgstr "Режим Підправлення НЛА"
 
@@ -22536,26 +22382,6 @@ msgstr "Блок даних робочого простору, що визнач
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "Перемикатися на цей режим об'єкта при активуванні цього робпростору"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Режим Редагування Нарисного Олівця"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Режим Ліплення Нарисного Олівця"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Рисування Нарисним Олівцем"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Малювання Вершин Нарисного Олівця"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "Малювання Вагомостей Нарисного Олівця"
 
 
 msgid "UI Tags"
@@ -26146,10 +25972,6 @@ msgid "Active Point"
 msgstr "Активна Точка"
 
 
-msgid "Grease Pencil Color"
-msgstr "Колір Нарисного Олівця"
-
-
 msgid "Alignment"
 msgstr "Вирівнювання"
 
@@ -26190,18 +26012,8 @@ msgid "Fill area with solid color"
 msgstr "Заповнити область суцільним кольором"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "Градієнт"
-
-
 msgid "Fill area with gradient color"
 msgstr "Заповнити область градієнтним кольором"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "Текстура"
 
 
 msgid "Fill area with image texture"
@@ -37141,16 +36953,6 @@ msgstr "Відкрити файл модуля стилю"
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "Додати Передуставу Пензля Нарисного Олівця"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "Додати Передуставу Матеріалу Нарисного Олівця"
-
-
-msgctxt "Operator"
 msgid "Execute a Python Preset"
 msgstr "Виконати передустановку Python"
 
@@ -39825,22 +39627,6 @@ msgid "Place markers across the whole frame"
 msgstr "Помістити мітки через весь кадр"
 
 
-msgid "Inside Annotated Area"
-msgstr "Всередині Анотованої Області"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "Розмістити маркери лише всередині областей, окреслених засобом Анотація"
-
-
-msgid "Outside Annotated Area"
-msgstr "Назовні Анотованої Області"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "Розмістити маркери лише назовні областей, окреслених засобом Анотація"
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "Пороговий рівень, щоб вважати деталь придатною для стеження"
 
@@ -41225,10 +41011,6 @@ msgstr "Зсув ребер"
 
 msgid "Sequence Slide"
 msgstr "Пересунути послідовність"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "Безпрозорість Нарисного Олівця"
 
 
 msgid "Set type of handles for selected control points"
@@ -43133,15 +42915,6 @@ msgid "Tweak the active gizmo"
 msgstr "Підправити активне гізмо"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Рисування Анотації"
-
-
-msgid "Make annotations on the active data"
-msgstr "Зробити позначки на активних даних"
-
-
 msgid "End Arrow Style"
 msgstr "Стиль Стрілки Кінця"
 
@@ -43222,10 +42995,6 @@ msgid "Eraser"
 msgstr "Гумка"
 
 
-msgid "Erase Annotation strokes"
-msgstr "Стирати штрихи Анотації"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "Фактор Стабілізатора Штриха"
 
@@ -43245,55 +43014,6 @@ msgstr "Затримка перед першим клацком замість �
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Видалити активний кадр"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "Видалити активний кадр для активного Шару Анотації"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "Додати Нову Анотацію"
-
-
-msgid "Add new Annotation data-block"
-msgstr "Додати новий блок даних Анотації"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "Відв'язання Анотації"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "Відв'язати активний блок даних Анотації"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Додати Новий Шар Анотації"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "Додати новий шар Анотації або примітки для активного блоку даних"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Перемістити Шар Анотації"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "Перемістити активний шар Анотації уверх/вниз у списку"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Вилучити Шар Анотації"
-
-
-msgid "Remove active Annotation layer"
-msgstr "Вилучити активний шар Анотації"
 
 
 msgctxt "Operator"
@@ -43694,15 +43414,6 @@ msgid "Step between generated frames"
 msgstr "Крок між генерованими кадрами"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Рисувати нарисним олівцем"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr "Рисувати новий штрих в активному об'єкті Нарисного Олівця"
-
-
 msgid "Apply brush normally"
 msgstr "Застосувати пензель стандартно"
 
@@ -43803,10 +43514,6 @@ msgid "Duplicate Strokes"
 msgstr "Дублювати штрихи"
 
 
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "Зробити копії вибраних штрихів Нарисного олівця та пересунути їх"
-
-
 msgctxt "Operator"
 msgid "Extrude Stroke Points"
 msgstr "Видавити Точки Штриха"
@@ -43820,11 +43527,6 @@ msgid "Extrude Stroke Points"
 msgstr "Видавити Точки Штриха"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "Заповнення Нарисним Олівцем"
-
-
 msgid "Fill with color the shape formed by strokes"
 msgstr "Заповнити кольором форму, утворювану штрихами"
 
@@ -43832,11 +43534,6 @@ msgstr "Заповнити кольором форму, утворювану ш�
 msgctxt "Operator"
 msgid "Insert Blank Frame"
 msgstr "Вставити порожній кадр"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "Інтерполяція Нарисного олівця"
 
 
 msgid "Flip Mode"
@@ -43868,10 +43565,6 @@ msgid "Interpolate Sequence"
 msgstr "Інтерполювати відеоряд"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "Генерувати 'між-кадри' для згладженого інтерполювання між кадрами Нарисного олівця"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "Кількість кадрів між генерованими інтерпольованими кадрами"
 
@@ -43894,10 +43587,6 @@ msgid "Duplicate Layer"
 msgstr "Дублювати шар"
 
 
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "Створити копію активного шару нарисного олівця"
-
-
 msgid "Empty Keyframes"
 msgstr "Порожні Ключкадри"
 
@@ -43916,10 +43605,6 @@ msgid "Hide Layer(s)"
 msgstr "Сховати шар(и)"
 
 
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "Сховати вибрані/невибрані шари Нарисного олівця"
-
-
 msgid "Hide unselected rather than selected layers"
 msgstr "Приховати не вибрані шари замість вибраних"
 
@@ -43931,10 +43616,6 @@ msgstr "Задіяти видимість"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "Блокувати усі шари"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "Заблоковувати усі шари нарисного олівця для запобігання випадковому їх модифікуванню"
 
 
 msgctxt "Operator"
@@ -43974,10 +43655,6 @@ msgid "Show All Layers"
 msgstr "Показати всі шари"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "Показати усі шари Нарисного Олівця"
-
-
 msgctxt "Operator"
 msgid "Isolate Material"
 msgstr "Ізолювати Матеріал"
@@ -43996,10 +43673,6 @@ msgid "Lock All Materials"
 msgstr "Блокувати Всі Матеріали"
 
 
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "Блокувати всі матеріали Нарисного Олівця для запобігання випадковому їх модифікуванню"
-
-
 msgid "Lock any material not used in any selected stroke"
 msgstr "Блокувати будь-який матеріал, що не використовується у жодному вибраному штриху"
 
@@ -44014,17 +43687,9 @@ msgid "Show All Materials"
 msgstr "Показ Усіх Матеріалів"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "Знесховати всі сховані матеріали Нарисного Олівця"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "Вибрати Матеріал"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "Вибрати/Зневибрати всі штрихи Нарисного Олівця, що використовують поточний матеріал"
 
 
 msgid "Unselect strokes"
@@ -44036,10 +43701,6 @@ msgid "Unlock All Materials"
 msgstr "Розблокувати Всі Матеріали"
 
 
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "Розблокувати всі матеріали Нарисного Олівця, щоб вони могли редагуватися"
-
-
 msgid "Move selected strokes to another layer"
 msgstr "Перемістити вибрані штрихи та інший шар"
 
@@ -44047,10 +43708,6 @@ msgstr "Перемістити вибрані штрихи та інший ша�
 msgctxt "Operator"
 msgid "Strokes Paint Mode Toggle"
 msgstr "Перемкнути Режим Малювання Штрихів"
-
-
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "Увійти/вийти з режиму малювання для штрихів Нарисного Олівця"
 
 
 msgid "Return to Previous Mode"
@@ -44080,31 +43737,6 @@ msgstr "Тип форми"
 
 msgid "Polyline"
 msgstr "Полілінія"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "Форма Коробкою Нарисного Олівця"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "Форма Кругом Нарисного Олівця"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "Форма Кривою Нарисного Олівця"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "Форма Лінією Нарисного Олівця"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "Форма Полілінією Нарисного Олівця"
 
 
 msgid "Bring to Front"
@@ -44139,10 +43771,6 @@ msgstr "Перепроктувати штрихи на геометрії сце
 msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "Перемкнути Режим Ліплення Штрихів"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "Увійти/Вийти з режимі ліплення для штрихів Нарисного Олівця"
 
 
 msgctxt "Operator"
@@ -44383,10 +44011,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "Перемкнути Режим Вершин Штрихів"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "Увійти/вийти з режиму малювання вершин для штрихів Нарисного Олівця"
-
-
 msgctxt "Operator"
 msgid "Weight Paint Sample Weight"
 msgstr "Вагомість вибірки при малюванні вагомостей"
@@ -44395,10 +44019,6 @@ msgstr "Вагомість вибірки при малюванні вагомо
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "Перемкнути Режим Вагомостей Штрихів"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "Увійти/Вийти з режиму малювання вагомостей для штрихів Нарисного Олівця"
 
 
 msgctxt "Operator"
@@ -49397,15 +49017,6 @@ msgid "Toggle object's force field"
 msgstr "Перемкнути силове поле об'єкта"
 
 
-msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Додати Нарисний Олівець"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "Додати об'єкт Нарисного Олівця у сцену"
-
-
 msgid "Create a simple stroke with basic colors"
 msgstr "Створити простий штрих з базовими кольорами"
 
@@ -49679,14 +49290,6 @@ msgstr "Копіювати Модифікатори"
 
 msgid "Replace Modifiers"
 msgstr "Замінити Модифікатори"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "Копіювати Ефекти Нарисного Олівця"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "Замінити Ефекти Нарисного Олівця"
 
 
 msgctxt "Operator"
@@ -50679,10 +50282,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "Дублювати ефект у тій самій позиції у стеку"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "Назва ефекту шейдера для редагування"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "Перемістити Вниз Ефект"
@@ -50712,11 +50311,6 @@ msgstr "Перемістити Уверх Ефект"
 
 msgid "Move effect up in the stack"
 msgstr "Перемістити ефект уверх у стеку"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "Вилучити Ефект Нарисного Олівця"
 
 
 msgctxt "Operator"
@@ -56808,14 +56402,6 @@ msgid "Force using this center value (when set)"
 msgstr "Змусити використання цього значення центру (коли задане)"
 
 
-msgid "Edit Grease Pencil"
-msgstr "Змінити нарисний олівець"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "Редагувати вибрані штрихи нарисного олівця"
-
-
 msgid "Use Snapping Options"
 msgstr "Вжити опції підхопу"
 
@@ -57342,15 +56928,6 @@ msgstr "Пізніше створити вручну (Одиночно)"
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "Створити драйвер тільки для цієї властивості та поки без призначення будь-який цілей для нього"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "Піпетка Нарисного Олівця"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "Вибірка кольору з Вікна Blender та створення матеріалу Нарисного Олівця"
 
 
 msgctxt "Operator"
@@ -60370,20 +59947,12 @@ msgid "Mirror brush across the Z axis"
 msgstr "Віддзеркалити пензель по осі Z"
 
 
-msgid "Grease Pencil Paint"
-msgstr "Малювання Нарисного Олівця"
-
-
 msgid "Paint Mode"
 msgstr "Режим Малювання"
 
 
 msgid "Paint using the active material base color"
 msgstr "Малювати за допомогою базового кольору активного матеріалу"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "Малювання Ліплення Нарисного Олівця"
 
 
 msgid "Image Paint"
@@ -61096,26 +60665,6 @@ msgstr "Вибірка значень пікселів під курсором"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Анотування"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Лінія Анотування"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Полігон Анотування"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Стирач Анотування"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "Підправлення"
 
@@ -61192,10 +60741,6 @@ msgstr "Устави матеріалу"
 
 msgid "Material Presets"
 msgstr "Передустави Матеріалів"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "Гнізда Матеріалів Нарисного Олівця"
 
 
 msgid "Backdrop"
@@ -63205,32 +62750,12 @@ msgid "The opacity of unselected F-Curves against the background of the Graph Ed
 msgstr "Безпрозорість невибраних Ф-кривих відносно фону Редактора графів"
 
 
-msgid "Annotation Default Color"
-msgstr "Стандартний Колір Анотації"
-
-
-msgid "Color of new annotation layers"
-msgstr "Колір нових шарів анотації"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "Радіус гумки нарисного олівця"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "Радіус пензля-гумки"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "Евклідова відстань нарисного олівця"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "Відстань, на яку слід пересунути мишу, щоб почав малюватися штрих"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "Манхеттенська відстань нарисного олівця"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -66397,10 +65922,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "Глобальний відсоток нащадкових частинок у ході рендерингу"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "Спростити рисування Нарисним Олівцем"
-
-
 msgid "Antialiasing"
 msgstr "Загладжування"
 
@@ -66415,10 +65936,6 @@ msgstr "Показ модифікаторів"
 
 msgid "Playback Only"
 msgstr "Лише Програвання"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "Спростити Нарисний Олівець лише у ході програвання анімації"
 
 
 msgid "Display Shader Effects"
@@ -67769,10 +67286,6 @@ msgid "Start distance of the volumetric effect"
 msgstr "Стартова відстань цього об'ємного ефекту"
 
 
-msgid "Grease Pencil Render"
-msgstr "Рендер Нарисного Олівця"
-
-
 msgid "Render settings"
 msgstr "Устави рендера"
 
@@ -67975,14 +67488,6 @@ msgstr "Сирцеві Зображення"
 
 msgid "Visualize cached raw images"
 msgstr "Візуалізувати кешовані сирцеві зображення"
-
-
-msgid "Show Annotation"
-msgstr "Показ Анотацій"
-
-
-msgid "Show annotations for this view"
-msgstr "Показувати анотації для цього огляду"
 
 
 msgid "Show Metadata"
@@ -68749,23 +68254,6 @@ msgid "Clip editor space data"
 msgstr "Дані простору редактора кліпів"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "Джерело Анотації"
-
-
-msgid "Where the annotation comes from"
-msgstr "Звідки походить анотація"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "Показувати блок даних анотації, який відноситься до відеокліпу"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "Показувати блок даних анотації, який відноситься до активної стежки"
-
-
 msgid "2D Cursor Location"
 msgstr "Положення 2D-курсора"
 
@@ -69150,10 +68638,6 @@ msgstr "Редактор ключів форми"
 
 msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "Змінити для активного об'єкта ключові кадри дій з ключами форм"
-
-
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "Змінити хронометраж усіх штрихів нарисного олівця у файлі"
 
 
 msgid "Edit timings for Mask Editor splines"
@@ -73297,18 +72781,6 @@ msgid "Face Orientation Front"
 msgstr "Перед Орієнтації Грані"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "Вершина нарисного олівця"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "Вибір вершин нарисного олівця"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "Розмір вершин нарисного олівця"
-
-
 msgid "Face Normal"
 msgstr "Нормаль грані"
 
@@ -73343,14 +72815,6 @@ msgstr "Вибраний об'єкт"
 
 msgid "Skin Root"
 msgstr "Корінь оболонки"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "Ключкадр Нарисного олівця"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "Колір для показу ключових кадрів Нарисного олівця"
 
 
 msgid "Vertex Group Unreferenced"
@@ -73477,24 +72941,12 @@ msgid "Stick stroke to the view"
 msgstr "Приклеїти штрих до огляду"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "Розміщення Штриха Анотації (3D Огляд)"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "Як штрихи анотації орієнтуються у 3D просторі"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "Рисувати штрих у локації 3D курсора"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "Приклеювати штрих до поверхонь"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "Товщина Штриха Анотації"
 
 
 msgid "Auto-Keying Mode"
@@ -73515,14 +72967,6 @@ msgstr "Використовується для визначення шляху 
 
 msgid "Threshold distance for Auto Merge"
 msgstr "Порогова відстань для Авто Злиття"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "Інтерполювати Нарисний олівець"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "Ліпка нарисного олівця"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -74374,10 +73818,6 @@ msgid "Strength of the fade effect"
 msgstr "Сила ефекту зникання"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "Безпрозорість зникання шару для шарів Нарисного Олівця, за винятком активного шару"
-
-
 msgid "Fade factor"
 msgstr "Фактор зникання"
 
@@ -74718,20 +74158,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "Показувати Лінії Редагування при редагуванні штрихів"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "Зникання Об'єктів Нарисного Олівця"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "Зникання Об'єктів Нарисного Олівця, за винятком активного"
-
-
 msgid "Fade Layers"
 msgstr "Зникання Шарів"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "Перемкнути зникання шарів Нарисного Олівця за винятком активного шару"
 
 
 msgid "Fade Objects"
@@ -75617,26 +75045,6 @@ msgstr "Засіб 3D Огляду: Трансформа"
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "Узагальнений Засіб: Анотування"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "Узагальнений Засіб: Лінія Анотування"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "Узагальнений Засіб: Багатобічник Анотування"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "Узагальнений Засіб: Стирач Анотування"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "Засіб 3D Огляду: Міряння"
 
@@ -75679,11 +75087,6 @@ msgstr "Ґратка"
 msgctxt "WindowManager"
 msgid "Font"
 msgstr "Шрифт"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Нарисний Олівець"
 
 
 msgctxt "WindowManager"
@@ -77167,10 +76570,6 @@ msgid "Data Source:"
 msgstr "Джерело Даних:"
 
 
-msgid "No annotation source"
-msgstr "Нема джерела анотації"
-
-
 msgctxt "Operator"
 msgid "Selection to Cursor"
 msgstr "Вибрання до Курсора"
@@ -78574,10 +77973,6 @@ msgid "Discontinuity (Euler) Filter"
 msgstr "Фільтр Переривчатості (Ейлер)"
 
 
-msgid "Grease Pencil Objects"
-msgstr "Об'єкти Нарисного Олівця"
-
-
 msgctxt "Operator"
 msgid "Box Select (Axis Range)"
 msgstr "Вибір Коробкою (Діапазон Осі)"
@@ -79699,10 +79094,6 @@ msgstr "Мітер Зовнішньо"
 
 msgid "Intersections"
 msgstr "Перетини"
-
-
-msgid "Annotation:"
-msgstr "Анотація:"
 
 
 msgid "Add cube to mesh interactively"
@@ -82339,10 +81730,6 @@ msgid "F-Curve visibility in Graph Editor"
 msgstr "Видимість Ф-кривої в Редакторі графів"
 
 
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "Шар Нарисного олівця видимий у вигляді"
-
-
 msgid "Enable F-Curve modifiers"
 msgstr "Увімкнути модифікатори Ф-Кривої"
 
@@ -82835,10 +82222,6 @@ msgstr "Неможливо намалювати штрих"
 
 msgid "Nothing to erase"
 msgstr "Нема нічого для стирання"
-
-
-msgid "Failed to find Annotation data to draw into"
-msgstr "Не вдалось знайти дані Анотації для рисування анотування"
 
 
 msgid "Active region not set"
@@ -83340,10 +82723,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Переглянути параметри частинок для пов'язання"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Переглянути дані нарисного пензля для пов'язання"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Переглянути відеокліп для пов'язання"
 
@@ -83406,11 +82785,6 @@ msgstr "Новий"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Новий"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Новий"
 

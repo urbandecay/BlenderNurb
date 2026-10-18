@@ -294,7 +294,7 @@ PYGETTEXT_KEYWORDS = (() +
     # This one is a tad more risky, but in practice would not expect a name/uid string parameter
     # (the second one in those functions) to ever have a comma in it, so think this is fine.
     tuple(PyGettextKeyword(("{}\\((?:[^,]+,){{2}}\\s*" + _msg_re + r"\s*(?:\)|,)").format(it))
-          for it in ("modifier_subpanel_register", "gpencil_modifier_subpanel_register")) +
+          for it in ("modifier_subpanel_register",)) +
 
     # Node socket declarations: context-less names.
     tuple(PyGettextKeyword((r"\.{}(?:<decl::.*?>\(|[^,]+,)\s*" + _msg_re + r"(?:,[^),]+)*\s*\)"
@@ -449,7 +449,6 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "collections",
     "curves",
     "fonts",
-    "grease_pencils",
     "hair_curves",
     "ipos",
     "lattices",

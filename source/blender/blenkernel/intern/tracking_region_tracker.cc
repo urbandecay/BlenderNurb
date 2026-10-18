@@ -165,7 +165,6 @@ static ImBuf *tracking_context_get_reference_ibuf(MovieClip *clip,
 }
 
 void tracking_configure_tracker(const MovieTrackingTrack *track,
-                                float *mask,
                                 const bool is_backwards,
                                 libmv_TrackRegionOptions *options)
 {
@@ -184,12 +183,7 @@ void tracking_configure_tracker(const MovieTrackingTrack *track,
   options->minimum_correlation = track->minimum_correlation;
   options->sigma = 0.9;
 
-  if ((track->algorithm_flag & TRACK_ALGORITHM_FLAG_USE_MASK) != 0) {
-    options->image1_mask = mask;
-  }
-  else {
-    options->image1_mask = nullptr;
-  }
+  options->image1_mask = nullptr;
 }
 
 /* Perform tracking from a reference_marker to destination_ibuf.
@@ -205,7 +199,6 @@ static bool configure_and_run_tracker(ImBuf *destination_ibuf,
                                       float *reference_search_area,
                                       int reference_search_area_width,
                                       int reference_search_area_height,
-                                      float *mask,
                                       const bool is_backward,
                                       double dst_pixel_x[5],
                                       double dst_pixel_y[5])
@@ -235,7 +228,7 @@ static bool configure_and_run_tracker(ImBuf *destination_ibuf,
       destination_ibuf, track, marker, &new_search_area_width, &new_search_area_height);
 
   /* configure the tracker */
-  tracking_configure_tracker(track, mask, is_backward, &options);
+  tracking_configure_tracker(track, is_backward, &options);
 
   /* Convert the marker corners and center into pixel coordinates in the
    * search/destination images. */
@@ -302,7 +295,7 @@ void BKE_tracking_refine_marker(MovieClip *clip,
 {
   MovieTrackingMarker *reference_marker = nullptr;
   ImBuf *reference_ibuf, *destination_ibuf;
-  float *search_area, *mask = nullptr;
+  float *search_area;
   int frame_width, frame_height;
   int search_area_height, search_area_width;
   MovieClipFlag clip_flag = MovieClipFlag(clip->flag & MCLIP_PROXY_FLAGS);
@@ -344,11 +337,6 @@ void BKE_tracking_refine_marker(MovieClip *clip,
   search_area = track_get_search_floatbuf(
       reference_ibuf, track, reference_marker, &search_area_width, &search_area_height);
 
-  /* If needed, compute track's mask. */
-  if ((track->algorithm_flag & TRACK_ALGORITHM_FLAG_USE_MASK) != 0) {
-    mask = BKE_tracking_track_get_mask(frame_width, frame_height, track, marker);
-  }
-
   /* Run the tracker from reference frame to current one. */
   tracked = configure_and_run_tracker(destination_ibuf,
                                       track,
@@ -357,7 +345,6 @@ void BKE_tracking_refine_marker(MovieClip *clip,
                                       search_area,
                                       search_area_width,
                                       search_area_height,
-                                      mask,
                                       backwards,
                                       dst_pixel_x,
                                       dst_pixel_y);
@@ -371,9 +358,6 @@ void BKE_tracking_refine_marker(MovieClip *clip,
 
   /* Free memory used for refining */
   MEM_delete(search_area);
-  if (mask) {
-    MEM_delete(mask);
-  }
   IMB_freeImBuf(reference_ibuf);
   IMB_freeImBuf(destination_ibuf);
 }

@@ -402,16 +402,6 @@ msgstr "kurver"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Fedt blyant"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Fedt blyant v3"
-
-
-msgctxt "ID"
 msgid "Lattice"
 msgstr "Gitter"
 
@@ -1708,10 +1698,6 @@ msgid "Hair Curves"
 msgstr "Hårkurver"
 
 
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
 msgid "Collections"
 msgstr "Samlinger"
 
@@ -2006,10 +1992,6 @@ msgstr "atribut på forkomst"
 
 msgid "Layer"
 msgstr "Lag"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "atribit på fedt pensel lag"
 
 
 msgid "Is Internal"
@@ -2608,14 +2590,6 @@ msgid "Action data-blocks"
 msgstr "Handlingsdatablokke"
 
 
-msgid "Annotation"
-msgstr "Anmærkning"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "Annotationsdatablokke (legacy Grease Pencil)"
-
-
 msgid "Armature data-blocks"
 msgstr "Skelet data-bloke"
 
@@ -2654,10 +2628,6 @@ msgstr "Vektor skrifttyper"
 
 msgid "Vector font data-blocks"
 msgstr "Vektor skrifttyper"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Grease Pencil datablokke"
 
 
 msgid "Hair curve data-blocks"
@@ -2894,10 +2864,6 @@ msgstr "Hovedskrifttyper"
 
 msgid "Collection of fonts"
 msgstr "Samling af skrifttyper"
-
-
-msgid "Main Grease Pencils"
-msgstr "Hoved Grease Blyant"
 
 
 msgid "Main Hair Curves"

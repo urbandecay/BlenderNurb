@@ -4,11 +4,7 @@
 
 #include "node_geometry_util.hh"
 
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mesh_types.h"
-
-#include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "GEO_foreach_geometry.hh"
 
@@ -19,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Geometry"_ustr)
-      .supported_type({GeometryComponent::Type::Mesh, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Mesh)
       .description("Geometry to update the material indices on");
   b.add_output<decl::Geometry>("Geometry"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Bool>("Selection"_ustr)
@@ -27,26 +23,6 @@ static void node_declare(NodeDeclarationBuilder &b)
       .hide_value()
       .evaluated_geometry_field();
   b.add_input<decl::Int>("Material Index"_ustr).min(0).evaluated_geometry_field();
-}
-
-static void set_material_index_in_grease_pencil(GreasePencil &grease_pencil,
-                                                const Field<bool> &selection,
-                                                const Field<int> &material_index)
-{
-  using namespace blender::bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr) {
-      continue;
-    }
-    bke::try_capture_field_on_geometry(
-        drawing->strokes_for_write().attributes_for_write(),
-        bke::GreasePencilLayerFieldContext(grease_pencil, AttrDomain::Curve, layer_index),
-        "material_index",
-        AttrDomain::Curve,
-        selection,
-        material_index);
-  }
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -63,9 +39,6 @@ static void node_geo_exec(GeoNodeExecParams params)
                                          AttrDomain::Face,
                                          selection,
                                          material_index);
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      set_material_index_in_grease_pencil(*grease_pencil, selection, material_index);
     }
   });
   params.set_output("Geometry"_ustr, std::move(geometry_set));

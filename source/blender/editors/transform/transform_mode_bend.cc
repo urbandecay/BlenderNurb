@@ -92,19 +92,7 @@ static void transdata_elem_bend(const TransInfo *t,
     CLAMP(fac, 0.0f, 1.0f);
   }
 
-  if (t->options & CTX_GPENCIL_STROKES) {
-    /* Grease pencil multi-frame falloff. */
-    float *gp_falloff = static_cast<float *>(td->extra);
-    if (gp_falloff != nullptr) {
-      fac_scaled = fac * td->factor * *gp_falloff;
-    }
-    else {
-      fac_scaled = fac * td->factor;
-    }
-  }
-  else {
-    fac_scaled = fac * td->factor;
-  }
+  fac_scaled = fac * td->factor;
 
   axis_angle_normalized_to_mat3(mat, bend_data->warp_nor, angle * fac_scaled);
   interp_v3_v3v3(delta, warp_sta_local, warp_end_radius_local, fac_scaled);

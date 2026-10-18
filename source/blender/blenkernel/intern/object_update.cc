@@ -23,8 +23,6 @@
 #include "BKE_curves.h"
 #include "BKE_displist.h"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_lattice.hh"
 #include "BKE_layer.hh"
@@ -232,9 +230,6 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
     case OB_VOLUME:
       BKE_volume_data_update(depsgraph, scene, ob);
       break;
-    case OB_GREASE_PENCIL:
-      BKE_object_eval_grease_pencil(depsgraph, scene, ob);
-      break;
     default:
       break;
   }
@@ -362,10 +357,6 @@ void BKE_object_batch_cache_dirty_tag(Object *ob)
       break;
     case OB_VOLUME:
       BKE_volume_batch_cache_dirty_tag(id_cast<Volume *>(ob->data), BKE_VOLUME_BATCH_DIRTY_ALL);
-      break;
-    case OB_GREASE_PENCIL:
-      BKE_grease_pencil_batch_cache_dirty_tag(id_cast<GreasePencil *>(ob->data),
-                                              BKE_GREASEPENCIL_BATCH_DIRTY_ALL);
       break;
     default:
       break;

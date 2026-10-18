@@ -13,7 +13,7 @@
 
 namespace blender::bke::tests {
 
-class GreasePencilInterpolate : public BlenderGTestBase {
+class CurvesInterpolate : public BlenderGTestBase {
  public:
   enum class TestCurveShape {
     Zero,
@@ -110,7 +110,7 @@ class GreasePencilInterpolate : public BlenderGTestBase {
   }
 };
 
-TEST_F(GreasePencilInterpolate, sample_curve_empty_output)
+TEST_F(CurvesInterpolate, sample_curve_empty_output)
 {
   bke::CurvesGeometry curves = create_test_curves(
       {0, 1, 3}, {false, false}, TestCurveShape::Eight);
@@ -119,7 +119,7 @@ TEST_F(GreasePencilInterpolate, sample_curve_empty_output)
   test_sample_curve(curves, 1, false, {}, {});
 }
 
-TEST_F(GreasePencilInterpolate, sample_curve_same_length)
+TEST_F(CurvesInterpolate, sample_curve_same_length)
 {
   bke::CurvesGeometry curves = create_test_curves(
       {0, 1, 3, 13, 14, 16, 26}, {false, false, false, true, true, true}, TestCurveShape::Eight);
@@ -159,7 +159,7 @@ TEST_F(GreasePencilInterpolate, sample_curve_same_length)
                     {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
 }
 
-TEST_F(GreasePencilInterpolate, sample_curve_shorter)
+TEST_F(CurvesInterpolate, sample_curve_shorter)
 {
   bke::CurvesGeometry curves = create_test_curves(
       {0, 1, 3, 13, 14, 16, 26}, {false, false, false, true, true, true}, TestCurveShape::Eight);
@@ -177,7 +177,7 @@ TEST_F(GreasePencilInterpolate, sample_curve_shorter)
   test_sample_curve(curves, 5, true, {9, 6, 4, 1}, {0.0f, 0.50492f, 0.0f, 0.50492f});
 }
 
-TEST_F(GreasePencilInterpolate, sample_curve_longer)
+TEST_F(CurvesInterpolate, sample_curve_longer)
 {
   bke::CurvesGeometry curves = create_test_curves(
       {0, 1, 3, 13, 14, 16, 26}, {false, false, false, true, true, true}, TestCurveShape::Eight);
@@ -271,7 +271,7 @@ TEST_F(GreasePencilInterpolate, sample_curve_longer)
                     {0.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f});
 }
 
-TEST_F(GreasePencilInterpolate, sample_zero_length_curve)
+TEST_F(CurvesInterpolate, sample_zero_length_curve)
 {
   bke::CurvesGeometry curves = create_test_curves(
       {0, 10, 20}, {false, true}, TestCurveShape::Zero);

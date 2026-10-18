@@ -35,7 +35,6 @@
 #include "BKE_colorband.hh"
 #include "BKE_context.hh"
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_image.hh"
 #include "BKE_library.hh"
 #include "BKE_main.hh"
@@ -54,7 +53,6 @@
 
 #include "UI_view2d.hh"
 
-#include "ED_grease_pencil.hh"
 #include "ED_image.hh"
 #include "ED_object.hh"
 #include "ED_paint.hh"
@@ -650,16 +648,6 @@ static float3 paint_init_pivot_curves(Object *ob)
   return float3(0);
 }
 
-static float3 paint_init_pivot_grease_pencil(Object *ob, const int frame)
-{
-  const GreasePencil &grease_pencil = *id_cast<const GreasePencil *>(ob->data);
-  const std::optional<Bounds<float3>> bounds = grease_pencil.bounds_min_max(frame);
-  if (bounds.has_value()) {
-    return math::midpoint(bounds->min, bounds->max);
-  }
-  return float3(0.0f);
-}
-
 /* TODO: Move this out of paint image... */
 void paint_init_pivot(Object *ob, Scene *scene, Paint *paint)
 {
@@ -672,9 +660,6 @@ void paint_init_pivot(Object *ob, Scene *scene, Paint *paint)
       break;
     case OB_CURVES:
       location = paint_init_pivot_curves(ob);
-      break;
-    case OB_GREASE_PENCIL:
-      location = paint_init_pivot_grease_pencil(ob, scene->r.cfra);
       break;
     default:
       BLI_assert_unreachable();
@@ -882,11 +867,6 @@ static bool brush_colors_flip_poll(bContext *C)
     Object *ob = CTX_data_active_object(C);
     if (ob != nullptr) {
       if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_TEXTURE_PAINT | OB_MODE_SCULPT)) {
-        return true;
-      }
-      if (ed::greasepencil::grease_pencil_painting_poll(C) ||
-          ed::greasepencil::grease_pencil_vertex_painting_poll(C))
-      {
         return true;
       }
     }

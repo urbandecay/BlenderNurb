@@ -29,7 +29,6 @@
 #include "BKE_asset.hh"
 #include "BKE_attribute_legacy_convert.hh"
 #include "BKE_customdata.hh"
-#include "BKE_grease_pencil_legacy_convert.hh"
 #include "BKE_idprop.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
@@ -421,9 +420,6 @@ static const char *legacy_pass_name_to_new_name(const char *name)
   if (STREQ(name, "IndexOB")) {
     return "Object Index";
   }
-  if (STREQ(name, "GreasePencil")) {
-    return "Grease Pencil";
-  }
   if (STREQ(name, "Emit")) {
     return "Emission";
   }
@@ -636,44 +632,6 @@ void do_versions_after_linking_510(FileData *fd, Main *bmain)
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 501, 0)) {
     version_clear_unused_strip_flags(*bmain);
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 501, 24)) {
-    /* Note: For legacy Grease Pencil objects (#OB_GPENCIL_LEGACY) this is handled as part of
-     * bke::greasepencil::convert::legacy_main. */
-    bke::greasepencil::convert::material_stroke_fill_toggles_to_attributes(
-        *bmain, {}, *fd->reports);
-    /* Set the stroke mode for all brushes. */
-    for (Brush &brush : bmain->brushes) {
-      if (BrushGpencilSettings *settings = brush.gpencil_settings) {
-        if (Material *material = settings->material) {
-          BLI_assert(material->gp_style != nullptr);
-          SET_FLAG_FROM_TEST(settings->flag2,
-                             (material->gp_style->flag & GP_MATERIAL_STROKE_SHOW) != 0,
-                             GP_BRUSH_USE_STROKE);
-          SET_FLAG_FROM_TEST(settings->flag2,
-                             (material->gp_style->flag & GP_MATERIAL_FILL_SHOW) != 0,
-                             GP_BRUSH_USE_FILL);
-        }
-        else {
-          settings->flag2 |= GP_BRUSH_USE_STROKE;
-          settings->flag2 &= ~GP_BRUSH_USE_FILL;
-        }
-      }
-    }
-    /* Set the color to transparent for when the stroke/fill is disabled. */
-    for (Material &material : bmain->materials) {
-      if (material.gp_style == nullptr) {
-        continue;
-      }
-      MaterialGPencilStyle &gp_style = *material.gp_style;
-      if ((gp_style.flag & GP_MATERIAL_STROKE_SHOW) == 0) {
-        gp_style.stroke_rgba[3] = 0.0f;
-      }
-      if ((gp_style.flag & GP_MATERIAL_FILL_SHOW) == 0) {
-        gp_style.fill_rgba[3] = 0.0f;
-      }
-    }
   }
 
   /**

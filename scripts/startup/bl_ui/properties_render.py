@@ -4,7 +4,6 @@
 
 from bpy.types import Panel
 from bpy.app.translations import contexts as i18n_contexts
-from bl_ui.properties_grease_pencil_common import GreasePencilSimplifyPanel
 from bl_ui.space_view3d import (
     VIEW3D_PT_shading_lighting,
     VIEW3D_PT_shading_color,
@@ -934,71 +933,6 @@ class RENDER_PT_eevee_performance_viewport(RenderButtonsPanel, Panel):
 
 
 # TODO(falk): To rename for 5.0
-class RENDER_PT_gpencil(RenderButtonsPanel, Panel):
-    bl_label = "Grease Pencil"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 10
-    COMPAT_ENGINES = {
-        'BLENDER_RENDER',
-        'BLENDER_EEVEE',
-        'BLENDER_WORKBENCH',
-    }
-
-    @classmethod
-    def poll(cls, context):
-        return (context.engine in cls.COMPAT_ENGINES)
-
-    def draw(self, context):
-        pass
-
-
-class RENDER_PT_grease_pencil_viewport(RenderButtonsPanel, Panel):
-    bl_label = "Viewport"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_parent_id = "RENDER_PT_gpencil"
-    COMPAT_ENGINES = {
-        'BLENDER_RENDER',
-        'BLENDER_EEVEE',
-        'BLENDER_WORKBENCH',
-    }
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False  # No animation.
-
-        scene = context.scene
-        props = scene.grease_pencil_settings
-
-        col = layout.column()
-        col.prop(props, "antialias_threshold", text="SMAA Threshold")
-
-
-class RENDER_PT_grease_pencil_render(RenderButtonsPanel, Panel):
-    bl_label = "Render"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_parent_id = "RENDER_PT_gpencil"
-    COMPAT_ENGINES = {
-        'BLENDER_RENDER',
-        'BLENDER_EEVEE',
-        'BLENDER_WORKBENCH',
-    }
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False  # No animation.
-
-        scene = context.scene
-        props = scene.grease_pencil_settings
-
-        col = layout.column()
-        col.prop(props, "antialias_threshold_render", text="SMAA Threshold")
-        col.prop(props, "aa_samples", text="SSAA Samples")
-
-        col = layout.column()
-        col.active = scene.render.use_motion_blur
-        col.prop(props, "motion_blur_steps")
 
 
 class RENDER_PT_opengl_sampling(RenderButtonsPanel, Panel):
@@ -1151,17 +1085,6 @@ class RENDER_PT_simplify_render(RenderButtonsPanel, Panel):
         col.prop(rd, "simplify_child_particles_render", text="Max Child Particles")
 
 
-class RENDER_PT_simplify_greasepencil(RenderButtonsPanel, Panel, GreasePencilSimplifyPanel):
-    bl_label = "Grease Pencil"
-    bl_parent_id = "RENDER_PT_simplify"
-    COMPAT_ENGINES = {
-        'BLENDER_RENDER',
-        'BLENDER_EEVEE',
-        'BLENDER_WORKBENCH',
-    }
-    bl_options = {'DEFAULT_CLOSED'}
-
-
 class RENDER_PT_hydra_debug(RenderButtonsPanel, Panel):
     bl_label = "Hydra Debug"
     bl_options = {'DEFAULT_CLOSED'}
@@ -1204,7 +1127,6 @@ classes = (
     RENDER_PT_simplify,
     RENDER_PT_simplify_viewport,
     RENDER_PT_simplify_render,
-    RENDER_PT_simplify_greasepencil,
     RENDER_PT_eevee_depth_of_field,
     RENDER_PT_eevee_motion_blur,
     RENDER_PT_eevee_motion_blur_curve,
@@ -1216,9 +1138,6 @@ classes = (
     RENDER_PT_eevee_performance_compositor_denoise_settings,
 
 
-    RENDER_PT_gpencil,
-    RENDER_PT_grease_pencil_viewport,
-    RENDER_PT_grease_pencil_render,
     RENDER_PT_opengl_sampling,
     RENDER_PT_opengl_lighting,
     RENDER_PT_opengl_color,

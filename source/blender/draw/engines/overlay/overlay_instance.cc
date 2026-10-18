@@ -81,8 +81,8 @@ void Instance::init()
     state.is_render_depth_available = viewport_uses_workbench ||
                                       (viewport_uses_eevee && !use_resolution_scaling);
 
-    /* For depth only drawing, no other render engine is expected. Except for Grease Pencil which
-     * outputs valid depth. Otherwise depth is cleared and is valid. */
+    /* For depth only drawing, no other render engine is expected. Otherwise depth is cleared and
+     * is valid. */
     state.is_render_depth_available |= state.is_depth_only_drawing;
 
     if (!state.hide_overlays) {
@@ -269,9 +269,6 @@ void Resources::update_theme_settings(const DRWContext *ctx, const State &state)
   ui::theme::get_color_4fv(TH_EDITMESH_ACTIVE, gb.colors.edit_mesh_active);
   ui::theme::get_color_4fv(TH_EDGE_SELECT, gb.colors.edge_select);
   ui::theme::get_color_4fv(TH_EDGE_MODE_SELECT, gb.colors.edge_mode_select);
-  ui::theme::get_color_4fv(TH_GP_WIRE_EDIT, gb.colors.gpencil_wire_edit);
-  ui::theme::get_color_4fv(TH_GP_VERTEX, gb.colors.gpencil_vertex);
-  ui::theme::get_color_4fv(TH_GP_VERTEX_SELECT, gb.colors.gpencil_vertex_select);
 
   ui::theme::get_color_4fv(TH_SEAM, gb.colors.edge_seam);
   ui::theme::get_color_4fv(TH_SHARP, gb.colors.edge_sharp);
@@ -404,7 +401,6 @@ void Resources::update_theme_settings(const DRWContext *ctx, const State &state)
 
   /* M_SQRT2 to be at least the same size of the old square */
   gb.sizes.vert = vertex_size_get();
-  gb.sizes.vertex_gpencil = ui::theme::get_value_f(TH_GP_VERTEX_SIZE);
   gb.sizes.face_dot = ui::theme::get_value_f(TH_FACEDOT_SIZE);
   gb.sizes.edge = max_ff(1.0f, ui::theme::get_value_f(TH_EDGE_WIDTH)) / 2.0f;
 
@@ -484,7 +480,6 @@ void Instance::begin_sync()
     layer.fade.begin_sync(resources, state);
     layer.force_fields.begin_sync(resources, state);
     layer.fluids.begin_sync(resources, state);
-    layer.grease_pencil.begin_sync(resources, state);
     layer.lattices.begin_sync(resources, state);
     layer.lights.begin_sync(resources, state);
     layer.light_probes.begin_sync(resources, state);
@@ -555,9 +550,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
         /* TODO(fclem): Make it part of a #Meshes. */
         layer.paints.object_sync(manager, ob_ref, resources, state);
         break;
-      case OB_GREASE_PENCIL:
-        layer.grease_pencil.paint_object_sync(manager, ob_ref, resources, state);
-        break;
       default:
         break;
     }
@@ -569,9 +561,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
       case OB_CURVES:
         /* TODO(fclem): Make it part of a #Meshes. */
         layer.sculpts.object_sync(manager, ob_ref, resources, state);
-        break;
-      case OB_GREASE_PENCIL:
-        layer.grease_pencil.sculpt_object_sync(manager, ob_ref, resources, state);
         break;
       default:
         break;
@@ -604,9 +593,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
         break;
       case OB_FONT:
         layer.text.edit_object_sync(manager, ob_ref, resources, state);
-        break;
-      case OB_GREASE_PENCIL:
-        layer.grease_pencil.edit_object_sync(manager, ob_ref, resources, state);
         break;
       default:
         break;
@@ -646,9 +632,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
         if (!in_edit_mode) {
           layer.metaballs.object_sync(manager, ob_ref, resources, state);
         }
-        break;
-      case OB_GREASE_PENCIL:
-        layer.grease_pencil.object_sync(manager, ob_ref, resources, state);
         break;
       case OB_SPEAKER:
         layer.speakers.object_sync(manager, ob_ref, resources, state);
@@ -752,7 +735,6 @@ void Instance::draw(Manager &manager)
   resources.pre_draw();
 
   outline.flat_objects_pass_sync(manager, view, resources, state);
-  GreasePencil::compute_depth_planes(manager, view, resources, state);
 
   /* Pre-Draw: Run the compute steps of all passes up-front
    * to avoid constant GPU compute/raster context switching. */
@@ -872,7 +854,6 @@ void Instance::draw_v3d(Manager &manager, View &view)
     layer.attribute_viewer.draw_line(framebuffer, manager, view);
     layer.armatures.draw_line(framebuffer, manager, view);
     layer.sculpts.draw_line(framebuffer, manager, view);
-    layer.grease_pencil.draw_line(framebuffer, manager, view);
     /* NOTE: Temporarily moved after grid drawing (See #136764). */
     // layer.meshes.draw_line(framebuffer, manager, view);
     layer.curves.draw_line(framebuffer, manager, view);
@@ -882,7 +863,6 @@ void Instance::draw_v3d(Manager &manager, View &view)
     layer.light_probes.draw_color_only(framebuffer, manager, view);
     layer.meshes.draw_color_only(framebuffer, manager, view);
     layer.curves.draw_color_only(framebuffer, manager, view);
-    layer.grease_pencil.draw_color_only(framebuffer, manager, view);
   };
 
   {
@@ -1022,8 +1002,7 @@ bool Instance::object_is_selected(const ObjectRef &ob_ref)
 
 bool Instance::object_is_paint_mode(const Object *object)
 {
-  return (object == state.object_active) &&
-         (state.object_mode & (OB_MODE_ALL_PAINT | OB_MODE_ALL_PAINT_GPENCIL));
+  return (object == state.object_active) && (state.object_mode & OB_MODE_ALL_PAINT);
 }
 
 bool Instance::object_is_sculpt_mode(const ObjectRef &ob_ref)
@@ -1095,8 +1074,6 @@ bool Instance::object_is_edit_mode(const Object *object)
         return state.ctx_mode == CTX_MODE_EDIT_CURVES;
       case OB_POINTCLOUD:
         return state.ctx_mode == CTX_MODE_EDIT_POINTCLOUD;
-      case OB_GREASE_PENCIL:
-        return state.ctx_mode == CTX_MODE_EDIT_GREASE_PENCIL;
       case OB_VOLUME:
         /* No edit mode yet. */
         return false;

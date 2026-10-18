@@ -34,8 +34,6 @@ struct ReportList;
 struct Mesh;
 struct PointCloud;
 struct Curves;
-struct GreasePencil;
-struct GreasePencilDrawing;
 
 enum AttrDomainMask : uint8_t {
   ATTR_DOMAIN_MASK_POINT = (1 << 0),
@@ -43,8 +41,7 @@ enum AttrDomainMask : uint8_t {
   ATTR_DOMAIN_MASK_FACE = (1 << 2),
   ATTR_DOMAIN_MASK_CORNER = (1 << 3),
   ATTR_DOMAIN_MASK_CURVE = (1 << 4),
-  ATTR_DOMAIN_MASK_GREASE_PENCIL_LAYER = (1 << 6),
-  ATTR_DOMAIN_MASK_ALL = (1 << 7) - 1
+  ATTR_DOMAIN_MASK_ALL = (1 << 6) - 1
 };
 ENUM_OPERATORS(AttrDomainMask);
 
@@ -52,8 +49,6 @@ enum class AttributeOwnerType {
   Mesh,
   PointCloud,
   Curves,
-  GreasePencil,
-  GreasePencilDrawing,
 };
 
 class AttributeOwner {
@@ -75,8 +70,6 @@ class AttributeOwner {
   Mesh *get_mesh() const;
   PointCloud *get_pointcloud() const;
   Curves *get_curves() const;
-  GreasePencil *get_grease_pencil() const;
-  GreasePencilDrawing *get_grease_pencil_drawing() const;
 };
 
 #define ATTR_DOMAIN_AS_MASK(domain) ((AttrDomainMask)((1 << int(domain))))

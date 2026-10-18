@@ -327,12 +327,6 @@ class Instance : public DrawEngine {
     return overlays_enabled_;
   }
 
-  /** True if the grease pencil engine might be running. */
-  bool gpencil_engine_enabled() const
-  {
-    return DEG_id_type_any_exists(depsgraph, ID_GP);
-  }
-
   bool use_scene_lights() const
   {
     return (!v3d) ||

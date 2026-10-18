@@ -32,8 +32,6 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_layer_types.h"
@@ -73,7 +71,6 @@
 #include "BKE_fcurve.hh"
 #include "BKE_fcurve_driver.h"
 #include "BKE_global.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_key.hh"
 #include "BKE_layer.hh"
 #include "BKE_library.hh"
@@ -136,7 +133,6 @@ bAction *ANIM_active_action_from_area(const Main &bmain,
       return active_action;
     }
 
-    case SACTCONT_GPENCIL:
     case SACTCONT_DOPESHEET:
     case SACTCONT_MASK:
     case SACTCONT_CACHEFILE:
@@ -208,14 +204,6 @@ static bool actedit_get_context(bAnimContext *ac, SpaceAction *saction)
         ac->markers = &ac->active_action->markers;
       }
 
-      return true;
-
-    case SACTCONT_GPENCIL: /* Grease Pencil */ /* XXX review how this mode is handled... */
-      /* update scene-pointer (no need to check for pinning yet, as not implemented) */
-      saction->ads.source = reinterpret_cast<ID *>(ac->scene);
-
-      ac->datatype = ANIMCONT_GPENCIL;
-      ac->data = &saction->ads;
       return true;
 
     case SACTCONT_CACHEFILE: /* Cache File */
@@ -443,11 +431,6 @@ bool ANIM_animdata_get_context(const bContext *C, bAnimContext *ac)
   /* XXX: if the below fails, try to grab this info from context instead...
    * (to allow for scripting). */
   return ANIM_animdata_context_getdata(ac);
-}
-
-bool ANIM_animdata_can_have_greasepencil(const eAnimCont_Types type)
-{
-  return ELEM(type, ANIMCONT_GPENCIL, ANIMCONT_DOPESHEET, ANIMCONT_TIMELINE);
 }
 
 /* ************************************************************ */
@@ -857,15 +840,6 @@ static bAnimListElem *make_new_animlistelem(
       key_data_from_adt(*ale, tex->adt);
       break;
     }
-    case ANIMTYPE_DSGPENCIL: {
-      bGPdata *gpd = static_cast<bGPdata *>(data);
-      /* NOTE: we just reuse the same expand filter for this case */
-      ale->flag = EXPANDED_GPD(gpd);
-
-      /* XXX: currently, this is only used for access to its animation data */
-      key_data_from_adt(*ale, gpd->adt);
-      break;
-    }
     case ANIMTYPE_DSMCLIP: {
       MovieClip *clip = static_cast<MovieClip *>(data);
       ale->flag = EXPANDED_MCLIP(clip);
@@ -925,42 +899,6 @@ static bAnimListElem *make_new_animlistelem(
         }
         ale->datatype = (ale->key_data) ? ALE_FCURVE : ALE_NONE;
       }
-      break;
-    }
-    case ANIMTYPE_GPLAYER: {
-      bGPDlayer *gpl = static_cast<bGPDlayer *>(data);
-
-      ale->flag = gpl->flag;
-
-      ale->key_data = nullptr;
-      ale->datatype = ALE_GPFRAME;
-      break;
-    }
-    case ANIMTYPE_GREASE_PENCIL_LAYER: {
-      GreasePencilLayer *layer = static_cast<GreasePencilLayer *>(data);
-
-      ale->flag = layer->base.flag;
-
-      ale->key_data = nullptr;
-      ale->datatype = ALE_GREASE_PENCIL_CEL;
-      break;
-    }
-    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP: {
-      GreasePencilLayerTreeGroup *layer_group = static_cast<GreasePencilLayerTreeGroup *>(data);
-
-      ale->flag = layer_group->base.flag;
-
-      ale->key_data = nullptr;
-      ale->datatype = ALE_GREASE_PENCIL_GROUP;
-      break;
-    }
-    case ANIMTYPE_GREASE_PENCIL_DATABLOCK: {
-      GreasePencil *grease_pencil = static_cast<GreasePencil *>(data);
-
-      ale->flag = grease_pencil->flag;
-
-      ale->key_data = nullptr;
-      ale->datatype = ALE_GREASE_PENCIL_DATA;
       break;
     }
     case ANIMTYPE_MASKLAYER: {
@@ -2053,322 +1991,6 @@ static size_t animdata_filter_shapekey(bAnimContext *ac,
   return items;
 }
 
-/* Helper for Grease Pencil - layers within a data-block. */
-
-static size_t animdata_filter_grease_pencil_layer(bAnimContext *ac,
-                                                  ListBaseT<bAnimListElem> *anim_data,
-                                                  GreasePencil *grease_pencil,
-                                                  bke::greasepencil::Layer &layer,
-                                                  const eAnimFilter_Flags filter_mode)
-{
-
-  size_t items = 0;
-
-  /* Only if the layer is selected. */
-  if (!ANIMCHANNEL_SELOK(layer.is_selected())) {
-    return items;
-  }
-
-  /* Only if the layer is editable. */
-  if ((filter_mode & ANIMFILTER_FOREDIT) && layer.is_locked()) {
-    return items;
-  }
-
-  /* Only if the layer is active. */
-  if ((filter_mode & ANIMFILTER_ACTIVE) && grease_pencil->is_layer_active(&layer)) {
-    return items;
-  }
-
-  /* Skip empty layers. */
-  if (layer.is_empty()) {
-    return items;
-  }
-
-  /* Add layer channel. */
-  ANIMCHANNEL_NEW_CHANNEL(ac->bmain,
-                          static_cast<void *>(&layer),
-                          ANIMTYPE_GREASE_PENCIL_LAYER,
-                          grease_pencil,
-                          nullptr);
-
-  return items;
-}
-
-static size_t animdata_filter_grease_pencil_layer_node_recursive(
-    bAnimContext *ac,
-    ListBaseT<bAnimListElem> *anim_data,
-    GreasePencil *grease_pencil,
-    bke::greasepencil::TreeNode &node,
-    eAnimFilter_Flags filter_mode)
-{
-  using namespace blender::bke::greasepencil;
-  size_t items = 0;
-
-  /* Skip node if the name doesn't match the filter string. */
-  const bool name_search = (ac->ads->searchstr[0] != '\0');
-  const bool skip_node = name_search &&
-                         !name_matches_dopesheet_filter(ac->ads, node.name().c_str());
-
-  if (node.is_layer() && !skip_node) {
-    items += animdata_filter_grease_pencil_layer(
-        ac, anim_data, grease_pencil, node.as_layer(), filter_mode);
-  }
-  else if (node.is_group()) {
-    LayerGroup &layer_group = node.as_group();
-
-    ListBaseT<bAnimListElem> tmp_data = {nullptr, nullptr};
-    size_t tmp_items = 0;
-
-    /* Add grease pencil layer channels. */
-    BEGIN_ANIMFILTER_SUBCHANNELS (layer_group.is_expanded()) {
-      for (GreasePencilLayerTreeNode &node_ : layer_group.children.items_reversed()) {
-        tmp_items += animdata_filter_grease_pencil_layer_node_recursive(
-            ac, &tmp_data, grease_pencil, node_.wrap(), filter_mode);
-      }
-    }
-    END_ANIMFILTER_SUBCHANNELS;
-
-    if ((tmp_items == 0) && !name_search) {
-      /* If no sub-channels, return early.
-       * Except if the search by name is on, because we might want to display the layer group alone
-       * in that case. */
-      return items;
-    }
-
-    if ((filter_mode & ANIMFILTER_LIST_CHANNELS) && !skip_node) {
-      /* Add data block container (if for drawing, and it contains sub-channels). */
-      ANIMCHANNEL_NEW_CHANNEL(ac->bmain,
-                              static_cast<void *>(&node),
-                              ANIMTYPE_GREASE_PENCIL_LAYER_GROUP,
-                              grease_pencil,
-                              nullptr);
-    }
-
-    /* Add the list of collected channels. */
-    BLI_movelisttolist(anim_data, &tmp_data);
-    BLI_assert(tmp_data.is_empty());
-    items += tmp_items;
-  }
-  return items;
-}
-
-static size_t animdata_filter_grease_pencil_layers_data(bAnimContext *ac,
-                                                        ListBaseT<bAnimListElem> *anim_data,
-                                                        GreasePencil *grease_pencil,
-                                                        const eAnimFilter_Flags filter_mode)
-{
-  size_t items = 0;
-
-  for (GreasePencilLayerTreeNode &node : grease_pencil->root_group_ptr->children.items_reversed())
-  {
-    items += animdata_filter_grease_pencil_layer_node_recursive(
-        ac, anim_data, grease_pencil, node.wrap(), filter_mode);
-  }
-
-  return items;
-}
-
-/* Helper for Grease Pencil - layers within a data-block. */
-static size_t animdata_filter_gpencil_layers_data_legacy(bAnimContext *ac,
-                                                         ListBaseT<bAnimListElem> *anim_data,
-                                                         bGPdata *gpd,
-                                                         const eAnimFilter_Flags filter_mode)
-{
-  size_t items = 0;
-
-  /* loop over layers as the conditions are acceptable (top-Down order) */
-  for (bGPDlayer &gpl : gpd->layers.items_reversed()) {
-    /* only if selected */
-    if (!ANIMCHANNEL_SELOK(SEL_GPL(&gpl))) {
-      continue;
-    }
-
-    /* only if editable */
-    if ((filter_mode & ANIMFILTER_FOREDIT) && !EDITABLE_GPL(&gpl)) {
-      continue;
-    }
-
-    /* active... */
-    if ((filter_mode & ANIMFILTER_ACTIVE) && (gpl.flag & GP_LAYER_ACTIVE) == 0) {
-      continue;
-    }
-
-    /* skip layer if the name doesn't match the filter string */
-    if (ac->ads != nullptr && ac->ads->searchstr[0] != '\0' &&
-        name_matches_dopesheet_filter(ac->ads, gpl.info) == false)
-    {
-      continue;
-    }
-
-    /* Skip empty layers. */
-    if (gpl.frames.is_empty()) {
-      continue;
-    }
-
-    /* add to list */
-    ANIMCHANNEL_NEW_CHANNEL(ac->bmain, &gpl, ANIMTYPE_GPLAYER, gpd, nullptr);
-  }
-
-  return items;
-}
-
-static size_t animdata_filter_grease_pencil_data(bAnimContext *ac,
-                                                 ListBaseT<bAnimListElem> *anim_data,
-                                                 GreasePencil *grease_pencil,
-                                                 eAnimFilter_Flags filter_mode)
-{
-  size_t items = 0;
-
-  /* The Grease Pencil mode is not supposed to show channels for regular F-Curves from regular
-   * Actions. At some point this might be desirable, but it would also require changing the
-   * filtering flags for pretty much all operators running there. */
-  const bool show_animdata = grease_pencil->adt && (ac->datatype != ANIMCONT_GPENCIL);
-
-  /* When asked from "AnimData" blocks (i.e. the top-level containers for normal animation),
-   * for convenience, this will return grease pencil data-blocks instead.
-   * This may cause issues down the track, but for now, this will do.
-   */
-  if (filter_mode & ANIMFILTER_ANIMDATA) {
-    if (show_animdata) {
-      items += animfilter_block_data(
-          ac, anim_data, reinterpret_cast<ID *>(grease_pencil), filter_mode);
-    }
-  }
-  else {
-    ListBaseT<bAnimListElem> tmp_data = {nullptr, nullptr};
-    size_t tmp_items = 0;
-
-    /* Add grease pencil layer channels. */
-    BEGIN_ANIMFILTER_SUBCHANNELS (grease_pencil->flag &GREASE_PENCIL_ANIM_CHANNEL_EXPANDED) {
-      if (show_animdata) {
-        tmp_items += animfilter_block_data(
-            ac, &tmp_data, reinterpret_cast<ID *>(grease_pencil), filter_mode);
-      }
-
-      if (!(filter_mode & ANIMFILTER_FCURVESONLY)) {
-        tmp_items += animdata_filter_grease_pencil_layers_data(
-            ac, &tmp_data, grease_pencil, filter_mode);
-      }
-    }
-    END_ANIMFILTER_SUBCHANNELS;
-
-    if (tmp_items == 0) {
-      /* If no sub-channels, return early. */
-      return items;
-    }
-
-    if (filter_mode & ANIMFILTER_LIST_CHANNELS) {
-      /* Add data block container (if for drawing, and it contains sub-channels). */
-      ANIMCHANNEL_NEW_CHANNEL(
-          ac->bmain, grease_pencil, ANIMTYPE_GREASE_PENCIL_DATABLOCK, grease_pencil, nullptr);
-    }
-
-    /* Add the list of collected channels. */
-    BLI_movelisttolist(anim_data, &tmp_data);
-    BLI_assert(tmp_data.is_empty());
-    items += tmp_items;
-  }
-
-  return items;
-}
-
-static size_t animdata_filter_grease_pencil(bAnimContext *ac,
-                                            ListBaseT<bAnimListElem> *anim_data,
-                                            const eAnimFilter_Flags filter_mode)
-{
-  size_t items = 0;
-  Scene *scene = ac->scene;
-  ViewLayer *view_layer = ac->view_layer;
-  bDopeSheet *ads = ac->ads;
-
-  BKE_view_layer_synced_ensure(*ac->bmain, scene, view_layer);
-  for (Base &base : *BKE_view_layer_object_bases_get(view_layer)) {
-    if (!base.object || (base.object->type != OB_GREASE_PENCIL)) {
-      continue;
-    }
-    Object *ob = base.object;
-
-    if ((filter_mode & ANIMFILTER_DATA_VISIBLE) && !(ac->filters.flag & ADS_FILTER_INCL_HIDDEN)) {
-      /* Layer visibility - we check both object and base,
-       * since these may not be in sync yet. */
-      if ((base.flag & BASE_ENABLED_AND_MAYBE_VISIBLE_IN_VIEWPORT) == 0 ||
-          (base.flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) == 0)
-      {
-        continue;
-      }
-
-      /* Outliner restrict-flag */
-      if (ob->visibility_flag & OB_HIDE_VIEWPORT) {
-        continue;
-      }
-    }
-
-    /* Check selection and object type filters */
-    if ((ac->filters.flag & ADS_FILTER_ONLYSEL) && !(base.flag & BASE_SELECTED)) {
-      /* Only selected should be shown */
-      continue;
-    }
-
-    if (ads->filter_grp != nullptr) {
-      if (BKE_collection_has_object_recursive(ads->filter_grp, ob) == 0) {
-        continue;
-      }
-    }
-
-    items += animdata_filter_grease_pencil_data(
-        ac, anim_data, id_cast<GreasePencil *>(ob->data), filter_mode);
-  }
-
-  /* Return the number of items added to the list */
-  return items;
-}
-
-/* Helper for Grease Pencil data integrated with main DopeSheet */
-static size_t animdata_filter_ds_gpencil(bAnimContext *ac,
-                                         ListBaseT<bAnimListElem> *anim_data,
-                                         bGPdata *gpd,
-                                         eAnimFilter_Flags filter_mode)
-{
-  ListBaseT<bAnimListElem> tmp_data = {nullptr, nullptr};
-  size_t tmp_items = 0;
-  size_t items = 0;
-
-  /* add relevant animation channels for Grease Pencil */
-  BEGIN_ANIMFILTER_SUBCHANNELS (EXPANDED_GPD(gpd)) {
-    /* add animation channels */
-    tmp_items += animfilter_block_data(ac, &tmp_data, &gpd->id, filter_mode);
-
-    /* add Grease Pencil layers */
-    if (!(filter_mode & ANIMFILTER_FCURVESONLY)) {
-      tmp_items += animdata_filter_gpencil_layers_data_legacy(ac, &tmp_data, gpd, filter_mode);
-    }
-
-    /* TODO: do these need a separate expander?
-     * XXX:  what order should these go in? */
-  }
-  END_ANIMFILTER_SUBCHANNELS;
-
-  /* did we find anything? */
-  if (tmp_items) {
-    /* include data-expand widget first */
-    if (filter_mode & ANIMFILTER_LIST_CHANNELS) {
-      /* check if filtering by active status */
-      /* XXX: active check here needs checking */
-      if (ANIMCHANNEL_ACTIVEOK(gpd)) {
-        ANIMCHANNEL_NEW_CHANNEL(ac->bmain, gpd, ANIMTYPE_DSGPENCIL, gpd, nullptr);
-      }
-    }
-
-    /* now add the list of collected channels */
-    BLI_movelisttolist(anim_data, &tmp_data);
-    BLI_assert(tmp_data.is_empty());
-    items += tmp_items;
-  }
-
-  /* return the number of items added to the list */
-  return items;
-}
-
 /* Helper for Cache File data integrated with main DopeSheet */
 static size_t animdata_filter_ds_cachefile(bAnimContext *ac,
                                            ListBaseT<bAnimListElem> *anim_data,
@@ -3296,11 +2918,6 @@ static size_t animdata_filter_dopesheet_ob(bAnimContext *ac,
       tmp_items += animdata_filter_ds_particles(ac, &tmp_data, ob, filter_mode);
     }
 
-    /* grease pencil */
-    if (ob->type == OB_GREASE_PENCIL && (ob->data) && !(ads_filterflag & ADS_FILTER_NOGPENCIL)) {
-      tmp_items += animdata_filter_grease_pencil_data(
-          ac, &tmp_data, id_cast<GreasePencil *>(ob->data), filter_mode);
-    }
   }
   END_ANIMFILTER_SUBCHANNELS;
 
@@ -3740,13 +3357,6 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac,
     }
   }
 
-  /* Annotations are always shown if "Only Show Selected" is disabled. */
-  if (!use_only_selected && !(ac->filters.flag & ADS_FILTER_NOGPENCIL)) {
-    for (bGPdata &gp_data : ac->bmain->gpencils) {
-      items += animdata_filter_ds_gpencil(ac, anim_data, &gp_data, filter_mode);
-    }
-  }
-
   /* movie clip's animation */
   if (!use_only_selected && !(ac->filters.flag2 & ADS_FILTER_NOMOVIECLIPS)) {
     items += animdata_filter_dopesheet_movieclips(ac, anim_data, filter_mode);
@@ -4021,12 +3631,6 @@ size_t ANIM_animdata_filter(bAnimContext *ac,
     }
 
     /* Modes for Specialty Data Types (i.e. not keyframes) */
-    case ANIMCONT_GPENCIL: {
-      if (animdata_filter_dopesheet_summary(ac, anim_data, filter_mode, &items)) {
-        items = animdata_filter_grease_pencil(ac, anim_data, filter_mode);
-      }
-      break;
-    }
     case ANIMCONT_MASK: {
       if (animdata_filter_dopesheet_summary(ac, anim_data, filter_mode, &items)) {
         items = animdata_filter_mask(ac, anim_data, data, filter_mode);

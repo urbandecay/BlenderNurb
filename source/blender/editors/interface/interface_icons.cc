@@ -22,8 +22,6 @@
 
 #include "DNA_collection_types.h"
 #include "DNA_dynamicpaint_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_object_force_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_sequence_types.h"
@@ -566,42 +564,7 @@ static void vicon_strip_color_draw_library_data_override_noneditable(
                UI_NO_ICON_OVERLAY_TEXT);
 }
 
-static void vicon_layergroup_color_draw(
-    short color_tag, float x, float y, float w, float /*h*/, float /*alpha*/)
-{
-  bTheme *btheme = theme::theme_get();
-  const ThemeCollectionColor *layergroup_color = &btheme->collection_color[color_tag];
 
-  const float aspect = float(ICON_DEFAULT_WIDTH) / w;
-
-  icon_draw_ex(x,
-               y,
-               ICON_GREASEPENCIL_LAYER_GROUP,
-               aspect,
-               1.0f,
-               0.0f,
-               layergroup_color->color,
-               btheme->tui.icon_border_intensity > 0.0f,
-               UI_NO_ICON_OVERLAY_TEXT);
-}
-
-#  define DEF_ICON_LAYERGROUP_COLOR_DRAW(index, color) \
-    static void vicon_layergroup_color_draw_##index( \
-        float x, float y, float w, float h, float alpha, const uchar * /*mono_rgba[4]*/) \
-    { \
-      vicon_layergroup_color_draw(color, x, y, w, h, alpha); \
-    }
-
-DEF_ICON_LAYERGROUP_COLOR_DRAW(01, LAYERGROUP_COLOR_01);
-DEF_ICON_LAYERGROUP_COLOR_DRAW(02, LAYERGROUP_COLOR_02);
-DEF_ICON_LAYERGROUP_COLOR_DRAW(03, LAYERGROUP_COLOR_03);
-DEF_ICON_LAYERGROUP_COLOR_DRAW(04, LAYERGROUP_COLOR_04);
-DEF_ICON_LAYERGROUP_COLOR_DRAW(05, LAYERGROUP_COLOR_05);
-DEF_ICON_LAYERGROUP_COLOR_DRAW(06, LAYERGROUP_COLOR_06);
-DEF_ICON_LAYERGROUP_COLOR_DRAW(07, LAYERGROUP_COLOR_07);
-DEF_ICON_LAYERGROUP_COLOR_DRAW(08, LAYERGROUP_COLOR_08);
-
-#  undef DEF_ICON_LAYERGROUP_COLOR_DRAW
 
 #  define DEF_ICON_NODE_SOCKET_DRAW(name, socket_type) \
     static void icon_node_socket_draw_##name( \
@@ -998,14 +961,6 @@ static void init_internal_icons()
                      vicon_strip_color_draw_library_data_override_noneditable);
   def_internal_vicon(ICON_PACKAGE_INDIRECT, vicon_strip_color_draw_package_indirect);
 
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_01, vicon_layergroup_color_draw_01);
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_02, vicon_layergroup_color_draw_02);
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_03, vicon_layergroup_color_draw_03);
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_04, vicon_layergroup_color_draw_04);
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_05, vicon_layergroup_color_draw_05);
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_06, vicon_layergroup_color_draw_06);
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_07, vicon_layergroup_color_draw_07);
-  def_internal_vicon(ICON_LAYERGROUP_COLOR_08, vicon_layergroup_color_draw_08);
 
   def_internal_vicon(ICON_NODE_SOCKET_FLOAT, icon_node_socket_draw_float);
   def_internal_vicon(ICON_NODE_SOCKET_VECTOR, icon_node_socket_draw_vector);
@@ -2085,8 +2040,6 @@ int icon_from_idcode(const int idcode)
       return ICON_FILE;
     case ID_CU_LEGACY:
       return ICON_CURVE_DATA;
-    case ID_GD_LEGACY:
-      return ICON_OUTLINER_DATA_GREASEPENCIL;
     case ID_GR:
       return ICON_GROUP;
     case ID_IM:
@@ -2141,8 +2094,6 @@ int icon_from_idcode(const int idcode)
       return ICON_WORLD_DATA;
     case ID_WS:
       return ICON_WORKSPACE;
-    case ID_GP:
-      return ICON_OUTLINER_DATA_GREASEPENCIL;
     case ID_KE:
       return ICON_SHAPEKEY_DATA;
 
@@ -2161,17 +2112,13 @@ int icon_from_object_mode(const int mode)
     case OB_MODE_OBJECT:
       return ICON_OBJECT_DATAMODE;
     case OB_MODE_EDIT:
-    case OB_MODE_EDIT_GPENCIL_LEGACY:
       return ICON_EDITMODE_HLT;
     case OB_MODE_SCULPT:
-    case OB_MODE_SCULPT_GREASE_PENCIL:
     case OB_MODE_SCULPT_CURVES:
       return ICON_SCULPTMODE_HLT;
     case OB_MODE_VERTEX_PAINT:
-    case OB_MODE_VERTEX_GREASE_PENCIL:
       return ICON_VPAINT_HLT;
     case OB_MODE_WEIGHT_PAINT:
-    case OB_MODE_WEIGHT_GREASE_PENCIL:
       return ICON_WPAINT_HLT;
     case OB_MODE_TEXTURE_PAINT:
       return ICON_TPAINT_HLT;
@@ -2179,8 +2126,6 @@ int icon_from_object_mode(const int mode)
       return ICON_PARTICLEMODE;
     case OB_MODE_POSE:
       return ICON_POSE_HLT;
-    case OB_MODE_PAINT_GREASE_PENCIL:
-      return ICON_GREASEPENCIL;
   }
   return ICON_NONE;
 }
@@ -2229,9 +2174,6 @@ int icon_from_object_type(const Object *object)
       else {
         return ICON_OUTLINER_OB_EMPTY;
       }
-    case OB_GREASE_PENCIL:
-      return ICON_OUTLINER_OB_GREASEPENCIL;
-    case OB_GPENCIL_LEGACY:
     case OB_TYPE_MAX:
       break;
   }

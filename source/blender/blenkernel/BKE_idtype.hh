@@ -324,7 +324,6 @@ extern IDTypeInfo IDType_ID_AC;
 extern IDTypeInfo IDType_ID_NT;
 extern IDTypeInfo IDType_ID_BR;
 extern IDTypeInfo IDType_ID_PA;
-extern IDTypeInfo IDType_ID_GD_LEGACY;
 extern IDTypeInfo IDType_ID_WM;
 extern IDTypeInfo IDType_ID_MC;
 extern IDTypeInfo IDType_ID_MSK;
@@ -337,7 +336,6 @@ extern IDTypeInfo IDType_ID_LP;
 extern IDTypeInfo IDType_ID_CV;
 extern IDTypeInfo IDType_ID_PT;
 extern IDTypeInfo IDType_ID_VO;
-extern IDTypeInfo IDType_ID_GP;
 
 /** Empty shell mostly, but needed for read code. */
 extern IDTypeInfo IDType_ID_LINK_PLACEHOLDER;

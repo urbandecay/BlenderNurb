@@ -42,31 +42,6 @@ const EnumPropertyItem rna_enum_object_mode_items[] = {
     {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
     {OB_MODE_TEXTURE_PAINT, "TEXTURE_PAINT", ICON_TPAINT_HLT, "Texture Paint", ""},
     {OB_MODE_PARTICLE_EDIT, "PARTICLE_EDIT", ICON_PARTICLEMODE, "Particle Edit", ""},
-    {OB_MODE_EDIT_GPENCIL_LEGACY,
-     "EDIT_GPENCIL",
-     ICON_EDITMODE_HLT,
-     "Edit Mode",
-     "Edit Grease Pencil Strokes"},
-    {OB_MODE_SCULPT_GREASE_PENCIL,
-     "SCULPT_GREASE_PENCIL",
-     ICON_SCULPTMODE_HLT,
-     "Sculpt Mode",
-     "Sculpt Grease Pencil Strokes"},
-    {OB_MODE_PAINT_GREASE_PENCIL,
-     "PAINT_GREASE_PENCIL",
-     ICON_GREASEPENCIL,
-     "Draw Mode",
-     "Paint Grease Pencil Strokes"},
-    {OB_MODE_WEIGHT_GREASE_PENCIL,
-     "WEIGHT_GREASE_PENCIL",
-     ICON_WPAINT_HLT,
-     "Weight Paint",
-     "Grease Pencil Weight Paint Strokes"},
-    {OB_MODE_VERTEX_GREASE_PENCIL,
-     "VERTEX_GREASE_PENCIL",
-     ICON_VPAINT_HLT,
-     "Vertex Paint",
-     "Grease Pencil Vertex Paint Strokes"},
     {OB_MODE_SCULPT_CURVES, "SCULPT_CURVES", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
@@ -80,31 +55,6 @@ const EnumPropertyItem rna_enum_workspace_object_mode_items[] = {
     {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
     {OB_MODE_TEXTURE_PAINT, "TEXTURE_PAINT", ICON_TPAINT_HLT, "Texture Paint", ""},
     {OB_MODE_PARTICLE_EDIT, "PARTICLE_EDIT", ICON_PARTICLEMODE, "Particle Edit", ""},
-    {OB_MODE_EDIT_GPENCIL_LEGACY,
-     "EDIT_GPENCIL",
-     ICON_EDITMODE_HLT,
-     "Grease Pencil Edit Mode",
-     "Edit Grease Pencil Strokes"},
-    {OB_MODE_SCULPT_GREASE_PENCIL,
-     "SCULPT_GREASE_PENCIL",
-     ICON_SCULPTMODE_HLT,
-     "Grease Pencil Sculpt Mode",
-     "Sculpt Grease Pencil Strokes"},
-    {OB_MODE_PAINT_GREASE_PENCIL,
-     "PAINT_GREASE_PENCIL",
-     ICON_GREASEPENCIL,
-     "Grease Pencil Draw",
-     "Paint Grease Pencil Strokes"},
-    {OB_MODE_VERTEX_GREASE_PENCIL,
-     "VERTEX_GREASE_PENCIL",
-     ICON_VPAINT_HLT,
-     "Grease Pencil Vertex Paint",
-     "Grease Pencil Vertex Paint Strokes"},
-    {OB_MODE_WEIGHT_GREASE_PENCIL,
-     "WEIGHT_GREASE_PENCIL",
-     ICON_WPAINT_HLT,
-     "Grease Pencil Weight Paint",
-     "Grease Pencil Weight Paint Strokes"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -126,28 +76,6 @@ static const EnumPropertyItem rna_enum_object_empty_image_depth_items[] = {
     {OB_EMPTY_IMAGE_DEPTH_BACK, "BACK", 0, "Back", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
-
-const EnumPropertyItem rna_enum_object_gpencil_type_items[] = {
-    {GP_EMPTY, "EMPTY", ICON_EMPTY_AXIS, "Blank", "Create an empty Grease Pencil object"},
-    {GP_STROKE, "STROKE", ICON_STROKE, "Stroke", "Create a simple stroke with basic colors"},
-    {GP_MONKEY, "MONKEY", ICON_MONKEY, "Monkey", "Construct a Suzanne Grease Pencil object"},
-    RNA_ENUM_ITEM_SEPR,
-    {GREASE_PENCIL_LINEART_SCENE,
-     "LINEART_SCENE",
-     ICON_SCENE_DATA,
-     "Scene Line Art",
-     "Quickly set up Line Art for the entire scene"},
-    {GREASE_PENCIL_LINEART_COLLECTION,
-     "LINEART_COLLECTION",
-     ICON_OUTLINER_COLLECTION,
-     "Collection Line Art",
-     "Quickly set up Line Art for the active collection"},
-    {GREASE_PENCIL_LINEART_OBJECT,
-     "LINEART_OBJECT",
-     ICON_OBJECT_DATA,
-     "Object Line Art",
-     "Quickly set up Line Art for the active object"},
-    {0, nullptr, 0, nullptr, nullptr}};
 
 static const EnumPropertyItem parent_type_items[] = {
     {PAROBJECT, "OBJECT", 0, "Object", "The object is parented to an object"},
@@ -224,7 +152,6 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     {OB_CURVES, "CURVES", ICON_OUTLINER_OB_CURVES, "Hair Curves", ""},
     {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
     {OB_VOLUME, "VOLUME", ICON_OUTLINER_OB_VOLUME, "Volume", ""},
-    {OB_GREASE_PENCIL, "GREASEPENCIL", ICON_OUTLINER_OB_GREASEPENCIL, "Grease Pencil", ""},
     RNA_ENUM_ITEM_SEPR,
     {OB_ARMATURE, "ARMATURE", ICON_OUTLINER_OB_ARMATURE, "Armature", ""},
     {OB_LATTICE, "LATTICE", ICON_OUTLINER_OB_LATTICE, "Lattice", ""},
@@ -297,8 +224,6 @@ const EnumPropertyItem rna_enum_object_axis_flip_items[] = {
 
 #  include "DNA_ID.h"
 #  include "DNA_constraint_types.h"
-#  include "DNA_gpencil_legacy_types.h"
-#  include "DNA_grease_pencil_types.h"
 #  include "DNA_key_types.h"
 #  include "DNA_lattice_types.h"
 #  include "DNA_material_types.h"
@@ -380,16 +305,6 @@ static void rna_Object_duplicator_visibility_flag_update(Main * /*bmain*/,
 {
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
-}
-
-static void rna_grease_pencil_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
-{
-  Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
-  if (ob && ob->type == OB_GREASE_PENCIL) {
-    GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-    DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-    WM_main_add_notifier(NC_GPENCIL | NA_EDITED, nullptr);
-  }
 }
 
 static void rna_Object_matrix_world_get(PointerRNA *ptr, float *values)
@@ -610,10 +525,6 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
       return RNA_Speaker;
     case OB_LIGHTPROBE:
       return RNA_LightProbe;
-    case OB_GPENCIL_LEGACY:
-      return RNA_Annotation;
-    case OB_GREASE_PENCIL:
-      return RNA_GreasePencil;
     case OB_CURVES:
       return RNA_Curves;
     case OB_POINTCLOUD:
@@ -1367,14 +1278,7 @@ static bool rna_MaterialSlot_material_poll(PointerRNA *ptr, PointerRNA value)
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
   Material *ma = static_cast<Material *>(value.data);
 
-  if (ELEM(ob->type, OB_GREASE_PENCIL)) {
-    /* GP Materials only */
-    return (ma->gp_style != nullptr);
-  }
-  else {
-    /* Everything except GP materials */
-    return (ma->gp_style == nullptr);
-  }
+  return true;
 }
 
 static int rna_MaterialSlot_link_get(PointerRNA *ptr)
@@ -1867,36 +1771,6 @@ bool rna_Object_modifiers_override_apply(Main *bmain,
   return true;
 }
 
-/* shader fx */
-static ShaderFxData *rna_Object_shaderfx_new(
-    Object *object, bContext *C, ReportList *reports, const char *name, int type)
-{
-  return ed::object::shaderfx_add(
-      reports, CTX_data_main(C), CTX_data_scene(C), object, name, type);
-}
-
-static void rna_Object_shaderfx_remove(Object *object,
-                                       bContext *C,
-                                       ReportList *reports,
-                                       PointerRNA *gmd_ptr)
-{
-  ShaderFxData *gmd = static_cast<ShaderFxData *>(gmd_ptr->data);
-  if (ed::object::shaderfx_remove(reports, CTX_data_main(C), object, gmd) == false) {
-    /* error is already set */
-    return;
-  }
-
-  gmd_ptr->invalidate();
-
-  WM_main_add_notifier(NC_OBJECT | ND_MODIFIER | NA_REMOVED, object);
-}
-
-static void rna_Object_shaderfx_clear(Object *object, bContext *C)
-{
-  ed::object::shaderfx_clear(CTX_data_main(C), object);
-  WM_main_add_notifier(NC_OBJECT | ND_MODIFIER | NA_REMOVED, object);
-}
-
 static void rna_Object_boundbox_get(PointerRNA *ptr, float *values)
 {
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
@@ -2070,17 +1944,6 @@ bool rna_Light_object_poll(PointerRNA * /*ptr*/, PointerRNA value)
 bool rna_Object_use_dynamic_topology_sculpting_get(PointerRNA *ptr)
 {
   return BKE_object_sculpt_use_dyntopo(reinterpret_cast<Object *>(ptr->owner_id));
-}
-
-static void rna_object_lineart_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
-{
-  DEG_id_tag_update(ptr->owner_id, ID_RECALC_GEOMETRY);
-  WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ptr->owner_id);
-}
-
-static std::optional<std::string> rna_ObjectLineArt_path(const PointerRNA * /*ptr*/)
-{
-  return "lineart";
 }
 
 static bool mesh_symmetry_get_common(PointerRNA *ptr, const eMeshSymmetryType sym)
@@ -2594,48 +2457,6 @@ static void rna_def_object_modifiers(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, nullptr);
 }
 
-/* object.shaderfxs */
-static void rna_def_object_shaderfxs(BlenderRNA *brna, PropertyRNA *cprop)
-{
-  StructRNA *srna;
-
-  FunctionRNA *func;
-  PropertyRNA *parm;
-
-  RNA_def_property_srna(cprop, "ObjectShaderFx");
-  srna = RNA_def_struct(brna, "ObjectShaderFx", nullptr);
-  RNA_def_struct_sdna(srna, "Object");
-  RNA_def_struct_ui_text(srna, "Object Shader Effects", "Collection of object effects");
-
-  /* add shader_fx */
-  func = RNA_def_function(srna, "new", "rna_Object_shaderfx_new");
-  RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
-  RNA_def_function_ui_description(func, "Add a new shader fx");
-  parm = RNA_def_string(func, "name", "Name", 0, "", "New name for the effect");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
-  /* shader to add */
-  parm = RNA_def_enum(
-      func, "type", rna_enum_object_shaderfx_type_items, 1, "", "Effect type to add");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
-  /* return type */
-  parm = RNA_def_pointer(func, "shader_fx", "ShaderFx", "", "Newly created effect");
-  RNA_def_function_return(func, parm);
-
-  /* remove shader_fx */
-  func = RNA_def_function(srna, "remove", "rna_Object_shaderfx_remove");
-  RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
-  RNA_def_function_ui_description(func, "Remove an existing effect from the object");
-  /* shader to remove */
-  parm = RNA_def_pointer(func, "shader_fx", "ShaderFx", "", "Effect to remove");
-  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
-  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
-
-  /* clear all shader fx */
-  func = RNA_def_function(srna, "clear", "rna_Object_shaderfx_clear");
-  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
-  RNA_def_function_ui_description(func, "Remove all effects from the object");
-}
-
 /* object.particle_systems */
 static void rna_def_object_particle_systems(BlenderRNA *brna, PropertyRNA *cprop)
 {
@@ -2745,85 +2566,6 @@ static void rna_def_object_display(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
 
   RNA_define_lib_overridable(false);
-}
-
-static void rna_def_object_lineart(BlenderRNA *brna)
-{
-  StructRNA *srna;
-  PropertyRNA *prop;
-
-  static const EnumPropertyItem prop_feature_line_usage_items[] = {
-      {OBJECT_LRT_INHERIT, "INHERIT", 0, "Inherit", "Use settings from the parent collection"},
-      {OBJECT_LRT_INCLUDE,
-       "INCLUDE",
-       0,
-       "Include",
-       "Generate feature lines for this object's data"},
-      {OBJECT_LRT_OCCLUSION_ONLY,
-       "OCCLUSION_ONLY",
-       0,
-       "Occlusion Only",
-       "Only use the object data to produce occlusion"},
-      {OBJECT_LRT_EXCLUDE,
-       "EXCLUDE",
-       0,
-       "Exclude",
-       "Don't use this object for Line Art rendering"},
-      {OBJECT_LRT_INTERSECTION_ONLY,
-       "INTERSECTION_ONLY",
-       0,
-       "Intersection Only",
-       "Only generate intersection lines for this collection"},
-      {OBJECT_LRT_NO_INTERSECTION,
-       "NO_INTERSECTION",
-       0,
-       "No Intersection",
-       "Include this object but do not generate intersection lines"},
-      {OBJECT_LRT_FORCE_INTERSECTION,
-       "FORCE_INTERSECTION",
-       0,
-       "Force Intersection",
-       "Generate intersection lines even with objects that disabled intersection"},
-      {0, nullptr, 0, nullptr, nullptr},
-  };
-
-  srna = RNA_def_struct(brna, "ObjectLineArt", nullptr);
-  RNA_def_struct_ui_text(srna, "Object Line Art", "Object Line Art settings");
-  RNA_def_struct_sdna(srna, "ObjectLineArt");
-  RNA_def_struct_path_func(srna, "rna_ObjectLineArt_path");
-
-  prop = RNA_def_property(srna, "usage", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, prop_feature_line_usage_items);
-  RNA_def_property_ui_text(prop, "Usage", "How to use this object in Line Art calculation");
-  RNA_def_property_update(prop, 0, "rna_object_lineart_update");
-
-  prop = RNA_def_property(srna, "use_crease_override", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flags", OBJECT_LRT_OWN_CREASE);
-  RNA_def_property_ui_text(
-      prop, "Use Crease", "Use this object's crease setting to overwrite scene global");
-  RNA_def_property_update(prop, 0, "rna_object_lineart_update");
-
-  prop = RNA_def_property(srna, "crease_threshold", PROP_FLOAT, PROP_ANGLE);
-  RNA_def_property_range(prop, 0, DEG2RAD(180.0f));
-  RNA_def_property_ui_range(prop, 0.0f, DEG2RAD(180.0f), 0.01f, 1);
-  RNA_def_property_ui_text(prop, "Crease", "Angles smaller than this will be treated as creases");
-  RNA_def_property_update(prop, 0, "rna_object_lineart_update");
-
-  prop = RNA_def_property(srna, "use_intersection_priority_override", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flags", OBJECT_LRT_OWN_INTERSECTION_PRIORITY);
-  RNA_def_property_ui_text(
-      prop,
-      "Use Intersection Priority",
-      "Use this object's intersection priority to override collection setting");
-  RNA_def_property_update(prop, 0, "rna_object_lineart_update");
-
-  prop = RNA_def_property(srna, "intersection_priority", PROP_INT, PROP_NONE);
-  RNA_def_property_range(prop, 0, 255);
-  RNA_def_property_ui_text(prop,
-                           "Intersection Priority",
-                           "The intersection line will be included into the object with the "
-                           "higher intersection priority value");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_object_lineart_update");
 }
 
 static void rna_def_object_visibility(StructRNA *srna)
@@ -3355,15 +3097,6 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_override_flag(prop, PROPOVERRIDE_LIBRARY_INSERTION);
   rna_def_object_modifiers(brna, prop);
 
-  /* Shader FX. */
-  prop = RNA_def_property(srna, "shader_effects", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, nullptr, "shader_fx", nullptr);
-  RNA_def_property_struct_type(prop, "ShaderFx");
-  RNA_def_property_ui_text(prop, "Shader Effects", "Effects affecting display of object");
-  RNA_define_lib_overridable(false);
-  rna_def_object_shaderfxs(brna, prop);
-  RNA_define_lib_overridable(true);
-
   /* constraints */
   prop = RNA_def_property(srna, "constraints", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_struct_type(prop, "Constraint");
@@ -3631,12 +3364,6 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Display All Edges", "Display all edges for mesh objects");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
 
-  prop = RNA_def_property(srna, "use_grease_pencil_lights", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "dtx", OB_USE_GPENCIL_LIGHTS);
-  RNA_def_property_boolean_default(prop, true);
-  RNA_def_property_ui_text(prop, "Use Lights", "Lights affect Grease Pencil object");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_grease_pencil_update");
-
   prop = RNA_def_property(srna, "show_transparent", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "dtx", OB_DRAWTRANSP);
   RNA_def_property_ui_text(
@@ -3646,7 +3373,7 @@ static void rna_def_object(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_in_front", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "dtx", OB_DRAW_IN_FRONT);
   RNA_def_property_ui_text(prop, "In Front", "Make the object display in front of others");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_grease_pencil_update");
+  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update_draw");
 
   /* pose */
   prop = RNA_def_property(srna, "pose", PROP_POINTER, PROP_NONE);
@@ -3714,11 +3441,6 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "ObjectDisplay");
   RNA_def_property_pointer_funcs(prop, "rna_Object_display_get", nullptr, nullptr, nullptr);
   RNA_def_property_ui_text(prop, "Object Display", "Object display settings for 3D viewport");
-
-  /* Line Art */
-  prop = RNA_def_property(srna, "lineart", PROP_POINTER, PROP_NONE);
-  RNA_def_property_struct_type(prop, "ObjectLineArt");
-  RNA_def_property_ui_text(prop, "Line Art", "Line Art settings for the object");
 
   /* Mesh Symmetry Settings */
 
@@ -3856,7 +3578,6 @@ void RNA_def_object(BlenderRNA *brna)
   rna_def_vertex_group(brna);
   rna_def_material_slot(brna);
   rna_def_object_display(brna);
-  rna_def_object_lineart(brna);
   rna_def_object_light_linking(brna);
   RNA_define_animate_sdna(true);
 }

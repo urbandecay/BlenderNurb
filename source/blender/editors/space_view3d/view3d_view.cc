@@ -697,13 +697,6 @@ int view3d_gpu_select_ex(const ViewContext *vc,
             BLI_linklist_prepend_alloca(&ob_pose_list, amd->object);
           }
         }
-        else if (md->type == eModifierType_GreasePencilArmature) {
-          GreasePencilArmatureModifierData *amd =
-              reinterpret_cast<GreasePencilArmatureModifierData *>(md);
-          if (amd->object && (amd->object->mode & OB_MODE_POSE)) {
-            BLI_linklist_prepend_alloca(&ob_pose_list, amd->object);
-          }
-        }
       }
       object_filter.fn = drw_select_filter_object_mode_lock_for_weight_paint;
       object_filter.user_data = ob_pose_list;

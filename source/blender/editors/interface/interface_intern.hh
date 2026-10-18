@@ -1743,10 +1743,6 @@ void UI_OT_eyedropper_depth(wmOperatorType *ot);
 
 void UI_OT_eyedropper_driver(wmOperatorType *ot);
 
-/* `eyedroppers/eyedropper_grease_pencil_colorr.cc` */
-
-void UI_OT_eyedropper_grease_pencil_color(wmOperatorType *ot);
-
 /* interface_ops_color.cc */
 
 MenuType *UI_MT_color_space_select();

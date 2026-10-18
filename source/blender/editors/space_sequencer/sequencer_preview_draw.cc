@@ -51,7 +51,6 @@
 #include "GPU_state.hh"
 #include "GPU_viewport.hh"
 
-#include "ED_gpencil_legacy.hh"
 #include "ED_screen.hh"
 #include "ED_sequencer.hh"
 #include "ED_space_api.hh"
@@ -186,18 +185,6 @@ static void sequencer_display_size(const RenderData &render_data, float r_viewre
   r_viewrect[1] = float(render_data.ysch);
 
   r_viewrect[0] *= render_data.xasp / render_data.yasp;
-}
-
-static void sequencer_draw_gpencil_overlay(const bContext *C)
-{
-  /* Draw grease-pencil (image aligned). */
-  ED_annotation_draw_2dimage(C);
-
-  /* Orthographic at pixel level. */
-  ui::view2d_view_restore(C);
-
-  /* Draw grease-pencil (screen aligned). */
-  ED_annotation_draw_view2d(C, false);
 }
 
 /**
@@ -1788,9 +1775,6 @@ static void sequencer_preview_draw_overlays(const bContext *C,
     /* Various overlays like strip selection and text editing. */
     preview_draw_all_image_overlays(C, scene, editing, timeline_frame);
 
-    if ((space_sequencer.preview_overlay.flag & SEQ_PREVIEW_SHOW_GPENCIL) && space_sequencer.gpd) {
-      sequencer_draw_gpencil_overlay(C);
-    }
   }
 
   draw_registered_callbacks(C, region);

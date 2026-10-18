@@ -5,7 +5,6 @@
 #include <iostream>
 
 #include "DNA_curves_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_pointcloud_types.h"
 
@@ -129,15 +128,6 @@ void GeoNodeExecParams::check_input_geometry_set(UString identifier,
       }
       case GeometryComponent::Type::Edit: {
         continue;
-      }
-      case GeometryComponent::Type::GreasePencil: {
-        if (const GreasePencil *grease_pencil = geometry_set.get_grease_pencil()) {
-          if (grease_pencil->drawing_array_num == 0) {
-            continue;
-          }
-        }
-        message += RPT_("Grease Pencil");
-        break;
       }
     }
     this->error_message_add(NodeWarningType::Info, std::move(message));

@@ -122,10 +122,7 @@ static void initCurveShrinkFatten(TransInfo *t, wmOperator * /*op*/)
       if (t->data_type == &TransConvertType_Curve) {
         use_scaling_factor = tc->data[1].val != nullptr;
       }
-      else if (ELEM(t->data_type,
-                    &curves::TransConvertType_Curves,
-                    &greasepencil::TransConvertType_GreasePencil))
-      {
+      else if (t->data_type == &curves::TransConvertType_Curves) {
         use_scaling_factor = tc->data[0].val != nullptr;
       }
     }

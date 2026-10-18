@@ -21,11 +21,6 @@ class CollectionButtonsPanel:
         return context.collection != context.scene.collection
 
 
-def lineart_make_line_type_entry(col, line_type, text_disp, expand, search_from):
-    col.prop(line_type, "use", text=text_disp)
-    if line_type.use and expand:
-        col.prop_search(line_type, "layer", search_from, "layers", icon='GREASEPENCIL')
-        col.prop_search(line_type, "material", search_from, "materials", icon='SHADING_TEXTURE')
 
 
 class COLLECTION_PT_collection_flags(CollectionButtonsPanel, Panel):
@@ -110,34 +105,6 @@ class COLLECTION_PT_instancing(CollectionButtonsPanel, Panel):
         row.menu("COLLECTION_MT_context_menu_instance_offset", icon='DOWNARROW_HLT', text="")
 
 
-class COLLECTION_PT_lineart_collection(CollectionButtonsPanel, Panel):
-    bl_label = "Line Art"
-    bl_order = 10
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        collection = context.collection
-
-        row = layout.row()
-        row.prop(collection, "lineart_usage")
-
-        layout.prop(collection, "lineart_use_intersection_mask", text="Collection Mask")
-
-        col = layout.column(align=True)
-        col.active = collection.lineart_use_intersection_mask
-        row = col.row(align=True, heading="Masks")
-        for i in range(8):
-            row.prop(collection, "lineart_intersection_mask", index=i, text=" ", toggle=True)
-            if i == 3:
-                row = col.row(align=True)
-
-        row = layout.row(heading="Intersection Priority")
-        row.prop(collection, "use_lineart_intersection_priority", text="")
-        subrow = row.row()
-        subrow.active = collection.use_lineart_intersection_priority
-        subrow.prop(collection, "lineart_intersection_priority", text="")
 
 
 class COLLECTION_PT_collection_custom_props(CollectionButtonsPanel, PropertyPanel, Panel):
@@ -150,7 +117,6 @@ classes = (
     COLLECTION_PT_collection_flags,
     COLLECTION_PT_viewlayer_flags,
     COLLECTION_PT_instancing,
-    COLLECTION_PT_lineart_collection,
     COLLECTION_PT_collection_custom_props,
     COLLECTION_PT_importer,
     COLLECTION_PT_exporters,

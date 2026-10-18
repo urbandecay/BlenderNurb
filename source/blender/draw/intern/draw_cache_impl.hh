@@ -40,7 +40,6 @@ struct Object;
 struct Scene;
 struct PointCloud;
 struct Volume;
-struct GreasePencil;
 
 enum eMeshBatchDirtyMode : int8_t;
 
@@ -78,10 +77,6 @@ void DRW_pointcloud_batch_cache_free(PointCloud *pointcloud);
 void DRW_volume_batch_cache_dirty_tag(Volume *volume, int mode);
 void DRW_volume_batch_cache_validate(Volume *volume);
 void DRW_volume_batch_cache_free(Volume *volume);
-
-void DRW_grease_pencil_batch_cache_dirty_tag(GreasePencil *grease_pencil, int mode);
-void DRW_grease_pencil_batch_cache_validate(GreasePencil *grease_pencil);
-void DRW_grease_pencil_batch_cache_free(GreasePencil *grease_pencil);
 
 /** \} */
 
@@ -299,8 +294,6 @@ enum {
   VFLAG_EDGE_SHARP = 1 << 6,
   VFLAG_EDGE_FREESTYLE = 1 << 7,
   /* Beware to not go over 1 << 7 (it's a byte flag). */
-  /* NOTE: Grease pencil edit curve use another type of data format that allows for this value. */
-  VFLAG_VERT_GPENCIL_BEZT_HANDLE = 1 << 30,
 };
 
 enum {

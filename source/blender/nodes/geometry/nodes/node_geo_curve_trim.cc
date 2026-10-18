@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "UI_interface_layout.hh"
 #include "UI_resources.hh"
@@ -27,7 +26,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.allow_any_socket_order();
   b.add_default_layout();
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to shorten");
   b.add_output<decl::Geometry>("Curve"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Bool>("Selection"_ustr)
@@ -179,32 +178,6 @@ static void geometry_set_curve_trim(GeometrySet &geometry_set,
       Curves *dst_curves_id = bke::curves_new_nomain(std::move(dst_curves));
       bke::curves_copy_parameters(src_curves_id, *dst_curves_id);
       geometry_set.replace_curves(dst_curves_id);
-    }
-  }
-  if (geometry_set.has_grease_pencil()) {
-    using namespace bke::greasepencil;
-    GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
-    for (const int layer_index : grease_pencil.layers().index_range()) {
-      Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-      if (drawing == nullptr) {
-        continue;
-      }
-      const bke::CurvesGeometry &src_curves = drawing->strokes();
-      const bke::GreasePencilLayerFieldContext field_context{
-          grease_pencil, AttrDomain::Curve, layer_index};
-      bke::CurvesGeometry dst_curves;
-      if (trim_curves(src_curves,
-                      mode,
-                      field_context,
-                      selection_field,
-                      start_field,
-                      end_field,
-                      attribute_filter,
-                      dst_curves))
-      {
-        drawing->strokes_for_write() = std::move(dst_curves);
-        drawing->tag_topology_changed();
-      }
     }
   }
 }

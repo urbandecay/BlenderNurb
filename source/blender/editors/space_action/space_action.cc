@@ -427,11 +427,6 @@ static void action_channel_region_listener(const wmRegionListenerParams *params)
           break;
       }
       break;
-    case NC_GPENCIL:
-      if (ELEM(wmn->action, NA_RENAME, NA_SELECTED, NA_EDITED)) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_ID:
       if (wmn->action == NA_RENAME) {
         ED_region_tag_redraw(region);
@@ -469,9 +464,6 @@ static void saction_channel_region_message_subscribe(const wmRegionMessageSubscr
         RNA_Keyframe,
         RNA_FCurveSample,
 
-        RNA_Annotation, /* Grease Pencil */
-        RNA_AnnotationLayer,
-        RNA_AnnotationFrame,
     };
 
     for (int i = 0; i < ARRAY_SIZE(type_array); i++) {
@@ -582,18 +574,6 @@ static void action_listener(const wmSpaceTypeListenerParams *params)
 
   /* context changes */
   switch (wmn->category) {
-    case NC_GPENCIL:
-      /* only handle these events for containers in which GPencil frames are displayed */
-      if (ELEM(saction->mode, SACTCONT_GPENCIL, SACTCONT_DOPESHEET)) {
-        if (wmn->action == NA_EDITED) {
-          ED_area_tag_redraw(area);
-        }
-        else if (wmn->action == NA_SELECTED) {
-          saction->runtime.flag |= SACTION_RUNTIME_FLAG_NEED_CHAN_SYNC;
-          ED_area_tag_refresh(area);
-        }
-      }
-      break;
     case NC_ANIMATION:
       /* For NLA tweak-mode enter/exit, need complete refresh. */
       if (wmn->data == ND_NLA_ACTCHANGE) {

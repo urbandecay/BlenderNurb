@@ -38,8 +38,7 @@ static void remove_attributes_recursive(GeometrySet &geometry_set, RemoveAttribu
   for (const GeometryComponent::Type type : {GeometryComponent::Type::Mesh,
                                              GeometryComponent::Type::PointCloud,
                                              GeometryComponent::Type::Curve,
-                                             GeometryComponent::Type::Instance,
-                                             GeometryComponent::Type::GreasePencil})
+                                             GeometryComponent::Type::Instance})
   {
     if (!geometry_set.has(type)) {
       continue;

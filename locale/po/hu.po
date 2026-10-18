@@ -223,16 +223,6 @@ msgstr "Betűkészlet"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Zsírkréta"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Zsírkréta v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Kép"
 
@@ -716,10 +706,6 @@ msgid "Fonts"
 msgstr "Betűkészletek"
 
 
-msgid "Grease Pencil"
-msgstr "Zsírkréta"
-
-
 msgid "Collections"
 msgstr "Kollekciók"
 
@@ -838,10 +824,6 @@ msgstr "Oldallap sarka"
 
 msgid "Layer"
 msgstr "Réteg"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Tulajdonság a zsírkréta rétegen"
 
 
 msgid "Name of the Attribute"
@@ -1072,10 +1054,6 @@ msgid "Path to the .blend file"
 msgstr "Útvonal a .blend fájlhoz"
 
 
-msgid "Grease Pencil data-blocks"
-msgstr "Zsírkréta adatblokkok"
-
-
 msgid "Hair curve data-blocks"
 msgstr "Haj görbe adatblokkok"
 
@@ -1114,10 +1092,6 @@ msgstr "Ablakkezelők"
 
 msgid "Window manager data-blocks"
 msgstr "Ablakkezelő adatblokkok"
-
-
-msgid "Main Grease Pencils"
-msgstr "Fő zsírkréták"
 
 
 msgid "Main Window Managers"
@@ -1224,10 +1198,6 @@ msgstr "Hozzáadás"
 msgctxt "Operator"
 msgid "Remove"
 msgstr "Eltávolítás"
-
-
-msgid "Grease Pencil Brush Settings"
-msgstr "Zsírkréta ecset beállítások"
 
 
 msgid "Angle"
@@ -3020,14 +2990,6 @@ msgid "Transform"
 msgstr "Átalakít"
 
 
-msgid "Display Grease Pencil"
-msgstr "Zsírkréta megjelenítése"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "Tartalmazza a Zsírkrétához kapcsolódó animációs adatok és képkockák vizualizációját"
-
-
 msgid "Show Hidden"
 msgstr "Rejtett megjelenítése"
 
@@ -3978,24 +3940,8 @@ msgid "Enable suggestive contours"
 msgstr "Szuggesztív kontúrok bekapcsolása"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "Zsírkréta interpoláció beállítások"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "Beállítások a zsírkréta interpoláció eszköszeihez"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "Egyéni görbe a zsírkréta képkockák közötti „szekvencia” interpoláció szabályozásához"
-
-
 msgid "Grid"
 msgstr "Rács"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "A zsírkréta vonású szobrászeszközök általános tulajdonságai"
 
 
 msgid "Dynamic"
@@ -4018,32 +3964,12 @@ msgid "Material Index"
 msgstr "Anyag index"
 
 
-msgid "Grease Pencil Frame"
-msgstr "Zsírkréta kép"
-
-
-msgid "Grease Pencil Frames"
-msgstr "Zsírkréta képkockák"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "Zsírkréta maszkoló réteg"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "Zsírkréta maszkoló rétegek"
-
-
 msgid "Repeat"
 msgstr "Ismétlés"
 
 
 msgid "Frame Start"
 msgstr "Kezdő képkocka"
-
-
-msgid "Grease Pencil Layer"
-msgstr "Zsírkréta réteg"
 
 
 msgid "Blend Mode"
@@ -4064,14 +3990,6 @@ msgstr "Szülőcsont"
 
 msgid "Pass Index"
 msgstr "Vezeték index"
-
-
-msgid "Grease Pencil Layers"
-msgstr "Zsírkréta rétegek"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "Aktív zsírkréta réteg"
 
 
 msgid "Red"
@@ -4676,10 +4594,6 @@ msgid "Enable chain splitting by dashed line patterns"
 msgstr "Összekapcsolások szétválasztásának engedélyezése szaggatott vonal minták átal"
 
 
-msgid "Grease Pencil data-block"
-msgstr "Zsírkréta adatblokk"
-
-
 msgid "Only selected keyframes"
 msgstr "Csak kiválasztott kulcs-képkockák"
 
@@ -4843,10 +4757,6 @@ msgstr "Felbotás X"
 
 msgid "Resolution Y"
 msgstr "Felbotás Y"
-
-
-msgid "Grease Pencil Settings"
-msgstr "Zsírkréta beállítások"
 
 
 msgid "Cube"
@@ -5067,22 +4977,6 @@ msgstr "Objektum mód"
 
 msgid "Edit Mode"
 msgstr "Szerkesztő mód"
-
-
-msgid "Edit Grease Pencil Strokes"
-msgstr "Zsírkréta vonások szerkesztése"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "Zsírkréta vonások formázása"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "Zsírkréta vonások festése"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "Zsírkréta csúcspont ecsetvonások"
 
 
 msgid "Motion Path"
@@ -5369,10 +5263,6 @@ msgid "Constant acceleration in a given direction"
 msgstr "Folymatos gyorsulás az adott irányba"
 
 
-msgid "Grease Pencil settings for the scene"
-msgstr "Zsírkréta beállításai a jelenthez"
-
-
 msgid "Rigid Body World"
 msgstr "Szilárd test világ"
 
@@ -5523,22 +5413,6 @@ msgstr "Kiegészítők"
 
 msgid "Themes"
 msgstr "Témák"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "Zsírkréta szerkesztés mód"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "Zsírkréta formázás mód"
-
-
-msgid "Grease Pencil Draw"
-msgstr "Zsírkréta rajz"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "Zsírkréta csúcspont festés"
 
 
 msgid "Mist"
@@ -6588,10 +6462,6 @@ msgstr "ID típus"
 
 msgid "Handle type"
 msgstr "Fogantyú típus"
-
-
-msgid "Grease Pencil Color"
-msgstr "Zsírkréta szín"
 
 
 msgid "Alignment"
@@ -7687,14 +7557,6 @@ msgstr "Lépés"
 
 msgid "Light Object"
 msgstr "fény objektum"
-
-
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "Zsírkréta réteg, amelyhez hozzárendeli a generált vonásokat"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "A generált vonásokhoz hozzárendelt zsírkréta anyag"
 
 
 msgid "Use Material"
@@ -10019,10 +9881,6 @@ msgid "Bend"
 msgstr "Hajlítás"
 
 
-msgid "Grease Pencil Opacity"
-msgstr "Zsírkréta átlátszatlanság"
-
-
 msgid "Construct a Nurbs Circle"
 msgstr "Nurbs Kör létrehozása"
 
@@ -10457,11 +10315,6 @@ msgstr "Kulcs-képkockák tisztítása"
 
 msgid "Only Selected Keyframes"
 msgstr "Csak kiválasztott kulcs-képkockák"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Zsírkréta rajz"
 
 
 msgctxt "Operator"
@@ -14976,11 +14829,6 @@ msgstr "Betűkészlet"
 
 
 msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Zsírkréta"
-
-
-msgctxt "WindowManager"
 msgid "Image Paint"
 msgstr "Képfestő eszköz"
 
@@ -16318,10 +16166,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "Részecskerendszer beállítások böngészése és csatolása"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "Zsírkréta adatok böngészése és csatolása"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "Film klipek böngészése és csatolása"
 
@@ -16368,11 +16212,6 @@ msgstr "Új"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "Új"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "Új"
 
@@ -16590,10 +16429,6 @@ msgstr "Nincs kamera a jelenetben"
 
 msgid "Blender Render"
 msgstr "Blender Render"
-
-
-msgid "GPencil Interpolation: "
-msgstr "Zsírkréta interpolálás: "
 
 
 msgid " UVs,"

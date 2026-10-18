@@ -1066,14 +1066,6 @@ static const EnumPropertyItem *rna_NodeTreeInterfaceSocketString_subtype_itemf(
   return rna_subtype_filter_itemf({PROP_FILEPATH, PROP_NONE}, r_free);
 }
 
-static bool rna_NodeTreeInterfaceSocketMaterial_default_value_poll(PointerRNA * /*ptr*/,
-                                                                   PointerRNA value)
-{
-  /* Do not show grease pencil materials for now. */
-  Material *ma = static_cast<Material *>(value.data);
-  return ma->gp_style == nullptr;
-}
-
 static void rna_NodeTreeInterface_items_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
   bNodeTree *ntree = reinterpret_cast<bNodeTree *>(ptr->owner_id);
@@ -1334,13 +1326,6 @@ static void rna_def_node_interface_socket(BlenderRNA *brna)
   RNA_def_property_ui_text(prop,
                            "Is Panel Toggle",
                            "This socket is meant to be used as the toggle in its panel header");
-  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeTreeInterfaceItem_update");
-
-  prop = RNA_def_property(srna, "layer_selection_field", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flag", NODE_INTERFACE_SOCKET_LAYER_SELECTION);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(
-      prop, "Layer Selection", "Take Grease Pencil Layer or Layer Group as selection field");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeTreeInterfaceItem_update");
 
   prop = RNA_def_property(srna, "menu_expanded", PROP_BOOLEAN, PROP_NONE);

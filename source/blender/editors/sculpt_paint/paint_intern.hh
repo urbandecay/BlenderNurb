@@ -99,7 +99,7 @@ struct PaintSample {
 };
 
 /**
- * Common structure for various paint operators (e.g. Sculpt, Grease Pencil, Curves Sculpt)
+ * Common structure for various paint operators (e.g. Sculpt, Curves Sculpt)
  *
  * Callback functions defined and stored on this struct (e.g. `StrokeGetLocation`) allow each of
  * these modes to customize specific behavior while still sharing other common handing.

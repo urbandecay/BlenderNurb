@@ -75,7 +75,6 @@ class Curves : Overlay {
         sub.shader_set(res.shaders->curve_edit_line.get());
         sub.bind_texture("weight_tx", &res.weight_ramp_tx);
         sub.push_constant("use_weight", false);
-        sub.push_constant("use_grease_pencil", false);
         edit_curves_lines_ = &sub;
       }
     }
@@ -100,7 +99,6 @@ class Curves : Overlay {
         sub.shader_set(res.shaders->curve_edit_points.get());
         sub.bind_texture("weight_tx", &res.weight_ramp_tx);
         sub.push_constant("use_weight", false);
-        sub.push_constant("use_grease_pencil", false);
         sub.push_constant("do_stroke_endpoints", false);
         sub.push_constant("curve_handle_display", int(state.overlay.handle_display));
         edit_curves_points_ = &sub;
@@ -159,7 +157,6 @@ class Curves : Overlay {
         sub.shader_set(res.shaders->legacy_curve_edit_points.get());
         sub.push_constant("show_curve_handles", state.overlay.handle_display != CURVE_HANDLE_NONE);
         sub.push_constant("curve_handle_display", int(state.overlay.handle_display));
-        sub.push_constant("use_grease_pencil", false);
         sub.push_constant("do_stroke_endpoints", false);
         edit_legacy_curve_points_ = &sub;
       }

@@ -216,7 +216,7 @@ static eViewOpsFlag navigate_pivot_get(bContext *C,
 
     if (!ED_view3d_has_depth_buffer_updated(depsgraph, v3d)) {
       ED_view3d_depth_override(
-          depsgraph, region, v3d, nullptr, V3D_DEPTH_NO_GPENCIL, true, nullptr);
+          depsgraph, region, v3d, nullptr, V3D_DEPTH_ALL, true, nullptr);
     }
 
     const bool is_set = ED_view3d_autodist(region, v3d, event->mval, r_pivot, fallback_depth_pt);
@@ -837,12 +837,7 @@ bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
     BKE_paint_stroke_get_average(paint, ob_act_eval, ofs);
     is_set = true;
   }
-  else if (ob_act && ELEM(ob_act->mode,
-                          OB_MODE_SCULPT_CURVES,
-                          OB_MODE_PAINT_GREASE_PENCIL,
-                          OB_MODE_SCULPT_GREASE_PENCIL,
-                          OB_MODE_VERTEX_GREASE_PENCIL,
-                          OB_MODE_WEIGHT_GREASE_PENCIL))
+  else if (ob_act && (ob_act->mode & OB_MODE_SCULPT_CURVES))
   {
     BKE_paint_stroke_get_average(paint, ob_act_eval, ofs);
     is_set = true;

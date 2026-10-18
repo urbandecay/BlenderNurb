@@ -46,7 +46,7 @@ class EndpointFieldInput final : public bke::GeometryFieldInput {
     if (context.domain() != AttrDomain::Point) {
       return {};
     }
-    const bke::CurvesGeometry *curves_ptr = context.curves_or_strokes();
+    const bke::CurvesGeometry *curves_ptr = context.curves();
     if (!curves_ptr) {
       return {};
     }

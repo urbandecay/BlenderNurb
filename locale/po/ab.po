@@ -538,11 +538,6 @@ msgid "New"
 msgstr "Аҿыц"
 
 
-msgctxt "GPencil"
-msgid "New"
-msgstr "Аҿыц"
-
-
 msgctxt "Image"
 msgid "New"
 msgstr "Аҿыц"

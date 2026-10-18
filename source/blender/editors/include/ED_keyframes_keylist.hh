@@ -21,9 +21,6 @@ namespace blender {
 struct AnimData;
 struct CacheFile;
 struct FCurve;
-struct GreasePencil;
-struct GreasePencilLayer;
-struct GreasePencilLayerTreeGroup;
 struct MaskLayer;
 struct Object;
 struct Scene;
@@ -32,8 +29,6 @@ struct bAction;
 struct bActionGroup;
 struct bAnimContext;
 struct bDopeSheet;
-struct bGPDlayer;
-struct bGPdata;
 
 namespace animrig {
 class Action;
@@ -90,8 +85,6 @@ enum eActKeyBlock_Hold {
   ACTKEYBLOCK_FLAG_STATIC_HOLD = (1 << 1),
   /** Key block represents any kind of hold. */
   ACTKEYBLOCK_FLAG_ANY_HOLD = (1 << 2),
-  /** The block is grease pencil. */
-  ACTKEYBLOCK_FLAG_GPENCIL = (1 << 4),
   /** The curve segment uses linear interpolation. */
   ACTKEYBLOCK_FLAG_IPO_LINEAR = (1 << 5),
   /** The curve segment uses constant interpolation. */
@@ -251,29 +244,6 @@ void action_slot_summary_to_keylist(bAnimContext *ac,
                                     AnimKeylist *keylist,
                                     int /* eSAction_Flag */ saction_flag,
                                     float2 range);
-
-/* Grease Pencil datablock summary (Legacy) */
-void gpencil_to_keylist(bDopeSheet *ads, bGPdata *gpd, AnimKeylist *keylist, bool active);
-
-/* Grease Pencil Cels. */
-void grease_pencil_cels_to_keylist(AnimData *adt,
-                                   const GreasePencilLayer *gpl,
-                                   AnimKeylist *keylist,
-                                   int saction_flag);
-
-/* Grease Pencil Layer Group. */
-void grease_pencil_layer_group_to_keylist(AnimData *adt,
-                                          const GreasePencilLayerTreeGroup *layer_group,
-                                          AnimKeylist *keylist,
-                                          const int saction_flag);
-/* Grease Pencil Data-Block. */
-void grease_pencil_data_block_to_keylist(AnimData *adt,
-                                         const GreasePencil *grease_pencil,
-                                         AnimKeylist *keylist,
-                                         const int saction_flag,
-                                         bool active_layer_only);
-/* Grease Pencil Layer (Legacy) */
-void gpl_to_keylist(bDopeSheet *ads, bGPDlayer *gpl, AnimKeylist *keylist);
 
 /* Mask */
 void mask_to_keylist(bDopeSheet *ads, MaskLayer *masklay, AnimKeylist *keylist);

@@ -65,10 +65,6 @@ OPERATOR_IGNORE = (
     "font.move",
     "gizmogroup.gizmo_select",
     "gizmogroup.gizmo_tweak",
-    "gpencil.draw",  # Interactive drawing.
-    "gpencil.select_lasso",
-    "gpencil.vertex_paint",
-    "gpencil.weight_paint",
     "graph.click_insert",
     "graph.clickselect",
     "graph.cursor_set",  # Interactive cursor placement.
@@ -474,35 +470,6 @@ def ctx_object_empty():
     bpy.ops.object.add(type='EMPTY')
 
 
-# -------------
-# Grease Pencil
-
-
-def ctx_gpencil_edit():
-    bpy.ops.object.gpencil_add(type='STROKE')
-    bpy.ops.object.mode_set(mode='EDIT_GPENCIL')
-
-
-def ctx_gpencil_sculpt():
-    bpy.ops.object.grease_pencil_add(type='STROKE')
-    bpy.ops.object.mode_set(mode='SCULPT_GREASE_PENCIL')
-
-
-def ctx_gpencil_paint_weight():
-    bpy.ops.object.grease_pencil_add(type='STROKE')
-    bpy.ops.object.mode_set(mode='WEIGHT_GREASE_PENCIL')
-
-
-def ctx_gpencil_paint_vertex():
-    bpy.ops.object.grease_pencil_add(type='STROKE')
-    bpy.ops.object.mode_set(mode='VERTEX_GREASE_PENCIL')
-
-
-def ctx_gpencil_paint_draw():
-    bpy.ops.object.grease_pencil_add(type='STROKE')
-    bpy.ops.object.mode_set(mode='PAINT_GREASE_PENCIL')
-
-
 # ------------
 # Object Modes
 
@@ -585,13 +552,6 @@ def perform_coverage_test():
             (ctx_object_paint_vertex, 'VIEW_3D'),
             (ctx_object_paint_weight, 'VIEW_3D'),
             (ctx_object_paint_weight_with_vert_mask, 'VIEW_3D'),
-
-            # Grease pencil modes.
-            (ctx_gpencil_edit, 'VIEW_3D'),
-            (ctx_gpencil_paint_draw, 'VIEW_3D'),
-            (ctx_gpencil_paint_vertex, 'VIEW_3D'),
-            (ctx_gpencil_paint_weight, 'VIEW_3D'),
-            (ctx_gpencil_sculpt, 'VIEW_3D'),
 
             # Other spaces.
             (ctx_clip_default, 'CLIP_EDITOR'),

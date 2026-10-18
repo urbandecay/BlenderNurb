@@ -24,7 +24,6 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_cachefile_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_object_types.h"
@@ -32,7 +31,6 @@
 #include "DNA_sequence_types.h"
 
 #include "BKE_fcurve.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "ED_anim_api.hh"
 #include "ED_keyframes_keylist.hh"
@@ -58,15 +56,6 @@ BLI_INLINE bool is_cfra_lt(const float a, const float b)
 }
 
 /* --------------- */
-
-/**
- * Animation data of Grease Pencil cels,
- * which are drawings positioned in time.
- */
-struct GreasePencilCel {
-  int frame_number;
-  GreasePencilFrame frame;
-};
 
 struct AnimKeylist {
   /* Number of ActKeyColumn's in the keylist. */
@@ -543,90 +532,6 @@ static void nupdate_ak_bezt(ActKeyColumn *ak, void *data)
   }
 }
 
-/* ......... */
-/* New node callback used for building ActKeyColumns from GPencil frames */
-static ActKeyColumn *nalloc_ak_cel(void *data)
-{
-  ActKeyColumn *ak = MEM_new_zeroed<ActKeyColumn>("ActKeyColumnCel");
-  GreasePencilCel &cel = *static_cast<GreasePencilCel *>(data);
-
-  /* Store settings based on state of BezTriple */
-  ak->cfra = cel.frame_number;
-  ak->sel = (cel.frame.flag & SELECT) != 0;
-  ak->key_type = eBezTriple_KeyframeType(cel.frame.type);
-
-  /* Count keyframes in this column */
-  ak->totkey = 1;
-  /* Set as visible block. */
-  ak->totblock = 1;
-  ak->block.sel = ak->sel;
-  ak->block.flag |= ACTKEYBLOCK_FLAG_GPENCIL;
-
-  return ak;
-}
-
-/* Node updater callback used for building ActKeyColumns from GPencil frames */
-static void nupdate_ak_cel(ActKeyColumn *ak, void *data)
-{
-  GreasePencilCel &cel = *static_cast<GreasePencilCel *>(data);
-
-  /* Update selection status. */
-  if (cel.frame.flag & GP_FRAME_SELECTED) {
-    ak->sel = SELECT;
-  }
-
-  ak->totkey++;
-
-  /* Update keytype status. */
-  if (cel.frame.type == BEZT_KEYTYPE_KEYFRAME) {
-    ak->key_type = BEZT_KEYTYPE_KEYFRAME;
-  }
-}
-
-/* ......... */
-
-/* New node callback used for building ActKeyColumns from GPencil frames. */
-static ActKeyColumn *nalloc_ak_gpframe(void *data)
-{
-  ActKeyColumn *ak = MEM_new_zeroed<ActKeyColumn>("ActKeyColumnGPF");
-  const bGPDframe *gpf = static_cast<bGPDframe *>(data);
-
-  /* store settings based on state of BezTriple */
-  ak->cfra = gpf->framenum;
-  ak->sel = (gpf->flag & GP_FRAME_SELECT) ? SELECT : 0;
-  ak->key_type = eBezTriple_KeyframeType(gpf->key_type);
-
-  /* Count keyframes in this column. */
-  ak->totkey = 1;
-  /* Set as visible block. */
-  ak->totblock = 1;
-  ak->block.sel = ak->sel;
-  ak->block.flag |= ACTKEYBLOCK_FLAG_GPENCIL;
-
-  return ak;
-}
-
-/* Node updater callback used for building ActKeyColumns from GPencil frames. */
-static void nupdate_ak_gpframe(ActKeyColumn *ak, void *data)
-{
-  bGPDframe *gpf = static_cast<bGPDframe *>(data);
-
-  /* Set selection status and 'touched' status. */
-  if (gpf->flag & GP_FRAME_SELECT) {
-    ak->sel = SELECT;
-  }
-
-  ak->totkey++;
-
-  /* For keyframe type, 'proper' keyframes have priority over breakdowns
-   * (and other types for now). */
-  if (gpf->key_type == BEZT_KEYTYPE_KEYFRAME) {
-    ak->key_type = BEZT_KEYTYPE_KEYFRAME;
-  }
-}
-
-/* ......... */
-
 /* Extra struct to pass the timeline frame since the retiming key doesn't contain that and we would
  * need the scene to get it. */
 struct SeqAllocateData {
@@ -671,7 +576,7 @@ static void nupdate_ak_seqframe(ActKeyColumn *ak, void *data)
 
 /* ......... */
 
-/* New node callback used for building ActKeyColumns from GPencil frames */
+/* New node callback used for building ActKeyColumns from mask keyframes. */
 static ActKeyColumn *nalloc_ak_masklayshape(void *data)
 {
   ActKeyColumn *ak = MEM_new_zeroed<ActKeyColumn>("ActKeyColumnGPF");
@@ -687,7 +592,7 @@ static ActKeyColumn *nalloc_ak_masklayshape(void *data)
   return ak;
 }
 
-/* Node updater callback used for building ActKeyColumns from GPencil frames */
+/* Node updater callback used for building ActKeyColumns from mask keyframes. */
 static void nupdate_ak_masklayshape(ActKeyColumn *ak, void *data)
 {
   MaskLayerShape *masklay_shape = static_cast<MaskLayerShape *>(data);
@@ -800,17 +705,6 @@ static void add_bezt_to_keycolumns_list(AnimKeylist *keylist, BezTripleChain *be
 
   float cfra = bezt->cur->vec[1][0];
   keylist_add_or_update_column(keylist, cfra, nalloc_ak_bezt, nupdate_ak_bezt, bezt);
-}
-
-/* Add the given GPencil Frame to the given 'list' of Keyframes */
-static void add_gpframe_to_keycolumns_list(AnimKeylist *keylist, bGPDframe *gpf)
-{
-  if (ELEM(nullptr, keylist, gpf)) {
-    return;
-  }
-
-  float cfra = gpf->framenum;
-  keylist_add_or_update_column(keylist, cfra, nalloc_ak_gpframe, nupdate_ak_gpframe, gpf);
 }
 
 /* Add the given MaskLayerShape Frame to the given 'list' of Keyframes */
@@ -1050,13 +944,6 @@ void summary_to_keylist(bAnimContext *ac,
         break;
       case ALE_MASKLAY:
         mask_to_keylist(ac->ads, static_cast<MaskLayer *>(ale.data), keylist);
-        break;
-      case ALE_GPFRAME:
-        gpl_to_keylist(ac->ads, static_cast<bGPDlayer *>(ale.data), keylist);
-        break;
-      case ALE_GREASE_PENCIL_CEL:
-        grease_pencil_cels_to_keylist(
-            ale.adt, static_cast<const GreasePencilLayer *>(ale.data), keylist, saction_flag);
         break;
       default:
         break;
@@ -1381,97 +1268,6 @@ void action_to_keylist(
   for (FCurve *fcurve : fcurves_for_action_slot(action, adt->slot_handle)) {
     fcurve_to_keylist(adt, fcurve, keylist, saction_flag, range, true);
   }
-}
-
-void gpencil_to_keylist(bDopeSheet *ads, bGPdata *gpd, AnimKeylist *keylist, const bool active)
-{
-  if (!gpd || !keylist) {
-    return;
-  }
-
-  /* For now, just aggregate out all the frames, but only for visible layers. */
-  for (bGPDlayer &gpl : gpd->layers.items_reversed()) {
-    if (gpl.flag & GP_LAYER_HIDE) {
-      continue;
-    }
-    if ((!active) || ((active) && (gpl.flag & GP_LAYER_SELECT))) {
-      gpl_to_keylist(ads, &gpl, keylist);
-    }
-  }
-}
-
-void grease_pencil_data_block_to_keylist(AnimData *adt,
-                                         const GreasePencil *grease_pencil,
-                                         AnimKeylist *keylist,
-                                         const int saction_flag,
-                                         const bool active_layer_only)
-{
-  if ((grease_pencil == nullptr) || (keylist == nullptr)) {
-    return;
-  }
-
-  if (active_layer_only && grease_pencil->has_active_layer()) {
-    grease_pencil_cels_to_keylist(adt, grease_pencil->get_active_layer(), keylist, saction_flag);
-    return;
-  }
-
-  for (const bke::greasepencil::Layer *layer : grease_pencil->layers()) {
-    grease_pencil_cels_to_keylist(adt, layer, keylist, saction_flag);
-  }
-}
-
-void grease_pencil_cels_to_keylist(AnimData * /*adt*/,
-                                   const GreasePencilLayer *gpl,
-                                   AnimKeylist *keylist,
-                                   int /*saction_flag*/)
-{
-  using namespace blender::bke::greasepencil;
-  const Layer &layer = gpl->wrap();
-  for (auto item : layer.frames().items()) {
-    GreasePencilCel cel{};
-    cel.frame_number = item.key;
-    cel.frame = item.value;
-
-    float cfra = float(item.key);
-    keylist_add_or_update_column(
-        keylist, cfra, nalloc_ak_cel, nupdate_ak_cel, static_cast<void *>(&cel));
-  }
-}
-
-void grease_pencil_layer_group_to_keylist(AnimData *adt,
-                                          const GreasePencilLayerTreeGroup *layer_group,
-                                          AnimKeylist *keylist,
-                                          const int saction_flag)
-{
-  if ((layer_group == nullptr) || (keylist == nullptr)) {
-    return;
-  }
-
-  for (const GreasePencilLayerTreeNode &node_ : layer_group->children.items_reversed()) {
-    const bke::greasepencil::TreeNode &node = node_.wrap();
-    if (node.is_group()) {
-      grease_pencil_layer_group_to_keylist(adt, &node.as_group(), keylist, saction_flag);
-    }
-    else if (node.is_layer()) {
-      grease_pencil_cels_to_keylist(adt, &node.as_layer(), keylist, saction_flag);
-    }
-  }
-}
-
-void gpl_to_keylist(bDopeSheet * /*ads*/, bGPDlayer *gpl, AnimKeylist *keylist)
-{
-  if (!gpl || !keylist) {
-    return;
-  }
-
-  keylist_reset_last_accessed(keylist);
-  /* Although the frames should already be in an ordered list,
-   * they are not suitable for displaying yet. */
-  for (bGPDframe &gpf : gpl->frames) {
-    add_gpframe_to_keycolumns_list(keylist, &gpf);
-  }
-
-  update_keyblocks(keylist, nullptr, 0);
 }
 
 void mask_to_keylist(bDopeSheet * /*ads*/, MaskLayer *masklay, AnimKeylist *keylist)

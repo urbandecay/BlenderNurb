@@ -71,8 +71,6 @@ enum eStripFlag : uint32_t {
   SEQ_AUDIO_PAN_ANIMATED = (1 << 26),
   SEQ_AUDIO_DRAW_WAVEFORM = (1 << 27),
 
-  /* Don't include annotations in OpenGL previews of Scene strips. */
-  SEQ_SCENE_NO_ANNOTATION = (1 << 28),
   SEQ_USE_VIEWS = (1 << 29),
 
   /* Access scene strips directly (like a meta-strip). */

@@ -294,14 +294,6 @@ struct ImBuf *RE_RenderLayerGetPassImBuf(struct RenderLayer *rl,
 
 bool RE_HasSingleLayer(struct Render *re);
 
-/**
- * Add passes for grease pencil.
- * Create a render-layer and render-pass for grease-pencil layer.
- */
-struct RenderPass *RE_create_gp_pass(struct RenderResult *rr,
-                                     const char *layername,
-                                     const char *viewname);
-
 void RE_create_render_pass(struct RenderResult *rr,
                            const char *name,
                            int channels,

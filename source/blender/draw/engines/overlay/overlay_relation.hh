@@ -11,7 +11,6 @@
 #include "BKE_constraint.h"
 #include "DEG_depsgraph_query.hh"
 #include "DNA_constraint_types.h"
-#include "DNA_gpencil_modifier_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_rigidbody_types.h"
 
@@ -77,19 +76,6 @@ class Relations : Overlay {
     for (ModifierData *md : ListBaseWrapper<ModifierData>(&ob->modifiers)) {
       if (md->type == eModifierType_Hook) {
         HookModifierData *hmd = reinterpret_cast<HookModifierData *>(md);
-        const float3 center = math::transform_point(ob->object_to_world(), float3(hmd->cent));
-        if (hmd->object) {
-          relations_buf_.append(hmd->object->object_to_world().location(), center, relation_color);
-        }
-        points_buf_.append(center, relation_color);
-      }
-    }
-
-    for (GpencilModifierData *md :
-         ListBaseWrapper<GpencilModifierData>(ob->greasepencil_modifiers))
-    {
-      if (md->type == eGpencilModifierType_Hook) {
-        HookGpencilModifierData *hmd = reinterpret_cast<HookGpencilModifierData *>(md);
         const float3 center = math::transform_point(ob->object_to_world(), float3(hmd->cent));
         if (hmd->object) {
           relations_buf_.append(hmd->object->object_to_world().location(), center, relation_color);

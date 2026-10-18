@@ -73,7 +73,6 @@ enum eTfmMode {
   TFM_SEQ_SLIDE,
   TFM_BONE_ENVELOPE_DIST,
   TFM_NORMAL_ROTATION,
-  TFM_GPENCIL_OPACITY,
 };
 
 /**
@@ -125,7 +124,6 @@ int BIF_countTransformOrientation(const bContext *C);
 #define P_NO_DEFAULTS (1 << 12)
 #define P_NO_TEXSPACE (1 << 13)
 #define P_CENTER (1 << 14)
-#define P_GPENCIL_EDIT (1 << 15)
 #define P_CURSOR_EDIT (1 << 16)
 #define P_VIEW2D_EDGE_PAN (1 << 17)
 /* For properties performed when confirming the transformation. */

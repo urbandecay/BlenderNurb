@@ -12,7 +12,6 @@
 #include "BKE_curves.hh"
 #include "BKE_curves_utils.hh"
 #include "BKE_deform.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_material.hh"
 #include "BKE_report.hh"
 
@@ -1491,8 +1490,7 @@ wmKeyMap *ensure_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "Pen Tool Modal Map");
 
-  /* This function is called for each space-type and both Grease Pencil and Curves, only needs to
-   * add map once. */
+  /* This function is called for each space-type, so only add the map once. */
   if (keymap && keymap->modal_items) {
     return keymap;
   }

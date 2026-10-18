@@ -35,7 +35,6 @@ set(SRC_GLSL_VERT
   gpu_shader_3D_point_flat_color_vert.glsl
   gpu_shader_3D_smooth_color_vert.glsl
   gpu_shader_display_fallback_vert.glsl
-  gpu_shader_gpencil_stroke_vert.glsl
   gpu_shader_icon_multi_vert.glsl
   gpu_shader_icon_vert.glsl
   gpu_shader_keyframe_shape_vert.glsl
@@ -56,7 +55,6 @@ set(SRC_GLSL_FRAG
   gpu_shader_diag_stripes_frag.glsl
   gpu_shader_display_fallback_frag.glsl
   gpu_shader_flat_color_frag.glsl
-  gpu_shader_gpencil_stroke_frag.glsl
   gpu_shader_icon_frag.glsl
   gpu_shader_image_color_frag.glsl
   gpu_shader_image_desaturate_frag.glsl

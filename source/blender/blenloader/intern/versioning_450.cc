@@ -33,7 +33,6 @@
 #include "BKE_curves.hh"
 #include "BKE_customdata.hh"
 #include "BKE_fcurve.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_idprop.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
@@ -108,15 +107,6 @@ static void fix_curve_nurbs_knot_mode_custom(Main *bmain)
     fix_curves(curves);
   }
 
-  for (GreasePencil &grease_pencil : bmain->grease_pencils) {
-    for (GreasePencilDrawingBase *base : grease_pencil.drawings()) {
-      if (base->type != GP_DRAWING) {
-        continue;
-      }
-      bke::greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(base)->wrap();
-      fix_curves(drawing.strokes_for_write());
-    }
-  }
 }
 
 static void nlastrips_apply_fcurve_versioning(ListBaseT<NlaStrip> &strips)
@@ -4018,31 +4008,6 @@ static void do_init_default_jitter_curves_in_unified_paint_settings(ToolSettings
   }
 }
 
-/* GP_BRUSH_* settings in gpencil_settings->flag2 were deprecated and replaced with
- * brush->color_jitter_flag. */
-static void do_convert_gp_jitter_flags(Brush *brush)
-{
-  BrushGpencilSettings *settings = brush->gpencil_settings;
-  if (settings->flag2 & GP_BRUSH_USE_HUE_AT_STROKE) {
-    brush->color_jitter_flag |= BRUSH_COLOR_JITTER_USE_HUE_AT_STROKE;
-  }
-  if (settings->flag2 & GP_BRUSH_USE_SAT_AT_STROKE) {
-    brush->color_jitter_flag |= BRUSH_COLOR_JITTER_USE_SAT_AT_STROKE;
-  }
-  if (settings->flag2 & GP_BRUSH_USE_VAL_AT_STROKE) {
-    brush->color_jitter_flag |= BRUSH_COLOR_JITTER_USE_VAL_AT_STROKE;
-  }
-  if (settings->flag2 & GP_BRUSH_USE_HUE_RAND_PRESS) {
-    brush->color_jitter_flag |= BRUSH_COLOR_JITTER_USE_HUE_RAND_PRESS;
-  }
-  if (settings->flag2 & GP_BRUSH_USE_SAT_RAND_PRESS) {
-    brush->color_jitter_flag |= BRUSH_COLOR_JITTER_USE_SAT_RAND_PRESS;
-  }
-  if (settings->flag2 & GP_BRUSH_USE_VAL_RAND_PRESS) {
-    brush->color_jitter_flag |= BRUSH_COLOR_JITTER_USE_VAL_RAND_PRESS;
-  }
-}
-
 /* The options were converted into inputs. */
 static void do_version_flip_node_options_to_inputs(bNodeTree *node_tree, bNode *node)
 {
@@ -4737,11 +4702,6 @@ void do_versions_after_linking_450(FileData * /*fd*/, Main *bmain)
       do_init_default_jitter_curves_in_unified_paint_settings(scene.toolsettings);
     }
 
-    for (Brush &brush : bmain->brushes) {
-      if (brush.gpencil_settings) {
-        do_convert_gp_jitter_flags(&brush);
-      }
-    }
   }
 
   /**
@@ -5102,14 +5062,6 @@ void blo_do_versions_450(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
       }
     }
     FOREACH_NODETREE_END;
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 405, 16)) {
-    for (Scene &scene : bmain->scenes) {
-      scene.grease_pencil_settings.smaa_threshold_render =
-          scene.grease_pencil_settings.smaa_threshold;
-      scene.grease_pencil_settings.aa_samples = 1;
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 405, 17)) {

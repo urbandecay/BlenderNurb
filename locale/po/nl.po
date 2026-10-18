@@ -420,16 +420,6 @@ msgstr "Lettertype"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Grease Pencil v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Afbeelding"
 
@@ -1176,10 +1166,6 @@ msgid "Hide"
 msgstr "Verberg"
 
 
-msgid "Set annotation Visibility"
-msgstr "Annotatie Zichtbaarheid instellen"
-
-
 msgid "After Color"
 msgstr "Kleur Na"
 
@@ -1206,10 +1192,6 @@ msgstr "Maximaal aantal frames te tonen voor huidige frame"
 
 msgid "Opacity"
 msgstr "Ondoorzichtigheid"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "Annotatie Laag Doorzichtbaarheid"
 
 
 msgid "Color for all strokes in this layer"
@@ -1268,14 +1250,6 @@ msgid "Thickness"
 msgstr "Dikte"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "Dikte van annotatie stroken"
-
-
-msgid "Note/Layer to add annotation strokes to"
-msgstr "Notitie/Laag om annotatie stroken aan toe te voegen"
-
-
 msgid "Default"
 msgstr "Standaard"
 
@@ -1286,10 +1260,6 @@ msgstr "Strook Punten"
 
 msgid "Stroke data points"
 msgstr "Strook datapunten"
-
-
-msgid "Annotation Stroke Point"
-msgstr "Annotatie Strook Punt"
 
 
 msgid "Coordinates"
@@ -1664,14 +1634,6 @@ msgid "Show Action data-blocks"
 msgstr "Toon Actie data-blokken"
 
 
-msgid "Annotations"
-msgstr "Annotaties"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "Toon Annotatie data-blokken"
-
-
 msgid "Armatures"
 msgstr "Skeletten"
 
@@ -1722,10 +1684,6 @@ msgstr "Lettertypen"
 
 msgid "Show Font data-blocks"
 msgstr "Toon Lettertype data-blokken"
-
-
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgid "Collections"
@@ -2225,10 +2183,6 @@ msgid "Action data-blocks"
 msgstr "Actie data-blokken"
 
 
-msgid "Annotation"
-msgstr "Annotatie"
-
-
 msgid "Brush data-blocks"
 msgstr "Borstel data-blokken"
 
@@ -2271,10 +2225,6 @@ msgstr "Vector Lettertypen"
 
 msgid "Vector font data-blocks"
 msgstr "Vector lettertypen data-blokken"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Grease Pencil data-blokken"
 
 
 msgid "Hair curve data-blocks"
@@ -2471,10 +2421,6 @@ msgstr "Collectie van curves"
 
 msgid "Collection of fonts"
 msgstr "Collectie van lettertypen"
-
-
-msgid "Main Grease Pencils"
-msgstr "Hoofd Grease Pencils"
 
 
 msgid "Main Hair Curves"
@@ -3444,10 +3390,6 @@ msgid "Interpolate Shape"
 msgstr "Vorm Interpoleren"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "Grease Pencil Borstel Instellingen"
-
-
 msgid "Mode"
 msgstr "Modus"
 
@@ -3462,16 +3404,6 @@ msgstr "Materiaal"
 
 msgid "Vertex Color"
 msgstr "Kleur van Punt"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Rond"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Plat"
 
 
 msgid "Curve Sensitivity"
@@ -4877,10 +4809,6 @@ msgid "Repeat"
 msgstr "Herhaal"
 
 
-msgid "Grease Pencil Layer"
-msgstr "Vetkrijt laag"
-
-
 msgid "Divide"
 msgstr "Delen"
 
@@ -5011,11 +4939,6 @@ msgstr "Afvlakking Vorm"
 
 msgid "Projected"
 msgstr "Geprojecteerd"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "Glad"
 
 
 msgid "Draw"
@@ -5393,10 +5316,6 @@ msgstr "Pijlen"
 
 msgid "Circle"
 msgstr "Cirkel"
-
-
-msgid "Line Art"
-msgstr "Line Art"
 
 
 msgid "Rigid Body Settings"
@@ -7335,15 +7254,6 @@ msgid "Unlink"
 msgstr "Ontkoppel"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "Annotaties Tekenen"
-
-
-msgid "Make annotations on the active data"
-msgstr "Maak annotaties op de actieve data"
-
-
 msgid "Segment"
 msgstr "Segment"
 
@@ -7364,32 +7274,9 @@ msgid "Eraser"
 msgstr "Gummen"
 
 
-msgid "Erase Annotation strokes"
-msgstr "Gum Annotatielijnen"
-
-
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "Verwijder Actieve Frame"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "Voeg Een Nieuwe Annotatielaag Toe"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "Verplaats Annotatielaag"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "Verwijder Annotatielaag"
-
-
-msgid "Remove active Annotation layer"
-msgstr "Verwijder actieve Annotatielaag"
 
 
 msgctxt "Operator"
@@ -7423,11 +7310,6 @@ msgstr "Lokale Scherm"
 msgctxt "Operator"
 msgid "Reveal Curves"
 msgstr "Toon Krommes"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "Vetkrijt Tekenen"
 
 
 msgctxt "Operator"
@@ -7508,10 +7390,6 @@ msgstr "Toon Alle Lagen"
 msgctxt "Operator"
 msgid "Copy Materials to Selected Object"
 msgstr "Kopieer Materiaal naar Geselecteerde Object"
-
-
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "Voeg Materialen bij van het actieve Grease Pencil naar ander object"
 
 
 msgid "Append only active material, uncheck to append all materials"
@@ -8022,15 +7900,6 @@ msgstr "Voegt een leeg object toe aan de scene"
 msgctxt "Operator"
 msgid "Toggle Force Field"
 msgstr "Krachtveld Aan/Uit"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "Voeg Vetkrijt Toe"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "Voeg een vetkrijt object toe in de scene"
 
 
 msgctxt "Operator"
@@ -9616,11 +9485,6 @@ msgstr "Volumes"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Annotatie"
-
-
-msgctxt "Operator"
 msgid "Cursor"
 msgstr "Cursor"
 
@@ -9884,14 +9748,6 @@ msgid "Add/Replace"
 msgstr "Voeg Toe/Vervang"
 
 
-msgid "Annotation Default Color"
-msgstr "Annotatie Standaardkleur"
-
-
-msgid "Color of new annotation layers"
-msgstr "Kleur van nieuwe annotatielagen"
-
-
 msgid "Duplicate Action"
 msgstr "Dupliceer Actie"
 
@@ -10071,16 +9927,8 @@ msgid "Active Strip"
 msgstr "Actieve Strip"
 
 
-msgid "Show Annotation"
-msgstr "Toon Annotaties"
-
-
 msgid "Shadow Color"
 msgstr "Schaduwkleur"
-
-
-msgid "Where the annotation comes from"
-msgstr "Waar de annotaties vandaan komen"
 
 
 msgid "Alpha Channel"
@@ -10267,10 +10115,6 @@ msgid "Sound"
 msgstr "Geluid"
 
 
-msgid "Use Annotations"
-msgstr "Gebruik Annotaties"
-
-
 msgctxt "Sequence"
 msgid "Curves"
 msgstr "Krommes"
@@ -10442,11 +10286,6 @@ msgstr "Skellet"
 msgctxt "WindowManager"
 msgid "Font"
 msgstr "Lettertype"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "WindowManager"
@@ -11286,10 +11125,6 @@ msgid "Duplicate Marker"
 msgstr "Dupliceer Markering"
 
 
-msgid "Annotation:"
-msgstr "Annotatie:"
-
-
 msgctxt "Operator"
 msgid "Save Copy..."
 msgstr "Sla Kopie Op..."
@@ -12055,11 +11890,6 @@ msgid "New"
 msgstr "Nieuw"
 
 
-msgctxt "GPencil"
-msgid "New"
-msgstr "Nieuw"
-
-
 msgctxt "Image"
 msgid "New"
 msgstr "Nieuw"
@@ -12613,11 +12443,6 @@ msgstr "Importeren-Exporteren"
 msgctxt "Preferences"
 msgid "Camera"
 msgstr "Camera"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
 
 
 msgctxt "Preferences"

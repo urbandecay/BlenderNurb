@@ -141,7 +141,6 @@ typedef struct NSVGpath
 typedef struct NSVGshape
 {
 	char id[64];				// Optional 'id' attr of the shape or its group
-  char id_parent[64];   // Blender: Parent ID used for layer creation.
 	NSVGpaint fill;				// Fill paint
 	NSVGpaint stroke;			// Stroke paint
 	float opacity;				// Opacity of the shape.
@@ -363,8 +362,6 @@ int nsvg__parseXML(char* input,
 /* Simple SVG parser. */
 
 #define NSVG_MAX_ATTR 128
-#define NSVG_MAX_BREADCRUMB 5
-
 enum NSVGgradientUnits {
 	NSVG_USER_SPACE = 0,
 	NSVG_OBJECT_SPACE = 1
@@ -459,10 +456,6 @@ typedef struct NSVGparser
 	float dpi;
 	char pathFlag;
 	char defsFlag;
-  /** Blender breadcrumb for layers. */
-  char breadcrumb[NSVG_MAX_BREADCRUMB][64];
-  /** Blender number of elements in breadcrumb. */
-  int breadcrumb_len;
 } NSVGparser;
 
 static void nsvg__xformIdentity(float* t)
@@ -964,14 +957,6 @@ static void nsvg__addShape(NSVGparser* p)
 	shape = (NSVGshape*)malloc(sizeof(NSVGshape));
 	if (shape == NULL) goto error;
 	memset(shape, 0, sizeof(NSVGshape));
-
-  /* Copy parent id from breadcrumb. */
-  if (p->breadcrumb_len > 0) {
-    memcpy(shape->id_parent, p->breadcrumb[0], sizeof shape->id_parent);
-  }
-  else {
-    memcpy(shape->id_parent, attr->id, sizeof shape->id_parent);
-  }
 
 	memcpy(shape->id, attr->id, sizeof shape->id);
 	memcpy(shape->fillGradient, attr->fillGradient, sizeof shape->fillGradient);
@@ -2793,13 +2778,6 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		nsvg__pushAttr(p);
 		nsvg__parseAttribs(p, attr);
 
-    /* Save the breadcrumb of groups. */
-    if (p->breadcrumb_len < NSVG_MAX_BREADCRUMB) {
-      NSVGattrib *attr_id = nsvg__getAttr(p);
-      memcpy(
-          p->breadcrumb[p->breadcrumb_len], attr_id->id, sizeof(p->breadcrumb[p->breadcrumb_len]));
-      p->breadcrumb_len++;
-    }
 	} else if (strcmp(el, "path") == 0) {
 		if (p->pathFlag)	// Do not allow nested paths.
 			return;
@@ -2848,12 +2826,6 @@ static void nsvg__endElement(void* ud, const char* el)
 	NSVGparser* p = (NSVGparser*)ud;
 
 	if (strcmp(el, "g") == 0) {
-    /* Remove the breadcrumb level. */
-    if (p->breadcrumb_len > 0) {
-      p->breadcrumb[p->breadcrumb_len - 1][0] = '\0';
-      p->breadcrumb_len--;
-    }
-
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "path") == 0) {
 		p->pathFlag = 0;

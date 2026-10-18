@@ -36,8 +36,6 @@ class GeometryDataSource : public DataSource {
   const bke::GeometryComponent *component_;
   bke::AttrDomain domain_;
   bool show_internal_attributes_;
-  /* Layer index for grease pencil component. */
-  int layer_index_;
 
   /* Some data is computed on the fly only when it is requested. Computing it does not change the
    * logical state of this data source. Therefore, the corresponding methods are const and need to
@@ -50,14 +48,12 @@ class GeometryDataSource : public DataSource {
                      bke::GeometrySet geometry_set,
                      const bke::GeometryComponent::Type component_type,
                      const bke::AttrDomain domain,
-                     const bool show_internal_attributes,
-                     const int layer_index = -1)
+                     const bool show_internal_attributes)
       : object_orig_(object_orig),
         geometry_set_(std::move(geometry_set)),
         component_(geometry_set_.get_component(component_type)),
         domain_(domain),
-        show_internal_attributes_(show_internal_attributes),
-        layer_index_(layer_index)
+        show_internal_attributes_(show_internal_attributes)
   {
   }
 

@@ -433,73 +433,6 @@ static void do_versions_windowmanager_2_50(bScreen *screen)
   }
 }
 
-static void versions_gpencil_add_main(Main *bmain,
-                                      ListBaseT<bGPdata> *lb,
-                                      ID *id,
-                                      const char *name)
-{
-  BLI_addtail(lb, id);
-  id->us = 1;
-  id->flag = ID_FLAG_FAKEUSER;
-  *(reinterpret_cast<short *>(id->name)) = ID_GD_LEGACY;
-
-  BKE_id_new_name_validate(
-      *bmain, lb->cast<ID>(), *id, name, IDNewNameMode::RenameExistingNever, false);
-  /* alphabetic insertion: is in BKE_id_new_name_validate */
-
-  if ((id->tag & ID_TAG_TEMP_MAIN) == 0) {
-    BKE_lib_libblock_session_uid_ensure(id);
-  }
-
-  if (G.debug & G_DEBUG) {
-    printf("Converted GPencil to ID: %s\n", id->name + 2);
-  }
-}
-
-static void do_versions_gpencil_2_50(Main *main, bScreen *screen)
-{
-  /* add regions */
-  for (ScrArea &area : screen->areabase) {
-    for (SpaceLink &sl : area.spacedata) {
-      if (sl.spacetype == SPACE_VIEW3D) {
-        View3D *v3d = reinterpret_cast<View3D *>(&sl);
-        if (v3d->gpd) {
-          versions_gpencil_add_main(
-              main, &main->gpencils, reinterpret_cast<ID *>(v3d->gpd), "GPencil View3D");
-          v3d->gpd = nullptr;
-        }
-      }
-      else if (sl.spacetype == SPACE_NODE) {
-        SpaceNode *snode = reinterpret_cast<SpaceNode *>(&sl);
-        if (snode->gpd) {
-          versions_gpencil_add_main(
-              main, &main->gpencils, reinterpret_cast<ID *>(snode->gpd), "GPencil Node");
-          snode->gpd = nullptr;
-        }
-      }
-      else if (sl.spacetype == SPACE_SEQ) {
-        SpaceSeq *sseq = reinterpret_cast<SpaceSeq *>(&sl);
-        if (sseq->gpd) {
-          versions_gpencil_add_main(
-              main, &main->gpencils, reinterpret_cast<ID *>(sseq->gpd), "GPencil Node");
-          sseq->gpd = nullptr;
-        }
-      }
-      else if (sl.spacetype == SPACE_IMAGE) {
-        SpaceImage *sima = reinterpret_cast<SpaceImage *>(&sl);
-#if 0 /* see comment on r28002 */
-        if (sima->gpd) {
-          versions_gpencil_add_main(main, &main->gpencil, (ID *)sima->gpd, "GPencil Image");
-          sima->gpd = nullptr;
-        }
-#else
-        sima->gpd = nullptr;
-#endif
-      }
-    }
-  }
-}
-
 static void do_version_mdef_250(Main *main)
 {
   for (Object &ob : main->objects) {
@@ -689,7 +622,6 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
 
     for (bScreen &screen : bmain->screens) {
       do_versions_windowmanager_2_50(&screen);
-      do_versions_gpencil_2_50(bmain, &screen);
     }
 
     /* shader, composite and texture node trees have id.name empty, put something in

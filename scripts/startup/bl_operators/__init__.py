@@ -22,7 +22,6 @@ _modules = [
     "copy_global_transform",
     "file",
     "geometry_nodes",
-    "grease_pencil",
     "image",
     "image_as_planes",
     "mesh",

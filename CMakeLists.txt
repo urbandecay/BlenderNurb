@@ -299,7 +299,7 @@ Enable Legacy IK solver (only disable for development)"
   ON
 )
 option(WITH_FFTW3 "Enable FFTW3 support (Used for smoke, ocean sim, glare, and audio effects)" ON)
-option(WITH_PUGIXML "Enable PugiXML support (Used for OpenImageIO, Grease Pencil SVG export)" ON)
+option(WITH_PUGIXML "Enable PugiXML support (Used for OpenImageIO)" ON)
 option(WITH_BULLET "Enable Bullet (Physics Engine)" ON)
 option(WITH_SYSTEM_BULLET "\
 Use the system's Bullet library (currently unsupported due to missing features in upstream)"
@@ -328,7 +328,7 @@ Assume OpenVDB library has been compiled with version 3 ABI compatibility"
 )
 mark_as_advanced(WITH_OPENVDB_3_ABI_COMPATIBLE)
 option(WITH_NANOVDB "Enable usage of NanoVDB data structure for rendering on the GPU" ON)
-option(WITH_HARU "Enable features relying on Libharu (Grease Pencil PDF export)" ON)
+option(WITH_HARU "Enable features relying on Libharu" ON)
 
 # GHOST Windowing Library Options
 option(WITH_GHOST_DEBUG "Enable debugging output for the GHOST library" OFF)
@@ -460,7 +460,6 @@ option(WITH_IO_WAVEFRONT_OBJ "Enable Wavefront-OBJ 3D file format support (*.obj
 option(WITH_IO_PLY "Enable PLY 3D file format support (*.ply)" ON)
 option(WITH_IO_STL "Enable STL 3D file format support (*.stl)" ON)
 option(WITH_IO_FBX "Enable FBX 3D file format support (*.fbx)" ON)
-option(WITH_IO_GREASE_PENCIL "Enable Grease Pencil file format IO (*.svg, *.pdf)" ON)
 
 # Sound output
 option(WITH_SDL_AUDIO "Enable SDL audio support" OFF)
@@ -777,7 +776,7 @@ endif()
 # Unit testing
 option(WITH_GTESTS "Enable GTest unit testing" OFF)
 option(WITH_GPU_RENDER_TESTS "\
-Enable GPU render related unit testing (EEVEE, Workbench and Grease Pencil)"
+Enable GPU render related unit testing (EEVEE and Workbench)"
   OFF
 )
 option(WITH_GPU_RENDER_TESTS_VULKAN "\

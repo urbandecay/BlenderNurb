@@ -1115,14 +1115,6 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
         case CTX_MODE_PAINT_VERTEX:
         case CTX_MODE_PAINT_WEIGHT:
         case CTX_MODE_PAINT_TEXTURE:
-        case CTX_MODE_PAINT_GPENCIL_LEGACY:
-        case CTX_MODE_PAINT_GREASE_PENCIL:
-        case CTX_MODE_SCULPT_GPENCIL_LEGACY:
-        case CTX_MODE_SCULPT_GREASE_PENCIL:
-        case CTX_MODE_WEIGHT_GPENCIL_LEGACY:
-        case CTX_MODE_WEIGHT_GREASE_PENCIL:
-        case CTX_MODE_VERTEX_GPENCIL_LEGACY:
-        case CTX_MODE_VERTEX_GREASE_PENCIL:
         case CTX_MODE_SCULPT_CURVES:
           return "builtin.brush";
         case CTX_MODE_PARTICLE:

@@ -13,8 +13,6 @@
 
 #include "BLI_index_mask.hh"
 
-#include "ED_grease_pencil.hh"
-
 #include "UI_view2d.hh"
 
 #include "transform.hh"
@@ -97,16 +95,9 @@ struct TransDataVertSlideVert {
 
 /**
  * Structure used for curves transform operation.
- * Used for both curves and grease pencil objects.
+ * Structure used for curves transform operations.
  */
 struct CurvesTransformData {
-  Vector<ed::greasepencil::MutableDrawingInfo> drawings;
-  /**
-   * Store grease pencil keyframes that are duplicated during transform, later remove them when
-   * operation is cancelled.
-   */
-  Map<bke::greasepencil::Layer *, int> duplicate_layer_keyframes;
-
   IndexMaskMemory memory;
   Vector<IndexMask> selection_by_layer;
 
@@ -118,17 +109,10 @@ struct CurvesTransformData {
   Vector<IndexMask> aligned_with_right;
 
   /**
-   * The offsets of every grease pencil layer into `positions` array.
-   * For curves layers are used to store: positions, handle_positions_left and
-   * handle_positions_right.
+   * The offsets of curve layers into `positions` array. For curves layers these are used to store
+   * positions, handle_positions_left and handle_positions_right.
    */
   Vector<int> layer_offsets;
-
-  /**
-   * Grease pencil multi-frame editing falloff. One value for each drawing in a
-   * `TransDataContainer`.
-   */
-  Vector<float> grease_pencil_falloffs;
 
   /**
    * Copy of all positions being transformed.
@@ -207,7 +191,7 @@ void animrecord_check_state(TransInfo *t, ID *id);
 namespace curves {
 
 /**
- * Used for both curves and Grease Pencil objects.
+ * Populate transform data for curve geometry.
  */
 void curve_populate_trans_data_structs(const TransInfo &t,
                                        TransDataContainer &tc,
@@ -280,12 +264,6 @@ extern TransConvertTypeInfo TransConvertType_PointCloud;
 /* `transform_convert_graph.cc` */
 
 extern TransConvertTypeInfo TransConvertType_Graph;
-
-/* `transform_convert_greasepencil.cc` */
-
-namespace greasepencil {
-extern TransConvertTypeInfo TransConvertType_GreasePencil;
-}
 
 /* `transform_convert_lattice.cc` */
 

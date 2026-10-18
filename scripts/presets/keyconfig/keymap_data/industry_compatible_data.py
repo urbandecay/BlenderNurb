@@ -119,7 +119,6 @@ def _template_items_basic_tools(*, connected=False):
         op_tool_cycle("builtin.rotate", {"type": 'E', "value": 'PRESS'}),
         op_tool_cycle("builtin.scale", {"type": 'R', "value": 'PRESS'}),
         op_tool_cycle("builtin.transform", {"type": 'T', "value": 'PRESS'}),
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
         op_tool_cycle("builtin.measure", {"type": 'M', "value": 'PRESS'}),
         op_tool_cycle("builtin.cursor", {"type": 'C', "value": 'PRESS'}),
     ]
@@ -218,7 +217,6 @@ def km_window(params):
     ])
 
     return keymap
-
 
 def km_screen(params):
     items = []
@@ -463,10 +461,6 @@ def km_property_editor(params):
         ("object.modifier_remove", {"type": 'BACK_SPACE', "value": 'PRESS'}, {"properties": [("report", True)]}),
         ("object.modifier_remove", {"type": 'DEL', "value": 'PRESS'}, {"properties": [("report", True)]}),
         ("object.modifier_copy", {"type": 'D', "value": 'PRESS', "ctrl": True}, None),
-        # ShaderFX panels
-        ("object.shaderfx_remove", {"type": 'BACK_SPACE', "value": 'PRESS'}, {"properties": [("report", True)]}),
-        ("object.shaderfx_remove", {"type": 'DEL', "value": 'PRESS'}, {"properties": [("report", True)]}),
-        ("objectshaderfx_copy", {"type": 'D', "value": 'PRESS', "ctrl": True}, None),
         # Constraint panels
         ("constraint.delete", {"type": 'BACK_SPACE', "value": 'PRESS'}, {"properties": [("report", True)]}),
         ("constraint.delete", {"type": 'DEL', "value": 'PRESS'}, {"properties": [("report", True)]}),
@@ -637,7 +631,6 @@ def km_uv_editor(params):
         op_tool_cycle("builtin.scale", {"type": 'R', "value": 'PRESS'}),
         op_tool_cycle("builtin.transform", {"type": 'T', "value": 'PRESS'}),
         op_tool_cycle("builtin.cursor", {"type": 'C', "value": 'PRESS'}),
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
     ])
 
     return keymap
@@ -1101,7 +1094,6 @@ def km_image(params):
         op_tool_cycle("builtin.transform", {"type": 'E', "value": 'PRESS'}),
         op_tool_cycle("builtin.transform", {"type": 'R', "value": 'PRESS'}),
         op_tool_cycle("builtin.cursor", {"type": 'C', "value": 'PRESS'}),
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
         op_tool_cycle("builtin.sample", {"type": 'I', "value": 'PRESS'}),
 
     ])
@@ -2806,7 +2798,6 @@ def km_image_paint(params):
         ),
         # Tools
         op_tool_cycle("builtin.select_box", {"type": 'Q', "value": 'PRESS'}),
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
         op_asset_shelf_popup("VIEW3D_AST_brush_texture_paint", {"type": 'B', "value": 'PRESS'}),
         op_asset_shelf_popup("IMAGE_AST_brush_paint", {"type": 'B', "value": 'PRESS'}),
     ])
@@ -2866,7 +2857,6 @@ def km_vertex_paint(params):
         *_template_items_context_panel("VIEW3D_PT_paint_vertex_context_menu", {"type": 'RIGHTMOUSE', "value": 'PRESS'}),
         # Tools
         op_tool_cycle("builtin.select_box", {"type": 'Q', "value": 'PRESS'}),
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
         op_asset_shelf_popup("VIEW3D_AST_brush_vertex_paint", {"type": 'B', "value": 'PRESS'}),
     ])
 
@@ -2920,7 +2910,6 @@ def km_weight_paint(params):
         # Tools
         op_tool_cycle("builtin.cursor", {"type": 'C', "value": 'PRESS'}),
         op_tool_cycle("builtin.select_box", {"type": 'Q', "value": 'PRESS'}),
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
         op_asset_shelf_popup("VIEW3D_AST_brush_weight_paint", {"type": 'B', "value": 'PRESS'}),
     ])
 
@@ -3040,7 +3029,6 @@ def km_sculpt(params):
         ("wm.context_toggle", {"type": 'L', "value": 'PRESS'},
          {"properties": [("data_path", "tool_settings.sculpt.brush.use_smooth_stroke")]}),
         # Tools
-        # This is the only mode without an Annotate shortcut.
         # The multi-resolution shortcuts took precedence instead.
         op_tool_cycle("builtin.box_mask", {"type": 'Q', "value": 'PRESS'}),
         op_tool_cycle("builtin.move", {"type": 'W', "value": 'PRESS'}),
@@ -3422,7 +3410,6 @@ def km_curves(params):
          {"properties": [("data_path", "tool_settings.use_proportional_edit")]}),
         # Tools
         *_template_items_basic_tools(),
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
     ])
 
     return keymap
@@ -3462,7 +3449,6 @@ def km_sculpt_curves(params):
         # Density
         ("sculpt_curves.min_distance_edit", {"type": 'D', "value": 'PRESS', "ctrl": True}, {}),
         # Tools
-        op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
         op_asset_shelf_popup("VIEW3D_AST_brush_sculpt_curves", {"type": 'B', "value": 'PRESS'}),
     ])
 

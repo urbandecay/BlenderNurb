@@ -25,7 +25,6 @@
 #include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curve_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
@@ -4116,11 +4115,6 @@ static void keylist_fallback_for_keyframe_jump(bContext &C, Scene *scene, AnimKe
   if (ob) {
     ob_to_keylist(&ads, ob, &keylist, 0, {-FLT_MAX, FLT_MAX});
 
-    if (ob->type == OB_GREASE_PENCIL) {
-      const bool active_layer_only = !(scene->flag & SCE_KEYS_NO_SELONLY);
-      grease_pencil_data_block_to_keylist(
-          nullptr, id_cast<const GreasePencil *>(ob->data), &keylist, 0, active_layer_only);
-    }
   }
 
   {

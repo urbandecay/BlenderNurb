@@ -3,12 +3,10 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_node_socket_value.hh"
 #include "BKE_node_socket_value_iter.hh"
 
-#include "DNA_grease_pencil_types.h"
 
 #include "NOD_geometry_nodes_bundle.hh"
 #include "NOD_geometry_nodes_closure.hh"
@@ -123,8 +121,7 @@ class RecursiveVisitor {
                                                GeometryComponent::Type::Instance,
                                                GeometryComponent::Type::Volume,
                                                GeometryComponent::Type::Curve,
-                                               GeometryComponent::Type::Edit,
-                                               GeometryComponent::Type::GreasePencil})
+                                               GeometryComponent::Type::Edit})
     {
       if (!geometry_set.has(type)) {
         continue;
@@ -154,8 +151,7 @@ class RecursiveVisitor {
                                                GeometryComponent::Type::Instance,
                                                GeometryComponent::Type::Volume,
                                                GeometryComponent::Type::Curve,
-                                               GeometryComponent::Type::Edit,
-                                               GeometryComponent::Type::GreasePencil})
+                                               GeometryComponent::Type::Edit})
     {
       if (!geometry_set.has(type)) {
         continue;
@@ -189,17 +185,6 @@ class RecursiveVisitor {
         }
       }
     }
-    if (component.type() == GeometryComponent::Type::GreasePencil) {
-      const GreasePencilComponent &grease_pencil_component =
-          static_cast<const GreasePencilComponent &>(component);
-      if (const GreasePencil *grease_pencil = grease_pencil_component.get()) {
-        for (const greasepencil::Layer *layer : grease_pencil->layers()) {
-          if (this->check_Layer(*grease_pencil, *layer)) {
-            return true;
-          }
-        }
-      }
-    }
     return false;
   }
 
@@ -214,15 +199,6 @@ class RecursiveVisitor {
       if (Instances *instances = instance_component.get_for_write()) {
         for (InstanceReference &reference : instances->references_for_write()) {
           this->edit_InstanceReference(reference);
-        }
-      }
-    }
-    if (component.type() == GeometryComponent::Type::GreasePencil) {
-      GreasePencilComponent &grease_pencil_component = static_cast<GreasePencilComponent &>(
-          component);
-      if (GreasePencil *grease_pencil = grease_pencil_component.get_for_write()) {
-        for (greasepencil::Layer *layer : grease_pencil->layers_for_write()) {
-          this->edit_Layer(*grease_pencil, *layer);
         }
       }
     }
@@ -242,26 +218,6 @@ class RecursiveVisitor {
   {
     if (params_.edit_AttributeAccessor) {
       params_.edit_AttributeAccessor(accessor);
-    }
-  }
-
-  bool check_Layer(const GreasePencil &grease_pencil, const greasepencil::Layer &layer)
-  {
-    if (const greasepencil::Drawing *drawing = grease_pencil.get_eval_drawing(layer)) {
-      const CurvesGeometry &curves = drawing->strokes();
-      if (this->check_AttributeAccessor(curves.attributes())) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  void edit_Layer(GreasePencil &grease_pencil, greasepencil::Layer &layer)
-  {
-    if (greasepencil::Drawing *drawing = grease_pencil.get_eval_drawing(layer)) {
-      CurvesGeometry &curves = drawing->strokes_for_write();
-      MutableAttributeAccessor attributes = curves.attributes_for_write();
-      this->edit_AttributeAccessor(attributes);
     }
   }
 

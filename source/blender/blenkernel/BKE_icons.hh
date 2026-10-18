@@ -38,8 +38,6 @@ enum {
   ICON_DATA_GEOM,
   /** Studio-light. */
   ICON_DATA_STUDIOLIGHT,
-  /** GPencil Layer color preview (annotations): obj is #bGPDlayer */
-  ICON_DATA_GPLAYER,
 };
 
 /**
@@ -78,7 +76,6 @@ struct ID;
 struct ImBuf;
 struct PreviewImage;
 struct StudioLight;
-struct bGPDlayer;
 
 void BKE_icons_init(int first_dyn_id);
 
@@ -86,11 +83,6 @@ void BKE_icons_init(int first_dyn_id);
  * Return icon id for library object or create new icon if not found.
  */
 int BKE_icon_id_ensure(ID *id);
-
-/**
- * Return icon id for Grease Pencil layer (color preview) or create new icon if not found.
- */
-int BKE_icon_gplayer_color_ensure(bGPDlayer *gpl);
 
 /**
  * Return icon id of given preview, or create new icon if not found.

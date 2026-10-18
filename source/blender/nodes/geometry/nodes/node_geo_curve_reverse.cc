@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "GEO_foreach_geometry.hh"
 
@@ -16,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to switch the start and end of");
   b.add_output<decl::Geometry>("Curve"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Bool>("Selection"_ustr)
@@ -39,22 +38,6 @@ static void reverse_curve(bke::CurvesGeometry &curves,
   curves.reverse_curves(selection);
 }
 
-static void reverse_grease_pencil(GreasePencil &grease_pencil, const Field<bool> &selection_field)
-{
-  using namespace blender::bke::greasepencil;
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr) {
-      continue;
-    }
-    bke::CurvesGeometry &curves = drawing->strokes_for_write();
-    const bke::GreasePencilLayerFieldContext field_context(
-        grease_pencil, AttrDomain::Curve, layer_index);
-    reverse_curve(curves, field_context, selection_field);
-    drawing->tag_topology_changed();
-  }
-}
-
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Curve"_ustr);
@@ -67,9 +50,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       bke::CurvesGeometry &curves = curves_id->geometry.wrap();
       const bke::CurvesFieldContext field_context{*curves_id, AttrDomain::Curve};
       reverse_curve(curves, field_context, selection_field);
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      reverse_grease_pencil(*grease_pencil, selection_field);
     }
   });
 

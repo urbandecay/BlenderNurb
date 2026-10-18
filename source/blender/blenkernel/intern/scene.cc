@@ -20,7 +20,6 @@
 #include "DNA_brush_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_curveprofile_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_mask_types.h"
@@ -188,23 +187,6 @@ static void scene_init_data(ID *id)
   scene->toolsettings->unified_paint_settings.curve_rand_hue = BKE_paint_default_curve();
   scene->toolsettings->unified_paint_settings.curve_rand_saturation = BKE_paint_default_curve();
   scene->toolsettings->unified_paint_settings.curve_rand_value = BKE_paint_default_curve();
-
-  /* Grease pencil multi-frame falloff curve. */
-  scene->toolsettings->gp_sculpt.cur_falloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  CurveMapping *gp_falloff_curve = scene->toolsettings->gp_sculpt.cur_falloff;
-  BKE_curvemapping_init(gp_falloff_curve);
-  BKE_curvemap_reset(gp_falloff_curve->cm,
-                     &gp_falloff_curve->clipr,
-                     CURVE_PRESET_GAUSS,
-                     CurveMapSlopeType::Positive);
-
-  scene->toolsettings->gp_sculpt.cur_primitive = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-  CurveMapping *gp_primitive_curve = scene->toolsettings->gp_sculpt.cur_primitive;
-  BKE_curvemapping_init(gp_primitive_curve);
-  BKE_curvemap_reset(gp_primitive_curve->cm,
-                     &gp_primitive_curve->clipr,
-                     CURVE_PRESET_BELL,
-                     CurveMapSlopeType::Positive);
 
   scene->unit.system = USER_UNIT_METRIC;
   scene->unit.scale_length = 1.0f;
@@ -723,38 +705,6 @@ static void scene_foreach_toolsettings(LibraryForeachIDData *data,
       toolsett_old->sculpt->gravity_object = gravity_object_old;
     }
   }
-  if (toolsett_old->gp_paint) {
-    paint = toolsett->gp_paint ? &toolsett->gp_paint->paint : nullptr;
-    paint_old = &toolsett_old->gp_paint->paint;
-    BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_FUNCTION_CALL(
-        data,
-        do_undo_restore,
-        scene_foreach_paint(data, paint, do_undo_restore, reader, paint_old));
-  }
-  if (toolsett_old->gp_vertexpaint) {
-    paint = toolsett->gp_vertexpaint ? &toolsett->gp_vertexpaint->paint : nullptr;
-    paint_old = &toolsett_old->gp_vertexpaint->paint;
-    BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_FUNCTION_CALL(
-        data,
-        do_undo_restore,
-        scene_foreach_paint(data, paint, do_undo_restore, reader, paint_old));
-  }
-  if (toolsett_old->gp_sculptpaint) {
-    paint = toolsett->gp_sculptpaint ? &toolsett->gp_sculptpaint->paint : nullptr;
-    paint_old = &toolsett_old->gp_sculptpaint->paint;
-    BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_FUNCTION_CALL(
-        data,
-        do_undo_restore,
-        scene_foreach_paint(data, paint, do_undo_restore, reader, paint_old));
-  }
-  if (toolsett_old->gp_weightpaint) {
-    paint = toolsett->gp_weightpaint ? &toolsett->gp_weightpaint->paint : nullptr;
-    paint_old = &toolsett_old->gp_weightpaint->paint;
-    BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_FUNCTION_CALL(
-        data,
-        do_undo_restore,
-        scene_foreach_paint(data, paint, do_undo_restore, reader, paint_old));
-  }
   if (toolsett_old->curves_sculpt) {
     paint = toolsett->curves_sculpt ? &toolsett->curves_sculpt->paint : nullptr;
     paint_old = &toolsett_old->curves_sculpt->paint;
@@ -764,14 +714,6 @@ static void scene_foreach_toolsettings(LibraryForeachIDData *data,
         scene_foreach_paint(data, paint, do_undo_restore, reader, paint_old));
   }
 
-  BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_IDSUPER_P(
-      data,
-      &toolsett->gp_sculpt.guide.reference_object,
-      do_undo_restore,
-      SCENE_FOREACH_UNDO_NO_RESTORE,
-      reader,
-      &toolsett_old->gp_sculpt.guide.reference_object,
-      IDWALK_CB_NOP);
 }
 
 #undef BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_IDSUPER
@@ -860,7 +802,6 @@ static void scene_foreach_id(ID *id, LibraryForeachIDData *data)
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, scene->world, IDWALK_CB_USER);
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, scene->set, IDWALK_CB_NEVER_SELF);
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, scene->clip, IDWALK_CB_USER);
-  BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, scene->gpd, IDWALK_CB_USER);
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, scene->r.bake.cage_object, IDWALK_CB_NOP);
   BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, scene->compositing_node_group, IDWALK_CB_USER);
 
@@ -1193,37 +1134,9 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   if (ts->uvsculpt.curve_distance_falloff) {
     BKE_curvemapping_blend_write(writer, ts->uvsculpt.curve_distance_falloff);
   }
-  if (ts->gp_paint) {
-    writer->write_struct(ts->gp_paint);
-    BKE_paint_blend_write(writer, &ts->gp_paint->paint);
-  }
-  if (ts->gp_vertexpaint) {
-    writer->write_struct(ts->gp_vertexpaint);
-    BKE_paint_blend_write(writer, &ts->gp_vertexpaint->paint);
-  }
-  if (ts->gp_sculptpaint) {
-    writer->write_struct(ts->gp_sculptpaint);
-    BKE_paint_blend_write(writer, &ts->gp_sculptpaint->paint);
-  }
-  if (ts->gp_weightpaint) {
-    writer->write_struct(ts->gp_weightpaint);
-    BKE_paint_blend_write(writer, &ts->gp_weightpaint->paint);
-  }
   if (ts->curves_sculpt) {
     writer->write_struct(ts->curves_sculpt);
     BKE_paint_blend_write(writer, &ts->curves_sculpt->paint);
-  }
-  /* write grease-pencil custom ipo curve to file */
-  if (ts->gp_interpolate.custom_ipo) {
-    BKE_curvemapping_blend_write(writer, ts->gp_interpolate.custom_ipo);
-  }
-  /* write grease-pencil multi-frame falloff curve to file */
-  if (ts->gp_sculpt.cur_falloff) {
-    BKE_curvemapping_blend_write(writer, ts->gp_sculpt.cur_falloff);
-  }
-  /* write grease-pencil primitive curve to file */
-  if (ts->gp_sculpt.cur_primitive) {
-    BKE_curvemapping_blend_write(writer, ts->gp_sculpt.cur_primitive);
   }
   /* Write the curve profile to the file. */
   if (ts->custom_bevel_profile_preset) {
@@ -1377,14 +1290,6 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
     direct_link_paint_helper(reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->vpaint));
     direct_link_paint_helper(reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->wpaint));
     direct_link_paint_helper(
-        reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->gp_paint));
-    direct_link_paint_helper(
-        reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->gp_vertexpaint));
-    direct_link_paint_helper(
-        reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->gp_sculptpaint));
-    direct_link_paint_helper(
-        reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->gp_weightpaint));
-    direct_link_paint_helper(
         reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->curves_sculpt));
 
     BKE_paint_blend_read_data(reader, sce, &sce->toolsettings->imapaint.paint);
@@ -1392,7 +1297,6 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
     sce->toolsettings->particle.paintcursor = nullptr;
     sce->toolsettings->particle.scene = nullptr;
     sce->toolsettings->particle.object = nullptr;
-    sce->toolsettings->gp_sculpt.paintcursor = nullptr;
     if (sce->toolsettings->uvsculpt.curve_distance_falloff) {
       BLO_read_struct(reader, CurveMapping, &sce->toolsettings->uvsculpt.curve_distance_falloff);
       BKE_curvemapping_blend_read(reader, sce->toolsettings->uvsculpt.curve_distance_falloff);
@@ -1416,21 +1320,6 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       }
     }
 
-    /* Relink grease pencil interpolation curves. */
-    BLO_read_struct(reader, CurveMapping, &sce->toolsettings->gp_interpolate.custom_ipo);
-    if (sce->toolsettings->gp_interpolate.custom_ipo) {
-      BKE_curvemapping_blend_read(reader, sce->toolsettings->gp_interpolate.custom_ipo);
-    }
-    /* Relink grease pencil multi-frame falloff curve. */
-    BLO_read_struct(reader, CurveMapping, &sce->toolsettings->gp_sculpt.cur_falloff);
-    if (sce->toolsettings->gp_sculpt.cur_falloff) {
-      BKE_curvemapping_blend_read(reader, sce->toolsettings->gp_sculpt.cur_falloff);
-    }
-    /* Relink grease pencil primitive curve. */
-    BLO_read_struct(reader, CurveMapping, &sce->toolsettings->gp_sculpt.cur_primitive);
-    if (sce->toolsettings->gp_sculpt.cur_primitive) {
-      BKE_curvemapping_blend_read(reader, sce->toolsettings->gp_sculpt.cur_primitive);
-    }
 
     /* Relink toolsettings curve profile. */
     BLO_read_struct(reader, CurveProfile, &sce->toolsettings->custom_bevel_profile_preset);
@@ -1612,7 +1501,7 @@ IDTypeInfo IDType_ID_SCE = {
     .id_filter = FILTER_ID_SCE,
     .dependencies_id_types = (FILTER_ID_OB | FILTER_ID_WO | FILTER_ID_SCE | FILTER_ID_MC |
                               FILTER_ID_MA | FILTER_ID_GR | FILTER_ID_TXT | FILTER_ID_LS |
-                              FILTER_ID_MSK | FILTER_ID_SO | FILTER_ID_GD_LEGACY | FILTER_ID_BR |
+                              FILTER_ID_MSK | FILTER_ID_SO | FILTER_ID_BR |
                               FILTER_ID_PAL | FILTER_ID_IM | FILTER_ID_NT),
     .main_listbase_index = INDEX_ID_SCE,
     .struct_size = sizeof(Scene),
@@ -1736,22 +1625,6 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
         toolsettings->uvsculpt.curve_distance_falloff);
     BKE_curvemapping_init(ts->uvsculpt.curve_distance_falloff);
   }
-  if (toolsettings->gp_paint) {
-    ts->gp_paint = MEM_dupalloc(toolsettings->gp_paint);
-    BKE_paint_copy(&toolsettings->gp_paint->paint, &ts->gp_paint->paint, flag);
-  }
-  if (toolsettings->gp_vertexpaint) {
-    ts->gp_vertexpaint = MEM_dupalloc(toolsettings->gp_vertexpaint);
-    BKE_paint_copy(&toolsettings->gp_vertexpaint->paint, &ts->gp_vertexpaint->paint, flag);
-  }
-  if (toolsettings->gp_sculptpaint) {
-    ts->gp_sculptpaint = MEM_dupalloc(toolsettings->gp_sculptpaint);
-    BKE_paint_copy(&toolsettings->gp_sculptpaint->paint, &ts->gp_sculptpaint->paint, flag);
-  }
-  if (toolsettings->gp_weightpaint) {
-    ts->gp_weightpaint = MEM_dupalloc(toolsettings->gp_weightpaint);
-    BKE_paint_copy(&toolsettings->gp_weightpaint->paint, &ts->gp_weightpaint->paint, flag);
-  }
   if (toolsettings->curves_sculpt) {
     ts->curves_sculpt = MEM_dupalloc(toolsettings->curves_sculpt);
     BKE_paint_copy(&toolsettings->curves_sculpt->paint, &ts->curves_sculpt->paint, flag);
@@ -1769,12 +1642,6 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
   ts->particle.paintcursor = nullptr;
   ts->particle.scene = nullptr;
   ts->particle.object = nullptr;
-
-  /* duplicate Grease Pencil interpolation curve */
-  ts->gp_interpolate.custom_ipo = BKE_curvemapping_copy(toolsettings->gp_interpolate.custom_ipo);
-  /* Duplicate Grease Pencil multi-frame falloff. */
-  ts->gp_sculpt.cur_falloff = BKE_curvemapping_copy(toolsettings->gp_sculpt.cur_falloff);
-  ts->gp_sculpt.cur_primitive = BKE_curvemapping_copy(toolsettings->gp_sculpt.cur_primitive);
 
   ts->custom_bevel_profile_preset = BKE_curveprofile_copy(
       toolsettings->custom_bevel_profile_preset);
@@ -1810,22 +1677,6 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
   if (toolsettings->uvsculpt.curve_distance_falloff) {
     BKE_curvemapping_free(toolsettings->uvsculpt.curve_distance_falloff);
   }
-  if (toolsettings->gp_paint) {
-    BKE_paint_free(&toolsettings->gp_paint->paint);
-    MEM_delete(toolsettings->gp_paint);
-  }
-  if (toolsettings->gp_vertexpaint) {
-    BKE_paint_free(&toolsettings->gp_vertexpaint->paint);
-    MEM_delete(toolsettings->gp_vertexpaint);
-  }
-  if (toolsettings->gp_sculptpaint) {
-    BKE_paint_free(&toolsettings->gp_sculptpaint->paint);
-    MEM_delete(toolsettings->gp_sculptpaint);
-  }
-  if (toolsettings->gp_weightpaint) {
-    BKE_paint_free(&toolsettings->gp_weightpaint->paint);
-    MEM_delete(toolsettings->gp_weightpaint);
-  }
   if (toolsettings->curves_sculpt) {
     BKE_paint_free(&toolsettings->curves_sculpt->paint);
     MEM_delete(toolsettings->curves_sculpt);
@@ -1841,18 +1692,6 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
   }
   if (toolsettings->unified_paint_settings.curve_rand_value) {
     BKE_curvemapping_free(toolsettings->unified_paint_settings.curve_rand_value);
-  }
-
-  /* free Grease Pencil interpolation curve */
-  if (toolsettings->gp_interpolate.custom_ipo) {
-    BKE_curvemapping_free(toolsettings->gp_interpolate.custom_ipo);
-  }
-  /* free Grease Pencil multi-frame falloff curve */
-  if (toolsettings->gp_sculpt.cur_falloff) {
-    BKE_curvemapping_free(toolsettings->gp_sculpt.cur_falloff);
-  }
-  if (toolsettings->gp_sculpt.cur_primitive) {
-    BKE_curvemapping_free(toolsettings->gp_sculpt.cur_primitive);
   }
 
   if (toolsettings->custom_bevel_profile_preset) {
@@ -1923,9 +1762,6 @@ Scene *BKE_scene_duplicate(Main *bmain,
     BKE_toolsettings_free(sce_copy->toolsettings);
     sce_copy->toolsettings = BKE_toolsettings_copy(sce->toolsettings, 0);
 
-    /* grease pencil */
-    sce_copy->gpd = nullptr;
-
     sce_copy->preview = nullptr;
 
     return sce_copy;
@@ -1994,9 +1830,6 @@ Scene *BKE_scene_duplicate(Main *bmain,
 
     /* Full copy of world (included animations) */
     BKE_id_copy_for_duplicate(bmain, id_cast<ID *>(sce->world), duplicate_flags, copy_flags);
-
-    /* Full copy of GreasePencil. */
-    BKE_id_copy_for_duplicate(bmain, id_cast<ID *>(sce->gpd), duplicate_flags, copy_flags);
 
     /* Deep-duplicate collections and objects (using preferences' settings for which sub-data to
      * duplicate along the object itself). */

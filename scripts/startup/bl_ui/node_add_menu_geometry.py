@@ -122,7 +122,6 @@ class NODE_MT_gn_curve_operations_base(node_add_menu.NodeMenu):
         layout = self.layout
         self.node_operator(layout, "GeometryNodeCurveToMesh")
         self.node_operator(layout, "GeometryNodeCurveToPoints")
-        self.node_operator(layout, "GeometryNodeCurvesToGreasePencil")
         self.node_operator(layout, "GeometryNodeDeformCurvesOnSurface")
         self.node_operator(layout, "GeometryNodeFillCurve")
         self.node_operator(layout, "GeometryNodeFilletCurve")
@@ -166,53 +165,12 @@ class NODE_MT_gn_curve_topology_base(node_add_menu.NodeMenu):
         self.draw_assets_for_catalog(layout, self.menu_path)
 
 
-class NODE_MT_gn_grease_pencil_read_base(node_add_menu.NodeMenu):
-    bl_label = "Read"
-    menu_path = "Grease Pencil/Read"
-
-    def draw(self, _context):
-        layout = self.layout
-        self.node_operator(layout, "GeometryNodeInputNamedLayerSelection")
-
-        self.draw_assets_for_catalog(layout, self.menu_path)
 
 
-class NODE_MT_gn_grease_pencil_write_base(node_add_menu.NodeMenu):
-    bl_label = "Write"
-    menu_path = "Grease Pencil/Write"
-
-    def draw(self, _context):
-        layout = self.layout
-        self.node_operator(layout, "GeometryNodeSetGreasePencilColor")
-        self.node_operator(layout, "GeometryNodeSetGreasePencilDepth")
-        self.node_operator(layout, "GeometryNodeSetGreasePencilSoftness")
-
-        self.draw_assets_for_catalog(layout, self.menu_path)
 
 
-class NODE_MT_gn_grease_pencil_operations_base(node_add_menu.NodeMenu):
-    bl_label = "Operations"
-    menu_path = "Grease Pencil/Operations"
-
-    def draw(self, _context):
-        layout = self.layout
-        self.node_operator(layout, "GeometryNodeGreasePencilToCurves")
-        self.node_operator(layout, "GeometryNodeMergeLayers")
-
-        self.draw_assets_for_catalog(layout, self.menu_path)
 
 
-class NODE_MT_gn_grease_pencil_base(node_add_menu.NodeMenu):
-    bl_label = "Grease Pencil"
-
-    def draw(self, _context):
-        layout = self.layout
-        self.draw_menu(layout, path="Grease Pencil/Read")
-        self.draw_menu(layout, path="Grease Pencil/Write")
-        layout.separator()
-        self.draw_menu(layout, path="Grease Pencil/Operations")
-
-        self.draw_assets_for_catalog(layout, self.bl_label)
 
 
 class NODE_MT_gn_geometry_base(node_add_menu.NodeMenu):
@@ -1065,7 +1023,6 @@ class NODE_MT_gn_all_base(node_add_menu.NodeMenu):
         self.draw_menu(layout, "Geometry")
         layout.separator()
         self.draw_menu(layout, "Curve")
-        self.draw_menu(layout, "Grease Pencil")
         self.draw_menu(layout, "Instances")
         self.draw_menu(layout, "Mesh")
         self.draw_menu(layout, "Point")
@@ -1100,10 +1057,6 @@ add_menus = {
     "NODE_MT_geometry_node_GEO_CURVE_OPERATIONS": NODE_MT_gn_curve_operations_base,
     "NODE_MT_geometry_node_GEO_PRIMITIVES_CURVE": NODE_MT_gn_curve_primitives_base,
     "NODE_MT_geometry_node_curve_topology": NODE_MT_gn_curve_topology_base,
-    "NODE_MT_geometry_node_grease_pencil": NODE_MT_gn_grease_pencil_base,
-    "NODE_MT_geometry_node_grease_pencil_read": NODE_MT_gn_grease_pencil_read_base,
-    "NODE_MT_geometry_node_grease_pencil_write": NODE_MT_gn_grease_pencil_write_base,
-    "NODE_MT_geometry_node_grease_pencil_operations": NODE_MT_gn_grease_pencil_operations_base,
     "NODE_MT_geometry_node_GEO_GEOMETRY": NODE_MT_gn_geometry_base,
     "NODE_MT_geometry_node_GEO_GEOMETRY_READ": NODE_MT_gn_geometry_read_base,
     "NODE_MT_geometry_node_GEO_GEOMETRY_WRITE": NODE_MT_gn_geometry_write_base,
@@ -1167,10 +1120,6 @@ swap_menus = {
     "NODE_MT_gn_curve_operations_swap": NODE_MT_gn_curve_operations_base,
     "NODE_MT_gn_curve_primitives_swap": NODE_MT_gn_curve_primitives_base,
     "NODE_MT_gn_curve_topology_swap": NODE_MT_gn_curve_topology_base,
-    "NODE_MT_gn_grease_pencil_swap": NODE_MT_gn_grease_pencil_base,
-    "NODE_MT_gn_grease_pencil_read_swap": NODE_MT_gn_grease_pencil_read_base,
-    "NODE_MT_gn_grease_pencil_write_swap": NODE_MT_gn_grease_pencil_write_base,
-    "NODE_MT_gn_grease_pencil_operations_swap": NODE_MT_gn_grease_pencil_operations_base,
     "NODE_MT_gn_geometry_swap": NODE_MT_gn_geometry_base,
     "NODE_MT_gn_geometry_read_swap": NODE_MT_gn_geometry_read_base,
     "NODE_MT_gn_geometry_write_swap": NODE_MT_gn_geometry_write_base,

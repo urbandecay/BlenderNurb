@@ -78,38 +78,4 @@ TEST_F(BrushTest, deep_copy)
   EXPECT_TRUE(bmain->nodetrees.is_empty());
 }
 
-TEST_F(BrushTest, deep_copy_grease_pencil_brush)
-{
-  /* Grease pencil brushes potentially have more ID linked to them, hence a separate test */
-
-  Brush *brush = BKE_brush_add(bmain, "UnitTestBrush", OB_MODE_PAINT_GREASE_PENCIL);
-  /* TODO: Ideally this shouldn't be needed, but #BKE_brush_add generates an extra user.
-   * Remove this once that has been fixed. */
-  id_us_min(&brush->id);
-
-  /* Normal Linked Data */
-  brush->paint_curve = static_cast<PaintCurve *>(BKE_id_new(bmain, ID_PC, "UnitTestPaintCurve"));
-  brush->gpencil_settings->material = static_cast<Material *>(
-      BKE_id_new(bmain, ID_MA, "UnitTestMaterial"));
-  brush->gpencil_settings->material_alt = static_cast<Material *>(
-      BKE_id_new(bmain, ID_MA, "UnitTestMaterialAlt"));
-
-  Brush *duplicated_brush = BKE_brush_duplicate(
-      bmain, brush, USER_DUP_OBDATA | USER_DUP_LINKED_ID, LIB_ID_DUPLICATE_IS_ROOT_ID);
-
-  check_id_and_name(&brush->id, &duplicated_brush->id);
-  check_id_and_name(&brush->paint_curve->id, &duplicated_brush->paint_curve->id);
-  check_id_and_name(&brush->gpencil_settings->material->id,
-                    &duplicated_brush->gpencil_settings->material->id);
-  check_id_and_name(&brush->gpencil_settings->material_alt->id,
-                    &duplicated_brush->gpencil_settings->material_alt->id);
-
-  check_embedded_copy(&brush->gpencil_settings->material->nodetree->id,
-                      &duplicated_brush->gpencil_settings->material->nodetree->id);
-  check_embedded_copy(&brush->gpencil_settings->material_alt->nodetree->id,
-                      &duplicated_brush->gpencil_settings->material_alt->nodetree->id);
-
-  EXPECT_TRUE(bmain->nodetrees.is_empty());
-}
-
 }  // namespace blender

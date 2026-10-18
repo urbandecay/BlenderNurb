@@ -29,7 +29,6 @@ static void gaussian_blur_1D(const Span<T> src,
   /**
    * 1D Gaussian-like smoothing function.
    *
-   * NOTE: This is the algorithm used by #BKE_gpencil_stroke_smooth_point (legacy),
    *       but generalized and written in C++.
    *
    * This function uses a binomial kernel, which is the discrete version of gaussian blur.

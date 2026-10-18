@@ -38,9 +38,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_curves_types.h"
 #include "DNA_genfile.h"
-#include "DNA_gpencil_modifier_types.h"
 #include "DNA_light_types.h"
-#include "DNA_lineart_types.h"
 #include "DNA_listBase.h"
 #include "DNA_mask_types.h"
 #include "DNA_material_types.h"
@@ -413,7 +411,7 @@ static void assert_sorted_ids(Main *bmain)
 static void move_vertex_group_names_to_object_data(Main *bmain)
 {
   for (Object &object : bmain->objects) {
-    if (ELEM(object.type, OB_MESH, OB_LATTICE, OB_GPENCIL_LEGACY)) {
+    if (ELEM(object.type, OB_MESH, OB_LATTICE)) {
       ListBaseT<bDeformGroup> *new_defbase = BKE_object_defgroup_list_mutable(&object);
 
       /* Choose the longest vertex group name list among all linked duplicates. */
@@ -1197,7 +1195,7 @@ void do_versions_after_linking_300(FileData * /*fd*/, Main *bmain)
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 33)) {
     /* This was missing from #move_vertex_group_names_to_object_data. */
     for (Object &object : bmain->objects) {
-      if (ELEM(object.type, OB_MESH, OB_LATTICE, OB_GPENCIL_LEGACY)) {
+      if (ELEM(object.type, OB_MESH, OB_LATTICE)) {
         /* This uses the fact that the active vertex group index starts counting at 1. */
         if (BKE_object_defgroup_active_index_get(&object) == 0) {
           BKE_object_defgroup_active_index_set(&object, object.actdef);
@@ -1862,35 +1860,6 @@ static void version_liboverride_rnacollections_insertion_object(Object *object)
     }
   }
 
-  op = BKE_lib_override_library_property_find(liboverride, "grease_pencil_modifiers");
-  if (op != nullptr) {
-    for (IDOverrideLibraryPropertyOperation &opop : op->operations.items_mutable()) {
-      if (opop.operation != LIBOVERRIDE_OP_INSERT_AFTER) {
-        continue;
-      }
-      GpencilModifierData *gp_mod_anchor = static_cast<GpencilModifierData *>(
-          BLI_listbase_string_or_index_find(&object->greasepencil_modifiers,
-                                            opop.subitem_local_name,
-                                            offsetof(GpencilModifierData, name),
-                                            opop.subitem_local_index));
-      GpencilModifierData *gp_mod_src = gp_mod_anchor != nullptr ?
-                                            gp_mod_anchor->next :
-                                            static_cast<GpencilModifierData *>(
-                                                object->greasepencil_modifiers.first);
-
-      if (gp_mod_src == nullptr) {
-        /* Invalid case, just remove that override property operation. */
-        CLOG_ERROR(&LOG, "Could not find source GP modifier in stored override data");
-        BKE_lib_override_library_property_operation_delete(op, &opop);
-        continue;
-      }
-
-      opop.subitem_reference_name = opop.subitem_local_name;
-      opop.subitem_local_name = BLI_strdup(gp_mod_src->name);
-      opop.subitem_reference_index = opop.subitem_local_index;
-      opop.subitem_local_index++;
-    }
-  }
 
   op = BKE_lib_override_library_property_find(liboverride, "constraints");
   if (op != nullptr) {
@@ -2149,14 +2118,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
         }
       }
     }
-    /* Grease Pencil: Set default value for dilate pixels. */
-    if (!DNA_struct_member_exists(fd->filesdna, "BrushGpencilSettings", "int", "dilate_pixels")) {
-      for (Brush &brush : bmain->brushes) {
-        if (brush.gpencil_settings) {
-          brush.gpencil_settings->dilate_pixels = 1;
-        }
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 2)) {
@@ -2368,11 +2329,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
         tool_settings->snap_uv_mode &= ~eSnapMode(1 << 4);
       }
     }
-    for (Material &mat : bmain->materials) {
-      if (!(mat.lineart.flags & LRT_MATERIAL_CUSTOM_OCCLUSION_EFFECTIVENESS)) {
-        mat.lineart.mat_occlusion = 1;
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 13)) {
@@ -2390,16 +2346,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
               for (uint i = 0; i < smd->bind_verts_num; i++) {
                 smd->verts[i].vertex_idx = i;
               }
-            }
-          }
-        }
-        if (ob.type == OB_GPENCIL_LEGACY) {
-          for (GpencilModifierData &md : ob.greasepencil_modifiers) {
-            if (md.type == eGpencilModifierType_Lineart) {
-              LineartGpencilModifierData *lmd = reinterpret_cast<LineartGpencilModifierData *>(
-                  &md);
-              lmd->flags |= MOD_LINEART_USE_CACHE;
-              lmd->chain_smooth_tolerance = 0.2f;
             }
           }
         }
@@ -2432,11 +2378,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Set default 2D annotation placement. */
-    for (Scene &scene : bmain->scenes) {
-      ToolSettings *ts = scene.toolsettings;
-      ts->gpencil_v2d_align = GP_PROJECT_VIEWSPACE | GP_PROJECT_CURSOR;
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 14)) {
@@ -2628,24 +2569,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 22)) {
-    if (!DNA_struct_member_exists(
-            fd->filesdna, "LineartGpencilModifierData", "bool", "use_crease_on_smooth"))
-    {
-      for (Object &ob : bmain->objects) {
-        if (ob.type == OB_GPENCIL_LEGACY) {
-          for (GpencilModifierData &md : ob.greasepencil_modifiers) {
-            if (md.type == eGpencilModifierType_Lineart) {
-              LineartGpencilModifierData *lmd = reinterpret_cast<LineartGpencilModifierData *>(
-                  &md);
-              lmd->calculation_flags |= MOD_LINEART_USE_CREASE_ON_SMOOTH_SURFACES;
-            }
-          }
-        }
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 23)) {
     for (bScreen &screen : bmain->screens) {
       for (ScrArea &area : screen.areabase) {
@@ -2668,7 +2591,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
             const int sseq_flag = int(sseq->flag);
             const int sseq_draw_flag = int(sseq->draw_flag);
             int seq_show_safe_margins = (sseq_flag & SEQ_PREVIEW_SHOW_SAFE_MARGINS);
-            int seq_show_gpencil = (sseq_flag & SEQ_PREVIEW_SHOW_GPENCIL);
             int seq_show_fcurves = (sseq_flag & SEQ_TIMELINE_SHOW_FCURVES);
             int seq_show_safe_center = (sseq_flag & SEQ_PREVIEW_SHOW_SAFE_CENTER);
             int seq_show_metadata = (sseq_flag & SEQ_PREVIEW_SHOW_METADATA);
@@ -2678,7 +2600,7 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
             int seq_show_grid = (sseq_flag & SEQ_TIMELINE_SHOW_GRID);
             int show_strip_offset = (sseq_draw_flag & SEQ_TIMELINE_SHOW_STRIP_OFFSETS);
             sseq->preview_overlay.flag = eSpaceSeq_SequencerPreviewOverlay_Flag(
-                seq_show_safe_margins | seq_show_gpencil | seq_show_safe_center |
+                seq_show_safe_margins | seq_show_safe_center |
                 seq_show_metadata);
             sseq->timeline_overlay.flag = eSpaceSeq_SequencerTimelineOverlay_Flag(
                 seq_show_fcurves | seq_show_strip_name | seq_show_strip_source |
@@ -3284,23 +3206,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Change grease pencil smooth iterations to match old results with new algorithm. */
-    for (Object &ob : bmain->objects) {
-      for (GpencilModifierData &md : ob.greasepencil_modifiers) {
-        if (md.type == eGpencilModifierType_Smooth) {
-          SmoothGpencilModifierData *gpmd = reinterpret_cast<SmoothGpencilModifierData *>(&md);
-          if (gpmd->step == 1 && gpmd->factor <= 0.5f) {
-            gpmd->factor *= 2.0f;
-          }
-          else {
-            gpmd->step = 1 + int(gpmd->factor * max_ff(0.0f,
-                                                       min_ff(5.1f * sqrtf(gpmd->step) - 3.0f,
-                                                              gpmd->step + 2.0f)));
-            gpmd->factor = 1.0f;
-          }
-        }
-      }
-    }
   }
 
   /* Rebuild active/render color attribute references. */
@@ -3657,16 +3562,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
     }
     FOREACH_NODETREE_END;
 
-    for (Object &ob : bmain->objects) {
-      for (GpencilModifierData &gpd : ob.greasepencil_modifiers) {
-        if (gpd.type == eGpencilModifierType_Lineart) {
-          LineartGpencilModifierData *lmd = reinterpret_cast<LineartGpencilModifierData *>(&gpd);
-          lmd->shadow_camera_near = 0.1f;
-          lmd->shadow_camera_far = 200.0f;
-          lmd->shadow_camera_size = 200.0f;
-        }
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 303, 2)) {
@@ -3968,23 +3863,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
     for (Light &light : bmain->lights) {
       light.radius = light.area_size;
     }
-    /* Grease Pencil Build modifier:
-     * Set default value for new natural draw-speed factor and maximum gap. */
-    if (!DNA_struct_member_exists(
-            fd->filesdna, "BuildGpencilModifierData", "float", "speed_fac") ||
-        !DNA_struct_member_exists(
-            fd->filesdna, "BuildGpencilModifierData", "float", "speed_maxgap"))
-    {
-      for (Object &ob : bmain->objects) {
-        for (GpencilModifierData &md : ob.greasepencil_modifiers) {
-          if (md.type == eGpencilModifierType_Build) {
-            BuildGpencilModifierData *mmd = reinterpret_cast<BuildGpencilModifierData *>(&md);
-            mmd->speed_fac = 1.2f;
-            mmd->speed_maxgap = 0.5f;
-          }
-        }
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 305, 8)) {
@@ -4180,8 +4058,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Rename Grease Pencil weight draw brush. */
-    do_versions_rename_id(bmain, ID_BR, "Draw Weight", "Weight Draw");
   }
 
   /* `fcm->name` was never used to store modifier name so it has always been an empty string.

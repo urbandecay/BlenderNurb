@@ -30,7 +30,6 @@ struct MovieTrackingPlaneTrack;
 struct MovieTrackingTrack;
 struct Object;
 struct Scene;
-struct bGPDlayer;
 struct rcti;
 
 enum TrackingTrackFlag : int;
@@ -252,10 +251,6 @@ void BKE_tracking_tracks_average(MovieTrackingTrack *dst_track,
 MovieTrackingTrack *BKE_tracking_track_get_for_selection_index(
     MovieTracking *tracking, int selection_index, ListBaseT<MovieTrackingTrack> **r_tracksbase);
 
-float *BKE_tracking_track_get_mask(int frame_width,
-                                   int frame_height,
-                                   const MovieTrackingTrack *track,
-                                   const MovieTrackingMarker *marker);
 
 float BKE_tracking_track_get_weight_for_marker(MovieClip *clip,
                                                MovieTrackingTrack *track,
@@ -531,7 +526,6 @@ ImBuf *BKE_tracking_sample_pattern(int frame_width,
                                    const MovieTrackingTrack *track,
                                    const MovieTrackingMarker *marker,
                                    bool from_anchor,
-                                   bool use_mask,
                                    int num_samples_x,
                                    int num_samples_y,
                                    float pos[2]);
@@ -672,9 +666,7 @@ void BKE_tracking_detect_fast(MovieTracking *tracking,
                               int framenr,
                               int margin,
                               int min_trackness,
-                              int min_distance,
-                              bGPDlayer *layer,
-                              bool place_outside_layer);
+                              int min_distance);
 
 /**
  * Detect features using Harris detector.
@@ -685,9 +677,7 @@ void BKE_tracking_detect_harris(MovieTracking *tracking,
                                 int framenr,
                                 int margin,
                                 float threshold,
-                                int min_distance,
-                                bGPDlayer *layer,
-                                bool place_outside_layer);
+                                int min_distance);
 
 /* --------------------------------------------------------------------
  * 2D stabilization.

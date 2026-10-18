@@ -139,10 +139,6 @@ static void do_versions_theme(const UserDef *userdef, bTheme *btheme)
         &userdef->themes, btheme, "Theme", '.', offsetof(bTheme, name), sizeof(btheme->name));
   }
 
-  if (!USER_VERSION_ATLEAST(402, 47)) {
-    FROM_DEFAULT_V4_UCHAR(space_view3d.time_gp_keyframe);
-  }
-
   if (!USER_VERSION_ATLEAST(402, 62)) {
     FROM_DEFAULT_V4_UCHAR(space_sequencer.audio);
     FROM_DEFAULT_V4_UCHAR(space_sequencer.color_strip);
@@ -425,10 +421,6 @@ static void do_versions_theme(const UserDef *userdef, bTheme *btheme)
 
   if (!USER_VERSION_ATLEAST(501, 26)) {
     FROM_DEFAULT_V4_UCHAR(space_view3d.grid_major);
-  }
-
-  if (!USER_VERSION_ATLEAST(501, 28)) {
-    FROM_DEFAULT_V4_UCHAR(space_view3d.gp_wire_edit);
   }
 
   if (!USER_VERSION_ATLEAST(502, 8)) {
@@ -913,10 +905,6 @@ void blo_do_versions_userdef(UserDef *userdef)
     userdef->flag |= USER_ADD_VIEWALIGNED | USER_ADD_EDITMODE;
   }
   if (!USER_VERSION_ATLEAST(250, 0)) {
-    /* adjust grease-pencil distances */
-    userdef->gp_manhattandist = 1;
-    userdef->gp_euclideandist = 2;
-
     /* adjust default interpolation for new IPO-curves */
     userdef->ipo_new = BEZT_IPO_BEZ;
   }
@@ -1093,16 +1081,6 @@ void blo_do_versions_userdef(UserDef *userdef)
       MEMCPY_STRUCT_AFTER(&btheme, &U_theme_default, name);
     }
 
-    /* Annotations - new layer color
-     * Replace anything that used to be set if it looks like was left
-     * on the old default (i.e. black), which most users used
-     */
-    if ((userdef->gpencil_new_layer_col[3] < 0.1f) || (userdef->gpencil_new_layer_col[0] < 0.1f)) {
-      /* - New color matches the annotation pencil icon
-       * - Non-full alpha looks better!
-       */
-      ARRAY_SET_ITEMS(userdef->gpencil_new_layer_col, 0.38f, 0.61f, 0.78f, 0.9f);
-    }
   }
 
   if (!USER_VERSION_ATLEAST(280, 31)) {
@@ -1180,7 +1158,6 @@ void blo_do_versions_userdef(UserDef *userdef)
   if (!USER_VERSION_ATLEAST(280, 44)) {
     userdef->uiflag &= ~USER_NO_MULTITOUCH_GESTURES;
     userdef->uiflag2 &= ~USER_ALWAYS_SHOW_NUMBER_ARROWS;
-    userdef->gp_settings &= ~GP_PAINT_UNUSED_0;
   }
 
   if (!USER_VERSION_ATLEAST(280, 50)) {
@@ -1192,10 +1169,9 @@ void blo_do_versions_userdef(UserDef *userdef)
     userdef->move_threshold = 2;
   }
 
-  /* Patch to set dupli light-probes and grease-pencil. */
+  /* Patch to set dupli light-probes. */
   if (!USER_VERSION_ATLEAST(280, 58)) {
     userdef->dupflag |= USER_DUP_LIGHTPROBE;
-    userdef->dupflag |= USER_DUP_GPENCIL;
   }
 
   if (!USER_VERSION_ATLEAST(280, 60)) {
@@ -1576,19 +1552,6 @@ void blo_do_versions_userdef(UserDef *userdef)
   if (!USER_VERSION_ATLEAST(404, 3)) {
     userdef->uiflag &= ~USER_FILTER_BRUSHES_BY_TOOL;
 
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_paint", "Brushes/Grease Pencil Draw/Draw");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_paint", "Brushes/Grease Pencil Draw/Erase");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_paint", "Brushes/Grease Pencil Draw/Utilities");
-
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_sculpt", "Brushes/Grease Pencil Sculpt/Contrast");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_sculpt", "Brushes/Grease Pencil Sculpt/Transform");
-    BKE_preferences_asset_shelf_settings_ensure_catalog_path_enabled(
-        userdef, "VIEW3D_AST_brush_gpencil_sculpt", "Brushes/Grease Pencil Sculpt/Utilities");
   }
 
   if (!USER_VERSION_ATLEAST(404, 9)) {

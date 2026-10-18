@@ -28,8 +28,6 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_layer_types.h"
@@ -60,7 +58,6 @@
 #include "BKE_animsys.h"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_key.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_nla.hh"
@@ -682,8 +679,6 @@ static int acf_object_icon(bAnimListElem *ale)
       return ICON_OUTLINER_OB_VOLUME;
     case OB_EMPTY:
       return ICON_OUTLINER_OB_EMPTY;
-    case OB_GREASE_PENCIL:
-      return ICON_OUTLINER_OB_GREASEPENCIL;
     default:
       return ICON_OBJECT_DATA;
   }
@@ -3475,89 +3470,6 @@ static bAnimChannelType ACF_DSLIGHTPROBE = {
     /*setting_post_update*/ nullptr,
 };
 
-/* GPencil Expander  ------------------------------------------- */
-
-/* TODO: just get this from RNA? */
-static int acf_dsgpencil_icon(bAnimListElem * /*ale*/)
-{
-  return ICON_OUTLINER_DATA_GREASEPENCIL;
-}
-
-/* Get the appropriate flag(s) for the setting when it is valid. */
-static int acf_dsgpencil_setting_flag(bAnimContext * /*ac*/,
-                                      eAnimChannel_Settings setting,
-                                      bool *r_neg)
-{
-  /* Clear extra return data first. */
-  *r_neg = false;
-
-  switch (setting) {
-    case ACHANNEL_SETTING_EXPAND: /* expanded */
-      return GP_DATA_EXPAND;
-
-    case ACHANNEL_SETTING_MUTE: /* mute (only in NLA) */
-      return ADT_NLA_EVAL_OFF;
-
-    case ACHANNEL_SETTING_VISIBLE: /* visible (only in Graph Editor) */
-      *r_neg = true;
-      return ADT_CURVES_NOT_VISIBLE;
-
-    case ACHANNEL_SETTING_SELECT: /* selected */
-      return ADT_UI_SELECTED;
-
-    default: /* unsupported */
-      return 0;
-  }
-}
-
-/* get pointer to the setting */
-static void *acf_dsgpencil_setting_ptr(bAnimListElem *ale,
-                                       eAnimChannel_Settings setting,
-                                       short *r_type)
-{
-  bGPdata *gpd = static_cast<bGPdata *>(ale->data);
-
-  /* Clear extra return data first. */
-  *r_type = 0;
-
-  switch (setting) {
-    case ACHANNEL_SETTING_EXPAND: /* expanded */
-      return GET_ACF_FLAG_PTR(gpd->flag, r_type);
-
-    case ACHANNEL_SETTING_SELECT:  /* selected */
-    case ACHANNEL_SETTING_MUTE:    /* muted (for NLA only) */
-    case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
-      if (gpd->adt) {
-        return GET_ACF_FLAG_PTR(gpd->adt->flag, r_type);
-      }
-      return nullptr;
-
-    default: /* unsupported */
-      return nullptr;
-  }
-}
-
-/** Grease-pencil expander type define. */
-static bAnimChannelType ACF_DSGPENCIL = {
-    /*channel_type_name*/ "GPencil DS Expander",
-    /*channel_role*/ ACHANNEL_ROLE_EXPANDER,
-
-    /*get_backdrop_color*/ acf_generic_dataexpand_color,
-    /*get_channel_color*/ nullptr,
-    /*draw_backdrop*/ acf_generic_dataexpand_backdrop,
-    /*get_indent_level*/ acf_generic_indentation_1,
-    /*get_offset*/ acf_generic_basic_offset,
-
-    /*name*/ acf_generic_idblock_name,
-    /*name_prop*/ acf_generic_idblock_name_prop,
-    /*icon*/ acf_dsgpencil_icon,
-
-    /*has_setting*/ acf_generic_dataexpand_setting_valid,
-    /*setting_flag*/ acf_dsgpencil_setting_flag,
-    /*setting_ptr*/ acf_dsgpencil_setting_ptr,
-    /*setting_post_update*/ nullptr,
-};
-
 /* World Expander  ------------------------------------------- */
 
 /* TODO: just get this from RNA? */
@@ -3758,402 +3670,6 @@ static bAnimChannelType ACF_SHAPEKEY = {
     /*setting_post_update*/ nullptr,
 };
 
-/* GPencil Datablock (Legacy) ------------------------------------------- */
-
-/* TODO: just get this from RNA? */
-static int acf_gpd_icon(bAnimListElem * /*ale*/)
-{
-  return ICON_OUTLINER_DATA_GREASEPENCIL;
-}
-
-/* check if some setting exists for this channel */
-static bool acf_gpd_setting_valid(bAnimContext * /*ac*/,
-                                  bAnimListElem * /*ale*/,
-                                  eAnimChannel_Settings setting)
-{
-  switch (setting) {
-    /* only select and expand supported */
-    case ACHANNEL_SETTING_SELECT:
-    case ACHANNEL_SETTING_EXPAND:
-      return true;
-
-    default:
-      return false;
-  }
-}
-
-/* GPencil Layer (Legacy) ------------------------------------------- */
-
-/* name for grease pencil layer entries */
-static void acf_gpl_name_legacy(bAnimListElem *ale, char *name)
-{
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-  if (gpl && name) {
-    BLI_strncpy_utf8(name, gpl->info, ANIM_CHAN_NAME_SIZE);
-  }
-}
-
-/* name property for grease pencil layer entries */
-static bool acf_gpl_name_prop_legacy(bAnimListElem *ale, PointerRNA *r_ptr, PropertyRNA **r_prop)
-{
-  if (ale->data) {
-    *r_ptr = RNA_pointer_create_discrete(ale->id, RNA_AnnotationLayer, ale->data);
-    *r_prop = RNA_struct_name_property(r_ptr->type);
-
-    return (*r_prop != nullptr);
-  }
-
-  return false;
-}
-
-/* check if some setting exists for this channel */
-static bool acf_gpl_setting_valid_legacy(bAnimContext * /*ac*/,
-                                         bAnimListElem * /*ale*/,
-                                         eAnimChannel_Settings setting)
-{
-  switch (setting) {
-    /* unsupported */
-    case ACHANNEL_SETTING_EXPAND: /* gpencil layers are more like F-Curves than groups */
-    case ACHANNEL_SETTING_SOLO:   /* nla editor only */
-    case ACHANNEL_SETTING_MOD_OFF:
-    case ACHANNEL_SETTING_PINNED: /* nla actions only */
-      return false;
-
-    /* always available */
-    default:
-      return true;
-  }
-}
-
-/* Get the appropriate flag(s) for the setting when it is valid. */
-static int acf_gpl_setting_flag_legacy(bAnimContext * /*ac*/,
-                                       eAnimChannel_Settings setting,
-                                       bool *r_neg)
-{
-  /* Clear extra return data first. */
-  *r_neg = false;
-
-  switch (setting) {
-    case ACHANNEL_SETTING_SELECT: /* selected */
-      return GP_LAYER_SELECT;
-
-    case ACHANNEL_SETTING_MUTE: /* animation muting - similar to frame lock... */
-      return GP_LAYER_FRAMELOCK;
-
-    case ACHANNEL_SETTING_VISIBLE: /* visibility of the layers (NOT muting) */
-      *r_neg = true;
-      return GP_LAYER_HIDE;
-
-    case ACHANNEL_SETTING_PROTECT: /* protected */
-      return GP_LAYER_LOCKED;
-
-    default: /* unsupported */
-      return 0;
-  }
-}
-
-static bool acf_gpl_channel_color(const bAnimListElem *ale, uint8_t r_color[3])
-{
-  const bGPDlayer *gpl = static_cast<const bGPDlayer *>(ale->data);
-  rgb_float_to_uchar(r_color, gpl->color);
-  return true;
-}
-
-/* get pointer to the setting */
-static void *acf_gpl_setting_ptr_legacy(bAnimListElem *ale,
-                                        eAnimChannel_Settings /*setting*/,
-                                        short *r_type)
-{
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-  /* all flags are just in gpl->flag for now... */
-  return GET_ACF_FLAG_PTR(gpl->flag, r_type);
-}
-
-/** Grease-pencil layer type define. */
-static bAnimChannelType ACF_GPL_LEGACY = {
-    /*channel_type_name*/ "GPencil Layer",
-    /*channel_role*/ ACHANNEL_ROLE_CHANNEL,
-
-    /*get_backdrop_color*/ acf_generic_channel_color,
-    /*get_channel_color*/ acf_gpl_channel_color,
-    /*draw_backdrop*/ acf_generic_channel_backdrop,
-    /*get_indent_level*/ acf_generic_indentation_flexible,
-    /*get_offset*/ acf_generic_group_offset,
-
-    /*name*/ acf_gpl_name_legacy,
-    /*name_prop*/ acf_gpl_name_prop_legacy,
-    /*icon*/ nullptr,
-
-    /*has_setting*/ acf_gpl_setting_valid_legacy,
-    /*setting_flag*/ acf_gpl_setting_flag_legacy,
-    /*setting_ptr*/ acf_gpl_setting_ptr_legacy,
-    /*setting_post_update*/ nullptr,
-};
-
-/* Grease Pencil Animation functions ------------------------------------------- */
-
-namespace ed::animation::greasepencil {
-
-/* Get pointer to the setting */
-static void *data_block_setting_ptr(bAnimListElem *ale,
-                                    eAnimChannel_Settings /*setting*/,
-                                    short *r_type)
-{
-  GreasePencil *grease_pencil = static_cast<GreasePencil *>(ale->data);
-
-  return GET_ACF_FLAG_PTR(grease_pencil->flag, r_type);
-}
-static void datablock_color(bAnimContext *ac, bAnimListElem * /*ale*/, float r_color[3])
-{
-  if (ac->datatype == ANIMCONT_GPENCIL) {
-    ui::theme::get_color_shade_3fv(TH_DOPESHEET_CHANNELSUBOB, 20, r_color);
-  }
-  else {
-    ui::theme::get_color_3fv(TH_DOPESHEET_CHANNELSUBOB, r_color);
-  }
-}
-
-/* Get the appropriate flag(s) for the setting when it is valid. */
-static int data_block_setting_flag(bAnimContext * /*ac*/,
-                                   eAnimChannel_Settings setting,
-                                   bool *r_neg)
-{
-  /* Clear extra return data first. */
-  *r_neg = false;
-
-  switch (setting) {
-    case ACHANNEL_SETTING_SELECT: /* Selected */
-      return AGRP_SELECTED;
-
-    case ACHANNEL_SETTING_EXPAND: /* Expanded */
-      return GREASE_PENCIL_ANIM_CHANNEL_EXPANDED;
-
-    default:
-      /* This shouldn't happen */
-      BLI_assert_msg(true, "Unexpected channel flag");
-      return 0;
-  }
-}
-
-/* Offset of the channel, defined by its depth in the tree hierarchy. */
-static short layer_offset(bAnimContext *ac, bAnimListElem *ale)
-{
-  GreasePencilLayerTreeNode *node = static_cast<GreasePencilLayerTreeNode *>(ale->data);
-
-  short offset = acf_generic_basic_offset(ac, ale);
-  offset += node->wrap().depth() * short(0.7f * U.widget_unit);
-
-  return offset;
-}
-
-/* Name for grease pencil layer entries. */
-static void layer_name(bAnimListElem *ale, char *name)
-{
-  GreasePencilLayer *layer = static_cast<GreasePencilLayer *>(ale->data);
-
-  if (layer && name) {
-    BLI_strncpy_utf8(name, layer->wrap().name().c_str(), ANIM_CHAN_NAME_SIZE);
-  }
-}
-
-/* Name property for grease pencil layer entries.
- * Common for layers & layer groups.
- */
-static bool layer_name_prop(bAnimListElem *ale, PointerRNA *r_ptr, PropertyRNA **r_prop)
-{
-  if (ale->data == nullptr) {
-    return false;
-  }
-
-  *r_ptr = RNA_pointer_create_discrete(ale->id, RNA_GreasePencilLayer, ale->data);
-  *r_prop = RNA_struct_name_property(r_ptr->type);
-
-  return (*r_prop != nullptr);
-}
-
-static bool layer_setting_valid(bAnimContext * /*ac*/,
-                                bAnimListElem * /*ale*/,
-                                eAnimChannel_Settings setting)
-{
-  switch (setting) {
-    case ACHANNEL_SETTING_EXPAND:
-    case ACHANNEL_SETTING_SOLO: /* NLA editor only. */
-    case ACHANNEL_SETTING_MOD_OFF:
-    case ACHANNEL_SETTING_PINNED: /* NLA actions only. */
-      return false;
-
-    default:
-      return true;
-  }
-}
-
-/* Get the appropriate flag(s) for the setting when it is valid.
- * Common for layers & layer groups.
- */
-static int layer_setting_flag(bAnimContext * /*ac*/, eAnimChannel_Settings setting, bool *r_neg)
-{
-  /* Clear extra return data first. */
-  *r_neg = false;
-
-  switch (setting) {
-    case ACHANNEL_SETTING_SELECT: /* Layer selected. */
-      return GP_LAYER_TREE_NODE_SELECT;
-
-    case ACHANNEL_SETTING_MUTE: /* Animation muting. */
-      return GP_LAYER_TREE_NODE_MUTE;
-
-    case ACHANNEL_SETTING_VISIBLE: /* Visibility of the layers. */
-      *r_neg = true;
-      return GP_LAYER_TREE_NODE_HIDE;
-
-    case ACHANNEL_SETTING_PROTECT: /* Layer locked. */
-      return GP_LAYER_TREE_NODE_LOCKED;
-
-    case ACHANNEL_SETTING_EXPAND: /* Layer expanded (for layer groups). */
-      return GP_LAYER_TREE_NODE_EXPANDED;
-
-    default: /* Unsupported. */
-      return 0;
-  }
-}
-/* Get pointer to the setting. */
-static void *layer_setting_ptr(bAnimListElem *ale,
-                               eAnimChannel_Settings /*setting*/,
-                               short *r_type)
-{
-  GreasePencilLayer *layer = static_cast<GreasePencilLayer *>(ale->data);
-  return GET_ACF_FLAG_PTR(layer->base.flag, r_type);
-}
-
-static bool layer_channel_color(const bAnimListElem *ale, uint8_t r_color[3])
-{
-  using namespace bke::greasepencil;
-  GreasePencilLayerTreeNode &node = *static_cast<GreasePencilLayerTreeNode *>(ale->data);
-  rgb_float_to_uchar(r_color, node.color);
-  return true;
-}
-
-static int layer_group_icon(bAnimListElem *ale)
-{
-  using namespace bke::greasepencil;
-  const LayerGroup &group = *static_cast<LayerGroup *>(ale->data);
-  int icon = ICON_GREASEPENCIL_LAYER_GROUP;
-  if (group.color_tag != LAYERGROUP_COLOR_NONE) {
-    icon = ICON_LAYERGROUP_COLOR_01 + int(group.color_tag);
-  }
-  return icon;
-}
-
-static void layer_group_color(bAnimContext * /*ac*/, bAnimListElem * /*ale*/, float r_color[3])
-{
-  ui::theme::get_color_3fv(TH_GROUP, r_color);
-}
-
-/* Name for grease pencil layer entries */
-static void layer_group_name(bAnimListElem *ale, char *name)
-{
-  GreasePencilLayerTreeGroup *layer_group = static_cast<GreasePencilLayerTreeGroup *>(ale->data);
-
-  if (layer_group && name) {
-    BLI_strncpy_utf8(name, layer_group->wrap().name().c_str(), ANIM_CHAN_NAME_SIZE);
-  }
-}
-
-/* Get pointer to the setting. */
-static void *layer_group_setting_ptr(bAnimListElem *ale,
-                                     eAnimChannel_Settings /*setting*/,
-                                     short *r_type)
-{
-  GreasePencilLayerTreeGroup *layer_group = static_cast<GreasePencilLayerTreeGroup *>(ale->data);
-  return GET_ACF_FLAG_PTR(layer_group->base.flag, r_type);
-}
-
-/* Check if some setting exists for this channel. */
-static bool layer_group_setting_valid(bAnimContext * /*ac*/,
-                                      bAnimListElem * /*ale*/,
-                                      eAnimChannel_Settings setting)
-{
-  switch (setting) {
-    case ACHANNEL_SETTING_SELECT:
-    case ACHANNEL_SETTING_EXPAND:
-    case ACHANNEL_SETTING_PROTECT:
-    case ACHANNEL_SETTING_VISIBLE:
-      return true;
-
-    default:
-      return false;
-  }
-}
-
-}  // namespace ed::animation::greasepencil
-
-using namespace blender::ed::animation;
-
-/* Grease Pencil Datablock ------------------------------------------- */
-static bAnimChannelType ACF_GPD = {
-    /*channel_type_name*/ "Grease Pencil Datablock",
-    /*channel_role*/ ACHANNEL_ROLE_EXPANDER,
-
-    /*get_backdrop_color*/ greasepencil::datablock_color,
-    /*get_channel_color*/ nullptr,
-    /*draw_backdrop*/ acf_group_backdrop,
-    /*get_indent_level*/ acf_generic_indentation_1,
-    /*get_offset*/ acf_generic_basic_offset,
-
-    /*name*/ acf_generic_idblock_name,
-    /*name_prop*/ acf_generic_idfill_name_prop,
-    /*icon*/ acf_gpd_icon,
-
-    /*has_setting*/ acf_gpd_setting_valid,
-    /*setting_flag*/ greasepencil::data_block_setting_flag,
-    /*setting_ptr*/ greasepencil::data_block_setting_ptr,
-    /*setting_post_update*/ nullptr,
-};
-
-/* Grease Pencil Layer ------------------------------------------- */
-static bAnimChannelType ACF_GPL = {
-    /*channel_type_name*/ "Grease Pencil Layer",
-    /*channel_role*/ ACHANNEL_ROLE_CHANNEL,
-
-    /*get_backdrop_color*/ acf_generic_channel_color,
-    /*get_channel_color*/ greasepencil::layer_channel_color,
-    /*draw_backdrop*/ acf_generic_channel_backdrop,
-    /*get_indent_level*/ acf_generic_indentation_flexible,
-    /*get_offset*/ greasepencil::layer_offset,
-
-    /*name*/ greasepencil::layer_name,
-    /*name_prop*/ greasepencil::layer_name_prop,
-    /*icon*/ nullptr,
-
-    /*has_setting*/ greasepencil::layer_setting_valid,
-    /*setting_flag*/ greasepencil::layer_setting_flag,
-    /*setting_ptr*/ greasepencil::layer_setting_ptr,
-    /*setting_post_update*/ nullptr,
-};
-
-/* Grease Pencil Layer Group -------------------------------- */
-static bAnimChannelType ACF_GPLGROUP = {
-    /*channel_type_name*/ "Grease Pencil Layer Group",
-    /*channel_role*/ ACHANNEL_ROLE_EXPANDER,
-
-    /*get_backdrop_color*/ greasepencil::layer_group_color,
-    /*get_channel_color*/ greasepencil::layer_channel_color,
-    /*draw_backdrop*/ acf_group_backdrop,
-    /*get_indent_level*/ acf_generic_indentation_0,
-    /*get_offset*/ greasepencil::layer_offset,
-
-    /*name*/ greasepencil::layer_group_name,
-    /*name_prop*/ greasepencil::layer_name_prop,
-    /*icon*/ greasepencil::layer_group_icon,
-
-    /*has_setting*/ greasepencil::layer_group_setting_valid,
-    /*setting_flag*/ greasepencil::layer_setting_flag,
-    /*setting_ptr*/ greasepencil::layer_group_setting_ptr,
-    /*setting_post_update*/ nullptr,
-};
-
 /* Mask Datablock ------------------------------------------- */
 
 /* get backdrop color for mask datablock widget */
@@ -4238,7 +3754,7 @@ static bAnimChannelType ACF_MASKDATA = {
 
 /* Mask Layer ------------------------------------------- */
 
-/* name for grease pencil layer entries */
+/* Name for mask layer entries. */
 static void acf_masklay_name(bAnimListElem *ale, char *name)
 {
   MaskLayer *masklay = static_cast<MaskLayer *>(ale->data);
@@ -4248,7 +3764,7 @@ static void acf_masklay_name(bAnimListElem *ale, char *name)
   }
 }
 
-/* name property for grease pencil layer entries */
+/* Name property for mask layer entries. */
 static bool acf_masklay_name_prop(bAnimListElem *ale, PointerRNA *r_ptr, PropertyRNA **r_prop)
 {
   if (ale->data) {
@@ -4736,7 +4252,6 @@ static void ANIM_init_channel_typeinfo_data()
     animchannelTypeInfo[type++] = &ACF_DSLAT;        /* Lattice Channel */
     animchannelTypeInfo[type++] = &ACF_DSLINESTYLE;  /* LineStyle Channel */
     animchannelTypeInfo[type++] = &ACF_DSSPK;        /* Speaker Channel */
-    animchannelTypeInfo[type++] = &ACF_DSGPENCIL;    /* GreasePencil Channel */
     animchannelTypeInfo[type++] = &ACF_DSMCLIP;      /* MovieClip Channel */
     animchannelTypeInfo[type++] = &ACF_DSCURVES;     /* Curves Channel */
     animchannelTypeInfo[type++] = &ACF_DSPOINTCLOUD; /* PointCloud Channel */
@@ -4744,12 +4259,6 @@ static void ANIM_init_channel_typeinfo_data()
     animchannelTypeInfo[type++] = &ACF_DSLIGHTPROBE; /* Light Probe */
 
     animchannelTypeInfo[type++] = &ACF_SHAPEKEY; /* ShapeKey */
-
-    animchannelTypeInfo[type++] = &ACF_GPL_LEGACY; /* Grease Pencil Layer (Legacy) */
-
-    animchannelTypeInfo[type++] = &ACF_GPD;      /* Grease Pencil Datablock. */
-    animchannelTypeInfo[type++] = &ACF_GPLGROUP; /* Grease Pencil Layer Group. */
-    animchannelTypeInfo[type++] = &ACF_GPL;      /* Grease Pencil Layer. */
 
     animchannelTypeInfo[type++] = &ACF_MASKDATA;  /* Mask Datablock */
     animchannelTypeInfo[type++] = &ACF_MASKLAYER; /* Mask Layer */
@@ -5243,17 +4752,11 @@ void ANIM_channel_draw(
   /* step 4) draw special toggles  .................................
    * - in Graph Editor, check-boxes for visibility in curves area
    * - in NLA Editor, glowing dots for solo/not solo...
-   * - in Grease Pencil mode, color swatches for layer color
    */
   if (ac->sl) {
     if (ELEM(ac->spacetype, SPACE_ACTION, SPACE_GRAPH) &&
         (acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE) ||
-         acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)) &&
-        !ELEM(ale->type,
-              ANIMTYPE_GPLAYER,
-              ANIMTYPE_DSGPENCIL,
-              ANIMTYPE_GREASE_PENCIL_LAYER,
-              ANIMTYPE_GREASE_PENCIL_LAYER_GROUP))
+         acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)))
     {
       /* for F-Curves, draw color-preview of curve left to the visibility icon */
       if (ELEM(ale->type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE)) {
@@ -5414,15 +4917,6 @@ void ANIM_channel_draw(
         offset += ICON_WIDTH;
       }
 
-      /* grease pencil visibility... */
-      if (ELEM(ale->type,
-               ANIMTYPE_GPLAYER,
-               ANIMTYPE_GREASE_PENCIL_LAYER,
-               ANIMTYPE_GREASE_PENCIL_LAYER_GROUP))
-      {
-        offset += ICON_WIDTH;
-      }
-
       /* modifiers toggle... */
       if (acf->has_setting(ac, ale, ACHANNEL_SETTING_MOD_OFF)) {
         offset += ICON_WIDTH;
@@ -5452,10 +4946,7 @@ void ANIM_channel_draw(
     if ((draw_sliders) && ELEM(ale->type,
                                ANIMTYPE_FCURVE,
                                ANIMTYPE_NLACURVE,
-                               ANIMTYPE_SHAPEKEY,
-                               ANIMTYPE_GPLAYER,
-                               ANIMTYPE_GREASE_PENCIL_LAYER,
-                               ANIMTYPE_GREASE_PENCIL_LAYER_GROUP))
+                               ANIMTYPE_SHAPEKEY))
     {
       /* adjust offset */
       offset += SLIDER_WIDTH;
@@ -5606,21 +5097,6 @@ static void achannel_setting_flush_widget_cb(bContext *C, void *ale_npoin, void 
   if (!ale_setting) {
     return;
   }
-  if (ELEM(ale_setting->type, ANIMTYPE_GREASE_PENCIL_LAYER, ANIMTYPE_GREASE_PENCIL_LAYER_GROUP)) {
-    WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
-  }
-
-  if (ale_setting->type == ANIMTYPE_GPLAYER) {
-    /* draw cache updates for settings that affect the visible strokes */
-    if (setting == ACHANNEL_SETTING_VISIBLE) {
-      bGPdata *gpd = reinterpret_cast<bGPdata *>(ale_setting->id);
-      DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
-    }
-
-    /* UI updates */
-    WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
-  }
-
   /* Tag for full animation update, so that the settings will have an effect. */
   if (ale_setting->id) {
     DEG_id_tag_update(ale_setting->id, ID_RECALC_ANIMATION);
@@ -5632,11 +5108,6 @@ static void achannel_setting_flush_widget_cb(bContext *C, void *ale_npoin, void 
 
   /* verify animation context */
   if (ANIM_animdata_get_context(C, &ac) == 0) {
-    return;
-  }
-
-  /* Don't flush setting changes to grease pencil layers in a layer group. */
-  if (ale_setting->type == ANIMTYPE_GREASE_PENCIL_LAYER_GROUP) {
     return;
   }
 
@@ -5863,9 +5334,6 @@ static void draw_setting_widget(bAnimContext *ac,
       if (ELEM(ale->type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE)) {
         tooltip = TIP_("F-Curve visibility in Graph Editor");
       }
-      else if (ELEM(ale->type, ANIMTYPE_GPLAYER, ANIMTYPE_GREASE_PENCIL_LAYER)) {
-        tooltip = TIP_("Grease Pencil layer is visible in the viewport");
-      }
       else {
         tooltip = TIP_("Toggle visibility of Channels in Graph Editor for editing");
       }
@@ -5920,11 +5388,6 @@ static void draw_setting_widget(bAnimContext *ac,
       else if ((ac) && (ac->spacetype == SPACE_NLA) && (ale->type != ANIMTYPE_NLATRACK)) {
         tooltip = TIP_(
             "Temporarily disable NLA stack evaluation (i.e. only the active action is evaluated)");
-      }
-      else if (ELEM(ale->type, ANIMTYPE_GPLAYER, ANIMTYPE_GREASE_PENCIL_LAYER)) {
-        tooltip = TIP_(
-            "Show all keyframes during animation playback and enable all frames for editing "
-            "(uncheck to use only the current keyframe during animation playback and editing)");
       }
       else {
         tooltip = TIP_("Do channels contribute to result (toggle channel muting)");
@@ -6076,90 +5539,6 @@ static void draw_setting_widget(bAnimContext *ac,
   }
 }
 
-static void draw_grease_pencil_layer_widgets(bAnimListElem *ale,
-                                             ui::Block *block,
-                                             const rctf *rect,
-                                             short &offset,
-                                             const short channel_height,
-                                             const int array_index)
-{
-  using namespace blender::bke::greasepencil;
-  Layer *layer = static_cast<Layer *>(ale->data);
-
-  if (layer == nullptr) {
-    return;
-  }
-
-  /* Reset slider offset, in order to add special grease pencil icons. */
-  offset += SLIDER_WIDTH;
-
-  /* Create the RNA pointers. */
-  PointerRNA ptr = RNA_pointer_create_discrete(ale->id, RNA_GreasePencilLayer, ale->data);
-  PointerRNA id_ptr = RNA_id_pointer_create(ale->id);
-
-  /* Layer onion skinning switch. */
-  offset -= ICON_WIDTH;
-  block_emboss_set(block, ui::EmbossType::None);
-  PropertyRNA *onion_skinning_prop = RNA_struct_find_property(&ptr, "use_onion_skinning");
-
-  const std::optional<std::string> onion_skinning_rna_path = RNA_path_from_ID_to_property(
-      &ptr, onion_skinning_prop);
-  if (RNA_path_resolve_property(
-          &id_ptr, onion_skinning_rna_path->c_str(), &ptr, &onion_skinning_prop))
-  {
-    uiDefAutoButR(block,
-                  &ptr,
-                  onion_skinning_prop,
-                  array_index,
-                  "",
-                  ICON_ONIONSKIN_OFF,
-                  offset,
-                  rect->ymin,
-                  ICON_WIDTH,
-                  channel_height);
-  }
-
-  /* Mask layer. */
-  offset -= ICON_WIDTH;
-  block_emboss_set(block, ui::EmbossType::None);
-  PropertyRNA *layer_mask_prop = RNA_struct_find_property(&ptr, "use_masks");
-
-  const std::optional<std::string> layer_mask_rna_path = RNA_path_from_ID_to_property(
-      &ptr, layer_mask_prop);
-  if (RNA_path_resolve_property(&id_ptr, layer_mask_rna_path->c_str(), &ptr, &layer_mask_prop)) {
-    uiDefAutoButR(block,
-                  &ptr,
-                  layer_mask_prop,
-                  array_index,
-                  "",
-                  ICON_CLIPUV_HLT,
-                  offset,
-                  rect->ymin,
-                  ICON_WIDTH,
-                  channel_height);
-  }
-
-  /* Layer opacity. */
-  const short width = SLIDER_WIDTH * 0.6;
-  offset -= width;
-  block_emboss_set(block, ui::EmbossType::Emboss);
-  PropertyRNA *opacity_prop = RNA_struct_find_property(&ptr, "opacity");
-  const std::optional<std::string> opacity_rna_path = RNA_path_from_ID_to_property(&ptr,
-                                                                                   opacity_prop);
-  if (RNA_path_resolve_property(&id_ptr, opacity_rna_path->c_str(), &ptr, &opacity_prop)) {
-    uiDefAutoButR(block,
-                  &ptr,
-                  opacity_prop,
-                  array_index,
-                  "",
-                  ICON_NONE,
-                  offset,
-                  rect->ymin,
-                  width,
-                  channel_height);
-  }
-}
-
 void ANIM_channel_draw_widgets(const bContext *C,
                                bAnimContext *ac,
                                bAnimListElem *ale,
@@ -6205,16 +5584,11 @@ void ANIM_channel_draw_widgets(const bContext *C,
   /* step 3) draw special toggles  .................................
    * - in Graph Editor, check-boxes for visibility in curves area
    * - in NLA Editor, glowing dots for solo/not solo...
-   * - in Grease Pencil mode, color swatches for layer color
    */
   if (ac->sl) {
     if (ELEM(ac->spacetype, SPACE_ACTION, SPACE_GRAPH) &&
         (acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE) ||
-         acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)) &&
-        !ELEM(ale->type,
-              ANIMTYPE_GPLAYER,
-              ANIMTYPE_GREASE_PENCIL_LAYER,
-              ANIMTYPE_GREASE_PENCIL_LAYER_GROUP))
+         acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)))
     {
       /* Pin toggle. */
       if (acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)) {
@@ -6364,17 +5738,6 @@ void ANIM_channel_draw_widgets(const bContext *C,
         offset -= ICON_WIDTH;
         draw_setting_widget(ac, ale, acf, block, offset, ymid, ACHANNEL_SETTING_MUTE);
       }
-      if (ELEM(ale->type,
-               ANIMTYPE_GPLAYER,
-               ANIMTYPE_GREASE_PENCIL_LAYER,
-               ANIMTYPE_GREASE_PENCIL_LAYER_GROUP))
-      {
-        /* Not technically "mute"
-         * (in terms of anim channels, but this sets layer visibility instead). */
-        offset -= ICON_WIDTH;
-        draw_setting_widget(ac, ale, acf, block, offset, ymid, ACHANNEL_SETTING_VISIBLE);
-      }
-
       /* modifiers disable */
       if (acf->has_setting(ac, ale, ACHANNEL_SETTING_MOD_OFF)) {
         offset -= ICON_WIDTH;
@@ -6438,10 +5801,7 @@ void ANIM_channel_draw_widgets(const bContext *C,
     if (((draw_sliders) && ELEM(ale->type,
                                 ANIMTYPE_FCURVE,
                                 ANIMTYPE_NLACURVE,
-                                ANIMTYPE_SHAPEKEY,
-                                ANIMTYPE_GPLAYER,
-                                ANIMTYPE_GREASE_PENCIL_LAYER,
-                                ANIMTYPE_GREASE_PENCIL_LAYER_GROUP)) ||
+                                ANIMTYPE_SHAPEKEY)) ||
         ale->type == ANIMTYPE_SHAPEKEY)
     {
       /* adjust offset */
@@ -6501,70 +5861,6 @@ void ANIM_channel_draw_widgets(const bContext *C,
 
           rna_path = BKE_keyblock_curval_rnapath_get(key, kb);
         }
-        /* Special for Grease Pencil Layer. */
-        else if (ale->type == ANIMTYPE_GPLAYER) {
-          bGPdata *gpd = reinterpret_cast<bGPdata *>(ale->id);
-          if ((gpd->flag & GP_DATA_ANNOTATIONS) == 0) {
-            /* Reset slider offset, in order to add special gp icons. */
-            offset += SLIDER_WIDTH;
-
-            bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-
-            /* Create the RNA pointers. */
-            ptr = RNA_pointer_create_discrete(ale->id, RNA_AnnotationLayer, ale->data);
-            PointerRNA id_ptr = RNA_id_pointer_create(ale->id);
-            int icon;
-
-            /* Layer onion skinning switch. */
-            offset -= ICON_WIDTH;
-            block_emboss_set(block, ui::EmbossType::None);
-            prop = RNA_struct_find_property(&ptr, "use_annotation_onion_skinning");
-            if (const std::optional<std::string> gp_rna_path = RNA_path_from_ID_to_property(&ptr,
-                                                                                            prop))
-            {
-              if (RNA_path_resolve_property(&id_ptr, gp_rna_path->c_str(), &ptr, &prop)) {
-                icon = (gpl->onion_flag & GP_LAYER_ONIONSKIN) ? ICON_ONIONSKIN_ON :
-                                                                ICON_ONIONSKIN_OFF;
-                uiDefAutoButR(block,
-                              &ptr,
-                              prop,
-                              array_index,
-                              "",
-                              icon,
-                              offset,
-                              rect->ymin,
-                              ICON_WIDTH,
-                              channel_height);
-              }
-            }
-
-            /* Layer opacity. */
-            const short width = SLIDER_WIDTH * 0.6;
-            offset -= width;
-            block_emboss_set(block, ui::EmbossType::Emboss);
-            prop = RNA_struct_find_property(&ptr, "annotation_opacity");
-            if (const std::optional<std::string> gp_rna_path = RNA_path_from_ID_to_property(&ptr,
-                                                                                            prop))
-            {
-              if (RNA_path_resolve_property(&id_ptr, gp_rna_path->c_str(), &ptr, &prop)) {
-                uiDefAutoButR(block,
-                              &ptr,
-                              prop,
-                              array_index,
-                              "",
-                              ICON_NONE,
-                              offset,
-                              rect->ymin,
-                              width,
-                              channel_height);
-              }
-            }
-          }
-        }
-        else if (ale->type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-          draw_grease_pencil_layer_widgets(ale, block, rect, offset, channel_height, array_index);
-        }
-
         /* Only if RNA-Path found. */
         if (rna_path) {
           /* get RNA pointer, and resolve the path */

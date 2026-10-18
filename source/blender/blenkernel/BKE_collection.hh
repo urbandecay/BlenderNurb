@@ -71,7 +71,6 @@ struct CollectionRuntime {
    */
   ListBaseT<Base> object_cache = {};
 
-  /** Need this for line art sub-collection selections. */
   ListBaseT<Base> object_cache_instanced = {};
 
   /** List of collections that are a parent of this data-block. */

@@ -125,7 +125,6 @@ void tracking_trackingCameraFromIntrinscisOptions(
  * Fill in libmv tracker options structure with settings need to be used to perform track.
  */
 void tracking_configure_tracker(const MovieTrackingTrack *track,
-                                float *mask,
                                 bool is_backwards,
                                 libmv_TrackRegionOptions *options);
 
@@ -135,17 +134,6 @@ void tracking_configure_tracker(const MovieTrackingTrack *track,
 MovieTrackingMarker *tracking_get_keyframed_marker(MovieTrackingTrack *track,
                                                    int current_frame,
                                                    bool backwards);
-
-/*********************** Masking *************************/
-
-/**
- * Region is in pixel space, relative to marker's center.
- */
-float *tracking_track_get_mask_for_region(const int frame_width,
-                                          const int frame_height,
-                                          const float region_min[2],
-                                          const float region_max[2],
-                                          const MovieTrackingTrack *track);
 
 /*********************** Frame Accessor *************************/
 

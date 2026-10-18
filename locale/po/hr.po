@@ -107,11 +107,6 @@ msgstr "Font"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Grease Pencil"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Slika"
 
@@ -315,10 +310,6 @@ msgstr "Aktiviraj operator"
 
 msgid "Space Type"
 msgstr "Vrsta prostora"
-
-
-msgid "Annotations"
-msgstr "Oznake"
 
 
 msgid "Armatures"
@@ -564,11 +555,6 @@ msgstr "Skupovi lica"
 
 msgid "Face Sets FK"
 msgstr "Skupovi lica DK"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "Krivulja"
 
 
 msgctxt "Light"
@@ -1277,26 +1263,6 @@ msgstr "Paleta boja"
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "Označavanje"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "Označavanje pomoću linije"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "Označavanje pomoću poligona"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "Brisanje oznaka"
-
-
-msgctxt "Operator"
 msgid "Select Box"
 msgstr "Označavanje kutijom"
 
@@ -1863,10 +1829,6 @@ msgstr "Spremanje slike neuspješno: nedovoljno slobodne memorije"
 
 msgid "Untitled"
 msgstr "Neimenovano"
-
-
-msgid "annotations"
-msgstr "oznake"
 
 
 msgid "libraries"

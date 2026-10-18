@@ -137,7 +137,7 @@ class Library(_types.ID):
         # we could make this an attribute in rna.
         attr_links = (
             "actions", "armatures", "brushes", "cameras",
-            "curves", "grease_pencils", "collections", "images",
+            "curves", "collections", "images",
             "lights", "lattices", "materials", "metaballs",
             "meshes", "node_groups", "objects", "scenes",
             "sounds", "speakers", "textures", "texts",
@@ -1701,28 +1701,6 @@ class HydraRenderEngine(RenderEngine):
         _bpy_hydra.engine_view_draw(self.engine_ptr, context)
 
 
-class GreasePencilDrawing(_StructRNA):
-    __slots__ = ()
-
-    @property
-    def strokes(self):
-        """
-        Return a collection of all the Grease Pencil strokes in this drawing.
-
-        .. note::
-
-           This API should *not* be used for performance critical operations.
-           Use the :class:`GreasePencilDrawing.attributes` API instead.
-
-        .. note::
-
-           When point/curves count of a drawing is changed, the slice returned by this
-           call prior to the change is no longer valid. You need to get the new stroke
-           slice via ``drawing.strokes[n]``.
-        """
-        from _bpy_internal.grease_pencil.stroke import GreasePencilStrokeSlice
-        num_strokes = self.attributes.domain_size('CURVE')
-        return GreasePencilStrokeSlice(self, 0, num_strokes)
 
 
 class Material(_types.ID):

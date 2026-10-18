@@ -9,8 +9,6 @@
 #include "BLI_sys_types.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -289,8 +287,7 @@ bool ANIM_nla_mapping_allowed(const bAnimListElem *ale)
    *   ... prevent NLA-remapping ...
    * }
    *
-   * I (Sybren) suspect that this was actually hiding some animation type check. When that code was
-   * written, I think there was no GreasePencil data showing in the regular Dope Sheet editor.
+   * I (Sybren) suspect that this was actually hiding some animation type check.
    */
 
   switch (ale->type) {
@@ -303,13 +300,6 @@ bool ANIM_nla_mapping_allowed(const bAnimListElem *ale)
       FCurve *fcurve = static_cast<FCurve *>(ale->key_data);
       return !fcurve->driver;
     }
-    case ANIMTYPE_DSGPENCIL:
-    case ANIMTYPE_GPLAYER:
-    case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-    case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-    case ANIMTYPE_GREASE_PENCIL_LAYER:
-      /* Grease Pencil doesn't use the NLA, so don't bother remapping. */
-      return false;
     case ANIMTYPE_MASKDATABLOCK:
     case ANIMTYPE_MASKLAYER:
       /* I (Sybren) don't _think_ masks can use the NLA. */
@@ -700,11 +690,8 @@ static bool find_prev_next_keyframes(bContext *C, int *r_nextfra, int *r_prevfra
 
   /* populate tree with keyframe nodes */
   scene_to_keylist(&ads, scene, keylist, 0, {-FLT_MAX, FLT_MAX});
-  gpencil_to_keylist(&ads, scene->gpd, keylist, false);
-
   if (ob) {
     ob_to_keylist(&ads, ob, keylist, 0, {-FLT_MAX, FLT_MAX});
-    gpencil_to_keylist(&ads, id_cast<bGPdata *>(ob->data), keylist, false);
   }
 
   if (mask) {

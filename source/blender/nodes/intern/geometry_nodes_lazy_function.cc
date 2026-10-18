@@ -42,7 +42,6 @@
 #include "BKE_compute_contexts.hh"
 #include "BKE_geometry_nodes_gizmos_transforms.hh"
 #include "BKE_geometry_set.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_library.hh"
 #include "BKE_node_legacy_types.hh"

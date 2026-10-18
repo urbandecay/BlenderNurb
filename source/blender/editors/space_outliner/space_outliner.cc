@@ -283,11 +283,6 @@ static void outliner_main_region_listener(const wmRegionListenerParams *params)
           break;
       }
       break;
-    case NC_GPENCIL:
-      if (ELEM(wmn->action, NA_EDITED, NA_SELECTED, NA_RENAME)) {
-        ED_region_tag_redraw(region);
-      }
-      break;
     case NC_SCREEN:
       if (ELEM(wmn->data, ND_LAYOUTDELETE, ND_LAYER)) {
         ED_region_tag_redraw(region);

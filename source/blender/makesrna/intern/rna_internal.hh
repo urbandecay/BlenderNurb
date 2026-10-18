@@ -172,9 +172,6 @@ void RNA_def_curve(BlenderRNA *brna);
 void RNA_def_depsgraph(BlenderRNA *brna);
 void RNA_def_dynamic_paint(BlenderRNA *brna);
 void RNA_def_fcurve(BlenderRNA *brna);
-void RNA_def_annotations(BlenderRNA *brna);
-void RNA_def_grease_pencil(BlenderRNA *brna);
-void RNA_def_shader_fx(BlenderRNA *brna);
 void RNA_def_curves(BlenderRNA *brna);
 void RNA_def_image(BlenderRNA *brna);
 void RNA_def_key(BlenderRNA *brna);
@@ -416,7 +413,6 @@ void rna_TextureSlot_update(bContext *C, PointerRNA *ptr);
 bool rna_Armature_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Camera_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Curve_object_poll(PointerRNA *ptr, PointerRNA value);
-bool rna_GPencil_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Light_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Lattice_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Mesh_object_poll(PointerRNA *ptr, PointerRNA value);
@@ -425,9 +421,6 @@ bool rna_Mesh_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Action_id_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Action_actedit_assign_poll(PointerRNA *ptr, PointerRNA value);
 
-/* Grease Pencil datablock polling functions - for filtering GP Object vs Annotation datablocks */
-bool rna_GPencil_datablocks_annotations_poll(PointerRNA *ptr, const PointerRNA value);
-bool rna_GPencil_datablocks_obdata_poll(PointerRNA *ptr, const PointerRNA value);
 
 /**
  * Only the Image Editor and Camera Background images support
@@ -489,13 +482,6 @@ void RNA_api_operator(StructRNA *srna);
 void RNA_api_macro(StructRNA *srna);
 void RNA_api_gizmo(StructRNA *srna);
 void RNA_api_gizmogroup(StructRNA *srna);
-void RNA_api_grease_pencil(StructRNA *srna);
-void RNA_api_grease_pencil_drawing(StructRNA *srna);
-void RNA_api_grease_pencil_frames(StructRNA *srna);
-void RNA_api_grease_pencil_layer(StructRNA *srna);
-void RNA_api_grease_pencil_layers(StructRNA *srna);
-void RNA_api_grease_pencil_layer_groups(StructRNA *srna);
-void RNA_api_grease_pencil_layer_masks(StructRNA *srna);
 void RNA_api_keyconfig(StructRNA *srna);
 void RNA_api_keyconfigs(StructRNA *srna);
 void RNA_api_keyingset(StructRNA *srna);
@@ -558,8 +544,6 @@ void RNA_def_main_armatures(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_actions(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_particles(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_palettes(BlenderRNA *brna, PropertyRNA *cprop);
-void RNA_def_main_annotations(BlenderRNA *brna, PropertyRNA *cprop);
-void RNA_def_main_grease_pencil(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_movieclips(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_masks(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_linestyles(BlenderRNA *brna, PropertyRNA *cprop);

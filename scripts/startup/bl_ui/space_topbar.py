@@ -265,12 +265,8 @@ class TOPBAR_MT_file_new(Menu):
         for d in paths:
             icon = 'FILE_NEW'
             # Set icon per template.
-            if d == "2D_Animation":
-                icon = 'GREASEPENCIL_LAYER_GROUP'
-            elif d == "Sculpting":
+            if d == "Sculpting":
                 icon = 'SCULPTMODE_HLT'
-            elif d == "Storyboarding":
-                icon = 'GREASEPENCIL'
             elif d == "VFX":
                 icon = 'TRACKER'
             elif d == "Video_Editing":
@@ -374,9 +370,6 @@ class TOPBAR_MT_file_import(Menu):
             self.layout.operator(
                 "wm.usd_import", text="Universal Scene Description (.usd*)")
 
-        if bpy.app.build_options.io_gpencil:
-            self.layout.operator("wm.grease_pencil_import_svg", text="SVG as Grease Pencil")
-
         if bpy.app.build_options.io_wavefront_obj:
             self.layout.operator("wm.obj_import", text="Wavefront (.obj)")
         if bpy.app.build_options.io_ply:
@@ -399,14 +392,6 @@ class TOPBAR_MT_file_export(Menu):
         if bpy.app.build_options.usd:
             self.layout.operator(
                 "wm.usd_export", text="Universal Scene Description (.usd*)")
-
-        if bpy.app.build_options.io_gpencil:
-            # PUGIXML library dependency.
-            if bpy.app.build_options.pugixml:
-                self.layout.operator("wm.grease_pencil_export_svg", text="Grease Pencil as SVG")
-            # HARU library dependency.
-            if bpy.app.build_options.haru:
-                self.layout.operator("wm.grease_pencil_export_pdf", text="Grease Pencil as PDF")
 
         if bpy.app.build_options.io_wavefront_obj:
             self.layout.operator("wm.obj_export", text="Wavefront (.obj)")
@@ -685,20 +670,6 @@ class TOPBAR_MT_workspace_menu(Menu):
         layout.operator("workspace.delete_all_others")
 
 
-# Grease Pencil Object - Primitive curve
-class TOPBAR_PT_gpencil_primitive(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-    bl_label = "Primitives"
-
-    def draw(self, context):
-        settings = context.tool_settings.gpencil_sculpt
-
-        layout = self.layout
-        # Curve
-        layout.template_curve_mapping(settings, "thickness_primitive_curve", brush=True)
-
-
 # Only a popover
 class TOPBAR_PT_name(Panel):
     bl_space_type = 'TOPBAR'  # dummy
@@ -837,31 +808,6 @@ class TOPBAR_PT_name_marker(Panel):
         row.prop(marker, "name", text="")
 
 
-class TOPBAR_PT_grease_pencil_layers(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-    bl_label = "Layers"
-    bl_ui_units_x = 14
-
-    @classmethod
-    def poll(cls, context):
-        object = context.object
-        if object is None:
-            return False
-        if object.type != 'GREASEPENCIL':
-            return False
-
-        return True
-
-    def draw(self, context):
-        from .properties_data_grease_pencil import DATA_PT_grease_pencil_layers
-
-        layout = self.layout
-        grease_pencil = context.object.data
-
-        DATA_PT_grease_pencil_layers.draw_settings(layout, grease_pencil)
-
-
 classes = (
     TOPBAR_HT_upper_bar,
     TOPBAR_MT_file_context_menu,
@@ -885,10 +831,8 @@ classes = (
     TOPBAR_MT_help,
     TOPBAR_PT_tool_fallback,
     TOPBAR_PT_tool_settings_extra,
-    TOPBAR_PT_gpencil_primitive,
     TOPBAR_PT_name,
     TOPBAR_PT_name_marker,
-    TOPBAR_PT_grease_pencil_layers,
 )
 
 if __name__ == "__main__":  # only for live edit.

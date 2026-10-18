@@ -9,13 +9,10 @@
 #include <cstdlib>
 
 #include "DNA_armature_types.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_gpencil_modifier_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
-#include "DNA_shader_fx_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
@@ -25,8 +22,6 @@
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
 #include "BKE_deform.hh"
-#include "BKE_gpencil_legacy.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
@@ -34,7 +29,6 @@
 #include "BKE_object.hh"
 #include "BKE_particle.h"
 #include "BKE_report.hh"
-#include "BKE_shader_fx.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_build.hh"
@@ -67,7 +61,6 @@
 #include "ANIM_bone_collections.hh"
 
 #include "outliner_intern.hh"
-#include "tree/tree_element_grease_pencil_node.hh"
 #include "tree/tree_element_seq.hh"
 #include "tree/tree_iterator.hh"
 
@@ -207,10 +200,7 @@ void outliner_item_mode_toggle(bContext *C,
       do_outliner_item_mode_toggle_generic(C, tvc, base);
     }
     else if (tvc.ob_edit && OB_TYPE_SUPPORT_EDITMODE(ob->type)) {
-      /* Grease Pencil does not support multi-object editing yet. */
-      if (ob->type != OB_GREASE_PENCIL) {
-        do_outliner_item_editmode_toggle(C, tvc.scene, base);
-      }
+      do_outliner_item_editmode_toggle(C, tvc.scene, base);
     }
     else if (tvc.ob_pose && ob->type == OB_ARMATURE) {
       do_outliner_item_posemode_toggle(C, tvc.scene, base);
@@ -483,56 +473,6 @@ static void tree_element_defgroup_activate(bContext *C, TreeElement *te, TreeSto
 
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
-}
-
-static void tree_element_gplayer_activate(bContext *C, TreeElement *te, TreeStoreElem *tselem)
-{
-  bGPdata *gpd = id_cast<bGPdata *>(tselem->id);
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(te->directdata);
-
-  /* We can only have a single "active" layer at a time
-   * and there must always be an active layer... */
-  if (gpl) {
-    BKE_gpencil_layer_active_set(gpd, gpl);
-    DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY);
-    WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, gpd);
-  }
-}
-
-static void tree_element_grease_pencil_node_activate(bContext *C,
-                                                     TreeElement *te,
-                                                     TreeStoreElem *tselem)
-{
-  GreasePencil &grease_pencil = *id_cast<GreasePencil *>(tselem->id);
-  bke::greasepencil::TreeNode &node = tree_element_cast<TreeElementGreasePencilNode>(te)->node();
-
-  if (node.is_layer()) {
-    if (grease_pencil.has_active_group()) {
-      WM_msg_publish_rna_prop(CTX_wm_message_bus(C),
-                              &grease_pencil.id,
-                              &grease_pencil,
-                              GreasePencilv3LayerGroup,
-                              active);
-    }
-    WM_msg_publish_rna_prop(
-        CTX_wm_message_bus(C), &grease_pencil.id, &grease_pencil, GreasePencilv3Layers, active);
-  }
-  if (node.is_group()) {
-    if (grease_pencil.has_active_layer()) {
-      WM_msg_publish_rna_prop(
-          CTX_wm_message_bus(C), &grease_pencil.id, &grease_pencil, GreasePencilv3Layers, active);
-    }
-    WM_msg_publish_rna_prop(CTX_wm_message_bus(C),
-                            &grease_pencil.id,
-                            &grease_pencil,
-                            GreasePencilv3LayerGroup,
-                            active);
-  }
-
-  grease_pencil.set_active_node(&node);
-
-  DEG_id_tag_update(&grease_pencil.id, ID_RECALC_GEOMETRY);
-  WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_SELECTED, &grease_pencil);
 }
 
 static void tree_element_bonecollection_activate(bContext *C,
@@ -922,12 +862,6 @@ void tree_element_type_active_set(bContext *C,
     case TSE_STRIP_DUP:
       tree_element_strip_dup_activate(tvc.workspace, te);
       break;
-    case TSE_GP_LAYER:
-      tree_element_gplayer_activate(C, te, tselem);
-      break;
-    case TSE_GREASE_PENCIL_NODE:
-      tree_element_grease_pencil_node_activate(C, te, tselem);
-      break;
     case TSE_VIEW_COLLECTION_BASE:
       tree_element_master_collection_activate(C);
       break;
@@ -1078,24 +1012,6 @@ static eOLDrawState tree_element_strip_dup_state_get(const TreeElement *te)
   const TreeElementStripDuplicate *te_dup = tree_element_cast<TreeElementStripDuplicate>(te);
   const Strip *strip = &te_dup->get_strip();
   if (strip->flag & SEQ_SELECT) {
-    return OL_DRAWSEL_NORMAL;
-  }
-  return OL_DRAWSEL_NONE;
-}
-
-static eOLDrawState tree_element_gplayer_state_get(const TreeElement *te)
-{
-  if ((static_cast<const bGPDlayer *>(te->directdata))->flag & GP_LAYER_ACTIVE) {
-    return OL_DRAWSEL_NORMAL;
-  }
-  return OL_DRAWSEL_NONE;
-}
-
-static eOLDrawState tree_element_grease_pencil_node_state_get(const TreeElement *te)
-{
-  GreasePencil &grease_pencil = *id_cast<GreasePencil *>(te->store_elem->id);
-  bke::greasepencil::TreeNode &node = tree_element_cast<TreeElementGreasePencilNode>(te)->node();
-  if (node.is_layer() && grease_pencil.is_layer_active(&node.as_layer())) {
     return OL_DRAWSEL_NORMAL;
   }
   return OL_DRAWSEL_NONE;
@@ -1254,10 +1170,6 @@ eOLDrawState tree_element_type_active_state_get(const TreeViewContext &tvc,
       return tree_element_strip_state_get(tvc.workspace, te);
     case TSE_STRIP_DUP:
       return tree_element_strip_dup_state_get(te);
-    case TSE_GP_LAYER:
-      return tree_element_gplayer_state_get(te);
-    case TSE_GREASE_PENCIL_NODE:
-      return tree_element_grease_pencil_node_state_get(te);
     case TSE_VIEW_COLLECTION_BASE:
       return tree_element_master_collection_state_get(tvc.view_layer, tvc.layer_collection);
     case TSE_LAYER_COLLECTION:
@@ -1332,8 +1244,6 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
       case ID_CA:
       case ID_SPK:
       case ID_AR:
-      case ID_GD_LEGACY:
-      case ID_GP:
       case ID_LP:
       case ID_CV:
       case ID_PT:
@@ -1415,15 +1325,6 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
         break;
       case TSE_LINKED_NODE_TREE:
         break;
-      case TSE_GPENCIL_EFFECT_BASE:
-      case TSE_GPENCIL_EFFECT:
-        ptr = RNA_id_pointer_create(tselem->id);
-        context = BCONTEXT_SHADERFX;
-
-        if (tselem->type != TSE_GPENCIL_EFFECT_BASE) {
-          BKE_shaderfx_panel_expand(static_cast<ShaderFxData *>(te->directdata));
-        }
-        break;
       case TSE_BONE: {
         bArmature *arm = id_cast<bArmature *>(tselem->id);
         Bone *bone = static_cast<Bone *>(te->directdata);
@@ -1472,11 +1373,6 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
         context = BCONTEXT_PARTICLE;
         break;
       }
-      case TSE_GP_LAYER:
-      case TSE_GREASE_PENCIL_NODE:
-        ptr = RNA_id_pointer_create(tselem->id);
-        context = BCONTEXT_DATA;
-        break;
       case TSE_BONE_COLLECTION_BASE:
         ptr = RNA_pointer_create_discrete(tselem->id, RNA_Armature, tselem->id);
         context = BCONTEXT_DATA;

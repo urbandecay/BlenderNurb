@@ -2225,42 +2225,6 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 265, 3)) {
-    for (bScreen &screen : bmain->screens) {
-      for (ScrArea &area : screen.areabase) {
-        for (SpaceLink &sl : area.spacedata) {
-          switch (sl.spacetype) {
-            case SPACE_VIEW3D: {
-              View3D *v3d = reinterpret_cast<View3D *>(&sl);
-              v3d->flag2 |= V3D_SHOW_ANNOTATION;
-              break;
-            }
-            case SPACE_SEQ: {
-              SpaceSeq *sseq = reinterpret_cast<SpaceSeq *>(&sl);
-              sseq->preview_overlay.flag |= SEQ_PREVIEW_SHOW_GPENCIL;
-              break;
-            }
-            case SPACE_IMAGE: {
-              SpaceImage *sima = reinterpret_cast<SpaceImage *>(&sl);
-              sima->flag |= SI_SHOW_GPENCIL;
-              break;
-            }
-            case SPACE_NODE: {
-              SpaceNode *snode = reinterpret_cast<SpaceNode *>(&sl);
-              snode->flag |= SNODE_SHOW_GPENCIL;
-              break;
-            }
-            case SPACE_CLIP: {
-              SpaceClip *sclip = reinterpret_cast<SpaceClip *>(&sl);
-              sclip->flag |= SC_SHOW_ANNOTATION;
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 265, 5)) {
     for (Scene &scene : bmain->scenes) {
       if (scene.ed) {

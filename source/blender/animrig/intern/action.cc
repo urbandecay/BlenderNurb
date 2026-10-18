@@ -83,8 +83,7 @@ static animrig::Layer &ActionLayer_alloc()
   return layer->wrap();
 }
 
-/* Copied from source/blender/blenkernel/intern/grease_pencil.cc.
- * Keep an eye on DNA_array_utils.hh; we may want to move these functions in there. */
+/* Keep an eye on DNA_array_utils.hh; we may want to move these functions in there. */
 template<typename T> static void grow_array(T **array, int *num, const int add_num)
 {
   BLI_assert(add_num > 0);

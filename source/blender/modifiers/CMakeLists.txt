@@ -5,7 +5,6 @@
 set(INC
   .
   intern
-  intern/lineart
   ../editors/include
   ../makesrna
   ../../../intern/eigen
@@ -35,37 +34,10 @@ set(SRC
   intern/MOD_edgesplit.cc
   intern/MOD_explode.cc
   intern/MOD_fluid.cc
-  intern/MOD_grease_pencil_armature.cc
-  intern/MOD_grease_pencil_array.cc
-  intern/MOD_grease_pencil_build.cc
-  intern/MOD_grease_pencil_color.cc
-  intern/MOD_grease_pencil_dash.cc
-  intern/MOD_grease_pencil_envelope.cc
-  intern/MOD_grease_pencil_hook.cc
-  intern/MOD_grease_pencil_lattice.cc
-  intern/MOD_grease_pencil_length.cc
-  intern/MOD_grease_pencil_mirror.cc
-  intern/MOD_grease_pencil_multiply.cc
-  intern/MOD_grease_pencil_noise.cc
-  intern/MOD_grease_pencil_offset.cc
-  intern/MOD_grease_pencil_opacity.cc
-  intern/MOD_grease_pencil_outline.cc
-  intern/MOD_grease_pencil_shrinkwrap.cc
-  intern/MOD_grease_pencil_simplify.cc
-  intern/MOD_grease_pencil_smooth.cc
-  intern/MOD_grease_pencil_subdiv.cc
-  intern/MOD_grease_pencil_texture.cc
-  intern/MOD_grease_pencil_thickness.cc
-  intern/MOD_grease_pencil_time.cc
-  intern/MOD_grease_pencil_tint.cc
-  intern/MOD_grease_pencil_util.cc
-  intern/MOD_grease_pencil_weight_angle.cc
-  intern/MOD_grease_pencil_weight_proximity.cc
   intern/MOD_hook.cc
   intern/MOD_laplaciandeform.cc
   intern/MOD_laplaciansmooth.cc
   intern/MOD_lattice.cc
-  intern/MOD_lineart.cc
   intern/MOD_mask.cc
   intern/MOD_mesh_to_volume.cc
   intern/MOD_meshcache.cc
@@ -112,21 +84,14 @@ set(SRC
   intern/MOD_weightvgproximity.cc
   intern/MOD_weld.cc
   intern/MOD_wireframe.cc
-  intern/lineart/lineart_chain.cc
-  intern/lineart/lineart_cpu.cc
-  intern/lineart/lineart_shadow.cc
-  intern/lineart/lineart_util.cc
 
   MOD_modifiertypes.hh
   MOD_nodes.hh
-  intern/MOD_grease_pencil_util.hh
   intern/MOD_meshcache_util.hh
   intern/MOD_solidify_util.hh
   intern/MOD_ui_common.hh
   intern/MOD_util.hh
   intern/MOD_weightvg_util.hh
-  intern/lineart/MOD_lineart.hh
-  intern/lineart/lineart_intern.hh
 )
 
 set(LIB

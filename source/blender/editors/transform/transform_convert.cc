@@ -714,7 +714,6 @@ static void init_proportional_edit(TransInfo *t)
              &TransConvertType_Curve,
              &curves::TransConvertType_Curves,
              &TransConvertType_Graph,
-             &greasepencil::TransConvertType_GreasePencil,
              &TransConvertType_Lattice,
              &TransConvertType_Mask,
              &TransConvertType_MBall,
@@ -769,11 +768,9 @@ static void init_proportional_edit(TransInfo *t)
         set_prop_dist(t, false);
       }
     }
-    else if (ELEM(t->data_type,
-                  &curves::TransConvertType_Curves,
-                  &greasepencil::TransConvertType_GreasePencil))
+    else if (t->data_type == &curves::TransConvertType_Curves)
     {
-      BLI_assert(t->obedit_type == OB_CURVES || t->obedit_type == OB_GREASE_PENCIL);
+      BLI_assert(t->obedit_type == OB_CURVES);
       if (t->flag & T_PROP_CONNECTED) {
         /* Already calculated by #calculate_curve_point_distances_for_proportional_editing. */
       }
@@ -802,7 +799,6 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
             &TransConvertType_EditArmature,
             &TransConvertType_Curve,
             &curves::TransConvertType_Curves,
-            &greasepencil::TransConvertType_GreasePencil,
             &pointcloud::TransConvertType_PointCloud,
             &TransConvertType_Lattice,
             &TransConvertType_MBall,
@@ -819,9 +815,7 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
   const eObjectMode object_mode = obact ? obact->mode : OB_MODE_OBJECT;
   const short object_type = obact ? obact->type : -1;
 
-  if ((object_mode & OB_MODE_EDIT) ||
-      (t->data_type == &greasepencil::TransConvertType_GreasePencil) ||
-      ((object_mode & OB_MODE_POSE) && (object_type == OB_ARMATURE)))
+  if ((object_mode & OB_MODE_EDIT) || ((object_mode & OB_MODE_POSE) && (object_type == OB_ARMATURE)))
   {
     if (t->data_container) {
       MEM_delete(t->data_container);
@@ -867,10 +861,6 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
         tc->poseobj = objects[i];
         tc->use_local_mat = true;
       }
-      else if (t->data_type == &greasepencil::TransConvertType_GreasePencil) {
-        tc->use_local_mat = true;
-      }
-
       if (tc->use_local_mat) {
         BLI_assert((t->flag & T_2D_EDIT) == 0);
         copy_m4_m4(tc->mat, objects[i]->object_to_world().ptr());
@@ -914,12 +904,6 @@ static TransConvertTypeInfo *convert_type_get(const TransInfo *t, Object **r_obj
   }
   if (t->options & CTX_EDGE_DATA) {
     return &TransConvertType_MeshEdge;
-  }
-  if (t->options & CTX_GPENCIL_STROKES) {
-    if (t->obedit_type == OB_GREASE_PENCIL) {
-      return &greasepencil::TransConvertType_GreasePencil;
-    }
-    return nullptr;
   }
   if (t->spacetype == SPACE_IMAGE) {
     if (t->options & CTX_MASK) {
@@ -1016,17 +1000,6 @@ static TransConvertTypeInfo *convert_type_get(const TransInfo *t, Object **r_obj
   }
   if (ob && ((ob->mode & OB_MODE_ALL_PAINT) || (ob->mode & OB_MODE_SCULPT_CURVES))) {
     if ((t->options & CTX_PAINT_CURVE) && !ELEM(t->mode, TFM_SHEAR, TFM_SHRINKFATTEN)) {
-      return &TransConvertType_PaintCurve;
-    }
-    return nullptr;
-  }
-  if (ob && (ob->mode & OB_MODE_ALL_PAINT_GPENCIL)) {
-    /* In Grease Pencil all transformations must be canceled if not Object or Edit mode.
-     * Exception: Grease Pencil sculpt mode allows for paint curves
-     * which need to be able to be transformed. */
-    if ((ob->mode & OB_MODE_SCULPT_GREASE_PENCIL) && (t->options & CTX_PAINT_CURVE) &&
-        !ELEM(t->mode, TFM_SHEAR, TFM_SHRINKFATTEN))
-    {
       return &TransConvertType_PaintCurve;
     }
     return nullptr;

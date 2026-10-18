@@ -32,7 +32,6 @@
 #include "BLO_blend_validate.hh"
 
 #include "ED_asset.hh"
-#include "ED_gpencil_legacy.hh"
 #include "ED_object.hh"
 #include "ED_outliner.hh"
 #include "ED_render.hh"
@@ -178,7 +177,6 @@ static void ed_undo_step_pre(bContext *C,
 
   /* App-Handlers (pre). */
   {
-    /* NOTE: ignore grease pencil for now. */
     wm->op_undo_depth++;
     BKE_callback_exec_id(
         bmain, &scene->id, (undo_dir == STEP_UNDO) ? BKE_CB_EVT_UNDO_PRE : BKE_CB_EVT_REDO_PRE);

@@ -15,7 +15,6 @@
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
@@ -46,7 +45,6 @@
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_global.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_idtype.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
@@ -95,7 +93,6 @@
 
 #include "outliner_intern.hh"
 #include "tree/tree_element.hh"
-#include "tree/tree_element_grease_pencil_node.hh"
 #include "tree/tree_element_overrides.hh"
 #include "tree/tree_element_rna.hh"
 #include "tree/tree_element_seq.hh"
@@ -157,7 +154,6 @@ static void get_element_operation_type(
       case ID_NT:
       case ID_BR:
       case ID_PA:
-      case ID_GD_LEGACY:
       case ID_MC:
       case ID_MSK:
       case ID_PAL:
@@ -168,7 +164,6 @@ static void get_element_operation_type(
       case ID_CV:
       case ID_PT:
       case ID_VO:
-      case ID_GP:
         is_standard_id = true;
         break;
       case ID_WM:
@@ -1022,13 +1017,6 @@ static void id_local_fn(bContext *C,
     Main *bmain = CTX_data_main(C);
     if (BKE_lib_id_make_local(bmain, tselem->id, LIB_ID_MAKELOCAL_ASSET_DATA_CLEAR)) {
       BKE_id_newptr_and_tag_clear(tselem->id);
-
-      /* Fix an edge case where a data pointer can be invalid during drawing after a grease
-       * pencil data block is made local. See
-       * https://projects.blender.org/blender/blender/pulls/153750. */
-      if (GS(tselem->id->name) == ID_GP) {
-        DEG_id_tag_update(tselem->id, ID_RECALC_GEOMETRY);
-      }
     }
   }
   else if (ID_IS_OVERRIDE_LIBRARY_REAL(tselem->id)) {
@@ -2451,48 +2439,6 @@ static void sequence_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/, 
   }
 }
 
-static void gpencil_layer_fn(int event,
-                             TreeElement *te,
-                             TreeStoreElem * /*tselem*/,
-                             void * /*arg*/)
-{
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(te->directdata);
-
-  if (event == OL_DOP_SELECT) {
-    gpl->flag |= GP_LAYER_SELECT;
-  }
-  else if (event == OL_DOP_DESELECT) {
-    gpl->flag &= ~GP_LAYER_SELECT;
-  }
-  else if (event == OL_DOP_HIDE) {
-    gpl->flag |= GP_LAYER_HIDE;
-  }
-  else if (event == OL_DOP_UNHIDE) {
-    gpl->flag &= ~GP_LAYER_HIDE;
-  }
-}
-
-static void grease_pencil_node_fn(int event,
-                                  TreeElement *te,
-                                  TreeStoreElem * /*tselem*/,
-                                  void * /*arg*/)
-{
-  bke::greasepencil::TreeNode &node = tree_element_cast<TreeElementGreasePencilNode>(te)->node();
-
-  if (event == OL_DOP_SELECT) {
-    node.set_selected(true);
-  }
-  else if (event == OL_DOP_DESELECT) {
-    node.set_selected(false);
-  }
-  else if (event == OL_DOP_HIDE) {
-    node.set_visible(false);
-  }
-  else if (event == OL_DOP_UNHIDE) {
-    node.set_visible(true);
-  }
-}
-
 static void data_select_linked_fn(int event,
                                   TreeElement *te,
                                   TreeStoreElem * /*tselem*/,
@@ -2586,7 +2532,7 @@ static void modifier_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/, 
   }
   else if (event == OL_MODIFIER_OP_APPLY) {
     object::modifier_apply(
-        bmain, data->reports, depsgraph, scene, ob, md, object::MODIFIER_APPLY_DATA, false, false);
+        bmain, data->reports, depsgraph, scene, ob, md, object::MODIFIER_APPLY_DATA, false);
     DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
     DEG_relations_tag_update(bmain);
     WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
@@ -3766,8 +3712,7 @@ static bool outliner_data_operation_poll(bContext *C)
 
   int scenelevel = 0, objectlevel = 0, idlevel = 0, datalevel = 0;
   get_element_operation_type(te, &scenelevel, &objectlevel, &idlevel, &datalevel);
-  return ELEM(
-      datalevel, TSE_POSE_CHANNEL, TSE_BONE, TSE_EBONE, TSE_STRIP, TSE_GP_LAYER, TSE_RNA_STRUCT);
+  return ELEM(datalevel, TSE_POSE_CHANNEL, TSE_BONE, TSE_EBONE, TSE_STRIP, TSE_RNA_STRUCT);
 }
 
 static wmOperatorStatus outliner_data_operation_exec(bContext *C, wmOperator *op)
@@ -3806,19 +3751,6 @@ static wmOperatorStatus outliner_data_operation_exec(bContext *C, wmOperator *op
       WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER | NA_SELECTED, sequencer_scene);
       ED_undo_push(C, "Sequencer operation");
 
-      break;
-    }
-    case TSE_GP_LAYER: {
-      outliner_do_data_operation(space_outliner, datalevel, event, gpencil_layer_fn, nullptr);
-      WM_event_add_notifier(C, NC_GPENCIL | ND_DATA, nullptr);
-      ED_undo_push(C, "Grease Pencil Layer operation");
-
-      break;
-    }
-    case TSE_GREASE_PENCIL_NODE: {
-      outliner_do_data_operation(space_outliner, datalevel, event, grease_pencil_node_fn, nullptr);
-      WM_event_add_notifier(C, NC_GPENCIL | ND_DATA, nullptr);
-      ED_undo_push(C, "Grease Pencil Node operation");
       break;
     }
     case TSE_RNA_STRUCT:

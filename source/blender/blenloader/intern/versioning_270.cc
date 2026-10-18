@@ -23,7 +23,6 @@
 #include "DNA_cloth_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_fluid_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_mask_types.h"
@@ -89,71 +88,6 @@ namespace blender {
 /* Make preferences read-only, use `versioning_userdef.cc`. */
 #define U (*((const UserDef *)&U))
 
-/* ************************************************** */
-/* GP Palettes API (Deprecated) */
-
-/* add a new gp-palette */
-static bGPDpalette *BKE_gpencil_palette_addnew(bGPdata *gpd, const char *name)
-{
-  bGPDpalette *palette;
-
-  /* check that list is ok */
-  if (gpd == nullptr) {
-    return nullptr;
-  }
-
-  /* allocate memory and add to end of list */
-  palette = MEM_new<bGPDpalette>("bGPDpalette");
-
-  /* add to datablock */
-  BLI_addtail(&gpd->palettes, palette);
-
-  /* set basic settings */
-  /* auto-name */
-  STRNCPY_UTF8(palette->info, name);
-  BLI_uniquename(&gpd->palettes,
-                 palette,
-                 DATA_("GP_Palette"),
-                 '.',
-                 offsetof(bGPDpalette, info),
-                 sizeof(palette->info));
-
-  /* return palette */
-  return palette;
-}
-
-/* add a new gp-palettecolor */
-static bGPDpalettecolor *BKE_gpencil_palettecolor_addnew(bGPDpalette *palette, const char *name)
-{
-  bGPDpalettecolor *palcolor;
-
-  /* check that list is ok */
-  if (palette == nullptr) {
-    return nullptr;
-  }
-
-  /* allocate memory and add to end of list */
-  palcolor = MEM_new<bGPDpalettecolor>("bGPDpalettecolor");
-
-  /* add to datablock */
-  BLI_addtail(&palette->colors, palcolor);
-
-  /* set basic settings */
-  copy_v4_v4(palcolor->color, U.gpencil_new_layer_col);
-  ARRAY_SET_ITEMS(palcolor->fill, 1.0f, 1.0f, 1.0f);
-
-  /* auto-name */
-  STRNCPY_UTF8(palcolor->info, name);
-  BLI_uniquename(&palette->colors,
-                 palcolor,
-                 DATA_("Color"),
-                 '.',
-                 offsetof(bGPDpalettecolor, info),
-                 sizeof(palcolor->info));
-
-  /* return palette color */
-  return palcolor;
-}
 
 /**
  * Setup rotation stabilization from ancient single track spec.
@@ -1063,34 +997,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 276, 4)) {
-    for (Scene &scene : bmain->scenes) {
-      ToolSettings *ts = scene.toolsettings;
-      if (!DNA_struct_member_exists(fd->filesdna, "ToolSettings", "char", "gpencil_v3d_align")) {
-        ts->gpencil_v3d_align = GP_PROJECT_VIEWSPACE;
-        ts->gpencil_v2d_align = GP_PROJECT_VIEWSPACE;
-      }
-    }
-
-    for (bGPdata &gpd : bmain->gpencils) {
-      bool enabled = false;
-
-      /* Ensure that the data-block's onion-skinning toggle flag
-       * stays in sync with the status of the actual layers. */
-      for (bGPDlayer &gpl : gpd.layers) {
-        if (gpl.flag & eGPDlayer_Flag(GP_LAYER_ONIONSKIN)) {
-          enabled = true;
-        }
-      }
-
-      if (enabled) {
-        gpd.flag |= GP_DATA_SHOW_ONIONSKINS;
-      }
-      else {
-        gpd.flag &= ~GP_DATA_SHOW_ONIONSKINS;
-      }
-    }
-  }
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 276, 5)) {
     /* Important to clear all non-persistent flags from older versions here,
      * otherwise they could collide with any new persistent flag we may add in the future. */
@@ -1283,63 +1189,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 277, 3)) {
-    /* ------- init of grease pencil initialization --------------- */
-    if (!DNA_struct_member_exists(fd->filesdna, "bGPDstroke", "bGPDpalettecolor", "*palcolor")) {
-      /* Convert Grease Pencil to new palettes/brushes
-       * Loop all strokes and create the palette and all colors
-       */
-      for (bGPdata &gpd : bmain->gpencils) {
-        if (gpd.palettes.is_empty()) {
-          /* create palette */
-          bGPDpalette *palette = BKE_gpencil_palette_addnew(&gpd, "GP_Palette");
-          for (bGPDlayer &gpl : gpd.layers) {
-            /* create color using layer name */
-            bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_addnew(palette, gpl.info);
-            if (palcolor != nullptr) {
-              /* set color attributes */
-              copy_v4_v4(palcolor->color, gpl.color);
-              copy_v4_v4(palcolor->fill, gpl.fill);
-
-              if (gpl.flag & GP_LAYER_HIDE) {
-                palcolor->flag |= PC_COLOR_HIDE;
-              }
-              if (gpl.flag & GP_LAYER_LOCKED) {
-                palcolor->flag |= PC_COLOR_LOCKED;
-              }
-              if (gpl.flag & eGPDlayer_Flag(GP_LAYER_ONIONSKIN)) {
-                palcolor->flag |= PC_COLOR_ONIONSKIN;
-              }
-              if (gpl.flag & GP_LAYER_VOLUMETRIC) {
-                palcolor->flag |= PC_COLOR_VOLUMETRIC;
-              }
-
-              /* set layer opacity to 1 */
-              gpl.opacity = 1.0f;
-
-              /* set tint color */
-              ARRAY_SET_ITEMS(gpl.tintcolor, 0.0f, 0.0f, 0.0f, 0.0f);
-
-              /* flush relevant layer-settings to strokes */
-              for (bGPDframe &gpf : gpl.frames) {
-                for (bGPDstroke &gps : gpf.strokes) {
-                  /* set stroke to palette and force recalculation */
-                  STRNCPY_UTF8(gps.colorname, gpl.info);
-                  gps.thickness = gpl.thickness;
-
-                  /* set alpha strength to 1 */
-                  for (int i = 0; i < gps.totpoints; i++) {
-                    gps.points[i].strength = 1.0f;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    /* ------- end of grease pencil initialization --------------- */
-  }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 278, 0)) {
     if (!DNA_struct_member_exists(fd->filesdna, "MovieTrackingTrack", "float", "weight_stab")) {

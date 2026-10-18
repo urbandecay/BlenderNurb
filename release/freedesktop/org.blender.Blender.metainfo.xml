@@ -75,7 +75,6 @@
                 </ul>
                 <p>Enhancements:</p>
                 <ul>
-                    <li>Grease Pencil: New Fill Workflow</li>
                     <li>Compositor: New Mask To SDF node, various improvements to existing nodes</li>
                     <li>VSE: Blade tool now has a box gesture that allows for quick cuts</li>
                     <li>UI: Searching within Preferences, Quad View improvements</li>
@@ -95,7 +94,6 @@
                 <ul>
                     <li>EEVEE: material compilation speed has been improved</li>
                     <li>Geometry Nodes: support for Bundles, Closures and new volume nodes</li>
-                    <li>Grease Pencil: motion blur support</li>
                     <li>Rendering: new multiple scattering mode for Sky node and a new Radial Tiling node</li>
                     <li>Several improvements for virtual reality</li>
                 </ul>
@@ -107,11 +105,9 @@
                 <ul>
                     <li>Vulkan backend with support for OpenXR, Subdivision, USD/Hydra and more</li>
                     <li>New Manifold boolean solver</li>
-                    <li>New Geometry Nodes for mesh normals, file import, Grease Pencil and more</li>
                 </ul>
                 <p>Enhancements:</p>
                 <ul>
-                    <li>Grease Pencil: Added a new supersampling anti-aliasing (SSAA) method for rendering</li>
                     <li>File I/O: New experimental FBX importer and improvements to USD, glTF, OBJ and SVG</li>
                     <li>Cycles: Improvements to Adaptive Subdivision, Bump Mapping and new custom cameras</li>
                     <li>Compositor: New nodes and most options are exposed as single value inputs now</li>
@@ -141,7 +137,6 @@
             <description>
                 <p>New features:</p>
                 <ul>
-                    <li>Grease Pencil was rewritten to remove deeper limitations and improve overall performance</li>
                     <li>New Unwrapping Method "Minimum Stretch"</li>
                     <li>Cycles: hardware accelerated ray-tracing on Linux/AMD, new volume scattering phase functions</li>
                 </ul>
@@ -268,12 +263,10 @@
                 <ul>
                     <li>New hair system</li>
                     <li>Cycles Rendering on Intel Arc GPUs</li>
-                    <li>Grease Pencil Light and Shadow calculations</li>
                     <li>Motion Tracker Image Plane Marker</li>
                 </ul>
                 <p>Enhancements:</p>
                 <ul>
-                    <li>Faster Line Art loading time</li>
                     <li>Library Overrides improvements</li>
                     <li>Massive performance gains importing large amounts of objects in USD, Alembic, and OBJ</li>
                     <li>UV improvements</li>
@@ -298,7 +291,6 @@
                     <li>Support for WebP format</li>
                     <li>New experimental OBJ importer</li>
                     <li>Motion Paths improvements</li>
-                    <li>Grease Pencil Envelope Modifier</li>
                     <li>New Curve Pen Tool</li>
                 </ul>
             </description>
@@ -315,7 +307,6 @@
                 <p>Enhancements:</p>
                 <ul>
                     <li>Faster and less memory usage in geometry nodes</li>
-                    <li>Grease Pencil Dilate/Contract fill</li>
                     <li>Vertex Creasing support</li>
                     <li>Faster .obj and .fbx export</li>
                     <li>Image editor is able to handle large images</li>
@@ -352,7 +343,6 @@
                 <p>New features:</p>
                 <ul>
                     <li>Mesh primitive nodes</li>
-                    <li>Line Art</li>
                     <li>EEVEE Realistic depth of field and volumetrics</li>
                     <li>Spreadsheet editor</li>
                 </ul>
@@ -360,7 +350,6 @@
                 <ul>
                     <li>Geometry nodes 22 new nodes and improved attribute search</li>
                     <li>Mask loops, textures and patterns for sculpting</li>
-                    <li>Grease pencil interpolate refactored and SVG and PDF support</li>
                     <li>Persistent Data rendering settings for Cycles</li>
                     <li>Video Sequencer Editor auto-proxy system</li>
                 </ul>
@@ -372,14 +361,12 @@
                 <ul>
                     <li>Geometry nodes</li>
                     <li>EEVEE AOV and Cryptomatte support</li>
-                    <li>Grease pencil Bézier curves edit</li>
                     <li>APIC fluid simulation method</li>
                     <li>Add primitive tool</li>
                 </ul>
                 <p>Enhancements:</p>
                 <ul>
                     <li>Silhouette, elastic snake and smearing for sculpting</li>
-                    <li>Grease pencil tracing image sequences support</li>
                     <li>Sparse NanoVDB grid for volume</li>
                     <li>OptiX hybrid rendering and new AO and bevel</li>
                     <li>Viscosity settings for fluid simulation</li>
@@ -394,13 +381,11 @@
                     <li>Precise boolean</li>
                     <li>Cloth brush collision</li>
                     <li>Custom curve bevels</li>
-                    <li>Grease Pencil image tracer</li>
                     <li>Property search and fuzzy search</li>
                 </ul>
                 <p>Enhancements:</p>
                 <ul>
                     <li>Boundary and pose cloth brushes</li>
-                    <li>Material holdout for Grease Pencil</li>
                     <li>Sculpting gestures</li>
                     <li>Overrides resync and transform support</li>
                     <li>Animation proxy conversion</li>
@@ -447,7 +432,6 @@
                 </ul>
                 <p>Enhancements:</p>
                 <ul>
-                    <li>Grease Pencil closer integration and improved performance</li>
                     <li>EEVEE improved render passes, light cache and hair transparency</li>
                     <li>Faster undo system</li>
                     <li>Rewritten multiresolution modifier</li>
@@ -470,7 +454,6 @@
                 <p>Enhancements:</p>
                 <ul>
                     <li>New and improved sculpt tools</li>
-                    <li>New grease pencil tools and modifiers</li>
                     <li>New bone and constraint settings for rigging</li>
                 </ul>
             </description>
@@ -536,7 +519,6 @@
                     <li>Cycles improvements</li>
                     <li>Modeling tool improvements</li>
                     <li>Animation improvements</li>
-                    <li>Grease Pencil improvements</li>
                     <li>Automatic scaling on high DPI displays</li>
                     <li>Alembic import and export improvements</li>
                     <li>...And many more!</li>

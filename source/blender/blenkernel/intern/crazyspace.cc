@@ -23,7 +23,6 @@
 #include "BKE_curves.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_geometry_set.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_runtime.hh"
@@ -626,68 +625,6 @@ GeometryDeformation get_evaluated_curves_deformation(const Depsgraph &depsgraph,
 {
   const Object *ob_eval = DEG_get_evaluated(&depsgraph, &ob_orig);
   return get_evaluated_curves_deformation(ob_eval, ob_orig);
-}
-
-static const GreasePencilDrawingEditHints *get_drawing_edit_hint_for_original_drawing(
-    const GreasePencilEditHints *edit_hints, const bke::greasepencil::Drawing &drawing_orig)
-{
-  for (const GreasePencilDrawingEditHints &drawing_hint : *edit_hints->drawing_hints) {
-    if (drawing_hint.drawing_orig == &drawing_orig) {
-      return &drawing_hint;
-    }
-  }
-  return {};
-}
-
-GeometryDeformation get_evaluated_grease_pencil_drawing_deformation(
-    const Object *ob_eval, const Object &ob_orig, const bke::greasepencil::Drawing &drawing_orig)
-{
-  BLI_assert(ob_orig.type == OB_GREASE_PENCIL);
-  const GreasePencil &grease_pencil_orig = *id_cast<const GreasePencil *>(ob_orig.data);
-
-  GeometryDeformation deformation;
-  /* Use the undeformed positions by default. */
-  deformation.positions = drawing_orig.strokes().positions();
-
-  if (ob_eval == nullptr) {
-    return deformation;
-  }
-  const GeometrySet *geometry_eval = ob_eval->runtime->geometry_set_eval;
-  if (geometry_eval == nullptr) {
-    return deformation;
-  }
-
-  /* If there are edit hints, use the positions of those. */
-  if (geometry_eval->has<GeometryComponentEditData>()) {
-    const GeometryComponentEditData &edit_component_eval =
-        *geometry_eval->get_component<GeometryComponentEditData>();
-    const GreasePencilEditHints *edit_hints = edit_component_eval.grease_pencil_edit_hints_.get();
-    if (edit_hints != nullptr && &edit_hints->grease_pencil_id_orig == &grease_pencil_orig &&
-        edit_hints->drawing_hints.has_value())
-    {
-      if (const GreasePencilDrawingEditHints *drawing_hints =
-              get_drawing_edit_hint_for_original_drawing(edit_hints, drawing_orig))
-      {
-        if (drawing_hints->positions()) {
-          deformation.positions = *drawing_hints->positions();
-        }
-        if (drawing_hints->deform_mats.has_value()) {
-          deformation.deform_mats = *drawing_hints->deform_mats;
-        }
-      }
-    }
-  }
-
-  return deformation;
-}
-
-GeometryDeformation get_evaluated_grease_pencil_drawing_deformation(
-    const Depsgraph &depsgraph,
-    const Object &ob_orig,
-    const bke::greasepencil::Drawing &drawing_orig)
-{
-  const Object *ob_eval = DEG_get_evaluated(&depsgraph, &ob_orig);
-  return get_evaluated_grease_pencil_drawing_deformation(ob_eval, ob_orig, drawing_orig);
 }
 
 }  // namespace bke::crazyspace

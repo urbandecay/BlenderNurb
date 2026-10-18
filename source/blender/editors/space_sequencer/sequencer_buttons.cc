@@ -28,16 +28,6 @@ namespace blender::ed::vse {
 
 /* **************************** buttons ********************************* */
 
-#if 0
-static bool sequencer_grease_pencil_panel_poll(const bContext *C, PanelType * /*pt*/)
-{
-  SpaceSeq *sseq = CTX_wm_space_seq(C);
-
-  /* Don't show the gpencil if we are not showing the image. */
-  return check_show_imbuf(sseq);
-}
-#endif
-
 static bool metadata_panel_context_poll(const bContext *C, PanelType * /*pt*/)
 {
   SpaceSeq *space_sequencer = CTX_wm_space_seq(C);
@@ -81,17 +71,6 @@ static void metadata_panel_context_draw(const bContext *C, Panel *panel)
 void sequencer_buttons_register(ARegionType *art)
 {
   PanelType *pt;
-
-#if 0
-  pt = MEM_new_zeroed<PanelType>("spacetype sequencer panel gpencil");
-  STRNCPY_UTF8(pt->idname, "SEQUENCER_PT_gpencil");
-  STRNCPY_UTF8(pt->label, N_("Grease Pencil"));
-  STRNCPY_UTF8(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
-  pt->draw_header = ED_gpencil_panel_standard_header;
-  pt->draw = ED_gpencil_panel_standard;
-  pt->poll = sequencer_grease_pencil_panel_poll;
-  BLI_addtail(&art->paneltypes, pt);
-#endif
 
   pt = MEM_new_zeroed<PanelType>("spacetype sequencer panel metadata");
   STRNCPY_UTF8(pt->idname, "SEQUENCER_PT_metadata");

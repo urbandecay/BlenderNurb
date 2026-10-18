@@ -77,7 +77,6 @@ _km_hierarchy = [
         ('Font', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_TEXT'),
         ]),
-        ('Grease Pencil', 'EMPTY', 'WINDOW', []),
         ('Point Cloud', 'EMPTY', 'WINDOW', []),
         ('Pose', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'POSE'),
@@ -207,17 +206,6 @@ _km_hierarchy = [
         ('Clip Dopesheet Editor', 'CLIP_EDITOR', 'WINDOW', []),
     ]),
 
-    ('Grease Pencil', 'EMPTY', 'WINDOW', [
-        # Grease Pencil
-        ('Grease Pencil Draw Mode', 'EMPTY', 'WINDOW', []),
-        ('Grease Pencil Brush Stroke', 'EMPTY', 'WINDOW', []),
-        ('Grease Pencil Edit Mode', 'EMPTY', 'WINDOW', []),
-        ('Grease Pencil Sculpt Mode', 'EMPTY', 'WINDOW', []),
-        ('Grease Pencil Weight Paint', 'EMPTY', 'WINDOW', []),
-        ('Grease Pencil Vertex Paint', 'EMPTY', 'WINDOW', []),
-        # Grease Pencil Fill Tool
-        ('Grease Pencil Fill Tool', 'EMPTY', 'WINDOW', []),
-    ]),
     ('Mask Editing', 'EMPTY', 'WINDOW', []),
     ('Frames', 'EMPTY', 'WINDOW', []),    # frame navigation (per region)
     ('Markers', 'EMPTY', 'WINDOW', []),    # markers (per region)
@@ -234,9 +222,6 @@ _km_hierarchy = [
     ('Eyedropper Modal Map', 'EMPTY', 'WINDOW', []),
     ('Eyedropper ColorRamp PointSampling Map', 'EMPTY', 'WINDOW', []),
     ('Mesh Filter Modal Map', 'EMPTY', 'WINDOW', []),
-
-    # Grease Pencil Fill Tool
-    ('Fill Tool Modal Map', 'EMPTY', 'WINDOW', []),
 
     ('Generic Gizmo', 'EMPTY', 'WINDOW', [
         ('Generic Gizmo Drag', 'EMPTY', 'WINDOW', []),

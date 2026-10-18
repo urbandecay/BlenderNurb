@@ -24,7 +24,6 @@ struct MovieTracking;
 struct MovieTrackingCamera;
 struct MovieTrackingMarker;
 struct MovieTrackingTrack;
-struct bGPdata;
 
 enum TrackingDistortionModel : short {
   TRACKING_DISTORTION_MODEL_POLYNOMIAL = 0,
@@ -76,7 +75,6 @@ enum TrackingMotionModel : short {
 enum TrackingAlgorithmFlag : int {
   TRACK_ALGORITHM_FLAG_USE_BRUTE = (1 << 0),
   TRACK_ALGORITHM_FLAG_USE_NORMALIZATION = (1 << 2),
-  TRACK_ALGORITHM_FLAG_USE_MASK = (1 << 3),
 };
 ENUM_OPERATORS(TrackingAlgorithmFlag)
 
@@ -321,9 +319,6 @@ struct MovieTrackingTrack {
   TrackingAlgorithmFlag algorithm_flag = {};
   /** Minimal correlation which is still treated as successful tracking. */
   float minimum_correlation = 0;
-
-  /** Grease-pencil data. */
-  struct bGPdata *gpd = nullptr;
 
   /* Weight of this track.
    *

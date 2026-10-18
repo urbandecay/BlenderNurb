@@ -9,10 +9,6 @@ from bpy.app.translations import (
     contexts as i18n_contexts,
 )
 from bl_ui.utils import PresetPanel
-from bl_ui.properties_grease_pencil_common import (
-    AnnotationDrawingToolsPanel,
-    AnnotationDataPanel,
-)
 from bl_ui import anim
 
 
@@ -1279,21 +1275,8 @@ class CLIP_PT_tools_scenesetup(Panel):
         layout.operator("clip.setup_tracking_scene")
 
 
-# Grease Pencil properties
-class CLIP_PT_annotation(AnnotationDataPanel, CLIP_PT_clip_view_panel, Panel):
-    bl_space_type = 'CLIP_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "View"
-    bl_options = set()
-
     # NOTE: this is just a wrapper around the generic GP Panel
     # But, this should only be visible in "clip" view
-
-
-# Grease Pencil drawing tools
-class CLIP_PT_tools_grease_pencil_draw(AnnotationDrawingToolsPanel, Panel):
-    bl_space_type = 'CLIP_EDITOR'
-    bl_region_type = 'TOOLS'
 
 
 class CLIP_MT_view_zoom(Menu):
@@ -1994,7 +1977,6 @@ class CLIP_PT_overlay_guides(Panel):
         col = layout.column()
         col.prop(sc, "show_grid", text="Distortion Grid")
         col.prop(overlay, "show_cursor", text="Cursor")
-        col.prop(sc, "show_annotation", text="Annotations")
 
 
 class CLIP_PT_overlay(Panel):
@@ -2068,8 +2050,6 @@ classes = (
     CLIP_PT_tools_mask_transforms,
     CLIP_PT_tools_mask_tools,
     CLIP_PT_tools_scenesetup,
-    CLIP_PT_annotation,
-    CLIP_PT_tools_grease_pencil_draw,
     CLIP_MT_view_zoom,
     CLIP_MT_view,
     CLIP_MT_clip,

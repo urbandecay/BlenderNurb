@@ -28,14 +28,12 @@ struct Depsgraph;
 struct EnumPropertyItem;
 struct ID;
 struct KeyBlock;
-struct GpencilModifierData;
 struct Main;
 struct ModifierData;
 struct Object;
 struct PointerRNA;
 struct ReportList;
 struct Scene;
-struct ShaderFxData;
 struct View3D;
 struct ViewLayer;
 struct bConstraint;
@@ -539,8 +537,7 @@ bool modifier_apply(Main *bmain,
                     Object *ob,
                     ModifierData *md,
                     int mode,
-                    bool keep_modifier,
-                    bool do_all_keyframes);
+                    bool keep_modifier);
 bool modifier_copy(ReportList *reports, Main *bmain, Scene *scene, Object *ob, ModifierData *md);
 void modifier_link(bContext *C, Object *ob_dst, Object *ob_src);
 ModifierData *modifier_copy_to_object(Main *bmain,
@@ -569,18 +566,6 @@ bool iter_other(Main *bmain,
  * for any multi-res modifiers on the object to the int pointed to by callback_data.
  */
 bool multires_update_totlevels(Object *ob, void *totlevel_v);
-
-/* `object_shader_fx.cc` */
-
-ShaderFxData *shaderfx_add(
-    ReportList *reports, Main *bmain, Scene *scene, Object *ob, const char *name, int type);
-bool shaderfx_remove(ReportList *reports, Main *bmain, Object *ob, ShaderFxData *fx);
-void shaderfx_clear(Main *bmain, Object *ob);
-int shaderfx_move_down(ReportList *reports, Object *ob, ShaderFxData *fx);
-int shaderfx_move_up(ReportList *reports, Object *ob, ShaderFxData *fx);
-bool shaderfx_move_to_index(ReportList *reports, Object *ob, ShaderFxData *fx, int index);
-void shaderfx_link(Object *dst, Object *src);
-void shaderfx_copy(Object *dst, ShaderFxData *fx);
 
 /* `object_select.cc` */
 

@@ -2421,7 +2421,6 @@ void draw_but_TRACKPREVIEW(ARegion *region,
                                                  scopes->track,
                                                  &scopes->undist_marker,
                                                  true,
-                                                 scopes->use_track_mask,
                                                  width,
                                                  height,
                                                  scopes->track_pos);

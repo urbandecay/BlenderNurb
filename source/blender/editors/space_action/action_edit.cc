@@ -22,7 +22,6 @@
 #include "DEG_depsgraph.hh"
 
 #include "DNA_anim_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_scene_types.h"
 
@@ -34,8 +33,6 @@
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_global.hh"
-#include "BKE_gpencil_legacy.h"
-#include "BKE_grease_pencil.hh"
 #include "BKE_nla.hh"
 #include "BKE_report.hh"
 
@@ -47,8 +44,6 @@
 #include "ANIM_fcurve.hh"
 #include "ANIM_keyframing.hh"
 #include "ED_anim_api.hh"
-#include "ED_gpencil_legacy.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_keyframes_edit.hh"
 #include "ED_keyframing.hh"
 #include "ED_markers.hh"
@@ -178,38 +173,13 @@ static bool get_keyframe_extents(bAnimContext *ac, float *min, float *max, const
   if (anim_data.first) {
     /* go through channels, finding max extents */
     for (bAnimListElem &ale : anim_data) {
-      if (ale.datatype == ALE_GPFRAME) {
-        bGPDlayer *gpl = static_cast<bGPDlayer *>(ale.data);
-
-        /* Find GP-frame which is less than or equal to current-frame. */
-        for (bGPDframe &gpf : gpl->frames) {
-          if (!onlySel || (gpf.flag & GP_FRAME_SELECT)) {
-            const float framenum = float(gpf.framenum);
-            *min = min_ff(*min, framenum);
-            *max = max_ff(*max, framenum);
-            found = true;
-          }
-        }
-      }
-      else if (ale.datatype == ALE_MASKLAY) {
+      if (ale.datatype == ALE_MASKLAY) {
         MaskLayer *masklay = static_cast<MaskLayer *>(ale.data);
         /* Find mask layer which is less than or equal to current-frame. */
         for (MaskLayerShape &masklay_shape : masklay->splines_shapes) {
           const float framenum = float(masklay_shape.frame);
           *min = min_ff(*min, framenum);
           *max = max_ff(*max, framenum);
-          found = true;
-        }
-      }
-      else if (ale.datatype == ALE_GREASE_PENCIL_CEL) {
-        const bke::greasepencil::Layer &layer = static_cast<GreasePencilLayer *>(ale.data)->wrap();
-
-        for (const auto [key, frame] : layer.frames().items()) {
-          if (onlySel && !frame.is_selected()) {
-            continue;
-          }
-          *min = min_ff(*min, float(key));
-          *max = max_ff(*max, float(key));
           found = true;
         }
       }
@@ -597,12 +567,6 @@ static eKeyPasteError paste_action_keys(bAnimContext *ac,
 
 /* ------------------- */
 
-static ed::greasepencil::KeyframeClipboard &get_grease_pencil_keyframe_clipboard()
-{
-  static ed::greasepencil::KeyframeClipboard clipboard;
-  return clipboard;
-}
-
 static wmOperatorStatus actkeys_copy_exec(bContext *C, wmOperator *op)
 {
   bAnimContext ac;
@@ -613,29 +577,13 @@ static wmOperatorStatus actkeys_copy_exec(bContext *C, wmOperator *op)
   }
 
   /* copy keyframes */
-  if (ac.datatype == ANIMCONT_GPENCIL) {
-    if (ED_gpencil_anim_copybuf_copy(&ac) == false &&
-        ed::greasepencil::grease_pencil_copy_keyframes(
-            &ac, get_grease_pencil_keyframe_clipboard()) == false)
-    {
-      /* check if anything ended up in the buffer */
-      BKE_report(op->reports, RPT_ERROR, "No keyframes copied to the internal clipboard");
-      return OPERATOR_CANCELLED;
-    }
-  }
-  else if (ac.datatype == ANIMCONT_MASK) {
+  if (ac.datatype == ANIMCONT_MASK) {
     /* FIXME: support this case. */
-    BKE_report(op->reports, RPT_ERROR, "Keyframe pasting is not available for mask mode");
+    BKE_report(op->reports, RPT_ERROR, "Keyframe copying is not available for mask mode");
     return OPERATOR_CANCELLED;
   }
   else {
-    /* Both copy function needs to be evaluated to account for mixed selection */
-    const bool kf_ok = copy_action_keys(&ac);
-    const bool gpf_ok = ED_gpencil_anim_copybuf_copy(&ac) ||
-                        ed::greasepencil::grease_pencil_copy_keyframes(
-                            &ac, get_grease_pencil_keyframe_clipboard());
-
-    if (!kf_ok && !gpf_ok) {
+    if (!copy_action_keys(&ac)) {
       BKE_report(op->reports, RPT_ERROR, "No keyframes copied to the internal clipboard");
       return OPERATOR_CANCELLED;
     }
@@ -667,7 +615,6 @@ static wmOperatorStatus actkeys_paste_exec(bContext *C, wmOperator *op)
   const eKeyMergeMode merge_mode = eKeyMergeMode(RNA_enum_get(op->ptr, "merge"));
   const bool flipped = RNA_boolean_get(op->ptr, "flipped");
 
-  bool gpframes_inbuf = false;
 
   /* get editor data */
   if (ANIM_animdata_get_context(C, &ac) == 0) {
@@ -678,52 +625,29 @@ static wmOperatorStatus actkeys_paste_exec(bContext *C, wmOperator *op)
   ac.reports = op->reports;
 
   /* paste keyframes */
-  if (ac.datatype == ANIMCONT_GPENCIL) {
-    if (ED_gpencil_anim_copybuf_paste(&ac, offset_mode) == false &&
-        ed::greasepencil::grease_pencil_paste_keyframes(
-            &ac, offset_mode, merge_mode, get_grease_pencil_keyframe_clipboard()) == false)
-    {
-      BKE_report(op->reports, RPT_ERROR, "No data in the internal clipboard to paste");
-      return OPERATOR_CANCELLED;
-    }
-  }
-  else if (ac.datatype == ANIMCONT_MASK) {
+  if (ac.datatype == ANIMCONT_MASK) {
     /* FIXME: support this case. */
     BKE_report(op->reports,
                RPT_ERROR,
-               "Keyframe pasting is not available for Grease Pencil or mask mode");
+               "Keyframe pasting is not available for mask mode");
     return OPERATOR_CANCELLED;
   }
   else {
-    /* Both paste function needs to be evaluated to account for mixed selection */
     const eKeyPasteError kf_empty = paste_action_keys(&ac, offset_mode, merge_mode, flipped);
-    /* non-zero return means an error occurred while trying to paste */
-    gpframes_inbuf = ED_gpencil_anim_copybuf_paste(&ac, offset_mode) ||
-                     ed::greasepencil::grease_pencil_paste_keyframes(
-                         &ac, offset_mode, merge_mode, get_grease_pencil_keyframe_clipboard());
+    switch (kf_empty) {
+      case KEYFRAME_PASTE_OK:
+        break;
 
-    /* Only report an error if nothing was pasted, i.e. when both FCurve and GPencil failed. */
-    if (!gpframes_inbuf) {
-      switch (kf_empty) {
-        case KEYFRAME_PASTE_OK:
-          /* FCurve paste was ok, so it's all good. */
-          break;
+      case KEYFRAME_PASTE_NOWHERE_TO_PASTE:
+        BKE_report(op->reports, RPT_ERROR, "No selected F-Curves to paste into");
+        return OPERATOR_CANCELLED;
 
-        case KEYFRAME_PASTE_NOWHERE_TO_PASTE:
-          BKE_report(op->reports, RPT_ERROR, "No selected F-Curves to paste into");
-          return OPERATOR_CANCELLED;
-
-        case KEYFRAME_PASTE_NOTHING_TO_PASTE:
-          BKE_report(op->reports, RPT_ERROR, "No data in the internal clipboard to paste");
-          return OPERATOR_CANCELLED;
-      }
+      case KEYFRAME_PASTE_NOTHING_TO_PASTE:
+        BKE_report(op->reports, RPT_ERROR, "No data in the internal clipboard to paste");
+        return OPERATOR_CANCELLED;
     }
   }
 
-  /* Grease Pencil needs extra update to refresh the added keyframes. */
-  if (ac.datatype == ANIMCONT_GPENCIL || gpframes_inbuf) {
-    WM_event_add_notifier(C, NC_GPENCIL | ND_DATA, nullptr);
-  }
   /* set notifier that keyframes have changed */
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_EDITED, nullptr);
 
@@ -796,59 +720,6 @@ static const EnumPropertyItem prop_actkeys_insertkey_types[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-static void insert_gpencil_key(bAnimContext *ac,
-                               bAnimListElem *ale,
-                               const eGP_GetFrame_Mode add_frame_mode,
-                               bGPdata **gpd_old)
-{
-  Scene *scene = ac->scene;
-  bGPdata *gpd = id_cast<bGPdata *>(ale->id);
-  bGPDlayer *gpl = static_cast<bGPDlayer *>(ale->data);
-  BKE_gpencil_layer_frame_get(gpl, scene->r.cfra, add_frame_mode);
-  /* Check if the gpd changes to tag only once. */
-  if (gpd != *gpd_old) {
-    BKE_gpencil_tag(gpd);
-    *gpd_old = gpd;
-  }
-}
-
-static void insert_grease_pencil_key(bAnimContext *ac,
-                                     bAnimListElem *ale,
-                                     const bool hold_previous)
-{
-  using namespace blender::bke::greasepencil;
-  Layer *layer = static_cast<Layer *>(ale->data);
-  GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale->id);
-  const int current_frame_number = ac->scene->r.cfra;
-
-  if (layer->frames().contains(current_frame_number)) {
-    return;
-  }
-
-  bool changed = false;
-  if (hold_previous) {
-    const std::optional<int> active_frame_number = layer->start_frame_at(current_frame_number);
-    if (!active_frame_number) {
-      /* There is no active frame to hold to, or it's an end frame. Therefore just insert a blank
-       * frame. */
-      changed |= grease_pencil->insert_frame(*layer, current_frame_number) != nullptr;
-    }
-    else {
-      /* Duplicate the active frame. */
-      changed = grease_pencil->insert_duplicate_frame(
-          *layer, *active_frame_number, current_frame_number, false);
-    }
-  }
-  else {
-    /* Insert a blank frame. */
-    changed |= grease_pencil->insert_frame(*layer, current_frame_number) != nullptr;
-  }
-
-  if (changed) {
-    DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-  }
-}
-
 static void insert_fcurve_key(bAnimContext *ac,
                               bAnimListElem *ale,
                               const AnimationEvalContext anim_eval_context,
@@ -916,11 +787,7 @@ static void insert_action_keys(bAnimContext *ac, short mode)
   eAnimFilter_Flags filter;
 
   Scene *scene = ac->scene;
-  ToolSettings *ts = scene->toolsettings;
   eInsertKeyFlags flag;
-
-  eGP_GetFrame_Mode add_frame_mode;
-  bGPdata *gpd_old = nullptr;
 
   /* filter data */
   filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_FOREDIT |
@@ -937,28 +804,11 @@ static void insert_action_keys(bAnimContext *ac, short mode)
   /* Init keyframing flag. */
   flag = animrig::get_keyframing_flags(scene);
 
-  /* GPLayers specific flags */
-  if (ts->gpencil_flags & GP_TOOL_FLAG_RETAIN_LAST) {
-    add_frame_mode = GP_GETFRAME_ADD_COPY;
-  }
-  else {
-    add_frame_mode = GP_GETFRAME_ADD_NEW;
-  }
-  const bool grease_pencil_hold_previous = ((ts->gpencil_flags & GP_TOOL_FLAG_RETAIN_LAST) != 0);
-
   /* insert keyframes */
   const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(
       ac->depsgraph, float(scene->r.cfra));
   for (bAnimListElem &ale : anim_data) {
     switch (ale.type) {
-      case ANIMTYPE_GPLAYER:
-        insert_gpencil_key(ac, &ale, add_frame_mode, &gpd_old);
-        break;
-
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
-        insert_grease_pencil_key(ac, &ale, grease_pencil_hold_previous);
-        break;
-
       case ANIMTYPE_FCURVE:
         insert_fcurve_key(ac, &ale, anim_eval_context, flag);
         break;
@@ -998,9 +848,6 @@ static wmOperatorStatus actkeys_insertkey_exec(bContext *C, wmOperator *op)
   insert_action_keys(&ac, mode);
 
   /* set notifier that keyframes have changed */
-  if (ac.datatype == ANIMCONT_GPENCIL) {
-    WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, nullptr);
-  }
   WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_ADDED, nullptr);
 
   return OPERATOR_FINISHED;
@@ -1046,15 +893,6 @@ static bool duplicate_action_keys(bAnimContext *ac)
   for (bAnimListElem &ale : anim_data) {
     if (ELEM(ale.type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE)) {
       changed |= duplicate_fcurve_keys(static_cast<FCurve *>(ale.key_data));
-    }
-    else if (ale.type == ANIMTYPE_GPLAYER) {
-      ED_gpencil_layer_frames_duplicate(static_cast<bGPDlayer *>(ale.data));
-      changed |= ED_gpencil_layer_frame_select_check(static_cast<bGPDlayer *>(ale.data));
-    }
-    else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-      changed |= ed::greasepencil::duplicate_selected_frames(
-          *reinterpret_cast<GreasePencil *>(ale.id),
-          static_cast<GreasePencilLayer *>(ale.data)->wrap());
     }
     else if (ale.type == ANIMTYPE_MASKLAYER) {
       changed |= ED_masklayer_frames_duplicate(static_cast<MaskLayer *>(ale.data));
@@ -1130,19 +968,7 @@ static bool delete_action_keys(bAnimContext *ac)
   for (bAnimListElem &ale : anim_data) {
     bool changed = false;
 
-    if (ale.type == ANIMTYPE_GPLAYER) {
-      changed = ED_gpencil_layer_frames_delete(static_cast<bGPDlayer *>(ale.data));
-    }
-    else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-      GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale.id);
-      changed = ed::greasepencil::remove_all_selected_frames(
-          *grease_pencil, static_cast<GreasePencilLayer *>(ale.data)->wrap());
-
-      if (changed) {
-        DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-      }
-    }
-    else if (ale.type == ANIMTYPE_MASKLAYER) {
+    if (ale.type == ANIMTYPE_MASKLAYER) {
       changed = ED_masklayer_frames_delete(static_cast<MaskLayer *>(ale.data));
     }
     else {
@@ -1270,7 +1096,7 @@ static wmOperatorStatus actkeys_clean_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+  if (ac.datatype == ANIMCONT_MASK) {
     BKE_report(op->reports, RPT_ERROR, "Not implemented");
     return OPERATOR_PASS_THROUGH;
   }
@@ -1362,7 +1188,7 @@ static wmOperatorStatus actkeys_bake_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+  if (ac.datatype == ANIMCONT_MASK) {
     BKE_report(op->reports, RPT_ERROR, "Not implemented");
     return OPERATOR_PASS_THROUGH;
   }
@@ -1490,7 +1316,7 @@ static wmOperatorStatus actkeys_expo_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+  if (ac.datatype == ANIMCONT_MASK) {
     BKE_report(op->reports, RPT_ERROR, "Not implemented");
     return OPERATOR_PASS_THROUGH;
   }
@@ -1542,7 +1368,7 @@ static wmOperatorStatus actkeys_ipo_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+  if (ac.datatype == ANIMCONT_MASK) {
     BKE_report(op->reports, RPT_ERROR, "Not implemented");
     return OPERATOR_PASS_THROUGH;
   }
@@ -1690,7 +1516,7 @@ static wmOperatorStatus actkeys_handletype_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+  if (ac.datatype == ANIMCONT_MASK) {
     BKE_report(op->reports, RPT_ERROR, "Not implemented");
     return OPERATOR_PASS_THROUGH;
   }
@@ -1750,17 +1576,6 @@ static void setkeytype_action_keys(bAnimContext *ac, eBezTriple_KeyframeType mod
    */
   for (bAnimListElem &ale : anim_data) {
     switch (ale.type) {
-      case ANIMTYPE_GPLAYER:
-        ED_gpencil_layer_frames_keytype_set(static_cast<bGPDlayer *>(ale.data), mode);
-        ale.update |= ANIM_UPDATE_DEPS;
-        break;
-
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
-        ed::greasepencil::set_selected_frames_type(
-            static_cast<GreasePencilLayer *>(ale.data)->wrap(), mode);
-        ale.update |= ANIM_UPDATE_DEPS;
-        break;
-
       case ANIMTYPE_FCURVE:
         ANIM_fcurve_keyframes_loop(
             nullptr, static_cast<FCurve *>(ale.key_data), nullptr, set_cb, nullptr);
@@ -1856,36 +1671,6 @@ static wmOperatorStatus actkeys_framejump_exec(bContext *C, wmOperator * /*op*/)
 
   for (bAnimListElem &ale : anim_data) {
     switch (ale.datatype) {
-      case ALE_GPFRAME: {
-        bGPDlayer *gpl = static_cast<bGPDlayer *>(ale.data);
-
-        for (bGPDframe &gpf : gpl->frames) {
-          /* only if selected */
-          if (!(gpf.flag & GP_FRAME_SELECT)) {
-            continue;
-          }
-          /* store average time in float 1 (only do rounding at last step) */
-          ked.f1 += gpf.framenum;
-
-          /* increment number of items */
-          ked.i1++;
-        }
-        break;
-      }
-
-      case ALE_GREASE_PENCIL_CEL: {
-        using namespace blender::bke::greasepencil;
-        const Layer &layer = *static_cast<Layer *>(ale.data);
-        for (auto [frame_number, frame] : layer.frames().items()) {
-          if (!frame.is_selected()) {
-            continue;
-          }
-          ked.f1 += frame_number;
-          ked.i1++;
-        }
-        break;
-      }
-
       case ALE_FCURVE: {
         FCurve *fcurve = static_cast<FCurve *>(ale.key_data);
         ANIM_nla_mapping_apply_if_needed_fcurve(&ale, fcurve, false, true);
@@ -1971,7 +1756,7 @@ static void snap_action_keys(bAnimContext *ac, short mode)
   KeyframeEditFunc edit_cb;
 
   /* filter data */
-  if (ELEM(ac->datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+  if (ac->datatype == ANIMCONT_MASK) {
     filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_FOREDIT);
   }
   else {
@@ -1991,21 +1776,7 @@ static void snap_action_keys(bAnimContext *ac, short mode)
 
   /* snap keyframes */
   for (bAnimListElem &ale : anim_data) {
-    if (ale.type == ANIMTYPE_GPLAYER) {
-      ED_gpencil_layer_snap_frames(static_cast<bGPDlayer *>(ale.data), ac->scene, mode);
-    }
-    else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-      GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale.id);
-      GreasePencilLayer *layer = static_cast<GreasePencilLayer *>(ale.data);
-
-      const bool changed = ed::greasepencil::snap_selected_frames(
-          *grease_pencil, layer->wrap(), *(ac->scene), static_cast<eEditKeyframes_Snap>(mode));
-
-      if (changed) {
-        DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-      }
-    }
-    else if (ale.type == ANIMTYPE_MASKLAYER) {
+    if (ale.type == ANIMTYPE_MASKLAYER) {
       ED_masklayer_snap_frames(static_cast<MaskLayer *>(ale.data), ac->scene, mode);
     }
     else {
@@ -2128,21 +1899,7 @@ static void mirror_action_keys(bAnimContext *ac, short mode)
 
   /* mirror keyframes */
   for (bAnimListElem &ale : anim_data) {
-    if (ale.type == ANIMTYPE_GPLAYER) {
-      ED_gpencil_layer_mirror_frames(static_cast<bGPDlayer *>(ale.data), ac->scene, mode);
-    }
-    else if (ale.type == ANIMTYPE_GREASE_PENCIL_LAYER) {
-      GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(ale.id);
-      GreasePencilLayer *layer = static_cast<GreasePencilLayer *>(ale.data);
-
-      const bool changed = ed::greasepencil::mirror_selected_frames(
-          *grease_pencil, layer->wrap(), *(ac->scene), static_cast<eEditKeyframes_Mirror>(mode));
-
-      if (changed) {
-        DEG_id_tag_update(&grease_pencil->id, ID_RECALC_GEOMETRY);
-      }
-    }
-    else if (ale.type == ANIMTYPE_MASKLAYER) {
+    if (ale.type == ANIMTYPE_MASKLAYER) {
       /* TODO */
     }
     else {

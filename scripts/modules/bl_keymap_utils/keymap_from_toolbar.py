@@ -238,7 +238,7 @@ def generate(context, space_type, *, use_fallback_keys=True, use_reset=True):
     #
     #
     # Test for key_modifier, where alpha key is used as a 'key_modifier'
-    # (grease pencil holding 'D' for example).
+    # (a key used as both a tool shortcut and key modifier).
 
     for item_container in items_all:
         item, kmi_found, kmi_exist = item_container

@@ -76,16 +76,6 @@ struct [[host_shared]] NodeLinkUniformData {
   float2 _pad;
 };
 
-struct [[host_shared]] GPencilStrokeData {
-  float2 viewport;
-  float pixsize;
-  float objscale;
-  int caps_start;
-  int caps_end;
-  bool32_t fill_stroke;
-  float _pad;
-};
-
 struct [[host_shared]] GPUClipPlanes {
   float4x4 ClipModelMatrix;
   float4 world[6];
@@ -199,12 +189,6 @@ struct [[host_shared]] SeqScopeRasterData {
   uint col_g;
   uint col_b;
   uint col_a;
-};
-
-struct [[host_shared]] GreasePencilStrokeData {
-  packed_float3 position;
-  float stroke_thickness;
-  float4 stroke_color;
 };
 
 enum [[host_shared]] TestStatus : uint32_t {

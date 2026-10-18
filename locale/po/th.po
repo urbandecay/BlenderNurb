@@ -1118,10 +1118,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "จุดกำหนดเส้นทางการเคลื่อนไหวจะถูกฝังลงในพื้นที่กล้องของกล้องที่ใช้งานอยู่ ซึ่งหมายความว่าภาพจะดูถูกต้องเฉพาะเมื่อมองผ่านกล้องนั้นเท่านั้น การสลับกล้องโดยใช้เครื่องหมายไม่ได้รับการสนับสนุน"
 
 
-msgid "Annotation Frame"
-msgstr "กรอบคำอธิบายประกอบ"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "ชุดภาพร่างที่เกี่ยวข้องกันบนกรอบภาพเฉพาะ"
 
@@ -1146,18 +1142,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "เส้นโค้งที่วาดด้วยมือเปล่ากำหนดโครงร่างบนกรอบนี้"
 
 
-msgid "Annotation Frames"
-msgstr "กรอบคำอธิบายประกอบ"
-
-
-msgid "Collection of annotation frames"
-msgstr "ชุดของกรอบคำอธิบายประกอบ"
-
-
-msgid "Annotation Layer"
-msgstr "ชั้นคำอธิบายประกอบ"
-
-
 msgid "Collection of related sketches"
 msgstr "รวมภาพร่างที่เกี่ยวข้อง"
 
@@ -1172,10 +1156,6 @@ msgstr "กรอบที่แสดงอยู่ในขณะนี้ส
 
 msgid "Hide"
 msgstr "ซ่อน"
-
-
-msgid "Set annotation Visibility"
-msgstr "ตั้งค่าการมองเห็นคำอธิบายประกอบ"
 
 
 msgid "After Color"
@@ -1220,10 +1200,6 @@ msgstr "ใช้สีที่กำหนดเองสำหรับกา
 
 msgid "Opacity"
 msgstr "ความทึบแสง"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "ความทึบของชั้นภาพคำอธิบายประกอบ"
 
 
 msgid "Color for all strokes in this layer"
@@ -1286,48 +1262,20 @@ msgid "Thickness"
 msgstr "ความหนา"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "ความหนาของเส้นขีดกำกับคำอธิบาย"
-
-
 msgid "Onion Skinning"
 msgstr "การปอกเปลือกหัวหอม"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "แสดงภาพซ้อนของคำอธิบายประกอบก่อนและหลังกรอบภาพปัจจุบัน"
-
-
-msgid "Annotation Layers"
-msgstr "ชั้นภาพคำอธิบายประกอบ"
-
-
-msgid "Collection of annotation layers"
-msgstr "การรวบรวมชั้นภาพคำอธิบายประกอบ"
 
 
 msgid "Active Layer Index"
 msgstr "ดัชนีชั้นภาพที่ใช้งานอยู่"
 
 
-msgid "Index of active annotation layer"
-msgstr "ดัชนีของชั้นภาพคำอธิบายประกอบที่ใช้งานอยู่"
-
-
 msgid "Active Note"
 msgstr "บันทึกที่ใช้งานอยู่"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "หมายเหตุ/ชั้นภาพสำหรับเพิ่มเส้นขีดอธิบาย"
-
-
 msgid "Default"
 msgstr "ค่าเริ่มต้น"
-
-
-msgid "Annotation Stroke"
-msgstr "เส้นขอบคำอธิบายประกอบ"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1340,10 +1288,6 @@ msgstr "จุดของเส้นกรอบ"
 
 msgid "Stroke data points"
 msgstr "จุดของข้อมูลเส้นกรอบ"
-
-
-msgid "Annotation Stroke Point"
-msgstr "จุดเส้นกำกับ"
 
 
 msgid "Data point for freehand stroke curve"
@@ -1891,14 +1835,6 @@ msgid "Show Action data-blocks"
 msgstr "แสดงบล็อกข้อมูลการดำเนินการ"
 
 
-msgid "Annotations"
-msgstr "คำอธิบายประกอบ"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "แสดงบล็อกข้อมูลคำอธิบายประกอบ"
-
-
 msgid "Armatures"
 msgstr "โครงหุ่น"
 
@@ -1949,14 +1885,6 @@ msgstr "ฟอนต์"
 
 msgid "Show Font data-blocks"
 msgstr "แสดงบล็อกข้อมูลแบบอักษร"
-
-
-msgid "Grease Pencil"
-msgstr "ดินสอไขมัน"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "แสดงบล็อกข้อมูลของดินสอไขมัน"
 
 
 msgid "Collections"
@@ -2381,10 +2309,6 @@ msgstr "ลักษณะประจำบนกรณีตัวอย่า
 
 msgid "Layer"
 msgstr "ชั้นภาพ"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "ลักษณะประจำบนชั้นภาพดินสอไขมัน"
 
 
 msgid "Is Internal"
@@ -3086,14 +3010,6 @@ msgid "Action data-blocks"
 msgstr "บล็อกข้อมูลการกระทำ"
 
 
-msgid "Annotation"
-msgstr "บรรณนิทัศน์"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "บล็อกข้อมูลบรรณนิทัศน์ (ดินสอเทียนแบบเก่า)"
-
-
 msgid "Armature data-blocks"
 msgstr "บล็อกข้อมูลโครงหุ่น"
 
@@ -3140,10 +3056,6 @@ msgstr "ฟอนต์เวกเตอร์"
 
 msgid "Vector font data-blocks"
 msgstr "บล็อกข้อมูลแบบอักษรเวกเตอร์"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "บล็อกข้อมูลดินสอเทียน"
 
 
 msgid "Hair curve data-blocks"
@@ -3330,14 +3242,6 @@ msgid "Collection of actions"
 msgstr "การรวบรวมการกระทำ"
 
 
-msgid "Main Annotations"
-msgstr "คำอธิบายหลัก"
-
-
-msgid "Collection of annotations"
-msgstr "การรวบรวมคำอธิบายประกอบ"
-
-
 msgid "Main Armatures"
 msgstr "โครงร่างหลัก"
 
@@ -3392,14 +3296,6 @@ msgstr "แบบอักษรหลัก"
 
 msgid "Collection of fonts"
 msgstr "การรวบรวมแบบอักษร"
-
-
-msgid "Main Grease Pencils"
-msgstr "ดินสอไขมันหลัก"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "การรวบรวมดินสอเทียน"
 
 
 msgid "Main Hair Curves"
@@ -7885,11 +7781,6 @@ msgstr "ใหม่"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "ใหม่"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "ใหม่"
 

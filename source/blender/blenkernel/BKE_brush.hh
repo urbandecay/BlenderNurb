@@ -71,10 +71,6 @@ Brush *BKE_brush_duplicate(Main *bmain,
                            Brush *brush,
                            eDupli_ID_Flags dupflag,
                            /*eLibIDDuplicateFlags*/ uint duplicate_options);
-/**
- * Add grease pencil settings.
- */
-void BKE_brush_init_gpencil_settings(Brush *brush);
 
 void BKE_brush_init_mesh_automasking_settings(Brush *brush);
 

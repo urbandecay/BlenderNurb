@@ -167,10 +167,6 @@ class GeometryInfoLog : public ValueLog {
   struct PointCloudInfo {
     int points_num;
   };
-  struct GreasePencilInfo {
-    int layers_num;
-    Vector<std::string> layer_names;
-  };
   struct InstancesInfo {
     int instances_num;
   };
@@ -186,7 +182,6 @@ class GeometryInfoLog : public ValueLog {
   std::optional<MeshInfo> mesh_info;
   std::optional<CurveInfo> curve_info;
   std::optional<PointCloudInfo> pointcloud_info;
-  std::optional<GreasePencilInfo> grease_pencil_info;
   std::optional<InstancesInfo> instances_info;
   std::optional<EditDataInfo> edit_data_info;
   std::optional<VolumeInfo> volume_info;
@@ -427,7 +422,6 @@ class NodeTreeLog {
   bool reduced_used_named_attributes_ = false;
   bool reduced_debug_messages_ = false;
   bool reduced_evaluated_gizmo_nodes_ = false;
-  bool reduced_layer_names_ = false;
   bool reduced_node_image_previews_ = false;
 
  public:
@@ -438,7 +432,6 @@ class NodeTreeLog {
   Vector<const GeometryAttributeInfo *> existing_attributes;
   Map<StringRefNull, NamedAttributeUsage> used_named_attributes;
   Set<int> evaluated_gizmo_nodes;
-  Vector<std::string> all_layer_names;
 
   NodeTreeLog(NodesEvalLog *root_log, Vector<NodeTreeLogger *> tree_loggers);
   ~NodeTreeLog();
@@ -459,7 +452,6 @@ class NodeTreeLog {
   void ensure_used_named_attributes();
   void ensure_debug_messages();
   void ensure_evaluated_gizmo_nodes();
-  void ensure_layer_names();
   void ensure_node_image_previews();
 
   NodeLog *find_node_log(int32_t identifier) const;

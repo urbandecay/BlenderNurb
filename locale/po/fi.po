@@ -289,16 +289,6 @@ msgstr "Fontti"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "Öljykynä"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "Öljykynä v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "Kuva"
 
@@ -1027,10 +1017,6 @@ msgid "Show Font data-blocks"
 msgstr "Näytä fontin data-palikat"
 
 
-msgid "Grease Pencil"
-msgstr "Öljykynä"
-
-
 msgid "Collections"
 msgstr "Kokoelmat"
 
@@ -1385,10 +1371,6 @@ msgstr "Attribuutti instanssissa"
 
 msgid "Layer"
 msgstr "Taso"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "Attribuutti öljykynätasolla"
 
 
 msgid "Is Internal"
@@ -1787,10 +1769,6 @@ msgid "Action data-blocks"
 msgstr "Toiminnan data-palikat"
 
 
-msgid "Annotation"
-msgstr "Huomiointi"
-
-
 msgid "Armature data-blocks"
 msgstr "Luurangon data-palikat"
 
@@ -1833,10 +1811,6 @@ msgstr "Vektorifontit"
 
 msgid "Vector font data-blocks"
 msgstr "Vektorifontin data-palikat"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "Öljykynän data-palikat"
 
 
 msgid "Hair curve data-blocks"
@@ -2023,14 +1997,6 @@ msgid "Collection of actions"
 msgstr "Kokoelma toiminnoista"
 
 
-msgid "Main Annotations"
-msgstr "Päähuomioinnit"
-
-
-msgid "Collection of annotations"
-msgstr "Kokoelma huomioinneista"
-
-
 msgid "Main Armatures"
 msgstr "Pääluurangot"
 
@@ -2085,10 +2051,6 @@ msgstr "Pääfontit"
 
 msgid "Collection of fonts"
 msgstr "Kokoelma fonteista"
-
-
-msgid "Main Grease Pencils"
-msgstr "Pääöljykynät"
 
 
 msgid "Main Hair Curves"
@@ -2887,16 +2849,6 @@ msgid "Vertex Color"
 msgstr "Kärkiväri"
 
 
-msgctxt "GPencil"
-msgid "Round"
-msgstr "Pyöristä"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "Tasainen"
-
-
 msgid "Threshold"
 msgstr "Kynnysarvo"
 
@@ -2919,21 +2871,6 @@ msgstr "Käyrän vahvuus"
 
 msgid "Curve used for the strength"
 msgstr "Voimakkuuteen käytettävä käyrä"
-
-
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "Tila"
-
-
-msgctxt "GPencil"
-msgid "Point"
-msgstr "Piste"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "Piirto"
 
 
 msgid "Direction of the fill"
@@ -3030,11 +2967,6 @@ msgstr "Syötenäytteet"
 
 msgid "Iterations"
 msgstr "Iteraatiot"
-
-
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "Vahvuus"
 
 
 msgid "Subdivision Steps"
@@ -4557,10 +4489,6 @@ msgid "Show Data-Block Filters"
 msgstr "Näytä data-palikkasuodattimet"
 
 
-msgid "Display Grease Pencil"
-msgstr "Näytä öljykynä"
-
-
 msgid "Display Hair"
 msgstr "Näytä hiukset"
 
@@ -5850,10 +5778,6 @@ msgid "Divide"
 msgstr "Jaa"
 
 
-msgid "Active Grease Pencil layer"
-msgstr "Aktiivinen öljykynän taso"
-
-
 msgctxt "Color"
 msgid "Mode"
 msgstr "Tila"
@@ -6075,26 +5999,6 @@ msgstr "Täytä"
 msgctxt "Brush"
 msgid "Tint"
 msgstr "Värjää"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "Paksuus"
-
-
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "Satunnainen"
-
-
-msgctxt "GPencil"
-msgid "Push"
-msgstr "Työnnä"
-
-
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "Klooni"
 
 
 msgid "Draw"
@@ -9811,16 +9715,6 @@ msgid "Open All"
 msgstr "Avaa kaikki"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "Tyyppi"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "Mukautettu"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "Lisää uusi taso"
@@ -9855,10 +9749,6 @@ msgstr "Poista tasomaski"
 msgctxt "Operator"
 msgid "Remove Layer"
 msgstr "Poista taso"
-
-
-msgid "Show all Grease Pencil layers"
-msgstr "Näytä kaikki öljykynän tasot"
 
 
 msgctxt "Operator"
@@ -10154,10 +10044,6 @@ msgid "Raw Images"
 msgstr "Raakakuvat"
 
 
-msgid "Show Annotation"
-msgstr "Näytä huomio"
-
-
 msgid "Image Outline"
 msgstr "Kuvan ääriviiva"
 
@@ -10208,11 +10094,6 @@ msgstr "Käännä kuva pystysuorasti"
 
 msgid "Effect Opacity"
 msgstr "Tehosteen läpinäkyvyys"
-
-
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "Aalto"
 
 
 msgid "Lock Shape"
@@ -10543,10 +10424,6 @@ msgstr "Näytä Tyhjät"
 
 msgid "Show empty objects"
 msgstr "Näytä tyhjä-objektit"
-
-
-msgid "Show Grease Pencil"
-msgstr "Näytä Öljykynä"
 
 
 msgid "Show Lights"
@@ -11018,10 +10895,6 @@ msgstr "Tekstiarvo"
 
 msgid "Columns"
 msgstr "Sarakkeet"
-
-
-msgid "Use Annotations"
-msgstr "Käytä huomioita"
 
 
 msgctxt "Sound"
@@ -11799,11 +11672,6 @@ msgstr "Fontti"
 
 
 msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "Öljykynä"
-
-
-msgctxt "WindowManager"
 msgid "Pose"
 msgstr "Asento"
 
@@ -12452,10 +12320,6 @@ msgstr "Metapallo(t)"
 
 msgid "Volume(s)"
 msgstr "Volyymi(t)"
-
-
-msgid "Grease Pencil(s)"
-msgstr "Öljykynä(t)"
 
 
 msgid "Armature(s)"
@@ -13993,11 +13857,6 @@ msgid "New"
 msgstr "Uusi"
 
 
-msgctxt "GPencil"
-msgid "New"
-msgstr "Uusi"
-
-
 msgctxt "Image"
 msgid "New"
 msgstr "Uusi"
@@ -14276,11 +14135,6 @@ msgstr "Lataus"
 msgctxt "Object"
 msgid "Field"
 msgstr "Kenttä"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "Suzanne"
 
 
 msgid "Path is already animated"
@@ -15372,10 +15226,6 @@ msgstr "Geometriatila"
 
 msgid "Depth Offset"
 msgstr "Syvyyssiirros"
-
-
-msgid "Lineart"
-msgstr "Viivapiirros"
 
 
 msgid "Edge Types"
@@ -17176,11 +17026,6 @@ msgstr "Pelimoottori"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "Geometrianoodit"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "Öljykynä"
 
 
 msgctxt "Preferences"

@@ -38,7 +38,6 @@ struct MDeformVert;
 struct Mesh;
 struct ModifierEvalContext;
 struct Object;
-struct ShrinkwrapGpencilModifierData;
 struct ShrinkwrapModifierData;
 struct SpaceTransform;
 

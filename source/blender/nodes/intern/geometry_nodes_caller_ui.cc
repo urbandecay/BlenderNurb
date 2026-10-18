@@ -171,123 +171,6 @@ SearchInfo SocketSearchData::info(const bContext &C) const
   return {};
 }
 
-static void layer_name_search_update_fn(
-    const bContext *C, void *arg, const char *str, ui::SearchItems *items, const bool is_first)
-{
-  const SocketSearchData &data = *static_cast<SocketSearchData *>(arg);
-  const SearchInfo info = data.info(*C);
-  if (!info.tree || !info.tree_log) {
-    return;
-  }
-  info.tree_log->ensure_layer_names();
-  info.tree->ensure_topology_cache();
-
-  Vector<const bNodeSocket *> sockets_to_check;
-  for (const bNode *node : info.tree->group_input_nodes()) {
-    for (const bNodeSocket *socket : node->output_sockets()) {
-      if (socket->type == SOCK_GEOMETRY) {
-        sockets_to_check.append(socket);
-      }
-    }
-  }
-
-  Set<StringRef> names;
-  Vector<const std::string *> layer_names;
-  for (const bNodeSocket *socket : sockets_to_check) {
-    const eval_log::ValueLog *value_log = info.tree_log->find_socket_value_log(*socket);
-    if (value_log == nullptr) {
-      continue;
-    }
-    if (const auto *eval_log = dynamic_cast<const eval_log::GeometryInfoLog *>(value_log)) {
-      if (const std::optional<eval_log::GeometryInfoLog::GreasePencilInfo> &grease_pencil_info =
-              eval_log->grease_pencil_info)
-      {
-        for (const std::string &name : grease_pencil_info->layer_names) {
-          if (names.add(name)) {
-            layer_names.append(&name);
-          }
-        }
-      }
-    }
-  }
-  BLI_assert(items);
-  ui::grease_pencil_layer_search_add_items(str, layer_names.as_span(), *items, is_first);
-}
-
-static void layer_name_search_exec_fn(bContext *C, void *data_v, void *item_v)
-{
-  const SocketSearchData &data = *static_cast<SocketSearchData *>(data_v);
-  const std::string *item = static_cast<std::string *>(item_v);
-  if (!item) {
-    return;
-  }
-  SearchInfo info = data.info(*C);
-  if (!info.socket_props_ptr) {
-    return;
-  }
-
-  RNA_string_set(&*info.socket_props_ptr, "layer_name", item->c_str());
-  ED_undo_push(C, "Assign Layer Name");
-}
-
-static void add_layer_name_search_button(DrawGroupInputsContext &ctx,
-                                         ui::Layout &layout,
-                                         const bNodeTreeInterfaceSocket &socket,
-                                         PointerRNA *socket_props_ptr)
-{
-  if (!ctx.tree_log) {
-    layout.prop(socket_props_ptr, "layer_name", UI_ITEM_NONE, "", ICON_NONE);
-    return;
-  }
-
-  layout.use_property_decorate_set(false);
-
-  ui::Layout &split = layout.split(0.4f, false);
-  ui::Layout &name_row = split.row(false);
-  name_row.alignment_set(ui::LayoutAlign::Right);
-
-  name_row.label(socket.name ? IFACE_(socket.name) : "", ICON_NONE);
-  ui::Layout &prop_row = split.row(true);
-
-  ui::Block *block = prop_row.block();
-  ui::Button *but = uiDefIconTextButR(block,
-                                      ui::ButtonType::SearchMenu,
-                                      ICON_OUTLINER_DATA_GP_LAYER,
-                                      "",
-                                      0,
-                                      0,
-                                      10 * UI_UNIT_X, /* Dummy value, replaced by layout system. */
-                                      UI_UNIT_Y,
-                                      socket_props_ptr,
-                                      "layer_name",
-                                      0,
-                                      StringRef(socket.description));
-  button_placeholder_set(but, IFACE_("Layer"));
-  layout.label("", ICON_BLANK1);
-
-  const Object *object = ed::object::context_object(&ctx.C);
-  BLI_assert(object != nullptr);
-  if (object == nullptr) {
-    return;
-  }
-
-  /* Using a custom free function make the search not work currently. So make sure this data can be
-   * freed with MEM_delete. */
-  SocketSearchData *data = static_cast<SocketSearchData *>(
-      MEM_new_uninitialized(sizeof(SocketSearchData), __func__));
-  *data = ctx.socket_search_data_fn(socket);
-  button_func_search_set_results_are_suggestions(but, true);
-  button_func_search_set_sep_string(but, UI_MENU_ARROW_SEP);
-  button_func_search_set(but,
-                         nullptr,
-                         layer_name_search_update_fn,
-                         data,
-                         true,
-                         nullptr,
-                         layer_name_search_exec_fn,
-                         nullptr);
-}
-
 static void attribute_search_update_fn(
     const bContext *C, void *arg, const char *str, ui::SearchItems *items, const bool is_first)
 {
@@ -602,12 +485,6 @@ static void draw_property_for_socket(DrawGroupInputsContext &ctx,
       break;
     }
     case SOCK_BOOLEAN: {
-      if (is_layer_selection_field(socket)) {
-        add_layer_name_search_button(ctx, row, socket, socket_props_ptr);
-        /* Adds a spacing at the end of the row. */
-        row.label("", ICON_BLANK1);
-        break;
-      }
       ATTR_FALLTHROUGH;
     }
     default: {

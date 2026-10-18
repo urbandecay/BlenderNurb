@@ -125,10 +125,6 @@ static void declare_extra_passes(NodeDeclarationBuilder &b,
         .structure_type(StructureType::Dynamic);
   }
 
-  if (view_layer->grease_pencil_flags & GREASE_PENCIL_AS_SEPARATE_PASS) {
-    b.add_output<decl::Color>(RE_PASSNAME_GREASE_PENCIL ""_ustr)
-        .structure_type(StructureType::Dynamic);
-  }
 }
 
 /* Declares outputs that are linked and existed in the previous state of the node but no longer
@@ -260,7 +256,7 @@ static void node_extra_info(NodeExtraInfoParams &parameters)
   bool is_any_pass_used = false;
   for (const bNodeSocket *output : parameters.node.output_sockets()) {
     /* Combined pass is always available. */
-    if (STR_ELEM(output->name, "Image", "Alpha", "Grease Pencil")) {
+    if (STR_ELEM(output->name, "Image", "Alpha")) {
       continue;
     }
     if (output->is_logically_linked()) {

@@ -29,8 +29,6 @@
 #include "DNA_constraint_types.h"
 #include "DNA_fluid_types.h"
 #include "DNA_genfile.h"
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_gpencil_modifier_types.h"
 #include "DNA_light_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -41,7 +39,6 @@
 #include "DNA_rigidbody_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_sequence_types.h"
-#include "DNA_shader_fx_types.h"
 #include "DNA_space_types.h"
 #include "DNA_text_types.h"
 #include "DNA_tracking_types.h"
@@ -58,7 +55,6 @@
 #include "BKE_curve.hh"
 #include "BKE_customdata.hh"
 #include "BKE_fcurve.hh"
-#include "BKE_gpencil_legacy.h"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_mesh.hh"
@@ -431,164 +427,6 @@ static void version_node_socket_duplicate(bNodeTree *ntree,
 
 void do_versions_after_linking_290(FileData * /*fd*/, Main *bmain)
 {
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 290, 1)) {
-    /* Patch old grease pencil modifiers material filter. */
-    for (Object &ob : bmain->objects) {
-      for (GpencilModifierData &md : ob.greasepencil_modifiers) {
-        switch (md.type) {
-          case eGpencilModifierType_Array: {
-            ArrayGpencilModifierData *gpmd = reinterpret_cast<ArrayGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Color: {
-            ColorGpencilModifierData *gpmd = reinterpret_cast<ColorGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Hook: {
-            HookGpencilModifierData *gpmd = reinterpret_cast<HookGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Lattice: {
-            LatticeGpencilModifierData *gpmd = reinterpret_cast<LatticeGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Mirror: {
-            MirrorGpencilModifierData *gpmd = reinterpret_cast<MirrorGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Multiply: {
-            MultiplyGpencilModifierData *gpmd = reinterpret_cast<MultiplyGpencilModifierData *>(
-                &md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Noise: {
-            NoiseGpencilModifierData *gpmd = reinterpret_cast<NoiseGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Offset: {
-            OffsetGpencilModifierData *gpmd = reinterpret_cast<OffsetGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Opacity: {
-            OpacityGpencilModifierData *gpmd = reinterpret_cast<OpacityGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Simplify: {
-            SimplifyGpencilModifierData *gpmd = reinterpret_cast<SimplifyGpencilModifierData *>(
-                &md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Smooth: {
-            SmoothGpencilModifierData *gpmd = reinterpret_cast<SmoothGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Subdiv: {
-            SubdivGpencilModifierData *gpmd = reinterpret_cast<SubdivGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Texture: {
-            TextureGpencilModifierData *gpmd = reinterpret_cast<TextureGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          case eGpencilModifierType_Thick: {
-            ThickGpencilModifierData *gpmd = reinterpret_cast<ThickGpencilModifierData *>(&md);
-            if (gpmd->materialname[0] != '\0') {
-              gpmd->material = static_cast<Material *>(
-                  BLI_findstring(&bmain->materials, gpmd->materialname, offsetof(ID, name) + 2));
-              gpmd->materialname[0] = '\0';
-            }
-            break;
-          }
-          default:
-            break;
-        }
-      }
-    }
-
-    /* Patch first frame for old files. */
-    Scene *scene = static_cast<Scene *>(bmain->scenes.first);
-    if (scene != nullptr) {
-      for (Object &ob : bmain->objects) {
-        if (ob.type != OB_GPENCIL_LEGACY) {
-          continue;
-        }
-        bGPdata *gpd = id_cast<bGPdata *>(ob.data);
-        for (bGPDlayer &gpl : gpd->layers) {
-          bGPDframe *gpf = static_cast<bGPDframe *>(gpl.frames.first);
-          if (gpf && gpf->framenum > scene->r.sfra) {
-            bGPDframe *gpf_dup = BKE_gpencil_frame_duplicate(gpf, true);
-            gpf_dup->framenum = scene->r.sfra;
-            BLI_addhead(&gpl.frames, gpf_dup);
-          }
-        }
-      }
-    }
-  }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 291, 1)) {
     for (Collection &collection : bmain->collections) {
@@ -859,23 +697,6 @@ void blo_do_versions_290(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Init Grease Pencil new random curves. */
-    if (!DNA_struct_member_exists(fd->filesdna, "BrushGpencilSettings", "float", "random_hue")) {
-      for (Brush &brush : bmain->brushes) {
-        if ((brush.gpencil_settings) && (brush.gpencil_settings->curve_rand_pressure == nullptr)) {
-          brush.gpencil_settings->curve_rand_pressure = BKE_curvemapping_add(
-              1, 0.0f, 0.0f, 1.0f, 1.0f);
-          brush.gpencil_settings->curve_rand_strength = BKE_curvemapping_add(
-              1, 0.0f, 0.0f, 1.0f, 1.0f);
-          brush.gpencil_settings->curve_rand_uv = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-          brush.gpencil_settings->curve_rand_hue = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-          brush.gpencil_settings->curve_rand_saturation = BKE_curvemapping_add(
-              1, 0.0f, 0.0f, 1.0f, 1.0f);
-          brush.gpencil_settings->curve_rand_value = BKE_curvemapping_add(
-              1, 0.0f, 0.0f, 1.0f, 1.0f);
-        }
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 290, 4)) {
@@ -1023,34 +844,7 @@ void blo_do_versions_290(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Transition to saving expansion for all of grease pencil modifier's sub-panels. */
-    if (!DNA_struct_member_exists(fd->filesdna, "GpencilModifierData", "short", "ui_expand_flag"))
-    {
-      for (Object &object : bmain->objects) {
-        for (GpencilModifierData &md : object.greasepencil_modifiers) {
-          if (md.mode & eGpencilModifierMode_Expanded_DEPRECATED) {
-            md.ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
-          }
-          else {
-            md.ui_expand_flag = 0;
-          }
-        }
-      }
-    }
 
-    /* Transition to saving expansion for all of an effect's sub-panels. */
-    if (!DNA_struct_member_exists(fd->filesdna, "ShaderFxData", "short", "ui_expand_flag")) {
-      for (Object &object : bmain->objects) {
-        for (ShaderFxData &fx : object.shader_fx) {
-          if (fx.mode & eShaderFxMode_Expanded_DEPRECATED) {
-            fx.ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
-          }
-          else {
-            fx.ui_expand_flag = 0;
-          }
-        }
-      }
-    }
 
     /* Refactor bevel profile type to use an enum. */
     if (!DNA_struct_member_exists(fd->filesdna, "BevelModifierData", "short", "profile_type")) {
@@ -1663,20 +1457,6 @@ void blo_do_versions_290(FileData *fd, Library * /*lib*/, Main *bmain)
     }
     FOREACH_NODETREE_END;
 
-    /* Init grease pencil default curve resolution. */
-    if (!DNA_struct_member_exists(fd->filesdna, "bGPdata", "int", "curve_edit_resolution")) {
-      for (bGPdata &gpd : bmain->gpencils) {
-        gpd.curve_edit_resolution = GP_DEFAULT_CURVE_RESOLUTION;
-        gpd.flag |= GP_DATA_CURVE_ADAPTIVE_RESOLUTION;
-      }
-    }
-    /* Init grease pencil curve editing error threshold. */
-    if (!DNA_struct_member_exists(fd->filesdna, "bGPdata", "float", "curve_edit_threshold")) {
-      for (bGPdata &gpd : bmain->gpencils) {
-        gpd.curve_edit_threshold = GP_DEFAULT_CURVE_ERROR;
-        gpd.curve_edit_corner_angle = GP_DEFAULT_CURVE_EDIT_CORNER_ANGLE;
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 292, 14) ||
@@ -1697,26 +1477,6 @@ void blo_do_versions_290(FileData *fd, Library * /*lib*/, Main *bmain)
     FOREACH_NODETREE_END;
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 293, 1)) {
-    /* Grease pencil layer transform matrix. */
-    if (!DNA_struct_member_exists(fd->filesdna, "bGPDlayer", "float", "location[0]")) {
-      for (bGPdata &gpd : bmain->gpencils) {
-        for (bGPDlayer &gpl : gpd.layers) {
-          zero_v3(gpl.location);
-          zero_v3(gpl.rotation);
-          copy_v3_fl(gpl.scale, 1.0f);
-          loc_eul_size_to_mat4(gpl.layer_mat, gpl.location, gpl.rotation, gpl.scale);
-          invert_m4_m4(gpl.layer_invmat, gpl.layer_mat);
-        }
-      }
-    }
-    /* Fix Fill factor for grease pencil fill brushes. */
-    for (Brush &brush : bmain->brushes) {
-      if ((brush.gpencil_settings) && (brush.gpencil_settings->fill_factor == 0.0f)) {
-        brush.gpencil_settings->fill_factor = 1.0f;
-      }
-    }
-  }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 293, 5)) {
     /* Change Nishita sky model Altitude unit. */

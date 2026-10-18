@@ -82,9 +82,6 @@ void render_result_single_layer_begin(struct Render *re);
  */
 void render_result_single_layer_end(struct Render *re);
 
-/**
- * Render pass wrapper for grease-pencil.
- */
 struct RenderPass *render_layer_add_pass(struct RenderResult *rr,
                                          struct RenderLayer *rl,
                                          int channels,

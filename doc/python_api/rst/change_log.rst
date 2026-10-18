@@ -43,34 +43,6 @@ Added
 
 * :class:`bpy.types.BrushCapabilitiesSculpt.has_color`
 
-bpy.types.BrushGpencilSettings
-------------------------------
-
-Added
-^^^^^
-
-* :class:`bpy.types.BrushGpencilSettings.curve_random_hue`
-* :class:`bpy.types.BrushGpencilSettings.curve_random_pressure`
-* :class:`bpy.types.BrushGpencilSettings.curve_random_saturation`
-* :class:`bpy.types.BrushGpencilSettings.curve_random_strength`
-* :class:`bpy.types.BrushGpencilSettings.curve_random_uv`
-* :class:`bpy.types.BrushGpencilSettings.curve_random_value`
-* :class:`bpy.types.BrushGpencilSettings.random_hue_factor`
-* :class:`bpy.types.BrushGpencilSettings.random_saturation_factor`
-* :class:`bpy.types.BrushGpencilSettings.random_value_factor`
-* :class:`bpy.types.BrushGpencilSettings.use_random_press_hue`
-* :class:`bpy.types.BrushGpencilSettings.use_random_press_radius`
-* :class:`bpy.types.BrushGpencilSettings.use_random_press_sat`
-* :class:`bpy.types.BrushGpencilSettings.use_random_press_strength`
-* :class:`bpy.types.BrushGpencilSettings.use_random_press_uv`
-* :class:`bpy.types.BrushGpencilSettings.use_random_press_val`
-* :class:`bpy.types.BrushGpencilSettings.use_stroke_random_hue`
-* :class:`bpy.types.BrushGpencilSettings.use_stroke_random_radius`
-* :class:`bpy.types.BrushGpencilSettings.use_stroke_random_sat`
-* :class:`bpy.types.BrushGpencilSettings.use_stroke_random_strength`
-* :class:`bpy.types.BrushGpencilSettings.use_stroke_random_uv`
-* :class:`bpy.types.BrushGpencilSettings.use_stroke_random_val`
-
 bpy.types.ClothSettings
 -----------------------
 
@@ -121,22 +93,6 @@ Renamed
 
 * **data_depth** -> :class:`bpy.types.FluidDomainSettings.openvdb_data_depth`
 
-bpy.types.GPencilFrame
-----------------------
-
-Added
-^^^^^
-
-* :class:`bpy.types.GPencilFrame.keyframe_type`
-
-bpy.types.GPencilStrokePoint
-----------------------------
-
-Added
-^^^^^
-
-* :class:`bpy.types.GPencilStrokePoint.uv_fill`
-
 bpy.types.Gizmo
 ---------------
 
@@ -145,15 +101,6 @@ Added
 
 * :class:`bpy.types.Gizmo.hide_keymap`
 * :class:`bpy.types.Gizmo.use_tooltip`
-
-bpy.types.BuildGpencilModifier
-------------------------------
-
-Added
-^^^^^
-
-* :class:`bpy.types.BuildGpencilModifier.percentage_factor`
-* :class:`bpy.types.BuildGpencilModifier.use_percentage`
 
 bpy.types.Brush
 ---------------
@@ -509,19 +456,6 @@ Added
 
 * :class:`bpy.types.MovieSequence.reload_if_needed`
 
-bpy.types.ShaderFxPixel
------------------------
-
-Added
-^^^^^
-
-* :class:`bpy.types.ShaderFxPixel.use_antialiasing`
-
-Removed
-^^^^^^^
-
-* **color**
-
 bpy.types.SpaceView3D
 ---------------------
 
@@ -569,14 +503,12 @@ Added
 * :class:`bpy.types.UILayout.prop_decorator`
 * :class:`bpy.types.UILayout.template_constraint_header`
 * :class:`bpy.types.UILayout.template_constraints`
-* :class:`bpy.types.UILayout.template_grease_pencil_modifiers`
 * :class:`bpy.types.UILayout.template_modifiers`
 
 Removed
 ^^^^^^^
 
 * **template_constraint**
-* **template_greasepencil_modifier**
 * **template_modifier**
 
 Function Arguments
@@ -584,7 +516,6 @@ Function Arguments
 
 * :class:`bpy.types.UILayout.column` (align, heading, heading_ctxt, translate), *was (align)*
 * :class:`bpy.types.UILayout.row` (align, heading, heading_ctxt, translate), *was (align)*
-* :class:`bpy.types.UILayout.template_shaderfx` (), *was (data)*
 
 bpy.types.View3DOverlay
 -----------------------
@@ -594,7 +525,6 @@ Added
 
 * :class:`bpy.types.View3DOverlay.display_handle`
 * :class:`bpy.types.View3DOverlay.show_stats`
-* :class:`bpy.types.View3DOverlay.use_gpencil_canvas_xray`
 
 Removed
 ^^^^^^^

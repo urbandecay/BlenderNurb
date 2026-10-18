@@ -430,16 +430,6 @@ msgstr "შრიფტი"
 
 
 msgctxt "ID"
-msgid "Grease Pencil"
-msgstr "გრიზ ფენსილი"
-
-
-msgctxt "ID"
-msgid "Grease Pencil v3"
-msgstr "გრიზ ფენსილი v3"
-
-
-msgctxt "ID"
 msgid "Image"
 msgstr "გამოსახულება"
 
@@ -1284,10 +1274,6 @@ msgid "Motion path points will be baked into the camera space of the active came
 msgstr "მოძრაობის ტრაექტორიის წერტილები აქტიური კამერის სივრცეში ჩაცხვება. ეს ნიშნავს, რომ ისინი მხოლოდ ამ კამერიდან გამოჩნდება სწორად. მარკერების მეშვეობით კამერების შეცვლას მხარდაჭერა არ აქვს."
 
 
-msgid "Annotation Frame"
-msgstr "ანოტაციის ჩარჩო"
-
-
 msgid "Collection of related sketches on a particular frame"
 msgstr "კონკრეტულ კადრზე ურთიერთკავშირში მყოფი ჩანახატების კოლექცია"
 
@@ -1312,18 +1298,6 @@ msgid "Freehand curves defining the sketch on this frame"
 msgstr "თავისუფალი მოსმის წირები, რომლებიც განსაზღვრავენ ჩანახატს ამ კადრში"
 
 
-msgid "Annotation Frames"
-msgstr "ანოტაციის ჩარჩოები"
-
-
-msgid "Collection of annotation frames"
-msgstr "ანოტაციის ჩარჩოების კოლექცია"
-
-
-msgid "Annotation Layer"
-msgstr "ანოტაციის შრე"
-
-
 msgid "Collection of related sketches"
 msgstr "ურთიერთდაკავშირებული ჩანახატების კოლექცია"
 
@@ -1338,10 +1312,6 @@ msgstr "ამ შრისთვის ამჟამად ასახულ
 
 msgid "Hide"
 msgstr "დამალვა"
-
-
-msgid "Set annotation Visibility"
-msgstr "დააყენე ანოტაციის ხილულობა"
 
 
 msgid "After Color"
@@ -1386,10 +1356,6 @@ msgstr "გამოიყენე კალკირებისთვის �
 
 msgid "Opacity"
 msgstr "გაუმჭვირვალობა"
-
-
-msgid "Annotation Layer Opacity"
-msgstr "ანოტაციის ფენის გაუმჭვირვალობა"
 
 
 msgid "Color for all strokes in this layer"
@@ -1452,48 +1418,20 @@ msgid "Thickness"
 msgstr "სისქე"
 
 
-msgid "Thickness of annotation strokes"
-msgstr "ანოტაციის მონასმების სისქე"
-
-
 msgid "Onion Skinning"
 msgstr "კალკირება"
-
-
-msgid "Display annotation onion skins before and after the current frame"
-msgstr "ასახე კალკირებული გამოსახულებები მიმდინარე კადრის წინ და შემდეგ"
-
-
-msgid "Annotation Layers"
-msgstr "ანოტაციის შრეები"
-
-
-msgid "Collection of annotation layers"
-msgstr "ანოტაციის შრეების კოლექცია"
 
 
 msgid "Active Layer Index"
 msgstr "აქტიური შრის ინდექსი"
 
 
-msgid "Index of active annotation layer"
-msgstr "აქტიური ანოტაციის შრის ინდექსი"
-
-
 msgid "Active Note"
 msgstr "აქტიური შენიშვნა"
 
 
-msgid "Note/Layer to add annotation strokes to"
-msgstr "შენიშვნა/შრე, რომელზეც უნდა დაემატოს ანოტაციის მონასმები"
-
-
 msgid "Default"
 msgstr "ნაგულისხმები"
-
-
-msgid "Annotation Stroke"
-msgstr "ანოტაციის მონასმი"
 
 
 msgid "Freehand curve defining part of a sketch"
@@ -1540,32 +1478,12 @@ msgid "Stroke data points"
 msgstr "მონასმის მონაცემთა წერტილები"
 
 
-msgid "Annotation Stroke Point"
-msgstr "ანოტაციის მონასმის წერტილი"
-
-
 msgid "Data point for freehand stroke curve"
 msgstr "მონაცემთა წერტილი თავისუფალი მონასმის წირისთვის"
 
 
 msgid "Coordinates"
 msgstr "კოორდინატები"
-
-
-msgid "Annotation Stroke Points"
-msgstr "ანოტაციის მონასმის წერტილები"
-
-
-msgid "Collection of annotation stroke points"
-msgstr "ანოტაციის მონასმების წერტილთა კოლექცია"
-
-
-msgid "Annotation Strokes"
-msgstr "ანოტაციის მონასმები"
-
-
-msgid "Collection of annotation strokes"
-msgstr "ანოტაციის მონასმების კოლექცია"
 
 
 msgid "Any Type"
@@ -2193,14 +2111,6 @@ msgid "Show Action data-blocks"
 msgstr "აჩვენე ქმედების მონაცემთა ბლოკები"
 
 
-msgid "Annotations"
-msgstr "ანოტაციები"
-
-
-msgid "Show Annotation data-blocks"
-msgstr "აჩვენე ანოტაციის მონაცემთა ბლოკები"
-
-
 msgid "Armatures"
 msgstr "არმატურები"
 
@@ -2255,14 +2165,6 @@ msgstr "შრიფტები"
 
 msgid "Show Font data-blocks"
 msgstr "აჩვენე შრიფტის მონაცემთა ბლოკები"
-
-
-msgid "Grease Pencil"
-msgstr "გრიზ ფენსილი"
-
-
-msgid "Show Grease Pencil data-blocks"
-msgstr "აჩვენე გრიზ ფენსილის მონაცემთა ბლოკები"
 
 
 msgid "Collections"
@@ -2695,10 +2597,6 @@ msgstr "ატრიბუტი ინსტანციაზე"
 
 msgid "Layer"
 msgstr "შრე"
-
-
-msgid "Attribute on Grease Pencil layer"
-msgstr "ატრიბუტი გრიზ ფენსილის შრეზე"
 
 
 msgid "Is Internal"
@@ -3428,14 +3326,6 @@ msgid "Read-only list of all IDs listed in Blender data-base"
 msgstr "ბლენდერის მონაცემთა ჩამოთვლილი ყველა ID-ს არარედაქტირებადი სია"
 
 
-msgid "Annotation"
-msgstr "ანოტაცია"
-
-
-msgid "Annotation data-blocks (legacy Grease Pencil)"
-msgstr "ანოტაციის მონაცემთა ბლოკები (ძველებური გრიზ ფენსილი)"
-
-
 msgid "Armature data-blocks"
 msgstr "არმატურების მონაცემთა ბლოკები"
 
@@ -3482,10 +3372,6 @@ msgstr "ვექტორული შრიფტები"
 
 msgid "Vector font data-blocks"
 msgstr "ვექტორული შრიფტების მონაცემთა ბლოკები"
-
-
-msgid "Grease Pencil data-blocks"
-msgstr "გრიზ ფენსილის მონაცემთა ბლოკები"
 
 
 msgid "Hair curve data-blocks"
@@ -3672,14 +3558,6 @@ msgid "Collection of actions"
 msgstr "ქმედებების კოლექცია"
 
 
-msgid "Main Annotations"
-msgstr "მთავარი ანოტაციები"
-
-
-msgid "Collection of annotations"
-msgstr "ანოტაციების კოლექცია"
-
-
 msgid "Main Armatures"
 msgstr "მთავარი არმატურები"
 
@@ -3734,14 +3612,6 @@ msgstr "მთავარი შრიფტები"
 
 msgid "Collection of fonts"
 msgstr "შრიფტების კოლექცია"
-
-
-msgid "Main Grease Pencils"
-msgstr "მთავარი გრიზ ფენსილები"
-
-
-msgid "Collection of Grease Pencils"
-msgstr "გრიზ ფენსილების კოლექცია"
 
 
 msgid "Main Hair Curves"
@@ -5723,14 +5593,6 @@ msgid "Grow or shrink curves by changing their size uniformly instead of using t
 msgstr "წირების გაზრდა, ან შეკუმშვა მათი ზომების თანაბრად შეცვლით, მოკრეჭისა და ექსტრაპოლაციის გამოყენების ნაცვლად"
 
 
-msgid "Grease Pencil Brush Settings"
-msgstr "გრიზ ფენსილის ფუნჯის ანაწყობები"
-
-
-msgid "Settings for Grease Pencil brush"
-msgstr "ანაწყობები გრიზ ფენსილის ფუნჯისათვის"
-
-
 msgid "Active Smooth"
 msgstr "აქტიური დაგლუვება"
 
@@ -5787,23 +5649,8 @@ msgid "Use always Vertex Color mode"
 msgstr "მუდამ წვეროს ფერის რეჟიმის გამოყენება"
 
 
-msgctxt "GPencil"
-msgid "Caps Type"
-msgstr "ხუფების ტიპი"
-
-
 msgid "The shape of the start and end of the stroke"
 msgstr "მონასმის თავ-ბოლოს ფორმა"
-
-
-msgctxt "GPencil"
-msgid "Round"
-msgstr "მრგვალი"
-
-
-msgctxt "GPencil"
-msgid "Flat"
-msgstr "ბრტყელი"
 
 
 msgid "Threshold"
@@ -5883,36 +5730,16 @@ msgid "Number of pixels to expand or contract fill area"
 msgstr "შესავსები არეს განვრცობის, ან შეკუმშვის ოდენობა პიქსელებში"
 
 
-msgctxt "GPencil"
-msgid "Mode"
-msgstr "რეჟიმი"
-
-
 msgid "Eraser Mode"
 msgstr "საშლელის რეჟიმი"
-
-
-msgctxt "GPencil"
-msgid "Dissolve"
-msgstr "გაქრობა"
 
 
 msgid "Erase strokes, fading their points strength and thickness"
 msgstr "მონასმების წაშლა, მათი წერტილების სიძლიერისა და სისქის მინავლებით"
 
 
-msgctxt "GPencil"
-msgid "Point"
-msgstr "წერტილი"
-
-
 msgid "Erase stroke points"
 msgstr "მონასმის წერტილების წაშლა"
-
-
-msgctxt "GPencil"
-msgid "Stroke"
-msgstr "მონასმი"
 
 
 msgid "Erase entire strokes"
@@ -5994,27 +5821,12 @@ msgid "Use edit lines as fill boundary limits"
 msgstr "მარედაქტირებელი ხაზების გამოყენება შევსების ზღუდეებად"
 
 
-msgctxt "GPencil"
-msgid "Closure Mode"
-msgstr "ჩაკეტვის რეჟიმი"
-
-
 msgid "Types of stroke extensions used for closing gaps"
 msgstr "ნაპრალების შესავსებად გამოყენებული მონასმის განვრცობის ტიპები"
 
 
-msgctxt "GPencil"
-msgid "Extend"
-msgstr "განვრცობა"
-
-
 msgid "Extend strokes in straight lines"
 msgstr "მონასმების განვრცობა სწორ ხაზებად"
-
-
-msgctxt "GPencil"
-msgid "Radius"
-msgstr "რადიუსი"
 
 
 msgid "Connect endpoints that are close together"
@@ -6183,11 +5995,6 @@ msgid "Number of times to smooth newly created strokes"
 msgstr "რამდენჯერ უნდა დაგლუვდეს ახლად შექმნილი მონასმები"
 
 
-msgctxt "GPencil"
-msgid "Strength"
-msgstr "სიძლიერე"
-
-
 msgid "Color strength for new strokes (affect alpha factor of color)"
 msgstr "ფერის სიძლიერე ახალი მონასმებისთვის (ზემოქმედება ფერის ალფა კოეფიციენტზე)"
 
@@ -6284,23 +6091,8 @@ msgid "Threshold in screen space used for the simplify algorithm. Points within 
 msgstr "გამარტივების ალგორითმისთვის გამოყენებული მიჯნა ეკრანის სივრცეში. ამ ფარგლებში მდებარე წერტილები იღებენ ისეთ მოპყრობას, თითქოს სწორ ხაზზე არიან ჩამწკრივებულები."
 
 
-msgctxt "GPencil"
-msgid "Stroke Mode"
-msgstr "მონასმის რეჟიმი"
-
-
 msgid "Mode to use when creating strokes"
 msgstr "მონასმების შექმნისას გამოსაყენებლი რეჟიმი"
-
-
-msgctxt "GPencil"
-msgid "Fill"
-msgstr "შევსება"
-
-
-msgctxt "GPencil"
-msgid "Both"
-msgstr "ორივე"
 
 
 msgid "Active Layer"
@@ -11983,14 +11775,6 @@ msgstr "შინაარსის აკეცვა"
 
 msgid "Collapse summary when shown, so all other channels get hidden (Dope Sheet editors only)"
 msgstr "ჩვენებისას აკეცე შინაარსი, რათა ყველა სხვა არხი დაიმალოს (მხოლოდ საექსპოზიციო ფურცლის რედაქტორებისთვის)"
-
-
-msgid "Display Grease Pencil"
-msgstr "გრიზ ფენსილის ასახვა"
-
-
-msgid "Include visualization of Grease Pencil related animation data and frames"
-msgstr "მოიცავი გრიზ ფენსილთან დაკავშირებული ანიმაციის მონაცემებისა და კადრების ვიზუალიზაცია"
 
 
 msgid "Display Hair"
@@ -17887,24 +17671,8 @@ msgid "Keep the computed view map and avoid recalculating it if mesh geometry is
 msgstr "დაიტოვე გამოთვლილი ხედის რუკა და ერიდე ხელახლა გამოთვლას, თუ მეშის გეომეტრია უცვლელია"
 
 
-msgid "Grease Pencil Interpolate Settings"
-msgstr "გრიზ ფენსილის ინტერპოლაციის ანაწყობები"
-
-
-msgid "Settings for Grease Pencil interpolation tools"
-msgstr "ანაწყობები გრიზ ფენსილის ინტერპოლაციის ხელსაწყოებისათვის"
-
-
 msgid "Interpolation Curve"
 msgstr "ინტერპოლაციის წირი"
-
-
-msgid "Custom curve to control 'sequence' interpolation between Grease Pencil frames"
-msgstr "მორგებული წირი გრიზ ფენსილის კადრთა შორის 'თანამიმდევრობის' ინტერპოლაციის კონტროლისთვის"
-
-
-msgid "Grease Pencil Sculpt Guide"
-msgstr "გრიზ ფენსილის ძერწვის მიმმართველი"
 
 
 msgid "Guides for drawing"
@@ -18007,14 +17775,6 @@ msgid "Enable snapping to guides angle or spacing options"
 msgstr "ჩართე მიმმართველებზე მიკვრის კუთხის, ან დაშორების ვარიანტები"
 
 
-msgid "GPencil Sculpt Settings"
-msgstr "ჯი-ფენსილის ძერწვის ანაწყობები"
-
-
-msgid "General properties for Grease Pencil stroke sculpting tools"
-msgstr "ზოგადი თვისებები გრიზ ფენსილის მონასმის საძერწი ხელსაწყოებისათვის"
-
-
 msgid "Threshold for stroke intersections"
 msgstr "მიჯნა მონასმების გადაკვეთისათვის"
 
@@ -18053,10 +17813,6 @@ msgstr "დააპროეცირე მონასმები Z-ში �
 
 msgid "Align strokes to current 3D cursor orientation"
 msgstr "გაუსწორე მონასმები 3D კურსორის მიმდინარე ორიენტაციას"
-
-
-msgid "Custom curve to control falloff of brush effect by Grease Pencil frames"
-msgstr "მორგებული წირი ფუნჯის ეფექტის მილევის გასაკონტროლებლად გრიზ ფენსილის კადრების მიერ"
 
 
 msgid "Custom curve to control primitive thickness"
@@ -18545,14 +18301,6 @@ msgid "Enable cyclic on individual stroke dashes"
 msgstr "ჩართე ციკლურობა მონასმის ინდივიდუალურ შტრიხებზე"
 
 
-msgid "Grease Pencil Drawing"
-msgstr "გრიზ ფენსილის ნახატი"
-
-
-msgid "A Grease Pencil drawing"
-msgstr "გრიზ ფენსილის ნახატი"
-
-
 msgid "Attributes"
 msgstr "ატრიბუტები"
 
@@ -18597,75 +18345,32 @@ msgid "The number of keyframes this drawing is used by"
 msgstr "რამდენი საკვანძო ფაზა იყენებს ამ ნახატს"
 
 
-msgid "Grease Pencil Frame"
-msgstr "გრიზ ფენსილის კადრი"
-
-
-msgid "A Grease Pencil keyframe"
-msgstr "გრიზ ფენსილის საკვანძო ფაზა"
-
-
 msgid "The frame number in the scene"
 msgstr "კადრის ნომერი სცენაში"
-
-
-msgctxt "GPencil"
-msgid "Keyframe Type"
-msgstr "საკვანძო ფაზის ტიპი"
 
 
 msgid "Type of keyframe"
 msgstr "საკვანძო ფაზის ტიპი"
 
 
-msgctxt "GPencil"
-msgid "Keyframe"
-msgstr "საკვანძო ფაზა"
-
-
 msgid "Normal keyframe, e.g. for key poses"
 msgstr "ნორმალური საკვანძო ფაზა, მაგ.: საკვანძო პოზებისთვის"
-
-
-msgctxt "GPencil"
-msgid "Breakdown"
-msgstr "შუალა"
 
 
 msgid "A breakdown pose, e.g. for transitions between key poses"
 msgstr "შუალა პოზა, მაგ.: საკვანძო პოზებს შორის გარდასვლისთვის"
 
 
-msgctxt "GPencil"
-msgid "Moving Hold"
-msgstr "მოძრაობის დაკავება"
-
-
 msgid "A keyframe that is part of a moving hold"
 msgstr "საკვანძო ფაზა, რომელიც მოძრაობის დაკავებაში შედის"
-
-
-msgctxt "GPencil"
-msgid "Extreme"
-msgstr "უკიდურესი"
 
 
 msgid "An 'extreme' pose, or some other purpose as needed"
 msgstr "'უკიდურესი' პოზა, ანდა, საჭიროებისამებრ, რაიმე სხვა დანიშნულება"
 
 
-msgctxt "GPencil"
-msgid "Jitter"
-msgstr "რყევა"
-
-
 msgid "A filler or baked keyframe for keying on ones, or some other purpose as needed"
 msgstr "შემავსებელი, ან გამოცხობილი საკვანძო ფაზა ყოველ პირველზე ჩასოლვისთვის, ან საჭიროებისამებრ რაიმე დანიშნულებისთვის"
-
-
-msgctxt "GPencil"
-msgid "Generated"
-msgstr "წარმოქმნილი"
 
 
 msgid "A key generated automatically by a tool, not manually created"
@@ -18674,18 +18379,6 @@ msgstr "ხელსაწყოს მიერ ავტომატურა�
 
 msgid "Frame Selection in the Dope Sheet"
 msgstr "კადრის მონიშვნა საექსპოზიციო ფურცელში"
-
-
-msgid "Grease Pencil Frames"
-msgstr "გრიზ ფენსილის კადრები"
-
-
-msgid "Collection of Grease Pencil frames"
-msgstr "გრიზ ფენსილის კადრების კოლექცია"
-
-
-msgid "Grease Pencil Masking Layers"
-msgstr "გრიზ ფენსილის შენიღბვის შრეები"
 
 
 msgid "List of Mask Layers"
@@ -18702,14 +18395,6 @@ msgstr "ნიღბის შებრუნება"
 
 msgid "Mask layer name"
 msgstr "ნიღბის შრის სახელი"
-
-
-msgid "Grease Pencil Mask Layers"
-msgstr "გრიზ ფენსილის ნიღბის შრეები"
-
-
-msgid "Collection of Grease Pencil masking layers"
-msgstr "გრიზ ფენსილის შენიღბვის შრეთა კოლექცია"
 
 
 msgid "Active Layer Mask Index"
@@ -18772,10 +18457,6 @@ msgid "Tree Node"
 msgstr "ხის კვანძი"
 
 
-msgid "Grease Pencil node in the layer tree. Either a layer or a group"
-msgstr "გრიზ ფენსილის კვანძი შრეების ხეში. შრე, ან ჯგუფი"
-
-
 msgid "Channel Color"
 msgstr "არხის ფერი"
 
@@ -18836,10 +18517,6 @@ msgid "Display onion skins before and after the current frame"
 msgstr "ასახე კალკირებული გამოსახულებები მიმდინარე კადრის წინ და შემდეგ"
 
 
-msgid "Grease Pencil Layer"
-msgstr "გრიზ ფენსილის შრე"
-
-
 msgid "Collection of related drawings"
 msgstr "დაკავშირებული ნახატების კოლექცია"
 
@@ -18858,10 +18535,6 @@ msgstr "მაგარი შუქი"
 
 msgid "Divide"
 msgstr "გაყოფა"
-
-
-msgid "Grease Pencil frames"
-msgstr "გრიზ ფენსილის კადრები"
 
 
 msgid "Ignore Material Locking"
@@ -18980,14 +18653,6 @@ msgid "Only include Layer in this View Layer render output (leave blank to inclu
 msgstr "მოიცავი შრე მხოლოდ ამ ხედის შრის რენდერის შედეგში (ყოველთვის ჩასათვლელად ცარიელი დატოვე)"
 
 
-msgid "Grease Pencil Layer Group"
-msgstr "გრიზ ფენსილის შრეთა ჯგუფი"
-
-
-msgid "Group of Grease Pencil layers"
-msgstr "გრიზ ფენსილის შრეთა ჯგუფი"
-
-
 msgid "The direct children of this layer group. Ordered by stack order, meaning the first child is the bottom most child in the layer tree."
 msgstr "შრეთა ამ ჯგუფის პირდაპირი შვილობილები. დაწყობილია დალაგების თანმიმდევრობის მიხედვით, ანუ პირველი შვილობილი შრეთა ხეში ქვემოდან პირველია."
 
@@ -19032,28 +18697,8 @@ msgid "The layer group is expanded in the UI"
 msgstr "შრეთა ჯგუფი გაშლილია UI-ში"
 
 
-msgid "Grease Pencil Group"
-msgstr "გრიზ ფენსილის ჯგუფი"
-
-
-msgid "Collection of Grease Pencil layers"
-msgstr "გრიზ ფენსილის შრეთა კოლექცია"
-
-
 msgid "Active Layer Group"
 msgstr "შრეთა აქტიური ჯგუფი"
-
-
-msgid "Active Grease Pencil layer group"
-msgstr "გრიზ ფენსილის შრეთა აქტიური ჯგუფი"
-
-
-msgid "Grease Pencil Layers"
-msgstr "გრიზ ფენსილის შრეები"
-
-
-msgid "Active Grease Pencil layer"
-msgstr "გრიზ ფენსილის აქტიური შრე"
 
 
 msgid "Editor header containing UI elements"
@@ -19378,10 +19023,6 @@ msgstr "კადრთა მორგებული დიაპაზონ�
 
 msgid "Manually specify the intended playback frame range for the action (this range is used by some tools, but does not affect animation evaluation)"
 msgstr "ხელით დააყენე სასურველი დასაკრავ კადრთა დიაპაზონი ამ ქმედებისთვის (ეს დიაპაზონი გამოიყენება ზოგიერთი ხელსაწყოს მიერ, მაგრამ ზემოქმედება არ აქვს ანიმაციის შეფასებაზე)"
-
-
-msgid "Freehand annotation sketchbook"
-msgstr "თავისუფალი ანოტაციის ესკიზების რვეული"
 
 
 msgid "Animation data for this data-block"
@@ -20386,23 +20027,8 @@ msgid "The brush is of type used for tinting strokes"
 msgstr "ფუნჯი მონასმების შეფერვისთვის გამოყენებული ტიპისაა"
 
 
-msgctxt "GPencil"
-msgid "Brush Type"
-msgstr "ფუნჯის ტიპი"
-
-
-msgctxt "GPencil"
-msgid "Smooth"
-msgstr "დაგლუვება"
-
-
 msgid "Smooth stroke points"
 msgstr "მონასმის წერტილების დაგლუვება"
-
-
-msgctxt "GPencil"
-msgid "Thickness"
-msgstr "სისქე"
 
 
 msgid "Adjust thickness of strokes"
@@ -20413,62 +20039,28 @@ msgid "Adjust color strength of strokes"
 msgstr "მონასმების ფერის სიძლიერის დარეგულირება"
 
 
-msgctxt "GPencil"
-msgid "Randomize"
-msgstr "გაშემთხვევითება"
-
-
 msgid "Introduce jitter/randomness into strokes"
 msgstr "რყევის/შემთხვევითობის შემოტანა მონასმებში"
-
-
-msgctxt "GPencil"
-msgid "Grab"
-msgstr "ბღაუჭა"
 
 
 msgid "Translate the set of points initially within the brush circle"
 msgstr "წერტილების ნაკრების თავდაპირველი გადაადგილება ფუნჯის წრის ფარგლებში"
 
 
-msgctxt "GPencil"
-msgid "Push"
-msgstr "მიწოლა"
-
-
 msgid "Move points out of the way, as if combing them"
 msgstr "წერტილები გზიდან ჩამოიცილე, ვარცხნის მსგავსად"
-
-
-msgctxt "GPencil"
-msgid "Twist"
-msgstr "მოგრეხვა"
 
 
 msgid "Rotate points around the midpoint of the brush"
 msgstr "აბრუნე წერტილები ფუნჯის შუაგულის გარშემო"
 
 
-msgctxt "GPencil"
-msgid "Pinch"
-msgstr "ჩქმეტა"
-
-
 msgid "Pull points towards the midpoint of the brush"
 msgstr "მოქაჩე წერტილები ფუნჯის შუაგულისკენ"
 
 
-msgctxt "GPencil"
-msgid "Clone"
-msgstr "კლონირება"
-
-
 msgid "Paste copies of the strokes stored on the internal clipboard"
 msgstr "ჩასვი შიდა გაცვლის ბუფერში შენახული მონასმების ასლები"
-
-
-msgid "Gpencil Settings"
-msgstr "ჯი-ფენსილის ანაწყობები"
 
 
 msgid "Brush Type"
@@ -21163,68 +20755,28 @@ msgid "How powerful the effect of the brush is when applied"
 msgstr "რამდენად ძლიერია ფუნჯის ეფექტი გამოყენებისას"
 
 
-msgctxt "GPencil"
-msgid "Stroke Method"
-msgstr "მონასმის მეთოდი"
-
-
-msgctxt "GPencil"
-msgid "Dots"
-msgstr "წერტილები"
-
-
 msgid "Apply paint on each mouse move step"
 msgstr "გამოიყენე საღებავი თაგვის მოძრაობის ყოველ ნაბიჯზე"
-
-
-msgctxt "GPencil"
-msgid "Drag Dot"
-msgstr "გასათრევი წერტილი"
 
 
 msgid "Allows a single dot to be carefully positioned"
 msgstr "იძლევა ცალი წერტილის ფრთხილად განთავსების საშუალებას"
 
 
-msgctxt "GPencil"
-msgid "Space"
-msgstr "გამოტოვება"
-
-
 msgid "Limit brush application to the distance specified by spacing"
 msgstr "შეზღუდე ფუნჯის გამოყენება დაშორების მიერ განსაზღვრული მანძილით"
-
-
-msgctxt "GPencil"
-msgid "Airbrush"
-msgstr "აეროგრაფი"
 
 
 msgid "Keep applying paint effect while holding mouse (spray)"
 msgstr "სანამ თაგვი დაჭერილია, განაგრძე საღებავის დადების ეფექტის გამოყენება (შესხურება)"
 
 
-msgctxt "GPencil"
-msgid "Anchored"
-msgstr "ჩამაგრებული"
-
-
 msgid "Keep the brush anchored to the initial location"
 msgstr "შეინარჩუნე ფუნჯის დამაგრება თავდაპირველ მდებარეობაზე"
 
 
-msgctxt "GPencil"
-msgid "Line"
-msgstr "მწკრივი"
-
-
 msgid "Draw a line with dabs separated according to spacing"
 msgstr "დახატე ხაზი დაშორების მიხედვით დაცალკევებული მოსმებით"
-
-
-msgctxt "GPencil"
-msgid "Curve"
-msgstr "წირი"
 
 
 msgid "Define the stroke curve with a Bézier curve (dabs are separated according to spacing)"
@@ -21515,10 +21067,6 @@ msgid "Use Paint"
 msgstr "ხატვის გამოყენება"
 
 
-msgid "Use this brush in Grease Pencil drawing mode"
-msgstr "გამოიყენე ეს ფუნჯი გრიზ ფენსილის ხატვის რეჟიმში"
-
-
 msgid "Use this brush in texture paint mode"
 msgstr "გამოიყენე ეს ფუნჯი ტექსტურების ხატვის რეჟიმში"
 
@@ -21681,10 +21229,6 @@ msgstr "სიძლიერის რეგულირება დაშო�
 
 msgid "Automatically adjust strength to give consistent results for different spacings"
 msgstr "ავტომატურად დაარეგულირე სიძლიერე, რათა სხვადასხვა დაშორებებისთვის თანამიმდევრული შედეგები მიიღო"
-
-
-msgid "Use this brush in Grease Pencil vertex color mode"
-msgstr "გამოიყენე ეს ფუნჯი გრიზ ფენსილის წვეროს ფერის რეჟიმში"
 
 
 msgid "Use Pressure for Wet Mix"
@@ -22490,10 +22034,6 @@ msgid "Usage"
 msgstr "გამოყენება"
 
 
-msgid "How to use this collection in Line Art calculation"
-msgstr "როგორ გამოიყენებოდეს ეს ობიექტი ლაინ არტის გამოანგარიშებისთვის"
-
-
 msgid "Generate feature lines for this collection"
 msgstr "ნაკვთური ხაზების წარმოქმნა ამ კოლექციისთვის"
 
@@ -22504,10 +22044,6 @@ msgstr "მხოლოდ წინაღობა"
 
 msgid "Only use the collection to produce occlusion"
 msgstr "გამოიყენე კოლექცია მხოლოდ წინაღობის წარმოსაქმნელად"
-
-
-msgid "Don't use this collection in Line Art"
-msgstr "არ გამოიყენო ეს კოლექცია ლაინ არტში"
 
 
 msgid "Intersection Only"
@@ -23850,10 +23386,6 @@ msgid "Enable or disable textured strokes"
 msgstr "ჩართე, ან გათიშე ტექსტურირებული მონასმები"
 
 
-msgid "Grease Pencil data-block"
-msgstr "გრიზ ფენსილის მონაცემთა ბლოკი"
-
-
 msgid "Maximum number of frames to show after current frame (0 = don't show any frames after current)"
 msgstr "მიმდინარე კადრის შემდეგ საჩვენებელი კადრების მაქსიმალური რიცხვი (0 = არ აჩვენო არცერთი კადრი მიმდინარეს შემდეგ)"
 
@@ -23866,14 +23398,6 @@ msgid "Layer Groups"
 msgstr "შრეთა ჯგუფები"
 
 
-msgid "Grease Pencil layer groups"
-msgstr "გრიზ ფენსილის შრეთა ჯგუფები"
-
-
-msgid "Grease Pencil layers"
-msgstr "გრიზ ფენსილის შრეები"
-
-
 msgid "Onion Opacity"
 msgstr "კალკის გაუმჭვირვალობა"
 
@@ -23882,18 +23406,8 @@ msgid "Change fade opacity of displayed onion frames"
 msgstr "შეცვალე ქრობის გაუმჭვირვალობა ასახულ კალკის კადრებზე"
 
 
-msgctxt "GPencil"
-msgid "Filter by Type"
-msgstr "გაფილტრვა ტიპის მიხედვით"
-
-
 msgid "Type of keyframe (for filtering)"
 msgstr "საკვანძო ფაზის ტიპი (გაფილტრვისთვის)"
-
-
-msgctxt "GPencil"
-msgid "All"
-msgstr "ყველა"
 
 
 msgid "Include all Keyframe types"
@@ -23906,10 +23420,6 @@ msgstr "რეჟიმი კადრების ასახვისთვ�
 
 msgid "Frames in absolute range of the scene frame"
 msgstr "კადრები სცენის კადრის აბსოლუტურ დიაპაზონში"
-
-
-msgid "Frames in relative range of the Grease Pencil keyframes"
-msgstr "კადრები გრიზ ფენსილის საკვანძო ფაზების შეფარდებით დიაპაზონში"
 
 
 msgid "Selected"
@@ -23938,10 +23448,6 @@ msgstr "განსაზღვრავს, თუ რა თანმიმ�
 
 msgid "2D Layers"
 msgstr "2D შრეები"
-
-
-msgid "Display strokes using Grease Pencil layer order and stroke order to define depth"
-msgstr "ასახე მონასმები სიღრმის განსასაზღვრად გრიზ ფენსილის შრეებისა და მონასმების თანმიმდევრობების გამოყენებით"
 
 
 msgid "3D Location"
@@ -25441,22 +24947,6 @@ msgid "Combination of true displacement and bump mapping for finer detail"
 msgstr "ნამდვილი გადანაცვლებისა და ამობურცულობის დატანის კომბინაცია უფრო წვრილმანი დეტალების მისაღებად"
 
 
-msgid "Grease Pencil Settings"
-msgstr "გრიზ ფენსილის ანაწყობები"
-
-
-msgid "Grease Pencil color settings for material"
-msgstr "გრიზ ფენსილის ფერის ანაწყობები მასალისთვის"
-
-
-msgid "Is Grease Pencil"
-msgstr "თუა გრიზ ფენსილი"
-
-
-msgid "True if this material has Grease Pencil data"
-msgstr "ჭეშმარიტია, თუ ამ მასალას გააჩნია გრიზ ფენსილის მონაცემები"
-
-
 msgid "Line Color"
 msgstr "ხაზის ფერი"
 
@@ -25471,14 +24961,6 @@ msgstr "ხაზის პრიორიტეტულობა"
 
 msgid "The line color of a higher priority is used at material boundaries"
 msgstr "მასალების საზღვრებთან გამოიყენება ხაზის შედარებით მაღალი პრიორიტეტის ფერი"
-
-
-msgid "Line Art Settings"
-msgstr "ლაინ არტის ანაწყობები"
-
-
-msgid "Line Art settings for material"
-msgstr "ლაინ არტის ანაწყობები მასალისთვის"
 
 
 msgid "Max Vertex Displacement"
@@ -26141,10 +25623,6 @@ msgid "MovieClip data-block referencing an external movie file"
 msgstr "ვიდეო კლიპის მონაცემთა ბლოკი, რომელიც გარეგან ვიდეო ფაილზე მიუთითებს"
 
 
-msgid "Annotation data for this movie clip"
-msgstr "ანოტაციის მონაცემები ამ ვიდეო კლიპისთვის"
-
-
 msgid "Display Aspect for this clip, does not affect rendering"
 msgstr "ასახვის პროპორცია ამ კლიპისთვის, რენდერზე ზემოქმედება არა აქვს"
 
@@ -26203,10 +25681,6 @@ msgstr "შექმენი პროქსი გამოსახულე�
 
 msgid "Node tree consisting of linked nodes used for shading, textures and compositing"
 msgstr "კვანძოვანი ხე, რომელიც შედგება შეფერადებისთვის, ტექსტურებისა და კომპოზიტირებისთვის გამოყენებული ურთიერთდაკავშირებული კვანძებისგან"
-
-
-msgid "Annotation data"
-msgstr "ანოტაციის მონაცემები"
 
 
 msgid "The node tree label"
@@ -26403,10 +25877,6 @@ msgstr "კვანძთა ჯგუფი გამოიყენება 
 
 msgid "The node group is used for curves"
 msgstr "კვანძთა ჯგუფი გამოიყენება წირებისთვის"
-
-
-msgid "The node group is used for Grease Pencil"
-msgstr "კვანძთა ჯგუფი გამოიყენება გრიზ ფენსილისთვის"
 
 
 msgid "Mesh"
@@ -26869,14 +26339,6 @@ msgid "Lightgroup that the object belongs to"
 msgstr "სინათლეთა ჯგუფი, რომელსაც ობიექტი მიეკუთვნება"
 
 
-msgid "Line Art"
-msgstr "ლაინ არტი"
-
-
-msgid "Line Art settings for the object"
-msgstr "ლაინ არტის ანაწყობები ობიექტისთვის"
-
-
 msgid "Location of the object"
 msgstr "ობიექტის მდებარეობა"
 
@@ -26997,28 +26459,8 @@ msgid "Particle Edit"
 msgstr "ნაწილაკების რედაქტირება"
 
 
-msgid "Edit Grease Pencil Strokes"
-msgstr "გრიზ ფენსილის მონასმების რედაქტირება"
-
-
-msgid "Sculpt Grease Pencil Strokes"
-msgstr "გრიზ ფენსილის მონასმების ძერწვა"
-
-
 msgid "Draw Mode"
 msgstr "ხატვის რეჟიმი"
-
-
-msgid "Paint Grease Pencil Strokes"
-msgstr "გრიზ ფენსილის მონასმების ხატვა"
-
-
-msgid "Grease Pencil Weight Paint Strokes"
-msgstr "გრიზ ფენსილის წონის ხატვის მონასმები"
-
-
-msgid "Grease Pencil Vertex Paint Strokes"
-msgstr "გრიზ ფენსილის წვეროთა მოხატვის მონასმები"
 
 
 msgid "Modifiers affecting the geometric data of the object"
@@ -27386,10 +26828,6 @@ msgstr "ალფას გამოყენება"
 
 msgid "Use alpha blending instead of alpha test (can produce sorting artifacts)"
 msgstr "გამოიყენე ალფა შეზავება ალფა ტესტის მაგივრად (შეიძლება დახარისხების არტეფაქტები წარმოშვას)"
-
-
-msgid "Lights affect Grease Pencil object"
-msgstr "სინათლეები ზემოქმედებს გრიზ ფენსილის ობიექტზე"
 
 
 msgid "Scale to Face Sizes"
@@ -28721,10 +28159,6 @@ msgid "Allows playing back frames before the playback start frame"
 msgstr "იძლევა დაკვრის დაწყების კადრამდე მდებარე კადრების დაკვრის საშუალებას"
 
 
-msgid "Data-block used for annotations in the 3D view"
-msgstr "3D ხედში ანოტაციებისთვის გამოყენებული მონაცემთა ბლოკი"
-
-
 msgid "Distance Model"
 msgstr "მანძილის მოდელი"
 
@@ -28911,10 +28345,6 @@ msgstr "თითოეული კადრის რენდერის/დ
 
 msgid "Constant acceleration in a given direction"
 msgstr "თანაბარი აჩქარება მოცემული მიმართულებით"
-
-
-msgid "Grease Pencil settings for the scene"
-msgstr "გრიზ ფენსილის ანაწყობები სცენისთვის"
 
 
 msgid "Hydra"
@@ -30926,26 +30356,6 @@ msgstr "UI-ში საჩვენებელი აქტივთა აქ
 
 msgid "Switch to this object mode when activating the workspace"
 msgstr "სამუშაო სივრცის აქტივაციისას გადადი ამ ობიექტის რეჟიმზე"
-
-
-msgid "Grease Pencil Edit Mode"
-msgstr "გრიზ ფენსილის რედაქტირების რეჟიმი"
-
-
-msgid "Grease Pencil Sculpt Mode"
-msgstr "გრიზ ფენსილის ძერწვის რეჟიმი"
-
-
-msgid "Grease Pencil Draw"
-msgstr "გრიზ ფენსილის ხატვა"
-
-
-msgid "Grease Pencil Vertex Paint"
-msgstr "გრიზ ფენსილის წვეროთა მოხატვა"
-
-
-msgid "Grease Pencil Weight Paint"
-msgstr "გრიზ ფენსილის წონის ხატვა"
 
 
 msgid "UI Tags"
@@ -35570,10 +34980,6 @@ msgid "Active point of masking layer"
 msgstr "შენიღბვის შრის აქტიური წერტილი"
 
 
-msgid "Grease Pencil Color"
-msgstr "გრიზ ფენსილის ფერი"
-
-
 msgid "Alignment"
 msgstr "გასწორება"
 
@@ -35610,36 +35016,16 @@ msgid "Color for filling region bounded by each stroke"
 msgstr "ფერი ყოველი მონასმით შემოსაზღვრული მონაკვეთის შევსებისათვის"
 
 
-msgctxt "GPencil"
-msgid "Fill Style"
-msgstr "შევსების სტილი"
-
-
 msgid "Select style used to fill strokes"
 msgstr "მონიშნე მონასმების შესავსებად გამოყენებული სტილი"
-
-
-msgctxt "GPencil"
-msgid "Solid"
-msgstr "მყარი"
 
 
 msgid "Fill area with solid color"
 msgstr "შეავსე არე მყარი ფერით"
 
 
-msgctxt "GPencil"
-msgid "Gradient"
-msgstr "გრადიენტი"
-
-
 msgid "Fill area with gradient color"
 msgstr "შეავსე არე ფერთა გრადიენტით"
-
-
-msgctxt "GPencil"
-msgid "Texture"
-msgstr "ტექსტურა"
 
 
 msgid "Fill area with image texture"
@@ -35704,11 +35090,6 @@ msgstr "ფერის შერევა"
 
 msgid "Color for mixing with primary filling color"
 msgstr "მთავარ ფერთან შესარევი ფერი"
-
-
-msgctxt "GPencil"
-msgid "Mix"
-msgstr "შერევა"
 
 
 msgid "Mix Factor"
@@ -35827,11 +35208,6 @@ msgid "Show stroke lines of this material"
 msgstr "აჩვენე ამ მასალის მონასმის ხაზები"
 
 
-msgctxt "GPencil"
-msgid "Stroke Style"
-msgstr "შტრიხის სტილი"
-
-
 msgid "Select style used to draw strokes"
 msgstr "აირჩიე მონასმების დასახატად გამოყენებული სტილი"
 
@@ -35878,10 +35254,6 @@ msgstr "გაშემთხვევითება"
 
 msgid "Use material randomization"
 msgstr "გამოიყენე მასალის გაშემთხვევითება"
-
-
-msgid "Material Line Art"
-msgstr "მასალის ლაინ არტი"
 
 
 msgid "Effectiveness"
@@ -37854,18 +37226,6 @@ msgid "Duplicate strokes into an array"
 msgstr "დაადუბლირე მონასმები მასივში"
 
 
-msgid "Grease Pencil build modifier"
-msgstr "გრიზ ფენსილის აგების მოდიფიკატორი"
-
-
-msgid "Grease Pencil length modifier"
-msgstr "გრიზ ფენსილის სიგრძის მოდიფიკატორი"
-
-
-msgid "Generate Line Art from scene geometries"
-msgstr "წარმოქმენი ლაინ არტი სცენის გეომეტრიებისგან"
-
-
 msgid "Duplicate strokes like a mirror"
 msgstr "მონასმების სარკისებური გამეორება"
 
@@ -37884,10 +37244,6 @@ msgstr "მონასმის გამარტივება წერტ�
 
 msgid "Subdivide"
 msgstr "დაყოფა"
-
-
-msgid "Grease Pencil subdivide modifier"
-msgstr "გრიზ ფენსილის დაყოფის მოდიფიკატორი"
 
 
 msgid "Create an envelope shape"
@@ -38014,16 +37370,8 @@ msgid "Deform stroke points using objects"
 msgstr "მონასმის წერტილების დეფორმირება ობიექტების საშუალებით"
 
 
-msgid "Generate noise wobble in Grease Pencil strokes"
-msgstr "წარმოქმენი ხმაურის რხევა გრიზ ფენსილის მონასმებში"
-
-
 msgid "Change stroke location, rotation, or scale"
 msgstr "შეცვალე მონასმის მდებარეობა, ბრუნვა, ან მასშტაბი"
-
-
-msgid "Smooth Grease Pencil strokes"
-msgstr "გრიზ ფენსილის მონასმების დაგლუვება"
 
 
 msgid "Change stroke thickness"
@@ -39981,27 +39329,12 @@ msgid "How strokes are being built"
 msgstr "როგორ იწყობა მონასმები"
 
 
-msgctxt "GPencil"
-msgid "Sequential"
-msgstr "თანმიმდევრობითი"
-
-
 msgid "Strokes appear/disappear one after the other, but only a single one changes at a time"
 msgstr "მონასმები ჩნდება/ქრება ერთიმეორის მიყოლებით, მაგრამ სათითაოდ იცვლება"
 
 
-msgctxt "GPencil"
-msgid "Concurrent"
-msgstr "თანადროული"
-
-
 msgid "Multiple strokes appear/disappear at once"
 msgstr "რამდენიმე მონასმი ერთდროულად ჩნდება/ქრება"
-
-
-msgctxt "GPencil"
-msgid "Additive"
-msgstr "შეკრებითი"
 
 
 msgid "Builds only new strokes (assuming 'additive' drawing)"
@@ -40120,10 +39453,6 @@ msgid "Only modify strokes during the specified frame range"
 msgstr "მონასმების მოდიფიცირება მხოლოდ განსაზღვრულ კადრთა დიაპაზონში"
 
 
-msgid "Grease Pencil Color Modifier"
-msgstr "გრიზ ფენსილის ფერის მოდიფიკატორი"
-
-
 msgid "Attributes to modify"
 msgstr "დასამოდიფიცირებელი ატრიბუტები"
 
@@ -40168,10 +39497,6 @@ msgid "Color value factor"
 msgstr "ფერის მნიშვნელობის კოეფიციენტი"
 
 
-msgid "Grease Pencil Dash Modifier"
-msgstr "გრიზ ფენსილის შტრიხის მოდიფიკატორი"
-
-
 msgid "Create dot-dash effect for strokes"
 msgstr "წერტილ-ტირეს ეფექტის შექმნა მონასმისთვის"
 
@@ -40186,10 +39511,6 @@ msgstr "აქტიური ტირეს სეგმენტის ინ
 
 msgid "Active index in the segment list"
 msgstr "აქტიური ინდექსი სეგმენტების სიაში"
-
-
-msgid "Grease Pencil Envelope Modifier"
-msgstr "გრიზ ფენსილის გარსის მოდიფიკატორი"
 
 
 msgid "Envelope stroke effect modifier"
@@ -40297,10 +39618,6 @@ msgstr "ერთგვაროვანი მილევა"
 
 msgid "Compensate for non-uniform object scale"
 msgstr "კომპენსაცია ობიექტის არაერთგვაროვანი მასშტავისთვის"
-
-
-msgid "Grease Pencil Lattice Modifier"
-msgstr "გრიზ ფენსილის გისოსების მოდიფიკატორი"
 
 
 msgid "Lattice object to deform with"
@@ -40439,14 +39756,6 @@ msgid "Use random values over time"
 msgstr "დროთა განმავლობაში შემთხვევითი მნიშვნელობების გამოყენება"
 
 
-msgid "Line Art Modifier"
-msgstr "ლაინ არტის მოდიფიკატორი"
-
-
-msgid "Generate Line Art strokes from selected source"
-msgstr "წარმოქმენი ლაინ არტის მონასმები მონიშნული წყაროსგან"
-
-
 msgid "Image Threshold"
 msgstr "გამოსახულების მიჯნა"
 
@@ -40457,10 +39766,6 @@ msgstr "სეგმენტები, რომლებსაც ამაზ
 
 msgid "Crease Threshold"
 msgstr "ნაკეცის მიჯნა"
-
-
-msgid "Angles smaller than this will be treated as creases. Crease angle priority: object Line Art crease override > mesh auto smooth angle > Line Art default crease."
-msgstr "ამაზე მცირე კუთხეები განიხილება ნაკეცებად. ნაკეცის კუთხის პრიორიტეტულობა: ობიექტის ლაინ არტის ნაკეცის უგულვებელყოფა > მეშის ავტოდაგლუვების კუთხე > ლაინ არტის ნაგულისხმები ნაკეცი."
 
 
 msgid "Fill Strokes"
@@ -40547,45 +39852,20 @@ msgid "Represents the \"Orthographic Scale\" of an orthographic camera. If the c
 msgstr "წარმოადგენს ორთოგრაფიული კამერის \"ორთოგრაფიულ მასშტაბს\". თუ კამერას უკავია პოზიცია სინათლის მდებარეობაზე ამ მასშტაბით, მაშინ ის წარმოადგენს ჩრდილის \"კამერის\" დაფარვას."
 
 
-msgctxt "GPencil"
-msgid "Shadow Region Filtering"
-msgstr "ჩრდილის მონაკვეთის ფილტრაცია"
-
-
 msgid "Select feature lines that comes from lit or shaded regions. Will not affect cast shadow and light contour since they are at the border."
 msgstr "მონიშვნა ხაზებისა, რომლებიც მომდინარეობს განათებული, ან მოჩრდილული მონაკვეთებიდან. არ იმოქმედებს დაცემულ ჩრდილსა და სინათლის კონტურზე, რადგან ისინი საზღვართანაა."
-
-
-msgctxt "GPencil"
-msgid "None"
-msgstr "არაფერი"
 
 
 msgid "Not filtering any lines based on illumination region"
 msgstr "განათების მონაკვეთზე დაფუძნებული ხაზები არ იფილტრება"
 
 
-msgctxt "GPencil"
-msgid "Illuminated"
-msgstr "განათებული"
-
-
 msgid "Only selecting lines from illuminated regions"
 msgstr "მხოლოდ განათებული მონაკვეთებიდან მომდინარე ხაზების მონიშვნა"
 
 
-msgctxt "GPencil"
-msgid "Shaded"
-msgstr "მოჩრდილული"
-
-
 msgid "Only selecting lines from shaded regions"
 msgstr "მხოლოდ მოჩრდილული მონაკვეთებიდან მომდინარე ხაზების მონიშვნა"
-
-
-msgctxt "GPencil"
-msgid "Illuminated (Enclosed Shapes)"
-msgstr "განათებული (დახურული ფორმები)"
 
 
 msgid "Selecting lines from lit regions, and make the combination of contour, light contour and shadow lines into enclosed shapes"
@@ -40616,10 +39896,6 @@ msgid "Camera Object"
 msgstr "კამერის ობიექტი"
 
 
-msgid "Use specified camera object for generating Line Art strokes"
-msgstr "ლაინ არტის მონასმების წარმოსაქმნელად გამოიყენე მითითებული კამერის ობიექტი"
-
-
 msgid "Generate strokes from the objects in this collection"
 msgstr "მონასმების წარმოქმნა ამ კოლექციის ობიექტებისგან"
 
@@ -40630,10 +39906,6 @@ msgstr "მონასმების წარმოქმნა ამ ობ
 
 msgid "Source Type"
 msgstr "წყაროს ტიპი"
-
-
-msgid "Line Art stroke source type"
-msgstr "ლაინ არტის მონასმის წყაროს ტიპი"
 
 
 msgid "Source Vertex Group"
@@ -40660,24 +39932,12 @@ msgid "Move strokes slightly towards the camera to avoid clipping while preserve
 msgstr "მონასმების ოდნავ კამერისკენ გადაადგილება მოკვეცის თავიდან ასაცილებლად, სარკმლისთვის სიღრმის შენარჩუნებით"
 
 
-msgid "Grease Pencil layer to which assign the generated strokes"
-msgstr "გრიზ ფენსილის შრე, რომელსაც უნდა მიეკუთვნოს წარმოქმნილ მონასმებს"
-
-
-msgid "Grease Pencil material assigned to the generated strokes"
-msgstr "გრიზ ფენსილის მასალა მიკუთვნებული წარმოქმნილ მონასმებს"
-
-
 msgid "Back Face Culling"
 msgstr "უკუღმა წახნაგების გამოხშირვა"
 
 
 msgid "Remove all back faces to speed up calculation, this will create edges in different occlusion levels than when disabled"
 msgstr "ყველა უკუმხრის მოცილება გამოთვლის სისწრაფისთვის, ეს შექმნის კიდეებს წინაღობის სხვა დონეებში და არა ისე, როგორც მაშინ, როცა გათიშულია"
-
-
-msgid "Use cached scene data from the first Line Art modifier in the stack. Certain settings will be unavailable."
-msgstr "გამოიყენე ქეშირებული სცენის მონაცემები სტეკში პირველი ლაინ არტის მოდიფიკატორიდან. ზოგიერთი ანაწყობი მიუწვდომელი იქნება."
 
 
 msgid "Clipping Boundaries"
@@ -40820,10 +40080,6 @@ msgid "Generate strokes from intersections"
 msgstr "მონასმების წარმოქმნა გადაკვეთებისგან"
 
 
-msgid "Mask bits to match from Collection Line Art settings"
-msgstr "დასამთხვევი ნიღბის ნაწილები კოლექციის ლაინ არტის ანაწყობებიდან"
-
-
 msgid "Match Intersection"
 msgstr "გადაკვეთის დამთხვევა"
 
@@ -40888,10 +40144,6 @@ msgid "Generate strokes from borders between materials"
 msgstr "წარმოქმენი მონასმები მასალებს შორის არსებული საზღვრებისგან"
 
 
-msgid "Mask bits to match from Material Line Art settings"
-msgstr "დასამთხვევი ნიღბის ნაწილები მასალის ლაინ არტის ანაწყობებიდან"
-
-
 msgid "Match Masks"
 msgstr "ნიღბების დამთხვევა"
 
@@ -40910,10 +40162,6 @@ msgstr "წარმოქმენი მონასმები წინა�
 
 msgid "Instanced Objects"
 msgstr "ინსტანცირებული ობიექტები"
-
-
-msgid "Allow particle objects and face/vertex instances to show in Line Art"
-msgstr "ნება დართე ნაწილაკოვან ობიექტებსა და წახნაგების/წვეროების ინსტანციებს, გამოჩნდნენ ლაინ არტში"
 
 
 msgid "Offset Towards Custom Camera"
@@ -40946,10 +40194,6 @@ msgstr "დააპროეცირე კონტურული ხაზ�
 
 msgid "Vertex group name for selected strokes"
 msgstr "წვეროთა ჯგუფის სახელი მონიშნული მონასმებისთვის"
-
-
-msgid "Grease Pencil Mirror Modifier"
-msgstr "გრიზ ფენსილის გასარკისებურების მოდიფიკატორი"
 
 
 msgid "Object used as center"
@@ -41008,10 +40252,6 @@ msgid "Fade the stroke thickness for each generated stroke"
 msgstr "მიანავლე მონასმის სისქე ყოველი წარმოქმნილი მონასმისთვის"
 
 
-msgid "Grease Pencil Noise Modifier"
-msgstr "გრიზ ფენსილის ხმაურის მოდიფიკატორი"
-
-
 msgid "Noise effect modifier"
 msgstr "ხმაურის ეფექტის მოდიფიკატორი"
 
@@ -41056,18 +40296,8 @@ msgid "Where to perform randomization"
 msgstr "სად ჩატარდეს გაშემთხვევითება"
 
 
-msgctxt "GPencil"
-msgid "Steps"
-msgstr "საფეხურები"
-
-
 msgid "Randomize every number of frames"
 msgstr "კადრთა ყოველი რიცხვის გაშემთხვევითება"
-
-
-msgctxt "GPencil"
-msgid "Keyframes"
-msgstr "საკვანძო ფაზები"
 
 
 msgid "Randomize on keyframes only"
@@ -41076,10 +40306,6 @@ msgstr "გაშემთხვევითება მხოლოდ სა�
 
 msgid "Noise Seed"
 msgstr "ხმაურის პირველსაწყისი"
-
-
-msgid "Grease Pencil Offset Modifier"
-msgstr "გრიზ ფენსილის აცდენის მოდიფიკატორი"
 
 
 msgid "Values for change location"
@@ -41120,10 +40346,6 @@ msgstr "საწყისი წერტილის აცდენა"
 
 msgid "Number of elements that will be grouped"
 msgstr "დასაჯგუფებელი ელემენტების რაოდენობა"
-
-
-msgid "Grease Pencil Opacity Modifier"
-msgstr "გრიზ ფენსილის გაუმჭვირვალობის მოდიფიკატორი"
 
 
 msgid "Opacity Factor"
@@ -41418,10 +40640,6 @@ msgid "Catmull-Clark"
 msgstr "კატმულ-კლარკი"
 
 
-msgid "Grease Pencil Texture Modifier"
-msgstr "გრიზ ფენსილის ტექსტურის მოდიფიკატორი"
-
-
 msgid "Transform stroke texture coordinates Modifier"
 msgstr "მონასმის ტექსტურის კოორდინატების გარდამქმნელი მოდიფიკატორი"
 
@@ -41502,10 +40720,6 @@ msgid "Factor to scale the UVs"
 msgstr "UV-ების დამასშტაბირების კოეფიციენტი"
 
 
-msgid "Grease Pencil Thickness Modifier"
-msgstr "გრიზ ფენსილის სისქის მოდიფიკატორი"
-
-
 msgid "Adjust stroke thickness"
 msgstr "დაარეგულირე მონასმის სისქე"
 
@@ -41532,10 +40746,6 @@ msgstr "წონიანი"
 
 msgid "Use weight to modulate effect"
 msgstr "წონის გამოყენება ეფექტის მოდულაციისთვის"
-
-
-msgid "Grease Pencil Time Modifier"
-msgstr "გრიზ ფენსილის დროის მოდიფიკატორები"
 
 
 msgid "Final frame of the range"
@@ -41596,10 +40806,6 @@ msgstr "ციკლის შენარჩუნება"
 
 msgid "Retiming end frames and move to start of animation to keep loop"
 msgstr "დამაბოლოვებელი კადრების ხელახალი განაწილება დროში და ანიმაციის დასაწყისში დაბრუნება ციკლის შესანარჩუნებლად"
-
-
-msgid "Grease Pencil Tint Modifier"
-msgstr "გრიზ ფენსილის შეფერილობის მოდიფიკატორები"
 
 
 msgid "Color used for tinting"
@@ -45315,10 +44521,6 @@ msgid "Use Mask"
 msgstr "ნიღბის გამოყენება"
 
 
-msgid "Use a Grease Pencil data-block as a mask to use only specified areas of pattern when tracking"
-msgstr "გამოიყენე გრიზ ფენსილის მონაცემთა ბლოკი ნიღბად, რათა თვალის დევნებისას გამოიყენო ფაქტურის მხოლოდ მითითებული არეები"
-
-
 msgid "Normalize light intensities while tracking (slower)"
 msgstr "დაანორმალიზე სინათლეთა ინტენსიურობები თვალის დევნების დროს (უფრო ნელი)"
 
@@ -45521,10 +44723,6 @@ msgstr "ვიდეოს თვალის დევნების კვა
 
 msgid "Match-moving track data for tracking"
 msgstr "მოძრაობის სინქრონიზატორი კვალის მონაცემები თვალის სადევნებლად"
-
-
-msgid "Annotation data for this track"
-msgstr "ანიმაციის მონაცემები ამ კვალისთვის"
 
 
 msgid "Average error of re-projection"
@@ -48093,10 +47291,6 @@ msgid "Instances of objects or collections"
 msgstr "ობიექტთა, ან კოლექციათა ინსტანციები"
 
 
-msgid "Grease Pencil component containing layers and curves data"
-msgstr "გრიზ ფენსილის კომპონენტი, რომელიც შრეებსა და წირების მონაცემებს შეიცავს"
-
-
 msgid "Volume component containing volume grids"
 msgstr "მოცულობის კომპონენტი, რომელიც მოცულობის ბადეებს შეიცავს"
 
@@ -48523,14 +47717,6 @@ msgstr "აიღე თითოეული სფლაინის ნიმ
 
 msgid "Sample each spline by splitting it into segments with the specified length"
 msgstr "აიღე თითოეული სფლაინის ნიმუში მათი დაყოფით მითითებული სიგრძის სეგმენტებად"
-
-
-msgid "Curves to Grease Pencil"
-msgstr "წირები გრიზ ფენსილად"
-
-
-msgid "Convert the curves in each top-level instance into Grease Pencil layer"
-msgstr "დააკონვერტირე წირები თითოეულ ზედა დონის ინსტანციაში გრიზ ფენსილის შრედ"
 
 
 msgid "Geometry Custom Group"
@@ -48969,14 +48155,6 @@ msgid "Use Translation Z"
 msgstr "Z გადაადგილების გამოყენება"
 
 
-msgid "Grease Pencil to Curves"
-msgstr "გრიზ ფენსილი წირებად"
-
-
-msgid "Convert Grease Pencil layers into curve instances"
-msgstr "დააკონვერტირე გრიზ ფენსილის შრეები წირის ინსტანციებად"
-
-
 msgid "Advect Grid"
 msgstr "ბადის ადვექცია"
 
@@ -49350,10 +48528,6 @@ msgid "Named Layer Selection"
 msgstr "სახელდებული შრის მონიშვნა"
 
 
-msgid "Output a selection of a Grease Pencil layer"
-msgstr "გამოიტანე გრიზ ფენსილის შრის მონიშვნა"
-
-
 msgid "Retrieve a unit length vector indicating the direction pointing away from the geometry at each element"
 msgstr "ამოიღე ერთეულის სიგრძის ვექტორი, რომელიც მიუთითებს თითოეულ ელემენტთან გეომეტრიის საპირისპირო მიმართულებით"
 
@@ -49552,10 +48726,6 @@ msgstr "შერწყი წვეროები, ან წერტილ�
 
 msgid "Merge Layers"
 msgstr "შრეების შერწყმა"
-
-
-msgid "Join groups of Grease Pencil layers into one"
-msgstr "გააერთიანე გრიზ ფენსილის შრეთა ჯგუფები"
 
 
 msgid "Determines how to choose which layers are merged"
@@ -50198,14 +49368,6 @@ msgid "Set the name of a geometry for easier debugging"
 msgstr "დააყენე გეომეტრიის სახელი ხარვეზების უფრო იოლი აღმოფხვრისთვის"
 
 
-msgid "Set Grease Pencil Color"
-msgstr "გრიზ ფენსილის ფერის დაყენება"
-
-
-msgid "Set color and opacity attributes on Grease Pencil geometry"
-msgstr "დააყენე გრიზ ფენსილის გეომეტრიაზე ფერისა და გაუმჭვირვალობის ატრიბუტები"
-
-
 msgid "Set the color and opacity for the points of the stroke"
 msgstr "დააყენე მონასმის წერტილების ფერი და გაუმჭვირვალობა"
 
@@ -50214,24 +49376,8 @@ msgid "Set the color and opacity for the stroke fills"
 msgstr "დააყენე მონასმის შევსების ფერი და გაუმჭვირვალობა"
 
 
-msgid "Set Grease Pencil Depth"
-msgstr "გრიზ ფენსილის სიღრმის დაყენება"
-
-
-msgid "Set the Grease Pencil depth order to use"
-msgstr "დააყენე გრიზ ფენსილის სიღრმის გამოსაყენებელი თანმიმდევრობა"
-
-
 msgid "Depth Order"
 msgstr "სიღრმის თანმიმდევრობა"
-
-
-msgid "Set Grease Pencil Softness"
-msgstr "გრიზ ფენსილის სირბილის დაყენება"
-
-
-msgid "Set softness attribute on Grease Pencil geometry"
-msgstr "დააყენე სირბილის ატრიბუტი გრიზ ფენსილის გეომეტრიაზე"
 
 
 msgid "Set Grid Background"
@@ -54183,10 +53329,6 @@ msgid "Layer Selection"
 msgstr "შრის მონიშვნა"
 
 
-msgid "Take Grease Pencil Layer or Layer Group as selection field"
-msgstr "აიღე გრიზ ფენსილის შრე, ან შრეთა ჯგუფი მონიშვნის ველად"
-
-
 msgid "Menu Expanded"
 msgstr "გახსნილი მენიუ"
 
@@ -54546,20 +53688,8 @@ msgid "Collection which defines light linking relation of this emitter"
 msgstr "კოლექცია, რომელიც განსაზღვრავს ამ გამომცემის სინათლის ბმა-კავშირს"
 
 
-msgid "Object Line Art"
-msgstr "ობიექტის ლაინ არტი"
-
-
-msgid "Object Line Art settings"
-msgstr "ობიექტის ლაინ არტის ანაწყობები"
-
-
 msgid "Angles smaller than this will be treated as creases"
 msgstr "ამაზე მცირე კუთხეები აღიქმება ნაკეცებად"
-
-
-msgid "How to use this object in Line Art calculation"
-msgstr "როგორ გამოიყენებოდეს ეს ობიექტი ლაინ არტის გამოანგარიშებაში"
 
 
 msgid "Inherit"
@@ -54576,10 +53706,6 @@ msgstr "ნაკვთების ხაზების წარმოქმ�
 
 msgid "Only use the object data to produce occlusion"
 msgstr "გამოიყენე ობიექტის მონაცემები მხოლოდ წინაღობის წარმოსაქმნელად"
-
-
-msgid "Don't use this object for Line Art rendering"
-msgstr "ნუ გამოიყენებ ამ ობიექტს ლაინ არტის დასარენდერებლად"
 
 
 msgid "Include this object but do not generate intersection lines"
@@ -56762,24 +55888,6 @@ msgstr "განაახლე ქმედებათა სია"
 msgctxt "Operator"
 msgid "Refresh action list"
 msgstr "ქმედებების სიის განახლება"
-
-
-msgid "Add or remove Grease Pencil brush preset"
-msgstr "დაამატე, ან მოაშორე გრიზ ფენსილის ფუნჯის წინასწარი კონფიგურაცია"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Brush Preset"
-msgstr "გრიზ ფენსილის ფუნჯის წინასწარი კონფიგურაციის დამატება"
-
-
-msgid "Add or remove Grease Pencil material preset"
-msgstr "დაამატე, ან მოაცილე გრიზ ფენსილის მასალის წინასწარი კონფიგურაცია"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material Preset"
-msgstr "გრიზ ფენსილის მასალის წინასწარი კონფიგურაციის დამატება"
 
 
 msgid "Load a preset"
@@ -60720,22 +59828,6 @@ msgid "Place markers across the whole frame"
 msgstr "განათავსე მარკერები მთელი კადრის გასწვრივ"
 
 
-msgid "Inside Annotated Area"
-msgstr "ანოტირებული არეს შიგნით"
-
-
-msgid "Place markers only inside areas outlined with the Annotation tool"
-msgstr "განათავსე მარკერები მხოლოდ ანოტაციის ხელსაწყოთი მოხაზულ არეებს შიგნით"
-
-
-msgid "Outside Annotated Area"
-msgstr "ანოტირებული არეს გარეთ"
-
-
-msgid "Place markers only outside areas outlined with the Annotation tool"
-msgstr "განათავსე მარკერები მხოლოდ ანოტაციის ხელსაწყოს მიერ მოხაზულ არეებს გარეთ"
-
-
 msgid "Threshold level to consider feature good enough for tracking"
 msgstr "ზღურბლური დონე ნაკვთის თვალის დევნებისთვის შესაფერისად ჩასათვლელად"
 
@@ -62628,10 +61720,6 @@ msgstr "წიბოს გაცურება"
 
 msgid "Sequence Slide"
 msgstr "თანამიმდევრობის გაცურება"
-
-
-msgid "Grease Pencil Opacity"
-msgstr "გრიზ ფენსილის გაუმჭვირვალობა"
 
 
 msgid "Set type of handles for selected control points"
@@ -65879,15 +64967,6 @@ msgid "Tweak the active gizmo"
 msgstr "გადააკეთე აქტიური გიზმო"
 
 
-msgctxt "Operator"
-msgid "Annotation Draw"
-msgstr "ანოტაციის დახატვა"
-
-
-msgid "Make annotations on the active data"
-msgstr "გააკეთე ანოტაციები აქტიურ მონაცემებზე"
-
-
 msgid "End Arrow Style"
 msgstr "დაბოლოების ისრის სტილი"
 
@@ -65968,10 +65047,6 @@ msgid "Eraser"
 msgstr "საშლელი"
 
 
-msgid "Erase Annotation strokes"
-msgstr "ანოტაციის მონასმების წაშლა"
-
-
 msgid "Stabilizer Stroke Factor"
 msgstr "დამასტაბილირებელი მონასმის კოეფიციენტი"
 
@@ -65991,55 +65066,6 @@ msgstr "დაუყოვნებლივ დახატის მაგი�
 msgctxt "Operator"
 msgid "Delete Active Frame"
 msgstr "აქტიური კადრის წაშლა"
-
-
-msgid "Delete the active frame for the active Annotation Layer"
-msgstr "წაშალე აქტიური ანოტაციის შრისთვის აქტიური კადრი"
-
-
-msgctxt "Operator"
-msgid "Annotation Add New"
-msgstr "ახალი ანოტაციის დამატება"
-
-
-msgid "Add new Annotation data-block"
-msgstr "დაამატე ახალი ანოტაციის მონაცემთა ბლოკი"
-
-
-msgctxt "Operator"
-msgid "Annotation Unlink"
-msgstr "ანოტაციის კავშირის წყვეტა"
-
-
-msgid "Unlink active Annotation data-block"
-msgstr "გაწყვიტე აქტიური ანოტაციის მონაცემთა ბლოკთან ბმულიანი კავშირი"
-
-
-msgctxt "Operator"
-msgid "Add New Annotation Layer"
-msgstr "ახალი ანოტაციის შრის დამატება"
-
-
-msgid "Add new Annotation layer or note for the active data-block"
-msgstr "დაამატე ახალი ანოტაციის შრე, ან შენიშვნა აქტიური მონაცემთა ბლოკისათვის"
-
-
-msgctxt "Operator"
-msgid "Move Annotation Layer"
-msgstr "ანოტაციის შრის გადატანა"
-
-
-msgid "Move the active Annotation layer up/down in the list"
-msgstr "გადაიტანე ანოტაციის შრე სიაში ზევით/ქვევით"
-
-
-msgctxt "Operator"
-msgid "Remove Annotation Layer"
-msgstr "ანოტაციის შრის მოცილება"
-
-
-msgid "Remove active Annotation layer"
-msgstr "წაშალე აქტიური ანოტაციის შრე"
 
 
 msgctxt "Operator"
@@ -66885,25 +65911,12 @@ msgid "Delete Active Frame(s)"
 msgstr "აქტიური კადრ(ებ)ის წაშლა"
 
 
-msgid "Delete the active Grease Pencil frame(s)"
-msgstr "წაშალე აქტიური გრიზ ფენსილის კადრ(ებ)ი"
-
-
 msgid "Delete all"
 msgstr "ყველას წაშლა"
 
 
 msgid "Delete active keyframes of all layers"
 msgstr "წაშალე ყველა შრის აქტიური საკვანძო ფაზები"
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "გამოაცხვე ობიექტის გარდაქმნა გრიზ ფენსილად"
-
-
-msgid "Bake Grease Pencil object transform to Grease Pencil keyframes"
-msgstr "ჩააცხვე გრიზ ფენსილის ობიექტის გარდაქმნა გრიზ ფენსილის საკვანძო ფაზებში"
 
 
 msgid "The end frame of animation"
@@ -66960,15 +65973,6 @@ msgstr "გადააპროეცირე მონასმები 3D �
 
 msgid "Step between generated frames"
 msgstr "ნაბიჯი წარმოქმნილ კადრებს შორის"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Draw"
-msgstr "გრიზ ფენსილში ხატვა"
-
-
-msgid "Draw a new stroke in the active Grease Pencil object"
-msgstr "დახატე ახალი მონასმი გრიზ ფენსილის აქტიურ ობიექტში"
 
 
 msgctxt "Operator"
@@ -67101,10 +66105,6 @@ msgid "Copy Strokes"
 msgstr "მონასმების კოპირება"
 
 
-msgid "Copy the selected Grease Pencil points or strokes to the internal clipboard"
-msgstr "დააკოპირე გრიზ ფენსილის მონიშნული წერტილები, ან მონასმები გაცვლის შიდა ბუფერში"
-
-
 msgctxt "Operator"
 msgid "Set Cyclical State"
 msgstr "ციკლური მდგომარეობის დაყენება"
@@ -67163,21 +66163,9 @@ msgid "Delete Breakdown Frames"
 msgstr "შუალა კადრების წაშლა"
 
 
-msgid "Remove breakdown frames generated by interpolating between two Grease Pencil frames"
-msgstr "მოაცილე გრიზ ფენსილის ორ კადრს შორის ინტერპოლაციით წარმოქმნილი შუალა კადრები"
-
-
 msgctxt "Operator"
 msgid "Delete Frame"
 msgstr "კადრის წაშლა"
-
-
-msgid "Delete Grease Pencil Frame(s)"
-msgstr "წაშალე გრიზ ფენსილის კადრ(ებ)ი"
-
-
-msgid "Method used for deleting Grease Pencil frames"
-msgstr "გრიზ ფენსილის კადრების წასაშლელად გამოყენებული მეთოდი"
 
 
 msgid "Deletes current frame in the active layer"
@@ -67201,11 +66189,6 @@ msgid "Delete selected points without splitting strokes"
 msgstr "წაშალე მონიშნული წერტილები მონასმების გახლეჩის გარეშე"
 
 
-msgctxt "GPencil"
-msgid "Type"
-msgstr "ტიპი"
-
-
 msgid "Method used for dissolving stroke points"
 msgstr "მონასმების წერტილთა განქარწყლების მეთოდი"
 
@@ -67214,18 +66197,8 @@ msgid "Dissolve selected points"
 msgstr "განაქარწყლე მონიშნული წერტილები"
 
 
-msgctxt "GPencil"
-msgid "Dissolve Between"
-msgstr "შუაში განქარწყლება"
-
-
 msgid "Dissolve points between selected points"
 msgstr "განაქარწყლე წერტილები მონიშნულ წერტილთა შორის"
-
-
-msgctxt "GPencil"
-msgid "Dissolve Unselect"
-msgstr "მოუნიშნავის განქარწყლება"
 
 
 msgid "Dissolve all unselected points"
@@ -67241,22 +66214,8 @@ msgid "Duplicate Strokes"
 msgstr "მონასმების დუბლიკაცია"
 
 
-msgid "Make copies of the selected Grease Pencil strokes and move them"
-msgstr "შექმენი მონიშნული გრიზ ფენსილის მონასმების ასლები და გადააადგილე"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Erase"
-msgstr "გრიზ ფენსილის ოთხკუთხედით წაშლა"
-
-
 msgid "Erase points in the box region"
 msgstr "წაშალე წერტილები მართკუთხედის მონაკვეთში"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Erase Lasso"
-msgstr "გრიზ ფენსილის საშლელი ქამანდი"
 
 
 msgid "Erase points in the lasso region"
@@ -67278,11 +66237,6 @@ msgstr "ამოიყვანე მონიშნული წერტი�
 
 msgid "Extrude Stroke Points"
 msgstr "მონასმის წერტილთა ამოყვანა"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Fill"
-msgstr "გრიზ ფენსილის შევსება"
 
 
 msgid "Fill with color the shape formed by strokes"
@@ -67315,10 +66269,6 @@ msgid "Duplicate Active Frame(s)"
 msgstr "აქტიური კადრ(ებ)ის დუბლიკაცია"
 
 
-msgid "Make a copy of the active Grease Pencil frame(s)"
-msgstr "შექმენი აქტიური გრიზ ფენსილის კადრ(ებ)ის ასლი"
-
-
 msgid "Duplicate all"
 msgstr "ყველას დუბლირება"
 
@@ -67338,15 +66288,6 @@ msgstr "ჩასვი ცარიელი კადრი მიმდინ
 
 msgid "Insert a blank frame in all editable layers"
 msgstr "ჩასვი ცარიელი კადრი ყველა რედაქტირებად შრეში"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Interpolation"
-msgstr "გრიზ ფენსილის ინტერპოლაცია"
-
-
-msgid "Interpolate Grease Pencil strokes between frames"
-msgstr "მოახდინე გრიზ ფენსილის მონასმების ინტერპოლაცია კადრებს შორის"
 
 
 msgid "Exclude Breakdowns"
@@ -67394,44 +66335,6 @@ msgid "Interpolate Sequence"
 msgstr "თანამიმდევრობის ინტერპოლაცია"
 
 
-msgid "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames"
-msgstr "გრიზ ფენსილის კადრების გლუვი ინტერპოლაიცისთვის წარმოქმენი 'შუალები'"
-
-
-msgctxt "GPencil"
-msgid "Back"
-msgstr "უკან"
-
-
-msgctxt "GPencil"
-msgid "Easing"
-msgstr "აჩქარების მრუდი"
-
-
-msgid "Which ends of the segment between the preceding and following Grease Pencil frames easing interpolation is applied to"
-msgstr "გრიზ ფენსილის წინმსწრებ და მომდევნო კადრებს შორის მდებარე სეგმენტის რომელ ბოლოებზე იქნას აჩქარების მრუდის ინტერპოლაცია გამოყენებული"
-
-
-msgctxt "GPencil"
-msgid "Automatic Easing"
-msgstr "ავტომატური აჩქარება"
-
-
-msgctxt "GPencil"
-msgid "Ease In"
-msgstr "აჩქარება"
-
-
-msgctxt "GPencil"
-msgid "Ease Out"
-msgstr "შენელება"
-
-
-msgctxt "GPencil"
-msgid "Ease In and Out"
-msgstr "აჩქარება და შენელება"
-
-
 msgid "Number of frames between generated interpolated frames"
 msgstr "წარმოქმნილ ინტერპოლირებულ კადრებს შორის კადრთა რაოდენობა"
 
@@ -67440,63 +66343,8 @@ msgid "Interpolation method to use the next time 'Interpolate Sequence' is run"
 msgstr "ინტერპოლაციის გამოსაყენებელი მეთოდი 'მოახდინე თანამიმდევრობის ინტერპოლაცია'-ს მორიგი გაშვებისას"
 
 
-msgctxt "GPencil"
-msgid "Linear"
-msgstr "წრფივი"
-
-
-msgctxt "GPencil"
-msgid "Custom"
-msgstr "მორგებული"
-
-
 msgid "Custom interpolation defined using a curve map"
 msgstr "მორგებული ინტერპოლაცია განსაზღვრული წირის რუკის გამოყენებით"
-
-
-msgctxt "GPencil"
-msgid "Sinusoidal"
-msgstr "სინუსოიდური"
-
-
-msgctxt "GPencil"
-msgid "Quadratic"
-msgstr "კვადრატული"
-
-
-msgctxt "GPencil"
-msgid "Cubic"
-msgstr "კუბური"
-
-
-msgctxt "GPencil"
-msgid "Quartic"
-msgstr "მეოთხე რიგის"
-
-
-msgctxt "GPencil"
-msgid "Quintic"
-msgstr "მეხუთე რიგის"
-
-
-msgctxt "GPencil"
-msgid "Exponential"
-msgstr "ექსპონენტური"
-
-
-msgctxt "GPencil"
-msgid "Circular"
-msgstr "წრიული"
-
-
-msgctxt "GPencil"
-msgid "Bounce"
-msgstr "ხტუნვა"
-
-
-msgctxt "GPencil"
-msgid "Elastic"
-msgstr "ელასტიკური"
 
 
 msgctxt "Operator"
@@ -67546,17 +66394,9 @@ msgid "Set Active Layer"
 msgstr "აქტიური შრის დაყენება"
 
 
-msgid "Set the active Grease Pencil layer"
-msgstr "დააყენე აქტიური გრიზ ფენსილის შრე"
-
-
 msgctxt "Operator"
 msgid "Add New Layer"
 msgstr "ახალი შრის დამატება"
-
-
-msgid "Add a new Grease Pencil layer in the active object"
-msgstr "დაამატე ახალი გრიზ ფენსილის შრე აქტიურ ობიექტში"
 
 
 msgid "Name of the new layer"
@@ -67566,10 +66406,6 @@ msgstr "ახალი შრის სახელი"
 msgctxt "Operator"
 msgid "Duplicate Layer"
 msgstr "შრის დუბლიკაცია"
-
-
-msgid "Make a copy of the active Grease Pencil layer"
-msgstr "შექმენი აქტიური გრიზ ფენსილის შრის ასლი"
 
 
 msgid "Empty Keyframes"
@@ -67585,10 +66421,6 @@ msgid "Duplicate Layer to New Object"
 msgstr "შრის დუბლიკაცია ახალ ობიექტზე"
 
 
-msgid "Make a copy of the active Grease Pencil layer to selected object"
-msgstr "შექმენი აქტიური გრიზ ფენსილის შრის ასლი მონიშნულ ობიექტზე"
-
-
 msgid "All Frames"
 msgstr "ყველა კადრი"
 
@@ -67602,17 +66434,8 @@ msgid "Add New Layer Group"
 msgstr "ახალი შრეთა ჯგუფის დამატება"
 
 
-msgid "Add a new Grease Pencil layer group in the active object"
-msgstr "დაამატე ახალი გრიზ ფენსილის შრეთა ჯგუფი აქტიურ ობიექტში"
-
-
 msgid "Name of the new layer group"
 msgstr "ახალი შრეთა ჯგუფის სახელი"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Group Color Tag"
-msgstr "გრიზ ფენსილის ჯგუფის ფერის ტეგი"
 
 
 msgid "Change layer group icon"
@@ -67628,10 +66451,6 @@ msgid "Remove Layer Group"
 msgstr "შრეთა ჯგუფის მოცილება"
 
 
-msgid "Remove Grease Pencil layer group in the active object"
-msgstr "მოაცილე გრიზ ფენსილის შრეთა ჯგუფი აქტიური ობიექტიდან"
-
-
 msgid "Keep children nodes"
 msgstr "შვილობილი კვანძების დატოვება"
 
@@ -67643,10 +66462,6 @@ msgstr "დაიტოვე ჯგუფის შვილობილი კ
 msgctxt "Operator"
 msgid "Hide Layer(s)"
 msgstr "შრის/შრეების დამალვა"
-
-
-msgid "Hide selected/unselected Grease Pencil layers"
-msgstr "დამალე მონიშნული/მოუნიშნავი გრიზ ფენსილის შრეები"
 
 
 msgid "Hide unselected rather than selected layers"
@@ -67673,10 +66488,6 @@ msgstr "ხილულობაზეც იმოქმედე"
 msgctxt "Operator"
 msgid "Lock All Layers"
 msgstr "ყველა შრის დაბლოკვა"
-
-
-msgid "Lock all Grease Pencil layers to prevent them from being accidentally modified"
-msgstr "დაბლოკე ყველა გრიზ ფენსილის შრე, შემთხვევით მათი მოდიფიცირების თავიდან ასაცილებლად"
 
 
 msgid "Lock Value"
@@ -67710,15 +66521,6 @@ msgstr "მოაშორე შრის ნიღაბი"
 
 
 msgctxt "Operator"
-msgid "Reorder Grease Pencil Layer Mask"
-msgstr "ხელახლა მოათავსე გრიზ ფენსილის შრის ნიღაბი"
-
-
-msgid "Reorder the active Grease Pencil mask layer up/down in the list"
-msgstr "გადააადგილე გრიზ ფენსილის აქტიური ნიღბის შრე სიაში ზემოთ/ქვემოთ"
-
-
-msgctxt "Operator"
 msgid "Merge"
 msgstr "შერწყმა"
 
@@ -67744,17 +66546,9 @@ msgid "Reorder Layer"
 msgstr "შრის ხელახლა დალაგება"
 
 
-msgid "Move the active Grease Pencil layer or Group"
-msgstr "გადაიტანე გრიზ ფენსილის აქტიური შრე, ან ჯგუფი"
-
-
 msgctxt "Operator"
 msgid "Remove Layer"
 msgstr "შრის მოცილება"
-
-
-msgid "Remove the active Grease Pencil layer"
-msgstr "მოაშორე აქტიური გრიზ ფენსილის შრე"
 
 
 msgctxt "Operator"
@@ -67762,17 +66556,9 @@ msgid "Show All Layers"
 msgstr "ყველა შრის ჩვენება"
 
 
-msgid "Show all Grease Pencil layers"
-msgstr "აჩვენე ყველა გრიზ ფენსილის შრე"
-
-
 msgctxt "Operator"
 msgid "Copy Materials to Selected Object"
 msgstr "მასალების გადაკოპირება მონიშნულ ობიექტზე"
-
-
-msgid "Append Materials of the active Grease Pencil to other object"
-msgstr "დაურთე აქტიური გრიზ ფენსილის მასალები სხვა ობიექტს"
 
 
 msgid "Append only active material, uncheck to append all materials"
@@ -67782,10 +66568,6 @@ msgstr "დაურთე მხოლოდ აქტიური მასა
 msgctxt "Operator"
 msgid "Hide Materials"
 msgstr "მასალების დამალვა"
-
-
-msgid "Hide active/inactive Grease Pencil material(s)"
-msgstr "დამალე აქტიური/არააქტიური გრიზ ფენსილის მასალა/მასალები"
 
 
 msgid "Hide inactive materials instead of the active one"
@@ -67808,10 +66590,6 @@ msgstr "რედაქტირებადობის გადართვ�
 msgctxt "Operator"
 msgid "Lock All Materials"
 msgstr "ყველა მასალის დაბლოკვა"
-
-
-msgid "Lock all Grease Pencil materials to prevent them from being accidentally modified"
-msgstr "დაბლოკე ყველა გრიზ ფენსილის მასალა შემთხვევით მათი მოდიფიცირების თავიდან ასაცილებლად"
 
 
 msgctxt "Operator"
@@ -67837,17 +66615,9 @@ msgid "Show All Materials"
 msgstr "ყველა მასალის ჩვენება"
 
 
-msgid "Unhide all hidden Grease Pencil materials"
-msgstr "გამოაჩინე ყველა დამალული გრიზ ფენსილის მასალა"
-
-
 msgctxt "Operator"
 msgid "Select Material"
 msgstr "მასალის მონიშვნა"
-
-
-msgid "Select/Deselect all Grease Pencil strokes using current material"
-msgstr "მონიშნე/გაუუქმე მონიშვნა ყველა გრიზ ფენსილის მონასმს, რომელიც მიმდინარე მასალას იყენებს"
 
 
 msgid "Unselect strokes"
@@ -67857,10 +66627,6 @@ msgstr "მონასმების მონიშვნის გაუქ�
 msgctxt "Operator"
 msgid "Unlock All Materials"
 msgstr "ყველა მასალის განბლოკვა"
-
-
-msgid "Unlock all Grease Pencil materials so that they can be edited"
-msgstr "განბლოკე ყველა გრიზ ფენსილის მასალა, რათა შეიძლებოდეს მათი რედაქტირება"
 
 
 msgctxt "Operator"
@@ -67888,10 +66654,6 @@ msgid "Group to add the new layer to"
 msgstr "ჯგუფი, რომელსაც ახალი შრე უნდა დაემატოს"
 
 
-msgid "Target Grease Pencil Layer"
-msgstr "გრიზ ფენსილის სამიზნე შრე"
-
-
 msgctxt "Operator"
 msgid "Outline"
 msgstr "მოხაზულობა"
@@ -67914,10 +66676,6 @@ msgid "Strokes Paint Mode Toggle"
 msgstr "მონასმების ხატვის რეჟიმის გადამრთველი"
 
 
-msgid "Enter/Exit paint mode for Grease Pencil strokes"
-msgstr "შედი/გამოდი ხატვის რეჟიმიდან გრიზ ფენსილის მონასმებისთვის"
-
-
 msgid "Return to Previous Mode"
 msgstr "დაუბრუნდი წინა რეჟიმს"
 
@@ -67929,10 +66687,6 @@ msgstr "დაუბრუნდი წინა რეჟიმს"
 msgctxt "Operator"
 msgid "Paste Strokes"
 msgstr "მონასმების ჩასმა"
-
-
-msgid "Paste Grease Pencil points or strokes from the internal clipboard to the active layer"
-msgstr "ჩასვი გრიზ ფენსილის წერტილები, ან მონასმები გაცვლის შიდა ბუფერიდან აქტიურ შრეში"
 
 
 msgid "Keep World Transform"
@@ -67959,20 +66713,6 @@ msgid "Paste by Layer"
 msgstr "შრით ჩასმა"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Pen"
-msgstr "გრიზ ფენსილის კალამი"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Arc Shape"
-msgstr "გრიზ ფენსილის რკალის ფორმა"
-
-
-msgid "Create predefined Grease Pencil stroke arcs"
-msgstr "შექმენი გრიზ ფენსილის მონასმის წინასწარ განსაზღვრული რკალები"
-
-
 msgid "Number of subdivisions per segment"
 msgstr "დანაყოფების რიცხვი ყოველ სეგმენტში"
 
@@ -67983,51 +66723,6 @@ msgstr "ფორმის ტიპი"
 
 msgid "Polyline"
 msgstr "პოლიხაზი"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Box Shape"
-msgstr "გრიზ ფენსილის ოთხკუთხა ფორმა"
-
-
-msgid "Create predefined Grease Pencil stroke boxes"
-msgstr "შექმენი გრიზ ფენსილის მონასმის წინასწარ განსაზღვრული მართკუთხა ფორმები"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Circle Shape"
-msgstr "გრიზ ფენსილის წრიული ფორმა"
-
-
-msgid "Create predefined Grease Pencil stroke circles"
-msgstr "შექმენი გრიზ ფენსილის მონასმის წინასწარ განსაზღვრული წრეები"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Curve Shape"
-msgstr "გრიზ ფენსილის წირის ფორმა"
-
-
-msgid "Create predefined Grease Pencil stroke curve shapes"
-msgstr "შექმენი გრიზ ფენსილის მონასმის წინასწარ განსაზღვრული მრუდი ფორმები"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Line Shape"
-msgstr "გრიზ ფენსილის ხაზის ფორმა"
-
-
-msgid "Create predefined Grease Pencil stroke lines"
-msgstr "შექმენი გრიზ ფენსილის მონასმის წინასწარ განსაზღვრული ხაზები"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Polyline Shape"
-msgstr "გრიზ ფენსილის პოლიხაზის ფორმა"
-
-
-msgid "Create predefined Grease Pencil stroke polylines"
-msgstr "შექმენი გრიზ ფენსილის მონასმის წინასწარ განსაზღვრული პოლიხაზები"
 
 
 msgid "Which relative layer (above or below) to use as a mask"
@@ -68103,21 +66798,8 @@ msgstr "დააბრუნე UV გარდაქმნა ნაგულ�
 
 
 msgctxt "Operator"
-msgid "Grease Pencil Sculpt"
-msgstr "გრიზ ფენსილის ძერწვა"
-
-
-msgid "Sculpt strokes in the active Grease Pencil object"
-msgstr "გამოძერწე ახალი მონასმი გრიზ ფენსილის აქტიურ ობიექტში"
-
-
-msgctxt "Operator"
 msgid "Strokes Sculpt Mode Toggle"
 msgstr "მონასმების ძერწვის რეჟიმის გადამრთველი"
-
-
-msgid "Enter/Exit sculpt mode for Grease Pencil strokes"
-msgstr "შედი/გამოდი ძერწვის რეჟიმიდან გრიზ ფენსილის მონასმებისთვის"
 
 
 msgctxt "Operator"
@@ -68198,10 +66880,6 @@ msgstr "ნიშნავს შემთხვევით წერტილ�
 
 msgid "Select all strokes with similar characteristics"
 msgstr "მონიშნე ყველა მონასმი მსგავსი თავისებურებებით"
-
-
-msgid "Separate the selected geometry into a new Grease Pencil object"
-msgstr "განაცალკევე მონიშნული გეომეტრია ახალ გრიზ ფენსილის ობიექტად"
 
 
 msgid "Separate selected geometry"
@@ -68287,10 +66965,6 @@ msgstr "დააყენე აქტიური მასალა"
 msgctxt "Operator"
 msgid "Select Mode"
 msgstr "მონიშვნის რეჟიმი"
-
-
-msgid "Change the selection mode for Grease Pencil strokes"
-msgstr "შეცვალე მონიშვნის რეჟიმი გრიზ ფენსილის მონასმებისთვის"
 
 
 msgid "Select only points"
@@ -68488,11 +67162,6 @@ msgid "Change direction of the points of the selected strokes"
 msgstr "შეცვალე მონიშნული მონასმების წერტილების მიმართულება"
 
 
-msgctxt "Operator"
-msgid "Grease Pencil Trim"
-msgstr "გრიზ ფენსილის ჩამოჭრა"
-
-
 msgid "Delete stroke points in between intersecting strokes"
 msgstr "წაშალე მონასმის წერტილები ურთიერთგადამკვეთ მონასმებს შორის"
 
@@ -68526,15 +67195,6 @@ msgid "Y Start"
 msgstr "Y დასაწყისი"
 
 
-msgctxt "Operator"
-msgid "Trace Image to Grease Pencil"
-msgstr "გამოსახულებაზე გრიზ ფენსილის გადატარება"
-
-
-msgid "Extract Grease Pencil strokes from image"
-msgstr "გამოიყვანე გრიზ ფენსილის მონასმები გამოსახულებიდან"
-
-
 msgid "Trace Frame"
 msgstr "კადრის მიდევნება"
 
@@ -68553,10 +67213,6 @@ msgstr "მიადევნე გამოსახულების მი�
 
 msgid "Trace full sequence"
 msgstr "თვალი მიადევნე მთელ თანამიმდევრობას"
-
-
-msgid "Target Grease Pencil"
-msgstr "სამიზნე გრიზ ფენსილი"
 
 
 msgid "New Object"
@@ -68629,15 +67285,6 @@ msgstr "დაწყება მიმდინარე კადრზე"
 
 msgid "Trace Image starting in current image frame"
 msgstr "მიადევნე გამოსახულებას დაწყებული მიმდინარე გამოსახულების კადრიდან"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Vertex"
-msgstr "გრიზ ფენსილის წვეროს მოხატვა"
-
-
-msgid "Draw on vertex colors in the active Grease Pencil object"
-msgstr "დახატეწვეროთა ფერებზე გრიზ ფენსილის აქტიურ ობიექტში"
 
 
 msgctxt "Operator"
@@ -68733,19 +67380,6 @@ msgid "Strokes Vertex Mode Toggle"
 msgstr "მონასმის წვეროების რეჟიმის გადამრთველი"
 
 
-msgid "Enter/Exit vertex paint mode for Grease Pencil strokes"
-msgstr "გადადი/გამოდი წვეროთა მოხატვის რეჟიმში/რეჟიმიდან გრიზ ფენსილის მონასმებისთვის"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Paint Weight"
-msgstr "გრიზ ფენსილის ხატვის წონა"
-
-
-msgid "Draw weight on stroke points in the active Grease Pencil object"
-msgstr "დახატე წონა მონასმის წერტილებზე გრიზ ფენსილის აქტიურ ობიექტში"
-
-
 msgctxt "Operator"
 msgid "Invert Weight"
 msgstr "წონის შებრუნება"
@@ -68776,10 +67410,6 @@ msgstr "გადართე დამატება/მოკლება წ
 msgctxt "Operator"
 msgid "Strokes Weight Mode Toggle"
 msgstr "მონასმის წონის რეჟიმის გადამრთველი"
-
-
-msgid "Enter/Exit weight paint mode for Grease Pencil strokes"
-msgstr "შედი/გამოდი წონის ხატვის რეჟიმში/რეჟიმიდან გრიზ ფენსილის მონასმებისთვის"
 
 
 msgctxt "Operator"
@@ -75975,10 +74605,6 @@ msgid "Curves from evaluated curve data"
 msgstr "წირები წირის შეფასებული მონაცემებიდან"
 
 
-msgid "Grease Pencil from Curve or Mesh objects"
-msgstr "გრიზ ფენსილი წირიდან, ან მეშის ობიექტებიდან"
-
-
 msgid "Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices"
 msgstr "აკოპირებს ამჟამად აქტიური ობიექტის, ან პოზის ძვლის მატრიცას გაცვლის ბუფერში. იყენებს სამყაროსეული სივრცის მატრიცებს"
 
@@ -76354,23 +74980,6 @@ msgstr "იმოზმედე ყველა მონიშნულ ობ
 
 
 msgctxt "Operator"
-msgid "Add Grease Pencil"
-msgstr "გრიზ ფენსილის დამატება"
-
-
-msgid "Add a Grease Pencil object to the scene"
-msgstr "დაამატე გრიზ ფენსილის ობიექტი სცენაში"
-
-
-msgid "Stroke offset for the Line Art modifier"
-msgstr "მონასმის აცდენა ლაინ არტის მოდიფიკატორისთვის"
-
-
-msgid "Display strokes using Grease Pencil layers to define order"
-msgstr "ასახე მონასმები თანმიმდევრობის განსასაზღვრად გრიზ ფენსილის შრეების გამოყენებით"
-
-
-msgctxt "Operator"
 msgid "Type"
 msgstr "ტიპი"
 
@@ -76378,10 +74987,6 @@ msgstr "ტიპი"
 msgctxt "Operator"
 msgid "Blank"
 msgstr "ცარიელი"
-
-
-msgid "Create an empty Grease Pencil object"
-msgstr "შექმენი გრიზ ფენსილის ცარიელი ობიექტი"
 
 
 msgctxt "Operator"
@@ -76398,47 +75003,8 @@ msgid "Monkey"
 msgstr "მაიმუნი"
 
 
-msgid "Construct a Suzanne Grease Pencil object"
-msgstr "სჲუზენის გრიზ ფენსილის ობიექტის აგება"
-
-
-msgctxt "Operator"
-msgid "Scene Line Art"
-msgstr "სცენის ლაინ არტი"
-
-
-msgid "Quickly set up Line Art for the entire scene"
-msgstr "სწრაფად ააწყვე ლაინ არტი მთელი სცენისთვის"
-
-
-msgctxt "Operator"
-msgid "Collection Line Art"
-msgstr "კოლექციის ლაინ არტი"
-
-
-msgid "Quickly set up Line Art for the active collection"
-msgstr "სწრაფად ააწყვე ლაინ არტი აქტიური კოლექციისთვის"
-
-
-msgctxt "Operator"
-msgid "Object Line Art"
-msgstr "ობიექტის ლაინ არტი"
-
-
-msgid "Quickly set up Line Art for the active object"
-msgstr "სწრაფად ააწყვე ლაინ არტი აქტიური ობიექტისთვის"
-
-
 msgid "Show In Front"
 msgstr "წინ ჩვენება"
-
-
-msgid "Show Line Art Grease Pencil in front of everything"
-msgstr "აჩვენე ლაინ არტის გრიზ ფენსილი ყველაფრის წინ"
-
-
-msgid "Use lights for this Grease Pencil object"
-msgstr "ამ გრიზ ფენსილის ობიექტისთვის გამოიყენე სინათლეები"
 
 
 msgctxt "Operator"
@@ -76846,34 +75412,8 @@ msgid "Only delete the active light probe's baked lighting data"
 msgstr "წაშალე მხოლოდ აქტიური სინათლის ზონდების გამოცხობილი განათების მონაცემები"
 
 
-msgctxt "Operator"
-msgid "Bake Line Art"
-msgstr "ლაინ არტის ცხობა"
-
-
-msgid "Bake Line Art for current Grease Pencil object"
-msgstr "გამოაცხვე ლაინ არტი მიმდინარე გრიზ ფენსილის ობიექტისათვის"
-
-
 msgid "Bake All"
 msgstr "ყველას ცხობა"
-
-
-msgid "Bake all Line Art modifiers"
-msgstr "გამოაცხვე ლაინ არტის ყველა მოდიფიკატორი"
-
-
-msgctxt "Operator"
-msgid "Clear Baked Line Art"
-msgstr "გამოცხობილი ლაინ არტის გასუფთავება"
-
-
-msgid "Clear all strokes in current Grease Pencil object"
-msgstr "გაასუფთავე ყველა მონასმი გრიზ ფენსილის ამჟამინდელ ობიექტში"
-
-
-msgid "Clear all Line Art modifier bakes"
-msgstr "გაასუფთავე ლაინ არტის მოდიფიკატორის ყველა ცხობა"
 
 
 msgid "Link objects to a collection"
@@ -76984,14 +75524,6 @@ msgstr "ბორკილების კოპირება"
 
 msgid "Replace Constraints"
 msgstr "ბორკილების ჩანაცვლება"
-
-
-msgid "Copy Grease Pencil Effects"
-msgstr "გრიზ ფენსილის ეფექტების კოპირება"
-
-
-msgid "Replace Grease Pencil Effects"
-msgstr "გრიზ ფენსილის ეფექტების ჩანაცვლება"
 
 
 msgid "Copy Light Linking"
@@ -77229,10 +75761,6 @@ msgstr "გამოიყენე მოდიფიკატორი და 
 
 msgid "Apply to all keyframes"
 msgstr "გამოიყენე ყველა საკვანძო ფაზაზე"
-
-
-msgid "For Grease Pencil objects, apply the modifier to all the keyframes"
-msgstr "გრიზ ფენსილის ობიექტებისთვის, გამოიყენე მოდიფიკატორი ყველა საკვანძო ფაზაზე"
 
 
 msgid "For mesh objects, merge UV coordinates that share a vertex to account for imprecision in some modifiers"
@@ -78288,10 +76816,6 @@ msgid "Duplicate effect at the same position in the stack"
 msgstr "დაადუბლირე ეფექტი სტეკში იმავე პოზიციაზე"
 
 
-msgid "Name of the shaderfx to edit"
-msgstr "დასარედაქტირებელი იერფერის ეფექტის სახელი"
-
-
 msgctxt "Operator"
 msgid "Move Down Effect"
 msgstr "ეფექტის ჩამოწევა"
@@ -78321,15 +76845,6 @@ msgstr "ეფექტის აწევა"
 
 msgid "Move effect up in the stack"
 msgstr "აწიე ეფექტი სტეკში"
-
-
-msgctxt "Operator"
-msgid "Remove Grease Pencil Effect"
-msgstr "გრიზ ფენსილის ეფექტის მოცილება"
-
-
-msgid "Remove a effect from the active Grease Pencil object"
-msgstr "მოაცილე ეფექტი აქტიურ გრიზ ფენსილის ობიექტს"
 
 
 msgctxt "Operator"
@@ -87337,14 +85852,6 @@ msgid "Force using this center value (when set)"
 msgstr "იძულებით მოახდინე ამ ცენტრის მნიშვნელობის (როცა დაყენებულია) გამოყენება"
 
 
-msgid "Edit Grease Pencil"
-msgstr "გრიზ ფენსილის რედაქტირება"
-
-
-msgid "Edit selected Grease Pencil strokes"
-msgstr "დაარედაქტირე მონიშნული გრიზ ფენსილის მონასმები"
-
-
 msgid "Use Snapping Options"
 msgstr "მიკვრის ვარიანტების გამოყენება"
 
@@ -88052,20 +86559,6 @@ msgstr "ხელით შექმნა მოგვიანებით (�
 
 msgid "Create driver for this property only and without assigning any targets yet"
 msgstr "შექმენი დრაივერი მხოლოდ ამ თვისებისთვის და სამიზნეებს დროებით ნუ მიაკუთვნება"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Eyedropper"
-msgstr "გრიზ ფენსილის პიპეტი"
-
-
-msgid "Sample a color from the Blender Window and create Grease Pencil material"
-msgstr "აიღე Blender-ის ფანჯრიდან ფერის ნიმუში და შექმენი გრიზ ფენსილის მასალა"
-
-
-msgctxt "GPencil"
-msgid "Material Mode"
-msgstr "მასალის რეჟიმი"
 
 
 msgctxt "Operator"
@@ -90981,11 +89474,6 @@ msgstr "მოცულობები"
 
 
 msgctxt "ID"
-msgid "Grease Pencils"
-msgstr "გრიზ ფენსილები"
-
-
-msgctxt "ID"
 msgid "Armatures"
 msgstr "არმატურები"
 
@@ -91271,10 +89759,6 @@ msgid "Export to PDF"
 msgstr "ექსპორტი PDF-ად"
 
 
-msgid "Export Grease Pencil to PDF"
-msgstr "გრიზ ფენსილის ექსპორტი PDF-ად"
-
-
 msgid "Which frames to include in the export"
 msgstr "რომელი კადრები იქნას ჩათვლილი ექსპორტში"
 
@@ -91328,25 +89812,12 @@ msgid "Export to SVG"
 msgstr "ექსპორტი SVG-დ"
 
 
-msgid "Export Grease Pencil to SVG"
-msgstr "დააექსპორტირე გრიზ ფენსილი SVG-დ"
-
-
 msgid "Clip Camera"
 msgstr "კამერაზე შემოკვეცა"
 
 
 msgid "Clip drawings to camera size when exporting in camera view"
 msgstr "კამერის ხედში ექსპორტირებისას შემოკვეცე ნახატები კამერის ზომაზე"
-
-
-msgctxt "Operator"
-msgid "Import SVG as Grease Pencil"
-msgstr "SVG-ს იმპორტი, როგორც გრიზ ფენსილის"
-
-
-msgid "Import SVG into Grease Pencil"
-msgstr "დააიმპორტირე SVG გრიზ ფენსილად"
 
 
 msgid "Center on Bounds"
@@ -93955,10 +92426,6 @@ msgid "Curves Sculpt Paint"
 msgstr "წირებით ძერწვა ხატვა"
 
 
-msgid "Grease Pencil Paint"
-msgstr "გრიზ ფენსილით ხატვა"
-
-
 msgid "Paint Mode"
 msgstr "ხატვის რეჟიმი"
 
@@ -93969,10 +92436,6 @@ msgstr "დახატე აქტიური მასალის ძირ
 
 msgid "Paint the material with a color attribute"
 msgstr "დახატე მასალა ფერითი ატრიბუტით"
-
-
-msgid "Grease Pencil Sculpt Paint"
-msgstr "გრიზ ფენსილის ძერწვის მოხატვა"
 
 
 msgid "Image Paint"
@@ -94429,10 +92892,6 @@ msgstr "მონასმის განთავსება"
 
 msgid "Drawing Plane"
 msgstr "სახატავი სიბრტყე"
-
-
-msgid "Grease Pencil Options"
-msgstr "გრიზ ფენსილის ვარიანტები"
 
 
 msgid "Quad View"
@@ -94910,26 +93369,6 @@ msgstr "აიღე კურსორის ქვეშ მყოფი პ�
 
 
 msgctxt "Operator"
-msgid "Annotate"
-msgstr "ანოტაცია"
-
-
-msgctxt "Operator"
-msgid "Annotate Line"
-msgstr "ხაზოვანი ანოტაცია"
-
-
-msgctxt "Operator"
-msgid "Annotate Polygon"
-msgstr "მრავალკუთხა ანოტაცია"
-
-
-msgctxt "Operator"
-msgid "Annotate Eraser"
-msgstr "ანოტაციის საშლელი"
-
-
-msgctxt "Operator"
 msgid "Tweak"
 msgstr "გადაკეთება"
 
@@ -95026,10 +93465,6 @@ msgstr "მასალის ანაწყობები"
 
 msgid "Material Presets"
 msgstr "მასალის წინასწარი კონფიგურაციები"
-
-
-msgid "Grease Pencil Material Slots"
-msgstr "გრიზ ფენსილის მასალის სლოტები"
 
 
 msgid "Backdrop"
@@ -97609,32 +96044,12 @@ msgid "The opacity of unselected F-Curves against the background of the Graph Ed
 msgstr "მოუნიშნავი F-წირის გაუმჭვირვალობა გრაფიკების რედაქტორის ფონზე"
 
 
-msgid "Annotation Default Color"
-msgstr "ანოტაციის ნაგულისხმები ფერი"
-
-
-msgid "Color of new annotation layers"
-msgstr "ახალი ანოტაციის შრეების ფერი"
-
-
-msgid "Grease Pencil Eraser Radius"
-msgstr "გრიზ ფენსილის საშლელის რადიუსი"
-
-
 msgid "Radius of eraser 'brush'"
 msgstr "საშლელი 'ფუნჯის' რადიუსი"
 
 
-msgid "Grease Pencil Euclidean Distance"
-msgstr "გრიზ ფენსილის ევკლიდური მანძილი"
-
-
 msgid "Distance moved by mouse when drawing stroke to include"
 msgstr "თაგვის მიერ განვლილი მანძილი ჩასათვლელი მონასმის ხატვისას"
-
-
-msgid "Grease Pencil Manhattan Distance"
-msgstr "გრიზ ფენსილის მანჰეტენის მანძილი"
 
 
 msgid "Pixels moved by mouse per axis when drawing stroke"
@@ -97824,14 +96239,6 @@ msgstr "წირების დუბლიკაცია"
 
 msgid "Causes curves data to be duplicated with the object"
 msgstr "იწვევს წირების მონაცემთა დუბლირებას ობიექტთან ერთად"
-
-
-msgid "Duplicate Grease Pencil"
-msgstr "გრიზ ფენსილის დუბლიკაცია"
-
-
-msgid "Causes Grease Pencil data to be duplicated with the object"
-msgstr "იწვევს გრიზ ფენსილის მონაცემთა დუბლირებას ობიექტთან ერთად"
 
 
 msgid "Duplicate Lattice"
@@ -104435,10 +102842,6 @@ msgid "Render Ambient Occlusion in this Layer"
 msgstr "დაარენდერე გარემომცველი წინაღობა ამ შრეზე"
 
 
-msgid "Render Grease Pencil on this layer"
-msgstr "ამ შრეზე დაარენდერე გრიზ ფენსილი"
-
-
 msgid "Render motion blur in this Layer, if enabled in the scene"
 msgstr "დაარენდერე მოძრაობის გადღაბნა ამ შრეში, თუ ამ სცენაში ჩართულია"
 
@@ -105036,10 +103439,6 @@ msgid "Global child particles percentage during rendering"
 msgstr "გლობალური შვილობილი ნაწილაკების პროცენტულობა რენდერისას"
 
 
-msgid "Simplify Grease Pencil drawing"
-msgstr "გრიზ ფენსილის ხატვის გამარტივება"
-
-
 msgid "Antialiasing"
 msgstr "განკბილვა"
 
@@ -105054,10 +103453,6 @@ msgstr "ასახე მოდიფიკატორები"
 
 msgid "Playback Only"
 msgstr "მხოლოდ დაკვრის დროს"
-
-
-msgid "Simplify Grease Pencil only during animation playback"
-msgstr "გაამარტივე გრიზ ფენსილი მხოლოდ ანიმაციის დაკვრისას"
 
 
 msgid "Display Shader Effects"
@@ -106772,10 +105167,6 @@ msgid "Control the quality of the volumetric effects. Higher resolution uses mor
 msgstr "გააკონტროლე მოცულობითი ეფექტების ხარისხი. მაღალი გარჩევადობა მეტ მეხსიერებას იყენებს."
 
 
-msgid "Grease Pencil Render"
-msgstr "გრიზ ფენსილის რენდერი"
-
-
 msgid "Render settings"
 msgstr "რენდერის ანაწყობები"
 
@@ -106806,10 +105197,6 @@ msgstr "მიჯნა კიდის აღმოჩენის ალგო
 
 msgid "Motion Blur Steps"
 msgstr "გადღაბნილი მოძრაობის ნაბიჯები"
-
-
-msgid "Controls accuracy of motion blur, more steps result in longer render time. Only used when Motion Blur is enabled. Set to 0 to disable motion blur for Grease Pencil"
-msgstr "აკონტროლებს გადღაბნილი მოძრაობის აკურატულობას, მეტი საფეხური უფრო ხანგრძლივ დარენდერებას იწვევს. მხოლოდ მაშინ გამოიყენება, როცა გადღაბნილი მოძრაობა ჩართულია. იმისათვის, რომ გრიზ ფენსილს გადღაბნილი მოძრაობა გაუთიშო, დააყენე 0-ზე"
 
 
 msgid "Scene Hydra"
@@ -107131,14 +105518,6 @@ msgid "Preview Overlay Settings"
 msgstr "გადაფარების ანაწყობების გადახედვა"
 
 
-msgid "Show Annotation"
-msgstr "ანოტაციის ჩვენება"
-
-
-msgid "Show annotations for this view"
-msgstr "აჩვენე ანოტაციები ამ ხედისთვის"
-
-
 msgid "Display center composition guide"
 msgstr "ასახე კომპოზიციის ცენტრალური ნიშნული"
 
@@ -107451,10 +105830,6 @@ msgid "Snap current frame to strip start or end"
 msgstr "მიაკარი მიმდინარე კადრი ლენტის დასაწყისს, ან დასასრულს"
 
 
-msgid "Effect affecting the Grease Pencil object"
-msgstr "გრიზ ფენსილის ობიექტზე გავლენის მქონე ეფექტი"
-
-
 msgid "Effect name"
 msgstr "ეფექტის სახელი"
 
@@ -107721,11 +106096,6 @@ msgstr "ობიექტის გამოყენება"
 
 msgid "Use object as center of rotation"
 msgstr "გამოიყენე ობიექტი ბრუნვის ცენტრად"
-
-
-msgctxt "GPencil"
-msgid "Wave"
-msgstr "ტალღა"
 
 
 msgid "Use wave effect"
@@ -108192,23 +106562,6 @@ msgid "Clip editor space data"
 msgstr "კლიპის რედაქტორის სივრცის მონაცემები"
 
 
-msgctxt "MovieClip"
-msgid "Annotation Source"
-msgstr "ანოტაციის წყარო"
-
-
-msgid "Where the annotation comes from"
-msgstr "საიდან მოდის ანოტაცია"
-
-
-msgid "Show annotation data-block which belongs to movie clip"
-msgstr "აჩვენე ანოტაციის მონაცემთა ბლოკი, რომელიც ვიდეო კლიპს ეკუთვნის"
-
-
-msgid "Show annotation data-block which belongs to active track"
-msgstr "აჩვენე ანოტაციის მონაცემთა ბლოკი, რომელიც აქტიურ ბილიკს ეკუთვნის"
-
-
 msgid "Blending Factor"
 msgstr "შეზავების კოეფიციენტი"
 
@@ -108644,10 +106997,6 @@ msgid "Edit keyframes in active object's Shape Keys action"
 msgstr "დაარედაქტირე საკვანძო ფაზები აქტიური ობიექტის ფორმის სოლების ქმედებაში"
 
 
-msgid "Edit timings for all Grease Pencil sketches in file"
-msgstr "დაარედაქტირე დროში განაწილება გრიზ ფენსილის ყველა სკეჩისთვის ფაილში"
-
-
 msgid "Edit timings for Mask Editor splines"
 msgstr "დაარედაქტირე დროში განაწილება ნიღბის რედაქტორის სფლაინებისთვის"
 
@@ -108930,10 +107279,6 @@ msgstr "გამოსახულების რედაქტორის �
 
 msgid "Image and UV editor space data"
 msgstr "გამოსახულებისა და UV რედაქტორის სივრცის მონაცემები"
-
-
-msgid "Annotation data for this space"
-msgstr "ანოტაციის მონაცემები ამ სივრცისთვის"
 
 
 msgid "Display Channels"
@@ -109575,14 +107920,6 @@ msgid "Show empty objects"
 msgstr "აჩვენე ცარიელი ობიექტები"
 
 
-msgid "Show Grease Pencil"
-msgstr "გრიზ ფენსილის ჩვენება"
-
-
-msgid "Show Grease Pencil objects"
-msgstr "აჩვენე გრიზ ფენსილის ობიექტები"
-
-
 msgid "Show Lights"
 msgstr "სინათლეების ჩვენება"
 
@@ -109855,10 +108192,6 @@ msgstr "სივრცის თანამიმდევრობის რ�
 
 msgid "Sequence editor space data"
 msgstr "თანამიმდევრობის რედაქტორის სივრცის მონაცემები"
-
-
-msgid "Annotation data for this Preview region"
-msgstr "ანოტაციის მონაცემები ამ გადახედვის მონაკვეთისთვის"
 
 
 msgid "Display Channel"
@@ -110465,10 +108798,6 @@ msgid "Allow selection of text objects"
 msgstr "დაუშვი ტექსტური ობიექტების მონიშვნა"
 
 
-msgid "Allow selection of Grease Pencil objects"
-msgstr "დაუშვი გრიზ ფენსილის ობიექტების მონიშვნა"
-
-
 msgid "Allow selection of lattices"
 msgstr "დაუშვი გისოსების მონიშვნა"
 
@@ -110671,10 +109000,6 @@ msgstr "გამოიყენე ჩარჩოს ზომის ფარ
 
 msgid "Display 2D cursor"
 msgstr "2D კურსორის ასახვა"
-
-
-msgid "Display overlays like cursor and annotations"
-msgstr "აჩვენე გადაფარებები, როგორებიცაა კურსორები და ანოტაციები"
 
 
 msgid "Display overlays"
@@ -111248,10 +109573,6 @@ msgstr "ცხრილი გეომეტრიულ მონაცემ�
 
 msgid "Layer Index"
 msgstr "შრის ინდექსი"
-
-
-msgid "Index of the Grease Pencil layer"
-msgstr "გრიზ ფენსილის შრის ინდექსი"
 
 
 msgid "Path to the data that is displayed"
@@ -112180,14 +110501,6 @@ msgstr "შენატანისთვის გამოიყენე ს�
 
 msgid "Use the Scene's Sequencer timeline as input"
 msgstr "გამოიყენე სცენის სეკვენსერის დროის ზოლი შენატანად"
-
-
-msgid "Use Annotations"
-msgstr "ანოტაციების გამოყენება"
-
-
-msgid "Show Annotations in OpenGL previews"
-msgstr "აჩვენე ანოტაციები OpenGL გადახედვებში"
 
 
 msgid "View Layer of the scene to render (uses the default if unset)"
@@ -114962,26 +113275,6 @@ msgid "Face Retopology"
 msgstr "წახნაგის რეტოპოლოგია"
 
 
-msgid "Grease Pencil Vertex"
-msgstr "გრიზ ფენსილის წვერო"
-
-
-msgid "Grease Pencil Vertex Select"
-msgstr "გრიზ ფენსილის წვეროს მონიშვნა"
-
-
-msgid "Grease Pencil Vertex Size"
-msgstr "გრიზ ფენსილის წვეროს ზომა"
-
-
-msgid "Grease Pencil Wire Edit"
-msgstr "გრიზ ფენსილის ბადის რედაქტირება"
-
-
-msgid "Grease Pencil wireframe color when in edit mode"
-msgstr "გრიზ ფენსილის მავთულბადის ფერი რედაქტირების რეჟიმში"
-
-
 msgid "Grid Axis Brightness"
 msgstr "ბადის ღერძების სიკაშკაშე"
 
@@ -115028,14 +113321,6 @@ msgstr "ობიექტი მონიშნულია"
 
 msgid "Skin Root"
 msgstr "გარეკანის ფესვი"
-
-
-msgid "Grease Pencil Keyframe"
-msgstr "გრიზ ფენსილის საკვანძო ფაზა"
-
-
-msgid "Color for indicating Grease Pencil keyframes"
-msgstr "ფერი გრიზ ფენსილის საკვანძო ფაზების მისათითებლად"
 
 
 msgid "Vertex Group Unreferenced"
@@ -115230,24 +113515,12 @@ msgid "Stick stroke to the view"
 msgstr "მიამაგრე მონასმი ხედს"
 
 
-msgid "Annotation Stroke Placement (3D View)"
-msgstr "ანოტაციის მონასმის განთავსება (3D ხედი)"
-
-
-msgid "How annotation strokes are orientated in 3D space"
-msgstr "როგორ ორიენტირდება ანოტაციის მონასმები 3D სივრცეში"
-
-
 msgid "Draw stroke at 3D cursor location"
 msgstr "დახატე მონასმი 3D კურსორის მდებარეობის ადგილას"
 
 
 msgid "Stick stroke to surfaces"
 msgstr "მიამაგრე მონასმი ზედაპირებს"
-
-
-msgid "Annotation Stroke Thickness"
-msgstr "ანოტაციის მონასმის სიმსხვილე"
 
 
 msgid "Auto-Keying Mode"
@@ -115276,14 +113549,6 @@ msgstr "გამოიყენება პროფილის ტრაე�
 
 msgid "Threshold distance for Auto Merge"
 msgstr "ავტომატური შერწყმის მიჯნის მანძილი"
-
-
-msgid "Grease Pencil Interpolate"
-msgstr "გრიზ ფენსილის ინტერპოლაცია"
-
-
-msgid "Grease Pencil Sculpt"
-msgstr "გრიზ ფენსილის ძერწვა"
 
 
 msgid "Settings for stroke sculpting tools and brushes"
@@ -116674,10 +114939,6 @@ msgid "Strength of the fade effect"
 msgstr "მინავლების ეფექტის სიძლიერე"
 
 
-msgid "Fade layer opacity for Grease Pencil layers except the active one"
-msgstr "მიანავლე შრის გაუმჭვირვალობა გრიზ ფენსილის შრეებისთვის, აქტიურის გარდა"
-
-
 msgid "Fade factor"
 msgstr "მინავლების კოეფიციენტი"
 
@@ -117188,20 +115449,8 @@ msgid "Show Edit Lines when editing strokes"
 msgstr "აჩვენე რედაქტირების ხაზები მონასმების რედაქტირებისას"
 
 
-msgid "Fade Grease Pencil Objects"
-msgstr "გრიზ ფენსილის ობიექტების მინავლება"
-
-
-msgid "Fade Grease Pencil Objects, except the active one"
-msgstr "მიანავლე გრიზ ფენსილის ობიექტები, გარდა აქტიურისა"
-
-
 msgid "Fade Layers"
 msgstr "შრეების მინავლება"
-
-
-msgid "Toggle fading of Grease Pencil layers except the active one"
-msgstr "გადართე გრიზ ფენსილის შრეების მინავლება, გარდა აქტიურისა"
 
 
 msgid "Fade Objects"
@@ -117214,10 +115463,6 @@ msgstr "მიანავლე სარკმლის ყველა ობ
 
 msgid "Use Grid"
 msgstr "ბადის გამოყენება"
-
-
-msgid "Display a grid over Grease Pencil paper"
-msgstr "ასახე ბადე გრიზ ფენსილის ფურცლის ზემოდან"
 
 
 msgid "Lines Only"
@@ -117880,10 +116125,6 @@ msgstr "კრიპტოკაშეს ობიექტი"
 
 msgid "Render cryptomatte object pass, for isolating objects in compositing"
 msgstr "დაარენდერე კრიპტოკაშეს ობიექტის გადავლა, ობიექტების კომპოზიტირებისთვის დასაიზოლირებლად"
-
-
-msgid "Deliver Grease Pencil render result in a separate pass"
-msgstr "გამოიტანე გრიზ ფენსილის რენდერის შედეგი ცალკე გადავლაში"
 
 
 msgid "World Override"
@@ -119740,46 +117981,6 @@ msgstr "3D ხედის ხელსაწყო: გარდაქმნა
 
 
 msgctxt "WindowManager"
-msgid "Generic Tool: Annotate"
-msgstr "საზოგადო ხელსაწყო: ანოტაცია"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate (fallback)"
-msgstr "საზოგადო ხელსაწყო: ანოტაცია (სათადარიგო)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line"
-msgstr "საზოგადო ხელსაწყო: ხაზის ანოტაცია"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Line (fallback)"
-msgstr "საზოგადო ხელსაწყო: ხაზის ანოტაცია (სათადარიგო)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon"
-msgstr "საზოგადო ხელსაწყო: მრავალკუთხა ანოტაცია"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Polygon (fallback)"
-msgstr "საზოგადო ხელსაწყო: მრავალკუთხა ანოტაცია (სათადარიგო)"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser"
-msgstr "საზოგადო ხელსაწყო: საშლელის ანოტაცია"
-
-
-msgctxt "WindowManager"
-msgid "Generic Tool: Annotate Eraser (fallback)"
-msgstr "საზოგადო ხელსაწყო: საშლელის ანოტაცია (სათადარიგო)"
-
-
-msgctxt "WindowManager"
 msgid "3D View Tool: Measure"
 msgstr "3D ხედის ხელსაწყო: საზომი"
 
@@ -120222,11 +118423,6 @@ msgstr "3D ხედის ხელსაწყო: ტექსტის რ�
 msgctxt "WindowManager"
 msgid "3D View Tool: Edit Text, Select Text (fallback)"
 msgstr "3D ხედის ხელსაწყო: ტექსტის რედაქტირება, ტექსტის მონიშვნა (სათადარიგო)"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil"
-msgstr "გრიზ ფენსილი"
 
 
 msgctxt "WindowManager"
@@ -121919,41 +120115,6 @@ msgstr "კლიპების გრაფიკების რედაქ�
 msgctxt "WindowManager"
 msgid "Clip Dopesheet Editor"
 msgstr "კლიპების საექსპოზიციო ფურცლის რედაქტორი"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Draw Mode"
-msgstr "გრიზ ფენსილში ხატვის რეჟიმი"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Brush Stroke"
-msgstr "გრიზ ფენსილის ფუნჯის მონასმი"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Edit Mode"
-msgstr "გრიზ ფენსილის რედაქტირების რეჟიმი"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Sculpt Mode"
-msgstr "გრიზ ფენსილის ძერწვის რეჟიმი"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Weight Paint"
-msgstr "გრიზ ფენსილის წონის ხატვა"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Vertex Paint"
-msgstr "გრიზ ფენსილის წვეროთა მოხატვა"
-
-
-msgctxt "WindowManager"
-msgid "Grease Pencil Fill Tool"
-msgstr "გრიზ ფენსილის შევსების ხელსაწყო"
 
 
 msgctxt "WindowManager"
@@ -126122,10 +124283,6 @@ msgid "Volume(s)"
 msgstr "მოცულობა(ნი)"
 
 
-msgid "Grease Pencil(s)"
-msgstr "გრიზ ფენსილ(ებ)ი"
-
-
 msgid "Armature(s)"
 msgstr "არმატურა(ნი)"
 
@@ -127104,10 +125261,6 @@ msgstr "კურსორის ასახვა"
 
 msgid "Data Source:"
 msgstr "მონაცემთა წყარო:"
-
-
-msgid "No annotation source"
-msgstr "ანოტაციის წყარო არაა"
 
 
 msgctxt "Operator"
@@ -128929,10 +127082,6 @@ msgstr "მილევის რეჟიმი"
 msgctxt "Operator"
 msgid "Discontinuity (Euler) Filter"
 msgstr "წყვეტილობის (ეილერის) ფილტრი"
-
-
-msgid "Grease Pencil Objects"
-msgstr "გრიზ ფენსილის ობიექტები"
 
 
 msgctxt "Operator"
@@ -130773,10 +128922,6 @@ msgstr ""
 " • Shift და კურსორის გათრევა ზედაპირის სისქის გასაზომად"
 
 
-msgid "Annotation:"
-msgstr "ანოტაცია:"
-
-
 msgid ""
 "Use multiple operators in an interactive way to add, delete, or move geometry\n"
 " • {:s} - Add geometry by moving the cursor close to an element\n"
@@ -130983,11 +129128,6 @@ msgstr "Universal Scene Description (.usd*)"
 
 
 msgctxt "Operator"
-msgid "SVG as Grease Pencil"
-msgstr "SVG, როგორც გრიზ ფენსილი (Grease Pencil)"
-
-
-msgctxt "Operator"
 msgid "Wavefront (.obj)"
 msgstr "Wavefront (.obj)"
 
@@ -131032,16 +129172,6 @@ msgstr "აქტიური საგანი არაა"
 
 msgid "No active marker"
 msgstr "აქტიური მარკერი არაა"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as SVG"
-msgstr "გრიზ ფენსილი (Grease Pencil), როგორც SVG"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil as PDF"
-msgstr "გრიზ ფენსილი (Grease Pencil), როგორც PDF"
 
 
 msgctxt "Operator"
@@ -131981,11 +130111,6 @@ msgstr "მეშის სიბრტყე..."
 msgctxt "Operator"
 msgid "Bake Action..."
 msgstr "ქმედების ცხობა..."
-
-
-msgctxt "Operator"
-msgid "Bake Object Transform to Grease Pencil..."
-msgstr "გამოაცხვე ობიექტის გარდაქმნა გრიზ ფენსილად..."
 
 
 msgctxt "Operator"
@@ -133711,22 +131836,6 @@ msgid "No object selected, using cursor"
 msgstr "არცერთი ობიექტი არაა მონიშნული, გამოიყენება კურსორი"
 
 
-msgid "Draw Grease Pencil"
-msgstr "გრიზ ფენსილის დახატვა"
-
-
-msgid "Weight Grease Pencil"
-msgstr "გრიზ ფენსილის წონა"
-
-
-msgid "Sculpt Grease Pencil"
-msgstr "გრიზ ფენსილის ძერწვა"
-
-
-msgid "Vertex Grease Pencil"
-msgstr "გრიზ ფენსილის წვერო"
-
-
 msgctxt "Operator"
 msgid "Adjust Light Power"
 msgstr "სინათლის ძალის რეგულირება"
@@ -133920,11 +132029,6 @@ msgstr "ფესვების პოზიციები"
 
 msgid "Path Steps"
 msgstr "ტრაექტორიის საფეხურები"
-
-
-msgctxt "GPencil"
-msgid "Boundary"
-msgstr "ზღვარი"
 
 
 msgid "No brush selected"
@@ -134666,14 +132770,6 @@ msgid "GP_Layer"
 msgstr "GP_შრე"
 
 
-msgid "annotations"
-msgstr "ანოტაცია"
-
-
-msgid "grease_pencils"
-msgstr "გრიზ_ფენსილი"
-
-
 msgid "Renamed attribute '%s' to '%s' in object '%s' on layer '%s' on frame %d!"
 msgstr "ატრიბუტ '%s'-ს სახელი შეეცვალა '%s'-ით, ობიექტ '%s'-ში, შრე '%s'-ზე, კადრ %d-ში!"
 
@@ -134945,10 +133041,6 @@ msgstr "წერტილებისღრუბელი"
 
 msgid "LightProbe"
 msgstr "სინათლის ზონდი"
-
-
-msgid "GreasePencil"
-msgstr "გრიზ ფენსილი"
 
 
 msgid "objects"
@@ -136092,10 +134184,6 @@ msgstr "NLA ლენტის კონტროლი"
 
 msgid "F-Curve visibility in Graph Editor"
 msgstr "F-წირის ხილულობა გრაფიკების რედაქტორში"
-
-
-msgid "Grease Pencil layer is visible in the viewport"
-msgstr "გრიზ ფენსილის შრე ხილულია სარკმელში"
 
 
 msgid "Toggle visibility of Channels in Graph Editor for editing"
@@ -137554,24 +135642,12 @@ msgid "Nothing to erase"
 msgstr "წასაშლელი არაფერია"
 
 
-msgid "Failed to find Annotation data to draw into"
-msgstr "ანოტაციის მონაცემები, რომლებშიც ჩახატვა უნდა მოხდეს, ვერ მოხერხდა"
-
-
 msgid "Active region not set"
 msgstr "აქტიური მონაკვეთი დაყენებული არაა"
 
 
-msgid "Nowhere for Grease Pencil data to go"
-msgstr "გრიზ ფენსილის ობიექტის მონაცემებს წასასვლელი არსად აქვს"
-
-
 msgid "Cannot delete locked layers"
 msgstr "დაბლოკილი შრეები ვერ წაიშლება"
-
-
-msgid "No Grease Pencil data"
-msgstr "გრიზ ფენსილის მონაცემები არაა"
 
 
 msgid "No active frame to delete"
@@ -137592,10 +135668,6 @@ msgstr "გარეკანი_ჩრდილი"
 
 msgid "Eyes"
 msgstr "თვალები"
-
-
-msgid "Bake Object Transform to Grease Pencil"
-msgstr "გამოაცხვე ობიექტის გარდაქმნა გრიზ ფენსილად"
 
 
 msgid "Remove Loose Points"
@@ -137622,16 +135694,8 @@ msgid "The object has only one layer"
 msgstr "ობიექტს მხოლოდ ერთი შრე აქვს"
 
 
-msgid "No active Grease Pencil layer to paste into"
-msgstr "ჩასასმელად გრიზ ფენსილის აქტიური შრე არ არსებობს"
-
-
 msgid "Active layer is not editable"
 msgstr "აქტიური შრე არარედაქტირებადია"
-
-
-msgid "No Grease Pencil frame to draw on"
-msgstr "გრიზ ფენსილის სახატავი კადრი არ არის"
 
 
 msgid "Couldn't find matching layer, pasting into active layer"
@@ -137640,14 +135704,6 @@ msgstr "შესაბამისი შრე ვერ მოიძებნ
 
 msgid "No camera in the scene"
 msgstr "სცენაში კამერა არაა"
-
-
-msgid "No active Grease Pencil layer"
-msgstr "გრიზ ფენსილის აქტიური შრე არ არსებობს"
-
-
-msgid "Active object is not a selected Grease Pencil"
-msgstr "აქტიური ობიექტი მონიშნული გრიზ ფენსილი არაა"
 
 
 msgid "There is no layer '%s'"
@@ -137668,10 +135724,6 @@ msgstr "დაკოპირებულია %d მონიშნული �
 
 msgid "No active layer"
 msgstr "აქტიური შრე არაა"
-
-
-msgid "Add New Grease Pencil Layer"
-msgstr "გრიზ ფენსილის ახალი შრის დამატება"
 
 
 msgid "No active group"
@@ -137698,20 +135750,8 @@ msgid "No active layer to duplicate"
 msgstr "დასადუბლირებელი აქტიური შრე არ არსებობს"
 
 
-msgid "All Line Art objects are now cleared of bakes"
-msgstr "ახლა ყველა ლაინ არტ ობიექტი გასუფთავებულია ცხობებისგან"
-
-
 msgid "Baked strokes are cleared"
 msgstr "გამოცხობილი მონასმები გასუფთავებულია"
-
-
-msgid "No active object, or active object isn't a Grease Pencil object"
-msgstr "აქტიური ობიექტი ან არ არსებობს, ან გრიზ ფენსილის ობიექტი არაა"
-
-
-msgid "Baking Line Art..."
-msgstr "ლაინ არტის ცხობა..."
 
 
 msgid "Active layer is locked or hidden"
@@ -137824,11 +135864,6 @@ msgstr "მიმდინარე: "
 
 msgid ", Ctrl: Stroke, Shift: Fill, Shift+Ctrl: Both"
 msgstr ", Ctrl: მოსმა, Shift: შევსება, Shift+Ctrl: ორივე"
-
-
-msgctxt "Operator"
-msgid "Add Grease Pencil Material"
-msgstr "გრიზ ფენსილის მასალის დამატება"
 
 
 msgid "Press a key"
@@ -138697,36 +136732,6 @@ msgid "Reorder Layers"
 msgstr "შრეების ხელახლა დალაგება"
 
 
-msgctxt "Operator"
-msgid "Active Grease Pencil Layer"
-msgstr "გრიზ ფენსილის აქტიური შრე"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer"
-msgstr "გრიზ ფენსილის შრის სახელის გადარქმევა"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Layer"
-msgstr "გრიზ ფენსილის შრის წაშლა"
-
-
-msgctxt "Operator"
-msgid "Active Grease Pencil Group"
-msgstr "გრიზ ფენსილის აქტიური ჯგუფი"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Layer Group"
-msgstr "გრიზ ფენსილის შრეთა ჯგუფი სახელის გადარქმევა"
-
-
-msgctxt "Operator"
-msgid "Delete Grease Pencil Group"
-msgstr "გრიზ ფენსილის ჯგუფის წაშლა"
-
-
 msgid "ID-Block:"
 msgstr "ID-ბლოკი:"
 
@@ -138847,10 +136852,6 @@ msgid "Browse Particle Settings to be linked"
 msgstr "დაათვალიერე დასაკავშირებელი ნაწილაკთა ანაწყობები"
 
 
-msgid "Browse Grease Pencil Data to be linked"
-msgstr "დაათვალიერე დასაკავშირებელი გრიზ ფენსილის მონაცემები"
-
-
 msgid "Browse Movie Clip to be linked"
 msgstr "დაათვალიერე დასაკავშირებელი ვიდეო კლიპი"
 
@@ -138947,11 +136948,6 @@ msgstr "ახალი"
 
 
 msgctxt "FreestyleLineStyle"
-msgid "New"
-msgstr "ახალი"
-
-
-msgctxt "GPencil"
 msgid "New"
 msgstr "ახალი"
 
@@ -139317,14 +137313,6 @@ msgstr "ექსპორტის ვარიანტები"
 
 msgid "Unable to find valid 3D View area"
 msgstr "ვარგისი 3D ხედის არეს პოვნა შეუძლებელია"
-
-
-msgid "Active object is not a Grease Pencil object"
-msgstr "აქტიური ობიექტი გრიზ ფენსილის ობიექტი არაა"
-
-
-msgid "No frames selected in the Grease Pencil object"
-msgstr "გრიზ ფენსილის ობიექტში კადრები მონიშნული არაა"
 
 
 msgid "Unable to export PDF"
@@ -140054,21 +138042,6 @@ msgid "Field"
 msgstr "ველი"
 
 
-msgctxt "GPencil"
-msgid "GPencil"
-msgstr "ჯი-ფენსილი"
-
-
-msgctxt "GPencil"
-msgid "Suzanne"
-msgstr "სჲუზენი"
-
-
-msgctxt "GPencil"
-msgid "LineArt"
-msgstr "ლაინარტი"
-
-
 msgid "Cannot create editmode armature"
 msgstr "რედაქტირების რეჟიმის არმატურის შექმნა შეუძლებელია"
 
@@ -140133,10 +138106,6 @@ msgid "Deleted %u object(s)"
 msgstr "წაიშალა %u ობიექტი"
 
 
-msgid "Object '%s' has no evaluated Curve or Grease Pencil data"
-msgstr "ობიექტს '%s' არ აქვს წირის, ან გრიზ ფენსილის გამოთვლილი მონაცემები"
-
-
 msgid "Object '%s' has no evaluated Point Cloud data"
 msgstr "ობიექტ '%s'-ს არ აქვს გამოთვლილი წერტილების ღრუბლის მონაცემები"
 
@@ -140145,16 +138114,8 @@ msgid "Object '%s' has no evaluated Mesh data"
 msgstr "ობიექტ '%s'-ს არ აქვს გამოთვლილი მეშის მონაცემები"
 
 
-msgid "Object '%s' has no evaluated Grease Pencil data"
-msgstr "ობიექტ '%s'-ს არ აქვს გრიზ ფენსილის გამოთვლილი მონაცემები"
-
-
 msgid "Object '%s' has no evaluated mesh or curves data"
 msgstr "ობიექტს '%s' არ აქვს გამოთვლილი მეში, ან წირების მონაცემები"
-
-
-msgid "Object '%s' has no evaluated Grease Pencil or Curves data"
-msgstr "ობიექტს '%s' არ აქვს გრიზ ფენსილისა, თუ წირების გამოთვლილი მონაცემები"
 
 
 msgid "Object '%s' has no evaluated curves data"
@@ -140810,14 +138771,6 @@ msgid "Evaluated geometry from modifier does not contain a point cloud"
 msgstr "გამოთვლილი გეომეტრია მოდიფიკატორიდან არ შეიცავს წერტილების ღრუბელს"
 
 
-msgid "Cannot apply this modifier to Grease Pencil geometry"
-msgstr "ეს მოდიფიკატორი გრიზ ფენსილის გეომეტრიაზე ვერ გამოიყენება"
-
-
-msgid "Evaluated geometry from modifier does not contain Grease Pencil geometry"
-msgstr "გამოთვლილი გეომეტრია მოდიფიკატორიდან არ შეიცავს გრიზ ფენსილის გეომეტრიას"
-
-
 msgid "Modifiers cannot be applied in edit mode"
 msgstr "რედაქტირების რეჟიმში მოდიფიკატორები ვერ გამოიყენება"
 
@@ -141142,20 +139095,12 @@ msgid "Removed effect: %s"
 msgstr "მოცილებულია ეფექტი: %s"
 
 
-msgid "Cannot edit shaderfxs in a library override"
-msgstr "ბიბლიოთეკის უკუგდებაში იერფერის ეფექტების რედაქტირება შეუძლებელია"
-
-
 msgid "Object type is not supported"
 msgstr "ობიექტის ტიპი მხარდაუჭერელია"
 
 
 msgid "Cannot edit library or override data"
 msgstr "ბიბლიოთეკის რედაქტირება, ან მონაცემთა უკუგდება შეუძლებელია"
-
-
-msgid "Cannot edit shaderfxs coming from linked data in a library override"
-msgstr "იერფერის ეფექტები, რომლებიც მოდის ბიბლიოთეკის უკუგდებაში არსებული დაკავშირებული მონაცემებიდან, ვერ რედაქტირდება"
 
 
 msgid "Apply current visible shape to the object data, and delete all shape keys"
@@ -141216,10 +139161,6 @@ msgstr "მრავალმომხმარებლიან არმა�
 
 msgid "Curves Object does not support this set origin operation"
 msgstr "წირების ობიექტს არ აქვს სათავის ამ ოპერაციის მხარდაჭერა"
-
-
-msgid "Grease Pencil Object does not support this set origin operation"
-msgstr "გრიზ ფენსილის ობიექტს არ აქვს სათავის დაყენების ამ ოპერაციის მხარდაჭერა"
 
 
 msgid "Point cloud object does not support this set origin operation"
@@ -142436,14 +140377,6 @@ msgid "UV map or surface attachment is invalid"
 msgstr "UV რუკა, ან ზედაპირზე მიმაგრება უვარგისია"
 
 
-msgid "No editable Grease Pencil layer"
-msgstr "გრიზ ფენსილის რედაქტირებადი შრე არ არსებობს"
-
-
-msgid "No Grease Pencil frame to draw weight on"
-msgstr "გრიზ ფენსილის წონების დასახატი კადრი არ არსებობს"
-
-
 msgid "Active group is locked, aborting"
 msgstr "აქტიური ჯგუფი დაბლოკილია, შეწყვეტა"
 
@@ -142454,10 +140387,6 @@ msgstr "შევსება არ შექმნილა"
 
 msgid "Fill tool needs active material"
 msgstr "შევსების ხელსაწყოს აქტიური მასალა სჭირდება"
-
-
-msgid "GPencil Interpolation: "
-msgstr "ჯი-ფენსილის ინტერპოლაცია: "
 
 
 msgid "ESC/RMB to cancel, Enter/LMB to confirm, WHEEL/MOVE to adjust factor"
@@ -142476,27 +140405,8 @@ msgid "Simple physics-inspired easing effects"
 msgstr "მარტივი, ფიზიკით შტაგონებული ქრობის ეფექტები"
 
 
-msgctxt "GPencil"
-msgid "Interpolation"
-msgstr "ინტერპოლაცია"
-
-
-msgctxt "GPencil"
-msgid "Easing (by strength)"
-msgstr "მილევა (სიძლიერის მიხედვით)"
-
-
-msgctxt "GPencil"
-msgid "Dynamic Effects"
-msgstr "დინამიკური ეფექტები"
-
-
 msgid "Trace"
 msgstr "გადახატვა"
-
-
-msgid "Target object not a Grease Pencil, ignoring!"
-msgstr "სამიზნე ობიექტი გრიზ ფენსილი არაა, იგნორირდება!"
 
 
 msgid "Target object library-data, ignoring!"
@@ -142837,10 +140747,6 @@ msgstr "საკვანძო ფაზების ჩასმა ნიღ
 
 msgid "No data in the internal clipboard to paste"
 msgstr "ჩასასმელი მონაცემები გაცვლის ბუფერში არ არის"
-
-
-msgid "Keyframe pasting is not available for Grease Pencil or mask mode"
-msgstr "საკვანძო ფაზის ჩასმა გრიზ ფენსილის, ან ნიღბის რეჟიმში მიუწვდომელია"
 
 
 msgid "No selected F-Curves to paste into"
@@ -144493,10 +142399,6 @@ msgid "Curve: {} points, {} splines"
 msgstr "წირი: {} წერტილი, {} სფლაინი"
 
 
-msgid "Grease Pencil: {} layers"
-msgstr "გრიზ ფენსილი: {} შრე"
-
-
 msgid "Edit: {}, {}, {}"
 msgstr "რედაქტირება: {}, {}, {}"
 
@@ -144973,16 +142875,6 @@ msgstr "პოზის ძვლის სახელის გადარქ
 
 
 msgctxt "Operator"
-msgid "Rename Annotation Layer"
-msgstr "ანოტაციის შრის სახელის გადარქმევა"
-
-
-msgctxt "Operator"
-msgid "Rename Grease Pencil Drawing"
-msgstr "გრიზ ფენსილის ნახატის სახელის გადარქმევა"
-
-
-msgctxt "Operator"
 msgid "Rename View Layer"
 msgstr "ხედის შრის სახელის გადარქმევა"
 
@@ -145397,16 +143289,6 @@ msgstr "ძვლის რედაქტირების ოპერაც�
 msgctxt "Operator"
 msgid "Sequencer operation"
 msgstr "სეკვენსერის ოპერაცია"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Layer operation"
-msgstr "გრიზ ფენსილის შრის ოპერაცია"
-
-
-msgctxt "Operator"
-msgid "Grease Pencil Node operation"
-msgstr "გრიზ ფენსილის კვანძის ოპერაცია"
 
 
 msgid "No Library Overrides"
@@ -146259,26 +144141,6 @@ msgstr "წვეროთა წონები"
 
 msgid "Curve Data"
 msgstr "წირის მონაცემები"
-
-
-msgctxt "GPencil"
-msgid "Normal"
-msgstr "ნორმალი"
-
-
-msgctxt "GPencil"
-msgid "Endpoint"
-msgstr "ბოლოწერტილი"
-
-
-msgctxt "GPencil"
-msgid "Bézier"
-msgstr "ბეზიე"
-
-
-msgctxt "GPencil"
-msgid "Endpoint Bézier"
-msgstr "ბეზიეს ბოლოწერტილი"
 
 
 msgid "No active object found"
@@ -147243,10 +145105,6 @@ msgid "Realized curves data has too many elements."
 msgstr "რეალიზებული წირების მონაცემებს მეტისმეტად ბევრი ელემენტი აქვს."
 
 
-msgid "Realized grease pencil has too many layers."
-msgstr "რეალიზებლ გრიზ ფენსილს მეტისმეტად ბევრი შრე აქვს."
-
-
 msgid "Error writing frame"
 msgstr "შეცდომა კადრის ჩაწერისას"
 
@@ -147454,10 +145312,6 @@ msgstr "SVG ვერ გაიხსნა"
 
 msgid "Unable to create new object"
 msgstr "ახალი ობიექტი ვერ შეიქმნა"
-
-
-msgid "SVG has gradients, Grease Pencil color will be approximated"
-msgstr "SVG-ს აქვს გრადიენტები, გრიზ ფენსილის ფერი მიახლოებითი იქნება"
 
 
 msgid "PLY Export: Unable to find collection '%s'"
@@ -148155,14 +146009,6 @@ msgstr "უვარგისი კონტექსტი ჩასოლვ�
 
 msgid "Incomplete built-in keying set, appears to be missing type info"
 msgstr "ჩასოლვის არასრული ჩაშენებული ნაკრები, როგორც ჩანს, ტიპის შესახებ ინფორმაცია აკლია"
-
-
-msgid "Frame not found in annotation layer"
-msgstr "ანოტაციის შრეში კადრი ვერ მოიძებნა"
-
-
-msgid "Layer not found in annotation data"
-msgstr "ანოტაციის მონაცემებში შრე ვერ მოიძებნა"
 
 
 msgid "Stroke has no points"
@@ -148871,10 +146717,6 @@ msgstr "დაადუბლირე ინდექსი %d vertex_indices_s
 
 msgid "Input '%s' not found"
 msgstr "შენატანი '%s' ვერ მოიძებნა"
-
-
-msgid "Cannot assign material '%s', it has to be used by the Grease Pencil object already"
-msgstr "მასალის '%s' მიკუთვნება შეუძლებელია, სავარაუდოდ, უკვე გრიზ ფენსილის ობიექტის მიერ უნდა გამოიყენებოდეს"
 
 
 msgid "Unable to create new strip"
@@ -150197,10 +148039,6 @@ msgid "Towards Custom Camera"
 msgstr "მორგებული კამერისკენ"
 
 
-msgid "Cached from the first Line Art modifier"
-msgstr "ქეშირებული პირველი ლაინ არტ მოდიფიკატორიდან"
-
-
 msgid "Object is not in front"
 msgstr "ობიექტი წინ არაა"
 
@@ -150211,19 +148049,6 @@ msgstr "მოდიფიკატორს გამოცხობილი �
 
 msgid "Object is shown in front"
 msgstr "ობიექტი წინაა ნაჩვენები"
-
-
-msgid "Cached from the first Line Art modifier."
-msgstr "ქეშირებული პირველი ლაინ არტ მოდიფიკატორიდან."
-
-
-msgid "Lineart"
-msgstr "ლაინარტი"
-
-
-msgctxt "GPencil"
-msgid "Cast Shadow"
-msgstr "ჩრდილის დაგდება"
 
 
 msgid "Edge Types"
@@ -152750,10 +150575,6 @@ msgid "Geometry to compute the bounding box of. Instances have to be realized be
 msgstr "გეომეტრია რომლის შემომსაზღვრელი ჩარჩოც უნდა გამოითვალოს. შემომსაზღვრელი ჩარჩოს სრულად გამოთვლამდე ინსტანციები უნდა რეალიზდეს"
 
 
-msgid "For curves, point clouds, and Grease Pencil, take the radius attribute into account when computing the bounds."
-msgstr "ზღუდეების გამოთვლისას წირების, წერტილების ღრუბლებისა და გრიზ ფენსილისთვის მხედველობაში იქონიე რადიუსის ატრიბუტი."
-
-
 msgid "A cube mesh enclosing the input geometry"
 msgstr "კუბის მეში, რომელიც შემავალ გეომეტრიას შემოსაზღვრავს"
 
@@ -153806,10 +151627,6 @@ msgid "Layers as Instances"
 msgstr "შრეები ინსტანციებად"
 
 
-msgid "Grease Pencil data to convert to curves"
-msgstr "წირებად დასაკონვერტირებელი გრიზ ფენსილის მონაცემები"
-
-
 msgid "Select the layers to convert"
 msgstr "მონიშნე დასაკონვერტირებელი შრეები"
 
@@ -154515,10 +152332,6 @@ msgstr "შერწყი მხოლოდ არსებული წიბ
 
 msgid "Point cloud or mesh to merge points of"
 msgstr "წერტილების ღრუბელი, ან მეში, რომლის წერტილებიც უნდა შეირწყას"
-
-
-msgid "Grease Pencil data to merge layers of"
-msgstr "მონაცემები გრიზ ფენსილისა, რომლის შრეებიც უნდა შეერთდეს"
 
 
 msgid "Merge ID"
@@ -155535,18 +153348,6 @@ msgstr "გეომეტრია, რომლის შეკვრაც �
 
 msgid "Geometry to override the name of"
 msgstr "გეომეტრია, რომლის სახელიც უკუგდებული უნდა იქნას"
-
-
-msgid "Grease Pencil to change the color of"
-msgstr "გრიზ ფენსილი, რომლის ფერიც უნდა შეიცვალოს"
-
-
-msgid "Grease Pencil to set the depth order of"
-msgstr "გრიზ ფენსილი, რომლის სიღრმის თანმიმდევრობაც უნდა დაყენდეს"
-
-
-msgid "Grease Pencil to set the softness of"
-msgstr "გრიზ ფენსილი, რომლის სიგლუვეც უნდა დაყენდეს"
 
 
 msgid "Update Inactive"
@@ -159213,11 +157014,6 @@ msgstr "თამაშის ძრავა"
 msgctxt "Preferences"
 msgid "Geometry Nodes"
 msgstr "გეომეტრიის კვანძები"
-
-
-msgctxt "Preferences"
-msgid "Grease Pencil"
-msgstr "გრიზ ფენსილი"
 
 
 msgctxt "Preferences"

@@ -17,7 +17,6 @@
 
 #include "BKE_attribute.h"
 #include "BKE_attribute.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "BLT_translation.hh"
 
@@ -154,11 +153,6 @@ const EnumPropertyItem rna_enum_attribute_domain_items[] = {
     // {ATTR_DOMAIN_GRIDS, "GRIDS", 0, "Grids", "Attribute on mesh multires grids"},
     {int(AttrDomain::Curve), "CURVE", ICON_CURVE_DATA, "Spline", "Attribute on spline"},
     {int(AttrDomain::Instance), "INSTANCE", ICON_EMPTY_AXIS, "Instance", "Attribute on instance"},
-    {int(AttrDomain::Layer),
-     "LAYER",
-     ICON_OUTLINER_DATA_GP_LAYER,
-     "Layer",
-     "Attribute on Grease Pencil layer"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -219,11 +213,6 @@ const EnumPropertyItem rna_enum_attribute_domain_without_corner_items[] = {
     {int(AttrDomain::Face), "FACE", ICON_FACESEL, "Face", "Attribute on mesh faces"},
     {int(AttrDomain::Curve), "CURVE", ICON_CURVE_DATA, "Spline", "Attribute on spline"},
     {int(AttrDomain::Instance), "INSTANCE", ICON_EMPTY_AXIS, "Instance", "Attribute on instance"},
-    {int(AttrDomain::Layer),
-     "LAYER",
-     ICON_OUTLINER_DATA_GP_LAYER,
-     "Layer",
-     "Attribute on Grease Pencil layer"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -239,11 +228,6 @@ const EnumPropertyItem rna_enum_attribute_domain_with_auto_items[] = {
      "Attribute on mesh face corner"},
     {int(AttrDomain::Curve), "CURVE", ICON_CURVE_DATA, "Spline", "Attribute on spline"},
     {int(AttrDomain::Instance), "INSTANCE", ICON_EMPTY_AXIS, "Instance", "Attribute on instance"},
-    {int(AttrDomain::Layer),
-     "LAYER",
-     ICON_OUTLINER_DATA_GP_LAYER,
-     "Layer",
-     "Attribute on Grease Pencil layer"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -264,7 +248,6 @@ const EnumPropertyItem rna_enum_attribute_curves_domain_items[] = {
 #  include <fmt/format.h>
 
 #  include "DNA_customdata_types.h"
-#  include "DNA_grease_pencil_types.h"
 #  include "DNA_mesh_types.h"
 #  include "DNA_meshdata_types.h"
 #  include "DNA_pointcloud_types.h"
@@ -292,49 +275,13 @@ namespace blender {
 
 /* Attribute */
 
-static bool find_attr_with_pointer(const bke::AttributeStorage &storage,
-                                   const bke::Attribute &attr)
-{
-  return std::any_of(storage.begin(), storage.end(), [&](const bke::Attribute &attr_iter) {
-    return &attr_iter == &attr;
-  });
-}
-
 static AttributeOwner owner_from_attribute_pointer_rna(PointerRNA *ptr)
 {
-  ID *owner_id = ptr->owner_id;
-  /* TODO: Because we don't know the path to the `ptr`, we need to look though all possible
-   * candidates and search for the `layer` currently. This should be just a simple lookup. */
-  if (GS(owner_id->name) == ID_GP) {
-    bke::Attribute *attr = static_cast<bke::Attribute *>(ptr->data);
-    GreasePencil *grease_pencil = reinterpret_cast<GreasePencil *>(owner_id);
-
-    /* First check the layer attributes. */
-    if (find_attr_with_pointer(grease_pencil->attribute_storage.wrap(), *attr)) {
-      return AttributeOwner(AttributeOwnerType::GreasePencil, grease_pencil);
-    }
-
-    /* Now check all the drawings. */
-    for (GreasePencilDrawingBase *base : grease_pencil->drawings()) {
-      if (base->type == GP_DRAWING) {
-        GreasePencilDrawing *drawing = reinterpret_cast<GreasePencilDrawing *>(base);
-        const bke::CurvesGeometry &curves = drawing->geometry.wrap();
-        if (find_attr_with_pointer(curves.attribute_storage.wrap(), *attr)) {
-          return AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-        }
-      }
-    }
-  }
-  return AttributeOwner::from_id(owner_id);
+  return AttributeOwner::from_id(ptr->owner_id);
 }
 
 static AttributeOwner owner_from_pointer_rna(const PointerRNA *ptr)
 {
-  /* For non-ID attribute owners, check the `ptr->type` to derive the `AttributeOwnerType`
-   * and construct an `AttributeOwner` from that type and `ptr->data`. */
-  if (ptr->type == RNA_GreasePencilDrawing) {
-    return AttributeOwner(AttributeOwnerType::GreasePencilDrawing, ptr->data);
-  }
   return AttributeOwner::from_id(ptr->owner_id);
 }
 
@@ -555,11 +502,6 @@ const EnumPropertyItem *rna_enum_attribute_domain_itemf(const AttributeOwner &ow
     {
       continue;
     }
-    if (owner.type() == AttributeOwnerType::GreasePencil &&
-        !ELEM(domain_item->value, int(AttrDomain::Layer)))
-    {
-      continue;
-    }
     if (!include_instances && domain_item->value == int(AttrDomain::Instance)) {
       continue;
     }
@@ -712,17 +654,6 @@ static void tag_any_attribute_changed(ID *id)
       PointCloud *pointcloud = id_cast<PointCloud *>(id);
       pointcloud->tag_positions_changed();
       pointcloud->tag_radii_changed();
-      break;
-    }
-    case ID_GP: {
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(id);
-      for (GreasePencilDrawingBase *drawing_base : grease_pencil->drawings()) {
-        if (drawing_base->type == GP_DRAWING) {
-          bke::greasepencil::Drawing &drawing =
-              reinterpret_cast<GreasePencilDrawing *>(drawing_base)->wrap();
-          drawing.tag_topology_changed();
-        }
-      }
       break;
     }
     default: {
@@ -1313,122 +1244,6 @@ static void rna_AttributeGroupMesh_active_color_name_set(PointerRNA *ptr, const 
       mesh->active_color_attribute = BLI_strdup(value);
     }
   }
-}
-
-static PointerRNA rna_AttributeGroupGreasePencilDrawing_new(ID *grease_pencil_id,
-                                                            GreasePencilDrawing *drawing,
-                                                            ReportList *reports,
-                                                            const char *name,
-                                                            const int type,
-                                                            const int domain)
-{
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  const bke::AttributeAccessor accessor = *owner.get_accessor();
-  if (!accessor.domain_supported(AttrDomain(domain))) {
-    BKE_report(reports, RPT_ERROR, "Attribute domain not supported by this geometry type");
-    return PointerRNA_NULL;
-  }
-  const int domain_size = accessor.domain_size(AttrDomain(domain));
-
-  bke::AttributeStorage &attributes = *owner.get_storage();
-  const CPPType &cpp_type = *bke::custom_data_type_to_cpp_type(eCustomDataType(type));
-  bke::Attribute &attr = attributes.add(
-      attributes.unique_name_calc(name),
-      AttrDomain(domain),
-      *bke::custom_data_type_to_attr_type(eCustomDataType(type)),
-      bke::Attribute::ArrayData::from_default_value(cpp_type, domain_size));
-
-  DEG_id_tag_update(grease_pencil_id, ID_RECALC_GEOMETRY);
-  WM_main_add_notifier(NC_GEOM | ND_DATA, grease_pencil_id);
-
-  return RNA_pointer_create_discrete(grease_pencil_id, RNA_Attribute, &attr);
-}
-
-static void rna_AttributeGroupGreasePencilDrawing_remove(ID *grease_pencil_id,
-                                                         GreasePencilDrawing *drawing,
-                                                         ReportList *reports,
-                                                         PointerRNA *attribute_ptr)
-{
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  const bke::Attribute *attr = static_cast<const bke::Attribute *>(attribute_ptr->data);
-  if (BKE_attribute_required(owner, attr->name())) {
-    BKE_report(reports, RPT_ERROR, "Attribute is required and cannot be removed");
-    return;
-  }
-
-  bke::MutableAttributeAccessor accessor = *owner.get_accessor();
-  accessor.remove(attr->name());
-  attribute_ptr->invalidate();
-
-  DEG_id_tag_update(grease_pencil_id, ID_RECALC_GEOMETRY);
-  WM_main_add_notifier(NC_GEOM | ND_DATA, grease_pencil_id);
-}
-
-static PointerRNA rna_AttributeGroupGreasePencilDrawing_active_get(PointerRNA *ptr)
-{
-  GreasePencilDrawing *drawing = static_cast<GreasePencilDrawing *>(ptr->data);
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  const std::optional<StringRef> name = BKE_attributes_active_name_get(owner);
-  if (!name) {
-    return PointerRNA_NULL;
-  }
-  bke::AttributeStorage &storage = *owner.get_storage();
-  bke::Attribute *attr = storage.lookup(*name);
-  return RNA_pointer_create_discrete(ptr->owner_id, RNA_Attribute, attr);
-}
-
-static void rna_AttributeGroupGreasePencilDrawing_active_set(PointerRNA *ptr,
-                                                             PointerRNA attribute_ptr,
-                                                             ReportList * /*reports*/)
-{
-  GreasePencilDrawing *drawing = static_cast<GreasePencilDrawing *>(ptr->data);
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  if (RNA_pointer_is_null(&attribute_ptr)) {
-    BKE_attributes_active_clear(owner);
-    return;
-  }
-  BKE_attributes_active_set(owner, rna_Attribute_name_get(attribute_ptr));
-}
-
-static bool rna_AttributeGroupGreasePencilDrawing_active_poll(PointerRNA *ptr,
-                                                              const PointerRNA value)
-{
-  AttributeOwner owner = owner_from_attribute_pointer_rna(const_cast<PointerRNA *>(&value));
-  return owner.is_valid() && owner.type() == AttributeOwnerType::GreasePencilDrawing &&
-         owner.get_grease_pencil_drawing() == static_cast<GreasePencilDrawing *>(ptr->data);
-}
-
-static int rna_AttributeGroupGreasePencilDrawing_active_index_get(PointerRNA *ptr)
-{
-  GreasePencilDrawing *drawing = static_cast<GreasePencilDrawing *>(ptr->data);
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  return *BKE_attributes_active_index_p(owner);
-}
-
-static void rna_AttributeGroupGreasePencilDrawing_active_index_set(PointerRNA *ptr, int value)
-{
-  GreasePencilDrawing *drawing = static_cast<GreasePencilDrawing *>(ptr->data);
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  *BKE_attributes_active_index_p(owner) = std::max(-1, value);
-}
-
-static void rna_AttributeGroupGreasePencilDrawing_active_index_range(
-    PointerRNA *ptr, int *min, int *max, int *softmin, int *softmax)
-{
-  GreasePencilDrawing *drawing = static_cast<GreasePencilDrawing *>(ptr->data);
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  *min = -1;
-  *max = owner.get_storage()->count();
-
-  *softmin = *min;
-  *softmax = *max;
-}
-
-static int rna_AttributeGroupGreasePencilDrawing_domain_size(GreasePencilDrawing *drawing,
-                                                             const int domain)
-{
-  AttributeOwner owner = AttributeOwner(AttributeOwnerType::GreasePencilDrawing, drawing);
-  return owner.get_accessor()->domain_size(bke::AttrDomain(domain));
 }
 
 }  // namespace blender
@@ -2170,96 +1985,6 @@ static void rna_def_attribute_group_curves(BlenderRNA *brna)
   rna_def_attribute_group_id_common(srna);
 }
 
-static void rna_def_attribute_group_grease_pencil(BlenderRNA *brna)
-{
-  StructRNA *srna;
-
-  srna = RNA_def_struct(brna, "AttributeGroupGreasePencil", nullptr);
-  RNA_def_struct_ui_text(srna, "Attribute Group", "Group of geometry attributes");
-  RNA_def_struct_sdna(srna, "ID");
-
-  rna_def_attribute_group_id_common(srna);
-}
-
-static void rna_def_attribute_group_grease_pencil_drawing(BlenderRNA *brna)
-{
-  PropertyRNA *prop;
-  FunctionRNA *func;
-  PropertyRNA *parm;
-  StructRNA *srna;
-
-  srna = RNA_def_struct(brna, "AttributeGroupGreasePencilDrawing", nullptr);
-  RNA_def_struct_ui_text(srna, "Attribute Group", "Group of geometry attributes");
-  RNA_def_struct_sdna(srna, "GreasePencilDrawing");
-
-  /* API */
-  func = RNA_def_function(srna, "new", "rna_AttributeGroupGreasePencilDrawing_new");
-  RNA_def_function_ui_description(func, "Add attribute to geometry");
-  RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_REPORTS);
-  parm = RNA_def_string(func, "name", "Attribute", 0, "Name", "Name of geometry attribute");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
-
-  parm = RNA_def_enum(
-      func, "type", rna_enum_attribute_type_items, CD_PROP_FLOAT, "Type", "Attribute type");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
-
-  parm = RNA_def_enum(func,
-                      "domain",
-                      rna_enum_attribute_domain_items,
-                      int(AttrDomain::Point),
-                      "Domain",
-                      "Type of element that attribute is stored on");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
-
-  parm = RNA_def_pointer(func, "attribute", "Attribute", "", "New geometry attribute");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_RNAPTR);
-  RNA_def_function_return(func, parm);
-
-  func = RNA_def_function(srna, "remove", "rna_AttributeGroupGreasePencilDrawing_remove");
-  RNA_def_function_ui_description(func, "Remove attribute from geometry");
-  RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_REPORTS);
-  parm = RNA_def_pointer(func, "attribute", "Attribute", "", "Geometry Attribute");
-  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
-  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
-
-  /* Active */
-  prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
-  RNA_def_property_struct_type(prop, "Attribute");
-  RNA_def_property_ui_text(prop, "Active Attribute", "Active attribute");
-  RNA_def_property_pointer_funcs(prop,
-                                 "rna_AttributeGroupGreasePencilDrawing_active_get",
-                                 "rna_AttributeGroupGreasePencilDrawing_active_set",
-                                 nullptr,
-                                 "rna_AttributeGroupGreasePencilDrawing_active_poll");
-  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_UNLINK);
-  RNA_def_property_update(prop, 0, "rna_AttributeGroup_update_active");
-
-  prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_NONE);
-  RNA_def_property_ui_text(
-      prop, "Active Attribute Index", "Active attribute index or -1 when none are active");
-  RNA_def_property_range(prop, -1, INT_MAX);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_int_funcs(prop,
-                             "rna_AttributeGroupGreasePencilDrawing_active_index_get",
-                             "rna_AttributeGroupGreasePencilDrawing_active_index_set",
-                             "rna_AttributeGroupGreasePencilDrawing_active_index_range");
-  RNA_def_property_update(prop, 0, "rna_AttributeGroup_update_active");
-
-  /* Domain Size */
-  func = RNA_def_function(
-      srna, "domain_size", "rna_AttributeGroupGreasePencilDrawing_domain_size");
-  RNA_def_function_ui_description(func, "Get the size of a given domain");
-  parm = RNA_def_enum(func,
-                      "domain",
-                      rna_enum_attribute_domain_items,
-                      int(AttrDomain::Point),
-                      "Domain",
-                      "Type of element that attribute is stored on");
-  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
-  parm = RNA_def_int(func, "size", 0, 0, INT_MAX, "Size", "Size of the domain", 0, INT_MAX);
-  RNA_def_function_return(func, parm);
-}
-
 void rna_def_attributes_common(StructRNA *srna, const AttributeOwnerType type)
 {
   PropertyRNA *prop;
@@ -2287,12 +2012,6 @@ void rna_def_attributes_common(StructRNA *srna, const AttributeOwnerType type)
     case AttributeOwnerType::Curves:
       RNA_def_property_srna(prop, "AttributeGroupCurves");
       break;
-    case AttributeOwnerType::GreasePencil:
-      RNA_def_property_srna(prop, "AttributeGroupGreasePencil");
-      break;
-    case AttributeOwnerType::GreasePencilDrawing:
-      RNA_def_property_srna(prop, "AttributeGroupGreasePencilDrawing");
-      break;
   }
 
   prop = RNA_def_property(srna, "color_attributes", PROP_COLLECTION, PROP_NONE);
@@ -2317,12 +2036,6 @@ void rna_def_attributes_common(StructRNA *srna, const AttributeOwnerType type)
     case AttributeOwnerType::Curves:
       RNA_def_property_srna(prop, "AttributeGroupCurves");
       break;
-    case AttributeOwnerType::GreasePencil:
-      RNA_def_property_srna(prop, "AttributeGroupGreasePencil");
-      break;
-    case AttributeOwnerType::GreasePencilDrawing:
-      RNA_def_property_srna(prop, "AttributeGroupGreasePencilDrawing");
-      break;
   }
 }
 
@@ -2332,8 +2045,6 @@ void RNA_def_attribute(BlenderRNA *brna)
   rna_def_attribute_group_mesh(brna);
   rna_def_attribute_group_pointcloud(brna);
   rna_def_attribute_group_curves(brna);
-  rna_def_attribute_group_grease_pencil(brna);
-  rna_def_attribute_group_grease_pencil_drawing(brna);
 }
 }  // namespace blender
 

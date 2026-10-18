@@ -79,7 +79,7 @@ bool transdata_check_local_islands(TransInfo *t, short around)
     return false;
   }
   return ((around == V3D_AROUND_LOCAL_ORIGINS) &&
-          ELEM(t->obedit_type, OB_MESH, OB_GREASE_PENCIL, OB_CURVES));
+          ELEM(t->obedit_type, OB_MESH, OB_CURVES));
 }
 
 /** \} */
@@ -504,12 +504,7 @@ void removeAspectRatio(TransInfo *t, float vec[2])
 
 static void viewRedrawForce(const bContext *C, TransInfo *t)
 {
-  if (t->options & CTX_GPENCIL_STROKES) {
-    if (t->obedit_type == OB_GREASE_PENCIL) {
-      WM_event_add_notifier(C, NC_GEOM | ND_DATA, nullptr);
-    }
-  }
-  else if (t->spacetype == SPACE_VIEW3D) {
+  if (t->spacetype == SPACE_VIEW3D) {
     if (t->options & CTX_PAINT_CURVE) {
       wmWindow *window = CTX_wm_window(C);
       WM_paint_cursor_tag_redraw(window, t->region);
@@ -1999,14 +1994,6 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
   {
     if (RNA_property_boolean_get(op->ptr, prop)) {
       options |= CTX_TEXTURE_SPACE;
-    }
-  }
-
-  if ((prop = RNA_struct_find_property(op->ptr, "gpencil_strokes")) &&
-      RNA_property_is_set(op->ptr, prop))
-  {
-    if (RNA_property_boolean_get(op->ptr, prop)) {
-      options |= CTX_GPENCIL_STROKES;
     }
   }
 

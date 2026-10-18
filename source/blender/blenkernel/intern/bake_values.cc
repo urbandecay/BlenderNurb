@@ -12,7 +12,6 @@
 #include "BKE_bake_values.hh"
 #include "BKE_curves.hh"
 #include "BKE_geometry_fields.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_mesh_types.hh"
 #include "BKE_node.hh"
@@ -21,7 +20,6 @@
 #include "BKE_volume.hh"
 
 #include "DNA_curves_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_pointcloud_types.h"
 #include "DNA_volume_types.h"
@@ -180,7 +178,6 @@ class RuntimeToBakeValue {
         for (const GeometryComponent::Type type : {
                  GeometryComponent::Type::Mesh,
                  GeometryComponent::Type::PointCloud,
-                 GeometryComponent::Type::GreasePencil,
                  GeometryComponent::Type::Curve,
                  GeometryComponent::Type::Instance,
              })
@@ -334,20 +331,6 @@ class RuntimeToBakeValue {
       this->runtime_to_bake__AttributeStorage(pointcloud.attribute_storage.wrap());
       pointcloud.runtime->bake_materials = materials_to_weak_references(
           &pointcloud.mat, &pointcloud.totcol, data_block_map_);
-    }
-    if (geometry.has_grease_pencil()) {
-      GreasePencil &grease_pencil = *geometry.get_grease_pencil_for_write();
-      this->runtime_to_bake__AttributeStorage(grease_pencil.attribute_storage.wrap());
-      for (GreasePencilDrawingBase *base : grease_pencil.drawings()) {
-        if (base->type != GP_DRAWING) {
-          continue;
-        }
-        greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(base)->wrap();
-        this->runtime_to_bake__AttributeStorage(
-            drawing.strokes_for_write().attribute_storage.wrap());
-      }
-      grease_pencil.runtime->bake_materials = materials_to_weak_references(
-          &grease_pencil.material_array, &grease_pencil.material_array_num, data_block_map_);
     }
     if (geometry.has_volume()) {
       Volume &volume = *geometry.get_volume_for_write();
@@ -549,22 +532,6 @@ class BakeToRuntimeValue {
                         &pointcloud.totcol,
                         std::move(pointcloud.runtime->bake_materials),
                         data_block_map_);
-    }
-    if (geometry.has_grease_pencil()) {
-      GreasePencil &grease_pencil = *geometry.get_grease_pencil_for_write();
-      this->bake_to_runtime__AttributeStorage(grease_pencil.attribute_storage.wrap());
-      restore_materials(&grease_pencil.material_array,
-                        &grease_pencil.material_array_num,
-                        std::move(grease_pencil.runtime->bake_materials),
-                        data_block_map_);
-      for (GreasePencilDrawingBase *base : grease_pencil.drawings()) {
-        if (base->type != GP_DRAWING) {
-          continue;
-        }
-        greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(base)->wrap();
-        this->bake_to_runtime__AttributeStorage(
-            drawing.strokes_for_write().attribute_storage.wrap());
-      }
     }
     if (geometry.has_volume()) {
       Volume &volume = *geometry.get_volume_for_write();

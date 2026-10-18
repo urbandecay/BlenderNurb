@@ -15,8 +15,6 @@
 #include "BLI_math_base.hh"
 #include "MEM_guardedalloc.h"
 
-#include "DNA_gpencil_legacy_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -36,8 +34,6 @@
 
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh" /* own include */
-#include "BKE_grease_pencil.hh"
-#include "BKE_grease_pencil_vertex_groups.hh"
 #include "BKE_mesh.hh"
 #include "BKE_object.hh"
 #include "BKE_object_deform.h"
@@ -63,9 +59,6 @@ bDeformGroup *BKE_object_defgroup_new(Object *ob, const StringRef name)
   BLI_addtail(defbase, defgroup);
   BKE_object_defgroup_unique_name(defgroup, ob);
 
-  if (ob->type == OB_GREASE_PENCIL) {
-    bke::greasepencil::validate_drawing_vertex_groups(*id_cast<GreasePencil *>(ob->data));
-  }
 
   BKE_object_batch_cache_dirty_tag(ob);
 
@@ -459,7 +452,7 @@ bool BKE_id_supports_vertex_groups(const ID *id)
   if (id == nullptr) {
     return false;
   }
-  return ELEM(GS(id->name), ID_ME, ID_LT, ID_GD_LEGACY, ID_GP);
+  return ELEM(GS(id->name), ID_ME, ID_LT);
 }
 
 bool BKE_object_supports_vertex_groups(const Object *ob)
@@ -480,14 +473,6 @@ const ListBaseT<bDeformGroup> *BKE_id_defgroup_list_get(const ID *id)
       const Lattice *lt = id_cast<const Lattice *>(id);
       return &lt->vertex_group_names;
     }
-    case ID_GD_LEGACY: {
-      const bGPdata *gpd = id_cast<const bGPdata *>(id);
-      return &gpd->vertex_group_names;
-    }
-    case ID_GP: {
-      const GreasePencil *grease_pencil = id_cast<const GreasePencil *>(id);
-      return &grease_pencil->vertex_group_names;
-    }
     default: {
       BLI_assert_unreachable();
     }
@@ -506,14 +491,6 @@ static const int *object_defgroup_active_index_get_p(const Object *ob)
     case OB_LATTICE: {
       const Lattice *lattice = id_cast<const Lattice *>(ob->data);
       return &lattice->vertex_group_active_index;
-    }
-    case OB_GPENCIL_LEGACY: {
-      const bGPdata *gpd = id_cast<const bGPdata *>(ob->data);
-      return &gpd->vertex_group_active_index;
-    }
-    case OB_GREASE_PENCIL: {
-      const GreasePencil *grease_pencil = id_cast<const GreasePencil *>(ob->data);
-      return &grease_pencil->vertex_group_active_index;
     }
     default:
       break;
@@ -770,10 +747,6 @@ void BKE_object_defgroup_set_name(bDeformGroup *dg, Object *ob, const char *new_
   STRNCPY_UTF8(dg->name, new_name);
   BKE_object_defgroup_unique_name(dg, ob);
 
-  if (ob->type == OB_GREASE_PENCIL) {
-    /* Update vgroup names stored in CurvesGeometry */
-    BKE_grease_pencil_vgroup_name_update(ob, old_name.c_str(), dg->name);
-  }
 }
 
 float BKE_defvert_find_weight(const MDeformVert *dvert, const int defgroup)

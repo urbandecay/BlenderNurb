@@ -306,10 +306,6 @@ if(WITH_IO_FBX)
   add_definitions(-DWITH_IO_FBX)
 endif()
 
-if(WITH_IO_GREASE_PENCIL)
-  add_definitions(-DWITH_IO_GREASE_PENCIL)
-endif()
-
 if(WITH_ALEMBIC)
   add_definitions(-DWITH_ALEMBIC)
   list(APPEND INC

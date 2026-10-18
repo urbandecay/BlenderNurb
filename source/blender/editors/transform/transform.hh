@@ -105,7 +105,6 @@ enum eTContext {
   CTX_CAMERA = (1 << 0),
   CTX_CURSOR = (1 << 1),
   CTX_EDGE_DATA = (1 << 2),
-  CTX_GPENCIL_STROKES = (1 << 3),
   CTX_MASK = (1 << 4),
   CTX_MOVIECLIP = (1 << 5),
   CTX_OBJECT = (1 << 6),
@@ -393,8 +392,6 @@ enum {
   TD_PBONE_LOCAL_MTX_P = 1 << 17,
   /** Same as #TD_PBONE_LOCAL_MTX_P but for a child bone. */
   TD_PBONE_LOCAL_MTX_C = 1 << 18,
-  /* Grease pencil layer frames. */
-  TD_GREASE_PENCIL_FRAME = 1 << 19,
 };
 
 struct TransDataBasic {

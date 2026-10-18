@@ -5,7 +5,6 @@
 #include "BKE_bvhutils.hh"
 #include "BKE_curves.hh"
 #include "BKE_geometry_fields.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_mesh.h"
@@ -148,11 +147,9 @@ static void node_declare(NodeDeclarationBuilder &b)
 struct DataKey {
   int geo_bundle_i;
   bke::GeometryComponent::Type type;
-  std::optional<int> layer_i;
-
   uint64_t hash() const
   {
-    return get_default_hash(this->geo_bundle_i, this->type, this->layer_i.value_or(0));
+    return get_default_hash(this->geo_bundle_i, this->type);
   }
 
   friend bool operator==(const DataKey &a, const DataKey &b) = default;
@@ -331,7 +328,7 @@ struct GeometryData {
   AttrDomain domain;
   int size;
   bool uses_rotation = false;
-  /** Easy access to curve data for curves and grease pencil layers. */
+  /** Easy access to curve data. */
   bke::CurvesGeometry *curves = nullptr;
 
   IndexRange chunks;
@@ -740,7 +737,7 @@ class XpbdSolverStep {
           continue;
         }
         bke::GeometryComponent &component = geometry.get_component_for_write(type);
-        geometries_.data_keys.add_new({geo_bundle_i, type, std::nullopt});
+        geometries_.data_keys.add_new({geo_bundle_i, type});
         GeometryData &geo_data = tls.scope.construct<GeometryData>(
             *component.attributes_for_write());
         geo_data.curves = type == bke::GeometryComponent::Type::Curve ?
@@ -749,25 +746,6 @@ class XpbdSolverStep {
         geo_data.domain = type == bke::GeometryComponent::Type::Instance ? AttrDomain::Instance :
                                                                            AttrDomain::Point;
         geometries_.data.append(&geo_data);
-      }
-      if (geometry.has_grease_pencil()) {
-        using namespace blender::bke::greasepencil;
-        GreasePencil &grease_pencil = *geometry.get_grease_pencil_for_write();
-        for (const int layer_i : grease_pencil.layers().index_range()) {
-          Layer &layer = grease_pencil.layer(layer_i);
-          Drawing *drawing = grease_pencil.get_eval_drawing(layer);
-          if (!drawing) {
-            continue;
-          }
-          bke::CurvesGeometry &curves = drawing->strokes_for_write();
-          geometries_.data_keys.add_new(
-              {geo_bundle_i, bke::GeometryComponent::Type::Curve, layer_i});
-          GeometryData &geo_data = tls.scope.construct<GeometryData>(
-              curves.attributes_for_write());
-          geo_data.domain = AttrDomain::Point;
-          geo_data.curves = &curves;
-          geometries_.data.append(&geo_data);
-        }
       }
     }
     geometries_.total_points_num = 0;

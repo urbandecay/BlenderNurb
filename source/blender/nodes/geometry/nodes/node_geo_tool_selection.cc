@@ -86,7 +86,6 @@ class EditSelectionFieldInput final : public bke::GeometryFieldInput {
     switch (context.type()) {
       case GeometryComponent::Type::Curve:
       case GeometryComponent::Type::PointCloud:
-      case GeometryComponent::Type::GreasePencil:
         return *attributes.lookup_or_default(
             ".selection", domain, data_type, true_value(data_type));
       case GeometryComponent::Type::Mesh:
@@ -114,7 +113,6 @@ class SculptSelectionFieldInput final : public bke::GeometryFieldInput {
     switch (context.type()) {
       case GeometryComponent::Type::Curve:
       case GeometryComponent::Type::PointCloud:
-      case GeometryComponent::Type::GreasePencil:
         return *attributes.lookup_or_default(
             ".selection", domain, data_type, true_value(data_type));
       case GeometryComponent::Type::Mesh: {
@@ -159,11 +157,7 @@ static GField get_selection_field(const eObjectMode object_mode, const bke::Attr
       return GField::from_input<EditSelectionFieldInput>(data_type);
     case OB_MODE_SCULPT:
     case OB_MODE_SCULPT_CURVES:
-    case OB_MODE_SCULPT_GREASE_PENCIL:
       return GField::from_input<SculptSelectionFieldInput>(data_type);
-    case OB_MODE_PAINT_GREASE_PENCIL:
-      return fn::GField::from_non_owning_constant(bke::attribute_type_to_cpp_type(data_type),
-                                                  true_value(data_type));
     default:
       return fn::GField::from_non_owning_constant(bke::attribute_type_to_cpp_type(data_type),
                                                   false_value(data_type));

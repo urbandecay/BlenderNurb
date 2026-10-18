@@ -352,18 +352,6 @@ bool BKE_paint_ensure_from_paintmode(Scene *sce, PaintMode mode)
       paint_tmp = reinterpret_cast<Paint *>(&ts->imapaint);
       paint_ptr = &paint_tmp;
       break;
-    case PaintMode::GPencil:
-      paint_ptr = reinterpret_cast<Paint **>(&ts->gp_paint);
-      break;
-    case PaintMode::VertexGPencil:
-      paint_ptr = reinterpret_cast<Paint **>(&ts->gp_vertexpaint);
-      break;
-    case PaintMode::SculptGPencil:
-      paint_ptr = reinterpret_cast<Paint **>(&ts->gp_sculptpaint);
-      break;
-    case PaintMode::WeightGPencil:
-      paint_ptr = reinterpret_cast<Paint **>(&ts->gp_weightpaint);
-      break;
     case PaintMode::SculptCurves:
       paint_ptr = reinterpret_cast<Paint **>(&ts->curves_sculpt);
       break;
@@ -392,14 +380,6 @@ Paint *BKE_paint_get_active_from_paintmode(Scene *sce, PaintMode mode)
       case PaintMode::Texture2D:
       case PaintMode::Texture3D:
         return &ts->imapaint.paint;
-      case PaintMode::GPencil:
-        return &ts->gp_paint->paint;
-      case PaintMode::VertexGPencil:
-        return &ts->gp_vertexpaint->paint;
-      case PaintMode::SculptGPencil:
-        return &ts->gp_sculptpaint->paint;
-      case PaintMode::WeightGPencil:
-        return &ts->gp_weightpaint->paint;
       case PaintMode::SculptCurves:
         return &ts->curves_sculpt->paint;
       case PaintMode::Invalid:
@@ -424,14 +404,6 @@ const EnumPropertyItem *BKE_paint_get_tool_enum_from_paintmode(const PaintMode m
     case PaintMode::Texture2D:
     case PaintMode::Texture3D:
       return rna_enum_brush_image_brush_type_items;
-    case PaintMode::GPencil:
-      return rna_enum_brush_gpencil_types_items;
-    case PaintMode::VertexGPencil:
-      return rna_enum_brush_gpencil_vertex_types_items;
-    case PaintMode::SculptGPencil:
-      return rna_enum_brush_gpencil_sculpt_types_items;
-    case PaintMode::WeightGPencil:
-      return rna_enum_brush_gpencil_weight_types_items;
     case PaintMode::SculptCurves:
       return rna_enum_brush_curves_sculpt_brush_type_items;
     case PaintMode::Invalid:
@@ -457,14 +429,6 @@ Paint *BKE_paint_get_active(const Main &bmain, Scene *sce, ViewLayer *view_layer
           return &ts->wpaint->paint;
         case OB_MODE_TEXTURE_PAINT:
           return &ts->imapaint.paint;
-        case OB_MODE_PAINT_GREASE_PENCIL:
-          return &ts->gp_paint->paint;
-        case OB_MODE_VERTEX_GREASE_PENCIL:
-          return &ts->gp_vertexpaint->paint;
-        case OB_MODE_SCULPT_GREASE_PENCIL:
-          return &ts->gp_sculptpaint->paint;
-        case OB_MODE_WEIGHT_GREASE_PENCIL:
-          return &ts->gp_weightpaint->paint;
         case OB_MODE_SCULPT_CURVES:
           return &ts->curves_sculpt->paint;
         default:
@@ -534,17 +498,6 @@ PaintMode BKE_paintmode_get_active_from_context(const bContext *C)
       switch (obact->mode) {
         case OB_MODE_SCULPT:
           return PaintMode::Sculpt;
-        case OB_MODE_SCULPT_GREASE_PENCIL:
-          if (obact->type == OB_GREASE_PENCIL) {
-            return PaintMode::SculptGPencil;
-          }
-          return PaintMode::Invalid;
-        case OB_MODE_PAINT_GREASE_PENCIL:
-          return PaintMode::GPencil;
-        case OB_MODE_WEIGHT_GREASE_PENCIL:
-          return PaintMode::WeightGPencil;
-        case OB_MODE_VERTEX_GREASE_PENCIL:
-          return PaintMode::VertexGPencil;
         case OB_MODE_VERTEX_PAINT:
           return PaintMode::Vertex;
         case OB_MODE_WEIGHT_PAINT:
@@ -576,24 +529,10 @@ PaintMode BKE_paintmode_get_from_tool(const bToolRef *tref)
         return PaintMode::Vertex;
       case CTX_MODE_PAINT_WEIGHT:
         return PaintMode::Weight;
-      case CTX_MODE_PAINT_GPENCIL_LEGACY:
-        return PaintMode::GPencil;
       case CTX_MODE_PAINT_TEXTURE:
         return PaintMode::Texture3D;
-      case CTX_MODE_VERTEX_GREASE_PENCIL:
-      case CTX_MODE_VERTEX_GPENCIL_LEGACY:
-        return PaintMode::VertexGPencil;
-      case CTX_MODE_SCULPT_GPENCIL_LEGACY:
-        return PaintMode::SculptGPencil;
-      case CTX_MODE_WEIGHT_GREASE_PENCIL:
-      case CTX_MODE_WEIGHT_GPENCIL_LEGACY:
-        return PaintMode::WeightGPencil;
       case CTX_MODE_SCULPT_CURVES:
         return PaintMode::SculptCurves;
-      case CTX_MODE_PAINT_GREASE_PENCIL:
-        return PaintMode::GPencil;
-      case CTX_MODE_SCULPT_GREASE_PENCIL:
-        return PaintMode::SculptGPencil;
     }
   }
   else if (tref->space_type == SPACE_IMAGE) {
@@ -608,31 +547,16 @@ PaintMode BKE_paintmode_get_from_tool(const bToolRef *tref)
 
 bool BKE_paint_use_unified_size(const Paint *paint)
 {
-  /* For now, Grease Pencil Draw mode doesn't use the unified paint settings. */
-  if (paint->runtime->ob_mode == OB_MODE_PAINT_GREASE_PENCIL) {
-    return false;
-  }
-
   return paint->unified_paint_settings.flag & UNIFIED_PAINT_SIZE;
 }
 
 bool BKE_paint_use_unified_strength(const Paint *paint)
 {
-  /* For now, Grease Pencil Draw mode doesn't use the unified paint settings. */
-  if (paint->runtime->ob_mode == OB_MODE_PAINT_GREASE_PENCIL) {
-    return false;
-  }
-
   return paint->unified_paint_settings.flag & UNIFIED_PAINT_ALPHA;
 }
 
 bool BKE_paint_use_unified_color(const Paint *paint)
 {
-  /* For now, Grease Pencil Draw mode doesn't use the unified paint settings. */
-  if (paint->runtime->ob_mode == OB_MODE_PAINT_GREASE_PENCIL) {
-    return false;
-  }
-
   return paint->unified_paint_settings.flag & UNIFIED_PAINT_COLOR;
 }
 
@@ -766,14 +690,6 @@ static const char *paint_brush_essentials_asset_file_name_from_paint_mode(
     case PaintMode::Texture2D:
     case PaintMode::Texture3D:
       return "essentials_brushes-mesh_texture.blend";
-    case PaintMode::GPencil:
-      return "essentials_brushes-gp_draw.blend";
-    case PaintMode::SculptGPencil:
-      return "essentials_brushes-gp_sculpt.blend";
-    case PaintMode::WeightGPencil:
-      return "essentials_brushes-gp_weight.blend";
-    case PaintMode::VertexGPencil:
-      return "essentials_brushes-gp_vertex.blend";
     case PaintMode::SculptCurves:
       return "essentials_brushes-curve_sculpt.blend";
     default:
@@ -956,81 +872,6 @@ static void paint_brush_default_essentials_name_get(const PaintMode paint_mode,
         }
       }
       break;
-    case PaintMode::GPencil:
-      name = "Pencil";
-      /* Different default brush for some brush types. */
-      if (brush_type) {
-        switch (eBrushGPaintType(*brush_type)) {
-          case GPAINT_BRUSH_TYPE_ERASE:
-            name = "Eraser Hard";
-            break;
-          case GPAINT_BRUSH_TYPE_FILL:
-            name = "Fill";
-            break;
-          case GPAINT_BRUSH_TYPE_DRAW:
-          case GPAINT_BRUSH_TYPE_TINT:
-            /* Use default, don't override. */
-            break;
-        }
-      }
-      break;
-    case PaintMode::VertexGPencil:
-      name = "Paint";
-      if (brush_type) {
-        switch (eBrushGPVertexType(*brush_type)) {
-          case GPVERTEX_BRUSH_TYPE_BLUR:
-            name = "Blur";
-            break;
-          case GPVERTEX_BRUSH_TYPE_AVERAGE:
-            name = "Average";
-            break;
-          case GPVERTEX_BRUSH_TYPE_SMEAR:
-            name = "Smear";
-            break;
-          case GPVERTEX_BRUSH_TYPE_REPLACE:
-            name = "Replace";
-            break;
-          case GPVERTEX_BRUSH_TYPE_DRAW:
-            /* Use default, don't override. */
-            break;
-          case GPVERTEX_BRUSH_TYPE_TINT:
-            /* Unused brush type. */
-            BLI_assert_unreachable();
-            break;
-        }
-      }
-      break;
-    case PaintMode::SculptGPencil:
-      name = "Smooth";
-      if (brush_type) {
-        switch (eBrushGPSculptType(*brush_type)) {
-          case GPSCULPT_BRUSH_TYPE_CLONE:
-            name = "Clone";
-            break;
-          default:
-            break;
-        }
-      }
-      break;
-    case PaintMode::WeightGPencil:
-      name = "Paint";
-      if (brush_type) {
-        switch (eBrushGPWeightType(*brush_type)) {
-          case GPWEIGHT_BRUSH_TYPE_BLUR:
-            name = "Blur";
-            break;
-          case GPWEIGHT_BRUSH_TYPE_AVERAGE:
-            name = "Average";
-            break;
-          case GPWEIGHT_BRUSH_TYPE_SMEAR:
-            name = "Smear";
-            break;
-          case GPWEIGHT_BRUSH_TYPE_DRAW:
-            /* Use default, don't override. */
-            break;
-        }
-      }
-      break;
     default:
       BLI_assert_unreachable();
       break;
@@ -1082,18 +923,6 @@ void BKE_paint_brushes_set_default_references(ToolSettings *ts)
   }
   if (ts->vpaint) {
     paint_brush_set_default_reference(&ts->vpaint->paint);
-  }
-  if (ts->gp_paint) {
-    paint_brush_set_default_reference(&ts->gp_paint->paint);
-  }
-  if (ts->gp_vertexpaint) {
-    paint_brush_set_default_reference(&ts->gp_vertexpaint->paint);
-  }
-  if (ts->gp_sculptpaint) {
-    paint_brush_set_default_reference(&ts->gp_sculptpaint->paint);
-  }
-  if (ts->gp_weightpaint) {
-    paint_brush_set_default_reference(&ts->gp_weightpaint->paint);
   }
   paint_brush_set_default_reference(&ts->imapaint.paint);
 }
@@ -1159,22 +988,6 @@ static void paint_runtime_init(const ToolSettings *ts, Paint *paint)
     paint->runtime->ob_mode = OB_MODE_WEIGHT_PAINT;
     paint->runtime->paint_mode = PaintMode::Weight;
   }
-  else if (ts->gp_paint && paint == &ts->gp_paint->paint) {
-    paint->runtime->ob_mode = OB_MODE_PAINT_GREASE_PENCIL;
-    paint->runtime->paint_mode = PaintMode::GPencil;
-  }
-  else if (ts->gp_vertexpaint && paint == &ts->gp_vertexpaint->paint) {
-    paint->runtime->ob_mode = OB_MODE_VERTEX_GREASE_PENCIL;
-    paint->runtime->paint_mode = PaintMode::VertexGPencil;
-  }
-  else if (ts->gp_sculptpaint && paint == &ts->gp_sculptpaint->paint) {
-    paint->runtime->ob_mode = OB_MODE_SCULPT_GREASE_PENCIL;
-    paint->runtime->paint_mode = PaintMode::SculptGPencil;
-  }
-  else if (ts->gp_weightpaint && paint == &ts->gp_weightpaint->paint) {
-    paint->runtime->ob_mode = OB_MODE_WEIGHT_GREASE_PENCIL;
-    paint->runtime->paint_mode = PaintMode::WeightGPencil;
-  }
   else if (ts->curves_sculpt && paint == &ts->curves_sculpt->paint) {
     paint->runtime->ob_mode = OB_MODE_SCULPT_CURVES;
     paint->runtime->paint_mode = PaintMode::SculptCurves;
@@ -1198,14 +1011,6 @@ uint BKE_paint_get_brush_type_offset_from_paintmode(const PaintMode mode)
       return offsetof(Brush, vertex_brush_type);
     case PaintMode::Weight:
       return offsetof(Brush, weight_brush_type);
-    case PaintMode::GPencil:
-      return offsetof(Brush, gpencil_brush_type);
-    case PaintMode::VertexGPencil:
-      return offsetof(Brush, gpencil_vertex_brush_type);
-    case PaintMode::SculptGPencil:
-      return offsetof(Brush, gpencil_sculpt_brush_type);
-    case PaintMode::WeightGPencil:
-      return offsetof(Brush, gpencil_weight_brush_type);
     case PaintMode::SculptCurves:
       return offsetof(Brush, curves_sculpt_brush_type);
     case PaintMode::Invalid:
@@ -1227,14 +1032,6 @@ std::optional<int> BKE_paint_get_brush_type_from_obmode(const Brush *brush,
       return brush->vertex_brush_type;
     case OB_MODE_WEIGHT_PAINT:
       return brush->weight_brush_type;
-    case OB_MODE_PAINT_GREASE_PENCIL:
-      return brush->gpencil_brush_type;
-    case OB_MODE_VERTEX_GREASE_PENCIL:
-      return brush->gpencil_vertex_brush_type;
-    case OB_MODE_SCULPT_GREASE_PENCIL:
-      return brush->gpencil_sculpt_brush_type;
-    case OB_MODE_WEIGHT_GREASE_PENCIL:
-      return brush->gpencil_weight_brush_type;
     case OB_MODE_SCULPT_CURVES:
       return brush->curves_sculpt_brush_type;
     default:
@@ -1255,14 +1052,6 @@ std::optional<int> BKE_paint_get_brush_type_from_paintmode(const Brush *brush,
       return brush->vertex_brush_type;
     case PaintMode::Weight:
       return brush->weight_brush_type;
-    case PaintMode::GPencil:
-      return brush->gpencil_brush_type;
-    case PaintMode::VertexGPencil:
-      return brush->gpencil_vertex_brush_type;
-    case PaintMode::SculptGPencil:
-      return brush->gpencil_sculpt_brush_type;
-    case PaintMode::WeightGPencil:
-      return brush->gpencil_weight_brush_type;
     case PaintMode::SculptCurves:
       return brush->curves_sculpt_brush_type;
     case PaintMode::Invalid:
@@ -1361,21 +1150,9 @@ bool BKE_paint_select_vert_test(const Object *ob)
           (ob->mode & OB_MODE_WEIGHT_PAINT || ob->mode & OB_MODE_VERTEX_PAINT));
 }
 
-bool BKE_paint_select_grease_pencil_test(const Object *ob)
-{
-  if (ob == nullptr || ob->data == nullptr) {
-    return false;
-  }
-  if (ob->type == OB_GREASE_PENCIL) {
-    return (ob->mode & (OB_MODE_SCULPT_GREASE_PENCIL | OB_MODE_VERTEX_GREASE_PENCIL));
-  }
-  return false;
-}
-
 bool BKE_paint_select_elem_test(const Object *ob)
 {
-  return (BKE_paint_select_vert_test(ob) || BKE_paint_select_face_test(ob) ||
-          BKE_paint_select_grease_pencil_test(ob));
+  return (BKE_paint_select_vert_test(ob) || BKE_paint_select_face_test(ob));
 }
 
 bool BKE_paint_always_hide_test(const Object *ob)
@@ -1415,8 +1192,6 @@ eObjectMode BKE_paint_object_mode_from_paintmode(const PaintMode mode)
       return OB_MODE_TEXTURE_PAINT;
     case PaintMode::SculptCurves:
       return OB_MODE_SCULPT_CURVES;
-    case PaintMode::GPencil:
-      return OB_MODE_PAINT_GREASE_PENCIL;
     case PaintMode::Invalid:
     default:
       return OB_MODE_OBJECT;
@@ -1459,10 +1234,6 @@ bool BKE_paint_ensure(ToolSettings *ts, Paint **r_paint)
     else {
       BLI_assert(ELEM(*r_paint,
                       /* Cast is annoying, but prevent nullptr-pointer access. */
-                      (Paint *)ts->gp_paint,
-                      (Paint *)ts->gp_vertexpaint,
-                      (Paint *)ts->gp_sculptpaint,
-                      (Paint *)ts->gp_weightpaint,
                       (Paint *)ts->sculpt,
                       (Paint *)ts->vpaint,
                       (Paint *)ts->wpaint,
@@ -1492,26 +1263,6 @@ bool BKE_paint_ensure(ToolSettings *ts, Paint **r_paint)
     paint = &data->paint;
     paint_init_data(*paint);
     BKE_paint_mesh_automasking_settings_ensure(*paint);
-  }
-  else if (reinterpret_cast<GpPaint **>(r_paint) == &ts->gp_paint) {
-    GpPaint *data = MEM_new<GpPaint>(__func__);
-    paint = &data->paint;
-    paint_init_data(*paint);
-  }
-  else if (reinterpret_cast<GpVertexPaint **>(r_paint) == &ts->gp_vertexpaint) {
-    GpVertexPaint *data = MEM_new<GpVertexPaint>(__func__);
-    paint = &data->paint;
-    paint_init_data(*paint);
-  }
-  else if (reinterpret_cast<GpSculptPaint **>(r_paint) == &ts->gp_sculptpaint) {
-    GpSculptPaint *data = MEM_new<GpSculptPaint>(__func__);
-    paint = &data->paint;
-    paint_init_data(*paint);
-  }
-  else if (reinterpret_cast<GpWeightPaint **>(r_paint) == &ts->gp_weightpaint) {
-    GpWeightPaint *data = MEM_new<GpWeightPaint>(__func__);
-    paint = &data->paint;
-    paint_init_data(*paint);
   }
   else if (reinterpret_cast<CurvesSculpt **>(r_paint) == &ts->curves_sculpt) {
     CurvesSculpt *data = MEM_new<CurvesSculpt>(__func__);
@@ -1657,18 +1408,6 @@ void BKE_paint_settings_foreach_mode(ToolSettings *ts, FunctionRef<void(Paint *p
   }
   if (ts->sculpt) {
     fn(reinterpret_cast<Paint *>(ts->sculpt));
-  }
-  if (ts->gp_paint) {
-    fn(reinterpret_cast<Paint *>(ts->gp_paint));
-  }
-  if (ts->gp_vertexpaint) {
-    fn(reinterpret_cast<Paint *>(ts->gp_vertexpaint));
-  }
-  if (ts->gp_sculptpaint) {
-    fn(reinterpret_cast<Paint *>(ts->gp_sculptpaint));
-  }
-  if (ts->gp_weightpaint) {
-    fn(reinterpret_cast<Paint *>(ts->gp_weightpaint));
   }
   if (ts->curves_sculpt) {
     fn(reinterpret_cast<Paint *>(ts->curves_sculpt));
@@ -1906,11 +1645,6 @@ bool supports_scene_size(const PaintMode paint_mode)
     case PaintMode::Weight:
     case PaintMode::Texture3D:
       return false;
-    case PaintMode::GPencil:
-    case PaintMode::VertexGPencil:
-    case PaintMode::SculptGPencil:
-    case PaintMode::WeightGPencil:
-      return true;
     case PaintMode::SculptCurves:
       return false;
     case PaintMode::Texture2D:
@@ -1930,11 +1664,6 @@ bool supports_symmetry_tiling(const PaintMode paint_mode)
     case PaintMode::Vertex:
     case PaintMode::Weight:
     case PaintMode::Texture3D:
-      return false;
-    case PaintMode::GPencil:
-    case PaintMode::VertexGPencil:
-    case PaintMode::SculptGPencil:
-    case PaintMode::WeightGPencil:
       return false;
     case PaintMode::SculptCurves:
       return false;

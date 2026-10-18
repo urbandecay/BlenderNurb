@@ -116,16 +116,11 @@ void geometry_main(VertOut geom_in[2],
   bool handle_selected = (show_curve_handles && (((geom_in[1].flag | geom_in[0].flag) &
                                                   VERT_SELECTED_BEZT_HANDLE) != 0u));
 
-  bool is_gpencil = ((geom_in[1].flag & VERT_GPENCIL_BEZT_HANDLE) != 0u);
-
   /* If handle type is only selected and the edge is not selected, don't show. */
   if ((uint(curve_handle_display) != CURVE_HANDLE_ALL) && (!handle_selected)) {
     /* Nurbs must show the handles always. */
     bool is_u_segment = (((geom_in[1].flag ^ geom_in[0].flag) & EVEN_U_BIT) != 0u);
     if ((!is_u_segment) && (color_id <= 4u)) {
-      return;
-    }
-    if (is_gpencil) {
       return;
     }
   }

@@ -64,7 +64,6 @@ bool transdata_check_local_center(const TransInfo *t, short around)
                 OB_MESH,
                 OB_CURVES_LEGACY,
                 OB_CURVES,
-                OB_GREASE_PENCIL,
                 OB_MBALL,
                 OB_ARMATURE) ||
            (t->spacetype == SPACE_GRAPH) ||
@@ -604,18 +603,6 @@ void ElementRotation_ex(const TransInfo *t,
     mul_m3_m3m3(totmat, mat, td->mtx);
     mul_m3_m3m3(smat, td->smtx, totmat);
 
-    /* Apply gpencil falloff. */
-    if (t->options & CTX_GPENCIL_STROKES) {
-      if (t->obedit_type == OB_GREASE_PENCIL) {
-        const float *gp_falloff = static_cast<const float *>(td->extra);
-        if (gp_falloff != nullptr && *gp_falloff != 1.0f) {
-          float ident_mat[3][3];
-          unit_m3(ident_mat);
-          interp_m3_m3m3(smat, ident_mat, smat, *gp_falloff);
-        }
-      }
-    }
-
     sub_v3_v3v3(vec, td->iloc, center);
     mul_m3_v3(smat, vec);
 
@@ -1071,39 +1058,7 @@ void ElementResize(const TransInfo *t,
     sub_v3_v3(vec, td->center);
   }
 
-  /* Grease pencil falloff.
-   *
-   * FIXME: This is bad on multiple levels!
-   *
-   * - #applyNumInput is not intended to be run for every element,
-   *   this writes back into the number input in a way that doesn't make sense to run many times.
-   *
-   * - Writing into #TransInfo should be avoided since it means order of operations
-   *   may impact the result and isn't thread-safe.
-   *
-   *   Operating on copies as a temporary solution.
-   */
-  if (t->options & CTX_GPENCIL_STROKES) {
-    const float *gp_falloff_ptr = static_cast<const float *>(td->extra);
-    const float gp_falloff = gp_falloff_ptr != nullptr ? *gp_falloff_ptr : 1.0f;
-    mul_v3_fl(vec, td->factor * gp_falloff);
-
-    /* Scale stroke thickness. */
-    if (td->val) {
-      NumInput num_evil = t->num;
-      float values_final_evil[4];
-      copy_v4_v4(values_final_evil, t->values_final);
-      transform_snap_increment(t, values_final_evil);
-      applyNumInput(&num_evil, values_final_evil);
-
-      float ratio = values_final_evil[0];
-      float transformed_value = td->ival * fabs(ratio);
-      *td->val = math::max(math::interpolate(td->ival, transformed_value, gp_falloff), 0.001f);
-    }
-  }
-  else {
-    mul_v3_fl(vec, td->factor);
-  }
+  mul_v3_fl(vec, td->factor);
 
   if (t->options & (CTX_OBJECT | CTX_POSE_BONE)) {
     if (t->options & CTX_POSE_BONE) {
@@ -1198,8 +1153,6 @@ static TransModeInfo *mode_info_get(TransInfo *t, const int mode)
       return &TransMode_seqslide;
     case TFM_NORMAL_ROTATION:
       return &TransMode_rotatenormal;
-    case TFM_GPENCIL_OPACITY:
-      return &TransMode_gpopacity;
   }
   return nullptr;
 }

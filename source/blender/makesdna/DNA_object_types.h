@@ -33,7 +33,6 @@ struct Collection;
 struct Curve;
 struct Effect;
 struct FluidsimSettings;
-struct GpencilModifierData;
 struct ImageUser;
 struct LightgroupMembership;
 struct Material;
@@ -44,9 +43,7 @@ struct PartDeflect;
 struct ParticleSystem;
 struct Path;
 struct RigidBodyOb;
-struct ShaderFxData;
 struct SoftBody;
-struct bGPdata;
 struct bFaceMap;
 
 #define MAX_VGROUP_NAME 64
@@ -113,15 +110,11 @@ enum ObjectType : short {
 
   OB_ARMATURE = 25,
 
-  OB_GPENCIL_LEGACY = 26,
-
   OB_CURVES = 27,
 
   OB_POINTCLOUD = 28,
 
   OB_VOLUME = 29,
-
-  OB_GREASE_PENCIL = 30,
 
   /* Keep last. */
   OB_TYPE_MAX,
@@ -189,8 +182,6 @@ enum eObject_DrawExtraFlag : short {
   OB_DRAWTRANSP = 1 << 7,
   OB_DRAW_ALL_EDGES = 1 << 8, /* only for meshes currently */
   OB_DRAW_NO_SHADOW_CAST = 1 << 9,
-  /* Enable lights for grease pencil. */
-  OB_USE_GPENCIL_LIGHTS = 1 << 10,
 };
 ENUM_OPERATORS(eObject_DrawExtraFlag)
 
@@ -204,19 +195,6 @@ enum eObject_EmptyDrawType : char {
   OB_EMPTY_SPHERE = 6,
   OB_EMPTY_CONE = 7,
   OB_EMPTY_IMAGE = 8,
-};
-
-/**
- * Grease-pencil add types.
- * TODO: doesn't need to be DNA, local to `OBJECT_OT_gpencil_add`.
- */
-enum eGpencil_AddType : int {
-  GP_EMPTY = 0,
-  GP_STROKE = 1,
-  GP_MONKEY = 2,
-  GREASE_PENCIL_LINEART_SCENE = 3,
-  GREASE_PENCIL_LINEART_OBJECT = 4,
-  GREASE_PENCIL_LINEART_COLLECTION = 5,
 };
 
 /** #Object.boundtype */
@@ -376,38 +354,6 @@ struct BoundBox {
   float vec[8][3] = {};
 };
 
-/**
- * \warning while the values seem to be flags, they aren't treated as flags.
- */
-enum eObjectLineArt_Usage : short {
-  OBJECT_LRT_INHERIT = 0,
-  OBJECT_LRT_INCLUDE = (1 << 0),
-  OBJECT_LRT_OCCLUSION_ONLY = (1 << 1),
-  OBJECT_LRT_EXCLUDE = (1 << 2),
-  OBJECT_LRT_INTERSECTION_ONLY = (1 << 3),
-  OBJECT_LRT_NO_INTERSECTION = (1 << 4),
-  OBJECT_LRT_FORCE_INTERSECTION = (1 << 5),
-};
-ENUM_OPERATORS(eObjectLineArt_Usage);
-
-enum eObjectLineArt_Flags : short {
-  OBJECT_LRT_OWN_CREASE = (1 << 0),
-  OBJECT_LRT_OWN_INTERSECTION_PRIORITY = (1 << 1),
-};
-ENUM_OPERATORS(eObjectLineArt_Flags)
-
-struct ObjectLineArt {
-  eObjectLineArt_Usage usage = OBJECT_LRT_INHERIT;
-  eObjectLineArt_Flags flags = {};
-
-  /** if OBJECT_LRT_OWN_CREASE is set */
-  float crease_threshold = DEG2RAD(140.0f);
-
-  unsigned char intersection_priority = 0;
-
-  char _pad[7] = {};
-};
-
 /* Evaluated light linking state needed for the render engines integration. */
 struct LightLinkingRuntime {
 
@@ -495,10 +441,6 @@ struct Object {
   /** Pointer to objects data - an 'ID' or NULL. */
   ID *data = nullptr;
 
-  /** Grease Pencil data. */
-  struct bGPdata *gpd DNA_DEPRECATED =
-      nullptr; /* XXX deprecated... replaced by gpencil object, keep for readfile */
-
   /** Settings for visualization of object-transform animation. */
   bAnimVizSettings avs;
   /** Motion path cache for this object. */
@@ -511,10 +453,6 @@ struct Object {
                                nullptr}; /* For versioning, moved to generic attributes. */
   /** List of ModifierData structures. */
   ListBaseT<ModifierData> modifiers = {nullptr, nullptr};
-  /** List of GpencilModifierData structures. */
-  ListBaseT<GpencilModifierData> greasepencil_modifiers = {nullptr, nullptr};
-  /** List of viewport effects. Actually only used by grease pencil. */
-  ListBaseT<ShaderFxData> shader_fx = {nullptr, nullptr};
 
   /** Local object mode. */
   eObjectMode mode = OB_MODE_OBJECT;
@@ -658,8 +596,6 @@ struct Object {
 
   struct PreviewImage *preview = nullptr;
 
-  ObjectLineArt lineart;
-
   /** Light-group membership information. */
   struct LightgroupMembership *lightgroup = nullptr;
 
@@ -713,7 +649,7 @@ struct ObHook {
 /* check if the object type supports materials */
 #define OB_TYPE_SUPPORT_MATERIAL(_type) \
   (((_type) >= OB_MESH && (_type) <= OB_MBALL) || \
-   ((_type) >= OB_CURVES && (_type) <= OB_GREASE_PENCIL))
+   ((_type) >= OB_CURVES && (_type) <= OB_VOLUME))
 
 /**
  * Does the object have some render-able geometry (unlike empties, cameras, etc.). True for
@@ -728,10 +664,9 @@ struct ObHook {
         OB_CURVES_LEGACY, \
         OB_CURVES, \
         OB_POINTCLOUD, \
-        OB_VOLUME, \
-        OB_GREASE_PENCIL))
+        OB_VOLUME))
 
-#define OB_TYPE_SUPPORT_VGROUP(_type) (ELEM(_type, OB_MESH, OB_LATTICE, OB_GREASE_PENCIL))
+#define OB_TYPE_SUPPORT_VGROUP(_type) (ELEM(_type, OB_MESH, OB_LATTICE))
 
 #define OB_TYPE_SUPPORT_EDITMODE(_type) \
   (ELEM(_type, \
@@ -743,15 +678,14 @@ struct ObHook {
         OB_LATTICE, \
         OB_ARMATURE, \
         OB_CURVES, \
-        OB_POINTCLOUD, \
-        OB_GREASE_PENCIL))
+        OB_POINTCLOUD))
 
 #define OB_TYPE_SUPPORT_PARVERT(_type) \
   (ELEM(_type, OB_MESH, OB_SURF, OB_CURVES_LEGACY, OB_LATTICE))
 
 /** Matches #OB_TYPE_SUPPORT_EDITMODE. */
 #define OB_DATA_SUPPORT_EDITMODE(_type) \
-  (ELEM(_type, ID_ME, ID_CU_LEGACY, ID_MB, ID_LT, ID_AR, ID_CV, ID_GP))
+  (ELEM(_type, ID_ME, ID_CU_LEGACY, ID_MB, ID_LT, ID_AR, ID_CV))
 
 /* is this ID type used as object data */
 #define OB_DATA_SUPPORT_ID(_id_type) \
@@ -764,12 +698,10 @@ struct ObHook {
         ID_LP, \
         ID_CA, \
         ID_LT, \
-        ID_GD_LEGACY, \
         ID_AR, \
         ID_CV, \
         ID_PT, \
-        ID_VO, \
-        ID_GP))
+        ID_VO))
 
 #define OB_DATA_SUPPORT_ID_CASE \
   ID_ME: \
@@ -780,11 +712,9 @@ struct ObHook {
   case ID_LP: \
   case ID_CA: \
   case ID_LT: \
-  case ID_GD_LEGACY: \
   case ID_AR: \
   case ID_CV: \
   case ID_PT: \
-  case ID_VO: \
-  case ID_GP
+  case ID_VO
 
 }  // namespace blender

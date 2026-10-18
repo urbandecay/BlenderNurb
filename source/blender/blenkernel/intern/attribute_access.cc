@@ -13,7 +13,6 @@
 #include "BKE_type_conversions.hh"
 
 #include "DNA_ID.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_pointcloud_types.h"
@@ -299,8 +298,6 @@ static int attribute_domain_priority(const AttrDomain domain)
   switch (domain) {
     case AttrDomain::Instance:
       return 0;
-    case AttrDomain::Layer:
-      return 1;
     case AttrDomain::Curve:
       return 2;
     case AttrDomain::Face:
@@ -353,8 +350,6 @@ std::optional<AttributeAccessor> AttributeAccessor::from_id(const ID &id)
       return reinterpret_cast<const PointCloud &>(id).attributes();
     case ID_CV:
       return reinterpret_cast<const Curves &>(id).geometry.wrap().attributes();
-    case ID_GP:
-      return reinterpret_cast<const GreasePencil &>(id).attributes();
     default:
       return {};
   }

@@ -7,4 +7,4 @@ GPG key ID: 4AEE18F83AFDEB23
 Last Commit: "Merge pull request #236 from sezero/signed-char"
 Last Commit Date: December 4, 2022
 
-Local modifications: Added some functionality to manage grease pencil layers
+Local modifications: Improved SVG arc path parsing for importers.

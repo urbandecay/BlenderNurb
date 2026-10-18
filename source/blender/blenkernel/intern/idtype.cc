@@ -161,7 +161,6 @@ static void id_type_init()
   INIT_TYPE(ID_NT);
   INIT_TYPE(ID_BR);
   INIT_TYPE(ID_PA);
-  INIT_TYPE(ID_GD_LEGACY);
   INIT_TYPE(ID_WM);
   INIT_TYPE(ID_MC);
   INIT_TYPE(ID_MSK);
@@ -174,7 +173,6 @@ static void id_type_init()
   INIT_TYPE(ID_CV);
   INIT_TYPE(ID_PT);
   INIT_TYPE(ID_VO);
-  INIT_TYPE(ID_GP);
 
   /* Special case. */
   BLI_assert(IDType_ID_LINK_PLACEHOLDER.main_listbase_index == INDEX_ID_NULL);

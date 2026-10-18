@@ -109,7 +109,6 @@ enum eSpaceButtons_Context : short {
   BCONTEXT_BONE_CONSTRAINT = 12,
   BCONTEXT_VIEW_LAYER = 13,
   BCONTEXT_TOOL = 14,
-  BCONTEXT_SHADERFX = 15,
   BCONTEXT_OUTPUT = 16,
   BCONTEXT_COLLECTION = 17,
   BCONTEXT_STRIP = 18,
@@ -185,13 +184,12 @@ enum eSpaceOutliner_Filter : int {
 
   SO_FILTER_ID_TYPE = (1 << 19),
 
-  SO_FILTER_NO_OB_GREASE_PENCIL = (1 << 20),
 };
 ENUM_OPERATORS(eSpaceOutliner_Filter)
 
 #define SO_FILTER_OB_TYPE \
   (SO_FILTER_NO_OB_MESH | SO_FILTER_NO_OB_ARMATURE | SO_FILTER_NO_OB_EMPTY | \
-   SO_FILTER_NO_OB_LAMP | SO_FILTER_NO_OB_CAMERA | SO_FILTER_NO_OB_GREASE_PENCIL | \
+   SO_FILTER_NO_OB_LAMP | SO_FILTER_NO_OB_CAMERA | \
    SO_FILTER_NO_OB_OTHERS)
 
 #define SO_FILTER_OB_STATE \
@@ -372,7 +370,6 @@ enum eSpaceSeq_SequencerPreviewOverlay_Flag : int {
   SEQ_PREVIEW_SHOW_2D_CURSOR = (1 << 1),
   SEQ_PREVIEW_SHOW_OUTLINE_SELECTED = (1 << 2),
   SEQ_PREVIEW_SHOW_SAFE_MARGINS = (1 << 3),
-  SEQ_PREVIEW_SHOW_GPENCIL = (1 << 4),
   SEQ_PREVIEW_SHOW_SAFE_CENTER = (1 << 9),
   SEQ_PREVIEW_SHOW_METADATA = (1 << 10),
   SEQ_PREVIEW_SHOW_COMPOSITION_GUIDES = (1 << 11),
@@ -797,7 +794,6 @@ enum eSpaceImage_Flag : int {
   SI_DRAW_TILE = (1 << 19),
   SI_FLAG_UNUSED_20 = (1 << 20), /* cleared */
   SI_DRAW_STRETCH = (1 << 21),
-  SI_SHOW_GPENCIL = (1 << 22),
   SI_FLAG_UNUSED_23 = (1 << 23), /* cleared */
 
   SI_FLAG_UNUSED_24 = (1 << 24),
@@ -893,7 +889,6 @@ enum eSpaceNodeOverlay_preview_shape : int {
 /** #SpaceNode.flag */
 enum eSpaceNode_Flag : short {
   SNODE_BACKDRAW = (1 << 1),
-  SNODE_SHOW_GPENCIL = (1 << 2),
   SNODE_USE_ALPHA = (1 << 3),
   SNODE_SHOW_ALPHA = (1 << 4),
   SNODE_SHOW_R = (1 << 7),
@@ -991,7 +986,6 @@ enum eSpaceClip_Flag : int {
   SC_SHOW_GRID = (1 << 9),
   SC_SHOW_STABLE = (1 << 10),
   SC_MANUAL_CALIBRATION = (1 << 11),
-  SC_SHOW_ANNOTATION = (1 << 12),
   SC_SHOW_FILTERS = (1 << 13),
   SC_SHOW_GRAPH_FRAMES = (1 << 14),
   SC_SHOW_GRAPH_TRACKS_MOTION = (1 << 15),
@@ -1018,12 +1012,6 @@ enum eSpaceClip_View : short {
   SC_VIEW_CLIP = 0,
   SC_VIEW_GRAPH = 1,
   SC_VIEW_DOPESHEET = 2,
-};
-
-/** #SpaceClip.gpencil_src */
-enum eSpaceClip_GPencil_Source : short {
-  SC_GPENCIL_SRC_CLIP = 0,
-  SC_GPENCIL_SRC_TRACK = 1,
 };
 
 /** #SpaceClip.gizmo_flag */

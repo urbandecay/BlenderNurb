@@ -5,7 +5,6 @@
 #include "DNA_pointcloud_types.h"
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_material.hh"
 #include "BKE_mesh.hh"
@@ -204,54 +203,6 @@ static Mesh *compute_hull(const GeometrySet &geometry_set)
   return hull_from_bullet(geometry_set.get_mesh(), positions);
 }
 
-static void convex_hull_grease_pencil(GeometrySet &geometry_set)
-{
-  using namespace blender::bke::greasepencil;
-
-  const GreasePencil &grease_pencil = *geometry_set.get_grease_pencil();
-  Array<Mesh *> mesh_by_layer(grease_pencil.layers().size(), nullptr);
-
-  for (const int layer_index : grease_pencil.layers().index_range()) {
-    const Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-    if (drawing == nullptr) {
-      continue;
-    }
-    const bke::CurvesGeometry &curves = drawing->strokes();
-    const Span<float3> positions_span = curves.evaluated_positions();
-    if (positions_span.is_empty()) {
-      continue;
-    }
-    mesh_by_layer[layer_index] = hull_from_bullet(nullptr, positions_span);
-  }
-
-  if (mesh_by_layer.is_empty()) {
-    return;
-  }
-
-  auto instances = std::make_unique<bke::Instances>(mesh_by_layer.size());
-  MutableSpan<int> handles = instances->reference_handles_for_write();
-  instances->transforms_for_write().fill(float4x4::identity());
-  for (const int i : mesh_by_layer.index_range()) {
-    Mesh *mesh = mesh_by_layer[i];
-    if (!mesh) {
-      /* Add an empty reference so the number of layers and instances match.
-       * This makes it easy to reconstruct the layers afterwards and keep their attributes.
-       * Although in this particular case we don't propagate the attributes. */
-      handles[i] = instances->add_reference(bke::InstanceReference());
-      continue;
-    }
-    GeometrySet temp_set = GeometrySet::from_mesh(mesh);
-    handles[i] = instances->add_reference(bke::InstanceReference{temp_set});
-  }
-  auto &dst_component = geometry_set.get_component_for_write<InstancesComponent>();
-  GeometrySet new_instances = geometry::join_geometries(
-      {GeometrySet::from_instances(dst_component.release()),
-       GeometrySet::from_instances(std::move(instances))},
-      {});
-  dst_component.replace(new_instances.get_component_for_write<InstancesComponent>().release());
-  geometry_set.replace_grease_pencil(nullptr);
-}
-
 #endif /* WITH_BULLET */
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -266,9 +217,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       geometry::debug_randomize_mesh_order(mesh);
     }
     geometry_set.replace_mesh(mesh);
-    if (geometry_set.has_grease_pencil()) {
-      convex_hull_grease_pencil(geometry_set);
-    }
     geometry_set.keep_only({GeometryComponent::Type::Mesh,
                             GeometryComponent::Type::Instance,
                             GeometryComponent::Type::Edit});

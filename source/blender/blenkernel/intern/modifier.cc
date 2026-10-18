@@ -667,25 +667,12 @@ Object *BKE_modifiers_is_deformed_by_armature(Object *ob)
 
   Object *armature = nullptr;
   /* return the first selected armature, this lets us use multiple armatures */
-  if (ob->type == OB_GREASE_PENCIL) {
-    for (; md; md = md->next) {
-      if (md->type == eModifierType_GreasePencilArmature) {
-        auto *amd = reinterpret_cast<GreasePencilArmatureModifierData *>(md);
-        armature = amd->object;
-        if (armature && (armature->base_flag & BASE_SELECTED)) {
-          return armature;
-        }
-      }
-    }
-  }
-  else {
-    for (; md; md = md->next) {
-      if (md->type == eModifierType_Armature) {
-        auto *amd = reinterpret_cast<ArmatureModifierData *>(md);
-        armature = amd->object;
-        if (armature && (armature->base_flag & BASE_SELECTED)) {
-          return armature;
-        }
+  for (; md; md = md->next) {
+    if (md->type == eModifierType_Armature) {
+      auto *amd = reinterpret_cast<ArmatureModifierData *>(md);
+      armature = amd->object;
+      if (armature && (armature->base_flag & BASE_SELECTED)) {
+        return armature;
       }
     }
   }
@@ -720,23 +707,6 @@ Object *BKE_modifiers_is_deformed_by_lattice(Object *ob)
 {
   VirtualModifierData virtual_modifier_data;
   ModifierData *md = BKE_modifiers_get_virtual_modifierlist(ob, &virtual_modifier_data);
-
-  if (ob->type == OB_GREASE_PENCIL) {
-    GreasePencilLatticeModifierData *gplmd = nullptr;
-    /* return the first selected lattice, this lets us use multiple lattices */
-    for (; md; md = md->next) {
-      if (md->type == eModifierType_GreasePencilLattice) {
-        gplmd = reinterpret_cast<GreasePencilLatticeModifierData *>(md);
-        if (gplmd->object && (gplmd->object->base_flag & BASE_SELECTED)) {
-          return gplmd->object;
-        }
-      }
-    }
-    if (gplmd) { /* if we're still here then return the last lattice */
-      return gplmd->object;
-    }
-    return nullptr;
-  }
 
   LatticeModifierData *lmd = nullptr;
 
@@ -805,13 +775,6 @@ bool BKE_modifiers_uses_armature(Object *ob, bArmature *arm)
   for (; md; md = md->next) {
     if (md->type == eModifierType_Armature) {
       ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-      if (amd->object && amd->object->data == id_cast<ID *>(arm)) {
-        return true;
-      }
-    }
-    else if (md->type == eModifierType_GreasePencilArmature) {
-      GreasePencilArmatureModifierData *amd = reinterpret_cast<GreasePencilArmatureModifierData *>(
-          md);
       if (amd->object && amd->object->data == id_cast<ID *>(arm)) {
         return true;
       }

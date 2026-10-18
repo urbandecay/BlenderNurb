@@ -32,7 +32,6 @@
 #include "BKE_anim_data.hh"
 #include "BKE_colortools.hh"
 #include "BKE_customdata.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_main.hh"
 #include "BKE_material.hh"
 #include "BKE_node.hh"
@@ -724,31 +723,6 @@ static bool strip_text_data_update(Strip *strip, void * /*user_data*/)
   return true;
 }
 
-static void convert_grease_pencil_stroke_hardness_to_softness(GreasePencil *grease_pencil)
-{
-  for (GreasePencilDrawingBase *base : grease_pencil->drawings()) {
-    if (base->type != GP_DRAWING) {
-      continue;
-    }
-    bke::greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(base)->wrap();
-    const int layer_index = CustomData_get_named_layer_index(
-        &drawing.geometry.curve_data_legacy, CD_PROP_FLOAT, "hardness");
-    if (layer_index == -1) {
-      continue;
-    }
-    float *data = static_cast<float *>(
-        CustomData_get_layer_named_for_write(&drawing.geometry.curve_data_legacy,
-                                             CD_PROP_FLOAT,
-                                             "hardness",
-                                             drawing.geometry.curve_num));
-    for (const int i : IndexRange(drawing.geometry.curve_num)) {
-      data[i] = 1.0f - data[i];
-    }
-    /* Rename the layer. */
-    STRNCPY_UTF8(drawing.geometry.curve_data_legacy.layers[layer_index].name, "softness");
-  }
-}
-
 void blo_do_versions_420(FileData *fd, Library * /*lib*/, Main *bmain)
 {
   /* Keep point/spot light soft falloff for files created before 4.0. */
@@ -756,16 +730,6 @@ void blo_do_versions_420(FileData *fd, Library * /*lib*/, Main *bmain)
     for (Light &light : bmain->lights) {
       if (ELEM(light.type, LA_LOCAL, LA_SPOT)) {
         light.mode |= LA_USE_SOFT_FALLOFF;
-      }
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 1)) {
-    using namespace blender::bke::greasepencil;
-    /* Initialize newly added scale layer transform to one. */
-    for (GreasePencil &grease_pencil : bmain->grease_pencils) {
-      for (Layer *layer : grease_pencil.layers_for_write()) {
-        copy_v3_fl(layer->scale, 1.0f);
       }
     }
   }
@@ -1122,18 +1086,6 @@ void blo_do_versions_420(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 36)) {
-    for (Brush &brush : bmain->brushes) {
-      /* Only for grease pencil brushes. */
-      if (brush.gpencil_settings) {
-        /* Use the `Scene` radius unit by default (confusingly named `BRUSH_LOCK_SIZE`).
-         * Convert the radius to be the same visual size as in GPv2. */
-        brush.flag |= BRUSH_LOCK_SIZE;
-        brush.unprojected_size = brush.size * bke::greasepencil::LEGACY_RADIUS_CONVERSION_FACTOR;
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 37)) {
     const World default_world;
     for (World &world : bmain->worlds) {
@@ -1144,12 +1096,6 @@ void blo_do_versions_420(FileData *fd, Library * /*lib*/, Main *bmain)
        * leaking compared to EEVEE-Legacy. But adding shadows might create performance overhead and
        * change the result in a very different way. So we disable shadows in older file. */
       world.flag &= ~WO_USE_SUN_SHADOW;
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 402, 38)) {
-    for (GreasePencil &grease_pencil : bmain->grease_pencils) {
-      convert_grease_pencil_stroke_hardness_to_softness(&grease_pencil);
     }
   }
 

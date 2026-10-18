@@ -35,7 +35,6 @@ set(SRC
   node_draw.cc
   node_edit.cc
   node_geometry_attribute_search.cc
-  node_geometry_layer_search.cc
   node_geometry_volume_grid_search.cc
   node_gizmo.cc
   node_group.cc

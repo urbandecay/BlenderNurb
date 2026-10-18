@@ -26,7 +26,6 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_curve_types.h"
-#include "DNA_gpencil_legacy_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
@@ -52,7 +51,6 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
-#include "ED_gpencil_legacy.hh"
 #include "ED_screen.hh"
 #include "ED_view3d.hh"
 #include "ED_view3d_offscreen.hh"
@@ -271,10 +269,6 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
   ImBuf *ibuf_result = nullptr;
 
   if (oglrender->is_sequencer) {
-    SpaceSeq *sseq = oglrender->sseq;
-    bGPdata *gpd = (sseq && (sseq->preview_overlay.flag & SEQ_PREVIEW_SHOW_GPENCIL)) ? sseq->gpd :
-                                                                                       nullptr;
-
     /* use pre-calculated ImBuf (avoids deadlock), see: */
     ImBuf *ibuf = oglrender->seq_data.ibufs_arr[oglrender->view_id];
 
@@ -293,41 +287,6 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
         IMB_free_float_pixels(ibuf_result);
       }
       BLI_assert((sizex == ibuf->x) && (sizey == ibuf->y));
-    }
-    else if (gpd) {
-      /* If there are no strips, Grease Pencil still needs a buffer to draw on */
-      ibuf_result = IMB_allocImBuf(sizex, sizey, ImBufFlags::ByteData);
-    }
-
-    if (gpd) {
-      int i;
-      uchar *gp_rect;
-      uchar *render_rect = ibuf_result->byte_data_for_write();
-
-      DRW_gpu_context_enable();
-      GPU_offscreen_bind(oglrender->ofs, true);
-
-      GPU_clear_color(0.0f, 0.0f, 0.0f, 0.0f);
-      GPU_clear_depth(1.0f);
-
-      GPU_matrix_reset();
-      wmOrtho2(0, scene->r.xsch, 0, scene->r.ysch);
-      GPU_matrix_translate_2f(scene->r.xsch / 2, scene->r.ysch / 2);
-
-      G.f |= G_FLAG_RENDER_VIEWPORT;
-      ED_annotation_draw_ex(scene, gpd, sizex, sizey, scene->r.cfra, SPACE_SEQ);
-      G.f &= ~G_FLAG_RENDER_VIEWPORT;
-
-      gp_rect = MEM_new_array_uninitialized<uchar>(4 * sizex * sizey, "offscreen rect");
-      GPU_offscreen_read_color(oglrender->ofs, GPU_DATA_UBYTE, gp_rect);
-
-      for (i = 0; i < sizex * sizey * 4; i += 4) {
-        blend_color_mix_byte(&render_rect[i], &render_rect[i], &gp_rect[i]);
-      }
-      GPU_offscreen_unbind(oglrender->ofs, true);
-      DRW_gpu_context_disable();
-
-      MEM_delete(gp_rect);
     }
   }
   else {
@@ -375,7 +334,7 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
                                                         sizex,
                                                         sizey,
                                                         ImBufFlags::FloatData,
-                                                        V3D_OFSDRAW_SHOW_ANNOTATION,
+                                                        V3D_OFSDRAW_NONE,
                                                         alpha_mode,
                                                         viewname,
                                                         oglrender->ofs,
@@ -564,26 +523,6 @@ static void gather_frames_to_render_for_adt(const OGLRender *oglrender, const An
   }
 }
 
-static void gather_frames_to_render_for_grease_pencil(const OGLRender *oglrender,
-                                                      const bGPdata *gp)
-{
-  if (gp == nullptr) {
-    return;
-  }
-
-  const int frame_start = oglrender->scene->playback_start();
-  const int frame_end = oglrender->scene->playback_end();
-
-  for (const bGPDlayer &gp_layer : gp->layers) {
-    for (const bGPDframe &gp_frame : gp_layer.frames) {
-      if (gp_frame.framenum < frame_start || gp_frame.framenum > frame_end) {
-        continue;
-      }
-      BLI_BITMAP_ENABLE(oglrender->render_frames, gp_frame.framenum - frame_start);
-    }
-  }
-}
-
 static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
 {
   ID **id_p = cb_data->id_pointer;
@@ -653,14 +592,6 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
       return IDWALK_RET_STOP_RECURSION;
 
     /* Special cases: */
-    case ID_GD_LEGACY: /* bGPdata, (Grease Pencil) */
-      /* In addition to regular ID's animdata, GreasePencil uses a specific frame-based animation
-       * system that requires specific handling here. */
-      gather_frames_to_render_for_grease_pencil(oglrender, id_cast<bGPdata *>(id));
-      break;
-    case ID_GP:
-      /* TODO: gather frames. */
-      break;
   }
 
   AnimData *adt = BKE_animdata_from_id(id);

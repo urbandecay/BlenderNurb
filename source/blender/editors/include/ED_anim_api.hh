@@ -80,8 +80,6 @@ enum eAnimCont_Types {
   ANIMCONT_ACTION = 1,
   /** Shape-key (#Key). */
   ANIMCONT_SHAPEKEY = 2,
-  /** Grease pencil (screen). */
-  ANIMCONT_GPENCIL = 3,
   /** Dope-sheet (#bDopesheet). */
   ANIMCONT_DOPESHEET = 4,
   /** Animation F-Curves (#bDopesheet). */
@@ -215,7 +213,6 @@ enum eAnim_ChannelType {
   ANIMTYPE_DSLAT,
   ANIMTYPE_DSLINESTYLE,
   ANIMTYPE_DSSPK,
-  ANIMTYPE_DSGPENCIL,
   ANIMTYPE_DSMCLIP,
   ANIMTYPE_DSHAIR,
   ANIMTYPE_DSPOINTCLOUD,
@@ -223,12 +220,6 @@ enum eAnim_ChannelType {
   ANIMTYPE_DSLIGHTPROBE,
 
   ANIMTYPE_SHAPEKEY,
-
-  ANIMTYPE_GPLAYER,
-
-  ANIMTYPE_GREASE_PENCIL_DATABLOCK,
-  ANIMTYPE_GREASE_PENCIL_LAYER_GROUP,
-  ANIMTYPE_GREASE_PENCIL_LAYER,
 
   ANIMTYPE_MASKDATABLOCK,
   ANIMTYPE_MASKLAYER,
@@ -246,7 +237,6 @@ enum eAnim_ChannelType {
 enum eAnim_KeyType {
   ALE_NONE = 0, /* no keyframe data */
   ALE_FCURVE,   /* F-Curve */
-  ALE_GPFRAME,  /* Grease Pencil Frames (Legacy) */
   ALE_MASKLAY,  /* Mask */
   ALE_NLASTRIP, /* NLA Strips */
 
@@ -258,9 +248,6 @@ enum eAnim_KeyType {
   ALE_ACTION_LAYERED, /* Action summary (layered). */
   ALE_ACTION_SLOT,    /* Action slot summary. */
 
-  ALE_GREASE_PENCIL_CEL,   /* Grease Pencil Cels. */
-  ALE_GREASE_PENCIL_DATA,  /* Grease Pencil Cels summary. */
-  ALE_GREASE_PENCIL_GROUP, /* Grease Pencil Layer Groups. */
 };
 
 /**
@@ -302,7 +289,7 @@ struct bAnimListElem {
    *
    * This is not declared as #animrig::slot_handle_t to avoid all the users of this
    * header file to get the `animrig` module as extra dependency (which would spread to the undo
-   * system, line-art, etc). It's probably best to split off this struct definition from the rest
+   * system and editor utilities). It's probably best to split off this struct definition from the rest
    * of this header, as most code that uses this header doesn't need to know the definition of this
    * struct.
    *
@@ -496,16 +483,9 @@ ENUM_OPERATORS(eAnimFilter_Flags);
 #define EDITABLE_SHAPEKEY(kb) (((kb)->flag & KEYBLOCK_LOCKED) == 0)
 #define SEL_SHAPEKEY(kb) ((kb)->flag & KEYBLOCK_SEL)
 
-/* Grease Pencil only */
-/** Grease Pencil data-block settings. */
-#define EXPANDED_GPD(gpd) ((gpd)->flag & GP_DATA_EXPAND)
-/** Grease Pencil Layer settings. */
-#define EDITABLE_GPL(gpl) (((gpl)->flag & GP_LAYER_LOCKED) == 0)
-#define SEL_GPL(gpl) ((gpl)->flag & GP_LAYER_SELECT)
-
 /* Mask Only */
 #define EXPANDED_MASK(mask) ((mask)->flag & MASK_ANIMF_EXPAND)
-/** Grease Pencil Layer settings. */
+/** Mask layer settings. */
 #define EDITABLE_MASK(masklay) (((masklay)->flag & MASK_LAYERFLAG_LOCKED) == 0)
 #define SEL_MASKLAY(masklay) ((masklay)->flag & SELECT)
 
@@ -617,11 +597,6 @@ bool ANIM_animdata_context_getdata(bAnimContext *ac);
 void ANIM_animdata_update(bAnimContext *ac, ListBaseT<bAnimListElem> *anim_data);
 
 void ANIM_animdata_freelist(ListBaseT<bAnimListElem> *anim_data);
-
-/**
- * Check if the given animation container can contain grease pencil layer keyframes.
- */
-bool ANIM_animdata_can_have_greasepencil(const eAnimCont_Types type);
 
 bAction *ANIM_active_action_from_area(const Main &bmain,
                                       Scene *scene,

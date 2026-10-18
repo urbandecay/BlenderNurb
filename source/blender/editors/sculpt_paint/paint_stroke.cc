@@ -68,10 +68,6 @@ static void paint_draw_smooth_cursor(bContext *C,
   const PaintMode mode = BKE_paintmode_get_active_from_context(C);
   ARegion *region = CTX_wm_region(C);
 
-  if ((mode == PaintMode::GPencil) && (paint->flags & PAINT_SHOW_BRUSH) == 0) {
-    return;
-  }
-
   if (data && brush) {
     GPU_line_smooth(true);
     GPU_blend(GPU_BLEND_ALPHA);
@@ -1004,11 +1000,6 @@ bool paint_space_stroke_enabled(const Brush &br, const PaintMode mode)
     return false;
   }
 
-  if (ELEM(mode, PaintMode::GPencil, PaintMode::SculptGPencil)) {
-    /* No spacing needed for now. */
-    return false;
-  }
-
   return paint_supports_dynamic_size(br, mode);
 }
 
@@ -1057,14 +1048,6 @@ bool paint_supports_smooth_stroke(const Brush &brush,
                                   const PaintMode mode,
                                   const BrushSwitchMode brush_switch_mode)
 {
-  /* The grease pencil draw tool needs to enable this when the `stroke_mode` is set to
-   * `BrushSwitchMode::Smooth`. */
-  if (mode == PaintMode::GPencil &&
-      eBrushGPaintType(brush.gpencil_brush_type) == GPAINT_BRUSH_TYPE_DRAW &&
-      brush_switch_mode == BrushSwitchMode::Smooth)
-  {
-    return true;
-  }
   if (!(brush.flag & BRUSH_SMOOTH_STROKE) ||
       ELEM(brush.stroke_method, BRUSH_STROKE_ANCHORED, BRUSH_STROKE_DRAG_DOT, BRUSH_STROKE_LINE))
   {
@@ -1517,24 +1500,6 @@ wmOperatorStatus PaintStroke::modal(bContext *C, wmOperator *op, const wmEvent *
       }
     }
     BKE_report(op->reports, RPT_WARNING, "Cancelling this stroke is unsupported");
-  }
-
-  /* Handles shift-key active smooth toggling during a grease pencil stroke. */
-  if (mode == PaintMode::GPencil) {
-    if (event->modifier & KM_SHIFT) {
-      brush_switch_mode_ = BrushSwitchMode::Smooth;
-      if (!stroke_cursor_) {
-        stroke_cursor_ = WM_paint_cursor_activate(
-            SPACE_TYPE_ANY, RGN_TYPE_ANY, paint_brush_cursor_poll, paint_draw_smooth_cursor, this);
-      }
-    }
-    else {
-      stroke_mode_ = BrushStrokeMode::Normal;
-      if (stroke_cursor_ != nullptr) {
-        WM_paint_cursor_end(static_cast<wmPaintCursor *>(stroke_cursor_));
-        stroke_cursor_ = nullptr;
-      }
-    }
   }
 
   float2 mouse;

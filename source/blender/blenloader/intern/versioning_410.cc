@@ -35,7 +35,6 @@
 
 #include "BKE_anim_data.hh"
 #include "BKE_armature.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_main.hh"
 #include "BKE_nla.hh"
 #include "BKE_node.hh"
@@ -100,22 +99,6 @@ void do_versions_after_linking_410(FileData * /*fd*/, Main *bmain)
 {
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 23)) {
     version_nla_tweakmode_incomplete(bmain);
-  }
-}
-
-static void versioning_grease_pencil_stroke_radii_scaling(GreasePencil *grease_pencil)
-{
-  for (GreasePencilDrawingBase *base : grease_pencil->drawings()) {
-    if (base->type != GP_DRAWING) {
-      continue;
-    }
-    bke::greasepencil::Drawing &drawing = reinterpret_cast<GreasePencilDrawing *>(base)->wrap();
-    MutableSpan<float> radii = drawing.radii_for_write();
-    threading::parallel_for(radii.index_range(), 8192, [&](const IndexRange range) {
-      for (const int i : range) {
-        radii[i] *= bke::greasepencil::LEGACY_RADIUS_CONVERSION_FACTOR;
-      }
-    });
   }
 }
 
@@ -834,12 +817,6 @@ static bool strip_filter_bilinear_to_auto(Strip *strip, void * /*user_data*/)
 
 void blo_do_versions_410(FileData *fd, Library * /*lib*/, Main *bmain)
 {
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 1)) {
-    for (GreasePencil &grease_pencil : bmain->grease_pencils) {
-      versioning_grease_pencil_stroke_radii_scaling(&grease_pencil);
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 4)) {
     FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
       if (ntree->type != NTREE_CUSTOM) {
@@ -1085,7 +1062,7 @@ void blo_do_versions_410(FileData *fd, Library * /*lib*/, Main *bmain)
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 17)) {
     for (Scene &scene : bmain->scenes) {
       ToolSettings *ts = scene.toolsettings;
-      int input_sample_values[9];
+      int input_sample_values[5];
 
       input_sample_values[0] = ts->imapaint.paint.num_input_samples_deprecated;
       input_sample_values[1] = ts->sculpt != nullptr ?
@@ -1095,28 +1072,15 @@ void blo_do_versions_410(FileData *fd, Library * /*lib*/, Main *bmain)
                                    ts->curves_sculpt->paint.num_input_samples_deprecated :
                                    1;
 
-      input_sample_values[3] = ts->gp_paint != nullptr ?
-                                   ts->gp_paint->paint.num_input_samples_deprecated :
-                                   1;
-      input_sample_values[4] = ts->gp_vertexpaint != nullptr ?
-                                   ts->gp_vertexpaint->paint.num_input_samples_deprecated :
-                                   1;
-      input_sample_values[5] = ts->gp_sculptpaint != nullptr ?
-                                   ts->gp_sculptpaint->paint.num_input_samples_deprecated :
-                                   1;
-      input_sample_values[6] = ts->gp_weightpaint != nullptr ?
-                                   ts->gp_weightpaint->paint.num_input_samples_deprecated :
-                                   1;
-
-      input_sample_values[7] = ts->vpaint != nullptr ?
+      input_sample_values[3] = ts->vpaint != nullptr ?
                                    ts->vpaint->paint.num_input_samples_deprecated :
                                    1;
-      input_sample_values[8] = ts->wpaint != nullptr ?
+      input_sample_values[4] = ts->wpaint != nullptr ?
                                    ts->wpaint->paint.num_input_samples_deprecated :
                                    1;
 
       int unified_value = 1;
-      for (int i = 0; i < 9; i++) {
+      for (int i = 0; i < 5; i++) {
         if (input_sample_values[i] != 1) {
           if (unified_value == 1) {
             unified_value = input_sample_values[i];
@@ -1166,17 +1130,6 @@ void blo_do_versions_410(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 21)) {
-    for (Brush &brush : bmain->brushes) {
-      /* The `sculpt_flag` was used to store the `BRUSH_DIR_IN`
-       * With the fix for #115313 this is now just using the `brush->flag`. */
-      if (brush.gpencil_settings &&
-          (brush.gpencil_settings->sculpt_flag & eGP_Sculpt_Flag(BRUSH_DIR_IN)) != 0)
-      {
-        brush.flag |= BRUSH_DIR_IN;
-      }
-    }
-  }
 }
 
 }  // namespace blender

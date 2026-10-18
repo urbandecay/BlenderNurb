@@ -154,7 +154,6 @@ struct RenderEngine {
 
   /* Depsgraph */
   struct Depsgraph *depsgraph;
-  bool has_grease_pencil;
 
   /* callback for render pass query */
   ThreadMutex update_render_passes_mutex;

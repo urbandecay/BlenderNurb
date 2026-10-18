@@ -140,10 +140,9 @@ bugfix = ""
 
 
 BUGFIX_CATEGORIES = (
-    ("Objects / Animation / GP", (
+    ("Objects / Animation", (
         "Animation",
         "Constraints",
-        "Grease Pencil",
         "Objects",
         "Dependency Graph",
     ),

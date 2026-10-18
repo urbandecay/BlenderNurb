@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 #include "GEO_foreach_geometry.hh"
 
@@ -16,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.use_custom_socket_order();
   b.allow_any_socket_order();
   b.add_input<decl::Geometry>("Curve"_ustr)
-      .supported_type({GeometryComponent::Type::Curve, GeometryComponent::Type::GreasePencil})
+      .supported_type(GeometryComponent::Type::Curve)
       .description("Curves to set the radius on");
   b.add_output<decl::Geometry>("Curve"_ustr).propagate_all_geometry().align_with_previous();
   b.add_input<decl::Bool>("Selection"_ustr)
@@ -54,20 +53,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       bke::CurvesGeometry &curves = curves_id->geometry.wrap();
       const bke::CurvesFieldContext field_context(*curves_id, AttrDomain::Point);
       set_radius(curves, field_context, selection, radius);
-    }
-    if (GreasePencil *grease_pencil = geometry_set.get_grease_pencil_for_write()) {
-      using namespace blender::bke::greasepencil;
-      for (const int layer_index : grease_pencil->layers().index_range()) {
-        Drawing *drawing = grease_pencil->get_eval_drawing(grease_pencil->layer(layer_index));
-        if (drawing == nullptr) {
-          continue;
-        }
-        set_radius(
-            drawing->strokes_for_write(),
-            bke::GreasePencilLayerFieldContext(*grease_pencil, AttrDomain::Point, layer_index),
-            selection,
-            radius);
-      }
     }
   });
 

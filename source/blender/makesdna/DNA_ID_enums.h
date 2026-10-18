@@ -155,7 +155,6 @@ enum ID_Type {
   ID_NT = MAKE_ID2('N', 'T'),        /* bNodeTree */
   ID_BR = MAKE_ID2('B', 'R'),        /* Brush */
   ID_PA = MAKE_ID2('P', 'A'),        /* ParticleSettings */
-  ID_GD_LEGACY = MAKE_ID2('G', 'D'), /* bGPdata, (legacy Grease Pencil) */
   ID_WM = MAKE_ID2('W', 'M'),        /* wmWindowManager */
   ID_MC = MAKE_ID2('M', 'C'),        /* MovieClip */
   ID_MSK = MAKE_ID2('M', 'S'),       /* Mask */
@@ -168,7 +167,6 @@ enum ID_Type {
   ID_CV = MAKE_ID2('C', 'V'),        /* Curves */
   ID_PT = MAKE_ID2('P', 'T'),        /* PointCloud */
   ID_VO = MAKE_ID2('V', 'O'),        /* Volume */
-  ID_GP = MAKE_ID2('G', 'P'),        /* Grease Pencil */
 };
 
 /* Only used as 'placeholder' in .blend files for directly linked data-blocks. */

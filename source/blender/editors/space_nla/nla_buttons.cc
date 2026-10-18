@@ -127,7 +127,6 @@ bool nla_panel_context(const bContext *C,
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
-      case ANIMTYPE_DSGPENCIL:
       case ANIMTYPE_PALETTE:
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
@@ -179,10 +178,6 @@ bool nla_panel_context(const bContext *C,
       case ANIMTYPE_FILLDRIVERS:
       case ANIMTYPE_DSMCLIP:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_GPLAYER:
-      case ANIMTYPE_GREASE_PENCIL_DATABLOCK:
-      case ANIMTYPE_GREASE_PENCIL_LAYER_GROUP:
-      case ANIMTYPE_GREASE_PENCIL_LAYER:
       case ANIMTYPE_MASKDATABLOCK:
       case ANIMTYPE_MASKLAYER:
       case ANIMTYPE_NUM_TYPES:

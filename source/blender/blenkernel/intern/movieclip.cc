@@ -21,11 +21,6 @@
 
 #include "MEM_guardedalloc.h"
 
-/* Allow using deprecated functionality for .blend file I/O. */
-#define DNA_DEPRECATED_ALLOW
-
-#include "DNA_gpencil_legacy_types.h"
-
 #include "DNA_movieclip_types.h"
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
@@ -131,12 +126,7 @@ static void movie_clip_foreach_id(ID *id, LibraryForeachIDData *data)
   MovieClip *movie_clip = id_cast<MovieClip *>(id);
   MovieTracking *tracking = &movie_clip->tracking;
 
-  BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, movie_clip->gpd, IDWALK_CB_USER);
-
   for (MovieTrackingObject &object : tracking->objects) {
-    for (MovieTrackingTrack &track : object.tracks) {
-      BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, track.gpd, IDWALK_CB_USER);
-    }
     for (MovieTrackingPlaneTrack &plane_track : object.plane_tracks) {
       BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, plane_track.image, IDWALK_CB_USER);
     }
@@ -293,7 +283,7 @@ static void movieclip_blend_read_data(BlendDataReader *reader, ID *id)
 IDTypeInfo IDType_ID_MC = {
     .id_code = MovieClip::id_type,
     .id_filter = FILTER_ID_MC,
-    .dependencies_id_types = FILTER_ID_GD_LEGACY | FILTER_ID_IM,
+    .dependencies_id_types = FILTER_ID_IM,
     .main_listbase_index = INDEX_ID_MC,
     .struct_size = sizeof(MovieClip),
     .name = "MovieClip",

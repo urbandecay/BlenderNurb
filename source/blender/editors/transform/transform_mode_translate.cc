@@ -129,20 +129,8 @@ static void transdata_elem_translate(const TransInfo *t,
     add_v3_v3(tvec, rotate_offset);
   }
 
-  if (t->options & CTX_GPENCIL_STROKES) {
-    /* Grease pencil multi-frame falloff. */
-    float *gp_falloff = static_cast<float *>(td->extra);
-    if (gp_falloff != nullptr) {
-      mul_v3_fl(tvec, td->factor * *gp_falloff);
-    }
-    else {
-      mul_v3_fl(tvec, td->factor);
-    }
-  }
-  else {
-    /* Proportional editing falloff. */
-    mul_v3_fl(tvec, td->factor);
-  }
+  /* Proportional editing falloff. */
+  mul_v3_fl(tvec, td->factor);
 
   protectedTransBits(td->protectflag, tvec);
 

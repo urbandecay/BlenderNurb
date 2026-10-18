@@ -41,9 +41,6 @@ void modifier_vgroup_ui(ui::Layout &layout,
                         std::optional<StringRefNull> invert_vgroup_prop,
                         std::optional<StringRefNull> text);
 
-void modifier_grease_pencil_curve_header_draw(const bContext * /*C*/, Panel *panel);
-void modifier_grease_pencil_curve_panel_draw(const bContext * /*C*/, Panel *panel);
-
 /**
  * Draw modifier error message.
  */

@@ -7,7 +7,6 @@
 #include "BKE_curves.hh"
 #include "BKE_customdata.hh"
 #include "BKE_geometry_fields.hh"
-#include "BKE_grease_pencil.hh"
 #include "BKE_instances.hh"
 #include "BKE_mesh.hh"
 #include "BKE_pointcloud.hh"
@@ -121,57 +120,6 @@ static std::optional<Mesh *> separate_mesh_selection(const Mesh &mesh,
   return nullptr;
 }
 
-static std::optional<GreasePencil *> separate_grease_pencil_layer_selection(
-    const GreasePencil &src_grease_pencil,
-    const fn::Field<bool> &selection_field,
-    const bke::AttributeFilter &attribute_filter)
-{
-  const bke::AttributeAccessor attributes = src_grease_pencil.attributes();
-  const bke::GeometryFieldContext context(src_grease_pencil);
-
-  fn::FieldEvaluator evaluator(context, attributes.domain_size(AttrDomain::Layer));
-  evaluator.set_selection(selection_field);
-  evaluator.evaluate();
-
-  const IndexMask selection = evaluator.get_evaluated_selection_as_mask();
-  if (selection.size() == attributes.domain_size(AttrDomain::Layer)) {
-    return std::nullopt;
-  }
-  if (selection.is_empty()) {
-    return nullptr;
-  }
-
-  const int dst_layers_num = selection.size();
-
-  GreasePencil *dst_grease_pencil = BKE_grease_pencil_new_nomain();
-  BKE_grease_pencil_copy_parameters(src_grease_pencil, *dst_grease_pencil);
-  dst_grease_pencil->add_layers_with_empty_drawings_for_eval(dst_layers_num);
-
-  selection.foreach_index([&](const int src_layer_i, const int dst_layer_i) {
-    const bke::greasepencil::Layer &src_layer = src_grease_pencil.layer(src_layer_i);
-    const bke::greasepencil::Drawing *src_drawing = src_grease_pencil.get_eval_drawing(src_layer);
-
-    bke::greasepencil::Layer &dst_layer = dst_grease_pencil->layer(dst_layer_i);
-    bke::greasepencil::Drawing &dst_drawing = *dst_grease_pencil->get_eval_drawing(dst_layer);
-
-    BKE_grease_pencil_copy_layer_parameters(src_layer, dst_layer);
-    dst_layer.set_name(src_layer.name());
-
-    if (src_drawing) {
-      dst_drawing = *src_drawing;
-    }
-  });
-
-  bke::gather_attributes(src_grease_pencil.attributes(),
-                         AttrDomain::Layer,
-                         AttrDomain::Layer,
-                         attribute_filter,
-                         selection,
-                         dst_grease_pencil->attributes_for_write());
-
-  return dst_grease_pencil;
-}
-
 void separate_geometry(bke::GeometrySet &geometry_set,
                        const AttrDomain domain,
                        const GeometryNodeDeleteGeometryMode mode,
@@ -217,37 +165,6 @@ void separate_geometry(bke::GeometrySet &geometry_set,
         }
       }
       some_valid_domain = true;
-    }
-  }
-  if (geometry_set.get_grease_pencil()) {
-    using namespace blender::bke::greasepencil;
-    if (domain == AttrDomain::Layer) {
-      const GreasePencil &grease_pencil = *geometry_set.get_grease_pencil();
-      std::optional<GreasePencil *> dst_grease_pencil = separate_grease_pencil_layer_selection(
-          grease_pencil, selection, attribute_filter);
-      if (dst_grease_pencil) {
-        geometry_set.replace_grease_pencil(*dst_grease_pencil);
-      }
-      some_valid_domain = true;
-    }
-    else if (ELEM(domain, AttrDomain::Point, AttrDomain::Curve)) {
-      GreasePencil &grease_pencil = *geometry_set.get_grease_pencil_for_write();
-      for (const int layer_index : grease_pencil.layers().index_range()) {
-        Drawing *drawing = grease_pencil.get_eval_drawing(grease_pencil.layer(layer_index));
-        if (drawing == nullptr) {
-          continue;
-        }
-        const bke::CurvesGeometry &src_curves = drawing->strokes();
-        const bke::GreasePencilLayerFieldContext field_context(grease_pencil, domain, layer_index);
-        std::optional<bke::CurvesGeometry> dst_curves = separate_curves_selection(
-            src_curves, field_context, selection, domain, attribute_filter);
-        if (!dst_curves) {
-          continue;
-        }
-        drawing->strokes_for_write() = std::move(*dst_curves);
-        drawing->tag_topology_changed();
-        some_valid_domain = true;
-      }
     }
   }
   if (geometry_set.has_instances()) {

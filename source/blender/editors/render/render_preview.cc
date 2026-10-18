@@ -163,8 +163,6 @@ struct IconPreview {
 /** \name Preview for Buttons
  * \{ */
 
-static Main *G_pr_main_grease_pencil = nullptr;
-
 #ifndef WITH_HEADLESS
 static Main *load_main_from_memory(const void *blend, int blend_size)
 {
@@ -184,23 +182,15 @@ static Main *load_main_from_memory(const void *blend, int blend_size)
 }
 #endif
 
-void ED_preview_ensure_dbase(const bool with_gpencil)
+void ED_preview_ensure_dbase()
 {
 #ifndef WITH_HEADLESS
   static bool base_initialized = false;
-  static bool base_initialized_gpencil = false;
   BLI_assert(BLI_thread_is_main());
   if (!base_initialized) {
     G.pr_main = load_main_from_memory(datatoc_preview_blend, datatoc_preview_blend_size);
     base_initialized = true;
   }
-  if (!base_initialized_gpencil && with_gpencil) {
-    G_pr_main_grease_pencil = load_main_from_memory(datatoc_preview_grease_pencil_blend,
-                                                    datatoc_preview_grease_pencil_blend_size);
-    base_initialized_gpencil = true;
-  }
-#else
-  UNUSED_VARS(with_gpencil);
 #endif
 }
 
@@ -221,9 +211,6 @@ void ED_preview_free_dbase()
     BKE_main_free(G.pr_main);
   }
 
-  if (G_pr_main_grease_pencil) {
-    BKE_main_free(G_pr_main_grease_pencil);
-  }
 }
 
 static Scene *preview_get_scene(Main *pr_main)
@@ -564,15 +551,8 @@ static Scene *preview_prepare_scene(
            * scene world can be slow if it has big textures. */
           sce->world = ED_preview_prepare_world_simple(pr_main);
 
-          /* Use brighter world color for grease pencil. */
-          if (sp->pr_main == G_pr_main_grease_pencil) {
-            const float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-            ED_preview_world_simple_set_rgb(sce->world, white);
-          }
-          else {
-            const float dark[4] = {0.05f, 0.05f, 0.05f, 0.05f};
-            ED_preview_world_simple_set_rgb(sce->world, dark);
-          }
+          const float dark[4] = {0.05f, 0.05f, 0.05f, 0.05f};
+          ED_preview_world_simple_set_rgb(sce->world, dark);
         }
 
         const ePreviewType preview_type = static_cast<ePreviewType>(mat->pr_type);
@@ -1535,22 +1515,11 @@ static void other_id_types_preview_render(const PreviewImage *prv_img,
   sp->id_copy = ip->id_copy;
   sp->bmain = ip->bmain;
   sp->own_id_copy = false;
-  Material *ma = nullptr;
 
   if (sp->pr_method == PR_ICON_RENDER) {
     BLI_assert(ip->id);
 
-    /* grease pencil use its own preview file */
-    if (GS(ip->id->name) == ID_MA) {
-      ma = id_cast<Material *>(ip->id);
-    }
-
-    if ((ma == nullptr) || (ma->gp_style == nullptr)) {
-      sp->pr_main = G.pr_main;
-    }
-    else {
-      sp->pr_main = G_pr_main_grease_pencil;
-    }
+    sp->pr_main = G.pr_main;
   }
 
   common_preview_startjob(sp, worker_status);
@@ -2219,7 +2188,7 @@ void ED_preview_icon_render(
 
   IconPreview ip = {nullptr};
 
-  ED_preview_ensure_dbase(true);
+  ED_preview_ensure_dbase();
 
   ip.bmain = CTX_data_main(C);
   if (GS(id->name) == ID_SCE) {
@@ -2275,7 +2244,7 @@ void ED_preview_icon_job(
 
   IconPreview *ip, *old_ip;
 
-  ED_preview_ensure_dbase(true);
+  ED_preview_ensure_dbase();
 
   /* suspended start means it starts after 1 timer step, see WM_jobs_timer below */
   wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
@@ -2354,7 +2323,7 @@ void ED_preview_shader_job(const bContext *C,
     return;
   }
 
-  ED_preview_ensure_dbase(true);
+  ED_preview_ensure_dbase();
 
   wm_job = WM_jobs_get(CTX_wm_manager(C),
                        CTX_wm_window(C),
@@ -2376,22 +2345,11 @@ void ED_preview_shader_job(const bContext *C,
   sp->parent = parent;
   sp->slot = slot;
   sp->bmain = CTX_data_main(C);
-  Material *ma = nullptr;
 
   /* hardcoded preview .blend for Eevee + Cycles, this should be solved
    * once with custom preview .blend path for external engines */
 
-  /* grease pencil use its own preview file */
-  if (id_type == ID_MA) {
-    ma = id_cast<Material *>(id);
-  }
-
-  if ((ma == nullptr) || (ma->gp_style == nullptr)) {
-    sp->pr_main = G.pr_main;
-  }
-  else {
-    sp->pr_main = G_pr_main_grease_pencil;
-  }
+  sp->pr_main = G.pr_main;
 
   if (ob && ob->totcol) {
     copy_v4_v4(sp->color, ob->color);

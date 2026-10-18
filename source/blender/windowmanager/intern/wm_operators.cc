@@ -82,8 +82,6 @@
 #include "IMB_imbuf_types.hh"
 
 #include "ED_fileselect.hh"
-#include "ED_gpencil_legacy.hh"
-#include "ED_grease_pencil.hh"
 #include "ED_numinput.hh"
 #include "ED_screen.hh"
 #include "ED_undo.hh"
@@ -4416,7 +4414,6 @@ static void gesture_box_modal_keymap(wmKeyConfig *keyconf)
   WM_modalkeymap_assign(keymap, "VIEW3D_OT_zoom_border");
   WM_modalkeymap_assign(keymap, "IMAGE_OT_render_border");
   WM_modalkeymap_assign(keymap, "IMAGE_OT_view_zoom_border");
-  WM_modalkeymap_assign(keymap, "GREASE_PENCIL_OT_erase_box");
 }
 
 /* Lasso modal operators. */
@@ -4449,7 +4446,6 @@ static void gesture_lasso_modal_keymap(wmKeyConfig *keyconf)
   WM_modalkeymap_assign(keymap, "UV_OT_select_lasso");
   WM_modalkeymap_assign(keymap, "SEQUENCER_OT_select_lasso");
   WM_modalkeymap_assign(keymap, "PAINT_OT_hide_show_lasso_gesture");
-  WM_modalkeymap_assign(keymap, "GREASE_PENCIL_OT_erase_lasso");
 }
 
 /* Polyline modal operators */

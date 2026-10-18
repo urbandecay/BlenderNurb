@@ -945,14 +945,6 @@ void BlenderSync::free_data_after_sync(blender::Depsgraph &b_depsgraph)
               blender::Object *,
               b_ob)
   {
-    /* Grease pencil render requires all evaluated objects available as-is after Cycles is done
-     * with its part. */
-    if (b_ob->type == blender::OB_GREASE_PENCIL ||
-        (b_ob->runtime->contained_geometry_types &
-         (1 << int(blender::bke::GeometryComponent::Type::GreasePencil))))
-    {
-      continue;
-    }
     BKE_object_free_caches(b_ob);
   }
   ITER_END;

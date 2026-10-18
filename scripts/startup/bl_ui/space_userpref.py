@@ -464,7 +464,6 @@ class USERPREF_PT_edit_objects_duplicate_data(EditingPanel, CenterAlignMixIn, Pa
             ("use_duplicate_camera", "Camera", 'OUTLINER_DATA_CAMERA', ""),
             ("use_duplicate_curve", "Curve", 'OUTLINER_DATA_CURVE', ""),
             ("use_duplicate_curves", "Curves", 'OUTLINER_DATA_CURVES', ""),
-            ("use_duplicate_grease_pencil", "Grease Pencil", 'OUTLINER_OB_GREASEPENCIL', ""),
             ("use_duplicate_lattice", "Lattice", 'OUTLINER_DATA_LATTICE', ""),
             (None, None, None, None),
             ("use_duplicate_light", "Light", 'OUTLINER_DATA_LIGHT', ""),
@@ -508,31 +507,6 @@ class USERPREF_PT_edit_cursor(EditingPanel, CenterAlignMixIn, Panel):
         col = layout.column(heading="Cursor")
         col.prop(edit, "use_mouse_depth_cursor", text="Surface Project")
         col.prop(edit, "use_cursor_lock_adjust", text="Lock Adjust")
-
-
-class USERPREF_PT_edit_gpencil(EditingPanel, CenterAlignMixIn, Panel):
-    bl_label = "Grease Pencil"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw_centered(self, context, layout):
-        prefs = context.preferences
-        edit = prefs.edit
-
-        col = layout.column(heading="Distance")
-        col.prop(edit, "grease_pencil_manhattan_distance", text="Manhattan")
-        col.prop(edit, "grease_pencil_euclidean_distance", text="Euclidean")
-
-
-class USERPREF_PT_edit_annotations(EditingPanel, CenterAlignMixIn, Panel):
-    bl_label = "Annotations"
-
-    def draw_centered(self, context, layout):
-        prefs = context.preferences
-        edit = prefs.edit
-
-        col = layout.column()
-        col.prop(edit, "grease_pencil_default_color", text="Default Color")
-        col.prop(edit, "grease_pencil_eraser_radius", text="Eraser Radius")
 
 
 class USERPREF_PT_edit_weight_paint(EditingPanel, CenterAlignMixIn, Panel):
@@ -3067,9 +3041,7 @@ classes = (
     USERPREF_PT_edit_objects_new,
     USERPREF_PT_edit_objects_duplicate_data,
     USERPREF_PT_edit_cursor,
-    USERPREF_PT_edit_annotations,
     USERPREF_PT_edit_weight_paint,
-    USERPREF_PT_edit_gpencil,
     USERPREF_PT_edit_text_editor,
     USERPREF_PT_edit_node_editor,
     USERPREF_PT_edit_sequence_editor,

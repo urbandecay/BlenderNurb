@@ -21,7 +21,6 @@
 #include "DNA_armature_types.h"
 #include "DNA_cloth_types.h"
 #include "DNA_curve_types.h"
-#include "DNA_grease_pencil_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -35,7 +34,6 @@
 #include "BKE_armature.hh"
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"
-#include "BKE_grease_pencil_vertex_groups.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
 #include "BKE_object.hh"
@@ -275,10 +273,6 @@ static void object_defgroup_remove_common(Object *ob, bDeformGroup *dg, const in
       Lattice *lt = object_defgroup_lattice_get(ob->data);
       MEM_SAFE_DELETE(lt->dvert);
     }
-    else if (ob->type == OB_GREASE_PENCIL) {
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-      bke::greasepencil::clear_vertex_groups(*grease_pencil);
-    }
   }
   else if (BKE_object_defgroup_active_index_get(ob) < 1) {
     /* Keep a valid active index if we still have some vgroups. */
@@ -384,9 +378,6 @@ void BKE_object_defgroup_remove(Object *ob, bDeformGroup *defgroup)
     object_defgroup_remove_object_mode(ob, defgroup);
   }
 
-  if (ob->type == OB_GREASE_PENCIL) {
-    bke::greasepencil::validate_drawing_vertex_groups(*id_cast<GreasePencil *>(ob->data));
-  }
 
   BKE_object_batch_cache_dirty_tag(ob);
 }
@@ -423,10 +414,6 @@ void BKE_object_defgroup_remove_all_ex(Object *ob, bool only_unlocked)
     else if (ob->type == OB_LATTICE) {
       Lattice *lt = object_defgroup_lattice_get(ob->data);
       MEM_SAFE_DELETE(lt->dvert);
-    }
-    else if (ob->type == OB_GREASE_PENCIL) {
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-      bke::greasepencil::clear_vertex_groups(*grease_pencil);
     }
     /* Fix counters/indices */
     BKE_object_defgroup_active_index_set(ob, 0);
@@ -524,10 +511,6 @@ bool BKE_object_defgroup_array_get(ID *id, MDeformVert **dvert_arr, int *dvert_t
         *dvert_tot = lt->pntsu * lt->pntsv * lt->pntsw;
         return true;
       }
-      case ID_GP:
-        /* Should not be used with grease pencil objects. */
-        dvert_arr = nullptr;
-        return false;
       default:
         break;
     }
@@ -597,10 +580,8 @@ bool *BKE_object_defgroup_validmap_get(Object *ob, const int defbase_tot)
       continue;
     }
 
-    if (ELEM(md->type, eModifierType_Armature, eModifierType_GreasePencilArmature)) {
-      Object *object = (md->type == eModifierType_Armature) ?
-                           (reinterpret_cast<ArmatureModifierData *>(md))->object :
-                           (reinterpret_cast<GreasePencilArmatureModifierData *>(md))->object;
+    if (md->type == eModifierType_Armature) {
+      Object *object = reinterpret_cast<ArmatureModifierData *>(md)->object;
       if (object && object->pose) {
         bPose *pose = object->pose;
         bArmature *armature = id_cast<bArmature *>(object->data);
@@ -700,12 +681,6 @@ bool BKE_object_defgroup_active_is_locked(const Object *ob)
 {
   bDeformGroup *dg;
   switch (ob->type) {
-    case OB_GREASE_PENCIL: {
-      GreasePencil *grease_pencil = id_cast<GreasePencil *>(ob->data);
-      dg = static_cast<bDeformGroup *>(BLI_findlink(&grease_pencil->vertex_group_names,
-                                                    grease_pencil->vertex_group_active_index - 1));
-      break;
-    }
     default: {
       Mesh *mesh = id_cast<Mesh *>(ob->data);
       dg = static_cast<bDeformGroup *>(

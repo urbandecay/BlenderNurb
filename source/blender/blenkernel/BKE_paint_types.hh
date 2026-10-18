@@ -27,11 +27,6 @@ enum class PaintMode : int8_t {
   Texture3D = 3,
   /** Image space (2D painting). */
   Texture2D = 4,
-  GPencil = 6,
-  /* Grease Pencil Vertex Paint */
-  VertexGPencil = 7,
-  SculptGPencil = 8,
-  WeightGPencil = 9,
   /** Curves. */
   SculptCurves = 10,
 

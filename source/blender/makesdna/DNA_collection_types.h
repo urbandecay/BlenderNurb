@@ -39,22 +39,6 @@ enum eCollectionLightLinkingState : uint8_t {
   COLLECTION_LIGHT_LINKING_STATE_EXCLUDE = 1,
 };
 
-enum eCollectionLineArt_Usage : uint8_t {
-  COLLECTION_LRT_INCLUDE = 0,
-  COLLECTION_LRT_OCCLUSION_ONLY = (1 << 0),
-  COLLECTION_LRT_EXCLUDE = (1 << 1),
-  COLLECTION_LRT_INTERSECTION_ONLY = (1 << 2),
-  COLLECTION_LRT_NO_INTERSECTION = (1 << 3),
-  COLLECTION_LRT_FORCE_INTERSECTION = (1 << 4),
-};
-ENUM_OPERATORS(eCollectionLineArt_Usage)
-
-enum eCollectionLineArt_Flags : uint8_t {
-  COLLECTION_LRT_USE_INTERSECTION_MASK = (1 << 0),
-  COLLECTION_LRT_USE_INTERSECTION_PRIORITY = (1 << 1),
-};
-ENUM_OPERATORS(eCollectionLineArt_Flags)
-
 /** #Collection.flag */
 enum eCollection_Flag : uint8_t {
   /** Disable in viewports. */
@@ -192,11 +176,6 @@ struct Collection {
   CollectionColorTag color_tag = COLLECTION_COLOR_NONE;
 
   char _pad1[2] = {};
-
-  eCollectionLineArt_Usage lineart_usage = COLLECTION_LRT_INCLUDE;
-  eCollectionLineArt_Flags lineart_flags = {};
-  uint8_t lineart_intersection_mask = 0;
-  uint8_t lineart_intersection_priority = 0;
 
   DNA_DEPRECATED struct ViewLayer *view_layer = nullptr;
 

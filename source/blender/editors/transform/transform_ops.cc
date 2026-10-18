@@ -156,7 +156,6 @@ const EnumPropertyItem rna_enum_transform_mode_type_items[] = {
     {ed::transform::TFM_ALIGN, "ALIGN", 0, "Align", ""},
     {ed::transform::TFM_EDGE_SLIDE, "EDGESLIDE", 0, "Edge Slide", ""},
     {ed::transform::TFM_SEQ_SLIDE, "SEQSLIDE", 0, "Sequence Slide", ""},
-    {ed::transform::TFM_GPENCIL_OPACITY, "GPENCIL_OPACITY", 0, "Grease Pencil Opacity", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -767,15 +766,6 @@ void properties_register(wmOperatorType *ot, int flags)
     }
   }
 
-  if (flags & P_GPENCIL_EDIT) {
-    prop = RNA_def_boolean(ot->srna,
-                           "gpencil_strokes",
-                           false,
-                           "Edit Grease Pencil",
-                           "Edit selected Grease Pencil strokes");
-    RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-  }
-
   if (flags & P_CURSOR_EDIT) {
     prop = RNA_def_boolean(ot->srna, "cursor_transform", false, "Transform Cursor", "");
     RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
@@ -870,7 +860,7 @@ static void TRANSFORM_OT_translate(wmOperatorType *ot)
 
   properties_register(ot,
                       P_ORIENT_MATRIX | P_CONSTRAINT | P_PROPORTIONAL | P_MIRROR | P_ALIGN_SNAP |
-                          P_OPTIONS | P_GPENCIL_EDIT | P_CURSOR_EDIT | P_VIEW2D_EDGE_PAN |
+                      P_OPTIONS | P_CURSOR_EDIT | P_VIEW2D_EDGE_PAN |
                           P_POST_TRANSFORM | P_TRANSLATE_ORIGIN);
 }
 
@@ -910,7 +900,7 @@ static void TRANSFORM_OT_resize(wmOperatorType *ot)
 
   properties_register(ot,
                       P_ORIENT_MATRIX | P_CONSTRAINT | P_PROPORTIONAL | P_MIRROR | P_GEO_SNAP |
-                          P_OPTIONS | P_GPENCIL_EDIT | P_CENTER);
+                          P_OPTIONS | P_CENTER);
 }
 
 static void TRANSFORM_OT_skin_resize(wmOperatorType *ot)
@@ -961,7 +951,7 @@ static void TRANSFORM_OT_trackball(wmOperatorType *ot)
 
   WM_operatortype_props_advanced_begin(ot);
 
-  properties_register(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_GPENCIL_EDIT | P_CENTER);
+  properties_register(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_CENTER);
 }
 
 static void TRANSFORM_OT_rotate(wmOperatorType *ot)
@@ -987,7 +977,7 @@ static void TRANSFORM_OT_rotate(wmOperatorType *ot)
 
   properties_register(ot,
                       P_ORIENT_AXIS | P_ORIENT_MATRIX | P_CONSTRAINT | P_PROPORTIONAL | P_MIRROR |
-                          P_GEO_SNAP | P_GPENCIL_EDIT | P_CENTER);
+                          P_GEO_SNAP | P_CENTER);
 }
 
 static bool tilt_poll(bContext *C)
@@ -1055,7 +1045,7 @@ static void TRANSFORM_OT_bend(wmOperatorType *ot)
 
   WM_operatortype_props_advanced_begin(ot);
 
-  properties_register(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_GPENCIL_EDIT | P_CENTER);
+  properties_register(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_CENTER);
 }
 
 static bool transform_shear_poll(bContext *C)
@@ -1091,7 +1081,7 @@ static void TRANSFORM_OT_shear(wmOperatorType *ot)
 
   properties_register(ot,
                       P_ORIENT_AXIS | P_ORIENT_AXIS_ORTHO | P_ORIENT_MATRIX | P_PROPORTIONAL |
-                          P_MIRROR | P_SNAP | P_GPENCIL_EDIT);
+                          P_MIRROR | P_SNAP);
 }
 
 static void TRANSFORM_OT_push_pull(wmOperatorType *ot)
@@ -1166,7 +1156,7 @@ static void TRANSFORM_OT_tosphere(wmOperatorType *ot)
 
   WM_operatortype_props_advanced_begin(ot);
 
-  properties_register(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_GPENCIL_EDIT | P_CENTER);
+  properties_register(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_CENTER);
 }
 
 static void TRANSFORM_OT_mirror(wmOperatorType *ot)
@@ -1185,7 +1175,7 @@ static void TRANSFORM_OT_mirror(wmOperatorType *ot)
   ot->poll = ED_operator_active_screen_and_scene;
   ot->poll_property = transform_poll_property;
 
-  properties_register(ot, P_ORIENT_MATRIX | P_CONSTRAINT | P_GPENCIL_EDIT | P_CENTER);
+  properties_register(ot, P_ORIENT_MATRIX | P_CONSTRAINT | P_CENTER);
 }
 
 static void TRANSFORM_OT_bbone_resize(wmOperatorType *ot)
@@ -1453,7 +1443,7 @@ static void TRANSFORM_OT_transform(wmOperatorType *ot)
 
   properties_register(ot,
                       P_ORIENT_AXIS | P_ORIENT_MATRIX | P_CONSTRAINT | P_PROPORTIONAL | P_MIRROR |
-                          P_ALIGN_SNAP | P_GPENCIL_EDIT | P_CENTER | P_POST_TRANSFORM | P_OPTIONS);
+                          P_ALIGN_SNAP | P_CENTER | P_POST_TRANSFORM | P_OPTIONS);
 }
 
 static wmOperatorStatus transform_from_gizmo_invoke(bContext *C,

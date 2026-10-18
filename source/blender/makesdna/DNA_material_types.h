@@ -24,52 +24,6 @@ struct AnimData;
 struct Image;
 struct bNodeTree;
 
-/* MaterialGPencilStyle->flag */
-enum eMaterialGPencilStyle_Flag : short {
-  /* Fill Texture is a pattern */
-  GP_MATERIAL_FILL_PATTERN = (1 << 0),
-  /* don't display color */
-  GP_MATERIAL_HIDE = (1 << 1),
-  /* protected from further editing */
-  GP_MATERIAL_LOCKED = (1 << 2),
-  /* do onion skinning */
-  GP_MATERIAL_HIDE_ONIONSKIN = (1 << 3),
-  /* clamp texture */
-  GP_MATERIAL_TEX_CLAMP = (1 << 4),
-  /* mix fill texture */
-  GP_MATERIAL_FILL_TEX_MIX = (1 << 5),
-  /* Flip fill colors */
-  GP_MATERIAL_FLIP_FILL = (1 << 6),
-  /* Stroke Texture is a pattern */
-  GP_MATERIAL_STROKE_PATTERN = (1 << 7),
-  GP_MATERIAL_STROKE_SHOW = (1 << 8), /* Deprecated. Only used for compatibility. */
-  GP_MATERIAL_FILL_SHOW = (1 << 9),   /* Deprecated. Only used for compatibility. */
-  /* mix stroke texture */
-  GP_MATERIAL_STROKE_TEX_MIX = (1 << 11),
-  /* disable stencil clipping (overlap) */
-  GP_MATERIAL_DISABLE_STENCIL = (1 << 12),
-  /* Material used as stroke masking. */
-  GP_MATERIAL_IS_STROKE_HOLDOUT = (1 << 13),
-  /* Material used as fill masking. */
-  GP_MATERIAL_IS_FILL_HOLDOUT = (1 << 14),
-  /* Material use randomization. */
-  GP_MATERIAL_USE_DOTS_RANDOMIZATION = static_cast<short>(1 << 15),
-};
-ENUM_OPERATORS(eMaterialGPencilStyle_Flag)
-
-enum eMaterialGPencilStyle_Mode : int {
-  GP_MATERIAL_MODE_LINE = 0,
-  GP_MATERIAL_MODE_DOT = 1,
-  GP_MATERIAL_MODE_SQUARE = 2,
-};
-
-enum eMaterialLineArtFlags : int {
-  LRT_MATERIAL_MASK_ENABLED = (1 << 0),
-  LRT_MATERIAL_CUSTOM_OCCLUSION_EFFECTIVENESS = (1 << 1),
-  LRT_MATERIAL_CUSTOM_INTERSECTION_PRIORITY = (1 << 2),
-};
-ENUM_OPERATORS(eMaterialLineArtFlags)
-
 /* maximum number of materials per material array.
  * (on object, mesh, light, etc.). limited by
  * short mat_nr in verts, faces.
@@ -223,40 +177,6 @@ enum eMaterial_ThicknessMode : char {
   MA_THICKNESS_SLAB = 1,
 };
 
-/* Grease Pencil Stroke styles */
-enum eMaterialGPencilStyle_StrokeStyle : short {
-  GP_MATERIAL_STROKE_STYLE_SOLID = 0,
-  GP_MATERIAL_STROKE_STYLE_TEXTURE = 1,
-};
-
-/* Grease Pencil Fill styles */
-enum eMaterialGPencilStyle_FillStyle : short {
-  GP_MATERIAL_FILL_STYLE_SOLID = 0,
-  GP_MATERIAL_FILL_STYLE_GRADIENT = 1,
-  GP_MATERIAL_FILL_STYLE_CHECKER = 2, /* DEPRECATED (only for convert old files) */
-  GP_MATERIAL_FILL_STYLE_TEXTURE = 3,
-};
-
-/* Grease Pencil Gradient Types */
-enum eMaterialGPencilStyle_GradientType : int {
-  GP_MATERIAL_GRADIENT_LINEAR = 0,
-  GP_MATERIAL_GRADIENT_RADIAL = 1,
-};
-
-/* Grease Pencil Follow Drawing Modes */
-enum eMaterialGPencilStyle_FollowMode : int {
-  GP_MATERIAL_FOLLOW_PATH = 0,
-  GP_MATERIAL_FOLLOW_OBJ = 1,
-  GP_MATERIAL_FOLLOW_FIXED = 2,
-};
-
-/* Grease Pencil Placement Drawing Modes */
-enum eMaterialGPencilPlacementMode : int {
-  GP_MATERIAL_PLACEMENT_COUNT = 0,
-  GP_MATERIAL_PLACEMENT_RADIUS = 1,
-  GP_MATERIAL_PLACEMENT_DENSITY = 2,
-};
-
 struct TexPaintSlot {
   DNA_DEFINE_CXX_METHODS(TexPaintSlot)
 
@@ -278,95 +198,6 @@ struct TexPaintSlot {
   int valid = 0;
   /** Copy of node interpolation setting. */
   int interp = 0;
-};
-
-struct MaterialGPencilStyle {
-  DNA_DEFINE_CXX_METHODS(MaterialGPencilStyle)
-
-  /** Texture image for strokes. */
-  struct Image *sima = nullptr;
-  /** Texture image for filling. */
-  struct Image *ima = nullptr;
-  /** Color for paint and strokes (alpha included). */
-  float stroke_rgba[4] = {};
-  /** Color that should be used for drawing "fills" for strokes (alpha included). */
-  float fill_rgba[4] = {};
-  /** Secondary color used for gradients and other stuff. */
-  float mix_rgba[4] = {};
-  /** Settings. */
-  eMaterialGPencilStyle_Flag flag = {};
-  /** Custom index for passes. */
-  short index = 0;
-  /** Style for drawing strokes (used to select shader type). */
-  eMaterialGPencilStyle_StrokeStyle stroke_style = GP_MATERIAL_STROKE_STYLE_SOLID;
-  /** Style for filling areas (used to select shader type). */
-  eMaterialGPencilStyle_FillStyle fill_style = GP_MATERIAL_FILL_STYLE_SOLID;
-  /** Factor used to define shader behavior (several uses). */
-  float mix_factor = 0;
-  /** Angle used for gradients orientation. */
-  DNA_DEPRECATED float gradient_angle = 0;
-  /** Radius for radial gradients. */
-  DNA_DEPRECATED float gradient_radius = 0;
-  char _pad2[4] = {};
-  /** UV coordinates scale. */
-  DNA_DEPRECATED float gradient_scale[2] = {};
-  /** Factor to shift filling in 2d space. */
-  DNA_DEPRECATED float gradient_shift[2] = {};
-  /** Angle used for texture orientation. */
-  float texture_angle = 0;
-  /** Texture scale (separated of uv scale). */
-  float texture_scale[2] = {};
-  /** Factor to shift texture in 2d space. */
-  float texture_offset[2] = {};
-  /** Texture opacity. */
-  DNA_DEPRECATED float texture_opacity = 0;
-  /** Pixel size for uv along the stroke. */
-  float texture_pixsize = 0;
-  /** Drawing mode (line or dots). */
-  eMaterialGPencilStyle_Mode mode = GP_MATERIAL_MODE_LINE;
-
-  /** Type of gradient. */
-  eMaterialGPencilStyle_GradientType gradient_type = GP_MATERIAL_GRADIENT_LINEAR;
-
-  /** Factor used to mix texture and stroke color. */
-  float mix_stroke_factor = 0;
-  /** Mode used to align Dots and Boxes with stroke drawing path and object rotation */
-  eMaterialGPencilStyle_FollowMode alignment_mode = GP_MATERIAL_FOLLOW_PATH;
-  /** Rotation for texture for Dots and Squares. */
-  float alignment_rotation = 0;
-  /** Placement mode for Dots and Squares. */
-  eMaterialGPencilPlacementMode placement_mode = GP_MATERIAL_PLACEMENT_COUNT;
-  /* Number of points per segment when placement mode is `GP_MATERIAL_PLACEMENT_COUNT` */
-  int placement_count = 0;
-  /* Radius factor for points when placement mode is `GP_MATERIAL_PLACEMENT_RADIUS` */
-  float placement_radius_spacing = 0;
-  /* Point density per unit when placement mode is `GP_MATERIAL_PLACEMENT_DENSITY` */
-  float placement_density = 0;
-
-  float random_size_factor = 0;
-  float random_strength_factor = 0;
-  float random_rotation_factor = 0;
-
-  float random_hue_factor = 0;
-  float random_saturation_factor = 0;
-  float random_value_factor = 0;
-
-  float random_noise_scale = 0;
-  char _pad3[4] = {};
-};
-
-struct MaterialLineArt {
-  eMaterialLineArtFlags flags = {};
-
-  /* Used to filter line art occlusion edges */
-  unsigned char material_mask_bits = 0;
-
-  /** Maximum 255 levels of equivalent occlusion. */
-  unsigned char mat_occlusion = 1;
-
-  unsigned char intersection_priority = 0;
-
-  char _pad = {};
 };
 
 struct Material {
@@ -455,9 +286,6 @@ struct Material {
   /** Runtime cache for GLSL materials. */
   ListBaseT<LinkData> gpumaterial = {nullptr, nullptr};
 
-  /** Grease pencil color. */
-  struct MaterialGPencilStyle *gp_style = nullptr;
-  struct MaterialLineArt lineart;
 };
 
 }  // namespace blender

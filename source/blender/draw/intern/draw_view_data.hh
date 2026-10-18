@@ -20,7 +20,6 @@
 #include "engines/compositor/compositor_engine.h"
 #include "engines/eevee/eevee_engine.h"
 #include "engines/external/external_engine.h"
-#include "engines/gpencil/gpencil_engine.hh"
 #include "engines/image/image_engine.h"
 #include "engines/overlay/overlay_engine.h"
 #include "engines/select/select_engine.hh"
@@ -74,7 +73,6 @@ struct DRWViewData {
   workbench::Engine workbench;
   draw::external::Engine external;
   image_engine::Engine image;
-  draw::gpencil::Engine grease_pencil;
   draw::overlay::Engine overlay;
   draw::select::Engine object_select;
   draw::edit_select::Engine edit_select;
@@ -113,8 +111,6 @@ struct DRWViewData {
 #ifdef WITH_DRAW_DEBUG
     callback(edit_select_debug);
 #endif
-    /** Grease pencil. Merge its output to the render result frame-buffer. */
-    callback(grease_pencil);
     /** GPU compositor. Processes render result and output to the render result frame-buffer. */
     callback(compositor);
     /** Overlays. Draw on a separate overlay frame-buffer. Can read render result. */

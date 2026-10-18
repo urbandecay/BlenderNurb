@@ -47,16 +47,11 @@ set(SRC
   tree/tree_element_defgroup.cc
   tree/tree_element_driver.cc
   tree/tree_element_edit_bone.cc
-  tree/tree_element_gpencil_effect.cc
-  tree/tree_element_gpencil_layer.cc
-  tree/tree_element_grease_pencil_node.cc
   tree/tree_element_id.cc
   tree/tree_element_id_action.cc
   tree/tree_element_id_armature.cc
   tree/tree_element_id_collection.cc
   tree/tree_element_id_curve.cc
-  tree/tree_element_id_gpencil_legacy.cc
-  tree/tree_element_id_grease_pencil.cc
   tree/tree_element_id_library.cc
   tree/tree_element_id_linestyle.cc
   tree/tree_element_id_mesh.cc
@@ -94,16 +89,11 @@ set(SRC
   tree/tree_element_defgroup.hh
   tree/tree_element_driver.hh
   tree/tree_element_edit_bone.hh
-  tree/tree_element_gpencil_effect.hh
-  tree/tree_element_gpencil_layer.hh
-  tree/tree_element_grease_pencil_node.hh
   tree/tree_element_id.hh
   tree/tree_element_id_action.hh
   tree/tree_element_id_armature.hh
   tree/tree_element_id_collection.hh
   tree/tree_element_id_curve.hh
-  tree/tree_element_id_gpencil_legacy.hh
-  tree/tree_element_id_grease_pencil.hh
   tree/tree_element_id_library.hh
   tree/tree_element_id_linestyle.hh
   tree/tree_element_id_mesh.hh

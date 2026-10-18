@@ -87,8 +87,6 @@ struct PaintCursorContext {
   int pixel_radius = 0;
 };
 
-void grease_pencil_cursor_draw(PaintCursorContext &pcontext);
-
 void mesh_cursor_update_and_init(PaintCursorContext &pcontext);
 void mesh_cursor_active_draw(PaintCursorContext &pcontext);
 void mesh_cursor_inactive_draw(PaintCursorContext &pcontext);

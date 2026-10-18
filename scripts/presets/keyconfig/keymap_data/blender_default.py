@@ -1280,10 +1280,6 @@ def km_property_editor(_params):
         ("object.modifier_copy", {"type": 'D', "value": 'PRESS', "shift": True}, None),
         ("object.add_modifier_menu", {"type": 'A', "value": 'PRESS', "shift": True}, None),
         ("object.modifier_apply", {"type": 'A', "value": 'PRESS', "ctrl": True}, {"properties": [("report", True)]}),
-        # ShaderFX panels
-        ("object.shaderfx_remove", {"type": 'X', "value": 'PRESS'}, {"properties": [("report", True)]}),
-        ("object.shaderfx_remove", {"type": 'DEL', "value": 'PRESS'}, {"properties": [("report", True)]}),
-        ("object.shaderfx_copy", {"type": 'D', "value": 'PRESS', "shift": True}, None),
         # Constraint panels
         ("constraint.delete", {"type": 'X', "value": 'PRESS'}, {"properties": [("report", True)]}),
         ("constraint.delete", {"type": 'DEL', "value": 'PRESS'}, {"properties": [("report", True)]}),
@@ -2724,7 +2720,6 @@ def km_dopesheet(params):
         ("action.easing_type", {"type": 'E', "value": 'PRESS', "ctrl": True}, None),
         ("action.keyframe_type", {"type": 'R', "value": 'PRESS'}, None),
         ("action.bake_keys", {"type": 'O', "value": 'PRESS', "shift": True, "alt": True}, None),
-        ("grease_pencil.layer_isolate", {"type": 'NUMPAD_ASTERIX', "value": 'PRESS'}, None),
         op_menu("DOPESHEET_MT_delete", {"type": 'X', "value": 'PRESS'}),
         ("action.delete", {"type": 'DEL', "value": 'PRESS'}, {"properties": [("confirm", False)]}),
         ("action.duplicate_move", {"type": 'D', "value": 'PRESS', "shift": True}, None),
@@ -3939,576 +3934,26 @@ def km_animation_channels(params):
 
 
 # ------------------------------------------------------------------------------
-# Object Grease Pencil Modes
 
-def km_annotate(params):
-    items = []
-    keymap = (
-        "Grease Pencil",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
 
-    if params.use_key_activate_tools:
-        items.extend([
-            op_tool_cycle("builtin.annotate", {"type": 'D', "value": 'PRESS'}),
-        ])
-    else:
-        items.extend([
-            # Draw
-            ("gpencil.annotate",
-             {"type": 'LEFTMOUSE', "value": 'PRESS', "key_modifier": 'D'},
-             {"properties": [("mode", 'DRAW'), ("wait_for_input", False)]}),
-            ("gpencil.annotate",
-             {"type": 'LEFTMOUSE', "value": 'PRESS', "key_modifier": 'D', "shift": True},
-             {"properties": [("mode", 'DRAW'), ("wait_for_input", False)]}),
-            # Draw - straight lines
-            ("gpencil.annotate",
-             {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True, "key_modifier": 'D'},
-             {"properties": [("mode", 'DRAW_STRAIGHT'), ("wait_for_input", False)]}),
-            # Draw - poly lines
-            ("gpencil.annotate",
-             {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "alt": True, "key_modifier": 'D'},
-             {"properties": [("mode", 'DRAW_POLY'), ("wait_for_input", False)]}),
-            # Erase
-            ("gpencil.annotate",
-             {"type": 'RIGHTMOUSE', "value": 'PRESS', "key_modifier": 'D'},
-             {"properties": [("mode", 'ERASER'), ("wait_for_input", False)]}),
-        ])
 
-    return keymap
 
 
-# Grease Pencil
-def km_grease_pencil_selection(params):
-    items = []
-    keymap = (
-        "Grease Pencil Selection",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
 
-    items.extend([
-        # Select All
-        *_template_items_select_actions(params, "grease_pencil.select_all"),
-        # Select fill
-        ("grease_pencil.select_fill", {"type": 'L', "value": 'PRESS', "ctrl": True}, None),
-        # Select linked
-        ("grease_pencil.select_linked", {"type": 'L', "value": 'PRESS'}, None),
-        ("grease_pencil.select_linked", {"type": 'L', "value": 'PRESS', "shift": True},
-         {"properties": [("deselect", True)]}),
-        # Select more/less
-        ("grease_pencil.select_more", {"type": 'NUMPAD_PLUS', "value": 'PRESS', "ctrl": True, "repeat": True}, None),
-        ("grease_pencil.select_less", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True, "repeat": True}, None),
-        # Select Similar
-        ("grease_pencil.select_similar", {"type": 'G', "value": 'PRESS', "shift": True}, None),
-    ])
 
-    return keymap
 
 
-def km_grease_pencil_paint_mode(params):
-    items = []
-    keymap = (
-        "Grease Pencil Draw Mode",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
 
-    items.extend([
-        # Active material
-        op_menu("VIEW3D_MT_greasepencil_material_active", {"type": 'U', "value": 'PRESS'}),
-        # Active layer
-        op_menu("GREASE_PENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
 
-        # Show/hide
-        *_template_items_hide_reveal_actions("grease_pencil.layer_hide", "grease_pencil.layer_reveal"),
-        # Flip primary and secondary color
-        ("paint.brush_colors_flip", {"type": 'X', "value": 'PRESS'}, None),
-        ("paint.sample_color", {"type": 'X', "value": 'PRESS', "shift": True}, {"properties": [("merged", False)]}),
 
 
-        # Isolate Layer
-        ("grease_pencil.layer_isolate", {"type": 'NUMPAD_ASTERIX', "value": 'PRESS'}, None),
 
-        # Keyframe Menu
-        op_menu("VIEW3D_MT_edit_greasepencil_animation", {"type": 'I', "value": 'PRESS'}),
 
-        # Insert Blank Keyframe
-        ("grease_pencil.insert_blank_frame", {"type": 'I', "value": 'PRESS', "shift": True}, None),
 
-        # Delete all active frames
-        ("grease_pencil.delete_frame", {"type": 'DEL', "value": 'PRESS', "shift": True},
-         {"properties": [("type", "ALL_FRAMES")]}),
 
-        # Delete Animation menu
-        op_menu("GREASE_PENCIL_MT_draw_delete", {"type": 'I', "value": 'PRESS', "alt": True}),
 
-        # Merge Down
-        ("grease_pencil.layer_merge", {"type": 'M', "value": 'PRESS',
-         "ctrl": True, "shift": True}, {"properties": [("mode", 'ACTIVE')]}),
 
-        op_tool_optional(
-            ("grease_pencil.interpolate", {"type": 'E', "value": 'PRESS',
-             "ctrl": True}, {"properties": [("use_selection", False)]}),
-            (op_tool_cycle, "builtin.interpolate"), params),
-        ("grease_pencil.interpolate_sequence", {"type": 'E', "value": 'PRESS',
-         "shift": True, "ctrl": True}, {"properties": [("use_selection", False)]}),
 
-        # Lasso/Box erase
-        ("grease_pencil.erase_lasso", {"type": 'RIGHTMOUSE', "value": 'PRESS', "ctrl": True, "alt": True}, None),
-        ("grease_pencil.erase_box", {"type": "B", "value": 'PRESS'}, {"properties": [("wait_for_input", True)]}),
-        # Brush size
-        ("wm.radial_control", {"type": 'F', "value": 'PRESS'},
-         {"properties": [("data_path_primary", "tool_settings.gpencil_paint.brush.size")]}),
-        # Brush strength
-        ("wm.radial_control", {"type": 'F', "value": 'PRESS', "shift": True},
-         {"properties": [("data_path_primary", "tool_settings.gpencil_paint.brush.strength")]}),
-
-        *_template_asset_shelf_popup("VIEW3D_AST_brush_gpencil_paint", params.spacebar_action),
-
-        *_template_items_context_panel("VIEW3D_PT_greasepencil_draw_context_menu", params.context_menu_event),
-    ])
-
-    return keymap
-
-
-def km_grease_pencil_brush_stroke(_params):
-    items = []
-    keymap = (
-        "Grease Pencil Brush Stroke",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        ("grease_pencil.brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
-        ("grease_pencil.brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-         {"properties": [("brush_toggle", 'ERASE')]}),
-        ("grease_pencil.brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-         {"properties": [("brush_toggle", 'SMOOTH')]}),
-        ("grease_pencil.brush_stroke", {"type": 'ERASER', "value": 'PRESS'},
-         {"properties": [("brush_toggle", 'ERASE')]}),
-        # Increase/Decrease brush size
-        ("brush.scale_size", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 0.9)]}),
-        ("brush.scale_size", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 1.0 / 0.9)]}),
-    ])
-
-    return keymap
-
-
-def km_grease_pencil_edit_mode(params):
-    items = []
-    keymap = (
-        "Grease Pencil Edit Mode",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        # Delete menu
-        op_menu("VIEW3D_MT_edit_greasepencil_delete", {"type": 'X', "value": 'PRESS'}),
-        op_menu("VIEW3D_MT_edit_greasepencil_delete", {"type": 'DEL', "value": 'PRESS'}),
-        # Dissolve
-        ("grease_pencil.dissolve", {"type": 'X', "value": 'PRESS', "ctrl": True}, None),
-        ("grease_pencil.dissolve", {"type": 'DEL', "value": 'PRESS', "ctrl": True}, None),
-        # Copy/paste
-        ("grease_pencil.copy", {"type": 'C', "value": 'PRESS', "ctrl": True}, None),
-        ("grease_pencil.paste", {"type": 'V', "value": 'PRESS', "ctrl": True}, None),
-        ("grease_pencil.paste", {"type": 'V', "value": 'PRESS', "shift": True, "ctrl": True},
-         {"properties": [("paste_back", True)]}),
-        # Snap
-        op_menu_pie("GREASE_PENCIL_MT_snap_pie", {"type": 'S', "value": 'PRESS', "shift": True}),
-        # Separate
-        ("grease_pencil.separate", {"type": 'P', "value": 'PRESS'}, None),
-        # Delete all active frames
-        ("grease_pencil.delete_frame", {"type": 'DEL', "value": 'PRESS', "shift": True},
-         {"properties": [("type", "ALL_FRAMES")]}),
-        # Keyframe Menu
-        op_menu("VIEW3D_MT_edit_greasepencil_animation", {"type": 'I', "value": 'PRESS'}),
-
-        # Insert Blank Keyframe
-        ("grease_pencil.insert_blank_frame", {"type": 'I', "value": 'PRESS', "shift": True}, None),
-
-        # Delete Animation menu
-        op_menu("GREASE_PENCIL_MT_draw_delete", {"type": 'I', "value": 'PRESS', "alt": True}),
-
-        # Show/hide
-        *_template_items_hide_reveal_actions("grease_pencil.layer_hide", "grease_pencil.layer_reveal"),
-
-        # Transform Actions.
-        *_template_items_transform_actions(params, use_bend=True, use_mirror=True, use_tosphere=True, use_shear=True),
-        ("transform.transform", {"type": 'S', "value": 'PRESS', "alt": True},
-         {"properties": [("mode", 'CURVE_SHRINKFATTEN')]}),
-        ("transform.transform", {"type": 'F', "value": 'PRESS', "shift": True},
-         {"properties": [("mode", 'GPENCIL_OPACITY')]}),
-
-        # Proportional editing.
-        *_template_items_proportional_editing(
-            params, connected=True, toggle_data_path="tool_settings.use_proportional_edit"),
-
-        # Cyclical set
-        ("grease_pencil.cyclical_set", {"type": 'F', "value": 'PRESS'},
-         {"properties": [("type", "CLOSE"), ("subdivide_cyclic_segment", True)]}),
-        ("grease_pencil.cyclical_set", {"type": 'C', "value": 'PRESS',
-         "alt": True}, {"properties": [("type", "TOGGLE"), ("subdivide_cyclic_segment", False)]}),
-
-        # Join selection
-        ("grease_pencil.join_selection", {"type": 'J', "value": 'PRESS', "ctrl": True},
-         {"properties": [("type", 'JOINSTROKES')]}),
-        ("grease_pencil.join_selection", {"type": 'J', "value": 'PRESS', "shift": True, "ctrl": True},
-         {"properties": [("type", 'SPLITCOPY')]}),
-
-        ("grease_pencil.duplicate_move", {"type": 'D', "value": 'PRESS', "shift": True}, None),
-
-        # Split Stroke
-        ("grease_pencil.stroke_split", {"type": 'V', "value": 'PRESS', "shift": True}, None),
-
-        # Extrude and move selected points
-        op_tool_optional(
-            ("grease_pencil.extrude_move", {"type": 'E', "value": 'PRESS'}, None),
-            (op_tool_cycle, "builtin.extrude"), params),
-
-        # Active layer
-        op_menu("GREASE_PENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
-
-        # Move to layer
-        op_menu("GREASE_PENCIL_MT_move_to_layer", {"type": 'M', "value": 'PRESS'}),
-
-        # Merge Down
-        ("grease_pencil.layer_merge", {"type": 'M', "value": 'PRESS',
-         "ctrl": True, "shift": True}, {"properties": [("mode", 'ACTIVE')]}),
-
-        # Edit Lines overlay
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_edit_lines')]}),
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True, "alt": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_multiedit_line_only')]}),
-
-        # Context menu
-        *_template_items_context_menu("VIEW3D_MT_greasepencil_edit_context_menu", params.context_menu_event),
-
-        # Vertex Groups
-        op_menu("VIEW3D_MT_greasepencil_vertex_group", {"type": 'G', "value": 'PRESS', "ctrl": True}),
-
-        # Reorder
-        ("grease_pencil.reorder", {"type": 'UP_ARROW', "value": 'PRESS',
-         "ctrl": True, "shift": True}, {"properties": [("direction", "TOP")]}),
-        ("grease_pencil.reorder", {"type": 'UP_ARROW', "value": 'PRESS',
-         "ctrl": True, "repeat": True}, {"properties": [("direction", "UP")]}),
-        ("grease_pencil.reorder", {"type": 'DOWN_ARROW', "value": 'PRESS',
-         "ctrl": True, "repeat": True}, {"properties": [("direction", "DOWN")]}),
-        ("grease_pencil.reorder", {"type": 'DOWN_ARROW', "value": 'PRESS',
-         "ctrl": True, "shift": True}, {"properties": [("direction", "BOTTOM")]}),
-
-        # Isolate Layer
-        ("grease_pencil.layer_isolate", {"type": 'NUMPAD_ASTERIX', "value": 'PRESS'}, None),
-
-        # Select mode
-        ("grease_pencil.set_selection_mode", {"type": 'ONE', "value": 'PRESS'}, {"properties": [("mode", 'POINT')]}),
-        ("grease_pencil.set_selection_mode", {"type": 'TWO', "value": 'PRESS'}, {"properties": [("mode", 'STROKE')]}),
-        ("grease_pencil.set_selection_mode", {"type": 'THREE',
-         "value": 'PRESS'}, {"properties": [("mode", 'SEGMENT')]}),
-
-        # Set Handle Type
-        ("grease_pencil.set_handle_type", {"type": 'V', "value": 'PRESS'}, None),
-
-        # Join Fills
-        ("grease_pencil.join_fills", {"type": 'J', "value": 'PRESS', "shift": True}, None),
-        # Separate Fills
-        ("grease_pencil.separate_fills", {"type": 'P', "value": 'PRESS', "alt": True}, None),
-
-        op_tool_optional(
-            ("grease_pencil.interpolate", {"type": 'E', "value": 'PRESS',
-             "ctrl": True}, {"properties": [("use_selection", True)]}),
-            (op_tool_cycle, "builtin.interpolate"), params),
-        ("grease_pencil.interpolate_sequence", {"type": 'E', "value": 'PRESS',
-         "shift": True, "ctrl": True}, {"properties": [("use_selection", True)]}),
-    ])
-
-    return keymap
-
-
-def km_grease_pencil_sculpt_mode(params):
-    items = []
-    keymap = (
-        "Grease Pencil Sculpt Mode",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items}
-    )
-
-    items.extend([
-        ("brush.scale_size", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 0.9)]}),
-        ("brush.scale_size", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 1.0 / 0.9)]}),
-        # Invoke sculpt operator
-        ("grease_pencil.sculpt_paint", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
-        ("grease_pencil.sculpt_paint", {"type": 'LEFTMOUSE', "value": 'PRESS',
-         "ctrl": True}, {"properties": [("mode", 'INVERT')]}),
-        ("grease_pencil.sculpt_paint", {"type": 'LEFTMOUSE', "value": 'PRESS',
-         "shift": True}, {"properties": [("brush_toggle", 'SMOOTH')]}),
-        # Selection mode
-        ("wm.context_toggle", {"type": 'ONE', "value": 'PRESS'},
-         {"properties": [("data_path", "scene.tool_settings.use_gpencil_select_mask_point")]}),
-        ("wm.context_toggle", {"type": 'TWO', "value": 'PRESS'},
-         {"properties": [("data_path", "scene.tool_settings.use_gpencil_select_mask_stroke")]}),
-        ("wm.context_toggle", {"type": 'THREE', "value": 'PRESS'},
-         {"properties": [("data_path", "scene.tool_settings.use_gpencil_select_mask_segment")]}),
-
-        # Edit Lines overlay
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_edit_lines')]}),
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True, "alt": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_multiedit_line_only')]}),
-
-        # Keyframe Menu
-        op_menu("VIEW3D_MT_edit_greasepencil_animation", {"type": 'I', "value": 'PRESS'}),
-
-        # Insert Blank Keyframe
-        ("grease_pencil.insert_blank_frame", {"type": 'I', "value": 'PRESS', "shift": True}, None),
-
-        # Delete Animation menu
-        op_menu("GREASE_PENCIL_MT_draw_delete", {"type": 'I', "value": 'PRESS', "alt": True}),
-
-        # Delete all active frames
-        ("grease_pencil.delete_frame", {"type": 'DEL', "value": 'PRESS', "shift": True},
-         {"properties": [("type", "ALL_FRAMES")]}),
-
-        # Merge Down
-        ("grease_pencil.layer_merge", {"type": 'M', "value": 'PRESS',
-         "ctrl": True, "shift": True}, {"properties": [("mode", 'ACTIVE')]}),
-
-        # Copy/paste
-        ("grease_pencil.copy", {"type": 'C', "value": 'PRESS', "ctrl": True}, None),
-        ("grease_pencil.paste", {"type": 'V', "value": 'PRESS', "ctrl": True}, None),
-        ("grease_pencil.paste", {"type": 'V', "value": 'PRESS', "shift": True, "ctrl": True},
-         {"properties": [("paste_back", True)]}),
-
-        # Active material
-        op_menu("VIEW3D_MT_greasepencil_material_active", {"type": 'U', "value": 'PRESS'}),
-
-        # Active layer
-        op_menu("GREASE_PENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
-
-        # Auto-masking menu.
-        op_menu_pie(
-            "VIEW3D_MT_grease_pencil_sculpt_automasking_pie",
-            {"type": 'A', "value": 'PRESS', "shift": True, "alt": True},
-        ),
-        ("wm.context_menu_enum", {"type": 'E', "value": 'PRESS', "alt": True},
-         {"properties": [("data_path", "tool_settings.gpencil_sculpt_paint.brush.stroke_method")]}),
-
-        *_template_paint_radial_control("gpencil_sculpt_paint"),
-        *_template_asset_shelf_popup("VIEW3D_AST_brush_gpencil_sculpt", params.spacebar_action),
-        *_template_items_context_panel("VIEW3D_PT_greasepencil_sculpt_context_menu", params.context_menu_event),
-    ])
-
-    return keymap
-
-
-def km_grease_pencil_weight_paint(params):
-    # NOTE: This keymap falls through to "Pose" when an armature modifying the GP object
-    # is selected in weight paint mode. When editing the key-map take care that pose operations
-    # (such as transforming bones) is not impacted.
-    items = []
-    keymap = (
-        "Grease Pencil Weight Paint",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        # Paint weight
-        ("grease_pencil.weight_brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
-        ("grease_pencil.weight_brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-         {"properties": [("mode", 'INVERT')]}),
-        # Increase/Decrease brush size
-        ("brush.scale_size", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 0.9)]}),
-        ("brush.scale_size", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 1.0 / 0.9)]}),
-        # Radial controls
-        *_template_paint_radial_control("gpencil_weight_paint"),
-        ("wm.radial_control", {"type": 'F', "value": 'PRESS', "ctrl": True},
-         radial_control_properties(
-             "gpencil_weight_paint", "weight",
-             secondary_prop="use_unified_weight",
-        )),
-        # Toggle Add/Subtract for weight draw tool
-        ("grease_pencil.weight_toggle_direction", {"type": 'D', "value": 'PRESS'}, None),
-
-        # Edit Lines overlay
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_edit_lines')]}),
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True, "alt": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_multiedit_line_only')]}),
-
-        # Active layer
-        op_menu("GREASE_PENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
-
-        # Merge Down
-        ("grease_pencil.layer_merge", {"type": 'M', "value": 'PRESS',
-         "ctrl": True, "shift": True}, {"properties": [("mode", 'ACTIVE')]}),
-
-        # Keyframe Menu
-        op_menu("VIEW3D_MT_edit_greasepencil_animation", {"type": 'I', "value": 'PRESS'}),
-
-        # Insert Blank Keyframe
-        ("grease_pencil.insert_blank_frame", {"type": 'I', "value": 'PRESS', "shift": True}, None),
-
-        # Delete Animation menu
-        op_menu("GREASE_PENCIL_MT_draw_delete", {"type": 'I', "value": 'PRESS', "alt": True}),
-
-        # Delete all active frames
-        ("grease_pencil.delete_frame", {"type": 'DEL', "value": 'PRESS', "shift": True},
-         {"properties": [("type", "ALL_FRAMES")]}),
-
-        # Sample weight
-        ("grease_pencil.weight_sample", {"type": 'X', "value": 'PRESS', "shift": True}, None),
-        # Context menu
-        *_template_items_context_panel("VIEW3D_PT_greasepencil_weight_context_menu", params.context_menu_event),
-
-        # Show/hide layer
-        *_template_items_hide_reveal_actions("grease_pencil.layer_hide", "grease_pencil.layer_reveal"),
-
-        *_template_asset_shelf_popup("VIEW3D_AST_brush_gpencil_weight", params.spacebar_action),
-    ])
-
-    if params.select_mouse == 'LEFTMOUSE':
-        # Bone selection for combined weight paint + pose mode (Alt).
-        items.extend([
-            ("view3d.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True}, None),
-            ("view3d.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "alt": True},
-             {"properties": [("toggle", True)]}),
-
-            # Ctrl-Shift-LMB is needed for MMB emulation (which conflicts with Alt).
-            # NOTE: this works reasonably well for pose-mode where typically selecting a single bone is sufficient.
-            # For selecting faces/vertices, this is less useful. Selection tools are needed in this case.
-            ("view3d.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True, "shift": True}, None),
-        ])
-
-    return keymap
-
-
-def km_grease_pencil_vertex_paint(params):
-    items = []
-    keymap = (
-        "Grease Pencil Vertex Paint",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items}
-    )
-
-    items.extend([
-        # Paint vertex
-        ("grease_pencil.vertex_brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
-        ("grease_pencil.vertex_brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-         {"properties": [("mode", 'INVERT')]}),
-        # Increase/Decrease brush size
-        ("brush.scale_size", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 0.9)]}),
-        ("brush.scale_size", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 1.0 / 0.9)]}),
-        # Selection mode
-        ("wm.context_toggle", {"type": 'ONE', "value": 'PRESS'},
-         {"properties": [("data_path", "scene.tool_settings.use_gpencil_vertex_select_mask_point")]}),
-        ("wm.context_toggle", {"type": 'TWO', "value": 'PRESS'},
-         {"properties": [("data_path", "scene.tool_settings.use_gpencil_vertex_select_mask_stroke")]}),
-        ("wm.context_toggle", {"type": 'THREE', "value": 'PRESS'},
-         {"properties": [("data_path", "scene.tool_settings.use_gpencil_vertex_select_mask_segment")]}),
-        # Flip primary and secondary color
-        ("paint.brush_colors_flip", {"type": 'X', "value": 'PRESS'}, None),
-        ("paint.sample_color", {"type": 'X', "value": 'PRESS', "shift": True}, {"properties": [("merged", False)]}),
-
-        # Edit Lines overlay
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_edit_lines')]}),
-        ("wm.context_toggle", {"type": 'Q', "value": 'PRESS', "shift": True, "alt": True},
-         {"properties": [("data_path", 'space_data.overlay.use_gpencil_multiedit_line_only')]}),
-
-        # Active layer
-        op_menu("GREASE_PENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
-
-        # Merge Down
-        ("grease_pencil.layer_merge", {"type": 'M', "value": 'PRESS',
-         "ctrl": True, "shift": True}, {"properties": [("mode", 'ACTIVE')]}),
-
-        # Keyframe Menu
-        op_menu("VIEW3D_MT_edit_greasepencil_animation", {"type": 'I', "value": 'PRESS'}),
-
-        # Insert Blank Keyframe
-        ("grease_pencil.insert_blank_frame", {"type": 'I', "value": 'PRESS', "shift": True}, None),
-
-        # Delete Animation menu
-        op_menu("GREASE_PENCIL_MT_draw_delete", {"type": 'I', "value": 'PRESS', "alt": True}),
-
-        # Delete all active frames
-        ("grease_pencil.delete_frame", {"type": 'DEL', "value": 'PRESS', "shift": True},
-         {"properties": [("type", "ALL_FRAMES")]}),
-
-        # Radial controls
-        *_template_paint_radial_control("gpencil_vertex_paint"),
-        # Context menu
-        *_template_items_context_panel("VIEW3D_PT_greasepencil_vertex_paint_context_menu", params.context_menu_event),
-
-        *_template_asset_shelf_popup("VIEW3D_AST_brush_gpencil_vertex", params.spacebar_action),
-    ])
-
-    return keymap
-
-# Grease Pencil Fill Tool.
-
-
-def km_grease_pencil_fill_tool(_params):
-    items = []
-    keymap = (
-        "Grease Pencil Fill Tool",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        # Fill operator.
-        ("grease_pencil.fill", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-         None),
-        ("grease_pencil.fill", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-         {"properties": [("invert", True)]}),
-        # Use regular stroke operator when holding alt to draw fill guides.
-        ("grease_pencil.brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True},
-         None),
-    ])
-
-    return keymap
-
-
-def km_grease_pencil_fill_tool_modal_map(_params):
-    items = []
-    keymap = (
-        "Fill Tool Modal Map",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW', "modal": True},
-        {"items": items},
-    )
-
-    items.extend([
-        ("CANCEL", {"type": 'ESC', "value": 'PRESS', "any": True}, None),
-        ("CANCEL", {"type": 'RIGHTMOUSE', "value": 'PRESS'}, None),
-        ("CONFIRM", {"type": 'LEFTMOUSE', "value": 'PRESS', "any": True}, None),
-        ("EXTENSION_MODE_TOGGLE", {"type": 'S', "value": 'PRESS'}, None),
-        ("EXTENSION_LENGTHEN", {"type": 'PAGE_UP', "value": 'PRESS', "repeat": True}, None),
-        ("EXTENSION_LENGTHEN", {"type": 'WHEELDOWNMOUSE', "value": 'PRESS'}, None),
-        ("EXTENSION_SHORTEN", {"type": 'PAGE_DOWN', "value": 'PRESS', "repeat": True}, None),
-        ("EXTENSION_SHORTEN", {"type": 'WHEELUPMOUSE', "value": 'PRESS'}, None),
-        ("EXTENSION_DRAG", {"type": 'MIDDLEMOUSE', "value": 'PRESS'}, None),
-        ("EXTENSION_COLLIDE", {"type": 'D', "value": 'PRESS'}, None),
-        ("INVERT", {"type": 'LEFT_CTRL', "value": 'ANY', "any": True}, None),
-        ("INVERT", {"type": 'RIGHT_CTRL', "value": 'ANY', "any": True}, None),
-        ("PRECISION", {"type": 'LEFT_SHIFT', "value": 'ANY', "any": True}, None),
-        ("PRECISION", {"type": 'RIGHT_SHIFT', "value": 'ANY', "any": True}, None),
-    ])
-
-    return keymap
 
 
 # ------------------------------------------------------------------------------
@@ -6996,56 +6441,12 @@ def km_popup_toolbar(_params):
 #
 # Named are auto-generated based on the tool name and it's toolbar.
 
-def km_generic_tool_annotate(params):
-    return (
-        "Generic Tool: Annotate",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": [
-            ("gpencil.annotate", {"type": params.tool_mouse, "value": 'PRESS'},
-             {"properties": [("mode", 'DRAW'), ("wait_for_input", False)]}),
-            ("gpencil.annotate", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("mode", 'ERASER'), ("wait_for_input", False)]}),
-        ]},
-    )
 
 
-def km_generic_tool_annotate_line(params):
-    return (
-        "Generic Tool: Annotate Line",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": [
-            ("gpencil.annotate", params.tool_maybe_tweak_event,
-             {"properties": [("mode", 'DRAW_STRAIGHT'), ("wait_for_input", False)]}),
-            ("gpencil.annotate", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("mode", 'ERASER'), ("wait_for_input", False)]}),
-        ]},
-    )
 
 
-def km_generic_tool_annotate_polygon(params):
-    return (
-        "Generic Tool: Annotate Polygon",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": [
-            ("gpencil.annotate", {"type": params.tool_mouse, "value": 'PRESS'},
-             {"properties": [("mode", 'DRAW_POLY'), ("wait_for_input", False)]}),
-            ("gpencil.annotate", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("mode", 'ERASER'), ("wait_for_input", False)]}),
-        ]},
-    )
 
 
-def km_generic_tool_annotate_eraser(params):
-    return (
-        "Generic Tool: Annotate Eraser",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": [
-            ("gpencil.annotate", {"type": params.tool_mouse, "value": 'PRESS'},
-             {"properties": [("mode", 'ERASER'), ("wait_for_input", False)]}),
-            ("gpencil.annotate", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("mode", 'ERASER'), ("wait_for_input", False)]}),
-        ]},
-    )
 
 
 def km_image_editor_tool_generic_sample(params):
@@ -8443,7 +7844,6 @@ def km_3d_view_tool_paint_weight_sample_weight(params):
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
             ("paint.weight_sample", {"type": params.tool_mouse, "value": 'PRESS'}, None),
-            ("grease_pencil.weight_sample", {"type": params.tool_mouse, "value": 'PRESS'}, None),
         ]},
     )
 
@@ -8468,167 +7868,26 @@ def km_3d_view_tool_paint_weight_gradient(params):
     )
 
 
-def km_3d_view_tool_paint_grease_pencil_trim(params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Trim",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.stroke_trim", {"type": params.tool_mouse, "value": 'PRESS'}, None),
-        ]},
-    )
 
 
 # ------------------------------------------------------------------------------
-# Tool System (3D View, Grease Pencil, Paint)
-
-def km_grease_pencil_primitive_tool_modal_map(_params):
-    items = []
-    keymap = (
-        "Primitive Tool Modal Map",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW', "modal": True},
-        {"items": items},
-    )
-
-    items.extend([
-        ("CANCEL", {"type": 'ESC', "value": 'PRESS', "any": True}, None),
-        ("CANCEL", {"type": 'Q', "value": 'PRESS', "any": True}, None),
-        ("PANNING", {"type": 'MIDDLEMOUSE', "value": 'ANY', "shift": True}, None),
-        ("CONFIRM", {"type": 'RET', "value": 'PRESS', "any": True}, None),
-        ("CONFIRM", {"type": 'NUMPAD_ENTER', "value": 'PRESS', "any": True}, None),
-        ("CONFIRM", {"type": 'MIDDLEMOUSE', "value": 'PRESS'}, None),
-        ("EXTRUDE", {"type": 'E', "value": 'PRESS'}, None),
-        ("GRAB", {"type": 'G', "value": 'PRESS'}, None),
-        ("ROTATE", {"type": 'R', "value": 'PRESS'}, None),
-        ("SCALE", {"type": 'S', "value": 'PRESS'}, None),
-        ("INCREASE_SUBDIVISION", {"type": 'UP_ARROW', "value": 'PRESS', "repeat": True}, None),
-        ("DECREASE_SUBDIVISION", {"type": 'DOWN_ARROW', "value": 'PRESS', "repeat": True}, None),
-        ("CHANGE_RADIUS", {"type": 'F', "value": 'PRESS'}, None),
-        ("CHANGE_OPACITY", {"type": 'F', "value": 'PRESS', "shift": True}, None),
-    ])
-
-    return keymap
 
 
-def km_3d_view_tool_paint_grease_pencil_primitive_line(_params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Line",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.primitive_line", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-                {"properties": []}),
-            ("grease_pencil.primitive_line", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-                {"properties": []}),
-            ("grease_pencil.primitive_line", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True},
-                {"properties": []}),
-        ]},
-    )
 
 
-def km_3d_view_tool_paint_grease_pencil_primitive_polyline(_params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Polyline",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.primitive_polyline", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-             {"properties": []}),
-            ("grease_pencil.primitive_polyline", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-             {"properties": []}),
-        ]},
-    )
 
 
-def km_3d_view_tool_paint_grease_pencil_primitive_box(_params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Box",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.primitive_box", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-             {"properties": []}),
-            ("grease_pencil.primitive_box", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-             {"properties": []}),
-            ("grease_pencil.primitive_box", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True},
-             {"properties": []}),
-        ]},
-    )
 
 
-def km_3d_view_tool_paint_grease_pencil_primitive_circle(_params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Circle",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.primitive_circle", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-             {"properties": []}),
-            ("grease_pencil.primitive_circle", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-             {"properties": []}),
-            ("grease_pencil.primitive_circle", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True},
-             {"properties": []}),
-        ]},
-    )
 
 
-def km_3d_view_tool_paint_grease_pencil_primitive_arc(_params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Arc",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.primitive_arc", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-             {"properties": []}),
-            ("grease_pencil.primitive_arc", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-             {"properties": []}),
-            ("grease_pencil.primitive_arc", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True},
-             {"properties": []}),
-        ]},
-    )
 
 
-def km_3d_view_tool_paint_grease_pencil_primitive_curve(_params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Curve",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.primitive_curve", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-             {"properties": []}),
-        ]},
-    )
 
 
-def km_3d_view_tool_paint_grease_pencil_eyedropper(params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Eyedropper",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("ui.eyedropper_grease_pencil_color",
-             {"type": params.tool_mouse, "value": 'PRESS'}, None),
-            ("ui.eyedropper_grease_pencil_color",
-             {"type": params.tool_mouse, "value": 'PRESS', "shift": True}, None),
-            ("ui.eyedropper_grease_pencil_color",
-             {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True}, None),
-            ("ui.eyedropper_grease_pencil_color",
-             {"type": params.tool_mouse, "value": 'PRESS', "shift": True, "ctrl": True}, None),
-        ]},
-    )
 
 
-def km_grease_pencil_interpolate_tool_modal_map(_params):
-    items = []
-    keymap = (
-        "Interpolate Tool Modal Map",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW', "modal": True},
-        {"items": items},
-    )
 
-    items.extend([
-        ("CANCEL", {"type": 'ESC', "value": 'PRESS', "any": True}, None),
-        ("CANCEL", {"type": 'RIGHTMOUSE', "value": 'PRESS', "any": True}, None),
-        ("CONFIRM", {"type": 'RET', "value": 'PRESS', "any": True}, None),
-        ("CONFIRM", {"type": 'NUMPAD_ENTER', "value": 'PRESS', "any": True}, None),
-        ("CONFIRM", {"type": 'LEFTMOUSE', "value": 'RELEASE', "any": True}, None),
-        ("INCREASE", {"type": 'WHEELUPMOUSE', "value": 'PRESS'}, None),
-        ("DECREASE", {"type": 'WHEELDOWNMOUSE', "value": 'PRESS'}, None),
-    ])
-
-    return keymap
 
 
 def km_pen_tool_modal_map(_params):
@@ -8648,47 +7907,11 @@ def km_pen_tool_modal_map(_params):
     return keymap
 
 
-def km_3d_view_tool_edit_grease_pencil_pen(params):
-    return (
-        "3D View Tool: Edit Grease Pencil, Pen",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.pen", {"type": params.tool_mouse, "value": 'PRESS'},
-             {"properties": [
-                 ("extrude_point", True),
-                 ("move_segment", True),
-                 ("select_point", True),
-                 ("move_point", True),
-                 ("extrude_handle", "VECTOR"),
-             ]}),
-            ("grease_pencil.pen", {"type": params.tool_mouse, "value": 'PRESS', "shift": True},
-             {"properties": [
-                 ("extrude_point", True),
-                 ("move_segment", True),
-                 ("select_point", True),
-                 ("move_point", True),
-                 ("extrude_handle", "AUTO"),
-             ]}),
-            ("grease_pencil.pen", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("insert_point", True), ("delete_point", True)]}),
-            ("grease_pencil.pen", {"type": params.tool_mouse, "value": 'DOUBLE_CLICK'},
-             {"properties": [("cycle_handle_type", True)]}),
-        ]},
-    )
 
 
 # ------------------------------------------------------------------------------
-# Grease Pencil: Texture Gradient Tool
 
 
-def km_3d_view_tool_edit_grease_pencil_texture_gradient(params):
-    return (
-        "3D View Tool: Edit Grease Pencil, Gradient",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.texture_gradient", params.tool_maybe_tweak_event, None),
-        ]},
-    )
 
 
 # ------------------------------------------------------------------------------
@@ -8952,26 +8175,8 @@ def km_sequencer_preview_tool_scale(params):
     )
 
 
-def km_3d_view_tool_edit_grease_pencil_interpolate(params):
-    return (
-        "3D View Tool: Edit Grease Pencil, Interpolate",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.interpolate", params.tool_maybe_tweak_event,
-             {"properties": [("use_selection", True)]}),
-        ]},
-    )
 
 
-def km_3d_view_tool_paint_grease_pencil_interpolate(params):
-    return (
-        "3D View Tool: Paint Grease Pencil, Interpolate",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("grease_pencil.interpolate", params.tool_maybe_tweak_event,
-             {"properties": [("use_selection", False)]}),
-        ]},
-    )
 
 
 # ------------------------------------------------------------------------------
@@ -9036,17 +8241,6 @@ def generate_keymaps(params=None):
         km_animation_channels(params),
 
         # Modes.
-        # Annotations
-        km_annotate(params),
-        # Grease Pencil
-        km_grease_pencil_selection(params),
-        km_grease_pencil_paint_mode(params),
-        km_grease_pencil_edit_mode(params),
-        km_grease_pencil_sculpt_mode(params),
-        km_grease_pencil_weight_paint(params),
-        km_grease_pencil_vertex_paint(params),
-        km_grease_pencil_brush_stroke(params),
-        km_grease_pencil_fill_tool(params),
         # Object mode.
         km_object_mode(params),
         km_object_non_modal(params),
@@ -9102,9 +8296,6 @@ def generate_keymaps(params=None):
         km_pen_tool_modal_map(params),
         km_node_link_modal_map(params),
         km_node_resize_modal_map(params),
-        km_grease_pencil_primitive_tool_modal_map(params),
-        km_grease_pencil_fill_tool_modal_map(params),
-        km_grease_pencil_interpolate_tool_modal_map(params),
         km_sequencer_slip_modal_map(params),
 
         # Gizmos.
@@ -9119,10 +8310,6 @@ def generate_keymaps(params=None):
         km_popup_toolbar(params),
 
         # Tool System.
-        km_generic_tool_annotate(params),
-        km_generic_tool_annotate_line(params),
-        km_generic_tool_annotate_polygon(params),
-        km_generic_tool_annotate_eraser(params),
 
         km_image_editor_tool_generic_sample(params),
         km_image_editor_tool_uv_cursor(params),
@@ -9234,18 +8421,6 @@ def generate_keymaps(params=None):
         km_3d_view_tool_paint_weight_sample_weight(params),
         km_3d_view_tool_paint_weight_sample_vertex_group(params),
         km_3d_view_tool_paint_weight_gradient(params),
-        km_3d_view_tool_paint_grease_pencil_primitive_line(params),
-        km_3d_view_tool_paint_grease_pencil_primitive_polyline(params),
-        km_3d_view_tool_paint_grease_pencil_primitive_box(params),
-        km_3d_view_tool_paint_grease_pencil_primitive_circle(params),
-        km_3d_view_tool_paint_grease_pencil_primitive_arc(params),
-        km_3d_view_tool_paint_grease_pencil_primitive_curve(params),
-        km_3d_view_tool_paint_grease_pencil_trim(params),
-        km_3d_view_tool_paint_grease_pencil_interpolate(params),
-        km_3d_view_tool_paint_grease_pencil_eyedropper(params),
-        km_3d_view_tool_edit_grease_pencil_texture_gradient(params),
-        km_3d_view_tool_edit_grease_pencil_pen(params),
-        km_3d_view_tool_edit_grease_pencil_interpolate(params),
         *(km_sequencer_tool_generic_select_box(params, fallback=fallback)
           for fallback in (False, True)),
         *(km_sequencer_preview_tool_generic_select(params, fallback=fallback)

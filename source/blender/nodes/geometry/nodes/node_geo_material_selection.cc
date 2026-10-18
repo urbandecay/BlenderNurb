@@ -9,7 +9,6 @@
 #include "BLI_index_mask.hh"
 
 #include "BKE_curves.hh"
-#include "BKE_grease_pencil.hh"
 
 namespace blender::nodes::node_geo_material_selection_cc {
 
@@ -80,33 +79,12 @@ class MaterialSelectionFieldInput final : public bke::GeometryFieldInput {
             {mesh->mat, mesh->totcol}, material_, attributes, AttrDomain::Face, domain_mask);
         return attributes.adapt_domain<bool>(std::move(selection), AttrDomain::Face, domain);
       }
-      case GeometryComponent::Type::GreasePencil: {
-        const bke::CurvesGeometry *curves = context.curves_or_strokes();
-        if (!curves) {
-          return {};
-        }
-        const AttrDomain domain = context.domain();
-        const IndexMask domain_mask = (domain == AttrDomain::Curve) ?
-                                          mask :
-                                          IndexMask(curves->curves_num());
-        const AttributeAccessor attributes = curves->attributes();
-        const VArray<int> material_indices = *attributes.lookup_or_default<int>(
-            "material_index", AttrDomain::Curve, 0);
-        const GreasePencil &grease_pencil = *context.grease_pencil();
-        VArray<bool> selection = select_by_material(
-            {grease_pencil.material_array, grease_pencil.material_array_num},
-            material_,
-            attributes,
-            AttrDomain::Curve,
-            domain_mask);
-        return attributes.adapt_domain<bool>(std::move(selection), AttrDomain::Curve, domain);
-      }
       case GeometryComponent::Type::Curve: {
         const Curves *curves_id = context.curves_id();
         if (!curves_id) {
           return {};
         }
-        const bke::CurvesGeometry *curves = context.curves_or_strokes();
+        const bke::CurvesGeometry *curves = context.curves();
         if (!curves) {
           return {};
         }
