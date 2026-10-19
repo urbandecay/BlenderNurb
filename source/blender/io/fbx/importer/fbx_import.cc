@@ -89,7 +89,6 @@ struct FbxImportContext {
   void import_armatures();
   void import_animation(double fps);
 
-  void setup_hierarchy();
 };
 
 void FbxImportContext::import_globals(Scene *scene) const
@@ -191,7 +190,7 @@ void FbxImportContext::import_cameras()
     if (this->params.use_custom_props) {
       read_custom_properties(node->props, obj->id, this->params.props_enum_as_string);
     }
-    node_matrix_to_obj(node, obj, this->mapping);
+    node_matrix_to_obj(node, obj);
     this->mapping.el_to_object.add(&node->element, obj);
     this->mapping.imported_objects.add(obj);
   }
@@ -244,7 +243,7 @@ void FbxImportContext::import_lights()
     if (this->params.use_custom_props) {
       read_custom_properties(node->props, obj->id, this->params.props_enum_as_string);
     }
-    node_matrix_to_obj(node, obj, this->mapping);
+    node_matrix_to_obj(node, obj);
     this->mapping.el_to_object.add(&node->element, obj);
     this->mapping.imported_objects.add(obj);
   }
@@ -280,7 +279,7 @@ void FbxImportContext::import_empties()
     if (this->params.use_custom_props) {
       read_custom_properties(node->props, obj->id, this->params.props_enum_as_string);
     }
-    node_matrix_to_obj(node, obj, this->mapping);
+    node_matrix_to_obj(node, obj);
     this->mapping.el_to_object.add(&node->element, obj);
     this->mapping.imported_objects.add(obj);
   }
@@ -291,25 +290,6 @@ void FbxImportContext::import_animation(double fps)
   if (this->params.use_anim) {
     io::fbx::import_animations(
         *this->bmain, this->fbx, this->mapping, fps, this->params.anim_offset);
-  }
-}
-
-void FbxImportContext::setup_hierarchy()
-{
-  for (const auto &item : this->mapping.el_to_object.items()) {
-    if (item.value->parent != nullptr) {
-      continue; /* Parent is already set up (e.g. armature). */
-    }
-    const ufbx_node *node = ufbx_as_node(item.key);
-    if (node == nullptr) {
-      continue;
-    }
-    if (node->parent) {
-      Object *obj_par = this->mapping.el_to_object.lookup_default(&node->parent->element, nullptr);
-      if (!ELEM(obj_par, nullptr, item.value)) {
-        item.value->parent = obj_par;
-      }
-    }
   }
 }
 
@@ -435,8 +415,6 @@ void importer_main(Main *bmain, Scene *scene, ViewLayer *view_layer, const FBXIm
   ctx.import_lights();
   ctx.import_empties();
   ctx.import_animation(scene->frames_per_second());
-  ctx.setup_hierarchy();
-
   ufbx_free_scene(fbx);
 
   /* Add objects to collection. */

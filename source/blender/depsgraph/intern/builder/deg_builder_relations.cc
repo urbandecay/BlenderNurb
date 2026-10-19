@@ -737,14 +737,11 @@ void DepsgraphRelationBuilder::build_object(Object *object)
   const BuilderStack::ScopedEntry stack_entry = stack_.trace(object->id);
 
   /* Object Transforms. */
-  OperationCode base_op = (object->parent) ? OperationCode::TRANSFORM_PARENT :
-                                             OperationCode::TRANSFORM_LOCAL;
-  OperationKey base_op_key(&object->id, NodeType::TRANSFORM, base_op);
+  OperationKey base_op_key(
+      &object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_LOCAL);
   OperationKey init_transform_key(&object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_INIT);
   OperationKey local_transform_key(
       &object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_LOCAL);
-  OperationKey parent_transform_key(
-      &object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_PARENT);
   OperationKey transform_eval_key(&object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_EVAL);
   OperationKey final_transform_key(
       &object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_FINAL);
@@ -754,16 +751,6 @@ void DepsgraphRelationBuilder::build_object(Object *object)
 
   /* Various flags, flushing from bases/collections. */
   build_object_layer_component_relations(object);
-
-  /* Parenting. */
-  if (object->parent != nullptr) {
-    /* Make sure parent object's relations are built. */
-    build_object(object->parent);
-    /* Parent relationship. */
-    build_object_parent(object);
-    /* Local -> parent. */
-    add_relation(local_transform_key, parent_transform_key, "ObLocal -> ObParent");
-  }
 
   add_relation(OperationKey{&object->id, NodeType::INSTANCING, OperationCode::INSTANCE_GEOMETRY},
                OperationKey{&object->id, NodeType::INSTANCING, OperationCode::INSTANCE},
@@ -1078,113 +1065,6 @@ void DepsgraphRelationBuilder::build_object_data_speaker(Object *object)
   ComponentKey speaker_key(&speaker->id, NodeType::AUDIO);
   ComponentKey object_key(&object->id, NodeType::AUDIO);
   add_relation(speaker_key, object_key, "Speaker Update");
-}
-
-void DepsgraphRelationBuilder::build_object_parent(Object *object)
-{
-  Object *parent = object->parent;
-  ID *parent_id = &object->parent->id;
-  ComponentKey object_transform_key(&object->id, NodeType::TRANSFORM);
-  /* Type-specific links. */
-  switch (object->partype) {
-    /* Armature Deform (Virtual Modifier) */
-    case PARSKEL: {
-      ComponentKey parent_transform_key(parent_id, NodeType::TRANSFORM);
-      add_relation(parent_transform_key, object_transform_key, "Parent Armature Transform");
-
-      if (parent->type == OB_ARMATURE) {
-        ComponentKey object_geometry_key(&object->id, NodeType::GEOMETRY);
-        ComponentKey parent_pose_key(parent_id, NodeType::EVAL_POSE);
-        add_relation(
-            parent_transform_key, object_geometry_key, "Parent Armature Transform -> Geometry");
-        add_relation(parent_pose_key, object_geometry_key, "Parent Armature Pose -> Geometry");
-
-        add_depends_on_transform_relation(
-            &object->id, object_geometry_key, "Virtual Armature Modifier");
-      }
-
-      break;
-    }
-
-    /* Vertex Parent */
-    case PARVERT1:
-    case PARVERT3: {
-      ComponentKey parent_key(parent_id, NodeType::GEOMETRY);
-      add_relation(parent_key, object_transform_key, "Vertex Parent");
-      /* Original index is used for optimizations of lookups for subdiv
-       * only meshes.
-       * TODO(sergey): This optimization got lost at 2.8, so either verify
-       * we can get rid of this mask here, or bring the optimization
-       * back. */
-      add_customdata_mask(object->parent,
-                          DEGCustomDataMeshMasks::MaskVert(CD_MASK_ORIGINDEX) |
-                              DEGCustomDataMeshMasks::MaskEdge(CD_MASK_ORIGINDEX) |
-                              DEGCustomDataMeshMasks::MaskFace(CD_MASK_ORIGINDEX) |
-                              DEGCustomDataMeshMasks::MaskPoly(CD_MASK_ORIGINDEX));
-      ComponentKey transform_key(parent_id, NodeType::TRANSFORM);
-      add_relation(transform_key, object_transform_key, "Vertex Parent TFM");
-      break;
-    }
-
-    /* Bone Parent */
-    case PARBONE: {
-      if (object->parsubstr[0] != '\0') {
-        ComponentKey parent_bone_key(parent_id, NodeType::BONE, object->parsubstr);
-        OperationKey parent_transform_key(
-            parent_id, NodeType::TRANSFORM, OperationCode::TRANSFORM_FINAL);
-        add_relation(parent_bone_key, object_transform_key, "Bone Parent");
-        add_relation(parent_transform_key, object_transform_key, "Armature Parent");
-      }
-      break;
-    }
-
-    default: {
-      if (object->parent->type == OB_LATTICE) {
-        /* Lattice Deform Parent - Virtual Modifier. */
-        ComponentKey parent_key(parent_id, NodeType::TRANSFORM);
-        ComponentKey geom_key(parent_id, NodeType::GEOMETRY);
-        add_relation(parent_key, object_transform_key, "Lattice Deform Parent");
-        add_relation(geom_key, object_transform_key, "Lattice Deform Parent Geom");
-      }
-      else if (object->parent->type == OB_CURVES_LEGACY) {
-        Curve *cu = id_cast<Curve *>(object->parent->data);
-
-        if (cu->flag & CU_PATH) {
-          /* Follow Path. */
-          ComponentKey parent_key(parent_id, NodeType::GEOMETRY);
-          add_relation(parent_key, object_transform_key, "Curve Follow Parent");
-          ComponentKey transform_key(parent_id, NodeType::TRANSFORM);
-          add_relation(transform_key, object_transform_key, "Curve Follow TFM");
-        }
-        else {
-          /* Standard Parent. */
-          ComponentKey parent_key(parent_id, NodeType::TRANSFORM);
-          add_relation(parent_key, object_transform_key, "Curve Parent");
-        }
-      }
-      else {
-        /* Standard Parent. */
-        ComponentKey parent_key(parent_id, NodeType::TRANSFORM);
-        add_relation(parent_key, object_transform_key, "Parent");
-      }
-      break;
-    }
-  }
-  /* Meta-balls are the odd balls here (no pun intended): they will request
-   * instance-list (formerly known as dupli-list) during evaluation. This is
-   * their way of interacting with all instanced surfaces, making a nice
-   * effect when is used form particle system. */
-  if (object->type == OB_MBALL && parent->transflag & OB_DUPLI) {
-    ComponentKey parent_geometry_key(parent_id, NodeType::GEOMETRY);
-    /* NOTE: Meta-balls are evaluating geometry only after their transform,
-     * so we only hook up to transform channel here. */
-    add_relation(parent_geometry_key, object_transform_key, "Parent");
-  }
-
-  /* Dupliverts uses original vertex index. */
-  if (parent->transflag & OB_DUPLIVERTS) {
-    add_customdata_mask(parent, DEGCustomDataMeshMasks::MaskVert(CD_MASK_ORIGINDEX));
-  }
 }
 
 /* Returns the modifier that is last in the modifier stack. */
@@ -2314,17 +2194,7 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
         continue;
       }
 
-      if (object->parent != nullptr && object->parent->rigidbody_object != nullptr &&
-          object->parent->rigidbody_object->shape == RB_SHAPE_COMPOUND)
-      {
-        /* If we are a child of a compound shape object, the transforms and sim evaluation will be
-         * handled by the parent compound shape object. Do not add any evaluation triggers
-         * for the child objects.
-         */
-        continue;
-      }
-
-      /* Simulation uses object transformation after parenting and solving constraints. */
+      /* Simulation uses the object's world transform after solving constraints. */
       OperationKey object_transform_simulation_init_key(
           &object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_SIMULATION_INIT);
       OperationKey object_transform_eval_key(

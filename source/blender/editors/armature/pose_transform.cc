@@ -84,37 +84,6 @@ static void pose_copybuffer_filepath_get(char filepath[FILE_MAX], size_t filepat
 /** \name Apply Pose as Rest Pose
  * \{ */
 
-/* helper for apply_armature_pose2bones - fixes parenting of objects
- * that are bone-parented to armature */
-static void applyarmature_fix_boneparents(const bContext *C, Scene *scene, Object *armob)
-{
-  /* Depsgraph has been ensured to be evaluated at the beginning of the operator.
-   *
-   * Must not evaluate depsgraph here yet, since this will ruin object matrix which we want to
-   * preserve after other changes has been done in the operator.
-   *
-   * TODO(sergey): This seems very similar to `ignore_parent_tx()`, which was now ensured to work
-   * quite reliably. Can we de-duplicate the code? Or at least verify we don't need an extra logic
-   * in this function. */
-  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
-  Main *bmain = CTX_data_main(C);
-
-  /* go through all objects in database */
-  for (Object *ob = static_cast<Object *>(bmain->objects.first); ob;
-       ob = static_cast<Object *>(ob->id.next))
-  {
-    /* if parent is bone in this armature, apply corrections */
-    if ((ob->parent == armob) && (ob->partype == PARBONE)) {
-      /* apply current transform from parent (not yet destroyed),
-       * then calculate new parent inverse matrix
-       */
-      BKE_object_apply_mat4(ob, ob->object_to_world().ptr(), false, false);
-
-      invert_m4_m4(ob->parentinv, BKE_object_calc_parent(depsgraph, scene, ob).ptr());
-    }
-  }
-}
-
 /* Sets the bone head, tail and roll to match the supplied parameters. */
 static void applyarmature_set_edit_position(EditBone *curbone,
                                             const float pose_mat[4][4],
@@ -469,9 +438,6 @@ static wmOperatorStatus apply_armature_pose2bones_exec(bContext *C, wmOperator *
 
   /* Flush positions of pose-bones. */
   BKE_pose_where_is(depsgraph, scene, ob);
-
-  /* fix parenting of objects which are bone-parented */
-  applyarmature_fix_boneparents(C, scene, ob);
 
   /* For the affected bones, reset specific constraints that are now known to be invalid. */
   applyarmature_reset_constraints(pose, use_selected);

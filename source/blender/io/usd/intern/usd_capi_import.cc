@@ -259,19 +259,10 @@ static void import_startjob(void *customdata, wmJobWorkerStatus *worker_status)
     }
   }
 
-  /* Setup parenthood and read actual object data. */
+  /* Read object data and bake transforms from the USD source hierarchy. */
   i = 0;
   for (USDPrimReader *reader : archive->readers()) {
-    Object *ob = reader->object();
     reader->read_object_data(data->bmain, 0.0);
-
-    USDPrimReader *parent = reader->parent();
-    if (parent == nullptr) {
-      ob->parent = nullptr;
-    }
-    else {
-      ob->parent = parent->object();
-    }
 
     worker_status->progress = 0.5f + 0.5f * (++i / size);
     worker_status->do_update = true;
@@ -644,25 +635,10 @@ void USD_get_transform(CacheReader *reader, float4x4 &r_mat_world, float time, f
   const USDXformReader *usd_reader = reinterpret_cast<USDXformReader *>(reader);
   bool is_constant = false;
 
-  /* Convert from the local matrix we obtain from USD to world coordinates
-   * for Blender. This conversion is done here rather than by Blender due to
-   * work around the non-standard interpretation of CONSTRAINT_SPACE_LOCAL in
-   * BKE_constraint_mat_convertspace(). */
-  Object *object = usd_reader->object();
-  if (object->parent == nullptr) {
-    /* No parent, so local space is the same as world space. */
-    usd_reader->read_matrix(r_mat_world, time, scale, &is_constant);
-    return;
-  }
-
-  float4x4 mat_parent;
-  BKE_object_get_parent_matrix(object, object->parent, mat_parent.ptr());
-
-  float4x4 mat_local;
-  usd_reader->read_matrix(mat_local, time, scale, &is_constant);
-
-  r_mat_world = mat_parent * float4x4(object->parentinv);
-  r_mat_world *= mat_local;
+  /* USDXformReader evaluates the USD source hierarchy and returns Blender world space directly.
+   * Keep this conversion here rather than in Blender to work around the non-standard
+   * interpretation of CONSTRAINT_SPACE_LOCAL in BKE_constraint_mat_convertspace(). */
+  usd_reader->read_matrix(r_mat_world, time, scale, &is_constant);
 }
 
 }  // namespace io::usd

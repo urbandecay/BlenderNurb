@@ -427,20 +427,17 @@ static wmOperatorStatus visual_geometry_to_objects_exec(bContext *C, wmOperator 
     const Vector<Collection *> collections_to_add_to = find_collections_containing_object(
         bmain, &scene, *src_ob_orig);
 
-    float4x4 src_ob_local_transform;
-    BKE_object_to_mat4(src_ob_eval, src_ob_local_transform.ptr());
+    const float4x4 src_ob_world_transform = src_ob_eval->object_to_world();
 
     for (Object *object : top_level_objects) {
       /* Link the new objects into some collections. */
       for (Collection *collection_to_add_to : collections_to_add_to) {
         BKE_collection_object_add(&bmain, collection_to_add_to, object);
       }
-      /* Transform and parent the objects so that they align with the source object. */
+      /* Transform the objects so that they align with the source object. */
       float4x4 old_transform;
       BKE_object_to_mat4(object, old_transform.ptr());
-      set_local_object_transform(*object, src_ob_local_transform * old_transform);
-      object->parent = src_ob_orig->parent;
-      copy_m4_m4(object->parentinv, src_ob_orig->parentinv);
+      set_local_object_transform(*object, src_ob_world_transform * old_transform);
     }
   }
 

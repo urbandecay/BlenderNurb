@@ -47,23 +47,20 @@ pxr::UsdGeomXformable USDTransformWriter::create_xformable() const
   return pxr::UsdGeomXformable(xform.GetPrim());
 }
 
-bool USDTransformWriter::should_apply_root_xform(const HierarchyContext &context) const
+bool USDTransformWriter::should_apply_world_xform(const HierarchyContext &context) const
 {
-  if (!(usd_export_context_.export_params.convert_orientation ||
-        usd_export_context_.export_params.convert_scene_units != SceneUnits::Meters))
-  {
-    return false;
-  }
-
+  /* Every object transform is written in world space, so coordinate conversion must be applied
+   * to each regular object instead of relying on a converted root transform to propagate through
+   * parents. Instance and prototype subgraphs retain their local hierarchy. */
   if (!usd_export_context_.export_params.root_prim_path.empty()) {
     return false;
   }
-
-  if (context.export_parent != nullptr) {
+  const bool preserve_instance_hierarchy = context.duplicator != nullptr || context.is_duplisource;
+  if (preserve_instance_hierarchy && context.export_parent != nullptr) {
     return false;
   }
-
-  return true;
+  return usd_export_context_.export_params.convert_orientation ||
+         usd_export_context_.export_params.convert_scene_units != SceneUnits::Meters;
 }
 
 void USDTransformWriter::do_write(HierarchyContext &context)
@@ -79,11 +76,17 @@ void USDTransformWriter::do_write(HierarchyContext &context)
     return;
   }
 
-  float4x4 parent_relative_matrix; /* The object matrix relative to the parent. */
+  /* Preserve local transforms inside instance/prototype subgraphs. Regular objects use world
+   * transforms and reset the USD stack, so the namespace hierarchy cannot apply object-parent
+   * transforms again. */
+  const bool preserve_instance_hierarchy = context.duplicator != nullptr || context.is_duplisource;
+  float4x4 transform_matrix = context.matrix_world;
+  if (preserve_instance_hierarchy) {
+    transform_matrix = context.parent_matrix_inv_world * context.matrix_world;
+  }
+  xform.SetResetXformStack(!preserve_instance_hierarchy);
 
-  if (should_apply_root_xform(context)) {
-    float4x4 matrix_world = context.matrix_world;
-
+  if (should_apply_world_xform(context)) {
     if (usd_export_context_.export_params.convert_orientation) {
       float3x3 mrot;
       float4x4 mat = float4x4::identity();
@@ -93,25 +96,20 @@ void USDTransformWriter::do_write(HierarchyContext &context)
                                 usd_export_context_.export_params.up_axis,
                                 mrot.ptr());
       mat.view<3, 3>() = math::transpose(mrot);
-      matrix_world = mat * context.matrix_world;
+      transform_matrix = mat * transform_matrix;
     }
 
     if (usd_export_context_.export_params.convert_scene_units != SceneUnits::Meters) {
       const float3 scale = float3(1.0 / get_meters_per_unit(usd_export_context_.export_params));
       const float4x4 mat_scale = math::from_scale<float4x4>(scale);
-      matrix_world = mat_scale * matrix_world;
+      transform_matrix = mat_scale * transform_matrix;
     }
-
-    parent_relative_matrix = context.parent_matrix_inv_world * matrix_world;
-  }
-  else {
-    parent_relative_matrix = context.parent_matrix_inv_world * context.matrix_world;
   }
 
   /* USD Xforms are by default the identity transform; only write if necessary when static. */
-  if (is_animated_ || !math::is_equal(parent_relative_matrix, float4x4::identity(), 0.000000001f))
+  if (is_animated_ || !math::is_equal(transform_matrix, float4x4::identity(), 0.000000001f))
   {
-    set_xform_ops(parent_relative_matrix, xform);
+    set_xform_ops(transform_matrix, xform);
   }
 
   if (usd_export_context_.export_params.use_instancing && context.is_instance()) {
@@ -136,7 +134,7 @@ bool USDTransformWriter::check_is_animated(const HierarchyContext &context) cons
   if (check_has_physics(context)) {
     return true;
   }
-  return BKE_object_moves_in_time(context.object, context.animation_check_include_parent);
+  return BKE_object_moves_in_time(context.object);
 }
 
 void USDTransformWriter::set_xform_ops(const float4x4 &parent_relative_matrix,

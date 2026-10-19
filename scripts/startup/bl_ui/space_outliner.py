@@ -269,7 +269,7 @@ class OUTLINER_MT_collection(Menu):
         layout.separator()
 
         layout.operator("outliner.delete", text="Delete", icon='X')
-        layout.operator("outliner.delete", text="Delete Hierarchy").hierarchy = True
+        layout.operator("outliner.collection_hierarchy_delete", text="Delete Hierarchy")
 
         layout.separator()
 
@@ -337,12 +337,10 @@ class OUTLINER_MT_object(Menu):
         layout.separator()
 
         layout.operator("outliner.delete", text="Delete", icon='X')
-        layout.operator("outliner.delete", text="Delete Hierarchy").hierarchy = True
 
         layout.separator()
 
         layout.operator("outliner.object_operation", text="Select", icon='RESTRICT_SELECT_OFF').type = 'SELECT'
-        layout.operator("outliner.object_operation", text="Select Hierarchy").type = 'SELECT_HIERARCHY'
         layout.operator("outliner.object_operation", text="Deselect").type = 'DESELECT'
 
         layout.separator()
@@ -533,9 +531,6 @@ class OUTLINER_PT_options_filter(Panel):
         row = sub.row()
         row.label(icon='BLANK1')
         row.prop(space, "use_filter_object_content", text="Object Contents")
-        row = sub.row()
-        row.label(icon='BLANK1')
-        row.prop(space, "use_filter_children", text="Object Children")
 
         if bpy.data.meshes:
             row = sub.row()

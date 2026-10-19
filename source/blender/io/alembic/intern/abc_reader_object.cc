@@ -263,16 +263,10 @@ void AbcObjectReader::setupObjectTransform(const chrono_t time)
   bool is_constant = false;
   float transform_from_alembic[4][4];
 
-  /* If the parent is a camera, apply the inverse rotation to make up for the from-Maya rotation.
-   * This assumes that the parent object also was imported from Alembic. */
-  if (m_object->parent != nullptr && m_object->parent->type == OB_CAMERA) {
-    axis_angle_to_mat4_single(m_object->parentinv, 'X', -M_PI_2);
-  }
-
   this->read_matrix(transform_from_alembic, time, m_settings->scale, is_constant);
 
   /* Apply the matrix to the object. */
-  BKE_object_apply_mat4(m_object, transform_from_alembic, true, false);
+  BKE_object_apply_mat4(m_object, transform_from_alembic, true);
   BKE_object_to_mat4(m_object, m_object->runtime->object_to_world.ptr());
 
   if (!is_constant || m_settings->always_add_cache_reader) {
@@ -325,7 +319,7 @@ Alembic::AbcGeom::IXform AbcObjectReader::xform()
   return IXform();
 }
 
-void AbcObjectReader::read_matrix(float r_mat[4][4] /* local matrix */,
+void AbcObjectReader::read_matrix(float r_mat[4][4] /* world matrix */,
                                   const chrono_t time,
                                   const float scale,
                                   bool &r_is_constant)
@@ -337,34 +331,75 @@ void AbcObjectReader::read_matrix(float r_mat[4][4] /* local matrix */,
     return;
   }
 
-  const IXformSchema &schema(ixform.getSchema());
-  if (!schema.valid()) {
-    std::cerr << "Alembic object " << ixform.getFullName() << " has an invalid schema."
-              << std::endl;
+  /* Alembic stores each Xform in its own local space. Evaluate the source hierarchy here so that
+   * imported Blender objects remain independent of Object.parent. Use Alembic's Xform inheritance
+   * flag to stop at reset transform stacks. */
+  r_is_constant = true;
+  bool has_matrix = false;
+  IObject current = ixform;
+  while (current) {
+    if (!IXform::matches(current.getMetaData())) {
+      current = current.getParent();
+      continue;
+    }
+
+    IXform current_xform(current, Alembic::AbcGeom::kWrapExisting);
+    const IXformSchema &schema = current_xform.getSchema();
+    if (!schema.valid()) {
+      std::cerr << "Alembic object " << current.getFullName() << " has an invalid schema."
+                << std::endl;
+      break;
+    }
+
+    float local_matrix[4][4];
+    convert_matrix_datatype(get_matrix(schema, time), local_matrix);
+    copy_m44_axis_swap(local_matrix, local_matrix, ABC_ZUP_FROM_YUP);
+
+    if (!has_matrix) {
+      copy_m4_m4(r_mat, local_matrix);
+      has_matrix = true;
+    }
+    else {
+      /* The current Xform is an ancestor of the matrices already accumulated. */
+      mul_m4_m4m4(r_mat, local_matrix, r_mat);
+    }
+
+    r_is_constant &= schema.isConstant();
+    if (!schema.getInheritsXforms()) {
+      break;
+    }
+
+    IObject parent = current.getParent();
+    /* The archive top object does not represent a transform, even if it happens to have Xform
+     * metadata. */
+    if (!parent || !parent.getParent()) {
+      break;
+    }
+    current = parent;
+  }
+
+  if (!has_matrix) {
+    unit_m4(r_mat);
+    r_is_constant = true;
     return;
   }
 
-  const Imath::M44d matrix = get_matrix(schema, time);
-  convert_matrix_datatype(matrix, r_mat);
-  copy_m44_axis_swap(r_mat, r_mat, ABC_ZUP_FROM_YUP);
-
   /* Convert from Maya to Blender camera orientation. Children of this camera
-   * will have the opposite transform as their Parent Inverse matrix.
-   * See AbcObjectReader::setupObjectTransform(). */
+   * are evaluated from the Alembic source hierarchy and therefore do not inherit
+   * this Blender camera-specific correction. */
   if (m_object->type == OB_CAMERA) {
     float camera_rotation[4][4];
     axis_angle_to_mat4_single(camera_rotation, 'X', M_PI_2);
     mul_m4_m4m4(r_mat, r_mat, camera_rotation);
   }
 
-  if (!m_inherits_xform) {
-    /* Only apply scaling to root objects, parenting will propagate it. */
+  if (scale != 1.0f) {
+    /* Scaling the evaluated world matrix matches the former root-only scaling propagated through
+     * Object.parent. */
     float scale_mat[4][4];
     scale_m4_fl(scale_mat, scale);
     mul_m4_m4m4(r_mat, scale_mat, r_mat);
   }
-
-  r_is_constant = schema.isConstant();
 }
 
 void AbcObjectReader::addCacheModifier()

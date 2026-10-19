@@ -320,19 +320,10 @@ static wmOperatorStatus object_clear_transform_generic_exec(bContext *C,
   }
 
   /* Support transforming the object data. */
-  const bool use_transform_skip_children = (scene->toolsettings->transform_flag &
-                                            SCE_XFORM_SKIP_CHILDREN);
   const bool use_transform_data_origin = (scene->toolsettings->transform_flag &
                                           SCE_XFORM_DATA_ORIGIN);
-  XFormObjectSkipChild_Container *xcs = nullptr;
   XFormObjectData_Container *xds = nullptr;
 
-  if (use_transform_skip_children) {
-    BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
-    xcs = xform_skip_child_container_create();
-    xform_skip_child_container_item_ensure_from_array(
-        xcs, *bmain, scene, view_layer, objects.data(), objects.size());
-  }
   if (use_transform_data_origin) {
     BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
     xds = data_xform_container_create();
@@ -357,11 +348,6 @@ static wmOperatorStatus object_clear_transform_generic_exec(bContext *C,
 
     /* tag for updates */
     DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
-  }
-
-  if (use_transform_skip_children) {
-    object_xform_skip_child_container_update_all(xcs, bmain, depsgraph);
-    object_xform_skip_child_container_destroy(xcs);
   }
 
   if (use_transform_data_origin) {
@@ -480,126 +466,22 @@ void OBJECT_OT_scale_clear(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Clear Origin Operator
- * \{ */
-
-static wmOperatorStatus object_origin_clear_exec(bContext *C, wmOperator * /*op*/)
-{
-  float *v1, *v3;
-  float mat[3][3];
-
-  CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects) {
-    if (ob->parent) {
-      /* vectors pointed to by v1 and v3 will get modified */
-      v1 = ob->loc;
-      v3 = ob->parentinv[3];
-
-      copy_m3_m4(mat, ob->parentinv);
-      negate_v3_v3(v3, v1);
-      mul_m3_v3(mat, v3);
-    }
-
-    DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
-  }
-  CTX_DATA_END;
-
-  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
-
-  return OPERATOR_FINISHED;
-}
-
-void OBJECT_OT_origin_clear(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Clear Origin";
-  ot->description = "Clear the object's origin";
-  ot->idname = "OBJECT_OT_origin_clear";
-
-  /* API callbacks. */
-  ot->exec = object_origin_clear_exec;
-  ot->poll = ED_operator_scene_editable;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Apply Transformation Operator
  * \{ */
 
-/* use this when the loc/size/rot of the parent has changed but the children
- * should stay in the same place, e.g. for apply-size-rot or object center */
-static void ignore_parent_tx(Main *bmain, Depsgraph *depsgraph, Scene *scene, Object *ob)
+static Array<Object *> selected_editable_objects_array(bContext *C)
 {
-  Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
-
-  /* a change was made, adjust the children to compensate */
-  for (Object &ob_child : bmain->objects) {
-    if (ob_child.parent == ob) {
-      Object *ob_child_eval = DEG_get_evaluated(depsgraph, &ob_child);
-      BKE_object_apply_mat4(ob_child_eval, ob_child_eval->object_to_world().ptr(), true, false);
-      invert_m4_m4(ob_child.parentinv,
-                   BKE_object_calc_parent(depsgraph, scene, ob_child_eval).ptr());
-      /* Copy result of BKE_object_apply_mat4(). */
-      BKE_object_transform_copy(&ob_child, ob_child_eval);
-      /* Make sure evaluated object is in a consistent state with the original one.
-       * It might be needed for applying transform on its children. */
-      copy_m4_m4(ob_child_eval->parentinv, ob_child.parentinv);
-      BKE_object_eval_transform_all(depsgraph, scene_eval, ob_child_eval);
-      /* Tag for update.
-       * This is because parent matrix did change, so in theory the child object might now be
-       * evaluated to a different location in another editing context. */
-      DEG_id_tag_update(&ob_child.id, ID_RECALC_TRANSFORM);
-    }
-  }
-}
-
-static void append_sorted_object_parent_hierarchy(Object *root_object,
-                                                  Object *object,
-                                                  Object **sorted_objects,
-                                                  int *object_index)
-{
-  if (!ELEM(object->parent, nullptr, root_object)) {
-    append_sorted_object_parent_hierarchy(
-        root_object, object->parent, sorted_objects, object_index);
-  }
-  if (object->id.tag & ID_TAG_DOIT) {
-    sorted_objects[*object_index] = object;
-    (*object_index)++;
-    object->id.tag &= ~ID_TAG_DOIT;
-  }
-}
-
-static Array<Object *> sorted_selected_editable_objects(bContext *C)
-{
-  Main *bmain = CTX_data_main(C);
-
-  /* Count all objects, but also tag all the selected ones. */
-  BKE_main_id_tag_all(bmain, ID_TAG_DOIT, false);
-  int objects_num = 0;
-  CTX_DATA_BEGIN (C, Object *, object, selected_editable_objects) {
-    object->id.tag |= ID_TAG_DOIT;
-    objects_num++;
-  }
-  CTX_DATA_END;
-  if (objects_num == 0) {
-    return {};
-  }
-
-  /* Append all the objects. */
-  Array<Object *> sorted_objects(objects_num);
+  const int objects_num = CTX_DATA_COUNT(C, selected_editable_objects);
+  Array<Object *> objects(objects_num);
   int object_index = 0;
   CTX_DATA_BEGIN (C, Object *, object, selected_editable_objects) {
-    if ((object->id.tag & ID_TAG_DOIT) == 0) {
-      continue;
-    }
-    append_sorted_object_parent_hierarchy(object, object, sorted_objects.data(), &object_index);
+    objects[object_index++] = object;
   }
   CTX_DATA_END;
 
-  return sorted_objects;
+  BLI_assert(object_index == objects_num);
+
+  return objects;
 }
 
 /**
@@ -665,7 +547,7 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
   float rsmat[3][3], obmat[3][3], iobmat[3][3], mat[4][4], scale;
   bool changed = true;
   bool const do_multi_user = apply_objects_internal_can_multiuser(C);
-  float obact_invmat[4][4], obact_parent[4][4], obact_parentinv[4][4];
+  float obact_invmat[4][4];
 
   /* Only used when do_multi_user is set. */
   Object *obact = nullptr;
@@ -674,9 +556,6 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
   if (do_multi_user) {
     obact = CTX_data_active_object(C);
     invert_m4_m4(obact_invmat, obact->object_to_world().ptr());
-
-    copy_m4_m4(obact_parent, BKE_object_calc_parent(depsgraph, scene, obact).ptr());
-    copy_m4_m4(obact_parentinv, obact->parentinv);
 
     if (apply_objects_internal_need_single_user(C)) {
       if (do_single_user) {
@@ -796,7 +675,7 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
     DEG_relations_tag_update(bmain);
   }
 
-  Array<Object *> objects = sorted_selected_editable_objects(C);
+  Array<Object *> objects = selected_editable_objects_array(C);
   if (objects.is_empty()) {
     return OPERATOR_CANCELLED;
   }
@@ -991,15 +870,13 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
 
       copy_m4_m4(_mat, _obmat);
       mul_m4_m4_post(_mat, obact_invmat);
-      mul_m4_m4_post(_mat, obact_parent);
-      mul_m4_m4_post(_mat, obact_parentinv);
 
       if (apply_loc && apply_scale && apply_rot) {
-        BKE_object_apply_mat4(ob, _mat, false, true);
+        BKE_object_apply_mat4(ob, _mat, false);
       }
       else {
         Object ob_temp = dna::shallow_copy(*ob);
-        BKE_object_apply_mat4(&ob_temp, _mat, false, true);
+        BKE_object_apply_mat4(&ob_temp, _mat, false);
 
         if (apply_loc) {
           copy_v3_v3(ob->loc, ob_temp.loc);
@@ -1047,8 +924,6 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
       BKE_pose_where_is(depsgraph, scene, ob_eval);
     }
 
-    ignore_parent_tx(bmain, depsgraph, scene, ob);
-
     DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 
     changed = true;
@@ -1075,7 +950,7 @@ static wmOperatorStatus visual_transform_apply_exec(bContext *C, wmOperator * /*
   CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects) {
     Object *ob_eval = DEG_get_evaluated(depsgraph, ob);
     BKE_object_where_is_calc(depsgraph, scene, ob_eval);
-    BKE_object_apply_mat4(ob_eval, ob_eval->object_to_world().ptr(), true, true);
+    BKE_object_apply_mat4(ob_eval, ob_eval->object_to_world().ptr(), true);
     BKE_object_transform_copy(ob, ob_eval);
 
     /* update for any children that may get moved */
@@ -1193,44 +1068,6 @@ void OBJECT_OT_transform_apply(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Apply Parent Inverse Operator
- * \{ */
-
-static wmOperatorStatus object_parent_inverse_apply_exec(bContext *C, wmOperator * /*op*/)
-{
-  CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects) {
-    if (ob->parent == nullptr) {
-      continue;
-    }
-
-    DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
-    BKE_object_apply_parent_inverse(ob);
-  }
-  CTX_DATA_END;
-
-  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
-
-  return OPERATOR_FINISHED;
-}
-
-void OBJECT_OT_parent_inverse_apply(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Apply Parent Inverse";
-  ot->description = "Apply the object's parent inverse to its data";
-  ot->idname = "OBJECT_OT_parent_inverse_apply";
-
-  /* API callbacks. */
-  ot->exec = object_parent_inverse_apply_exec;
-  ot->poll = ED_operator_objectmode;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Set Object Center Operator
  * \{ */
 
@@ -1339,7 +1176,7 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
     }
   }
 
-  Array<Object *> objects = sorted_selected_editable_objects(C);
+  Array<Object *> objects = selected_editable_objects_array(C);
   if (objects.is_empty()) {
     return OPERATOR_CANCELLED;
   }
@@ -1539,8 +1376,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
         BKE_object_where_is_calc(depsgraph, scene, ob_eval);
         BKE_pose_where_is(depsgraph, scene, ob_eval); /* needed for bone parents */
 
-        ignore_parent_tx(bmain, depsgraph, scene, ob);
-
         if (obedit) {
           break;
         }
@@ -1677,7 +1512,7 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
       /* was the object data modified
        * NOTE: the functions above must set 'cent'. */
 
-      /* convert the offset to parent space */
+      /* Convert the offset into object space. */
       BKE_object_to_mat4(ob, obmat);
       mul_v3_mat3_m4v3(centn, obmat, cent); /* omit translation part */
 
@@ -1692,8 +1527,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
                                           id_cast<bArmature *>(ob->data));
         BKE_pose_where_is(depsgraph, scene, ob_eval);
       }
-
-      ignore_parent_tx(bmain, depsgraph, scene, ob);
 
       /* other users? */
       // CTX_DATA_BEGIN (C, Object *, ob_other, selected_editable_objects)
@@ -1722,7 +1555,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
                                               id_cast<bArmature *>(ob->data));
             BKE_pose_where_is(depsgraph, scene, ob_other_eval);
           }
-          ignore_parent_tx(bmain, depsgraph, scene, ob_other);
         }
       }
       // CTX_DATA_END;
@@ -1951,7 +1783,7 @@ static void object_apply_rotation(Object *ob, const float rmat[3][3])
 
   copy_v3_v3(size, ob->scale);
   copy_v3_v3(loc, ob->loc);
-  BKE_object_apply_mat4(ob, rmat4, true, true);
+  BKE_object_apply_mat4(ob, rmat4, true);
   copy_v3_v3(ob->scale, size);
   copy_v3_v3(ob->loc, loc);
 }
@@ -1963,7 +1795,7 @@ static void object_apply_location(Object *ob, const float loc[3])
   float mat[4][4];
   copy_m4_m4(mat, ob->object_to_world().ptr());
   copy_v3_v3(mat[3], loc);
-  BKE_object_apply_mat4(ob, mat, true, true);
+  BKE_object_apply_mat4(ob, mat, true);
   copy_v3_v3(mat[3], ob->loc);
   *ob = dna::shallow_copy(ob_prev);
   copy_v3_v3(ob->loc, mat[3]);

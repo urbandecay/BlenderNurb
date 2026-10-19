@@ -13,7 +13,6 @@
 #include "DNA_outliner_types.h"
 
 #include "../outliner_intern.hh"
-#include "common.hh"
 
 #include "tree_element_scene_objects.hh"
 
@@ -33,7 +32,6 @@ void TreeElementSceneObjectsBase::expand(SpaceOutliner & /*space_outliner*/) con
         &legacy_te_.subtree, reinterpret_cast<ID *>(ob), nullptr, &legacy_te_, TSE_SOME_ID, 0);
   }
   FOREACH_SCENE_OBJECT_END;
-  outliner_make_object_parent_hierarchy(&legacy_te_.subtree);
 }
 
 }  // namespace blender::ed::outliner

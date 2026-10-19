@@ -183,11 +183,8 @@ static wmOperatorStatus snap_sel_to_grid_exec(bContext *C, wmOperator *op)
 
     KeyingSet *ks = animrig::get_keyingset_for_autokeying(scene, ANIM_KS_LOCATION_ID);
 
-    const bool use_transform_skip_children = (scene->toolsettings->transform_flag &
-                                              SCE_XFORM_SKIP_CHILDREN);
     const bool use_transform_data_origin = (scene->toolsettings->transform_flag &
                                             SCE_XFORM_DATA_ORIGIN);
-    object::XFormObjectSkipChild_Container *xcs = nullptr;
     object::XFormObjectData_Container *xds = nullptr;
 
     /* Build object array. */
@@ -201,18 +198,6 @@ static wmOperatorStatus snap_sel_to_grid_exec(bContext *C, wmOperator *op)
       FOREACH_SELECTED_EDITABLE_OBJECT_END;
     }
 
-    if (use_transform_skip_children) {
-      ViewLayer *view_layer = CTX_data_view_layer(C);
-
-      Vector<Object *> objects(objects_eval.size());
-      for (Object *ob_eval : objects_eval) {
-        objects.append_unchecked(DEG_get_original(ob_eval));
-      }
-      BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
-      xcs = object::xform_skip_child_container_create();
-      object::xform_skip_child_container_item_ensure_from_array(
-          xcs, *bmain, scene, view_layer, objects.data(), objects.size());
-    }
     if (use_transform_data_origin) {
       BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
       xds = object::data_xform_container_create();
@@ -231,14 +216,6 @@ static wmOperatorStatus snap_sel_to_grid_exec(bContext *C, wmOperator *op)
       vec[2] = -ob_eval->object_to_world().location()[2] +
                gridf * floorf(0.5f + ob_eval->object_to_world().location()[2] / gridf);
 
-      if (ob->parent) {
-        float originmat[3][3];
-        BKE_object_where_is_calc_ex(depsgraph, scene, nullptr, ob, originmat);
-
-        invert_m3_m3(imat, originmat);
-        mul_m3_v3(imat, vec);
-      }
-
       const float3 loc_final = float3(ob_eval->loc) + float3(vec);
       BKE_object_protected_location_set(ob, loc_final);
 
@@ -252,10 +229,6 @@ static wmOperatorStatus snap_sel_to_grid_exec(bContext *C, wmOperator *op)
       DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
     }
 
-    if (use_transform_skip_children) {
-      object::object_xform_skip_child_container_update_all(xcs, bmain, depsgraph);
-      object::object_xform_skip_child_container_destroy(xcs);
-    }
     if (use_transform_data_origin) {
       object::data_xform_container_update_all(xds, bmain, depsgraph);
       object::data_xform_container_destroy(xds);
@@ -529,38 +502,21 @@ static bool snap_selected_to_location_rotation(bContext *C,
     Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
     BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
 
-    /* Reset flags. */
-    for (Object *ob = static_cast<Object *>(bmain->objects.first); ob;
-         ob = static_cast<Object *>(ob->id.next))
-    {
-      ob->flag &= ~OB_DONE;
-    }
-
-    /* Build object array, tag objects we're transforming. */
+    /* Build object array. */
     ViewLayer *view_layer = CTX_data_view_layer(C);
     Vector<Object *> objects;
     {
       FOREACH_SELECTED_EDITABLE_OBJECT_BEGIN (view_layer, v3d, ob) {
         objects.append(ob);
-        ob->flag |= OB_DONE;
       }
       FOREACH_SELECTED_EDITABLE_OBJECT_END;
     }
 
-    const bool use_transform_skip_children = use_toolsettings &&
-                                             (scene->toolsettings->transform_flag &
-                                              SCE_XFORM_SKIP_CHILDREN);
     const bool use_transform_data_origin = use_toolsettings &&
                                            (scene->toolsettings->transform_flag &
                                             SCE_XFORM_DATA_ORIGIN);
-    object::XFormObjectSkipChild_Container *xcs = nullptr;
     object::XFormObjectData_Container *xds = nullptr;
 
-    if (use_transform_skip_children) {
-      xcs = object::xform_skip_child_container_create();
-      object::xform_skip_child_container_item_ensure_from_array(
-          xcs, *bmain, scene, view_layer, objects.data(), objects.size());
-    }
     if (use_transform_data_origin) {
       xds = object::data_xform_container_create();
 
@@ -576,15 +532,7 @@ static bool snap_selected_to_location_rotation(bContext *C,
     }
 
     for (Object *ob : objects) {
-      /* With offset enabled, skip child objects whose parents are also transformed
-       * to avoid double transform. */
-      if (use_offset) {
-        if (ob->parent && BKE_object_flag_test_recursive(ob->parent, OB_DONE)) {
-          continue;
-        }
-      }
-
-      float3 target_loc_local; /* parent-relative */
+      float3 target_loc_local;
 
       if (use_offset) {
         add_v3_v3v3(target_loc_local, ob->object_to_world().location(), offset_global);
@@ -600,21 +548,7 @@ static bool snap_selected_to_location_rotation(bContext *C,
       }
       sub_v3_v3(target_loc_local, ob->object_to_world().location());
 
-      /* Calculate a parent relative copy. */
       float3x3 target_rot = target_rot_global;
-      if (ob->parent) {
-        float originmat[3][3], parentmat[4][4];
-        /* Use the evaluated object here because sometimes
-         * `ob->parent->runtime->curve_cache` is required. */
-        BKE_scene_graph_evaluated_ensure(depsgraph, bmain);
-        Object *ob_eval = DEG_get_evaluated(depsgraph, ob);
-
-        BKE_object_get_parent_matrix(ob_eval, ob_eval->parent, parentmat);
-        mul_m3_m4m4(originmat, parentmat, ob->parentinv);
-        invert_m3_m3(imat, originmat);
-        mul_m3_v3(imat, target_loc_local);
-        mul_m3_m3m3(target_rot.ptr(), imat, target_rot.ptr());
-      }
       if (use_toolsettings) {
         const float3 loc_final = float3(ob->loc) + target_loc_local;
         BKE_object_protected_location_set(ob, loc_final);
@@ -627,9 +561,8 @@ static bool snap_selected_to_location_rotation(bContext *C,
       }
 
       if (use_rotation) {
-        const bool assign_rotation_directly = (ob->rotmode ==
-                                                   target_orientation_global->rotation_mode &&
-                                               ob->parent == nullptr);
+        const bool assign_rotation_directly =
+            (ob->rotmode == target_orientation_global->rotation_mode);
 
         if (ob->rotmode == ROT_MODE_QUAT) {
           float quat[4];
@@ -687,10 +620,6 @@ static bool snap_selected_to_location_rotation(bContext *C,
       DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
     }
 
-    if (use_transform_skip_children) {
-      object::object_xform_skip_child_container_update_all(xcs, bmain, depsgraph);
-      object::object_xform_skip_child_container_destroy(xcs);
-    }
     if (use_transform_data_origin) {
       object::data_xform_container_update_all(xds, bmain, depsgraph);
       object::data_xform_container_destroy(xds);

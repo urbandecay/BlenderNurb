@@ -52,18 +52,6 @@ enum ObjectType : short;
 template<typename CoordT> struct KDTree;
 
 void BKE_object_workob_clear(Object *workob);
-/**
- * For calculation of the inverse parent transform, only used for editor.
- *
- * It assumes the object parent is already in the depsgraph.
- * Otherwise, after changing ob->parent you need to call:
- * - #DEG_relations_tag_update(bmain);
- * - #BKE_scene_graph_update_tagged(depsgraph, bmain);
- *
- * \return calculated object_to_world.
- */
-float4x4 BKE_object_calc_parent(Depsgraph *depsgraph, Scene *scene, Object *ob);
-
 void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src);
 void BKE_object_copy_softbody(Object *ob_dst, const Object *ob_src, int flag);
 ParticleSystem *BKE_object_copy_particlesystem(ParticleSystem *psys, int flag);
@@ -257,33 +245,8 @@ float4 BKE_object_rot_to_quat(const Object &ob);
 void BKE_object_quat_to_rot(Object &ob, const float4 &quat);
 void BKE_object_to_mat3(const Object *ob, float r_mat[3][3]);
 void BKE_object_to_mat4(const Object *ob, float r_mat[4][4]);
-/**
- * Applies the global transformation \a mat to the \a ob using a relative parent space if
- * supplied.
- *
- * \param mat: the global transformation mat that the object should be set object to.
- * \param parent: the parent space in which this object will be set relative to
- * (should probably always be parent_eval).
- * \param use_compat: true to ensure that rotations are set using the
- * min difference between the old and new orientation.
- */
-void BKE_object_apply_mat4_ex(Object *ob,
-                              const float mat[4][4],
-                              Object *parent,
-                              const float parentinv[4][4],
-                              bool use_compat);
-/** See #BKE_object_apply_mat4_ex */
-void BKE_object_apply_mat4(Object *ob, const float mat[4][4], bool use_compat, bool use_parent);
-
-/**
- * Use parent's world location and rotation as the child's origin. The parent inverse will
- * become identity when the parent has no shearing. Otherwise, it is non-identity and contains the
- * object's local matrix data that cannot be decomposed into location, rotation and scale.
- *
- * Assumes the object's world matrix has no shear.
- * Assumes parent exists.
- */
-void BKE_object_apply_parent_inverse(Object *ob);
+/** Applies the matrix directly to the object. */
+void BKE_object_apply_mat4(Object *ob, const float mat[4][4], bool use_compat);
 
 void BKE_object_matrix_local_get(Object *ob, float r_mat[4][4]);
 
@@ -326,8 +289,6 @@ Vector<Base *> BKE_object_pose_base_array_get(const Main &bmain,
                                               const Scene *scene,
                                               ViewLayer *view_layer,
                                               View3D *v3d);
-
-void BKE_object_get_parent_matrix(const Object *ob, Object *par, float r_parentmat[4][4]);
 
 /**
  * Compute object world transform and store it in `ob->object_to_world().ptr()`.
@@ -415,8 +376,6 @@ void BKE_scene_foreach_display_point(Depsgraph *depsgraph,
                                      void (*func_cb)(const float[3], void *),
                                      void *user_data);
 
-bool BKE_object_parent_loop_check(const Object *parent, const Object *ob);
-
 void *BKE_object_tfm_backup(Object *ob);
 void BKE_object_tfm_restore(Object *ob, void *obtfm_pt);
 void BKE_object_tfm_free(void *obtfm_pt);
@@ -451,7 +410,6 @@ void BKE_object_eval_reset(Object *ob_eval);
 /* Dependency graph evaluation callbacks. */
 
 void BKE_object_eval_local_transform(Depsgraph *depsgraph, Object *ob);
-void BKE_object_eval_parent(Depsgraph *depsgraph, Object *ob);
 void BKE_object_eval_constraints(Depsgraph *depsgraph, Scene *scene, Object *ob);
 void BKE_object_eval_transform_final(Depsgraph *depsgraph, Object *ob);
 
@@ -553,10 +511,6 @@ KeyBlock *BKE_object_shapekey_insert(Main *bmain, Object *ob, const char *name, 
 bool BKE_object_shapekey_remove(Main *bmain, Object *ob, KeyBlock *kb);
 bool BKE_object_shapekey_free(Main *bmain, Object *ob);
 
-bool BKE_object_flag_test_recursive(const Object *ob, short flag);
-
-bool BKE_object_is_child_recursive(const Object *ob_parent, const Object *ob_child);
-
 /**
  * Most important if this is modified it should _always_ return true, in certain
  * cases false positives are hard to avoid (shape keys for example).
@@ -590,7 +544,7 @@ void BKE_object_get_mirror_axes(const Object *ob, bool r_axis[3]);
  *
  * \note This function does not consider physics systems.
  */
-bool BKE_object_moves_in_time(const Object *object, bool recurse_parent);
+bool BKE_object_moves_in_time(const Object *object);
 
 /** Return the number of scenes using (instantiating) that object in their collections. */
 int BKE_object_scenes_users_get(Main *bmain, Object *ob);
@@ -615,12 +569,8 @@ void BKE_object_batch_cache_dirty_tag(Object *ob);
 /* this function returns a superset of the scenes selection based on relationships */
 
 enum eObRelationTypes {
-  OB_REL_NONE = 0,                      /* Just the selection as is. */
-  OB_REL_PARENT = (1 << 0),             /* Immediate parent. */
-  OB_REL_PARENT_RECURSIVE = (1 << 1),   /* Parents up to root of selection tree. */
-  OB_REL_CHILDREN = (1 << 2),           /* Immediate children. */
-  OB_REL_CHILDREN_RECURSIVE = (1 << 3), /* All children. */
-  OB_REL_MOD_ARMATURE = (1 << 4),       /* Armatures related to the selected objects. */
+  OB_REL_NONE = 0,                /* Just the selection as is. */
+  OB_REL_MOD_ARMATURE = (1 << 4), /* Armatures related to the selected objects. */
   // OB_REL_SCENE_CAMERA = (1 << 5), /* You might want the scene camera too even if unselected? */
 };
 

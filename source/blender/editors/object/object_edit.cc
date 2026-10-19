@@ -607,11 +607,6 @@ static bool mesh_needs_keyindex(Main *bmain, const Mesh *mesh)
   }
 
   for (const Object &ob : bmain->objects) {
-    if ((ob.parent) && (ob.parent->data == id_cast<const ID *>(mesh)) &&
-        ELEM(ob.partype, PARVERT1, PARVERT3))
-    {
-      return true;
-    }
     if (ob.data == id_cast<const ID *>(mesh)) {
       for (const ModifierData &md : ob.modifiers) {
         if (md.type == eModifierType_Hook) {

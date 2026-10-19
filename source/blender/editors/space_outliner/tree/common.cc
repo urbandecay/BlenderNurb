@@ -13,9 +13,6 @@
 #include "BKE_idtype.hh"
 
 #include "DNA_anim_types.h"
-#include "DNA_object_types.h"
-#include "DNA_outliner_types.h"
-
 #include "RNA_access.hh"
 #include "RNA_prototypes.hh"
 
@@ -36,28 +33,6 @@ const char *outliner_idcode_to_plural(short idcode)
 }
 
 /** \} */
-
-void outliner_make_object_parent_hierarchy(ListBaseT<TreeElement> *lb)
-{
-  /* build hierarchy */
-  /* XXX also, set extents here... */
-  TreeElement *te = static_cast<TreeElement *>(lb->first);
-  while (te) {
-    TreeElement *ten = te->next;
-    TreeStoreElem *tselem = TREESTORE(te);
-
-    if ((tselem->type == TSE_SOME_ID) && te->idcode == ID_OB) {
-      Object *ob = id_cast<Object *>(tselem->id);
-      if (ob->parent && ob->parent->id.newid) {
-        BLI_remlink(lb, te);
-        TreeElement *tep = reinterpret_cast<TreeElement *>(ob->parent->id.newid);
-        BLI_addtail(&tep->subtree, te);
-        te->parent = tep;
-      }
-    }
-    te = ten;
-  }
-}
 
 bool outliner_animdata_test(const AnimData *adt)
 {

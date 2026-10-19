@@ -8,9 +8,13 @@
 
 #define DNA_DEPRECATED_ALLOW
 
+#include <algorithm>
+#include <cmath>
+
 #include "NOD_geometry_nodes_srna.hh"
 
 #include "DNA_ID.h"
+#include "DNA_anim_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curve_types.h"
@@ -18,16 +22,20 @@
 #include "DNA_modifier_types.h"
 #include "DNA_node_tree_interface_types.h"
 #include "DNA_node_types.h"
+#include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_xr_types.h"
 
 #include "BLI_listbase_iterator.hh"
+#include "BLI_math_matrix.h"
+#include "BLI_set.hh"
 #include "BLI_string.h"
 #include "BLI_string_utf8.h"
 #include "BLI_string_utils.hh"
 #include "BLI_sys_types.h"
+#include "BLI_vector.hh"
 
 #include "BKE_anim_visualization.h"
 #include "BKE_animsys.h"
@@ -43,6 +51,7 @@
 #include "BKE_node.hh"
 #include "BKE_node_legacy_types.hh"
 #include "BKE_node_runtime.hh"
+#include "BKE_object.hh"
 #include "BKE_report.hh"
 
 #include "SEQ_effects.hh"
@@ -453,6 +462,138 @@ static void versioning_replace_legacy_compositor_switch_node(bNodeTree *node_tre
   }
 }
 
+/**
+ * Build the static world transform of an object-parent chain using the legacy transform formula.
+ *
+ * This intentionally supports only ordinary object parenting. Bone, vertex, path, and implicit
+ * armature parenting require evaluated geometry or pose data, which is not available reliably in
+ * file versioning before depsgraph evaluation.
+ */
+static bool version_object_parent_static_world_matrix(const Object &object,
+                                                      float r_world_matrix[4][4])
+{
+  Vector<const Object *> chain;
+  Set<const Object *> visited;
+
+  const Object *current = &object;
+  while (current != nullptr) {
+    if (!visited.add(current)) {
+      /* Malformed parent cycle. Leave the original links in place. */
+      return false;
+    }
+
+    const AnimData *anim_data = current->adt;
+    if ((anim_data && (anim_data->action != nullptr || anim_data->drivers.first != nullptr ||
+                       anim_data->nla_tracks.first != nullptr)) ||
+        current->constraints.first != nullptr || current->track != nullptr ||
+        current->rigidbody_object != nullptr)
+    {
+      /* Animated, constrained, tracked, and simulated transforms cannot be reduced safely. */
+      return false;
+    }
+
+    chain.append(current);
+    if (current->parent == nullptr) {
+      break;
+    }
+
+    if ((current->partype & PARTYPE) != PAROBJECT) {
+      /* Bone, vertex, PARSKEL, and unknown parent modes need legacy evaluation. */
+      return false;
+    }
+
+    const Object &parent = *current->parent;
+
+    if (parent.type == OB_CURVES_LEGACY && parent.data != nullptr) {
+      const Curve &parent_curve = *reinterpret_cast<const Curve *>(parent.data);
+      if (parent_curve.flag & CU_PATH) {
+        /* Curve path parenting depends on the evaluated path cache. */
+        return false;
+      }
+    }
+
+    current = &parent;
+  }
+
+  /* The chain is stored child-to-root. Start from the root and compose downwards. */
+  BKE_object_to_mat4(chain.last(), r_world_matrix);
+  for (int i = chain.size() - 1; i > 0; i--) {
+    const Object &child = *chain[i - 1];
+    float parent_with_inverse[4][4];
+    float local_matrix[4][4];
+    float child_world_matrix[4][4];
+    mul_m4_m4m4(parent_with_inverse, r_world_matrix, child.parentinv);
+    BKE_object_to_mat4(&child, local_matrix);
+    mul_m4_m4m4(child_world_matrix, parent_with_inverse, local_matrix);
+    copy_m4_m4(r_world_matrix, child_world_matrix);
+  }
+
+  for (int row = 0; row < 4; row++) {
+    for (int column = 0; column < 4; column++) {
+      if (!std::isfinite(r_world_matrix[row][column])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+static bool version_object_parent_matrix_can_be_baked(const Object &object,
+                                                       const float world_matrix[4][4])
+{
+  /* Object transforms cannot represent shear. Verify the conversion before modifying the file. */
+  Object baked_object = dna::shallow_copy(object);
+  BKE_object_apply_mat4(&baked_object, world_matrix, false);
+
+  float reconstructed_matrix[4][4];
+  BKE_object_to_mat4(&baked_object, reconstructed_matrix);
+
+  float matrix_scale = 1.0f;
+  for (int row = 0; row < 4; row++) {
+    for (int column = 0; column < 4; column++) {
+      matrix_scale = std::max(matrix_scale, std::abs(world_matrix[row][column]));
+    }
+  }
+  const float tolerance = matrix_scale * 1.0e-5f;
+  for (int row = 0; row < 4; row++) {
+    for (int column = 0; column < 4; column++) {
+      const float reconstructed = reconstructed_matrix[row][column];
+      const float difference = std::abs(world_matrix[row][column] - reconstructed);
+      if (!std::isfinite(reconstructed) || !std::isfinite(difference) || difference > tolerance) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+static void version_remove_static_object_parenting(Main &bmain)
+{
+  for (Object &object : bmain.objects) {
+    object.transflag &= ~(OB_TRANSFLAG_UNUSED_5 | OB_TRANSFLAG_UNUSED_9 |
+                          OB_TRANSFLAG_UNUSED_10 | OB_TRANSFLAG_UNUSED_14);
+    if (object.parent == nullptr || (object.partype & PARTYPE) != PAROBJECT) {
+      continue;
+    }
+
+    float world_matrix[4][4];
+    if (!version_object_parent_static_world_matrix(object, world_matrix) ||
+        !version_object_parent_matrix_can_be_baked(object, world_matrix))
+    {
+      /* Keep unsupported legacy links loaded. Parent evaluation is inert in the new runtime. */
+      continue;
+    }
+
+    BKE_object_apply_mat4(&object, world_matrix, false);
+    object.parent = nullptr;
+    object.partype = PAROBJECT;
+    object.par1 = object.par2 = object.par3 = 0;
+    object.parsubstr[0] = '\0';
+    object.parent_bone_head_tail_factor = 1.0f;
+    unit_m4(object.parentinv);
+  }
+}
+
 void do_versions_after_linking_520(FileData *fd, Main *bmain)
 {
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 2)) {
@@ -502,6 +643,17 @@ void do_versions_after_linking_520(FileData *fd, Main *bmain)
           }
         }
         object.pose->avs.path_bakeflag &= ~MOTIONPATH_BAKE_HAS_PATHS;
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 46)) {
+    version_remove_static_object_parenting(*bmain);
+
+    /* Compound Parent was removed. Preserve old files with a convex-hull body instead. */
+    for (Object &object : bmain->objects) {
+      if (object.rigidbody_object && object.rigidbody_object->shape == RB_SHAPE_UNUSED_7) {
+        object.rigidbody_object->shape = RB_SHAPE_CONVEXH;
       }
     }
   }

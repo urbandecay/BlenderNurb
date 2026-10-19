@@ -31,10 +31,8 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_location_clear);
   WM_operatortype_append(OBJECT_OT_rotation_clear);
   WM_operatortype_append(OBJECT_OT_scale_clear);
-  WM_operatortype_append(OBJECT_OT_origin_clear);
   WM_operatortype_append(OBJECT_OT_visual_transform_apply);
   WM_operatortype_append(OBJECT_OT_transform_apply);
-  WM_operatortype_append(OBJECT_OT_parent_inverse_apply);
   WM_operatortype_append(OBJECT_OT_transform_axis_target);
   WM_operatortype_append(OBJECT_OT_origin_set);
 
@@ -54,10 +52,6 @@ void operatortypes_object()
 
   WM_operatortype_append(OBJECT_OT_transfer_mode);
 
-  WM_operatortype_append(OBJECT_OT_parent_set);
-  WM_operatortype_append(OBJECT_OT_parent_no_inverse_set);
-  WM_operatortype_append(OBJECT_OT_parent_clear);
-  WM_operatortype_append(OBJECT_OT_vertex_parent_set);
   WM_operatortype_append(OBJECT_OT_track_set);
   WM_operatortype_append(OBJECT_OT_track_clear);
   WM_operatortype_append(OBJECT_OT_make_local);
@@ -76,8 +70,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_select_linked);
   WM_operatortype_append(OBJECT_OT_select_grouped);
   WM_operatortype_append(OBJECT_OT_select_mirror);
-  WM_operatortype_append(OBJECT_OT_select_more);
-  WM_operatortype_append(OBJECT_OT_select_less);
 
   WM_operatortype_append(COLLECTION_OT_create);
   WM_operatortype_append(COLLECTION_OT_objects_remove_all);

@@ -49,8 +49,6 @@ namespace ui {
 struct Layout;
 }  // namespace ui
 
-enum eObject_Partype : short;
-
 namespace ed::object {
 
 struct XFormObjectData;
@@ -138,42 +136,6 @@ void data_xform_container_update_all(XFormObjectData_Container *xds,
                                      Depsgraph *depsgraph);
 void data_xform_container_item_ensure(XFormObjectData_Container *xds, Object *ob);
 
-/** Object Skip-Child Container helper API. */
-enum {
-  /**
-   * The parent is transformed, this is held in place.
-   */
-  XFORM_OB_SKIP_CHILD_PARENT_IS_XFORM = 1,
-  /**
-   * The same as #XFORM_OB_SKIP_CHILD_PARENT_IS_XFORM,
-   * however this objects parent isn't transformed directly.
-   */
-  XFORM_OB_SKIP_CHILD_PARENT_IS_XFORM_INDIRECT = 3,
-  /**
-   * Use the parent invert matrix to apply transformation,
-   * this is needed, because breaks in the selection chain prevents this from being transformed.
-   * This is used to add the transform which would have been added
-   * if there weren't breaks in the parent/child chain.
-   */
-  XFORM_OB_SKIP_CHILD_PARENT_APPLY = 2,
-};
-struct XFormObjectSkipChild_Container;
-XFormObjectSkipChild_Container *xform_skip_child_container_create();
-void xform_skip_child_container_item_ensure_from_array(XFormObjectSkipChild_Container *xcs,
-                                                       const Main &bmain,
-                                                       const Scene *scene,
-                                                       ViewLayer *view_layer,
-                                                       Object **objects,
-                                                       uint objects_len);
-void object_xform_skip_child_container_destroy(XFormObjectSkipChild_Container *xcs);
-void object_xform_skip_child_container_update_all(XFormObjectSkipChild_Container *xcs,
-                                                  Main *bmain,
-                                                  Depsgraph *depsgraph);
-void object_xform_skip_child_container_item_ensure(XFormObjectSkipChild_Container *xcs,
-                                                   Object *ob,
-                                                   Object *ob_parent_recurse,
-                                                   int mode);
-
 void object_xform_array_m4(Object **objects, uint objects_len, const float matrix[4][4]);
 
 /* `object_ops.cc` */
@@ -182,56 +144,11 @@ void operatortypes_object();
 void operatormacros_object();
 void keymap_object(wmKeyConfig *keyconf);
 
-/* `object_relations.cc` */
-
-enum eParentType {
-  PAR_OBJECT,
-  PAR_ARMATURE,
-  PAR_ARMATURE_NAME,
-  PAR_ARMATURE_ENVELOPE,
-  PAR_ARMATURE_AUTO,
-  PAR_BONE,
-  PAR_BONE_RELATIVE,
-  PAR_CURVE,
-  PAR_FOLLOW,
-  PAR_PATH_CONST,
-  PAR_LATTICE,
-  PAR_VERTEX,
-  PAR_VERTEX_TRI,
-};
-
 enum eObjectSelect_Mode {
   BA_DESELECT = 0,
   BA_SELECT = 1,
   BA_INVERT = 2,
 };
-
-enum eObClearParentTypes {
-  CLEAR_PARENT_ALL = 0,
-  CLEAR_PARENT_KEEP_TRANSFORM,
-  CLEAR_PARENT_INVERSE,
-};
-
-#ifdef __RNA_TYPES_H__
-/** Operator Property: `OBJECT_OT_parent_clear`. */
-extern const EnumPropertyItem prop_clear_parent_types[];
-/** Operator Property: `OBJECT_OT_parent_set`. */
-extern const EnumPropertyItem prop_make_parent_types[];
-#endif
-
-/**
- * Set the object's parent, return true if successful.
- */
-bool parent_set(ReportList *reports,
-                const bContext *C,
-                Scene *scene,
-                Object *const ob,
-                Object *const par,
-                int partype,
-                bool xmirror,
-                bool keep_transform,
-                const int vert_par[3]);
-void parent_clear(Object *ob, int type);
 
 /**
  * Simple API for object selection, rather than just using the flag
@@ -280,7 +197,6 @@ bool base_deselect_all(
 Base *add_duplicate(
     Main *bmain, Scene *scene, ViewLayer *view_layer, Base *base, eDupli_ID_Flags dupflag);
 
-void parent_set(Object *ob, Object *parent, eObject_Partype type, const char *substr);
 std::string drop_named_material_tooltip(bContext *C, StringRef name, const int mval[2]);
 std::string drop_geometry_nodes_tooltip(bContext *C, PointerRNA *properties, const int mval[2]);
 

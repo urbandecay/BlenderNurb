@@ -77,7 +77,7 @@ struct FbxElementMapping {
 
 void matrix_to_m44(const ufbx_matrix &src, float dst[4][4]);
 void ufbx_matrix_to_obj(const ufbx_matrix &mtx, Object *obj);
-void node_matrix_to_obj(const ufbx_node *node, Object *obj, const FbxElementMapping &mapping);
+void node_matrix_to_obj(const ufbx_node *node, Object *obj);
 void read_custom_properties(const ufbx_props &props, ID &id, bool enums_as_strings);
 void read_custom_properties(const ufbx_props &props, bPoseChannel &pchan, bool enums_as_strings);
 

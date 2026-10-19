@@ -337,7 +337,7 @@ static wmOperatorStatus vr_location_scouting_capture_review_modal(bContext *C,
   quat_to_mat4(capture_cam_mat, capture->orientation_quat);
   copy_v3_v3(capture_cam_mat[3], capture->position);
 
-  BKE_object_apply_mat4(op_data->cam_ob, capture_cam_mat, false, false);
+  BKE_object_apply_mat4(op_data->cam_ob, capture_cam_mat, false);
   /* Minimum eval without going through the depsgraph. */
   BKE_object_to_mat4(op_data->cam_ob, op_data->cam_ob->runtime->object_to_world.ptr());
 

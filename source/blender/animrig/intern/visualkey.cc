@@ -54,7 +54,6 @@ bool visualkey_can_use(PointerRNA *ptr, PropertyRNA *prop)
     RigidBodyOb *rbo = ob->rigidbody_object;
 
     con = static_cast<bConstraint *>(ob->constraints.first);
-    has_parent = (ob->parent != nullptr);
 
     /* Active rigidbody objects only, as only those are affected by sim. */
     has_rigidbody = ((rbo) && (rbo->type == RBO_TYPE_ACTIVE));

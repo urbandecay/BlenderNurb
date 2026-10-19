@@ -57,38 +57,43 @@ const IDProperty *ABCTransformWriter::get_id_properties(const HierarchyContext &
 
 void ABCTransformWriter::do_write(HierarchyContext &context)
 {
-  /* The object matrix relative to the parent. */
-  float4x4 parent_relative_matrix = context.parent_matrix_inv_world * context.matrix_world;
+  /* Keep transforms local inside an instance/prototype subgraph so that instancing still composes
+   * correctly. Regular objects are flattened to world space. */
+  const bool preserve_instance_hierarchy = context.duplicator != nullptr || context.is_duplisource ||
+                                           context.is_instance() || context.is_prototype();
+  const bool is_root_object = context.export_parent == nullptr;
+  float4x4 transform_matrix = context.matrix_world;
+  if (preserve_instance_hierarchy) {
+    transform_matrix = context.parent_matrix_inv_world * context.matrix_world;
+  }
 
-  /* After this, parent_relative_matrix uses Y=up. */
-  copy_m44_axis_swap(parent_relative_matrix.ptr(), parent_relative_matrix.ptr(), ABC_YUP_FROM_ZUP);
+  /* Convert from Z-up to Y-up. */
+  copy_m44_axis_swap(transform_matrix.ptr(), transform_matrix.ptr(), ABC_YUP_FROM_ZUP);
 
-  /* If the parent is a camera, undo its to-Maya rotation (see below). */
-  bool is_root_object = context.export_parent == nullptr;
-  if (!is_root_object && context.export_parent->type == OB_CAMERA) {
+  /* If the parent is a camera, undo its to-Maya rotation for a locally composed instance tree. */
+  if (preserve_instance_hierarchy && !is_root_object && context.export_parent->type == OB_CAMERA) {
     float4x4 rot_mat = math::from_rotation<float4x4>(math::EulerXYZ(M_PI_2, 0.0f, 0.0f));
-    parent_relative_matrix = rot_mat * parent_relative_matrix;
+    transform_matrix = rot_mat * transform_matrix;
   }
 
   /* If the object is a camera, apply an extra rotation to Maya camera orientation. */
   if (context.object->type == OB_CAMERA) {
     float4x4 rot_mat = math::from_rotation<float4x4>(math::EulerXYZ(-M_PI_2, 0.0f, 0.0f));
-    parent_relative_matrix = parent_relative_matrix * rot_mat;
+    transform_matrix = transform_matrix * rot_mat;
   }
 
-  /* Only apply scaling to root objects, parenting will propagate it. */
-  if (is_root_object) {
-    /* A float4 so we also scale translation */
+  /* Apply global scale to the flattened world matrix or to the root of a preserved instance tree.
+   * A float4 also scales translation. */
+  if (!preserve_instance_hierarchy || is_root_object) {
     const float4 scale(args_.export_params->global_scale);
-    parent_relative_matrix = math::scale(parent_relative_matrix, scale);
-
-    parent_relative_matrix[3][3] /=
+    transform_matrix = math::scale(transform_matrix, scale);
+    transform_matrix[3][3] /=
         args_.export_params->global_scale; /* Normalize the homogeneous component. */
   }
 
   XformSample xform_sample;
-  xform_sample.setMatrix(convert_matrix_datatype(parent_relative_matrix.ptr()));
-  xform_sample.setInheritsXforms(true);
+  xform_sample.setMatrix(convert_matrix_datatype(transform_matrix.ptr()));
+  xform_sample.setInheritsXforms(preserve_instance_hierarchy);
   abc_xform_schema_.set(xform_sample);
 
   write_visibility(context);
@@ -110,7 +115,7 @@ bool ABCTransformWriter::check_is_animated(const HierarchyContext &context) cons
   if (check_has_physics(context)) {
     return true;
   }
-  return BKE_object_moves_in_time(context.object, context.animation_check_include_parent);
+  return BKE_object_moves_in_time(context.object);
 }
 
 }  // namespace io::alembic

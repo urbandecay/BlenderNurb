@@ -523,14 +523,6 @@ class Generator(base_generate.BaseGenerator):
         t.tick("Create widgets collection: ")
 
         ###########################################
-        # Get parented objects to restore later
-
-        child_parent_bones = {}  # {object: bone}
-
-        for child in obj.children:
-            child_parent_bones[child] = child.parent_bone
-
-        ###########################################
         # Copy bones from metarig to obj (adds ORG_PREFIX)
         self.__duplicate_rig()
 
@@ -659,13 +651,6 @@ class Generator(base_generate.BaseGenerator):
 
         bpy.ops.object.mode_set(mode='OBJECT')
         obj.data.pose_position = 'POSE'
-
-        # Restore parent to bones
-        for child, sub_parent in child_parent_bones.items():
-            if sub_parent in obj.pose.bones:
-                mat = child.matrix_world.copy()
-                child.parent_bone = sub_parent
-                child.matrix_world = mat
 
         # Clear any transient errors in drivers
         refresh_all_drivers()

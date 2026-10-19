@@ -1083,7 +1083,9 @@ def blen_read_animations(fbx_tmpl_astack, fbx_tmpl_alayer, stacks, scene, anim_o
                     id_data = item.bl_obj
                     # XXX Ignore rigged mesh animations - those are a nightmare to handle, see note about it in
                     #     FbxImportHelperNode class definition.
-                    if id_data and id_data.type == 'MESH' and id_data.parent and id_data.parent.type == 'ARMATURE':
+                    if id_data and id_data.type == 'MESH' and any(
+                            modifier.type == 'ARMATURE' and modifier.object is not None
+                            for modifier in id_data.modifiers):
                         continue
                 if id_data is None:
                     continue
@@ -2556,6 +2558,22 @@ class FbxImportHelperNode:
             matrix = matrix @ self.matrix
         return matrix
 
+    def get_blender_world_matrix(self):
+        """Compose the corrected transform chain for a parentless Blender Object."""
+        if self.parent is None:
+            parent_matrix = Matrix()
+        elif self.parent.is_bone:
+            armature_node = self.parent.armature
+            armature_object = armature_node.bl_obj if armature_node else None
+            if armature_object is not None and self.parent.bl_bone in armature_object.pose.bones:
+                parent_matrix = (armature_object.matrix_world @
+                                 armature_object.pose.bones[self.parent.bl_bone].matrix)
+            else:
+                parent_matrix = self.parent.get_blender_world_matrix()
+        else:
+            parent_matrix = self.parent.get_blender_world_matrix()
+        return parent_matrix @ self.get_matrix()
+
     def get_matrix(self):
         matrix = self.matrix if self.matrix else Matrix()
         if self.pre_matrix:
@@ -2785,11 +2803,6 @@ class FbxImportHelperNode:
                     continue
                 child_obj = child.bl_obj
                 if child_obj and child_obj != self.bl_obj:
-                    child_obj.parent = self.bl_obj  # get the armature the bone belongs to
-                    child_obj.parent_bone = self.bl_bone
-                    child_obj.parent_type = 'BONE'
-                    child_obj.matrix_parent_inverse = Matrix()
-
                     # Blender attaches to the end of a bone, while FBX attaches to the start.
                     # bone_child_matrix corrects for that.
                     if child.pre_matrix:
@@ -2797,18 +2810,20 @@ class FbxImportHelperNode:
                     else:
                         child.pre_matrix = self.bone_child_matrix
 
-                    child_obj.matrix_basis = child.get_matrix()
+                    child_obj.matrix_world = child.get_blender_world_matrix()
                 child.link_skeleton_children(fbx_tmpl, settings, scene)
             return None
         else:
             obj = self.bl_obj
+            if obj is not None:
+                obj.matrix_world = self.get_blender_world_matrix()
 
             for child in self.children:
                 if child.ignore:
                     continue
                 child_obj = child.link_skeleton_children(fbx_tmpl, settings, scene)
                 if child_obj:
-                    child_obj.parent = obj
+                    child_obj.matrix_world = child.get_blender_world_matrix()
 
             return obj
 
@@ -2973,6 +2988,7 @@ class FbxImportHelperNode:
     def link_hierarchy(self, fbx_tmpl, settings, scene):
         if self.is_armature:
             arm = self.bl_obj
+            arm.matrix_world = self.get_blender_world_matrix()
 
             # Link bone children:
             for child in self.children:
@@ -2980,7 +2996,7 @@ class FbxImportHelperNode:
                     continue
                 child_obj = child.link_skeleton_children(fbx_tmpl, settings, scene)
                 if child_obj:
-                    child_obj.parent = arm
+                    child_obj.matrix_world = child.get_blender_world_matrix()
 
             # Add armature modifiers to the meshes
             if self.meshes:
@@ -3002,9 +3018,8 @@ class FbxImportHelperNode:
                     if mesh.matrix_geom:
                         mmat = mmat @ mesh.matrix_geom
 
-                    # Now that we have armature and mesh in there (global) bind 'state' (matrix),
-                    # we can compute inverse parenting matrix of the mesh.
-                    me_obj.matrix_parent_inverse = amat.inverted_safe() @ mmat @ me_obj.matrix_basis.inverted_safe()
+                    # Keep the mesh at its bind transform without Object parenting.
+                    me_obj.matrix_world = mmat
 
                     mod = mesh.bl_obj.modifiers.new(arm.name, 'ARMATURE')
                     mod.object = arm
@@ -3019,12 +3034,11 @@ class FbxImportHelperNode:
             return arm
         elif self.bl_obj:
             obj = self.bl_obj
+            obj.matrix_world = self.get_blender_world_matrix()
 
             # walk through children
             for child in self.children:
-                child_obj = child.link_hierarchy(fbx_tmpl, settings, scene)
-                if child_obj:
-                    child_obj.parent = obj
+                child.link_hierarchy(fbx_tmpl, settings, scene)
 
             return obj
         else:
@@ -3527,9 +3541,8 @@ def load(operator, context, filepath="",
                             mesh_node = fbx_helper_nodes[object_uuid]
                             if mesh_node:
                                 # ----
-                                # If we get a valid mesh matrix (in bone space), store armature and
-                                # mesh global matrices, we need them to compute mesh's matrix_parent_inverse
-                                # when actually binding them via the modifier.
+                                # Store the armature and mesh bind matrices so the mesh can be
+                                # positioned without Object parenting when binding the modifier.
                                 # Note we assume all bones were bound with the same mesh/armature (global) matrix,
                                 # we do not support otherwise in Blender anyway!
                                 mesh_node.armature_setup[helper_node.armature] = (mesh_matrix, armature_matrix)

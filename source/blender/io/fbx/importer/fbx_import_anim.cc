@@ -14,6 +14,7 @@
 #include "BKE_action.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_lib_id.hh"
+#include "BKE_modifier.hh"
 #include "BKE_object_types.hh"
 
 #include "BLI_linear_allocator.hh"
@@ -155,7 +156,9 @@ static Vector<ElementAnimations> gather_animated_properties(const FbxElementMapp
       }
       /* Ignore animation of rigged meshes (very hard to handle; matches behavior of python fbx
        * importer). */
-      if (obj->type == OB_MESH && obj->parent && obj->parent->type == OB_ARMATURE) {
+      if (obj->type == OB_MESH &&
+          BKE_modifiers_findby_type(obj, eModifierType_Armature) != nullptr)
+      {
         continue;
       }
       target_id = &obj->id;

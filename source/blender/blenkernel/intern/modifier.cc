@@ -624,26 +624,6 @@ ModifierData *BKE_modifiers_get_virtual_modifierlist(const Object *ob,
 
   *virtual_modifier_data = virtualModifierCommonData;
 
-  if (ob->parent) {
-    if (ob->parent->type == OB_ARMATURE && ob->partype == PARSKEL) {
-      virtual_modifier_data->amd.object = ob->parent;
-      virtual_modifier_data->amd.modifier.next = md;
-      virtual_modifier_data->amd.deformflag = (id_cast<bArmature *>(ob->parent->data))->deformflag;
-      md = &virtual_modifier_data->amd.modifier;
-    }
-    else if (ob->parent->type == OB_CURVES_LEGACY && ob->partype == PARSKEL) {
-      virtual_modifier_data->cmd.object = ob->parent;
-      virtual_modifier_data->cmd.defaxis = CurveModifierDefaultAxis(ob->trackflag + 1);
-      virtual_modifier_data->cmd.modifier.next = md;
-      md = &virtual_modifier_data->cmd.modifier;
-    }
-    else if (ob->parent->type == OB_LATTICE && ob->partype == PARSKEL) {
-      virtual_modifier_data->lmd.object = ob->parent;
-      virtual_modifier_data->lmd.modifier.next = md;
-      md = &virtual_modifier_data->lmd.modifier;
-    }
-  }
-
   /* shape key modifier, not yet for curves */
   if (ELEM(ob->type, OB_MESH, OB_LATTICE) && BKE_key_from_object(const_cast<Object *>(ob))) {
     if (ob->type == OB_MESH && (ob->shapeflag & OB_SHAPE_EDIT_MODE)) {

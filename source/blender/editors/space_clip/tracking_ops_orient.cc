@@ -79,10 +79,6 @@ static Object *get_orientation_object(bContext *C)
     object = BKE_view_layer_active_object_get(view_layer);
   }
 
-  if (object != nullptr && object->parent != nullptr) {
-    object = object->parent;
-  }
-
   return object;
 }
 
@@ -373,7 +369,7 @@ static void set_axis(Scene *scene,
     }
   }
 
-  BKE_object_apply_mat4(ob, mat, false, false);
+  BKE_object_apply_mat4(ob, mat, false);
 }
 
 static wmOperatorStatus set_plane_exec(bContext *C, wmOperator *op)
@@ -460,17 +456,17 @@ static wmOperatorStatus set_plane_exec(bContext *C, wmOperator *op)
     BKE_object_to_mat4(object, obmat);
     mul_m4_m4m4(mat, mat, obmat);
     mul_m4_m4m4(newmat, rot, mat);
-    BKE_object_apply_mat4(object, newmat, false, false);
+    BKE_object_apply_mat4(object, newmat, false);
 
     /* Make camera have positive z-coordinate. */
     if (object->loc[2] < 0) {
       invert_m4(rot);
       mul_m4_m4m4(newmat, rot, mat);
-      BKE_object_apply_mat4(object, newmat, false, false);
+      BKE_object_apply_mat4(object, newmat, false);
     }
   }
   else {
-    BKE_object_apply_mat4(object, mat, false, false);
+    BKE_object_apply_mat4(object, mat, false);
   }
 
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);

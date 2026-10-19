@@ -231,23 +231,6 @@ static void tree_element_viewlayer_activate(bContext *C, TreeElement *te)
   }
 }
 
-/**
- * Select object tree
- */
-static void do_outliner_object_select_recursive(
-    const Main &bmain, const Scene *scene, ViewLayer *view_layer, Object *ob_parent, bool select)
-{
-  BKE_view_layer_synced_ensure(bmain, scene, view_layer);
-  for (Base &base : *BKE_view_layer_object_bases_get(view_layer)) {
-    Object *ob = base.object;
-    if (((base.flag & BASE_ENABLED_AND_MAYBE_VISIBLE_IN_VIEWPORT) != 0) &&
-        BKE_object_is_child_recursive(ob_parent, ob))
-    {
-      object::base_select(&base, select ? object::BA_SELECT : object::BA_DESELECT);
-    }
-  }
-}
-
 static void do_outliner_bone_select_recursive(bArmature *arm, Bone *bone_parent, bool select)
 {
   for (Bone &bone : bone_parent->childbase) {
@@ -375,12 +358,6 @@ static void tree_element_object_activate(bContext *C,
       if (parent_tselem) {
         parent_tselem->flag |= TSE_SELECTED;
       }
-    }
-
-    if (recursive) {
-      /* Recursive select/deselect for Object hierarchies */
-      do_outliner_object_select_recursive(
-          bmain, scene, view_layer, ob, (base->flag & BASE_SELECTED) != 0);
     }
 
     if (set != OL_SETSEL_NONE) {

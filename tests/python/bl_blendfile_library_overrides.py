@@ -34,7 +34,6 @@ class TestLibraryOverrides(TestHelper):
         bpy.context.collection.objects.link(obj)
         mesh_child = bpy.data.meshes.new(TestLibraryOverrides.MESH_LIBRARY_CHILD)
         obj_child = bpy.data.objects.new(TestLibraryOverrides.OBJECT_LIBRARY_CHILD, object_data=mesh_child)
-        obj_child.parent = obj
         bpy.context.collection.objects.link(obj_child)
 
         mesh = bpy.data.meshes.new(TestLibraryOverrides.MESH_LIBRARY_PERMISSIVE)
@@ -167,7 +166,6 @@ class TestLibraryOverridesComplex(TestHelper):
         collection_container.objects.link(obj_child)
         armature = bpy.data.armatures.new(self.__class__.DATA_NAME_RIG)
         obj_armature = bpy.data.objects.new(self.__class__.DATA_NAME_RIG, object_data=armature)
-        obj_child.parent = obj_armature
         collection_container.objects.link(obj_armature)
 
         obj_child_modifier = obj_child.modifiers.new("", 'ARMATURE')

@@ -1275,36 +1275,6 @@ class VIEW3D_MT_view_regions(Menu):
 
 # ********** Select menus, suffix from context.mode **********
 
-class VIEW3D_MT_select_object_more_less(Menu):
-    bl_label = "Select More/Less"
-
-    def draw(self, _context):
-        layout = self.layout
-
-        layout.operator("object.select_more", text="More")
-        layout.operator("object.select_less", text="Less")
-
-        layout.separator()
-
-        props = layout.operator("object.select_hierarchy", text="Parent", text_ctxt=i18n_contexts.default)
-        props.extend = False
-        props.direction = 'PARENT'
-
-        props = layout.operator("object.select_hierarchy", text="Child")
-        props.extend = False
-        props.direction = 'CHILD'
-
-        layout.separator()
-
-        props = layout.operator("object.select_hierarchy", text="Extend Parent")
-        props.extend = True
-        props.direction = 'PARENT'
-
-        props = layout.operator("object.select_hierarchy", text="Extend Child")
-        props.extend = True
-        props.direction = 'CHILD'
-
-
 class VIEW3D_MT_select_object(Menu):
     bl_label = "Select"
 
@@ -1329,12 +1299,14 @@ class VIEW3D_MT_select_object(Menu):
 
         layout.separator()
 
-        layout.menu("VIEW3D_MT_select_object_more_less", text="More/Less")
-
-        layout.separator()
-
         layout.operator_menu_enum("object.select_by_type", "type", text="Select All by Type")
-        layout.operator_menu_enum("object.select_grouped", "type", text="Select Grouped")
+        layout.operator("object.select_grouped", text="Select Grouped by Type").type = 'TYPE'
+        layout.operator("object.select_grouped", text="Select Grouped by Collection").type = 'COLLECTION'
+        layout.operator("object.select_grouped", text="Select Grouped by Hook").type = 'HOOK'
+        layout.operator("object.select_grouped", text="Select Grouped by Pass").type = 'PASS'
+        layout.operator("object.select_grouped", text="Select Grouped by Color").type = 'COLOR'
+        layout.operator("object.select_grouped", text="Select Grouped by Keying Set").type = 'KEYINGSET'
+        layout.operator("object.select_grouped", text="Select Grouped by Light Type").type = 'LIGHT_TYPE'
         layout.operator_menu_enum("object.select_linked", "type", text="Select Linked")
         layout.operator("object.select_pattern", text="Select Pattern...")
 
@@ -2334,7 +2306,6 @@ class VIEW3D_MT_object(Menu):
 
         layout.menu("VIEW3D_MT_object_liboverride", icon='LIBRARY_DATA_OVERRIDE')
         layout.menu("VIEW3D_MT_object_relations")
-        layout.menu("VIEW3D_MT_object_parent")
         layout.menu("VIEW3D_MT_object_modifiers", icon='MODIFIER')
         layout.menu("VIEW3D_MT_object_constraints", icon='CONSTRAINT')
         layout.menu("VIEW3D_MT_object_track")
@@ -2435,7 +2406,6 @@ class VIEW3D_MT_object_clear(Menu):
 
         layout.separator()
 
-        layout.operator("object.origin_clear", text="Origin")
 
 
 class VIEW3D_MT_object_context_menu(Menu):
@@ -2655,7 +2625,6 @@ class VIEW3D_MT_object_context_menu(Menu):
 
         layout.menu("VIEW3D_MT_mirror")
         layout.menu("VIEW3D_MT_snap")
-        layout.menu("VIEW3D_MT_object_parent")
         layout.operator_context = 'INVOKE_REGION_WIN'
 
         if view and view.local_view:
@@ -2749,32 +2718,8 @@ class VIEW3D_MT_object_apply(Menu):
         ).target = 'MESH'
         layout.operator("object.visual_geometry_to_objects")
         layout.operator("object.duplicates_make_real")
-        layout.operator("object.parent_inverse_apply", text="Parent Inverse", text_ctxt=i18n_contexts.default)
 
         layout.template_node_operator_asset_menu_items(catalog_path="Object/Apply")
-
-
-class VIEW3D_MT_object_parent(Menu):
-    bl_label = "Parent"
-    bl_translation_context = i18n_contexts.operator_default
-
-    def draw(self, _context):
-        from _bl_ui_utils.layout import operator_context
-
-        layout = self.layout
-
-        layout.operator_enum("object.parent_set", "type")
-
-        layout.separator()
-
-        with operator_context(layout, 'EXEC_REGION_WIN'):
-            layout.operator("object.parent_no_inverse_set").keep_transform = False
-            props = layout.operator("object.parent_no_inverse_set", text="Make Parent without Inverse (Keep Transform)")
-            props.keep_transform = True
-
-        layout.separator()
-
-        layout.operator_enum("object.parent_clear", "type")
 
 
 class VIEW3D_MT_object_track(Menu):
@@ -3728,7 +3673,6 @@ class VIEW3D_MT_pose(Menu):
 
         layout.separator()
 
-        layout.menu("VIEW3D_MT_object_parent")
         layout.menu("VIEW3D_MT_pose_ik")
         layout.menu("VIEW3D_MT_pose_constraints")
 
@@ -4346,8 +4290,6 @@ class VIEW3D_MT_edit_mesh_vertices(Menu):
 
         layout.separator()
 
-        layout.operator("object.vertex_parent_set")
-
         layout.template_node_operator_asset_menu_items(catalog_path=self.bl_label)
 
 
@@ -4779,8 +4721,6 @@ class VIEW3D_MT_edit_curve_ctrlpoints(Menu):
 
         layout.separator()
 
-        layout.operator("object.vertex_parent_set")
-
 
 class VIEW3D_MT_edit_curve_segments(Menu):
     bl_label = "Segments"
@@ -5058,8 +4998,6 @@ class VIEW3D_MT_edit_lattice(Menu):
         layout.operator("lattice.make_regular")
 
         layout.separator()
-
-        layout.operator("object.vertex_parent_set")
 
 
 class VIEW3D_MT_edit_armature(Menu):
@@ -7730,7 +7668,6 @@ classes = (
     VIEW3D_MT_view_viewpoint,
     VIEW3D_MT_view_regions,
     VIEW3D_MT_select_object,
-    VIEW3D_MT_select_object_more_less,
     VIEW3D_MT_select_pose,
     VIEW3D_MT_select_pose_more_less,
     VIEW3D_MT_select_particle,
@@ -7779,7 +7716,6 @@ classes = (
     VIEW3D_MT_object_apply,
     VIEW3D_MT_object_relations,
     VIEW3D_MT_object_liboverride,
-    VIEW3D_MT_object_parent,
     VIEW3D_MT_object_track,
     VIEW3D_MT_object_collection,
     VIEW3D_MT_object_constraints,

@@ -3430,13 +3430,6 @@ static void rna_def_tool_settings(BlenderRNA *brna)
       prop, "Transform Origins", "Transform object origins, while leaving the shape in place");
   RNA_def_property_update(prop, NC_SCENE | ND_TRANSFORM, nullptr);
 
-  prop = RNA_def_property(srna, "use_transform_skip_children", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "transform_flag", SCE_XFORM_SKIP_CHILDREN);
-  RNA_def_property_flag(prop, PROP_DEG_SYNC_ONLY);
-  RNA_def_property_ui_text(
-      prop, "Transform Parents", "Transform the parents, leaving the children in place");
-  RNA_def_property_update(prop, NC_SCENE | ND_TRANSFORM, nullptr);
-
   prop = RNA_def_property(srna, "use_transform_correct_face_attributes", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "uvcalc_flag", UVCALC_TRANSFORM_CORRECT);
   RNA_def_property_flag(prop, PROP_DEG_SYNC_ONLY);

@@ -546,8 +546,6 @@ void import_meshes(Main &bmain,
         obj->shapenr = 1;
       }
 
-      bool matrix_already_set = false;
-
       /* Skinned mesh. */
       if (fmesh->skin_deformers.count > 0) {
         /* Add armature modifiers for each skin deformer. */
@@ -574,29 +572,6 @@ void import_meshes(Main &bmain,
             ArmatureModifierData *ad = reinterpret_cast<ArmatureModifierData *>(md);
             ad->object = arm_obj;
 
-            if (!matrix_already_set) {
-              matrix_already_set = true;
-              obj->parent = arm_obj;
-
-              /* We are setting mesh parent to the armature, so set the matrix that is
-               * armature-local. Note that the matrix needs to be relative to the FBX
-               * node matrix (not the root bone pose matrix). */
-              ufbx_matrix world_to_arm = mapping.armature_world_to_arm_node_matrix.lookup_default(
-                  arm_obj, ufbx_identity_matrix);
-              ufbx_matrix world_to_arm_pose = mapping.armature_world_to_arm_pose_matrix
-                                                  .lookup_default(arm_obj, ufbx_identity_matrix);
-
-              ufbx_matrix mtx = ufbx_matrix_mul(&world_to_arm, &node->geometry_to_world);
-              ufbx_matrix_to_obj(mtx, obj);
-
-              /* Setup parent inverse matrix of the mesh, to account for the mesh possibly being in
-               * different bind pose than what the node is at. */
-              ufbx_matrix mtx_inv = ufbx_matrix_invert(&mtx);
-              ufbx_matrix mtx_world = mapping.get_node_bind_matrix(node);
-              ufbx_matrix mtx_parent_inverse = ufbx_matrix_mul(&mtx_world, &mtx_inv);
-              mtx_parent_inverse = ufbx_matrix_mul(&world_to_arm_pose, &mtx_parent_inverse);
-              matrix_to_m44(mtx_parent_inverse, obj->parentinv);
-            }
           }
         }
       }
@@ -651,9 +626,7 @@ void import_meshes(Main &bmain,
       if (params.use_custom_props) {
         read_custom_properties(node->props, obj->id, params.props_enum_as_string);
       }
-      if (!matrix_already_set) {
-        node_matrix_to_obj(node, obj, mapping);
-      }
+      node_matrix_to_obj(node, obj);
       mapping.el_to_object.add(&node->element, obj);
       mapping.imported_objects.add(obj);
     }

@@ -30,8 +30,6 @@ def gather_animation_fcurves_sampler(
         export_settings
 ) -> gltf2_io.AnimationSampler:
 
-    # matrix_parent_inverse needed for fcurves?
-
     keyframes = __gather_keyframes(
         obj_uuid,
         channel_group,
@@ -154,12 +152,7 @@ def __convert_keyframes(
         transform = correction_matrix_local
 
     else:
-        if export_settings['vtree'].nodes[obj_uuid].blender_object.parent is not None:
-            matrix_parent_inverse = export_settings['vtree'].nodes[obj_uuid].blender_object.matrix_parent_inverse.copy(
-            ).freeze()
-        else:
-            matrix_parent_inverse = mathutils.Matrix.Identity(4).freeze()
-        transform = matrix_parent_inverse
+        transform = mathutils.Matrix.Identity(4).freeze()
 
     values = []
     fps = (bpy.context.scene.render.fps * bpy.context.scene.render.fps_base)

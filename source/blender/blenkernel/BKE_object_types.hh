@@ -44,9 +44,6 @@ struct ObjectRuntime {
   /** Did last modifier stack generation need mapping support? */
   char last_need_mapping = false;
 
-  /** Only used for drawing the parent/child help-line. */
-  float3 parent_display_origin;
-
   /**
    * Selection id of this object. It might differ between an evaluated and its original object,
    * when the object is being instanced.

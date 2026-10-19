@@ -21,10 +21,23 @@
 
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/usd/usdGeom/xformable.h>
+#include <pxr/usd/usdGeom/xformCache.h>
 
 #include <string>
 
 namespace blender::io::usd {
+
+static bool usd_transform_hierarchy_is_constant(pxr::UsdPrim prim)
+{
+  while (prim && !prim.IsPseudoRoot()) {
+    const pxr::UsdGeomXformable xformable(prim);
+    if (xformable && xformable.TransformMightBeTimeVarying()) {
+      return false;
+    }
+    prim = prim.GetParent();
+  }
+  return true;
+}
 
 void USDXformReader::create_object(Main *bmain)
 {
@@ -53,7 +66,7 @@ void USDXformReader::read_object_data(Main * /*bmain*/, const pxr::UsdTimeCode t
     id_us_plus(&data->cache_file->id);
   }
 
-  BKE_object_apply_mat4(object_, transform_from_usd.ptr(), true, false);
+  BKE_object_apply_mat4(object_, transform_from_usd.ptr(), true);
 
   /* Make sure to collect custom attributes */
   set_props(use_parent_xform(), time);
@@ -64,7 +77,7 @@ pxr::SdfPath USDXformReader::object_prim_path() const
   return get_xformable().GetPrim().GetPath();
 }
 
-void USDXformReader::read_matrix(float4x4 &r_mat /* local matrix */,
+void USDXformReader::read_matrix(float4x4 &r_mat /* world matrix */,
                                  const pxr::UsdTimeCode time,
                                  const float scale,
                                  bool *r_is_constant) const
@@ -74,7 +87,7 @@ void USDXformReader::read_matrix(float4x4 &r_mat /* local matrix */,
   *r_is_constant = true;
   r_mat = float4x4::identity();
 
-  std::optional<XformResult> xf_result = get_local_usd_xform(time);
+  std::optional<XformResult> xf_result = get_world_usd_xform(time);
   if (!xf_result) {
     return;
   }
@@ -82,9 +95,9 @@ void USDXformReader::read_matrix(float4x4 &r_mat /* local matrix */,
   std::get<0>(*xf_result).Get(r_mat.ptr());
   *r_is_constant = std::get<1>(*xf_result);
 
-  /* Apply global scaling and rotation only to root objects, parenting
-   * will propagate it. */
-  if (is_root_xform_prim()) {
+  /* Transform the full USD world matrix into Blender coordinates. Every imported object is
+   * independent, so root-only conversion would leave descendant transforms in source units. */
+  if (!is_in_proto()) {
     if (scale != 1.0f) {
       const float4x4 mat_scale = math::from_scale<float4x4>(float3(scale));
       r_mat = mat_scale * r_mat;
@@ -110,66 +123,18 @@ bool USDXformReader::prim_has_xform_ops() const
   return !xformable.GetOrderedXformOps(&reset_xform_stack).empty();
 }
 
-bool USDXformReader::is_root_xform_prim() const
+std::optional<XformResult> USDXformReader::get_world_usd_xform(const pxr::UsdTimeCode time) const
 {
-  if (!prim_.IsValid()) {
-    return false;
-  }
-
-  if (is_in_proto()) {
-    /* We don't consider prototypes to be root prims,
-     * because we never want to apply global scaling
-     * or rotations to the prototypes themselves. */
-    return false;
-  }
-
-  if (prim_.IsA<pxr::UsdGeomXformable>()) {
-    /* If this prim doesn't have an ancestor that's a
-     * UsdGeomXformable, then it's a root prim.  Note
-     * that it's not sufficient to only check the immediate
-     * parent prim, since the immediate parent could be a
-     * UsdGeomScope that has an xformable ancestor. */
-    pxr::UsdPrim cur_parent = prim_.GetParent();
-
-    if (use_parent_xform_) {
-      cur_parent = cur_parent.GetParent();
-    }
-
-    while (cur_parent && !cur_parent.IsPseudoRoot()) {
-      if (cur_parent.IsA<pxr::UsdGeomXformable>()) {
-        return false;
-      }
-      cur_parent = cur_parent.GetParent();
-    }
-
-    /* We didn't find an xformable ancestor. */
-    return true;
-  }
-
-  return false;
-}
-
-std::optional<XformResult> USDXformReader::get_local_usd_xform(const pxr::UsdTimeCode time) const
-{
-  const pxr::UsdGeomXformable xformable = get_xformable();
-
-  if (!xformable) {
-    /* This might happen if the prim is a Scope. */
-    return std::nullopt;
-  }
-
-  bool is_constant = !xformable.TransformMightBeTimeVarying();
-
-  bool reset_xform_stack;
-  pxr::GfMatrix4d xform;
-  if (!xformable.GetLocalTransformation(&xform, &reset_xform_stack, time)) {
-    return std::nullopt;
-  }
+  /* GetLocalToWorldTransform honors USD resetXformStack behavior and evaluates all ancestor
+   * transforms directly from the source stage. */
+  pxr::UsdGeomXformCache xform_cache(time);
+  const pxr::GfMatrix4d world_xform = xform_cache.GetLocalToWorldTransform(prim_);
+  const bool is_constant = usd_transform_hierarchy_is_constant(prim_);
 
   /* The USD bind transform is a matrix of doubles,
    * but we cast it to GfMatrix4f because Blender expects
    * a matrix of floats. */
-  return XformResult(pxr::GfMatrix4f(xform), is_constant);
+  return XformResult(pxr::GfMatrix4f(world_xform), is_constant);
 }
 
 pxr::UsdGeomXformable USDXformReader::get_xformable() const

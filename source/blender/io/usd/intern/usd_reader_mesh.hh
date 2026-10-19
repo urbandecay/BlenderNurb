@@ -135,20 +135,8 @@ class USDMeshReader : public USDGeomReader {
 
   bool topology_changed(const Mesh *existing_mesh, const USDMeshReadData &usd_data) const;
 
-  /**
-   * Override transform computation to account for the binding
-   * transformation for skinned meshes.
-   */
-  std::optional<XformResult> get_local_usd_xform(pxr::UsdTimeCode time) const override;
-
-  /**
-   * A skinned mesh is re-parented to its bound armature during import
-   * (#USDStageReader::process_armature_modifiers), so it is never the root of a transform
-   * hierarchy; treating it as one would apply the scene scale / axis conversion to its
-   * (skeleton-space) local transform on top of the same conversion already carried by the
-   * armature.
-   */
-  bool is_root_xform_prim() const override;
+  /** Override world transform computation for meshes bound to a USD skeleton. */
+  std::optional<XformResult> get_world_usd_xform(pxr::UsdTimeCode time) const override;
 };
 
 }  // namespace blender::io::usd

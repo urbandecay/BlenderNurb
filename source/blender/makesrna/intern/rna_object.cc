@@ -75,38 +75,20 @@ static const EnumPropertyItem rna_enum_object_empty_image_depth_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-static const EnumPropertyItem parent_type_items[] = {
-    {PAROBJECT, "OBJECT", 0, "Object", "The object is parented to an object"},
-    {PARSKEL, "ARMATURE", 0, "Armature", ""},
-    /* PARSKEL reuse will give issues. */
-    {PARSKEL, "LATTICE", 0, "Lattice", "The object is parented to a lattice"},
-    {PARVERT1, "VERTEX", 0, "Vertex", "The object is parented to a vertex"},
-    {PARVERT3, "VERTEX_3", 0, "3 Vertices", ""},
-    {PARBONE, "BONE", 0, "Bone", "The object is parented to a bone"},
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
-#define INSTANCE_ITEMS_SHARED \
-  {0, "NONE", 0, "None", ""}, \
-      {OB_DUPLIVERTS, "VERTS", 0, "Vertices", "Instantiate child objects on all vertices"}, \
-      {OB_DUPLIFACES, "FACES", 0, "Faces", "Instantiate child objects on all faces"}
-
-#define INSTANCE_ITEM_COLLECTION \
-  {OB_DUPLICOLLECTION, "COLLECTION", 0, "Collection", "Enable collection instancing"}
 static const EnumPropertyItem instance_items[] = {
-    INSTANCE_ITEMS_SHARED,
-    INSTANCE_ITEM_COLLECTION,
+    {0, "NONE", 0, "None", ""},
+    {OB_DUPLICOLLECTION, "COLLECTION", 0, "Collection", "Enable collection instancing"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 #ifdef RNA_RUNTIME
 static EnumPropertyItem instance_items_nogroup[] = {
-    INSTANCE_ITEMS_SHARED,
+    {0, "NONE", 0, "None", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
 static EnumPropertyItem instance_items_empty[] = {
     {0, "NONE", 0, "None", ""},
-    INSTANCE_ITEM_COLLECTION,
+    {OB_DUPLICOLLECTION, "COLLECTION", 0, "Collection", "Enable collection instancing"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -116,8 +98,6 @@ static EnumPropertyItem instance_items_font[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 #endif
-#undef INSTANCE_ITEMS_SHARED
-#undef INSTANCE_ITEM_COLLECTION
 
 const EnumPropertyItem rna_enum_metaelem_type_items[] = {
     {MB_BALL, "BALL", ICON_META_BALL, "Ball", ""},
@@ -284,7 +264,7 @@ static void rna_Object_matrix_world_update(Main *bmain, Scene *scene, PointerRNA
 {
   /* Don't use compatibility so we get predictable rotation. */
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
-  BKE_object_apply_mat4(ob, ob->object_to_world().ptr(), false, true);
+  BKE_object_apply_mat4(ob, ob->object_to_world().ptr(), false);
   rna_Object_internal_update(bmain, scene, ptr);
 }
 
@@ -326,23 +306,10 @@ static void rna_Object_matrix_local_get(PointerRNA *ptr, float values[16])
 static void rna_Object_matrix_local_set(PointerRNA *ptr, const float values[16])
 {
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
-  float local_mat[4][4];
 
-  /* Local-space matrix is truly relative to the parent,
-   * but parameters stored in object are relative to parentinv matrix.
-   * Undo the parent inverse part before applying it as local matrix. */
-  if (ob->parent) {
-    float invmat[4][4];
-    invert_m4_m4(invmat, ob->parentinv);
-    mul_m4_m4m4(local_mat, invmat, reinterpret_cast<float (*)[4]>(const_cast<float *>(values)));
-  }
-  else {
-    copy_m4_m4(local_mat, reinterpret_cast<float (*)[4]>(const_cast<float *>(values)));
-  }
-
-  /* Don't use compatible so we get predictable rotation, and do not use parenting either,
-   * because it's a local matrix! */
-  BKE_object_apply_mat4(ob, local_mat, false, false);
+  /* Object transforms are local and world-space values without a parent hierarchy. */
+  BKE_object_apply_mat4(
+      ob, reinterpret_cast<float (*)[4]>(const_cast<float *>(values)), false);
 }
 
 static void rna_Object_matrix_basis_get(PointerRNA *ptr, float values[16])
@@ -355,7 +322,7 @@ static void rna_Object_matrix_basis_set(PointerRNA *ptr, const float values[16])
 {
   Object *ob = reinterpret_cast<Object *>(ptr->owner_id);
   BKE_object_apply_mat4(
-      ob, reinterpret_cast<float (*)[4]>(const_cast<float *>(values)), false, false);
+      ob, reinterpret_cast<float (*)[4]>(const_cast<float *>(values)), false);
 }
 
 void rna_Object_internal_update_data_impl(PointerRNA *ptr)
@@ -534,184 +501,11 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
   }
 }
 
-static void rna_Object_parent_set(PointerRNA *ptr, PointerRNA value, ReportList * /*reports*/)
-{
-  Object *ob = static_cast<Object *>(ptr->data);
-  Object *par = static_cast<Object *>(value.data);
-
-  {
-    ed::object::parent_set(ob, par, ob->partype, ob->parsubstr);
-  }
-}
-
-static bool rna_Object_parent_override_apply(Main *bmain,
-                                             RNAPropertyOverrideApplyContext &rnaapply_ctx)
-{
-  PointerRNA *ptr_dst = &rnaapply_ctx.ptr_dst;
-  PointerRNA *ptr_src = &rnaapply_ctx.ptr_src;
-  PointerRNA *ptr_storage = &rnaapply_ctx.ptr_storage;
-  PropertyRNA *prop_dst = rnaapply_ctx.prop_dst;
-  PropertyRNA *prop_src = rnaapply_ctx.prop_src;
-  const int len_dst = rnaapply_ctx.len_src;
-  const int len_src = rnaapply_ctx.len_src;
-  const int len_storage = rnaapply_ctx.len_storage;
-  IDOverrideLibraryPropertyOperation *opop = rnaapply_ctx.liboverride_operation;
-
-  BLI_assert(len_dst == len_src && (!ptr_storage || len_dst == len_storage) && len_dst == 0);
-  BLI_assert(opop->operation == LIBOVERRIDE_OP_REPLACE &&
-             "Unsupported RNA override operation on object parent pointer");
-  UNUSED_VARS_NDEBUG(ptr_storage, len_dst, len_src, len_storage, opop);
-
-  /* We need a special handling here because setting parent resets invert parent matrix,
-   * which is evil in our case. */
-  Object *ob = static_cast<Object *>(ptr_dst->data);
-  Object *parent_dst = static_cast<Object *>(RNA_property_pointer_get(ptr_dst, prop_dst).data);
-  Object *parent_src = static_cast<Object *>(RNA_property_pointer_get(ptr_src, prop_src).data);
-
-  if (parent_src == parent_dst) {
-    return false;
-  }
-
-  if (parent_src == nullptr) {
-    /* The only case where we do want default behavior (with matrix reset). */
-    ed::object::parent_set(ob, parent_src, ob->partype, ob->parsubstr);
-  }
-  else {
-    ob->parent = parent_src;
-  }
-  RNA_property_update_main(bmain, nullptr, ptr_dst, prop_dst);
-  return true;
-}
-
-static void rna_Object_parent_type_set(PointerRNA *ptr, int value)
-{
-  Object *ob = static_cast<Object *>(ptr->data);
-
-  /* Skip if type did not change (otherwise we loose parent inverse in
-   * ed::object::parent_set). */
-  if (ob->partype == eObject_Partype(value)) {
-    return;
-  }
-
-  ed::object::parent_set(ob, ob->parent, eObject_Partype(value), ob->parsubstr);
-}
-
-static bool rna_Object_parent_type_override_apply(Main *bmain,
-                                                  RNAPropertyOverrideApplyContext &rnaapply_ctx)
-{
-  PointerRNA *ptr_dst = &rnaapply_ctx.ptr_dst;
-  PointerRNA *ptr_src = &rnaapply_ctx.ptr_src;
-  PointerRNA *ptr_storage = &rnaapply_ctx.ptr_storage;
-  PropertyRNA *prop_dst = rnaapply_ctx.prop_dst;
-  PropertyRNA *prop_src = rnaapply_ctx.prop_src;
-  const int len_dst = rnaapply_ctx.len_src;
-  const int len_src = rnaapply_ctx.len_src;
-  const int len_storage = rnaapply_ctx.len_storage;
-  IDOverrideLibraryPropertyOperation *opop = rnaapply_ctx.liboverride_operation;
-
-  BLI_assert(len_dst == len_src && (!ptr_storage || len_dst == len_storage) && len_dst == 0);
-  BLI_assert(opop->operation == LIBOVERRIDE_OP_REPLACE &&
-             "Unsupported RNA override operation on object parent pointer");
-  UNUSED_VARS_NDEBUG(ptr_storage, len_dst, len_src, len_storage, opop);
-
-  /* We need a special handling here because setting parent resets invert parent matrix,
-   * which is evil in our case. */
-  Object *ob = static_cast<Object *>(ptr_dst->data);
-  const int parent_type_dst = RNA_property_enum_get(ptr_dst, prop_dst);
-  const int parent_type_src = RNA_property_enum_get(ptr_src, prop_src);
-
-  if (parent_type_dst == parent_type_src) {
-    return false;
-  }
-
-  ob->partype = eObject_Partype(parent_type_src);
-  RNA_property_update_main(bmain, nullptr, ptr_dst, prop_dst);
-  return true;
-}
-
-static const EnumPropertyItem *rna_Object_parent_type_itemf(bContext * /*C*/,
-                                                            PointerRNA *ptr,
-                                                            PropertyRNA * /*prop*/,
-                                                            bool *r_free)
-{
-  Object *ob = static_cast<Object *>(ptr->data);
-  EnumPropertyItem *item = nullptr;
-  int totitem = 0;
-
-  RNA_enum_items_add_value(&item, &totitem, parent_type_items, PAROBJECT);
-
-  if (ob->parent) {
-    Object *par = ob->parent;
-
-    if (par->type == OB_LATTICE) {
-      /* special hack: prevents this overriding others */
-      RNA_enum_items_add_value(&item, &totitem, &parent_type_items[2], PARSKEL);
-    }
-    else if (par->type == OB_ARMATURE) {
-      /* special hack: prevents this being overridden */
-      RNA_enum_items_add_value(&item, &totitem, &parent_type_items[1], PARSKEL);
-      RNA_enum_items_add_value(&item, &totitem, parent_type_items, PARBONE);
-    }
-
-    if (OB_TYPE_SUPPORT_PARVERT(par->type)) {
-      RNA_enum_items_add_value(&item, &totitem, parent_type_items, PARVERT1);
-      RNA_enum_items_add_value(&item, &totitem, parent_type_items, PARVERT3);
-    }
-  }
-
-  RNA_enum_item_end(&item, &totitem);
-  *r_free = true;
-
-  return item;
-}
-
 static void rna_Object_empty_display_type_set(PointerRNA *ptr, int value)
 {
   Object *ob = static_cast<Object *>(ptr->data);
 
   BKE_object_empty_draw_type_set(ob, value);
-}
-
-static void rna_Object_parent_bone_set(PointerRNA *ptr, const char *value)
-{
-  Object *ob = static_cast<Object *>(ptr->data);
-
-  ed::object::parent_set(ob, ob->parent, ob->partype, value);
-}
-
-static bool rna_Object_parent_bone_override_apply(Main *bmain,
-                                                  RNAPropertyOverrideApplyContext &rnaapply_ctx)
-{
-  PointerRNA *ptr_dst = &rnaapply_ctx.ptr_dst;
-  PointerRNA *ptr_src = &rnaapply_ctx.ptr_src;
-  PointerRNA *ptr_storage = &rnaapply_ctx.ptr_storage;
-  PropertyRNA *prop_dst = rnaapply_ctx.prop_dst;
-  PropertyRNA *prop_src = rnaapply_ctx.prop_src;
-  const int len_dst = rnaapply_ctx.len_src;
-  const int len_src = rnaapply_ctx.len_src;
-  const int len_storage = rnaapply_ctx.len_storage;
-  IDOverrideLibraryPropertyOperation *opop = rnaapply_ctx.liboverride_operation;
-
-  BLI_assert(len_dst == len_src && (!ptr_storage || len_dst == len_storage) && len_dst == 0);
-  BLI_assert(opop->operation == LIBOVERRIDE_OP_REPLACE &&
-             "Unsupported RNA override operation on object parent bone property");
-  UNUSED_VARS_NDEBUG(ptr_storage, len_dst, len_src, len_storage, opop);
-
-  /* We need a special handling here because setting parent resets invert parent matrix,
-   * which is evil in our case. */
-  Object *ob = static_cast<Object *>(ptr_dst->data);
-  char parent_bone_dst[MAX_ID_NAME - 2];
-  RNA_property_string_get(ptr_dst, prop_dst, parent_bone_dst);
-  char parent_bone_src[MAX_ID_NAME - 2];
-  RNA_property_string_get(ptr_src, prop_src, parent_bone_src);
-
-  if (STREQ(parent_bone_src, parent_bone_dst)) {
-    return false;
-  }
-
-  STRNCPY(ob->parsubstr, parent_bone_src);
-  RNA_property_update_main(bmain, nullptr, ptr_dst, prop_dst);
-  return true;
 }
 
 static const EnumPropertyItem *rna_Object_instance_type_itemf(bContext * /*C*/,
@@ -2765,62 +2559,6 @@ static void rna_def_object(BlenderRNA *brna)
       "Object's bounding box in object-space coordinates, all values are -1.0 when "
       "not available");
 
-  /* parent */
-  prop = RNA_def_property(srna, "parent", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_funcs(prop, nullptr, "rna_Object_parent_set", nullptr, nullptr);
-  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
-  RNA_def_property_override_funcs(prop, nullptr, nullptr, "rna_Object_parent_override_apply");
-  RNA_def_property_ui_text(prop, "Parent", "Parent object");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
-
-  prop = RNA_def_property(srna, "parent_type", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_bitflag_sdna(prop, nullptr, "partype");
-  RNA_def_property_enum_items(prop, parent_type_items);
-  RNA_def_property_enum_funcs(
-      prop, nullptr, "rna_Object_parent_type_set", "rna_Object_parent_type_itemf");
-  RNA_def_property_override_funcs(prop, nullptr, nullptr, "rna_Object_parent_type_override_apply");
-  RNA_def_property_ui_text(prop, "Parent Type", "Type of parent relation");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
-
-  prop = RNA_def_property(srna, "parent_vertices", PROP_INT, PROP_UNSIGNED);
-  RNA_def_property_int_sdna(prop, nullptr, "par1");
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(
-      prop, "Parent Vertices", "Indices of vertices in case of a vertex parenting relation");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update");
-
-  prop = RNA_def_property(srna, "parent_bone", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "parsubstr");
-  RNA_def_property_string_funcs(prop, nullptr, nullptr, "rna_Object_parent_bone_set");
-  RNA_def_property_override_funcs(prop, nullptr, nullptr, "rna_Object_parent_bone_override_apply");
-  RNA_def_property_ui_text(
-      prop, "Parent Bone", "Name of parent bone in case of a bone parenting relation");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
-
-  prop = RNA_def_property(srna, "parent_bone_head_tail_factor", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "parent_bone_head_tail_factor");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0, 1.0, 1, 2);
-  RNA_def_property_ui_text(prop, "Parent Bone Head/Tail", "Position along the length of bone");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update");
-
-  prop = RNA_def_property(srna, "use_parent_final_indices", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "transflag", OB_PARENT_USE_FINAL_INDICES);
-  RNA_def_property_ui_text(
-      prop,
-      "Use Final Indices",
-      "Use the final evaluated indices rather than the original mesh indices");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update");
-
-  prop = RNA_def_property(srna, "use_camera_lock_parent", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(
-      prop, nullptr, "transflag", OB_TRANSFORM_ADJUST_ROOT_PARENT_FOR_VIEW_LOCK);
-  RNA_def_property_ui_text(prop,
-                           "Camera Parent Lock",
-                           "View Lock 3D viewport camera transformation affects the object's "
-                           "parent instead");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update");
-
   /* Track and Up flags */
   /* XXX: these have been saved here for a bit longer (after old track was removed),
    *      since some other tools still refer to this */
@@ -3050,9 +2788,7 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "Local Matrix",
-      "Parent relative transformation matrix.\n"
-      "Warning: Only takes into account object parenting, so e.g. in case of bone parenting "
-      "you get a matrix relative to the Armature object, not to the actual parent bone");
+      "Transformation matrix in object-local coordinates, before constraints are applied");
   RNA_def_property_float_funcs(
       prop, "rna_Object_matrix_local_get", "rna_Object_matrix_local_set", nullptr);
   RNA_def_property_update(prop, NC_OBJECT | ND_TRANSFORM, "rna_Object_internal_update");
@@ -3065,17 +2801,9 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(prop,
                            "Input Matrix",
                            "Matrix access to location, rotation and scale (including deltas), "
-                           "before constraints and parenting are applied");
+                           "before constraints are applied");
   RNA_def_property_float_funcs(
       prop, "rna_Object_matrix_basis_get", "rna_Object_matrix_basis_set", nullptr);
-  RNA_def_property_update(prop, NC_OBJECT | ND_TRANSFORM, "rna_Object_internal_update");
-
-  /* Parent_inverse. */
-  prop = RNA_def_property(srna, "matrix_parent_inverse", PROP_FLOAT, PROP_MATRIX);
-  RNA_def_property_float_sdna(prop, nullptr, "parentinv");
-  RNA_def_property_multi_array(prop, 2, rna_matrix_dimsize_4x4);
-  RNA_def_property_ui_text(
-      prop, "Parent Inverse Matrix", "Inverse of object's parent matrix at time of parenting");
   RNA_def_property_update(prop, NC_OBJECT | ND_TRANSFORM, "rna_Object_internal_update");
 
   /* modifiers */
@@ -3278,23 +3006,6 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_enum_funcs(prop, nullptr, nullptr, "rna_Object_instance_type_itemf");
   RNA_def_property_ui_text(prop, "Instance Type", "If not None, object instancing method to use");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
-
-  prop = RNA_def_property(srna, "use_instance_vertices_rotation", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "transflag", OB_DUPLIROT);
-  RNA_def_property_ui_text(
-      prop, "Orient with Normals", "Rotate instance according to vertex normal");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "use_instance_faces_scale", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "transflag", OB_DUPLIFACES_SCALE);
-  RNA_def_property_ui_text(prop, "Scale to Face Sizes", "Scale instance based on face size");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update");
-
-  prop = RNA_def_property(srna, "instance_faces_scale", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, nullptr, "instance_faces_scale");
-  RNA_def_property_range(prop, 0.001f, 10000.0f);
-  RNA_def_property_ui_text(prop, "Instance Faces Scale", "Scale the face instance objects");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update");
 
   prop = RNA_def_property(srna, "instance_collection", PROP_POINTER, PROP_NONE);
   RNA_def_property_struct_type(prop, "Collection");

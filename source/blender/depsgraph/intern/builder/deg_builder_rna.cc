@@ -307,7 +307,6 @@ RNANodeIdentifier RNANodeQuery::construct_node_identifier(const PointerRNA *ptr,
           contains(prop_identifier, "matrix_channel") ||
           contains(prop_identifier, "matrix_inverse") ||
           contains(prop_identifier, "matrix_local") ||
-          contains(prop_identifier, "matrix_parent_inverse") ||
           contains(prop_identifier, "matrix_world") ||
           contains(prop_identifier, "rotation_axis_angle") ||
           contains(prop_identifier, "rotation_euler") ||

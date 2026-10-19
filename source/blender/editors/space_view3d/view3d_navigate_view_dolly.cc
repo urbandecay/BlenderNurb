@@ -106,7 +106,7 @@ static void viewdolly_apply(ViewOpsData *vod, const int xy[2], const bool zoom_i
     view3d_boxview_sync(vod->area, vod->region);
   }
 
-  ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
+  ED_view3d_camera_lock_sync(vod->v3d, vod->rv3d);
 
   ED_region_tag_redraw(vod->region);
 }
@@ -228,7 +228,7 @@ static wmOperatorStatus viewdolly_exec(bContext *C, wmOperator *op)
     view3d_boxview_sync(area, region);
   }
 
-  ED_view3d_camera_lock_sync(CTX_data_ensure_evaluated_depsgraph(C), v3d, rv3d);
+  ED_view3d_camera_lock_sync(v3d, rv3d);
 
   ED_region_tag_redraw(region);
 

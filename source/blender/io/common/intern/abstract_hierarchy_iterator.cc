@@ -190,7 +190,6 @@ AbstractHierarchyIterator::~AbstractHierarchyIterator()
 void AbstractHierarchyIterator::iterate_and_write()
 {
   export_graph_construct();
-  connect_loose_objects();
   export_graph_prune();
   determine_export_paths(HierarchyContext::root());
   determine_duplication_references(HierarchyContext::root(), "");
@@ -304,9 +303,8 @@ void AbstractHierarchyIterator::export_graph_construct()
                             DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET;
   DupliList duplilist;
   DEG_OBJECT_ITER_BEGIN (&deg_iter_settings, object) {
-    /* Non-instanced objects always have their object-parent as export-parent. */
     const bool weak_export = mark_as_weak_export(object);
-    visit_object(object, object->parent, weak_export);
+    visit_object(object, nullptr, weak_export);
 
     if (weak_export) {
       /* If a duplicator shouldn't be exported, its duplilist also shouldn't be. */
@@ -336,45 +334,6 @@ void AbstractHierarchyIterator::export_graph_construct()
     duplilist.clear();
   }
   DEG_OBJECT_ITER_END;
-}
-
-void AbstractHierarchyIterator::connect_loose_objects()
-{
-  /* Find those objects whose parent is not part of the export graph; these
-   * objects would be skipped when traversing the graph as a hierarchy.
-   * These objects will have to be re-attached to some parent object in order to
-   * fit into the hierarchy. */
-  ExportGraph loose_objects_graph = export_graph_;
-  for (const ExportChildren &children : export_graph_.values()) {
-    for (const HierarchyContext *child : children) {
-      /* An object that is marked as a child of another object is not considered 'loose'. */
-      ObjectIdentifier child_oid = ObjectIdentifier::for_hierarchy_context(child);
-      loose_objects_graph.remove(child_oid);
-    }
-  }
-  /* The root of the hierarchy is always found, so it's never considered 'loose'. */
-  loose_objects_graph.remove_contained(ObjectIdentifier::for_graph_root());
-
-  /* Iterate over the loose objects and connect them to their export parent. */
-  for (const ObjectIdentifier &graph_key : loose_objects_graph.keys()) {
-    Object *object = graph_key.object;
-
-    while (true) {
-      /* Loose objects will all be real objects, as duplicated objects always have
-       * their duplicator or other exported duplicated object as ancestor. */
-
-      const bool found = export_graph_.contains(ObjectIdentifier::for_real_object(object->parent));
-      visit_object(object, object->parent, true);
-      if (found) {
-        break;
-      }
-      /* 'object->parent' will never be nullptr here, as the export graph contains the
-       * root as nullptr and thus will cause a break above. */
-      BLI_assert(object->parent != nullptr);
-
-      object = object->parent;
-    }
-  }
 }
 
 static bool remove_weak_subtrees(const HierarchyContext *context,
@@ -435,7 +394,6 @@ void AbstractHierarchyIterator::visit_object(Object *object,
   context->export_parent = export_parent;
   context->duplicator = nullptr;
   context->weak_export = weak_export;
-  context->animation_check_include_parent = false;
   context->export_path = "";
   context->original_export_path = "";
   context->higher_up_export_path = "";
@@ -448,11 +406,8 @@ void AbstractHierarchyIterator::visit_object(Object *object,
   /* Store this HierarchyContext as child of the export parent. */
   export_graph_.lookup_or_add(graph_index, {}).add_new(context);
 
-  /* Create an empty entry for this object to indicate it is part of the export. This will be used
-   * by connect_loose_objects(). Having such an "indicator" will make it possible to do an O(log n)
-   * check on whether an object is part of the export, rather than having to check all objects in
-   * the map. Note that it's not possible to simply search for (object->parent, nullptr), as the
-   * object's parent in Blender may not be the same as its export-parent. */
+  /* Create an empty entry for this object to indicate it is part of the export. This also allows
+   * duplicated objects to refer to an exported instancer by its ObjectIdentifier. */
   ObjectIdentifier object_key = ObjectIdentifier::for_real_object(object);
   export_graph_.add(object_key, {});
 }
@@ -475,7 +430,6 @@ void AbstractHierarchyIterator::visit_dupli_object(const DupliObject *dupli_obje
   context->weak_export = false;
   context->export_path = "";
   context->original_export_path = "";
-  context->animation_check_include_parent = false;
   context->is_duplisource = false;
   context->matrix_world = float4x4(dupli_object->mat);
 
@@ -516,17 +470,6 @@ void AbstractHierarchyIterator::context_update_for_graph_index(
   /* Update the HierarchyContext so that it is consistent with the graph index. */
   context->export_parent = graph_index.object;
 
-  /* If the parent type is such that it cannot be exported (at least not currently to USD or
-   * Alembic), always check the parent for animation. */
-  const eObject_Partype partype = context->object->partype & PARTYPE;
-  context->animation_check_include_parent |= ELEM(partype, PARBONE, PARVERT1, PARVERT3, PARSKEL);
-
-  if (context->export_parent != context->object->parent) {
-    /* The parent object in Blender is NOT used as the export parent. This means
-     * that the world transform of this object can be influenced by objects that
-     * are not part of its export graph. */
-    context->animation_check_include_parent = true;
-  }
 }
 
 AbstractHierarchyIterator::ExportChildren *AbstractHierarchyIterator::graph_children(

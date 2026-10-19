@@ -106,7 +106,7 @@ const char *RNA_path_array_index_token_find(const char *rna_path, const Property
  * indicated by fully resolving the path.
  *
  * \warning Unlike \a RNA_path_resolve_property(), that one *will* try to follow RNAPointers,
- * e.g. the path 'parent' applied to a RNAObject \a ptr will return the object.parent in \a r_ptr,
+ * e.g. the path 'location' applied to a RNAObject \a ptr will return the location pointer in \a r_ptr,
  * and a NULL \a r_prop...
  *
  * \note Assumes all pointers provided are valid

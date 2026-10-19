@@ -1161,15 +1161,7 @@ static void polygonize(PROCESS *process)
 
 static bool object_has_zero_axis_matrix(const Object *bob)
 {
-  if (has_zero_axis_m4(bob->object_to_world().ptr())) {
-    return true;
-  }
-  for (Object *pob = bob->parent; pob; pob = pob->parent) {
-    if (has_zero_axis_m4(pob->object_to_world().ptr())) {
-      return true;
-    }
-  }
-  return false;
+  return has_zero_axis_m4(bob->object_to_world().ptr());
 }
 
 /**
@@ -1185,8 +1177,6 @@ static void init_meta(Depsgraph *depsgraph, PROCESS *process, Scene *scene, Obje
   int obnr;
   char obname[MAX_ID_NAME];
   SceneBaseIter iter;
-  const eEvaluationMode deg_eval_mode = DEG_get_mode(depsgraph);
-  const short parenting_dupli_transflag = (OB_DUPLIFACES | OB_DUPLIVERTS);
 
   /* Copy object matrices to cope with duplicators from #BKE_scene_base_iter_next. */
   float obinv[4][4], obmat[4][4];
@@ -1199,15 +1189,6 @@ static void init_meta(Depsgraph *depsgraph, PROCESS *process, Scene *scene, Obje
   BKE_scene_base_iter_next(depsgraph, &iter, &sce_iter, 0, nullptr, nullptr);
   while (BKE_scene_base_iter_next(depsgraph, &iter, &sce_iter, 1, &base, &bob)) {
     if (bob->type != OB_MBALL) {
-      continue;
-    }
-
-    /* If this metaball is the original that's used for duplication, only have it visible when
-     * the instancer is visible too. */
-    if ((base->flag_legacy & OB_FROMDUPLI) == 0 && ob->parent != nullptr &&
-        (ob->parent->transflag & parenting_dupli_transflag) != 0 &&
-        (BKE_object_visibility(ob->parent, deg_eval_mode) & OB_VISIBLE_SELF) == 0)
-    {
       continue;
     }
 

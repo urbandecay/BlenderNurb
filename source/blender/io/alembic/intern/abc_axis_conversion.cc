@@ -69,64 +69,43 @@ void create_swapped_rotation_matrix(float rot_x_mat[3][3],
 
 void copy_m44_axis_swap(float dst_mat[4][4], float src_mat[4][4], AbcAxisSwapMode mode)
 {
-  float dst_rot[3][3], src_rot[3][3], dst_scale_mat[4][4];
-  float rot_x_mat[3][3], rot_y_mat[3][3], rot_z_mat[3][3];
-  float src_trans[3], dst_scale[3], src_scale[3], euler[3];
+  /* Convert the coordinate basis with a matrix conjugation. This preserves shear and homogeneous
+   * terms, which occur naturally when flattening a hierarchy with non-uniform parent scale. */
+  float basis[4][4], inverse_basis[4][4], intermediate[4][4];
+  unit_m4(basis);
+  unit_m4(inverse_basis);
 
-  zero_v3(src_trans);
-  zero_v3(dst_scale);
-  zero_v3(src_scale);
-  zero_v3(euler);
-  unit_m3(src_rot);
-  unit_m3(dst_rot);
-  unit_m4(dst_scale_mat);
-
-  /* TODO(Sybren): This code assumes there is no sheer component and no
-   * homogeneous scaling component, which is not always true when writing
-   * non-hierarchical (e.g. flat) objects (e.g. when parent has non-uniform
-   * scale and the child rotates). This is currently not taken into account
-   * when axis-swapping. */
-
-  /* Extract translation, rotation, and scale form matrix. */
-  mat4_to_loc_rot_size(src_trans, src_rot, src_scale, src_mat);
-
-  /* Get euler angles from rotation matrix. */
-  mat3_to_eulO(euler, ROT_MODE_XZY, src_rot);
-
-  /* Create X, Y, Z rotation matrices from euler angles. */
-  create_swapped_rotation_matrix(rot_x_mat, rot_y_mat, rot_z_mat, euler, mode);
-
-  /* Concatenate rotation matrices. */
-  mul_m3_m3m3(dst_rot, dst_rot, rot_z_mat);
-  mul_m3_m3m3(dst_rot, dst_rot, rot_y_mat);
-  mul_m3_m3m3(dst_rot, dst_rot, rot_x_mat);
-
-  mat3_to_eulO(euler, ROT_MODE_XZY, dst_rot);
-
-  /* Start construction of dst_mat from rotation matrix */
-  unit_m4(dst_mat);
-  copy_m4_m3(dst_mat, dst_rot);
-
-  /* Apply translation */
   switch (mode) {
-    case ABC_ZUP_FROM_YUP:
-      copy_zup_from_yup(dst_mat[3], src_trans);
-      break;
     case ABC_YUP_FROM_ZUP:
-      copy_yup_from_zup(dst_mat[3], src_trans);
+      /* (x, y, z) -> (x, z, -y). */
+      basis[1][1] = 0.0f;
+      basis[1][2] = -1.0f;
+      basis[2][1] = 1.0f;
+      basis[2][2] = 0.0f;
+      inverse_basis[1][1] = 0.0f;
+      inverse_basis[1][2] = 1.0f;
+      inverse_basis[2][1] = -1.0f;
+      inverse_basis[2][2] = 0.0f;
+      break;
+    case ABC_ZUP_FROM_YUP:
+      /* (x, y, z) -> (x, -z, y). */
+      basis[1][1] = 0.0f;
+      basis[1][2] = 1.0f;
+      basis[2][1] = -1.0f;
+      basis[2][2] = 0.0f;
+      inverse_basis[1][1] = 0.0f;
+      inverse_basis[1][2] = -1.0f;
+      inverse_basis[2][1] = 1.0f;
+      inverse_basis[2][2] = 0.0f;
       break;
     default:
       BLI_assert(false);
+      copy_m4_m4(dst_mat, src_mat);
+      return;
   }
 
-  /* Apply scale matrix. Swaps y and z, but does not
-   * negate like translation does. */
-  dst_scale[0] = src_scale[0];
-  dst_scale[1] = src_scale[2];
-  dst_scale[2] = src_scale[1];
-
-  size_to_mat4(dst_scale_mat, dst_scale);
-  mul_m4_m4m4(dst_mat, dst_mat, dst_scale_mat);
+  mul_m4_m4m4(intermediate, inverse_basis, src_mat);
+  mul_m4_m4m4(dst_mat, intermediate, basis);
 }
 
 void create_transform_matrix(Object *obj,
@@ -136,17 +115,10 @@ void create_transform_matrix(Object *obj,
 {
   float zup_mat[4][4];
 
-  /* get local or world matrix. */
-  if (mode == ABC_MATRIX_LOCAL && obj->parent) {
-    /* Note that this produces another matrix than the local matrix, due to
-     * constraints and modifiers as well as the obj->parentinv matrix. */
-    invert_m4_m4(obj->parent->runtime->world_to_object.ptr(),
-                 obj->parent->object_to_world().ptr());
-    mul_m4_m4m4(zup_mat, obj->parent->world_to_object().ptr(), obj->object_to_world().ptr());
-  }
-  else {
-    copy_m4_m4(zup_mat, obj->object_to_world().ptr());
-  }
+  /* Object-parent relationships are not part of the exported transform model. Even callers that
+   * request the legacy local mode receive the evaluated world transform. */
+  (void)mode;
+  copy_m4_m4(zup_mat, obj->object_to_world().ptr());
 
   if (proxy_from) {
     mul_m4_m4m4(zup_mat, proxy_from->object_to_world().ptr(), zup_mat);

@@ -54,19 +54,8 @@ struct View3DCameraControl {
   /* -------------------------------------------------------------------- */
   /* internal vars */
 
-  /* for parenting calculation */
-  float view_mat_prev[4][4];
-
-  /* -------------------------------------------------------------------- */
-  /* optional capabilities */
-
-  bool use_parent_root;
-
   /* -------------------------------------------------------------------- */
   /* initial values */
-
-  /** Root most parent. */
-  Object *root_parent;
 
   /* Backup values. */
 
@@ -96,7 +85,7 @@ struct View3DCameraControl {
 
 BLI_INLINE Object *view3d_cameracontrol_object(const View3DCameraControl *vctrl)
 {
-  return vctrl->root_parent ? vctrl->root_parent : vctrl->ctx_v3d->camera;
+  return vctrl->ctx_v3d->camera;
 }
 
 Object *ED_view3d_cameracontrol_object_get(View3DCameraControl *vctrl)
@@ -124,9 +113,6 @@ View3DCameraControl *ED_view3d_cameracontrol_acquire(Depsgraph *depsgraph,
   vctrl->ctx_v3d = v3d;
   vctrl->ctx_rv3d = rv3d;
 
-  vctrl->use_parent_root = v3d->camera != nullptr &&
-                           v3d->camera->transflag & OB_TRANSFORM_ADJUST_ROOT_PARENT_FOR_VIEW_LOCK;
-
   vctrl->persp_backup = rv3d->persp;
   vctrl->dist_backup = rv3d->dist;
 
@@ -138,19 +124,8 @@ View3DCameraControl *ED_view3d_cameracontrol_acquire(Depsgraph *depsgraph,
   }
 
   if (rv3d->persp == RV3D_CAMOB) {
-    Object *ob_back;
-    if (vctrl->use_parent_root && (vctrl->root_parent = v3d->camera->parent)) {
-      while (vctrl->root_parent->parent) {
-        vctrl->root_parent = vctrl->root_parent->parent;
-      }
-      ob_back = vctrl->root_parent;
-    }
-    else {
-      ob_back = v3d->camera;
-    }
-
     /* store the original camera loc and rot */
-    vctrl->obtfm = BKE_object_tfm_backup(ob_back);
+    vctrl->obtfm = BKE_object_tfm_backup(v3d->camera);
 
     BKE_object_where_is_calc(depsgraph, scene, v3d->camera);
     negate_v3_v3(rv3d->ofs, v3d->camera->object_to_world().location());
@@ -178,7 +153,6 @@ View3DCameraControl *ED_view3d_cameracontrol_acquire(Depsgraph *depsgraph,
     /* Done with correcting for the dist */
   }
 
-  ED_view3d_to_m4(vctrl->view_mat_prev, rv3d->ofs, rv3d->viewquat, rv3d->dist);
 
   return vctrl;
 }
@@ -195,7 +169,6 @@ View3DCameraControl *ED_view3d_cameracontrol_acquire(Depsgraph *depsgraph,
 static bool object_apply_mat4_with_protect(
     Object *ob,
     const float obmat[4][4],
-    const bool use_parent, /* Only use when applying lock. */
     RegionView3D *rv3d,
     const float view_mat[4][4])
 {
@@ -207,7 +180,7 @@ static bool object_apply_mat4_with_protect(
     BKE_object_tfm_protected_backup(ob, &obtfm);
   }
 
-  BKE_object_apply_mat4(ob, obmat, true, use_parent);
+  BKE_object_apply_mat4(ob, obmat, true);
 
   if (use_protect) {
     float obmat_noprotect[4][4], obmat_protect[4][4];
@@ -251,51 +224,22 @@ void ED_view3d_cameracontrol_update(View3DCameraControl *vctrl, /* args for keyf
   float view_mat[4][4];
   ED_view3d_to_m4(view_mat, rv3d->ofs, rv3d->viewquat, rv3d->dist);
 
-  /* transform the parent or the camera? */
-  if (vctrl->root_parent) {
-    Object *ob_update;
+  float scale_mat[4][4];
+  float scale_back[3];
 
-    float prev_view_imat[4][4];
-    float diff_mat[4][4];
-    float parent_mat[4][4];
+  /* Even though we handle the scale matrix, this still changes over time. */
+  copy_v3_v3(scale_back, v3d->camera->scale);
 
-    invert_m4_m4(prev_view_imat, vctrl->view_mat_prev);
-    mul_m4_m4m4(diff_mat, view_mat, prev_view_imat);
-    mul_m4_m4m4(parent_mat, diff_mat, vctrl->root_parent->object_to_world().ptr());
+  size_to_mat4(scale_mat, v3d->camera->scale);
+  mul_m4_m4m4(view_mat, view_mat, scale_mat);
 
-    if (object_apply_mat4_with_protect(vctrl->root_parent, parent_mat, false, rv3d, view_mat)) {
-      /* Calculate again since the view locking changes the matrix. */
-      ED_view3d_to_m4(view_mat, rv3d->ofs, rv3d->viewquat, rv3d->dist);
-    }
+  object_apply_mat4_with_protect(v3d->camera, view_mat, rv3d, view_mat);
 
-    ob_update = v3d->camera->parent;
-    while (ob_update) {
-      DEG_id_tag_update(&ob_update->id, ID_RECALC_TRANSFORM);
-      ob_update = ob_update->parent;
-    }
+  DEG_id_tag_update(&v3d->camera->id, ID_RECALC_TRANSFORM);
 
-    copy_m4_m4(vctrl->view_mat_prev, view_mat);
+  copy_v3_v3(v3d->camera->scale, scale_back);
 
-    id_key = &vctrl->root_parent->id;
-  }
-  else {
-    float scale_mat[4][4];
-    float scale_back[3];
-
-    /* even though we handle the scale matrix, this still changes over time */
-    copy_v3_v3(scale_back, v3d->camera->scale);
-
-    size_to_mat4(scale_mat, v3d->camera->scale);
-    mul_m4_m4m4(view_mat, view_mat, scale_mat);
-
-    object_apply_mat4_with_protect(v3d->camera, view_mat, true, rv3d, view_mat);
-
-    DEG_id_tag_update(&v3d->camera->id, ID_RECALC_TRANSFORM);
-
-    copy_v3_v3(v3d->camera->scale, scale_back);
-
-    id_key = &v3d->camera->id;
-  }
+  id_key = &v3d->camera->id;
 
   /* record the motion */
   if (use_autokey) {

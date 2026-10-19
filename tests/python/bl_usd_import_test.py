@@ -81,18 +81,12 @@ class USDImportTest(AbstractUSDTest):
         objects = bpy.context.scene.collection.objects
         self.assertEqual(10, len(objects), f"Test scene {infile} should have ten objects; found {len(objects)}")
 
-        # Test the hierarchy.
-        self.assertEqual(
-            objects['degenerate'],
-            objects['m_degenerate'].parent,
-            "m_degenerate should be child of /degenerate")
-        self.assertEqual(
-            objects['triangles'],
-            objects['m_triangles'].parent,
-            "m_triangles should be a child of /triangles")
-        self.assertEqual(objects['quad'], objects['m_quad'].parent, "m_quad should be a child of /quad")
-        self.assertEqual(objects['ngon_concave'], objects['m_ngon_concave'].parent,
-                         "m_ngon_concave should be a child of /ngon_concave")
+        # Mesh transforms from USD Xforms are baked into each object's world transform.
+        self.assertEqual(self.round_vector(objects['m_degenerate'].matrix_world.translation), [3, 3, 0])
+        self.assertEqual(self.round_vector(objects['m_triangles'].matrix_world.translation), [3, 0, 0])
+        self.assertEqual(self.round_vector(objects['quad'].matrix_world.translation), [0, 0, 0])
+        self.assertEqual(self.round_vector(objects['m_quad'].matrix_world.translation), [0, 0, 0])
+        self.assertEqual(self.round_vector(objects['m_ngon_concave'].matrix_world.translation), [0, 3, 0])
 
     def test_import_mesh_topology(self):
         """Test importing meshes with different polygon types."""
@@ -1132,7 +1126,7 @@ class USDImportTest(AbstractUSDTest):
 
         # Find the non "bezier" Curves object -- Has 2 curves (12 vertices each)
         all_curves = [o for o in bpy.data.objects if o.type == 'CURVES']
-        curves = [o for o in all_curves if not o.parent.name.startswith("Curve_bezier")]
+        curves = [o for o in all_curves if len(o.data.attributes["p_bool"].data) == 24]
         curves = curves[0].data
 
         self.check_attribute(curves, "p_bool", 'POINT', 'BOOLEAN', 24)
@@ -1158,7 +1152,7 @@ class USDImportTest(AbstractUSDTest):
         self.check_attribute_missing(curves, "sp_mat4x4")
 
         # Find the "bezier" Curves object -- Has 3 curves (2, 3, and 5 control points)
-        curves = [o for o in all_curves if o.parent.name.startswith("Curve_bezier")]
+        curves = [o for o in all_curves if len(o.data.attributes["p_bool"].data) == 10]
         curves = curves[0].data
 
         self.check_attribute(curves, "p_bool", 'POINT', 'BOOLEAN', 10)
@@ -1327,8 +1321,8 @@ class USDImportTest(AbstractUSDTest):
 
         # Workaround: GeometrySet processing loses the data-block name on export. This is why the
         # .001 etc. names are being used above. Since we need the order of Blender objects to match
-        # the order of USD prims, sort by the Y location to make them match in our test setup.
-        blender_curves.sort(key=lambda ob: ob.parent.location.y)
+        # the order of USD prims, sort by the world-space Y location in our test setup.
+        blender_curves.sort(key=lambda ob: ob.matrix_world.translation.y)
 
         # A MeshSequenceCache modifier should be present on every imported object
         for i in range(0, curves_num):

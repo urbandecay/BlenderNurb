@@ -20,7 +20,6 @@ OBJECT_BAKE_OPTIONS = anim_utils.BakeOptions(
     do_object=True,
     do_visual_keying=False,
     do_constraint_clear=False,
-    do_parents_clear=False,
     do_clean=False,
     do_location=True,
     do_rotation=True,

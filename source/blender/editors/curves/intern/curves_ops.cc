@@ -550,7 +550,7 @@ static wmOperatorStatus curves_convert_from_particle_system_exec(bContext *C, wm
 
   Object *ob_new = BKE_object_add(&bmain, &scene, &view_layer, OB_CURVES, psys_eval->name);
   Curves *curves_id = id_cast<Curves *>(ob_new->data);
-  BKE_object_apply_mat4(ob_new, ob_from_orig->object_to_world().ptr(), true, false);
+  BKE_object_apply_mat4(ob_new, ob_from_orig->object_to_world().ptr(), true);
   curves_id->geometry.wrap() = particles_to_curves(*ob_from_eval, *psys_eval);
 
   DEG_relations_tag_update(&bmain);
@@ -1195,7 +1195,6 @@ static bool surface_set_poll(bContext *C)
 static wmOperatorStatus surface_set_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
 
   Object &new_surface_ob = *CTX_data_active_object(C);
 
@@ -1227,16 +1226,6 @@ static wmOperatorStatus surface_set_exec(bContext *C, wmOperator *op)
     ensure_surface_deformation_node_exists(*C, curves_ob);
 
     curves_id.surface = &new_surface_ob;
-    object::parent_set(op->reports,
-                       C,
-                       scene,
-                       &curves_ob,
-                       &new_surface_ob,
-                       object::PAR_OBJECT,
-                       false,
-                       true,
-                       nullptr);
-
     DEG_id_tag_update(&curves_ob.id, ID_RECALC_TRANSFORM);
     WM_event_add_notifier(C, NC_GEOM | ND_DATA, &curves_id);
     WM_event_add_notifier(C, NC_NODE | NA_ADDED, nullptr);

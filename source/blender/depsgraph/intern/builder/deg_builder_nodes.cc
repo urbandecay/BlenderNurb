@@ -792,10 +792,6 @@ void DepsgraphNodeBuilder::build_object(int base_index,
   build_object_from_layer(base_index, object, linked_state);
   /* Transform. */
   build_object_transform(object);
-  /* Parent. */
-  if (object->parent != nullptr) {
-    build_object(-1, object->parent, DEG_ID_LINKED_INDIRECTLY, is_visible);
-  }
   /* Modifiers. */
   build_object_modifiers(object);
   /* Constraints. */
@@ -1058,14 +1054,6 @@ void DepsgraphNodeBuilder::build_object_transform(Object *object)
                      [ob_cow](blender::Depsgraph *depsgraph) {
                        BKE_object_eval_local_transform(depsgraph, ob_cow);
                      });
-  /* Object parent. */
-  if (object->parent != nullptr) {
-    add_operation_node(
-        &object->id,
-        NodeType::TRANSFORM,
-        OperationCode::TRANSFORM_PARENT,
-        [ob_cow](blender::Depsgraph *depsgraph) { BKE_object_eval_parent(depsgraph, ob_cow); });
-  }
   /* Object constraints. */
   if (object->constraints.first != nullptr) {
     build_object_constraints(object);

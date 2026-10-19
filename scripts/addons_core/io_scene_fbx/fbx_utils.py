@@ -1670,17 +1670,7 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
 
     def get_parent(self):
         if self._tag == 'OB':
-            if (self.bdata.parent and self.bdata.parent.type == 'ARMATURE' and
-                    self.bdata.parent_type == 'BONE' and self.bdata.parent_bone):
-                # Try to parent to a bone.
-                bo_par = self.bdata.parent.pose.bones.get(self.bdata.parent_bone, None)
-                if (bo_par):
-                    return ObjectWrapper(bo_par, self.bdata.parent)
-                else:  # Fallback to mere object parenting.
-                    return ObjectWrapper(self.bdata.parent)
-            else:
-                # Mere object parenting.
-                return ObjectWrapper(self.bdata.parent)
+            return None
         elif self._tag == 'DP':
             return ObjectWrapper(self._ref)
         else:  # self._tag == 'BO'
@@ -1695,7 +1685,7 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
 
     def get_matrix_local(self):
         if self._tag == 'OB':
-            return self.bdata.matrix_local.copy()
+            return self.bdata.matrix_world.copy()
         elif self._tag == 'DP':
             return self._ref.matrix_world.inverted_safe() @ self._dupli_matrix
         else:  # 'BO', current pose
@@ -1734,16 +1724,7 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
     # #### Transform and helpers
     def has_valid_parent(self, objects):
         par = self.parent
-        if par in objects:
-            if self._tag == 'OB':
-                par_type = self.bdata.parent_type
-                if par_type in {'OBJECT', 'BONE'}:
-                    return True
-                else:
-                    print("Sorry, \"{:s}\" parenting type is not supported".format(par_type))
-                    return False
-            return True
-        return False
+        return par in objects
 
     def use_bake_space_transform(self, scene_data):
         # NOTE: Only applies to object types supporting this!!! Currently, only meshes and the like...
@@ -1874,8 +1855,6 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
     def is_deformed_by_armature(self, arm_obj):
         if not (self.is_object and self.type == 'MESH'):
             return False
-        if self.parent == arm_obj and self.bdata.parent_type == 'ARMATURE':
-            return True
         for mod in self.bdata.modifiers:
             if mod.type == 'ARMATURE' and mod.object == arm_obj.bdata:
                 return True

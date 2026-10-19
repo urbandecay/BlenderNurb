@@ -460,13 +460,6 @@ static int treesort_alpha_ob(const void *v1, const void *v2)
     return -1;
   }
   if (comp == 3) {
-    /* Among objects first come the ones in the collection, followed by the ones not on it.
-     * This way we can have the dashed lines in a separate style connecting the former. */
-    if ((x1->te->flag & TE_CHILD_NOT_IN_COLLECTION) != (x2->te->flag & TE_CHILD_NOT_IN_COLLECTION))
-    {
-      return (x1->te->flag & TE_CHILD_NOT_IN_COLLECTION) ? 1 : -1;
-    }
-
     comp = BLI_strcasecmp_natural(x1->name, x2->name);
 
     if (comp > 0) {
@@ -476,20 +469,6 @@ static int treesort_alpha_ob(const void *v1, const void *v2)
       return -1;
     }
     return 0;
-  }
-  return 0;
-}
-
-/* Move children that are not in the collection to the end of the list. */
-static int treesort_child_not_in_collection(const void *v1, const void *v2)
-{
-  const tTreeSort *x1 = static_cast<const tTreeSort *>(v1);
-  const tTreeSort *x2 = static_cast<const tTreeSort *>(v2);
-
-  /* Among objects first come the ones in the collection, followed by the ones not on it.
-   * This way we can have the dashed lines in a separate style connecting the former. */
-  if ((x1->te->flag & TE_CHILD_NOT_IN_COLLECTION) != (x2->te->flag & TE_CHILD_NOT_IN_COLLECTION)) {
-    return (x1->te->flag & TE_CHILD_NOT_IN_COLLECTION) ? 1 : -1;
   }
   return 0;
 }
@@ -639,48 +618,6 @@ static void outliner_sort(ListBaseT<TreeElement> *lb)
 
   for (TreeElement &te_iter : *lb) {
     outliner_sort(&te_iter.subtree);
-  }
-}
-
-static void outliner_collections_children_sort(ListBaseT<TreeElement> *lb)
-{
-  TreeElement *last_te = static_cast<TreeElement *>(lb->last);
-  if (last_te == nullptr) {
-    return;
-  }
-  TreeStoreElem *last_tselem = TREESTORE(last_te);
-
-  /* Sorting rules: only object lists. */
-  if ((last_tselem->type == TSE_SOME_ID) && (last_te->idcode == ID_OB)) {
-    int totelem = lb->count();
-
-    if (totelem > 1) {
-      tTreeSort *tear = MEM_new_array_uninitialized<tTreeSort>(totelem, "tree sort array");
-      tTreeSort *tp = tear;
-
-      for (TreeElement &te : *lb) {
-        TreeStoreElem *tselem = TREESTORE(&te);
-        tp->te = &te;
-        tp->name = te.name;
-        tp->idcode = te.idcode;
-        tp->id = tselem->id;
-        tp++;
-      }
-
-      qsort(tear, totelem, sizeof(tTreeSort), treesort_child_not_in_collection);
-
-      lb->clear_no_delete();
-      tp = tear;
-      while (totelem--) {
-        BLI_addtail(lb, tp->te);
-        tp++;
-      }
-      MEM_delete(tear);
-    }
-  }
-
-  for (TreeElement &te_iter : *lb) {
-    outliner_collections_children_sort(&te_iter.subtree);
   }
 }
 
@@ -984,13 +921,6 @@ static bool outliner_element_visible_get(const Main &bmain,
       return is_visible;
     }
 
-    if ((te->parent != nullptr) && (TREESTORE(te->parent)->type == TSE_SOME_ID) &&
-        (te->parent->idcode == ID_OB))
-    {
-      if (exclude_filter & SO_FILTER_NO_CHILDREN) {
-        return false;
-      }
-    }
   }
   else if ((te->parent != nullptr) && (TREESTORE(te->parent)->type == TSE_SOME_ID) &&
            (te->parent->idcode == ID_OB))
@@ -1229,13 +1159,6 @@ void outliner_build_tree(Main *mainvar,
 
   if ((space_outliner->flag & SO_SKIP_SORT_ALPHA) == 0) {
     outliner_sort(&space_outliner->runtime->tree);
-  }
-  else if ((space_outliner->filter & SO_FILTER_NO_CHILDREN) == 0) {
-    /* We group the children that are in the collection before the ones that are not.
-     * This way we can try to draw them in a different style altogether.
-     * We also have to respect the original order of the elements in case alphabetical
-     * sorting is not enabled. This keep object data and modifiers before its children. */
-    outliner_collections_children_sort(&space_outliner->runtime->tree);
   }
 
   outliner_filter_tree(*mainvar, space_outliner, scene, view_layer);

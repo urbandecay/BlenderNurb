@@ -593,17 +593,6 @@ wmOperatorStatus join_objects_exec(bContext *C, wmOperator *op)
   const OffsetIndices<int> corner_ranges = offset_indices::accumulate_counts_to_offsets(
       corner_offset_data);
 
-  /* Apply parent transform if the active object's parent was joined to it.
-   * NOTE: This doesn't apply recursive parenting. */
-  if (objects_to_join.contains(active_object->parent)) {
-    active_object->parent = nullptr;
-    BKE_object_apply_mat4_ex(active_object,
-                             active_object->object_to_world().ptr(),
-                             active_object->parent,
-                             active_object->parentinv,
-                             false);
-  }
-
   /* Only join meshes if there are verts to join,
    * there aren't too many, and we only had one mesh selected. */
   Mesh *active_mesh = id_cast<Mesh *>(active_object->data);

@@ -146,18 +146,6 @@ namespace blender {
 
 static CLG_LogRef LOG = {"object"};
 
-/**
- * NOTE(@sergey): Vertex parent modifies original #BMesh which is not safe for threading.
- * Ideally such a modification should be handled as a separate DAG update
- * callback for mesh data-block, but for until it is actually supported use
- * simpler solution with a mutex lock.
- */
-#define VPARENT_THREADING_HACK
-
-#ifdef VPARENT_THREADING_HACK
-static Mutex vparent_lock;
-#endif
-
 /* The flag `contained_geometry_types` in the object runtime uses a bit for each geometry type.
  * Statically check that there are enough bits to be used. */
 static_assert(sizeof(blender::bke::ObjectRuntime::contained_geometry_types) * 8 >=
@@ -2997,303 +2985,7 @@ void BKE_object_to_mat4(const Object *ob, float r_mat[4][4])
 
 void BKE_object_matrix_local_get(Object *ob, float r_mat[4][4])
 {
-  if (ob->parent) {
-    float par_imat[4][4];
-
-    BKE_object_get_parent_matrix(ob, ob->parent, par_imat);
-    invert_m4(par_imat);
-    mul_m4_m4m4(r_mat, par_imat, ob->object_to_world().ptr());
-  }
-  else {
-    copy_m4_m4(r_mat, ob->object_to_world().ptr());
-  }
-}
-
-/**
- * \return success if \a mat is set.
- */
-static bool ob_parcurve(const Object *ob, Object *par, float r_mat[4][4])
-{
-  Curve *cu = id_cast<Curve *>(par->data);
-  float vec[4], quat[4], radius, ctime;
-
-  /* NOTE: Curve cache is supposed to be evaluated here already, however there
-   * are cases where we can not guarantee that. This includes, for example,
-   * dependency cycles. We can't correct anything from here, since that would
-   * cause threading conflicts.
-   *
-   * TODO(sergey): Some of the legit looking cases like #56619 need to be
-   * looked into, and maybe curve cache (and other dependencies) are to be
-   * evaluated prior to conversion. */
-  if (par->runtime->curve_cache == nullptr) {
-    return false;
-  }
-  if (par->runtime->curve_cache->anim_path_accum_length == nullptr) {
-    return false;
-  }
-
-  /* `ctime` is now a proper var setting of Curve which gets set by Animato like any other var
-   * that's animated, but this will only work if it actually is animated.
-   *
-   * We divide the curve-time calculated in the previous step by the length of the path,
-   * to get a time factor, which then gets clamped to lie within 0.0 - 1.0 range. */
-  if (cu->pathlen) {
-    ctime = cu->ctime / cu->pathlen;
-  }
-  else {
-    ctime = cu->ctime;
-  }
-
-  if (cu->flag & CU_PATH_CLAMP) {
-    CLAMP(ctime, 0.0f, 1.0f);
-  }
-
-  unit_m4(r_mat);
-
-  /* vec: 4 items! */
-  if (BKE_where_on_path(
-          par, ctime, vec, nullptr, (cu->flag & CU_FOLLOW) ? quat : nullptr, &radius, nullptr))
-  {
-    if (cu->flag & CU_FOLLOW) {
-      quat_apply_track(
-          quat, std::clamp<short>(ob->trackflag, 0, 5), std::clamp<short>(ob->upflag, 0, 2));
-      normalize_qt(quat);
-      quat_to_mat4(r_mat, quat);
-    }
-    if (cu->flag & CU_PATH_RADIUS) {
-      float tmat[4][4], rmat[4][4];
-      scale_m4_fl(tmat, radius);
-      mul_m4_m4m4(rmat, tmat, r_mat);
-      copy_m4_m4(r_mat, rmat);
-    }
-    copy_v3_v3(r_mat[3], vec);
-  }
-
-  return true;
-}
-
-static void ob_parbone(const Object *ob, const Object *par, float r_mat[4][4])
-{
-  float3 vec;
-
-  if (par->type != OB_ARMATURE) {
-    unit_m4(r_mat);
-    return;
-  }
-
-  /* Make sure the bone is still valid */
-  const bPoseChannel *pchan = BKE_pose_channel_find_name(par->pose, ob->parsubstr);
-  const Bone *pchan_bone = pchan ? pchan->bone_get(*par) : nullptr;
-  if (!pchan || !pchan_bone) {
-    CLOG_WARN(
-        &LOG, "Parent Bone: '%s' for Object: '%s' doesn't exist", ob->parsubstr, ob->id.name + 2);
-    unit_m4(r_mat);
-    return;
-  }
-
-  /* get bone transform */
-  if (pchan_bone->flag & BONE_RELATIVE_PARENTING) {
-    /* the new option uses the root - expected behavior, but differs from old... */
-    /* XXX check on version patching? */
-    copy_m4_m4(r_mat, pchan->chan_mat);
-  }
-  else {
-    copy_m4_m4(r_mat, pchan->pose_mat);
-    copy_v3_v3(vec, r_mat[1]);
-    mul_v3_fl(vec, pchan_bone->length * ob->parent_bone_head_tail_factor);
-    add_v3_v3(r_mat[3], vec);
-  }
-}
-
-static void give_parvert(const Object *par, int nr, float vec[3], const bool use_evaluated_indices)
-{
-  zero_v3(vec);
-
-  if (par->type == OB_MESH) {
-    const Mesh *mesh = id_cast<const Mesh *>(par->data);
-    const BMEditMesh *em = mesh->runtime->edit_mesh.get();
-    const Mesh *mesh_eval = (em) ? BKE_object_get_editmesh_eval_final(par) :
-                                   BKE_object_get_evaluated_mesh(par);
-
-    if (mesh_eval) {
-      const Span<float3> positions = mesh_eval->vert_positions();
-      int count = 0;
-      int numVerts = mesh_eval->verts_num;
-
-      if (em && mesh_eval->runtime->wrapper_type == ME_WRAPPER_TYPE_BMESH) {
-        numVerts = em->bm->totvert;
-        if (em->bm->elem_table_dirty & BM_VERT) {
-#ifdef VPARENT_THREADING_HACK
-          std::scoped_lock lock(vparent_lock);
-          if (em->bm->elem_table_dirty & BM_VERT) {
-            BM_mesh_elem_table_ensure(em->bm, BM_VERT);
-          }
-#else
-          BLI_assert_msg(0, "Not safe for threading");
-          BM_mesh_elem_table_ensure(em->bm, BM_VERT);
-#endif
-        }
-        if (nr < numVerts) {
-          if (mesh_eval && mesh_eval->runtime->edit_data &&
-              !mesh_eval->runtime->edit_data->vert_positions.is_empty())
-          {
-            add_v3_v3(vec, mesh_eval->runtime->edit_data->vert_positions[nr]);
-          }
-          else {
-            const BMVert *v = BM_vert_at_index(em->bm, nr);
-            add_v3_v3(vec, v->co);
-          }
-          count++;
-        }
-      }
-      else if (use_evaluated_indices && CustomData_has_layer(&mesh_eval->vert_data, CD_ORIGINDEX))
-      {
-        const int *index = static_cast<const int *>(
-            CustomData_get_layer(&mesh_eval->vert_data, CD_ORIGINDEX));
-        /* Get the average of all verts with (original index == nr). */
-        for (int i = 0; i < numVerts; i++) {
-          if (index[i] == nr) {
-            add_v3_v3(vec, positions[i]);
-            count++;
-          }
-        }
-      }
-      else {
-        if (nr < numVerts) {
-          add_v3_v3(vec, positions[nr]);
-          count++;
-        }
-      }
-
-      if (count == 0) {
-        /* keep as 0, 0, 0 */
-      }
-      else if (count > 0) {
-        mul_v3_fl(vec, 1.0f / count);
-      }
-      else {
-        /* use first index if its out of range */
-        if (mesh_eval->verts_num) {
-          copy_v3_v3(vec, positions[0]);
-        }
-      }
-    }
-    else {
-      CLOG_ERROR(&LOG,
-                 "Evaluated mesh is needed to solve parenting, "
-                 "object position can be wrong now");
-    }
-  }
-  else if (ELEM(par->type, OB_CURVES_LEGACY, OB_SURF)) {
-    ListBaseT<Nurb> *nurb;
-
-    /* It is possible that a cycle in the dependency graph was resolved in a way that caused this
-     * object to be evaluated before its dependencies. In this case the curve cache may be null. */
-    if (par->runtime->curve_cache && par->runtime->curve_cache->deformed_nurbs.first != nullptr) {
-      nurb = &par->runtime->curve_cache->deformed_nurbs;
-    }
-    else {
-      Curve *cu = id_cast<Curve *>(par->data);
-      nurb = BKE_curve_nurbs_get(cu);
-    }
-
-    BKE_nurbList_index_get_co(nurb, nr, vec);
-  }
-  else if (par->type == OB_LATTICE) {
-    Lattice *latt = id_cast<Lattice *>(par->data);
-    DispList *dl = par->runtime->curve_cache ?
-                       BKE_displist_find(&par->runtime->curve_cache->disp, DL_VERTS) :
-                       nullptr;
-    float (*co)[3] = dl ? reinterpret_cast<float (*)[3]>(dl->verts) : nullptr;
-    int tot;
-
-    if (latt->editlatt) {
-      latt = latt->editlatt->latt;
-    }
-
-    tot = latt->pntsu * latt->pntsv * latt->pntsw;
-
-    /* ensure dl is correct size */
-    BLI_assert(dl == nullptr || dl->nr == tot);
-
-    if (nr < tot) {
-      if (co) {
-        copy_v3_v3(vec, co[nr]);
-      }
-      else {
-        copy_v3_v3(vec, latt->def[nr].vec);
-      }
-    }
-  }
-}
-
-static void ob_parvert3(const Object *ob, const Object *par, float r_mat[4][4])
-{
-  /* in local ob space */
-  if (OB_TYPE_SUPPORT_PARVERT(par->type)) {
-    float cmat[3][3], v1[3], v2[3], v3[3], q[4];
-    const bool use_evaluated_indices = !(ob->transflag & OB_PARENT_USE_FINAL_INDICES);
-
-    give_parvert(par, ob->par1, v1, use_evaluated_indices);
-    give_parvert(par, ob->par2, v2, use_evaluated_indices);
-    give_parvert(par, ob->par3, v3, use_evaluated_indices);
-
-    tri_to_quat(q, v1, v2, v3);
-    quat_to_mat3(cmat, q);
-    copy_m4_m3(r_mat, cmat);
-
-    mid_v3_v3v3v3(r_mat[3], v1, v2, v3);
-  }
-  else {
-    unit_m4(r_mat);
-  }
-}
-
-void BKE_object_get_parent_matrix(const Object *ob, Object *par, float r_parentmat[4][4])
-{
-  float tmat[4][4];
-  float vec[3];
-  const bool use_evaluated_indices = !(ob->transflag & OB_PARENT_USE_FINAL_INDICES);
-  switch (ob->partype & PARTYPE) {
-    case PAROBJECT: {
-      bool ok = false;
-      if (par->type == OB_CURVES_LEGACY) {
-        if (((id_cast<Curve *>(par->data))->flag & CU_PATH) && ob_parcurve(ob, par, tmat)) {
-          ok = true;
-        }
-      }
-
-      if (ok) {
-        mul_m4_m4m4(r_parentmat, par->object_to_world().ptr(), tmat);
-      }
-      else {
-        copy_m4_m4(r_parentmat, par->object_to_world().ptr());
-      }
-
-      break;
-    }
-    case PARBONE:
-      ob_parbone(ob, par, tmat);
-      mul_m4_m4m4(r_parentmat, par->object_to_world().ptr(), tmat);
-      break;
-
-    case PARVERT1:
-      unit_m4(r_parentmat);
-      give_parvert(par, ob->par1, vec, use_evaluated_indices);
-      mul_v3_m4v3(r_parentmat[3], par->object_to_world().ptr(), vec);
-      break;
-    case PARVERT3:
-      ob_parvert3(ob, par, tmat);
-
-      mul_m4_m4m4(r_parentmat, par->object_to_world().ptr(), tmat);
-      break;
-
-    case PARSKEL:
-      copy_m4_m4(r_parentmat, par->object_to_world().ptr());
-      break;
-    default:
-      break;
-  }
+  copy_m4_m4(r_mat, ob->object_to_world().ptr());
 }
 
 /** \} */
@@ -3302,44 +2994,6 @@ void BKE_object_get_parent_matrix(const Object *ob, Object *par, float r_parentm
 /** \name Object Matrix Evaluation API
  * \{ */
 
-/**
- * \param r_originmat: Optional matrix that stores the space the object is in
- * (without its own matrix applied)
- */
-static void solve_parenting(const Object *ob,
-                            Object *par,
-                            const bool set_origin,
-                            float r_obmat[4][4],
-                            float r_originmat[3][3])
-{
-  float totmat[4][4];
-  float tmat[4][4];
-  float locmat[4][4];
-
-  BKE_object_to_mat4(ob, locmat);
-
-  BKE_object_get_parent_matrix(ob, par, totmat);
-
-  /* total */
-  mul_m4_m4m4(tmat, totmat, ob->parentinv);
-  mul_m4_m4m4(r_obmat, tmat, locmat);
-
-  if (r_originmat) {
-    /* Usable `r_originmat`. */
-    copy_m3_m4(r_originmat, tmat);
-  }
-
-  /* origin, for help line */
-  if (set_origin) {
-    if ((ob->partype & PARTYPE) == PARSKEL) {
-      copy_v3_v3(ob->runtime->parent_display_origin, par->object_to_world().location());
-    }
-    else {
-      copy_v3_v3(ob->runtime->parent_display_origin, totmat[3]);
-    }
-  }
-}
-
 static void object_where_is_calc_ex(Depsgraph *depsgraph,
                                     Scene *scene,
                                     Object *ob,
@@ -3347,14 +3001,9 @@ static void object_where_is_calc_ex(Depsgraph *depsgraph,
                                     RigidBodyWorld *rbw,
                                     float r_originmat[3][3])
 {
-  if (ob->parent) {
-    Object *par = ob->parent;
-
-    /* calculate parent matrix */
-    solve_parenting(ob, par, true, ob->runtime->object_to_world.ptr(), r_originmat);
-  }
-  else {
-    BKE_object_to_mat4(ob, ob->runtime->object_to_world.ptr());
+  BKE_object_to_mat4(ob, ob->runtime->object_to_world.ptr());
+  if (r_originmat) {
+    unit_m3(r_originmat);
   }
 
   /* try to fall back to the scene rigid body world if none given */
@@ -3392,13 +3041,7 @@ void BKE_object_where_is_calc_time(Depsgraph *depsgraph, Scene *scene, Object *o
 
 void BKE_object_where_is_calc_mat4(const Object *ob, float r_obmat[4][4])
 {
-  if (ob->parent) {
-    Object *par = ob->parent;
-    solve_parenting(ob, par, false, r_obmat, nullptr);
-  }
-  else {
-    BKE_object_to_mat4(ob, r_obmat);
-  }
+  BKE_object_to_mat4(ob, r_obmat);
 }
 
 void BKE_object_where_is_calc_ex(
@@ -3413,68 +3056,14 @@ void BKE_object_where_is_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
   object_where_is_calc_ex(depsgraph, scene, ob, ctime, nullptr, nullptr);
 }
 
-float4x4 BKE_object_calc_parent(Depsgraph *depsgraph, Scene *scene, Object *ob)
-{
-  bke::ObjectRuntime workob_runtime;
-  Object workob;
-  BKE_object_workob_clear(&workob);
-  workob.runtime = &workob_runtime;
-
-  unit_m4(workob.runtime->object_to_world.ptr());
-  unit_m4(workob.parentinv);
-  unit_m4(workob.constinv);
-
-  /* Since this is used while calculating parenting,
-   * at this moment ob_eval->parent is still nullptr. */
-  workob.parent = DEG_get_evaluated(depsgraph, ob->parent);
-
-  workob.trackflag = ob->trackflag;
-  workob.upflag = ob->upflag;
-
-  workob.partype = ob->partype;
-  workob.par1 = ob->par1;
-  workob.par2 = ob->par2;
-  workob.par3 = ob->par3;
-  workob.parent_bone_head_tail_factor = ob->parent_bone_head_tail_factor;
-
-  /* The effects of constraints should NOT be included in the parent-inverse matrix. Constraints
-   * are supposed to be applied after the object's local loc/rot/scale. If the (inverted) effect of
-   * constraints would be included in the parent inverse matrix, these would be applied before the
-   * object's local loc/rot/scale instead of after. For example, a "Copy Rotation" constraint would
-   * rotate the object's local translation as well. See #82156. */
-
-  STRNCPY_UTF8(workob.parsubstr, ob->parsubstr);
-
-  BKE_object_where_is_calc(depsgraph, scene, &workob);
-
-  return workob.object_to_world();
-}
-
-void BKE_object_apply_mat4_ex(Object *ob,
-                              const float mat[4][4],
-                              Object *parent,
-                              const float parentinv[4][4],
-                              const bool use_compat)
+void BKE_object_apply_mat4(Object *ob,
+                           const float mat[4][4],
+                           const bool use_compat)
 {
   /* see BKE_pchan_apply_mat4() for the equivalent 'pchan' function */
 
   float rot[3][3];
-
-  if (parent != nullptr) {
-    float rmat[4][4], diff_mat[4][4], imat[4][4], parent_mat[4][4];
-
-    BKE_object_get_parent_matrix(ob, parent, parent_mat);
-
-    mul_m4_m4m4(diff_mat, parent_mat, parentinv);
-    invert_m4_m4(imat, diff_mat);
-    mul_m4_m4m4(rmat, imat, mat); /* get the parent relative matrix */
-
-    /* same as below, use rmat rather than mat */
-    mat4_to_loc_rot_size(ob->loc, rot, ob->scale, rmat);
-  }
-  else {
-    mat4_to_loc_rot_size(ob->loc, rot, ob->scale, mat);
-  }
+  mat4_to_loc_rot_size(ob->loc, rot, ob->scale, mat);
 
   BKE_object_mat3_to_rot(ob, rot, use_compat);
 
@@ -3491,63 +3080,6 @@ void BKE_object_apply_mat4_ex(Object *ob,
   }
 
   /* BKE_object_mat3_to_rot handles delta rotations */
-}
-
-void BKE_object_apply_mat4(Object *ob,
-                           const float mat[4][4],
-                           const bool use_compat,
-                           const bool use_parent)
-{
-  BKE_object_apply_mat4_ex(ob, mat, use_parent ? ob->parent : nullptr, ob->parentinv, use_compat);
-}
-
-void BKE_object_apply_parent_inverse(Object *ob)
-{
-  /*
-   * Use parent's world transform as the child's origin.
-   *
-   * Let:
-   *    `local = identity`
-   *    `world = orthonormalized(parent)`
-   *
-   * Then:
-   *    `world = parent @ parentinv @ local`
-   *    `inv(parent) @ world = parentinv`
-   *    `parentinv = inv(parent) @ world`
-   *
-   * NOTE: If `ob->object_to_world().ptr()` has shear, then this `parentinv` is insufficient
-   * because `parent @ parentinv => shearless result`
-   *
-   *    Thus, local will have shear which cannot be decomposed into TRS:
-   *    `local = inv(parent @ parentinv) @ world`
-   *
-   *    This is currently not supported for consistency in the handling of shear during the other
-   *    parenting ops: Parent (Keep Transform), Clear [Parent] and Keep Transform.
-   */
-  float par_locrot[4][4], par_imat[4][4];
-  BKE_object_get_parent_matrix(ob, ob->parent, par_locrot);
-  invert_m4_m4(par_imat, par_locrot);
-
-  orthogonalize_m4_stable(par_locrot, 0, true);
-
-  mul_m4_m4m4(ob->parentinv, par_imat, par_locrot);
-
-  /* Now, preserve `world` given the new `parentinv`.
-   *
-   * `world = parent @ parentinv @ local`
-   * `inv(parent) @ world = parentinv @ local`
-   * `inv(parentinv) @ inv(parent) @ world = local`
-   *
-   * `local = inv(parentinv) @ inv(parent) @ world`
-   */
-  float ob_local[4][4];
-  copy_m4_m4(ob_local, ob->parentinv);
-  invert_m4(ob_local);
-  mul_m4_m4_post(ob_local, par_imat);
-  mul_m4_m4_post(ob_local, ob->object_to_world().ptr());
-
-  /* Send use_compat=False so the rotation is predictable. */
-  BKE_object_apply_mat4(ob, ob_local, false, false);
 }
 
 /** \} */
@@ -3930,7 +3462,6 @@ struct ObTfmBack {
   float rotAxis[3], drotAxis[3];
   float rotAngle, drotAngle;
   float obmat[4][4];
-  float parentinv[4][4];
   float constinv[4][4];
   float imat[4][4];
 };
@@ -3951,7 +3482,6 @@ void *BKE_object_tfm_backup(Object *ob)
   obtfm->rotAngle = ob->rotAngle;
   obtfm->drotAngle = ob->drotAngle;
   copy_m4_m4(obtfm->obmat, ob->object_to_world().ptr());
-  copy_m4_m4(obtfm->parentinv, ob->parentinv);
   copy_m4_m4(obtfm->constinv, ob->constinv);
   copy_m4_m4(obtfm->imat, ob->world_to_object().ptr());
 
@@ -3974,7 +3504,6 @@ void BKE_object_tfm_restore(Object *ob, void *obtfm_pt)
   ob->rotAngle = obtfm->rotAngle;
   ob->drotAngle = obtfm->drotAngle;
   copy_m4_m4(ob->runtime->object_to_world.ptr(), obtfm->obmat);
-  copy_m4_m4(ob->parentinv, obtfm->parentinv);
   copy_m4_m4(ob->constinv, obtfm->constinv);
   copy_m4_m4(ob->runtime->world_to_object.ptr(), obtfm->imat);
 }
@@ -4646,40 +4175,6 @@ bool BKE_object_shapekey_remove(Main *bmain, Object *ob, KeyBlock *kb)
 /** \name Object Query API
  * \{ */
 
-bool BKE_object_parent_loop_check(const Object *par, const Object *ob)
-{
-  /* test if 'ob' is a parent somewhere in par's parents */
-  if (par == nullptr) {
-    return false;
-  }
-  if (ob == par) {
-    return true;
-  }
-  return BKE_object_parent_loop_check(par->parent, ob);
-}
-
-bool BKE_object_flag_test_recursive(const Object *ob, short flag)
-{
-  if (ob->flag & flag) {
-    return true;
-  }
-  if (ob->parent) {
-    return BKE_object_flag_test_recursive(ob->parent, flag);
-  }
-
-  return false;
-}
-
-bool BKE_object_is_child_recursive(const Object *ob_parent, const Object *ob_child)
-{
-  for (ob_child = ob_child->parent; ob_child; ob_child = ob_child->parent) {
-    if (ob_child == ob_parent) {
-      return true;
-    }
-  }
-  return false;
-}
-
 int BKE_object_is_modified(Scene *scene, Object *ob)
 {
   /* Always test on original object since evaluated object may no longer
@@ -4716,7 +4211,7 @@ int BKE_object_is_modified(Scene *scene, Object *ob)
   return flag;
 }
 
-bool BKE_object_moves_in_time(const Object *object, bool recurse_parent)
+bool BKE_object_moves_in_time(const Object *object)
 {
   /* If object has any sort of animation data assume it is moving. */
   if (BKE_animdata_id_is_animated(&object->id)) {
@@ -4725,15 +4220,12 @@ bool BKE_object_moves_in_time(const Object *object, bool recurse_parent)
   if (!object->constraints.is_empty()) {
     return true;
   }
-  if (recurse_parent && object->parent != nullptr) {
-    return BKE_object_moves_in_time(object->parent, true);
-  }
   return false;
 }
 
 static bool object_moves_in_time(const Object *object)
 {
-  return BKE_object_moves_in_time(object, true);
+  return BKE_object_moves_in_time(object);
 }
 
 static bool object_deforms_in_time(Object *object)
@@ -4992,14 +4484,9 @@ static Object *obrel_armature_find(Object *ob)
 {
   Object *ob_arm = nullptr;
 
-  if (ob->parent && ob->partype == PARSKEL && ob->parent->type == OB_ARMATURE) {
-    ob_arm = ob->parent;
-  }
-  else {
-    for (ModifierData &mod : ob->modifiers) {
-      if (mod.type == eModifierType_Armature) {
-        ob_arm = (reinterpret_cast<ArmatureModifierData *>(&mod))->object;
-      }
+  for (ModifierData &mod : ob->modifiers) {
+    if (mod.type == eModifierType_Armature) {
+      ob_arm = (reinterpret_cast<ArmatureModifierData *>(&mod))->object;
     }
   }
 
@@ -5046,43 +4533,6 @@ LinkNode *BKE_object_relational_superset(const Main &bmain,
 
         if (obrel_list_test(ob)) {
           obrel_list_add(&links, ob);
-        }
-
-        /* parent relationship */
-        if (includeFilter & (OB_REL_PARENT | OB_REL_PARENT_RECURSIVE)) {
-          Object *parent = ob->parent;
-          if (obrel_list_test(parent)) {
-
-            obrel_list_add(&links, parent);
-
-            /* recursive parent relationship */
-            if (includeFilter & OB_REL_PARENT_RECURSIVE) {
-              parent = parent->parent;
-              while (obrel_list_test(parent)) {
-
-                obrel_list_add(&links, parent);
-                parent = parent->parent;
-              }
-            }
-          }
-        }
-
-        /* child relationship */
-        if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
-          for (Base &local_base : *BKE_view_layer_object_bases_get(view_layer)) {
-            if (BASE_EDITABLE(((View3D *)nullptr), &local_base)) {
-
-              Object *child = local_base.object;
-              if (obrel_list_test(child)) {
-                if ((includeFilter & OB_REL_CHILDREN_RECURSIVE &&
-                     BKE_object_is_child_recursive(ob, child)) ||
-                    (includeFilter & OB_REL_CHILDREN && child->parent && child->parent == ob))
-                {
-                  obrel_list_add(&links, child);
-                }
-              }
-            }
-          }
         }
 
         /* include related armatures */
@@ -5301,7 +4751,7 @@ static bool object_modifier_recurse_for_update_subframe(const ObjectModifierUpda
    * as this is needed to implement #BKE_object_modifier_update_subframe. */
 
   /* NOTE(@ideasman42): `parent_recursion_limit` is used to prevent this function attempting to
-   * scan object hierarchies infinitely, needed since constraint targets are also included.
+   * scan constraint target graphs infinitely.
    * A more elegant alternative may be to track which objects have been handled.
    * Since #BKE_object_modifier_update_subframe is documented not to be used
    * for new code (if possible), leave as-is. */
@@ -5324,18 +4774,9 @@ static bool object_modifier_recurse_for_update_subframe(const ObjectModifierUpda
     }
   }
 
-  /* if object has parents, update them too */
+  /* Update constraint targets too. */
   if (parent_recursion_limit) {
     const int recursion = parent_recursion_limit - 1;
-    bool no_update = false;
-    if (ob->parent) {
-      no_update |= object_modifier_recurse_for_update_subframe(ctx, ob->parent, false, recursion);
-    }
-
-    /* Skip sub-frame if object is parented to vertex of a dynamic paint canvas. */
-    if (no_update && ELEM(ob->partype, PARVERT1, PARVERT3)) {
-      return false;
-    }
 
     /* also update constraint targets */
     for (bConstraint &con : ob->constraints) {

@@ -292,7 +292,7 @@ static void viewrotate_apply(ViewOpsData *vod, const int event_xy[2])
   vod->prev.event_xy[0] = event_xy[0];
   vod->prev.event_xy[1] = event_xy[1];
 
-  ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, rv3d);
+  ED_view3d_camera_lock_sync(vod->v3d, rv3d);
 
   ED_region_tag_redraw(vod->region);
 }

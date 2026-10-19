@@ -1568,7 +1568,7 @@ static TreeElement *outliner_show_active_get_element(const bContext *C,
   }
 
   te = outliner_find_id(
-      space_outliner, &space_outliner->runtime->tree, &obact->id, TE_CHILD_NOT_IN_COLLECTION);
+      space_outliner, &space_outliner->runtime->tree, &obact->id, TreeElementFlag(0));
 
   if (te != nullptr && obact->type == OB_ARMATURE) {
     /* traverse down the bone hierarchy in case of armature */

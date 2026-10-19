@@ -644,7 +644,7 @@ static bool is_static_object(Object *ob)
   }
 
   /* Finally, check if the object has animation data. If so, it is considered dynamic. */
-  return !BKE_object_moves_in_time(ob, true);
+  return !BKE_object_moves_in_time(ob);
 }
 
 /** \} */

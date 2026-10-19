@@ -170,7 +170,7 @@ void ViewOpsData::state_restore()
 
   /* NOTE: there is no need to restore "last" values (as set by #ED_view3d_lastview_store). */
 
-  ED_view3d_camera_lock_sync(this->depsgraph, this->v3d, this->rv3d);
+  ED_view3d_camera_lock_sync(this->v3d, this->rv3d);
 }
 
 static eViewOpsFlag navigate_pivot_get(bContext *C,
@@ -1062,7 +1062,7 @@ void viewmove_apply(ViewOpsData *vod, int x, int y)
   vod->prev.event_xy[0] = x;
   vod->prev.event_xy[1] = y;
 
-  ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
+  ED_view3d_camera_lock_sync(vod->v3d, vod->rv3d);
 
   ED_region_tag_redraw(vod->region);
 }

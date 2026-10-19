@@ -1164,10 +1164,8 @@ class IMAGE_OT_convert_to_mesh_plane(MaterialProperties_MixIn, TextureProperties
             for collection in users_collection:
                 collection.objects.link(plane)
 
-            # Assign Parent.
-            plane.parent = ob.parent
-            plane.matrix_local = ob.matrix_local
-            plane.matrix_parent_inverse = ob.matrix_parent_inverse
+            # Match the source object's world transform.
+            plane.matrix_world = ob.matrix_world.copy()
 
             # Create Material.
             img_spec = ImageSpec(

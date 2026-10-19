@@ -14,7 +14,6 @@
 #include "BKE_main.hh"
 
 #include "../outliner_intern.hh"
-#include "common.hh"
 #include "tree_display.hh"
 
 namespace blender::ed::outliner {
@@ -48,7 +47,6 @@ ListBaseT<TreeElement> TreeDisplayScenes::build_tree(const TreeSourceData &sourc
       tselem->flag &= ~TSE_CLOSED;
     }
 
-    outliner_make_object_parent_hierarchy(&te->subtree);
   }
 
   return tree;

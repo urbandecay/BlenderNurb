@@ -228,14 +228,6 @@ static void joined_armature_fix_links(
   Object *ob;
   bPose *pose;
 
-  /* Important: Ensure that no hierarchy cycles are created with this operation. See #154651. */
-  Set<Object *> skip_reparenting;
-  Object *ob_iter = tarArm;
-  while (ob_iter) {
-    skip_reparenting.add(ob_iter);
-    ob_iter = ob_iter->parent;
-  }
-
   /* let's go through all objects in database */
   for (ob = static_cast<Object *>(bmain->objects.first); ob;
        ob = static_cast<Object *>(ob->id.next))
@@ -255,23 +247,6 @@ static void joined_armature_fix_links(
           bmain, ob, tarArm, srcArm, pchan, curbone, &ob->constraints);
     }
 
-    /* See if an object is parented to this armature */
-    if (ob->parent && (ob->parent == srcArm)) {
-      /* Is object parented to a bone of this src armature? */
-      if (ob->partype == PARBONE) {
-        /* bone name in object */
-        if (STREQ(ob->parsubstr, pchan->name)) {
-          STRNCPY_UTF8(ob->parsubstr, curbone->name);
-        }
-      }
-
-      /* make tar armature be new parent */
-      if (!skip_reparenting.contains(ob)) {
-        ob->parent = tarArm;
-      }
-
-      DEG_id_tag_update_ex(bmain, &ob->id, ID_RECALC_SYNC_TO_EVAL);
-    }
   }
 }
 
@@ -642,15 +617,6 @@ static void separated_armature_fix_links(Main *bmain, Object *origArm, Object *n
       }
     }
 
-    /* See if an object is parented to this armature */
-    if (ob->parent && (ob->parent == origArm)) {
-      /* Is object parented to a bone of this src armature? */
-      if ((ob->partype == PARBONE) && (ob->parsubstr[0] != '\0')) {
-        if (BLI_findstring(npchans, ob->parsubstr, offsetof(bPoseChannel, name))) {
-          ob->parent = newArm;
-        }
-      }
-    }
   }
 }
 

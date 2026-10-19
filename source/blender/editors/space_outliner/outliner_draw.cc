@@ -258,87 +258,6 @@ static void restrictbutton_id_user_toggle(bContext * /*C*/, void *poin, void * /
   }
 }
 
-static void outliner_object_set_flag_recursive_fn(bContext *C,
-                                                  Base *base,
-                                                  Object *ob,
-                                                  const char *propname)
-{
-  Main *bmain = CTX_data_main(C);
-  wmWindow *win = CTX_wm_window(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-
-  bool extend = (win->runtime->eventstate->modifier & KM_SHIFT);
-
-  if (!extend) {
-    return;
-  }
-
-  /* Create PointerRNA and PropertyRNA for either Object or Base. */
-  ID *id = ob ? &ob->id : &scene->id;
-  StructRNA *struct_rna = ob ? RNA_Object : RNA_ObjectBase;
-  void *data = ob ? static_cast<void *>(ob) : static_cast<void *>(base);
-
-  PointerRNA ptr = RNA_pointer_create_discrete(id, struct_rna, data);
-  PropertyRNA *base_or_object_prop = RNA_struct_type_find_property(struct_rna, propname);
-  const bool value = RNA_property_boolean_get(&ptr, base_or_object_prop);
-
-  Object *ob_parent = ob ? ob : base->object;
-
-  for (Object *ob_iter = static_cast<Object *>(bmain->objects.first); ob_iter;
-       ob_iter = static_cast<Object *>(ob_iter->id.next))
-  {
-    if (BKE_object_is_child_recursive(ob_parent, ob_iter)) {
-      if (ob) {
-        ptr = RNA_id_pointer_create(&ob_iter->id);
-        DEG_id_tag_update(&ob_iter->id, ID_RECALC_SYNC_TO_EVAL);
-      }
-      else {
-        BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-        Base *base_iter = BKE_view_layer_base_find(view_layer, ob_iter);
-        /* Child can be in a collection excluded from view-layer. */
-        if (base_iter == nullptr) {
-          continue;
-        }
-        ptr = RNA_pointer_create_discrete(&scene->id, RNA_ObjectBase, base_iter);
-      }
-      RNA_property_boolean_set(&ptr, base_or_object_prop, value);
-      animrig::autokeyframe_property(
-          C, scene, &ptr, base_or_object_prop, -1, BKE_scene_frame_get(scene), true);
-    }
-  }
-
-  /* We don't call RNA_property_update() due to performance, so we batch update them. */
-  if (ob) {
-    BKE_main_collection_sync_remap(bmain);
-    DEG_relations_tag_update(bmain);
-  }
-  else {
-    BKE_view_layer_need_resync_tag(view_layer);
-    DEG_id_tag_update(&scene->id, ID_RECALC_BASE_FLAGS);
-  }
-}
-
-/**
- * Object properties.
- */
-static void outliner__object_set_flag_recursive_fn(bContext *C, void *poin, void *poin2)
-{
-  Object *ob = static_cast<Object *>(poin);
-  const char *propname = static_cast<const char *>(poin2);
-  outliner_object_set_flag_recursive_fn(C, nullptr, ob, propname);
-}
-
-/**
- * Base properties.
- */
-static void outliner__base_set_flag_recursive_fn(bContext *C, void *poin, void *poin2)
-{
-  Base *base = static_cast<Base *>(poin);
-  const char *propname = static_cast<const char *>(poin2);
-  outliner_object_set_flag_recursive_fn(C, base, nullptr, propname);
-}
-
 /** Create either a RNA_LayerCollection or a RNA_Collection pointer. */
 static void outliner_layer_or_collection_pointer_create(Scene *scene,
                                                         LayerCollection *layer_collection,
@@ -1233,11 +1152,6 @@ static void outliner_draw_restrictbuts(ui::Block *block,
           button_drawflag_enable(bt, ui::BUT_ICON_REVERSE);
         }
       }
-      else if (((tselem->type == TSE_SOME_ID) && (te.idcode == ID_OB)) &&
-               (te.flag & TE_CHILD_NOT_IN_COLLECTION))
-      {
-        /* Don't show restrict columns for children that are not directly inside the collection. */
-      }
       else if ((tselem->type == TSE_SOME_ID) && (te.idcode == ID_OB)) {
         Object *ob = id_cast<Object *>(tselem->id);
         PointerRNA ptr = RNA_id_pointer_create(&ob->id);
@@ -1260,10 +1174,7 @@ static void outliner_draw_restrictbuts(ui::Block *block,
                                     -1,
                                     0,
                                     0,
-                                    TIP_("Temporarily hide in viewport\n"
-                                         " \u2022 Shift to set children"));
-            button_func_set(
-                bt, outliner__base_set_flag_recursive_fn, base, (void *)"hide_viewport");
+                                    TIP_("Temporarily hide in viewport"));
             button_flag_enable(bt, ui::BUT_DRAG_LOCK);
             if (!props_active.base_hide_viewport) {
               button_flag_enable(bt, ui::BUT_INACTIVE);
@@ -1284,10 +1195,7 @@ static void outliner_draw_restrictbuts(ui::Block *block,
                                   -1,
                                   0,
                                   0,
-                                  TIP_("Disable selection in viewport\n"
-                                       " \u2022 Shift to set children"));
-          button_func_set(
-              bt, outliner__object_set_flag_recursive_fn, ob, const_cast<char *>("hide_select"));
+                                  TIP_("Disable selection in viewport"));
           button_flag_enable(bt, ui::BUT_DRAG_LOCK);
           if (!props_active.object_hide_select) {
             button_flag_enable(bt, ui::BUT_INACTIVE);
@@ -1307,9 +1215,7 @@ static void outliner_draw_restrictbuts(ui::Block *block,
                                   -1,
                                   0,
                                   0,
-                                  TIP_("Globally disable in viewports\n"
-                                       " \u2022 Shift to set children"));
-          button_func_set(bt, outliner__object_set_flag_recursive_fn, ob, (void *)"hide_viewport");
+                                  TIP_("Globally disable in viewports"));
           button_flag_enable(bt, ui::BUT_DRAG_LOCK);
           if (!props_active.object_hide_viewport) {
             button_flag_enable(bt, ui::BUT_INACTIVE);
@@ -1329,10 +1235,7 @@ static void outliner_draw_restrictbuts(ui::Block *block,
                                   -1,
                                   0,
                                   0,
-                                  TIP_("Globally disable in renders\n"
-                                       " \u2022 Shift to set children"));
-          button_func_set(
-              bt, outliner__object_set_flag_recursive_fn, ob, const_cast<char *>("hide_render"));
+                                  TIP_("Globally disable in renders"));
           button_flag_enable(bt, ui::BUT_DRAG_LOCK);
           if (!props_active.object_hide_render) {
             button_flag_enable(bt, ui::BUT_INACTIVE);
@@ -3140,8 +3043,7 @@ static bool element_should_draw_faded(const TreeViewContext &tvc,
                                BKE_view_layer_base_find(static_cast<ViewLayer *>(tvc.view_layer),
                                                         const_cast<Object *>(ob));
         const bool is_visible = (base != nullptr) &&
-                                (base->flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) &&
-                                !(te->flag & TE_CHILD_NOT_IN_COLLECTION);
+                                (base->flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT);
 
         return !is_visible;
       }
@@ -3165,10 +3067,6 @@ static bool element_should_draw_faded(const TreeViewContext &tvc,
         return element_should_draw_faded(tvc, te->parent, te->parent->store_elem);
       }
     }
-  }
-
-  if (te->flag & TE_CHILD_NOT_IN_COLLECTION) {
-    return true;
   }
 
   return false;
@@ -3413,17 +3311,6 @@ static void outliner_draw_tree_element(ui::Block *block,
   }
 }
 
-static bool subtree_contains_object(ListBaseT<TreeElement> *lb)
-{
-  for (TreeElement &te : *lb) {
-    TreeStoreElem *tselem = TREESTORE(&te);
-    if ((tselem->type == TSE_SOME_ID) && (te.idcode == ID_OB)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 static void outliner_draw_hierarchy_line(
     const uint pos, const int x, const int y1, const int y2, const bool draw_dashed)
 {
@@ -3472,13 +3359,6 @@ static void outliner_draw_hierarchy_lines_recursive(uint pos,
         color_tag = collection->color_tag;
 
         y = *starty;
-      }
-      else if ((tselem->type == TSE_SOME_ID) && (te.idcode == ID_OB)) {
-        if (subtree_contains_object(&te.subtree)) {
-          draw_hierarchy_line = true;
-          use_dashed_line = true;
-          y = *starty;
-        }
       }
       else if (ELEM(tselem->type, TSE_BONE, TSE_EBONE, TSE_POSE_CHANNEL)) {
         draw_hierarchy_line = true;

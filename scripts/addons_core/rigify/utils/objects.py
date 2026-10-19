@@ -150,10 +150,19 @@ class ArtifactManager:
         obj.rigify_owner_rig = self.generator.obj
         obj["rigify_artifact_id"] = key
 
-        obj.parent = self.generator.obj
-        obj.parent_type = 'OBJECT'
-        obj.matrix_parent_inverse = Matrix.Identity(4)
         obj.matrix_basis = Matrix.Identity(4)
+
+        # Keep generated widgets aligned with the rig through a constraint.
+        follow = next(
+            (constraint for constraint in obj.constraints
+             if constraint.type == 'CHILD_OF' and constraint.name == "Rigify Object Follow"),
+            None,
+        )
+        if follow is None:
+            follow = obj.constraints.new('CHILD_OF')
+            follow.name = "Rigify Object Follow"
+        follow.target = self.generator.obj
+        follow.inverse_matrix = Matrix.Identity(4)
 
         return found, obj
 

@@ -1039,13 +1039,8 @@ void psys_get_birth_coords(
   }
 }
 
-/* recursively evaluate emitter parent anim at cfra */
 static void evaluate_emitter_anim(Depsgraph *depsgraph, Scene *scene, Object *ob, float cfra)
 {
-  if (ob->parent) {
-    evaluate_emitter_anim(depsgraph, scene, ob->parent, cfra);
-  }
-
   BKE_object_where_is_calc_time(depsgraph, scene, ob, cfra);
 }
 

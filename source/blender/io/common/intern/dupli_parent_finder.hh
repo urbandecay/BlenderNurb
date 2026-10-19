@@ -23,10 +23,6 @@ class DupliParentFinder final {
   using PIDToDupliMap = Map<const PersistentID, const DupliObject *>;
   PIDToDupliMap pid_to_dupli_;
 
-  /* Mapping from instancer PID to duplis instanced by it. */
-  using InstancerPIDToDuplisMap = Map<const PersistentID, Set<const DupliObject *>>;
-  InstancerPIDToDuplisMap instancer_pid_to_duplis_;
-
  public:
   void insert(const DupliObject *dupli_ob);
 
@@ -34,7 +30,6 @@ class DupliParentFinder final {
   const DupliObject *find_suitable_export_parent(const DupliObject *dupli_ob) const;
 
  private:
-  const DupliObject *find_duplicated_parent(const DupliObject *dupli_ob) const;
   const DupliObject *find_instancer(const DupliObject *dupli_ob) const;
 };
 

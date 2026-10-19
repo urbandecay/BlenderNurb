@@ -595,21 +595,8 @@ static void import_file(ImportJobData *data, const char *filepath, float progres
     create_keyframes(data->bmain, data->scene, keyframing_helpers, time_info);
   }
 
-  /* Setup parenthood. */
-  for (iter = readers.begin(); iter != readers.end(); ++iter) {
-    const AbcObjectReader *reader = *iter;
-    const AbcObjectReader *parent_reader = reader->parent_reader;
-    Object *ob = reader->object();
-
-    if (parent_reader == nullptr || !reader->inherits_xform()) {
-      ob->parent = nullptr;
-    }
-    else {
-      ob->parent = parent_reader->object();
-    }
-  }
-
-  /* Setup transformations and constraints. */
+  /* Setup world-space transformations and constraints. The reader evaluates Alembic's own Xform
+   * hierarchy, so imported Blender objects do not need Object.parent links. */
   const float setup_object_transform_progress_step = (0.3f / size) * progress_factor;
   for (iter = readers.begin(); iter != readers.end(); ++iter) {
     AbcObjectReader *reader = *iter;
@@ -859,20 +846,7 @@ void ABC_get_transform(CacheReader *reader, float r_mat_world[4][4], double time
    * for Blender. This conversion is done here rather than by Blender due to
    * work around the non-standard interpretation of CONSTRAINT_SPACE_LOCAL in
    * BKE_constraint_mat_convertspace(). */
-  Object *object = abc_reader->object();
-  if (object->parent == nullptr) {
-    /* No parent, so local space is the same as world space. */
-    abc_reader->read_matrix(r_mat_world, time, scale, is_constant);
-    return;
-  }
-
-  float mat_parent[4][4];
-  BKE_object_get_parent_matrix(object, object->parent, mat_parent);
-
-  float mat_local[4][4];
-  abc_reader->read_matrix(mat_local, time, scale, is_constant);
-  mul_m4_m4m4(r_mat_world, mat_parent, object->parentinv);
-  mul_m4_m4m4(r_mat_world, r_mat_world, mat_local);
+  abc_reader->read_matrix(r_mat_world, time, scale, is_constant);
 }
 
 /* ************************************************************************** */

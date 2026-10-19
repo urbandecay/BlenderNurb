@@ -238,13 +238,8 @@ bool BKE_rigidbody_is_affected_by_simulation(Object *ob)
 {
   /* Check if the object will have its transform changed by the rigidbody simulation. */
 
-  /* True if the shape of this object's parent is of type compound */
-  bool obCompoundParent = (ob->parent != nullptr && ob->parent->rigidbody_object != nullptr &&
-                           ob->parent->rigidbody_object->shape == RB_SHAPE_COMPOUND);
-
   RigidBodyOb *rbo = ob->rigidbody_object;
-  if (rbo == nullptr || rbo->flag & RBO_FLAG_KINEMATIC || rbo->type == RBO_TYPE_PASSIVE ||
-      obCompoundParent)
+  if (rbo == nullptr || rbo->flag & RBO_FLAG_KINEMATIC || rbo->type == RBO_TYPE_PASSIVE)
   {
     return false;
   }
@@ -390,7 +385,7 @@ static rbCollisionShape *rigidbody_get_shape_trimesh_from_mesh(Object *ob)
 /* Helper function to create physics collision shape for object.
  * Returns a new collision shape.
  */
-static rbCollisionShape *rigidbody_validate_sim_shape_helper(RigidBodyWorld *rbw, Object *ob)
+static rbCollisionShape *rigidbody_validate_sim_shape_helper(Object *ob)
 {
   RigidBodyOb *rbo = ob->rigidbody_object;
   rbCollisionShape *new_shape = nullptr;
@@ -467,24 +462,8 @@ static rbCollisionShape *rigidbody_validate_sim_shape_helper(RigidBodyWorld *rbw
     case RB_SHAPE_TRIMESH:
       new_shape = rigidbody_get_shape_trimesh_from_mesh(ob);
       break;
-    case RB_SHAPE_COMPOUND:
-      new_shape = RB_shape_new_compound();
-      rbCollisionShape *childShape = nullptr;
-      float loc[3], rot[4];
-      float mat[4][4];
-      /* Add children to the compound shape */
-      FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (rbw->group, childObject) {
-        if (childObject->parent == ob) {
-          childShape = rigidbody_validate_sim_shape_helper(rbw, childObject);
-          if (childShape) {
-            BKE_object_matrix_local_get(childObject, mat);
-            mat4_to_loc_quat(loc, rot, mat);
-            RB_compound_add_child_shape(new_shape, childShape, loc, rot);
-          }
-        }
-      }
-      FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
-
+    case RB_SHAPE_UNUSED_7:
+      /* Old compound parents have no compound children after parenting was removed. */
       break;
   }
   /* use box shape if it failed to create new shape */
@@ -501,7 +480,7 @@ static rbCollisionShape *rigidbody_validate_sim_shape_helper(RigidBodyWorld *rbw
 /* Create new physics sim collision shape for object and store it,
  * or remove the existing one first and replace...
  */
-static void rigidbody_validate_sim_shape(RigidBodyWorld *rbw, Object *ob, bool rebuild)
+static void rigidbody_validate_sim_shape(Object *ob, bool rebuild)
 {
   RigidBodyOb *rbo = ob->rigidbody_object;
   rbCollisionShape *new_shape = nullptr;
@@ -516,14 +495,7 @@ static void rigidbody_validate_sim_shape(RigidBodyWorld *rbw, Object *ob, bool r
     return;
   }
 
-  /* Also don't create a shape if this object is parent of a compound shape */
-  if (ob->parent != nullptr && ob->parent->rigidbody_object != nullptr &&
-      ob->parent->rigidbody_object->shape == RB_SHAPE_COMPOUND)
-  {
-    return;
-  }
-
-  new_shape = rigidbody_validate_sim_shape_helper(rbw, ob);
+  new_shape = rigidbody_validate_sim_shape_helper(ob);
 
   /* assign new collision shape if creation was successful */
   if (new_shape) {
@@ -571,9 +543,8 @@ void BKE_rigidbody_calc_volume(Object *ob, float *r_vol)
 
   /* Calculate volume as appropriate. */
   switch (rbo->shape) {
-    case RB_SHAPE_COMPOUND:
-      break;
     case RB_SHAPE_BOX:
+    case RB_SHAPE_UNUSED_7:
       volume = size[0] * size[1] * size[2];
       break;
 
@@ -650,8 +621,8 @@ void BKE_rigidbody_calc_center_of_mass(Object *ob, float r_center[3])
 
   /* Calculate volume as appropriate. */
   switch (rbo->shape) {
-    case RB_SHAPE_COMPOUND:
     case RB_SHAPE_BOX:
+    case RB_SHAPE_UNUSED_7:
     case RB_SHAPE_SPHERE:
     case RB_SHAPE_CAPSULE:
     case RB_SHAPE_CYLINDER:
@@ -716,7 +687,7 @@ static void rigidbody_validate_sim_object(RigidBodyWorld *rbw, Object *ob, bool 
   /* FIXME we shouldn't always have to rebuild collision shapes when rebuilding objects,
    * but it's needed for constraints to update correctly. */
   if (rbo->shared->physics_shape == nullptr || rebuild) {
-    rigidbody_validate_sim_shape(rbw, ob, true);
+    rigidbody_validate_sim_shape(ob, true);
   }
 
   if (rbo->shared->physics_object && !rebuild) {
@@ -731,13 +702,6 @@ static void rigidbody_validate_sim_object(RigidBodyWorld *rbw, Object *ob, bool 
       RB_body_delete(static_cast<rbRigidBody *>(rbo->shared->physics_object));
       rbo->shared->physics_object = nullptr;
     }
-    /* Don't create rigid body object if the parent is a compound shape */
-    if (ob->parent != nullptr && ob->parent->rigidbody_object != nullptr &&
-        ob->parent->rigidbody_object->shape == RB_SHAPE_COMPOUND)
-    {
-      return;
-    }
-
     mat4_to_loc_quat(loc, rot, ob->object_to_world().ptr());
 
     rbo->shared->physics_object = RB_body_new(
@@ -1618,12 +1582,7 @@ static void rigidbody_update_ob_array(RigidBodyWorld *rbw)
   int n = 0;
   FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (rbw->group, object) {
     (void)object;
-    /* Ignore if this object is the direct child of an object with a compound shape */
-    if (object->parent == nullptr || object->parent->rigidbody_object == nullptr ||
-        object->parent->rigidbody_object->shape != RB_SHAPE_COMPOUND)
-    {
-      n++;
-    }
+    n++;
   }
   FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
 
@@ -1635,13 +1594,8 @@ static void rigidbody_update_ob_array(RigidBodyWorld *rbw)
 
   int i = 0;
   FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (rbw->group, object) {
-    /* Ignore if this object is the direct child of an object with a compound shape */
-    if (object->parent == nullptr || object->parent->rigidbody_object == nullptr ||
-        object->parent->rigidbody_object->shape != RB_SHAPE_COMPOUND)
-    {
-      rbw->objects[i] = object;
-      i++;
-    }
+    rbw->objects[i] = object;
+    i++;
   }
   FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
 }
@@ -1805,7 +1759,7 @@ static void rigidbody_update_simulation(Depsgraph *depsgraph,
         /* refresh shape... */
         if (rbo->flag & RBO_FLAG_NEEDS_RESHAPE) {
           /* mesh/shape data changed, so force shape refresh */
-          rigidbody_validate_sim_shape(rbw, ob, true);
+          rigidbody_validate_sim_shape(ob, true);
           /* now tell RB sim about it */
           /* XXX: we assume that this can only get applied for active/passive shapes
            * that will be included as rigid-bodies. */
@@ -2189,12 +2143,7 @@ void BKE_rigidbody_rebuild_world(Depsgraph *depsgraph, Scene *scene, float ctime
   int n = 0;
   FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (rbw->group, object) {
     (void)object;
-    /* Ignore if this object is the direct child of an object with a compound shape */
-    if (object->parent == nullptr || object->parent->rigidbody_object == nullptr ||
-        object->parent->rigidbody_object->shape != RB_SHAPE_COMPOUND)
-    {
-      n++;
-    }
+    n++;
   }
   FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
 

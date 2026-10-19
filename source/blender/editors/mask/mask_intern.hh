@@ -67,7 +67,7 @@ void MASK_OT_paste_splines(wmOperatorType *ot);
 
 /* `mask_relationships.cc` */
 
-/** based on #OBJECT_OT_parent_set */
+/** Mask relationship operators. */
 void MASK_OT_parent_set(wmOperatorType *ot);
 void MASK_OT_parent_clear(wmOperatorType *ot);
 

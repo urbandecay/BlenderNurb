@@ -108,27 +108,6 @@ class OBJECT_PT_delta_transform(ObjectButtonsPanel, Panel):
         col.prop(ob, "delta_scale", text="Scale")
 
 
-class OBJECT_PT_parent_inverse_transform(ObjectButtonsPanel, Panel):
-    bl_label = "Parent Inverse Transform"
-    bl_parent_id = "OBJECT_PT_transform"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        ob = context.object
-        return ob and ob.parent
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        ob = context.object
-        layout.template_matrix(ob, "matrix_parent_inverse")
-
-        props = layout.operator("object.parent_clear", text="Clear Parent Inverse Transform")
-        props.type = 'CLEAR_INVERSE'
-
-
 class OBJECT_PT_relations(ObjectButtonsPanel, Panel):
     bl_label = "Relations"
     bl_options = {'DEFAULT_CLOSED'}
@@ -139,25 +118,6 @@ class OBJECT_PT_relations(ObjectButtonsPanel, Panel):
         flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=False)
 
         ob = context.object
-
-        col = flow.column()
-        col.prop(ob, "parent")
-        sub = col.column()
-        sub.prop(ob, "parent_type")
-        parent = ob.parent
-        if parent and ob.parent_type == 'BONE' and parent.type == 'ARMATURE':
-            sub.prop_search(ob, "parent_bone", parent.data, "bones")
-            sub.prop(ob, "parent_bone_head_tail_factor", text="Head/Tail")
-        elif ob.parent_type == 'VERTEX':
-            col.prop(ob, "parent_vertices", text="Parent Vertex", index=0)
-            sub.prop(ob, "use_parent_final_indices")
-        elif ob.parent_type == 'VERTEX_3':
-            col.prop(ob, "parent_vertices", text="Parent Vertices")
-            sub.prop(ob, "use_parent_final_indices")
-        sub.active = (parent is not None)
-        sub.prop(ob, "use_camera_lock_parent")
-
-        col.separator()
 
         col = flow.column()
 
@@ -288,7 +248,7 @@ class OBJECT_PT_instancing(ObjectButtonsPanel, Panel):
     def poll(cls, context):
         ob = context.object
         # FONT objects need (vertex) instancing for the "Object Font" feature.
-        return (ob.type in {'MESH', 'EMPTY', 'FONT'})
+        return (ob.type in {'EMPTY', 'FONT'})
 
     def draw(self, context):
         layout = self.layout
@@ -300,10 +260,7 @@ class OBJECT_PT_instancing(ObjectButtonsPanel, Panel):
 
         layout.use_property_split = True
 
-        if ob.instance_type == 'VERTS':
-            layout.prop(ob, "use_instance_vertices_rotation", text="Align to Vertex Normal")
-
-        elif ob.instance_type == 'COLLECTION':
+        if ob.instance_type == 'COLLECTION':
             col = layout.column()
             col.prop(ob, "instance_collection", text="Collection")
 
@@ -311,31 +268,6 @@ class OBJECT_PT_instancing(ObjectButtonsPanel, Panel):
             col = layout.column(heading="Show Instancer", align=True)
             col.prop(ob, "show_instancer_for_viewport", text="Viewport")
             col.prop(ob, "show_instancer_for_render", text="Render")
-
-
-class OBJECT_PT_instancing_size(ObjectButtonsPanel, Panel):
-    bl_label = "Scale by Face Size"
-    bl_parent_id = "OBJECT_PT_instancing"
-
-    @classmethod
-    def poll(cls, context):
-        ob = context.object
-        return (ob is not None) and (ob.instance_type == 'FACES')
-
-    def draw_header(self, context):
-
-        ob = context.object
-        self.layout.prop(ob, "use_instance_faces_scale", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        ob = context.object
-        layout.use_property_split = True
-
-        layout.active = ob.use_instance_faces_scale
-        layout.prop(ob, "instance_faces_scale", text="Factor")
-
-
 
 
 class OBJECT_PT_motion_paths(MotionPathButtonsPanel, Panel):
@@ -609,12 +541,10 @@ classes = (
     OBJECT_PT_context_object,
     OBJECT_PT_transform,
     OBJECT_PT_delta_transform,
-    OBJECT_PT_parent_inverse_transform,
     OBJECT_PT_relations,
     COLLECTION_MT_context_menu,
     OBJECT_PT_collections,
     OBJECT_PT_instancing,
-    OBJECT_PT_instancing_size,
     OBJECT_PT_motion_paths,
     OBJECT_PT_motion_paths_display,
     OBJECT_PT_display,

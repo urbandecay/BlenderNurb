@@ -57,38 +57,6 @@ void BKE_object_eval_local_transform(Depsgraph *depsgraph, Object *ob)
   BKE_object_to_mat4(ob, ob->runtime->object_to_world.ptr());
 }
 
-void BKE_object_eval_parent(Depsgraph *depsgraph, Object *ob)
-{
-  /* NOTE: based on `solve_parenting()`, but with the cruft stripped out. */
-
-  Object *par = ob->parent;
-
-  float totmat[4][4];
-  float tmat[4][4];
-  float locmat[4][4];
-
-  DEG_debug_print_eval(depsgraph, __func__, ob->id.name, ob);
-
-  /* get local matrix (but don't calculate it, as that was done already!) */
-  /* XXX: redundant? */
-  copy_m4_m4(locmat, ob->object_to_world().ptr());
-
-  /* get parent effect matrix */
-  BKE_object_get_parent_matrix(ob, par, totmat);
-
-  /* total */
-  mul_m4_m4m4(tmat, totmat, ob->parentinv);
-  mul_m4_m4m4(ob->runtime->object_to_world.ptr(), tmat, locmat);
-
-  /* origin, for help line */
-  if ((ob->partype & PARTYPE) == PARSKEL) {
-    copy_v3_v3(ob->runtime->parent_display_origin, par->object_to_world().location());
-  }
-  else {
-    copy_v3_v3(ob->runtime->parent_display_origin, totmat[3]);
-  }
-}
-
 void BKE_object_eval_constraints(Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
   bConstraintOb *cob;
@@ -383,9 +351,6 @@ void BKE_object_eval_transform_all(Depsgraph *depsgraph, Scene *scene, Object *o
 {
   /* This mimics full transform update chain from new depsgraph. */
   BKE_object_eval_local_transform(depsgraph, object);
-  if (object->parent != nullptr) {
-    BKE_object_eval_parent(depsgraph, object);
-  }
   if (!object->constraints.is_empty()) {
     BKE_object_eval_constraints(depsgraph, scene, object);
   }

@@ -164,15 +164,12 @@ void ED_view3d_from_object(
     const Object *ob, float ofs[3], float quat[4], const float *dist, float *lens);
 /**
  * Set the object transformation from #RegionView3D members.
- * \param depsgraph: The depsgraph to get the evaluated object parent
- * for the transformation calculation.
  * \param ob: The object which has the transformation assigned.
  * \param ofs: The view offset, normally from #RegionView3D.ofs.
  * \param quat: The view rotation, quaternion normally from #RegionView3D.viewquat.
  * \param dist: The view distance from `ofs`, normally from #RegionView3D.dist.
  */
-void ED_view3d_to_object(
-    const Depsgraph *depsgraph, Object *ob, const float ofs[3], const float quat[4], float dist);
+void ED_view3d_to_object(Object *ob, const float ofs[3], const float quat[4], float dist);
 
 bool ED_view3d_camera_to_view_selected(Main *bmain,
                                        Depsgraph *depsgraph,
@@ -1251,7 +1248,7 @@ void ED_view3d_camera_lock_init(const Depsgraph *depsgraph, View3D *v3d, RegionV
  *
  * \return true if the camera (or one of it's parents) was moved.
  */
-bool ED_view3d_camera_lock_sync(const Depsgraph *depsgraph, View3D *v3d, RegionView3D *rv3d);
+bool ED_view3d_camera_lock_sync(View3D *v3d, RegionView3D *rv3d);
 
 bool ED_view3d_camera_autokey(
     const Scene *scene, ID *id_key, bContext *C, bool do_rotate, bool do_translate);

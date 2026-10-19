@@ -65,11 +65,7 @@ CryptomatteSession::CryptomatteSession(const Main *bmain)
 
     bke::cryptomatte::CryptomatteLayer &assets = add_layer(RE_PASSNAME_CRYPTOMATTE_ASSET);
     for (Object &object : bmain->objects) {
-      Object *asset_object = &object;
-      while (asset_object->parent != nullptr) {
-        asset_object = asset_object->parent;
-      }
-      assets.add_ID(asset_object->id);
+      assets.add_ID(object.id);
     }
   }
   if (!bmain->materials.is_empty()) {
@@ -140,11 +136,7 @@ void CryptomatteSession::init(const ViewLayer *view_layer, bool build_meta_data)
 
     if (build_meta_data) {
       for (Base &base : *object_bases) {
-        const Object *asset_object = base.object;
-        while (asset_object->parent != nullptr) {
-          asset_object = asset_object->parent;
-        }
-        assets.add_ID(asset_object->id);
+        assets.add_ID(base.object->id);
       }
     }
   }
@@ -251,11 +243,7 @@ uint32_t BKE_cryptomatte_asset_hash(CryptomatteSession *session,
                                     const char *layer_name,
                                     const Object *object)
 {
-  const Object *asset_object = object;
-  while (asset_object->parent != nullptr) {
-    asset_object = asset_object->parent;
-  }
-  return BKE_cryptomatte_object_hash(session, layer_name, asset_object);
+  return BKE_cryptomatte_object_hash(session, layer_name, object);
 }
 
 float BKE_cryptomatte_hash_to_float(uint32_t cryptomatte_hash)

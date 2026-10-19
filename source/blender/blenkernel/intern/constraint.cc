@@ -451,33 +451,15 @@ void BKE_constraint_mat_convertspace(Object *ob,
     /* objects */
     if (from == CONSTRAINT_SPACE_WORLD) {
       if (to == CONSTRAINT_SPACE_LOCAL) {
-        /* Check if object has a parent. */
-        if (ob->parent) {
-          /* 'subtract' parent's effects from owner. */
-          mul_m4_m4m4(diff_mat, ob->parent->object_to_world().ptr(), ob->parentinv);
-          invert_m4_m4_safe(imat, diff_mat);
-          mul_m4_m4m4(mat, imat, mat);
+        /* Local space is defined by the owner's transform-property-rotated axes. */
+        BKE_object_to_mat4(ob, diff_mat);
+        if (!keep_scale) {
+          normalize_m4(diff_mat);
         }
-        else {
-          /* Local space in this case will have to be defined as local to the owner's
-           * transform-property-rotated axes. So subtract this rotation component.
-           */
-          /* XXX This is actually an ugly hack, local space of a parent-less object *is* the same
-           * as global space! Think what we want actually here is some kind of 'Final Space', i.e
-           *     . once transformations are applied - users are often confused about this too,
-           *     this is not consistent with bones
-           *     local space either... Meh :|
-           *     --mont29
-           */
-          BKE_object_to_mat4(ob, diff_mat);
-          if (!keep_scale) {
-            normalize_m4(diff_mat);
-          }
-          zero_v3(diff_mat[3]);
+        zero_v3(diff_mat[3]);
 
-          invert_m4_m4_safe(imat, diff_mat);
-          mul_m4_m4m4(mat, imat, mat);
-        }
+        invert_m4_m4_safe(imat, diff_mat);
+        mul_m4_m4m4(mat, imat, mat);
       }
       else if (to == CONSTRAINT_SPACE_CUSTOM) {
         /* 'subtract' custom objects's effects from owner. */
@@ -487,25 +469,14 @@ void BKE_constraint_mat_convertspace(Object *ob,
       }
     }
     else if (from == CONSTRAINT_SPACE_LOCAL) {
-      /* check that object has a parent - otherwise this won't work */
-      if (ob->parent) {
-        /* 'add' parent's effect back to owner */
-        mul_m4_m4m4(diff_mat, ob->parent->object_to_world().ptr(), ob->parentinv);
-        mul_m4_m4m4(mat, diff_mat, mat);
+      /* Add the owner's transform-property-rotated axes back to local space. */
+      BKE_object_to_mat4(ob, diff_mat);
+      if (!keep_scale) {
+        normalize_m4(diff_mat);
       }
-      else {
-        /* Local space in this case will have to be defined as local to the owner's
-         * transform-property-rotated axes. So add back this rotation component.
-         */
-        /* XXX See comment above for world->local case... */
-        BKE_object_to_mat4(ob, diff_mat);
-        if (!keep_scale) {
-          normalize_m4(diff_mat);
-        }
-        zero_v3(diff_mat[3]);
+      zero_v3(diff_mat[3]);
 
-        mul_m4_m4m4(mat, diff_mat, mat);
-      }
+      mul_m4_m4m4(mat, diff_mat, mat);
       if (to == CONSTRAINT_SPACE_CUSTOM) {
         /* 'subtract' objects's effects from owner. */
         BLI_assert(cob);
@@ -6048,7 +6019,7 @@ bool BKE_constraint_apply_for_object(Depsgraph *depsgraph,
   BLI_freelinkN(&single_con, new_con);
 
   /* Apply transform from matrix. */
-  BKE_object_apply_mat4(ob, ob_eval->object_to_world().ptr(), true, true);
+  BKE_object_apply_mat4(ob, ob_eval->object_to_world().ptr(), true);
 
   return true;
 }

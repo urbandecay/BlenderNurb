@@ -230,11 +230,6 @@ class NLA_OT_bake(Operator):
         ),
         default=False,
     )
-    clear_parents: BoolProperty(
-        name="Clear Parents",
-        description="Bake animation onto the object then clear parents (objects only)",
-        default=False,
-    )
     use_current_action: BoolProperty(
         name="Overwrite Current Action",
         description="Bake animation into current action, instead of creating a new one "
@@ -280,7 +275,6 @@ class NLA_OT_bake(Operator):
             do_object='OBJECT' in self.bake_types,
             do_visual_keying=self.visual_keying,
             do_constraint_clear=self.clear_constraints,
-            do_parents_clear=self.clear_parents,
             do_clean=self.clean_curves,
             do_location='LOCATION' in self.channel_types,
             do_rotation='ROTATION' in self.channel_types,

@@ -1794,19 +1794,12 @@ void what_does_obaction(Object *ob,
 
   /* init workob */
   copy_m4_m4(workob->runtime->object_to_world.ptr(), ob->object_to_world().ptr());
-  copy_m4_m4(workob->parentinv, ob->parentinv);
   copy_m4_m4(workob->constinv, ob->constinv);
-  workob->parent = ob->parent;
 
   workob->rotmode = ob->rotmode;
 
   workob->trackflag = ob->trackflag;
   workob->upflag = ob->upflag;
-
-  workob->partype = ob->partype;
-  workob->par1 = ob->par1;
-  workob->par2 = ob->par2;
-  workob->par3 = ob->par3;
 
   workob->constraints.first = ob->constraints.first;
   workob->constraints.last = ob->constraints.last;
@@ -1825,8 +1818,6 @@ void what_does_obaction(Object *ob,
       BKE_pose_update_constraint_flags(*workob);
     }
   }
-
-  STRNCPY_UTF8(workob->parsubstr, ob->parsubstr);
 
   /* we don't use real object name, otherwise RNA screws with the real thing */
   STRNCPY_UTF8(workob->id.name, "OB<ConstrWorkOb>");

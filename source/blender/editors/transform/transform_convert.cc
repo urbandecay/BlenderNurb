@@ -1040,9 +1040,6 @@ void create_trans_data(bContext *C, TransInfo *t)
     if ((t->settings->transform_flag & SCE_XFORM_DATA_ORIGIN) != 0) {
       t->options |= CTX_OBMODE_XFORM_OBDATA;
     }
-    if ((t->settings->transform_flag & SCE_XFORM_SKIP_CHILDREN) != 0) {
-      t->options |= CTX_OBMODE_XFORM_SKIP_CHILDREN;
-    }
     TransConvertType_Object.create_trans_data(C, t);
     /* Check if we're transforming the camera from the camera. */
     if ((t->spacetype == SPACE_VIEW3D) && (t->region->regiontype == RGN_TYPE_WINDOW)) {

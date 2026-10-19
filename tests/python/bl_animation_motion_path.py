@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-import math
 import unittest
 import bpy
 import sys
@@ -49,19 +48,12 @@ class MotionPathTestObject(unittest.TestCase):
         self.assertEqual(motion_path.frame_start, 3)
         self.assertEqual(motion_path.frame_end, 7)
 
-    def test_motion_path_of_child(self):
-        """Motion paths are in world space so they reflect the movement of the parent as well."""
-        parent_ob = bpy.data.objects.new("parent", None)
-        bpy.context.scene.collection.objects.link(parent_ob)
-        parent_ob.location = (1, 0, 0)
-        self.anim_object.parent = parent_ob
-        # Needs to be evaluated for the matrix properties to return the correct value.
-        bpy.context.evaluated_depsgraph_get()
-        self.anim_object.matrix_parent_inverse = parent_ob.matrix_local.inverted()
-        parent_ob.rotation_euler = (0, math.pi / 2, 0)
-        parent_ob.keyframe_insert("rotation_euler", frame=1)
-        parent_ob.rotation_euler = (0, 0, 0)
-        parent_ob.keyframe_insert("rotation_euler", frame=10)
+    def test_motion_path_world_space(self):
+        """Motion paths report the object's world-space movement."""
+        self.anim_object.location = (1, 0, 1)
+        self.anim_object.keyframe_insert("location", frame=1)
+        self.anim_object.location = (0, 0, 0)
+        self.anim_object.keyframe_insert("location", frame=10)
 
         bpy.ops.object.paths_calculate(range='SCENE')
         motion_path = self.anim_object.motion_path
@@ -69,9 +61,9 @@ class MotionPathTestObject(unittest.TestCase):
         self.assertAlmostEqual(motion_path.points[0].co[1], 0, 3)
         self.assertAlmostEqual(motion_path.points[0].co[2], 1, 3)
 
-        self.assertAlmostEqual(motion_path.points[-1].co[0], 0, 3)
-        self.assertAlmostEqual(motion_path.points[-1].co[1], 0, 3)
-        self.assertAlmostEqual(motion_path.points[-1].co[2], 0, 3)
+        self.assertAlmostEqual(motion_path.points[9].co[0], 0, 3)
+        self.assertAlmostEqual(motion_path.points[9].co[1], 0, 3)
+        self.assertAlmostEqual(motion_path.points[9].co[2], 0, 3)
 
 
 class MotionPathTestArmature(unittest.TestCase):

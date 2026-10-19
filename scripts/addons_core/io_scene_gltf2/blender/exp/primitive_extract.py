@@ -130,18 +130,6 @@ class PrimitiveCreator:
                     modifier = modifiers_dict["ARMATURE"]
                     self.armature = modifier.object
 
-            # Skin must be ignored if the object is parented to a bone of the armature
-            # (This creates an infinite recursive error)
-            # So ignoring skin in that case
-            is_child_of_arma = (
-                self.armature and
-                self.blender_object and
-                self.blender_object.parent_type == "BONE" and
-                self.blender_object.parent.name == self.armature.name
-            )
-            if is_child_of_arma:
-                self.armature = None
-
             if self.armature:
                 self.skin = gltf2_blender_gather_skins.gather_skin(
                     self.export_settings['vtree'].nodes[self.uuid_for_skined_data].armature, self.export_settings)

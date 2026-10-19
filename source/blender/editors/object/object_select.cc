@@ -725,10 +725,6 @@ void OBJECT_OT_select_linked(wmOperatorType *ot)
  * \{ */
 
 enum {
-  OBJECT_GRPSEL_CHILDREN_RECURSIVE = 0,
-  OBJECT_GRPSEL_CHILDREN = 1,
-  OBJECT_GRPSEL_PARENT = 2,
-  OBJECT_GRPSEL_SIBLINGS = 3,
   OBJECT_GRPSEL_TYPE = 4,
   OBJECT_GRPSEL_COLLECTION = 5,
   OBJECT_GRPSEL_HOOK = 7,
@@ -739,10 +735,6 @@ enum {
 };
 
 static const EnumPropertyItem prop_select_grouped_types[] = {
-    {OBJECT_GRPSEL_CHILDREN_RECURSIVE, "CHILDREN_RECURSIVE", 0, "Children", ""},
-    {OBJECT_GRPSEL_CHILDREN, "CHILDREN", 0, "Immediate Children", ""},
-    {OBJECT_GRPSEL_PARENT, "PARENT", 0, "Parent", ""},
-    {OBJECT_GRPSEL_SIBLINGS, "SIBLINGS", 0, "Siblings", "Shared parent"},
     {OBJECT_GRPSEL_TYPE, "TYPE", 0, "Type", "Shared object type"},
     {OBJECT_GRPSEL_COLLECTION, "COLLECTION", 0, "Collection", "Shared collection"},
     {OBJECT_GRPSEL_HOOK, "HOOK", 0, "Hook", ""},
@@ -756,53 +748,6 @@ static const EnumPropertyItem prop_select_grouped_types[] = {
     {OBJECT_GRPSEL_LIGHT_TYPE, "LIGHT_TYPE", 0, "Light Type", "Matching light types"},
     {0, nullptr, 0, nullptr, nullptr},
 };
-
-static bool select_grouped_children(bContext *C, Object *ob, const bool recursive)
-{
-  bool changed = false;
-
-  CTX_DATA_BEGIN (C, Base *, base, selectable_bases) {
-    if (ob == base->object->parent) {
-      if ((base->flag & BASE_SELECTED) == 0) {
-        base_select(base, BA_SELECT);
-        changed = true;
-      }
-
-      if (recursive) {
-        changed |= select_grouped_children(C, base->object, true);
-      }
-    }
-  }
-  CTX_DATA_END;
-  return changed;
-}
-
-/* Makes parent active and de-selected BKE_view_layer_active_object_get. */
-static bool select_grouped_parent(bContext *C)
-{
-  const Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  View3D *v3d = CTX_wm_view3d(C);
-  Base *baspar, *basact = CTX_data_active_base(C);
-  bool changed = false;
-
-  if (!basact || !(basact->object->parent)) {
-    /* We know BKE_view_layer_active_object_get is valid. */
-    return false;
-  }
-
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  baspar = BKE_view_layer_base_find(view_layer, basact->object->parent);
-
-  /* can be nullptr if parent in other scene */
-  if (baspar && BASE_SELECTABLE(v3d, baspar)) {
-    base_select(baspar, BA_SELECT);
-    base_activate(C, baspar);
-    changed = true;
-  }
-  return changed;
-}
 
 #define COLLECTION_MENU_MAX 24
 /* Select objects in the same group as the active */
@@ -882,21 +827,6 @@ static bool select_grouped_object_hooks(bContext *C, Object *ob)
   return changed;
 }
 
-/* Select objects with the same parent as the active (siblings),
- * parent can be nullptr also */
-static bool select_grouped_siblings(bContext *C, Object *ob)
-{
-  bool changed = false;
-
-  CTX_DATA_BEGIN (C, Base *, base, selectable_bases) {
-    if ((base->object->parent == ob->parent) && ((base->flag & BASE_SELECTED) == 0)) {
-      base_select(base, BA_SELECT);
-      changed = true;
-    }
-  }
-  CTX_DATA_END;
-  return changed;
-}
 static bool select_grouped_lighttype(bContext *C, Object *ob)
 {
   Light *la = id_cast<Light *>(ob->data);
@@ -1031,18 +961,6 @@ static wmOperatorStatus object_select_grouped_exec(bContext *C, wmOperator *op)
   }
 
   switch (type) {
-    case OBJECT_GRPSEL_CHILDREN_RECURSIVE:
-      changed |= select_grouped_children(C, ob, true);
-      break;
-    case OBJECT_GRPSEL_CHILDREN:
-      changed |= select_grouped_children(C, ob, false);
-      break;
-    case OBJECT_GRPSEL_PARENT:
-      changed |= select_grouped_parent(C);
-      break;
-    case OBJECT_GRPSEL_SIBLINGS:
-      changed |= select_grouped_siblings(C, ob);
-      break;
     case OBJECT_GRPSEL_TYPE:
       changed |= select_grouped_type(C, ob);
       break;
@@ -1300,126 +1218,6 @@ void OBJECT_OT_select_mirror(wmOperatorType *ot)
                   false,
                   "Extend",
                   "Extend selection instead of deselecting everything first");
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Select More/Less
- * \{ */
-
-static bool object_select_more_less(bContext *C, const bool select)
-{
-  const Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  for (Base &base : *BKE_view_layer_object_bases_get(view_layer)) {
-    Object *ob = base.object;
-    ob->flag &= ~OB_DONE;
-    ob->id.tag &= ~ID_TAG_DOIT;
-    /* parent may be in another scene */
-    if (ob->parent) {
-      ob->parent->flag &= ~OB_DONE;
-      ob->parent->id.tag &= ~ID_TAG_DOIT;
-    }
-  }
-
-  Vector<PointerRNA> ctx_base_list;
-  CTX_data_selectable_bases(C, &ctx_base_list);
-
-  CTX_DATA_BEGIN (C, Object *, ob, selected_objects) {
-    ob->flag |= OB_DONE;
-  }
-  CTX_DATA_END;
-
-  for (PointerRNA &ptr : ctx_base_list) {
-    Object *ob = (static_cast<Base *>(ptr.data))->object;
-    if (ob->parent) {
-      if ((ob->flag & OB_DONE) != (ob->parent->flag & OB_DONE)) {
-        ob->id.tag |= ID_TAG_DOIT;
-        ob->parent->id.tag |= ID_TAG_DOIT;
-      }
-    }
-  }
-
-  bool changed = false;
-  const short select_mode = select ? BA_SELECT : BA_DESELECT;
-  const short select_flag = select ? BASE_SELECTED : 0;
-
-  for (PointerRNA &ptr : ctx_base_list) {
-    Base *base = static_cast<Base *>(ptr.data);
-    Object *ob = base->object;
-    if ((ob->id.tag & ID_TAG_DOIT) && ((base->flag & BASE_SELECTED) != select_flag)) {
-      base_select(base, eObjectSelect_Mode(select_mode));
-      changed = true;
-    }
-  }
-
-  return changed;
-}
-
-static wmOperatorStatus object_select_more_exec(bContext *C, wmOperator * /*op*/)
-{
-  bool changed = object_select_more_less(C, true);
-
-  if (changed) {
-    Scene *scene = CTX_data_scene(C);
-    DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
-    WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-
-    ED_outliner_select_sync_from_object_tag(C);
-
-    return OPERATOR_FINISHED;
-  }
-  return OPERATOR_CANCELLED;
-}
-
-void OBJECT_OT_select_more(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Select More";
-  ot->idname = "OBJECT_OT_select_more";
-  ot->description = "Select connected parent/child objects";
-
-  /* API callbacks. */
-  ot->exec = object_select_more_exec;
-  ot->poll = ED_operator_objectmode;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
-static wmOperatorStatus object_select_less_exec(bContext *C, wmOperator * /*op*/)
-{
-  bool changed = object_select_more_less(C, false);
-
-  if (changed) {
-    Scene *scene = CTX_data_scene(C);
-    DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
-    WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-
-    ED_outliner_select_sync_from_object_tag(C);
-
-    return OPERATOR_FINISHED;
-  }
-  return OPERATOR_CANCELLED;
-}
-
-void OBJECT_OT_select_less(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Select Less";
-  ot->idname = "OBJECT_OT_select_less";
-  ot->description = "Deselect objects at the boundaries of parent/child relationships";
-
-  /* API callbacks. */
-  ot->exec = object_select_less_exec;
-  ot->poll = ED_operator_objectmode;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /** \} */

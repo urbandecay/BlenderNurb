@@ -79,7 +79,7 @@ static void viewroll_apply(ViewOpsData *vod, int x, int y)
     view3d_boxview_sync(vod->area, vod->region);
   }
 
-  ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
+  ED_view3d_camera_lock_sync(vod->v3d, vod->rv3d);
 
   ED_region_tag_redraw(vod->region);
 }

@@ -56,11 +56,8 @@ class USDXformReader : public USDPrimReader {
   bool prim_has_xform_ops() const;
 
  protected:
-  /* Returns true if the contained USD prim is the root of a transform hierarchy. */
-  virtual bool is_root_xform_prim() const;
-
   /**
-   * Return the USD prim's local transformation.
+   * Return the USD prim's world transformation, evaluated from the USD stage hierarchy.
    *
    * \param time: Time code for evaluating the transform.
    *
@@ -69,7 +66,7 @@ class USDXformReader : public USDPrimReader {
    *         - A boolean flag indicating whether the matrix
    *           is constant over time.
    */
-  virtual std::optional<XformResult> get_local_usd_xform(pxr::UsdTimeCode time) const;
+  virtual std::optional<XformResult> get_world_usd_xform(pxr::UsdTimeCode time) const;
 
  private:
   pxr::UsdGeomXformable get_xformable() const;

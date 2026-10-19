@@ -425,7 +425,8 @@ class ActionLayerBuilder(GeneratorPlugin, BoneUtilityMixin, MechanismUtilityMixi
     def rig_bones(self):
         if self.layers:
             self.child_meshes = [
-                verify_mesh_obj(child) for child in self.generator.obj.children_recursive if child.type == 'MESH'
+                verify_mesh_obj(obj) for obj in bpy.data.objects
+                if obj.type == 'MESH' and obj.rigify_owner_rig == self.generator.obj
             ]
 
 

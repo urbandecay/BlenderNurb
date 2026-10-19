@@ -328,12 +328,6 @@ bool gimbal_axis_object(Object *ob, float gmat[3][3])
     return false;
   }
 
-  if (ob->parent) {
-    float parent_mat[3][3];
-    copy_m3_m4(parent_mat, ob->parent->object_to_world().ptr());
-    normalize_m3(parent_mat);
-    mul_m3_m3m3(gmat, parent_mat, gmat);
-  }
   return true;
 }
 
@@ -652,18 +646,6 @@ static void handle_armature_parent_orientation(Object *ob, float r_mat[3][3])
   transform_orientations_create_from_axis(r_mat, UNPACK3(ob->object_to_world().ptr()));
 }
 
-static void handle_object_parent_orientation(Object *ob, float r_mat[3][3])
-{
-  /* If object has parent, then orient to parent. */
-  if (ob->parent) {
-    transform_orientations_create_from_axis(r_mat, UNPACK3(ob->parent->object_to_world().ptr()));
-  }
-  else {
-    /* If object doesn't have parent, then orient to world. */
-    unit_m3(r_mat);
-  }
-}
-
 short calc_orientation_from_type_ex(const Main &bmain,
                                     const Scene *scene,
                                     ViewLayer *view_layer,
@@ -699,9 +681,11 @@ short calc_orientation_from_type_ex(const Main &bmain,
       if (ob) {
         if (ob->mode & OB_MODE_POSE) {
           handle_armature_parent_orientation(ob, r_mat);
-          break;
         }
-        handle_object_parent_orientation(ob, r_mat);
+        else {
+          /* Object mode has no parent orientation, so use world axes. */
+          unit_m3(r_mat);
+        }
         break;
       }
       /* No break; we define 'parent' as 'normal' otherwise. */

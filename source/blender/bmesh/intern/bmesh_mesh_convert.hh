@@ -49,7 +49,7 @@ void BM_mesh_bm_from_me(BMesh *bm, const Mesh *mesh, const BMeshFromMeshParams *
     ATTR_NONNULL(1, 3);
 
 struct BMeshToMeshParams {
-  /** Update object hook indices & vertex parents. */
+  /** Update object hook indices. */
   bool calc_object_remap;
   /**
    * This re-assigns shape-key indices. Only do if the BMesh will have continued use
@@ -85,7 +85,6 @@ void BM_mesh_bm_to_me(struct Main *bmain, BMesh *bm, Mesh *mesh, const BMeshToMe
  *
  * - Don't support merging with existing mesh.
  * - Ignore shape-keys.
- * - Ignore vertex-parents.
  * - Ignore selection history.
  * - Uses #CD_MASK_DERIVEDMESH instead of #CD_MASK_MESH.
  *

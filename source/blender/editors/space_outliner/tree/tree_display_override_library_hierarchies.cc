@@ -260,20 +260,7 @@ void OverrideIDHierarchyBuilder::build_hierarchy_for_ID_recursive(const ID &pare
 /** \name Helpers for library override hierarchy building
  * \{ */
 
-/**
- * Iterate over the IDs \a parent_id uses. E.g. the child collections and contained objects of a
- * parent collection. Also does special handling for object parenting, so that:
- * - When iterating over a child object, \a fn is executed for the parent instead.
- * - When iterating over a parent object, \a fn is _additionally_ executed for all children. Given
- *   that the parent object isn't skipped, the caller has to ensure it's not added in the hierarchy
- *   twice.
- * This allows us to build the hierarchy in the expected ("natural") order, where parent objects
- * are actual parent elements in the hierarchy, even though in data, the relation goes the other
- * way around (children point to or "use" the parent).
- *
- * Only handles regular object parenting, not cases like the "Child of" constraint. Other Outliner
- * display modes don't show this as parent in the hierarchy either.
- */
+/** Iterate over the IDs \a parent_id uses, such as child collections and contained objects. */
 static void foreach_natural_hierarchy_child(const MainIDRelations &id_relations,
                                             const ID &parent_id,
                                             FunctionRef<ForeachChildReturn(ID &)> fn)
@@ -293,42 +280,8 @@ static void foreach_natural_hierarchy_child(const MainIDRelations &id_relations,
       continue;
     }
 
-    /* Special case for objects: Process the parent object instead of the child object. Below the
-     * parent will add the child objects then. */
-    if (GS(target_id.name) == ID_OB) {
-      const Object &potential_child_ob = reinterpret_cast<const Object &>(target_id);
-      if (potential_child_ob.parent) {
-        if (fn(potential_child_ob.parent->id) == FOREACH_BREAK) {
-          return;
-        }
-        continue;
-      }
-    }
-
     if (fn(target_id) == FOREACH_BREAK) {
       return;
-    }
-  }
-
-  /* If the ID is an object, find and iterate over any child objects. */
-  if (GS(parent_id.name) == ID_OB) {
-    for (MainIDRelationsEntryItem *from_id_entry = relations_of_id->from_ids; from_id_entry;
-         from_id_entry = from_id_entry->next)
-    {
-      ID &potential_child_id = *from_id_entry->id_pointer.from;
-
-      if (GS(potential_child_id.name) != ID_OB) {
-        continue;
-      }
-
-      const Object &potential_child_ob = reinterpret_cast<Object &>(potential_child_id);
-      if (!potential_child_ob.parent || &potential_child_ob.parent->id != &parent_id) {
-        continue;
-      }
-
-      if (fn(potential_child_id) == FOREACH_BREAK) {
-        return;
-      }
     }
   }
 }

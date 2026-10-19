@@ -1121,33 +1121,6 @@ static void bmesh_to_mesh_calc_object_remap(Main &bmain,
   BMVert *eve;
 
   for (Object &ob : bmain.objects) {
-    if ((ob.parent) && (ob.parent->data == id_cast<ID *>(&mesh)) &&
-        ELEM(ob.partype, PARVERT1, PARVERT3))
-    {
-
-      if (vertMap == nullptr) {
-        vertMap = bm_to_mesh_vertex_map(&bm, old_totvert);
-      }
-
-      if (ob.par1 < old_totvert) {
-        eve = vertMap[ob.par1];
-        if (eve) {
-          ob.par1 = BM_elem_index_get(eve);
-        }
-      }
-      if (ob.par2 < old_totvert) {
-        eve = vertMap[ob.par2];
-        if (eve) {
-          ob.par2 = BM_elem_index_get(eve);
-        }
-      }
-      if (ob.par3 < old_totvert) {
-        eve = vertMap[ob.par3];
-        if (eve) {
-          ob.par3 = BM_elem_index_get(eve);
-        }
-      }
-    }
     if (ob.data == id_cast<ID *>(&mesh)) {
       for (ModifierData &md : ob.modifiers) {
         if (md.type == eModifierType_Hook) {
@@ -1893,7 +1866,7 @@ void BM_mesh_bm_to_me(Main *bmain, BMesh *bm, Mesh *mesh, const BMeshToMeshParam
         }
       },
       [&]() {
-        /* Patch hook indices and vertex parents. */
+        /* Patch hook indices. */
         if (params->calc_object_remap && (old_verts_num > 0)) {
           bmesh_to_mesh_calc_object_remap(*bmain, *mesh, *bm, old_verts_num);
         }

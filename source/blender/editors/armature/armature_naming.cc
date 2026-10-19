@@ -261,16 +261,6 @@ void ED_armature_bone_rename(Main *bmain,
         }
       }
 
-      /* See if an object is parented to this armature */
-      if (ob->parent && (ob->parent->data == id_cast<const ID *>(arm))) {
-        if (ob->partype == PARBONE) {
-          /* bone name in object */
-          if (STREQ(ob->parsubstr, oldname)) {
-            STRNCPY_UTF8(ob->parsubstr, newname);
-          }
-        }
-      }
-
       if (BKE_modifiers_uses_armature(ob, arm) && BKE_object_supports_vertex_groups(ob)) {
         if (BKE_object_defgroup_find_name(ob, newname)) {
           WM_global_reportf(eReportType::RPT_WARNING,

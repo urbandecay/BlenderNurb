@@ -2173,8 +2173,6 @@ static bool has_capture_rest_geometry_modifier(const Object *object)
 
 static wmOperatorStatus object_curves_empty_hair_add_exec(bContext *C, wmOperator *op)
 {
-  Scene *scene = CTX_data_scene(C);
-
   ushort local_view_bits;
   add_generic_get_opts(C, op, 'Z', nullptr, nullptr, nullptr, nullptr, &local_view_bits, nullptr);
 
@@ -2182,14 +2180,11 @@ static wmOperatorStatus object_curves_empty_hair_add_exec(bContext *C, wmOperato
   BLI_assert(surface_ob != nullptr);
 
   Object *curves_ob = add_type(C, OB_CURVES, nullptr, nullptr, nullptr, false, local_view_bits);
-  BKE_object_apply_mat4(curves_ob, surface_ob->object_to_world().ptr(), false, false);
+  BKE_object_apply_mat4(curves_ob, surface_ob->object_to_world().ptr(), false);
 
   /* Set surface object. */
   Curves *curves_id = id_cast<Curves *>(curves_ob->data);
   curves_id->surface = surface_ob;
-
-  /* Parent to surface object. */
-  parent_set(op->reports, C, scene, curves_ob, surface_ob, PAR_OBJECT, false, true, nullptr);
 
   /* Decide which UV map to use for attachment. */
   Mesh *surface_mesh = id_cast<Mesh *>(surface_ob->data);
@@ -2531,131 +2526,13 @@ static void copy_object_set_idnew(bContext *C)
 /** \name Make Instanced Objects Real Operator
  * \{ */
 
-/* XXX TODO: That whole hierarchy handling based on persistent_id tricks is
- * very confusing and convoluted, and it will fail in many cases besides basic ones.
- * Think this should be replaced by a proper tree-like representation of the instantiations,
- * should help a lot in both readability, and precise consistent rebuilding of hierarchy.
- */
-
-/**
- * \note regarding hashing dupli-objects which come from OB_DUPLICOLLECTION,
- * skip the first member of #DupliObject.persistent_id
- * since its a unique index and we only want to know if the group objects are from the same
- * dupli-group instance.
- *
- * \note regarding hashing dupli-objects which come from non-OB_DUPLICOLLECTION,
- * include the first member of #DupliObject.persistent_id
- * since its the index of the vertex/face the object is instantiated on and we want to identify
- * objects on the same vertex/face.
- * In other words, we consider each group of objects from a same item as being
- * the 'local group' where to check for parents.
- */
-struct DupliObjectHash {
-  uint64_t operator()(const DupliObject *dob) const
-  {
-    uint hash = BLI_ghashutil_ptrhash(dob->ob);
-
-    if (dob->type == OB_DUPLICOLLECTION) {
-      for (int i = 1; (i < MAX_DUPLI_RECUR) && dob->persistent_id[i] != INT_MAX; i++) {
-        hash ^= (dob->persistent_id[i] ^ i);
-      }
-    }
-    else {
-      hash ^= (dob->persistent_id[0] ^ 0);
-    }
-    return hash;
-  }
-};
-
-/**
- * \note regarding hashing dupli-objects when using OB_DUPLICOLLECTION,
- * skip the first member of #DupliObject.persistent_id
- * since its a unique index and we only want to know if the group objects are from the same
- * dupli-group instance.
- */
-struct DupliObjectInstancerHash {
-  uint64_t operator()(const DupliObject *dob) const
-  {
-    uint hash = BLI_ghashutil_inthash(dob->persistent_id[0]);
-    for (int i = 1; (i < MAX_DUPLI_RECUR) && dob->persistent_id[i] != INT_MAX; i++) {
-      hash ^= (dob->persistent_id[i] ^ i);
-    }
-    return hash;
-  }
-};
-
-/**
- * Compare function that matches #DupliObjectHash.
- */
-struct DupliObjectEq {
-  bool operator()(const DupliObject *a, const DupliObject *b) const
-  {
-    if (a->ob != b->ob) {
-      return false;
-    }
-
-    if (a->type != b->type) {
-      return false;
-    }
-
-    if (a->type == OB_DUPLICOLLECTION) {
-      for (int i = 1; (i < MAX_DUPLI_RECUR); i++) {
-        if (a->persistent_id[i] != b->persistent_id[i]) {
-          return false;
-        }
-        if (a->persistent_id[i] == INT_MAX) {
-          break;
-        }
-      }
-    }
-    else {
-      if (a->persistent_id[0] != b->persistent_id[0]) {
-        return false;
-      }
-    }
-
-    /* matching */
-    return true;
-  }
-};
-
-/* Compare function that matches DupliObjectInstancerHash. */
-struct DupliObjectInstancerEq {
-  bool operator()(const DupliObject *a, const DupliObject *b) const
-  {
-    for (int i = 0; (i < MAX_DUPLI_RECUR); i++) {
-      if (a->persistent_id[i] != b->persistent_id[i]) {
-        return false;
-      }
-      if (a->persistent_id[i] == INT_MAX) {
-        break;
-      }
-    }
-
-    /* matching */
-    return true;
-  }
-};
-
 static void make_object_duplilist_real(bContext *C,
                                        Depsgraph *depsgraph,
                                        Scene *scene,
-                                       Base *base,
-                                       const bool use_base_parent,
-                                       const bool use_hierarchy)
+                                       Base *base)
 {
   Main *bmain = CTX_data_main(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  using ParentMap =
-      Map<DupliObject *, Object *, 4, DefaultProbingStrategy, DupliObjectHash, DupliObjectEq>;
-  using InstancerMap = Map<DupliObject *,
-                           Object *,
-                           4,
-                           DefaultProbingStrategy,
-                           DupliObjectInstancerHash,
-                           DupliObjectInstancerEq>;
-  ParentMap *parent_gh = nullptr;
-  InstancerMap *instancer_gh = nullptr;
 
   Object *object_eval = DEG_get_evaluated(depsgraph, base->object);
 
@@ -2673,13 +2550,6 @@ static void make_object_duplilist_real(bContext *C,
   }
 
   Map<const DupliObject *, Object *> dupli_map;
-  if (use_hierarchy) {
-    parent_gh = MEM_new<ParentMap>(__func__);
-
-    if (use_base_parent) {
-      instancer_gh = MEM_new<InstancerMap>(__func__);
-    }
-  }
 
   for (DupliObject &dob : duplilist) {
     Object *ob_src = DEG_get_original(dob.ob);
@@ -2708,9 +2578,12 @@ static void make_object_duplilist_real(bContext *C,
     ob_dst->adt = nullptr;
 
     ob_dst->parent = nullptr;
+    ob_dst->partype = PAROBJECT;
+    ob_dst->parsubstr[0] = '\0';
+    ob_dst->par1 = ob_dst->par2 = ob_dst->par3 = 0;
+    unit_m4(ob_dst->parentinv);
     BKE_constraints_free(&ob_dst->constraints);
     ob_dst->runtime->curve_cache = nullptr;
-    const bool is_dupli_instancer = (ob_dst->transflag & OB_DUPLI) != 0;
     ob_dst->transflag &= ~OB_DUPLI;
     /* Remove instantiated collection, it's annoying to keep it here
      * (and get potentially a lot of usages of it then...). */
@@ -2718,25 +2591,13 @@ static void make_object_duplilist_real(bContext *C,
     ob_dst->instance_collection = nullptr;
 
     copy_m4_m4(ob_dst->runtime->object_to_world.ptr(), dob.mat);
-    BKE_object_apply_mat4(ob_dst, ob_dst->object_to_world().ptr(), false, false);
+    BKE_object_apply_mat4(ob_dst, ob_dst->object_to_world().ptr(), false);
 
     dupli_map.add(&dob, ob_dst);
 
-    if (parent_gh) {
-      /* Due to nature of hash/comparison of this ghash, a lot of duplis may be considered as
-       * 'the same', this avoids trying to insert same key several time and
-       * raise asserts in debug builds... */
-      parent_gh->add(&dob, ob_dst);
-
-      if (is_dupli_instancer && instancer_gh) {
-        /* Same as above, we may have several 'hits'. */
-        instancer_gh->add(&dob, ob_dst);
-      }
-    }
   }
 
   for (DupliObject &dob : duplilist) {
-    Object *ob_src = dob.ob;
     Object *ob_dst = dupli_map.lookup(&dob);
 
     /* Remap new object to itself, and clear again newid pointer of orig object. */
@@ -2744,76 +2605,6 @@ static void make_object_duplilist_real(bContext *C,
 
     DEG_id_tag_update(&ob_dst->id, ID_RECALC_GEOMETRY);
 
-    if (use_hierarchy) {
-      /* original parents */
-      Object *ob_src_par = ob_src->parent;
-      Object *ob_dst_par = nullptr;
-
-      /* find parent that was also made real */
-      if (ob_src_par) {
-        /* OK to keep most of the members uninitialized,
-         * they won't be read, this is simply for a hash lookup. */
-        DupliObject dob_key;
-        dob_key.ob = ob_src_par;
-        dob_key.type = dob.type;
-        if (dob.type == OB_DUPLICOLLECTION) {
-          memcpy(&dob_key.persistent_id[1],
-                 &dob.persistent_id[1],
-                 sizeof(dob.persistent_id[1]) * (MAX_DUPLI_RECUR - 1));
-        }
-        else {
-          dob_key.persistent_id[0] = dob.persistent_id[0];
-        }
-        ob_dst_par = parent_gh->lookup_default(&dob_key, nullptr);
-      }
-
-      if (ob_dst_par) {
-        /* allow for all possible parent types */
-        ob_dst->partype = ob_src->partype;
-        STRNCPY_UTF8(ob_dst->parsubstr, ob_src->parsubstr);
-        ob_dst->par1 = ob_src->par1;
-        ob_dst->par2 = ob_src->par2;
-        ob_dst->par3 = ob_src->par3;
-
-        copy_m4_m4(ob_dst->parentinv, ob_src->parentinv);
-
-        ob_dst->parent = ob_dst_par;
-      }
-    }
-    if (use_base_parent && ob_dst->parent == nullptr) {
-      Object *ob_dst_par = nullptr;
-
-      if (instancer_gh != nullptr) {
-        /* OK to keep most of the members uninitialized,
-         * they won't be read, this is simply for a hash lookup. */
-        DupliObject dob_key;
-        /* We are looking one step upper in hierarchy, so we need to 'shift' the `persistent_id`,
-         * ignoring the first item.
-         * We only check on persistent_id here, since we have no idea what object it might be. */
-        memcpy(&dob_key.persistent_id[0],
-               &dob.persistent_id[1],
-               sizeof(dob_key.persistent_id[0]) * (MAX_DUPLI_RECUR - 1));
-        ob_dst_par = instancer_gh->lookup_default(&dob_key, nullptr);
-      }
-
-      if (ob_dst_par == nullptr) {
-        /* Default to parenting to root object...
-         * Always the case when use_hierarchy is false. */
-        ob_dst_par = base->object;
-      }
-
-      ob_dst->parent = ob_dst_par;
-      ob_dst->partype = PAROBJECT;
-    }
-
-    if (ob_dst->parent) {
-      /* NOTE: this may be the parent of other objects, but it should
-       * still work out ok */
-      BKE_object_apply_mat4(ob_dst, dob.mat, false, true);
-
-      /* to set ob_dst->orig and in case there's any other discrepancies */
-      DEG_id_tag_update(&ob_dst->id, ID_RECALC_TRANSFORM);
-    }
   }
 
   if (base->object->transflag & OB_DUPLICOLLECTION && base->object->instance_collection) {
@@ -2823,31 +2614,22 @@ static void make_object_duplilist_real(bContext *C,
   base_select(base, BA_DESELECT);
   DEG_id_tag_update(&base->object->id, ID_RECALC_SELECT);
 
-  MEM_delete(parent_gh);
-  MEM_delete(instancer_gh);
-
   BKE_main_id_newptr_and_tag_clear(bmain);
 
   base->object->transflag &= ~OB_DUPLI;
   DEG_id_tag_update(&base->object->id, ID_RECALC_SYNC_TO_EVAL);
 }
 
-static wmOperatorStatus object_duplicates_make_real_exec(bContext *C, wmOperator *op)
+static wmOperatorStatus object_duplicates_make_real_exec(bContext *C, wmOperator * /*op*/)
 {
   Main *bmain = CTX_data_main(C);
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
 
-  const bool use_base_parent = RNA_boolean_get(op->ptr, "use_base_parent");
-  const bool use_hierarchy = RNA_boolean_get(op->ptr, "use_hierarchy");
-
   BKE_main_id_newptr_and_tag_clear(bmain);
 
   CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases) {
-    make_object_duplilist_real(C, depsgraph, scene, base, use_base_parent, use_hierarchy);
-
-    /* dependencies were changed */
-    WM_event_add_notifier(C, NC_OBJECT | ND_PARENT, base->object);
+    make_object_duplilist_real(C, depsgraph, scene, base);
   }
   CTX_DATA_END;
 
@@ -2863,7 +2645,7 @@ void OBJECT_OT_duplicates_make_real(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Make Instances Real";
-  ot->description = "Make instanced objects attached to this object real";
+  ot->description = "Create objects from instanced objects";
   ot->idname = "OBJECT_OT_duplicates_make_real";
 
   /* API callbacks. */
@@ -2874,14 +2656,6 @@ void OBJECT_OT_duplicates_make_real(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  ot->prop = RNA_def_boolean(ot->srna,
-                             "use_base_parent",
-                             false,
-                             "Parent",
-                             "Parent newly created objects to the original instancer");
-  RNA_def_property_translation_context(ot->prop, BLT_I18NCONTEXT_OPERATOR_DEFAULT);
-  RNA_def_boolean(
-      ot->srna, "use_hierarchy", false, "Keep Hierarchy", "Maintain parent child relationships");
 }
 
 /** \} */
@@ -3839,12 +3613,7 @@ static wmOperatorStatus object_convert_exec(bContext *C, wmOperator *op)
     }
 
     if (!keep_original && (ob->flag & OB_DONE)) {
-      /* NOTE: Tag transform for update because object parenting to curve with path is handled
-       * differently from all other cases. Converting curve to mesh and mesh to curve will likely
-       * affect the way children are evaluated.
-       * It is not enough to tag only geometry and rely on the curve parenting relations because
-       * this relation is lost when curve is converted to mesh. */
-      DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_TRANSFORM);
+      DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
       if (ob->data) {
         ob->data->tag &= ~ID_TAG_DOIT; /* flag not to convert this datablock again */
       }
@@ -4305,7 +4074,7 @@ static wmOperatorStatus object_add_named_exec(bContext *C, wmOperator *op)
     Object *ob_add = basen->object;
     RNA_property_float_get_array(
         op->ptr, prop_matrix, ob_add->runtime->object_to_world.base_ptr());
-    BKE_object_apply_mat4(ob_add, ob_add->object_to_world().ptr(), true, true);
+    BKE_object_apply_mat4(ob_add, ob_add->object_to_world().ptr(), true);
 
     DEG_id_tag_update(&ob_add->id, ID_RECALC_TRANSFORM);
   }
@@ -4419,7 +4188,7 @@ static wmOperatorStatus object_transform_to_mouse_exec(bContext *C, wmOperator *
        *
        * This transforms all selected objects, so that dropping a single object which links in
        * other objects will have their relative transformation preserved.
-       * For example a child/parent relationship or other objects used with a boolean modifier.
+       * For example, a linked Boolean modifier.
        *
        * The caller is responsible for ensuring the selection state gives useful results.
        * Link/append does this using #FILE_AUTOSELECT. */

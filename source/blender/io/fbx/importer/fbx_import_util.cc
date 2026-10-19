@@ -74,50 +74,14 @@ void ufbx_matrix_to_obj(const ufbx_matrix &mtx, Object *obj)
 
   float obmat[4][4];
   matrix_to_m44(mtx, obmat);
-  BKE_object_apply_mat4(obj, obmat, true, false);
+  BKE_object_apply_mat4(obj, obmat, true);
   BKE_object_to_mat4(obj, obj->runtime->object_to_world.ptr());
 }
 
-void node_matrix_to_obj(const ufbx_node *node, Object *obj, const FbxElementMapping &mapping)
+void node_matrix_to_obj(const ufbx_node *node, Object *obj)
 {
-  ufbx_matrix mtx = ufbx_matrix_mul(node->node_depth < 2 ? &node->node_to_world :
-                                                           &node->node_to_parent,
-                                    &node->geometry_to_node);
-
-  /* Handle case of an object parented to a bone: need to set
-   * bone as parent, and make transform be at the end of the bone. */
-  const ufbx_node *parbone = node->parent;
-  if (obj->parent == nullptr && parbone && mapping.node_is_blender_bone.contains(parbone)) {
-    Object *arm = mapping.bone_to_armature.lookup_default(parbone, nullptr);
-    if (arm != nullptr) {
-      ufbx_matrix offset_mtx = ufbx_identity_matrix;
-      offset_mtx.cols[3].y = -mapping.bone_to_length.lookup_default(parbone, 0.0);
-      if (mapping.node_is_blender_bone.contains(node)) {
-        /* The node itself is a "fake bone", in which case parent it to the matching
-         * fake bone, and matrix is just what puts transform at the bone tail. */
-        parbone = node;
-        mtx = offset_mtx;
-      }
-      else {
-        mtx = ufbx_matrix_mul(&offset_mtx, &mtx);
-      }
-
-      obj->parent = arm;
-      obj->partype = PARBONE;
-      STRNCPY_UTF8(obj->parsubstr, mapping.node_to_name.lookup_default(parbone, "").c_str());
-
-#ifdef FBX_DEBUG_PRINT
-      fprintf(g_debug_file,
-              "parent CHILD %s to ARM %s BONE %s bone_child_mtx:\n",
-              node->name.data,
-              arm->id.name + 2,
-              parbone->name.data);
-      print_matrix(offset_mtx);
-      fprintf(g_debug_file, "- child matrix:\n");
-      print_matrix(mtx);
-#endif
-    }
-  }
+  /* Object parenting is disabled, so import each node with its world transform. */
+  ufbx_matrix mtx = ufbx_matrix_mul(&node->node_to_world, &node->geometry_to_node);
 
   ufbx_matrix_to_obj(mtx, obj);
 }

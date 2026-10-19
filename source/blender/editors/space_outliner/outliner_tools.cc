@@ -430,7 +430,7 @@ static void unlink_collection_fn(bContext *C,
 static void unlink_object_fn(bContext *C,
                              ReportList *reports,
                              Scene * /*scene*/,
-                             TreeElement *te,
+                             TreeElement * /*te*/,
                              TreeStoreElem *tsep,
                              TreeStoreElem *tselem)
 {
@@ -447,23 +447,6 @@ static void unlink_object_fn(bContext *C,
   Object *ob = id_cast<Object *>(tselem->id);
   const eSpaceOutliner_Mode outliner_mode = eSpaceOutliner_Mode(
       CTX_wm_space_outliner(C)->outlinevis);
-
-  if (GS(tsep->id->name) == ID_OB) {
-    /* Parented objects need to find which collection to unlink from. */
-    TreeElement *te_parent = te->parent;
-    while (tsep && GS(tsep->id->name) == ID_OB) {
-      if (!ID_IS_EDITABLE(tsep->id)) {
-        BKE_reportf(reports,
-                    RPT_WARNING,
-                    "Cannot unlink object '%s' parented to another linked object '%s'",
-                    ob->id.name + 2,
-                    tsep->id->name + 2);
-        return;
-      }
-      te_parent = te_parent->parent;
-      tsep = te_parent ? TREESTORE(te_parent) : nullptr;
-    }
-  }
 
   if (tsep && tsep->id) {
     if (!ID_IS_EDITABLE(tsep->id) || ID_IS_OVERRIDE_LIBRARY(tsep->id)) {
@@ -943,20 +926,6 @@ static void object_select_fn(bContext *C,
 /* -------------------------------------------------------------------- */
 /** \name Callbacks (Selection, Users & Library) Utilities
  * \{ */
-
-static void object_select_hierarchy_fn(bContext *C,
-                                       ReportList * /*reports*/,
-                                       Scene * /*scene*/,
-                                       TreeElement *te,
-                                       TreeStoreElem * /*tsep*/,
-                                       TreeStoreElem * /*tselem*/)
-{
-  /* Don't extend because this toggles, which is nice for Ctrl-Click but not for a menu item.
-   * it's especially confusing when multiple items are selected since some toggle on/off. */
-  SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
-  outliner_item_select(
-      C, space_outliner, te, OL_ITEM_SELECT | OL_ITEM_ACTIVATE | OL_ITEM_RECURSIVE);
-}
 
 static void object_deselect_fn(bContext *C,
                                ReportList * /*reports*/,
@@ -2557,132 +2526,6 @@ static void outliner_do_data_operation(
   });
 }
 
-static void outliner_batch_delete_object_tag(ReportList *reports,
-                                             Main *bmain,
-                                             Scene *scene,
-                                             Object *object)
-{
-  if (object->id.tag & ID_TAG_INDIRECT) {
-    BKE_reportf(
-        reports, RPT_WARNING, "Cannot delete indirectly linked object '%s'", object->id.name + 2);
-    BLI_assert((object->id.tag & ID_TAG_DOIT) == 0);
-  }
-  /* FIXME: This code checking object user-count won't work as expected if a same object belongs to
-   * more than one collection in the scene. */
-  if (ID_REAL_USERS(object) <= 1 && ID_EXTRA_USERS(object) == 0 &&
-      BKE_library_ID_is_indirectly_used(bmain, object))
-  {
-    BKE_reportf(reports,
-                RPT_WARNING,
-                "Cannot delete object '%s' from scene '%s', indirectly used objects need at least "
-                "one user",
-                object->id.name + 2,
-                scene->id.name + 2);
-    BLI_assert((object->id.tag & ID_TAG_DOIT) == 0);
-  }
-
-  object->id.tag |= ID_TAG_DOIT;
-}
-
-static void outliner_batch_delete_object_hierarchy_tag(
-    ReportList *reports, Main *bmain, ViewLayer *view_layer, Scene *scene, Base *base)
-{
-  Object *object = base->object;
-  BLI_assert(object != nullptr);
-
-  outliner_batch_delete_object_tag(reports, bmain, scene, object);
-
-  /* Even though the object itself may not be deletable, some of its children may still be
-   * deletable. */
-  for (Base *base_iter = static_cast<Base *>(BKE_view_layer_object_bases_get(view_layer)->first);
-       base_iter != nullptr;
-       base_iter = base_iter->next)
-  {
-    Object *parent_ob_iter;
-    for (parent_ob_iter = base_iter->object->parent;
-         (parent_ob_iter != nullptr && parent_ob_iter != object &&
-          (parent_ob_iter->id.tag & ID_TAG_DOIT) == 0);
-         parent_ob_iter = parent_ob_iter->parent)
-    {
-      /* pass */
-    }
-    if (parent_ob_iter != nullptr) {
-      /* There is one or more parents to current iterated object that also need to be deleted,
-       * process the parenting chain again to tag them as such.
-       *
-       * NOTE: Since objects that cannot be deleted are not tagged, the relevant 'parenting'
-       * branches may be looped over more than once. Would not expect this to be a real issue in
-       * practice though. */
-      for (parent_ob_iter = base_iter->object;
-           (parent_ob_iter != nullptr && parent_ob_iter != object &&
-            (parent_ob_iter->id.tag & ID_TAG_DOIT) == 0);
-           parent_ob_iter = parent_ob_iter->parent)
-      {
-        outliner_batch_delete_object_tag(reports, bmain, scene, parent_ob_iter);
-      }
-    }
-  }
-}
-
-static void object_batch_delete_hierarchy_tag_fn(bContext *C,
-                                                 ReportList *reports,
-                                                 Scene *scene,
-                                                 Object *ob)
-{
-  if (ob->id.tag & ID_TAG_DOIT) {
-    /* Object has already been processed and tagged for removal as part of another parenting
-     * hierarchy. */
-#ifndef NDEBUG
-    const Main *bmain = CTX_data_main(C);
-    ViewLayer *view_layer = CTX_data_view_layer(C);
-    BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-    BLI_assert(BKE_view_layer_base_find(view_layer, ob) == nullptr);
-#endif
-    return;
-  }
-
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *obedit = CTX_data_edit_object(C);
-
-  Base *base = BKE_view_layer_base_find(view_layer, ob);
-
-  if (base == nullptr) {
-    return;
-  }
-
-  /* Exit Edit mode if the active object or one of its children are being edited. */
-  for (; obedit && (obedit != base->object); obedit = obedit->parent) {
-    /* pass */
-  }
-  if (obedit == base->object) {
-    object::editmode_exit(C, object::EM_FREEDATA);
-  }
-
-  Main *bmain = CTX_data_main(C);
-  outliner_batch_delete_object_hierarchy_tag(reports, bmain, view_layer, scene, base);
-}
-
-static void outliner_batch_delete_object_hierarchy(Main *bmain, Scene *scene)
-{
-  for (Object &ob_iter : bmain->objects) {
-    if ((ob_iter.id.tag & ID_TAG_DOIT) == 0) {
-      continue;
-    }
-
-    BKE_scene_collections_object_remove(bmain, scene, &ob_iter, false);
-
-    /* Check on all objects tagged for deletion, these that are still in use (e.g. in collections
-     * from another scene) should not be deleted. They also need to be tagged for depsgraph update.
-     */
-    if (ob_iter.id.us != 0) {
-      ob_iter.id.tag &= ~ID_TAG_DOIT;
-      DEG_id_tag_update_ex(bmain, &ob_iter.id, ID_RECALC_BASE_FLAGS);
-    }
-  }
-
-  BKE_id_multi_tagged_delete(bmain);
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -2692,7 +2535,6 @@ static void outliner_batch_delete_object_hierarchy(Main *bmain, Scene *scene)
 enum {
   OL_OP_SELECT = 1,
   OL_OP_DESELECT,
-  OL_OP_SELECT_HIERARCHY,
   OL_OP_REMAP,
   OL_OP_RENAME,
 };
@@ -2700,7 +2542,6 @@ enum {
 static const EnumPropertyItem prop_object_op_types[] = {
     {OL_OP_SELECT, "SELECT", ICON_RESTRICT_SELECT_OFF, "Select", ""},
     {OL_OP_DESELECT, "DESELECT", 0, "Deselect", ""},
-    {OL_OP_SELECT_HIERARCHY, "SELECT_HIERARCHY", 0, "Select Hierarchy", ""},
     {OL_OP_REMAP,
      "REMAP",
      0,
@@ -2739,24 +2580,6 @@ static wmOperatorStatus outliner_object_operation_exec(bContext *C, wmOperator *
       }
 
       str = CTX_N_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Select Objects");
-      selection_changed = true;
-      break;
-    }
-    case OL_OP_SELECT_HIERARCHY: {
-      Scene *sce = scene; /* To be able to delete, scenes are set... */
-      outliner_do_object_operation_ex(C,
-                                      op->reports,
-                                      scene,
-                                      space_outliner,
-                                      &space_outliner->runtime->tree,
-                                      object_select_hierarchy_fn,
-                                      false);
-      /* FIXME: This is most certainly broken, maybe check should rather be
-       * `if (CTX_data_scene(C) != scene)` ? */
-      if (scene != sce) {
-        WM_window_set_active_scene(bmain, C, win, sce);
-      }
-      str = CTX_N_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Select Object Hierarchy");
       selection_changed = true;
       break;
     }
@@ -2829,7 +2652,6 @@ using OutlinerDeleteFn = void (*)(bContext *C, ReportList *reports, Scene *scene
 struct ObjectEditData {
   Set<Object *> objects_set;
   bool is_liboverride_allowed;
-  bool is_liboverride_hierarchy_root_allowed;
 };
 
 static void outliner_do_object_delete(bContext *C,
@@ -2875,7 +2697,7 @@ static TreeTraversalAction outliner_collect_objects_to_delete(TreeElement *te, v
 
   if (ID_IS_OVERRIDE_LIBRARY_REAL(id)) {
     if (ID_IS_OVERRIDE_LIBRARY_HIERARCHY_ROOT(id)) {
-      if (!(data->is_liboverride_hierarchy_root_allowed || data->is_liboverride_allowed)) {
+      if (!data->is_liboverride_allowed) {
         return TRAVERSE_SKIP_CHILDS;
       }
     }
@@ -2901,13 +2723,10 @@ static wmOperatorStatus outliner_delete_exec(bContext *C, wmOperator *op)
   BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
   const Base *basact_prev = BKE_view_layer_active_base_get(view_layer);
 
-  const bool delete_hierarchy = RNA_boolean_get(op->ptr, "hierarchy");
-
   /* Get selected objects skipping duplicates to prevent deleting objects linked to multiple
    * collections twice */
   ObjectEditData object_delete_data = {};
   object_delete_data.is_liboverride_allowed = false;
-  object_delete_data.is_liboverride_hierarchy_root_allowed = delete_hierarchy;
   outliner_tree_traverse(space_outliner,
                          &space_outliner->runtime->tree,
                          0,
@@ -2915,27 +2734,10 @@ static wmOperatorStatus outliner_delete_exec(bContext *C, wmOperator *op)
                          outliner_collect_objects_to_delete,
                          &object_delete_data);
 
-  if (delete_hierarchy) {
-    BKE_main_id_tag_all(bmain, ID_TAG_DOIT, false);
+  outliner_do_object_delete(
+      C, op->reports, scene, object_delete_data.objects_set, outliner_object_delete_fn);
 
-    BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-
-    /* #object_batch_delete_hierarchy_fn callback will only remove objects from collections and tag
-     * them for deletion. */
-    outliner_do_object_delete(C,
-                              op->reports,
-                              scene,
-                              object_delete_data.objects_set,
-                              object_batch_delete_hierarchy_tag_fn);
-
-    outliner_batch_delete_object_hierarchy(bmain, scene);
-  }
-  else {
-    outliner_do_object_delete(
-        C, op->reports, scene, object_delete_data.objects_set, outliner_object_delete_fn);
-  }
-
-  outliner_collection_delete(C, bmain, scene, op->reports, delete_hierarchy);
+  outliner_collection_delete(C, bmain, scene, op->reports, false);
 
   /* Tree management normally happens from draw_outliner(), but when
    * you're clicking too fast on Delete object from context menu in
@@ -2977,10 +2779,6 @@ void OUTLINER_OT_delete(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  /* properties */
-  PropertyRNA *prop = RNA_def_boolean(
-      ot->srna, "hierarchy", false, "Hierarchy", "Delete child objects and collections");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 /** \} */

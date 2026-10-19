@@ -66,9 +66,6 @@ class BakeOptions:
     do_constraint_clear: bool
     """Remove constraints after baking."""
 
-    do_parents_clear: bool
-    """Unparent after baking objects."""
-
     do_clean: bool
     """Remove redundant keyframes after baking."""
 
@@ -412,30 +409,12 @@ def bake_action_iter(
             return {}
         return clean_custom_properties(obj)
 
-    if bake_options.do_parents_clear:
-        if bake_options.do_visual_keying:
-            def obj_frame_info(obj):
-                return obj.matrix_world.copy(), clean_custom_properties(obj)
-        else:
-            def obj_frame_info(obj):
-                parent = obj.parent
-                matrix = obj.matrix_basis
-                if parent:
-                    return parent.matrix_world @ matrix, clean_custom_properties(obj)
-                else:
-                    return matrix.copy(), clean_custom_properties(obj)
+    if bake_options.do_visual_keying:
+        def obj_frame_info(obj):
+            return obj.matrix_world.copy(), clean_custom_properties(obj)
     else:
-        if bake_options.do_visual_keying:
-            def obj_frame_info(obj):
-                parent = obj.parent
-                matrix = obj.matrix_world
-                if parent:
-                    return parent.matrix_world.inverted_safe() @ matrix, clean_custom_properties(obj)
-                else:
-                    return matrix.copy(), clean_custom_properties(obj)
-        else:
-            def obj_frame_info(obj):
-                return obj.matrix_basis.copy(), clean_custom_properties(obj)
+        def obj_frame_info(obj):
+            return obj.matrix_basis.copy(), clean_custom_properties(obj)
 
     # -------------------------------------------------------------------------
     # Setup the Context
@@ -677,9 +656,6 @@ def bake_action_iter(
             keyframes.insert_keyframes_into_new_action(total_new_keys, channelbag, name)
         else:
             keyframes.insert_keyframes_into_existing_action(lookup_fcurves, total_new_keys, channelbag)
-
-        if bake_options.do_parents_clear:
-            obj.parent = None
 
     # -------------------------------------------------------------------------
     # Clean

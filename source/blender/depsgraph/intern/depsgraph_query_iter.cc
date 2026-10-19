@@ -65,29 +65,6 @@ void deg_invalidate_iterator_work_data(DEGObjectIterData *data)
 #endif
 }
 
-bool deg_object_hide_original(eEvaluationMode eval_mode, const Object *ob, const DupliObject *dob)
-{
-  /* Automatic hiding if this object is being instanced on verts/faces/frames
-   * by its parent. Ideally this should not be needed, but due to the wrong
-   * dependency direction in the data design there is no way to keep the object
-   * visible otherwise. The better solution eventually would be for objects
-   * to specify which object they instance, instead of through parenting.
-   *
-   * This function should not be used for meta-balls. They have custom visibility rules, as hiding
-   * the base meta-ball will also hide all the other balls in the group. */
-  if (eval_mode == DAG_EVAL_RENDER || dob) {
-    const int hide_original_types = OB_DUPLIVERTS | OB_DUPLIFACES;
-
-    if (!dob || !(dob->type & hide_original_types)) {
-      if (ob->parent && (ob->parent->transflag & hide_original_types)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 void deg_iterator_duplis_init(DEGObjectIterData *data, Object *object)
 {
   /* This should have been set to default values at `DEG_iterator_objects_begin`, or at the end of
@@ -463,15 +440,12 @@ void DEG_iterator_ids_next(BLI_Iterator *iter)
 
 void DEG_iterator_ids_end(BLI_Iterator * /*iter*/) {}
 
-bool DEG_iterator_object_is_visible(eEvaluationMode eval_mode, const Object *ob)
+bool DEG_iterator_object_is_visible(eEvaluationMode /*eval_mode*/, const Object * /*ob*/)
 {
-  if (ob->type == OB_MBALL) {
-    return true;
-  }
-  return !deg_object_hide_original(eval_mode, ob, nullptr);
+  return true;
 }
 
-bool DEG_iterator_dupli_is_visible(const DupliObject *dupli, eEvaluationMode eval_mode)
+bool DEG_iterator_dupli_is_visible(const DupliObject *dupli, eEvaluationMode /*eval_mode*/)
 {
   if (dupli->no_draw) {
     return false;
@@ -479,10 +453,6 @@ bool DEG_iterator_dupli_is_visible(const DupliObject *dupli, eEvaluationMode eva
   if (dupli->ob_data && GS(dupli->ob_data->name) == ID_MB) {
     return false;
   }
-  if (dupli->ob->type != OB_MBALL && deg_object_hide_original(eval_mode, dupli->ob, dupli)) {
-    return false;
-  }
-
   return true;
 }
 

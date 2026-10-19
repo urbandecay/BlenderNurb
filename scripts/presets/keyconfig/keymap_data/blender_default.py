@@ -3971,20 +3971,8 @@ def km_object_mode(params):
         *_template_items_proportional_editing(
             params, connected=False, toggle_data_path="tool_settings.use_proportional_edit_objects"),
         *_template_items_select_actions(params, "object.select_all"),
-        ("object.select_more", {"type": 'NUMPAD_PLUS', "value": 'PRESS', "ctrl": True, "repeat": True}, None),
-        ("object.select_less", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True, "repeat": True}, None),
         ("object.select_linked", {"type": 'L', "value": 'PRESS', "shift": True}, None),
         ("object.select_grouped", {"type": 'G', "value": 'PRESS', "shift": True}, None),
-        ("object.select_hierarchy", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("direction", 'PARENT'), ("extend", False)]}),
-        ("object.select_hierarchy", {"type": 'LEFT_BRACKET', "value": 'PRESS', "shift": True, "repeat": True},
-         {"properties": [("direction", 'PARENT'), ("extend", True)]}),
-        ("object.select_hierarchy", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("direction", 'CHILD'), ("extend", False)]}),
-        ("object.select_hierarchy", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "shift": True, "repeat": True},
-         {"properties": [("direction", 'CHILD'), ("extend", True)]}),
-        ("object.parent_set", {"type": 'P', "value": 'PRESS', "ctrl": True}, None),
-        ("object.parent_clear", {"type": 'P', "value": 'PRESS', "alt": True}, None),
         # Transform Actions.
         *_template_items_transform_actions(params, use_mirror=True),
         ("object.transform_axis_target", {"type": 'T', "value": 'PRESS', "shift": True}, None),
@@ -4041,12 +4029,10 @@ def km_object_mode(params):
     if params.legacy:
         items.extend([
             ("object.select_mirror", {"type": 'M', "value": 'PRESS', "shift": True, "ctrl": True}, None),
-            ("object.parent_no_inverse_set", {"type": 'P', "value": 'PRESS', "shift": True, "ctrl": True}, None),
             ("object.track_set", {"type": 'T', "value": 'PRESS', "ctrl": True}, None),
             ("object.track_clear", {"type": 'T', "value": 'PRESS', "alt": True}, None),
             ("object.constraint_add_with_targets", {"type": 'C', "value": 'PRESS', "shift": True, "ctrl": True}, None),
             ("object.constraints_clear", {"type": 'C', "value": 'PRESS', "ctrl": True, "alt": True}, None),
-            ("object.origin_clear", {"type": 'O', "value": 'PRESS', "alt": True}, None),
             ("object.duplicates_make_real", {"type": 'A', "value": 'PRESS', "shift": True, "ctrl": True}, None),
             op_menu("VIEW3D_MT_make_single_user", {"type": 'U', "value": 'PRESS'}),
             ("object.convert", {"type": 'C', "value": 'PRESS', "alt": True}, None),
@@ -4120,7 +4106,6 @@ def km_pose(params):
         # Transform Actions.
         *_template_items_transform_actions(params, use_mirror=True),
 
-        ("object.parent_set", {"type": 'P', "value": 'PRESS', "ctrl": True}, None),
         *_template_items_hide_reveal_actions("pose.hide", "pose.reveal"),
         op_menu("VIEW3D_MT_pose_apply", {"type": 'A', "value": 'PRESS', "ctrl": True}),
         ("pose.rot_clear", {"type": 'R', "value": 'PRESS', "alt": True}, None),
@@ -5084,7 +5069,6 @@ def km_edit_mesh(params):
             (op_tool_cycle, "builtin.knife"), params),
         ("mesh.knife_tool", {"type": 'K', "value": 'PRESS', "shift": True},
          {"properties": [("use_occlude_geometry", False), ("only_selected", True)]}),
-        ("object.vertex_parent_set", {"type": 'P', "value": 'PRESS', "ctrl": True}, None),
         # Menus.
         op_menu("VIEW3D_MT_edit_mesh_faces", {"type": 'F', "value": 'PRESS', "ctrl": True}),
         op_menu("VIEW3D_MT_edit_mesh_edges", {"type": 'E', "value": 'PRESS', "ctrl": True}),
@@ -5259,7 +5243,6 @@ def km_edit_lattice(params):
         *_template_items_select_actions(params, "lattice.select_all"),
         ("lattice.select_more", {"type": 'NUMPAD_PLUS', "value": 'PRESS', "ctrl": True, "repeat": True}, None),
         ("lattice.select_less", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True, "repeat": True}, None),
-        ("object.vertex_parent_set", {"type": 'P', "value": 'PRESS', "ctrl": True}, None),
         ("lattice.flip", {"type": 'F', "value": 'PRESS', "alt": True}, None),
         op_menu("VIEW3D_MT_hook", {"type": 'H', "value": 'PRESS', "ctrl": True}),
         *_template_items_proportional_editing(
@@ -5465,7 +5448,6 @@ def km_edit_curve_legacy(params):
         *_template_items_hide_reveal_actions("curve.hide", "curve.reveal"),
         ("curve.normals_make_consistent",
          {"type": 'N', "value": 'PRESS', "ctrl" if params.legacy else "shift": True}, None),
-        ("object.vertex_parent_set", {"type": 'P', "value": 'PRESS', "ctrl": True}, None),
         op_menu("VIEW3D_MT_hook", {"type": 'H', "value": 'PRESS', "ctrl": True}),
         *_template_items_proportional_editing(
             params, connected=True, toggle_data_path="tool_settings.use_proportional_edit"),

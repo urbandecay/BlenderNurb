@@ -321,7 +321,7 @@ static void viewzoom_apply_3d(ViewOpsData *vod,
     view3d_boxview_sync(vod->area, vod->region);
   }
 
-  ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
+  ED_view3d_camera_lock_sync(vod->v3d, vod->rv3d);
 
   ED_region_tag_redraw(vod->region);
 }
@@ -424,7 +424,7 @@ static void view_zoom_apply_step(bContext *C,
     view3d_boxview_sync(area, region);
   }
 
-  ED_view3d_camera_lock_sync(depsgraph, v3d, rv3d);
+  ED_view3d_camera_lock_sync(v3d, rv3d);
   ED_view3d_camera_lock_autokey(v3d, rv3d, C, false, true);
 
   ED_region_tag_redraw(region);

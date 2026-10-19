@@ -453,9 +453,6 @@ def create_derived_objects(depsgraph, objects):
     """
     result = {}
     for ob in objects:
-        ob_parent = ob.parent
-        if ob_parent and ob_parent.instance_type in {'VERTS', 'FACES'}:
-            continue
         result[ob] = [] if ob.is_instancer else [(ob, ob.matrix_world.copy())]
 
     if result:

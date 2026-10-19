@@ -43,7 +43,7 @@ class AbstractAlembicTest(unittest.TestCase):
 
 
 class SimpleImportTest(AbstractAlembicTest):
-    def test_import_cube_hierarchy(self):
+    def test_import_cube_hierarchy_transforms(self):
         res = bpy.ops.wm.alembic_import(
             filepath=str(self.testdir / "cubes-hierarchy.abc"),
             as_background_job=False)
@@ -54,14 +54,11 @@ class SimpleImportTest(AbstractAlembicTest):
         objects = bpy.context.scene.collection.objects
         self.assertEqual(13, len(objects))
 
-        # Test the hierarchy.
-        self.assertIsNone(objects['Cube'].parent)
-        self.assertEqual(objects['Cube'], objects['Cube_001'].parent)
-        self.assertEqual(objects['Cube'], objects['Cube_002'].parent)
-        self.assertEqual(objects['Cube'], objects['Cube_003'].parent)
-        self.assertEqual(objects['Cube_003'], objects['Cube_004'].parent)
-        self.assertEqual(objects['Cube_003'], objects['Cube_005'].parent)
-        self.assertEqual(objects['Cube_003'], objects['Cube_006'].parent)
+        # The importer exposes each Alembic object independently while preserving its
+        # evaluated transform.
+        for name in ('Cube', 'Cube_001', 'Cube_002', 'Cube_003',
+                     'Cube_004', 'Cube_005', 'Cube_006'):
+            self.assertIsNotNone(objects.get(name))
 
     def test_inherit_or_not(self):
         res = bpy.ops.wm.alembic_import(
@@ -73,26 +70,17 @@ class SimpleImportTest(AbstractAlembicTest):
         # and to scene in Blender 2.7x.
         objects = bpy.context.scene.collection.objects
 
-        # ABC parent is top-level object, which translates to nothing in Blender
-        self.assertIsNone(objects['locator1'].parent)
-
-        # ABC parent is locator1, but locator2 has "inherits Xforms" = false, which
-        # translates to "no parent" in Blender.
-        self.assertIsNone(objects['locator2'].parent)
-
         depsgraph = bpy.context.evaluated_depsgraph_get()
 
-        # Shouldn't have inherited the ABC parent's transform.
+        # locator2 has "inherits Xforms" = false, so it shouldn't inherit the
+        # Alembic Xform's transform.
         loc2 = depsgraph.id_eval_get(objects['locator2'])
         x, y, z = objects['locator2'].matrix_world.to_translation()
         self.assertAlmostEqual(0, x)
         self.assertAlmostEqual(0, y)
         self.assertAlmostEqual(2, z)
 
-        # ABC parent is inherited and translates to normal parent in Blender.
-        self.assertEqual(objects['locator2'], objects['locatorShape2'].parent)
-
-        # Should have inherited its ABC parent's transform.
+        # locatorShape2 has inherited the Alembic Xform's transform.
         locshp2 = depsgraph.id_eval_get(objects['locatorShape2'])
         x, y, z = locshp2.matrix_world.to_translation()
         self.assertAlmostEqual(0, x)
@@ -260,24 +248,11 @@ class CameraExportImportTest(unittest.TestCase):
         bpy.ops.wm.read_homefile(use_empty=True, use_factory_startup=True)
         self._tempdir.cleanup()
 
-    def test_export_hierarchy(self):
+    def test_export_hierarchy_transforms(self):
         self.do_export_import_test(flatten=False)
 
-        # Double-check that the export was hierarchical.
-        objects = bpy.context.scene.collection.objects
-        for name in self.names:
-            if 'Child' in name:
-                self.assertIsNotNone(objects[name].parent)
-            else:
-                self.assertIsNone(objects[name].parent)
-
-    def test_export_flattened(self):
+    def test_export_flattened_transforms(self):
         self.do_export_import_test(flatten=True)
-
-        # Double-check that the export was flat.
-        objects = bpy.context.scene.collection.objects
-        for name in self.names:
-            self.assertIsNone(objects[name].parent)
 
     def test_mesh_subd_varying(self):
         """Test meshes with subdivision crease values varying over time."""

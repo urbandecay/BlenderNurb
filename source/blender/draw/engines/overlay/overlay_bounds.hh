@@ -171,7 +171,7 @@ class Bounds : Overlay {
           break;
         case RB_SHAPE_CONVEXH:
         case RB_SHAPE_TRIMESH:
-        case RB_SHAPE_COMPOUND:
+        case RB_SHAPE_UNUSED_7:
           break;
       };
     }

@@ -628,59 +628,19 @@ void ED_view3d_camera_lock_init(const Depsgraph *depsgraph, View3D *v3d, RegionV
   ED_view3d_camera_lock_init_ex(depsgraph, v3d, rv3d, true);
 }
 
-bool ED_view3d_camera_lock_sync(const Depsgraph *depsgraph, View3D *v3d, RegionView3D *rv3d)
+bool ED_view3d_camera_lock_sync(View3D *v3d, RegionView3D *rv3d)
 {
   if (ED_view3d_camera_lock_check(v3d, rv3d)) {
     ObjectTfmProtectedChannels obtfm;
-    Object *root_parent;
+    /* Always maintain the camera's scale while syncing the view. */
+    const short protect_scale_all = (OB_LOCK_SCALEX | OB_LOCK_SCALEY | OB_LOCK_SCALEZ);
+    BKE_object_tfm_protected_backup(v3d->camera, &obtfm);
+    ED_view3d_to_object(v3d->camera, rv3d->ofs, rv3d->viewquat, rv3d->dist);
+    BKE_object_tfm_protected_restore(
+        v3d->camera, &obtfm, v3d->camera->protectflag | protect_scale_all);
 
-    if (v3d->camera->transflag & OB_TRANSFORM_ADJUST_ROOT_PARENT_FOR_VIEW_LOCK &&
-        (root_parent = v3d->camera->parent))
-    {
-      Object *ob_update;
-      float tmat[4][4];
-      float imat[4][4];
-      float view_mat[4][4];
-      float diff_mat[4][4];
-      float parent_mat[4][4];
-
-      while (root_parent->parent) {
-        root_parent = root_parent->parent;
-      }
-      Object *ob_camera_eval = DEG_get_evaluated(depsgraph, v3d->camera);
-      Object *root_parent_eval = DEG_get_evaluated(depsgraph, root_parent);
-
-      ED_view3d_to_m4(view_mat, rv3d->ofs, rv3d->viewquat, rv3d->dist);
-
-      normalize_m4_m4(tmat, ob_camera_eval->object_to_world().ptr());
-
-      invert_m4_m4(imat, tmat);
-      mul_m4_m4m4(diff_mat, view_mat, imat);
-
-      mul_m4_m4m4(parent_mat, diff_mat, root_parent_eval->object_to_world().ptr());
-
-      BKE_object_tfm_protected_backup(root_parent, &obtfm);
-      BKE_object_apply_mat4(root_parent, parent_mat, true, false);
-      BKE_object_tfm_protected_restore(root_parent, &obtfm, root_parent->protectflag);
-
-      ob_update = v3d->camera;
-      while (ob_update) {
-        DEG_id_tag_update(&ob_update->id, ID_RECALC_TRANSFORM);
-        WM_main_add_notifier(NC_OBJECT | ND_TRANSFORM, ob_update);
-        ob_update = ob_update->parent;
-      }
-    }
-    else {
-      /* always maintain the same scale */
-      const short protect_scale_all = (OB_LOCK_SCALEX | OB_LOCK_SCALEY | OB_LOCK_SCALEZ);
-      BKE_object_tfm_protected_backup(v3d->camera, &obtfm);
-      ED_view3d_to_object(depsgraph, v3d->camera, rv3d->ofs, rv3d->viewquat, rv3d->dist);
-      BKE_object_tfm_protected_restore(
-          v3d->camera, &obtfm, v3d->camera->protectflag | protect_scale_all);
-
-      DEG_id_tag_update(&v3d->camera->id, ID_RECALC_TRANSFORM);
-      WM_main_add_notifier(NC_OBJECT | ND_TRANSFORM, v3d->camera);
-    }
+    DEG_id_tag_update(&v3d->camera->id, ID_RECALC_TRANSFORM);
+    WM_main_add_notifier(NC_OBJECT | ND_TRANSFORM, v3d->camera);
 
     return true;
   }
@@ -732,21 +692,7 @@ bool ED_view3d_camera_lock_autokey(
   /* similar to ED_view3d_cameracontrol_update */
   if (ED_view3d_camera_lock_check(v3d, rv3d)) {
     Scene *scene = CTX_data_scene(C);
-    ID *id_key;
-    Object *root_parent;
-    if (v3d->camera->transflag & OB_TRANSFORM_ADJUST_ROOT_PARENT_FOR_VIEW_LOCK &&
-        (root_parent = v3d->camera->parent))
-    {
-      while (root_parent->parent) {
-        root_parent = root_parent->parent;
-      }
-      id_key = &root_parent->id;
-    }
-    else {
-      id_key = &v3d->camera->id;
-    }
-
-    return ED_view3d_camera_autokey(scene, id_key, C, do_rotate, do_translate);
+    return ED_view3d_camera_autokey(scene, &v3d->camera->id, C, do_rotate, do_translate);
   }
   return false;
 }
@@ -1654,8 +1600,7 @@ void ED_view3d_from_object(
   }
 }
 
-void ED_view3d_to_object(const Depsgraph *depsgraph,
-                         Object *ob,
+void ED_view3d_to_object(Object *ob,
                          const float ofs[3],
                          const float quat[4],
                          const float dist)
@@ -1663,8 +1608,7 @@ void ED_view3d_to_object(const Depsgraph *depsgraph,
   float mat[4][4];
   ED_view3d_to_m4(mat, ofs, quat, dist);
 
-  Object *ob_eval = DEG_get_evaluated(depsgraph, ob);
-  BKE_object_apply_mat4_ex(ob, mat, ob_eval->parent, ob_eval->parentinv, true);
+  BKE_object_apply_mat4(ob, mat, true);
 }
 
 static bool view3d_camera_to_view_selected_impl(Main *bmain,
@@ -1697,7 +1641,7 @@ static bool view3d_camera_to_view_selected_impl(Main *bmain,
 
     /* only touch location */
     BKE_object_tfm_protected_backup(camera_ob, &obtfm);
-    BKE_object_apply_mat4(camera_ob, obmat_new, true, true);
+    BKE_object_apply_mat4(camera_ob, obmat_new, true);
     BKE_object_tfm_protected_restore(camera_ob, &obtfm, OB_LOCK_SCALE | OB_LOCK_ROT4D);
 
     /* notifiers */

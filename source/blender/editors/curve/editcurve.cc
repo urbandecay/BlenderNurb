@@ -1223,7 +1223,7 @@ static int *init_index_map(Object *obedit, int *r_old_totvert)
   return old_to_new_map;
 }
 
-static void remap_hooks_and_vertex_parents(Main *bmain, Object *obedit)
+static void remap_hook_indices(Main *bmain, Object *obedit)
 {
   Curve *curve = id_cast<Curve *>(obedit->data);
   EditNurb *editnurb = curve->editnurb;
@@ -1240,32 +1240,6 @@ static void remap_hooks_and_vertex_parents(Main *bmain, Object *obedit)
 
   for (Object &object : bmain->objects) {
     int index;
-    if ((object.parent) && (object.parent->data == id_cast<const ID *>(curve)) &&
-        ELEM(object.partype, PARVERT1, PARVERT3))
-    {
-      if (old_to_new_map == nullptr) {
-        old_to_new_map = init_index_map(obedit, &old_totvert);
-      }
-
-      if (object.par1 < old_totvert) {
-        index = old_to_new_map[object.par1];
-        if (index != -1) {
-          object.par1 = index;
-        }
-      }
-      if (object.par2 < old_totvert) {
-        index = old_to_new_map[object.par2];
-        if (index != -1) {
-          object.par2 = index;
-        }
-      }
-      if (object.par3 < old_totvert) {
-        index = old_to_new_map[object.par3];
-        if (index != -1) {
-          object.par3 = index;
-        }
-      }
-    }
     if (object.data == id_cast<const ID *>(curve)) {
       for (ModifierData &md : object.modifiers) {
         if (md.type == eModifierType_Hook) {
@@ -1310,7 +1284,7 @@ void ED_curve_editnurb_load(Main *bmain, Object *obedit)
     Curve *cu = id_cast<Curve *>(obedit->data);
     ListBaseT<Nurb> newnurb = {nullptr, nullptr}, oldnurb = cu->nurb;
 
-    remap_hooks_and_vertex_parents(bmain, obedit);
+    remap_hook_indices(bmain, obedit);
 
     for (Nurb &nu : *editnurb) {
       Nurb *newnu = BKE_nurb_duplicate(&nu);

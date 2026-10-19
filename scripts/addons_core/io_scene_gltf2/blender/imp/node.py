@@ -94,32 +94,31 @@ class BlenderNode():
             pynode = gltf.data.nodes[vnode_id]
             set_extras(obj, pynode.extras)
 
-        # Set transform
+        # Set transform. Object parent relationships are not available, so
+        # compose the VNode path into a world-space transform.
         trans, rot, scale = vnode.trs()
-        obj.location = trans
         obj.rotation_mode = 'QUATERNION'
-        obj.rotation_quaternion = rot
-        obj.scale = scale
-
-        # Set parent
-        if vnode.parent is not None:
-            parent_vnode = gltf.vnodes[vnode.parent]
-            if parent_vnode.type == VNode.Object:
-                obj.parent = parent_vnode.blender_object
-            elif parent_vnode.type == VNode.Bone:
-                arma_vnode = gltf.vnodes[parent_vnode.bone_arma]
-                obj.parent = arma_vnode.blender_object
-                obj.parent_type = 'BONE'
-                obj.parent_bone = parent_vnode.blender_bone_name
-
-                # Nodes with a bone parent need to be translated
-                # backwards from the tip to the root
-                obj.location += Vector((0, -parent_vnode.bone_length, 0))
+        local_matrix = Matrix.LocRotScale(trans, rot, scale)
+        parent_vnode = gltf.vnodes.get(vnode.parent)
+        if parent_vnode is None or parent_vnode.type == VNode.DummyRoot:
+            world_matrix = local_matrix
+        elif parent_vnode.type == VNode.Bone:
+            arma_vnode = gltf.vnodes[parent_vnode.bone_arma]
+            armature_object = arma_vnode.blender_object
+            pose_bone = armature_object.pose.bones[parent_vnode.blender_bone_name]
+            # Bone-parented objects use the bone tail as their local origin.
+            local_matrix.translation = local_matrix.translation - Vector((0.0, parent_vnode.bone_length, 0.0))
+            world_matrix = armature_object.matrix_world @ pose_bone.matrix @ local_matrix
+        elif parent_vnode.blender_object is not None:
+            world_matrix = parent_vnode.blender_object.matrix_world @ local_matrix
+        else:
+            world_matrix = local_matrix
+        obj.matrix_world = world_matrix
 
         # Store Rest matrix of object
         # Can't use directly matrix_world because not refreshed yet
         if hasattr(obj, 'gltf2_animation_rest'):
-            obj.gltf2_animation_rest = Matrix.LocRotScale(obj.location, obj.rotation_quaternion, obj.scale)
+            obj.gltf2_animation_rest = obj.matrix_world.copy()
 
         # Add to scene, by linking to the collections
         if len(vnode.scenes) == 0:

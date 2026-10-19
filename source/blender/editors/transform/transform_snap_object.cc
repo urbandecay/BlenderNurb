@@ -463,7 +463,7 @@ static bool snap_object_is_snappable(const SnapObjectContext *sctx,
 
   /* Get attributes of potential target. */
   const bool is_active = (base_act == base);
-  const bool is_selected = (base->flag & BASE_SELECTED) || (base->flag_legacy & BA_WAS_SEL);
+  const bool is_selected = (base->flag & BASE_SELECTED) != 0;
   const bool is_edited = (base->object->mode == OB_MODE_EDIT);
   const bool is_selectable = (base->flag & BASE_SELECTABLE);
   /* Get attributes of state. */

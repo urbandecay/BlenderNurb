@@ -69,10 +69,6 @@ struct HierarchyContext {
    * exporting with "Visible Only" enabled, for example. */
   bool weak_export;
 
-  /* When true, this object should check its parents for animation data when determining whether
-   * it's animated. This is necessary when a parent object in Blender is not part of the export. */
-  bool animation_check_include_parent;
-
   /* The flag makes unambiguous the fact that the current context targets object or data. This is
    * notably used in USDHierarchyIterator::create_usd_export_context: options like
    * merge_parent_xform option is meaningless for object, it only makes sense for data. */
@@ -297,7 +293,6 @@ class AbstractHierarchyIterator {
   void debug_print_export_graph(const ExportGraph &graph) const;
 
   void export_graph_construct();
-  void connect_loose_objects();
   void export_graph_prune();
   void export_graph_clear();
 

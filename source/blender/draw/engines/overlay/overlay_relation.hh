@@ -20,7 +20,7 @@ namespace blender::draw::overlay {
 
 /**
  * Display object relations as dashed lines.
- * Covers parenting relationships and constraints.
+ * Covers constraints and other object relationships.
  */
 class Relations : Overlay {
 
@@ -65,12 +65,6 @@ class Relations : Overlay {
     const float4 &relation_color = res.theme.colors.wire;
     /* TODO (not_mark): pick literally anything else that's sensible. */
     const float4 &constraint_color = res.theme.colors.grid_axis_z; /* ? */
-
-    if (ob->parent && (DRW_object_visibility_in_active_context(ob->parent) & OB_VISIBLE_SELF)) {
-      const float3 &parent_pos = ob->runtime->parent_display_origin;
-      /* Reverse order to have less stipple overlap. */
-      relations_buf_.append(ob->object_to_world().location(), parent_pos, relation_color);
-    }
 
     /* Drawing the hook lines. */
     for (ModifierData *md : ListBaseWrapper<ModifierData>(&ob->modifiers)) {

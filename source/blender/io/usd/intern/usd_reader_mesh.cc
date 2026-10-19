@@ -45,9 +45,12 @@
 #include <pxr/usd/sdf/types.h>
 #include <pxr/usd/usdGeom/primvarsAPI.h>
 #include <pxr/usd/usdGeom/subset.h>
+#include <pxr/usd/usdGeom/xformable.h>
+#include <pxr/usd/usdGeom/xformCache.h>
 #include <pxr/usd/usdShade/materialBindingAPI.h>
 #include <pxr/usd/usdShade/tokens.h>
 #include <pxr/usd/usdSkel/bindingAPI.h>
+#include <pxr/usd/usdSkel/skeleton.h>
 
 #include <algorithm>
 
@@ -1051,27 +1054,50 @@ pxr::SdfPath USDMeshReader::get_skeleton_path() const
   return {};
 }
 
-std::optional<XformResult> USDMeshReader::get_local_usd_xform(const pxr::UsdTimeCode time) const
+std::optional<XformResult> USDMeshReader::get_world_usd_xform(const pxr::UsdTimeCode time) const
 {
   if (!import_params_.import_skeletons || prim_.IsInstanceProxy()) {
     /* Use the standard transform computation, since we are ignoring
      * skinning data. Note that applying the UsdSkelBinding API to an
      * instance proxy generates a USD error. */
-    return USDXformReader::get_local_usd_xform(time);
+    return USDXformReader::get_world_usd_xform(time);
   }
 
-  pxr::UsdSkelBindingAPI skel_api = pxr::UsdSkelBindingAPI(prim_);
-  if (pxr::UsdAttribute xf_attr = skel_api.GetGeomBindTransformAttr()) {
-    if (xf_attr.HasAuthoredValue()) {
-      pxr::GfMatrix4d bind_xf;
-      if (skel_api.GetGeomBindTransformAttr().Get(&bind_xf)) {
-        /* The USD bind transform is a matrix of doubles,
-         * but we cast it to GfMatrix4f because Blender expects
-         * a matrix of floats. Also, we assume the transform
-         * is constant over time. */
-        return XformResult(pxr::GfMatrix4f(bind_xf), true);
-      }
+  const pxr::SdfPath skeleton_path = get_skeleton_path();
+  if (skeleton_path.IsEmpty()) {
+    return USDXformReader::get_world_usd_xform(time);
+  }
 
+  const pxr::UsdPrim skeleton_prim = prim_.GetStage()->GetPrimAtPath(skeleton_path);
+  if (!skeleton_prim) {
+    return USDXformReader::get_world_usd_xform(time);
+  }
+
+  pxr::UsdGeomXformCache xform_cache(time);
+  pxr::GfMatrix4d world_xform = xform_cache.GetLocalToWorldTransform(skeleton_prim);
+  bool is_constant = true;
+  for (pxr::UsdPrim ancestor = skeleton_prim; ancestor && !ancestor.IsPseudoRoot();
+       ancestor = ancestor.GetParent())
+  {
+    const pxr::UsdGeomXformable xformable(ancestor);
+    if (xformable && xformable.TransformMightBeTimeVarying()) {
+      is_constant = false;
+      break;
+    }
+  }
+
+  /* Per the UsdSkel spec, the skinned mesh's own xformOps do not position the skinned result.
+   * Bake the skeleton world transform and geomBindTransform into the mesh object matrix, which
+   * replaces the former Blender parent link while retaining the armature modifier. */
+  const pxr::UsdSkelBindingAPI skel_api(prim_);
+  const pxr::UsdAttribute bind_transform_attr = skel_api.GetGeomBindTransformAttr();
+  if (bind_transform_attr && bind_transform_attr.HasAuthoredValue()) {
+    pxr::GfMatrix4d bind_xform;
+    if (bind_transform_attr.Get(&bind_xform, time)) {
+      world_xform = world_xform * bind_xform;
+      is_constant &= !bind_transform_attr.ValueMightBeTimeVarying();
+    }
+    else {
       BKE_reportf(reports(),
                   RPT_WARNING,
                   "%s: Couldn't compute geom bind transform for %s",
@@ -1080,27 +1106,7 @@ std::optional<XformResult> USDMeshReader::get_local_usd_xform(const pxr::UsdTime
     }
   }
 
-  if (!get_skeleton_path().IsEmpty()) {
-    /* The mesh is bound to a skeleton but has no usable geomBindTransform. Per the UsdSkel
-     * spec the skinned mesh's own xformOps must be ignored (the skinned result is positioned by
-     * the bound Skeleton), so use the identity rather than the prim's own transform. The mesh is
-     * re-parented to the armature in USDStageReader::process_armature_modifiers(), giving a final
-     * world transform of (skeleton world * identity). */
-    return XformResult(pxr::GfMatrix4f(1.0), true);
-  }
-
-  return USDXformReader::get_local_usd_xform(time);
-}
-
-bool USDMeshReader::is_root_xform_prim() const
-{
-  if (import_params_.import_skeletons && !get_skeleton_path().IsEmpty()) {
-    /* Skinned meshes are re-parented to the bound armature during import, so they are never
-     * the root of the transform hierarchy. */
-    return false;
-  }
-
-  return USDXformReader::is_root_xform_prim();
+  return XformResult(pxr::GfMatrix4f(world_xform), is_constant);
 }
 
 }  // namespace io::usd

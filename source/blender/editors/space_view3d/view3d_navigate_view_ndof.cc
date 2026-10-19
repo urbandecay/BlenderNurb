@@ -805,7 +805,6 @@ static wmOperatorStatus ndof_orbit_invoke_impl(bContext *C,
     return OPERATOR_CANCELLED;
   }
 
-  const Depsgraph *depsgraph = vod->depsgraph;
   View3D *v3d = vod->v3d;
   RegionView3D *rv3d = vod->rv3d;
   char xform_flag = 0;
@@ -833,7 +832,7 @@ static wmOperatorStatus ndof_orbit_invoke_impl(bContext *C,
     }
   }
 
-  ED_view3d_camera_lock_sync(depsgraph, v3d, rv3d);
+  ED_view3d_camera_lock_sync(v3d, rv3d);
   if (xform_flag) {
     ED_view3d_camera_lock_autokey(
         v3d, rv3d, C, xform_flag & HAS_ROTATE, xform_flag & HAS_TRANSLATE);
@@ -971,7 +970,7 @@ static wmOperatorStatus ndof_orbit_zoom_invoke_impl(bContext *C,
     }
   }
 
-  ED_view3d_camera_lock_sync(vod->depsgraph, v3d, rv3d);
+  ED_view3d_camera_lock_sync(v3d, rv3d);
   if (xform_flag) {
     ED_view3d_camera_lock_autokey(
         v3d, rv3d, C, xform_flag & HAS_ROTATE, xform_flag & HAS_TRANSLATE);
@@ -1057,7 +1056,7 @@ static wmOperatorStatus ndof_pan_invoke_impl(bContext *C,
     }
   }
 
-  ED_view3d_camera_lock_sync(depsgraph, v3d, rv3d);
+  ED_view3d_camera_lock_sync(v3d, rv3d);
   if (xform_flag) {
     ED_view3d_camera_lock_autokey(v3d, rv3d, C, false, xform_flag & HAS_TRANSLATE);
   }

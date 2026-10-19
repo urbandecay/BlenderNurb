@@ -69,7 +69,7 @@ Object *ArmatureImportContext::create_armature_for_node(const ufbx_node *node)
     if (this->params.use_custom_props) {
       read_custom_properties(node->props, obj->id, this->params.props_enum_as_string);
     }
-    node_matrix_to_obj(node, obj, this->mapping);
+    node_matrix_to_obj(node, obj);
 
     /* Record world to fbx node matrix for the armature object. */
     ufbx_matrix world_to_arm = ufbx_matrix_invert(&node->node_to_world);

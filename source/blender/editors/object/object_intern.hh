@@ -38,20 +38,14 @@ enum eObject_Hook_Add_Mode {
 void OBJECT_OT_location_clear(wmOperatorType *ot);
 void OBJECT_OT_rotation_clear(wmOperatorType *ot);
 void OBJECT_OT_scale_clear(wmOperatorType *ot);
-void OBJECT_OT_origin_clear(wmOperatorType *ot);
 void OBJECT_OT_visual_transform_apply(wmOperatorType *ot);
 void OBJECT_OT_transform_apply(wmOperatorType *ot);
-void OBJECT_OT_parent_inverse_apply(wmOperatorType *ot);
 void OBJECT_OT_transform_axis_target(wmOperatorType *ot);
 void object_transform_axis_target_modal_keymap(wmKeyConfig *keyconf);
 void OBJECT_OT_origin_set(wmOperatorType *ot);
 
 /* `object_relations.cc` */
 
-void OBJECT_OT_parent_set(wmOperatorType *ot);
-void OBJECT_OT_parent_no_inverse_set(wmOperatorType *ot);
-void OBJECT_OT_parent_clear(wmOperatorType *ot);
-void OBJECT_OT_vertex_parent_set(wmOperatorType *ot);
 void OBJECT_OT_track_set(wmOperatorType *ot);
 void OBJECT_OT_track_clear(wmOperatorType *ot);
 void OBJECT_OT_make_local(wmOperatorType *ot);
@@ -112,8 +106,6 @@ void OBJECT_OT_select_by_type(wmOperatorType *ot);
 void OBJECT_OT_select_linked(wmOperatorType *ot);
 void OBJECT_OT_select_grouped(wmOperatorType *ot);
 void OBJECT_OT_select_mirror(wmOperatorType *ot);
-void OBJECT_OT_select_more(wmOperatorType *ot);
-void OBJECT_OT_select_less(wmOperatorType *ot);
 void OBJECT_OT_select_same_collection(wmOperatorType *ot);
 
 /* object_add.cc */

@@ -56,7 +56,6 @@
 #include "BKE_collection.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_modifier.hh"
-#include "BKE_object.hh"
 #include "BKE_report.hh"
 
 #include "CLG_log.h"
@@ -612,28 +611,8 @@ void USDStageReader::process_armature_modifiers() const
       continue;
     }
     amd->object = object;
-
-    /* Per the UsdSkel spec, a skinned mesh's own and ancestor xformOps below the SkelRoot do not
-     * position the skinned result: the geometry is placed by the bound Skeleton's world transform,
-     * with `primvars:skel:geomBindTransform` aligning it (skinned mesh world =
-     * skeleton world * geomBindTransform). Blender's armature deform reproduces this when the mesh
-     * object is a child of the armature with its local transform equal to the geomBindTransform.
-     * USDMeshReader::get_local_usd_xform already set the mesh local transform to the
-     * geomBindTransform (or the identity when no usable geomBindTransform is authored), so
-     * re-parent the mesh to the armature (with an identity parent-inverse) here. Otherwise the
-     * mesh keeps the transform of its USD-hierarchy parent and ends up mis-scaled/rotated whenever
-     * that differs from the skeleton's transform. */
-    Object *mesh_object = reader->object();
-
-    /* Guard against a parent cycle in the unusual case where the bound Skeleton prim is a USD
-     * descendant of the skinned mesh, in which case the armature is already parented to the mesh.
-     */
-    if (mesh_object == object || BKE_object_parent_loop_check(object, mesh_object)) {
-      continue;
-    }
-
-    mesh_object->parent = object;
-    unit_m4(mesh_object->parentinv);
+    /* USDMeshReader baked the skeleton world transform and geomBindTransform into the skinned
+     * mesh's world transform. Keep only the armature modifier relation here. */
   }
 }
 

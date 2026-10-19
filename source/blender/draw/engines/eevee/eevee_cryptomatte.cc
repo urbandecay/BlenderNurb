@@ -66,11 +66,8 @@ void Cryptomatte::sync_object(const ObjectHandle &ob_handle)
   }
 
   if (enabled_passes & EEVEE_RENDER_PASS_CRYPTOMATTE_ASSET) {
-    Object *asset = ob_handle.object;
-    while (asset->parent) {
-      asset = asset->parent;
-    }
-    object_hashes[1] = register_id(EEVEE_RENDER_PASS_CRYPTOMATTE_ASSET, asset->id);
+    object_hashes[1] = register_id(EEVEE_RENDER_PASS_CRYPTOMATTE_ASSET,
+                                   ob_handle.object->id);
   }
 
   for (ResourceID resource_id : ob_handle.res_handle.id_range()) {

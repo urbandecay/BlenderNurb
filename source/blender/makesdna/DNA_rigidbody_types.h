@@ -79,8 +79,8 @@ enum eRigidBody_Shape : short {
   /** Triangulated mesh. */
   RB_SHAPE_TRIMESH = 6,
 
-  /* concave mesh approximated using primitives */
-  RB_SHAPE_COMPOUND = 7,
+  /* Reserved for the removed compound-parent shape. */
+  RB_SHAPE_UNUSED_7 = 7,
 };
 
 enum eRigidBody_MeshSource : short {

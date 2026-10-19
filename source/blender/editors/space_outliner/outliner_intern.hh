@@ -99,7 +99,6 @@ enum TreeElementFlag {
   TE_PRETEND_HAS_CHILDREN = (1 << 2),
   TE_FREE_NAME = (1 << 3),
   TE_DRAGGING = (1 << 4),
-  TE_CHILD_NOT_IN_COLLECTION = (1 << 6),
   /* Child elements of the same type in the icon-row are drawn merged as one icon.
    * This flag is set for an element that is part of these merged child icons. */
   TE_ICONROW_MERGED = (1 << 7),
@@ -479,8 +478,6 @@ void outliner_scroll_to_active(const bContext *C,
 void outliner_dropboxes();
 
 void OUTLINER_OT_item_drag_drop(wmOperatorType *ot);
-void OUTLINER_OT_parent_drop(wmOperatorType *ot);
-void OUTLINER_OT_parent_clear(wmOperatorType *ot);
 void OUTLINER_OT_scene_drop(wmOperatorType *ot);
 void OUTLINER_OT_material_drop(wmOperatorType *ot);
 void OUTLINER_OT_datastack_drop(wmOperatorType *ot);

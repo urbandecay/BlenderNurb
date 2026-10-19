@@ -59,7 +59,7 @@ ENUM_OPERATORS(ebDeformGroup_Flag)
 /** #Base::flag_legacy (also used for #Object::flag). */
 enum eObject_Flag : short {
   OB_SELECT = (1 << 0),
-  BA_WAS_SEL = (1 << 1),
+  BA_UNUSED_1 = (1 << 1), /* cleared */
   /* NOTE: BA_HAS_RECALC_DATA can be re-used later if freed in `readfile.cc`. */
   // BA_HAS_RECALC_OB = 1 << 2, /* DEPRECATED */
   // BA_HAS_RECALC_DATA = 1 << 3, /* DEPRECATED */
@@ -68,16 +68,9 @@ enum eObject_Flag : short {
 
   /** NOTE: this was used as a proper setting in past, so nullify before using */
   BA_TEMP_TAG = 1 << 5,
-  /**
-   * Even if this is tagged for transform, this flag means it's being locked in place.
-   * Use for #SCE_XFORM_SKIP_CHILDREN.
-   */
-  BA_TRANSFORM_LOCKED_IN_PLACE = 1 << 7,
-
-  /** Child of a transformed object. */
-  BA_TRANSFORM_CHILD = 1 << 8,
-  /** Parent of a transformed object. */
-  BA_TRANSFORM_PARENT = 1 << 13,
+  BA_UNUSED_7 = (1 << 7), /* cleared */
+  BA_UNUSED_8 = (1 << 8), /* cleared */
+  BA_UNUSED_13 = (1 << 13), /* cleared */
 
   OB_FROMDUPLI = 1 << 9,
   /** Unknown state, clear before use. */
@@ -134,26 +127,25 @@ ENUM_OPERATORS(eObject_Partype)
 
 /** #Object.transflag (short) */
 enum eObject_TransFlag : short {
-  OB_TRANSFORM_ADJUST_ROOT_PARENT_FOR_VIEW_LOCK = 1 << 0,
+  OB_TRANSFLAG_UNUSED_0 = 1 << 0, /* cleared */
   OB_TRANSFLAG_UNUSED_1 = 1 << 1, /* cleared */
   OB_NEG_SCALE = 1 << 2,
   OB_TRANSFLAG_UNUSED_3 = 1 << 3, /* cleared */
   OB_DUPLIVERTS = 1 << 4,
-  OB_DUPLIROT = 1 << 5,
+  OB_TRANSFLAG_UNUSED_5 = 1 << 5, /* cleared */
   OB_TRANSFLAG_UNUSED_6 = 1 << 6, /* cleared */
   /* runtime, calculate derivedmesh for dupli before it's used */
   OB_TRANSFLAG_UNUSED_7 = 1 << 7, /* dirty */
   OB_DUPLICOLLECTION = 1 << 8,
-  OB_DUPLIFACES = 1 << 9,
-  OB_DUPLIFACES_SCALE = 1 << 10,
+  OB_TRANSFLAG_UNUSED_9 = 1 << 9, /* cleared */
+  OB_TRANSFLAG_UNUSED_10 = 1 << 10, /* cleared */
   OB_DUPLIPARTS = 1 << 11,
   OB_TRANSFLAG_UNUSED_12 = 1 << 12, /* cleared */
   /* runtime constraints disable */
   OB_NO_CONSTRAINTS = 1 << 13,
-  /* when calculating vertex parent position, ignore CD_ORIGINDEX layer */
-  OB_PARENT_USE_FINAL_INDICES = 1 << 14,
+  OB_TRANSFLAG_UNUSED_14 = 1 << 14, /* cleared */
 
-  OB_DUPLI = OB_DUPLIVERTS | OB_DUPLICOLLECTION | OB_DUPLIFACES | OB_DUPLIPARTS,
+  OB_DUPLI = OB_DUPLIVERTS | OB_DUPLICOLLECTION | OB_DUPLIPARTS,
 };
 ENUM_OPERATORS(eObject_TransFlag)
 
@@ -533,8 +525,8 @@ struct Object {
   eDrawType dt = OB_TEXTURE;
   eObject_EmptyDrawType empty_drawtype = OB_PLAINAXES;
   float empty_drawsize = 1.0;
-  /** Dupliface scale. */
-  float instance_faces_scale = 1;
+  /** Reserved for the removed face-instancing scale. */
+  DNA_DEPRECATED float instance_faces_scale = 1;
 
   /** Custom index, for render-passes. */
   short index = 0;

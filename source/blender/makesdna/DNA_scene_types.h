@@ -1622,7 +1622,7 @@ struct SequencerToolSettings {
 enum eTool_TransformFlag : int {
   SCE_XFORM_AXIS_ALIGN = (1 << 0),
   SCE_XFORM_DATA_ORIGIN = (1 << 1),
-  SCE_XFORM_SKIP_CHILDREN = (1 << 2),
+  SCE_XFORM_UNUSED_2 = (1 << 2),
 };
 ENUM_OPERATORS(eTool_TransformFlag)
 

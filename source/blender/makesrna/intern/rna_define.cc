@@ -4778,8 +4778,6 @@ void RNA_enum_items_add_value(EnumPropertyItem **items,
   for (; item->identifier; item++) {
     if (item->value == value) {
       RNA_enum_item_add(items, totitem, item);
-      /* Break on first match - does this break anything?
-       * (is quick hack to get `object->parent_type` working ok for armature/lattice). */
       break;
     }
   }
