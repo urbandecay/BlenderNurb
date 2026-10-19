@@ -156,7 +156,6 @@ void RNA_def_ID(BlenderRNA *brna);
 void RNA_def_action(BlenderRNA *brna);
 void RNA_def_animation(BlenderRNA *brna);
 void RNA_def_animviz(BlenderRNA *brna);
-void RNA_def_armature(BlenderRNA *brna);
 void RNA_def_attribute(BlenderRNA *brna);
 void RNA_def_asset(BlenderRNA *brna);
 void RNA_def_boid(BlenderRNA *brna);
@@ -194,7 +193,6 @@ void RNA_def_packedfile(BlenderRNA *brna);
 void RNA_def_palette(BlenderRNA *brna);
 void RNA_def_particle(BlenderRNA *brna);
 void RNA_def_pointcloud(BlenderRNA *brna);
-void RNA_def_pose(BlenderRNA *brna);
 void RNA_def_profile(BlenderRNA *brna);
 void RNA_def_lightprobe(BlenderRNA *brna);
 void RNA_def_render(BlenderRNA *brna);
@@ -274,11 +272,6 @@ void rna_def_motionpath_common(StructRNA *srna);
 
 void api_ui_item_common_translation(FunctionRNA *func);
 
-/**
- * Settings for curved bbone settings.
- */
-void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone, bool is_editbone);
-
 void rna_def_texmat_common(StructRNA *srna, const char *texspace_editable);
 void rna_def_mtex_common(BlenderRNA *brna,
                          StructRNA *srna,
@@ -307,10 +300,8 @@ const EnumPropertyItem *rna_asset_library_ui_reference_itemf(bContext *C,
                                                              PropertyRNA *prop,
                                                              bool *r_free);
 
-/**
- * Common properties for Action/Bone Groups - related to color.
- */
-void rna_def_actionbone_group_common(StructRNA *srna, int update_flag, const char *update_cb);
+/** Common color properties for Action Groups. */
+void rna_def_action_group_common(StructRNA *srna, int update_flag, const char *update_cb);
 void rna_ActionGroup_colorset_set(PointerRNA *ptr, int value);
 bool rna_ActionGroup_is_custom_colorset_get(PointerRNA *ptr);
 
@@ -409,7 +400,6 @@ void rna_Mesh_update_draw(Main *bmain, Scene *scene, PointerRNA *ptr);
 void rna_TextureSlot_update(bContext *C, PointerRNA *ptr);
 
 /* basic poll functions for object types */
-bool rna_Armature_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Camera_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Curve_object_poll(PointerRNA *ptr, PointerRNA value);
 bool rna_Light_object_poll(PointerRNA *ptr, PointerRNA value);
@@ -462,12 +452,8 @@ const EnumPropertyItem *rna_WorkSpaceTool_brush_type_itemf(bContext *C,
 
 /* API functions */
 
-void RNA_api_action(StructRNA *srna);
 void RNA_api_animdata(StructRNA *srna);
-void RNA_api_armature_edit_bone(StructRNA *srna);
 void RNA_api_asset_library_loading_status(StructRNA *srna);
-void RNA_api_bone(StructRNA *srna);
-void RNA_api_bonecollection(StructRNA *srna);
 void RNA_api_camera(StructRNA *srna);
 void RNA_api_curve(StructRNA *srna);
 void RNA_api_curves(StructRNA *srna);
@@ -493,8 +479,6 @@ void RNA_api_material(StructRNA *srna);
 void RNA_api_mesh(StructRNA *srna);
 void RNA_api_meta(StructRNA *srna);
 void RNA_api_object(StructRNA *srna);
-void RNA_api_pose(StructRNA *srna);
-void RNA_api_pose_channel(StructRNA *srna);
 void RNA_api_scene(StructRNA *srna);
 void RNA_api_scene_render(StructRNA *srna);
 void RNA_api_strip(StructRNA *srna);
@@ -539,7 +523,6 @@ void RNA_def_main_collections(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_texts(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_speakers(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_sounds(BlenderRNA *brna, PropertyRNA *cprop);
-void RNA_def_main_armatures(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_actions(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_particles(BlenderRNA *brna, PropertyRNA *cprop);
 void RNA_def_main_palettes(BlenderRNA *brna, PropertyRNA *cprop);

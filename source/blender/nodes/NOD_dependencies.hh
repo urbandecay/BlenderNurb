@@ -26,11 +26,10 @@ struct EvalDependencies {
     bool transform = false;
     bool geometry = false;
     bool camera_parameters = false;
-    bool pose = false;
 
     friend bool operator==(const ObjectDependencyInfo &a, const ObjectDependencyInfo &b) = default;
   };
-  static constexpr ObjectDependencyInfo all_object_deps{true, true, true, true};
+  static constexpr ObjectDependencyInfo all_object_deps{true, true, true};
 
   /**
    * Maps `session_uid` to the corresponding data-block.

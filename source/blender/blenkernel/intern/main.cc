@@ -149,7 +149,6 @@ void BKE_main_clear(Main &bmain)
         CASE_ID_INDEX(INDEX_ID_SIM);
         CASE_ID_INDEX(INDEX_ID_PA);
         CASE_ID_INDEX(INDEX_ID_KE);
-        CASE_ID_INDEX(INDEX_ID_AR);
         CASE_ID_INDEX(INDEX_ID_ME);
         CASE_ID_INDEX(INDEX_ID_CU_LEGACY);
         CASE_ID_INDEX(INDEX_ID_MB);
@@ -1044,8 +1043,6 @@ ListBaseT<ID> *which_libbase(Main *bmain, short type)
       return &(bmain->sounds.cast<ID>());
     case ID_GR:
       return &(bmain->collections.cast<ID>());
-    case ID_AR:
-      return &(bmain->armatures.cast<ID>());
     case ID_AC:
       return &(bmain->actions.cast<ID>());
     case ID_NT:
@@ -1101,8 +1098,6 @@ MainListsArray BKE_main_lists_get(Main &bmain)
 
   /* Important!: When adding a new object type,
    * the specific data should be inserted here. */
-
-  lb[INDEX_ID_AR] = &(bmain.armatures.cast<ID>());
 
   lb[INDEX_ID_CF] = &(bmain.cachefiles.cast<ID>());
   lb[INDEX_ID_ME] = &(bmain.meshes.cast<ID>());

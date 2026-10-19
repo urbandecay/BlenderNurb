@@ -17,7 +17,6 @@
 #include "DNA_object_types.h"
 #include "DNA_texture_types.h"
 
-#include "BKE_action.hh" /* BKE_pose_channel_find_name */
 #include "BKE_attribute.hh"
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh"
@@ -64,21 +63,7 @@ void MOD_get_texture_coords(MappingInfoModifierData *dmd,
 
   if (texmapping == MOD_DISP_MAP_OBJECT) {
     if (dmd->map_object != nullptr) {
-      Object *map_object = dmd->map_object;
-      if (dmd->map_bone[0] != '\0') {
-        bPoseChannel *pchan = BKE_pose_channel_find_name(map_object->pose, dmd->map_bone);
-        if (pchan) {
-          float mat_bone_world[4][4];
-          mul_m4_m4m4(mat_bone_world, map_object->object_to_world().ptr(), pchan->pose_mat);
-          invert_m4_m4(mapref_imat, mat_bone_world);
-        }
-        else {
-          invert_m4_m4(mapref_imat, map_object->object_to_world().ptr());
-        }
-      }
-      else {
-        invert_m4_m4(mapref_imat, map_object->object_to_world().ptr());
-      }
+      invert_m4_m4(mapref_imat, dmd->map_object->object_to_world().ptr());
     }
     else { /* if there is no map object, default to local */
       texmapping = MOD_DISP_MAP_LOCAL;
@@ -141,20 +126,6 @@ void MOD_get_texture_coords(MappingInfoModifierData *dmd,
   }
 }
 
-void MOD_previous_vcos_store(ModifierData *md, const float (*vert_coords)[3])
-{
-  while ((md = md->next) && md->type == eModifierType_Armature) {
-    ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-    if (amd->multi && amd->vert_coords_prev == nullptr) {
-      amd->vert_coords_prev = MEM_dupalloc(vert_coords);
-    }
-    else {
-      break;
-    }
-  }
-  /* lattice/mesh modifier too */
-}
-
 void MOD_get_vgroup(const Object *ob,
                     const Mesh *mesh,
                     const char *name,
@@ -185,22 +156,6 @@ void MOD_get_vgroup(const Object *ob,
   }
 }
 
-void MOD_depsgraph_update_object_bone_relation(DepsNodeHandle *node,
-                                               Object *object,
-                                               const char *bonename,
-                                               const char *description)
-{
-  if (object == nullptr) {
-    return;
-  }
-  if (bonename[0] != '\0' && object->type == OB_ARMATURE) {
-    DEG_add_object_relation(node, object, DEG_OB_COMP_EVAL_POSE, description);
-  }
-  else {
-    DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, description);
-  }
-}
-
 void modifier_type_init(ModifierTypeInfo *types[])
 {
 #define INIT_TYPE(typeName) (types[eModifierType_##typeName] = &modifierType_##typeName)
@@ -219,7 +174,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
   INIT_TYPE(Smooth);
   INIT_TYPE(Cast);
   INIT_TYPE(Wave);
-  INIT_TYPE(Armature);
   INIT_TYPE(Hook);
   INIT_TYPE(Softbody);
   INIT_TYPE(Cloth);

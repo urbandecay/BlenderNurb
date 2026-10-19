@@ -41,8 +41,8 @@ static bool usd_transform_hierarchy_is_constant(pxr::UsdPrim prim)
 
 void USDXformReader::create_object(Main *bmain)
 {
-  object_ = BKE_object_add_only_object(bmain, OB_EMPTY, name_.c_str());
-  object_->empty_drawsize = 0.1f;
+  object_ = BKE_object_add_only_object(bmain, OB_NO_DATA, name_.c_str());
+  object_->display_size = 0.1f;
   object_->data = nullptr;
 }
 

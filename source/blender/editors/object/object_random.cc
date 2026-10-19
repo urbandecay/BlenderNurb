@@ -99,7 +99,7 @@ static wmOperatorStatus object_rand_verts_exec(bContext *C, wmOperator *op)
     TransVertStore tvs = {nullptr};
 
     if (ob_iter) {
-      int mode = TM_ALL_JOINTS;
+      int mode = 0;
 
       if (normal_factor != 0.0f) {
         mode |= TX_VERT_USE_NORMAL;

@@ -20,9 +20,6 @@
 
 namespace blender {
 
-struct bPoseChannel;
-struct ID;
-
 namespace ed {
 
 /**
@@ -33,8 +30,7 @@ enum AxisMutable : int8_t {
   AXIS_MUTABLE_Y = 1 << 1,
   AXIS_MUTABLE_Z = 1 << 2,
   AXIS_MUTABLE_ALL = AXIS_MUTABLE_X | AXIS_MUTABLE_Y | AXIS_MUTABLE_Z,
-  /* There is currently no support for a W axis. This was already the case when porting this enum
-   * from the pose slide code. */
+  /* There is currently no support for a W axis. */
 };
 ENUM_OPERATORS(AxisMutable);
 
@@ -65,21 +61,10 @@ struct Rotation {
  */
 class AnimTransformable {
  public:
-  enum class Type : int8_t {
-    POSE_BONE,
-    OBJECT,
-  };
-
   enum class PropertyType : int8_t { LOCATION, ROTATION, SCALE };
 
  private:
-  Type type_;
-  ID *owner_id_;
-  /* The struct wrapped by the AnimTransformable. For possible types see `Type`. */
-  void *data_;
-
-  /* This is the path from the owner ID to the struct that the AnimTransformable represents. Has to
-   * be created in the constructor. For structs that are an ID this is an empty string. */
+  /* The path from the owner ID to the struct that the AnimTransformable represents. */
   std::string rna_path_from_id_;
 
   /* We are assuming here that the ground truth of transforms is store in separate loc rot scale
@@ -101,23 +86,8 @@ class AnimTransformable {
   const TransformFloatPtrs *get_rotation_array_from_mode(eRotationModes mode) const;
 
  public:
-  /* There has to be a constructor for every struct supported. */
-  /* Constructor for pose bones. */
-  AnimTransformable(Object &owner_id, bPoseChannel &pchan);
   /* Constructor for Objects. */
   explicit AnimTransformable(Object &object);
-
-  Type type() const
-  {
-    return type_;
-  }
-
-  ID *owner_id() const
-  {
-    return owner_id_;
-  }
-
-  template<typename T> T data() const;
 
   /* Returns the rna path from the ID to the struct represented by this transformable. If the
    * struct is an ID this is an empty string. */

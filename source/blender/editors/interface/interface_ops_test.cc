@@ -51,8 +51,8 @@ class CopyDriversToSelected : public bke::BlenderGTestBase {
   {
     bmain = BKE_main_new();
 
-    cube = BKE_object_add_only_object(bmain, OB_EMPTY, "OBCube");
-    suzanne = BKE_object_add_only_object(bmain, OB_EMPTY, "OBSuzanne");
+    cube = BKE_object_add_only_object(bmain, OB_NO_DATA, "OBCube");
+    suzanne = BKE_object_add_only_object(bmain, OB_NO_DATA, "OBSuzanne");
 
     cube_ptr = RNA_pointer_create_discrete(&cube->id, RNA_Object, &cube->id);
     cube_quaternion_prop = RNA_struct_find_property(&cube_ptr, "rotation_quaternion");

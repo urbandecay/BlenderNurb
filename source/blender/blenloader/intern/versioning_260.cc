@@ -53,7 +53,6 @@
 #include "BLI_string_utf8.h"
 #include "BLI_string_utils.hh"
 
-#include "BKE_anim_visualization.h"
 #include "BKE_customdata.hh"
 #include "BKE_image.hh"
 #include "BKE_image_format.hh"
@@ -2078,20 +2077,6 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
       for (Mesh &me : bmain->meshes) {
         CustomData_update_typemap(&me.vert_data);
         CustomData_free_layers(&me.vert_data, CD_MSTICKY);
-      }
-    }
-  }
-
-  /* correction for files saved in blender version when BKE_pose_copy_data
-   * didn't copy animation visualization, which lead to deadlocks on motion
-   * path calculation for proxied armatures, see #32742.
-   */
-  if (bmain->versionfile < 264) {
-    for (Object &ob : bmain->objects) {
-      if (ob.pose) {
-        if (ob.pose->avs.path_step == 0) {
-          animviz_settings_init(&ob.pose->avs);
-        }
       }
     }
   }

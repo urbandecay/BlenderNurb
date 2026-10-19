@@ -32,7 +32,7 @@ class DriverDescriptor {
    * -------------------------------   ----------------------  ----------
    * 'color'                           ''                      'color'
    * 'rigidbody_world.time_scale'      'rigidbody_world'       'time_scale'
-   * 'pose.bones["master"].location'   'pose.bones["master"]'  'location'
+   * 'object["custom_property"].location'   'object["custom_property"]'  'location'
    * \endcode
    */
   StringRef rna_prefix;

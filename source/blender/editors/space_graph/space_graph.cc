@@ -518,8 +518,6 @@ static void graph_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
         case ND_KEYS:
           ED_region_tag_redraw(region);
           break;
@@ -652,12 +650,6 @@ static void graph_listener(const wmSpaceTypeListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_SELECT: /* Selection changed, so force refresh to flush
-                              * (needs flag set to do syncing). */
-        case ND_BONE_ACTIVE:
-          sipo->runtime.flag |= SIPO_RUNTIME_FLAG_NEED_CHAN_SYNC;
-          ED_area_tag_refresh(area);
-          break;
         case ND_TRANSFORM:
           break; /* Do nothing. */
 

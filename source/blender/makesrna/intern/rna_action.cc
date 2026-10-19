@@ -22,6 +22,7 @@
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
+#include "UI_resources.hh"
 
 #include "rna_internal.hh"
 
@@ -30,6 +31,76 @@
 #include "WM_types.hh"
 
 namespace blender {
+
+const EnumPropertyItem rna_enum_color_sets_items[] = {
+    {0, "DEFAULT", 0, "Default Colors", ""},
+    {1, "THEME01", ICON_COLORSET_01_VEC, "01 - Theme Color Set", ""},
+    {2, "THEME02", ICON_COLORSET_02_VEC, "02 - Theme Color Set", ""},
+    {3, "THEME03", ICON_COLORSET_03_VEC, "03 - Theme Color Set", ""},
+    {4, "THEME04", ICON_COLORSET_04_VEC, "04 - Theme Color Set", ""},
+    {5, "THEME05", ICON_COLORSET_05_VEC, "05 - Theme Color Set", ""},
+    {6, "THEME06", ICON_COLORSET_06_VEC, "06 - Theme Color Set", ""},
+    {7, "THEME07", ICON_COLORSET_07_VEC, "07 - Theme Color Set", ""},
+    {8, "THEME08", ICON_COLORSET_08_VEC, "08 - Theme Color Set", ""},
+    {9, "THEME09", ICON_COLORSET_09_VEC, "09 - Theme Color Set", ""},
+    {10, "THEME10", ICON_COLORSET_10_VEC, "10 - Theme Color Set", ""},
+    {11, "THEME11", ICON_COLORSET_11_VEC, "11 - Theme Color Set", ""},
+    {12, "THEME12", ICON_COLORSET_12_VEC, "12 - Theme Color Set", ""},
+    {13, "THEME13", ICON_COLORSET_13_VEC, "13 - Theme Color Set", ""},
+    {14, "THEME14", ICON_COLORSET_14_VEC, "14 - Theme Color Set", ""},
+    {15, "THEME15", ICON_COLORSET_15_VEC, "15 - Theme Color Set", ""},
+    {16, "THEME16", ICON_COLORSET_16_VEC, "16 - Theme Color Set", ""},
+    {17, "THEME17", ICON_COLORSET_17_VEC, "17 - Theme Color Set", ""},
+    {18, "THEME18", ICON_COLORSET_18_VEC, "18 - Theme Color Set", ""},
+    {19, "THEME19", ICON_COLORSET_19_VEC, "19 - Theme Color Set", ""},
+    {20, "THEME20", ICON_COLORSET_20_VEC, "20 - Theme Color Set", ""},
+    {-1, "CUSTOM", 0, "Custom Color Set", ""},
+    {0, nullptr, 0, nullptr, nullptr},
+};
+
+#ifdef RNA_RUNTIME
+void rna_ActionGroup_colorset_set(PointerRNA *ptr, const int value)
+{
+  bActionGroup *group = static_cast<bActionGroup *>(ptr->data);
+  if (value >= -1 && value < 21) {
+    group->customCol = value;
+    action_group_colors_sync(group);
+  }
+}
+
+bool rna_ActionGroup_is_custom_colorset_get(PointerRNA *ptr)
+{
+  const bActionGroup *group = static_cast<const bActionGroup *>(ptr->data);
+  return group->customCol < 0;
+}
+#else
+void rna_def_action_group_common(StructRNA *srna, const int update_flag, const char *update_cb)
+{
+  PropertyRNA *prop;
+
+  prop = RNA_def_property(srna, "color_set", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, nullptr, "customCol");
+  RNA_def_property_enum_items(prop, rna_enum_color_sets_items);
+  RNA_def_property_enum_funcs(prop, nullptr, "rna_ActionGroup_colorset_set", nullptr);
+  RNA_def_property_ui_text(prop, "Color Set", "Custom color set to use");
+  RNA_def_property_update(prop, update_flag, update_cb);
+
+  prop = RNA_def_property(srna, "is_custom_color_set", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_ActionGroup_is_custom_colorset_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(
+      prop, "Custom Color Set", "Color set is user-defined instead of a fixed theme color set");
+
+  prop = RNA_def_property(srna, "colors", PROP_POINTER, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_NEVER_NULL);
+  RNA_def_property_struct_type(prop, "ThemeColorSet");
+  /* NOTE: The DNA data is not really a pointer, but this code works. */
+  RNA_def_property_pointer_sdna(prop, nullptr, "cs");
+  RNA_def_property_ui_text(
+      prop, "Colors", "Copy of the colors associated with the group's color set");
+  RNA_def_property_update(prop, update_flag, update_cb);
+}
+#endif
 
 /* Disabled for now, see comment in `rna_def_action_layer()` for more info. */
 #if 0
@@ -1333,7 +1404,7 @@ static void rna_def_dopesheet(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_hidden", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "filterflag", ADS_FILTER_INCL_HIDDEN);
   RNA_def_property_ui_text(
-      prop, "Show Hidden", "Include channels from objects/bone that are not visible");
+      prop, "Show Hidden", "Include channels from objects and their data that are not visible");
   RNA_def_property_ui_icon(prop, ICON_OBJECT_HIDDEN, 0);
   RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, nullptr);
 
@@ -1530,13 +1601,6 @@ static void rna_def_dopesheet(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Display Metaball", "Include visualization of metaball related animation data");
   RNA_def_property_ui_icon(prop, ICON_OUTLINER_OB_META, 0);
-  RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, nullptr);
-
-  prop = RNA_def_property(srna, "show_armatures", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_negative_sdna(prop, nullptr, "filterflag", ADS_FILTER_NOARM);
-  RNA_def_property_ui_text(
-      prop, "Display Armature", "Include visualization of armature related animation data");
-  RNA_def_property_ui_icon(prop, ICON_OUTLINER_OB_ARMATURE, 0);
   RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, nullptr);
 
   prop = RNA_def_property(srna, "show_nodes", PROP_BOOLEAN, PROP_NONE);
@@ -2321,7 +2385,7 @@ static void rna_def_action_group(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, nullptr);
 
   /* color set */
-  rna_def_actionbone_group_common(srna, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, nullptr);
+  rna_def_action_group_common(srna, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, nullptr);
 }
 
 /* =========================== Legacy Action interface =========================== */
@@ -2337,10 +2401,10 @@ static void rna_def_action_pose_markers(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_srna(cprop, "ActionPoseMarkers");
   srna = RNA_def_struct(brna, "ActionPoseMarkers", nullptr);
   RNA_def_struct_sdna(srna, "bAction");
-  RNA_def_struct_ui_text(srna, "Action Pose Markers", "Collection of timeline markers");
+  RNA_def_struct_ui_text(srna, "Action Markers", "Collection of timeline markers");
 
   func = RNA_def_function(srna, "new", "rna_Action_pose_markers_new");
-  RNA_def_function_ui_description(func, "Add a pose marker to the action");
+  RNA_def_function_ui_description(func, "Add a marker to the action");
   parm = RNA_def_string(
       func, "name", "Marker", 0, nullptr, "New name for the marker (not unique)");
   RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
@@ -2362,7 +2426,7 @@ static void rna_def_action_pose_markers(BlenderRNA *brna, PropertyRNA *cprop)
                                  "rna_Action_active_pose_marker_set",
                                  nullptr,
                                  nullptr);
-  RNA_def_property_ui_text(prop, "Active Pose Marker", "Active pose marker for this action");
+  RNA_def_property_ui_text(prop, "Active Action Marker", "Active marker for this action");
 
   prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, nullptr, "active_marker");
@@ -2371,7 +2435,7 @@ static void rna_def_action_pose_markers(BlenderRNA *brna, PropertyRNA *cprop)
                              "rna_Action_active_pose_marker_index_get",
                              "rna_Action_active_pose_marker_index_set",
                              "rna_Action_active_pose_marker_index_range");
-  RNA_def_property_ui_text(prop, "Active Pose Marker Index", "Index of active pose marker");
+  RNA_def_property_ui_text(prop, "Active Action Marker Index", "Index of the active marker");
 }
 
 static void rna_def_action(BlenderRNA *brna)
@@ -2448,7 +2512,7 @@ static void rna_def_action(BlenderRNA *brna)
    * adding/removing is still banned though, see #45689. */
   RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
   RNA_def_property_ui_text(
-      prop, "Pose Markers", "Markers specific to this action, for labeling poses");
+      prop, "Action Markers", "Markers specific to this action for labeling events or poses");
   rna_def_action_pose_markers(brna, prop);
 
   /* properties */
@@ -2557,7 +2621,6 @@ static void rna_def_action(BlenderRNA *brna)
   RNA_def_function_return(func, parm);
 
   /* API calls */
-  RNA_api_action(srna);
 }
 
 /* --------- */

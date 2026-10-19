@@ -34,7 +34,6 @@
 
 #include "DEG_depsgraph.hh"
 
-#include "ED_armature.hh"
 #include "ED_asset.hh"
 #include "ED_image.hh"
 #include "ED_mesh.hh"
@@ -137,12 +136,6 @@ void ED_editors_init(bContext *C)
         (ob_data != nullptr && !BKE_id_is_editable(bmain, ob_data)))
     {
       continue;
-    }
-
-    /* Pose mode is very similar to Object one, we can apply it even on objects not in current
-     * scene. */
-    if (mode == OB_MODE_POSE) {
-      ED_object_posemode_enter_ex(bmain, &ob);
     }
 
     /* Other edit/paint/etc. modes are only settable for objects visible in active scene currently.

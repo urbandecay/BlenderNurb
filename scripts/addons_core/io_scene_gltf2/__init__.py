@@ -507,7 +507,7 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
 
     export_draco_generic_quantization: IntProperty(
         name='Generic Quantization Bits',
-        description='Quantization bits for generic values like weights or joints (0 = no quantization)',
+        description='Quantization bits for generic vertex attributes (0 = no quantization)',
         default=12,
         min=0,
         max=30
@@ -678,7 +678,7 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
 
     export_apply: BoolProperty(
         name='Apply Modifiers',
-        description='Apply modifiers (excluding Armatures) to mesh objects -'
+        description='Apply modifiers to mesh objects -'
                     'WARNING: prevents exporting shape keys',
         default=False
     )
@@ -758,39 +758,9 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
         default='Animation'
     )
 
-    export_def_bones: BoolProperty(
-        name='Export Deformation Bones Only',
-        description='Export Deformation bones only',
-        default=False
-    )
-
-    export_hierarchy_flatten_bones: BoolProperty(
-        name='Flatten Bone Hierarchy',
-        description='Flatten Bone Hierarchy. Useful in case of non decomposable transformation matrix',
-        default=False
-    )
-
     export_hierarchy_flatten_objs: BoolProperty(
         name='Flatten Object Hierarchy',
         description='Flatten Object Hierarchy. Useful in case of non decomposable transformation matrix',
-        default=False
-    )
-
-    export_armature_object_remove: BoolProperty(
-        name='Remove Armature Object',
-        description=(
-            'Remove Armature object if possible. '
-            'If Armature has multiple root bones, object will not be removed'
-        ),
-        default=False
-    )
-
-    export_leaf_bone: BoolProperty(
-        name='Add Leaf Bones',
-        description=(
-            'Append a final bone to the end of each chain to specify last bone length '
-            '(use this when you intend to edit the armature from exported data)'
-        ),
         default=False
     )
 
@@ -798,18 +768,6 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
         name='Optimize Animation Size',
         description=(
             "Reduce exported file size by removing duplicate keyframes"
-        ),
-        default=True
-    )
-
-    export_optimize_animation_keep_anim_armature: BoolProperty(
-        name='Force Keeping Channels for Bones',
-        description=(
-            "If all keyframes are identical in a rig, "
-            "force keeping the minimal animation. "
-            "When off, all possible channels for "
-            "the bones will be exported, even if empty "
-            "(minimal animation, 2 keyframes)"
         ),
         default=True
     )
@@ -872,24 +830,6 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
         default='ACTION'
     )
 
-    export_anim_single_armature: BoolProperty(
-        name='Export all Armature Actions',
-        description=(
-            "Export all actions, bound to a single armature. "
-            "WARNING: Option does not support exports including multiple armatures"
-        ),
-        default=True
-    )
-
-    export_reset_pose_bones: BoolProperty(
-        name='Reset Pose Bones Between Actions',
-        description=(
-            "Reset pose bones between each action exported. "
-            "This is needed when some bones are not keyed on some animations"
-        ),
-        default=True
-    )
-
     export_current_frame: BoolProperty(
         name='Use Current Frame as Object Rest Transformations',
         description=(
@@ -899,15 +839,6 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
         default=False
     )
 
-    export_rest_position_armature: BoolProperty(
-        name='Use Rest Position Armature',
-        description=(
-            "Export armatures using rest position as joints' rest pose. "
-            "When off, current frame pose is used as rest pose"
-        ),
-        default=True
-    )
-
     export_anim_scene_split_object: BoolProperty(
         name='Split Animation by Object',
         description=(
@@ -915,25 +846,6 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
             "But split animation by Object"
         ),
         default=True
-    )
-
-    export_skins: BoolProperty(
-        name='Skinning',
-        description='Export skinning (armature) data',
-        default=True
-    )
-
-    export_influence_nb: IntProperty(
-        name='Bone Influences',
-        description='Choose how many Bone influences to export',
-        default=4,
-        min=1
-    )
-
-    export_all_influences: BoolProperty(
-        name='Include All Bone Influences',
-        description='Allow export of all joint vertex influences. Models may appear incorrectly in many viewers',
-        default=False
     )
 
     export_morph: BoolProperty(
@@ -1232,17 +1144,12 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
         export_settings['gltf_shared_accessors'] = self.export_shared_accessors
         export_settings['gltf_current_frame'] = self.export_current_frame
         export_settings['gltf_animations'] = self.export_animations
-        export_settings['gltf_def_bones'] = self.export_def_bones
-        export_settings['gltf_flatten_bones_hierarchy'] = self.export_hierarchy_flatten_bones
         export_settings['gltf_flatten_obj_hierarchy'] = self.export_hierarchy_flatten_objs
-        export_settings['gltf_armature_object_remove'] = self.export_armature_object_remove
-        export_settings['gltf_leaf_bone'] = self.export_leaf_bone
         if self.export_animations:
             export_settings['gltf_frame_range'] = self.export_frame_range
             export_settings['gltf_force_sampling'] = self.export_force_sampling
             export_settings['gltf_sampling_interpolation_fallback'] = self.export_sampling_interpolation_fallback
             if not self.export_force_sampling:
-                export_settings['gltf_def_bones'] = False
                 export_settings['gltf_bake_animation'] = False
             export_settings['gltf_animation_mode'] = self.export_animation_mode
             if export_settings['gltf_animation_mode'] == "NLA_TRACKS":
@@ -1267,17 +1174,10 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
             else:
                 export_settings['gltf_merge_animation'] = self.export_merge_animation
 
-            if export_settings['gltf_animation_mode'] == "ACTIONS":
-                export_settings['gltf_export_anim_single_armature'] = self.export_anim_single_armature
-            else:
-                export_settings['gltf_export_anim_single_armature'] = False
-
             export_settings['gltf_nla_strips_merged_animation_name'] = self.export_nla_strips_merged_animation_name
             export_settings['gltf_optimize_animation'] = self.export_optimize_animation_size
-            export_settings['gltf_optimize_animation_keep_armature'] = self.export_optimize_animation_keep_anim_armature
             export_settings['gltf_optimize_animation_keep_object'] = self.export_optimize_animation_keep_anim_object
             export_settings['gltf_optimize_disable_viewport'] = self.export_optimize_disable_viewport
-            export_settings['gltf_export_reset_pose_bones'] = self.export_reset_pose_bones
             export_settings['gltf_export_reset_sk_data'] = self.export_morph_reset_sk_data
             export_settings['gltf_bake_animation'] = self.export_bake_animation
             export_settings['gltf_negative_frames'] = self.export_negative_frame
@@ -1290,21 +1190,10 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
             export_settings['gltf_force_sampling'] = False
             export_settings['gltf_bake_animation'] = False
             export_settings['gltf_optimize_animation'] = False
-            export_settings['gltf_optimize_animation_keep_armature'] = False
             export_settings['gltf_optimize_animation_keep_object'] = False
             export_settings['gltf_optimize_disable_viewport'] = False
-            export_settings['gltf_export_anim_single_armature'] = False
-            export_settings['gltf_export_reset_pose_bones'] = False
             export_settings['gltf_export_reset_sk_data'] = False
             export_settings['gltf_export_extra_animations'] = False
-        export_settings['gltf_skins'] = self.export_skins
-        if self.export_skins:
-            export_settings['gltf_all_vertex_influences'] = self.export_all_influences
-            export_settings['gltf_vertex_influences_nb'] = self.export_influence_nb
-        else:
-            export_settings['gltf_all_vertex_influences'] = False
-            export_settings['gltf_def_bones'] = False
-        export_settings['gltf_rest_position_armature'] = self.export_rest_position_armature
         export_settings['gltf_frame_step'] = self.export_frame_step
 
         export_settings['gltf_morph'] = self.export_morph
@@ -1353,8 +1242,6 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
         export_settings['gltf_binaryfilename'] = (
             path_to_uri(os.path.splitext(os.path.basename(self.filepath))[0] + '.bin')
         )
-
-        export_settings['warning_joint_weight_exceed_already_displayed'] = False
 
         export_settings['image_names'] = []
 
@@ -1504,8 +1391,6 @@ def export_panel_data(layout, operator):
         export_panel_data_mesh(body, operator)
         export_panel_data_material(body, operator)
         export_panel_data_shapekeys(body, operator)
-        export_panel_data_armature(body, operator)
-        export_panel_data_skinning(body, operator)
         export_panel_data_lighting(body, operator)
 
         if is_draco_available():
@@ -1621,41 +1506,6 @@ def export_panel_data_shapekeys(layout, operator):
             row.prop(operator, 'export_try_omit_sparse_sk')
 
 
-def export_panel_data_armature(layout, operator):
-    header, body = layout.panel("GLTF_export_data_armature", default_closed=True)
-    header.label(text="Armature")
-    if body:
-        body.active = operator.export_skins
-
-        body.prop(operator, 'export_rest_position_armature')
-
-        row = body.row()
-        row.active = operator.export_force_sampling
-        row.prop(operator, 'export_def_bones')
-        if operator.export_force_sampling is False and operator.export_def_bones is True:
-            body.label(text="Export only deformation bones is not possible when not sampling animation")
-        row = body.row()
-        row.prop(operator, 'export_armature_object_remove')
-        row = body.row()
-        row.prop(operator, 'export_hierarchy_flatten_bones')
-        row = body.row()
-        row.prop(operator, 'export_leaf_bone')
-
-
-def export_panel_data_skinning(layout, operator):
-    header, body = layout.panel("GLTF_export_data_skinning", default_closed=True)
-    header.use_property_split = False
-    header.prop(operator, "export_skins", text="")
-    header.label(text="Skinning")
-    if body:
-        body.active = operator.export_skins
-
-        row = body.row()
-        row.prop(operator, 'export_influence_nb')
-        row.active = not operator.export_all_influences
-        body.prop(operator, 'export_all_influences')
-
-
 def export_panel_data_lighting(layout, operator):
     header, body = layout.panel("GLTF_export_data_lighting", default_closed=True)
     header.label(text="Lighting")
@@ -1709,7 +1559,6 @@ def export_panel_animation(layout, operator):
             export_panel_animation_notes(body, operator)
         export_panel_animation_bake_and_merge(body, operator)
         export_panel_animation_ranges(body, operator)
-        export_panel_animation_armature(body, operator)
         export_panel_animation_shapekeys(body, operator)
         export_panel_animation_sampling(body, operator)
         export_panel_animation_pointer(body, operator)
@@ -1774,19 +1623,6 @@ def export_panel_animation_ranges(layout, operator):
         body.prop(operator, 'export_negative_frame')
 
 
-def export_panel_animation_armature(layout, operator):
-    header, body = layout.panel("GLTF_export_animation_armature", default_closed=True)
-    header.label(text="Armature")
-    if body:
-        body.active = operator.export_animations
-
-        row = body.row()
-        row.active = operator.export_animation_mode == "ACTIONS"
-        row.prop(operator, 'export_anim_single_armature')
-        row = body.row()
-        row.prop(operator, 'export_reset_pose_bones')
-
-
 def export_panel_animation_shapekeys(layout, operator):
     header, body = layout.panel("GLTF_export_animation_shapekeys", default_closed=True)
     header.active = operator.export_animations and operator.export_morph
@@ -1834,7 +1670,6 @@ def export_panel_animation_optimize(layout, operator):
         body.prop(operator, 'export_optimize_animation_size')
 
         row = body.row()
-        row.prop(operator, 'export_optimize_animation_keep_anim_armature')
 
         row = body.row()
         row.prop(operator, 'export_optimize_animation_keep_anim_object')
@@ -1947,48 +1782,6 @@ class ImportGLTF2(Operator, ConvertGLTF2_Base, ImportHelper):
         description="How normals are computed during import",
         default="NORMALS")
 
-    bone_heuristic: EnumProperty(
-        name="Bone Dir",
-        items=(
-            ("BLENDER", "Blender (best for import/export round trip)",
-                "Good for re-importing glTFs exported from Blender, "
-                "and re-exporting glTFs to glTFs after Blender editing. "
-                "Bone tips are placed on their local +Y axis (in glTF space)"),
-            ("TEMPERANCE", "Temperance (average)",
-                "Decent all-around strategy. "
-                "A bone with one child has its tip placed on the local axis "
-                "closest to its child"),
-            ("FORTUNE", "Fortune (may look better, less accurate)",
-                "Might look better than Temperance, but also might have errors. "
-                "A bone with one child has its tip placed at its child's root. "
-                "Non-uniform scalings may get messed up though, so beware"),
-        ),
-        description="Heuristic for placing bones. Tries to make bones pretty",
-        default="BLENDER",
-    )
-
-    disable_bone_shape: BoolProperty(
-        name='Disable Bone Shape',
-        description='Do not create bone shapes',
-        default=False,
-    )
-
-    bone_shape_scale_factor: FloatProperty(
-        name='Bone Shape Scale',
-        description='Scale factor for bone shapes',
-        default=1.0,
-    )
-
-    guess_original_bind_pose: BoolProperty(
-        name='Guess Original Bind Pose',
-        description=(
-            'Try to guess the original bind pose for skinned meshes from '
-            'the inverse bind matrices. '
-            'When off, use default/rest pose as bind pose'
-        ),
-        default=True,
-    )
-
     import_webp_texture: BoolProperty(
         name='Import WebP Textures',
         description=(
@@ -2046,7 +1839,6 @@ class ImportGLTF2(Operator, ConvertGLTF2_Base, ImportHelper):
         layout.prop(self, 'export_import_convert_lighting_mode')
         import_mesh_panel(layout, operator)
         import_texture_panel(layout, operator)
-        import_bone_panel(layout, operator)
         import_ux_panel(layout, operator)
 
         import_panel_user_extension(context, layout)
@@ -2141,17 +1933,6 @@ def import_mesh_panel(layout, operator):
         body.prop(operator, 'merge_vertices')
         body.prop(operator, 'import_merge_material_slots')
         body.prop(operator, 'import_point_as_pointcloud')
-
-
-def import_bone_panel(layout, operator):
-    header, body = layout.panel("GLTF_import_bone", default_closed=False)
-    header.label(text="Bones & Skin")
-    if body:
-        body.prop(operator, 'bone_heuristic')
-        if operator.bone_heuristic == 'BLENDER':
-            body.prop(operator, 'guess_original_bind_pose')
-            body.prop(operator, 'disable_bone_shape')
-            body.prop(operator, 'bone_shape_scale_factor')
 
 
 def import_ux_panel(layout, operator):

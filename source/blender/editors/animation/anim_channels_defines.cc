@@ -24,7 +24,6 @@
 #include "BLT_translation.hh"
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curves_types.h"
@@ -665,8 +664,6 @@ static int acf_object_icon(bAnimListElem *ale)
       return ICON_OUTLINER_OB_SPEAKER;
     case OB_LIGHTPROBE:
       return ICON_OUTLINER_OB_LIGHTPROBE;
-    case OB_ARMATURE:
-      return ICON_OUTLINER_OB_ARMATURE;
     case OB_FONT:
       return ICON_OUTLINER_OB_FONT;
     case OB_SURF:
@@ -677,8 +674,8 @@ static int acf_object_icon(bAnimListElem *ale)
       return ICON_OUTLINER_OB_POINTCLOUD;
     case OB_VOLUME:
       return ICON_OUTLINER_OB_VOLUME;
-    case OB_EMPTY:
-      return ICON_OUTLINER_OB_EMPTY;
+    case OB_NO_DATA:
+      return ICON_OBJECT_DATA;
     default:
       return ICON_OBJECT_DATA;
   }
@@ -970,7 +967,7 @@ static bool get_actiongroup_color(const bActionGroup *agrp, uint8_t r_color[3])
   }
   else {
     const bTheme *btheme = ui::theme::theme_get();
-    wire_color = &btheme->tarm[(color_index - 1)];
+    wire_color = &btheme->color_sets[(color_index - 1)];
   }
 
   r_color[0] = wire_color->solid[0];
@@ -2589,93 +2586,6 @@ static bAnimChannelType ACF_DSMBALL = {
     /*setting_post_update*/ nullptr,
 };
 
-/* Armature Expander  ------------------------------------------- */
-
-/* TODO: just get this from RNA? */
-static int acf_dsarm_icon(bAnimListElem * /*ale*/)
-{
-  return ICON_ARMATURE_DATA;
-}
-
-/* Get the appropriate flag(s) for the setting when it is valid. */
-static int acf_dsarm_setting_flag(bAnimContext * /*ac*/,
-                                  eAnimChannel_Settings setting,
-                                  bool *r_neg)
-{
-  /* Clear extra return data first. */
-  *r_neg = false;
-
-  switch (setting) {
-    case ACHANNEL_SETTING_EXPAND: /* expanded */
-      return ARM_DS_EXPAND;
-
-    case ACHANNEL_SETTING_MUTE: /* mute (only in NLA) */
-      return ADT_NLA_EVAL_OFF;
-
-    case ACHANNEL_SETTING_VISIBLE: /* visible (only in Graph Editor) */
-      *r_neg = true;
-      return ADT_CURVES_NOT_VISIBLE;
-
-    case ACHANNEL_SETTING_SELECT: /* selected */
-      return ADT_UI_SELECTED;
-
-    case ACHANNEL_SETTING_ALWAYS_VISIBLE: /* pin */
-      return ADT_CURVES_ALWAYS_VISIBLE;
-
-    default: /* unsupported */
-      return 0;
-  }
-}
-
-/* get pointer to the setting */
-static void *acf_dsarm_setting_ptr(bAnimListElem *ale,
-                                   eAnimChannel_Settings setting,
-                                   short *r_type)
-{
-  bArmature *arm = static_cast<bArmature *>(ale->data);
-
-  /* Clear extra return data first. */
-  *r_type = 0;
-
-  switch (setting) {
-    case ACHANNEL_SETTING_EXPAND: /* expanded */
-      return GET_ACF_FLAG_PTR(arm->flag, r_type);
-
-    case ACHANNEL_SETTING_SELECT:         /* selected */
-    case ACHANNEL_SETTING_MUTE:           /* muted (for NLA only) */
-    case ACHANNEL_SETTING_VISIBLE:        /* visible (for Graph Editor only) */
-    case ACHANNEL_SETTING_ALWAYS_VISIBLE: /* pin */
-      if (arm->adt) {
-        return GET_ACF_FLAG_PTR(arm->adt->flag, r_type);
-      }
-      return nullptr;
-
-    default: /* unsupported */
-      return nullptr;
-  }
-}
-
-/** Armature expander type define. */
-static bAnimChannelType ACF_DSARM = {
-    /*channel_type_name*/ "Armature Expander",
-    /*channel_role*/ ACHANNEL_ROLE_EXPANDER,
-
-    /*get_backdrop_color*/ acf_generic_dataexpand_color,
-    /*get_channel_color*/ nullptr,
-    /*draw_backdrop*/ acf_generic_dataexpand_backdrop,
-    /*get_indent_level*/ acf_generic_indentation_1,
-    /*get_offset*/ acf_generic_basic_offset,
-
-    /*name*/ acf_generic_idblock_name,
-    /*name_prop*/ acf_generic_idblock_name_prop,
-    /*icon*/ acf_dsarm_icon,
-
-    /*has_setting*/ acf_generic_dataexpand_setting_valid,
-    /*setting_flag*/ acf_dsarm_setting_flag,
-    /*setting_ptr*/ acf_dsarm_setting_ptr,
-    /*setting_post_update*/ nullptr,
-};
-
 /* NodeTree Expander  ------------------------------------------- */
 
 /* TODO: just get this from RNA? */
@@ -4246,7 +4156,7 @@ static void ANIM_init_channel_typeinfo_data()
     animchannelTypeInfo[type++] = &ACF_DSNTREE;      /* NodeTree Channel */
     animchannelTypeInfo[type++] = &ACF_DSPART;       /* Particle Channel */
     animchannelTypeInfo[type++] = &ACF_DSMBALL;      /* MetaBall Channel */
-    animchannelTypeInfo[type++] = &ACF_DSARM;        /* Armature Channel */
+    animchannelTypeInfo[type++] = nullptr; /* Removed Channel Slot */
     animchannelTypeInfo[type++] = &ACF_DSMESH;       /* Mesh Channel */
     animchannelTypeInfo[type++] = &ACF_DSTEX;        /* Texture Channel */
     animchannelTypeInfo[type++] = &ACF_DSLAT;        /* Lattice Channel */

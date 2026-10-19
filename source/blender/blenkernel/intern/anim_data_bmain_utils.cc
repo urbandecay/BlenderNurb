@@ -79,9 +79,6 @@ void BKE_animdata_main_cb(Main *bmain, const FunctionRef<void(ID *, AnimData *)>
   /* curves */
   ANIMDATA_IDS_CB(bmain->curves.first);
 
-  /* armatures */
-  ANIMDATA_IDS_CB(bmain->armatures.first);
-
   /* lattices */
   ANIMDATA_IDS_CB(bmain->lattices.first);
 

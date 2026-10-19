@@ -11,7 +11,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -117,65 +116,6 @@ void ANIM_id_update(Main *bmain, ID *id)
  * response to appropriate notifiers.
  */
 
-/* perform syncing updates for Action Groups */
-static void animchan_sync_group(bAnimContext *ac, bAnimListElem *ale, bActionGroup **active_agrp)
-{
-  bActionGroup *agrp = static_cast<bActionGroup *>(ale->data);
-  ID *owner_id = ale->id;
-
-  /* major priority is selection status
-   * so we need both a group and an owner
-   */
-  if (ELEM(nullptr, agrp, owner_id)) {
-    return;
-  }
-
-  /* for standard Objects, check if group is the name of some bone */
-  if (GS(owner_id->name) == ID_OB) {
-    Object *ob = reinterpret_cast<Object *>(owner_id);
-
-    /* check if there are bones, and whether the name matches any
-     * NOTE: this feature will only really work if groups by default contain the F-Curves
-     * for a single bone.
-     */
-    if (ob->pose) {
-      bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, agrp->name);
-
-      if (pchan) {
-        Bone *bone = pchan->bone_get(*ob);
-        /* if one matches, sync the selection status */
-        if (bone && (pchan->flag & POSE_SELECTED)) {
-          agrp->flag |= AGRP_SELECTED;
-        }
-        else {
-          agrp->flag &= ~AGRP_SELECTED;
-        }
-
-        /* also sync active group status */
-        bArmature *arm = id_cast<bArmature *>(ob->data);
-        if ((ob == ac->obact) && (bone == arm->act_bone)) {
-          /* if no previous F-Curve has active flag, then we're the first and only one to get it */
-          if (*active_agrp == nullptr) {
-            agrp->flag |= AGRP_ACTIVE;
-            *active_agrp = agrp;
-          }
-          else {
-            /* someone else has already taken it - set as not active */
-            agrp->flag &= ~AGRP_ACTIVE;
-          }
-        }
-        else {
-          /* this can't possibly be active now */
-          agrp->flag &= ~AGRP_ACTIVE;
-        }
-
-        /* sync bone color */
-        action_group_colors_set_from_posebone(agrp, {pchan, bone});
-      }
-    }
-  }
-}
-
 static void animchan_sync_fcurve_scene(bAnimListElem *ale)
 {
   ID *owner_id = ale->id;
@@ -241,8 +181,6 @@ void ANIM_sync_animchannels_to_data(const bContext *C)
   ListBaseT<bAnimListElem> anim_data = {nullptr, nullptr};
   int filter;
 
-  bActionGroup *active_agrp = nullptr;
-
   /* get animation context info for filtering the channels */
   if (ANIM_animdata_get_context(C, &ac) == 0) {
     return;
@@ -261,10 +199,6 @@ void ANIM_sync_animchannels_to_data(const bContext *C)
   /* flush settings as appropriate depending on the types of the channels */
   for (bAnimListElem &ale : anim_data) {
     switch (ale.type) {
-      case ANIMTYPE_GROUP:
-        animchan_sync_group(&ac, &ale, &active_agrp);
-        break;
-
       case ANIMTYPE_FCURVE:
         animchan_sync_fcurve(&ale);
         break;
@@ -282,6 +216,7 @@ void ANIM_sync_animchannels_to_data(const bContext *C)
       case ANIMTYPE_ACTION_SLOT:
       case ANIMTYPE_FILLACTD:
       case ANIMTYPE_FILLDRIVERS:
+      case ANIMTYPE_GROUP:
       case ANIMTYPE_DSMAT:
       case ANIMTYPE_DSLAM:
       case ANIMTYPE_DSCAM:
@@ -292,7 +227,6 @@ void ANIM_sync_animchannels_to_data(const bContext *C)
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSTEX:
       case ANIMTYPE_DSLAT:

@@ -67,14 +67,6 @@ class ImportFBX(bpy.types.Operator, ImportHelper):
         options={'HIDDEN', 'SKIP_PRESET'},
     )
 
-    ui_tab: EnumProperty(
-        items=(('MAIN', "Main", "Main basic settings"),
-               ('ARMATURE', "Armatures", "Armature-related settings"),
-               ),
-        name="ui_tab",
-        description="Import options categories",
-    )
-
     use_manual_orientation: BoolProperty(
         name="Manual Orientation",
         description="Specify orientation and scale, instead of using embedded data in FBX file",
@@ -89,7 +81,7 @@ class ImportFBX(bpy.types.Operator, ImportHelper):
         name="Apply Transform",
         description="Bake space transform into object data, avoids getting unwanted rotations to objects when "
         "target space is not aligned with Blender's space "
-        "(WARNING! experimental option, use at own risk, known to be broken with armatures/animations)",
+        "(WARNING! experimental option, use at own risk, known to be broken with animations)",
         default=False,
     )
 
@@ -154,45 +146,6 @@ class ImportFBX(bpy.types.Operator, ImportHelper):
         default=True,
     )
 
-    ignore_leaf_bones: BoolProperty(
-        name="Ignore Leaf Bones",
-        description="Ignore the last bone at the end of each chain (used to mark the length of the previous bone)",
-        default=False,
-    )
-    force_connect_children: BoolProperty(
-        name="Force Connect Children",
-        description="Force connection of children bones to their parent, even if their computed head/tail "
-        "positions do not match (can be useful with pure-joints-type armatures)",
-        default=False,
-    )
-    automatic_bone_orientation: BoolProperty(
-        name="Automatic Bone Orientation",
-        description="Try to align the major bone axis with the bone children",
-        default=False,
-    )
-    primary_bone_axis: EnumProperty(
-        name="Primary Bone Axis",
-        items=(('X', "X Axis", ""),
-               ('Y', "Y Axis", ""),
-               ('Z', "Z Axis", ""),
-               ('-X', "-X Axis", ""),
-               ('-Y', "-Y Axis", ""),
-               ('-Z', "-Z Axis", ""),
-               ),
-        default='Y',
-    )
-    secondary_bone_axis: EnumProperty(
-        name="Secondary Bone Axis",
-        items=(('X', "X Axis", ""),
-               ('Y', "Y Axis", ""),
-               ('Z', "Z Axis", ""),
-               ('-X', "-X Axis", ""),
-               ('-Y', "-Y Axis", ""),
-               ('-Z', "-Z Axis", ""),
-               ),
-        default='X',
-    )
-
     use_prepost_rot: BoolProperty(
         name="Use Pre/Post Rotation",
         description="Use pre/post rotation from FBX transform (you may have to disable that in some cases)",
@@ -217,10 +170,9 @@ class ImportFBX(bpy.types.Operator, ImportHelper):
         import_panel_transform(layout, self)
         import_panel_materials(layout, self)
         import_panel_animation(layout, self)
-        import_panel_armature(layout, self)
 
     def execute(self, context):
-        keywords = self.as_keywords(ignore=("filter_glob", "directory", "ui_tab", "filepath", "files"))
+        keywords = self.as_keywords(ignore=("filter_glob", "directory", "filepath", "files"))
 
         from . import import_fbx
         import os
@@ -295,19 +247,6 @@ def import_panel_animation(layout, operator):
         body.prop(operator, "anim_offset")
 
 
-def import_panel_armature(layout, operator):
-    header, body = layout.panel("FBX_import_armature", default_closed=True)
-    header.label(text="Armature")
-    if body:
-        body.prop(operator, "ignore_leaf_bones")
-        body.prop(operator, "force_connect_children"),
-        body.prop(operator, "automatic_bone_orientation"),
-        sub = body.column()
-        sub.enabled = not operator.automatic_bone_orientation
-        sub.prop(operator, "primary_bone_axis")
-        sub.prop(operator, "secondary_bone_axis")
-
-
 @orientation_helper(axis_forward='-Z', axis_up='Y')
 class ExportFBX(bpy.types.Operator, ExportHelper):
     """Write a FBX file"""
@@ -343,7 +282,7 @@ class ExportFBX(bpy.types.Operator, ExportHelper):
     )
     global_scale: FloatProperty(
         name="Scale",
-        description="Scale all data (Some importers do not support scaled armatures!)",
+        description="Scale all data (some importers do not support scaled data)",
         min=0.001, max=1000.0,
         soft_min=0.01, soft_max=1000.0,
         default=1.0,
@@ -382,27 +321,25 @@ class ExportFBX(bpy.types.Operator, ExportHelper):
         name="Apply Transform",
         description="Bake space transform into object data, avoids getting unwanted rotations to objects when "
         "target space is not aligned with Blender's space "
-        "(WARNING! experimental option, use at own risk, known to be broken with armatures/animations)",
+        "(WARNING! experimental option, use at own risk, known to be broken with animations)",
         default=False,
     )
 
     object_types: EnumProperty(
         name="Object Types",
         options={'ENUM_FLAG'},
-        items=(('EMPTY', "Empty", ""),
-               ('CAMERA', "Camera", ""),
+        items=(('CAMERA', "Camera", ""),
                ('LIGHT', "Lamp", ""),
-               ('ARMATURE', "Armature", "WARNING: not supported in dupli/group instances"),
                ('MESH', "Mesh", ""),
                ('OTHER', "Other", "Other geometry types, like curve, meta-ball, etc. (converted to meshes)"),
                ),
         description="Which kind of object to export",
-        default={'EMPTY', 'CAMERA', 'LIGHT', 'ARMATURE', 'MESH', 'OTHER'},
+        default={'CAMERA', 'LIGHT', 'MESH', 'OTHER'},
     )
 
     use_mesh_modifiers: BoolProperty(
         name="Apply Modifiers",
-        description="Apply modifiers to mesh objects (except Armature ones) - "
+        description="Apply modifiers to mesh objects - "
         "WARNING: prevents exporting shape keys",
         default=True,
     )
@@ -464,59 +401,9 @@ class ExportFBX(bpy.types.Operator, ExportHelper):
         description="Export custom properties",
         default=False,
     )
-    add_leaf_bones: BoolProperty(
-        name="Add Leaf Bones",
-        description="Append a final bone to the end of each chain to specify last bone length "
-        "(use this when you intend to edit the armature from exported data)",
-        default=True  # False for commit!
-    )
-    primary_bone_axis: EnumProperty(
-        name="Primary Bone Axis",
-        items=(('X', "X Axis", ""),
-               ('Y', "Y Axis", ""),
-               ('Z', "Z Axis", ""),
-               ('-X', "-X Axis", ""),
-               ('-Y', "-Y Axis", ""),
-               ('-Z', "-Z Axis", ""),
-               ),
-        default='Y',
-    )
-    secondary_bone_axis: EnumProperty(
-        name="Secondary Bone Axis",
-        items=(('X', "X Axis", ""),
-               ('Y', "Y Axis", ""),
-               ('Z', "Z Axis", ""),
-               ('-X', "-X Axis", ""),
-               ('-Y', "-Y Axis", ""),
-               ('-Z', "-Z Axis", ""),
-               ),
-        default='X',
-    )
-    use_armature_deform_only: BoolProperty(
-        name="Only Deform Bones",
-        description="Only write deforming bones (and non-deforming ones when they have deforming children)",
-        default=False,
-    )
-    armature_nodetype: EnumProperty(
-        name="Armature FBXNode Type",
-        items=(('NULL', "Null", "'Null' FBX node, similar to Blender's Empty (default)"),
-               ('ROOT', "Root", "'Root' FBX node, supposed to be the root of chains of bones..."),
-               ('LIMBNODE', "LimbNode", "'LimbNode' FBX node, a regular joint between two bones..."),
-               ),
-        description="FBX type of node (object) used to represent Blender's armatures "
-        "(use the Null type unless you experience issues with the other app, "
-        "as other choices may not import back perfectly into Blender...)",
-        default='NULL',
-    )
     bake_anim: BoolProperty(
         name="Baked Animation",
         description="Export baked keyframe animation",
-        default=True,
-    )
-    bake_anim_use_all_bones: BoolProperty(
-        name="Key All Bones",
-        description="Force exporting at least one key of animation for all bones "
-        "(needed with some target applications, like UE4)",
         default=True,
     )
     bake_anim_use_nla_strips: BoolProperty(
@@ -594,7 +481,6 @@ class ExportFBX(bpy.types.Operator, ExportHelper):
         export_panel_include(layout, self, is_file_browser)
         export_panel_transform(layout, self)
         export_panel_geometry(layout, self)
-        export_panel_armature(layout, self)
         export_panel_animation(layout, self)
 
     @property
@@ -611,10 +497,7 @@ class ExportFBX(bpy.types.Operator, ExportHelper):
                                          ).to_4x4()
                          if self.use_space_transform else Matrix())
 
-        keywords = self.as_keywords(ignore=("check_existing",
-                                            "filter_glob",
-                                            "ui_tab",
-                                            ))
+        keywords = self.as_keywords(ignore=("check_existing", "filter_glob"))
 
         keywords["global_matrix"] = global_matrix
 
@@ -686,17 +569,6 @@ def export_panel_geometry(layout, operator):
         body.prop(operator, "prioritize_active_color")
 
 
-def export_panel_armature(layout, operator):
-    header, body = layout.panel("FBX_export_armature", default_closed=True)
-    header.label(text="Armature")
-    if body:
-        body.prop(operator, "primary_bone_axis")
-        body.prop(operator, "secondary_bone_axis")
-        body.prop(operator, "armature_nodetype")
-        body.prop(operator, "use_armature_deform_only")
-        body.prop(operator, "add_leaf_bones")
-
-
 def export_panel_animation(layout, operator):
     header, body = layout.panel("FBX_export_bake_animation", default_closed=True)
     header.use_property_split = False
@@ -704,7 +576,6 @@ def export_panel_animation(layout, operator):
     header.label(text="Animation")
     if body:
         body.enabled = operator.bake_anim
-        body.prop(operator, "bake_anim_use_all_bones")
         body.prop(operator, "bake_anim_use_nla_strips")
         body.prop(operator, "bake_anim_use_all_actions")
         body.prop(operator, "bake_anim_force_startend_keying")

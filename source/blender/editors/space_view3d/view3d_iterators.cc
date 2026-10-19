@@ -6,7 +6,6 @@
  * \ingroup spview3d
  */
 
-#include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_meta_types.h"
@@ -17,8 +16,6 @@
 #include "BLI_math_geom.h"
 #include "BLI_rect.h"
 
-#include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_attribute.hh"
 #include "BKE_curve.hh"
 #include "BKE_displist.h"
@@ -32,11 +29,9 @@
 
 #include "DEG_depsgraph_query.hh"
 
-#include "ANIM_armature.hh"
 
 #include "bmesh.hh"
 
-#include "ED_armature.hh"
 #include "ED_view3d.hh"
 
 namespace blender {
@@ -757,147 +752,6 @@ void lattice_foreachScreenVert(const ViewContext *vc,
         func(user_data, bp, screen_co);
       }
     }
-  }
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Edit-Armature: For Each Screen Bone
- * \{ */
-
-void armature_foreachScreenBone(const ViewContext *vc,
-                                void (*func)(void *user_data,
-                                             EditBone *ebone,
-                                             const float screen_co_a[2],
-                                             const float screen_co_b[2]),
-                                void *user_data,
-                                const eV3DProjTest clip_flag)
-{
-  bArmature *arm = id_cast<bArmature *>(vc->obedit->data);
-
-  ED_view3d_check_mats_rv3d(vc->rv3d);
-
-  float content_planes[6][4];
-  int content_planes_len;
-  rctf win_rect;
-
-  if (clip_flag & V3D_PROJ_TEST_CLIP_CONTENT) {
-    content_planes_len = content_planes_from_clip_flag(
-        vc->region, vc->obedit, clip_flag, content_planes);
-    win_rect.xmin = 0;
-    win_rect.ymin = 0;
-    win_rect.xmax = vc->region->winx;
-    win_rect.ymax = vc->region->winy;
-  }
-  else {
-    content_planes_len = 0;
-  }
-
-  for (EditBone &ebone : *arm->edbo) {
-    if (!animrig::bone_is_visible(arm, &ebone)) {
-      continue;
-    }
-
-    float screen_co_a[2], screen_co_b[2];
-    const float *v_a = ebone.head, *v_b = ebone.tail;
-
-    if (clip_flag & V3D_PROJ_TEST_CLIP_CONTENT) {
-      if (!view3d_project_segment_to_screen_with_content_clip_planes(vc->region,
-                                                                     v_a,
-                                                                     v_b,
-                                                                     clip_flag,
-                                                                     &win_rect,
-                                                                     content_planes,
-                                                                     content_planes_len,
-                                                                     screen_co_a,
-                                                                     screen_co_b))
-      {
-        continue;
-      }
-    }
-    else {
-      if (!view3d_project_segment_to_screen_with_clip_tag(
-              vc->region, v_a, v_b, clip_flag, screen_co_a, screen_co_b))
-      {
-        continue;
-      }
-    }
-
-    func(user_data, &ebone, screen_co_a, screen_co_b);
-  }
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Pose: For Each Screen Bone
- * \{ */
-
-void pose_foreachScreenBone(const ViewContext *vc,
-                            void (*func)(void *user_data,
-                                         bPoseChannel *pchan,
-                                         const float screen_co_a[2],
-                                         const float screen_co_b[2]),
-                            void *user_data,
-                            const eV3DProjTest clip_flag)
-{
-  /* Almost _exact_ copy of #armature_foreachScreenBone */
-
-  const Object *ob_eval = DEG_get_evaluated(vc->depsgraph, vc->obact);
-  const bArmature *arm_eval = id_cast<const bArmature *>(ob_eval->data);
-  bPose *pose = vc->obact->pose;
-
-  ED_view3d_check_mats_rv3d(vc->rv3d);
-
-  float content_planes[6][4];
-  int content_planes_len;
-  rctf win_rect;
-
-  if (clip_flag & V3D_PROJ_TEST_CLIP_CONTENT) {
-    content_planes_len = content_planes_from_clip_flag(
-        vc->region, ob_eval, clip_flag, content_planes);
-    win_rect.xmin = 0;
-    win_rect.ymin = 0;
-    win_rect.xmax = vc->region->winx;
-    win_rect.ymax = vc->region->winy;
-  }
-  else {
-    content_planes_len = 0;
-  }
-
-  for (bPoseChannel &pchan : pose->chanbase) {
-    if (!animrig::bone_is_visible(arm_eval, {&pchan, pchan.bone_get(*vc->obact)})) {
-      continue;
-    }
-
-    bPoseChannel *pchan_eval = BKE_pose_channel_find_name(ob_eval->pose, pchan.name);
-    float screen_co_a[2], screen_co_b[2];
-    const float *v_a = pchan_eval->pose_head, *v_b = pchan_eval->pose_tail;
-
-    if (clip_flag & V3D_PROJ_TEST_CLIP_CONTENT) {
-      if (!view3d_project_segment_to_screen_with_content_clip_planes(vc->region,
-                                                                     v_a,
-                                                                     v_b,
-                                                                     clip_flag,
-                                                                     &win_rect,
-                                                                     content_planes,
-                                                                     content_planes_len,
-                                                                     screen_co_a,
-                                                                     screen_co_b))
-      {
-        continue;
-      }
-    }
-    else {
-      if (!view3d_project_segment_to_screen_with_clip_tag(
-              vc->region, v_a, v_b, clip_flag, screen_co_a, screen_co_b))
-      {
-        continue;
-      }
-    }
-
-    func(user_data, &pchan, screen_co_a, screen_co_b);
   }
 }
 

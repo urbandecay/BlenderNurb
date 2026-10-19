@@ -21,7 +21,6 @@
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_library.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_paint.hh"
 #include "BKE_paint_types.hh"
@@ -39,7 +38,6 @@
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
 
-#include "ED_armature.hh"
 #include "ED_outliner.hh"
 #include "ED_paint.hh"
 #include "ED_physics.hh"
@@ -75,9 +73,6 @@ static const char *object_mode_op_string(eObjectMode mode)
   if (mode == OB_MODE_PARTICLE_EDIT) {
     return "PARTICLE_OT_particle_edit_toggle";
   }
-  if (mode == OB_MODE_POSE) {
-    return "OBJECT_OT_posemode_toggle";
-  }
   if (mode == OB_MODE_SCULPT_CURVES) {
     return "CURVES_OT_sculptmode_toggle";
   }
@@ -109,11 +104,6 @@ bool mode_compat_test(const Object *ob, eObjectMode mode)
     case OB_POINTCLOUD:
     case OB_LATTICE:
       if (mode & OB_MODE_EDIT) {
-        return true;
-      }
-      break;
-    case OB_ARMATURE:
-      if (mode & (OB_MODE_EDIT | OB_MODE_POSE)) {
         return true;
       }
       break;
@@ -285,14 +275,6 @@ static bool ed_object_mode_generic_exit_ex(
       sculpt_paint::object_sculpt_mode_exit(*bmain, *depsgraph, *scene, *ob);
     }
   }
-  else if (ob->mode & OB_MODE_POSE) {
-    if (ob->pose != nullptr) {
-      if (only_test) {
-        return true;
-      }
-      ED_object_posemode_exit_ex(bmain, ob);
-    }
-  }
   else if (ob->mode & OB_MODE_PARTICLE_EDIT) {
     if (only_test) {
       return true;
@@ -307,60 +289,6 @@ static bool ed_object_mode_generic_exit_ex(
   }
 
   return false;
-}
-
-/* When locked, it's almost impossible to select the pose-object
- * then the mesh-object to enter weight paint mode.
- * Even when the object mode is not locked this is inconvenient - so allow in either case.
- *
- * In this case move our pose object in/out of pose mode.
- * This is in fits with the convention of selecting multiple objects and entering a mode.
- */
-static void ed_object_posemode_set_for_weight_paint_ex(bContext *C,
-                                                       Main *bmain,
-                                                       Object *ob_arm,
-                                                       const bool is_mode_set)
-{
-  View3D *v3d = CTX_wm_view3d(C);
-  const Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-
-  if (ob_arm != nullptr) {
-    BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-    const Base *base_arm = BKE_view_layer_base_find(view_layer, ob_arm);
-    if (base_arm && BASE_VISIBLE(v3d, base_arm)) {
-      if (is_mode_set) {
-        if ((ob_arm->mode & OB_MODE_POSE) != 0) {
-          ED_object_posemode_exit_ex(bmain, ob_arm);
-        }
-      }
-      else {
-        /* Only check selected status when entering weight-paint mode
-         * because we may have multiple armature objects.
-         * Selecting one will de-select the other, which would leave it in pose-mode
-         * when exiting weight paint mode. While usable, this looks like inconsistent
-         * behavior from a user perspective. */
-        if (base_arm->flag & BASE_SELECTED) {
-          if ((ob_arm->mode & OB_MODE_POSE) == 0) {
-            ED_object_posemode_enter_ex(bmain, ob_arm);
-          }
-        }
-      }
-    }
-  }
-}
-
-void posemode_set_for_weight_paint(bContext *C, Main *bmain, Object *ob, const bool is_mode_set)
-{
-  VirtualModifierData virtual_modifier_data;
-  ModifierData *md = BKE_modifiers_get_virtual_modifierlist(ob, &virtual_modifier_data);
-  for (; md; md = md->next) {
-    if (md->type == eModifierType_Armature) {
-      ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-      Object *ob_arm = amd->object;
-      ed_object_posemode_set_for_weight_paint_ex(C, bmain, ob_arm, is_mode_set);
-    }
-  }
 }
 
 void mode_generic_exit(Main *bmain, Depsgraph *depsgraph, Scene *scene, Object *ob)
@@ -523,7 +451,7 @@ static wmOperatorStatus object_transfer_mode_invoke(bContext *C,
                 "Unable to transfer mode, the source and/or target objects are not editable");
     return OPERATOR_CANCELLED;
   }
-  if (ID_IS_OVERRIDE_LIBRARY(ob_dst) && !ELEM(mode_src, OB_MODE_OBJECT, OB_MODE_POSE)) {
+  if (ID_IS_OVERRIDE_LIBRARY(ob_dst) && mode_src != OB_MODE_OBJECT) {
     BKE_reportf(
         op->reports,
         RPT_ERROR,

@@ -152,20 +152,6 @@ float BKE_defvert_total_selected_weight(const MDeformVert *dv,
                                         int defbase_num,
                                         const bool *defbase_sel);
 
-/**
- * \return The representative weight of a multi-paint group, used for
- * viewport colors and actual painting.
- *
- * Result equal to sum of weights with auto normalize, and average otherwise.
- * Value is not clamped, since painting relies on multiplication being always
- * commutative with the collective weight function.
- */
-float BKE_defvert_multipaint_collective_weight(const MDeformVert *dv,
-                                               int defbase_num,
-                                               const bool *defbase_sel,
-                                               int defbase_sel_num,
-                                               bool is_normalized);
-
 /* This much unlocked weight is considered equivalent to none. */
 #define VERTEX_WEIGHT_LOCK_EPSILON 1e-6f
 

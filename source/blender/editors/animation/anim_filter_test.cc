@@ -38,8 +38,8 @@ class ActionFilterTest : public bke::BlenderGTestBase {
     G_MAIN = bmain; /* For BKE_animdata_free(). */
 
     action = &BKE_id_new<bAction>(bmain, "ACÄnimåtië")->wrap();
-    cube = BKE_object_add_only_object(bmain, OB_EMPTY, "Küüübus");
-    suzanne = BKE_object_add_only_object(bmain, OB_EMPTY, "OBSuzanne");
+    cube = BKE_object_add_only_object(bmain, OB_NO_DATA, "Küüübus");
+    suzanne = BKE_object_add_only_object(bmain, OB_NO_DATA, "OBSuzanne");
   }
 
   void TearDown() override

@@ -496,7 +496,7 @@ bool BLI_str_quoted_substr_range(const char *__restrict str,
 #if 0
 /**
  * Makes a copy of the text within the "" that appear after the contents of \a prefix.
- * i.e. for string `pose["apples"]` with prefix `pose[`, it will return `apples`.
+ * i.e. for string `item["apples"]` with prefix `item[`, it will return `apples`.
  *
  * \param str: is the entire string to chop.
  * \param prefix: is the part of the string to step over.

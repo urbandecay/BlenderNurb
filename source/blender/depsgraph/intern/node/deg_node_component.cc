@@ -10,9 +10,6 @@
 
 #include <cstdio>
 
-#include "DNA_object_types.h"
-
-#include "BKE_action.hh"
 
 #include "intern/node/deg_node_factory.hh"
 #include "intern/node/deg_node_id.hh"
@@ -256,34 +253,12 @@ void ComponentNode::finalize_build(Depsgraph * /*graph*/)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Bone Component
- * \{ */
-
-void BoneComponentNode::init(const ID *id, const char *subdata)
-{
-  /* generic component-node... */
-  ComponentNode::init(id, subdata);
-
-  /* name of component comes is bone name */
-  /* TODO(sergey): This sets name to an empty string because subdata is
-   * empty. Is it a bug? */
-  // this->name = subdata;
-
-  /* bone-specific node data */
-  Object *object = id_cast<Object *>(const_cast<ID *>(id));
-  this->pchan = BKE_pose_channel_find_name(object->pose, subdata);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Register All Components
  * \{ */
 
 DEG_COMPONENT_NODE_DEFINE(Animation, ANIMATION, ID_RECALC_ANIMATION);
 /* TODO(sergey): Is this a correct tag? */
 DEG_COMPONENT_NODE_DEFINE(BatchCache, BATCH_CACHE, ID_RECALC_SHADING);
-DEG_COMPONENT_NODE_DEFINE(Bone, BONE, ID_RECALC_GEOMETRY);
 DEG_COMPONENT_NODE_DEFINE(Cache, CACHE, 0);
 DEG_COMPONENT_NODE_DEFINE(CopyOnWrite, COPY_ON_EVAL, ID_RECALC_SYNC_TO_EVAL);
 DEG_COMPONENT_NODE_DEFINE(ImageAnimation, IMAGE_ANIMATION, 0);
@@ -293,7 +268,6 @@ DEG_COMPONENT_NODE_DEFINE(Parameters, PARAMETERS, ID_RECALC_PARAMETERS);
 DEG_COMPONENT_NODE_DEFINE(Particles, PARTICLE_SYSTEM, ID_RECALC_GEOMETRY);
 DEG_COMPONENT_NODE_DEFINE(ParticleSettings, PARTICLE_SETTINGS, 0);
 DEG_COMPONENT_NODE_DEFINE(PointCache, POINT_CACHE, 0);
-DEG_COMPONENT_NODE_DEFINE(Pose, EVAL_POSE, ID_RECALC_GEOMETRY);
 DEG_COMPONENT_NODE_DEFINE(Sequencer, SEQUENCER, 0);
 DEG_COMPONENT_NODE_DEFINE(Compositor, COMPOSITOR, 0);
 DEG_COMPONENT_NODE_DEFINE(Shading, SHADING, ID_RECALC_SHADING);
@@ -303,7 +277,6 @@ DEG_COMPONENT_NODE_DEFINE(Hierarchy, HIERARCHY, 0);
 DEG_COMPONENT_NODE_DEFINE(Instancing, INSTANCING, 0);
 DEG_COMPONENT_NODE_DEFINE(Synchronization, SYNCHRONIZATION, 0);
 DEG_COMPONENT_NODE_DEFINE(Audio, AUDIO, 0);
-DEG_COMPONENT_NODE_DEFINE(Armature, ARMATURE, 0);
 DEG_COMPONENT_NODE_DEFINE(GenericDatablock, GENERIC_DATABLOCK, 0);
 DEG_COMPONENT_NODE_DEFINE(Scene, SCENE, 0);
 DEG_COMPONENT_NODE_DEFINE(Visibility, VISIBILITY, 0);
@@ -319,7 +292,6 @@ DEG_COMPONENT_NODE_DEFINE(NTreeGeometryPreprocess, NTREE_GEOMETRY_PREPROCESS, 0)
 void deg_register_component_depsnodes()
 {
   register_node_typeinfo(&DNTI_ANIMATION);
-  register_node_typeinfo(&DNTI_BONE);
   register_node_typeinfo(&DNTI_CACHE);
   register_node_typeinfo(&DNTI_BATCH_CACHE);
   register_node_typeinfo(&DNTI_COPY_ON_EVAL);
@@ -330,7 +302,6 @@ void deg_register_component_depsnodes()
   register_node_typeinfo(&DNTI_PARTICLE_SETTINGS);
   register_node_typeinfo(&DNTI_POINT_CACHE);
   register_node_typeinfo(&DNTI_IMAGE_ANIMATION);
-  register_node_typeinfo(&DNTI_EVAL_POSE);
   register_node_typeinfo(&DNTI_SEQUENCER);
   register_node_typeinfo(&DNTI_COMPOSITOR);
   register_node_typeinfo(&DNTI_SHADING);
@@ -340,7 +311,6 @@ void deg_register_component_depsnodes()
   register_node_typeinfo(&DNTI_INSTANCING);
   register_node_typeinfo(&DNTI_SYNCHRONIZATION);
   register_node_typeinfo(&DNTI_AUDIO);
-  register_node_typeinfo(&DNTI_ARMATURE);
   register_node_typeinfo(&DNTI_GENERIC_DATABLOCK);
   register_node_typeinfo(&DNTI_SCENE);
   register_node_typeinfo(&DNTI_VISIBILITY);

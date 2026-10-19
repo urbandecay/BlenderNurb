@@ -859,10 +859,6 @@ ID *WM_drag_asset_id_import(const bContext *C, wmDragAsset *asset_drag, const in
   /* #eFileSel_Params_Flag + #eBLOLibLinkFlags */
   int flag = flag_extra | FILE_ACTIVE_COLLECTION;
 
-  if (asset_drag->import_settings.use_instance_collections) {
-    flag |= BLO_LIBLINK_COLLECTION_INSTANCE;
-  }
-
   ed::asset::ImportInstantiateContext instantiate_context;
   instantiate_context.scene = CTX_data_scene(C);
   instantiate_context.view_layer = CTX_data_view_layer(C);
@@ -969,7 +965,6 @@ void WM_drag_add_asset_list_item(wmDrag *drag, const asset_system::AssetRepresen
 
     AssetImportSettings import_settings{};
     import_settings.method = ASSET_IMPORT_APPEND;
-    import_settings.use_instance_collections = false;
 
     drag_asset->asset_data.external_info = WM_drag_create_asset_data(asset, import_settings);
   }

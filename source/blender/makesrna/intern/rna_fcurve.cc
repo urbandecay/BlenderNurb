@@ -2053,11 +2053,6 @@ static void rna_def_drivertarget(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Data Path", "RNA Path (from ID-block) to property used");
   RNA_def_property_update(prop, 0, "rna_DriverTarget_update_data");
 
-  prop = RNA_def_property(srna, "bone_target", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "pchan_name");
-  RNA_def_property_ui_text(prop, "Bone Name", "Name of PoseBone to use as target");
-  RNA_def_property_update(prop, 0, "rna_DriverTarget_update_data");
-
   prop = RNA_def_property(srna, "transform_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "transChan");
   RNA_def_property_enum_items(prop, prop_trans_chan_items);
@@ -2122,17 +2117,17 @@ static void rna_def_drivervar(BlenderRNA *brna)
        "TRANSFORMS",
        ICON_DRIVER_TRANSFORM,
        "Transform Channel",
-       "Final transformation value of object or bone"},
+       "Final transformation value of the target object"},
       {DVAR_TYPE_ROT_DIFF,
        "ROTATION_DIFF",
        ICON_DRIVER_ROTATIONAL_DIFFERENCE,
        "Rotational Difference",
-       "Use the angle between two bones"},
+       "Use the angle between two target object rotations"},
       {DVAR_TYPE_LOC_DIFF,
        "LOC_DIFF",
        ICON_DRIVER_DISTANCE,
        "Distance",
-       "Distance between two bones or objects"},
+       "Distance between two target objects"},
       {DVAR_TYPE_CONTEXT_PROP,
        "CONTEXT_PROP",
        ICON_RNA,
@@ -2259,7 +2254,7 @@ static void rna_def_channeldriver(BlenderRNA *brna)
       prop,
       "Use Self",
       "Include a 'self' variable in the name-space, "
-      "so drivers can easily reference the data being modified (object, bone, etc...)");
+      "so drivers can easily reference the data being modified (object, property, etc.)");
 
   /* State Info (for Debugging) */
   prop = RNA_def_property(srna, "is_valid", PROP_BOOLEAN, PROP_NONE);

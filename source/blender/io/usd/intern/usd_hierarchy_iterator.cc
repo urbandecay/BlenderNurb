@@ -3,15 +3,11 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include "usd.hh"
 
-#include "usd_armature_utils.hh"
 #include "usd_blend_shape_utils.hh"
 #include "usd_hash_types.hh"
 #include "usd_hierarchy_iterator.hh"
-#include "usd_skel_convert.hh"
-#include "usd_skel_root_utils.hh"
 #include "usd_utils.hh"
 #include "usd_writer_abstract.hh"
-#include "usd_writer_armature.hh"
 #include "usd_writer_camera.hh"
 #include "usd_writer_curves.hh"
 #include "usd_writer_hair.hh"
@@ -54,8 +50,8 @@ bool USDHierarchyIterator::mark_as_weak_export(const Object *object) const
   }
 
   switch (object->type) {
-    case OB_EMPTY:
-      /* Always assume empties are being exported intentionally. */
+    case OB_NO_DATA:
+      /* No-data transform objects are exported intentionally. */
       return false;
     case OB_MESH:
     case OB_MBALL:
@@ -71,8 +67,6 @@ bool USDHierarchyIterator::mark_as_weak_export(const Object *object) const
       return !params_.export_curves;
     case OB_VOLUME:
       return !params_.export_volumes;
-    case OB_ARMATURE:
-      return !params_.export_armatures;
     case OB_POINTCLOUD:
       return !params_.export_points;
 
@@ -90,17 +84,6 @@ void USDHierarchyIterator::release_writer(AbstractHierarchyWriter *writer)
 std::string USDHierarchyIterator::make_valid_name(const std::string &name) const
 {
   return make_safe_name(name, params_.allow_unicode);
-}
-
-void USDHierarchyIterator::process_usd_skel() const
-{
-  skel_export_chaser(stage_,
-                     armature_export_map_,
-                     skinned_mesh_export_map_,
-                     shape_key_mesh_export_map_,
-                     depsgraph_);
-
-  create_skel_roots(stage_, params_);
 }
 
 void USDHierarchyIterator::set_export_frame(float frame_nr)
@@ -148,14 +131,7 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
                                                            params_,
                                                            export_file_path,
                                                            nullptr,
-                                                           nullptr,
                                                            this};
-
-  /* Provides optional skel mapping hook. Now it's been used in USDPointInstancerWriter for write
-   * base layer. */
-  exporter_context.add_skel_mapping_fn = [this](const Object *obj, const pxr::SdfPath &usd_path) {
-    this->add_usd_skel_export_mapping(obj, usd_path);
-  };
 
   return exporter_context;
 }
@@ -163,10 +139,6 @@ USDExporterContext USDHierarchyIterator::create_usd_export_context(const Hierarc
 bool USDHierarchyIterator::determine_point_instancers(const HierarchyContext *context)
 {
   if (!context) {
-    return true;
-  }
-
-  if (context->object->type == OB_ARMATURE) {
     return true;
   }
 
@@ -356,14 +328,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
         return nullptr;
       }
       break;
-    case OB_ARMATURE:
-      if (usd_export_context.export_params.export_armatures) {
-        data_writer = new USDArmatureWriter(usd_export_context);
-      }
-      else {
-        return nullptr;
-      }
-      break;
     case OB_POINTCLOUD:
       if (usd_export_context.export_params.export_points) {
         if (params_.use_instancing && use_point_instancing) {
@@ -384,7 +348,7 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
       }
       break;
 
-    case OB_EMPTY:
+    case OB_NO_DATA:
     case OB_SPEAKER:
     case OB_LIGHTPROBE:
     case OB_LATTICE:
@@ -401,10 +365,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
   if (data_writer && !data_writer->is_supported(context)) {
     delete data_writer;
     return nullptr;
-  }
-
-  if (data_writer && (params_.export_armatures || params_.export_shapekeys)) {
-    add_usd_skel_export_mapping(context->object, data_writer->usd_path());
   }
 
   return data_writer;
@@ -436,23 +396,6 @@ bool USDHierarchyIterator::include_child_writers(const HierarchyContext *context
   /* Don't generate writers for children of instances. */
 
   return !(params_.use_instancing && context->is_instance());
-}
-
-void USDHierarchyIterator::add_usd_skel_export_mapping(const Object *obj, const pxr::SdfPath &path)
-{
-  if (params_.export_shapekeys && is_mesh_with_shape_keys(obj)) {
-    shape_key_mesh_export_map_.add(obj, path);
-  }
-
-  if (params_.export_armatures && obj->type == OB_ARMATURE) {
-    armature_export_map_.add(obj, path);
-  }
-
-  if (params_.export_armatures && obj->type == OB_MESH &&
-      can_export_skinned_mesh(*obj, depsgraph_))
-  {
-    skinned_mesh_export_map_.add(obj, path);
-  }
 }
 
 const Map<pxr::SdfPath, Vector<ID *>> &USDHierarchyIterator::get_exported_prim_map() const
@@ -497,7 +440,6 @@ USDExporterContext USDHierarchyIterator::create_point_instancer_context(
           export_context.export_params,
           export_context.export_file_path,
           export_context.export_image_fn,
-          export_context.add_skel_mapping_fn,
           export_context.hierarchy_iterator};
 }
 

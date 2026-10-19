@@ -307,7 +307,7 @@ static PyObject *bpy_prop_deferred_keywords_get(BPy_PropDeferred *self, void * /
 
 /**
  * While these should be private, historically they didn't use an underscore prefix.
- * Keep them as-as some scripts use (`rigify` at least).
+ * Keep them as-is for scripts which inspect registered property definitions.
  */
 static PyGetSetDef bpy_prop_deferred_getset[] = {
     {"function",

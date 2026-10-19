@@ -11,14 +11,12 @@
 #include <cstring>
 
 #include "DNA_ID.h"
-#include "DNA_armature_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 
 #include "BLI_string.h"
 
-#include "BKE_action.hh"
 #include "BKE_collection.hh"
 #include "BKE_lib_id.hh"
 
@@ -111,43 +109,6 @@ bool DepsgraphBuilder::is_modifier_visibility_animated(const Object *object,
     return false;
   }
   return cache_->isPropertyAnimated(&object->id, property_id);
-}
-
-bool DepsgraphBuilder::check_pchan_has_bbone(const Object *object, const bPoseChannel *pchan)
-{
-  BLI_assert(object->type == OB_ARMATURE);
-  bArmature *armature = id_cast<bArmature *>(object->data);
-  if (pchan == nullptr) {
-    return false;
-  }
-  const Bone *bone = pchan->bone_get(*armature);
-  if (bone == nullptr) {
-    return false;
-  }
-  /* We don't really care whether segments are higher than 1 due to static user input (as in,
-   * rigger entered value like 3 manually), or due to animation. In either way we need to create
-   * special evaluation. */
-  if (bone->segments > 1) {
-    return true;
-  }
-  AnimatedPropertyID property_id(
-      &armature->id, RNA_Bone, const_cast<Bone *>(bone), "bbone_segments");
-  /* Check both Object and Armature animation data, because drivers modifying Armature
-   * state could easily be created in the Object AnimData. */
-  return cache_->isPropertyAnimated(&object->id, property_id) ||
-         cache_->isPropertyAnimated(&armature->id, property_id);
-}
-
-bool DepsgraphBuilder::check_pchan_has_bbone_segments(const Object *object,
-                                                      const bPoseChannel *pchan)
-{
-  return check_pchan_has_bbone(object, pchan);
-}
-
-bool DepsgraphBuilder::check_pchan_has_bbone_segments(const Object *object, const char *bone_name)
-{
-  const bPoseChannel *pchan = BKE_pose_channel_find_name(object->pose, bone_name);
-  return check_pchan_has_bbone_segments(object, pchan);
 }
 
 const char *DepsgraphBuilder::get_rna_path_relative_to_scene_camera(const Scene *scene,

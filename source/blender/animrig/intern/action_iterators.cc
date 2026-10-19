@@ -174,17 +174,6 @@ bool foreach_action_slot_use_with_references(
     }
   }
 
-  /* Visit Pose Bone constraints. */
-  if (object.type == OB_ARMATURE) {
-    for (bPoseChannel &pchan : object.pose->chanbase) {
-      for (bConstraint &con : pchan.constraints) {
-        if (!visit_constraint(con)) {
-          return false;
-        }
-      }
-    }
-  }
-
   return true;
 }
 
@@ -260,17 +249,6 @@ bool foreach_action_slot_use_with_rna(ID &animated_id,
   for (bConstraint &con : object.constraints) {
     if (!visit_constraint(con)) {
       return false;
-    }
-  }
-
-  /* Visit Pose Bone constraints. */
-  if (object.type == OB_ARMATURE) {
-    for (bPoseChannel &pchan : object.pose->chanbase) {
-      for (bConstraint &con : pchan.constraints) {
-        if (!visit_constraint(con)) {
-          return false;
-        }
-      }
     }
   }
 

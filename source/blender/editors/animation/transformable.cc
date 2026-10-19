@@ -236,34 +236,13 @@ static void build_rotations_array(
   rotations[ROT_IDX_AXIS_ANGLE][0] = angle;
 }
 
-AnimTransformable::AnimTransformable(Object &owner_id, bPoseChannel &pchan)
-    : type_(AnimTransformable::Type::POSE_BONE),
-      owner_id_(&owner_id.id),
-      data_(&pchan),
-      location_({pchan.loc, 3}),
-      rotation_mode_(&pchan.rotmode),
-      scale_({pchan.scale, 3})
-{
-  build_rotations_array(rotations_, pchan.eul, pchan.quat, pchan.rotAxis, &pchan.rotAngle);
-  rna_path_from_id_ = animrig::get_pose_bone_rna_path(pchan);
-}
-
 AnimTransformable::AnimTransformable(Object &obj)
-    : type_(AnimTransformable::Type::OBJECT),
-      owner_id_(&obj.id),
-      data_(&obj),
-      location_({obj.loc, 3}),
+    : location_({obj.loc, 3}),
       rotation_mode_(reinterpret_cast<eRotationModes *>(&obj.rotmode)),
       scale_({obj.scale, 3})
 {
   build_rotations_array(rotations_, obj.rot, obj.quat, obj.rotAxis, &obj.rotAngle);
   rna_path_from_id_ = "";
-}
-
-template<> bPoseChannel *AnimTransformable::data<bPoseChannel *>() const
-{
-  BLI_assert(type_ == Type::POSE_BONE);
-  return static_cast<bPoseChannel *>(data_);
 }
 
 StringRefNull AnimTransformable::rna_path() const

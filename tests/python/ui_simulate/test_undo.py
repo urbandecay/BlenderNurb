@@ -587,7 +587,6 @@ def view3d_multi_mode_select():
     object_names = []
 
     for i, (menu_search, ob_name) in enumerate((
-            ("Add -> Armature", "Armature"),
             ("Add -> Text", "Text"),
             ("Add -> Mesh -> Cube", "Cube"),
             ("Add -> Curve -> Bézier", "Curve"),
@@ -596,7 +595,6 @@ def view3d_multi_mode_select():
             ("Add -> Lattice", "Lattice"),
             ("Add -> Light -> Point", "Point Light"),
             ("Add -> Camera", "Camera"),
-            ("Add -> Empty -> Plain Axis", "Empty"),
     )):
         yield from ui.call_menu(e, menu_search)
         # Single object-mode action (to test mixing different kinds of undo steps).

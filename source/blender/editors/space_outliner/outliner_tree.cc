@@ -317,9 +317,6 @@ TreeElement *AbstractTreeDisplay::add_element(ListBaseT<TreeElement> *lb,
   else if (ELEM(type, TSE_ID_BASE, TSE_GENERIC_LABEL)) {
     /* pass */
   }
-  else if (ELEM(type, TSE_BONE, TSE_EBONE)) {
-    /* pass */
-  }
   else if (ELEM(type, TSE_DEFGROUP, TSE_DEFGROUP_BASE)) {
     /* pass */
   }
@@ -327,12 +324,6 @@ TreeElement *AbstractTreeDisplay::add_element(ListBaseT<TreeElement> *lb,
     /* pass */
   }
   else if (ELEM(type, TSE_CONSTRAINT, TSE_CONSTRAINT_BASE)) {
-    /* pass */
-  }
-  else if (ELEM(type, TSE_POSE_BASE, TSE_POSE_CHANNEL)) {
-    /* pass */
-  }
-  else if (ELEM(type, TSE_BONE_COLLECTION, TSE_BONE_COLLECTION_BASE)) {
     /* pass */
   }
   else if (ELEM(type, TSE_R_LAYER, TSE_R_LAYER_BASE)) {
@@ -540,9 +531,6 @@ static void outliner_sort(ListBaseT<TreeElement> *lb)
    *   objects etc - which ARE sorted).
    * - contents of "Vertex Groups" (these ARE all sorted, nothing
    *   else in there).
-   * - contents of armature data (where optional contained bone
-   *   collections [editmode] come last, stay last and are not sorted)
-   *   with bones coming first (and ARE sorted).
    */
 
   TreeElement *last_te = static_cast<TreeElement *>(lb->last);
@@ -551,16 +539,8 @@ static void outliner_sort(ListBaseT<TreeElement> *lb)
   }
   TreeStoreElem *last_tselem = TREESTORE(last_te);
 
-  /* Check if we are expanding Armature data and if there are bone collections. */
-  const TreeElement *first_te = static_cast<TreeElement *>(lb->first);
-  const TreeStoreElem *first_tselem = TREESTORE(first_te);
-  const bool inside_armature_data = ELEM(
-      first_tselem->type, TSE_BONE, TSE_EBONE, TSE_POSE_CHANNEL);
-  const bool has_armature_data_bone_collections = ELEM(last_tselem->type,
-                                                       TSE_BONE_COLLECTION_BASE);
-
-  /* Sorting rules; only object lists, ID lists, bones or deform-groups. */
-  if (inside_armature_data || ELEM(last_tselem->type, TSE_DEFGROUP, TSE_ID_BASE) ||
+  /* Sorting rules; only object lists, ID lists, or deform-groups. */
+  if (ELEM(last_tselem->type, TSE_DEFGROUP, TSE_ID_BASE) ||
       ((last_tselem->type == TSE_SOME_ID) && (last_te->idcode == ID_OB)))
   {
     int totelem = lb->count();
@@ -575,11 +555,10 @@ static void outliner_sort(ListBaseT<TreeElement> *lb)
         tp->name = te.name;
         tp->idcode = te.idcode;
 
-        if (!ELEM(tselem->type, TSE_SOME_ID, TSE_DEFGROUP, TSE_BONE, TSE_EBONE, TSE_POSE_CHANNEL))
-        {
+        if (!ELEM(tselem->type, TSE_SOME_ID, TSE_DEFGROUP)) {
           tp->idcode = 0; /* Don't sort this. */
         }
-        if (ELEM(tselem->type, TSE_ID_BASE, TSE_DEFGROUP, TSE_BONE, TSE_EBONE, TSE_POSE_CHANNEL)) {
+        if (ELEM(tselem->type, TSE_ID_BASE, TSE_DEFGROUP)) {
           tp->idcode = 1; /* Do sort this. */
         }
 
@@ -587,10 +566,9 @@ static void outliner_sort(ListBaseT<TreeElement> *lb)
         tp++;
       }
 
-      /* Just sort alphabetically (but keep bone collections last when inside armature data). */
+      /* Just sort alphabetically. */
       if (tear->idcode == 1) {
-        const int skip_back = has_armature_data_bone_collections ? 1 : 0;
-        qsort(tear, totelem - skip_back, sizeof(tTreeSort), treesort_alpha);
+        qsort(tear, totelem, sizeof(tTreeSort), treesort_alpha);
       }
       else {
         /* keep beginning of list */
@@ -852,16 +830,6 @@ static bool outliner_element_visible_get(const Main &bmain,
             return false;
           }
           break;
-        case OB_ARMATURE:
-          if (exclude_filter & SO_FILTER_NO_OB_ARMATURE) {
-            return false;
-          }
-          break;
-        case OB_EMPTY:
-          if (exclude_filter & SO_FILTER_NO_OB_EMPTY) {
-            return false;
-          }
-          break;
         case OB_LAMP:
           if (exclude_filter & SO_FILTER_NO_OB_LAMP) {
             return false;
@@ -957,8 +925,7 @@ static bool outliner_element_is_collection_or_object(TreeElement *te)
     return true;
   }
 
-  /* Collection instance datablocks should not be extracted. */
-  if (outliner_is_collection_tree_element(te) && !(te->parent && te->parent->idcode == ID_OB)) {
+  if (outliner_is_collection_tree_element(te)) {
     return true;
   }
 

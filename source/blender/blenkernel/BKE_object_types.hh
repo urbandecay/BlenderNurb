@@ -23,7 +23,6 @@ struct Curve;
 struct CurveCache;
 struct ID;
 struct Mesh;
-struct PoseBackup;
 struct SculptSession;
 
 namespace bke {
@@ -112,20 +111,6 @@ struct ObjectRuntime {
    * It created when Python calls `object.to_mesh()`.
    */
   Mesh *object_as_temp_mesh = nullptr;
-
-  /**
-   * Backup of the object's pose (might be a subset, i.e. not contain all bones).
-   *
-   * Created by `BKE_pose_backup_create_on_object()`. This memory is owned by the Object.
-   * It is freed along with the object, or when `BKE_pose_backup_clear()` is called.
-   */
-  PoseBackup *pose_backup = nullptr;
-
-  /**
-   * Value of bArmature::runtime::bones_generation_count at the moment that the
-   * bPoseChannel::runtime::bone_index values were determined.
-   */
-  uint64_t pose_bones_generation_count = 0;
 
   /**
    * This is a curve representation of corresponding object.

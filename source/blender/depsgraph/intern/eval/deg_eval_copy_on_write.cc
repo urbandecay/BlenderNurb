@@ -36,7 +36,6 @@
 
 #include "DNA_ID.h"
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -60,7 +59,6 @@
 
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_mesh_types.hh"
@@ -252,14 +250,6 @@ struct ValidateData {
 bool id_copy_inplace_no_main(const ID *id, ID *newid)
 {
   const ID *id_for_copy = id;
-
-  if (G.debug & G_DEBUG_DEPSGRAPH_UID) {
-    const ID_Type id_type = GS(id_for_copy->name);
-    if (id_type == ID_OB) {
-      const Object *object = reinterpret_cast<const Object *>(id_for_copy);
-      BKE_object_check_uids_unique_and_report(object);
-    }
-  }
 
 #ifdef NESTED_ID_NASTY_WORKAROUND
   uint8_t id_hack_storage[NestedIDHackTempStorage];
@@ -499,16 +489,6 @@ int foreach_libblock_remap_callback(LibraryIDLinkCallbackData *cb_data)
   return IDWALK_RET_NOP;
 }
 
-void update_armature_edit_mode_pointers(const Depsgraph * /*depsgraph*/,
-                                        const ID *id_orig,
-                                        ID *id_cow)
-{
-  const bArmature *armature_orig = id_cast<const bArmature *>(id_orig);
-  bArmature *armature_cow = id_cast<bArmature *>(id_cow);
-  armature_cow->edbo = armature_orig->edbo;
-  armature_cow->act_edbone = armature_orig->act_edbone;
-}
-
 void update_curve_edit_mode_pointers(const Depsgraph * /*depsgraph*/,
                                      const ID *id_orig,
                                      ID *id_cow)
@@ -553,9 +533,6 @@ void update_edit_mode_pointers(const Depsgraph *depsgraph, const ID *id_orig, ID
 {
   const ID_Type type = GS(id_orig->name);
   switch (type) {
-    case ID_AR:
-      update_armature_edit_mode_pointers(depsgraph, id_orig, id_cow);
-      break;
     case ID_ME:
       update_mesh_edit_mode_pointers(id_orig, id_cow);
       break;
@@ -635,11 +612,6 @@ void update_particles_after_copy(const Depsgraph *depsgraph,
   reset_particle_system_edit_eval(depsgraph, object_cow);
 }
 
-void update_pose_orig_pointers(const bPose *pose_orig, bPose *pose_cow)
-{
-  update_list_orig_pointers(&pose_orig->chanbase, &pose_cow->chanbase, &bPoseChannel::orig_pchan);
-}
-
 void update_nla_strips_orig_pointers(const ListBaseT<NlaStrip> *strips_orig,
                                      ListBaseT<NlaStrip> *strips_cow)
 {
@@ -700,13 +672,6 @@ void update_id_after_copy(const Depsgraph *depsgraph,
       object_cow->mode = object_orig->mode;
       object_cow->runtime->sculpt_session = object_orig->runtime->sculpt_session;
       object_cow->runtime->data_orig = object_cow->data;
-      if (object_cow->type == OB_ARMATURE) {
-        const bArmature *armature_orig = id_cast<bArmature *>(object_orig->data);
-        if (armature_orig->edbo == nullptr) {
-          update_pose_orig_pointers(object_orig->pose, object_cow->pose);
-        }
-        BKE_pose_pchan_index_rebuild(object_cow->pose);
-      }
       update_particles_after_copy(depsgraph, object_orig, object_cow);
       break;
     }
@@ -893,12 +858,6 @@ ID *deg_update_eval_copy_datablock(const Depsgraph *depsgraph, ID *id_orig)
 
 namespace {
 
-void discard_armature_edit_mode_pointers(ID *id_cow)
-{
-  bArmature *armature_cow = id_cast<bArmature *>(id_cow);
-  armature_cow->edbo = nullptr;
-}
-
 void discard_curve_edit_mode_pointers(ID *id_cow)
 {
   Curve *curve_cow = id_cast<Curve *>(id_cow);
@@ -936,9 +895,6 @@ void discard_edit_mode_pointers(ID *id_cow)
 {
   const ID_Type type = GS(id_cow->name);
   switch (type) {
-    case ID_AR:
-      discard_armature_edit_mode_pointers(id_cow);
-      break;
     case ID_ME:
       discard_mesh_edit_mode_pointers(id_cow);
       break;

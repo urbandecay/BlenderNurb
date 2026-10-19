@@ -3,40 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from ....blender.com.data_path import get_sk_exported, skip_sk, get_target_object_path
-from ..cache import skdriverdiscovercache
-
-
-@skdriverdiscovercache
-def get_sk_drivers(blender_armature_uuid, export_settings):
-
-    # If no SK are exported --> No driver animation to export
-    if export_settings['gltf_morph_anim'] is False:
-        return []
-
-    drivers = []
-
-    # Take into account skinned mesh, and mesh parented to a bone of the armature
-    children_list = export_settings['vtree'].nodes[blender_armature_uuid].children.copy()
-    for bone in export_settings['vtree'].get_all_bones(blender_armature_uuid):
-        children_list.extend(export_settings['vtree'].nodes[bone].children)
-
-    for child_uuid in children_list:
-        uuid, channels = get_driver_on_shapekey(child_uuid, export_settings)
-        if uuid is not None:
-            drivers.append(child_uuid)
-
-    return drivers
 
 
 def get_driver_on_shapekey(blender_object_uuid, export_settings):
-    if export_settings['vtree'].nodes[blender_object_uuid].blender_type == "BONE":
-        return None, None
-
     child = export_settings['vtree'].nodes[blender_object_uuid].blender_object
 
     if not child.data:
         return None, None
-    # child.data can be an armature - which has no shapekeys
+    # Some object data types do not provide shape keys.
     if not hasattr(child.data, 'shape_keys'):
         return None, None
     if not child.data.shape_keys:

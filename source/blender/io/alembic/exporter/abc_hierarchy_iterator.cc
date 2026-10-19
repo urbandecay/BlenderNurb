@@ -205,18 +205,19 @@ ABCAbstractWriter *ABCHierarchyIterator::create_data_writer_for_object_type(
     case OB_MBALL:
       return new ABCMetaballWriter(writer_args);
 
-    case OB_EMPTY:
+    case OB_NO_DATA:
     case OB_LAMP:
     case OB_FONT:
     case OB_SPEAKER:
     case OB_LIGHTPROBE:
     case OB_LATTICE:
-    case OB_ARMATURE:
     case OB_POINTCLOUD:
     case OB_VOLUME:
       return nullptr;
     case OB_TYPE_MAX:
       BLI_assert_msg(0, "OB_TYPE_MAX should not be used");
+      return nullptr;
+    default:
       return nullptr;
   }
 

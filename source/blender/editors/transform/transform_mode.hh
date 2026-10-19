@@ -65,7 +65,6 @@ struct TransDataGenericSlideVert {
 
 /* `transform_mode.cc` */
 
-eTfmMode transform_mode_really_used(bContext *C, eTfmMode mode);
 bool transdata_check_local_center(const TransInfo *t, short around);
 /**
  * Informs if the mode can be switched during modal.
@@ -120,21 +119,9 @@ extern TransModeInfo TransMode_align;
 
 extern TransModeInfo TransMode_baketime;
 
-/* `transform_mode_bbone_resize.cc` */
-
-extern TransModeInfo TransMode_bboneresize;
-
 /* `transform_mode_bend.cc` */
 
 extern TransModeInfo TransMode_bend;
-
-/* `transform_mode_boneenvelope.cc` */
-
-extern TransModeInfo TransMode_boneenvelope;
-
-/* `transform_mode_boneroll.cc` */
-
-extern TransModeInfo TransMode_boneroll;
 
 /* `transform_mode_curveshrinkfatten.cc` */
 

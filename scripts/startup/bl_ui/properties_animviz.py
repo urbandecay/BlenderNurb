@@ -15,7 +15,7 @@ class MotionPathButtonsPanel:
     bl_label = "Motion Paths"
     # bl_options = {'DEFAULT_CLOSED'}
 
-    def draw_settings(self, _context, avs, mpath, bones=False):
+    def draw_settings(self, _context, avs, mpath):
         layout = self.layout
 
         mps = avs.motion_path
@@ -44,12 +44,8 @@ class MotionPathButtonsPanel:
         row = col.row()
         row.prop(mps, "use_camera_space_bake", text="Bake to Active Camera")
 
-        if bones:
-            op_category = "pose"
-            icon = 'BONE_DATA'
-        else:
-            op_category = "object"
-            icon = 'OBJECT_DATA'
+        op_category = "object"
+        icon = 'OBJECT_DATA'
 
         if mpath:
             col = layout.column(align=True)
@@ -81,7 +77,7 @@ class MotionPathButtonsPanel_display:
     bl_region_type = 'WINDOW'
     bl_label = "Display"
 
-    def draw_settings(self, _context, avs, mpath, bones=False):
+    def draw_settings(self, _context, avs, mpath):
         layout = self.layout
 
         mps = avs.motion_path
@@ -95,8 +91,6 @@ class MotionPathButtonsPanel_display:
         flow.prop(mps, "show_keyframe_highlight", text="Keyframes")
         sub = flow.column()
         sub.enabled = mps.show_keyframe_highlight
-        if bones:
-            sub.prop(mps, "show_keyframe_action_all", text="+ Non-Grouped Keyframes")
         sub.prop(mps, "show_keyframe_numbers", text="Keyframe Numbers")
 
         # Customize path

@@ -128,9 +128,7 @@ struct USDExportParams {
   bool export_mesh_colors = true;
   bool export_materials = true;
 
-  bool export_armatures = true;
   bool export_shapekeys = true;
-  bool only_deform_bones = false;
 
   bool convert_world_material = true;
   bool merge_parent_xform = false;
@@ -206,12 +204,10 @@ struct USDImportParams {
   bool import_volumes;
 
   bool import_shapes;
-  bool import_skeletons;
   bool import_blendshapes;
 
   bool create_collection;
   bool create_world_material;
-  bool support_scene_instancing;
 
   bool import_guide;
   bool import_proxy;

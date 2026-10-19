@@ -251,7 +251,6 @@ static void mesh_cd_calc_used_gpu_layers(const Object &object,
 /** Reset the selection structure, deallocating heap memory as appropriate. */
 static void drw_mesh_weight_state_clear(DRW_MeshWeightState *wstate)
 {
-  MEM_SAFE_DELETE(wstate->defgroup_sel);
   MEM_SAFE_DELETE(wstate->defgroup_locked);
   MEM_SAFE_DELETE(wstate->defgroup_unlocked);
 
@@ -264,15 +263,11 @@ static void drw_mesh_weight_state_clear(DRW_MeshWeightState *wstate)
 static void drw_mesh_weight_state_copy(DRW_MeshWeightState *wstate_dst,
                                        const DRW_MeshWeightState *wstate_src)
 {
-  MEM_SAFE_DELETE(wstate_dst->defgroup_sel);
   MEM_SAFE_DELETE(wstate_dst->defgroup_locked);
   MEM_SAFE_DELETE(wstate_dst->defgroup_unlocked);
 
   memcpy(wstate_dst, wstate_src, sizeof(*wstate_dst));
 
-  if (wstate_src->defgroup_sel) {
-    wstate_dst->defgroup_sel = MEM_dupalloc(wstate_src->defgroup_sel);
-  }
   if (wstate_src->defgroup_locked) {
     wstate_dst->defgroup_locked = MEM_dupalloc(wstate_src->defgroup_locked);
   }
@@ -294,8 +289,6 @@ static bool drw_mesh_weight_state_compare(const DRW_MeshWeightState *a,
 {
   return a->defgroup_active == b->defgroup_active && a->defgroup_len == b->defgroup_len &&
          a->flags == b->flags && a->alert_mode == b->alert_mode &&
-         a->defgroup_sel_count == b->defgroup_sel_count &&
-         drw_mesh_flags_equal(a->defgroup_sel, b->defgroup_sel, a->defgroup_len) &&
          drw_mesh_flags_equal(a->defgroup_locked, b->defgroup_locked, a->defgroup_len) &&
          drw_mesh_flags_equal(a->defgroup_unlocked, b->defgroup_unlocked, a->defgroup_len);
 }
@@ -311,44 +304,14 @@ static void drw_mesh_weight_state_extract(
 
   wstate->alert_mode = ts.weightuser;
 
-  if (paint_mode && ts.multipaint) {
-    /* Multi-paint needs to know all selected bones, not just the active group.
-     * This is actually a relatively expensive operation, but caching would be difficult. */
-    wstate->defgroup_sel = BKE_object_defgroup_selected_get(
-        &ob, wstate->defgroup_len, &wstate->defgroup_sel_count);
-
-    if (wstate->defgroup_sel_count > 1) {
-      wstate->flags |= DRW_MESH_WEIGHT_STATE_MULTIPAINT |
-                       (ts.auto_normalize ? DRW_MESH_WEIGHT_STATE_AUTO_NORMALIZE : 0);
-
-      if (ME_USING_MIRROR_X_VERTEX_GROUPS(&mesh)) {
-        BKE_object_defgroup_mirror_selection(&ob,
-                                             wstate->defgroup_len,
-                                             wstate->defgroup_sel,
-                                             wstate->defgroup_sel,
-                                             &wstate->defgroup_sel_count);
-      }
-    }
-    /* With only one selected bone Multi-paint reverts to regular mode. */
-    else {
-      wstate->defgroup_sel_count = 0;
-      MEM_SAFE_DELETE(wstate->defgroup_sel);
-    }
-  }
-
   if (paint_mode && ts.wpaint_lock_relative) {
     /* Set of locked vertex groups for the lock relative mode. */
     wstate->defgroup_locked = BKE_object_defgroup_lock_flags_get(&ob, wstate->defgroup_len);
     wstate->defgroup_unlocked = BKE_object_defgroup_validmap_get(&ob, wstate->defgroup_len);
 
-    /* Check that a deform group is active, and none of selected groups are locked. */
+    /* Check that the active group can use Lock Relative display. */
     if (BKE_object_defgroup_check_lock_relative(
-            wstate->defgroup_locked, wstate->defgroup_unlocked, wstate->defgroup_active) &&
-        BKE_object_defgroup_check_lock_relative_multi(wstate->defgroup_len,
-                                                      wstate->defgroup_locked,
-                                                      wstate->defgroup_sel,
-                                                      wstate->defgroup_sel_count))
-    {
+            wstate->defgroup_locked, wstate->defgroup_unlocked, wstate->defgroup_active)) {
       wstate->flags |= DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE;
 
       /* Compute the set of locked and unlocked deform vertex groups. */

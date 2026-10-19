@@ -19,7 +19,6 @@ set(INC_SYS
 
 set(SRC
   buttons/interface_textbox.cc
-  eyedroppers/eyedropper_bone.cc
   eyedroppers/eyedropper_color.cc
   eyedroppers/eyedropper_colorband.cc
   eyedroppers/eyedropper_datablock.cc
@@ -58,7 +57,6 @@ set(SRC
   interface_style.cc
   templates/interface_template_asset_shelf_popover.cc
   templates/interface_template_attribute_search.cc
-  templates/interface_template_bone_collection_tree.cc
   templates/interface_template_cache_file.cc
   templates/interface_template_color_management.cc
   templates/interface_template_color_picker.cc

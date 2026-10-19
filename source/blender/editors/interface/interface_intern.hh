@@ -1729,7 +1729,6 @@ void UI_OT_eyedropper_color(wmOperatorType *ot);
 void UI_OT_eyedropper_colorramp(wmOperatorType *ot);
 void UI_OT_eyedropper_colorramp_point(wmOperatorType *ot);
 
-void UI_OT_eyedropper_bone(wmOperatorType *ot);
 
 /* `eyedroppers/eyedropper_datablock.cc` */
 

@@ -273,10 +273,6 @@ static void import_startjob(void *customdata, wmJobWorkerStatus *worker_status)
     }
   }
 
-  if (data->params.import_skeletons) {
-    archive->process_armature_modifiers();
-  }
-
   data->import_ok = !data->was_canceled;
 
   worker_status->progress = 1.0f;

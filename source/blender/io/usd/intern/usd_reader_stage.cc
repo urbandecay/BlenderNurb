@@ -7,7 +7,6 @@
 #include "usd_hook.hh"
 #include "usd_reader_camera.hh"
 #include "usd_reader_curve.hh"
-#include "usd_reader_instance.hh"
 #include "usd_reader_light.hh"
 #include "usd_reader_material.hh"
 #include "usd_reader_mesh.hh"
@@ -16,7 +15,6 @@
 #include "usd_reader_points.hh"
 #include "usd_reader_prim.hh"
 #include "usd_reader_shape.hh"
-#include "usd_reader_skeleton.hh"
 #include "usd_reader_volume.hh"
 #include "usd_reader_xform.hh"
 
@@ -93,31 +91,6 @@ static Collection *create_collection(Main *bmain, Collection *parent, const char
   }
 
   return BKE_collection_add(bmain, parent, name);
-}
-
-/**
- * Set the instance collection on the given instance reader.
- * The collection is assigned from the given map based on
- * the prototype prim path.
- */
-static void set_instance_collection(USDInstanceReader *instance_reader,
-                                    const Map<pxr::SdfPath, Collection *> &proto_collection_map)
-{
-  if (!instance_reader) {
-    return;
-  }
-
-  pxr::SdfPath proto_path = instance_reader->proto_path();
-
-  Collection *collection = proto_collection_map.lookup_default(proto_path, nullptr);
-  if (collection != nullptr) {
-    instance_reader->set_instance_collection(collection);
-  }
-  else {
-    CLOG_WARN(&LOG,
-              "Couldn't find prototype collection for %s",
-              instance_reader->prim_path().GetAsString().c_str());
-  }
 }
 
 /* Update the given import settings with the global rotation matrix to orient
@@ -234,9 +207,6 @@ ReportList *USDStageReader::reports() const
 
 USDPrimReader *USDStageReader::create_reader_if_allowed(const pxr::UsdPrim &prim)
 {
-  if (params_.support_scene_instancing && prim.IsInstance()) {
-    return new USDInstanceReader(prim, params_, settings_);
-  }
   if (params_.import_shapes && is_primitive_prim(prim)) {
     return new USDShapeReader(prim, params_, settings_);
   }
@@ -269,9 +239,6 @@ USDPrimReader *USDStageReader::create_reader_if_allowed(const pxr::UsdPrim &prim
   if (params_.import_volumes && prim.IsA<pxr::UsdVolVolume>()) {
     return new USDVolumeReader(prim, params_, settings_);
   }
-  if (params_.import_skeletons && prim.IsA<pxr::UsdSkelSkeleton>()) {
-    return new USDSkeletonReader(prim, params_, settings_);
-  }
   if (params_.import_points && prim.IsA<pxr::UsdGeomPoints>()) {
     return new USDPointsReader(prim, params_, settings_);
   }
@@ -284,9 +251,6 @@ USDPrimReader *USDStageReader::create_reader_if_allowed(const pxr::UsdPrim &prim
 
 USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim)
 {
-  if (params_.support_scene_instancing && prim.IsInstance()) {
-    return new USDInstanceReader(prim, params_, settings_);
-  }
   if (is_primitive_prim(prim)) {
     return new USDShapeReader(prim, params_, settings_);
   }
@@ -311,9 +275,6 @@ USDPrimReader *USDStageReader::create_reader(const pxr::UsdPrim &prim)
   }
   if (prim.IsA<pxr::UsdVolVolume>()) {
     return new USDVolumeReader(prim, params_, settings_);
-  }
-  if (prim.IsA<pxr::UsdSkelSkeleton>()) {
-    return new USDSkeletonReader(prim, params_, settings_);
   }
   if (prim.IsA<pxr::UsdGeomPoints>()) {
     return new USDPointsReader(prim, params_, settings_);
@@ -354,10 +315,6 @@ bool USDStageReader::include_by_visibility(const pxr::UsdGeomImageable &imageabl
 
 bool USDStageReader::include_by_purpose(const pxr::UsdGeomImageable &imageable) const
 {
-  if (params_.import_skeletons && imageable.GetPrim().IsA<pxr::UsdSkelSkeleton>()) {
-    /* Always include skeletons, if requested by the user, regardless of purpose. */
-    return true;
-  }
 
   if (params_.import_guide && params_.import_proxy && params_.import_render) {
     /* The options allow any purpose, so we trivially include the prim. */
@@ -459,9 +416,7 @@ USDPrimReader *USDStageReader::collect_readers(const pxr::UsdPrim &prim,
   }
 
   pxr::Usd_PrimFlagsPredicate filter_predicate(filter_flags);
-  if (!params_.support_scene_instancing) {
-    filter_predicate = pxr::UsdTraverseInstanceProxies(filter_predicate);
-  }
+  filter_predicate = pxr::UsdTraverseInstanceProxies(filter_predicate);
 
   Vector<USDPrimReader *> child_readers;
 
@@ -549,70 +504,8 @@ void USDStageReader::collect_readers()
   /* Create readers, skipping over prototype prims in this pass. */
   collect_readers(root, instancer_proto_paths, params_.import_defined_only, readers_);
 
-  if (params_.support_scene_instancing) {
-    /* Collect the scene-graph instance prototypes. */
-    std::vector<pxr::UsdPrim> protos = stage_->GetPrototypes();
-
-    for (const pxr::UsdPrim &proto_prim : protos) {
-      Vector<USDPrimReader *> proto_readers;
-      collect_readers(proto_prim, instancer_proto_paths, true, proto_readers);
-      proto_readers_.add(proto_prim.GetPath(), proto_readers);
-
-      for (USDPrimReader *reader : proto_readers) {
-        readers_.append(reader);
-        reader->incref();
-      }
-    }
-  }
-
   if (!instancer_proto_paths.is_empty()) {
     create_point_instancer_proto_readers(instancer_proto_paths);
-  }
-}
-
-void USDStageReader::process_armature_modifiers() const
-{
-  /* Iterate over the skeleton readers to create the
-   * armature object map, which maps a USD skeleton prim
-   * path to the corresponding armature object. */
-  Map<pxr::SdfPath, Object *> usd_path_to_armature;
-  for (const USDPrimReader *reader : readers_) {
-    if (dynamic_cast<const USDSkeletonReader *>(reader) && reader->object()) {
-      usd_path_to_armature.add(reader->prim_path(), reader->object());
-    }
-  }
-
-  /* Iterate over the mesh readers and set armature objects on armature modifiers. */
-  for (const USDPrimReader *reader : readers_) {
-    if (!reader->object()) {
-      continue;
-    }
-    const USDMeshReader *mesh_reader = dynamic_cast<const USDMeshReader *>(reader);
-    if (!mesh_reader) {
-      continue;
-    }
-    /* Check if the mesh object has an armature modifier. */
-    ModifierData *md = BKE_modifiers_findby_type(reader->object(), eModifierType_Armature);
-    if (!md) {
-      continue;
-    }
-
-    ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-
-    /* Assign the armature based on the bound USD skeleton path of the skinned mesh. */
-    pxr::SdfPath skel_path = mesh_reader->get_skeleton_path();
-    Object *object = usd_path_to_armature.lookup_default(skel_path, nullptr);
-    if (object == nullptr) {
-      BKE_reportf(reports(),
-                  RPT_WARNING,
-                  "%s: Couldn't find armature object corresponding to USD skeleton %s",
-                  __func__,
-                  skel_path.GetAsString().c_str());
-      continue;
-    }
-    amd->object = object;
-    /* USDMeshReader baked the skeleton world transform and geomBindTransform into the skinned
-     * mesh's world transform. Keep only the armature modifier relation here. */
   }
 }
 
@@ -728,13 +621,6 @@ void USDStageReader::clear_readers()
   }
   readers_.clear();
 
-  for (const auto item : proto_readers_.items()) {
-    for (USDPrimReader *reader : item.value) {
-      decref(reader);
-    }
-  }
-  proto_readers_.clear();
-
   for (const auto item : instancer_proto_readers_.items()) {
     for (USDPrimReader *reader : item.value) {
       decref(reader);
@@ -766,7 +652,7 @@ void USDStageReader::sort_readers()
 
 void USDStageReader::create_proto_collections(Main *bmain, Collection *parent_collection)
 {
-  if (proto_readers_.is_empty() && instancer_proto_readers_.is_empty()) {
+  if (instancer_proto_readers_.is_empty()) {
     return;
   }
 
@@ -777,44 +663,6 @@ void USDStageReader::create_proto_collections(Main *bmain, Collection *parent_co
     all_protos_collection->flag |= COLLECTION_HIDE_RENDER;
     if (parent_collection) {
       DEG_id_tag_update(&parent_collection->id, ID_RECALC_HIERARCHY);
-    }
-  }
-
-  Map<pxr::SdfPath, Collection *> proto_collection_map;
-
-  for (const pxr::SdfPath &path : proto_readers_.keys()) {
-    Collection *proto_collection = create_collection(bmain, all_protos_collection, "proto");
-
-    proto_collection_map.add(path, proto_collection);
-  }
-
-  /* Set the instance collections on the readers, including the prototype
-   * readers (which are included in readers_), as instancing may be nested. */
-
-  for (USDPrimReader *reader : readers_) {
-    if (USDInstanceReader *instance_reader = dynamic_cast<USDInstanceReader *>(reader)) {
-      set_instance_collection(instance_reader, proto_collection_map);
-    }
-  }
-
-  /* Add the prototype objects to the collections. */
-  for (const auto &item : proto_readers_.items()) {
-    Collection *collection = proto_collection_map.lookup_default(item.key, nullptr);
-    if (collection == nullptr) {
-      CLOG_WARN(&LOG,
-                "Couldn't find collection when adding objects for prototype %s",
-                item.key.GetAsString().c_str());
-      continue;
-    }
-
-    for (const USDPrimReader *reader : item.value) {
-      Object *ob = reader->object();
-
-      if (!ob) {
-        continue;
-      }
-
-      BKE_collection_object_add(bmain, collection, ob);
     }
   }
 
@@ -939,7 +787,7 @@ void USDStageReader::collect_point_instancer_proto_paths(const pxr::UsdPrim &pri
 
     /* We should only consider potential point instancers if they would be included by the scene
      * instancing flags. */
-    if (!params_.support_scene_instancing && child_prim.IsInPrototype()) {
+    if (child_prim.IsInPrototype()) {
       continue;
     }
 

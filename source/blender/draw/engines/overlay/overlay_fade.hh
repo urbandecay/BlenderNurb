@@ -8,10 +8,8 @@
 
 #pragma once
 
-#include "BKE_modifier.hh"
 #include "BKE_paint.hh"
 
-#include "overlay_armature.hh"
 #include "overlay_base.hh"
 
 namespace blender::draw::overlay {
@@ -25,16 +23,12 @@ class Fade : Overlay {
   PassMain ps_ = {"FadeGeometry"};
 
   PassMain::Sub *mesh_fade_geometry_ps_;
-  /* Passes for Pose Fade Geometry. */
-  PassMain::Sub *armature_fade_geometry_active_ps_;
-  PassMain::Sub *armature_fade_geometry_other_ps_;
 
  public:
   void begin_sync(Resources &res, const State &state) final
   {
     const bool do_edit_mesh_fade_geom = !state.xray_enabled && state.show_fade_inactive();
-    enabled_ = state.is_space_v3d() && (do_edit_mesh_fade_geom || state.do_pose_fade_geom) &&
-               !res.is_selection();
+    enabled_ = state.is_space_v3d() && do_edit_mesh_fade_geom && !res.is_selection();
 
     if (!enabled_) {
       /* Not used. But release the data. */
@@ -57,22 +51,6 @@ class Fade : Overlay {
       mesh_fade_geometry_ps_ = &sub;
     }
 
-    /* Fade Geometry. */
-    if (state.do_pose_fade_geom) {
-      const float alpha = state.overlay.xray_alpha_bone;
-      float4 color = {0.0f, 0.0f, 0.0f, alpha};
-      {
-        auto &sub = ps_.sub("fade_geometry.active");
-        sub.push_constant("ucolor", color);
-        armature_fade_geometry_active_ps_ = &sub;
-      }
-      {
-        color[3] = powf(alpha, 4);
-        auto &sub = ps_.sub("fade_geometry");
-        sub.push_constant("ucolor", color);
-        armature_fade_geometry_other_ps_ = &sub;
-      }
-    }
   }
 
   void object_sync(Manager &manager,
@@ -87,8 +65,6 @@ class Fade : Overlay {
     const bool renderable = DRW_object_is_renderable(ob);
     const bool draw_surface = (ob->dt >= OB_WIRE) && (renderable || (ob->dt == OB_WIRE));
     const bool draw_fade = draw_surface && overlay_should_fade_object(ob, state.object_active);
-
-    const bool draw_bone_selection = (ob_ref.object->type == OB_MESH) && state.do_pose_fade_geom;
 
     auto fade_sync =
         [](Manager &manager, const ObjectRef &ob_ref, const State &state, PassMain::Sub &sub) {
@@ -111,15 +87,7 @@ class Fade : Overlay {
           }
         };
 
-    if (draw_bone_selection) {
-      fade_sync(manager,
-                ob_ref,
-                state,
-                is_driven_by_active_armature(ob_ref.object, state) ?
-                    *armature_fade_geometry_active_ps_ :
-                    *armature_fade_geometry_other_ps_);
-    }
-    else if (draw_fade) {
+    if (draw_fade) {
       fade_sync(manager, ob_ref, state, *mesh_fade_geometry_ps_);
     }
   }
@@ -164,7 +132,7 @@ class Fade : Overlay {
       return false;
     }
 
-    if (ELEM(active_object->mode, OB_MODE_OBJECT, OB_MODE_POSE)) {
+    if (active_object->mode == OB_MODE_OBJECT) {
       return false;
     }
 
@@ -175,20 +143,5 @@ class Fade : Overlay {
     return true;
   }
 
-  static bool is_driven_by_active_armature(Object *ob, const State &state)
-  {
-    Object *ob_arm = BKE_modifiers_is_deformed_by_armature(ob);
-    if (ob_arm) {
-      return Armatures::is_pose_mode(ob_arm, state);
-    }
-
-    Object *ob_mesh_deform = BKE_modifiers_is_deformed_by_meshdeform(ob);
-    if (ob_mesh_deform) {
-      /* Recursive. */
-      return is_driven_by_active_armature(ob_mesh_deform, state);
-    }
-
-    return false;
-  }
 };
 }  // namespace blender::draw::overlay

@@ -30,25 +30,6 @@ enum eConstraintTargetFlag : short {
 };
 ENUM_OPERATORS(eConstraintTargetFlag)
 
-/* bConstraintTarget/bConstraintOb -> type */
-enum eConstraintObType : short {
-  /** string is "" */
-  CONSTRAINT_OBTYPE_OBJECT = 1,
-  /** string is bone-name */
-  CONSTRAINT_OBTYPE_BONE = 2,
-  /** string is vertex-group name */
-  CONSTRAINT_OBTYPE_VERT = 3,
-  /** string is vertex-group name - is not available until curves get vgroups */
-  /* CONSTRAINT_OBTYPE_CV = 4, */ /* UNUSED */
-};
-
-enum eConstraint_IK_Type : short {
-  /** 'standard' IK constraint: match position and/or orientation of target */
-  CONSTRAINT_IK_COPYPOSE = 0,
-  /** maintain distance with target */
-  CONSTRAINT_IK_DISTANCE = 1,
-};
-
 /* bGeometryAttributeConstraint->flag */
 enum eGeometryAttributeConstraint_Flags : uint8_t {
   APPLY_TARGET_TRANSFORM = (1 << 0),
@@ -98,7 +79,6 @@ enum eBConstraint_Types : short {
   CONSTRAINT_TYPE_NULL = 0,
   CONSTRAINT_TYPE_CHILDOF = 1,
   CONSTRAINT_TYPE_TRACKTO = 2,
-  CONSTRAINT_TYPE_KINEMATIC = 3,
   CONSTRAINT_TYPE_FOLLOWPATH = 4,
   CONSTRAINT_TYPE_ROTLIMIT = 5,
   CONSTRAINT_TYPE_LOCLIMIT = 6,
@@ -121,7 +101,6 @@ enum eBConstraint_Types : short {
   CONSTRAINT_TYPE_SHRINKWRAP = 20,
   /** Tracking constraint that minimizes twisting */
   CONSTRAINT_TYPE_DAMPTRACK = 21,
-  CONSTRAINT_TYPE_SPLINEIK = 22,
   /** Copy transform matrix */
   CONSTRAINT_TYPE_TRANSLIKE = 23,
   /** Maintain volume during scaling */
@@ -131,7 +110,6 @@ enum eBConstraint_Types : short {
   CONSTRAINT_TYPE_CAMERASOLVER = 27,
   CONSTRAINT_TYPE_OBJECTSOLVER = 28,
   CONSTRAINT_TYPE_TRANSFORM_CACHE = 29,
-  CONSTRAINT_TYPE_ARMATURE = 30,
   CONSTRAINT_TYPE_GEOMETRY_ATTRIBUTE = 31,
 
   /* This should be the last entry in this list. */
@@ -139,9 +117,7 @@ enum eBConstraint_Types : short {
 };
 
 /* bConstraint->flag */
-/* flags 0x2 (1 << 1) and 0x8 (1 << 3) were used in past */
-/* flag 0x20 (1 << 5) was used to indicate that a constraint was evaluated
- *                    using a 'local' hack for pose-bones only. */
+/* flags 0x2 (1 << 1), 0x8 (1 << 3), and 0x20 (1 << 5) were used in the past. */
 enum eBConstraint_Flags : short {
 #ifdef DNA_DEPRECATED_ALLOW
   /* Expansion for old box constraint layouts. Just for versioning. */
@@ -157,12 +133,8 @@ enum eBConstraint_Flags : short {
   CONSTRAINT_OWN_IPO = (1 << 7),
   /* Constraint is disabled by the user or the animation system (eye icon in the interface). */
   CONSTRAINT_OFF = (1 << 9),
-  /* use bbone curve shape when calculating headtail values (also used by dependency graph!) */
-  CONSTRAINT_BBONE_SHAPE = (1 << 10),
   /* That constraint has been inserted in local override (i.e. it can be fully edited!). */
   CONSTRAINT_OVERRIDE_LIBRARY_LOCAL = (1 << 11),
-  /* use full transformation (not just segment locations) - only set at runtime. */
-  CONSTRAINT_BBONE_SHAPE_FULL = (1 << 12),
 };
 ENUM_OPERATORS(eBConstraint_Flags)
 
@@ -172,17 +144,8 @@ enum eBConstraint_SpaceTypes : char {
   CONSTRAINT_SPACE_WORLD = 0,
   /** For all - custom space. */
   CONSTRAINT_SPACE_CUSTOM = 5,
-  /**
-   * For objects (relative to parent/without parent influence),
-   * for bones (along normals of bone, without parent/rest-positions).
-   */
+  /** Relative to the object transform, without parent influence. */
   CONSTRAINT_SPACE_LOCAL = 1,
-  /** For posechannels - pose space. */
-  CONSTRAINT_SPACE_POSE = 2,
-  /** For posechannels - local with parent. */
-  CONSTRAINT_SPACE_PARLOCAL = 3,
-  /** For posechannels - local converted to the owner bone orientation. */
-  CONSTRAINT_SPACE_OWNLOCAL = 6,
   /** For files from between 2.43-2.46 (should have been parlocal). */
   CONSTRAINT_SPACE_INVALID = 4, /* do not exchange for anything! */
 };
@@ -234,8 +197,6 @@ enum eCopyLocation_Flags : int {
   LOCLIKE_X = (1 << 0),
   LOCLIKE_Y = (1 << 1),
   LOCLIKE_Z = (1 << 2),
-  /** LOCLIKE_TIP is a deprecated option... use headtail=1.0f instead */
-  LOCLIKE_TIP = (1 << 3),
   LOCLIKE_X_INVERT = (1 << 4),
   LOCLIKE_Y_INVERT = (1 << 5),
   LOCLIKE_Z_INVERT = (1 << 6),
@@ -333,8 +294,6 @@ enum eSameVolume_Mode : char {
 
 /** #bActionConstraint.flag */
 enum eActionConstraint_Flags : int {
-  /* Bones use "object" part of target action, instead of "same bone name" part */
-  ACTCON_BONE_USE_OBJECT_ACTION = (1 << 0),
   /* Ignore the transform of 'tar' and use 'eval_time' instead: */
   ACTCON_USE_EVAL_TIME = (1 << 1),
 };
@@ -440,87 +399,6 @@ enum eClampTo_Flags : int {
   CLAMPTO_CYCLIC = (1 << 0),
 };
 ENUM_OPERATORS(eClampTo_Flags)
-
-/* bKinematicConstraint->flag */
-enum eKinematic_Flags : short {
-  CONSTRAINT_IK_TIP = (1 << 0),
-  CONSTRAINT_IK_ROT = (1 << 1),
-  /* targetless */
-  CONSTRAINT_IK_AUTO = (1 << 2),
-  /* autoik */
-  CONSTRAINT_IK_TEMP = (1 << 3),
-  CONSTRAINT_IK_STRETCH = (1 << 4),
-  CONSTRAINT_IK_POS = (1 << 5),
-  CONSTRAINT_IK_SETANGLE = (1 << 6),
-  CONSTRAINT_IK_GETANGLE = (1 << 7),
-  /* limit axis */
-  CONSTRAINT_IK_NO_POS_X = (1 << 8),
-  CONSTRAINT_IK_NO_POS_Y = (1 << 9),
-  CONSTRAINT_IK_NO_POS_Z = (1 << 10),
-  CONSTRAINT_IK_NO_ROT_X = (1 << 11),
-  CONSTRAINT_IK_NO_ROT_Y = (1 << 12),
-  CONSTRAINT_IK_NO_ROT_Z = (1 << 13),
-  /* axis relative to target */
-  CONSTRAINT_IK_TARGETAXIS = (1 << 14),
-};
-ENUM_OPERATORS(eKinematic_Flags)
-
-/** #bSplineIKConstraint::flag */
-enum eSplineIK_Flags : short {
-  /** Chain has been attached to spline. */
-  CONSTRAINT_SPLINEIK_BOUND = (1 << 0),
-  /** Root of chain is not influenced by the constraint. */
-  CONSTRAINT_SPLINEIK_NO_ROOT = (1 << 1),
-#ifdef DNA_DEPRECATED_ALLOW
-  /** Bones in the chain should not scale to fit the curve. */
-  CONSTRAINT_SPLINEIK_SCALE_LIMITED = (1 << 2),
-#endif
-  /** Evenly distribute the bones along the path regardless of length. */
-  CONSTRAINT_SPLINEIK_EVENSPLITS = (1 << 3),
-  /** Don't adjust the X and Z scaling of the bones by the curve radius. */
-  CONSTRAINT_SPLINEIK_NO_CURVERAD = (1 << 4),
-
-  /** For "volumetric" XZ scale mode, limit the minimum or maximum scale values. */
-  CONSTRAINT_SPLINEIK_USE_BULGE_MIN = (1 << 5),
-  CONSTRAINT_SPLINEIK_USE_BULGE_MAX = (1 << 6),
-
-  /** Apply volume preservation over original scaling of the bone. */
-  CONSTRAINT_SPLINEIK_USE_ORIGINAL_SCALE = (1 << 7),
-};
-ENUM_OPERATORS(eSplineIK_Flags)
-
-/** #bSplineIKConstraint::xzScaleMode */
-enum eSplineIK_XZScaleModes : short {
-  /** No X/Z scaling. */
-  CONSTRAINT_SPLINEIK_XZS_NONE = 0,
-  /** Bones in the chain should take their X/Z scales from the original scaling. */
-  CONSTRAINT_SPLINEIK_XZS_ORIGINAL = 1,
-  /** X/Z scales are the inverse of the Y-scale. */
-  CONSTRAINT_SPLINEIK_XZS_INVERSE = 2,
-  /** X/Z scales are computed using a volume preserving technique (from Stretch To constraint). */
-  CONSTRAINT_SPLINEIK_XZS_VOLUMETRIC = 3,
-};
-
-/** #bSplineIKConstraint::yScaleMode */
-enum eSplineIK_YScaleModes : short {
-  /** No Y scaling. */
-  CONSTRAINT_SPLINEIK_YS_NONE = 0,
-  /** Bones in the chain should be scaled to fit the length of the curve. */
-  CONSTRAINT_SPLINEIK_YS_FIT_CURVE = 1,
-  /** Bones in the chain should take their y scales from the original scaling. */
-  CONSTRAINT_SPLINEIK_YS_ORIGINAL = 2,
-};
-
-/** #bArmatureConstraint::flag */
-enum eArmature_Flags : int {
-  /** use dual quaternion blending */
-  CONSTRAINT_ARMATURE_QUATERNION = (1 << 0),
-  /** use envelopes */
-  CONSTRAINT_ARMATURE_ENVELOPE = (1 << 1),
-  /** use current bone location */
-  CONSTRAINT_ARMATURE_CUR_LOCATION = (1 << 2),
-};
-ENUM_OPERATORS(eArmature_Flags)
 
 /* MinMax (floor) flags */
 enum eFloor_Flags : int {
@@ -685,7 +563,7 @@ struct bConstraint {
 
   /** Object to use as target for Custom Space of owner. */
   struct Object *space_object = nullptr;
-  /** Sub-target for Custom Space of owner - pose-channel or vertex-group name. */
+  /** Sub-target for Custom Space of owner - vertex-group name. */
   char space_subtarget[/*MAX_NAME*/ 64] = "";
 
   /** Constraint name. */
@@ -693,8 +571,7 @@ struct bConstraint {
 
   /** Amount of influence exerted by constraint (0.0-1.0). */
   float enforce = 0;
-  /** Point along `subtarget` bone where the actual target is. 0=head (default for all), 1=tail. */
-  float headtail = 0;
+  char _pad1[4] = {};
 
   /* Below are read-only fields that are set at runtime
    * by the solver for use in the GE (only IK at the moment). */
@@ -715,7 +592,7 @@ struct bConstraintTarget {
 
   /** Object to use as target. */
   struct Object *tar = nullptr;
-  /** Sub-target - pose-channel or vertex-group name. */
+  /** Sub-target vertex-group name. */
   char subtarget[/*MAX_NAME*/ 64] = "";
 
   /** Matrix used during constraint solving - should be cleared before each use. */
@@ -726,99 +603,11 @@ struct bConstraintTarget {
   char _pad1;
   /** Runtime settings (for editor, etc.). */
   eConstraintTargetFlag flag = {};
-  /** Type of target. */
-  eConstraintObType type = CONSTRAINT_OBTYPE_OBJECT;
+  char _pad_type[2] = {};
   /** Rotation order for target (as defined in BLI_math_rotation.h). */
   short rotOrder = 0;
-  /** Weight for armature deform. */
-  float weight = 0;
+  char _pad_weight[4] = {};
   char _pad[4] = {};
-};
-
-/* Inverse-Kinematics (IK) constraint
- * This constraint supports a variety of mode determine by the type field
- * according to eConstraint_IK_Type.
- * Some fields are used by all types, some are specific to some types
- * This is indicated in the comments for each field
- */
-struct bKinematicConstraint {
-  /** All: target object in case constraint needs a target. */
-  struct Object *tar = nullptr;
-  /** All: Maximum number of iterations to try. */
-  short iterations = 0;
-  /** All & CopyPose: some options Like CONSTRAINT_IK_TIP. */
-  eKinematic_Flags flag = {};
-  /** All: index to rootbone, if zero go all the way to mother bone. */
-  short rootbone = 0;
-  /** CopyPose: for auto-ik, maximum length of chain. */
-  short max_rootbone = 0;
-  /** All: String to specify sub-object target. */
-  char subtarget[/*MAX_NAME*/ 64] = "";
-  /** All: Pole vector target. */
-  struct Object *poletar = nullptr;
-  /** All: Pole vector sub-object target. */
-  char polesubtarget[/*MAX_NAME*/ 64] = "";
-  /** All: Pole vector rest angle. */
-  float poleangle = 0;
-  /** All: Weight of constraint in IK tree. */
-  float weight = 0;
-  /** CopyPose: Amount of rotation a target applies on chain. */
-  float orientweight = 0;
-  /** CopyPose: for target-less IK. */
-  float grabtarget[3] = {};
-  /** Sub-type of IK constraint. */
-  eConstraint_IK_Type type = CONSTRAINT_IK_COPYPOSE;
-  /** Distance: how to limit in relation to clamping sphere: LIMITDIST_... */
-  eDistLimit_Modes mode = LIMITDIST_INSIDE;
-  /** Distance: distance (radius of clamping sphere) from target. */
-  float dist = 0;
-};
-
-/* Spline IK Constraint
- * Aligns 'n' bones to the curvature defined by the curve,
- * with the chain ending on the bone that owns this constraint,
- * and starting on the nth parent.
- */
-struct bSplineIKConstraint {
-  /* target(s) */
-  /** Curve object (with follow path enabled) which drives the bone chain. */
-  struct Object *tar = nullptr;
-
-  /* binding details */
-  /**
-   * Array of numpoints items,
-   * denoting parametric positions along curve that joints should follow.
-   */
-  float *points = nullptr;
-  /** Number of points to bound in points array. */
-  short numpoints = 0;
-  /** Number of bones ('n') that are in the chain. */
-  short chainlen = 0;
-
-  /* settings */
-  /** General settings for constraint. */
-  eSplineIK_Flags flag = {};
-  /** Method used for determining the x & z scaling of the bones. */
-  eSplineIK_XZScaleModes xzScaleMode = CONSTRAINT_SPLINEIK_XZS_NONE;
-  /** Method used for determining the y scaling of the bones. */
-  eSplineIK_YScaleModes yScaleMode = CONSTRAINT_SPLINEIK_YS_NONE;
-  short _pad[3] = {};
-
-  /* volume preservation settings */
-  float bulge = 0;
-  float bulge_min = 0;
-  float bulge_max = 0;
-  float bulge_smooth = 0;
-};
-
-/* Armature Constraint */
-struct bArmatureConstraint {
-  /** General settings/state indicators accessed by bitmapping. */
-  eArmature_Flags flag = {};
-  char _pad[4] = {};
-
-  /** A list of targets that this constraint has (bConstraintTarget-s). */
-  ListBaseT<bConstraintTarget> targets = {nullptr, nullptr};
 };
 
 /* Single-target sub-object constraints --------------------- */
@@ -1006,7 +795,7 @@ struct bChildOfConstraint {
 
 /* Generic Transform->Transform Constraint */
 struct bTransformConstraint {
-  /** Target (i.e. 'driver' object/bone). */
+  /** Target object. */
   struct Object *tar = nullptr;
   char subtarget[/*MAX_NAME*/ 64] = "";
 

@@ -24,8 +24,6 @@ tabs_attr_infos = (
     ("show_properties_physics", "Physics", 'PHYSICS'),
     ("show_properties_constraints", "Constraints", 'CONSTRAINT'),
     ("show_properties_data", "Data", 'MESH_DATA'),
-    ("show_properties_bone", "Bone", 'BONE_DATA'),
-    ("show_properties_bone_constraints", "Bone Constraints", 'CONSTRAINT_BONE'),
     ("show_properties_material", "Material", 'MATERIAL'),
     ("show_properties_texture", "Texture", 'TEXTURE'),
     ("show_properties_strip", "Strip", 'SEQ_SEQUENCER'),

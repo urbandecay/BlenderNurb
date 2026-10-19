@@ -2130,21 +2130,16 @@ int BKE_scene_base_iter_next(
       else {
         if (iter->phase != F_DUPLI) {
           if (depsgraph && (*base)->object->transflag & OB_DUPLI) {
-            /* Collections cannot be duplicated for meta-balls yet,
-             * this enters eternal loop because of
-             * makeDispListMBall getting called inside of collection_duplilist */
-            if ((*base)->object->instance_collection == nullptr) {
-              object_duplilist(depsgraph, (*base)->object, nullptr, iter->duplilist);
+            object_duplilist(depsgraph, (*base)->object, nullptr, iter->duplilist);
 
-              iter->dupob = iter->duplilist.is_empty() ? nullptr : &iter->duplilist.first();
-              iter->dupob_index = 0;
+            iter->dupob = iter->duplilist.is_empty() ? nullptr : &iter->duplilist.first();
+            iter->dupob_index = 0;
 
-              if (!iter->dupob) {
-                iter->duplilist.clear();
-                iter->dupob_index = -1;
-              }
-              iter->dupli_refob = nullptr;
+            if (!iter->dupob) {
+              iter->duplilist.clear();
+              iter->dupob_index = -1;
             }
+            iter->dupli_refob = nullptr;
           }
         }
         /* handle dupli's */

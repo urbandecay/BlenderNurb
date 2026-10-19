@@ -209,9 +209,6 @@ def main():
         # One 'Deform' modifier on primitive meshes
         #############################################
         # 39
-        SpecMeshTest("MonkeyArmature", "testMonkeyArmature", "expectedMonkeyArmature",
-                     [ModifierSpec('armature', 'ARMATURE',
-                                   {'object': bpy.data.objects['testArmature'], 'use_vertex_groups': True})]),
         SpecMeshTest("TorusCast", "testTorusCast", "expectedTorusCast",
                      [ModifierSpec('cast', 'CAST', {'factor': 2.64})]),
         SpecMeshTest("CubeCurve", "testCubeCurve", "expectedCubeCurve",

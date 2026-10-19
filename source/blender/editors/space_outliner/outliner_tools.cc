@@ -11,7 +11,6 @@
 #include "CLG_log.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_curves_types.h"
@@ -39,7 +38,6 @@
 
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_collection.hh"
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
@@ -86,7 +84,6 @@
 #include "RNA_enum_types.hh"
 
 #include "ANIM_action_legacy.hh"
-#include "ANIM_armature.hh"
 
 #include "SEQ_relations.hh"
 #include "SEQ_sequencer.hh"
@@ -136,7 +133,6 @@ static void get_element_operation_type(
       case ID_MB:
       case ID_LT:
       case ID_LA:
-      case ID_AR:
       case ID_CA:
       case ID_SPK:
       case ID_MA:
@@ -386,9 +382,9 @@ static void unlink_collection_fn(bContext *C,
      * for example) so there's no data to unlink from. */
     BKE_reportf(reports,
                 RPT_WARNING,
-                "Cannot unlink collection '%s'. It's not clear which scene, collection or "
-                "instance empties it should be unlinked from, there's no scene, collection or "
-                "instance empties as parent in the Outliner tree",
+                "Cannot unlink collection '%s'. It's not clear which scene or collection it "
+                "should be unlinked from because the Outliner item has no scene or collection "
+                "as its parent",
                 tselem->id->name + 2);
     return;
   }
@@ -403,13 +399,7 @@ static void unlink_collection_fn(bContext *C,
   }
 
   if (tsep) {
-    if (GS(tsep->id->name) == ID_OB) {
-      Object *ob = id_cast<Object *>(tsep->id);
-      ob->instance_collection = nullptr;
-      DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_HIERARCHY);
-      DEG_relations_tag_update(bmain);
-    }
-    else if (GS(tsep->id->name) == ID_GR) {
+    if (GS(tsep->id->name) == ID_GR) {
       Collection *parent = id_cast<Collection *>(tsep->id);
       id_fake_user_set(&collection->id);
       BKE_collection_child_remove(bmain, parent, collection);
@@ -1000,16 +990,6 @@ struct OutlinerLiboverrideDataIDRoot {
   /** The root of the override hierarchy to which the override of `id_root` belongs, once
    * known/created. */
   ID *id_hierarchy_root_override;
-
-  /** The ID that was detected as being a good candidate as instantiation hint for newly overridden
-   * objects, may be null.
-   *
-   * \note Typically currently only used when the root ID to override is a collection instanced by
-   * an empty object. */
-  ID *id_instance_hint;
-
-  /** If this override comes from an instancing object (which would be `id_instance_hint` then). */
-  bool is_override_instancing_object;
 };
 
 struct OutlinerLibOverrideData {
@@ -1038,16 +1018,11 @@ struct OutlinerLibOverrideData {
   /** All 'session_uid' of all hierarchy root IDs used or created by the operation. */
   Set<uint> id_hierarchy_roots_uid;
 
-  void id_root_add(ID *id_hierarchy_root_reference,
-                   ID *id_root_reference,
-                   ID *id_instance_hint,
-                   const bool is_override_instancing_object)
+  void id_root_add(ID *id_hierarchy_root_reference, ID *id_root_reference)
   {
     OutlinerLiboverrideDataIDRoot id_root_data;
     id_root_data.id_root_reference = id_root_reference;
     id_root_data.id_hierarchy_root_override = nullptr;
-    id_root_data.id_instance_hint = id_instance_hint;
-    id_root_data.is_override_instancing_object = is_override_instancing_object;
 
     Vector<OutlinerLiboverrideDataIDRoot> &value = id_hierarchy_roots.lookup_or_add_default(
         id_hierarchy_root_reference);
@@ -1058,8 +1033,6 @@ struct OutlinerLibOverrideData {
     OutlinerLiboverrideDataIDRoot id_root_data;
     id_root_data.id_root_reference = nullptr;
     id_root_data.id_hierarchy_root_override = nullptr;
-    id_root_data.id_instance_hint = nullptr;
-    id_root_data.is_override_instancing_object = false;
 
     Vector<OutlinerLiboverrideDataIDRoot> &value = id_hierarchy_roots.lookup_or_add_default(
         id_hierarchy_root_reference);
@@ -1117,33 +1090,6 @@ static void id_override_library_create_hierarchy_pre_process(bContext *C,
 
   BLI_assert(do_hierarchy);
   UNUSED_VARS_NDEBUG(do_hierarchy);
-
-  if (GS(id_root_reference->name) == ID_GR && (tselem->flag & TSE_CLOSED) != 0) {
-    /* If selected element is a (closed) collection, check all of its objects recursively, and also
-     * consider the armature ones as 'selected' (i.e. to not become system overrides). */
-    Collection *root_collection = reinterpret_cast<Collection *>(id_root_reference);
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (root_collection, object_iter) {
-      if (id_root_reference->lib == object_iter->id.lib && object_iter->type == OB_ARMATURE) {
-        data->selected_id_uid.add(object_iter->id.session_uid);
-      }
-    }
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
-  }
-
-  ID *id_instance_hint = nullptr;
-  bool is_override_instancing_object = false;
-  if (tsep != nullptr && tsep->type == TSE_SOME_ID && tsep->id != nullptr &&
-      GS(tsep->id->name) == ID_OB && !ID_IS_OVERRIDE_LIBRARY(tsep->id))
-  {
-    Object *ob = reinterpret_cast<Object *>(tsep->id);
-    if (ob->type == OB_EMPTY && &ob->instance_collection->id == id_root_reference) {
-      BLI_assert(GS(id_root_reference->name) == ID_GR);
-      /* Empty instantiating the collection we override, we need to pass it to BKE overriding code
-       * for proper handling. */
-      id_instance_hint = tsep->id;
-      is_override_instancing_object = true;
-    }
-  }
 
   if (!ID_IS_OVERRIDABLE_LIBRARY(id_root_reference) &&
       !(ID_IS_LINKED(id_root_reference) && do_hierarchy))
@@ -1250,14 +1196,10 @@ static void id_override_library_create_hierarchy_pre_process(bContext *C,
       return;
     }
 
-    data->id_root_add(id_hierarchy_root_reference,
-                      id_root_reference,
-                      id_instance_hint,
-                      is_override_instancing_object);
+    data->id_root_add(id_hierarchy_root_reference, id_root_reference);
   }
   else if (ID_IS_OVERRIDABLE_LIBRARY(id_root_reference)) {
-    data->id_root_add(
-        id_root_reference, id_root_reference, id_instance_hint, is_override_instancing_object);
+    data->id_root_add(id_root_reference, id_root_reference);
   }
 }
 
@@ -1301,7 +1243,7 @@ static void id_override_library_create_hierarchy(
                                                 nullptr,
                                                 data_idroot.id_root_reference,
                                                 id_hierarchy_root_reference,
-                                                data_idroot.id_instance_hint,
+                                                nullptr,
                                                 &id_root_override,
                                                 data.do_fully_editable);
 
@@ -1342,14 +1284,6 @@ static void id_override_library_create_hierarchy(
     }
     else {
       BLI_assert_unreachable();
-    }
-
-    /* Remove the instance empty from this scene, the items now have an overridden collection
-     * instead. */
-    if (success && data_idroot.is_override_instancing_object) {
-      BLI_assert(GS(data_idroot.id_instance_hint->name) == ID_OB);
-      object::base_free_and_unlink(
-          &bmain, scene, reinterpret_cast<Object *>(data_idroot.id_instance_hint));
     }
 
     r_aggregated_success = r_aggregated_success && success;
@@ -2323,63 +2257,6 @@ enum eOutliner_PropModifierOps {
   OL_MODIFIER_OP_APPLY,
 };
 
-static void pchan_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/, void * /*arg*/)
-{
-  bPoseChannel *pchan = static_cast<bPoseChannel *>(te->directdata);
-
-  if (event == OL_DOP_SELECT) {
-    animrig::bone_select(pchan);
-  }
-  else if (event == OL_DOP_DESELECT) {
-    animrig::bone_deselect(pchan);
-  }
-  else if (event == OL_DOP_HIDE) {
-    pchan->drawflag |= PCHAN_DRAW_HIDDEN;
-    animrig::bone_deselect(pchan);
-  }
-  else if (event == OL_DOP_UNHIDE) {
-    pchan->drawflag &= ~PCHAN_DRAW_HIDDEN;
-  }
-}
-
-static void bone_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/, void * /*arg*/)
-{
-  Bone *bone = static_cast<Bone *>(te->directdata);
-
-  if (event == OL_DOP_SELECT) {
-    bone->flag |= BONE_SELECTED;
-  }
-  else if (event == OL_DOP_DESELECT) {
-    bone->flag &= ~BONE_SELECTED;
-  }
-  else if (event == OL_DOP_HIDE) {
-    bone->flag |= BONE_HIDDEN_P;
-    bone->flag &= ~BONE_SELECTED;
-  }
-  else if (event == OL_DOP_UNHIDE) {
-    bone->flag &= ~BONE_HIDDEN_P;
-  }
-}
-
-static void ebone_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/, void * /*arg*/)
-{
-  EditBone *ebone = static_cast<EditBone *>(te->directdata);
-
-  if (event == OL_DOP_SELECT) {
-    ebone->flag |= BONE_SELECTED;
-  }
-  else if (event == OL_DOP_DESELECT) {
-    ebone->flag &= ~BONE_SELECTED;
-  }
-  else if (event == OL_DOP_HIDE) {
-    ebone->flag |= BONE_HIDDEN_A;
-    ebone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-  }
-  else if (event == OL_DOP_UNHIDE) {
-    ebone->flag &= ~BONE_HIDDEN_A;
-  }
-}
-
 static void sequence_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/, void *scene_ptr)
 {
   TreeElementStrip *te_strip = tree_element_cast<TreeElementStrip>(te);
@@ -2447,20 +2324,10 @@ static void constraint_fn(int event, TreeElement *te, TreeStoreElem * /*tselem*/
     WM_event_add_notifier(C, NC_OBJECT | ND_CONSTRAINT, ob);
   }
   else if (event == OL_CONSTRAINTOP_DELETE) {
-    ListBaseT<bConstraint> *lb = nullptr;
-
-    if (TREESTORE(te->parent->parent)->type == TSE_POSE_CHANNEL) {
-      lb = &(static_cast<bPoseChannel *>(te->parent->parent->directdata))->constraints;
-    }
-    else {
-      lb = &ob->constraints;
-    }
-
-    if (BKE_constraint_remove_ex(lb, ob, constraint)) {
+    if (BKE_constraint_remove_ex(&ob->constraints, ob, constraint)) {
       /* there's no active constraint now, so make sure this is the case */
       BKE_constraints_active_set(&ob->constraints, nullptr);
 
-      /* Needed to set the flags on pose-bones correctly. */
       object::constraint_update(bmain, ob);
 
       WM_event_add_notifier(C, NC_OBJECT | ND_CONSTRAINT | NA_REMOVED, ob);
@@ -3510,7 +3377,7 @@ static bool outliner_data_operation_poll(bContext *C)
 
   int scenelevel = 0, objectlevel = 0, idlevel = 0, datalevel = 0;
   get_element_operation_type(te, &scenelevel, &objectlevel, &idlevel, &datalevel);
-  return ELEM(datalevel, TSE_POSE_CHANNEL, TSE_BONE, TSE_EBONE, TSE_STRIP, TSE_RNA_STRUCT);
+  return ELEM(datalevel, TSE_STRIP, TSE_RNA_STRUCT);
 }
 
 static wmOperatorStatus outliner_data_operation_exec(bContext *C, wmOperator *op)
@@ -3522,27 +3389,6 @@ static wmOperatorStatus outliner_data_operation_exec(bContext *C, wmOperator *op
 
   eOutliner_PropDataOps event = eOutliner_PropDataOps(RNA_enum_get(op->ptr, "type"));
   switch (datalevel) {
-    case TSE_POSE_CHANNEL: {
-      outliner_do_data_operation(space_outliner, datalevel, event, pchan_fn, nullptr);
-      WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, nullptr);
-      ED_undo_push(C, "PoseChannel operation");
-
-      break;
-    }
-    case TSE_BONE: {
-      outliner_do_data_operation(space_outliner, datalevel, event, bone_fn, nullptr);
-      WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, nullptr);
-      ED_undo_push(C, "Bone operation");
-
-      break;
-    }
-    case TSE_EBONE: {
-      outliner_do_data_operation(space_outliner, datalevel, event, ebone_fn, nullptr);
-      WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, nullptr);
-      ED_undo_push(C, "EditBone operation");
-
-      break;
-    }
     case TSE_STRIP: {
       Scene *sequencer_scene = CTX_data_sequencer_scene(C);
       outliner_do_data_operation(space_outliner, datalevel, event, sequence_fn, sequencer_scene);

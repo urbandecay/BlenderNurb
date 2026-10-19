@@ -19,7 +19,6 @@
  * The basis changes for each space:
  * - Object: X-right, Y-forward, Z-up
  * - World: X-right, Y-forward, Z-up
- * - Armature Bone: X-right, Y-forward, Z-up (with forward being the root to tip direction)
  * - Curve Tangent-Space: X-left, Y-up, Z-forward
  */
 

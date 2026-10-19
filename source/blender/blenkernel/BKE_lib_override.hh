@@ -227,9 +227,8 @@ bool BKE_lib_override_library_create_from_tag(Main *bmain,
  * as `id_root`, unless a sub-part only of the hierarchy is overridden), or the already existing
  * override hierarchy root if part of the hierarchy is already overridden.
  *
- * \param id_instance_hint: Some ID used as hint/reference to do some post-processing after
- * overrides have been created, may be NULL. Typically, the Empty object instantiating the linked
- * collection we override, currently.
+ * \param collection_parent_hint: Optional local collection into which a newly overridden
+ * collection should be inserted. When NULL, the root collection is added to the scene.
  *
  * \param r_id_root_override: if not NULL, the override generated for the given \a id_root.
  *
@@ -243,7 +242,7 @@ bool BKE_lib_override_library_create(Main *bmain,
                                      Library *owner_library,
                                      ID *id_root_reference,
                                      ID *id_hierarchy_root_reference,
-                                     ID *id_instance_hint,
+                                     Collection *collection_parent_hint,
                                      ID **r_id_root_override,
                                      const bool do_fully_editable);
 

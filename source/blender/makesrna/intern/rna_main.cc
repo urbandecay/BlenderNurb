@@ -148,7 +148,6 @@ static bool rna_MainColorspace_is_missing_opencolorio_config_get(PointerRNA *ptr
     }
 
 RNA_MAIN_LISTBASE_FUNCS_DEF(actions)
-RNA_MAIN_LISTBASE_FUNCS_DEF(armatures)
 RNA_MAIN_LISTBASE_FUNCS_DEF(brushes)
 RNA_MAIN_LISTBASE_FUNCS_DEF(cachefiles)
 RNA_MAIN_LISTBASE_FUNCS_DEF(cameras)
@@ -449,12 +448,6 @@ void RNA_def_main(BlenderRNA *brna)
        "Sounds",
        "Sound data-blocks",
        RNA_def_main_sounds},
-      {"armatures",
-       "Armature",
-       "rna_Main_armatures_begin",
-       "Armatures",
-       "Armature data-blocks",
-       RNA_def_main_armatures},
       {"actions",
        "Action",
        "rna_Main_actions_begin",

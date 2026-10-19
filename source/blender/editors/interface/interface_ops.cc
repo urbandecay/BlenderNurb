@@ -12,7 +12,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_armature_types.h"
+#include "DNA_ID.h"
 #include "DNA_key_types.h"
 #include "DNA_material_types.h"
 #include "DNA_modifier_types.h" /* for handling geometry nodes properties */
@@ -33,7 +33,6 @@
 #include "BLT_translation.hh"
 
 #include "BKE_anim_data.hh"
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_idtype.hh"
@@ -975,39 +974,6 @@ static void override_idtemplate_menu()
 /** \name Copy To Selected Operator
  * \{ */
 
-#define NOT_RNA_NULL(assignment) ((assignment).data != nullptr)
-
-/**
- * Construct a PointerRNA that points to pchan->bone_get(*armature).
- *
- * Pose bones are owned by an Object, whereas `pchan->bone_get(*armature)` is owned by the
- * Armature, so this doesn't just remap the pointer's `data` field, but also its `owner_id`.
- */
-static PointerRNA rnapointer_pchan_to_bone(const PointerRNA &pchan_ptr)
-{
-  bPoseChannel *pchan = static_cast<bPoseChannel *>(pchan_ptr.data);
-
-  BLI_assert(GS(pchan_ptr.owner_id->name) == ID_OB);
-  Object *object = reinterpret_cast<Object *>(pchan_ptr.owner_id);
-  BKE_pose_ensure_bone_indices(*object);
-
-  BLI_assert(GS(object->data->name) == ID_AR);
-  bArmature *armature = id_cast<bArmature *>(object->data);
-
-  return RNA_pointer_create_discrete(&armature->id, RNA_Bone, pchan->bone_get(*object));
-}
-
-static void context_selected_bones_via_pose(bContext *C, Vector<PointerRNA> *r_lb)
-{
-  Vector<PointerRNA> lb = CTX_data_collection_get(C, "selected_pose_bones");
-
-  for (PointerRNA &ptr : lb) {
-    ptr = rnapointer_pchan_to_bone(ptr);
-  }
-
-  *r_lb = std::move(lb);
-}
-
 static void context_fcurve_modifiers_via_fcurve(bContext *C,
                                                 Vector<PointerRNA> *r_lb,
                                                 FModifier *source)
@@ -1115,123 +1081,12 @@ bool context_copy_to_selected_list(bContext *C,
 {
   *r_use_path_from_id = false;
   *r_path = std::nullopt;
-  /* special case for bone constraints */
   const bool is_rna = !RNA_property_is_idprop(prop);
   /* Remove links from the collection list which don't contain 'prop'. */
   bool ensure_list_items_contain_prop = false;
 
-  /* PropertyGroup objects don't have a reference to the struct that actually owns
-   * them, so it is normally necessary to do a brute force search to find it. This
-   * handles the search for non-ID owners by using the 'active' reference as a hint
-   * to preserve efficiency. Only properties defined through RNA are handled, as
-   * custom properties cannot be assumed to be valid for all instances.
-   *
-   * Properties owned by the ID are handled by the 'if (ptr->owner_id)' case below.
-   */
-  if (is_rna && RNA_struct_is_a(ptr->type, RNA_PropertyGroup)) {
-    PointerRNA owner_ptr;
-    std::optional<std::string> idpath;
-
-    /* First, check the active PoseBone and PoseBone->Bone. */
-    if (NOT_RNA_NULL(owner_ptr = CTX_data_pointer_get_type(C, "active_pose_bone", RNA_PoseBone))) {
-      idpath = RNA_path_from_struct_to_idproperty(&owner_ptr,
-                                                  static_cast<const IDProperty *>(ptr->data));
-      if (idpath) {
-        *r_lb = CTX_data_collection_get(C, "selected_pose_bones");
-      }
-      else {
-        PointerRNA bone_ptr = rnapointer_pchan_to_bone(owner_ptr);
-        idpath = RNA_path_from_struct_to_idproperty(&bone_ptr,
-                                                    static_cast<const IDProperty *>(ptr->data));
-        if (idpath) {
-          context_selected_bones_via_pose(C, r_lb);
-        }
-      }
-    }
-
-    if (!idpath) {
-      /* Check the active EditBone if in edit mode. */
-      if (NOT_RNA_NULL(
-              owner_ptr = CTX_data_pointer_get_type_silent(C, "active_bone", RNA_EditBone)))
-      {
-        idpath = RNA_path_from_struct_to_idproperty(&owner_ptr,
-                                                    static_cast<const IDProperty *>(ptr->data));
-        if (idpath) {
-          *r_lb = CTX_data_collection_get(C, "selected_editable_bones");
-        }
-      }
-
-      /* Add other simple cases here (Node, NodeSocket, Sequence, ViewLayer etc). */
-    }
-
-    if (idpath) {
-      *r_path = fmt::format("{}.{}", *idpath, RNA_property_identifier(prop));
-      return true;
-    }
-  }
-
-  if (RNA_struct_is_a(ptr->type, RNA_EditBone)) {
-    /* Special case when we do this for #edit_bone.lock.
-     * (if the edit_bone is locked, it is not included in "selected_editable_bones"). */
-    const char *prop_id = RNA_property_identifier(prop);
-    if (STREQ(prop_id, "lock")) {
-      *r_lb = CTX_data_collection_get(C, "selected_bones");
-    }
-    else {
-      *r_lb = CTX_data_collection_get(C, "selected_editable_bones");
-    }
-  }
-  else if (RNA_struct_is_a(ptr->type, RNA_PoseBone)) {
-    *r_lb = CTX_data_collection_get(C, "selected_pose_bones");
-  }
-  else if (RNA_struct_is_a(ptr->type, RNA_Bone)) {
-    /* "selected_bones" or "selected_editable_bones" will only yield anything in Armature Edit
-     * mode. In other modes, it'll be empty, and the only way to get the selected bones is via
-     * "selected_pose_bones". */
-    context_selected_bones_via_pose(C, r_lb);
-  }
-  else if (RNA_struct_is_a(ptr->type, RNA_BoneColor)) {
-    /* Get the things that own the bone color (bones, pose bones, or edit bones). */
-    /* First this will be bones, then gets remapped to colors. */
-    Vector<PointerRNA> list_of_things = {};
-    switch (GS(ptr->owner_id->name)) {
-      case ID_OB:
-        list_of_things = CTX_data_collection_get(C, "selected_pose_bones");
-        break;
-      case ID_AR: {
-        /* Armature-owned bones can be accessed from both edit mode and pose mode.
-         * - Edit mode: visit selected edit bones.
-         * - Pose mode: visit the armature bones of selected pose bones.
-         */
-        const bArmature *arm = reinterpret_cast<bArmature *>(ptr->owner_id);
-        if (arm->edbo) {
-          list_of_things = CTX_data_collection_get(C, "selected_editable_bones");
-        }
-        else {
-          list_of_things = CTX_data_collection_get(C, "selected_pose_bones");
-          CTX_data_collection_remap_property(list_of_things, "bone");
-        }
-        break;
-      }
-      default:
-        printf("BoneColor is unexpectedly owned by %s '%s'\n",
-               BKE_idtype_idcode_to_name(GS(ptr->owner_id->name)),
-               ptr->owner_id->name + 2);
-        BLI_assert_msg(false,
-                       "expected BoneColor to be owned by the Armature "
-                       "(bone & edit bone) or the Object (pose bone)");
-        return false;
-    }
-
-    /* Remap from some bone to its color, to ensure the items of r_lb are of
-     * type ptr->type. Since all three structs `bPoseChan`, `Bone`, and
-     * `EditBone` have the same name for their embedded `BoneColor` struct, this
-     * code is suitable for all of them. */
-    CTX_data_collection_remap_property(list_of_things, "color");
-
-    *r_lb = list_of_things;
-  }
-  else if (RNA_struct_is_a(ptr->type, RNA_Strip)) {
+  /* Properties owned by the ID are handled by the `ptr->owner_id` case below. */
+  if (RNA_struct_is_a(ptr->type, RNA_Strip)) {
     /* Special case when we do this for 'Strip.lock'.
      * (if the strip is locked, it won't be in "selected_editable_strips"). */
     const char *prop_id = RNA_property_identifier(prop);
@@ -1268,13 +1123,6 @@ bool context_copy_to_selected_list(bContext *C,
   }
   else if (RNA_struct_is_a(ptr->type, RNA_ShapeKey)) {
     context_selected_key_blocks(ptr->owner_id, r_lb);
-  }
-  else if (const std::optional<std::string> path_from_bone =
-               RNA_path_resolve_from_type_to_property(ptr, prop, RNA_PoseBone);
-           RNA_struct_is_a(ptr->type, RNA_Constraint) && path_from_bone)
-  {
-    *r_lb = CTX_data_collection_get(C, "selected_pose_bones");
-    *r_path = path_from_bone;
   }
   else if (RNA_struct_is_a(ptr->type, RNA_Node) || RNA_struct_is_a(ptr->type, RNA_NodeSocket)) {
     Vector<PointerRNA> lb;
@@ -1927,7 +1775,7 @@ static void UI_OT_copy_driver_to_selected_button(wmOperatorType *ot)
 /** \name Jump to Target Operator
  * \{ */
 
-/** Jump to the object or bone referenced by the pointer, or check if it is possible. */
+/** Jump to the object referenced by the pointer, or check if it is possible. */
 static bool jump_to_target_ptr(bContext *C, PointerRNA ptr, const bool poll)
 {
   if (RNA_pointer_is_null(&ptr)) {
@@ -1935,20 +1783,7 @@ static bool jump_to_target_ptr(bContext *C, PointerRNA ptr, const bool poll)
   }
 
   /* Verify pointer type. */
-  char bone_name[MAXBONENAME];
-  const StructRNA *target_type = nullptr;
-
-  if (ELEM(ptr.type, RNA_EditBone, RNA_PoseBone, RNA_Bone)) {
-    RNA_string_get(&ptr, "name", bone_name);
-    if (bone_name[0] != '\0') {
-      target_type = RNA_Bone;
-    }
-  }
-  else if (RNA_struct_is_a(ptr.type, RNA_Object)) {
-    target_type = RNA_Object;
-  }
-
-  if (target_type == nullptr) {
+  if (!RNA_struct_is_a(ptr.type, RNA_Object)) {
     return false;
   }
 
@@ -1967,7 +1802,7 @@ static bool jump_to_target_ptr(bContext *C, PointerRNA ptr, const bool poll)
   }
 
   bool ok = false;
-  if ((base == nullptr) || ((target_type == RNA_Bone) && (base->object->type != OB_ARMATURE))) {
+  if (base == nullptr) {
     /* pass */
   }
   else if (poll) {
@@ -1977,21 +1812,13 @@ static bool jump_to_target_ptr(bContext *C, PointerRNA ptr, const bool poll)
     /* Make optional. */
     const bool reveal_hidden = true;
     /* Select and activate the target. */
-    if (target_type == RNA_Bone) {
-      ok = ed::object::jump_to_bone(C, base->object, bone_name, reveal_hidden);
-    }
-    else if (target_type == RNA_Object) {
-      ok = ed::object::jump_to_object(C, base->object, reveal_hidden);
-    }
-    else {
-      BLI_assert(0);
-    }
+    ok = ed::object::jump_to_object(C, base->object, reveal_hidden);
   }
   return ok;
 }
 
 /**
- * Jump to the object or bone referred to by the current UI field value.
+ * Jump to the object referred to by the current UI field value.
  *
  * \note quite heavy for a poll callback, but the operator is only
  * used as a right click menu item for certain UI field types, and
@@ -2024,7 +1851,7 @@ static bool jump_to_target_button(bContext *C, bool poll)
       if (search_but && search_but->items_update_fn == rna_collection_search_update_fn) {
         RNACollectionSearch *coll_search = static_cast<RNACollectionSearch *>(search_but->arg);
 
-        char str_buf[MAXBONENAME];
+        char str_buf[MAX_ID_NAME];
         char *str_ptr = RNA_property_string_get_alloc(
             &ptr, prop, str_buf, sizeof(str_buf), nullptr);
 
@@ -2067,7 +1894,7 @@ static void UI_OT_jump_to_target_button(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Jump to Target";
   ot->idname = "UI_OT_jump_to_target_button";
-  ot->description = "Switch to the target object or bone";
+  ot->description = "Switch to the target object";
 
   /* callbacks */
   ot->poll = jump_to_target_button_poll;
@@ -3239,7 +3066,6 @@ void operatortypes_ui()
   WM_operatortype_append(UI_OT_eyedropper_id);
   WM_operatortype_append(UI_OT_eyedropper_depth);
   WM_operatortype_append(UI_OT_eyedropper_driver);
-  WM_operatortype_append(UI_OT_eyedropper_bone);
   WM_menutype_add(UI_MT_color_space_select());
 }
 

@@ -207,7 +207,6 @@ enum eAnim_ChannelType {
   ANIMTYPE_DSNTREE,
   ANIMTYPE_DSPART,
   ANIMTYPE_DSMBALL,
-  ANIMTYPE_DSARM,
   ANIMTYPE_DSMESH,
   ANIMTYPE_DSTEX,
   ANIMTYPE_DSLAT,
@@ -447,7 +446,6 @@ ENUM_OPERATORS(eAnimFilter_Flags);
 #define FILTER_PART_OBJD(part) \
   (CHECK_TYPE_INLINE(part, ParticleSettings *), (((part)->flag & PART_DS_EXPAND)))
 #define FILTER_MBALL_OBJD(mb) (CHECK_TYPE_INLINE(mb, MetaBall *), ((mb->flag2 & MB_DS_EXPAND)))
-#define FILTER_ARM_OBJD(arm) (CHECK_TYPE_INLINE(arm, bArmature *), ((arm->flag & ARM_DS_EXPAND)))
 #define FILTER_MESH_OBJD(me) (CHECK_TYPE_INLINE(me, Mesh *), ((me->flag & ME_DS_EXPAND)))
 #define FILTER_LATTICE_OBJD(lt) (CHECK_TYPE_INLINE(lt, Lattice *), ((lt->flag & LT_DS_EXPAND)))
 #define FILTER_SPK_OBJD(spk) (CHECK_TYPE_INLINE(spk, Speaker *), ((spk->flag & SPK_DS_EXPAND)))
@@ -541,8 +539,7 @@ ENUM_OPERATORS(eAnimFilter_Flags);
  * included.
  *
  * \param animated_id: the particular animated ID that the slot channels are
- * being generated for. This is needed for filtering channels based on bone
- * selection, and also for resolving the names of animated properties. This
+ * being generated for. This is needed for resolving the names of animated properties. This
  * should never be null, but it's okay(ish) if it's an ID not actually animated
  * by the slot, in which case it will act as a fallback in case an ID actually
  * animated by the slot can't be found.
@@ -1264,8 +1261,7 @@ void animviz_calc_motionpaths(Depsgraph *depsgraph,
                               eAnimvizCalcRange range);
 
 /**
- * Update motion path computation range (in `ob.avs` or `armature.avs`) from user choice in
- * `ob.avs.path_range` or `arm.avs.path_range`, depending on active user mode.
+ * Update motion path computation range from the user's chosen path range.
  *
  * \param ob: Object to compute range for (must be provided)
  * \param scene: Used when scene range is chosen.
@@ -1273,8 +1269,8 @@ void animviz_calc_motionpaths(Depsgraph *depsgraph,
 void animviz_motionpath_compute_range(Object *ob, Scene *scene);
 
 /**
- * Populate the given vector with MPathTarget elements for the given object.
- * Will look for pose bones as well. `animviz_free_motionpath_targets` needs to be called
+ * Populate the given vector with the object's MPathTarget. `animviz_free_motionpath_targets` needs
+ * to be called
  * to free the memory allocated in this function.
  */
 void animviz_build_motionpath_targets(Object *ob, Vector<MPathTarget *> &r_targets);

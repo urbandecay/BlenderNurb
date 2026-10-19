@@ -218,17 +218,7 @@ def do_previews(do_objects, do_collections, do_scenes, do_data_intern):
         return success
 
     def object_bbox_merge(bbox, ob, ob_space, offset_matrix):
-        # Take collections instances into account (including linked one in this case).
-        if ob.type == 'EMPTY' and ob.instance_type == 'COLLECTION':
-            grp_objects = tuple((ob.name, ob.library.filepath if ob.library else None)
-                                for ob in ob.instance_collection.all_objects)
-            if (len(grp_objects) == 0):
-                ob_bbox = ob.bound_box
-            else:
-                coords = objects_bbox_calc(ob_space, grp_objects,
-                                           Matrix.Translation(ob.instance_collection.instance_offset).inverted())
-                ob_bbox = ((coords[0], coords[1], coords[2]), (coords[21], coords[22], coords[23]))
-        elif ob.bound_box:
+        if ob.bound_box:
             ob_bbox = ob.bound_box
         else:
             ob_bbox = ((-ob.scale.x, -ob.scale.y, -ob.scale.z), (ob.scale.x, ob.scale.y, ob.scale.z))
@@ -383,12 +373,7 @@ def do_previews(do_objects, do_collections, do_scenes, do_data_intern):
             scene = bpy.data.scenes[render_context.scene, None]
             bpy.context.window.scene = scene
 
-            bpy.ops.object.collection_instance_add(collection=grp.name)
-            grp_ob = next((
-                ob for ob in scene.objects
-                if ob.instance_collection and ob.instance_collection.name == grp.name
-            ))
-            grp_obname = grp_ob.name
+            scene.collection.children.link(grp)
             bpy.context.view_layer.update()
 
             offset_matrix = Matrix.Translation(grp.instance_offset).inverted()
@@ -396,7 +381,7 @@ def do_previews(do_objects, do_collections, do_scenes, do_data_intern):
             preview_render_do(render_context, "collections", grp.name, objects, offset_matrix)
 
             scene = bpy.data.scenes[render_context.scene, None]
-            scene.collection.objects.unlink(bpy.data.objects[grp_obname, None])
+            scene.collection.children.unlink(grp)
 
     bpy.context.window.scene = bpy.data.scenes[prev_scenename, None]
     for render_context in render_contexts.values():

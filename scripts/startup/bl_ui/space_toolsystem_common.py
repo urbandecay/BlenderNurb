@@ -77,9 +77,7 @@ ToolDef = namedtuple(
         #
         # - `()` an empty tuple for a default name.
         #   This is convenience functionality for generating a key-map name.
-        #   So if a tool name is "Bone Size", in "Edit Armature" mode for the "3D View",
-        #   All of these values are combined into an id, e.g:
-        #     "3D View Tool: Edit Armature, Bone Envelope"
+        #   All of these values are combined into an id for the tool.
         #
         #   Typically searching for a string ending with the tool name
         #   in the default key-map will lead you to the key-map for a tool.

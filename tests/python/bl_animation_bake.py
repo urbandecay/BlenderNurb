@@ -16,7 +16,6 @@ blender -b --factory-startup --python tests/python/bl_animation_bake.py
 
 OBJECT_BAKE_OPTIONS = anim_utils.BakeOptions(
     only_selected=False,
-    do_pose=False,
     do_object=True,
     do_visual_keying=False,
     do_constraint_clear=False,
@@ -24,7 +23,6 @@ OBJECT_BAKE_OPTIONS = anim_utils.BakeOptions(
     do_location=True,
     do_rotation=True,
     do_scale=True,
-    do_bbone=False,
     do_custom_props=False,
 )
 
@@ -35,7 +33,7 @@ class ObjectBakeTest(unittest.TestCase):
 
     def setUp(self) -> None:
         bpy.ops.wm.read_homefile(use_factory_startup=True)
-        self.obj = bpy.data.objects.new("test_object", None)
+        self.obj = bpy.data.objects.new("test_object", bpy.data.meshes.new("test_mesh"))
         bpy.context.scene.collection.objects.link(self.obj)
         self.obj.animation_data_create()
 
@@ -117,7 +115,7 @@ class ObjectBakeTest(unittest.TestCase):
                 self.assertEqual(len(fcurve.keyframe_points), 10, f"Unexpected key count on {fcurve.data_path}")
 
     def test_bake_object_multi_slot_to_new_action(self):
-        obj2 = bpy.data.objects.new("obj2", None)
+        obj2 = bpy.data.objects.new("obj2", bpy.data.meshes.new("obj2_mesh"))
         bpy.context.scene.collection.objects.link(obj2)
         action = bpy.data.actions.new("test_action")
         self.obj.animation_data.action = action
@@ -163,7 +161,7 @@ class ObjectBakeTest(unittest.TestCase):
                                        6, f"Unexpected key y position on {fcurve.data_path}")
 
     def test_bake_object_multi_slot_to_existing_action(self):
-        obj2 = bpy.data.objects.new("obj2", None)
+        obj2 = bpy.data.objects.new("obj2", bpy.data.meshes.new("obj2_mesh"))
         bpy.context.scene.collection.objects.link(obj2)
         action = bpy.data.actions.new("test_action")
         self.obj.animation_data.action = action

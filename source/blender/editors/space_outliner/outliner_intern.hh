@@ -25,7 +25,6 @@ namespace blender {
 
 struct ARegion;
 struct Collection;
-struct EditBone;
 struct ID;
 struct LayerCollection;
 struct Main;
@@ -35,7 +34,6 @@ struct TreeStoreElem;
 struct ViewLayer;
 struct bContext;
 struct bContextDataResult;
-struct bPoseChannel;
 struct View2D;
 struct wmKeyConfig;
 struct wmOperatorType;
@@ -126,7 +124,7 @@ struct TreeElement {
   short idcode;              /* From TreeStore id. */
   short xend;                /* Width of item display, for select. */
   const char *name;
-  void *directdata; /* Armature Bones, Base, ... */
+  void *directdata; /* Element-specific data. */
 };
 
 struct TreeElementIcon {
@@ -154,7 +152,6 @@ struct TreeElementIcon {
         ID_WO, \
         ID_SPK, \
         ID_GR, \
-        ID_AR, \
         ID_AC, \
         ID_BR, \
         ID_PA, \
@@ -253,10 +250,6 @@ struct TreeViewContext {
   /** Avoid `BKE_view_layer_active_object_get` everywhere. */
   Object *obact;
   Object *ob_edit;
-  /**
-   * The pose object may not be the active object (when in weight paint mode).
-   * Checking this in draw loops isn't efficient, so set only once. */
-  Object *ob_pose;
 };
 
 enum TreeItemSelectAction {
@@ -358,8 +351,6 @@ void tree_element_activate(bContext *C,
 eOLDrawState tree_element_active_state_get(const TreeViewContext &tvc,
                                            const TreeElement *te,
                                            const TreeStoreElem *tselem);
-
-bPoseChannel *outliner_find_parent_bone(TreeElement *te, TreeElement **r_bone_te);
 
 /**
  * Select the item using the set flags.
@@ -573,7 +564,6 @@ void OUTLINER_OT_collection_hierarchy_delete(wmOperatorType *ot);
 void OUTLINER_OT_collection_objects_select(wmOperatorType *ot);
 void OUTLINER_OT_collection_objects_deselect(wmOperatorType *ot);
 void OUTLINER_OT_collection_link(wmOperatorType *ot);
-void OUTLINER_OT_collection_instance(wmOperatorType *ot);
 void OUTLINER_OT_collection_exclude_set(wmOperatorType *ot);
 void OUTLINER_OT_collection_exclude_clear(wmOperatorType *ot);
 void OUTLINER_OT_collection_holdout_set(wmOperatorType *ot);
@@ -635,8 +625,6 @@ TreeElement *outliner_find_id(SpaceOutliner *space_outliner,
                               ListBaseT<TreeElement> *lb,
                               const ID *id,
                               TreeElementFlag exclude_flags);
-TreeElement *outliner_find_posechannel(ListBaseT<TreeElement> *lb, const bPoseChannel *pchan);
-TreeElement *outliner_find_editbone(ListBaseT<TreeElement> *lb, const EditBone *ebone);
 TreeElement *outliner_search_back_te(TreeElement *te, short idcode);
 ID *outliner_search_back(TreeElement *te, short idcode);
 /**

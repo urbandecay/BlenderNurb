@@ -52,7 +52,6 @@
 #include "UI_interface.hh"
 #include "UI_view2d.hh"
 
-#include "ED_armature.hh"
 #include "ED_keyframes_edit.hh" /* XXX move the select modes out of there! */
 #include "ED_markers.hh"
 #include "ED_object.hh"
@@ -217,7 +216,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_DSWOR:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSTEX:
       case ANIMTYPE_DSLAT:
@@ -289,7 +287,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_DSWOR:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSLAT:
       case ANIMTYPE_DSLINESTYLE:
@@ -338,7 +335,6 @@ bool ANIM_is_active_channel(bAnimListElem *ale)
     case ANIMTYPE_DSWOR:
     case ANIMTYPE_DSPART:
     case ANIMTYPE_DSMBALL:
-    case ANIMTYPE_DSARM:
     case ANIMTYPE_DSMESH:
     case ANIMTYPE_DSNTREE:
     case ANIMTYPE_DSTEX:
@@ -384,39 +380,6 @@ bool ANIM_is_active_channel(bAnimListElem *ale)
       break;
   }
   return false;
-}
-
-/* change_active determines whether to change the active bone of the armature when selecting pose
- * channels. It is false during range selection otherwise true. */
-static void select_pchan_for_action_group(bAnimContext *ac,
-                                          bActionGroup *agrp,
-                                          bAnimListElem *ale,
-                                          const bool change_active)
-{
-  /* Armatures-Specific Feature:
-   * See mouse_anim_channels() -> ANIMTYPE_GROUP case for more details (#38737)
-   */
-  if ((ac->filters.flag & ADS_FILTER_ONLYSEL) == 0) {
-    if ((ale->id) && (GS(ale->id->name) == ID_OB)) {
-      Object *ob = reinterpret_cast<Object *>(ale->id);
-      if (ob->type == OB_ARMATURE) {
-        /* Assume for now that any group with corresponding name is what we want
-         * (i.e. for an armature whose location is animated, things would break
-         * if the user were to add a bone named "Location").
-         *
-         * TODO: check the first F-Curve or so to be sure...
-         */
-        bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, agrp->name);
-
-        if (agrp->flag & AGRP_SELECTED) {
-          ED_pose_bone_select(ob, pchan, true, change_active);
-        }
-        else {
-          ED_pose_bone_select(ob, pchan, false, change_active);
-        }
-      }
-    }
-  }
 }
 
 static ListBaseT<bAnimListElem> anim_channels_for_selection(bAnimContext *ac)
@@ -489,7 +452,6 @@ static eAnimChannels_SetFlag anim_channels_selection_flag_for_toggle(
       case ANIMTYPE_DSWOR:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSTEX:
@@ -604,7 +566,6 @@ static void anim_channels_select_set(bAnimContext *ac,
       case ANIMTYPE_GROUP: {
         bActionGroup *agrp = static_cast<bActionGroup *>(ale.data);
         ACHANNEL_SET_FLAG(agrp, sel, AGRP_SELECTED);
-        select_pchan_for_action_group(ac, agrp, &ale, change_active);
         if (change_active) {
           agrp->flag &= ~AGRP_ACTIVE;
         }
@@ -651,7 +612,6 @@ static void anim_channels_select_set(bAnimContext *ac,
       case ANIMTYPE_DSWOR:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSTEX:
@@ -2396,7 +2356,6 @@ static bool animchannels_delete_containers(const bContext *C, bAnimContext *ac)
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSTEX:
       case ANIMTYPE_DSLAT:
@@ -2542,7 +2501,6 @@ static wmOperatorStatus animchannels_delete_exec(bContext *C, wmOperator * /*op*
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSTEX:
       case ANIMTYPE_DSLAT:
@@ -3327,7 +3285,6 @@ static void box_select_anim_channels(bAnimContext *ac, const rcti &rect, short s
       switch (ale.type) {
         case ANIMTYPE_GROUP: {
           bActionGroup *agrp = static_cast<bActionGroup *>(ale.data);
-          select_pchan_for_action_group(ac, agrp, &ale, true);
           /* always clear active flag after doing this */
           agrp->flag &= ~AGRP_ACTIVE;
           break;
@@ -3369,7 +3326,6 @@ static void box_select_anim_channels(bAnimContext *ac, const rcti &rect, short s
         case ANIMTYPE_DSNTREE:
         case ANIMTYPE_DSPART:
         case ANIMTYPE_DSMBALL:
-        case ANIMTYPE_DSARM:
         case ANIMTYPE_DSMESH:
         case ANIMTYPE_DSTEX:
         case ANIMTYPE_DSLAT:
@@ -3698,16 +3654,10 @@ static void animchannel_select_range(bAnimContext *ac, bAnimListElem *cursor_ele
       /* Select first and last element from the range. Reverse selection status on extremes. */
       ANIM_channel_setting_set(ac, &ale, ACHANNEL_SETTING_SELECT, ACHANNEL_SETFLAG_ADD);
       in_selection_range = !in_selection_range;
-      if (ale.type == ANIMTYPE_GROUP) {
-        select_pchan_for_action_group(ac, static_cast<bActionGroup *>(ale.data), &ale, false);
-      }
     }
     else if (in_selection_range) {
       /* Select elements between the range. */
       ANIM_channel_setting_set(ac, &ale, ACHANNEL_SETTING_SELECT, ACHANNEL_SETFLAG_ADD);
-      if (ale.type == ANIMTYPE_GROUP) {
-        select_pchan_for_action_group(ac, static_cast<bActionGroup *>(ale.data), &ale, false);
-      }
     }
 
     if (is_active_elem && is_cursor_elem) {
@@ -3819,33 +3769,6 @@ static int click_select_channel_group(bAnimContext *ac,
                                       const int filter)
 {
   bActionGroup *agrp = static_cast<bActionGroup *>(ale->data);
-  Object *ob = nullptr;
-  bPoseChannel *pchan = nullptr;
-
-  /* Armatures-Specific Feature:
-   * Since groups are used to collect F-Curves of the same Bone by default
-   * (via Keying Sets) so that they can be managed better, we try to make
-   * things here easier for animators by mapping group selection to bone
-   * selection.
-   *
-   * Only do this if "Only Selected" dope-sheet filter is not active, or else it
-   * becomes too unpredictable/tricky to manage
-   */
-  if ((ac->filters.flag & ADS_FILTER_ONLYSEL) == 0) {
-    if ((ale->id) && (GS(ale->id->name) == ID_OB)) {
-      ob = reinterpret_cast<Object *>(ale->id);
-
-      if (ob->type == OB_ARMATURE) {
-        /* Assume for now that any group with corresponding name is what we want
-         * (i.e. for an armature whose location is animated, things would break
-         * if the user were to add a bone named "Location").
-         *
-         * TODO: check the first F-Curve or so to be sure...
-         */
-        pchan = BKE_pose_channel_find_name(ob->pose, agrp->name);
-      }
-    }
-  }
 
   /* select/deselect group */
   if (selectmode == SELECT_INVERT) {
@@ -3862,9 +3785,6 @@ static int click_select_channel_group(bAnimContext *ac,
 
     /* deselect all other channels */
     ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_CLEAR);
-    if (pchan) {
-      ED_pose_deselect_all(ob, SEL_DESELECT, false);
-    }
 
     /* only select channels in group and group itself */
     for (fcu = static_cast<FCurve *>(agrp->channels.first); fcu && fcu->grp == agrp;
@@ -3877,9 +3797,6 @@ static int click_select_channel_group(bAnimContext *ac,
   else {
     /* select group by itself */
     ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_CLEAR);
-    if (pchan) {
-      ED_pose_deselect_all(ob, SEL_DESELECT, false);
-    }
 
     agrp->flag |= AGRP_SELECTED;
   }
@@ -3894,9 +3811,6 @@ static int click_select_channel_group(bAnimContext *ac,
                               eAnimFilter_Flags(filter),
                               agrp,
                               ANIMTYPE_GROUP);
-      if (pchan) {
-        ED_pose_bone_select(ob, pchan, true, true);
-      }
     }
   }
   else {
@@ -3907,9 +3821,6 @@ static int click_select_channel_group(bAnimContext *ac,
                               eAnimFilter_Flags(filter),
                               nullptr,
                               ANIMTYPE_GROUP);
-      if (pchan) {
-        ED_pose_bone_select(ob, pchan, false, true);
-      }
     }
   }
 
@@ -4132,7 +4043,6 @@ static int mouse_anim_channels(bContext *C,
     case ANIMTYPE_DSWOR:
     case ANIMTYPE_DSPART:
     case ANIMTYPE_DSMBALL:
-    case ANIMTYPE_DSARM:
     case ANIMTYPE_DSMESH:
     case ANIMTYPE_DSNTREE:
     case ANIMTYPE_DSTEX:

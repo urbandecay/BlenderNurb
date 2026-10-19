@@ -38,7 +38,6 @@
 #include "BKE_library.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_mapping.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_object_deform.h"
 #include "BKE_report.hh"
@@ -48,7 +47,6 @@
 
 #include "BLT_translation.hh"
 
-#include "DNA_armature_types.h"
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
@@ -113,22 +111,6 @@ static Lattice *vgroup_edit_lattice(Object *ob)
 /* -------------------------------------------------------------------- */
 /** \name Public Utility Functions
  * \{ */
-
-bool vgroup_sync_from_pose(Object *ob)
-{
-  Object *armobj = BKE_object_pose_armature_get(ob);
-  if (armobj && (armobj->mode & OB_MODE_POSE)) {
-    bArmature *arm = id_cast<bArmature *>(armobj->data);
-    if (arm->act_bone) {
-      int def_num = BKE_object_defgroup_name_index(ob, arm->act_bone->name);
-      if (def_num != -1) {
-        BKE_object_defgroup_active_index_set(ob, def_num + 1);
-        return true;
-      }
-    }
-  }
-  return false;
-}
 
 void vgroup_data_clamp_range(ID *id, const int total)
 {
@@ -701,16 +683,6 @@ static void vgroup_copy_active_to_sel(Object *ob, eVGroupSelect subset_type)
 
 static const EnumPropertyItem WT_vertex_group_select_item[] = {
     {WT_VGROUP_ACTIVE, "ACTIVE", 0, N_("Active Group"), N_("The active Vertex Group")},
-    {WT_VGROUP_BONE_SELECT,
-     "BONE_SELECT",
-     0,
-     N_("Selected Pose Bones"),
-     N_("All Vertex Groups assigned to Selection")},
-    {WT_VGROUP_BONE_DEFORM,
-     "BONE_DEFORM",
-     0,
-     N_("Deform Pose Bones"),
-     N_("All Vertex Groups assigned to Deform Bones")},
     {WT_VGROUP_ALL, "ALL", 0, N_("All Groups"), N_("All Vertex Groups")},
     {0, nullptr, 0, nullptr, nullptr},
 };
@@ -735,22 +707,6 @@ const EnumPropertyItem *vgroup_selection_itemf_helper(const bContext *C,
     RNA_enum_items_add_value(&item, &totitem, WT_vertex_group_select_item, WT_VGROUP_ACTIVE);
   }
 
-  if (ob) {
-    if (BKE_object_pose_armature_get(ob)) {
-      if (selection_mask & (1 << WT_VGROUP_BONE_SELECT)) {
-        RNA_enum_items_add_value(
-            &item, &totitem, WT_vertex_group_select_item, WT_VGROUP_BONE_SELECT);
-      }
-    }
-
-    if (BKE_modifiers_is_deformed_by_armature(ob)) {
-      if (selection_mask & (1 << WT_VGROUP_BONE_DEFORM)) {
-        RNA_enum_items_add_value(
-            &item, &totitem, WT_vertex_group_select_item, WT_VGROUP_BONE_DEFORM);
-      }
-    }
-  }
-
   if (selection_mask & (1 << WT_VGROUP_ALL)) {
     RNA_enum_items_add_value(&item, &totitem, WT_vertex_group_select_item, WT_VGROUP_ALL);
   }
@@ -766,7 +722,8 @@ static const EnumPropertyItem *rna_vertex_group_with_single_itemf(bContext *C,
                                                                   PropertyRNA *prop,
                                                                   bool *r_free)
 {
-  return vgroup_selection_itemf_helper(C, ptr, prop, r_free, WT_VGROUP_MASK_ALL);
+  return vgroup_selection_itemf_helper(
+      C, ptr, prop, r_free, (1 << WT_VGROUP_ACTIVE) | (1 << WT_VGROUP_ALL));
 }
 
 static const EnumPropertyItem *rna_vertex_group_select_itemf(bContext *C,
@@ -775,7 +732,7 @@ static const EnumPropertyItem *rna_vertex_group_select_itemf(bContext *C,
                                                              bool *r_free)
 {
   return vgroup_selection_itemf_helper(
-      C, ptr, prop, r_free, WT_VGROUP_MASK_ALL & ~(1 << WT_VGROUP_ACTIVE));
+      C, ptr, prop, r_free, 1 << WT_VGROUP_ALL);
 }
 
 static void vgroup_operator_subset_select_props(wmOperatorType *ot, bool use_active)
@@ -998,8 +955,6 @@ float vgroup_vert_weight(Object *ob, bDeformGroup *dg, int vertnum)
 
 void vgroup_select_by_name(Object *ob, const char *name)
 {
-  /* NOTE: `actdef == 0` signals on painting to create a new one,
-   * if a bone in pose-mode is selected. */
   BKE_object_defgroup_active_index_set(ob, BKE_object_defgroup_name_index(ob, name) + 1);
 }
 
@@ -1337,36 +1292,6 @@ static bool vgroup_normalize_all(Object *ob,
   return !all_locked;
 }
 
-/**
- * If the currently active vertex group is for a deform bone, normalize all
- * vertex groups that are for deform bones.
- *
- * \param soft_lock_active: If true, the active vertex group is treated as "soft
- * locked". See `BKE_defvert_normalize_ex()`'s documentation for details of what
- * that means.
- */
-static void vgroup_normalize_all_deform_if_active_is_deform(Object *ob,
-                                                            const int def_nr,
-                                                            const bool soft_lock_active,
-                                                            ReportList *reports)
-{
-  BLI_assert(BLI_findlink(BKE_object_defgroup_list(ob), def_nr));
-  const int defgroup_tot = BKE_object_defgroup_count(ob);
-  bool *defgroup_validmap = BKE_object_defgroup_validmap_get(ob, defgroup_tot);
-
-  /* Only auto-normalize if the active group is bone-deforming. */
-  if (defgroup_validmap[def_nr] == true) {
-    int subset_count, vgroup_tot;
-    const bool *vgroup_validmap = BKE_object_defgroup_subset_from_select_type(
-        ob, WT_VGROUP_BONE_DEFORM, &vgroup_tot, &subset_count);
-
-    vgroup_normalize_all(ob, vgroup_validmap, vgroup_tot, false, soft_lock_active, reports);
-    MEM_SAFE_DELETE(vgroup_validmap);
-  }
-
-  MEM_SAFE_DELETE(defgroup_validmap);
-}
-
 enum {
   VGROUP_TOGGLE,
   VGROUP_LOCK,
@@ -1386,83 +1311,14 @@ static const EnumPropertyItem vgroup_lock_actions[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-enum {
-  VGROUP_MASK_ALL,
-  VGROUP_MASK_SELECTED,
-  VGROUP_MASK_UNSELECTED,
-  VGROUP_MASK_INVERT_UNSELECTED,
-};
-
-static const EnumPropertyItem vgroup_lock_mask[] = {
-    {VGROUP_MASK_ALL, "ALL", 0, "All", "Apply action to all vertex groups"},
-    {VGROUP_MASK_SELECTED, "SELECTED", 0, "Selected", "Apply to selected vertex groups"},
-    {VGROUP_MASK_UNSELECTED, "UNSELECTED", 0, "Unselected", "Apply to unselected vertex groups"},
-    {VGROUP_MASK_INVERT_UNSELECTED,
-     "INVERT_UNSELECTED",
-     0,
-     "Invert Unselected",
-     "Apply the opposite of Lock/Unlock to unselected vertex groups"},
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
-static bool *vgroup_selected_get(Object *ob)
+static void vgroup_lock_all(Object *ob, int action)
 {
-  int sel_count = 0, defbase_tot = BKE_object_defgroup_count(ob);
-  bool *mask;
-
-  if (ob->mode & OB_MODE_WEIGHT_PAINT) {
-    mask = BKE_object_defgroup_selected_get(ob, defbase_tot, &sel_count);
-
-    /* Mirror the selection if X Mirror is enabled. */
-    Mesh *mesh = BKE_mesh_from_object(ob);
-
-    if (mesh && ME_USING_MIRROR_X_VERTEX_GROUPS(mesh)) {
-      BKE_object_defgroup_mirror_selection(ob, defbase_tot, mask, mask, &sel_count);
-    }
-  }
-  else {
-    mask = MEM_new_array_zeroed<bool>(defbase_tot, __func__);
-  }
-
-  const int actdef = BKE_object_defgroup_active_index_get(ob);
-  if (sel_count == 0 && actdef >= 1 && actdef <= defbase_tot) {
-    mask[actdef - 1] = true;
-  }
-
-  return mask;
-}
-
-static void vgroup_lock_all(Object *ob, int action, int mask)
-{
-  bDeformGroup *dg;
-  bool *selected = nullptr;
-  int i;
-
-  if (mask != VGROUP_MASK_ALL) {
-    selected = vgroup_selected_get(ob);
-  }
   const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(ob);
 
   if (action == VGROUP_TOGGLE) {
     action = VGROUP_LOCK;
 
-    for (dg = static_cast<bDeformGroup *>(defbase->first), i = 0; dg; dg = dg->next, i++) {
-      switch (mask) {
-        case VGROUP_MASK_INVERT_UNSELECTED:
-        case VGROUP_MASK_SELECTED:
-          if (!selected[i]) {
-            continue;
-          }
-          break;
-        case VGROUP_MASK_UNSELECTED:
-          if (selected[i]) {
-            continue;
-          }
-          break;
-        default:
-          break;
-      }
-
+    for (bDeformGroup *dg = static_cast<bDeformGroup *>(defbase->first); dg; dg = dg->next) {
       if (dg->flag & DG_LOCK_WEIGHT) {
         action = VGROUP_UNLOCK;
         break;
@@ -1470,22 +1326,7 @@ static void vgroup_lock_all(Object *ob, int action, int mask)
     }
   }
 
-  for (dg = static_cast<bDeformGroup *>(defbase->first), i = 0; dg; dg = dg->next, i++) {
-    switch (mask) {
-      case VGROUP_MASK_SELECTED:
-        if (!selected[i]) {
-          continue;
-        }
-        break;
-      case VGROUP_MASK_UNSELECTED:
-        if (selected[i]) {
-          continue;
-        }
-        break;
-      default:
-        break;
-    }
-
+  for (bDeformGroup *dg = static_cast<bDeformGroup *>(defbase->first); dg; dg = dg->next) {
     switch (action) {
       case VGROUP_LOCK:
         dg->flag |= DG_LOCK_WEIGHT;
@@ -1497,14 +1338,6 @@ static void vgroup_lock_all(Object *ob, int action, int mask)
         dg->flag ^= DG_LOCK_WEIGHT;
         break;
     }
-
-    if (mask == VGROUP_MASK_INVERT_UNSELECTED && !selected[i]) {
-      dg->flag ^= DG_LOCK_WEIGHT;
-    }
-  }
-
-  if (selected) {
-    MEM_delete(selected);
   }
 }
 
@@ -1789,101 +1622,63 @@ static void vgroup_smooth_subset(Object *ob,
   }
 }
 
-static int inv_cmp_mdef_vert_weights(const void *a1, const void *a2)
+static bool weight_greater(const MDeformWeight &a, const MDeformWeight &b)
 {
-  /* #qsort sorts in ascending order. We want descending order to save a #memcpy
-   * so this compare function is inverted from the standard greater than comparison #qsort needs.
-   * A normal compare function is called with two pointer arguments and should return an integer
-   * less than, equal to, or greater than zero corresponding to whether its first argument is
-   * considered less than, equal to, or greater than its second argument.
-   * This does the opposite. */
-  const MDeformWeight *dw1 = static_cast<const MDeformWeight *>(a1);
-  const MDeformWeight *dw2 = static_cast<const MDeformWeight *>(a2);
-
-  if (dw1->weight < dw2->weight) {
-    return 1;
-  }
-  if (dw1->weight > dw2->weight) {
-    return -1;
-  }
-
-  /* Compare address for stable sort algorithm. */
-  if (&dw1 < &dw2) {
-    return 1;
-  }
-  if (&dw1 > &dw2) {
-    return -1;
-  }
-  return 0;
+  return a.weight > b.weight;
 }
 
-/* Used for limiting the number of influencing bones per vertex when exporting
- * skinned meshes.  if all_deform_weights is True, limit all deform modifiers
- * to max_weights regardless of type, otherwise,
- * only limit the number of influencing bones per vertex. */
+/* Keep only the strongest weights from the requested vertex-group subset. */
 static int vgroup_limit_total_subset(Object *ob,
-                                     const bool *vgroup_validmap,
-                                     const int vgroup_tot,
+                                     const bool *group_mask,
+                                     const int group_tot,
                                      const int subset_count,
                                      const int max_weights)
 {
   MDeformVert *dv, **dvert_array = nullptr;
-  int i, dvert_tot = 0;
+  int dvert_tot = 0;
   const bool use_vert_sel = vertex_group_use_vert_sel(ob);
   int remove_tot = 0;
 
   vgroup_parray_alloc(ob->data, &dvert_array, &dvert_tot, use_vert_sel);
 
   if (dvert_array) {
-    int num_to_drop = 0;
-
-    for (i = 0; i < dvert_tot; i++) {
-
-      MDeformWeight *dw_temp;
-      int bone_count = 0, non_bone_count = 0;
-      int j;
-
-      /* in case its not selected */
+    for (int i = 0; i < dvert_tot; i++) {
       if (!(dv = dvert_array[i])) {
         continue;
       }
 
-      num_to_drop = subset_count - max_weights;
+      if (subset_count <= max_weights) {
+        continue;
+      }
 
-      /* first check if we even need to test further */
-      if (num_to_drop > 0) {
-        /* re-pack dw array so that non-bone weights are first, bone-weighted verts at end
-         * sort the tail, then copy only the truncated array back to dv->dw */
-        dw_temp = MEM_new_array_uninitialized<MDeformWeight>(dv->totweight, __func__);
-        bone_count = 0;
-        non_bone_count = 0;
-        for (j = 0; j < dv->totweight; j++) {
-          if (LIKELY(dv->dw[j].def_nr < vgroup_tot) && vgroup_validmap[dv->dw[j].def_nr]) {
-            dw_temp[dv->totweight - 1 - bone_count] = dv->dw[j];
-            bone_count += 1;
-          }
-          else {
-            dw_temp[non_bone_count] = dv->dw[j];
-            non_bone_count += 1;
-          }
-        }
-        BLI_assert(bone_count + non_bone_count == dv->totweight);
-        num_to_drop = bone_count - max_weights;
-        if (num_to_drop > 0) {
-          qsort(&dw_temp[non_bone_count],
-                bone_count,
-                sizeof(MDeformWeight),
-                inv_cmp_mdef_vert_weights);
-          dv->totweight -= num_to_drop;
-          /* Do we want to clean/normalize here? */
-          MEM_delete(dv->dw);
-          dv->dw = static_cast<MDeformWeight *>(
-              MEM_realloc_uninitialized(dw_temp, sizeof(MDeformWeight) * dv->totweight));
-          remove_tot += num_to_drop;
+      MDeformWeight *weights = MEM_new_array_uninitialized<MDeformWeight>(dv->totweight, __func__);
+      int subset_weight_count = 0;
+      int other_weight_count = 0;
+      for (int j = 0; j < dv->totweight; j++) {
+        const int group_index = dv->dw[j].def_nr;
+        if (group_index < group_tot && group_mask[group_index]) {
+          weights[dv->totweight - 1 - subset_weight_count] = dv->dw[j];
+          subset_weight_count++;
         }
         else {
-          MEM_delete(dw_temp);
+          weights[other_weight_count] = dv->dw[j];
+          other_weight_count++;
         }
+      }
+
+      const int to_remove = subset_weight_count - max_weights;
+      if (to_remove > 0) {
+        std::sort(weights + other_weight_count,
+                  weights + other_weight_count + subset_weight_count,
+                  weight_greater);
+        dv->totweight -= to_remove;
+        MEM_delete(dv->dw);
+        dv->dw = static_cast<MDeformWeight *>(
+            MEM_realloc_uninitialized(weights, sizeof(MDeformWeight) * dv->totweight));
+        remove_tot += to_remove;
+      }
+      else {
+        MEM_delete(weights);
       }
     }
     MEM_delete(dvert_array);
@@ -2223,14 +2018,6 @@ void vgroup_mirror(Object *ob,
       }
     }
   }
-
-  /* disabled, confusing when you have an active pose bone */
-#if 0
-  /* flip active group index */
-  if (flip_vgroups && flip_map[def_nr] >= 0) {
-    ob->actdef = flip_map[def_nr] + 1;
-  }
-#endif
 
 cleanup:
   *r_totmirr = totmirr;
@@ -2603,10 +2390,6 @@ static wmOperatorStatus vertex_group_assign_exec(bContext *C, wmOperator *op)
 
   vgroup_assign_verts(ob, scene, def_nr, ts->vgroup_weight);
 
-  if (ts->auto_normalize) {
-    vgroup_normalize_all_deform_if_active_is_deform(ob, def_nr, true, op->reports);
-  }
-
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -2689,14 +2472,6 @@ static wmOperatorStatus vertex_group_remove_from_exec(bContext *C, wmOperator *o
         BLI_findlink(defbase, BKE_object_defgroup_active_index_get(ob) - 1));
     if (dg == nullptr || BKE_object_defgroup_clear(ob, dg, !use_all_verts) == false) {
       return OPERATOR_CANCELLED;
-    }
-  }
-
-  ToolSettings *ts = CTX_data_tool_settings(C);
-  if (ts->auto_normalize) {
-    const int def_nr = BKE_object_defgroup_active_index_get(ob) - 1;
-    if (def_nr >= 0) {
-      vgroup_normalize_all_deform_if_active_is_deform(ob, def_nr, true, op->reports);
     }
   }
 
@@ -2931,40 +2706,10 @@ void OBJECT_OT_vertex_group_normalize(wmOperatorType *ot)
 /** \name Vertex Group Normalize All Operator
  * \{ */
 
-/*
- * For a given object, determine which target vertex group to normalize.
- */
-static eVGroupSelect normalize_vertex_group_target(Object *ob)
-{
-  /* Default to All Groups. */
-  eVGroupSelect target_group = WT_VGROUP_ALL;
-
-  /* If armature is present, and armature is actively deforming the object
-   * (i.e armature modifier isn't disabled) use BONE DEFORM. */
-  if (BKE_modifiers_is_deformed_by_armature(ob)) {
-
-    int defgroup_tot = BKE_object_defgroup_count(ob);
-    bool *defgroup_validmap = BKE_object_defgroup_validmap_get(ob, defgroup_tot);
-
-    for (int i = 0; i < defgroup_tot; i++) {
-      if (defgroup_validmap[i] == true) {
-        target_group = WT_VGROUP_BONE_DEFORM;
-        break;
-      }
-    }
-    MEM_delete(defgroup_validmap);
-  }
-
-  return target_group;
-}
-
 static wmOperatorStatus vertex_group_normalize_all_exec(bContext *C, wmOperator *op)
 {
   Object *ob = context_object(C);
-
-  eVGroupSelect target_group = normalize_vertex_group_target(ob);
-
-  RNA_enum_set(op->ptr, "group_select_mode", target_group);
+  RNA_enum_set(op->ptr, "group_select_mode", WT_VGROUP_ALL);
 
   bool lock_active = RNA_boolean_get(op->ptr, "lock_active");
   eVGroupSelect subset_type = static_cast<eVGroupSelect>(
@@ -3032,9 +2777,8 @@ static wmOperatorStatus vertex_group_lock_exec(bContext *C, wmOperator *op)
   Object *ob = context_object(C);
 
   int action = RNA_enum_get(op->ptr, "action");
-  int mask = RNA_enum_get(op->ptr, "mask");
 
-  vgroup_lock_all(ob, action, mask);
+  vgroup_lock_all(ob, action);
 
   WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
@@ -3046,63 +2790,19 @@ static std::string vertex_group_lock_get_description(bContext * /*C*/,
                                                      PointerRNA *ptr)
 {
   int action = RNA_enum_get(ptr, "action");
-  int mask = RNA_enum_get(ptr, "mask");
 
-  /* NOTE: constructing the following string literals can be done in a less verbose way,
-   * however the resulting strings can't be usefully translated, (via `TIP_`). */
   switch (action) {
     case VGROUP_LOCK:
-      switch (mask) {
-        case VGROUP_MASK_ALL:
-          return TIP_("Lock all vertex groups of the active object");
-        case VGROUP_MASK_SELECTED:
-          return TIP_("Lock selected vertex groups of the active object");
-        case VGROUP_MASK_UNSELECTED:
-          return TIP_("Lock unselected vertex groups of the active object");
-        case VGROUP_MASK_INVERT_UNSELECTED:
-          return TIP_("Lock selected and unlock unselected vertex groups of the active object");
-      }
-      break;
+      return TIP_("Lock all vertex groups of the active object");
     case VGROUP_UNLOCK:
-      switch (mask) {
-        case VGROUP_MASK_ALL:
-          return TIP_("Unlock all vertex groups of the active object");
-        case VGROUP_MASK_SELECTED:
-          return TIP_("Unlock selected vertex groups of the active object");
-        case VGROUP_MASK_UNSELECTED:
-          return TIP_("Unlock unselected vertex groups of the active object");
-        case VGROUP_MASK_INVERT_UNSELECTED:
-          return TIP_("Unlock selected and lock unselected vertex groups of the active object");
-      }
-      break;
+      return TIP_("Unlock all vertex groups of the active object");
     case VGROUP_TOGGLE:
-      switch (mask) {
-        case VGROUP_MASK_ALL:
-          return TIP_("Toggle locks of all vertex groups of the active object");
-        case VGROUP_MASK_SELECTED:
-          return TIP_("Toggle locks of selected vertex groups of the active object");
-        case VGROUP_MASK_UNSELECTED:
-          return TIP_("Toggle locks of unselected vertex groups of the active object");
-        case VGROUP_MASK_INVERT_UNSELECTED:
-          return TIP_(
-              "Toggle locks of all and invert unselected vertex groups of the active object");
-      }
-      break;
+      return TIP_("Toggle locks of all vertex groups of the active object");
     case VGROUP_INVERT:
-      switch (mask) {
-        case VGROUP_MASK_ALL:
-          return TIP_("Invert locks of all vertex groups of the active object");
-        case VGROUP_MASK_SELECTED:
-        case VGROUP_MASK_INVERT_UNSELECTED:
-          return TIP_("Invert locks of selected vertex groups of the active object");
-        case VGROUP_MASK_UNSELECTED:
-          return TIP_("Invert locks of unselected vertex groups of the active object");
-      }
-      break;
+      return TIP_("Invert locks of all vertex groups of the active object");
     default:
       return {};
   }
-  return {};
 }
 
 void OBJECT_OT_vertex_group_lock(wmOperatorType *ot)
@@ -3110,7 +2810,7 @@ void OBJECT_OT_vertex_group_lock(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Change the Lock On Vertex Groups";
   ot->idname = "OBJECT_OT_vertex_group_lock";
-  ot->description = "Change the lock state of all or some vertex groups of active object";
+  ot->description = "Change the lock state of vertex groups on the active object";
 
   /* API callbacks. */
   ot->poll = vertex_group_poll;
@@ -3127,12 +2827,6 @@ void OBJECT_OT_vertex_group_lock(wmOperatorType *ot)
                "Action",
                "Lock action to execute on vertex groups");
 
-  RNA_def_enum(ot->srna,
-               "mask",
-               vgroup_lock_mask,
-               VGROUP_MASK_ALL,
-               "Mask",
-               "Apply the action based on vertex group selection");
 }
 
 /** \} */
@@ -3402,58 +3096,44 @@ static wmOperatorStatus vertex_group_limit_total_exec(bContext *C, wmOperator *o
   const int limit = RNA_int_get(op->ptr, "limit");
   const eVGroupSelect subset_type = static_cast<eVGroupSelect>(
       RNA_enum_get(op->ptr, "group_select_mode"));
-  int remove_multi_count = 0;
+  int removed_total = 0;
 
   const Vector<Object *> objects = object_array_for_wpaint(C);
   for (Object *ob : objects) {
+    int subset_count, group_tot;
+    const bool *group_mask = BKE_object_defgroup_subset_from_select_type(
+        ob, subset_type, &group_tot, &subset_count);
+    const int removed = vgroup_limit_total_subset(
+        ob, group_mask, group_tot, subset_count, limit);
+    MEM_delete(group_mask);
 
-    int subset_count, vgroup_tot;
-    const bool *vgroup_validmap = BKE_object_defgroup_subset_from_select_type(
-        ob, subset_type, &vgroup_tot, &subset_count);
-    const int remove_count = vgroup_limit_total_subset(
-        ob, vgroup_validmap, vgroup_tot, subset_count, limit);
-    MEM_delete(vgroup_validmap);
-
-    if (remove_count != 0) {
+    if (removed != 0) {
       DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
       WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
       WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
     }
-    remove_multi_count += remove_count;
+    removed_total += removed;
   }
 
-  if (remove_multi_count) {
-    BKE_reportf(op->reports,
-                remove_multi_count ? RPT_INFO : RPT_WARNING,
-                "%d vertex weights limited",
-                remove_multi_count);
-
-    return OPERATOR_FINISHED;
+  if (removed_total) {
+    BKE_reportf(
+        op->reports, RPT_INFO, "%d vertex weights limited", removed_total);
   }
-
-  /* NOTE: would normally return canceled, except we want the redo
-   * UI to show up for users to change */
   return OPERATOR_FINISHED;
 }
 
 void OBJECT_OT_vertex_group_limit_total(wmOperatorType *ot)
 {
-  /* identifiers */
   ot->name = "Limit Number of Weights per Vertex";
   ot->idname = "OBJECT_OT_vertex_group_limit_total";
-  ot->description =
-      "Limit deform weights associated with a vertex to a specified number by removing lowest "
-      "weights";
+  ot->description = "Limit the number of weights per vertex by removing the lowest weights";
 
-  /* API callbacks. */
   ot->poll = vertex_group_poll;
   ot->exec = vertex_group_limit_total_exec;
-
-  /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   vgroup_operator_subset_select_props(ot, false);
-  RNA_def_int(ot->srna, "limit", 4, 1, 32, "Limit", "Maximum number of deform weights", 1, 32);
+  RNA_def_int(ot->srna, "limit", 4, 1, 32, "Limit", "Maximum number of weights", 1, 32);
 }
 
 /** \} */
@@ -3757,37 +3437,8 @@ static int vgroup_sort_name(const void *def_a_ptr, const void *def_b_ptr)
   return BLI_strcasecmp_natural(def_a->name, def_b->name);
 }
 
-/**
- * Sorts the weight groups according to the bone hierarchy of the
- * associated armature (similar to how bones are ordered in the Outliner)
- */
-static void vgroup_sort_bone_hierarchy(Object *ob, ListBaseT<Bone> *bonebase)
-{
-  if (bonebase == nullptr) {
-    Object *armobj = BKE_modifiers_is_deformed_by_armature(ob);
-    if (armobj != nullptr) {
-      bArmature *armature = id_cast<bArmature *>(armobj->data);
-      bonebase = &armature->bonebase;
-    }
-  }
-  ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list_mutable(ob);
-
-  if (bonebase != nullptr) {
-    for (Bone &bone : bonebase->items_reversed()) {
-      bDeformGroup *dg = BKE_object_defgroup_find_name(ob, bone.name);
-      vgroup_sort_bone_hierarchy(ob, &bone.childbase);
-
-      if (dg != nullptr) {
-        BLI_remlink(defbase, dg);
-        BLI_addhead(defbase, dg);
-      }
-    }
-  }
-}
-
 enum {
   SORT_TYPE_NAME = 0,
-  SORT_TYPE_BONEHIERARCHY = 1,
 };
 
 static wmOperatorStatus vertex_group_sort_exec(bContext *C, wmOperator *op)
@@ -3806,9 +3457,6 @@ static wmOperatorStatus vertex_group_sort_exec(bContext *C, wmOperator *op)
   switch (sort_type) {
     case SORT_TYPE_NAME:
       BLI_listbase_sort(defbase, vgroup_sort_name);
-      break;
-    case SORT_TYPE_BONEHIERARCHY:
-      vgroup_sort_bone_hierarchy(ob, nullptr);
       break;
   }
 
@@ -3831,7 +3479,6 @@ void OBJECT_OT_vertex_group_sort(wmOperatorType *ot)
 {
   static const EnumPropertyItem vgroup_sort_type[] = {
       {SORT_TYPE_NAME, "NAME", 0, "Name", ""},
-      {SORT_TYPE_BONEHIERARCHY, "BONE_HIERARCHY", 0, "Bone Hierarchy", ""},
       {0, nullptr, 0, nullptr, nullptr},
   };
 

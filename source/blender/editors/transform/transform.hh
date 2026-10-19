@@ -109,7 +109,6 @@ enum eTContext {
   CTX_MOVIECLIP = (1 << 5),
   CTX_OBJECT = (1 << 6),
   CTX_PAINT_CURVE = (1 << 7),
-  CTX_POSE_BONE = (1 << 8),
   CTX_TEXTURE_SPACE = (1 << 9),
   CTX_SEQUENCER_IMAGE = (1 << 10),
 
@@ -141,9 +140,6 @@ enum eTFlag {
   /** For 2D views such as UV or f-curve. */
   T_2D_EDIT = 1 << 8,
   T_CLIP_UV = 1 << 9,
-
-  /** Auto-IK is on. */
-  T_AUTOIK = 1 << 10,
 
   /** Don't use mirror even if the data-block option is set. */
   T_NO_MIRROR = 1 << 11,
@@ -308,8 +304,6 @@ enum {
 
   TFM_MODAL_PROPSIZE_UP = 20,
   TFM_MODAL_PROPSIZE_DOWN = 21,
-  TFM_MODAL_AUTOIK_LEN_INC = 22,
-  TFM_MODAL_AUTOIK_LEN_DEC = 23,
 
   TFM_MODAL_NODE_ATTACH_ON = 24,
   TFM_MODAL_NODE_ATTACH_OFF = 25,
@@ -384,18 +378,10 @@ enum {
   /** For F-curve handles, move them along with their keyframes. */
   TD_MOVEHANDLE1 = 1 << 15,
   TD_MOVEHANDLE2 = 1 << 16,
-  /**
-   * Exceptional case with pose bone rotating when a parent bone has 'Local Location'
-   * option enabled and rotating also transforms it.
-   */
-  TD_PBONE_LOCAL_MTX_P = 1 << 17,
-  /** Same as #TD_PBONE_LOCAL_MTX_P but for a child bone. */
-  TD_PBONE_LOCAL_MTX_C = 1 << 18,
 };
 
 struct TransDataBasic {
-  /** Extra data (mirrored element pointer, in edit-mode mesh to #BMVert) \
-   * (edit-bone for roll fixing) (...). */
+  /** Extra data (mirrored element pointer, in edit-mode mesh to #BMVert) (...). */
   void *extra;
   /** Location of the data to transform. */
   float *loc;
@@ -416,7 +402,7 @@ struct TransDataMirror : public TransDataBasic {
   float *loc_src;
 };
 
-/** For objects, poses. 1 single allocation per #TransInfo! */
+/** For objects. 1 single allocation per #TransInfo! */
 struct TransDataExtension {
   /** Initial object drot. */
   float drot[3];
@@ -457,14 +443,9 @@ struct TransDataExtension {
   float obmat[4][4];
   /** Use for #V3D_ORIENT_GIMBAL orientation. */
   float axismtx_gimbal[3][3];
-  /** Use instead of #TransData.smtx,
-   * It is the same but without the #Bone.bone_mat, see #TD_PBONE_LOCAL_MTX_C. */
+  /** Use instead of #TransData.smtx. */
   float l_smtx[3][3];
-  /**
-   * The rotation & scale matrix of pose bone, to allow using snap-align in translation mode,
-   * when #TransData.mtx is the location pose bone matrix (and hence can't be used to apply
-   * rotation in some cases, namely when a bone is in "No-Local" or "Hinge" mode).
-   */
+  /** Rotation & scale matrix used for snap-align in translation mode. */
   float r_mtx[3][3];
   /** Inverse of previous one. */
   float r_smtx[3][3];
@@ -515,11 +496,11 @@ struct TransData : public TransDataBasic {
   float smtx[3][3];
   /** Axis orientation matrix of the data. */
   float axismtx[3][3];
-  /** For objects/bones, the first constraint in its constraint stack. */
+  /** For objects, the first constraint in its constraint stack. */
   bConstraint *con;
   /** For curves, stores handle flags for modification/cancel. */
   TransDataCurveHandleFlags *hdata;
-  /** If set, copy of Object or #bPoseChannel protection. */
+  /** If set, copy of Object protection. */
   short protectflag;
 };
 
@@ -695,9 +676,6 @@ struct TransDataContainer {
   /** Normalized #mat3. */
   float mat3_unit[3][3];
 
-  /** If `t->flag & T_POSE`, this denotes pose object. */
-  Object *poseobj;
-
   /** Center of transformation (in local-space), Calculated from #TransInfo.center_global. */
   float center_local[3];
 
@@ -709,8 +687,7 @@ struct TransDataContainer {
 
   /**
    * Store matrix, this avoids having to have duplicate check all over
-   * Typically: 'obedit->object_to_world().ptr()' or 'poseobj->object_to_world().ptr()', but may be
-   * used elsewhere too.
+   * Typically: 'obedit->object_to_world().ptr()', but may be used elsewhere too.
    */
   bool use_local_mat;
 
@@ -1131,15 +1108,13 @@ void calculatePropRatio(TransInfo *t);
 
 /**
  * Rotate an element, low level code, ignore protected channels.
- * (use for objects or pose-bones)
+ * (use for objects)
  * Similar to #ElementRotation.
  */
 void transform_data_ext_rotate(TransData *td,
                                TransDataExtension *td_ext,
                                float mat[3][3],
                                bool use_drot);
-
-Object *transform_object_deform_pose_armature_get(const TransInfo *t, Object *ob);
 
 void freeCustomNormalArray(TransInfo *t, TransDataContainer *tc, TransCustomData *custom_data);
 

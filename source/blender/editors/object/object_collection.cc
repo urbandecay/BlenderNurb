@@ -134,7 +134,6 @@ static wmOperatorStatus objects_add_active_exec(bContext *C, wmOperator *op)
   int single_collection_index = RNA_enum_get(op->ptr, "collection");
   Collection *single_collection = collection_object_active_find_index(
       bmain, scene, ob, single_collection_index);
-  bool is_cycle = false;
   bool changed_multi = false;
 
   if (ob == nullptr) {
@@ -156,13 +155,8 @@ static wmOperatorStatus objects_add_active_exec(bContext *C, wmOperator *op)
         continue;
       }
 
-      if (!BKE_collection_object_cyclic_check(bmain, base->object, collection)) {
-        BKE_collection_object_add(bmain, collection, base->object);
-        changed = true;
-      }
-      else {
-        is_cycle = true;
-      }
+      BKE_collection_object_add(bmain, collection, base->object);
+      changed = true;
     }
     CTX_DATA_END;
 
@@ -172,10 +166,6 @@ static wmOperatorStatus objects_add_active_exec(bContext *C, wmOperator *op)
     }
   }
   FOREACH_COLLECTION_END;
-
-  if (is_cycle) {
-    BKE_report(op->reports, RPT_WARNING, "Skipped some collections because of cycle detected");
-  }
 
   if (!changed_multi) {
     return OPERATOR_CANCELLED;
@@ -1081,18 +1071,6 @@ static wmOperatorStatus collection_link_exec(bContext *C, wmOperator *op)
   if (!BKE_collection_is_content_editable(collection, &reason)) {
     BKE_reportf(
         op->reports, RPT_ERROR, "Cannot add objects to the collection. %s", reason.c_str());
-    return OPERATOR_CANCELLED;
-  }
-
-  /* Adding object to collection which is used as dupli-collection for self is bad idea.
-   *
-   * It is also bad idea to add object to collection which is in collection which
-   * contains our current object.
-   */
-  if (BKE_collection_object_cyclic_check(bmain, ob, collection)) {
-    BKE_report(op->reports,
-               RPT_ERROR,
-               "Could not add the collection because of dependency cycle detected");
     return OPERATOR_CANCELLED;
   }
 

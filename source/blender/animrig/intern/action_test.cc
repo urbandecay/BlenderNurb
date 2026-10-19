@@ -53,9 +53,9 @@ class ActionLayersTest : public bke::BlenderGTestBase {
   {
     bmain = BKE_main_new();
     action = BKE_id_new<Action>(bmain, "ACÄnimåtië");
-    cube = BKE_object_add_only_object(bmain, OB_EMPTY, "Küüübus");
-    suzanne = BKE_object_add_only_object(bmain, OB_EMPTY, "OBSuzanne");
-    bob = BKE_object_add_only_object(bmain, OB_EMPTY, "OBBob");
+    cube = BKE_object_add_only_object(bmain, OB_NO_DATA, "Küüübus");
+    suzanne = BKE_object_add_only_object(bmain, OB_NO_DATA, "OBSuzanne");
+    bob = BKE_object_add_only_object(bmain, OB_NO_DATA, "OBBob");
   }
 
   void TearDown() override

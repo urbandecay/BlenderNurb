@@ -628,27 +628,6 @@ class VersioningTest(unittest.TestCase):
         self.assertEqual(fcurve.array_index, 2)
         self.assertEqual(fcurve.group.name, "Object Transforms")
 
-    def test_armature_action_conversion(self):
-        armature_object = bpy.data.objects["armature_object"]
-        action = armature_object.animation_data.action
-        strip = action.layers[0].strips[0]
-        self.assertEqual(len(strip.channelbags[0].groups), 2)
-        self.assertEqual(strip.channelbags[0].groups[0].name, "Bone")
-        self.assertEqual(strip.channelbags[0].groups[1].name, "Bone.001")
-        self.assertEqual(len(strip.channelbags[0].fcurves), 20)
-        self.assertEqual(len(strip.channelbags[0].groups[0].channels), 10)
-        self.assertEqual(len(strip.channelbags[0].groups[1].channels), 10)
-
-        # Slots on converted Actions are always called "Legacy Slot"
-        self.assertEqual(action.slots[0].identifier, "OBLegacy Slot")
-
-        for fcurve in strip.channelbags[0].groups[0].channels:
-            self.assertEqual(fcurve.group.name, "Bone")
-
-        for fcurve in strip.channelbags[0].groups[1].channels:
-            self.assertEqual(fcurve.group.name, "Bone.001")
-
-
 class SlotHandleLibraryOverridesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -829,8 +808,6 @@ class ReplaceAction(unittest.TestCase):
     obj_no_slot_after: bpy.types.Object
     # Object without a slot before in `initial_action` but that has one in `replacement_action`
     obj_no_slot_before: bpy.types.Object
-    # Armature object with slot before and after a replace
-    armature: bpy.types.Armature
     obj_shapekeys: bpy.types.Object
     obj_material: bpy.types.Object
     # Object with an action constraint
@@ -846,7 +823,6 @@ class ReplaceAction(unittest.TestCase):
         self.obj_animated = bpy.data.objects["obj_animated"]
         self.obj_no_slot_after = bpy.data.objects["obj_no_slot_after"]
         self.obj_no_slot_before = bpy.data.objects["obj_no_slot_before"]
-        self.armature = bpy.data.objects["Armature"]
         self.obj_action_constraint = bpy.data.objects["action_constrained"]
         self.obj_nla = bpy.data.objects["obj_nla"]
         self.obj_shapekeys = bpy.data.objects["obj_shapekeys"]
@@ -862,7 +838,6 @@ class ReplaceAction(unittest.TestCase):
         self.assertEqual(self.obj_animated.animation_data.action, self.replacement_action)
         self.assertEqual(self.obj_no_slot_after.animation_data.action_slot, None)
         self.assertNotEqual(self.obj_no_slot_before.animation_data.action_slot, None)
-        self.assertEqual(self.armature.animation_data.action, self.replacement_action)
         self.assertEqual(self.obj_shapekeys.data.shape_keys.animation_data.action, self.replacement_action)
 
         # Actions of embedded data blocks should also be replaced.
@@ -887,7 +862,6 @@ class ReplaceAction(unittest.TestCase):
         self.assertNotEqual(self.obj_animated.animation_data.action_slot, None)
         self.assertEqual(self.obj_no_slot_after.animation_data.action, new_action)
         self.assertEqual(self.obj_no_slot_before.animation_data.action, new_action)
-        self.assertEqual(self.armature.animation_data.action, new_action)
 
         # The operator shouldn't touch the NLA or action constraints.
         self.assertEqual(self.obj_action_constraint.animation_data.action, None)

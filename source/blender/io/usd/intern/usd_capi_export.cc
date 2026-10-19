@@ -610,10 +610,6 @@ pxr::UsdStageRefPtr export_to_stage(const USDExportParams &params,
 
   iter.release_writers();
 
-  if (params.export_shapekeys || params.export_armatures) {
-    iter.process_usd_skel();
-  }
-
   /* Creating dome lights should be called after writers have
    * completed, to avoid a name collision when creating the light
    * prim. */

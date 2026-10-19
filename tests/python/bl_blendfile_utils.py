@@ -119,7 +119,7 @@ class TestBlendLibLinkHelper(TestHelper):
         self.gen_library_data_()
 
         ob = bpy.data.objects[0]
-        ob_ctrl = bpy.data.objects.new("LibController", None)
+        ob_ctrl = bpy.data.objects.new("LibController", bpy.data.meshes.new("LibControllerMesh"))
         coll = bpy.data.collections[0]
         coll.objects.link(ob_ctrl)
 

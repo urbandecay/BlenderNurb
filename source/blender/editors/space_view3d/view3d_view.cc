@@ -8,7 +8,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_linklist.h"
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
@@ -24,7 +23,6 @@
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
@@ -130,7 +128,7 @@ void VIEW3D_OT_camera_to_view(wmOperatorType *ot)
 
 /**
  * Unlike #VIEW3D_OT_view_selected this is for framing a render and not
- * meant to take into account vertex/bone selection for eg.
+ * meant to take into account component selection, for example.
  */
 static wmOperatorStatus view3d_camera_to_view_selected_exec(bContext *C, wmOperator *op)
 {
@@ -422,13 +420,6 @@ void view3d_viewmatrix_set(const Depsgraph *depsgraph,
       float vec[3];
 
       copy_v3_v3(vec, ob_eval->object_to_world().location());
-      if (ob_eval->type == OB_ARMATURE && v3d->ob_center_bone[0]) {
-        bPoseChannel *pchan = BKE_pose_channel_find_name(ob_eval->pose, v3d->ob_center_bone);
-        if (pchan) {
-          copy_v3_v3(vec, pchan->pose_mat[3]);
-          mul_m4_v3(ob_eval->object_to_world().ptr(), vec);
-        }
-      }
       translate_m4(rv3d->viewmat, -vec[0], -vec[1], -vec[2]);
       use_lock_ofs = true;
     }
@@ -521,59 +512,12 @@ static bool drw_select_loop_pass(eDRWSelectStage stage, void *user_data)
   return continue_pass;
 }
 
-/** When the mode is locked, optionally override the filter (a special case). */
-static std::optional<eV3DSelectObjectFilter> view3d_select_filter_from_mode_lock_override(
-    const View3D *v3d, const Object *obact)
-{
-  /* The caller ensures this only runs when #SCE_OBJECT_MODE_LOCK is set.
-   * Only restrict selection to bones when the user turns on "Lock Object Modes".
-   * If the lock is off, skip this so other objects can still be selected, see #66950 & #125822. */
-
-  if (v3d->flag2 & V3D_HIDE_OVERLAYS) {
-    return std::nullopt;
-  }
-
-  /* NOTE: don't use #BKE_object_pose_armature_get as it doesn't check for weight-paint mode
-   * when using the deforming armature (breaking selection outside weight paint mode). */
-  if (const Object *obpose = OBPOSE_FROM_OBACT(obact)) {
-    if (obpose->mode == OB_MODE_POSE) {
-      /* This check only makes sense in pose-mode,
-       * where this "X-ray" options gives pose-bones a priority over other objects.
-       *
-       * Must not be used in weight-paint mode as it prevents pose
-       * selection *unless* X-ray is enabled. see: #158045. */
-      if ((v3d->overlay.flag & V3D_OVERLAY_BONE_SELECT) == 0) {
-        return std::nullopt;
-      }
-      return VIEW3D_SELECT_FILTER_OBJECT_MODE_LOCK_SAME_TYPE;
-    }
-  }
-  else if (const Object *obweight = OBWEIGHTPAINT_ALL_FROM_OBACT(obact)) {
-    /* Only use Armature pose selection, when connected armature is in pose mode. */
-    if (const Object *ob_armature = BKE_modifiers_is_deformed_by_armature(
-            const_cast<Object *>(obweight)))
-    {
-      if (ob_armature->mode == OB_MODE_POSE) {
-        return VIEW3D_SELECT_FILTER_WPAINT_POSE_MODE_LOCK;
-      }
-    }
-  }
-
-  /* No pose override. */
-  return std::nullopt;
-}
-
 eV3DSelectObjectFilter ED_view3d_select_filter_from_mode(const Scene *scene,
-                                                         const View3D *v3d,
-                                                         const Object *obact)
+                                                         const View3D * /*v3d*/,
+                                                         const Object * /*obact*/)
 {
   const ToolSettings *ts = scene->toolsettings;
   if (ts->object_flag & SCE_OBJECT_MODE_LOCK) {
-    if (std::optional<eV3DSelectObjectFilter> filter_override =
-            view3d_select_filter_from_mode_lock_override(v3d, obact))
-    {
-      return *filter_override;
-    }
     return VIEW3D_SELECT_FILTER_OBJECT_MODE_LOCK;
   }
 
@@ -592,16 +536,6 @@ static bool drw_select_filter_object_mode_lock_same_type(Object *ob, void *user_
 {
   const Object *obact = static_cast<const Object *>(user_data);
   return (obact->type == ob->type) && BKE_object_is_mode_compat(ob, obact->mode);
-}
-
-/**
- * Implement #VIEW3D_SELECT_FILTER_WPAINT_POSE_MODE_LOCK for special case when
- * we want to select pose bones (this doesn't switch modes).
- */
-static bool drw_select_filter_object_mode_lock_for_weight_paint(Object *ob, void *user_data)
-{
-  LinkNode *ob_pose_list = static_cast<LinkNode *>(user_data);
-  return ob_pose_list && (BLI_linklist_index(ob_pose_list, DEG_get_original(ob)) != -1);
 }
 
 int view3d_gpu_select_ex(const ViewContext *vc,
@@ -681,26 +615,6 @@ int view3d_gpu_select_ex(const ViewContext *vc,
       }
       break;
     }
-    case VIEW3D_SELECT_FILTER_WPAINT_POSE_MODE_LOCK: {
-      Object *obact = vc->obact;
-      BLI_assert(obact && (obact->mode & OB_MODE_ALL_WEIGHT_PAINT));
-      /* While this uses `alloca` in a loop (which we typically avoid),
-       * the number of items is nearly always 1, maybe 2..3 in rare cases. */
-      LinkNode *ob_pose_list = nullptr;
-      VirtualModifierData virtual_modifier_data;
-      ModifierData *md = BKE_modifiers_get_virtual_modifierlist(obact, &virtual_modifier_data);
-      for (; md; md = md->next) {
-        if (md->type == eModifierType_Armature) {
-          ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-          if (amd->object && (amd->object->mode & OB_MODE_POSE)) {
-            BLI_linklist_prepend_alloca(&ob_pose_list, amd->object);
-          }
-        }
-      }
-      object_filter.fn = drw_select_filter_object_mode_lock_for_weight_paint;
-      object_filter.user_data = ob_pose_list;
-      break;
-    }
     case VIEW3D_SELECT_FILTER_NOP:
       break;
   }
@@ -714,8 +628,8 @@ int view3d_gpu_select_ex(const ViewContext *vc,
 
   G.f |= G_FLAG_PICKSEL;
 
-  /* Important we use the 'viewmat' and don't re-calculate since
-   * the object & bone view locking takes 'rect' into account, see: #51629. */
+  /* Use the existing view matrix because object view locking takes `rect` into account, see
+   * #51629. */
   ED_view3d_draw_setup_view(
       wm, vc->win, depsgraph, scene, region, v3d, vc->rv3d->viewmat, nullptr, &rect);
 

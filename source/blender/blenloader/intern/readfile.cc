@@ -1089,13 +1089,6 @@ static void long_id_names_process_action_slots_identifiers(Main *bmain)
         for (bConstraint &con : object->constraints) {
           visit_constraint(con);
         }
-        if (object->pose) {
-          for (bPoseChannel &pchan : object->pose->chanbase) {
-            for (bConstraint &con : pchan.constraints) {
-              visit_constraint(con);
-            }
-          }
-        }
       }
         ATTR_FALLTHROUGH;
       default: {
@@ -2096,17 +2089,6 @@ static void direct_link_id_embedded_id(BlendDataReader *reader,
   }
 }
 
-static int direct_link_id_restore_recalc_exceptions(const ID *id_current)
-{
-  /* Exception for armature objects, where the pose has direct points to the
-   * armature data-block. */
-  if (GS(id_current->name) == ID_OB && (id_cast<Object *>(const_cast<ID *>(id_current)))->pose) {
-    return ID_RECALC_GEOMETRY;
-  }
-
-  return 0;
-}
-
 static int direct_link_id_restore_recalc(const FileData *fd,
                                          const ID *id_target,
                                          const ID *id_current,
@@ -2129,9 +2111,6 @@ static int direct_link_id_restore_recalc(const FileData *fd,
     if (!is_identical) {
       recalc |= ID_RECALC_SYNC_TO_EVAL;
     }
-
-    /* Special exceptions. */
-    recalc |= direct_link_id_restore_recalc_exceptions(id_current);
 
     /* Evaluations for the current state that have not been performed yet
      * by the time we are performing this undo step. */
@@ -3197,7 +3176,6 @@ static void read_libblock_undo_restore_identical(
   BLI_addtail(new_lb, id_old);
 
   /* Recalc flags, mostly these just remain as they are. */
-  id_old->recalc |= direct_link_id_restore_recalc_exceptions(id_old);
   id_old->recalc_after_undo_push = 0;
 
   /* Insert into library map for lookup by newly read datablocks (with pointer value bhead->old).
@@ -3689,12 +3667,6 @@ static void do_versions(FileData *fd, Library *lib, Main *main)
      * later during 5.0 development process. */
     version_system_idprops_nodes_generate(main);
   }
-  if (!MAIN_VERSION_FILE_ATLEAST(main, 500, 110)) {
-    /* Same as above, but children bones were missed by initial versioning code, attempt to
-     * transfer idprops data still in case they have no system properties defined yet. */
-    version_system_idprops_children_bones_generate(main);
-  }
-
   if (G.debug & G_DEBUG) {
     char build_commit_datetime[32];
     time_t temp_time = main->build_commit_timestamp;

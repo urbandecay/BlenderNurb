@@ -510,9 +510,6 @@ def main() -> None:
                 "./lib",
                 # Needs manual handling as it mixes two licenses.
                 "./intern/atomic",
-                # Practically an `./extern` within an `./intern` module, leave as-is.
-                "./intern/itasc/kdl",
-
                 # TODO: Files in these directories should be handled but the files have valid licenses.
                 "./intern/libmv",
 

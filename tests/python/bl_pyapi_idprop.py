@@ -541,7 +541,7 @@ class TestRNAData(TestHelper, unittest.TestCase):
             del self.id[key_id]
 
     def test_custom_properties_none(self):
-        bpy.data.objects.new("test", None)
+        bpy.data.objects.new("test", bpy.data.meshes.new("test_mesh"))
         test_object = bpy.data.objects["test"]
 
         # Access default RNA data values.
@@ -573,7 +573,7 @@ class TestRNAData(TestHelper, unittest.TestCase):
         self.assertGreater(rna_data["soft_max"], 10000.0)
 
         # Copy RNA data values to another object's property.
-        bpy.data.objects.new("test_2", None)
+        bpy.data.objects.new("test_2", bpy.data.meshes.new("test_2_mesh"))
         test_object_2 = bpy.data.objects["test_2"]
         test_object_2["test_prop_3"] = 20.1
         ui_data_test_prop_3 = test_object_2.id_properties_ui("test_prop_3")

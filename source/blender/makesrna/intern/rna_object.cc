@@ -36,7 +36,6 @@ namespace blender {
 const EnumPropertyItem rna_enum_object_mode_items[] = {
     {OB_MODE_OBJECT, "OBJECT", ICON_OBJECT_DATAMODE, "Object Mode", ""},
     {OB_MODE_EDIT, "EDIT", ICON_EDITMODE_HLT, "Edit Mode", ""},
-    {OB_MODE_POSE, "POSE", ICON_POSE_HLT, "Pose Mode", ""},
     {OB_MODE_SCULPT, "SCULPT", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {OB_MODE_VERTEX_PAINT, "VERTEX_PAINT", ICON_VPAINT_HLT, "Vertex Paint", ""},
     {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
@@ -48,7 +47,6 @@ const EnumPropertyItem rna_enum_object_mode_items[] = {
 const EnumPropertyItem rna_enum_workspace_object_mode_items[] = {
     {OB_MODE_OBJECT, "OBJECT", ICON_OBJECT_DATAMODE, "Object Mode", ""},
     {OB_MODE_EDIT, "EDIT", ICON_EDITMODE_HLT, "Edit Mode", ""},
-    {OB_MODE_POSE, "POSE", ICON_POSE_HLT, "Pose Mode", ""},
     {OB_MODE_SCULPT, "SCULPT", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {OB_MODE_VERTEX_PAINT, "VERTEX_PAINT", ICON_VPAINT_HLT, "Vertex Paint", ""},
     {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
@@ -56,39 +54,13 @@ const EnumPropertyItem rna_enum_workspace_object_mode_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-const EnumPropertyItem rna_enum_object_empty_drawtype_items[] = {
-    {OB_PLAINAXES, "PLAIN_AXES", ICON_EMPTY_AXIS, "Plain Axes", ""},
-    {OB_ARROWS, "ARROWS", ICON_EMPTY_ARROWS, "Arrows", ""},
-    {OB_SINGLE_ARROW, "SINGLE_ARROW", ICON_EMPTY_SINGLE_ARROW, "Single Arrow", ""},
-    {OB_CIRCLE, "CIRCLE", ICON_MESH_CIRCLE, "Circle", ""},
-    {OB_CUBE, "CUBE", ICON_CUBE, "Cube", ""},
-    {OB_EMPTY_SPHERE, "SPHERE", ICON_SPHERE, "Sphere", ""},
-    {OB_EMPTY_CONE, "CONE", ICON_CONE, "Cone", ""},
-    {OB_EMPTY_IMAGE, "IMAGE", ICON_FILE_IMAGE, "Image", ""},
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
-static const EnumPropertyItem rna_enum_object_empty_image_depth_items[] = {
-    {OB_EMPTY_IMAGE_DEPTH_DEFAULT, "DEFAULT", 0, "Default", ""},
-    {OB_EMPTY_IMAGE_DEPTH_FRONT, "FRONT", 0, "Front", ""},
-    {OB_EMPTY_IMAGE_DEPTH_BACK, "BACK", 0, "Back", ""},
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
 static const EnumPropertyItem instance_items[] = {
     {0, "NONE", 0, "None", ""},
-    {OB_DUPLICOLLECTION, "COLLECTION", 0, "Collection", "Enable collection instancing"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 #ifdef RNA_RUNTIME
 static EnumPropertyItem instance_items_nogroup[] = {
     {0, "NONE", 0, "None", ""},
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
-static EnumPropertyItem instance_items_empty[] = {
-    {0, "NONE", 0, "None", ""},
-    {OB_DUPLICOLLECTION, "COLLECTION", 0, "Collection", "Enable collection instancing"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -131,10 +103,7 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
     {OB_VOLUME, "VOLUME", ICON_OUTLINER_OB_VOLUME, "Volume", ""},
     RNA_ENUM_ITEM_SEPR,
-    {OB_ARMATURE, "ARMATURE", ICON_OUTLINER_OB_ARMATURE, "Armature", ""},
     {OB_LATTICE, "LATTICE", ICON_OUTLINER_OB_LATTICE, "Lattice", ""},
-    RNA_ENUM_ITEM_SEPR,
-    {OB_EMPTY, "EMPTY", ICON_OUTLINER_OB_EMPTY, "Empty", ""},
     RNA_ENUM_ITEM_SEPR,
     {OB_LAMP, "LIGHT", ICON_OUTLINER_OB_LIGHT, "Light", ""},
     {OB_LIGHTPROBE, "LIGHT_PROBE", ICON_OUTLINER_OB_LIGHTPROBE, "Light Probe", ""},
@@ -149,6 +118,27 @@ const EnumPropertyItem rna_enum_object_type_curve_items[] = {
     OBTYPE_CU_CURVE,
     OBTYPE_CU_SURF,
     OBTYPE_CU_FONT,
+    {0, nullptr, 0, nullptr, nullptr},
+};
+
+const EnumPropertyItem rna_enum_object_type_add_items[] = {
+    {OB_MESH, "MESH", ICON_OUTLINER_OB_MESH, "Mesh", ""},
+    OBTYPE_CU_CURVE,
+    OBTYPE_CU_SURF,
+    {OB_MBALL, "META", ICON_OUTLINER_OB_META, "Metaball", ""},
+    OBTYPE_CU_FONT,
+    {OB_CURVES, "CURVES", ICON_OUTLINER_OB_CURVES, "Hair Curves", ""},
+    {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
+    {OB_VOLUME, "VOLUME", ICON_OUTLINER_OB_VOLUME, "Volume", ""},
+    RNA_ENUM_ITEM_SEPR,
+    {OB_LATTICE, "LATTICE", ICON_OUTLINER_OB_LATTICE, "Lattice", ""},
+    RNA_ENUM_ITEM_SEPR,
+    {OB_LAMP, "LIGHT", ICON_OUTLINER_OB_LIGHT, "Light", ""},
+    {OB_LIGHTPROBE, "LIGHT_PROBE", ICON_OUTLINER_OB_LIGHTPROBE, "Light Probe", ""},
+    RNA_ENUM_ITEM_SEPR,
+    {OB_CAMERA, "CAMERA", ICON_OUTLINER_OB_CAMERA, "Camera", ""},
+    RNA_ENUM_ITEM_SEPR,
+    {OB_SPEAKER, "SPEAKER", ICON_OUTLINER_OB_SPEAKER, "Speaker", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -210,7 +200,6 @@ const EnumPropertyItem rna_enum_object_axis_flip_items[] = {
 #  include "BLI_math_matrix.h"
 #  include "BLI_math_vector.h"
 
-#  include "BKE_armature.hh"
 #  include "BKE_brush.hh"
 #  include "BKE_camera.h"
 #  include "BKE_collection.hh"
@@ -412,8 +401,19 @@ static void rna_Object_data_set(PointerRNA *ptr, PointerRNA value, ReportList *r
     return;
   }
 
-  /* assigning nullptr only for empties */
-  if ((id == nullptr) && (ob->type != OB_EMPTY)) {
+  if (ob->type == OB_NO_DATA) {
+    if (id != nullptr) {
+      BKE_report(reports, RPT_ERROR, "Objects without data cannot be assigned a data-block");
+      return;
+    }
+    if (ob->data) {
+      id_us_min(ob->data);
+      ob->data = nullptr;
+    }
+    return;
+  }
+
+  if (id == nullptr) {
     return;
   }
 
@@ -425,18 +425,7 @@ static void rna_Object_data_set(PointerRNA *ptr, PointerRNA value, ReportList *r
     return;
   }
 
-  if (ob->type == OB_EMPTY) {
-    if (ob->data) {
-      id_us_min(ob->data);
-      ob->data = nullptr;
-    }
-
-    if (!id || GS(id->name) == ID_IM) {
-      id_us_plus(id);
-      ob->data = id;
-    }
-  }
-  else if (ob->type == OB_MESH) {
+  if (ob->type == OB_MESH) {
     BKE_mesh_assign_object(G_MAIN, ob, reinterpret_cast<Mesh *>(id));
   }
   else {
@@ -454,9 +443,6 @@ static void rna_Object_data_set(PointerRNA *ptr, PointerRNA value, ReportList *r
     if (GS(id->name) == ID_CU_LEGACY) {
       BKE_curve_type_test(ob, true);
     }
-    else if (ob->type == OB_ARMATURE) {
-      BKE_pose_rebuild(G_MAIN, ob, id_cast<bArmature *>(ob->data), true);
-    }
   }
 }
 
@@ -466,8 +452,6 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
 
   /* keep in sync with OB_DATA_SUPPORT_ID() macro */
   switch (ob->type) {
-    case OB_EMPTY:
-      return RNA_Image;
     case OB_MESH:
       return RNA_Mesh;
     case OB_CURVES_LEGACY:
@@ -484,8 +468,6 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
       return RNA_Camera;
     case OB_LATTICE:
       return RNA_Lattice;
-    case OB_ARMATURE:
-      return RNA_Armature;
     case OB_SPEAKER:
       return RNA_Speaker;
     case OB_LIGHTPROBE:
@@ -501,13 +483,6 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
   }
 }
 
-static void rna_Object_empty_display_type_set(PointerRNA *ptr, int value)
-{
-  Object *ob = static_cast<Object *>(ptr->data);
-
-  BKE_object_empty_draw_type_set(ob, value);
-}
-
 static const EnumPropertyItem *rna_Object_instance_type_itemf(bContext * /*C*/,
                                                               PointerRNA *ptr,
                                                               PropertyRNA * /*prop*/,
@@ -516,10 +491,7 @@ static const EnumPropertyItem *rna_Object_instance_type_itemf(bContext * /*C*/,
   Object *ob = static_cast<Object *>(ptr->data);
   const EnumPropertyItem *item;
 
-  if (ob->type == OB_EMPTY) {
-    item = instance_items_empty;
-  }
-  else if (ob->type == OB_FONT) {
+  if (ob->type == OB_FONT) {
     item = instance_items_font;
   }
   else {
@@ -527,33 +499,6 @@ static const EnumPropertyItem *rna_Object_instance_type_itemf(bContext * /*C*/,
   }
 
   return item;
-}
-
-static void rna_Object_dup_collection_set(PointerRNA *ptr,
-                                          PointerRNA value,
-                                          ReportList * /*reports*/)
-{
-  Object *ob = static_cast<Object *>(ptr->data);
-  Collection *grp = static_cast<Collection *>(value.data);
-
-  /* Must not let this be set if the object belongs in this group already,
-   * thus causing a cycle/infinite-recursion leading to crashes on load #25298. */
-  if (BKE_collection_has_object_recursive_instanced(grp, ob) == 0) {
-    if (ob->type == OB_EMPTY) {
-      id_us_min(id_cast<ID *>(ob->instance_collection));
-      ob->instance_collection = grp;
-      id_us_plus(&ob->instance_collection->id);
-    }
-    else {
-      BKE_report(nullptr, RPT_ERROR, "Only empty objects support collection instances");
-    }
-  }
-  else {
-    BKE_report(nullptr,
-               RPT_ERROR,
-               "Cannot set instance-collection as object belongs (directly or indirectly) in "
-               "collection being instanced, thus causing a dependency cycle");
-  }
 }
 
 static void rna_Object_vertex_groups_update(Main * /*bmain*/, Scene * /*scene*/, PointerRNA *ptr)
@@ -1705,11 +1650,6 @@ bool rna_Curve_object_poll(PointerRNA * /*ptr*/, PointerRNA value)
   return (reinterpret_cast<Object *>(value.owner_id))->type == OB_CURVES_LEGACY;
 }
 
-bool rna_Armature_object_poll(PointerRNA * /*ptr*/, PointerRNA value)
-{
-  return (reinterpret_cast<Object *>(value.owner_id))->type == OB_ARMATURE;
-}
-
 bool rna_Mesh_object_poll(PointerRNA * /*ptr*/, PointerRNA value)
 {
   return (reinterpret_cast<Object *>(value.owner_id))->type == OB_MESH;
@@ -1980,7 +1920,7 @@ static void rna_def_vertex_group(BlenderRNA *brna)
   srna = RNA_def_struct(brna, "VertexGroup", nullptr);
   RNA_def_struct_sdna(srna, "bDeformGroup");
   RNA_def_struct_ui_text(
-      srna, "Vertex Group", "Group of vertices, used for armature deform and other purposes");
+      srna, "Vertex Group", "Group of vertices, used by deformation tools and other purposes");
   RNA_def_struct_ui_icon(srna, ICON_GROUP_VERTEX);
 
   prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
@@ -2176,20 +2116,6 @@ static void rna_def_object_modifiers(BlenderRNA *brna, PropertyRNA *cprop)
   srna = RNA_def_struct(brna, "ObjectModifiers", nullptr);
   RNA_def_struct_sdna(srna, "Object");
   RNA_def_struct_ui_text(srna, "Object Modifiers", "Collection of object modifiers");
-
-#  if 0
-  prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
-  RNA_def_property_struct_type(prop, "EditBone");
-  RNA_def_property_pointer_sdna(prop, nullptr, "act_edbone");
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Active EditBone", "Armatures active edit bone");
-  // RNA_def_property_update(prop, 0, "rna_Armature_act_editbone_update");
-  RNA_def_property_pointer_funcs(
-      prop, nullptr, "rna_Armature_act_edit_bone_set", nullptr, nullptr);
-
-  /* TODO: redraw. */
-  // RNA_def_property_collection_active(prop, prop_act);
-#  endif
 
   /* add modifier */
   func = RNA_def_function(srna, "new", "rna_Object_modifier_new");
@@ -2852,84 +2778,12 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Vertex Groups", "Vertex groups of the object");
   rna_def_object_vertex_groups(brna, prop);
 
-  /* empty */
-  prop = RNA_def_property(srna, "empty_display_type", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, nullptr, "empty_drawtype");
-  RNA_def_property_enum_items(prop, rna_enum_object_empty_drawtype_items);
-  RNA_def_property_enum_funcs(prop, nullptr, "rna_Object_empty_display_type_set", nullptr);
-  RNA_def_property_ui_text(prop, "Empty Display Type", "Viewport display style for empties");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "empty_display_size", PROP_FLOAT, PROP_DISTANCE);
-  RNA_def_property_float_sdna(prop, nullptr, "empty_drawsize");
+  /* Used by light-probe and force-field helper overlays. */
+  prop = RNA_def_property(srna, "display_size", PROP_FLOAT, PROP_DISTANCE);
+  RNA_def_property_float_sdna(prop, nullptr, "display_size");
   RNA_def_property_range(prop, 0.0001f, 1000.0f);
   RNA_def_property_ui_range(prop, 0.01, 100, 1, 2);
-  RNA_def_property_ui_text(
-      prop, "Empty Display Size", "Size of display for empties in the viewport");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "empty_image_offset", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_float_sdna(prop, nullptr, "ima_ofs");
-  RNA_def_property_ui_text(prop, "Origin Offset", "Origin offset distance");
-  RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 0.1f, 2);
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "image_user", PROP_POINTER, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_NEVER_NULL);
-  RNA_def_property_pointer_sdna(prop, nullptr, "iuser");
-  RNA_def_property_ui_text(
-      prop,
-      "Image User",
-      "Parameters defining which layer, pass and frame of the image is displayed");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "empty_image_depth", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, rna_enum_object_empty_image_depth_items);
-  RNA_def_property_ui_text(
-      prop, "Empty Image Depth", "Determine which other objects will occlude the image");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "show_empty_image_perspective", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_negative_sdna(
-      prop, nullptr, "empty_image_visibility_flag", OB_EMPTY_IMAGE_HIDE_PERSPECTIVE);
-  RNA_def_property_ui_text(
-      prop, "Display in Perspective Mode", "Display image in perspective mode");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "show_empty_image_orthographic", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_negative_sdna(
-      prop, nullptr, "empty_image_visibility_flag", OB_EMPTY_IMAGE_HIDE_ORTHOGRAPHIC);
-  RNA_def_property_ui_text(
-      prop, "Display in Orthographic Mode", "Display image in orthographic mode");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "show_empty_image_only_axis_aligned", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(
-      prop, nullptr, "empty_image_visibility_flag", OB_EMPTY_IMAGE_HIDE_NON_AXIS_ALIGNED);
-  RNA_def_property_ui_text(prop,
-                           "Display Only Axis Aligned",
-                           "Only display the image when it is aligned with the view axis");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  prop = RNA_def_property(srna, "use_empty_image_alpha", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "empty_image_flag", OB_EMPTY_IMAGE_USE_ALPHA_BLEND);
-  RNA_def_property_ui_text(
-      prop,
-      "Use Alpha",
-      "Use alpha blending instead of alpha test (can produce sorting artifacts)");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
-
-  static const EnumPropertyItem prop_empty_image_side_items[] = {
-      {0, "DOUBLE_SIDED", 0, "Both", ""},
-      {OB_EMPTY_IMAGE_HIDE_BACK, "FRONT", 0, "Front", ""},
-      {OB_EMPTY_IMAGE_HIDE_FRONT, "BACK", 0, "Back", ""},
-      {0, nullptr, 0, nullptr, nullptr},
-  };
-  prop = RNA_def_property(srna, "empty_image_side", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_bitflag_sdna(prop, nullptr, "empty_image_visibility_flag");
-  RNA_def_property_enum_items(prop, prop_empty_image_side_items);
-  RNA_def_property_ui_text(prop, "Empty Image Side", "Show front/back side");
-  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_IMAGE);
+  RNA_def_property_ui_text(prop, "Display Size", "Size of helper geometry in the viewport");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, nullptr);
 
   prop = RNA_def_property(srna, "add_rest_position_attribute", PROP_BOOLEAN, PROP_NONE);
@@ -3007,14 +2861,6 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Instance Type", "If not None, object instancing method to use");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
 
-  prop = RNA_def_property(srna, "instance_collection", PROP_POINTER, PROP_NONE);
-  RNA_def_property_struct_type(prop, "Collection");
-  RNA_def_property_pointer_sdna(prop, nullptr, "instance_collection");
-  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_REFCOUNT);
-  RNA_def_property_pointer_funcs(prop, nullptr, "rna_Object_dup_collection_set", nullptr, nullptr);
-  RNA_def_property_ui_text(prop, "Instance Collection", "Instance an existing collection");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
-
   prop = RNA_def_property(srna, "is_instancer", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "transflag", OB_DUPLI);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -3075,12 +2921,6 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "dtx", OB_DRAW_IN_FRONT);
   RNA_def_property_ui_text(prop, "In Front", "Make the object display in front of others");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_internal_update_draw");
-
-  /* pose */
-  prop = RNA_def_property(srna, "pose", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "pose");
-  RNA_def_property_struct_type(prop, "Pose");
-  RNA_def_property_ui_text(prop, "Pose", "Current pose for armatures");
 
   /* shape keys */
   prop = RNA_def_property(srna, "show_only_shape_key", PROP_BOOLEAN, PROP_NONE);

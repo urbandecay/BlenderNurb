@@ -440,7 +440,7 @@ class InstancesViewItem : public DataSetViewItem {
     if (!instances_) {
       row.active_set(false);
     }
-    row.label(label_, ICON_EMPTY_AXIS);
+    row.label(label_, ICON_AXIS_3D);
     if (instances_) {
       draw_count(*this, instances_->instances_num());
     }

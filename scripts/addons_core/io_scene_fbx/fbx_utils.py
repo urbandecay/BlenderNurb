@@ -15,7 +15,7 @@ import numpy as np
 
 import bpy
 import bpy_extras
-from bpy.types import Object, Bone, PoseBone, DepsgraphObjectInstance
+from bpy.types import Object, DepsgraphObjectInstance
 from mathutils import Vector, Matrix
 
 from . import encode_bin, data_types
@@ -46,8 +46,6 @@ FBX_GEOMETRY_SHAPE_VERSION = 100
 FBX_DEFORMER_SHAPE_VERSION = 100
 FBX_DEFORMER_SHAPECHANNEL_VERSION = 100
 FBX_POSE_BIND_VERSION = 100
-FBX_DEFORMER_SKIN_VERSION = 101
-FBX_DEFORMER_CLUSTER_VERSION = 100
 FBX_MATERIAL_VERSION = 102
 FBX_TEXTURE_VERSION = 202
 FBX_ANIM_KEY_VERSION = 4008
@@ -72,9 +70,6 @@ FBX_KTIME = FBX_KTIME_V8 if FBX_VERSION >= 8000 else FBX_KTIME_V7
 
 MAT_CONVERT_LIGHT = Matrix.Rotation(math.pi / 2.0, 4, 'X')  # Blender is -Z, FBX is -Y.
 MAT_CONVERT_CAMERA = Matrix.Rotation(math.pi / 2.0, 4, 'Y')  # Blender is -Z, FBX is +X.
-# XXX I can't get this working :(
-# MAT_CONVERT_BONE = Matrix.Rotation(math.pi / 2.0, 4, 'Z')  # Blender is +Y, FBX is -X.
-MAT_CONVERT_BONE = Matrix()
 
 
 BLENDER_OTHER_OBJECT_TYPES = {'CURVE', 'SURFACE', 'FONT', 'META'}
@@ -896,11 +891,6 @@ def get_blenderID_name(bid):
         return get_bid_name(bid)
 
 
-def get_blender_empty_key(obj):
-    """Return bone's keys (Model and NodeAttribute)."""
-    return "|".join((get_blenderID_key(obj), "Empty"))
-
-
 def get_blender_mesh_shape_key(me):
     """Return main shape deformer's key."""
     return "|".join((get_blenderID_key(me), "Shape"))
@@ -912,25 +902,9 @@ def get_blender_mesh_shape_channel_key(me, shape):
             "|".join((get_blenderID_key(me), "Geometry", get_blenderID_key(shape))))
 
 
-def get_blender_bone_key(armature, bone):
-    """Return bone's keys (Model and NodeAttribute)."""
-    return "|".join((get_blenderID_key((armature, bone)), "Data"))
-
-
 def get_blender_bindpose_key(obj, mesh):
     """Return object's bindpose key."""
     return "|".join((get_blenderID_key(obj), get_blenderID_key(mesh), "BindPose"))
-
-
-def get_blender_armature_skin_key(armature, mesh):
-    """Return armature's skin key."""
-    return "|".join((get_blenderID_key(armature), get_blenderID_key(mesh), "DeformerSkin"))
-
-
-def get_blender_bone_cluster_key(armature, mesh, bone):
-    """Return bone's cluster key."""
-    return "|".join((get_blenderID_key(armature), get_blenderID_key(mesh),
-                     get_blenderID_key(bone), "SubDeformerCluster"))
 
 
 def get_blender_anim_id_base(scene, ref_id):
@@ -1493,9 +1467,6 @@ class AnimationCurveNodeWrapper:
 
         # If we write nothing (action doing nothing) and are in 'force_keep' mode, we key everything! :P
         # See T41766.
-        # Also, it seems some importers (e.g. UE4) do not handle correctly armatures where some bones
-        # are not animated, but are children of animated ones, so added an option to systematically force writing
-        # one key in this case.
         # See T41719, T41605, T41254...
         if self.force_keying or (force_keep and not self):
             are_keyed = [True] * len(self._frame_write_mask_array)
@@ -1536,7 +1507,7 @@ class AnimationCurveNodeWrapper:
 
 # ##### FBX objects generators. #####
 
-# FBX Model-like data (i.e. Blender objects, depsgraph instances and bones) are wrapped in ObjectWrapper.
+# FBX Model-like data (Blender objects and depsgraph instances) are wrapped in ObjectWrapper.
 # This allows us to have a (nearly) same code FBX-wise for all those types.
 # The wrapper tries to stay as small as possible, by mostly using callbacks (property(get...))
 # to actual Blender data it contains.
@@ -1544,7 +1515,7 @@ class AnimationCurveNodeWrapper:
 # with a minimal cost (just re-computing the key).
 
 class MetaObjectWrapper(type):
-    def __call__(cls, bdata, armature=None):
+    def __call__(cls, bdata):
         if bdata is None:
             return None
         dup_mat = None
@@ -1557,24 +1528,19 @@ class MetaObjectWrapper(type):
                 dup_mat = bdata.matrix_world.copy()
             else:
                 key = get_blenderID_key(bdata.object.original)
-        else:  # isinstance(bdata, (Bone, PoseBone)):
-            if isinstance(bdata, PoseBone):
-                bdata = armature.data.bones[bdata.name]
-            key = get_blenderID_key((armature, bdata))
+        else:
+            raise TypeError("ObjectWrapper accepts only Blender objects and dependency graph instances")
 
         cache = getattr(cls, "_cache", None)
         if cache is None:
             cache = cls._cache = {}
         instance = cache.get(key)
         if instance is not None:
-            # Duplis hack: since dupli instances are not persistent in Blender (we have to re-create them to get updated
-            # info like matrix...), we *always* need to reset that matrix when calling ObjectWrapper() (all
-            # other data is supposed valid during whole cache live span, so we can skip resetting it).
             instance._dupli_matrix = dup_mat
             return instance
 
-        instance = cls.__new__(cls, bdata, armature)
-        instance.__init__(bdata, armature)
+        instance = cls.__new__(cls, bdata)
+        instance.__init__(bdata)
         instance.key = key
         instance._dupli_matrix = dup_mat
         cache[key] = instance
@@ -1582,18 +1548,8 @@ class MetaObjectWrapper(type):
 
 
 class ObjectWrapper(metaclass=MetaObjectWrapper):
-    """
-    This class provides a same common interface for all (FBX-wise) object-like elements:
-    * Blender Object
-    * Blender Bone and PoseBone
-    * Blender DepsgraphObjectInstance (for duplis).
-    Note since a same Blender object might be 'mapped' to several FBX models (esp. with duplis),
-    we need to use a key to identify each.
-    """
-    __slots__ = (
-        'name', 'key', 'bdata', 'parented_to_armature', 'override_materials',
-        '_tag', '_ref', '_dupli_matrix'
-    )
+    """Common FBX-facing view of Blender objects and dependency graph instances."""
+    __slots__ = ('name', 'key', 'bdata', 'override_materials', '_tag', '_ref', '_dupli_matrix')
 
     @classmethod
     def cache_clear(cls):
@@ -1613,40 +1569,24 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
             prev_i = i
         return ".".join(str(i) for i in pids[:idx_valid])
 
-    def __init__(self, bdata, armature=None):
-        """
-        bdata might be an Object (deprecated), DepsgraphObjectInstance, Bone or PoseBone.
-        If Bone or PoseBone, armature Object must be provided.
-        """
-        # Note: DepsgraphObjectInstance are purely runtime data,
-        #       they become invalid as soon as we step to the next item!
-        #       Hence we have to immediately copy *all* needed data...
-        if isinstance(bdata, Object):  # DEPRECATED
+    def __init__(self, bdata):
+        # Dependency graph instances are transient, so copy all data needed from them here.
+        if isinstance(bdata, Object):
             self._tag = 'OB'
             self.name = get_blenderID_name(bdata)
             self.bdata = bdata
             self._ref = None
-        elif isinstance(bdata, DepsgraphObjectInstance):
-            if bdata.is_instance:
-                # Note that dupli instance matrix is set by meta-class initialization.
-                self._tag = 'DP'
-                self.name = "|".join((get_blenderID_name((bdata.parent.original, bdata.instance_object.original)),
-                                      "Dupli", self._get_dup_num_id(bdata)))
-                self.bdata = bdata.instance_object.original
-                self._ref = bdata.parent.original
-            else:
-                self._tag = 'OB'
-                self.name = get_blenderID_name(bdata)
-                self.bdata = bdata.object.original
-                self._ref = None
-        else:  # isinstance(bdata, (Bone, PoseBone)):
-            if isinstance(bdata, PoseBone):
-                bdata = armature.data.bones[bdata.name]
-            self._tag = 'BO'
+        elif bdata.is_instance:
+            self._tag = 'DP'
+            self.name = "|".join((get_blenderID_name((bdata.parent.original, bdata.instance_object.original)),
+                                  "Dupli", self._get_dup_num_id(bdata)))
+            self.bdata = bdata.instance_object.original
+            self._ref = bdata.parent.original
+        else:
+            self._tag = 'OB'
             self.name = get_blenderID_name(bdata)
-            self.bdata = bdata
-            self._ref = armature
-        self.parented_to_armature = False
+            self.bdata = bdata.object.original
+            self._ref = None
         self.override_materials = None
 
     def __eq__(self, other):
@@ -1658,161 +1598,67 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
     def __repr__(self):
         return self.key
 
-    # #### Common to all _tag values.
     def get_fbx_uuid(self):
         return get_fbx_uuid_from_key(self.key)
     fbx_uuid = property(get_fbx_uuid)
 
-    # XXX Not sure how much that’s useful now... :/
     def get_hide(self):
-        return self.bdata.hide_viewport if self._tag in {'OB', 'DP'} else self.bdata.hide
+        return self.bdata.hide_viewport
     hide = property(get_hide)
 
     def get_parent(self):
-        if self._tag == 'OB':
-            return None
-        elif self._tag == 'DP':
-            return ObjectWrapper(self._ref)
-        else:  # self._tag == 'BO'
-            return ObjectWrapper(self.bdata.parent, self._ref) or ObjectWrapper(self._ref)
+        return ObjectWrapper(self._ref) if self._tag == 'DP' else None
     parent = property(get_parent)
 
-    def get_bdata_pose_bone(self):
-        if self._tag == 'BO':
-            return self._ref.pose.bones[self.bdata.name]
-        return None
-    bdata_pose_bone = property(get_bdata_pose_bone)
-
     def get_matrix_local(self):
-        if self._tag == 'OB':
-            return self.bdata.matrix_world.copy()
-        elif self._tag == 'DP':
+        if self._tag == 'DP':
             return self._ref.matrix_world.inverted_safe() @ self._dupli_matrix
-        else:  # 'BO', current pose
-            # PoseBone.matrix is in armature space, bring in back in real local one!
-            par = self.bdata.parent
-            par_mat_inv = self._ref.pose.bones[par.name].matrix.inverted_safe() if par else Matrix()
-            return par_mat_inv @ self._ref.pose.bones[self.bdata.name].matrix
+        return self.bdata.matrix_world.copy()
     matrix_local = property(get_matrix_local)
 
     def get_matrix_global(self):
-        if self._tag == 'OB':
-            return self.bdata.matrix_world.copy()
-        elif self._tag == 'DP':
-            return self._dupli_matrix
-        else:  # 'BO', current pose
-            return self._ref.matrix_world @ self._ref.pose.bones[self.bdata.name].matrix
+        return self._dupli_matrix if self._tag == 'DP' else self.bdata.matrix_world.copy()
     matrix_global = property(get_matrix_global)
 
-    def get_matrix_rest_local(self):
-        if self._tag == 'BO':
-            # Bone.matrix_local is in armature space, bring in back in real local one!
-            par = self.bdata.parent
-            par_mat_inv = par.matrix_local.inverted_safe() if par else Matrix()
-            return par_mat_inv @ self.bdata.matrix_local
-        else:
-            return self.matrix_local.copy()
-    matrix_rest_local = property(get_matrix_rest_local)
-
-    def get_matrix_rest_global(self):
-        if self._tag == 'BO':
-            return self._ref.matrix_world @ self.bdata.matrix_local
-        else:
-            return self.matrix_global.copy()
-    matrix_rest_global = property(get_matrix_rest_global)
-
-    # #### Transform and helpers
     def has_valid_parent(self, objects):
-        par = self.parent
-        return par in objects
+        return self.parent in objects
 
     def use_bake_space_transform(self, scene_data):
-        # NOTE: Only applies to object types supporting this!!! Currently, only meshes and the like...
-        # TODO: Check whether this can work for bones too...
-        return (scene_data.settings.bake_space_transform and self._tag in {'OB', 'DP'} and
-                self.bdata.type in BLENDER_OBJECT_TYPES_MESHLIKE | {'EMPTY'})
+        return (scene_data.settings.bake_space_transform and
+                self.bdata.type in BLENDER_OBJECT_TYPES_MESHLIKE)
 
-    def fbx_object_matrix(self, scene_data, rest=False, local_space=False, global_space=False):
-        """
-        Generate object transform matrix (*always* in matching *FBX* space!).
-        If local_space is True, returned matrix is *always* in local space.
-        Else if global_space is True, returned matrix is always in world space.
-        If both local_space and global_space are False, returned matrix is in parent space if parent is valid,
-        else in world space.
-        Note local_space has precedence over global_space.
-        If rest is True and object is a Bone, returns matching rest pose transform instead of current pose one.
-        Applies specific rotation to bones, lamps and cameras (conversion Blender -> FBX).
-        """
-        # Objects which are not bones and do not have any parent are *always* in global space
-        # (unless local_space is True!).
-        is_global = (not local_space and
-                     (global_space or not (self._tag in {'DP', 'BO'} or self.has_valid_parent(scene_data.objects))))
-
-        # Objects (meshes!) parented to armature are not parented to anything in FBX, hence we need them
-        # in global space, which is their 'virtual' local space...
-        is_global = is_global or self.parented_to_armature
-
-        # Since we have to apply corrections to some types of object, we always need local Blender space here...
-        matrix = self.matrix_rest_local if rest else self.matrix_local
+    def fbx_object_matrix(self, scene_data, local_space=False, global_space=False):
+        """Return the transform in FBX coordinates, in local or global space."""
         parent = self.parent
+        is_global = not local_space and (
+            global_space or not (self._tag == 'DP' or self.has_valid_parent(scene_data.objects)))
+        matrix = self.matrix_local
 
-        # Bones, lamps and cameras need to be rotated (in local space!).
-        if self._tag == 'BO':
-            # If we have a bone parent we need to undo the parent correction.
-            if not is_global and scene_data.settings.bone_correction_matrix_inv and parent and parent.is_bone:
-                matrix = scene_data.settings.bone_correction_matrix_inv @ matrix
-            # Apply the bone correction.
-            if scene_data.settings.bone_correction_matrix:
-                matrix = matrix @ scene_data.settings.bone_correction_matrix
-        elif self.bdata.type == 'LIGHT':
+        if self.bdata.type == 'LIGHT':
             matrix = matrix @ MAT_CONVERT_LIGHT
         elif self.bdata.type == 'CAMERA':
             matrix = matrix @ MAT_CONVERT_CAMERA
 
-        if self._tag in {'DP', 'OB'} and parent:
-            if parent._tag == 'BO':
-                # In bone parent case, we get transformation in **bone tip** space (sigh).
-                # Have to bring it back into bone root, which is FBX expected value.
-                matrix = Matrix.Translation((0, (parent.bdata.tail - parent.bdata.head).length, 0)) @ matrix
-
-        # Our matrix is in local space, time to bring it in its final desired space.
         if parent:
             if is_global:
-                # Move matrix to global Blender space.
-                matrix = (parent.matrix_rest_global if rest else parent.matrix_global) @ matrix
+                matrix = parent.matrix_global @ matrix
             elif parent.use_bake_space_transform(scene_data):
-                # Blender's and FBX's local space of parent may differ if we use bake_space_transform...
-                # Apply parent's *Blender* local space...
-                matrix = (parent.matrix_rest_local if rest else parent.matrix_local) @ matrix
-                # ...and move it back into parent's *FBX* local space.
-                par_mat = parent.fbx_object_matrix(scene_data, rest=rest, local_space=True)
-                matrix = par_mat.inverted_safe() @ matrix
+                matrix = parent.matrix_local @ matrix
+                matrix = parent.fbx_object_matrix(scene_data, local_space=True).inverted_safe() @ matrix
 
         if self.use_bake_space_transform(scene_data):
-            # If we bake the transforms we need to post-multiply inverse global transform.
-            # This means that the global transform will not apply to children of this transform.
             matrix = matrix @ scene_data.settings.global_matrix_inv
         if is_global:
-            # In any case, pre-multiply the global matrix to get it in FBX global space!
             matrix = scene_data.settings.global_matrix @ matrix
-
         return matrix
 
-    def fbx_object_tx(self, scene_data, rest=False, rot_euler_compat=None):
-        """
-        Generate object transform data (always in local space when possible).
-        """
-        matrix = self.fbx_object_matrix(scene_data, rest=rest)
+    def fbx_object_tx(self, scene_data, rot_euler_compat=None):
+        matrix = self.fbx_object_matrix(scene_data)
         loc, rot, scale = matrix.decompose()
         matrix_rot = rot.to_matrix()
-        # Quaternion -> euler, we always use 'XYZ' order, use ref rotation if given.
-        if rot_euler_compat is not None:
-            rot = rot.to_euler('XYZ', rot_euler_compat)
-        else:
-            rot = rot.to_euler('XYZ')
+        rot = rot.to_euler('XYZ', rot_euler_compat) if rot_euler_compat is not None else rot.to_euler('XYZ')
         return loc, rot, scale, matrix, matrix_rot
 
-    # #### _tag dependent...
     def get_is_object(self):
         return self._tag == 'OB'
     is_object = property(get_is_object)
@@ -1821,45 +1667,16 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
         return self._tag == 'DP'
     is_dupli = property(get_is_dupli)
 
-    def get_is_bone(self):
-        return self._tag == 'BO'
-    is_bone = property(get_is_bone)
-
     def get_type(self):
-        if self._tag in {'OB', 'DP'}:
-            return self.bdata.type
-        return ...
+        return self.bdata.type
     type = property(get_type)
 
-    def get_armature(self):
-        if self._tag == 'BO':
-            return ObjectWrapper(self._ref)
-        return None
-    armature = property(get_armature)
-
-    def get_bones(self):
-        if self._tag == 'OB' and self.bdata.type == 'ARMATURE':
-            return (ObjectWrapper(bo, self.bdata) for bo in self.bdata.data.bones)
-        return ()
-    bones = property(get_bones)
-
     def get_materials(self):
-        override_materials = self.override_materials
-        if override_materials is not None:
-            return override_materials
-        if self._tag in {'OB', 'DP'}:
-            return tuple(slot.material for slot in self.bdata.material_slots)
-        return ()
+        if self.override_materials is not None:
+            return self.override_materials
+        return tuple(slot.material for slot in self.bdata.material_slots)
     materials = property(get_materials)
 
-    def is_deformed_by_armature(self, arm_obj):
-        if not (self.is_object and self.type == 'MESH'):
-            return False
-        for mod in self.bdata.modifiers:
-            if mod.type == 'ARMATURE' and mod.object == arm_obj.bdata:
-                return True
-
-    # #### Duplis...
     def dupli_list_gen(self, depsgraph):
         if self._tag == 'OB' and self.bdata.is_instancer:
             return (ObjectWrapper(dup) for dup in depsgraph.object_instances
@@ -1885,9 +1702,7 @@ FBXExportSettings = namedtuple("FBXExportSettings", (
     "bake_space_transform", "global_matrix_inv", "global_matrix_inv_transposed",
     "context_objects", "object_types", "use_mesh_modifiers", "use_mesh_modifiers_render",
     "mesh_smooth_type", "use_subsurf", "use_mesh_edges", "use_tspace", "use_triangles",
-    "armature_nodetype", "use_armature_deform_only", "add_leaf_bones",
-    "bone_correction_matrix", "bone_correction_matrix_inv",
-    "bake_anim", "bake_anim_use_all_bones", "bake_anim_use_nla_strips", "bake_anim_use_all_actions",
+    "bake_anim", "bake_anim_use_nla_strips", "bake_anim_use_all_actions",
     "bake_anim_step", "bake_anim_simplify_factor", "bake_anim_force_startend_keying",
     "use_metadata", "media_settings", "use_custom_props", "colors_type", "prioritize_active_color"
 ))
@@ -1897,13 +1712,12 @@ FBXExportSettings = namedtuple("FBXExportSettings", (
 #     * settings, scene.
 #     * objects.
 #     * object data.
-#     * skinning data (binding armature/mesh).
 #     * animations.
 FBXExportData = namedtuple("FBXExportData", (
     "templates", "templates_users", "connections",
     "settings", "scene", "depsgraph", "objects", "animations", "animated", "frame_start", "frame_end",
-    "data_empties", "data_lights", "data_cameras", "data_meshes", "mesh_material_indices",
-    "data_bones", "data_leaf_bones", "data_deformers_skin", "data_deformers_shape",
+    "data_lights", "data_cameras", "data_meshes", "mesh_material_indices",
+    "data_deformers_shape",
     "data_world", "data_materials", "data_textures", "data_videos",
 ))
 
@@ -1917,6 +1731,5 @@ FBXImportSettings = namedtuple("FBXImportSettings", (
     "use_subsurf",
     "use_custom_props", "use_custom_props_enum_as_string",
     "nodal_material_wrap_map", "image_cache",
-    "ignore_leaf_bones", "force_connect_children", "automatic_bone_orientation", "bone_correction_matrix",
     "use_prepost_rot", "colors_type", "mtl_name_collision_mode",
 ))

@@ -506,7 +506,6 @@ void ED_view3d_lastview_store(RegionView3D *rv3d)
 void ED_view3d_lock_clear(View3D *v3d)
 {
   v3d->ob_center = nullptr;
-  v3d->ob_center_bone[0] = '\0';
   v3d->ob_center_cursor = false;
 
   v3d->flag2 &= ~V3D_LOCK_CAMERA;

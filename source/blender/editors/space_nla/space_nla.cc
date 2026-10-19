@@ -399,8 +399,6 @@ static void nla_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
         case ND_KEYS:
         case ND_DRAW:
           ED_region_tag_redraw(region);
@@ -441,8 +439,6 @@ static void nla_main_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
         case ND_KEYS:
         case ND_TRANSFORM:
           ED_region_tag_redraw(region);
@@ -526,8 +522,6 @@ static void nla_track_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
         case ND_KEYS:
         case ND_DRAW:
           ED_region_tag_redraw(region);

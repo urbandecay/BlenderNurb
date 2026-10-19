@@ -702,7 +702,7 @@ const Material *BKE_object_material_get_eval(const Object &ob, const ID &data, c
 int BKE_object_material_count_eval(const Object *ob)
 {
   BLI_assert(DEG_is_evaluated(ob));
-  if (ob->type == OB_EMPTY) {
+  if (ob->type == OB_NO_DATA) {
     return 0;
   }
   BLI_assert(ob->data != nullptr);
@@ -714,7 +714,7 @@ int BKE_object_material_count_eval(const Object *ob)
 int BKE_object_material_count_eval(const Object &ob, const ID &data)
 {
   BLI_assert(DEG_is_evaluated(&ob));
-  if (ob.type == OB_EMPTY) {
+  if (ob.type == OB_NO_DATA) {
     return 0;
   }
   BLI_assert(ob.data != nullptr);

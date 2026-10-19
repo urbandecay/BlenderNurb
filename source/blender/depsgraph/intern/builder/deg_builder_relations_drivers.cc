@@ -251,12 +251,6 @@ bool data_path_maybe_shared(const ID &id, const StringRef data_path)
     return false;
   }
 
-  if (GS(id.name) == ID_OB) {
-    const Object &ob = *reinterpret_cast<const Object *>(&id);
-    const bool is_thread_safe = (ob.type == OB_ARMATURE && data_path.startswith("pose.bones["));
-    return !is_thread_safe;
-  }
-
   /* Allow concurrent writes to shape-key values. #140706 shows that this
    * shouldn't be a problem in practice. */
   if (GS(id.name) == ID_KE) {

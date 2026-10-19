@@ -382,21 +382,11 @@ enum eView3D_GizmoShowObject : char {
 };
 ENUM_OPERATORS(eView3D_GizmoShowObject)
 
-/** #View3d.gizmo_show_armature */
-enum eView3D_GizmoShowArmature : char {
-  /** Currently unused (WIP gizmo). */
-  V3D_GIZMO_SHOW_ARMATURE_BBONE = (1 << 0),
-  /** Not yet implemented. */
-  V3D_GIZMO_SHOW_ARMATURE_ROLL = (1 << 1),
+/** #View3d.gizmo_show_helpers */
+enum eView3D_GizmoShowHelpers : char {
+  V3D_GIZMO_SHOW_HELPER_FORCE_FIELD = (1 << 0),
 };
-ENUM_OPERATORS(eView3D_GizmoShowArmature)
-
-/** #View3d.gizmo_show_empty */
-enum eView3D_GizmoShowEmpty : char {
-  V3D_GIZMO_SHOW_EMPTY_IMAGE = (1 << 0),
-  V3D_GIZMO_SHOW_EMPTY_FORCE_FIELD = (1 << 1),
-};
-ENUM_OPERATORS(eView3D_GizmoShowEmpty)
+ENUM_OPERATORS(eView3D_GizmoShowHelpers)
 
 /** #View3d.gizmo_show_light */
 enum eView3D_GizmoShowLight : char {
@@ -637,10 +627,6 @@ struct View3DOverlay {
   float sculpt_mode_face_sets_opacity = 1.0f;
   float viewer_attribute_opacity = 1.0f;
 
-  /** Armature edit/pose mode settings. */
-  float xray_alpha_bone = 0.5f;
-  float bone_wire_alpha = 1.0f;
-
   /** Darken Inactive. */
   float fade_alpha = 0.40f;
 
@@ -719,9 +705,6 @@ struct View3D {
   /** Allocated backup of itself while in local-view. */
   struct View3D *localvd = nullptr;
 
-  /** Optional string for armature bone to define center. */
-  char ob_center_bone[/*MAXBONENAME*/ 64] = "";
-
   unsigned short local_view_uid = 0;
   char _pad6[2] = {};
   DNA_DEPRECATED int layact = 0;
@@ -750,8 +733,8 @@ struct View3D {
   eView3D_GizmoFlag gizmo_flag = {};
 
   eView3D_GizmoShowObject gizmo_show_object = {};
-  eView3D_GizmoShowArmature gizmo_show_armature = {};
-  eView3D_GizmoShowEmpty gizmo_show_empty = {};
+  eView3D_GizmoShowHelpers gizmo_show_helpers = {};
+  char _pad_removed_gizmo_flag = {};
   eView3D_GizmoShowLight gizmo_show_light = {};
   eView3D_GizmoShowCamera gizmo_show_camera = {};
 

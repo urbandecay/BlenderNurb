@@ -329,7 +329,6 @@ static PyObject *bpy_lib_load(BPy_PropertyRNA *self, PyObject *args, PyObject *k
   /* #BPy_Library::flag
    *
    * - #BLO_LIBLINK_OBDATA_INSTANCE: The caller must manage instancing.
-   * - #BLO_LIBLINK_COLLECTION_INSTANCE: The caller must manage instancing.
    */
   struct {
     BoolFlagPair is_link = {false, FILE_LINK};

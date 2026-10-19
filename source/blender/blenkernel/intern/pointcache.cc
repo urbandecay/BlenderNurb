@@ -71,8 +71,6 @@
 
 #include "DEG_depsgraph_query.hh"
 
-#include "BIK_api.h"
-
 #ifdef WITH_BULLET
 #  include "RBI_api.h"
 #endif
@@ -1219,18 +1217,6 @@ static bool foreach_object_ptcache(Scene *scene,
     /* Modifiers. */
     if (!foreach_object_modifier_ptcache(object, callback)) {
       return false;
-    }
-    /* Consider all object in dupli-groups to be part of the same object,
-     * for baking with linking dupli-groups. Once we have better overrides
-     * this can be revisited so users select the local objects directly. */
-    if (scene != nullptr && (duplis-- > 0) && (object->instance_collection != nullptr)) {
-      FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (object->instance_collection, current_object) {
-        if (current_object == object) {
-          continue;
-        }
-        foreach_object_ptcache(scene, current_object, duplis, callback);
-      }
-      FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
     }
   }
 
@@ -2932,10 +2918,6 @@ int BKE_ptcache_object_reset(Scene *scene, Object *ob, int mode)
     BKE_ptcache_id_from_rigidbody(&pid, ob, scene->rigidbody_world);
     /* only flag as outdated, resetting should happen on start frame */
     pid.cache->flag |= PTCACHE_OUTDATED;
-  }
-
-  if (ob->type == OB_ARMATURE) {
-    BIK_clear_cache(ob->pose);
   }
 
   return reset;

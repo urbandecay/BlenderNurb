@@ -11,7 +11,6 @@
 #include <optional>
 
 #include "DNA_object_types.h"
-#include "DNA_session_uid_types.h"
 
 #include "BKE_object_types.hh"
 
@@ -36,20 +35,17 @@ class ObjectRuntimeBackup {
    * pointers. */
   void init_from_object(Object *object);
   void backup_modifier_runtime_data(Object *object);
-  void backup_pose_channel_runtime_data(Object *object);
 
   /* Restore all fields to the given object. */
   void restore_to_object(Object *object);
   /* NOTE: Will free all runtime data which has not been restored. */
   void restore_modifier_runtime_data(Object *object);
-  void restore_pose_channel_runtime_data(Object *object);
 
   bke::ObjectRuntime runtime;
   std::optional<LightLinkingRuntime> light_linking_runtime;
   short base_flag;
   unsigned short base_local_view_bits;
   Map<int, ModifierDataBackup> modifier_runtime_data;
-  Map<SessionUID, bPoseChannel_Runtime> pose_channel_runtime_data;
 };
 
 }  // namespace deg

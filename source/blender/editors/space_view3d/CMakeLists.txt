@@ -26,9 +26,7 @@ set(SRC
   view3d_draw.cc
   view3d_dropboxes.cc
   view3d_edit.cc
-  view3d_gizmo_armature.cc
   view3d_gizmo_camera.cc
-  view3d_gizmo_empty.cc
   view3d_gizmo_forcefield.cc
   view3d_gizmo_geometry_nodes.cc
   view3d_gizmo_light.cc

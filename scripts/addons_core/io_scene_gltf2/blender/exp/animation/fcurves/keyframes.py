@@ -13,14 +13,13 @@ from ..keyframes import Keyframe
 def gather_fcurve_keyframes(
         obj_uuid: str,
         channel_group: typing.Tuple[bpy.types.FCurve],
-        bone: typing.Optional[str],
         custom_range: typing.Optional[set],
         extra_mode: bool,
         export_settings):
 
     keyframes = []
 
-    non_keyed_values = gather_non_keyed_values(obj_uuid, channel_group, bone, extra_mode, export_settings)
+    non_keyed_values = gather_non_keyed_values(obj_uuid, channel_group, extra_mode, export_settings)
 
     # Just use the keyframes as they are specified in blender
     # Note: channels has some None items only for SK if some SK are not animated
@@ -92,7 +91,6 @@ def gather_fcurve_keyframes(
 def gather_non_keyed_values(
         obj_uuid: str,
         channel_group: typing.Tuple[bpy.types.FCurve],
-        bone: typing.Optional[str],
         extra_mode: bool,
         export_settings
 ) -> typing.Tuple[typing.Optional[float]]:
@@ -107,7 +105,7 @@ def gather_non_keyed_values(
 
     # Note: channels has some None items only for SK if some SK are not animated
     if None not in channel_group:
-        # classic case for object TRS or bone TRS
+        # Ordinary object transforms.
         # Or if all morph target are animated
 
         target = channel_group[0].data_path.split('.')[-1]
@@ -138,28 +136,17 @@ def gather_non_keyed_values(
             if i in indices:
                 non_keyed_values.append(None)
             else:
-                if bone is None:
-                    non_keyed_values.append({
-                        "delta_location": blender_object.delta_location,
-                        "delta_rotation_euler": blender_object.delta_rotation_euler,
-                        "delta_rotation_quaternion": blender_object.delta_rotation_quaternion,
-                        "delta_scale": blender_object.delta_scale,
-                        "location": blender_object.location,
-                        "rotation_axis_angle": blender_object.rotation_axis_angle,
-                        "rotation_euler": blender_object.rotation_euler,
-                        "rotation_quaternion": blender_object.rotation_quaternion,
-                        "scale": blender_object.scale
-                    }[target][i])
-                else:
-                    # TODO, this is not working if the action is not active (NLA case for example) ?
-                    trans, rot, scale = blender_object.pose.bones[bone].matrix_basis.decompose()
-                    non_keyed_values.append({
-                        "location": trans,
-                        "rotation_axis_angle": rot,
-                        "rotation_euler": rot,
-                        "rotation_quaternion": rot,
-                        "scale": scale
-                    }[target][i])
+                non_keyed_values.append({
+                    "delta_location": blender_object.delta_location,
+                    "delta_rotation_euler": blender_object.delta_rotation_euler,
+                    "delta_rotation_quaternion": blender_object.delta_rotation_quaternion,
+                    "delta_scale": blender_object.delta_scale,
+                    "location": blender_object.location,
+                    "rotation_axis_angle": blender_object.rotation_axis_angle,
+                    "rotation_euler": blender_object.rotation_euler,
+                    "rotation_quaternion": blender_object.rotation_quaternion,
+                    "scale": blender_object.scale
+                }[target][i])
 
         return tuple(non_keyed_values)
 

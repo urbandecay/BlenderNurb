@@ -363,7 +363,7 @@ static const float (*transform_object_axismtx_get(const TransInfo *t,
 {
   if (transform_orientation_or_default(t) == V3D_ORIENT_GIMBAL) {
     BLI_assert(t->orient_type_mask & (1 << V3D_ORIENT_GIMBAL));
-    if (t->options & (CTX_POSE_BONE | CTX_OBJECT)) {
+    if (t->options & CTX_OBJECT) {
       TransDataExtension *td_ext = &tc->data_ext[td - tc->data];
       return td_ext->axismtx_gimbal;
     }
@@ -984,12 +984,7 @@ static void drawObjectConstraint(TransInfo *t)
         axismtx = tmp_axismtx;
       }
       else {
-        if (t->options & CTX_POSE_BONE) {
-          mul_v3_m4v3(co, tc->mat, td->center);
-        }
-        else {
-          copy_v3_v3(co, td->center);
-        }
+        copy_v3_v3(co, td->center);
         axismtx = transform_object_axismtx_get(t, tc, td);
       }
 

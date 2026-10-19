@@ -23,13 +23,10 @@ set(SRC
   intern/builder/deg_builder_key.h
   intern/builder/deg_builder_map.cc
   intern/builder/deg_builder_nodes.cc
-  intern/builder/deg_builder_nodes_rig.cc
   intern/builder/deg_builder_nodes_scene.cc
   intern/builder/deg_builder_nodes_view_layer.cc
-  intern/builder/deg_builder_pchanmap.cc
   intern/builder/deg_builder_relations.cc
   intern/builder/deg_builder_relations_drivers.cc
-  intern/builder/deg_builder_relations_rig.cc
   intern/builder/deg_builder_relations_scene.cc
   intern/builder/deg_builder_relations_view_layer.cc
   intern/builder/deg_builder_remove_noop.cc
@@ -54,7 +51,6 @@ set(SRC
   intern/eval/deg_eval_runtime_backup_modifier.cc
   intern/eval/deg_eval_runtime_backup_movieclip.cc
   intern/eval/deg_eval_runtime_backup_object.cc
-  intern/eval/deg_eval_runtime_backup_pose.cc
   intern/eval/deg_eval_runtime_backup_scene.cc
   intern/eval/deg_eval_runtime_backup_sequence.cc
   intern/eval/deg_eval_runtime_backup_sequencer.cc
@@ -99,7 +95,6 @@ set(SRC
   intern/builder/deg_builder_cycle.h
   intern/builder/deg_builder_map.h
   intern/builder/deg_builder_nodes.h
-  intern/builder/deg_builder_pchanmap.h
   intern/builder/deg_builder_relations.h
   intern/builder/deg_builder_relations_drivers.h
   intern/builder/deg_builder_relations_impl.h
@@ -123,7 +118,6 @@ set(SRC
   intern/eval/deg_eval_runtime_backup_modifier.h
   intern/eval/deg_eval_runtime_backup_movieclip.h
   intern/eval/deg_eval_runtime_backup_object.h
-  intern/eval/deg_eval_runtime_backup_pose.h
   intern/eval/deg_eval_runtime_backup_scene.h
   intern/eval/deg_eval_runtime_backup_sequence.h
   intern/eval/deg_eval_runtime_backup_sequencer.h

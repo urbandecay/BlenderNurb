@@ -405,8 +405,6 @@ enum eBLOLibLinkFlags {
   BLO_LIBLINK_APPEND_ASSET_DATA_CLEAR = 1 << 22,
   /** Instantiate object data IDs (i.e. create objects for them if needed). */
   BLO_LIBLINK_OBDATA_INSTANCE = 1 << 24,
-  /** Instantiate collections as empties, instead of linking them into current view layer. */
-  BLO_LIBLINK_COLLECTION_INSTANCE = 1 << 25,
   /**
    * Do not rebuild collections hierarchy runtime data (mainly the parents info)
    * as part of #BLO_library_link_end.

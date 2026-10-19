@@ -359,16 +359,7 @@ class ObjectRef {
     /* TODO: Pass particle systems as a separate ObRef? */
     float4x4 dupli_mat = float4x4::identity();
     if (dupli_parent_ && dupli_object_) {
-      if (dupli_object_->type & OB_DUPLICOLLECTION) {
-        Collection *collection = dupli_parent_->instance_collection;
-        if (collection != nullptr) {
-          dupli_mat[3] -= float4(float3(collection->instance_offset), 0.0f);
-        }
-        dupli_mat = dupli_parent_->object_to_world() * dupli_mat;
-      }
-      else {
-        dupli_mat = object->object_to_world() * math::invert(dupli_object_->ob->object_to_world());
-      }
+      dupli_mat = object->object_to_world() * math::invert(dupli_object_->ob->object_to_world());
     }
     return dupli_mat;
   }
@@ -420,8 +411,6 @@ class ObjectRef {
       switch (dupli_parent_->type) {
         case OB_MESH:
           return ctx_mode == CTX_MODE_EDIT_MESH;
-        case OB_ARMATURE:
-          return ctx_mode == CTX_MODE_EDIT_ARMATURE;
         case OB_CURVES_LEGACY:
           return ctx_mode == CTX_MODE_EDIT_CURVE;
         case OB_SURF:

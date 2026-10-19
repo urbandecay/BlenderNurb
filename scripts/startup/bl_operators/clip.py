@@ -227,56 +227,6 @@ class CLIP_OT_set_active_clip(Operator):
         return {'FINISHED'}
 
 
-class CLIP_OT_track_to_empty(Operator):
-    """Create an Empty object which will be copying movement of active track"""
-
-    bl_idname = "clip.track_to_empty"
-    bl_label = "Link Empty to Track"
-    bl_options = {'UNDO', 'REGISTER'}
-
-    @staticmethod
-    def _link_track(context, clip, tracking_object, track):
-        sc = context.space_data
-        constraint = None
-        ob = None
-
-        ob = bpy.data.objects.new(name=track.name, object_data=None)
-        context.collection.objects.link(ob)
-        ob.select_set(True)
-        context.view_layer.objects.active = ob
-
-        for con in ob.constraints:
-            if con.type == 'FOLLOW_TRACK':
-                constraint = con
-                break
-
-        if constraint is None:
-            constraint = ob.constraints.new(type='FOLLOW_TRACK')
-
-        constraint.use_active_clip = False
-        constraint.clip = sc.clip
-        constraint.track = track.name
-        constraint.use_3d_position = False
-        constraint.object = tracking_object.name
-        constraint.camera = CLIP_camera_for_clip(context, clip)
-
-    @classmethod
-    def poll(cls, context):
-        sc = context.space_data
-        return sc and (sc.type == 'CLIP_EDITOR') and sc.clip
-
-    def execute(self, context):
-        sc = context.space_data
-        clip = sc.clip
-        tracking_object = clip.tracking.objects.active
-
-        for track in tracking_object.tracks:
-            if CLIP_track_view_selected(sc, track):
-                self._link_track(context, clip, tracking_object, track)
-
-        return {'FINISHED'}
-
-
 class CLIP_OT_bundles_to_mesh(Operator):
     """Create vertex cloud using coordinates of reconstructed tracks"""
 
@@ -1030,5 +980,4 @@ classes = (
     CLIP_OT_setup_tracking_scene,
     CLIP_OT_track_settings_as_default,
     CLIP_OT_track_settings_to_track,
-    CLIP_OT_track_to_empty,
 )

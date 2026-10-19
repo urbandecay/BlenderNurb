@@ -6,7 +6,6 @@
 #include "IO_abstract_hierarchy_iterator.h"
 #include "usd.hh"
 #include "usd_exporter_context.hh"
-#include "usd_skel_convert.hh"
 
 #include <string>
 
@@ -31,10 +30,6 @@ class USDHierarchyIterator : public AbstractHierarchyIterator {
   pxr::UsdTimeCode export_time_;
   const USDExportParams &params_;
 
-  ObjExportMap armature_export_map_;
-  ObjExportMap skinned_mesh_export_map_;
-  ObjExportMap shape_key_mesh_export_map_;
-
   /*
    * The field below is mutable because it is used to keep track
    * of what the exporter is doing. This is necessary even when all
@@ -58,8 +53,6 @@ class USDHierarchyIterator : public AbstractHierarchyIterator {
   void set_export_frame(float frame_nr);
 
   std::string make_valid_name(const std::string &name) const override;
-
-  void process_usd_skel() const;
 
   /* Get the USD stage being exported to. */
   pxr::UsdStageRefPtr get_stage() const;
@@ -89,7 +82,6 @@ class USDHierarchyIterator : public AbstractHierarchyIterator {
   USDExporterContext create_point_instancer_context(
       const HierarchyContext *context, const USDExporterContext &usd_export_context) const;
 
-  void add_usd_skel_export_mapping(const Object *obj, const pxr::SdfPath &usd_path);
 };
 
 }  // namespace io::usd

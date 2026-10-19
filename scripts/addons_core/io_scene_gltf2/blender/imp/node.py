@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import bpy
-from mathutils import Vector, Matrix
+from mathutils import Matrix
 from ...io.imp.user_extensions import import_user_extensions
 from ..com.extras import set_extras
-from ..com.blender_default import BLENDER_GLTF_SPECIAL_COLLECTION
 from .mesh import BlenderMesh
 from .camera import BlenderCamera
 from .light import BlenderLight
@@ -32,16 +31,10 @@ class BlenderNode():
             import_user_extensions('gather_import_node_before_hook', gltf, vnode, gltf_node)
             obj = BlenderNode.create_object(gltf, vnode_id)
             import_user_extensions('gather_import_node_after_hook', gltf, vnode, gltf_node, obj)
-            if vnode.is_arma:
-                BlenderNode.create_bones(gltf, vnode_id)
-
-        elif vnode.type == VNode.Bone:
-            # These are created with their armature
-            pass
-
         elif vnode.type == VNode.DummyRoot:
             # Don't actually create this
             vnode.blender_object = None
+            vnode.world_matrix = Matrix.Identity(4)
 
         for child in vnode.children:
             BlenderNode.create_vnode(gltf, child)
@@ -74,45 +67,33 @@ class BlenderNode():
             # Since we create the actual Blender object after the create call, we call the hook here
             import_user_extensions('gather_import_light_after_hook', gltf, vnode, obj, light)
 
-        elif vnode.is_arma:
-            armature = bpy.data.armatures.new(vnode.arma_name)
-            name = vnode.name or armature.name
-            obj = bpy.data.objects.new(name, armature)
-            if gltf.import_settings['bone_heuristic'] == "BLENDER":
-                BlenderNode.armature_display(gltf, obj)
-
         else:
-            # Empty
-            name = vnode.name or vnode.default_name
-            obj = bpy.data.objects.new(name, None)
-            obj.empty_display_size = BlenderNode.calc_empty_display_size(gltf, vnode_id)
+            # Transform-only glTF nodes do not have a corresponding Blender object.
+            obj = None
 
         vnode.blender_object = obj
+
+        # Compose the VNode path into a world-space transform. Transform-only
+        # nodes still contribute to their descendants without creating Empty
+        # objects in Blender.
+        trans, rot, scale = vnode.trs()
+        local_matrix = Matrix.LocRotScale(trans, rot, scale)
+        parent_vnode = gltf.vnodes.get(vnode.parent)
+        if parent_vnode is None:
+            world_matrix = local_matrix
+        else:
+            world_matrix = parent_vnode.world_matrix @ local_matrix
+        vnode.world_matrix = world_matrix
+
+        if obj is None:
+            return None
 
         # Set extras (if came from a glTF node)
         if isinstance(vnode_id, int):
             pynode = gltf.data.nodes[vnode_id]
             set_extras(obj, pynode.extras)
 
-        # Set transform. Object parent relationships are not available, so
-        # compose the VNode path into a world-space transform.
-        trans, rot, scale = vnode.trs()
         obj.rotation_mode = 'QUATERNION'
-        local_matrix = Matrix.LocRotScale(trans, rot, scale)
-        parent_vnode = gltf.vnodes.get(vnode.parent)
-        if parent_vnode is None or parent_vnode.type == VNode.DummyRoot:
-            world_matrix = local_matrix
-        elif parent_vnode.type == VNode.Bone:
-            arma_vnode = gltf.vnodes[parent_vnode.bone_arma]
-            armature_object = arma_vnode.blender_object
-            pose_bone = armature_object.pose.bones[parent_vnode.blender_bone_name]
-            # Bone-parented objects use the bone tail as their local origin.
-            local_matrix.translation = local_matrix.translation - Vector((0.0, parent_vnode.bone_length, 0.0))
-            world_matrix = armature_object.matrix_world @ pose_bone.matrix @ local_matrix
-        elif parent_vnode.blender_object is not None:
-            world_matrix = parent_vnode.blender_object.matrix_world @ local_matrix
-        else:
-            world_matrix = local_matrix
         obj.matrix_world = world_matrix
 
         # Store Rest matrix of object
@@ -143,127 +124,6 @@ class BlenderNode():
         return obj
 
     @staticmethod
-    def armature_display(gltf, obj):
-        obj.show_in_front = True
-        obj.data.relation_line_position = "HEAD"
-
-        if gltf.import_settings['disable_bone_shape'] is True:
-            return
-
-        # Create a special collection (if not exists already)
-        # Content of this collection will not be exported
-        if BLENDER_GLTF_SPECIAL_COLLECTION not in bpy.data.collections:
-            bpy.data.collections.new(BLENDER_GLTF_SPECIAL_COLLECTION)
-            bpy.data.scenes[gltf.blender_scene].collection.children.link(
-                bpy.data.collections[BLENDER_GLTF_SPECIAL_COLLECTION])
-            bpy.data.collections[BLENDER_GLTF_SPECIAL_COLLECTION].hide_viewport = True
-            bpy.data.collections[BLENDER_GLTF_SPECIAL_COLLECTION].hide_render = True
-
-        # Create an icosphere, and assign it to the collection
-        bpy.ops.mesh.primitive_ico_sphere_add(
-            radius=1, enter_editmode=False, align='WORLD', location=(
-                0, 0, 0), scale=(
-                1, 1, 1))
-        bpy.data.collections[BLENDER_GLTF_SPECIAL_COLLECTION].objects.link(bpy.context.object)
-        gltf.bone_shape = bpy.context.object.name
-        bpy.context.collection.objects.unlink(bpy.context.object)
-
-    @staticmethod
-    def calc_empty_display_size(gltf, vnode_id):
-        # Use min distance to parent/children to guess size
-        sizes = []
-        vids = [vnode_id] + gltf.vnodes[vnode_id].children
-        for vid in vids:
-            vnode = gltf.vnodes[vid]
-            dist = vnode.trs()[0].length
-            sizes.append(dist * 0.4)
-        return max(min(sizes, default=1), 0.001)
-
-    @staticmethod
-    def create_bones(gltf, arma_id):
-        arma = gltf.vnodes[arma_id]
-        blender_arma = arma.blender_object
-        armature = blender_arma.data
-
-        # Find all bones for this arma
-        bone_ids = []
-
-        def visit(id):  # Depth-first walk
-            if gltf.vnodes[id].type == VNode.Bone:
-                bone_ids.append(id)
-                for child in gltf.vnodes[id].children:
-                    visit(child)
-        for child in arma.children:
-            visit(child)
-
-        # Switch into edit mode to create all edit bones
-
-        if bpy.context.mode != 'OBJECT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.context.window.scene = bpy.data.scenes[gltf.blender_scene]
-        bpy.context.view_layer.objects.active = blender_arma
-        bpy.ops.object.mode_set(mode="EDIT")
-
-        for id in bone_ids:
-            vnode = gltf.vnodes[id]
-            editbone = armature.edit_bones.new(vnode.name or vnode.default_name)
-            vnode.blender_bone_name = editbone.name
-            editbone.use_connect = False  # TODO?
-
-            # Give the position of the bone in armature space
-            arma_mat = vnode.editbone_arma_mat
-            editbone.head = arma_mat @ Vector((0, 0, 0))
-            editbone.tail = arma_mat @ Vector((0, 1, 0))
-            if gltf.import_settings['bone_heuristic'] == "BLENDER":
-                editbone.length = vnode.bone_length / max(blender_arma.scale)
-            else:
-                editbone.length = vnode.bone_length
-            editbone.align_roll((arma_mat @ Vector((0, 0, 1)) - editbone.head).normalized())
-
-            if isinstance(id, int):
-                pynode = gltf.data.nodes[id]
-                set_extras(editbone, pynode.extras)
-
-        # Set all bone parents
-        for id in bone_ids:
-            vnode = gltf.vnodes[id]
-            parent_vnode = gltf.vnodes[vnode.parent]
-            if parent_vnode.type == VNode.Bone:
-                editbone = armature.edit_bones[vnode.blender_bone_name]
-                parent_editbone = armature.edit_bones[parent_vnode.blender_bone_name]
-                editbone.parent = parent_editbone
-
-        # Switch back to object mode and do pose bones
-        bpy.ops.object.mode_set(mode="OBJECT")
-
-        for id in bone_ids:
-            vnode = gltf.vnodes[id]
-            pose_bone = blender_arma.pose.bones[vnode.blender_bone_name]
-
-            # BoneTRS = EditBone * PoseBone
-            # Set PoseBone to make BoneTRS = vnode.trs.
-            t, r, s = vnode.trs()
-            et, er = vnode.editbone_trans, vnode.editbone_rot
-            pose_bone.location = er.conjugated() @ (t - et)
-            pose_bone.rotation_mode = 'QUATERNION'
-            pose_bone.rotation_quaternion = er.conjugated() @ r
-            pose_bone.scale = s
-
-            if isinstance(id, int):
-                pynode = gltf.data.nodes[id]
-                set_extras(pose_bone, pynode.extras)
-
-            if gltf.import_settings['bone_heuristic'] == "BLENDER" and gltf.import_settings['disable_bone_shape'] is False:
-                pose_bone.custom_shape = bpy.data.objects[gltf.bone_shape]
-                armature_min_dim = min([blender_arma.dimensions[0] /
-                                        blender_arma.scale[0], blender_arma.dimensions[1] /
-                                        blender_arma.scale[1], blender_arma.dimensions[2] /
-                                        blender_arma.scale[2]])
-                pose_bone.custom_shape_scale_xyz = Vector(
-                    [armature_min_dim * 0.05] * 3) * gltf.import_settings['bone_shape_scale_factor']
-                pose_bone.use_custom_shape_bone_size = False
-
-    @staticmethod
     def create_mesh_object(gltf, vnode):
         if vnode.type != VNode.Inst:
             # Regular case
@@ -273,13 +133,13 @@ class BlenderNode():
                 pass
             pynode = DummyPyNode()
             pynode.mesh = vnode.mesh_idx
-            pynode.skin = None
             pynode.weights = None
 
         if not (0 <= pynode.mesh < len(gltf.data.meshes)):
             # Avoid traceback for invalid gltf file: invalid reference to meshes array
-            # So return an empty blender object)
-            return bpy.data.objects.new(vnode.name or "Invalid Mesh Index", None)
+            # No Blender object is created for this invalid node.
+            gltf.log.warning("Skipping glTF node with invalid mesh index %s", pynode.mesh)
+            return None
         pymesh = gltf.data.meshes[pynode.mesh]
 
         # Detect if the mesh will be a Point Cloud or not
@@ -294,13 +154,13 @@ class BlenderNode():
         # Same cache key = instances of the same Blender mesh.
         cache_key = None
         if not pymesh.shapekey_names:
-            cache_key = (pynode.skin,)
+            cache_key = ()
         else:
             # Unlike glTF, all instances of a Blender mesh share shapekeys.
             # So two instances that might have different morph weights need
             # different cache keys.
             if pynode.weight_animation is False:
-                cache_key = (pynode.skin, tuple(pynode.weights or []))
+                cache_key = (tuple(pynode.weights or []),)
             else:
                 cache_key = None  # don't use the cache at all
 
@@ -310,7 +170,7 @@ class BlenderNode():
         else:
             if not is_point_cloud:
                 gltf.log.info("Blender create Mesh node {}".format(pymesh.name or pynode.mesh))
-                mesh = BlenderMesh.create(gltf, pynode.mesh, pynode.skin)
+                mesh = BlenderMesh.create(gltf, pynode.mesh)
             else:
                 gltf.log.info("Blender create Point Cloud node {}".format(pymesh.name or pynode.mesh))
                 mesh = BlenderMesh.create_pointcloud(gltf, pynode.mesh)
@@ -323,9 +183,6 @@ class BlenderNode():
 
         if pymesh.shapekey_names:
             BlenderNode.set_morph_weights(gltf, pynode, obj)
-
-        if pynode.skin is not None:
-            BlenderNode.setup_skinning(gltf, pynode, obj)
 
         return obj
 
@@ -347,15 +204,3 @@ class BlenderNode():
                 if hasattr(obj, 'gltf2_animation_weight_rest'):
                     w = obj.gltf2_animation_weight_rest.add()
                     w.val = weight
-
-    @staticmethod
-    def setup_skinning(gltf, pynode, obj):
-        pyskin = gltf.data.skins[pynode.skin]
-
-        # Armature/bones should have already been created.
-
-        # Create an Armature modifier
-        first_bone = gltf.vnodes[pyskin.joints[0]]
-        arma = gltf.vnodes[first_bone.bone_arma]
-        mod = obj.modifiers.new(name="Armature", type="ARMATURE")
-        mod.object = arma.blender_object

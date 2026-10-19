@@ -12,7 +12,6 @@ from .....blender.com.conversion import get_gltf_interpolation
 from .....io.exp import binary_data as gltf2_io_binary_data
 from .....io.exp.user_extensions import export_user_extensions
 from .....io.exp.meshopt import MeshoptEncoder
-from ....com.data_path import get_target_property_name
 from ....com import gltf2_blender_math
 from ...cache import cached
 from ...accessors import gather_accessor
@@ -24,7 +23,6 @@ from .keyframes import gather_fcurve_keyframes
 def gather_animation_fcurves_sampler(
         obj_uuid: str,
         channel_group: typing.Tuple[bpy.types.FCurve],
-        bone: typing.Optional[str],
         custom_range: typing.Optional[set],
         extra_mode: bool,
         export_settings
@@ -33,7 +31,6 @@ def gather_animation_fcurves_sampler(
     keyframes = __gather_keyframes(
         obj_uuid,
         channel_group,
-        bone,
         custom_range,
         extra_mode,
         export_settings)
@@ -43,7 +40,7 @@ def gather_animation_fcurves_sampler(
         return None
 
     # Now we are raw input/output, we need to convert to glTF data
-    input, output = __convert_keyframes(obj_uuid, channel_group, bone, keyframes, extra_mode, export_settings)
+    input, output = __convert_keyframes(obj_uuid, channel_group, keyframes, extra_mode, export_settings)
 
     sampler = gltf2_io.AnimationSampler(
         extensions=None,
@@ -54,7 +51,7 @@ def gather_animation_fcurves_sampler(
     )
 
     blender_object = export_settings['vtree'].nodes[obj_uuid].blender_object
-    export_user_extensions('animation_gather_fcurve_channel_sampler', export_settings, blender_object, bone)
+    export_user_extensions('animation_gather_fcurve_channel_sampler', export_settings, blender_object, None)
 
     return sampler
 
@@ -63,19 +60,17 @@ def gather_animation_fcurves_sampler(
 def __gather_keyframes(
         obj_uuid: str,
         channel_group: typing.Tuple[bpy.types.FCurve],
-        bone: typing.Optional[str],
         custom_range: typing.Optional[set],
         extra_mode: bool,
         export_settings
 ):
 
-    return gather_fcurve_keyframes(obj_uuid, channel_group, bone, custom_range, extra_mode, export_settings)
+    return gather_fcurve_keyframes(obj_uuid, channel_group, custom_range, extra_mode, export_settings)
 
 
 def __convert_keyframes(
         obj_uuid: str,
         channel_group: typing.Tuple[bpy.types.FCurve],
-        bone_name: typing.Optional[str],
         keyframes,
         extra_mode: bool,
         export_settings):
@@ -114,45 +109,7 @@ def __convert_keyframes(
 
     target_datapath = [c for c in channel_group if c is not None][0].data_path
 
-    if bone_name is not None:
-        bone = export_settings['vtree'].nodes[obj_uuid].blender_object.pose.bones[bone_name]
-        if bone.parent is None:
-            # bone at root of armature
-            axis_basis_change = mathutils.Matrix.Identity(4)
-            if is_yup:
-                axis_basis_change = mathutils.Matrix(
-                    ((1.0, 0.0, 0.0, 0.0),
-                        (0.0, 0.0, 1.0, 0.0),
-                        (0.0, -1.0, 0.0, 0.0),
-                        (0.0, 0.0, 0.0, 1.0)))
-            correction_matrix_local = axis_basis_change @ bone.bone.matrix_local
-        else:
-            # Bone is not at root of armature
-            # There are 2 cases :
-            parent_uuid = export_settings['vtree'].nodes[export_settings['vtree']
-                                                         .nodes[obj_uuid].bones[bone_name]].parent_uuid
-            if parent_uuid is not None and export_settings['vtree'].nodes[parent_uuid].blender_type == VExportNode.BONE:
-                # export bone is not at root of armature neither
-                blender_bone_parent = export_settings['vtree'].nodes[parent_uuid].blender_bone
-                correction_matrix_local = (
-                    blender_bone_parent.bone.matrix_local.inverted_safe() @
-                    bone.bone.matrix_local
-                )
-            else:
-                # exported bone (after filter) is at root of armature
-                axis_basis_change = mathutils.Matrix.Identity(4)
-                if is_yup:
-                    axis_basis_change = mathutils.Matrix(
-                        ((1.0, 0.0, 0.0, 0.0),
-                         (0.0, 0.0, 1.0, 0.0),
-                         (0.0, -1.0, 0.0, 0.0),
-                         (0.0, 0.0, 0.0, 1.0)))
-                correction_matrix_local = axis_basis_change
-
-        transform = correction_matrix_local
-
-    else:
-        transform = mathutils.Matrix.Identity(4).freeze()
+    transform = mathutils.Matrix.Identity(4).freeze()
 
     values = []
     fps = (bpy.context.scene.render.fps * bpy.context.scene.render.fps_base)
@@ -170,7 +127,7 @@ def __convert_keyframes(
 
         # Transform the data and build gltf control points
         value = gltf2_blender_math.transform(keyframe.value, target_datapath, transform, need_rotation_correction)
-        if is_yup and bone_name is None:
+        if is_yup:
             value = gltf2_blender_math.swizzle_yup(value, target_datapath)
         keyframe_value = gltf2_blender_math.mathutils_to_gltf(value)
 
@@ -178,7 +135,7 @@ def __convert_keyframes(
             # we can directly transform the tangent as it currently is represented by a control point
             in_tangent = gltf2_blender_math.transform(
                 keyframe.in_tangent, target_datapath, transform, need_rotation_correction)
-            if is_yup and bone_name is None:
+            if is_yup:
                 in_tangent = gltf2_blender_math.swizzle_yup(in_tangent, target_datapath)
             # the tangent in glTF is relative to the keyframe value and uses seconds
             if not isinstance(value, list):
@@ -191,7 +148,7 @@ def __convert_keyframes(
             # we can directly transform the tangent as it currently is represented by a control point
             out_tangent = gltf2_blender_math.transform(
                 keyframe.out_tangent, target_datapath, transform, need_rotation_correction)
-            if is_yup and bone_name is None:
+            if is_yup:
                 out_tangent = gltf2_blender_math.swizzle_yup(out_tangent, target_datapath)
             # the tangent in glTF is relative to the keyframe value and uses seconds
             if not isinstance(value, list):
@@ -227,17 +184,6 @@ def __convert_keyframes(
 
         if compressed_type is None and target_datapath.startswith('key_blocks'):
             compressed_type = 'SK_ANIM'
-
-        if compressed_type is None and target_datapath.startswith('pose.bones'):
-            compressed_type = {
-                'location': 'POSITION',
-                'rotation_quaternion': 'ROTATION',
-                'rotation_euler': 'ROTATION',
-                'scale': 'SCALE',
-            }.get(get_target_property_name(target_datapath), None)
-
-            if compressed_type is not None:
-                target = get_target_property_name(target_datapath)
 
         byteStride = {
             'location': 12,

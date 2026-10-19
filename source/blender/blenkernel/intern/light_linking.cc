@@ -271,14 +271,7 @@ static void light_linking_add_receiver_to_collection(Main *bmain,
     Object *object = reinterpret_cast<Object *>(receiver);
 
     if (!allow_all_objects) {
-      if (object->type == OB_EMPTY && object->instance_collection) {
-        if (!BKE_collection_contains_geometry_recursive(object->instance_collection) &&
-            !DEG_object_has_geometry_component(object))
-        {
-          return;
-        }
-      }
-      else if (!DEG_object_has_geometry_component(object)) {
+      if (!DEG_object_has_geometry_component(object)) {
         return;
       }
     }
@@ -527,14 +520,7 @@ void BKE_light_linking_link_receiver_to_emitter(Main *bmain,
                                                 const LightLinkingType link_type,
                                                 const eCollectionLightLinkingState link_state)
 {
-  if (receiver->type == OB_EMPTY && receiver->instance_collection) {
-    if (!BKE_collection_contains_geometry_recursive(receiver->instance_collection) &&
-        !DEG_object_has_geometry_component(receiver))
-    {
-      return;
-    }
-  }
-  else if (!DEG_object_has_geometry_component(receiver)) {
+  if (!DEG_object_has_geometry_component(receiver)) {
     return;
   }
 

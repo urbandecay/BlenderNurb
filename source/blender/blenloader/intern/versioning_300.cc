@@ -31,7 +31,6 @@
 #define DNA_GENFILE_VERSIONING_MACROS
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
@@ -58,7 +57,6 @@
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_asset.hh"
 #include "BKE_attribute.h"
 #include "BKE_attribute.hh"
@@ -288,14 +286,6 @@ static void version_idproperty_ui_data(IDProperty *idprop_group)
   IDP_FreeFromGroup(idprop_group, ui_container);
 }
 
-static void do_versions_idproperty_bones_recursive(Bone *bone)
-{
-  version_idproperty_ui_data(bone->prop);
-  for (Bone &child_bone : bone->childbase) {
-    do_versions_idproperty_bones_recursive(&child_bone);
-  }
-}
-
 static void do_versions_idproperty_seq_recursive(ListBaseT<Strip> *seqbase)
 {
   for (Strip &strip : *seqbase) {
@@ -313,7 +303,7 @@ static void do_versions_idproperty_seq_recursive(ListBaseT<Strip> *seqbase)
  *
  * \note The following IDProperty groups in DNA aren't exposed in the UI or are runtime-only, so
  * they don't have UI data: wmOperator, bAddon, bUserMenuItem_Op, wmKeyMapItem, wmKeyConfigPref,
- * uiList, FFMpegCodecData, View3DShading, bToolRef, TimeMarker, ViewLayer, bPoseChannel.
+ * uiList, FFMpegCodecData, View3DShading, bToolRef, TimeMarker, ViewLayer.
  */
 static void do_versions_idproperty_ui_data(Main *bmain)
 {
@@ -324,13 +314,6 @@ static void do_versions_idproperty_ui_data(Main *bmain)
     version_idproperty_ui_data(idprop_group);
   }
   FOREACH_MAIN_ID_END;
-
-  /* Bones. */
-  for (bArmature &armature : bmain->armatures) {
-    for (Bone &bone : armature.bonebase) {
-      do_versions_idproperty_bones_recursive(&bone);
-    }
-  }
 
   /* Nodes and node sockets. */
   for (bNodeTree &ntree : bmain->nodetrees) {
@@ -355,12 +338,6 @@ static void do_versions_idproperty_ui_data(Main *bmain)
       }
     }
 
-    /* Object post bones. */
-    if (ob.type == OB_ARMATURE && ob.pose != nullptr) {
-      for (bPoseChannel &pchan : ob.pose->chanbase) {
-        version_idproperty_ui_data(pchan.prop);
-      }
-    }
   }
 
   /* Sequences. */
@@ -1393,89 +1370,6 @@ static void version_switch_node_input_prefix(Main *bmain)
   FOREACH_NODETREE_END;
 }
 
-static bool replace_bbone_len_scale_rnapath(char **p_old_path, int *p_index)
-{
-  char *old_path = *p_old_path;
-
-  if (old_path == nullptr) {
-    return false;
-  }
-
-  int len = strlen(old_path);
-
-  if (BLI_str_endswith(old_path, ".bbone_curveiny") ||
-      BLI_str_endswith(old_path, ".bbone_curveouty"))
-  {
-    old_path[len - 1] = 'z';
-    return true;
-  }
-
-  if (BLI_str_endswith(old_path, ".bbone_scaleinx") ||
-      BLI_str_endswith(old_path, ".bbone_scaleiny") ||
-      BLI_str_endswith(old_path, ".bbone_scaleoutx") ||
-      BLI_str_endswith(old_path, ".bbone_scaleouty"))
-  {
-    int index = (old_path[len - 1] == 'y' ? 2 : 0);
-
-    old_path[len - 1] = 0;
-
-    if (p_index) {
-      *p_index = index;
-    }
-    else {
-      *p_old_path = BLI_sprintfN("%s[%d]", old_path, index);
-      MEM_delete(old_path);
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
-static void do_version_bbone_len_scale_fcurve_fix(FCurve *fcu)
-{
-  /* Update driver variable paths. */
-  if (fcu->driver) {
-    for (DriverVar &dvar : fcu->driver->variables) {
-      DRIVER_TARGETS_LOOPER_BEGIN (&dvar) {
-        replace_bbone_len_scale_rnapath(&dtar->rna_path, nullptr);
-      }
-      DRIVER_TARGETS_LOOPER_END;
-    }
-  }
-
-  /* Update F-Curve's path. */
-  replace_bbone_len_scale_rnapath(&fcu->rna_path, &fcu->array_index);
-}
-
-static void do_version_bones_bbone_len_scale(ListBaseT<Bone> *lb)
-{
-  for (Bone &bone : *lb) {
-    if (bone.flag & BONE_ADD_PARENT_END_ROLL) {
-      bone.bbone_flag |= BBONE_ADD_PARENT_END_ROLL;
-    }
-
-    copy_v3_fl3(bone.scale_in, bone.scale_in_x, 1.0f, bone.scale_in_z);
-    copy_v3_fl3(bone.scale_out, bone.scale_out_x, 1.0f, bone.scale_out_z);
-
-    do_version_bones_bbone_len_scale(&bone.childbase);
-  }
-}
-
-static void do_version_constraints_spline_ik_joint_bindings(ListBaseT<bConstraint> *lb)
-{
-  /* Binding array data could be freed without properly resetting its size data. */
-  for (bConstraint &con : *lb) {
-    if (con.type == CONSTRAINT_TYPE_SPLINEIK) {
-      bSplineIKConstraint *data = static_cast<bSplineIKConstraint *>(con.data);
-      if (data->points == nullptr) {
-        data->numpoints = 0;
-      }
-    }
-  }
-}
-
 static bNodeSocket *do_version_replace_float_size_with_vector(bNodeTree *ntree,
                                                               bNode *node,
                                                               bNodeSocket *socket)
@@ -1569,112 +1463,6 @@ static void version_geometry_nodes_add_attribute_input_settings(NodesModifierDat
 
     IDProperty *attribute_prop = bke::idprop::create(attribute_name_prop_name, "").release();
     IDP_AddToGroup(nmd->settings_legacy.properties, attribute_prop);
-  }
-}
-
-/* Copy of the function before the fixes. */
-static void legacy_vec_roll_to_mat3_normalized(const float nor[3],
-                                               const float roll,
-                                               float r_mat[3][3])
-{
-  const float SAFE_THRESHOLD = 1.0e-5f;     /* theta above this value has good enough precision. */
-  const float CRITICAL_THRESHOLD = 1.0e-9f; /* above this is safe under certain conditions. */
-  const float THRESHOLD_SQUARED = CRITICAL_THRESHOLD * CRITICAL_THRESHOLD;
-
-  const float x = nor[0];
-  const float y = nor[1];
-  const float z = nor[2];
-
-  const float theta = 1.0f + y;          /* remapping Y from [-1,+1] to [0,2]. */
-  const float theta_alt = x * x + z * z; /* Helper value for matrix calculations. */
-  float rMatrix[3][3], bMatrix[3][3];
-
-  BLI_ASSERT_UNIT_V3(nor);
-
-  /* When theta is close to zero (nor is aligned close to negative Y Axis),
-   * we have to check we do have non-null X/Z components as well.
-   * Also, due to float precision errors, nor can be (0.0, -0.99999994, 0.0) which results
-   * in theta being close to zero. This will cause problems when theta is used as divisor.
-   */
-  if (theta > SAFE_THRESHOLD || (theta > CRITICAL_THRESHOLD && theta_alt > THRESHOLD_SQUARED)) {
-    /* nor is *not* aligned to negative Y-axis (0,-1,0). */
-
-    bMatrix[0][1] = -x;
-    bMatrix[1][0] = x;
-    bMatrix[1][1] = y;
-    bMatrix[1][2] = z;
-    bMatrix[2][1] = -z;
-
-    if (theta > SAFE_THRESHOLD) {
-      /* nor differs significantly from negative Y axis (0,-1,0): apply the general case. */
-      bMatrix[0][0] = 1 - x * x / theta;
-      bMatrix[2][2] = 1 - z * z / theta;
-      bMatrix[2][0] = bMatrix[0][2] = -x * z / theta;
-    }
-    else {
-      /* nor is close to negative Y axis (0,-1,0): apply the special case. */
-      bMatrix[0][0] = (x + z) * (x - z) / -theta_alt;
-      bMatrix[2][2] = -bMatrix[0][0];
-      bMatrix[2][0] = bMatrix[0][2] = 2.0f * x * z / theta_alt;
-    }
-  }
-  else {
-    /* nor is very close to negative Y axis (0,-1,0): use simple symmetry by Z axis. */
-    unit_m3(bMatrix);
-    bMatrix[0][0] = bMatrix[1][1] = -1.0;
-  }
-
-  /* Make Roll matrix */
-  axis_angle_normalized_to_mat3(rMatrix, nor, roll);
-
-  /* Combine and output result */
-  mul_m3_m3m3(r_mat, rMatrix, bMatrix);
-}
-
-static void correct_bone_roll_value(const float head[3],
-                                    const float tail[3],
-                                    const float check_x_axis[3],
-                                    const float check_y_axis[3],
-                                    float *r_roll)
-{
-  const float SAFE_THRESHOLD = 1.0e-5f;
-  float vec[3], bone_mat[3][3], vec2[3];
-
-  /* Compute the Y axis vector. */
-  sub_v3_v3v3(vec, tail, head);
-  normalize_v3(vec);
-
-  /* Only correct when in the danger zone. */
-  if (1.0f + vec[1] < SAFE_THRESHOLD * 2 && (vec[0] || vec[2])) {
-    /* Use the armature matrix to double-check if adjustment is needed.
-     * This should minimize issues if the file is bounced back and forth between
-     * 2.92 and 2.91, provided Edit Mode isn't entered on the armature in 2.91. */
-    vec_roll_to_mat3(vec, *r_roll, bone_mat);
-
-    UNUSED_VARS_NDEBUG(check_y_axis);
-    BLI_assert(dot_v3v3(bone_mat[1], check_y_axis) > 0.999f);
-
-    if (dot_v3v3(bone_mat[0], check_x_axis) < 0.999f) {
-      /* Recompute roll using legacy code to interpret the old value. */
-      legacy_vec_roll_to_mat3_normalized(vec, *r_roll, bone_mat);
-      mat3_to_vec_roll(bone_mat, vec2, r_roll);
-      BLI_assert(compare_v3v3(vec, vec2, 0.001f));
-    }
-  }
-}
-
-/* Update the armature Bone roll fields for bones very close to -Y direction. */
-static void do_version_bones_roll(ListBaseT<Bone> *lb)
-{
-  for (Bone &bone : *lb) {
-    /* Parent-relative orientation (used for posing). */
-    correct_bone_roll_value(bone.head, bone.tail, bone.bone_mat[0], bone.bone_mat[1], &bone.roll);
-
-    /* Absolute orientation (used for Edit mode). */
-    correct_bone_roll_value(
-        bone.arm_head, bone.arm_tail, bone.arm_mat[0], bone.arm_mat[1], &bone.arm_roll);
-
-    do_version_bones_roll(&bone.childbase);
   }
 }
 
@@ -1856,18 +1644,6 @@ static void version_liboverride_rnacollections_insertion_object(Object *object)
     version_liboverride_rnacollections_insertion_object_constraints(&object->constraints, op);
   }
 
-  if (object->pose != nullptr) {
-    for (bPoseChannel &pchan : object->pose->chanbase) {
-      char rna_path[26 + (sizeof(pchan.name) * 2) + 1];
-      char name_esc[sizeof(pchan.name) * 2];
-      BLI_str_escape(name_esc, pchan.name, sizeof(name_esc));
-      SNPRINTF_UTF8(rna_path, "pose.bones[\"%s\"].constraints", name_esc);
-      op = BKE_lib_override_library_property_find(liboverride, rna_path);
-      if (op != nullptr) {
-        version_liboverride_rnacollections_insertion_object_constraints(&pchan.constraints, op);
-      }
-    }
-  }
 }
 
 static void version_liboverride_rnacollections_insertion_animdata(ID *id)
@@ -2112,17 +1888,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 2)) {
     version_switch_node_input_prefix(bmain);
-
-    if (!DNA_struct_member_exists(fd->filesdna, "bPoseChannel", "float", "custom_scale_xyz[3]")) {
-      for (Object &ob : bmain->objects) {
-        if (ob.pose == nullptr) {
-          continue;
-        }
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          copy_v3_fl(pchan.custom_scale_xyz, pchan.custom_scale);
-        }
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 4)) {
@@ -2179,35 +1944,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Initialize length-wise scale B-Bone settings. */
-    if (!DNA_struct_member_exists(fd->filesdna, "Bone", "int", "bbone_flag")) {
-      /* Update armature data and pose channels. */
-      for (bArmature &arm : bmain->armatures) {
-        do_version_bones_bbone_len_scale(&arm.bonebase);
-      }
-
-      for (Object &ob : bmain->objects) {
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            copy_v3_fl3(pchan.scale_in, pchan.scale_in_x, 1.0f, pchan.scale_in_z);
-            copy_v3_fl3(pchan.scale_out, pchan.scale_out_x, 1.0f, pchan.scale_out_z);
-          }
-        }
-      }
-
-      /* Update action curves and drivers. */
-      for (bAction &act : bmain->actions) {
-        for (FCurve &fcu : act.curves.items_mutable()) {
-          do_version_bbone_len_scale_fcurve_fix(&fcu);
-        }
-      }
-
-      BKE_animdata_main_cb(bmain, [](ID * /*id*/, AnimData *adt) {
-        for (FCurve &fcu : adt->drivers.items_mutable()) {
-          do_version_bbone_len_scale_fcurve_fix(&fcu);
-        }
-      });
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 5)) {
@@ -2412,17 +2148,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Fix SplineIK constraint's inconsistency between binding points array and its stored size.
-     */
-    for (Object &ob : bmain->objects) {
-      /* NOTE: Objects should never have SplineIK constraint, so no need to apply this fix on
-       * their constraints. */
-      if (ob.pose) {
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          do_version_constraints_spline_ik_joint_bindings(&pchan.constraints);
-        }
-      }
-    }
   }
 
   /* Move visibility from Cycles to Blender. */
@@ -2830,10 +2555,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       version_node_id(&ntree, GEO_NODE_SPLIT_EDGES, "GeometryNodeSplitEdges");
     }
 
-    /* Update bone roll after a fix to vec_roll_to_mat3_normalized. */
-    for (bArmature &arm : bmain->armatures) {
-      do_version_bones_roll(&arm.bonebase);
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 300, 37)) {
@@ -3089,20 +2810,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
         if (nurb.flagv & CU_NURB_CYCLIC) {
           nurb.flagv = CU_NURB_CYCLIC;
           BKE_nurb_knot_calc_v(&nurb);
-        }
-      }
-    }
-
-    /* Initialize the bone wireframe opacity setting. */
-    if (!DNA_struct_member_exists(fd->filesdna, "View3DOverlay", "float", "bone_wire_alpha")) {
-      for (bScreen &screen : bmain->screens) {
-        for (ScrArea &area : screen.areabase) {
-          for (SpaceLink &sl : area.spacedata) {
-            if (sl.spacetype == SPACE_VIEW3D) {
-              View3D *v3d = reinterpret_cast<View3D *>(&sl);
-              v3d->overlay.bone_wire_alpha = 1.0f;
-            }
-          }
         }
       }
     }
@@ -3866,36 +3573,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       BKE_attribute_rename(owner, ".selection_curve_float", ".selection", nullptr);
     }
 
-    /* Toggle the Invert Vertex Group flag on Armature modifiers in some cases. */
-    for (Object &ob : bmain->objects) {
-      bool after_armature = false;
-      for (ModifierData &md : ob.modifiers) {
-        if (md.type == eModifierType_Armature) {
-          ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(&md);
-          if (amd->multi) {
-            /* Toggle the invert vertex group flag on operational Multi Modifier entries. */
-            if (after_armature && amd->defgrp_name[0]) {
-              amd->deformflag ^= ARM_DEF_INVERT_VGROUP;
-            }
-          }
-          else {
-            /* Disabled multi modifiers don't reset propagation, but non-multi ones do. */
-            after_armature = false;
-          }
-          /* Multi Modifier is only valid and operational after an active Armature modifier. */
-          if (md.mode & (eModifierMode_Realtime | eModifierMode_Render)) {
-            after_armature = true;
-          }
-        }
-        else if (ELEM(md.type, eModifierType_Lattice, eModifierType_MeshDeform)) {
-          /* These modifiers will also allow a following Multi Modifier to work. */
-          after_armature = (md.mode & (eModifierMode_Realtime | eModifierMode_Render)) != 0;
-        }
-        else {
-          after_armature = false;
-        }
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 305, 9)) {
@@ -4090,19 +3767,6 @@ void blo_do_versions_300(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Enable the iTaSC ITASC_TRANSLATE_ROOT_BONES flag for backward compatibility.
-     * See #104606. */
-    for (Object &ob : bmain->objects) {
-      if (ob.type != OB_ARMATURE || ob.pose == nullptr) {
-        continue;
-      }
-      bPose *pose = ob.pose;
-      if (pose->iksolver != IKSOLVER_ITASC || pose->ikparam == nullptr) {
-        continue;
-      }
-      bItasc *ikparam = static_cast<bItasc *>(pose->ikparam);
-      ikparam->flag |= ITASC_TRANSLATE_ROOT_BONES;
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 306, 10)) {

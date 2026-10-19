@@ -32,7 +32,7 @@ def gather_action_object_sampled(object_uuid: str,
                 # No glTF channel here, as we don't have any target
                 # Trying to retrieve sampler directly
                 sampler = gather_animation_fcurves_sampler(
-                    object_uuid, tuple(channel_group), None, None, True, export_settings)
+                    object_uuid, tuple(channel_group), None, True, export_settings)
                 if sampler is not None:
                     extra_samplers.append((channel_group_name, sampler, "OBJECT", None))
 

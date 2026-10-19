@@ -661,7 +661,6 @@ bool ED_operator_editable_mesh(bContext *C);
 bool ED_operator_editmesh(bContext *C);
 bool ED_operator_editmesh_view3d(bContext *C);
 bool ED_operator_editmesh_region_view3d(bContext *C);
-bool ED_operator_editarmature(bContext *C);
 bool ED_operator_editcurve(bContext *C);
 bool ED_operator_editcurve_3d(bContext *C);
 bool ED_operator_editsurf(bContext *C);
@@ -676,18 +675,6 @@ bool ED_operator_editmball(bContext *C);
 bool ED_operator_uvedit(bContext *C);
 bool ED_operator_uvedit_space_image(bContext *C);
 bool ED_operator_uvmap(bContext *C);
-bool ED_operator_posemode_exclusive(bContext *C);
-/**
- * Object must be editable, fully local (i.e. not an override), and exclusively in Pose mode.
- */
-bool ED_operator_object_active_local_editable_posemode_exclusive(bContext *C);
-/**
- * Allows for pinned pose objects to be used in the object buttons
- * and the non-active pose object to be used in the 3D view.
- */
-bool ED_operator_posemode_context(bContext *C);
-bool ED_operator_posemode(bContext *C);
-bool ED_operator_posemode_local(bContext *C);
 bool ED_operator_camera_poll(bContext *C);
 
 /* `screen_user_menu.cc` */

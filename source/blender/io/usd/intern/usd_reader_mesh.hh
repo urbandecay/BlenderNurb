@@ -88,16 +88,6 @@ class USDMeshReader : public USDGeomReader {
 
   bool topology_changed(const Mesh *existing_mesh, pxr::UsdTimeCode time) override;
 
-  /**
-   * If the USD mesh prim has a valid `UsdSkel` schema defined, return the USD path
-   * string to the bound skeleton, if any. Returns the empty string if no skeleton
-   * binding is defined.
-   *
-   * The returned path is currently used to match armature modifiers with armature
-   * objects during import.
-   */
-  pxr::SdfPath get_skeleton_path() const;
-
  private:
   void process_normals_vertex_varying(Mesh *mesh, MutableSpan<float3> usd_normals) const;
   void process_normals_face_varying(Mesh *mesh, Span<float3> usd_normals) const;
@@ -135,8 +125,6 @@ class USDMeshReader : public USDGeomReader {
 
   bool topology_changed(const Mesh *existing_mesh, const USDMeshReadData &usd_data) const;
 
-  /** Override world transform computation for meshes bound to a USD skeleton. */
-  std::optional<XformResult> get_world_usd_xform(pxr::UsdTimeCode time) const override;
 };
 
 }  // namespace blender::io::usd

@@ -415,8 +415,6 @@ static void action_channel_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
         case ND_KEYS:
           ED_region_tag_redraw(region);
           break;
@@ -500,9 +498,6 @@ static void action_main_region_listener(const wmRegionListenerParams *params)
         case ND_TRANSFORM:
           /* moving object shouldn't need to redraw action */
           break;
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
-        case ND_BONE_COLLECTION:
         case ND_KEYS:
           ED_region_tag_redraw(region);
           break;
@@ -633,12 +628,6 @@ static void action_listener(const wmSpaceTypeListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_SELECT: /* Selection changed, so force refresh to flush
-                              * (needs flag set to do syncing). */
-        case ND_BONE_ACTIVE:
-          saction->runtime.flag |= SACTION_RUNTIME_FLAG_NEED_CHAN_SYNC;
-          ED_area_tag_refresh(area);
-          break;
         case ND_TRANSFORM:
           /* moving object shouldn't need to redraw action */
           break;
@@ -807,8 +796,6 @@ static void action_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
         case ND_KEYS:
           ED_region_tag_redraw(region);
           break;

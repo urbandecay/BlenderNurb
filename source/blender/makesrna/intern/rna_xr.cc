@@ -2340,7 +2340,7 @@ static void rna_def_xr_session_settings(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_object_extras", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "draw_flags", V3D_OFSDRAW_SHOW_OBJECT_EXTRAS);
   RNA_def_property_ui_text(
-      prop, "Show Object Extras", "Show object extras, including empties, lights, and cameras");
+      prop, "Show Object Extras", "Show additional object elements, such as lights and cameras");
   RNA_def_property_update(prop, NC_WM | ND_XR_DATA_CHANGED, nullptr);
 
   prop = RNA_def_property(srna, "controller_draw_style", PROP_ENUM, PROP_NONE);

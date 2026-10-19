@@ -75,7 +75,7 @@ def geometry_modifier_poll(context):
     ob = context.object
 
     # Test object support for geometry node modifier
-    if not ob or ob.type not in {'MESH', 'POINTCLOUD', 'VOLUME', 'CURVE', 'FONT', 'CURVES', 'EMPTY'}:
+    if not ob or ob.type not in {'MESH', 'POINTCLOUD', 'VOLUME', 'CURVE', 'FONT', 'CURVES'}:
         return False
 
     return True
@@ -298,10 +298,7 @@ class NewGeometryNodesModifier(Operator):
         if not modifier:
             return {'CANCELLED'}
 
-        is_first_modifier = ob.modifiers[0] == modifier
-        # For empty objects, don't add a geometry input for the first modifier
-        add_geometry_input = not (ob.type == 'EMPTY' and ob.instance_collection is None and is_first_modifier)
-        group = geometry_node_group_empty_modifier_new(data_("Geometry Nodes"), add_geometry_input)
+        group = geometry_node_group_empty_modifier_new(data_("Geometry Nodes"), True)
         modifier.node_group = group
 
         return {'FINISHED'}
@@ -323,11 +320,7 @@ class NewGeometryNodeTreeAssign(Operator):
         if not modifier:
             return {'CANCELLED'}
 
-        ob = context.object
-        is_first_modifier = ob.modifiers[0] == modifier
-        # For empty objects, don't add a geometry input for the first modifier
-        add_geometry_input = not (ob.type == 'EMPTY' and ob.instance_collection is None and is_first_modifier)
-        group = geometry_node_group_empty_modifier_new(data_("Geometry Nodes"), add_geometry_input)
+        group = geometry_node_group_empty_modifier_new(data_("Geometry Nodes"), True)
         modifier.node_group = group
 
         return {'FINISHED'}

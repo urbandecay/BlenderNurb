@@ -24,13 +24,6 @@ struct wmOperatorType;
 
 namespace ed::object {
 
-/* add hook menu */
-enum eObject_Hook_Add_Mode {
-  OBJECT_ADDHOOK_NEWOB = 1,
-  OBJECT_ADDHOOK_SELOB,
-  OBJECT_ADDHOOK_SELOB_BONE,
-};
-
 /* internal exports only */
 
 /* object_transform.cc */
@@ -67,11 +60,6 @@ void OBJECT_OT_drop_named_material(wmOperatorType *ot);
  * Assigns to object under cursor, creates a new geometry nodes modifier.
  */
 void OBJECT_OT_drop_geometry_nodes(wmOperatorType *ot);
-/**
- * \note Only for empty-image objects, this operator is needed
- */
-void OBJECT_OT_unlink_data(wmOperatorType *ot);
-
 /* object_edit.cc */
 
 void OBJECT_OT_hide_view_set(wmOperatorType *ot);
@@ -80,7 +68,6 @@ void OBJECT_OT_hide_collection(wmOperatorType *ot);
 void OBJECT_OT_mode_set(wmOperatorType *ot);
 void OBJECT_OT_mode_set_with_submode(wmOperatorType *ot);
 void OBJECT_OT_editmode_toggle(wmOperatorType *ot);
-void OBJECT_OT_posemode_toggle(wmOperatorType *ot);
 void OBJECT_OT_shade_smooth(wmOperatorType *ot);
 void OBJECT_OT_shade_smooth_by_angle(wmOperatorType *ot);
 void OBJECT_OT_shade_auto_smooth(wmOperatorType *ot);
@@ -116,10 +103,7 @@ void OBJECT_OT_add_named(wmOperatorType *ot);
 void OBJECT_OT_transform_to_mouse(wmOperatorType *ot);
 void OBJECT_OT_metaball_add(wmOperatorType *ot);
 void OBJECT_OT_text_add(wmOperatorType *ot);
-void OBJECT_OT_armature_add(wmOperatorType *ot);
-void OBJECT_OT_empty_add(wmOperatorType *ot);
 void OBJECT_OT_lightprobe_add(wmOperatorType *ot);
-void OBJECT_OT_empty_image_add(wmOperatorType *ot);
 void OBJECT_OT_light_add(wmOperatorType *ot);
 void OBJECT_OT_effector_add(wmOperatorType *ot);
 void OBJECT_OT_camera_add(wmOperatorType *ot);
@@ -130,7 +114,6 @@ void OBJECT_OT_pointcloud_random_add(wmOperatorType *ot);
 /**
  * Only used as menu.
  */
-void OBJECT_OT_collection_instance_add(wmOperatorType *ot);
 void OBJECT_OT_collection_external_asset_drop(wmOperatorType *ot);
 void OBJECT_OT_data_instance_add(wmOperatorType *ot);
 
@@ -153,7 +136,6 @@ void OBJECT_OT_volume_import(wmOperatorType *ot);
 /* `object_hook.cc` */
 
 void OBJECT_OT_hook_add_selob(wmOperatorType *ot);
-void OBJECT_OT_hook_add_newob(wmOperatorType *ot);
 void OBJECT_OT_hook_remove(wmOperatorType *ot);
 void OBJECT_OT_hook_select(wmOperatorType *ot);
 void OBJECT_OT_hook_assign(wmOperatorType *ot);
@@ -224,7 +206,6 @@ void OBJECT_OT_ocean_bake(wmOperatorType *ot);
 void OBJECT_OT_skin_root_mark(wmOperatorType *ot);
 void OBJECT_OT_skin_loose_mark_clear(wmOperatorType *ot);
 void OBJECT_OT_skin_radii_equalize(wmOperatorType *ot);
-void OBJECT_OT_skin_armature_create(wmOperatorType *ot);
 void OBJECT_OT_laplaciandeform_bind(wmOperatorType *ot);
 void OBJECT_OT_surfacedeform_bind(wmOperatorType *ot);
 void OBJECT_OT_geometry_nodes_input_attribute_toggle(wmOperatorType *ot);
@@ -236,17 +217,10 @@ void OBJECT_OT_geometry_node_tree_copy_assign(wmOperatorType *ot);
 
 void OBJECT_OT_constraint_add(wmOperatorType *ot);
 void OBJECT_OT_constraint_add_with_targets(wmOperatorType *ot);
-void POSE_OT_constraint_add(wmOperatorType *ot);
-void POSE_OT_constraint_add_with_targets(wmOperatorType *ot);
 
 void OBJECT_OT_constraints_copy(wmOperatorType *ot);
-void POSE_OT_constraints_copy(wmOperatorType *ot);
 
 void OBJECT_OT_constraints_clear(wmOperatorType *ot);
-void POSE_OT_constraints_clear(wmOperatorType *ot);
-
-void POSE_OT_ik_add(wmOperatorType *ot);
-void POSE_OT_ik_clear(wmOperatorType *ot);
 
 void CONSTRAINT_OT_delete(wmOperatorType *ot);
 void CONSTRAINT_OT_apply(wmOperatorType *ot);

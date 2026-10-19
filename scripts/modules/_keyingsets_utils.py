@@ -10,17 +10,14 @@
 __all__ = (
     "path_add_property",
     "RKS_POLL_selected_objects",
-    "RKS_POLL_selected_bones",
     "RKS_POLL_selected_items",
     "RKS_ITER_selected_objects",
-    "RKS_ITER_selected_bones",
     "RKS_ITER_selected_item",
     "RKS_GEN_available",
     "RKS_GEN_custom_props",
     "RKS_GEN_location",
     "RKS_GEN_rotation",
     "RKS_GEN_scaling",
-    "RKS_GEN_bendy_bones",
 )
 
 import bpy
@@ -53,20 +50,6 @@ def RKS_POLL_selected_objects(_ksi, context):
         return bool(context.selected_objects)
 
 
-# selected bones
-def RKS_POLL_selected_bones(_ksi, context):
-    if context.area.type == 'SEQUENCE_EDITOR':
-        return False
-
-    # we must be in Pose Mode, and there must be some bones selected
-    ob = context.active_object
-    if ob and ob.mode == 'POSE':
-        if context.active_pose_bone or context.selected_pose_bones:
-            return True
-
-    # nothing selected
-    return False
-
 # Selected sequencer strip.
 
 
@@ -78,24 +61,16 @@ def RKS_POLL_selected_strip(_ksi, context):
     return False
 
 
-# selected bones, objects or strips
+# selected objects or strips
 def RKS_POLL_selected_items(ksi, context):
-    return (RKS_POLL_selected_bones(ksi, context) or
-            RKS_POLL_selected_objects(ksi, context) or
+    return (RKS_POLL_selected_objects(ksi, context) or
             RKS_POLL_selected_strip(ksi, context))
-
-# selected bones or objects
-
-
-def RKS_POLL_selected_bones_or_objects(ksi, context):
-    return (RKS_POLL_selected_bones(ksi, context) or
-            RKS_POLL_selected_objects(ksi, context))
 
 ###########################
 # Iterator Callbacks
 
 
-# All selected objects or pose bones, depending on which we've got.
+# All selected objects or sequencer strips, depending on the editor.
 def RKS_ITER_selected_item(ksi, context, ks):
     if context.area.type == 'SEQUENCE_EDITOR':
         if context.selected_strips:
@@ -103,13 +78,8 @@ def RKS_ITER_selected_item(ksi, context, ks):
                 ksi.generate(context, ks, strip)
         return
 
-    ob = context.active_object
-    if ob and ob.mode == 'POSE':
-        for bone in context.selected_pose_bones:
-            ksi.generate(context, ks, bone)
-    elif context.selected_objects:
-        for ob in context.selected_objects:
-            ksi.generate(context, ks, ob)
+    for ob in context.selected_objects:
+        ksi.generate(context, ks, ob)
 
 
 # All selected objects only.
@@ -117,11 +87,6 @@ def RKS_ITER_selected_objects(ksi, context, ks):
     for ob in context.selected_objects:
         ksi.generate(context, ks, ob)
 
-
-# All selected bones only.
-def RKS_ITER_selected_bones(ksi, context, ks):
-    for bone in context.selected_pose_bones:
-        ksi.generate(context, ks, bone)
 
 ###########################
 # Generate Callbacks
@@ -140,9 +105,8 @@ def RKS_GEN_available(_ksi, _context, ks, data):
     if adt is None or adt.action is None:
         return
 
-    # if we haven't got an ID-block as 'data', try to restrict
-    # paths added to only those which branch off from here
-    # i.e. for bones
+    # if we haven't got an ID-block as 'data', restrict paths to that data
+    # element's RNA path.
     if id_block != data:
         basePath = data.path_from_id()
     else:
@@ -162,8 +126,6 @@ def RKS_GEN_available(_ksi, _context, ks, data):
             ks.paths.add(id_block, fcu.data_path, index=fcu.array_index)
 
 # ------
-
-
 # get ID block and based ID path for transform generators
 # private function
 def get_transform_generators_base_info(data):
@@ -281,8 +243,6 @@ def RKS_GEN_custom_props(_ksi, _context, ks, data):
                         bpy.types.FloatProperty,
                         bpy.types.EnumProperty}
 
-    # When working with a pose, 'id_block' is the armature object (which should
-    # get the animation data), whereas 'data' is the bone being keyed.
     for cprop_name in data.keys():
         # ignore special "_RNA_UI" used for UI editing
         if cprop_name == "_RNA_UI":
@@ -314,39 +274,3 @@ def RKS_GEN_custom_props(_ksi, _context, ks, data):
             ks.paths.add(id_block, path)
 
 # ------
-
-
-# Property identifiers for Bendy Bones
-bbone_property_ids = (
-    "bbone_curveinx",
-    "bbone_curveinz",
-    "bbone_curveoutx",
-    "bbone_curveoutz",
-
-    "bbone_rollin",
-    "bbone_rollout",
-
-    "bbone_scalein",
-    "bbone_scaleout",
-
-    "bbone_easein",
-    "bbone_easeout",
-)
-
-
-# Add Keying Set entries for bendy bones
-def RKS_GEN_bendy_bones(_ksi, _context, ks, data):
-    # get id-block and path info
-    # NOTE: This assumes that we're dealing with a bone here...
-    id_block, base_path, grouping = get_transform_generators_base_info(data)
-
-    # for each of the bendy bone properties, add a Keying Set entry for it...
-    for propname in bbone_property_ids:
-        # add the property name to the base path
-        path = path_add_property(base_path, propname)
-
-        # add Keying Set entry for this...
-        if grouping:
-            ks.paths.add(id_block, path, group_method='NAMED', group_name=grouping)
-        else:
-            ks.paths.add(id_block, path)

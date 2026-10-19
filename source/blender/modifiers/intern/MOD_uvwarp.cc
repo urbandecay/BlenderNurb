@@ -21,13 +21,14 @@
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 
-#include "BKE_action.hh" /* BKE_pose_channel_find_name */
 #include "BKE_attribute.hh"
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
+
+#include "DEG_depsgraph_build.hh"
 
 #include "UI_interface_layout.hh"
 #include "UI_resources.hh"
@@ -64,17 +65,6 @@ static void required_data_mask(ModifierData *md, CustomData_MeshMasks *r_cddata_
   /* Ask for vertex-groups if we need them. */
   if (umd->vgroup_name[0] != '\0') {
     r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
-  }
-}
-
-static void matrix_from_obj_pchan(float mat[4][4], Object *ob, const char *bonename)
-{
-  bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, bonename);
-  if (pchan) {
-    mul_m4_m4m4(mat, ob->object_to_world().ptr(), pchan->pose_mat);
-  }
-  else {
-    copy_m4_m4(mat, ob->object_to_world().ptr());
   }
 }
 
@@ -148,8 +138,8 @@ static Mesh *modify_mesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh 
     float shuf_mat[4][4];
 
     /* make sure anything moving UVs is available */
-    matrix_from_obj_pchan(mat_src, umd->object_src, umd->bone_src);
-    matrix_from_obj_pchan(mat_dst, umd->object_dst, umd->bone_dst);
+    copy_m4_m4(mat_src, umd->object_src->object_to_world().ptr());
+    copy_m4_m4(mat_dst, umd->object_dst->object_to_world().ptr());
 
     invert_m4_m4(imat_dst, mat_dst);
     mul_m4_m4m4(warp_mat, imat_dst, mat_src);
@@ -233,10 +223,14 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
 {
   UVWarpModifierData *umd = reinterpret_cast<UVWarpModifierData *>(md);
 
-  MOD_depsgraph_update_object_bone_relation(
-      ctx->node, umd->object_src, umd->bone_src, "UVWarp Modifier");
-  MOD_depsgraph_update_object_bone_relation(
-      ctx->node, umd->object_dst, umd->bone_dst, "UVWarp Modifier");
+  if (umd->object_src != nullptr) {
+    DEG_add_object_relation(
+        ctx->node, umd->object_src, DEG_OB_COMP_TRANSFORM, "UVWarp Modifier");
+  }
+  if (umd->object_dst != nullptr) {
+    DEG_add_object_relation(
+        ctx->node, umd->object_dst, DEG_OB_COMP_TRANSFORM, "UVWarp Modifier");
+  }
 
   DEG_add_depends_on_transform_relation(ctx->node, "UVWarp Modifier");
 }
@@ -248,7 +242,6 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
   PointerRNA ob_ptr;
   PointerRNA *ptr = modifier_panel_get_property_pointers(panel, &ob_ptr);
 
-  PointerRNA warp_obj_ptr;
   PointerRNA obj_data_ptr = RNA_pointer_get(&ob_ptr, "data");
 
   layout.use_property_split_set(true);
@@ -264,18 +257,8 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
 
   col = &layout.column(false);
   col->prop(ptr, "object_from", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  warp_obj_ptr = RNA_pointer_get(ptr, "object_from");
-  if (!RNA_pointer_is_null(&warp_obj_ptr) && RNA_enum_get(&warp_obj_ptr, "type") == OB_ARMATURE) {
-    PointerRNA warp_obj_data_ptr = RNA_pointer_get(&warp_obj_ptr, "data");
-    col->prop_search(ptr, "bone_from", &warp_obj_data_ptr, "bones", std::nullopt, ICON_BONE_DATA);
-  }
 
   col->prop(ptr, "object_to", UI_ITEM_NONE, CTX_IFACE_(BLT_I18NCONTEXT_MODIFIER, "To"), ICON_NONE);
-  warp_obj_ptr = RNA_pointer_get(ptr, "object_to");
-  if (!RNA_pointer_is_null(&warp_obj_ptr) && RNA_enum_get(&warp_obj_ptr, "type") == OB_ARMATURE) {
-    PointerRNA warp_obj_data_ptr = RNA_pointer_get(&warp_obj_ptr, "data");
-    col->prop_search(ptr, "bone_to", &warp_obj_data_ptr, "bones", std::nullopt, ICON_BONE_DATA);
-  }
 
   modifier_vgroup_ui(layout, ptr, &ob_ptr, "vertex_group", "invert_vertex_group", std::nullopt);
 

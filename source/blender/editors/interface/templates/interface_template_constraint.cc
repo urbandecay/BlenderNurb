@@ -5,7 +5,7 @@
 /** \file
  * \ingroup edinterface
  *
- * Template for building the panel layout for the active object or bone's constraints.
+ * Template for building the panel layout for the active object's constraints.
  */
 
 #include "BKE_constraint.h"
@@ -87,8 +87,7 @@ static void constraint_ops_extra_draw(bContext *C, Layout *layout, void *con_v)
                    ICON_TRIA_DOWN,
                    wm::OpCallContext::InvokeDefault,
                    UI_ITEM_NONE);
-  ListBaseT<bConstraint> *constraint_list = ed::object::constraint_list_from_constraint(
-      ob, con, nullptr);
+  ListBaseT<bConstraint> *constraint_list = ed::object::constraint_list_from_constraint(ob, con);
   RNA_int_set(&op_ptr, "index", constraint_list->count() - 1);
   if (!con->next) {
     row->enabled_set(false);
@@ -171,29 +170,17 @@ void template_constraint_header(Layout *layout, PointerRNA *ptr)
 /* -------------------------------------------------------------------- */
 /** \name Constraints Template
  *
- * Template for building the panel layout for the active object or bone's constraints.
+ * Template for building the panel layout for the active object's constraints.
  * \{ */
 
 /** For building the panel UI for constraints. */
 #define CONSTRAINT_TYPE_PANEL_PREFIX "OBJECT_PT_"
-#define CONSTRAINT_BONE_TYPE_PANEL_PREFIX "BONE_PT_"
-
-/**
- * Check if the panel's ID starts with 'BONE', meaning it is a bone constraint.
- */
-static bool constraint_panel_is_bone(Panel *panel)
-{
-  return (panel->panelname[0] == 'B') && (panel->panelname[1] == 'O') &&
-         (panel->panelname[2] == 'N') && (panel->panelname[3] == 'E');
-}
 
 /**
  * Move a constraint to the index it's moved to after a drag and drop.
  */
 static void constraint_reorder(bContext *C, Panel *panel, int new_index)
 {
-  const bool constraint_from_bone = constraint_panel_is_bone(panel);
-
   PointerRNA *con_ptr = panel_custom_data_get(panel);
   bConstraint *con = static_cast<bConstraint *>(con_ptr->data);
 
@@ -201,8 +188,6 @@ static void constraint_reorder(bContext *C, Panel *panel, int new_index)
   PointerRNA props_ptr = WM_operator_properties_create_ptr(ot);
   RNA_string_set(&props_ptr, "constraint", con->name);
   RNA_int_set(&props_ptr, "index", new_index);
-  /* Set owner to #EDIT_CONSTRAINT_OWNER_OBJECT or #EDIT_CONSTRAINT_OWNER_BONE. */
-  RNA_enum_set(&props_ptr, "owner", constraint_from_bone ? 1 : 0);
   WM_operator_name_call_ptr(C, ot, wm::OpCallContext::InvokeDefault, &props_ptr, nullptr);
   WM_operator_properties_free(&props_ptr);
 }
@@ -246,34 +231,13 @@ static void object_constraint_panel_id(void *md_link, char *r_idname)
   BLI_string_join(r_idname, BKE_ST_MAXNAME, CONSTRAINT_TYPE_PANEL_PREFIX, cti->struct_name);
 }
 
-static void bone_constraint_panel_id(void *md_link, char *r_idname)
-{
-  bConstraint *con = static_cast<bConstraint *>(md_link);
-  const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_from_type(con->type);
-
-  /* Cannot get TypeInfo for invalid/legacy constraints. */
-  if (cti == nullptr) {
-    return;
-  }
-  BLI_string_join(r_idname, BKE_ST_MAXNAME, CONSTRAINT_BONE_TYPE_PANEL_PREFIX, cti->struct_name);
-}
-
-void template_constraints(Layout * /*layout*/, bContext *C, bool use_bone_constraints)
+void template_constraints(Layout * /*layout*/, bContext *C)
 {
   ARegion *region = CTX_wm_region(C);
 
   Object *ob = ed::object::context_active_object(C);
-  ListBaseT<bConstraint> *constraints = {nullptr};
-  if (use_bone_constraints) {
-    constraints = ed::object::pose_constraint_list(C);
-  }
-  else if (ob != nullptr) {
-    constraints = &ob->constraints;
-  }
-
-  /* Switch between the bone panel ID function and the object panel ID function. */
-  ListPanelIDFromDataFunc panel_id_func = use_bone_constraints ? bone_constraint_panel_id :
-                                                                 object_constraint_panel_id;
+  ListBaseT<bConstraint> *constraints = ob != nullptr ? &ob->constraints : nullptr;
+  ListPanelIDFromDataFunc panel_id_func = object_constraint_panel_id;
 
   const bool panels_match = panel_list_matches_data(region, constraints, panel_id_func);
 
@@ -288,14 +252,6 @@ void template_constraints(Layout * /*layout*/, bContext *C, bool use_bone_constr
       if (con->type == CONSTRAINT_TYPE_NULL) {
         continue;
       }
-      /* Don't show temporary constraints (AutoIK and target-less IK constraints). */
-      if (con->type == CONSTRAINT_TYPE_KINEMATIC) {
-        bKinematicConstraint *data = static_cast<bKinematicConstraint *>(con->data);
-        if (data->flag & CONSTRAINT_IK_TEMP) {
-          continue;
-        }
-      }
-
       char panel_idname[MAX_NAME];
       panel_id_func(con, panel_idname);
 
@@ -321,14 +277,6 @@ void template_constraints(Layout * /*layout*/, bContext *C, bool use_bone_constr
       if (con.type == CONSTRAINT_TYPE_NULL) {
         continue;
       }
-      /* Don't show temporary constraints (AutoIK and target-less IK constraints). */
-      if (con.type == CONSTRAINT_TYPE_KINEMATIC) {
-        bKinematicConstraint *data = static_cast<bKinematicConstraint *>(con.data);
-        if (data->flag & CONSTRAINT_IK_TEMP) {
-          continue;
-        }
-      }
-
       /* Move to the next instanced panel corresponding to the next constraint. */
       while ((panel->type == nullptr) || !(panel->type->flag & PANEL_TYPE_INSTANCED)) {
         panel = panel->next;
@@ -345,7 +293,6 @@ void template_constraints(Layout * /*layout*/, bContext *C, bool use_bone_constr
 }
 
 #undef CONSTRAINT_TYPE_PANEL_PREFIX
-#undef CONSTRAINT_BONE_TYPE_PANEL_PREFIX
 
 /** \} */
 

@@ -53,7 +53,6 @@ wmKeyMap *eyedropper_modal_keymap(wmKeyConfig *keyconf)
   WM_modalkeymap_assign(keymap, "UI_OT_eyedropper_colorramp");
   WM_modalkeymap_assign(keymap, "UI_OT_eyedropper_color");
   WM_modalkeymap_assign(keymap, "UI_OT_eyedropper_id");
-  WM_modalkeymap_assign(keymap, "UI_OT_eyedropper_bone");
   WM_modalkeymap_assign(keymap, "UI_OT_eyedropper_depth");
   WM_modalkeymap_assign(keymap, "UI_OT_eyedropper_driver");
 

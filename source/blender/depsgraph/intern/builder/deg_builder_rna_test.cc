@@ -28,9 +28,9 @@ TEST_F(DegBuilderRNATest, contains)
 {
   EXPECT_TRUE(TestableRNANodeQuery::contains("location", "location"));
   EXPECT_TRUE(TestableRNANodeQuery::contains("location.x", "location"));
-  EXPECT_TRUE(TestableRNANodeQuery::contains("pose.bone[\"blork\"].location", "location"));
-  EXPECT_TRUE(TestableRNANodeQuery::contains("pose.bone[\"blork\"].location.x", "location"));
-  EXPECT_TRUE(TestableRNANodeQuery::contains("pose.bone[\"blork\"].location[0]", "location"));
+  EXPECT_TRUE(TestableRNANodeQuery::contains("my_collection[\"blork\"].location", "location"));
+  EXPECT_TRUE(TestableRNANodeQuery::contains("my_collection[\"blork\"].location.x", "location"));
+  EXPECT_TRUE(TestableRNANodeQuery::contains("my_collection[\"blork\"].location[0]", "location"));
 
   EXPECT_FALSE(TestableRNANodeQuery::contains("", "location"));
   EXPECT_FALSE(TestableRNANodeQuery::contains("locatio", "location"));
@@ -38,8 +38,8 @@ TEST_F(DegBuilderRNATest, contains)
   EXPECT_FALSE(TestableRNANodeQuery::contains("test_location", "location"));
   EXPECT_FALSE(TestableRNANodeQuery::contains("location_test", "location"));
   EXPECT_FALSE(TestableRNANodeQuery::contains("test_location_test", "location"));
-  EXPECT_FALSE(TestableRNANodeQuery::contains("pose.bone[\"location\"].scale", "location"));
-  EXPECT_FALSE(TestableRNANodeQuery::contains("pose.bone[\"location\"].scale[0]", "location"));
+  EXPECT_FALSE(TestableRNANodeQuery::contains("my_collection[\"location\"].scale", "location"));
+  EXPECT_FALSE(TestableRNANodeQuery::contains("my_collection[\"location\"].scale[0]", "location"));
 }
 
 }  // namespace blender::deg::tests

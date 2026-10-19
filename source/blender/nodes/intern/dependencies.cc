@@ -48,7 +48,6 @@ void EvalDependencies::add_object(Object *object, const ObjectDependencyInfo &ob
   deps.geometry |= object_deps.geometry;
   deps.transform |= object_deps.transform;
   deps.camera_parameters |= object_deps.camera_parameters;
-  deps.pose |= object_deps.pose;
 }
 
 void EvalDependencies::merge(const EvalDependencies &other)

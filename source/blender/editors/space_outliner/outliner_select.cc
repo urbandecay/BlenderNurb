@@ -8,7 +8,6 @@
 
 #include <cstdlib>
 
-#include "DNA_armature_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -17,7 +16,6 @@
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_armature.hh"
 #include "BKE_collection.hh"
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
@@ -28,12 +26,10 @@
 #include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_particle.h"
-#include "BKE_report.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_build.hh"
 
-#include "ED_armature.hh"
 #include "ED_buttons.hh"
 #include "ED_object.hh"
 #include "ED_outliner.hh"
@@ -56,9 +52,6 @@
 #include "RNA_access.hh"
 #include "RNA_define.hh"
 #include "RNA_prototypes.hh"
-
-#include "ANIM_armature.hh"
-#include "ANIM_bone_collections.hh"
 
 #include "outliner_intern.hh"
 #include "tree/tree_element_seq.hh"
@@ -100,44 +93,6 @@ static void do_outliner_item_editmode_toggle(bContext *C, Scene *scene, Base *ba
     DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
     ED_outliner_select_sync_from_object_tag(C);
     ED_undo_push(C, "Outliner Edit Mode Toggle");
-  }
-}
-
-/**
- * \note changes to selection are by convention and not essential.
- *
- * \note Handles its own undo push.
- */
-static void do_outliner_item_posemode_toggle(bContext *C, Scene *scene, Base *base)
-{
-  Main *bmain = CTX_data_main(C);
-  Object *ob = base->object;
-
-  if (!BKE_id_is_editable(CTX_data_main(C), &ob->id)) {
-    BKE_report(CTX_wm_reports(C), RPT_WARNING, "Cannot pose non-editable data");
-    return;
-  }
-
-  bool changed = false;
-  if (ob->mode & OB_MODE_POSE) {
-    changed = ED_object_posemode_exit_ex(bmain, ob);
-    if (changed) {
-      object::base_select(base, object::BA_DESELECT);
-      WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, nullptr);
-    }
-  }
-  else {
-    changed = ED_object_posemode_enter_ex(bmain, ob);
-    if (changed) {
-      object::base_select(base, object::BA_SELECT);
-      WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_POSE, nullptr);
-    }
-  }
-
-  if (changed) {
-    DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
-    ED_outliner_select_sync_from_object_tag(C);
-    ED_undo_push(C, "Outliner Pose Mode Toggle");
   }
 }
 
@@ -202,9 +157,6 @@ void outliner_item_mode_toggle(bContext *C,
     else if (tvc.ob_edit && OB_TYPE_SUPPORT_EDITMODE(ob->type)) {
       do_outliner_item_editmode_toggle(C, tvc.scene, base);
     }
-    else if (tvc.ob_pose && ob->type == OB_ARMATURE) {
-      do_outliner_item_posemode_toggle(C, tvc.scene, base);
-    }
   }
 }
 
@@ -228,34 +180,6 @@ static void tree_element_viewlayer_activate(bContext *C, TreeElement *te)
   if (BLI_findindex(&scene->view_layers, view_layer) != -1) {
     WM_window_set_active_view_layer(win, view_layer);
     WM_event_add_notifier(C, NC_SCREEN | ND_LAYER, nullptr);
-  }
-}
-
-static void do_outliner_bone_select_recursive(bArmature *arm, Bone *bone_parent, bool select)
-{
-  for (Bone &bone : bone_parent->childbase) {
-    if (select && animrig::bone_is_selectable(arm, &bone)) {
-      bone.flag |= BONE_SELECTED;
-    }
-    else {
-      bone.flag &= ~(BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL);
-    }
-    do_outliner_bone_select_recursive(arm, &bone, select);
-  }
-}
-
-static void do_outliner_ebone_select_recursive(bArmature *arm, EditBone *ebone_parent, bool select)
-{
-  EditBone *ebone;
-  for (ebone = ebone_parent->next; ebone; ebone = ebone->next) {
-    if (ED_armature_ebone_is_child_recursive(ebone_parent, ebone)) {
-      if (select && EBONE_SELECTABLE(arm, ebone)) {
-        ebone->flag |= BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL;
-      }
-      else {
-        ebone->flag &= ~(BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL);
-      }
-    }
   }
 }
 
@@ -345,7 +269,7 @@ static void tree_element_object_activate(bContext *C,
       /* De-select all. */
 
       /* Only in object mode so we can switch the active object,
-       * keeping all objects in the current 'mode' selected, useful for multi-pose/edit mode.
+       * keeping all objects in the current edit mode selected, useful for multi-object editing.
        * This keeps the convention that all objects in the current mode are also selected.
        * see #55246. */
       if ((scene->toolsettings->object_flag & SCE_OBJECT_MODE_LOCK) ?
@@ -452,167 +376,6 @@ static void tree_element_defgroup_activate(bContext *C, TreeElement *te, TreeSto
   WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
 }
 
-static void tree_element_bonecollection_activate(bContext *C,
-                                                 TreeElement *te,
-                                                 TreeStoreElem *tselem)
-{
-  bArmature *arm = reinterpret_cast<bArmature *>(tselem->id);
-  BoneCollection *bcoll = reinterpret_cast<BoneCollection *>(te->directdata);
-  ANIM_armature_bonecoll_active_set(arm, bcoll);
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_COLLECTION, arm);
-}
-
-static void tree_element_posechannel_activate(bContext *C,
-                                              const Scene *scene,
-                                              ViewLayer *view_layer,
-                                              TreeElement *te,
-                                              TreeStoreElem *tselem,
-                                              const eOLSetState set,
-                                              bool recursive)
-{
-  const Main *bmain = CTX_data_main(C);
-  Object *ob = id_cast<Object *>(tselem->id);
-  bArmature *arm = id_cast<bArmature *>(ob->data);
-  bPoseChannel *pchan = static_cast<bPoseChannel *>(te->directdata);
-
-  if (set != OL_SETSEL_EXTEND) {
-    /* Single select forces all other bones to get unselected. */
-    const Vector<Object *> objects = BKE_object_pose_array_get_unique(
-        *bmain, scene, view_layer, nullptr);
-
-    for (Object *ob : objects) {
-      Object *ob_iter = BKE_object_pose_armature_get(ob);
-
-      /* Sanity checks. */
-      if (ELEM(nullptr, ob_iter, ob_iter->pose, ob_iter->data)) {
-        continue;
-      }
-
-      for (bPoseChannel &pchannel : ob_iter->pose->chanbase) {
-        animrig::bone_deselect(&pchannel);
-      }
-
-      if (ob != ob_iter) {
-        DEG_id_tag_update(ob_iter->data, ID_RECALC_SELECT);
-      }
-    }
-  }
-
-  Bone *bone = pchan->bone_get(*ob);
-  if ((set == OL_SETSEL_EXTEND) && (pchan->flag & POSE_SELECTED)) {
-    animrig::bone_deselect(pchan);
-  }
-  else {
-    if (animrig::bone_is_visible(arm, {pchan, bone})) {
-      animrig::bone_select(pchan);
-    }
-    arm->act_bone = bone;
-  }
-
-  if (recursive) {
-    /* Recursive select/deselect */
-    do_outliner_bone_select_recursive(arm, bone, (pchan->flag & POSE_SELECTED) != 0);
-  }
-
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_ACTIVE, ob);
-  DEG_id_tag_update(&arm->id, ID_RECALC_SELECT);
-}
-
-static void tree_element_bone_activate(bContext *C,
-                                       const Main &bmain,
-                                       const Scene *scene,
-                                       ViewLayer *view_layer,
-                                       TreeElement *te,
-                                       TreeStoreElem *tselem,
-                                       const eOLSetState set,
-                                       bool recursive)
-{
-  bArmature *arm = id_cast<bArmature *>(tselem->id);
-  Bone *bone = static_cast<Bone *>(te->directdata);
-
-  BKE_view_layer_synced_ensure(bmain, scene, view_layer);
-  Object *ob = BKE_view_layer_active_object_get(view_layer);
-  if (ob) {
-    if (set != OL_SETSEL_EXTEND) {
-      /* single select forces all other bones to get unselected */
-      for (Bone *bone_iter = static_cast<Bone *>(arm->bonebase.first); bone_iter != nullptr;
-           bone_iter = bone_iter->next)
-      {
-        bone_iter->flag &= ~(BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL);
-        do_outliner_bone_select_recursive(arm, bone_iter, false);
-      }
-    }
-  }
-
-  if (set == OL_SETSEL_EXTEND && (bone->flag & BONE_SELECTED)) {
-    bone->flag &= ~BONE_SELECTED;
-  }
-  else {
-    if (animrig::bone_is_visible(arm, bone) && ((bone->flag & BONE_UNSELECTABLE) == 0)) {
-      bone->flag |= BONE_SELECTED;
-    }
-    arm->act_bone = bone;
-  }
-
-  if (recursive) {
-    /* Recursive select/deselect */
-    do_outliner_bone_select_recursive(arm, bone, (bone->flag & BONE_SELECTED) != 0);
-  }
-
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_ACTIVE, ob);
-}
-
-/** Edit-bones only draw in edit-mode armature. */
-static void tree_element_active_ebone__sel(bContext *C, bArmature *arm, EditBone *ebone, short sel)
-{
-  if (sel) {
-    arm->act_edbone = ebone;
-  }
-  if (EBONE_SELECTABLE(arm, ebone)) {
-    ED_armature_ebone_select_set(ebone, sel);
-  }
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_ACTIVE, CTX_data_edit_object(C));
-}
-
-static void tree_element_ebone_activate(bContext *C,
-                                        const Scene *scene,
-                                        ViewLayer *view_layer,
-                                        TreeElement *te,
-                                        TreeStoreElem *tselem,
-                                        const eOLSetState set,
-                                        bool recursive)
-{
-  bArmature *arm = id_cast<bArmature *>(tselem->id);
-  EditBone *ebone = static_cast<EditBone *>(te->directdata);
-
-  if (set == OL_SETSEL_NORMAL) {
-    ObjectsInModeParams ob_params{};
-    ob_params.object_mode = OB_MODE_EDIT;
-    ob_params.no_dup_data = true;
-
-    const Main *bmain = CTX_data_main(C);
-    Vector<Base *> bases = BKE_view_layer_array_from_bases_in_mode_params(
-        *bmain, scene, view_layer, nullptr, &ob_params);
-    ED_armature_edit_deselect_all_multi_ex(bases);
-
-    tree_element_active_ebone__sel(C, arm, ebone, true);
-  }
-  else if (set == OL_SETSEL_EXTEND) {
-    if (!(ebone->flag & BONE_SELECTED)) {
-      tree_element_active_ebone__sel(C, arm, ebone, true);
-    }
-    else {
-      /* entirely selected, so de-select */
-      tree_element_active_ebone__sel(C, arm, ebone, false);
-    }
-  }
-
-  if (recursive) {
-    /* Recursive select/deselect */
-    do_outliner_ebone_select_recursive(arm, ebone, (ebone->flag & BONE_SELECTED) != 0);
-  }
-}
-
 static void tree_element_modifier_activate(bContext *C,
                                            TreeElement *te,
                                            TreeStoreElem *tselem,
@@ -635,25 +398,9 @@ static void tree_element_psys_activate(bContext *C, TreeStoreElem *tselem)
 }
 
 static void tree_element_constraint_activate(bContext *C,
-                                             const Scene *scene,
-                                             ViewLayer *view_layer,
-                                             TreeElement *te,
-                                             TreeStoreElem *tselem,
-                                             const eOLSetState set)
+                                             TreeStoreElem *tselem)
 {
   Object *ob = id_cast<Object *>(tselem->id);
-
-  /* Activate the parent bone if this is a bone constraint. */
-  te = te->parent;
-  while (te) {
-    tselem = TREESTORE(te);
-    if (tselem->type == TSE_POSE_CHANNEL) {
-      tree_element_posechannel_activate(C, scene, view_layer, te, tselem, set, false);
-      return;
-    }
-    te = te->parent;
-  }
-
   WM_event_add_notifier(C, NC_OBJECT | ND_CONSTRAINT, ob);
 }
 
@@ -798,16 +545,10 @@ void tree_element_type_active_set(bContext *C,
                                   bool recursive)
 {
   BLI_assert(set != OL_SETSEL_NONE);
+  UNUSED_VARS(recursive);
   switch (tselem->type) {
     case TSE_DEFGROUP:
       tree_element_defgroup_activate(C, te, tselem);
-      break;
-    case TSE_BONE:
-      tree_element_bone_activate(
-          C, *tvc.bmain, tvc.scene, tvc.view_layer, te, tselem, set, recursive);
-      break;
-    case TSE_EBONE:
-      tree_element_ebone_activate(C, tvc.scene, tvc.view_layer, te, tselem, set, recursive);
       break;
     case TSE_MODIFIER:
       tree_element_modifier_activate(C, te, tselem, set);
@@ -818,20 +559,12 @@ void tree_element_type_active_set(bContext *C,
     case TSE_LINKED_PSYS:
       tree_element_psys_activate(C, tselem);
       break;
-    case TSE_POSE_BASE:
-      return;
-    case TSE_POSE_CHANNEL:
-      tree_element_posechannel_activate(C, tvc.scene, tvc.view_layer, te, tselem, set, recursive);
-      break;
     case TSE_CONSTRAINT_BASE:
     case TSE_CONSTRAINT:
-      tree_element_constraint_activate(C, tvc.scene, tvc.view_layer, te, tselem, set);
+      tree_element_constraint_activate(C, tselem);
       break;
     case TSE_R_LAYER:
       tree_element_viewlayer_activate(C, te);
-      break;
-    case TSE_BONE_COLLECTION:
-      tree_element_bonecollection_activate(C, te, tselem);
       break;
     case TSE_STRIP:
       tree_element_strip_activate(C, tvc.workspace, te, set);
@@ -868,33 +601,6 @@ static eOLDrawState tree_element_defgroup_state_get(const Main &bmain,
   return OL_DRAWSEL_NONE;
 }
 
-static eOLDrawState tree_element_bone_state_get(const Main &bmain,
-                                                const Scene *scene,
-                                                ViewLayer *view_layer,
-                                                const TreeElement *te,
-                                                const TreeStoreElem *tselem)
-{
-  const bArmature *arm = id_cast<const bArmature *>(tselem->id);
-  const Bone *bone = static_cast<Bone *>(te->directdata);
-  BKE_view_layer_synced_ensure(bmain, scene, view_layer);
-  const Object *ob = BKE_view_layer_active_object_get(view_layer);
-  if (ob && ob->data == id_cast<const ID *>(arm)) {
-    if (bone->flag & BONE_SELECTED) {
-      return OL_DRAWSEL_NORMAL;
-    }
-  }
-  return OL_DRAWSEL_NONE;
-}
-
-static eOLDrawState tree_element_ebone_state_get(const TreeElement *te)
-{
-  const EditBone *ebone = static_cast<EditBone *>(te->directdata);
-  if (ebone->flag & BONE_SELECTED) {
-    return OL_DRAWSEL_NORMAL;
-  }
-  return OL_DRAWSEL_NONE;
-}
-
 static eOLDrawState tree_element_modifier_state_get(const TreeElement *te,
                                                     const TreeStoreElem *tselem)
 {
@@ -910,41 +616,6 @@ static eOLDrawState tree_element_object_state_get(const TreeViewContext &tvc,
   return (tselem->id == id_cast<const ID *>(tvc.obact)) ? OL_DRAWSEL_NORMAL : OL_DRAWSEL_NONE;
 }
 
-static eOLDrawState tree_element_pose_state_get(const Main &bmain,
-                                                const Scene *scene,
-                                                const ViewLayer *view_layer,
-                                                const TreeStoreElem *tselem)
-{
-  const Object *ob = id_cast<const Object *>(tselem->id);
-  /* This will just lookup in a cache, it will not change the arguments. */
-  BKE_view_layer_synced_ensure(bmain, scene, const_cast<ViewLayer *>(view_layer));
-  const Base *base = BKE_view_layer_base_find(const_cast<ViewLayer *>(view_layer),
-                                              const_cast<Object *>(ob));
-  if (base == nullptr) {
-    /* Armature not instantiated in current scene (e.g. inside an appended group). */
-    return OL_DRAWSEL_NONE;
-  }
-
-  if (ob->mode & OB_MODE_POSE) {
-    return OL_DRAWSEL_NORMAL;
-  }
-  return OL_DRAWSEL_NONE;
-}
-
-static eOLDrawState tree_element_posechannel_state_get(const Object *ob_pose,
-                                                       const TreeElement *te,
-                                                       const TreeStoreElem *tselem)
-{
-  const Object *ob = id_cast<const Object *>(tselem->id);
-  const bPoseChannel *pchan = static_cast<bPoseChannel *>(te->directdata);
-  if (ob == ob_pose && ob->pose) {
-    if (pchan->flag & POSE_SELECTED) {
-      return OL_DRAWSEL_NORMAL;
-    }
-  }
-  return OL_DRAWSEL_NONE;
-}
-
 static eOLDrawState tree_element_viewlayer_state_get(const ViewLayer *view_layer,
                                                      const TreeElement *te)
 {
@@ -952,18 +623,6 @@ static eOLDrawState tree_element_viewlayer_state_get(const ViewLayer *view_layer
 
   if (view_layer == te_view_layer) {
     return OL_DRAWSEL_NORMAL;
-  }
-  return OL_DRAWSEL_NONE;
-}
-
-static eOLDrawState tree_element_bone_collection_state_get(const TreeElement *te,
-                                                           const TreeStoreElem *tselem)
-{
-  const bArmature *arm = reinterpret_cast<const bArmature *>(tselem->id);
-  const BoneCollection *bcoll = reinterpret_cast<const BoneCollection *>(te->directdata);
-
-  if (arm->runtime->active_collection == bcoll) {
-    return OL_DRAWSEL_ACTIVE;
   }
   return OL_DRAWSEL_NONE;
 }
@@ -1122,10 +781,6 @@ eOLDrawState tree_element_type_active_state_get(const TreeViewContext &tvc,
   switch (tselem->type) {
     case TSE_DEFGROUP:
       return tree_element_defgroup_state_get(*tvc.bmain, tvc.scene, tvc.view_layer, te, tselem);
-    case TSE_BONE:
-      return tree_element_bone_state_get(*tvc.bmain, tvc.scene, tvc.view_layer, te, tselem);
-    case TSE_EBONE:
-      return tree_element_ebone_state_get(te);
     case TSE_MODIFIER:
       return tree_element_modifier_state_get(te, tselem);
     case TSE_LINKED_NODE_TREE:
@@ -1134,10 +789,6 @@ eOLDrawState tree_element_type_active_state_get(const TreeViewContext &tvc,
       return tree_element_object_state_get(tvc, tselem);
     case TSE_LINKED_PSYS:
       return OL_DRAWSEL_NONE;
-    case TSE_POSE_BASE:
-      return tree_element_pose_state_get(*tvc.bmain, tvc.scene, tvc.view_layer, tselem);
-    case TSE_POSE_CHANNEL:
-      return tree_element_posechannel_state_get(tvc.ob_pose, te, tselem);
     case TSE_CONSTRAINT_BASE:
     case TSE_CONSTRAINT:
       return OL_DRAWSEL_NONE;
@@ -1151,31 +802,12 @@ eOLDrawState tree_element_type_active_state_get(const TreeViewContext &tvc,
       return tree_element_master_collection_state_get(tvc.view_layer, tvc.layer_collection);
     case TSE_LAYER_COLLECTION:
       return tree_element_layer_collection_state_get(tvc.layer_collection, te);
-    case TSE_BONE_COLLECTION:
-      return tree_element_bone_collection_state_get(te, tselem);
     case TSE_SHAPE_KEY_BLOCK:
       return tree_element_shapekey_state_get(te);
     default:
       break;
   }
   return OL_DRAWSEL_NONE;
-}
-
-bPoseChannel *outliner_find_parent_bone(TreeElement *te, TreeElement **r_bone_te)
-{
-  TreeStoreElem *tselem;
-
-  te = te->parent;
-  while (te) {
-    tselem = TREESTORE(te);
-    if (tselem->type == TSE_POSE_CHANNEL) {
-      *r_bone_te = te;
-      return static_cast<bPoseChannel *>(te->directdata);
-    }
-    te = te->parent;
-  }
-
-  return nullptr;
 }
 
 static void outliner_sync_to_properties_editors(const bContext *C,
@@ -1220,7 +852,6 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
       case ID_LA:
       case ID_CA:
       case ID_SPK:
-      case ID_AR:
       case ID_LP:
       case ID_CV:
       case ID_PT:
@@ -1253,17 +884,8 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
         break;
       case TSE_CONSTRAINT_BASE:
       case TSE_CONSTRAINT: {
-        TreeElement *bone_te = nullptr;
-        bPoseChannel *pchan = outliner_find_parent_bone(te, &bone_te);
-
-        if (pchan) {
-          ptr = RNA_pointer_create_discrete(TREESTORE(bone_te)->id, RNA_PoseBone, pchan);
-          context = BCONTEXT_BONE_CONSTRAINT;
-        }
-        else {
-          ptr = RNA_id_pointer_create(tselem->id);
-          context = BCONTEXT_CONSTRAINT;
-        }
+        ptr = RNA_id_pointer_create(tselem->id);
+        context = BCONTEXT_CONSTRAINT;
 
         /* Expand the selected constraint in the properties editor. */
         if (tselem->type != TSE_CONSTRAINT_BASE) {
@@ -1302,39 +924,6 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
         break;
       case TSE_LINKED_NODE_TREE:
         break;
-      case TSE_BONE: {
-        bArmature *arm = id_cast<bArmature *>(tselem->id);
-        Bone *bone = static_cast<Bone *>(te->directdata);
-
-        ptr = RNA_pointer_create_discrete(&arm->id, RNA_Bone, bone);
-        context = BCONTEXT_BONE;
-        break;
-      }
-      case TSE_EBONE: {
-        bArmature *arm = id_cast<bArmature *>(tselem->id);
-        EditBone *ebone = static_cast<EditBone *>(te->directdata);
-
-        ptr = RNA_pointer_create_discrete(&arm->id, RNA_EditBone, ebone);
-        context = BCONTEXT_BONE;
-        break;
-      }
-      case TSE_POSE_CHANNEL: {
-        Object *ob = id_cast<Object *>(tselem->id);
-        bArmature *arm = id_cast<bArmature *>(ob->data);
-        bPoseChannel *pchan = static_cast<bPoseChannel *>(te->directdata);
-
-        ptr = RNA_pointer_create_discrete(&arm->id, RNA_PoseBone, pchan);
-        context = BCONTEXT_BONE;
-        break;
-      }
-      case TSE_POSE_BASE: {
-        Object *ob = id_cast<Object *>(tselem->id);
-        bArmature *arm = id_cast<bArmature *>(ob->data);
-
-        ptr = RNA_pointer_create_discrete(&arm->id, RNA_Armature, arm);
-        context = BCONTEXT_DATA;
-        break;
-      }
       case TSE_R_LAYER: {
         ViewLayer *view_layer = static_cast<ViewLayer *>(te->directdata);
 
@@ -1350,14 +939,6 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
         context = BCONTEXT_PARTICLE;
         break;
       }
-      case TSE_BONE_COLLECTION_BASE:
-        ptr = RNA_pointer_create_discrete(tselem->id, RNA_Armature, tselem->id);
-        context = BCONTEXT_DATA;
-        break;
-      case TSE_BONE_COLLECTION:
-        ptr = RNA_pointer_create_discrete(tselem->id, RNA_BoneCollection, te->directdata);
-        context = BCONTEXT_DATA;
-        break;
       case TSE_LAYER_COLLECTION:
         ptr = RNA_pointer_create_discrete(tselem->id, RNA_Collection, te->directdata);
         context = BCONTEXT_COLLECTION;
@@ -1395,12 +976,9 @@ static void do_outliner_item_activate_tree_element(bContext *C,
            TSE_STRIP,
            TSE_STRIP_DATA,
            TSE_STRIP_DUP,
-           TSE_EBONE,
            TSE_LINKED_NODE_TREE,
            TSE_LAYER_COLLECTION))
   {
-    /* Note about TSE_EBONE: In case of a same ID_AR datablock shared among several
-     * objects, we do not want to switch out of edit mode (see #48328 for details). */
   }
   else if (do_activate_data) {
     tree_element_object_activate(C,

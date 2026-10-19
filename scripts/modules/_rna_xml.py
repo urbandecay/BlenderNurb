@@ -81,9 +81,7 @@ def rna2xml(
     # 'ID' covers most types
     referenced_classes = (
         bpy.types.ID,
-        bpy.types.Bone,
         bpy.types.ActionGroup,
-        bpy.types.PoseBone,
         bpy.types.Node,
         bpy.types.Strip,
     )

@@ -511,12 +511,7 @@ static void viewRedrawForce(const bContext *C, TransInfo *t)
     }
     else {
       /* Do we need more refined tags? */
-      if (t->options & CTX_POSE_BONE) {
-        WM_event_add_notifier(C, NC_OBJECT | ND_POSE, nullptr);
-      }
-      else {
-        WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
-      }
+      WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
 
       /* For real-time animation record - send notifiers recognized by animation editors. */
       /* XXX: is this notifier a lame duck? */
@@ -699,13 +694,6 @@ static bool transform_modal_item_poll(const wmOperator *op, int value)
       }
       break;
     }
-    case TFM_MODAL_AUTOIK_LEN_INC:
-    case TFM_MODAL_AUTOIK_LEN_DEC: {
-      if ((t->flag & T_AUTOIK) == 0) {
-        return false;
-      }
-      break;
-    }
     case TFM_MODAL_TRANSLATE:
     case TFM_MODAL_ROTATE:
     case TFM_MODAL_RESIZE:
@@ -829,12 +817,6 @@ wmKeyMap *transform_modal_keymap(wmKeyConfig *keyconf)
        "Decrease Proportional Influence",
        ""},
       {TFM_MODAL_PROPSIZE, "PROPORTIONAL_SIZE", 0, "Adjust Proportional Influence", ""},
-      {TFM_MODAL_AUTOIK_LEN_INC, "AUTOIK_CHAIN_LEN_UP", 0, "Increase Max AutoIK Chain Length", ""},
-      {TFM_MODAL_AUTOIK_LEN_DEC,
-       "AUTOIK_CHAIN_LEN_DOWN",
-       0,
-       "Decrease Max AutoIK Chain Length",
-       ""},
       {TFM_MODAL_INSERTOFS_TOGGLE_DIR,
        "INSERTOFS_TOGGLE_DIR",
        0,
@@ -879,22 +861,6 @@ wmKeyMap *transform_modal_keymap(wmKeyConfig *keyconf)
    *                             .direction = KM_ANY,
    *                         },
    *                         TFM_MODAL_CANCEL);
-   * WM_modalkeymap_add_item(keymap,
-   *                         &(const KeyMapItem_Params){
-   *                             .type = EVT_PAGEUPKEY,
-   *                             .value = KM_PRESS,
-   *                             .modifier = KM_ANY,
-   *                             .direction = KM_ANY,
-   *                         },
-   *                         TFM_MODAL_AUTOIK_LEN_INC);
-   * WM_modalkeymap_add_item(keymap,
-   *                         &(const KeyMapItem_Params){
-   *                             .type = EVT_PAGEDOWNKEY,
-   *                             .value = KM_PRESS,
-   *                             .modifier = KM_ANY,
-   *                             .direction = KM_ANY,
-   *                         },
-   *                         TFM_MODAL_AUTOIK_LEN_DEC);
    * WM_modalkeymap_add_item(keymap,
    *                         &(const KeyMapItem_Params){
    *                             .type = EVT_GKEY,
@@ -1276,18 +1242,6 @@ wmOperatorStatus transformEvent(TransInfo *t, wmOperator *op, const wmEvent *eve
           t->prop_size /= (t->modifiers & MOD_PRECISION) ? 1.01f : 1.1f;
           t->prop_size = max_ff(t->prop_size, T_PROP_SIZE_MIN);
           calculatePropRatio(t);
-          t->redraw |= TREDRAW_HARD;
-        }
-        break;
-      case TFM_MODAL_AUTOIK_LEN_INC:
-        if (t->flag & T_AUTOIK) {
-          transform_autoik_update(t, 1);
-          t->redraw |= TREDRAW_HARD;
-        }
-        break;
-      case TFM_MODAL_AUTOIK_LEN_DEC:
-        if (t->flag & T_AUTOIK) {
-          transform_autoik_update(t, -1);
           t->redraw |= TREDRAW_HARD;
         }
         break;
@@ -1729,7 +1683,7 @@ static void drawTransformPixel(const bContext * /*C*/, ARegion *region, void *ar
    *   AND only for the active region (as showing all is too overwhelming)
    */
   if ((U.keying_flag & AUTOKEY_FLAG_NOWARNING) == 0) {
-    if (t->options & (CTX_OBJECT | CTX_POSE_BONE)) {
+    if (t->options & CTX_OBJECT) {
       Scene *scene = t->scene;
       ViewLayer *view_layer = t->view_layer;
       BKE_view_layer_synced_ensure(*t->bmain, scene, view_layer);
@@ -1973,8 +1927,6 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
   int options = 0;
   PropertyRNA *prop;
 
-  mode = transform_mode_really_used(C, eTfmMode(mode));
-
   t->context = C;
 
   /* Added initialize, for external calls to set stuff in TransInfo, like undo string. */
@@ -2137,9 +2089,6 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
   }
 
   initSnapping(t, op); /* Initialize snapping data AFTER mode flags. */
-
-  /* EVIL! pose-mode code can switch translation to rotate when 1 bone is selected.
-   * will be removed (ton). */
 
   /* EVIL2: we gave as argument also texture space context bit... was cleared. */
 
@@ -2304,7 +2253,7 @@ bool checkUseAxisMatrix(TransInfo *t)
   /* Currently only checks for editmode. */
   if (t->flag & T_EDIT) {
     if ((t->around == V3D_AROUND_LOCAL_ORIGINS) &&
-        ELEM(t->obedit_type, OB_MESH, OB_CURVES_LEGACY, OB_MBALL, OB_ARMATURE))
+        ELEM(t->obedit_type, OB_MESH, OB_CURVES_LEGACY, OB_MBALL))
     {
       /* Not all editmode supports axis-matrix. */
       return true;

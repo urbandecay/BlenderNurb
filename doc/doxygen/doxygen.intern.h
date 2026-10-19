@@ -31,12 +31,6 @@
 /** \defgroup intern_glew-mx GLEW with Multiple Rendering Context's
  *  \ingroup intern */
 
-/** \defgroup intern_iksolver Inverse Kinematics (Solver)
- *  \ingroup intern */
-
-/** \defgroup intern_itasc Inverse Kinematics (ITASC)
- *  \ingroup intern */
-
 /** \defgroup intern_libc_compat libc Compatibility For Linux
  *  \ingroup intern */
 

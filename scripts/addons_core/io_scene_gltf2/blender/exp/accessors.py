@@ -59,13 +59,6 @@ def array_to_accessor(
                 byteStride = 16  # 4 components * 4 bytes per component for float32
             elif attribute_name.startswith('TEXCOORD_'):
                 byteStride = 8  # 2 components * 4 bytes per component for float32
-            elif attribute_name == "JOINTS":
-                byteStride = 8 if component_type == gltf2_io_constants.ComponentType.UnsignedShort else 4
-            elif attribute_name == 'WEIGHTS':
-                if component_type == gltf2_io_constants.ComponentType.UnsignedByte:
-                    byteStride = 4  # 4 components * 1 byte per component for uint8, because of mesh_quantization
-                else:
-                    byteStride = 16  # Float 5126
             else:
                 # fallback to uncompressed byte stride, should be correct for non-quantized attributes
                 byteStride = len(array[:1].tobytes())

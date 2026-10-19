@@ -278,8 +278,6 @@ class OUTLINER_MT_collection(Menu):
 
         layout.separator()
 
-        layout.operator("outliner.collection_instance", text="Instance to Scene")
-
         if space.display_mode != 'VIEW_LAYER':
             layout.operator("outliner.collection_link", text="Link to Scene")
         layout.operator("outliner.id_operation", text="Unlink").type = 'UNLINK'
@@ -536,10 +534,6 @@ class OUTLINER_PT_options_filter(Panel):
             row = sub.row()
             row.label(icon='MESH_DATA')
             row.prop(space, "use_filter_object_mesh", text="Meshes")
-        if bpy.data.armatures:
-            row = sub.row()
-            row.label(icon='ARMATURE_DATA')
-            row.prop(space, "use_filter_object_armature", text="Armatures")
         if bpy.data.lights:
             row = sub.row()
             row.label(icon='LIGHT_DATA')
@@ -548,10 +542,6 @@ class OUTLINER_PT_options_filter(Panel):
             row = sub.row()
             row.label(icon='CAMERA_DATA')
             row.prop(space, "use_filter_object_camera", text="Cameras")
-        row = sub.row()
-        row.label(icon='EMPTY_DATA')
-        row.prop(space, "use_filter_object_empty", text="Empties")
-
         if (
                 bpy.data.curves or
                 bpy.data.metaballs or

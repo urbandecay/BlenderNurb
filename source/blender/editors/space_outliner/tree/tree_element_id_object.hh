@@ -26,12 +26,10 @@ class TreeElementIDObject final : public TreeElementID {
 
  private:
   void expand_data() const;
-  void expand_pose() const;
   void expand_materials() const;
   void expand_constraints() const;
   void expand_modifiers() const;
   void expand_vertex_groups() const;
-  void expand_duplicated_group() const;
 };
 
 }  // namespace ed::outliner

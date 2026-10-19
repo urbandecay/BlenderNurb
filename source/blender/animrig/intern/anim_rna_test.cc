@@ -19,12 +19,12 @@ class AnimRnaTest : public bke::BlenderGTestBase {};
 TEST_F(AnimRnaTest, is_rotation_path)
 {
   EXPECT_TRUE(is_rotation_path("rotation_euler"));
-  EXPECT_TRUE(is_rotation_path("pose.bones[\"test\"].rotation_euler"));
+  EXPECT_TRUE(is_rotation_path("items[\"test\"].rotation_euler"));
 
   EXPECT_FALSE(is_rotation_path("xrotation_euler"));
   EXPECT_FALSE(is_rotation_path("rotation_euler2"));
   EXPECT_FALSE(is_rotation_path("[\"rotation_euler\"]"));
-  EXPECT_FALSE(is_rotation_path("pose.bones[\"test\"][\"rotation_euler\"]"));
+  EXPECT_FALSE(is_rotation_path("items[\"test\"][\"rotation_euler\"]"));
 }
 
 TEST_F(AnimRnaTest, rotation_mode_from_path)
@@ -32,7 +32,7 @@ TEST_F(AnimRnaTest, rotation_mode_from_path)
   EXPECT_EQ(ROT_MODE_QUAT, get_rotation_mode_from_path("rotation_quaternion").value());
   EXPECT_EQ(ROT_MODE_EUL, get_rotation_mode_from_path("rotation_euler").value());
   EXPECT_EQ(ROT_MODE_EUL,
-            get_rotation_mode_from_path("pose.bones[\"test\"].rotation_euler").value());
+            get_rotation_mode_from_path("items[\"test\"].rotation_euler").value());
   EXPECT_EQ(ROT_MODE_AXISANGLE, get_rotation_mode_from_path("rotation_axis_angle").value());
 
   EXPECT_EQ(std::nullopt, get_rotation_mode_from_path("scale"));

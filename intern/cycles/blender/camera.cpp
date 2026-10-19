@@ -128,15 +128,6 @@ static float blender_camera_focal_distance(blender::RenderEngine &b_engine,
 
   Transform dofmat = get_transform(b_dof_object->object_to_world());
 
-  const string focus_subtarget = b_camera.dof.focus_subtarget;
-  if (b_dof_object->pose && !focus_subtarget.empty()) {
-    if (blender::bPoseChannel *pchan = BKE_pose_channel_find_name(b_dof_object->pose,
-                                                                  focus_subtarget.c_str()))
-    {
-      dofmat = dofmat * get_transform(blender::float4x4(pchan->pose_mat));
-    }
-  }
-
   /* for dof object, return distance along camera Z direction */
   blender::float4x4 b_ob_matrix;
   RE_engine_get_camera_model_matrix(

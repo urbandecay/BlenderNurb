@@ -103,32 +103,6 @@ class VIEW3D_PT_copy_global_transform_mirror(GlobalTransformPanelMixin, Panel):
         col = layout.column(align=True)
         col.prop(scene.tool_settings, "anim_mirror_object", text="Object")
 
-        mirror_ob = scene.tool_settings.anim_mirror_object
-        if mirror_ob is None:
-            # No explicit mirror object means "the current armature", so then the bone name should be editable.
-            if context.object and context.object.type == 'ARMATURE':
-                self._bone_search(col, scene, context.object)
-            else:
-                self._bone_entry(layout, scene)
-        elif mirror_ob.type == 'ARMATURE':
-            self._bone_search(col, scene, mirror_ob)
-
-    def _bone_search(self, layout: UILayout, scene: bpy.types.Scene, armature_ob: bpy.types.Object) -> None:
-        """Search within the bones of the given armature."""
-        assert armature_ob and armature_ob.type == 'ARMATURE'
-
-        layout.prop_search(
-            scene.tool_settings,
-            "anim_mirror_bone",
-            armature_ob.data,
-            "edit_bones" if armature_ob.mode == 'EDIT' else "bones",
-            text="Bone",
-        )
-
-    def _bone_entry(self, layout: UILayout, scene: bpy.types.Scene) -> None:
-        """Allow manual entry of a bone name."""
-        layout.prop(scene.tool_settings, "anim_mirror_bone", text="Bone")
-
 
 class VIEW3D_PT_copy_global_transform_relative(GlobalTransformPanelMixin, Panel):
     bl_label = "Relative"

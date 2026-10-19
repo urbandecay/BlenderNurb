@@ -397,7 +397,7 @@ struct FileSelectParams {
    * Directory.
    *
    * \note #FILE_MAX_LIBEXTRA == `1024 + 258`, this is for extreme case when 1023 length path
-   * needs to be linked in, where `foo.blend/Armature` need adding.
+   * needs to be linked in, where a nested data-block path needs adding.
    */
   char dir[/*FILE_MAX_LIBEXTRA*/ 1282] = "";
   char file[/*FILE_MAXFILE*/ 256] = "";
@@ -467,7 +467,7 @@ struct FileAssetSelectParams {
   bUUID catalog_id;
 
   eFileAssetImportMethod import_method = FILE_ASSET_IMPORT_LINK;
-  eFileAssetImportFlags import_flags = {};
+  char _pad_import_flags[2] = {};
 
   eFileSel_AssetParams_Flag asset_flags = {};
 };

@@ -13,25 +13,16 @@ from ..com import conversion as gltf2_blender_conversion
 from ..com.gltf2_blender_utils import fast_structured_np_unique
 from .material.materials import get_base_material, get_new_material_texture_shared
 from .material.texture_info import gather_udim_texture_info
-from . import skins as gltf2_blender_gather_skins
 from . attribute_utils import extract_attribute_data
 
 
-def extract_primitives(
-        materials,
-        blender_mesh,
-        uuid_for_skined_data,
-        blender_vertex_groups,
-        modifiers,
-        export_settings):
+def extract_primitives(materials, blender_mesh, modifiers, export_settings):
     """Extract primitives from a mesh."""
     export_settings['log'].info("Extracting primitive: " + blender_mesh.name)
 
     primitive_creator = PrimitiveCreator(
         materials,
         blender_mesh,
-        uuid_for_skined_data,
-        blender_vertex_groups,
         modifiers,
         export_settings)
     primitive_creator.prepare_data()
@@ -51,13 +42,9 @@ class PrimitiveCreator:
             self,
             materials,
             blender_mesh,
-            uuid_for_skined_data,
-            blender_vertex_groups,
             modifiers,
             export_settings):
         self.blender_mesh = blender_mesh
-        self.uuid_for_skined_data = uuid_for_skined_data
-        self.blender_vertex_groups = blender_vertex_groups
         self.modifiers = modifiers
         self.materials = materials
 
@@ -90,10 +77,6 @@ class PrimitiveCreator:
         array[:, 2] *= -1  # x,z,-y
 
     def prepare_data(self):
-        self.blender_object = None
-        if self.uuid_for_skined_data:
-            self.blender_object = self.export_settings['vtree'].nodes[self.uuid_for_skined_data].blender_object
-
         self.use_normals = self.export_settings['gltf_normals']
 
         self.use_tangents = False
@@ -120,22 +103,6 @@ class PrimitiveCreator:
 
         self.blender_attributes = []
 
-        # Check if we have to export skin
-        self.armature = None
-        self.skin = None
-        if self.export_settings['gltf_skins']:
-            if self.modifiers is not None:
-                modifiers_dict = {m.type: m for m in self.modifiers}
-                if "ARMATURE" in modifiers_dict:
-                    modifier = modifiers_dict["ARMATURE"]
-                    self.armature = modifier.object
-
-            if self.armature:
-                self.skin = gltf2_blender_gather_skins.gather_skin(
-                    self.export_settings['vtree'].nodes[self.uuid_for_skined_data].armature, self.export_settings)
-                if not self.skin:
-                    self.armature = None
-
         self.key_blocks = []
         # List of SK that are going to be exported, actually
         # We need to check if we are in a GN Instance, because for GN instances, it seems that shape keys are preserved,
@@ -145,21 +112,12 @@ class PrimitiveCreator:
                 (self.blender_mesh.is_evaluated is True and self.blender_mesh.get('gltf2_mesh_applied') is not None) or self.blender_mesh.is_evaluated is False):
             self.key_blocks = get_sk_exported(self.blender_mesh.shape_keys.key_blocks)
 
-        # Fetch vert positions and bone data (joint,weights)
+        # Fetch vertex positions.
 
         self.locs = None
         self.morph_locs = None
         self.__get_positions()
 
-        if self.skin:
-            self.__get_bone_data()
-            if self.need_neutral_bone is True:
-                # Need to create a fake joint at root of armature
-                # In order to assign not assigned vertices to it
-                # But for now, this is not yet possible, we need to wait the armature node is created
-                # Just store this, to be used later
-                armature_uuid = self.export_settings['vtree'].nodes[self.uuid_for_skined_data].armature
-                self.export_settings['vtree'].nodes[armature_uuid].need_neutral_bone = True
 
     def define_attributes(self):
 
@@ -868,24 +826,6 @@ class PrimitiveCreator:
             else:
                 self.__set_regular_attribute(self.dots, attr)
 
-        if self.skin:
-            joints = [[] for _ in range(self.num_joint_sets)]
-            weights = [[] for _ in range(self.num_joint_sets)]
-
-            for vi in self.blender_idxs:
-                bones = self.vert_bones[vi]
-                for j in range(0, 4 * self.num_joint_sets):
-                    if j < len(bones):
-                        joint, weight = bones[j]
-                    else:
-                        joint, weight = 0, 0.0
-                    joints[j // 4].append(joint)
-                    weights[j // 4].append(weight)
-
-            for i, (js, ws) in enumerate(zip(joints, weights)):
-                self.attributes['JOINTS_%d' % i] = js
-                self.attributes['WEIGHTS_%d' % i] = ws
-
         for material_idx, dot_indices in self.prim_indices.items():
             indices = shared_dot_indices[dot_indices]
 
@@ -949,24 +889,6 @@ class PrimitiveCreator:
                 uvmap_attributes_index[attr] = next_texcoor_idx
                 next_texcoor_idx += 1
 
-            if self.skin:
-                joints = [[] for _ in range(self.num_joint_sets)]
-                weights = [[] for _ in range(self.num_joint_sets)]
-
-                for vi in self.blender_idxs:
-                    bones = self.vert_bones[vi]
-                    for j in range(0, 4 * self.num_joint_sets):
-                        if j < len(bones):
-                            joint, weight = bones[j]
-                        else:
-                            joint, weight = 0, 0.0
-                        joints[j // 4].append(joint)
-                        weights[j // 4].append(weight)
-
-                for i, (js, ws) in enumerate(zip(joints, weights)):
-                    self.attributes['JOINTS_%d' % i] = js
-                    self.attributes['WEIGHTS_%d' % i] = ws
-
             primitives.append({
                 'attributes': self.attributes,
                 'indices': indices,
@@ -1018,24 +940,6 @@ class PrimitiveCreator:
                             self.attributes_edges_points[attr['gltf_attribute_name']]["data_type"] = gltf2_blender_conversion.get_data_type(
                                 attr['blender_data_type'])
 
-                if self.skin:
-                    joints = [[] for _ in range(self.num_joint_sets)]
-                    weights = [[] for _ in range(self.num_joint_sets)]
-
-                    for vi in self.blender_idxs:
-                        bones = self.vert_bones[vi]
-                        for j in range(0, 4 * self.num_joint_sets):
-                            if j < len(bones):
-                                joint, weight = bones[j]
-                            else:
-                                joint, weight = 0, 0.0
-                            joints[j // 4].append(joint)
-                            weights[j // 4].append(weight)
-
-                    for i, (js, ws) in enumerate(zip(joints, weights)):
-                        self.attributes_edges_points['JOINTS_%d' % i] = js
-                        self.attributes_edges_points['WEIGHTS_%d' % i] = ws
-
                 primitives_edges_points.append({
                     'attributes': self.attributes_edges_points,
                     'indices': indices,
@@ -1074,24 +978,6 @@ class PrimitiveCreator:
                             self.attributes_edges_points[attr['gltf_attribute_name']]["data_type"] = gltf2_blender_conversion.get_data_type(
                                 attr['blender_data_type'])
 
-                if self.skin:
-                    joints = [[] for _ in range(self.num_joint_sets)]
-                    weights = [[] for _ in range(self.num_joint_sets)]
-
-                    for vi in self.blender_idxs:
-                        bones = self.vert_bones[vi]
-                        for j in range(0, 4 * self.num_joint_sets):
-                            if j < len(bones):
-                                joint, weight = bones[j]
-                            else:
-                                joint, weight = 0, 0.0
-                            joints[j // 4].append(joint)
-                            weights[j // 4].append(weight)
-
-                    for i, (js, ws) in enumerate(zip(joints, weights)):
-                        self.attributes_edges_points['JOINTS_%d' % i] = js
-                        self.attributes_edges_points['WEIGHTS_%d' % i] = ws
-
                 primitives_edges_points.append({
                     'attributes': self.attributes_edges_points,
                     'mode': 0,  # POINTS
@@ -1124,16 +1010,6 @@ class PrimitiveCreator:
             key_block.points.foreach_get('co', vs)
             vs = vs.reshape(len(self.blender_mesh.vertices), 3)
             self.morph_locs.append(vs)
-
-        # Transform for skinning
-        if self.armature and self.blender_object:
-            # apply_matrix = armature.matrix_world.inverted_safe() @ blender_object.matrix_world
-            # loc_transform = armature.matrix_world @ apply_matrix
-
-            loc_transform = self.blender_object.matrix_world
-            self.locs[:] = PrimitiveCreator.apply_mat_to_all(loc_transform, self.locs)
-            for vs in self.morph_locs:
-                vs[:] = PrimitiveCreator.apply_mat_to_all(loc_transform, vs)
 
         # glTF stores deltas in morph targets
         for vs in self.morph_locs:
@@ -1458,18 +1334,6 @@ class PrimitiveCreator:
             ns = np.round(ns, ROUNDING_DIGIT)
             self.morph_normals.append(ns)
 
-        # Transform for skinning
-        if self.armature and self.blender_object:
-            apply_matrix = (self.armature.matrix_world.inverted_safe() @ self.blender_object.matrix_world)
-            apply_matrix = apply_matrix.to_3x3().inverted_safe().transposed()
-            normal_transform = self.armature.matrix_world.to_3x3() @ apply_matrix
-
-            self.normals[:] = PrimitiveCreator.apply_mat_to_all(normal_transform, self.normals)
-            PrimitiveCreator.normalize_vecs(self.normals)
-            for ns in self.morph_normals:
-                ns[:] = PrimitiveCreator.apply_mat_to_all(normal_transform, ns)
-                PrimitiveCreator.normalize_vecs(ns)
-
         for ns in [self.normals, *self.morph_normals]:
             # Replace zero normals with the unit UP vector.
             # Seems to happen sometimes with degenerate tris?
@@ -1516,14 +1380,6 @@ class PrimitiveCreator:
         self.tangents = self.tangents.reshape(len(self.blender_mesh.loops), 3)
         self.tangents = np.round(self.tangents, ROUNDING_DIGIT)
 
-        # Transform for skinning
-        if self.armature and self.blender_object:
-            apply_matrix = self.armature.matrix_world.inverted_safe() @ self.blender_object.matrix_world
-            tangent_transform = apply_matrix.to_quaternion().to_matrix()
-            self.tangents = PrimitiveCreator.apply_mat_to_all(tangent_transform, self.tangents)
-            PrimitiveCreator.normalize_vecs(self.tangents)
-            self.tangents = np.round(self.tangents, ROUNDING_DIGIT)
-
         if self.export_settings['gltf_yup']:
             PrimitiveCreator.zup2yup(self.tangents)
 
@@ -1531,55 +1387,7 @@ class PrimitiveCreator:
         self.signs = np.empty(len(self.blender_mesh.loops), dtype=np.float32)
         self.blender_mesh.loops.foreach_get('bitangent_sign', self.signs)
 
-        # Transform for skinning
-        if self.armature and self.blender_object:
-            # Bitangent signs should flip when handedness changes
-            # TODO: confirm
-            apply_matrix = self.armature.matrix_world.inverted_safe() @ self.blender_object.matrix_world
-            tangent_transform = apply_matrix.to_quaternion().to_matrix()
-            flipped = tangent_transform.determinant() < 0
-            if flipped:
-                self.signs *= -1
-
         # No change for Zup -> Yup
-
-    def __get_bone_data(self):
-
-        self.need_neutral_bone = False
-        min_influence = 0.0001
-
-        joint_name_to_index = {joint.name: index for index, joint in enumerate(self.skin.joints)}
-        group_to_joint = [joint_name_to_index.get(g.name) for g in self.blender_vertex_groups]
-
-        # List of (joint, weight) pairs for each vert
-        self.vert_bones = []
-        max_num_influences = 0
-
-        for vertex in self.blender_mesh.vertices:
-            bones = []
-            if vertex.groups:
-                for group_element in vertex.groups:
-                    weight = group_element.weight
-                    if weight <= min_influence:
-                        continue
-                    try:
-                        joint = group_to_joint[group_element.group]
-                    except Exception:
-                        continue
-                    if joint is None:
-                        continue
-                    bones.append((joint, weight))
-            bones.sort(key=lambda x: x[1], reverse=True)
-            if not bones:
-                # Is not assign to any bone
-                bones = ((len(self.skin.joints), 1.0),)  # Assign to a joint that will be created later
-                self.need_neutral_bone = True
-            self.vert_bones.append(bones)
-            if len(bones) > max_num_influences:
-                max_num_influences = len(bones)
-
-        # How many joint sets do we need? 1 set = 4 influences
-        self.num_joint_sets = (max_num_influences + 3) // 4
 
 ##################################### Set ###################################
     def set_function(self):

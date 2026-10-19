@@ -830,10 +830,7 @@ bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
     ofs = -float3(v3d->runtime.ofs_last_center);
   }
 
-  if (ob_act && (ob_act->mode & OB_MODE_ALL_PAINT) &&
-      /* with weight-paint + pose-mode, fall through to using calculateTransformCenter */
-      ((ob_act->mode & OB_MODE_WEIGHT_PAINT) && BKE_object_pose_armature_get(ob_act)) == 0)
-  {
+  if (ob_act && (ob_act->mode & OB_MODE_ALL_PAINT)) {
     BKE_paint_stroke_get_average(paint, ob_act_eval, ofs);
     is_set = true;
   }

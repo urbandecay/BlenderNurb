@@ -77,7 +77,7 @@ class OBJECT_MT_modifier_add(ModifierAddMenu, Menu):
             return
         ob_type = ob.type
         geometry_nodes_supported = ob_type in {
-            'EMPTY', 'MESH', 'CURVE', 'CURVES',
+            'MESH', 'CURVE', 'CURVES',
             'FONT', 'VOLUME', 'POINTCLOUD'
         }
 
@@ -186,7 +186,6 @@ class OBJECT_MT_modifier_add_deform(ModifierAddMenu, Menu):
         layout = self.layout
         ob_type = context.object.type
         if ob_type in {'MESH', 'CURVE', 'FONT', 'SURFACE', 'LATTICE'}:
-            self.operator_modifier_add(layout, 'ARMATURE')
             self.operator_modifier_add(layout, 'CAST')
             self.operator_modifier_add(layout, 'CURVE')
         if ob_type == 'MESH':

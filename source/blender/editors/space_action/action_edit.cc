@@ -58,7 +58,7 @@
 namespace blender {
 
 /* -------------------------------------------------------------------- */
-/** \name Pose Markers: Localize Markers
+/** \name Action Markers: Localize Markers
  * \{ */
 
 /* ensure that there is:
@@ -118,8 +118,7 @@ static wmOperatorStatus act_markers_make_local_exec(bContext *C, wmOperator * /*
     }
   }
 
-  /* Now enable the "show pose-markers only" setting,
-   * so that we can see that something did happen. */
+  /* Now show the action's markers so the change is visible. */
   SpaceAction *sact = CTX_wm_space_action(C);
   sact->flag |= SACTION_POSEMARKERS_SHOW;
 
@@ -135,7 +134,7 @@ void ACTION_OT_markers_make_local(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Make Markers Local";
   ot->idname = "ACTION_OT_markers_make_local";
-  ot->description = "Move selected scene markers to the active Action as local 'pose' markers";
+  ot->description = "Move selected scene markers to the active Action";
 
   /* callbacks */
   ot->exec = act_markers_make_local_exec;
@@ -509,8 +508,7 @@ static bool copy_action_keys(bAnimContext *ac)
 
 static eKeyPasteError paste_action_keys(bAnimContext *ac,
                                         const eKeyPasteOffset offset_mode,
-                                        const eKeyMergeMode merge_mode,
-                                        bool flip)
+                                        const eKeyMergeMode merge_mode)
 {
   /* TODO: deduplicate this function and `paste_graph_keys()` in `graph_edit.cc`, */
 
@@ -520,7 +518,6 @@ static eKeyPasteError paste_action_keys(bAnimContext *ac,
   /* Value offset is always None because the user cannot see the effect of it. */
   paste_context.value_offset_mode = KEYFRAME_PASTE_VALUE_OFFSET_NONE;
   paste_context.merge_mode = merge_mode;
-  paste_context.flip = flip;
 
   /* See how many slots are selected to paste into. This determines how slot matching is done:
    * - Copied from one slot, paste into multiple: duplicate into each slot.
@@ -613,8 +610,6 @@ static wmOperatorStatus actkeys_paste_exec(bContext *C, wmOperator *op)
 
   const eKeyPasteOffset offset_mode = eKeyPasteOffset(RNA_enum_get(op->ptr, "offset"));
   const eKeyMergeMode merge_mode = eKeyMergeMode(RNA_enum_get(op->ptr, "merge"));
-  const bool flipped = RNA_boolean_get(op->ptr, "flipped");
-
 
   /* get editor data */
   if (ANIM_animdata_get_context(C, &ac) == 0) {
@@ -633,7 +628,7 @@ static wmOperatorStatus actkeys_paste_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
   else {
-    const eKeyPasteError kf_empty = paste_action_keys(&ac, offset_mode, merge_mode, flipped);
+    const eKeyPasteError kf_empty = paste_action_keys(&ac, offset_mode, merge_mode);
     switch (kf_empty) {
       case KEYFRAME_PASTE_OK:
         break;
@@ -654,22 +649,8 @@ static wmOperatorStatus actkeys_paste_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static std::string actkeys_paste_get_description(bContext * /*C*/,
-                                                 wmOperatorType * /*ot*/,
-                                                 PointerRNA *ptr)
-{
-  /* Custom description if the 'flipped' option is used. */
-  if (RNA_boolean_get(ptr, "flipped")) {
-    return BLI_strdup(TIP_("Paste keyframes from mirrored bones if they exist"));
-  }
-
-  /* Use the default description in the other cases. */
-  return "";
-}
-
 void ACTION_OT_paste(wmOperatorType *ot)
 {
-  PropertyRNA *prop;
   /* identifiers */
   ot->name = "Paste Keyframes";
   ot->idname = "ACTION_OT_paste";
@@ -680,7 +661,6 @@ void ACTION_OT_paste(wmOperatorType *ot)
 
   /* API callbacks. */
   //  ot->invoke = WM_operator_props_popup; /* Better wait for action redo panel. */
-  ot->get_description = actkeys_paste_get_description;
   ot->exec = actkeys_paste_exec;
   ot->poll = ED_operator_action_active;
 
@@ -700,9 +680,6 @@ void ACTION_OT_paste(wmOperatorType *ot)
                KEYFRAME_PASTE_MERGE_MIX,
                "Type",
                "Method of merging pasted keys and existing");
-  prop = RNA_def_boolean(
-      ot->srna, "flipped", false, "Flipped", "Paste keyframes from mirrored bones if they exist");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 /** \} */

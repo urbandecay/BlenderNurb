@@ -180,7 +180,7 @@ class LightProbes : Overlay {
         call_buffers_.cube_buf.append(data, select_id);
 
         matrix.view<3, 3>() = math::normalize(float3x3(ob->object_to_world().view<3, 3>()));
-        draw_size = ob->empty_drawsize;
+        draw_size = ob->display_size;
         call_buffers_.single_arrow_buf.append(data, select_id);
         break;
     }
@@ -200,7 +200,7 @@ class LightProbes : Overlay {
     DRWState pass_state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH |
                           DRW_STATE_DEPTH_LESS_EQUAL;
     {
-      PassSimple::Sub &sub_pass = ps_.sub("empties");
+      PassSimple::Sub &sub_pass = ps_.sub("helper_shapes");
       sub_pass.state_set(pass_state, state.clipping_plane_count);
       sub_pass.shader_set(res.shaders->extra_shape.get());
       call_buffers_.probe_cube_buf.end_sync(sub_pass, res.shapes.lightprobe_cube.get());
@@ -208,7 +208,7 @@ class LightProbes : Overlay {
       call_buffers_.probe_grid_buf.end_sync(sub_pass, res.shapes.lightprobe_grid.get());
       call_buffers_.quad_solid_buf.end_sync(sub_pass, res.shapes.quad_solid.get());
       call_buffers_.cube_buf.end_sync(sub_pass, res.shapes.cube.get());
-      call_buffers_.sphere_buf.end_sync(sub_pass, res.shapes.empty_sphere.get());
+      call_buffers_.sphere_buf.end_sync(sub_pass, res.shapes.helper_sphere.get());
       call_buffers_.single_arrow_buf.end_sync(sub_pass, res.shapes.single_arrow.get());
     }
     {

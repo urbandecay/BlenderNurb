@@ -119,10 +119,6 @@
  *  \ingroup editors
  */
 
-/** \defgroup edarmature armature
- *  \ingroup editors
- */
-
 /** \defgroup edasset asset
  *  \ingroup editors
  */

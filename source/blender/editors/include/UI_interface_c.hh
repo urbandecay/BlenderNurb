@@ -2528,7 +2528,7 @@ void template_strip_modifiers(Layout *layout, bContext *C);
 /**
  * Check if the constraint panels don't match the data and rebuild the panels if so.
  */
-void template_constraints(Layout *layout, bContext *C, bool use_bone_constraints);
+void template_constraints(Layout *layout, bContext *C);
 
 
 void template_operator_redo_properties(Layout *layout, const bContext *C);
@@ -2759,7 +2759,6 @@ void template_asset_shelf_popover(
 void template_light_linking_collection(
     Layout *layout, bContext *C, Layout *context_layout, PointerRNA *ptr, StringRefNull propname);
 
-void template_bone_collection_tree(Layout *layout, bContext *C);
 
 void template_tree_interface(Layout *layout, const bContext *C, PointerRNA *ptr);
 /**

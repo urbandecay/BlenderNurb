@@ -80,38 +80,6 @@ Vector<float> get_rna_values(PointerRNA *ptr, PropertyRNA *prop)
   return values;
 }
 
-constexpr const char *pose_bone_path_prefix = "pose.bones[\"";
-constexpr int pose_bone_path_prefix_length = std::char_traits<char>::length(pose_bone_path_prefix);
-
-std::string get_pose_bone_rna_path(const bPoseChannel &pose_bone)
-{
-  char name_esc[sizeof(pose_bone.name) * 2];
-  BLI_str_escape(name_esc, pose_bone.name, sizeof(name_esc));
-  return fmt::format("{}{}\"]", pose_bone_path_prefix, name_esc);
-}
-
-std::optional<std::string> pose_bone_name_from_rna_path(const StringRefNull rna_path)
-{
-  if (rna_path.size() < pose_bone_path_prefix_length ||
-      !rna_path.startswith(pose_bone_path_prefix))
-  {
-    return std::nullopt;
-  }
-
-  const char *name_esc = rna_path.data() + pose_bone_path_prefix_length;
-  const char *name_esc_end = BLI_str_escape_find_quote(name_esc);
-  if (!name_esc_end) {
-    return std::nullopt;
-  }
-  char name[MAXBONENAME];
-  const size_t name_esc_len = size_t(name_esc_end - name_esc);
-  if (name_esc_len >= sizeof(name)) {
-    return std::nullopt;
-  }
-  BLI_str_unescape(name, name_esc, name_esc_len);
-  return name;
-}
-
 StringRefNull get_rotation_mode_path(const eRotationModes rotation_mode)
 {
   switch (rotation_mode) {
@@ -126,9 +94,7 @@ StringRefNull get_rotation_mode_path(const eRotationModes rotation_mode)
 
 std::optional<eRotationModes> get_rotation_mode_from_path(const StringRefNull rna_path)
 {
-  /* Accounting for the difference between objects and bones where the latter is e.g.
-   * `pose.bones["foo"].rotation_euler`. Assumes that rfind returns -1 if the string
-   * is not found. */
+  /* Assumes that rfind returns -1 if the string is not found. */
   const int start_of_propname = rna_path.rfind(".") + 1;
   if (!rna_path.substr(start_of_propname, rna_path.size()).startswith("rotation_")) {
     return std::nullopt;
@@ -150,10 +116,6 @@ std::optional<eRotationModes> get_rotation_mode_from_path(const StringRefNull rn
 
 std::optional<eRotationModes> get_rotation_mode_from_rna_pointer(const PointerRNA &ptr)
 {
-  if (ptr.type == RNA_PoseBone) {
-    bPoseChannel *pchan = static_cast<bPoseChannel *>(ptr.data);
-    return eRotationModes(pchan->rotmode);
-  }
   if (ptr.type == RNA_Object) {
     Object *ob = static_cast<Object *>(ptr.data);
     return eRotationModes(ob->rotmode);
@@ -200,20 +162,12 @@ static bool is_idproperty_keyable(const IDProperty *id_prop, PointerRNA *ptr, Pr
 
 Vector<RNAPath> get_keyable_id_property_paths(const PointerRNA &ptr)
 {
-  IDProperty *properties;
-
-  if (ptr.type == RNA_PoseBone) {
-    const bPoseChannel *pchan = static_cast<bPoseChannel *>(ptr.data);
-    properties = pchan->prop;
-  }
-  else if (ptr.type == RNA_Object) {
-    const Object *ob = static_cast<Object *>(ptr.data);
-    properties = ob->id.properties;
-  }
-  else {
+  if (ptr.type != RNA_Object) {
     /* Pointer type not supported. */
     return {};
   }
+  const Object *ob = static_cast<Object *>(ptr.data);
+  IDProperty *properties = ob->id.properties;
 
   if (!properties) {
     return {};

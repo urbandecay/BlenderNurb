@@ -400,7 +400,7 @@ enum PropertyFlag {
 
   /**
    * Pointers to data that is not owned by the struct.
-   * Typical example: Bone.parent, Bone.child, etc., and nearly all ID pointers.
+   * Typical example: Collection.children and nearly all ID pointers.
    * This is crucial information for processes that walk the whole data of an ID e.g.
    * (like library override).
    * Note that all ID pointers are enforced to this by default,

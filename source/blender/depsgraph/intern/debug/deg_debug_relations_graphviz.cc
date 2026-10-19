@@ -395,8 +395,6 @@ static void deg_debug_graphviz_node(DotExportContext &ctx,
     case NodeType::GEOMETRY:
     case NodeType::SEQUENCER:
     case NodeType::COMPOSITOR:
-    case NodeType::EVAL_POSE:
-    case NodeType::BONE:
     case NodeType::SHADING:
     case NodeType::CACHE:
     case NodeType::POINT_CACHE:
@@ -411,7 +409,6 @@ static void deg_debug_graphviz_node(DotExportContext &ctx,
     case NodeType::INSTANCING:
     case NodeType::SYNCHRONIZATION:
     case NodeType::AUDIO:
-    case NodeType::ARMATURE:
     case NodeType::GENERIC_DATABLOCK:
     case NodeType::SCENE:
     case NodeType::VISIBILITY:

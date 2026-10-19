@@ -15,7 +15,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "DNA_armature_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
@@ -28,7 +27,6 @@
 #include "BLI_math_vector.h"
 #include "BLI_task.hh"
 
-#include "BKE_armature.hh"
 #include "BKE_curve.hh"
 #include "BKE_curves_utils.hh"
 #include "BKE_editmesh.hh"
@@ -41,7 +39,6 @@
 
 #include "DEG_depsgraph.hh"
 
-#include "ED_armature.hh"
 #include "ED_curves.hh"
 #include "ED_mesh.hh"
 #include "ED_object.hh"
@@ -55,154 +52,6 @@ namespace blender::ed::object {
  * Define these locally.
  *
  * \{ */
-
-/* Armature */
-
-struct ElemData_Armature {
-  float tail[3];
-  float head[3];
-  float roll;
-  float arm_tail[3];
-  float arm_head[3];
-  float arm_roll;
-  float rad_tail;
-  float rad_head;
-  float dist;
-  float xwidth;
-  float zwidth;
-};
-
-static ElemData_Armature *armature_coords_and_quats_get_recurse(const ListBaseT<Bone> *bone_base,
-                                                                ElemData_Armature *elem_array)
-{
-  ElemData_Armature *elem = elem_array;
-  for (const Bone &bone : *bone_base) {
-
-#define COPY_PTR(member) memcpy(elem->member, bone.member, sizeof(bone.member))
-#define COPY_VAL(member) memcpy(&elem->member, &bone.member, sizeof(bone.member))
-    COPY_PTR(head);
-    COPY_PTR(tail);
-    COPY_VAL(roll);
-    COPY_PTR(arm_head);
-    COPY_PTR(arm_tail);
-    COPY_VAL(arm_roll);
-    COPY_VAL(rad_tail);
-    COPY_VAL(rad_head);
-    COPY_VAL(dist);
-    COPY_VAL(xwidth);
-    COPY_VAL(zwidth);
-#undef COPY_PTR
-#undef COPY_VAL
-
-    elem = armature_coords_and_quats_get_recurse(&bone.childbase, elem + 1);
-  }
-  return elem;
-}
-
-static void armature_coords_and_quats_get(const bArmature *arm,
-                                          MutableSpan<ElemData_Armature> elem_array)
-{
-  armature_coords_and_quats_get_recurse(&arm->bonebase, elem_array.data());
-}
-
-static const ElemData_Armature *armature_coords_and_quats_apply_with_mat4_recurse(
-    ListBaseT<Bone> *bone_base, const ElemData_Armature *elem_array, const float4x4 &transform)
-{
-  const ElemData_Armature *elem = elem_array;
-  for (Bone &bone : *bone_base) {
-
-#define COPY_PTR(member) memcpy(bone.member, elem->member, sizeof(bone.member))
-#define COPY_VAL(member) memcpy(&bone.member, &elem->member, sizeof(bone.member))
-    COPY_PTR(head);
-    COPY_PTR(tail);
-    COPY_VAL(roll);
-    COPY_PTR(arm_head);
-    COPY_PTR(arm_tail);
-    COPY_VAL(arm_roll);
-    COPY_VAL(rad_tail);
-    COPY_VAL(rad_head);
-    COPY_VAL(dist);
-    COPY_VAL(xwidth);
-    COPY_VAL(zwidth);
-#undef COPY_PTR
-#undef COPY_VAL
-
-    elem = armature_coords_and_quats_apply_with_mat4_recurse(&bone.childbase, elem + 1, transform);
-  }
-  return elem;
-}
-
-static void armature_coords_and_quats_apply_with_mat4(bArmature *arm,
-                                                      const Span<ElemData_Armature> elem_array,
-                                                      const float4x4 &transform)
-{
-  armature_coords_and_quats_apply_with_mat4_recurse(&arm->bonebase, elem_array.data(), transform);
-  BKE_armature_transform(arm, transform.ptr(), true);
-}
-
-static void armature_coords_and_quats_apply(bArmature *arm,
-                                            const Span<ElemData_Armature> elem_array)
-{
-  /* Avoid code duplication by using a unit matrix. */
-  armature_coords_and_quats_apply_with_mat4(arm, elem_array, float4x4::identity());
-}
-
-/* Edit Armature */
-static void edit_armature_coords_and_quats_get(const bArmature *arm,
-                                               MutableSpan<ElemData_Armature> elem_array)
-{
-  ElemData_Armature *elem = elem_array.data();
-  for (EditBone *ebone = static_cast<EditBone *>(arm->edbo->first); ebone;
-       ebone = ebone->next, elem++)
-  {
-
-#define COPY_PTR(member) memcpy(elem->member, ebone->member, sizeof(ebone->member))
-#define COPY_VAL(member) memcpy(&elem->member, &ebone->member, sizeof(ebone->member))
-    /* Unused for edit bones: arm_head, arm_tail, arm_roll */
-    COPY_PTR(head);
-    COPY_PTR(tail);
-    COPY_VAL(roll);
-    COPY_VAL(rad_tail);
-    COPY_VAL(rad_head);
-    COPY_VAL(dist);
-    COPY_VAL(xwidth);
-    COPY_VAL(zwidth);
-#undef COPY_PTR
-#undef COPY_VAL
-  }
-}
-
-static void edit_armature_coords_and_quats_apply_with_mat4(
-    bArmature *arm, const Span<ElemData_Armature> elem_array, const float4x4 &transform)
-{
-  const ElemData_Armature *elem = elem_array.data();
-  for (EditBone *ebone = static_cast<EditBone *>(arm->edbo->first); ebone;
-       ebone = ebone->next, elem++)
-  {
-
-#define COPY_PTR(member) memcpy(ebone->member, elem->member, sizeof(ebone->member))
-#define COPY_VAL(member) memcpy(&ebone->member, &elem->member, sizeof(ebone->member))
-    /* Unused for edit bones: arm_head, arm_tail, arm_roll */
-    COPY_PTR(head);
-    COPY_PTR(tail);
-    COPY_VAL(roll);
-    COPY_VAL(rad_tail);
-    COPY_VAL(rad_head);
-    COPY_VAL(dist);
-    COPY_VAL(xwidth);
-    COPY_VAL(zwidth);
-#undef COPY_PTR
-#undef COPY_VAL
-  }
-  ED_armature_edit_transform(arm, transform.ptr(), true);
-}
-
-static void edit_armature_coords_and_quats_apply(bArmature *arm,
-                                                 const Span<ElemData_Armature> elem_array)
-{
-  /* Avoid code duplication by using a unit matrix. */
-  edit_armature_coords_and_quats_apply_with_mat4(arm, elem_array, float4x4::identity());
-}
 
 /* MetaBall */
 
@@ -279,12 +128,6 @@ struct XFormObjectData_Curve : public XFormObjectData {
   Array<float3> positions;
   bool is_edit_mode = false;
   ~XFormObjectData_Curve() override = default;
-};
-
-struct XFormObjectData_Armature : public XFormObjectData {
-  Array<ElemData_Armature> elems;
-  bool is_edit_mode = false;
-  ~XFormObjectData_Armature() override = default;
 };
 
 struct XFormObjectData_MetaBall : public XFormObjectData {
@@ -412,23 +255,6 @@ static std::unique_ptr<XFormObjectData> data_xform_create_ex(ID *id, bool is_edi
         }
       }
 
-      return xod;
-    }
-    case ID_AR: {
-      bArmature *arm = id_cast<bArmature *>(id);
-      if (is_edit_mode) {
-        auto xod = std::make_unique<XFormObjectData_Armature>();
-        xod->id = id;
-        xod->is_edit_mode = is_edit_mode;
-        xod->elems.reinitialize(arm->edbo->count());
-        edit_armature_coords_and_quats_get(arm, xod->elems);
-        return xod;
-      }
-      auto xod = std::make_unique<XFormObjectData_Armature>();
-      xod->id = id;
-      xod->is_edit_mode = is_edit_mode;
-      xod->elems.reinitialize(BKE_armature_bonelist_count(&arm->bonebase));
-      armature_coords_and_quats_get(arm, xod->elems);
       return xod;
     }
     case ID_MB: {
@@ -574,18 +400,6 @@ void data_xform_by_mat4(XFormObjectData &xod_base, const float4x4 &transform)
 
       break;
     }
-    case ID_AR: {
-      const auto &xod = reinterpret_cast<XFormObjectData_Armature &>(xod_base);
-      BLI_assert(xod.is_edit_mode == false); /* Not used currently. */
-      bArmature *arm = id_cast<bArmature *>(xod_base.id);
-      if (xod.is_edit_mode) {
-        edit_armature_coords_and_quats_apply_with_mat4(arm, xod.elems, transform);
-      }
-      else {
-        armature_coords_and_quats_apply_with_mat4(arm, xod.elems, transform);
-      }
-      break;
-    }
     case ID_MB: {
       /* Meta-balls are a special case, edit-mode and object mode data is shared. */
       MetaBall *mb = id_cast<MetaBall *>(xod_base.id);
@@ -692,17 +506,6 @@ void data_xform_restore(XFormObjectData &xod_base)
 
       break;
     }
-    case ID_AR: {
-      bArmature *arm = id_cast<bArmature *>(xod_base.id);
-      const auto &xod = reinterpret_cast<XFormObjectData_Armature &>(xod_base);
-      if (xod.is_edit_mode) {
-        edit_armature_coords_and_quats_apply(arm, xod.elems);
-      }
-      else {
-        armature_coords_and_quats_apply(arm, xod.elems);
-      }
-      break;
-    }
     case ID_MB: {
       /* Meta-balls are a special case, edit-mode and object mode data is shared. */
       MetaBall *mb = id_cast<MetaBall *>(xod_base.id);
@@ -762,13 +565,6 @@ void data_xform_tag_update(XFormObjectData &xod_base)
       /* Generic update. */
       Curve *cu = id_cast<Curve *>(xod_base.id);
       DEG_id_tag_update(&cu->id, ID_RECALC_GEOMETRY);
-      break;
-    }
-    case ID_AR: {
-      /* Generic update. */
-      bArmature *arm = id_cast<bArmature *>(xod_base.id);
-      /* XXX, zero is needed, no other flags properly update this. */
-      DEG_id_tag_update(&arm->id, 0);
       break;
     }
     case ID_MB: {

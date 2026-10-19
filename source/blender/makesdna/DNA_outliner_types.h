@@ -51,16 +51,12 @@ enum eTreeStoreElemType : short {
   TSE_NLA_ACTION = 2,
   TSE_DEFGROUP_BASE = 3,
   TSE_DEFGROUP = 4,
-  TSE_BONE = 5,
-  TSE_EBONE = 6,
   TSE_CONSTRAINT_BASE = 7,
   TSE_CONSTRAINT = 8,
   TSE_MODIFIER_BASE = 9,
   TSE_MODIFIER = 10,
   TSE_LINKED_OB = 11,
   /* TSE_SCRIPT_BASE     = 12, */ /* UNUSED */
-  TSE_POSE_BASE = 13,
-  TSE_POSE_CHANNEL = 14,
   TSE_ANIM_DATA = 15,
   TSE_DRIVER_BASE = 16,           /* NO ID */
   /* TSE_DRIVER          = 17, */ /* UNUSED */
@@ -72,8 +68,6 @@ enum eTreeStoreElemType : short {
   /* TSE_LINKED_MAT = 22, */
   /* NOTE: is used for light group. */
   /* TSE_LINKED_LAMP = 23, */
-  TSE_BONE_COLLECTION_BASE = 24,
-  TSE_BONE_COLLECTION = 25,
   TSE_STRIP = 26,      /* NO ID */
   TSE_STRIP_DATA = 27, /* NO ID */
   TSE_STRIP_DUP = 28,  /* NO ID */

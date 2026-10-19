@@ -20,7 +20,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_armature_types.h"
 #include "DNA_cloth_types.h"
 #include "DNA_colorband_types.h"
 #include "DNA_dynamicpaint_types.h"
@@ -95,10 +94,6 @@ void BKE_modifier_init()
   modifier_type_init(modifier_types); /* MOD_util.cc */
 
   /* Initialize global common storage used for virtual modifier list. */
-  md = BKE_modifier_new(eModifierType_Armature);
-  virtualModifierCommonData.amd = *(reinterpret_cast<ArmatureModifierData *>(md));
-  BKE_modifier_free(md);
-
   md = BKE_modifier_new(eModifierType_Curve);
   virtualModifierCommonData.cmd = *(reinterpret_cast<CurveModifierData *>(md));
   BKE_modifier_free(md);
@@ -111,7 +106,6 @@ void BKE_modifier_init()
   virtualModifierCommonData.smd = *(reinterpret_cast<ShapeKeyModifierData *>(md));
   BKE_modifier_free(md);
 
-  virtualModifierCommonData.amd.modifier.mode |= eModifierMode_Virtual;
   virtualModifierCommonData.cmd.modifier.mode |= eModifierMode_Virtual;
   virtualModifierCommonData.lmd.modifier.mode |= eModifierMode_Virtual;
   virtualModifierCommonData.smd.modifier.mode |= eModifierMode_Virtual;
@@ -640,33 +634,13 @@ ModifierData *BKE_modifiers_get_virtual_modifierlist(const Object *ob,
   return md;
 }
 
-Object *BKE_modifiers_is_deformed_by_armature(Object *ob)
-{
-  VirtualModifierData virtual_modifier_data;
-  ModifierData *md = BKE_modifiers_get_virtual_modifierlist(ob, &virtual_modifier_data);
-
-  Object *armature = nullptr;
-  /* return the first selected armature, this lets us use multiple armatures */
-  for (; md; md = md->next) {
-    if (md->type == eModifierType_Armature) {
-      auto *amd = reinterpret_cast<ArmatureModifierData *>(md);
-      armature = amd->object;
-      if (armature && (armature->base_flag & BASE_SELECTED)) {
-        return armature;
-      }
-    }
-  }
-  /* If we're still here then return the last armature. */
-  return armature;
-}
-
 Object *BKE_modifiers_is_deformed_by_meshdeform(Object *ob)
 {
   VirtualModifierData virtual_modifier_data;
   ModifierData *md = BKE_modifiers_get_virtual_modifierlist(ob, &virtual_modifier_data);
   MeshDeformModifierData *mdmd = nullptr;
 
-  /* return the first selected armature, this lets us use multiple armatures */
+  /* Return the first selected mesh deform target. */
   for (; md; md = md->next) {
     if (md->type == eModifierType_MeshDeform) {
       mdmd = reinterpret_cast<MeshDeformModifierData *>(md);
@@ -676,7 +650,7 @@ Object *BKE_modifiers_is_deformed_by_meshdeform(Object *ob)
     }
   }
 
-  if (mdmd) { /* if we're still here then return the last armature */
+  if (mdmd) { /* If we're still here, return the last mesh deform target. */
     return mdmd->object;
   }
 
@@ -747,23 +721,6 @@ bool BKE_modifiers_uses_multires(Object *ob)
   return false;
 }
 
-bool BKE_modifiers_uses_armature(Object *ob, bArmature *arm)
-{
-  VirtualModifierData virtual_modifier_data;
-  ModifierData *md = BKE_modifiers_get_virtual_modifierlist(ob, &virtual_modifier_data);
-
-  for (; md; md = md->next) {
-    if (md->type == eModifierType_Armature) {
-      ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-      if (amd->object && amd->object->data == id_cast<ID *>(arm)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool BKE_modifier_is_correctable_deformed(ModifierData *md)
 {
   const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
@@ -788,15 +745,6 @@ bool BKE_modifiers_is_correctable_deformed(const Scene *scene, Object *ob)
     }
   }
   return false;
-}
-
-void BKE_modifier_free_temporary_data(ModifierData *md)
-{
-  if (md->type == eModifierType_Armature) {
-    ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(md);
-
-    MEM_SAFE_DELETE(amd->vert_coords_prev);
-  }
 }
 
 void BKE_modifiers_add_at_end_if_possible(Object *ob, ModifierData *new_md)

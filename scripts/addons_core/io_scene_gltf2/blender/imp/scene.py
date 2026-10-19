@@ -99,7 +99,7 @@ class BlenderScene():
             bpy.ops.object.select_all(action='DESELECT')
 
         for vnode in gltf.vnodes.values():
-            if vnode.type == VNode.Object:
+            if vnode.blender_object is not None:
                 vnode.blender_object.select_set(state=True)
 
     @staticmethod
@@ -120,14 +120,25 @@ class BlenderScene():
                     vnode = gltf.vnodes[pyscene.nodes[0]]
                     break
 
-        if not vnode:
+        # Transform-only nodes have no Blender object. Walk their descendants
+        # and activate the first object that was actually imported.
+        def first_object(node):
+            if node.blender_object is not None:
+                return node.blender_object
+            for child_id in node.children:
+                result = first_object(gltf.vnodes[child_id])
+                if result is not None:
+                    return result
+            return None
+
+        if vnode is None:
             vnode = gltf.vnodes['root']
-            if vnode.type == VNode.DummyRoot:
-                if not vnode.children:
-                    return  # no nodes
-                vnode = gltf.vnodes[vnode.children[0]]
 
-        if vnode.type == VNode.Bone:
-            vnode = gltf.vnodes[vnode.bone_arma]
+        active_object = first_object(vnode)
+        if active_object is None:
+            for candidate in gltf.vnodes.values():
+                if candidate.blender_object is not None:
+                    active_object = candidate.blender_object
+                    break
 
-        bpy.context.view_layer.objects.active = vnode.blender_object
+        bpy.context.view_layer.objects.active = active_object

@@ -17,7 +17,6 @@ struct ModifierData;
 struct Object;
 struct PointerRNA;
 struct Scene;
-struct bPoseChannel;
 
 namespace deg {
 
@@ -32,10 +31,6 @@ class DepsgraphBuilder {
 
   virtual bool is_object_visibility_animated(const Object *object);
   virtual bool is_modifier_visibility_animated(const Object *object, const ModifierData *modifier);
-
-  virtual bool check_pchan_has_bbone(const Object *object, const bPoseChannel *pchan);
-  virtual bool check_pchan_has_bbone_segments(const Object *object, const bPoseChannel *pchan);
-  virtual bool check_pchan_has_bbone_segments(const Object *object, const char *bone_name);
 
   /**
    * If `target_prop` + `rna_path` uses indirection via the `scene.camera` pointer, returns

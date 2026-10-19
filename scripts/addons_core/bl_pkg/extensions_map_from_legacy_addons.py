@@ -67,7 +67,6 @@
         "object_fracture_cell": ("cell_fracture", "Cell Fracture"),
         "object_print3d_utils": ("print3d_toolbox", "3D-Print Toolbox"),
         "object_scatter": ("scatter_objects", "Scatter Objects"),
-        "object_skinify": ("skinify_rig", "Skinify Rig"),
         "paint_palette": ("paint_palettes", "Paint Palettes"),
         "power_sequencer": ("power_sequencer", "Power Sequencer"),
         "precision_drawing_tools": ("precision_drawing_tools_pdt", "Precision Drawing Tools (PDT)"),

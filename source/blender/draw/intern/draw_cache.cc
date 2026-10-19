@@ -55,11 +55,10 @@
 #define VCLASS_SCREENSPACE (1 << 8)
 #define VCLASS_SCREENALIGNED (1 << 9)
 
-#define VCLASS_EMPTY_SCALED (1 << 10)
-#define VCLASS_EMPTY_AXES (1 << 11)
-#define VCLASS_EMPTY_AXES_NAME (1 << 12)
-#define VCLASS_EMPTY_AXES_SHADOW (1 << 13)
-#define VCLASS_EMPTY_SIZE (1 << 14)
+#define VCLASS_HELPER_SCALED (1 << 10)
+#define VCLASS_HELPER_AXES (1 << 11)
+#define VCLASS_HELPER_AXES_NAME (1 << 12)
+#define VCLASS_DISPLAY_SIZE (1 << 14)
 
 /** \} */
 

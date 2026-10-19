@@ -32,7 +32,6 @@ namespace blender {
  */
 const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_AC, "ACTION", ICON_ACTION, "Action", ""},
-    {ID_AR, "ARMATURE", ICON_ARMATURE_DATA, "Armature", ""},
     {ID_BR, "BRUSH", ICON_BRUSH_DATA, "Brush", ""},
     {ID_CF, "CACHEFILE", ICON_FILE, "Cache File", ""},
     {ID_CA, "CAMERA", ICON_CAMERA_DATA, "Camera", ""},
@@ -124,11 +123,6 @@ static const EnumPropertyItem rna_enum_override_library_property_operation_items
 const IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
     /* Datablocks */
     {FILTER_ID_AC, "filter_action", ICON_ACTION, "Actions", "Show Action data-blocks"},
-    {FILTER_ID_AR,
-     "filter_armature",
-     ICON_ARMATURE_DATA,
-     "Armatures",
-     "Show Armature data-blocks"},
     {FILTER_ID_BR, "filter_brush", ICON_BRUSH_DATA, "Brushes", "Show Brushes data-blocks"},
     {FILTER_ID_CA, "filter_camera", ICON_CAMERA_DATA, "Cameras", "Show Camera data-blocks"},
     {FILTER_ID_CF, "filter_cachefile", ICON_FILE, "Cache Files", "Show Cache File data-blocks"},
@@ -404,9 +398,6 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == RNA_Action) {
     return ID_AC;
   }
-  if (base_type == RNA_Armature) {
-    return ID_AR;
-  }
   if (base_type == RNA_Brush) {
     return ID_BR;
   }
@@ -523,8 +514,6 @@ StructRNA *ID_code_to_RNA_type(short idcode)
   switch (ID_Type(idcode)) {
     case ID_AC:
       return RNA_Action;
-    case ID_AR:
-      return RNA_Armature;
     case ID_BR:
       return RNA_Brush;
     case ID_CA:
@@ -842,7 +831,7 @@ static ID *rna_ID_override_hierarchy_create(ID *id,
                                             Main *bmain,
                                             Scene *scene,
                                             ViewLayer *view_layer,
-                                            ID *id_instance_hint,
+                                            Collection *collection_parent_hint,
                                             bool do_fully_editable)
 {
   if (!ID_IS_OVERRIDABLE_LIBRARY(id)) {
@@ -863,7 +852,7 @@ static ID *rna_ID_override_hierarchy_create(ID *id,
                                   nullptr,
                                   id,
                                   id,
-                                  id_instance_hint,
+                                  collection_parent_hint,
                                   &id_root_override,
                                   do_fully_editable);
 
@@ -2635,10 +2624,9 @@ static void rna_def_ID(BlenderRNA *brna)
   RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
   RNA_def_pointer(func,
                   "reference",
-                  "ID",
+                  "Collection",
                   "",
-                  "Another ID (usually an Object or Collection) used as a hint to decide where to "
-                  "instantiate the new overrides");
+                  "Collection in which to place the overridden collection");
   RNA_def_boolean(func,
                   "do_fully_editable",
                   false,

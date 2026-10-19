@@ -97,7 +97,6 @@ static bool memfile_undosys_step_encode(bContext * /*C*/, Main *bmain, UndoStep 
 
 static int memfile_undosys_step_id_reused_cb(LibraryIDLinkCallbackData *cb_data)
 {
-  ID *self_id = cb_data->self_id;
   ID *owner_id = cb_data->owner_id;
   ID **id_pointer = cb_data->id_pointer;
   /* Embedded IDs do not get tagged with #ID_TAG_UNDO_OLD_ID_REUSED_UNCHANGED currently (could be,
@@ -113,26 +112,7 @@ static int memfile_undosys_step_id_reused_cb(LibraryIDLinkCallbackData *cb_data)
 
   ID *id = *id_pointer;
   if (id != nullptr && !ID_IS_LINKED(id) && (id->tag & ID_TAG_UNDO_OLD_ID_REUSED_UNCHANGED) == 0) {
-    bool do_stop_iter = true;
-    if (GS(self_id->name) == ID_OB) {
-      Object *ob_self = id_cast<Object *>(self_id);
-      if (ob_self->type == OB_ARMATURE) {
-        if (ob_self->data == id) {
-          BLI_assert(GS(id->name) == ID_AR);
-          if (ob_self->pose != nullptr) {
-            /* We have a changed/re-read armature used by an unchanged armature object: our beloved
-             * Bone pointers from the object's pose need their usual special treatment. */
-            ob_self->pose->flag |= POSE_RECALC;
-          }
-        }
-        else {
-          /* Cannot stop iteration until we checked ob_self->data pointer... */
-          do_stop_iter = false;
-        }
-      }
-    }
-
-    return do_stop_iter ? IDWALK_RET_STOP_ITER : IDWALK_RET_NOP;
+    return IDWALK_RET_STOP_ITER;
   }
 
   return IDWALK_RET_NOP;

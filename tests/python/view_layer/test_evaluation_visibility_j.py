@@ -37,7 +37,7 @@ class UnitTesting(ViewLayerTesting):
 
         collection_parent = master_collection.collections.new('parent')
         collection_nested = collection_parent.collections.new('child linked')
-        ob = bpy.data.objects.new('An Empty', None)
+        ob = bpy.data.objects.new('Visibility Mesh', bpy.data.meshes.new('Visibility Mesh'))
         collection_nested.objects.link(ob)
 
         layer_collection = bpy.context.view_layer.collections.link(master_collection)

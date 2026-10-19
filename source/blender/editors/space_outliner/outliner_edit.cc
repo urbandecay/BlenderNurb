@@ -31,7 +31,6 @@
 #include "BKE_action.hh"
 #include "BKE_animsys.h"
 #include "BKE_appdir.hh"
-#include "BKE_armature.hh"
 #include "BKE_blender_copybuffer.hh"
 #include "BKE_blendfile.hh"
 #include "BKE_context.hh"
@@ -341,12 +340,10 @@ static void do_item_rename(ARegion *region,
            TSE_CONSTRAINT_BASE,
            TSE_MODIFIER_BASE,
            TSE_DRIVER_BASE,
-           TSE_POSE_BASE,
            TSE_R_LAYER_BASE,
            TSE_SCENE_COLLECTION_BASE,
            TSE_VIEW_COLLECTION_BASE,
            TSE_LIBRARY_OVERRIDE_BASE,
-           TSE_BONE_COLLECTION_BASE,
            TSE_RNA_STRUCT,
            TSE_RNA_PROPERTY,
            TSE_RNA_ARRAY_ELEM,
@@ -1549,7 +1546,7 @@ static bool outliner_open_back(TreeElement *te)
 }
 
 /**
- * \return element representing the active base or bone in the outliner, or null if none exists
+ * \return element representing the active object in the outliner, or null if none exists
  */
 static TreeElement *outliner_show_active_get_element(const bContext *C,
                                                      SpaceOutliner *space_outliner,
@@ -1570,25 +1567,6 @@ static TreeElement *outliner_show_active_get_element(const bContext *C,
   te = outliner_find_id(
       space_outliner, &space_outliner->runtime->tree, &obact->id, TreeElementFlag(0));
 
-  if (te != nullptr && obact->type == OB_ARMATURE) {
-    /* traverse down the bone hierarchy in case of armature */
-    TreeElement *te_obact = te;
-
-    if (obact->mode & OB_MODE_POSE) {
-      Object *obpose = BKE_object_pose_armature_get(obact);
-      bPoseChannel *pchan = BKE_pose_channel_active(obpose, false);
-      if (pchan) {
-        te = outliner_find_posechannel(&te_obact->subtree, pchan);
-      }
-    }
-    else if (obact->mode & OB_MODE_EDIT) {
-      EditBone *ebone = CTX_data_active_bone(C);
-      if (ebone) {
-        te = outliner_find_editbone(&te_obact->subtree, ebone);
-      }
-    }
-  }
-
   return te;
 }
 
@@ -1597,7 +1575,7 @@ static void outliner_show_active(SpaceOutliner *space_outliner,
                                  TreeElement *te,
                                  ID *id)
 {
-  /* open up tree to active object/bone */
+  /* Open the tree to the active object. */
   if (TREESTORE(te)->id == id) {
     if (outliner_open_back(te)) {
       outliner_set_coordinates(region, space_outliner);

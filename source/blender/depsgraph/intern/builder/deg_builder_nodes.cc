@@ -22,7 +22,6 @@
 
 #include "DNA_action_types.h"
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
@@ -52,7 +51,6 @@
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_bake_geometry_nodes_modifier.hh"
 #include "BKE_cachefile.hh"
 #include "BKE_collection.hh"
@@ -566,9 +564,6 @@ void DepsgraphNodeBuilder::build_id(ID *id, const bool force_be_visible)
     case ID_AC:
       build_action(id_cast<bAction *>(id));
       break;
-    case ID_AR:
-      build_armature(id_cast<bArmature *>(id));
-      break;
     case ID_CA:
       build_camera(id_cast<Camera *>(id));
       break;
@@ -763,11 +758,6 @@ void DepsgraphNodeBuilder::build_object(int base_index,
     id_node->is_visible_on_build |= is_visible;
     id_node->has_base |= (base_index != -1);
 
-    /* There is no relation path which will connect current object with all the ones which come
-     * via the instanced collection, so build the collection again. Note that it will do check
-     * whether visibility update is needed on its own. */
-    build_object_instance_collection(object, is_visible);
-
     return;
   }
 
@@ -807,11 +797,7 @@ void DepsgraphNodeBuilder::build_object(int base_index,
   build_parameters(&object->id);
   build_idproperties(object->id.properties);
   build_idproperties(object->id.system_properties);
-  /* Build animation data,
-   *
-   * Do it now because it's possible object data will affect
-   * on object's level animation, for example in case of rebuilding
-   * pose for proxy. */
+  /* Build animation data after object data, since object data can affect animation evaluation. */
   build_animdata(&object->id);
   /* Particle systems. */
   if (object->particlesystem.first != nullptr) {
@@ -824,14 +810,6 @@ void DepsgraphNodeBuilder::build_object(int base_index,
     build_texture(object->pd->tex);
   }
 
-  /* Object instancing. */
-  if (object->instance_collection != nullptr) {
-    build_object_instance_collection(object, is_visible);
-
-    OperationNode *instancer_node = add_operation_node(
-        &object->id, NodeType::INSTANCING, OperationCode::INSTANCER);
-    instancer_node->flag |= OperationFlag::DEPSOP_FLAG_PINNED;
-  }
   OperationNode *instance_node = add_operation_node(
       &object->id, NodeType::INSTANCING, OperationCode::INSTANCE);
   instance_node->flag |= OperationFlag::DEPSOP_FLAG_PINNED;
@@ -888,17 +866,6 @@ void DepsgraphNodeBuilder::build_object_flags(int base_index,
         BKE_object_eval_eval_base_flags(
             depsgraph, scene_cow, view_layer_index, object_cow, base_index, is_from_set);
       });
-}
-
-void DepsgraphNodeBuilder::build_object_instance_collection(Object *object, bool is_object_visible)
-{
-  if (object->instance_collection == nullptr) {
-    return;
-  }
-  const bool is_current_parent_collection_visible = is_parent_collection_visible_;
-  is_parent_collection_visible_ = is_object_visible;
-  build_collection(nullptr, object->instance_collection);
-  is_parent_collection_visible_ = is_current_parent_collection_visible;
 }
 
 void DepsgraphNodeBuilder::build_object_modifiers(Object *object)
@@ -964,13 +931,13 @@ void DepsgraphNodeBuilder::build_object_modifiers(Object *object)
 
 void DepsgraphNodeBuilder::build_object_data(Object *object)
 {
-  if (object->type != OB_EMPTY && object->data == nullptr) {
+  if (object->type != OB_NO_DATA && object->data == nullptr) {
     return;
   }
   /* type-specific data. */
   switch (object->type) {
-    case OB_EMPTY:
-      build_empty_object(object);
+    case OB_NO_DATA:
+      build_no_data_object(object);
       break;
     case OB_MESH:
     case OB_CURVES_LEGACY:
@@ -982,9 +949,6 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
     case OB_POINTCLOUD:
     case OB_VOLUME:
       build_object_data_geometry(object);
-      break;
-    case OB_ARMATURE:
-      build_rig(object);
       break;
     case OB_LAMP:
       build_object_data_light(object);
@@ -1082,7 +1046,7 @@ void DepsgraphNodeBuilder::build_object_transform(Object *object)
  * Constraints Graph Notes
  *
  * For constraints, we currently only add a operation node to the Transform
- * or Bone components (depending on whichever type of owner we have).
+ * object Transform component.
  * This represents the entire constraints stack, which is for now just
  * executed as a single monolithic block. At least initially, this should
  * be sufficient for ensuring that the porting/refactoring process remains
@@ -1354,9 +1318,8 @@ void DepsgraphNodeBuilder::build_driver_variables(ID *id, FCurve *fcurve)
       build_id(target_id);
       build_driver_id_property(target_prop, dtar->rna_path);
 
-      /* For rna_path based variables: */
-      if ((dtar->flag & DTAR_FLAG_STRUCT_REF) == 0) {
-        /* Handle all other cameras used by the scene timeline if applicable. */
+      if (dtar->rna_path != nullptr && dtar->rna_path[0] != '\0') {
+        /* Handle other cameras used by the scene timeline if applicable. */
         if (const char *camera_path = get_rna_path_relative_to_scene_camera(
                 scene_, target_prop, dtar->rna_path))
         {
@@ -1403,20 +1366,8 @@ void DepsgraphNodeBuilder::build_driver_id_property(const PointerRNA &target_pro
     build_id(ptr.owner_id);
   }
   const char *prop_identifier = RNA_property_identifier(prop);
-  /* Custom properties of bones are placed in their components to improve granularity. */
-  if (RNA_struct_is_a(ptr.type, RNA_PoseBone)) {
-    const bPoseChannel *pchan = static_cast<const bPoseChannel *>(ptr.data);
-    ensure_operation_node(ptr.owner_id,
-                          NodeType::BONE,
-                          pchan->name,
-                          OperationCode::ID_PROPERTY,
-                          nullptr,
-                          prop_identifier);
-  }
-  else {
-    ensure_operation_node(
-        ptr.owner_id, NodeType::PARAMETERS, OperationCode::ID_PROPERTY, nullptr, prop_identifier);
-  }
+  ensure_operation_node(
+      ptr.owner_id, NodeType::PARAMETERS, OperationCode::ID_PROPERTY, nullptr, prop_identifier);
 }
 
 void DepsgraphNodeBuilder::build_parameters(ID *id)
@@ -1681,7 +1632,7 @@ void DepsgraphNodeBuilder::build_shapekeys(Key *key)
   }
 }
 
-void DepsgraphNodeBuilder::build_empty_object(Object *object)
+void DepsgraphNodeBuilder::build_no_data_object(Object *object)
 {
   OperationNode *op_node;
   Scene *scene_cow = get_cow_datablock(scene_);
@@ -1690,10 +1641,10 @@ void DepsgraphNodeBuilder::build_empty_object(Object *object)
   const bool has_modifiers = !BLI_listbase_is_empty(&object->modifiers);
   if (!has_modifiers) {
     if (deg_eval_copy_is_expanded(&object_cow->id)) {
-      /* The empty might have had modifiers previously, so it might still have cached evaluated
-       * geometry. Usually this would be freed by #BKE_object_eval_uber_data during the next
-       * evaluation. However, since the geometry evaluation is fully skipped, we need to free the
-       * data here already. */
+      /* The no-data object might have had modifiers previously, so it might still have cached
+       * evaluated geometry. Usually this would be freed by #BKE_object_eval_uber_data during the
+       * next evaluation. However, since the geometry evaluation is fully skipped, we need to free
+       * the data here already. */
       BKE_object_free_derived_caches(object_cow);
     }
     return;
@@ -1703,7 +1654,7 @@ void DepsgraphNodeBuilder::build_empty_object(Object *object)
   op_node = add_operation_node(&object->id, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL_INIT);
   op_node->set_as_entry();
   /* Geometry evaluation. */
-  /* The empty object type doesn't contain any original geometry, but it can have a geometry nodes
+  /* The no-data object type doesn't contain any original geometry, but it can have a geometry nodes
    * modifier that creates geometry dynamically. */
   op_node = add_operation_node(&object->id,
                                NodeType::GEOMETRY,
@@ -1866,46 +1817,6 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
   /* Shading (No-Op).
    * Needed to allow the Material shading updates reach the Object. */
   add_operation_node(obdata, NodeType::SHADING, OperationCode::SHADING);
-}
-
-void DepsgraphNodeBuilder::build_armature(bArmature *armature)
-{
-  if (built_map_.check_is_built_and_tag(armature)) {
-    return;
-  }
-  build_idproperties(armature->id.properties);
-  build_idproperties(armature->id.system_properties);
-  build_animdata(&armature->id);
-  build_parameters(&armature->id);
-  /* This operation is no longer necessary, as it was updating things with the bone layers (which
-   * got replaced by bone collections). However, it's still used by other depsgraph components as a
-   * dependency, so for now the node itself is kept as a no-op.
-   * TODO: remove this node & the references to it, if eventually it turns out we really don't need
-   * this.
-   */
-  add_operation_node(&armature->id,
-                     NodeType::ARMATURE,
-                     OperationCode::ARMATURE_EVAL,
-                     [](blender::Depsgraph *) {});
-  build_armature_bones(&armature->bonebase);
-  build_armature_bone_collections(armature->collections_span());
-}
-
-void DepsgraphNodeBuilder::build_armature_bones(ListBaseT<Bone> *bones)
-{
-  for (Bone &bone : *bones) {
-    build_idproperties(bone.prop);
-    build_idproperties(bone.system_properties);
-    build_armature_bones(&bone.childbase);
-  }
-}
-
-void DepsgraphNodeBuilder::build_armature_bone_collections(Span<BoneCollection *> collections)
-{
-  for (BoneCollection *bcoll : collections) {
-    build_idproperties(bcoll->prop);
-    build_idproperties(bcoll->system_properties);
-  }
 }
 
 void DepsgraphNodeBuilder::build_camera(Camera *camera)

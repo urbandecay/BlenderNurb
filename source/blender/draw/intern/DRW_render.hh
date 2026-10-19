@@ -322,7 +322,6 @@ struct DRWContext {
   View3D *v3d = nullptr;
   /** Use 'object_edit' for edit-mode */
   Object *obact = nullptr;
-  Object *object_pose = nullptr;
   Object *object_edit = nullptr;
 
   eObjectMode object_mode = OB_MODE_OBJECT;

@@ -20,7 +20,6 @@
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 
-#include "BKE_action.hh"
 #include "BKE_colortools.hh"
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"
@@ -28,6 +27,8 @@
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
 #include "BKE_object_types.hh"
+
+#include "DEG_depsgraph_build.hh"
 
 #include "UI_interface.hh"
 #include "UI_interface_layout.hh"
@@ -108,10 +109,6 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
 {
   HookModifierData *hmd = reinterpret_cast<HookModifierData *>(md);
   if (hmd->object != nullptr) {
-    if (hmd->subtarget[0]) {
-      DEG_add_bone_relation(
-          ctx->node, hmd->object, hmd->subtarget, DEG_OB_COMP_BONE, "Hook Modifier");
-    }
     DEG_add_object_relation(ctx->node, hmd->object, DEG_OB_COMP_TRANSFORM, "Hook Modifier");
   }
   /* We need our own transformation as well. */
@@ -270,7 +267,6 @@ static void deformVerts_do(HookModifierData *hmd,
                            MutableSpan<float3> positions)
 {
   Object *ob_target = hmd->object;
-  bPoseChannel *pchan = BKE_pose_channel_find_name(ob_target->pose, hmd->subtarget);
   float dmat[4][4];
   int i, *index_pt;
   const MDeformVert *dvert;
@@ -330,14 +326,7 @@ static void deformVerts_do(HookModifierData *hmd,
   }
 
   /* get world-space matrix of target, corrected for the space the verts are in */
-  if (hmd->subtarget[0] && pchan) {
-    /* bone target if there's a matching pose-channel */
-    mul_m4_m4m4(dmat, ob_target->object_to_world().ptr(), pchan->pose_mat);
-  }
-  else {
-    /* just object target */
-    copy_m4_m4(dmat, ob_target->object_to_world().ptr());
-  }
+  copy_m4_m4(dmat, ob_target->object_to_world().ptr());
   invert_m4_m4(ob->runtime->world_to_object.ptr(), ob->object_to_world().ptr());
   mul_m4_series(hd.mat, ob->world_to_object().ptr(), dmat, hmd->parentinv);
   /* --- done with 'hd' init --- */
@@ -451,18 +440,10 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
   PointerRNA ob_ptr;
   PointerRNA *ptr = modifier_panel_get_property_pointers(panel, &ob_ptr);
 
-  PointerRNA hook_object_ptr = RNA_pointer_get(ptr, "object");
-
   layout.use_property_split_set(true);
 
   ui::Layout &col = layout.column(false);
   col.prop(ptr, "object", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  if (!RNA_pointer_is_null(&hook_object_ptr) &&
-      RNA_enum_get(&hook_object_ptr, "type") == OB_ARMATURE)
-  {
-    PointerRNA hook_object_data_ptr = RNA_pointer_get(&hook_object_ptr, "data");
-    col.prop_search(ptr, "subtarget", &hook_object_data_ptr, "bones", IFACE_("Bone"), ICON_NONE);
-  }
   modifier_vgroup_ui(layout, ptr, &ob_ptr, "vertex_group", "invert_vertex_group", std::nullopt);
 
   layout.prop(ptr, "strength", ui::ITEM_R_SLIDER, std::nullopt, ICON_NONE);

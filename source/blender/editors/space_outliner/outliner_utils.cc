@@ -12,7 +12,6 @@
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
-#include "DNA_action_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 
@@ -59,13 +58,6 @@ void outliner_viewcontext_init(const bContext *C, TreeViewContext *tvc)
   tvc->obact = BKE_view_layer_active_object_get(tvc->view_layer);
   if (tvc->obact != nullptr) {
     tvc->ob_edit = OBEDIT_FROM_OBACT(tvc->obact);
-
-    if ((tvc->obact->type == OB_ARMATURE) ||
-        /* This could be made into its own function. */
-        ((tvc->obact->type == OB_MESH) && tvc->obact->mode & OB_MODE_WEIGHT_PAINT))
-    {
-      tvc->ob_pose = BKE_object_pose_armature_get(tvc->obact);
-    }
   }
 }
 
@@ -219,42 +211,6 @@ TreeElement *outliner_find_id(SpaceOutliner *space_outliner,
     TreeElement *tes = outliner_find_id(space_outliner, &te.subtree, id, exclude_flags);
     if (tes) {
       return tes;
-    }
-  }
-  return nullptr;
-}
-
-TreeElement *outliner_find_posechannel(ListBaseT<TreeElement> *lb, const bPoseChannel *pchan)
-{
-  for (TreeElement &te : *lb) {
-    if (te.directdata == pchan) {
-      return &te;
-    }
-
-    TreeStoreElem *tselem = TREESTORE(&te);
-    if (ELEM(tselem->type, TSE_POSE_BASE, TSE_POSE_CHANNEL)) {
-      TreeElement *tes = outliner_find_posechannel(&te.subtree, pchan);
-      if (tes) {
-        return tes;
-      }
-    }
-  }
-  return nullptr;
-}
-
-TreeElement *outliner_find_editbone(ListBaseT<TreeElement> *lb, const EditBone *ebone)
-{
-  for (TreeElement &te : *lb) {
-    if (te.directdata == ebone) {
-      return &te;
-    }
-
-    TreeStoreElem *tselem = TREESTORE(&te);
-    if (ELEM(tselem->type, TSE_SOME_ID, TSE_EBONE)) {
-      TreeElement *tes = outliner_find_editbone(&te.subtree, ebone);
-      if (tes) {
-        return tes;
-      }
     }
   }
   return nullptr;
@@ -524,22 +480,6 @@ bool ED_outliner_give_rna_under_cursor(bContext *C, const int mval[2], PointerRN
   bool success = true;
   TreeStoreElem *tselem = TREESTORE(te);
   switch (tselem->type) {
-    case TSE_BONE: {
-      Bone *bone = static_cast<Bone *>(te->directdata);
-      *r_ptr = RNA_pointer_create_discrete(tselem->id, RNA_Bone, bone);
-      break;
-    }
-    case TSE_POSE_CHANNEL: {
-      bPoseChannel *pchan = static_cast<bPoseChannel *>(te->directdata);
-      *r_ptr = RNA_pointer_create_discrete(tselem->id, RNA_PoseBone, pchan);
-      break;
-    }
-    case TSE_EBONE: {
-      EditBone *bone = static_cast<EditBone *>(te->directdata);
-      *r_ptr = RNA_pointer_create_discrete(tselem->id, RNA_EditBone, bone);
-      break;
-    }
-
     default:
       success = false;
       break;

@@ -442,7 +442,6 @@ class USERPREF_PT_edit_objects_new(EditingPanel, CenterAlignMixIn, Panel):
         flow.prop(edit, "material_link", text="Link Materials To")
         flow.prop(edit, "object_align", text="Align To")
         flow.prop(edit, "use_enter_edit_mode", text="Enter Edit Mode")
-        flow.prop(edit, "collection_instance_empty_size", text="Instance Empty Size")
 
 
 class USERPREF_PT_edit_objects_duplicate_data(EditingPanel, CenterAlignMixIn, Panel):
@@ -460,7 +459,6 @@ class USERPREF_PT_edit_objects_duplicate_data(EditingPanel, CenterAlignMixIn, Pa
 
         datablock_types = (
             ("use_duplicate_action", "Action", 'ACTION', ""),
-            ("use_duplicate_armature", "Armature", 'OUTLINER_DATA_ARMATURE', ""),
             ("use_duplicate_camera", "Camera", 'OUTLINER_DATA_CAMERA', ""),
             ("use_duplicate_curve", "Curve", 'OUTLINER_DATA_CURVE', ""),
             ("use_duplicate_curves", "Curves", 'OUTLINER_DATA_CURVES', ""),
@@ -979,7 +977,6 @@ class USERPREF_MT_interface_theme_presets(Menu):
     # Prevent untrusted XML files "escaping" from these types.
     preset_xml_secure_types = {
         "Theme",
-        "ThemeBoneColorSet",
         "ThemeClipEditor",
         "ThemeCollectionColor",
         "ThemeCommon",
@@ -1352,27 +1349,6 @@ class USERPREF_PT_theme_color_sets(ThemePanel, Panel):
         pass
 
 
-class USERPREF_PT_theme_bone_color_sets(ThemePanel, CenterAlignMixIn, Panel):
-    bl_label = "Bone Color Sets"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_parent_id = "USERPREF_PT_theme_color_sets"
-
-    def draw_centered(self, context, layout):
-        theme = context.preferences.themes[0]
-
-        layout.use_property_split = True
-
-        for i, ui in enumerate(theme.bone_color_sets, 1):
-            layout.label(text=iface_("Color Set {:d}").format(i), translate=False)
-
-            flow = layout.grid_flow(row_major=False, columns=0, even_columns=True, even_rows=False, align=True)
-
-            flow.prop(ui, "normal")
-            flow.prop(ui, "select", text="Selected")
-            flow.prop(ui, "active")
-            flow.prop(ui, "show_colored_constraints")
-
-
 class USERPREF_PT_theme_collection_colors(ThemePanel, CenterAlignMixIn, Panel):
     bl_label = "Collection Colors"
     bl_options = {'DEFAULT_CLOSED'}
@@ -1530,7 +1506,7 @@ class ThemeGenericClassGenerator:
         from bpy.types import Theme
 
         for theme_area in Theme.bl_rna.properties["theme_area"].enum_items_static:
-            if theme_area.identifier in {'USER_INTERFACE', 'STYLE', 'BONE_COLOR_SETS'}:
+            if theme_area.identifier in {'USER_INTERFACE', 'STYLE', 'COLOR_SETS'}:
                 continue
 
             panel_id = "USERPREF_PT_theme_" + theme_area.identifier.lower()
@@ -3069,7 +3045,6 @@ classes = (
     USERPREF_PT_theme_interface_styles,
     USERPREF_PT_theme_interface_transparent_checker,
     USERPREF_PT_theme_color_sets,
-    USERPREF_PT_theme_bone_color_sets,
     USERPREF_PT_theme_collection_colors,
     USERPREF_PT_theme_strip_colors,
 

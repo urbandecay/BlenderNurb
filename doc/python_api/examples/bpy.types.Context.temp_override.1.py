@@ -1,6 +1,6 @@
 """
 Overriding the context can be used to temporarily activate another ``window`` / ``area`` & ``region``,
-as well as other members such as the ``active_object`` or ``bone``.
+as well as other members such as ``active_object`` or ``scene``.
 
 Notes:
 

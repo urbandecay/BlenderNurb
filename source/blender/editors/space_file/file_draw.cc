@@ -431,11 +431,6 @@ static void file_but_enable_drag(ui::Button *but,
     if (import_method > -1) {
       AssetImportSettings import_settings{};
       import_settings.method = eAssetImportMethod(import_method);
-      import_settings.use_instance_collections =
-          (sfile->asset_params->import_flags &
-           (ELEM(import_method, ASSET_IMPORT_LINK, ASSET_IMPORT_PACK) ?
-                FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_LINK :
-                FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_APPEND)) != 0;
 
       button_drag_set_asset(but, file->asset, import_settings, icon, file->preview_icon_id);
     }

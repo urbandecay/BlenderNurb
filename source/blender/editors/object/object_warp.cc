@@ -180,7 +180,7 @@ static wmOperatorStatus object_warp_verts_exec(bContext *C, wmOperator *op)
 
   if (ED_transverts_check_obedit(obedit)) {
     const Object *obedit_eval = DEG_get_evaluated(depsgraph, obedit);
-    ED_transverts_create_from_obedit(&tvs, obedit_eval, TM_ALL_JOINTS | TM_SKIP_HANDLES);
+    ED_transverts_create_from_obedit(&tvs, obedit_eval, TM_SKIP_HANDLES);
   }
   if (tvs.transverts == nullptr) {
     return OPERATOR_CANCELLED;

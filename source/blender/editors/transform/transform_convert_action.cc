@@ -321,7 +321,6 @@ static void createTransActionData(bContext *C, TransInfo *t)
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSTEX:
       case ANIMTYPE_DSLAT:
@@ -696,7 +695,7 @@ static void special_aftertrans_update__actedit(bContext *C, TransInfo *t)
     /* Depending on the lock status, draw necessary views. */
     /* FIXME: some of this stuff is not good. */
     if (ob) {
-      if (ob->pose || BKE_key_from_object(ob)) {
+      if (BKE_key_from_object(ob)) {
         DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
       }
       else {

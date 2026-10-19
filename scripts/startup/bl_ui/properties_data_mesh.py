@@ -24,11 +24,6 @@ class MESH_MT_vertex_group_context_menu(Menu):
             icon='SORTALPHA',
             text="Sort by Name",
         ).sort_type = 'NAME'
-        layout.operator(
-            "object.vertex_group_sort",
-            icon='BONE_DATA',
-            text="Sort by Bone Hierarchy",
-        ).sort_type = 'BONE_HIERARCHY'
         layout.separator()
         layout.operator("object.vertex_group_copy", icon='DUPLICATE')
         layout.operator("object.vertex_group_copy_to_selected")
@@ -46,11 +41,11 @@ class MESH_MT_vertex_group_context_menu(Menu):
         layout.operator("object.vertex_group_remove", text="Delete All Groups").all = True
         layout.separator()
         props = layout.operator("object.vertex_group_lock", icon='LOCKED', text="Lock All")
-        props.action, props.mask = 'LOCK', 'ALL'
+        props.action = 'LOCK'
         props = layout.operator("object.vertex_group_lock", icon='UNLOCKED', text="Unlock All")
-        props.action, props.mask = 'UNLOCK', 'ALL'
+        props.action = 'UNLOCK'
         props = layout.operator("object.vertex_group_lock", text="Lock Invert All")
-        props.action, props.mask = 'INVERT', 'ALL'
+        props.action = 'INVERT'
 
 
 class MESH_MT_shape_key_context_menu(Menu):

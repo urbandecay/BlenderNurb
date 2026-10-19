@@ -104,7 +104,6 @@ def _test_id_gen(data_attr, args_create=(DUMMY_NAME,), create_method="new"):
 
 
 test_Action = _test_id_gen("actions")
-test_Armature = _test_id_gen("armatures")
 test_Brush = _test_id_gen("brushes")
 test_Camera = _test_id_gen("cameras")
 test_Collection = _test_id_gen("collections")
@@ -116,7 +115,13 @@ test_Material = _test_id_gen("materials")
 test_Mesh = _test_id_gen("meshes")
 test_MetaBall = _test_id_gen("metaballs")
 test_MovieClip = _test_id_gen("movieclips", args_create=(DUMMY_PATH,), create_method="load")
-test_Object = _test_id_gen("objects", args_create=(DUMMY_NAME, None))
+def test_Object(test_id):
+    mesh = bpy.data.meshes.new(DUMMY_NAME)
+    obj = bpy.data.objects.new(DUMMY_NAME, mesh)
+    obj.user_clear()
+    validate_defaults(test_id, obj)
+    bpy.data.objects.remove(obj)
+    bpy.data.meshes.remove(mesh)
 test_Palette = _test_id_gen("palettes")
 test_Particle = _test_id_gen("particles")
 test_PointCloud = _test_id_gen("pointclouds")

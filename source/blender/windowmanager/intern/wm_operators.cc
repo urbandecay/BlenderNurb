@@ -30,7 +30,6 @@
 #include "CLG_log.h"
 
 #include "DNA_ID.h"
-#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -529,24 +528,11 @@ static const char *wm_context_member_from_ptr(const bContext *C,
         break;
       }
       case ID_OB: {
-        TEST_PTR_DATA_TYPE_FROM_CONTEXT("active_pose_bone", RNA_PoseBone, ptr);
-
         CTX_TEST_PTR_ID(C, "object", ptr->owner_id);
         break;
       }
       /* From #rna_Main_objects_new. */
       case OB_DATA_SUPPORT_ID_CASE: {
-
-        if (ptr_id_type == ID_AR) {
-          const bArmature *arm = id_cast<bArmature *>(ptr->owner_id);
-          if (arm->edbo != nullptr) {
-            TEST_PTR_DATA_TYPE("active_bone", RNA_EditBone, ptr, arm->act_edbone);
-          }
-          else {
-            TEST_PTR_DATA_TYPE("active_bone", RNA_Bone, ptr, arm->act_bone);
-          }
-        }
-
 #  define ID_CAST_OBDATA(id_pt) (((Object *)(id_pt))->data)
         CTX_TEST_PTR_ID_CAST(C, "object", "object.data", ID_CAST_OBDATA, ptr->owner_id);
         break;

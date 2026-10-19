@@ -486,7 +486,7 @@ static void detect_workarounds()
   {
     GCaps.use_main_context_workaround = true;
   }
-  /* Somehow fixes armature display issues (see #69743). */
+  /* This driver build requires the shared main-context workaround. */
   if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_WIN, GPU_DRIVER_ANY) &&
       strstr(version, "Build 20.19.15.4285"))
   {

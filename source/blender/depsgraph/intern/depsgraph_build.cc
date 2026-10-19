@@ -152,9 +152,6 @@ void DEG_add_collection_geometry_customdata_mask(DepsNodeHandle *node_handle,
 {
   FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (collection, ob) {
     DEG_add_customdata_mask(node_handle, ob, masks);
-    if (ob->type == OB_EMPTY && ob->instance_collection != nullptr) {
-      DEG_add_collection_geometry_customdata_mask(node_handle, ob->instance_collection, masks);
-    }
   }
   FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
 }

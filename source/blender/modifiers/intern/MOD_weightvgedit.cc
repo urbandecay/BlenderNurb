@@ -128,8 +128,8 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
     DEG_add_generic_id_relation(ctx->node, &wmd->mask_texture->id, "WeightVGEdit Modifier");
 
     if (wmd->mask_tex_map_obj != nullptr && wmd->mask_tex_mapping == MOD_DISP_MAP_OBJECT) {
-      MOD_depsgraph_update_object_bone_relation(
-          ctx->node, wmd->mask_tex_map_obj, wmd->mask_tex_map_bone, "WeightVGEdit Modifier");
+      DEG_add_object_relation(
+          ctx->node, wmd->mask_tex_map_obj, DEG_OB_COMP_TRANSFORM, "WeightVGEdit Modifier");
       need_transform_relation = true;
     }
     else if (wmd->mask_tex_mapping == MOD_DISP_MAP_GLOBAL) {
@@ -164,7 +164,7 @@ static Mesh *modify_mesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh 
   /* Flags. */
   const bool do_add = (wmd->edit_flags & MOD_WVG_EDIT_ADD2VG) != 0;
   const bool do_rem = (wmd->edit_flags & MOD_WVG_EDIT_REMFVG) != 0;
-  /* Only do weight-preview in Object, Sculpt and Pose modes! */
+  /* Only do weight-preview in Object and Sculpt modes! */
 #if 0
   const bool do_prev = (wmd->modifier.mode & eModifierMode_DoWeightPreview);
 #endif
@@ -248,7 +248,6 @@ static Mesh *modify_mesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh 
                    wmd->mask_tex_use_channel,
                    wmd->mask_tex_mapping,
                    wmd->mask_tex_map_obj,
-                   wmd->mask_tex_map_bone,
                    wmd->mask_tex_uvlayer_name,
                    invert_vgroup_mask);
 

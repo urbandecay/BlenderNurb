@@ -26,7 +26,6 @@ struct bDeformGroup;
 
 namespace ed::object {
 
-bool vgroup_sync_from_pose(Object *ob);
 void vgroup_select_by_name(Object *ob, const char *name);
 /**
  * Removes out of range #MDeformWeights

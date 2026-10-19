@@ -28,7 +28,6 @@
 #include <cstring>
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curves_types.h"
@@ -89,7 +88,6 @@
 #include "SEQ_utils.hh"
 
 #include "ANIM_action.hh"
-#include "ANIM_armature.hh"
 
 #include "anim_intern.hh"
 
@@ -413,7 +411,7 @@ bool ANIM_animdata_get_context(const bContext *C, bAnimContext *ac)
   ac->scene = scene;
   ac->view_layer = CTX_data_view_layer(C);
   if (scene) {
-    /* This may be overwritten by actedit_get_context() when pose markers should be shown. */
+    /* This may be overwritten by actedit_get_context() when action markers should be shown. */
     ac->markers = &scene->markers;
   }
   if (scene && ac->view_layer) {
@@ -756,12 +754,6 @@ static bAnimListElem *make_new_animlistelem(
       key_data_from_adt(*ale, cu->adt);
       break;
     }
-    case ANIMTYPE_DSARM: {
-      bArmature *arm = static_cast<bArmature *>(data);
-      ale->flag = FILTER_ARM_OBJD(arm);
-      key_data_from_adt(*ale, arm->adt);
-      break;
-    }
     case ANIMTYPE_DSMESH: {
       Mesh *mesh = static_cast<Mesh *>(data);
       ale->flag = FILTER_MESH_OBJD(mesh);
@@ -957,41 +949,7 @@ static bool skip_fcurve_selected_data(bAnimContext *ac,
   const bool skip_hidden = (filter_mode & ANIMFILTER_DATA_VISIBLE) &&
                            !(ac->filters.flag & ADS_FILTER_INCL_HIDDEN);
 
-  if (GS(owner_id->name) == ID_OB) {
-    Object *ob = reinterpret_cast<Object *>(owner_id);
-    bPoseChannel *pchan = nullptr;
-    char bone_name[sizeof(pchan->name)];
-
-    /* Only consider if F-Curve involves `pose.bones`. */
-    if (fcu->rna_path &&
-        BLI_str_quoted_substr(fcu->rna_path, "pose.bones[", bone_name, sizeof(bone_name)))
-    {
-      /* Get bone-name, and check if this bone is selected. */
-      pchan = BKE_pose_channel_find_name(ob->pose, bone_name);
-
-      /* check whether to continue or skip */
-      if (pchan && pchan->bone_get(*ob)) {
-        /* If only visible channels,
-         * skip if bone not visible unless user wants channels from hidden data too. */
-        if (skip_hidden) {
-          bArmature *arm = id_cast<bArmature *>(ob->data);
-
-          /* Skipping - is currently hidden. */
-          if (!animrig::bone_is_visible(arm, {pchan, pchan->bone_get(*ob)})) {
-            return true;
-          }
-        }
-
-        /* can only add this F-Curve if it is selected */
-        if (ac->filters.flag & ADS_FILTER_ONLYSEL) {
-          if ((pchan->flag & POSE_SELECTED) == 0) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  else if (GS(owner_id->name) == ID_SCE) {
+  if (GS(owner_id->name) == ID_SCE) {
     Scene *scene = reinterpret_cast<Scene *>(owner_id);
     Strip *strip = nullptr;
     char strip_name[sizeof(strip->name)];
@@ -1019,7 +977,7 @@ static bool skip_fcurve_selected_data(bAnimContext *ac,
          * Instead, only the strips directly visible to the user are considered for selection.
          * The nullptr check here means everything else is considered unselected and is not shown.
          *
-         * There is a subtle difference between nodes, pose-bones ... etc
+         * There is a subtle difference between nodes and sequence strips
          * since data-paths that point to missing strips are not shown.
          * If this is an important difference, the nullptr case could perform a global lookup,
          * only returning `true` if the sequence strip exists elsewhere
@@ -1200,14 +1158,14 @@ static FCurve *animfilter_fcurve_next(bAnimContext *ac,
    * as this gets called for groups too...
    */
   for (fcu = first; ((fcu) && (fcu->grp == grp)); fcu = fcu->next) {
-    /* special exception for Pose-Channel/Sequence-Strip/Node Based F-Curves:
+    /* special exception for Sequence-Strip/Node Based F-Curves:
      * - The 'Only Selected' and 'Include Hidden' data filters should be applied to sub-ID data
-     *   which can be independently selected/hidden, such as Pose-Channels, Sequence Strips,
-     *   and Nodes. Since these checks were traditionally done as first check for objects,
+     *   which can be independently selected/hidden, such as Sequence Strips and Nodes. Since
+     *   these checks were traditionally done as first check for objects,
      *   we do the same here.
      * - We currently use an 'approximate' method for getting these F-Curves that doesn't require
      *   carefully checking the entire path.
-     * - This will also affect things like Drivers, and also works for Bone Constraints.
+     * - This will also affect things like Drivers.
      */
     if (ac->ads && owner_id) {
       if ((filter_mode & ANIMFILTER_TMP_IGNORE_ONLYSEL) == 0) {
@@ -2625,18 +2583,6 @@ static size_t animdata_filter_ds_obdata(bAnimContext *ac,
       expanded = FILTER_MBALL_OBJD(mb);
       break;
     }
-    case OB_ARMATURE: /* ------- Armature ---------- */
-    {
-      bArmature *arm = id_cast<bArmature *>(ob->data);
-
-      if (ads_filterflag & ADS_FILTER_NOARM) {
-        return 0;
-      }
-
-      type = ANIMTYPE_DSARM;
-      expanded = FILTER_ARM_OBJD(arm);
-      break;
-    }
     case OB_MESH: /* ------- Mesh ---------- */
     {
       Mesh *mesh = id_cast<Mesh *>(ob->data);
@@ -3189,7 +3135,6 @@ static size_t animdata_filter_dopesheet_movieclips(bAnimContext *ac,
 /* Helper for animdata_filter_dopesheet() - For checking if an object should be included or not */
 static bool animdata_filter_base_is_ok(bAnimContext *ac,
                                        Base *base,
-                                       const eObjectMode object_mode,
                                        const eAnimFilter_Flags filter_mode)
 {
   Object *ob = base->object;
@@ -3250,19 +3195,9 @@ static bool animdata_filter_base_is_ok(bAnimContext *ac,
 
   /* check selection and object type filters */
   if (ac->filters.flag & ADS_FILTER_ONLYSEL) {
-    if (object_mode & OB_MODE_POSE) {
-      /* When in pose-mode handle all pose-mode objects.
-       * This avoids problems with pose-mode where objects may be unselected,
-       * where a selected bone of an unselected object would be hidden. see: #81922. */
-      if (!(base->object->mode & object_mode)) {
-        return false;
-      }
-    }
-    else {
-      /* only selected should be shown (ignore active) */
-      if (!(base->flag & BASE_SELECTED)) {
-        return false;
-      }
+    /* only selected should be shown (ignore active) */
+    if (!(base->flag & BASE_SELECTED)) {
+      return false;
     }
   }
 
@@ -3304,8 +3239,7 @@ static Base **animdata_filter_ds_sorted_bases(bAnimContext *ac,
 
   Base **sorted_bases = MEM_new_array_zeroed<Base *>(tot_bases, "Dopesheet Usable Sorted Bases");
   for (Base &base : *object_bases) {
-    const eObjectMode object_mode = base.object->mode;
-    if (animdata_filter_base_is_ok(ac, &base, object_mode, filter_mode)) {
+    if (animdata_filter_base_is_ok(ac, &base, filter_mode)) {
       sorted_bases[num_bases++] = &base;
     }
   }
@@ -3401,10 +3335,8 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac,
     /* Filter and add contents of each base (i.e. object) without them sorting first
      * NOTE: This saves performance in cases where order doesn't matter
      */
-    Object *obact = BKE_view_layer_active_object_get(view_layer);
-    const eObjectMode object_mode = (obact != nullptr) ? obact->mode : OB_MODE_OBJECT;
     for (Base &base : *object_bases) {
-      if (animdata_filter_base_is_ok(ac, &base, object_mode, filter_mode)) {
+      if (animdata_filter_base_is_ok(ac, &base, filter_mode)) {
         /* since we're still here, this object should be usable */
         items += animdata_filter_dopesheet_ob(ac, anim_data, &base, filter_mode);
       }

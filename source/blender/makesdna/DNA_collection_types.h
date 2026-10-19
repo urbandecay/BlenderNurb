@@ -52,13 +52,10 @@ enum eCollection_Flag : uint8_t {
   COLLECTION_HAS_OBJECT_CACHE = (1 << 4),
   /** Is master collection embedded in the scene. */
   COLLECTION_IS_MASTER = (1 << 5),
-  /** for object_cache_instanced. */
-  COLLECTION_HAS_OBJECT_CACHE_INSTANCED = (1 << 6),
 };
 ENUM_OPERATORS(eCollection_Flag)
 
-#define COLLECTION_FLAG_ALL_RUNTIME \
-  (COLLECTION_HAS_OBJECT_CACHE | COLLECTION_HAS_OBJECT_CACHE_INSTANCED)
+#define COLLECTION_FLAG_ALL_RUNTIME COLLECTION_HAS_OBJECT_CACHE
 
 /** #Collection.color_tag */
 enum CollectionColorTag : int8_t {

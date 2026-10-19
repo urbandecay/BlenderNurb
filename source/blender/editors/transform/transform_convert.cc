@@ -20,8 +20,8 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 
-#include "BKE_action.hh"
 #include "BKE_anim_data.hh"
+#include "BKE_action.hh"
 #include "BKE_context.hh"
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
@@ -298,91 +298,6 @@ static void set_prop_dist(TransInfo *t, const bool with_dist)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Pose Mode (Auto-IK)
- * \{ */
-
-/** Adjust pose-channel's auto-ik chainlen. */
-static bool pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
-{
-  bool changed = false;
-
-  /* Don't bother to search if no valid constraints. */
-  if ((pchan->constflag & (PCHAN_HAS_IK | PCHAN_HAS_NO_TARGET)) == 0) {
-    return changed;
-  }
-
-  /* Check if pchan has ik-constraint. */
-  for (bConstraint &con : pchan->constraints) {
-    if (con.flag & (CONSTRAINT_DISABLE | CONSTRAINT_OFF)) {
-      continue;
-    }
-    if (con.type == CONSTRAINT_TYPE_KINEMATIC && (con.enforce != 0.0f)) {
-      bKinematicConstraint *data = static_cast<bKinematicConstraint *>(con.data);
-
-      /* Only accept if a temporary one (for auto-IK). */
-      if (data->flag & CONSTRAINT_IK_TEMP) {
-        /* `chainlen` is new `chainlen`, but is limited by maximum `chainlen`. */
-        const int old_rootbone = data->rootbone;
-        if ((chainlen == 0) || (chainlen > data->max_rootbone)) {
-          data->rootbone = data->max_rootbone;
-        }
-        else {
-          data->rootbone = chainlen;
-        }
-        changed |= (data->rootbone != old_rootbone);
-      }
-    }
-  }
-
-  return changed;
-}
-
-void transform_autoik_update(TransInfo *t, short mode)
-{
-  Main *bmain = CTX_data_main(t->context);
-
-  short *chainlen = &t->settings->autoik_chainlen;
-
-  /* `mode` determines what change to apply to `chainlen`. */
-  if (mode == 1) {
-    /* `mode==1` is from WHEELMOUSEDOWN: increases len. */
-    (*chainlen)++;
-  }
-  else if (mode == -1) {
-    /* `mode==-1` is from WHEELMOUSEUP: decreases len. */
-    if (*chainlen > 0) {
-      (*chainlen)--;
-    }
-    else {
-      /* IK length did not change, skip updates. */
-      return;
-    }
-  }
-
-  /* Apply to all pose-channels. */
-  bool changed = false;
-
-  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
-
-    /* Sanity checks (don't assume `t->poseobj` is set, or that it is an armature). */
-    if (ELEM(nullptr, tc->poseobj, tc->poseobj->pose)) {
-      continue;
-    }
-
-    for (bPoseChannel &pchan : tc->poseobj->pose->chanbase) {
-      changed |= pchan_autoik_adjust(&pchan, *chainlen);
-    }
-  }
-
-  if (changed) {
-    /* TODO(sergey): Consider doing partial update only. */
-    DEG_relations_tag_update(bmain);
-  }
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Curve Surface
  * \{ */
 
@@ -552,7 +467,6 @@ bool constraints_list_needinv(TransInfo *t, ListBaseT<bConstraint> *list)
         if (ELEM(con.type,
                  CONSTRAINT_TYPE_FOLLOWPATH,
                  CONSTRAINT_TYPE_CLAMPTO,
-                 CONSTRAINT_TYPE_ARMATURE,
                  CONSTRAINT_TYPE_OBJECTSOLVER,
                  CONSTRAINT_TYPE_FOLLOWTRACK))
         {
@@ -661,7 +575,7 @@ int special_transform_moving(TransInfo *t)
   if (t->spacetype == SPACE_GRAPH) {
     return G_TRANSFORM_FCURVES;
   }
-  if ((t->flag & T_EDIT) || (t->options & CTX_POSE_BONE)) {
+  if (t->flag & T_EDIT) {
     return G_TRANSFORM_EDIT;
   }
   if (t->options & (CTX_OBJECT | CTX_TEXTURE_SPACE)) {
@@ -707,7 +621,6 @@ static int countAndCleanTransDataContainer(TransInfo *t)
 
 static void init_proportional_edit(TransInfo *t)
 {
-  /* NOTE: Proportional editing is not usable in pose mode yet #32444. */
   /* NOTE: This `ELEM` uses more than 16 elements and so has been split. */
   if (!(ELEM(t->data_type,
              &TransConvertType_Action,
@@ -795,8 +708,6 @@ static void init_proportional_edit(TransInfo *t)
 static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *> objects)
 {
   if (!ELEM(t->data_type,
-            &TransConvertType_Pose,
-            &TransConvertType_EditArmature,
             &TransConvertType_Curve,
             &curves::TransConvertType_Curves,
             &pointcloud::TransConvertType_PointCloud,
@@ -813,10 +724,8 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
   }
 
   const eObjectMode object_mode = obact ? obact->mode : OB_MODE_OBJECT;
-  const short object_type = obact ? obact->type : -1;
 
-  if ((object_mode & OB_MODE_EDIT) || ((object_mode & OB_MODE_POSE) && (object_type == OB_ARMATURE)))
-  {
+  if (object_mode & OB_MODE_EDIT) {
     if (t->data_container) {
       MEM_delete(t->data_container);
     }
@@ -825,8 +734,6 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
     if (objects.is_empty()) {
       ObjectsInModeParams params = {0};
       params.object_mode = object_mode;
-      /* Pose transform operates on `ob->pose` so don't skip duplicate object-data. */
-      params.no_dup_data = (object_mode & OB_MODE_POSE) == 0;
       local_objects = BKE_view_layer_array_from_objects_in_mode_params(
           *t->bmain,
           t->scene,
@@ -857,10 +764,6 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
           tc->use_local_mat = true;
         }
       }
-      else if (object_mode & OB_MODE_POSE) {
-        tc->poseobj = objects[i];
-        tc->use_local_mat = true;
-      }
       if (tc->use_local_mat) {
         BLI_assert((t->flag & T_2D_EDIT) == 0);
         copy_m4_m4(tc->mat, objects[i]->object_to_world().ptr());
@@ -876,7 +779,7 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
   }
 }
 
-static TransConvertTypeInfo *convert_type_get(const TransInfo *t, Object **r_obj_armature)
+static TransConvertTypeInfo *convert_type_get(const TransInfo *t)
 {
   ViewLayer *view_layer = t->view_layer;
   BKE_view_layer_synced_ensure(*t->bmain, t->scene, t->view_layer);
@@ -971,25 +874,11 @@ static TransConvertTypeInfo *convert_type_get(const TransInfo *t, Object **r_obj
     if (t->obedit_type == OB_MBALL) {
       return &TransConvertType_MBall;
     }
-    if (t->obedit_type == OB_ARMATURE) {
-      return &TransConvertType_EditArmature;
-    }
     if (t->obedit_type == OB_CURVES) {
       return &curves::TransConvertType_Curves;
     }
     if (t->obedit_type == OB_POINTCLOUD) {
       return &pointcloud::TransConvertType_PointCloud;
-    }
-    return nullptr;
-  }
-  if (ob && (ob->mode & OB_MODE_POSE)) {
-    return &TransConvertType_Pose;
-  }
-  if (ob && (ob->mode & OB_MODE_ALL_WEIGHT_PAINT) && !(t->options & CTX_PAINT_CURVE)) {
-    Object *ob_armature = transform_object_deform_pose_armature_get(t, ob);
-    if (ob_armature) {
-      *r_obj_armature = ob_armature;
-      return &TransConvertType_Pose;
     }
     return nullptr;
   }
@@ -1011,8 +900,7 @@ void create_trans_data(bContext *C, TransInfo *t)
 {
   t->data_len_all = -1;
 
-  Object *ob_armature = nullptr;
-  t->data_type = convert_type_get(t, &ob_armature);
+  t->data_type = convert_type_get(t);
   if (t->data_type == nullptr) {
     printf("edit type not implemented!\n");
     BLI_assert(t->data_len_all == -1);
@@ -1022,14 +910,9 @@ void create_trans_data(bContext *C, TransInfo *t)
 
   t->flag |= eTFlag(t->data_type->flags);
 
-  if (ob_armature) {
-    init_TransDataContainers(t, ob_armature, {ob_armature});
-  }
-  else {
-    BKE_view_layer_synced_ensure(*t->bmain, t->scene, t->view_layer);
-    Object *ob = BKE_view_layer_active_object_get(t->view_layer);
-    init_TransDataContainers(t, ob, {});
-  }
+  BKE_view_layer_synced_ensure(*t->bmain, t->scene, t->view_layer);
+  Object *ob = BKE_view_layer_active_object_get(t->view_layer);
+  init_TransDataContainers(t, ob, {});
 
   if (t->data_type == &TransConvertType_Object) {
     t->options |= CTX_OBJECT;
@@ -1057,10 +940,7 @@ void create_trans_data(bContext *C, TransInfo *t)
     }
   }
   else {
-    if (t->data_type == &TransConvertType_Pose) {
-      t->options |= CTX_POSE_BONE;
-    }
-    else if (t->data_type == &TransConvertType_Sequencer) {
+    if (t->data_type == &TransConvertType_Sequencer) {
       /* Sequencer has no use for floating point transform. */
       t->num.flag |= NUM_NO_FRACTION;
     }

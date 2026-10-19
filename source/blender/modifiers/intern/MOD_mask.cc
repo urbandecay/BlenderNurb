@@ -13,18 +13,15 @@
 
 #include "BLT_translation.hh"
 
-#include "DNA_armature_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 
-#include "BKE_action.hh" /* BKE_pose_channel_find_name */
 #include "BKE_attribute_legacy_convert.hh"
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh"
-#include "BKE_lib_query.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
 
@@ -34,12 +31,9 @@
 #include "RNA_access.hh"
 #include "RNA_prototypes.hh"
 
-#include "DEG_depsgraph_build.hh"
-
 #include "MOD_ui_common.hh"
 
 #include "BLI_array.hh"
-#include "BLI_listbase_wrapper.hh"
 #include "BLI_vector.hh"
 
 namespace blender {
@@ -53,62 +47,6 @@ static void init_data(ModifierData *md)
 static void required_data_mask(ModifierData * /*md*/, CustomData_MeshMasks *r_cddata_masks)
 {
   r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
-}
-
-static void foreach_ID_link(ModifierData *md, Object *ob, IDWalkFunc walk, void *user_data)
-{
-  MaskModifierData *mmd = reinterpret_cast<MaskModifierData *>(md);
-  walk(user_data, ob, reinterpret_cast<ID **>(&mmd->ob_arm), IDWALK_CB_NOP);
-}
-
-static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
-{
-  MaskModifierData *mmd = reinterpret_cast<MaskModifierData *>(md);
-  if (mmd->ob_arm) {
-    bArmature *arm = id_cast<bArmature *>(mmd->ob_arm->data);
-    /* Tag relationship in depsgraph, but also on the armature. */
-    /* TODO(sergey): Is it a proper relation here? */
-    DEG_add_object_relation(ctx->node, mmd->ob_arm, DEG_OB_COMP_TRANSFORM, "Mask Modifier");
-    arm->flag |= ARM_HAS_VIZ_DEPS;
-    DEG_add_depends_on_transform_relation(ctx->node, "Mask Modifier");
-  }
-}
-
-/* A vertex will be in the mask if a selected bone influences it more than a certain threshold. */
-static void compute_vertex_mask__armature_mode(const MDeformVert *dvert,
-                                               Mesh *mesh,
-                                               Object *armature_ob,
-                                               float threshold,
-                                               MutableSpan<bool> r_vertex_mask)
-{
-  /* Element i is true if there is a selected bone that uses vertex group i. */
-  Vector<bool> selected_bone_uses_group;
-
-  for (bDeformGroup &def : mesh->vertex_group_names) {
-    bPoseChannel *pchan = BKE_pose_channel_find_name(armature_ob->pose, def.name);
-    const bool bone_for_group_exists = pchan && pchan->bone_get(*armature_ob) &&
-                                       (pchan->flag & POSE_SELECTED);
-    selected_bone_uses_group.append(bone_for_group_exists);
-  }
-  const int64_t total_size = selected_bone_uses_group.size();
-
-  for (int i : r_vertex_mask.index_range()) {
-    Span<MDeformWeight> weights(dvert[i].dw, dvert[i].totweight);
-    r_vertex_mask[i] = false;
-
-    /* check the groups that vertex is assigned to, and see if it was any use */
-    for (const MDeformWeight &dw : weights) {
-      if (dw.def_nr >= total_size) {
-        continue;
-      }
-      if (selected_bone_uses_group[dw.def_nr]) {
-        if (dw.weight > threshold) {
-          r_vertex_mask[i] = true;
-          break;
-        }
-      }
-    }
-  }
 }
 
 /* A vertex will be in the mask if the vertex group influences it more than a certain threshold. */
@@ -591,8 +529,7 @@ static Mesh *modify_mesh(ModifierData *md, const ModifierEvalContext * /*ctx*/, 
 {
   MaskModifierData *mmd = reinterpret_cast<MaskModifierData *>(md);
   const bool invert_mask = mmd->flag & MOD_MASK_INV;
-  const bool use_interpolation = mmd->mode == MOD_MASK_MODE_VGROUP &&
-                                 (mmd->flag & MOD_MASK_SMOOTH);
+  const bool use_interpolation = mmd->flag & MOD_MASK_SMOOTH;
 
   /* Return empty or input mesh when there are no vertex groups. */
   const Span<MDeformVert> dverts = mesh->deform_verts();
@@ -601,40 +538,20 @@ static Mesh *modify_mesh(ModifierData *md, const ModifierEvalContext * /*ctx*/, 
   }
 
   /* Quick test to see if we can return early. */
-  if (!ELEM(mmd->mode, MOD_MASK_MODE_ARM, MOD_MASK_MODE_VGROUP) || (mesh->verts_num == 0) ||
-      mesh->vertex_group_names.is_empty())
-  {
+  if (mesh->verts_num == 0 || mesh->vertex_group_names.is_empty()) {
     return mesh;
   }
 
-  int defgrp_index = -1;
+  const int defgrp_index = BKE_id_defgroup_name_index(&mesh->id, mmd->vgroup);
 
-  Array<bool> vertex_mask;
-  if (mmd->mode == MOD_MASK_MODE_ARM) {
-    Object *armature_ob = mmd->ob_arm;
-
-    /* Return input mesh if there is no armature with bones. */
-    if (ELEM(nullptr, armature_ob, armature_ob->pose)) {
-      return mesh;
-    }
-
-    vertex_mask = Array<bool>(mesh->verts_num);
-    compute_vertex_mask__armature_mode(
-        dverts.data(), mesh, armature_ob, mmd->threshold, vertex_mask);
+  /* Return input mesh if the vertex group does not exist. */
+  if (defgrp_index == -1) {
+    return mesh;
   }
-  else {
-    BLI_assert(mmd->mode == MOD_MASK_MODE_VGROUP);
-    defgrp_index = BKE_id_defgroup_name_index(&mesh->id, mmd->vgroup);
 
-    /* Return input mesh if the vertex group does not exist. */
-    if (defgrp_index == -1) {
-      return mesh;
-    }
-
-    vertex_mask = Array<bool>(mesh->verts_num);
-    compute_vertex_mask__vertex_group_mode(
-        dverts.data(), defgrp_index, mmd->threshold, vertex_mask);
-  }
+  Array<bool> vertex_mask(mesh->verts_num);
+  compute_vertex_mask__vertex_group_mode(
+      dverts.data(), defgrp_index, mmd->threshold, vertex_mask);
 
   if (invert_mask) {
     array_utils::invert_booleans(vertex_mask);
@@ -728,18 +645,6 @@ static Mesh *modify_mesh(ModifierData *md, const ModifierEvalContext * /*ctx*/, 
   return result;
 }
 
-static bool is_disabled(const Scene * /*scene*/, ModifierData *md, bool /*use_render_params*/)
-{
-  MaskModifierData *mmd = reinterpret_cast<MaskModifierData *>(md);
-
-  /* The object type check is only needed here in case we have a placeholder
-   * object assigned (because the library containing the armature is missing).
-   *
-   * In other cases it should be impossible to have a type mismatch.
-   */
-  return mmd->ob_arm && mmd->ob_arm->type != OB_ARMATURE;
-}
-
 static void panel_draw(const bContext * /*C*/, Panel *panel)
 {
   ui::Layout &layout = *panel->layout;
@@ -747,23 +652,9 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
   PointerRNA ob_ptr;
   PointerRNA *ptr = modifier_panel_get_property_pointers(panel, &ob_ptr);
 
-  int mode = RNA_enum_get(ptr, "mode");
-
-  layout.prop(ptr, "mode", ui::ITEM_R_EXPAND, std::nullopt, ICON_NONE);
-
   layout.use_property_split_set(true);
-
-  if (mode == MOD_MASK_MODE_ARM) {
-    ui::Layout &row = layout.row(true);
-    row.prop(ptr, "armature", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-    ui::Layout &sub = row.row(true);
-    sub.use_property_decorate_set(false);
-    sub.prop(ptr, "invert_vertex_group", UI_ITEM_NONE, "", ICON_ARROW_LEFTRIGHT);
-  }
-  else if (mode == MOD_MASK_MODE_VGROUP) {
-    modifier_vgroup_ui(layout, ptr, &ob_ptr, "vertex_group", "invert_vertex_group", std::nullopt);
-    layout.prop(ptr, "use_smooth", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  }
+  modifier_vgroup_ui(layout, ptr, &ob_ptr, "vertex_group", "invert_vertex_group", std::nullopt);
+  layout.prop(ptr, "use_smooth", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   layout.prop(ptr, "threshold", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
@@ -799,11 +690,11 @@ ModifierTypeInfo modifierType_Mask = {
     /*init_data*/ init_data,
     /*required_data_mask*/ required_data_mask,
     /*free_data*/ nullptr,
-    /*is_disabled*/ is_disabled,
-    /*update_depsgraph*/ update_depsgraph,
+    /*is_disabled*/ nullptr,
+    /*update_depsgraph*/ nullptr,
     /*depends_on_time*/ nullptr,
     /*depends_on_normals*/ nullptr,
-    /*foreach_ID_link*/ foreach_ID_link,
+    /*foreach_ID_link*/ nullptr,
     /*foreach_tex_link*/ nullptr,
     /*free_runtime_data*/ nullptr,
     /*panel_register*/ panel_register,

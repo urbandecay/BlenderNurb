@@ -31,7 +31,6 @@ struct BoundBox;
 struct Camera;
 struct CustomData_MeshMasks;
 struct Depsgraph;
-struct EditBone;
 struct GPUSelectBuffer;
 struct ID;
 struct Main;
@@ -49,7 +48,6 @@ struct ViewLayer;
 struct ViewOpsData;
 struct bContext;
 struct bGPDlayer;
-struct bPoseChannel;
 struct bScreen;
 struct rctf;
 struct rcti;
@@ -446,27 +444,6 @@ void lattice_foreachScreenVert(const ViewContext *vc,
                                void (*func)(void *user_data, BPoint *bp, const float screen_co[2]),
                                void *user_data,
                                eV3DProjTest clip_flag);
-/**
- * #ED_view3d_init_mats_rv3d must be called first.
- */
-void armature_foreachScreenBone(const ViewContext *vc,
-                                void (*func)(void *user_data,
-                                             EditBone *ebone,
-                                             const float screen_co_a[2],
-                                             const float screen_co_b[2]),
-                                void *user_data,
-                                eV3DProjTest clip_flag);
-
-/**
- * ED_view3d_init_mats_rv3d must be called first.
- */
-void pose_foreachScreenBone(const ViewContext *vc,
-                            void (*func)(void *user_data,
-                                         bPoseChannel *pchan,
-                                         const float screen_co_a[2],
-                                         const float screen_co_b[2]),
-                            void *user_data,
-                            eV3DProjTest clip_flag);
 /* *** end iterators *** */
 
 /* `view3d_project.cc` */
@@ -991,8 +968,6 @@ enum eV3DSelectObjectFilter {
    * in the same mode & type.
    */
   VIEW3D_SELECT_FILTER_OBJECT_MODE_LOCK_SAME_TYPE = 2,
-  /** A version of #VIEW3D_SELECT_FILTER_OBJECT_MODE_LOCK that allows pose-bone selection. */
-  VIEW3D_SELECT_FILTER_WPAINT_POSE_MODE_LOCK = 3,
 };
 
 enum class eV3DSelectShape {
@@ -1043,7 +1018,7 @@ ViewContext ED_view3d_viewcontext_init(bContext *C, Depsgraph *depsgraph);
 /**
  * Re-initialize `vc` with `obact` as if it's active object (with some differences).
  *
- * This is often used when operating on multiple objects in modes (edit, pose mode etc)
+ * This is often used when operating on multiple objects in edit modes
  * where the `vc` is passed in as an argument which then references its object data.
  *
  * \note members #ViewContext.obedit & #ViewContext.em are only initialized if they're already set,

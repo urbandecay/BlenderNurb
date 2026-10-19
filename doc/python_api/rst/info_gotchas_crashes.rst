@@ -170,8 +170,7 @@ Edit-Mode / Memory Access
 
 Switching mode ``bpy.ops.object.mode_set(mode='EDIT')`` or ``bpy.ops.object.mode_set(mode='OBJECT')``
 will re-allocate objects data,
-any references to a meshes vertices/polygons/UVs, armatures bones,
-curves points, etc. cannot be accessed after switching mode.
+any references to mesh vertices/polygons/UVs, curve points, etc. cannot be accessed after switching mode.
 
 Only the reference to the data itself can be re-accessed, the following example will crash.
 
@@ -233,7 +232,7 @@ Removing Data
 
 **Any** data that you remove shouldn't be modified or accessed afterwards,
 this includes: F-Curves, drivers, render layers, timeline markers, modifiers, constraints
-along with objects, scenes, collections, bones, etc.
+along with objects, scenes, collections, etc.
 
 The ``remove()`` API calls will invalidate the data they free to prevent common mistakes.
 The following example shows how this precaution works:

@@ -27,7 +27,6 @@
 #include "BKE_context.hh"
 #include "BKE_layer.hh"
 #include "BKE_mask.hh"
-#include "BKE_modifier.hh"
 #include "BKE_paint.hh"
 #include "BKE_screen.hh"
 
@@ -937,7 +936,7 @@ void calculateCenterCursor(TransInfo *t, float r_center[3])
   const float *cursor = t->scene->cursor.location;
   copy_v3_v3(r_center, cursor);
 
-  /* If edit or pose mode, move cursor in local space. */
+  /* In paint-curve context, project the cursor into the 2D editor. */
   if (t->options & CTX_PAINT_CURVE) {
     if (ED_view3d_project_float_global(t->region, cursor, r_center, V3D_PROJ_TEST_NOP) !=
         V3D_PROJ_RET_OK)
@@ -1105,14 +1104,6 @@ bool calculateCenterActive(TransInfo *t, bool select_only, float r_center[3])
   if (tc->obedit) {
     if (object::calc_active_center_for_editmode(tc->obedit, select_only, r_center)) {
       mul_m4_v3(tc->obedit->object_to_world().ptr(), r_center);
-      return true;
-    }
-  }
-  else if (t->options & CTX_POSE_BONE) {
-    BKE_view_layer_synced_ensure(*t->bmain, t->scene, t->view_layer);
-    Object *ob = BKE_view_layer_active_object_get(t->view_layer);
-    if (object::calc_active_center_for_posemode(ob, select_only, r_center)) {
-      mul_m4_v3(ob->object_to_world().ptr(), r_center);
       return true;
     }
   }
@@ -1498,27 +1489,6 @@ void transform_data_ext_rotate(TransData *td,
     /* Apply. */
     copy_v3_v3(td_ext->rot, eul);
   }
-}
-
-Object *transform_object_deform_pose_armature_get(const TransInfo *t, Object *ob)
-{
-  if (!(ob->mode & OB_MODE_ALL_WEIGHT_PAINT)) {
-    return nullptr;
-  }
-  /* Important that ob_armature can be set even when its not selected #23412.
-   * Lines below just check is also visible. */
-  Object *ob_armature = BKE_modifiers_is_deformed_by_armature(ob);
-  if (ob_armature && ob_armature->mode & OB_MODE_POSE) {
-    BKE_view_layer_synced_ensure(*t->bmain, t->scene, t->view_layer);
-    Base *base_arm = BKE_view_layer_base_find(t->view_layer, ob_armature);
-    if (base_arm) {
-      View3D *v3d = static_cast<View3D *>(t->view);
-      if (BASE_VISIBLE(v3d, base_arm)) {
-        return ob_armature;
-      }
-    }
-  }
-  return nullptr;
 }
 
 std::optional<float3> mouse_delta_to_world_dir(const TransInfo *t, const float2 &delta)

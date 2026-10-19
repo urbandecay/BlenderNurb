@@ -65,9 +65,6 @@ _km_hierarchy = [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_CURVE'),
         ]),
         ('Curves', 'EMPTY', 'WINDOW', []),
-        ('Armature', 'EMPTY', 'WINDOW', [
-            _km_expand_from_toolsystem('VIEW_3D', 'EDIT_ARMATURE'),
-        ]),
         ('Metaball', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_METABALL'),
         ]),
@@ -78,9 +75,6 @@ _km_hierarchy = [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_TEXT'),
         ]),
         ('Point Cloud', 'EMPTY', 'WINDOW', []),
-        ('Pose', 'EMPTY', 'WINDOW', [
-            _km_expand_from_toolsystem('VIEW_3D', 'POSE'),
-        ]),
 
         ('Vertex Paint', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'PAINT_VERTEX'),

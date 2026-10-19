@@ -23,9 +23,6 @@ set(SRC
   intern/action_selection.cc
   intern/anim_rna.cc
   intern/animdata.cc
-  intern/armature.cc
-  intern/bone_collections.cc
-  intern/bonecolor.cc
   intern/driver.cc
   intern/evaluation.cc
   intern/fcurve.cc
@@ -33,7 +30,6 @@ set(SRC
   intern/keyframing_auto.cc
   intern/keyingsets.cc
   intern/nla.cc
-  intern/pose.cc
   intern/versioning.cc
   intern/visualkey.cc
 
@@ -41,22 +37,16 @@ set(SRC
   ANIM_action_iterators.hh
   ANIM_action_legacy.hh
   ANIM_animdata.hh
-  ANIM_armature.hh
-  ANIM_armature_iter.hh
-  ANIM_bone_collections.hh
-  ANIM_bonecolor.hh
   ANIM_driver.hh
   ANIM_evaluation.hh
   ANIM_fcurve.hh
   ANIM_keyframing.hh
   ANIM_keyingsets.hh
   ANIM_nla.hh
-  ANIM_pose.hh
   ANIM_rna.hh
   ANIM_versioning.hh
   ANIM_visualkey.hh
   intern/action_runtime.hh
-  intern/bone_collections_internal.hh
   intern/evaluation_internal.hh
 )
 
@@ -84,11 +74,9 @@ if(WITH_GTESTS)
     intern/action_legacy_test.cc
     intern/action_test.cc
     intern/anim_rna_test.cc
-    intern/bone_collections_test.cc
     intern/evaluation_test.cc
     intern/keyframing_test.cc
     intern/nla_test.cc
-    intern/pose_test.cc
     intern/versioning_test.cc
   )
   set(TEST_LIB

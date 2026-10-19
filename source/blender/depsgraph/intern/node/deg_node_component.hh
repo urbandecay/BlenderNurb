@@ -21,7 +21,6 @@
 namespace blender {
 
 struct ID;
-struct bPoseChannel;
 
 namespace deg {
 
@@ -198,7 +197,6 @@ DEG_COMPONENT_NODE_DECLARE_GENERIC(ImageAnimation);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(LayerCollections);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Particles);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(ParticleSettings);
-DEG_COMPONENT_NODE_DECLARE_GENERIC(Pose);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(PointCache);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Sequencer);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Compositor);
@@ -209,23 +207,12 @@ DEG_COMPONENT_NODE_DECLARE_NO_COW_TAG_ON_UPDATE(ObjectFromLayer);
 DEG_COMPONENT_NODE_DECLARE_NO_COW_TAG_ON_UPDATE(Hierarchy);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Instancing);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Synchronization);
-DEG_COMPONENT_NODE_DECLARE_GENERIC(Armature);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(GenericDatablock);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Scene);
 DEG_COMPONENT_NODE_DECLARE_NO_COW_TAG_ON_UPDATE(Visibility);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Simulation);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(NTreeOutput);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(NTreeGeometryPreprocess);
-
-/* Bone Component */
-struct BoneComponentNode : public ComponentNode {
-  /** Initialize 'bone component' node - from pointer data given. */
-  void init(const ID *id, const char *subdata) override;
-
-  struct bPoseChannel *pchan; /* the bone that this component represents */
-
-  DEG_COMPONENT_NODE_DECLARE;
-};
 
 /* Eventually we would not tag parameters in all cases.
  * Support for this each ID needs to be added on an individual basis. */

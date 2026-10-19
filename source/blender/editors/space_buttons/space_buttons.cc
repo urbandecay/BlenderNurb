@@ -172,7 +172,7 @@ void ED_buttons_visible_tabs_menu(bContext *C, ui::Layout *layout, void * /*arg*
       reinterpret_cast<ID *>(CTX_wm_screen(C)), RNA_SpaceProperties, CTX_wm_space_properties(C));
 
   /* These can be reordered freely. */
-  constexpr std::array<StringRefNull, BCONTEXT_TOT> filter_items = {
+  constexpr std::array<StringRefNull, 17> filter_items = {
       "show_properties_tool",        "show_properties_render",
       "show_properties_output",      "show_properties_view_layer",
       "show_properties_scene",       "show_properties_world",
@@ -180,7 +180,6 @@ void ED_buttons_visible_tabs_menu(bContext *C, ui::Layout *layout, void * /*arg*
       "show_properties_modifiers",
       "show_properties_particles",   "show_properties_physics",
       "show_properties_constraints", "show_properties_data",
-      "show_properties_bone",        "show_properties_bone_constraints",
       "show_properties_material",    "show_properties_texture",
       "show_properties_strip",       "show_properties_strip_modifier",
   };
@@ -236,8 +235,6 @@ Vector<eSpaceButtons_Context> ED_buttons_tabs_list(const SpaceProperties *sbuts,
   add_tab(BCONTEXT_PHYSICS);
   add_tab(BCONTEXT_CONSTRAINT);
   add_tab(BCONTEXT_DATA);
-  add_tab(BCONTEXT_BONE);
-  add_tab(BCONTEXT_BONE_CONSTRAINT);
   add_tab(BCONTEXT_MATERIAL);
 
   add_spacer();
@@ -279,14 +276,10 @@ static const char *buttons_main_region_context_string(const short mainb)
       return "particle";
     case BCONTEXT_PHYSICS:
       return "physics";
-    case BCONTEXT_BONE:
-      return "bone";
     case BCONTEXT_MODIFIER:
       return "modifier";
     case BCONTEXT_CONSTRAINT:
       return "constraint";
-    case BCONTEXT_BONE_CONSTRAINT:
-      return "bone_constraint";
     case BCONTEXT_TOOL:
       return "tool";
     case BCONTEXT_STRIP:
@@ -773,14 +766,6 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
           buttons_area_redraw(area, BCONTEXT_OBJECT);
           buttons_area_redraw(area, BCONTEXT_DATA); /* Auto-texture-space flag. */
           break;
-        case ND_POSE:
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
-        case ND_BONE_COLLECTION:
-          buttons_area_redraw(area, BCONTEXT_BONE);
-          buttons_area_redraw(area, BCONTEXT_BONE_CONSTRAINT);
-          buttons_area_redraw(area, BCONTEXT_DATA);
-          break;
         case ND_MODIFIER:
           if (wmn->action == NA_RENAME) {
             ED_area_tag_redraw(area);
@@ -792,7 +777,6 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
           break;
         case ND_CONSTRAINT:
           buttons_area_redraw(area, BCONTEXT_CONSTRAINT);
-          buttons_area_redraw(area, BCONTEXT_BONE_CONSTRAINT);
           break;
         case ND_PARTICLE:
           if (wmn->action == NA_EDITED) {
@@ -807,10 +791,6 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
           /* Needed to refresh context path when changing active particle system index. */
           buttons_area_redraw(area, BCONTEXT_PARTICLE);
           buttons_area_redraw(area, BCONTEXT_TOOL);
-          break;
-        case ND_DRAW_ANIMVIZ:
-          buttons_area_redraw(area, BCONTEXT_BONE);
-          buttons_area_redraw(area, BCONTEXT_OBJECT);
           break;
         default:
           /* Not all object RNA props have a ND_ notifier (yet) */

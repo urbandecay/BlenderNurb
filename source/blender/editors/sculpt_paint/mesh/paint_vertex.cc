@@ -298,7 +298,6 @@ void mode_enter_generic(
 
     /* weight paint specific */
     ED_mesh_mirror_spatial_table_end(&ob);
-    ed::object::vgroup_sync_from_pose(&ob);
   }
   else {
     BLI_assert(0);

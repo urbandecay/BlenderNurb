@@ -149,13 +149,6 @@ static const EnumPropertyItem *dt_layers_select_src_itemf(bContext *C,
   }
 
   if (data_type == DT_TYPE_MDEFORMVERT && BKE_object_supports_vertex_groups(ob_src)) {
-    if (BKE_object_pose_armature_get(ob_src)) {
-      RNA_enum_items_add_value(
-          &item, &totitem, rna_enum_dt_layers_select_src_items, DT_LAYERS_VGROUP_SRC_BONE_SELECT);
-      RNA_enum_items_add_value(
-          &item, &totitem, rna_enum_dt_layers_select_src_items, DT_LAYERS_VGROUP_SRC_BONE_DEFORM);
-    }
-
     const bDeformGroup *dg;
     int i;
 

@@ -67,11 +67,12 @@ class Bounds : Overlay {
   {
     const Object *ob = ob_ref.object;
     const bool from_dupli = is_from_dupli_or_set(ob);
-    const bool empty_with_geometry = (ob->type == OB_EMPTY) && ob->runtime->geometry_set_eval &&
-                                     !ob->runtime->geometry_set_eval->is_empty();
+    const bool no_data_object_with_geometry =
+        (ob->type == OB_NO_DATA) && ob->runtime->geometry_set_eval &&
+        !ob->runtime->geometry_set_eval->is_empty();
     const bool has_bounds = (!ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER, OB_LIGHTPROBE) &&
                              (ob->type != OB_MBALL || BKE_mball_is_basis(ob))) ||
-                            empty_with_geometry;
+                            no_data_object_with_geometry;
     const bool show_extras = !from_dupli && state.show_extras();
 
     /* Ignore `show_extras` when the objects draw-type is already bound-box,
@@ -137,7 +138,7 @@ class Bounds : Overlay {
 
     auto add_bounds = [&](const bool around_origin, const char bound_type) {
       const std::optional<blender::Bounds<float3>> bounds_opt =
-          ELEM(ob->type, OB_LATTICE, OB_ARMATURE) ? BKE_object_boundbox_get(ob) :
+          ob->type == OB_LATTICE ? BKE_object_boundbox_get(ob) :
                                                     BKE_object_evaluated_geometry_bounds(ob);
       const blender::Bounds<float3> bounds = bounds_opt.value_or(
           blender::Bounds(float3(-1.0f), float3(1.0f)));
@@ -220,9 +221,9 @@ class Bounds : Overlay {
     res.select_bind(ps_);
 
     call_buffers_.box.end_sync(ps_, res.shapes.cube.get());
-    call_buffers_.sphere.end_sync(ps_, res.shapes.empty_sphere.get());
+    call_buffers_.sphere.end_sync(ps_, res.shapes.helper_sphere.get());
     call_buffers_.cylinder.end_sync(ps_, res.shapes.cylinder.get());
-    call_buffers_.cone.end_sync(ps_, res.shapes.empty_cone.get());
+    call_buffers_.cone.end_sync(ps_, res.shapes.helper_cone.get());
     call_buffers_.capsule_body.end_sync(ps_, res.shapes.capsule_body.get());
     call_buffers_.capsule_cap.end_sync(ps_, res.shapes.capsule_cap.get());
   }

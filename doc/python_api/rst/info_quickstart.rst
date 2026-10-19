@@ -221,7 +221,7 @@ Some common use cases are:
 
    >>> bpy.context.object
    >>> bpy.context.selected_objects
-   >>> bpy.context.visible_bones
+   >>> bpy.context.visible_objects
 
 Note that the context is read-only, which means that these values cannot be modified directly.
 But they can be changed by running API functions or by using the data API.
@@ -385,7 +385,7 @@ Internal Types
 --------------
 
 :class:`bpy.types.bpy_struct` is used for Blender data-blocks and collections.
-Also for data that contains its own attributes: collections, meshes, bones, scenes, etc.
+Also for data that contains its own attributes: collections, meshes, scenes, etc.
 
 There are two main types that wrap Blender's data, one for data-blocks
 (known internally as ``bpy_struct``), another for properties.
@@ -404,7 +404,7 @@ Mathutils Types
 
 Accessible from :mod:`mathutils` are vectors, quaternions, Euler angles, matrix and color types.
 Some attributes such as :class:`bpy.types.Object.location`,
-:class:`bpy.types.PoseBone.rotation_euler` and :class:`bpy.types.View3DCursor.location`
+:class:`bpy.types.Object.rotation_euler` and :class:`bpy.types.View3DCursor.location`
 can be accessed as special math types which can be used together and manipulated in various useful ways.
 
 Example of a matrix, vector multiplication:

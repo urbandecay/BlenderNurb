@@ -4,12 +4,10 @@
 
 import mathutils
 import bpy
-import typing
 from .....blender.com.data_path import get_sk_exported
 from .....blender.com.conversion import inverted_trs_mapping_node, texture_transform_blender_to_gltf, yvof_blender_to_gltf
 from ...cache import datacache
 from ...tree import VExportNode
-from ..drivers import get_sk_drivers
 
 # Warning : If you change some parameter here, need to be changed in cache system
 
@@ -17,7 +15,7 @@ from ..drivers import get_sk_drivers
 @datacache
 def get_cache_data(path: str,
                    blender_obj_uuid: str,
-                   bone: typing.Optional[str],
+                   data_key,
                    action_name: str,
                    current_frame: int,
                    step: int,
@@ -35,8 +33,7 @@ def get_cache_data(path: str,
         # If object is not in vtree, this is a material or light for pointers
         obj_uuids = [blender_obj_uuid] if blender_obj_uuid in export_settings['vtree'].nodes.keys() else []
     else:
-        obj_uuids = [uid for (uid, n) in export_settings['vtree'].nodes.items()
-                     if n.blender_type not in [VExportNode.BONE]]
+        obj_uuids = list(export_settings['vtree'].nodes.keys())
 
     # For TRACK mode, we reset cache after each track export, so we don't need to keep others objects
     if export_settings['gltf_animation_mode'] in ["NLA_TRACKS"]:
@@ -356,51 +353,6 @@ def material_nodetree_caching(data, action_name, slot_identifier, frame, export_
                         :export_settings['KHR_animation_pointer']['materials'][mat]['paths'][path]['length']]
 
 
-def armature_caching(data, obj_uuid, blender_obj, action_name, slot_identifier, frame, export_settings):
-    bones = export_settings['vtree'].get_all_bones(obj_uuid)
-    if blender_obj.animation_data and blender_obj.animation_data.action \
-            and blender_obj.animation_data.action_slot \
-            and export_settings['gltf_animation_mode'] in ["ACTIVE_ACTIONS", "ACTIONS", "BROADCAST"]:
-        key1, key2, key3, key4 = obj_uuid, blender_obj.animation_data.action.name, blender_obj.animation_data.action_slot.identifier, "bone"
-    elif blender_obj.animation_data \
-            and export_settings['gltf_animation_mode'] in ["NLA_TRACKS"]:
-        # We can keep the input slot_identifier here, as we are caching only one object / NLA track
-        key1, key2, key3, key4 = obj_uuid, action_name, slot_identifier, "bone"
-    else:
-        # slot_identifier is always None for scene export
-        key1, key2, key3, key4 = obj_uuid, obj_uuid, slot_identifier, "bone"
-
-    if key3 not in data[key1][key2].keys():
-        data[key1][key2][key3] = {}
-        data[key1][key2][key3][key4] = {}
-    if key4 not in data[key1][key2][key3].keys():
-        data[key1][key2][key3][key4] = {}
-
-    for bone_uuid in [bone for bone in bones if export_settings['vtree'].nodes[bone].leaf_reference is None]:
-        blender_bone = export_settings['vtree'].nodes[bone_uuid].blender_bone
-
-        if export_settings['vtree'].nodes[bone_uuid].parent_uuid is not None and export_settings['vtree'].nodes[
-                export_settings['vtree'].nodes[bone_uuid].parent_uuid].blender_type == VExportNode.BONE:
-            blender_bone_parent = export_settings['vtree'].nodes[export_settings['vtree']
-                                                                 .nodes[bone_uuid].parent_uuid].blender_bone
-            rest_mat = blender_bone_parent.bone.matrix_local.inverted_safe() @ blender_bone.bone.matrix_local
-            matrix = rest_mat.inverted_safe() @ blender_bone_parent.matrix.inverted_safe() @ blender_bone.matrix
-        else:
-            if blender_bone.parent is None:
-                matrix = blender_bone.bone.matrix_local.inverted_safe() @ blender_bone.matrix
-            else:
-                # Bone has a parent, but in export, after filter, is at root of armature
-                matrix = blender_bone.matrix.copy()
-
-            # Because there is no armature object, we need to apply the TRS of armature to the root bone
-            if export_settings['gltf_armature_object_remove'] is True:
-                matrix = matrix @ blender_obj.matrix_world
-
-        if blender_bone.name not in data[key1][key2][key3][key4].keys():
-            data[key1][key2][key3][key4][blender_bone.name] = {}
-        data[key1][key2][key3][key4][blender_bone.name][frame] = matrix
-
-
 def object_caching(data, obj_uuids, current_instance, action_name, slot_identifier, frame, depsgraph, export_settings):
     for obj_uuid in obj_uuids:
 
@@ -419,30 +371,12 @@ def object_caching(data, obj_uuids, current_instance, action_name, slot_identifi
         if export_settings['vtree'].nodes[obj_uuid].parent_uuid is None:
             parent_mat = mathutils.Matrix.Identity(4).freeze()
         else:
-            if export_settings['vtree'].nodes[export_settings['vtree'].nodes[obj_uuid].parent_uuid].blender_type not in [
-                    VExportNode.BONE]:
-                if export_settings['vtree'].nodes[export_settings['vtree']
-                                                  .nodes[obj_uuid].parent_uuid].blender_type != VExportNode.COLLECTION:
-                    parent_mat = export_settings['vtree'].nodes[export_settings['vtree']
-                                                                .nodes[obj_uuid].parent_uuid].blender_object.matrix_world
-                else:
-                    parent_mat = export_settings['vtree'].nodes[export_settings['vtree']
-                                                                .nodes[obj_uuid].parent_uuid].matrix_world
+            parent_node = export_settings['vtree'].nodes[
+                export_settings['vtree'].nodes[obj_uuid].parent_uuid]
+            if parent_node.blender_type != VExportNode.COLLECTION:
+                parent_mat = parent_node.blender_object.matrix_world
             else:
-                # Object animated is parented to a bone
-                blender_bone = export_settings['vtree'].nodes[export_settings['vtree']
-                                                              .nodes[obj_uuid].parent_bone_uuid].blender_bone
-                armature_object = export_settings['vtree'].nodes[export_settings['vtree']
-                                                                 .nodes[export_settings['vtree'].nodes[obj_uuid].parent_bone_uuid].armature].blender_object
-                axis_basis_change = mathutils.Matrix(
-                    ((1.0, 0.0, 0.0, 0.0), (0.0, 0.0, 1.0, 0.0), (0.0, -1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)))
-
-                parent_mat = armature_object.matrix_world @ blender_bone.matrix @ axis_basis_change
-
-        # For object inside collection (at root), matrix world is already expressed regarding collection parent
-        if export_settings['vtree'].nodes[obj_uuid].parent_uuid is not None and export_settings['vtree'].nodes[
-                export_settings['vtree'].nodes[obj_uuid].parent_uuid].blender_type == VExportNode.INST_COLLECTION:
-            parent_mat = mathutils.Matrix.Identity(4).freeze()
+                parent_mat = parent_node.matrix_world
 
         if blender_obj:
             mat = parent_mat.inverted_safe() @ blender_obj.matrix_world
@@ -477,12 +411,7 @@ def object_caching(data, obj_uuids, current_instance, action_name, slot_identifi
         initialize_data_dict(data, key1, key2, key3, key4, key5)
         data[key1][key2][key3][key4][key5][frame] = mat
 
-        # Store data for all bones, if object is an armature
-
-        if blender_obj and blender_obj.type == "ARMATURE":
-            armature_caching(data, obj_uuid, blender_obj, action_name, slot_identifier, frame, export_settings)
-
-        elif blender_obj is None:  # GN instances
+        if blender_obj is None:  # GN instances
             # case of baking object, for GN instances
             # There is no animation, so use uuid of object as key
             # slot_identifier is always None for baking
@@ -532,44 +461,6 @@ def object_caching(data, obj_uuids, current_instance, action_name, slot_identifi
                 k.value for k in get_sk_exported(
                     blender_obj.data.shape_keys.key_blocks)]
             cache_sk = False
-
-        # caching driver sk meshes
-        # This will avoid to have to do it again when exporting SK animation
-        if blender_obj and blender_obj.type == "ARMATURE":
-            sk_drivers = get_sk_drivers(obj_uuid, export_settings)
-            for dr_obj in sk_drivers:
-                cache_sk = False
-                driver_object = export_settings['vtree'].nodes[dr_obj].blender_object
-                if dr_obj not in data.keys():
-                    data[dr_obj] = {}
-                if blender_obj.animation_data and blender_obj.animation_data.action \
-                        and blender_obj.animation_data.action_slot \
-                        and export_settings['gltf_animation_mode'] in ["ACTIVE_ACTIONS", "ACTIONS", "BROADCAST"]:
-                    key1, key2, key3, key4, key5 = dr_obj, obj_uuid + "_" + \
-                        blender_obj.animation_data.action.name, blender_obj.animation_data.action_slot.identifier, "sk", None
-                    cache_sk = True
-                elif blender_obj.animation_data \
-                        and export_settings['gltf_animation_mode'] in ["NLA_TRACKS"]:
-                    # We can keep the input slot_identifier here, as we are caching only one object / NLA track
-                    key1, key2, key3, key4, key5 = dr_obj, obj_uuid + "_" + action_name, slot_identifier, "sk", None
-                    cache_sk = True
-                else:
-                    # slot_identifier is always None for scene export
-                    key1, key2, key3, key4, key5 = dr_obj, obj_uuid + "_" + obj_uuid, slot_identifier, "sk", None
-                    cache_sk = True
-
-                if cache_sk:
-                    initialize_data_dict(data, key1, key2, key3, key4, key5)
-                    if export_settings['gltf_optimize_disable_viewport'] is True:
-                        # Retrieve data from custom properties instead of shape keys
-                        data[key1][key2][key3][key4][key5][frame] = list(
-                            blender_obj['gltf_' + dr_obj])  # This include only exported SK
-                    else:
-                        data[key1][key2][key3][key4][key5][frame] = [
-                            k.value for k in get_sk_exported(
-                                driver_object.data.shape_keys.key_blocks)]
-                    cache_sk = False
-
 
 def light_nodetree_caching(data, action_name, slot_identifier, frame, export_settings):
     # After caching materials, caching lights, for KHR_animation_pointer

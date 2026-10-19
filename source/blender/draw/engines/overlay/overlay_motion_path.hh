@@ -14,14 +14,12 @@
 
 #include "draw_manager_text.hh"
 
-#include "overlay_armature.hh"
 #include "overlay_base.hh"
 
 namespace blender::draw::overlay {
 
 /**
- * Display object and armature motion path.
- * Motion paths can be found in (Object > Motion Paths) or (Data > Motion Paths) for armatures.
+ * Display object motion paths.
  */
 class MotionPath : Overlay {
 
@@ -71,18 +69,8 @@ class MotionPath : Overlay {
 
     const Object *object = ob_ref.object;
 
-    if (object->type == OB_ARMATURE) {
-      if (Armatures::is_pose_mode(object, state)) {
-        for (bPoseChannel *pchan : ListBaseWrapper<bPoseChannel>(&object->pose->chanbase)) {
-          if (pchan->mpath) {
-            motion_path_sync(state, object, pchan, object->pose->avs, pchan->mpath);
-          }
-        }
-      }
-    }
-
     if (object->mpath) {
-      motion_path_sync(state, object, nullptr, object->avs, object->mpath);
+      motion_path_sync(state, object, object->avs, object->mpath);
     }
   }
 
@@ -98,7 +86,6 @@ class MotionPath : Overlay {
  private:
   void motion_path_sync(const State &state,
                         const Object *ob,
-                        const bPoseChannel *pchan,
                         const bAnimVizSettings &avs,
                         bMotionPath *mpath)
   {
@@ -114,8 +101,7 @@ class MotionPath : Overlay {
     const bool show_frame_number = (avs.path_viewflag & MOTIONPATH_VIEW_FNUMS);
     const bool show_lines = (mpath->flag & MOTIONPATH_FLAG_LINES);
     const bool custom_color = (mpath->flag & MOTIONPATH_FLAG_CUSTOM);
-    const bool selected = (pchan) ? (pchan->flag & POSE_SELECTED) :
-                                    (ob->base_flag & BASE_SELECTED);
+    const bool selected = (ob->base_flag & BASE_SELECTED) != 0;
 
     const float3 color_pre = custom_color ? float3(mpath->color) : float3(-1.0f);
     const float3 color_post = custom_color ? float3(mpath->color_post) : float3(-1.0f);

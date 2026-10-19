@@ -58,11 +58,6 @@ tests = [
     #############################################
     # Curves Deform Modifiers
     #############################################
-    SpecMeshTest("CurveArmature", "testObjBezierCurveArmature", "expObjBezierCurveArmature",
-                 [DeformModifierSpec(10, [ModifierSpec('curve_armature', 'ARMATURE',
-                                                       {'object': bpy.data.objects['testArmatureHelper'],
-                                                        'use_vertex_groups': False, 'use_bone_envelopes': True})])]),
-
     SpecMeshTest("CurveLattice", "testObjBezierCurveLattice", "expObjBezierCurveLattice",
                  [DeformModifierSpec(10, [ModifierSpec('curve_lattice', 'LATTICE',
                                                        {'object': bpy.data.objects['testLatticeCurve']})])]),

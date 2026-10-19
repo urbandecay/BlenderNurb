@@ -14,7 +14,6 @@ namespace blender {
 
 struct ID;
 struct bConstraint;
-struct bPoseChannel;
 struct ModifierData;
 
 namespace deg {
@@ -46,8 +45,6 @@ class BuilderStack {
 
     explicit Entry(const bConstraint &constraint) : constraint_(&constraint) {}
 
-    explicit Entry(const bPoseChannel &pchan) : pchan_(&pchan) {}
-
     explicit Entry(const ModifierData &modifier_data) : modifier_data_(&modifier_data) {}
 
    private:
@@ -56,7 +53,6 @@ class BuilderStack {
     const ID *id_ = nullptr;
     const bConstraint *constraint_ = nullptr;
     const ModifierData *modifier_data_ = nullptr;
-    const bPoseChannel *pchan_ = nullptr;
   };
 
   using Stack = Vector<Entry>;

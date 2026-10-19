@@ -267,7 +267,7 @@ static void draw_backdrop(const int fontid,
 }
 
 /**
- * Draw an on screen Slider for a Pose Slide Operator.
+ * Draw an on-screen slider for a modal transform operator.
  */
 static void slider_draw(const bContext * /*C*/, ARegion *region, void *arg)
 {

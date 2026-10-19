@@ -18,7 +18,6 @@ DEF_ENUM(rna_enum_id_type_items)
 
 DEF_ENUM(rna_enum_object_mode_items)
 DEF_ENUM(rna_enum_workspace_object_mode_items)
-DEF_ENUM(rna_enum_object_empty_drawtype_items)
 DEF_ENUM(rna_enum_metaelem_type_items)
 
 DEF_ENUM(rna_enum_color_space_convert_default_items)
@@ -93,7 +92,6 @@ DEF_ENUM(rna_enum_keying_flag_api_items)
 
 DEF_ENUM(rna_enum_fmodifier_type_items)
 
-DEF_ENUM(rna_enum_motionpath_bake_location_items)
 DEF_ENUM(rna_enum_motionpath_display_type_items)
 DEF_ENUM(rna_enum_motionpath_range_items)
 
@@ -132,6 +130,7 @@ DEF_ENUM(rna_enum_lightprobes_type_items)
 DEF_ENUM(rna_enum_unpack_method_items)
 
 DEF_ENUM(rna_enum_object_type_items)
+DEF_ENUM(rna_enum_object_type_add_items)
 DEF_ENUM(rna_enum_object_rotation_mode_items)
 
 DEF_ENUM(rna_enum_object_type_curve_items)

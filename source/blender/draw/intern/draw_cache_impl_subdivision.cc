@@ -491,8 +491,8 @@ static bool draw_subdiv_topology_info_cb(const bke::subdiv::ForeachContext *fore
                                          const int num_faces,
                                          const Span<int> subdiv_face_offset)
 {
-  /* num_loops does not take into account meshes with only loose geometry, which might be meshes
-   * used as custom bone shapes, so let's check the num_verts also. */
+  /* num_loops does not take into account meshes with only loose geometry, so check the vertex
+   * count as well. */
   if (num_verts == 0 && num_loops == 0) {
     return false;
   }

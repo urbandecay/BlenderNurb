@@ -18,7 +18,6 @@
 #define DNA_DEPRECATED_ALLOW
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_cloth_types.h"
@@ -55,7 +54,6 @@
 
 #include "BKE_anim_data.hh"
 #include "BKE_anim_visualization.h"
-#include "BKE_armature.hh"
 #include "BKE_colortools.hh"
 #include "BKE_customdata.hh"
 #include "BKE_global.hh" /* for G */
@@ -456,11 +454,7 @@ static void do_version_mdef_250(Main *main)
 static void do_version_constraints_radians_degrees_250(ListBaseT<bConstraint> *lb)
 {
   for (bConstraint &con : *lb) {
-    if (con.type == CONSTRAINT_TYPE_KINEMATIC) {
-      bKinematicConstraint *data = static_cast<bKinematicConstraint *>(con.data);
-      data->poleangle *= float(M_PI / 180.0);
-    }
-    else if (con.type == CONSTRAINT_TYPE_ROTLIMIT) {
+    if (con.type == CONSTRAINT_TYPE_ROTLIMIT) {
       bRotLimitConstraint *data = static_cast<bRotLimitConstraint *>(con.data);
 
       data->xmin *= float(M_PI / 180.0);
@@ -470,18 +464,6 @@ static void do_version_constraints_radians_degrees_250(ListBaseT<bConstraint> *l
       data->zmin *= float(M_PI / 180.0);
       data->zmax *= float(M_PI / 180.0);
     }
-  }
-}
-
-static void do_version_bone_roll_256(Bone *bone)
-{
-  float submat[3][3];
-
-  copy_m3_m4(submat, bone->arm_mat);
-  mat3_to_vec_roll(submat, nullptr, &bone->arm_roll);
-
-  for (Bone &child : bone->childbase) {
-    do_version_bone_roll_256(&child);
   }
 }
 
@@ -758,14 +740,6 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 250, 2)) {
-    for (Object &ob : bmain->objects) {
-      if (ob.flag & 8192) { /* OB_POSEMODE = 8192. */
-        ob.mode |= OB_MODE_POSE;
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 250, 4)) {
     bool do_gravity = false;
 
@@ -860,13 +834,6 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
       ob.quat[0] = 1.0f;
       ob.rotAxis[1] = 1.0f;
 
-      /* bones */
-      if (ob.pose) {
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          /* Just need to initialize rotation axis properly. */
-          pchan.rotAxis[1] = 1.0f;
-        }
-      }
     }
   }
 
@@ -1152,51 +1119,6 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
       /* initialize object defaults */
       animviz_settings_init(&ob.avs);
 
-      /* if armature, copy settings for pose from armature data
-       * performing initialization where appropriate
-       */
-      if (ob.pose && ob.data) {
-        bArmature *arm = static_cast<bArmature *>(
-            blo_do_versions_newlibadr(fd, &ob.id, ID_IS_LINKED(&ob), ob.data));
-        if (arm) { /* XXX: why does this fail in some cases? */
-          bAnimVizSettings *avs = &ob.pose->avs;
-
-          /* path settings --------------------- */
-          /* ranges */
-          avs->path_bc = 10;
-          avs->path_ac = 10;
-
-          avs->path_sf = 1;
-          avs->path_ef = 250;
-
-          /* flags */
-          if (arm->pathflag & ARM_PATH_FNUMS) {
-            avs->path_viewflag |= MOTIONPATH_VIEW_FNUMS;
-          }
-          if (arm->pathflag & ARM_PATH_KFRAS) {
-            avs->path_viewflag |= MOTIONPATH_VIEW_KFRAS;
-          }
-          if (arm->pathflag & ARM_PATH_KFNOS) {
-            avs->path_viewflag |= MOTIONPATH_VIEW_KFNOS;
-          }
-
-          /* bake flags */
-          if (arm->pathflag & ARM_PATH_HEADS) {
-            avs->path_bakeflag |= MOTIONPATH_BAKE_HEADS;
-          }
-
-          /* type */
-          if (arm->pathflag & ARM_PATH_ACFRA) {
-            avs->path_type = MOTIONPATH_TYPE_ACFRA;
-          }
-
-          /* stepsize */
-          avs->path_step = 1;
-        }
-        else {
-          animviz_settings_init(&ob.pose->avs);
-        }
-      }
     }
 
     /* brush texture changes */
@@ -1213,18 +1135,6 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
     for (Object &ob : bmain->objects) {
       do_version_constraints_radians_degrees_250(&ob.constraints);
 
-      if (ob.pose) {
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          pchan.limitmin[0] *= float(M_PI / 180.0);
-          pchan.limitmin[1] *= float(M_PI / 180.0);
-          pchan.limitmin[2] *= float(M_PI / 180.0);
-          pchan.limitmax[0] *= float(M_PI / 180.0);
-          pchan.limitmax[1] *= float(M_PI / 180.0);
-          pchan.limitmax[2] *= float(M_PI / 180.0);
-
-          do_version_constraints_radians_degrees_250(&pchan.constraints);
-        }
-      }
     }
   }
 
@@ -1444,19 +1354,7 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
             blo_do_versions_newlibadr(fd, &ob.id, ID_IS_LINKED(&ob), ob.parent));
         if (parent) { /* parent may not be in group */
           constexpr eObject_Partype PARCURVE = eObject_Partype(1);
-          if (parent->type == OB_ARMATURE && ob.partype == PARSKEL) {
-            ArmatureModifierData *amd;
-            bArmature *arm = static_cast<bArmature *>(
-                blo_do_versions_newlibadr(fd, &parent->id, ID_IS_LINKED(parent), parent->data));
-
-            amd = reinterpret_cast<ArmatureModifierData *>(
-                BKE_modifier_new(eModifierType_Armature));
-            amd->object = ob.parent;
-            BLI_addtail((&ob.modifiers), amd);
-            amd->deformflag = arm->deformflag;
-            ob.partype = PAROBJECT;
-          }
-          else if (parent->type == OB_LATTICE && ob.partype == PARSKEL) {
+          if (parent->type == OB_LATTICE && ob.partype == PARSKEL) {
             LatticeModifierData *lmd;
 
             lmd = reinterpret_cast<LatticeModifierData *>(BKE_modifier_new(eModifierType_Lattice));
@@ -1726,13 +1624,6 @@ void blo_do_versions_250(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 256, 1)) {
-    /* fix for bones that didn't have arm_roll before */
-    for (bArmature &arm : bmain->armatures) {
-      for (Bone &bone : arm.bonebase) {
-        do_version_bone_roll_256(&bone);
-      }
-    }
-
     /* fix for objects which have zero dquat's
      * since this is multiplied with the quat rather than added */
     for (Object &ob : bmain->objects) {

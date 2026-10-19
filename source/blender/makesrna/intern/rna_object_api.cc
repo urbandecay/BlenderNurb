@@ -28,17 +28,7 @@ namespace blender {
 
 static const EnumPropertyItem space_items[] = {
     {CONSTRAINT_SPACE_WORLD, "WORLD", 0, "World Space", "The most global space in Blender"},
-    {CONSTRAINT_SPACE_POSE,
-     "POSE",
-     0,
-     "Pose Space",
-     "The pose space of a bone (its armature's object space)"},
-    {CONSTRAINT_SPACE_PARLOCAL,
-     "LOCAL_WITH_PARENT",
-     0,
-     "Local With Parent",
-     "The rest pose local space of a bone (this matrix includes parent transforms)"},
-    {CONSTRAINT_SPACE_LOCAL, "LOCAL", 0, "Local Space", "The local space of an object/bone"},
+    {CONSTRAINT_SPACE_LOCAL, "LOCAL", 0, "Local Space", "The local space of an object"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -295,11 +285,9 @@ static bool rna_Object_visible_in_viewport_get(Object *ob, View3D *v3d)
   return BKE_object_is_visible_in_viewport(v3d, ob);
 }
 
-/* Convert a given matrix from a space to another (using the object and/or a bone as
- * reference). */
+/* Convert a given matrix between object spaces. */
 static void rna_Object_mat_convert_space(Object *ob,
                                          ReportList *reports,
-                                         bPoseChannel *pchan,
                                          const float mat[16],
                                          float mat_ret[16],
                                          int from,
@@ -308,52 +296,15 @@ static void rna_Object_mat_convert_space(Object *ob,
   copy_m4_m4(reinterpret_cast<float (*)[4]>(mat_ret),
              reinterpret_cast<float (*)[4]>(const_cast<float *>(mat)));
 
-  BLI_assert(!ELEM(from, CONSTRAINT_SPACE_OWNLOCAL));
-  BLI_assert(!ELEM(to, CONSTRAINT_SPACE_OWNLOCAL));
-
-  /* Error in case of invalid from/to values when pchan is nullptr */
-  if (pchan == nullptr) {
-    if (ELEM(from, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_PARLOCAL)) {
-      const char *identifier = nullptr;
-      RNA_enum_identifier(space_items, from, &identifier);
-      BKE_reportf(reports,
-                  RPT_ERROR,
-                  "'from_space' '%s' is invalid when no pose bone is given!",
-                  identifier);
-      return;
-    }
-    if (ELEM(to, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_PARLOCAL)) {
-      const char *identifier = nullptr;
-      RNA_enum_identifier(space_items, to, &identifier);
-      BKE_reportf(reports,
-                  RPT_ERROR,
-                  "'to_space' '%s' is invalid when no pose bone is given!",
-                  identifier);
-      return;
-    }
-  }
-  /* These checks are extra security, they should never occur. */
-  if (from == CONSTRAINT_SPACE_CUSTOM) {
-    const char *identifier = nullptr;
-    RNA_enum_identifier(space_items, from, &identifier);
-    BKE_reportf(reports,
-                RPT_ERROR,
-                "'from_space' '%s' is invalid when no custom space is given!",
-                identifier);
-    return;
-  }
-  if (to == CONSTRAINT_SPACE_CUSTOM) {
-    const char *identifier = nullptr;
-    RNA_enum_identifier(space_items, to, &identifier);
-    BKE_reportf(reports,
-                RPT_ERROR,
-                "'to_space' '%s' is invalid when no custom space is given!",
-                identifier);
+  if (!ELEM(from, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL) ||
+      !ELEM(to, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL))
+  {
+    BKE_report(reports, RPT_ERROR, "Only WORLD and LOCAL object spaces are supported");
     return;
   }
 
   BKE_constraint_mat_convertspace(
-      ob, pchan, nullptr, reinterpret_cast<float (*)[4]>(mat_ret), from, to, false);
+      ob, nullptr, reinterpret_cast<float (*)[4]>(mat_ret), from, to, false);
 }
 
 static void rna_Object_calc_matrix_camera(Object *ob,
@@ -958,13 +909,6 @@ void RNA_api_object(StructRNA *srna)
   RNA_def_function_ui_description(
       func, "Convert (transform) the given matrix from one space to another");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
-  parm = RNA_def_pointer(
-      func,
-      "pose_bone",
-      "PoseBone",
-      "",
-      "Bone to use to define spaces (may be None, in which case only the two 'WORLD' and "
-      "'LOCAL' spaces are usable)");
   parm = RNA_def_property(func, "matrix", PROP_FLOAT, PROP_MATRIX);
   RNA_def_property_multi_array(parm, 2, rna_matrix_dimsize_4x4);
   RNA_def_property_ui_text(parm, "", "The matrix to transform");
@@ -1126,14 +1070,6 @@ void RNA_api_object(StructRNA *srna)
 
   func = RNA_def_function(srna, "to_curve_clear", "rna_Object_to_curve_clear");
   RNA_def_function_ui_description(func, "Clears curve data-block created by to_curve()");
-
-  /* Armature */
-  func = RNA_def_function(srna, "find_armature", "BKE_modifiers_is_deformed_by_armature");
-  RNA_def_function_ui_description(
-      func, "Find armature influencing this object as a parent or via a modifier");
-  parm = RNA_def_pointer(
-      func, "ob_arm", "Object", "", "Armature object influencing this object or nullptr");
-  RNA_def_function_return(func, parm);
 
   /* Shape key */
   func = RNA_def_function(srna, "shape_key_add", "rna_Object_shape_key_add");

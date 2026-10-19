@@ -27,7 +27,6 @@
 
 #include "BLO_readfile.hh"
 
-#include "BKE_armature.hh"
 #include "BKE_blendfile.hh"
 #include "BKE_blendfile_link_append.hh"
 #include "BKE_context.hh"
@@ -144,9 +143,6 @@ static int wm_link_append_flag(wmOperator *op)
     if (RNA_boolean_get(op->ptr, "clear_asset_data")) {
       flag |= BLO_LIBLINK_APPEND_ASSET_DATA_CLEAR;
     }
-  }
-  if (RNA_boolean_get(op->ptr, "instance_collections")) {
-    flag |= BLO_LIBLINK_COLLECTION_INSTANCE;
   }
   if (RNA_boolean_get(op->ptr, "instance_object_data")) {
     flag |= BLO_LIBLINK_OBDATA_INSTANCE;
@@ -277,7 +273,7 @@ static wmOperatorStatus wm_link_append_exec(bContext *C, wmOperator *op)
                 RPT_WARNING,
                 "Scene '%s' is linked, instantiation of objects is disabled",
                 scene->id.name + 2);
-    flag &= ~(BLO_LIBLINK_COLLECTION_INSTANCE | BLO_LIBLINK_OBDATA_INSTANCE);
+    flag &= ~BLO_LIBLINK_OBDATA_INSTANCE;
     scene = nullptr;
   }
 
@@ -455,14 +451,6 @@ static void wm_link_append_properties_common(wmOperatorType *ot,
    * should not require any enforced instancing when linked. */
   prop = RNA_def_boolean(
       ot->srna,
-      "instance_collections",
-      is_link && !is_relocate,
-      "Instance Collections",
-      "Create instances for collections, rather than adding them directly to the scene");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-
-  prop = RNA_def_boolean(
-      ot->srna,
       "instance_object_data",
       !is_relocate,
       "Instance Object Data",
@@ -619,7 +607,7 @@ static wmOperatorStatus wm_id_linked_relocate_exec(bContext *C, wmOperator *op)
   }
 
   /* Never enforce instantiation of anything when relocating. */
-  flag &= ~(BLO_LIBLINK_COLLECTION_INSTANCE | BLO_LIBLINK_OBDATA_INSTANCE);
+  flag &= ~BLO_LIBLINK_OBDATA_INSTANCE;
 
   /* Tag everything, its generally useful to know what is new.
    *

@@ -516,11 +516,6 @@ static void rna_def_blendfile_import_context(BlenderRNA *brna)
        0,
        "",
        "Instantiate object data IDs (i.e. create objects for them if needed)"},
-      {BLO_LIBLINK_COLLECTION_INSTANCE,
-       "COLLECTION_INSTANCE",
-       0,
-       "",
-       "Instantiate collections as empties, instead of linking them into the current view layer"},
       {0, nullptr, 0, nullptr, nullptr},
   };
   prop = RNA_def_property(srna, "options", PROP_ENUM, PROP_NONE);

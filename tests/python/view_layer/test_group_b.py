@@ -34,7 +34,7 @@ class UnitTesting(ViewLayerTesting):
         grandma = master_collection.collections.new('бабушка')
         mom = grandma.collections.new('матушка')
 
-        child = bpy.data.objects.new("Child", None)
+        child = bpy.data.objects.new("Child", bpy.data.meshes.new("ChildMesh"))
         mom.objects.link(child)
 
         grandma_layer_collection = scene.view_layers[0].collections.link(grandma)

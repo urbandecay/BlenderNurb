@@ -376,8 +376,8 @@ const uchar *get_color_ptr(bTheme *btheme, int spacetype, int colorid)
         case TH_CAMERA:
           cp = ts->camera;
           break;
-        case TH_EMPTY:
-          cp = ts->empty;
+        case TH_NO_DATA_OBJECT:
+          cp = ts->no_data_object;
           break;
         case TH_SELECT:
           if (g_theme_state.spacetype == SPACE_IMAGE) {
@@ -498,18 +498,6 @@ const uchar *get_color_ptr(bTheme *btheme, int spacetype, int colorid)
           break;
         case TH_LNORMAL:
           cp = ts->loop_normal;
-          break;
-        case TH_BONE_SOLID:
-          cp = ts->bone_solid;
-          break;
-        case TH_BONE_POSE:
-          cp = ts->bone_pose;
-          break;
-        case TH_BONE_POSE_ACTIVE:
-          cp = ts->bone_pose_active;
-          break;
-        case TH_BONE_LOCKED_WEIGHT:
-          cp = ts->bone_locked_weight;
           break;
         case TH_LONGKEY:
           cp = btheme->common.anim.long_key;

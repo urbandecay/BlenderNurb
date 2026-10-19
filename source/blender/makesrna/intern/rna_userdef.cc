@@ -2973,9 +2973,9 @@ static void rna_def_userdef_theme_space_view3d(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Camera", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
-  prop = RNA_def_property(srna, "empty", PROP_FLOAT, PROP_COLOR_GAMMA);
+  prop = RNA_def_property(srna, "no_data_object", PROP_FLOAT, PROP_COLOR_GAMMA);
   RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Empty", "");
+  RNA_def_property_ui_text(prop, "No-Data Object", "");
   RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_ID);
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
@@ -3098,31 +3098,6 @@ static void rna_def_userdef_theme_space_view3d(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, nullptr, "nurb_sel_vline");
   RNA_def_property_array(prop, 3);
   RNA_def_property_ui_text(prop, "NURBS Active V Lines", "");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  /* Armature Object specific. */
-
-  prop = RNA_def_property(srna, "bone_pose", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Bone Pose Selected", "Outline color of selected pose bones");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  prop = RNA_def_property(srna, "bone_pose_active", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Bone Pose Active", "Outline color of active pose bones");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  prop = RNA_def_property(srna, "bone_solid", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Bone Solid", "Default color of the solid shapes of bones");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  prop = RNA_def_property(srna, "bone_locked_weight", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 4);
-  RNA_def_property_ui_text(
-      prop,
-      "Bone Locked Weight",
-      "Shade for bones corresponding to a locked weight group during painting");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
   /* Time specific. */
@@ -4159,26 +4134,26 @@ static void rna_def_userdef_theme_space_nla(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 }
 
-static void rna_def_userdef_theme_colorset(BlenderRNA *brna)
+static void rna_def_userdef_theme_color_set(BlenderRNA *brna)
 {
   StructRNA *srna;
   PropertyRNA *prop;
 
-  srna = RNA_def_struct(brna, "ThemeBoneColorSet", nullptr);
+  srna = RNA_def_struct(brna, "ThemeColorSet", nullptr);
   RNA_def_struct_sdna(srna, "ThemeWireColor");
-  RNA_def_struct_ui_text(srna, "Theme Bone Color Set", "Theme settings for bone color sets");
+  RNA_def_struct_ui_text(srna, "Theme Color Set", "Theme settings for action group color sets");
 
   prop = RNA_def_property(srna, "normal", PROP_FLOAT, PROP_COLOR_GAMMA);
   RNA_def_property_float_sdna(prop, nullptr, "solid");
   RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Regular", "Color used for the surface of bones");
+  RNA_def_property_ui_text(prop, "Regular", "Color used for action groups");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
 
   prop = RNA_def_property(srna, "select", PROP_FLOAT, PROP_COLOR_GAMMA);
   RNA_def_property_float_sdna(prop, nullptr, "select");
   RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Select", "Color used for selected bones");
+  RNA_def_property_ui_text(prop, "Select", "Color used for selected action groups");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
 
@@ -4392,7 +4367,7 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
       {8, "TEXT_EDITOR", ICON_TEXT, "Text Editor", ""},
       {21, "TOPBAR", ICON_TOPBAR, "Top Bar", ""},
       {7, "SEQUENCE_EDITOR", ICON_SEQUENCE, "Video Sequencer", ""},
-      {18, "BONE_COLOR_SETS", ICON_COLOR, "Bone Color Sets", ""},
+      {18, "COLOR_SETS", ICON_COLOR, "Color Sets", ""},
       {0, nullptr, 0, nullptr, nullptr},
   };
 
@@ -4547,11 +4522,11 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Spreadsheet", "");
   /* end space types */
 
-  prop = RNA_def_property(srna, "bone_color_sets", PROP_COLLECTION, PROP_NONE);
+  prop = RNA_def_property(srna, "color_sets", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_flag(prop, PROP_NEVER_NULL);
-  RNA_def_property_collection_sdna(prop, nullptr, "tarm", "");
-  RNA_def_property_struct_type(prop, "ThemeBoneColorSet");
-  RNA_def_property_ui_text(prop, "Bone Color Sets", "");
+  RNA_def_property_collection_sdna(prop, nullptr, "color_sets", "");
+  RNA_def_property_struct_type(prop, "ThemeColorSet");
+  RNA_def_property_ui_text(prop, "Color Sets", "Custom colors used by action groups");
 
   prop = RNA_def_property(srna, "collection_color", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_flag(prop, PROP_NEVER_NULL);
@@ -4784,7 +4759,7 @@ static void rna_def_userdef_dothemes(BlenderRNA *brna)
   rna_def_userdef_theme_space_topbar(brna);
   rna_def_userdef_theme_space_statusbar(brna);
   rna_def_userdef_theme_space_spreadsheet(brna);
-  rna_def_userdef_theme_colorset(brna);
+  rna_def_userdef_theme_color_set(brna);
   rna_def_userdef_theme_collection_color(brna);
   rna_def_userdef_theme_strip_color(brna);
   rna_def_userdef_themes(brna);
@@ -5637,12 +5612,6 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Enter Edit Mode", "Enter edit mode automatically after adding a new object");
 
-  prop = RNA_def_property(srna, "collection_instance_empty_size", PROP_FLOAT, PROP_NONE);
-  RNA_def_property_range(prop, 0.001f, FLT_MAX);
-  RNA_def_property_ui_text(prop,
-                           "Collection Instance Empty Size",
-                           "Display size of the empty when new collection instances are created");
-
   /* Text Editor */
 
   prop = RNA_def_property(srna, "use_text_edit_auto_close", PROP_BOOLEAN, PROP_NONE);
@@ -5751,7 +5720,7 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "Channel Group Colors",
-      "Use animation channel group colors; generally this is used to show bone group colors");
+      "Use colors for animation channel groups");
   RNA_def_property_update(prop, 0, "rna_userdef_anim_update");
 
   prop = RNA_def_property(srna, "fcurve_new_auto_smoothing", PROP_ENUM, PROP_NONE);
@@ -5855,11 +5824,6 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_MBALL);
   RNA_def_property_ui_text(
       prop, "Duplicate Metaball", "Causes metaball data to be duplicated with the object");
-
-  prop = RNA_def_property(srna, "use_duplicate_armature", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_ARM);
-  RNA_def_property_ui_text(
-      prop, "Duplicate Armature", "Causes armature data to be duplicated with the object");
 
   prop = RNA_def_property(srna, "use_duplicate_camera", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_CAMERA);

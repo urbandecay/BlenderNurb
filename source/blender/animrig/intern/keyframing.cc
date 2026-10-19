@@ -243,11 +243,6 @@ void CombinedKeyingResult::generate_reports(ReportList *reports, const eReportTy
 std::optional<StringRefNull> default_channel_group_for_path(const PointerRNA *animated_struct,
                                                             const StringRef prop_rna_path)
 {
-  if (animated_struct->type == RNA_PoseBone) {
-    bPoseChannel *pose_channel = static_cast<bPoseChannel *>(animated_struct->data);
-    return pose_channel->name;
-  }
-
   if (animated_struct->type == RNA_Object) {
     if (prop_rna_path.find("location") != StringRef::not_found ||
         prop_rna_path.find("rotation") != StringRef::not_found ||
@@ -397,9 +392,8 @@ Vector<float> get_property_values(PointerRNA *ptr, PropertyRNA *prop, const bool
   Vector<float> values;
 
   if (visual_key && visualkey_can_use(ptr, prop)) {
-    /* Visual-keying is only available for object data-blocks and pose-channels,
-     * as it works by key-framing using a value extracted from the final matrix
-     * instead of using the kt system to extract a value. */
+    /* Visual-keying works by key-framing a value extracted from the final matrix instead of using
+     * the keying system to extract a value. */
     values = visualkey_get_values(ptr, prop);
   }
   else {

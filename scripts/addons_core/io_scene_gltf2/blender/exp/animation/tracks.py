@@ -8,8 +8,7 @@ from ....io.com import gltf2_io
 from ....io.exp.user_extensions import export_user_extensions
 from ..cache import cached
 from ..tree import VExportNode
-from .anim_utils import merge_tracks_perform, bake_animation, bake_data_animation, add_slide_data, reset_bone_matrix, reset_sk_data
-from .drivers import get_sk_drivers
+from .anim_utils import merge_tracks_perform, bake_animation, bake_data_animation, add_slide_data, reset_sk_data
 from .sampled.sampling_cache import get_cache_data
 
 
@@ -58,7 +57,7 @@ def gather_tracks_animations(export_settings):
 
         # Before baking, disabling from viewport all meshes
         for obj in [n.blender_object for n in export_settings['vtree'].nodes.values() if n.blender_type in
-                    [VExportNode.OBJECT, VExportNode.ARMATURE, VExportNode.COLLECTION]]:
+                    [VExportNode.OBJECT, VExportNode.COLLECTION]]:
             obj.hide_viewport = True
 
     vtree = export_settings['vtree']
@@ -66,12 +65,7 @@ def gather_tracks_animations(export_settings):
 
         # Do not manage not exported objects
         if vtree.nodes[obj_uuid].node is None:
-            if export_settings['gltf_armature_object_remove'] is True:
-                # Manage armature object, as this is the object that has the animation
-                if not vtree.nodes[obj_uuid].blender_object:
-                    continue
-            else:
-                continue
+            continue
 
         if export_settings['vtree'].nodes[obj_uuid].blender_type == VExportNode.COLLECTION:
             continue
@@ -111,7 +105,7 @@ def gather_tracks_animations(export_settings):
 
         # After baking, re-enabling for all meshes
         for n in [n for n in export_settings['vtree'].nodes.values() if n.blender_type in
-                  [VExportNode.OBJECT, VExportNode.ARMATURE, VExportNode.COLLECTION]]:
+                  [VExportNode.OBJECT, VExportNode.COLLECTION]]:
             n.blender_object.hide_viewport = n.default_hide_viewport
 
     new_animations = merge_tracks_perform(merged_tracks, animations, export_settings)
@@ -254,7 +248,6 @@ def gather_track_animations(obj_uuid: int,
                     track_data.name,
                     track_data.on_type)
 
-        reset_bone_matrix(blender_object, export_settings)
         if track_data.on_type == "KEY":
             reset_sk_data(blender_object, blender_tracks, export_settings)
 
@@ -518,17 +511,6 @@ def prepare_tracks_range(obj_uuid, track_data, export_settings, with_driver=True
                 track_slide.update({track_name: frame_start})
         else:
             add_slide_data(frame_start, obj_uuid, track_name, export_settings)
-
-    # For drivers
-    if with_driver is True:
-        if export_settings['vtree'].nodes[obj_uuid].blender_type == VExportNode.ARMATURE and export_settings['gltf_morph_anim'] is True:
-            obj_drivers = get_sk_drivers(obj_uuid, export_settings)
-            for obj_dr in obj_drivers:
-                if obj_dr not in export_settings['ranges']:
-                    export_settings['ranges'][obj_dr] = {}
-                export_settings['ranges'][obj_dr][obj_uuid + "_" + track_name] = {}
-                export_settings['ranges'][obj_dr][obj_uuid + "_" + track_name]['start'] = frame_start
-                export_settings['ranges'][obj_dr][obj_uuid + "_" + track_name]['end'] = frame_end
 
     if (export_settings['gltf_negative_frames'] == "SLIDE"
             or export_settings['gltf_anim_slide_to_zero'] is True) \

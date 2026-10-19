@@ -4,7 +4,6 @@
 
 set(INC
   PUBLIC .
-  ../ikplugin
   ../makesrna
   ../modifiers
   ../nodes/geometry/include
@@ -12,7 +11,6 @@ set(INC
   ../windowmanager
   ../../../intern/eigen
   ../../../intern/ghost
-  ../../../intern/iksolver/extern
   ../../../intern/libmv
   ../../../intern/mantaflow/extern
   ../../../intern/memutil
@@ -28,8 +26,6 @@ set(INC_SYS
 
 set(SRC
   intern/action.cc
-  intern/action_bones.cc
-  intern/action_mirror.cc
   intern/addon.cc
   intern/anim_data.cc
   intern/anim_data_bmain_utils.cc
@@ -38,10 +34,6 @@ set(SRC
   intern/anim_visualization.cc
   intern/anonymous_attribute_id.cc
   intern/appdir.cc
-  intern/armature.cc
-  intern/armature_deform.cc
-  intern/armature_selection.cc
-  intern/armature_update.cc
   intern/asset.cc
   intern/asset_edit.cc
   intern/asset_weak_reference.cc
@@ -244,7 +236,6 @@ set(SRC
   intern/pointcache.cc
   intern/pointcloud.cc
   intern/pointcloud_attributes.cc
-  intern/pose_backup.cc
   intern/preferences.cc
   intern/preview_image.cc
   intern/report.cc
@@ -309,7 +300,6 @@ set(SRC
   BKE_anonymous_attribute_id.hh
   BKE_anonymous_attribute_make.hh
   BKE_appdir.hh
-  BKE_armature.hh
   BKE_asset.hh
   BKE_asset_edit.hh
   BKE_attribute.h
@@ -472,8 +462,6 @@ set(SRC
   BKE_path_templates.hh
   BKE_pointcache.h
   BKE_pointcloud.hh
-  BKE_pose.hh
-  BKE_pose_backup.h
   BKE_preferences.h
   BKE_preview_image.hh
   BKE_report.hh
@@ -553,7 +541,6 @@ set(LIB
   PRIVATE bf::extern::curve_fit_nd
   PRIVATE bf::functions
   PRIVATE bf::gpu
-  bf_ikplugin
   PRIVATE bf::imbuf
   PRIVATE bf::imbuf::opencolorio
   PRIVATE bf::imbuf::movie
@@ -722,8 +709,6 @@ add_dependencies(bf_blenkernel bf_rna)
 if(WITH_GTESTS)
   set(TEST_SRC
     intern/anim_data_test.cc
-    intern/armature_deform_test.cc
-    intern/armature_test.cc
     intern/asset_metadata_test.cc
     intern/attribute_storage_test.cc
     intern/bake_items_serialize_test.cc

@@ -47,7 +47,7 @@ class AnimationEvaluationTest : public bke::BlenderGTestBase {
     bmain = BKE_main_new();
     action = BKE_id_new<Action>(bmain, "ACÄnimåtië");
 
-    cube = BKE_object_add_only_object(bmain, OB_EMPTY, "Küüübus");
+    cube = BKE_object_add_only_object(bmain, OB_NO_DATA, "Küüübus");
 
     slot = &action->slot_add();
     ASSERT_EQ(assign_action_and_slot(action, slot, cube->id), ActionSlotAssignmentResult::OK);
@@ -284,7 +284,7 @@ TEST_F(AnimationEvaluationResultTest, prop_identifier_hashing)
 
   /* Test storing the same result twice, with different memory locations of the RNA paths. This
    * tests that the mapping uses the actual string, and not just pointer comparison. */
-  const char *rna_path_1 = "pose.bones['Root'].location";
+  const char *rna_path_1 = "items['Root'].location";
   const std::string rna_path_2(rna_path_1);
   ASSERT_NE(rna_path_1, rna_path_2.c_str())
       << "This test requires different addresses for the RNA path strings";

@@ -14,7 +14,6 @@
 #include "DNA_defs.h"
 #include "MEM_guardedalloc.h"
 
-#include "DNA_armature_types.h"
 #include "DNA_array_utils.hh"
 #include "DNA_curve_types.h"
 #include "DNA_key_types.h"
@@ -27,7 +26,6 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_array_utils.hh"
-#include "BLI_bitmap.h"
 #include "BLI_implicit_sharing.hh"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
@@ -37,7 +35,6 @@
 
 #include "BKE_animsys.h"
 #include "BKE_anonymous_attribute_id.hh"
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
 #include "BKE_curves.h"
@@ -86,13 +83,12 @@
 #include "RNA_enum_types.hh"
 #include "RNA_prototypes.hh"
 
-#include "ED_armature.hh"
+#include "ED_mesh.hh"
 #include "ED_node.hh"
 #include "ED_object.hh"
 #include "ED_object_vgroup.hh"
 #include "ED_screen.hh"
 
-#include "ANIM_bone_collections.hh"
 
 
 #include "UI_interface.hh"
@@ -1813,8 +1809,8 @@ static bool modifier_apply_poll(bContext *C)
   PointerRNA ptr = edit_modifier_ptr_get(C, RNA_Modifier);
   Object *ob = edit_modifier_object_get(C, ptr);
   ModifierData *md = static_cast<ModifierData *>(ptr.data); /* May be nullptr. */
-  if (ob->type == OB_EMPTY) {
-    CTX_wm_operator_poll_msg_set(C, "Modifiers cannot be applied on empty object type");
+  if (ob->type == OB_NO_DATA) {
+    CTX_wm_operator_poll_msg_set(C, "Modifiers cannot be applied on no-data object type");
     return false;
   }
 
@@ -2402,11 +2398,6 @@ static void modifier_skin_customdata_delete(Object *ob)
   }
 }
 
-static bool skin_poll(bContext *C)
-{
-  return edit_modifier_poll_generic(C, RNA_SkinModifier, (1 << OB_MESH), false, false);
-}
-
 static bool skin_edit_poll(bContext *C)
 {
   /* Resolve the object the same way the exec functions do (#edit_modifier_object_get),
@@ -2588,182 +2579,6 @@ void OBJECT_OT_skin_radii_equalize(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-static void skin_armature_bone_create(Object *skin_ob,
-                                      const Span<float3> positions,
-                                      const int2 *edges,
-                                      bArmature *arm,
-                                      BLI_bitmap *edges_visited,
-                                      const GroupedSpan<int> emap,
-                                      EditBone *parent_bone,
-                                      int parent_v)
-{
-  for (int i = 0; i < emap[parent_v].size(); i++) {
-    int endx = emap[parent_v][i];
-    const int2 &edge = edges[endx];
-
-    /* ignore edge if already visited */
-    if (BLI_BITMAP_TEST(edges_visited, endx)) {
-      continue;
-    }
-    BLI_BITMAP_ENABLE(edges_visited, endx);
-
-    int v = bke::mesh::edge_other_vert(edge, parent_v);
-
-    EditBone *bone = ED_armature_ebone_add(arm, "Bone");
-
-    bone->parent = parent_bone;
-    if (parent_bone != nullptr) {
-      bone->flag |= BONE_CONNECTED;
-    }
-
-    copy_v3_v3(bone->head, positions[parent_v]);
-    copy_v3_v3(bone->tail, positions[v]);
-    bone->rad_head = bone->rad_tail = 0.25;
-    SNPRINTF_UTF8(bone->name, "Bone.%.2d", endx);
-
-    /* add bDeformGroup */
-    bDeformGroup *dg = BKE_object_defgroup_add_name(skin_ob, bone->name);
-    if (dg != nullptr) {
-      ed::object::vgroup_vert_add(skin_ob, dg, parent_v, 1, WEIGHT_REPLACE);
-      ed::object::vgroup_vert_add(skin_ob, dg, v, 1, WEIGHT_REPLACE);
-    }
-
-    skin_armature_bone_create(skin_ob, positions, edges, arm, edges_visited, emap, bone, v);
-  }
-}
-
-static Object *modifier_skin_armature_create(Depsgraph *depsgraph, Main *bmain, Object *skin_ob)
-{
-  Mesh *mesh = id_cast<Mesh *>(skin_ob->data);
-  const Span<float3> me_positions = mesh->vert_positions();
-  const Span<int2> me_edges = mesh->edges();
-
-  Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
-  Object *ob_eval = DEG_get_evaluated(depsgraph, skin_ob);
-
-  const Mesh *me_eval_deform = bke::mesh_get_eval_deform(
-      depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);
-  const Span<float3> positions_eval = me_eval_deform->vert_positions();
-
-  /* add vertex weights to original mesh */
-  mesh->deform_verts_for_write();
-
-  Scene *scene = DEG_get_input_scene(depsgraph);
-  ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);
-  Object *arm_ob = BKE_object_add(bmain, scene, view_layer, OB_ARMATURE, nullptr);
-  BKE_object_transform_copy(arm_ob, skin_ob);
-  bArmature *arm = id_cast<bArmature *>(arm_ob->data);
-  ANIM_armature_bonecoll_show_all(arm);
-  arm_ob->dtx |= OB_DRAW_IN_FRONT;
-  arm->drawtype = ARM_DRAW_TYPE_STICK;
-  arm->edbo = MEM_new_zeroed<ListBaseT<EditBone>>("edbo armature");
-
-  MVertSkin *mvert_skin = static_cast<MVertSkin *>(
-      CustomData_get_layer_for_write(&mesh->vert_data, CD_MVERT_SKIN, mesh->verts_num));
-
-  Array<int> vert_to_edge_offsets;
-  Array<int> vert_to_edge_indices;
-  const GroupedSpan<int> emap = bke::mesh::build_vert_to_edge_map(
-      me_edges, mesh->verts_num, vert_to_edge_offsets, vert_to_edge_indices);
-
-  BLI_bitmap *edges_visited = BLI_BITMAP_NEW(mesh->edges_num, "edge_visited");
-
-  /* NOTE: we use EditBones here, easier to set them up and use
-   * edit-armature functions to convert back to regular bones */
-  for (int v = 0; v < mesh->verts_num; v++) {
-    if (mvert_skin[v].flag & MVERT_SKIN_ROOT) {
-      EditBone *bone = nullptr;
-
-      /* Unless the skin root has just one adjacent edge, create
-       * a fake root bone (have it going off in the Y direction
-       * (arbitrary)) */
-      if (emap[v].size() > 1) {
-        bone = ED_armature_ebone_add(arm, "Bone");
-
-        copy_v3_v3(bone->head, me_positions[v]);
-        copy_v3_v3(bone->tail, me_positions[v]);
-
-        bone->head[1] = 1.0f;
-        bone->rad_head = bone->rad_tail = 0.25;
-      }
-
-      if (emap[v].size() >= 1) {
-        skin_armature_bone_create(
-            skin_ob, positions_eval, me_edges.data(), arm, edges_visited, emap, bone, v);
-      }
-    }
-  }
-
-  MEM_delete(edges_visited);
-
-  ED_armature_from_edit(bmain, arm);
-  ED_armature_edit_free(arm);
-
-  return arm_ob;
-}
-
-static wmOperatorStatus skin_armature_create_exec(bContext *C, wmOperator *op)
-{
-  Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-  PointerRNA ptr = edit_modifier_ptr_get(C, RNA_SkinModifier);
-  Object *ob = edit_modifier_object_get(C, ptr);
-  Mesh *mesh = id_cast<Mesh *>(ob->data);
-  ModifierData *skin_md;
-
-  if (!CustomData_has_layer(&mesh->vert_data, CD_MVERT_SKIN)) {
-    BKE_reportf(op->reports, RPT_WARNING, "Mesh '%s' has no skin vertex data", mesh->id.name + 2);
-    return OPERATOR_CANCELLED;
-  }
-
-  /* create new armature */
-  Object *arm_ob = modifier_skin_armature_create(depsgraph, bmain, ob);
-
-  /* add a modifier to connect the new armature to the mesh */
-  ArmatureModifierData *arm_md = reinterpret_cast<ArmatureModifierData *>(
-      BKE_modifier_new(eModifierType_Armature));
-  if (arm_md) {
-    skin_md = edit_modifier_property_get(op, ob, eModifierType_Skin);
-    BLI_insertlinkafter(&ob->modifiers, skin_md, arm_md);
-    BKE_modifier_unique_name(&ob->modifiers, &arm_md->modifier);
-    BKE_modifiers_persistent_uid_init(*ob, arm_md->modifier);
-
-    arm_md->object = arm_ob;
-    arm_md->deformflag = ARM_DEF_VGROUP | ARM_DEF_QUATERNION;
-    DEG_relations_tag_update(bmain);
-    DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
-  }
-
-  WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
-
-  return OPERATOR_FINISHED;
-}
-
-static wmOperatorStatus skin_armature_create_invoke(bContext *C,
-                                                    wmOperator *op,
-                                                    const wmEvent * /*event*/)
-{
-  if (edit_modifier_invoke_properties(C, op)) {
-    return skin_armature_create_exec(C, op);
-  }
-  return OPERATOR_CANCELLED;
-}
-
-void OBJECT_OT_skin_armature_create(wmOperatorType *ot)
-{
-  ot->name = "Skin Armature Create";
-  ot->description = "Create an armature that parallels the skin layout";
-  ot->idname = "OBJECT_OT_skin_armature_create";
-
-  ot->poll = skin_poll;
-  ot->invoke = skin_armature_create_invoke;
-  ot->exec = skin_armature_create_exec;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
-  edit_modifier_properties(ot);
-}
-
 /** \} */
 
 /* ------------------------------------------------------------------- */
@@ -2832,7 +2647,7 @@ void OBJECT_OT_correctivesmooth_bind(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Corrective Smooth Bind";
-  ot->description = "Bind base pose in Corrective Smooth modifier";
+  ot->description = "Bind the base geometry in the Corrective Smooth modifier";
   ot->idname = "OBJECT_OT_correctivesmooth_bind";
 
   /* API callbacks. */

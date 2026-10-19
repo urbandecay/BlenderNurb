@@ -20,7 +20,6 @@
 /* allow readfile to use deprecated functionality */
 #define DNA_DEPRECATED_ALLOW
 
-#include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
@@ -56,7 +55,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_constraint.h"
 #include "BKE_customdata.hh"
 #include "BKE_deform.hh"
@@ -108,47 +106,6 @@ static void vcol_to_fcol(Mesh *mesh)
 
   MEM_delete(mesh->mcol);
   mesh->mcol = reinterpret_cast<MCol *>(mcolmain);
-}
-
-static void do_version_bone_head_tail_237(Bone *bone)
-{
-  float vec[3];
-
-  /* head */
-  copy_v3_v3(bone->arm_head, bone->arm_mat[3]);
-
-  /* tail is in current local coord system */
-  copy_v3_v3(vec, bone->arm_mat[1]);
-  mul_v3_fl(vec, bone->length);
-  add_v3_v3v3(bone->arm_tail, bone->arm_head, vec);
-
-  for (Bone &child : bone->childbase) {
-    do_version_bone_head_tail_237(&child);
-  }
-}
-
-static void bone_version_238(ListBaseT<Bone> *lb)
-{
-  for (Bone &bone : *lb) {
-    if (bone.rad_tail == 0.0f && bone.rad_head == 0.0f) {
-      bone.rad_head = 0.25f * bone.length;
-      bone.rad_tail = 0.1f * bone.length;
-
-      bone.dist -= bone.rad_head;
-      bone.dist = std::max(bone.dist, 0.0f);
-    }
-    bone_version_238(&bone.childbase);
-  }
-}
-
-static void bone_version_239(ListBaseT<Bone> *lb)
-{
-  for (Bone &bone : *lb) {
-    if (bone.layer == 0) {
-      bone.layer = 1;
-    }
-    bone_version_239(&bone.childbase);
-  }
 }
 
 static void ntree_version_241(bNodeTree *ntree)
@@ -404,20 +361,6 @@ static void do_version_free_effects_245(ListBaseT<Effect> *lb)
 {
   while (Effect *eff = static_cast<Effect *>(BLI_pophead(lb))) {
     do_version_free_effect_245(eff);
-  }
-}
-
-static void do_version_constraints_245(ListBaseT<bConstraint> *lb)
-{
-  for (bConstraint &con : *lb) {
-    if (con.type == CONSTRAINT_TYPE_LOCLIKE) {
-      bLocateLikeConstraint *data = static_cast<bLocateLikeConstraint *>(con.data);
-
-      /* new headtail functionality makes Bone-Tip function obsolete */
-      if (data->flag & LOCLIKE_TIP) {
-        con.headtail = 1.0f;
-      }
-    }
   }
 }
 
@@ -889,19 +832,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         }
       }
 
-      if (ob->type == OB_ARMATURE) {
-        if (ob->pose) {
-          for (bPoseChannel &pchan : ob->pose->chanbase) {
-            for (bConstraint &curcon : pchan.constraints) {
-              if (curcon.type == CONSTRAINT_TYPE_TRACKTO) {
-                bTrackToConstraint *data = static_cast<bTrackToConstraint *>(curcon.data);
-                data->reserved1 = eTrackToAxis_Modes(ob->trackflag);
-                data->reserved2 = eUpAxis_Modes(ob->upflag);
-              }
-            }
-          }
-        }
-      }
 
       /* Change Ob->Track in real TrackTo constraint */
       blo_do_version_old_trackto_to_constraints(ob);
@@ -958,19 +888,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         }
       }
 
-      if (ob->type == OB_ARMATURE) {
-        if (ob->pose) {
-          for (bPoseChannel &pchan : ob->pose->chanbase) {
-            for (bConstraint &curcon : pchan.constraints) {
-              if (curcon.type == CONSTRAINT_TYPE_TRACKTO) {
-                bTrackToConstraint *data = static_cast<bTrackToConstraint *>(curcon.data);
-                data->reserved1 = eTrackToAxis_Modes(ob->trackflag);
-                data->reserved2 = eUpAxis_Modes(ob->upflag);
-              }
-            }
-          }
-        }
-      }
 
       ob = static_cast<Object *>(ob->id.next);
     }
@@ -1236,19 +1153,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
   }
 
   if (bmain->versionfile <= 237) {
-    bArmature *arm;
     Object *ob;
-
-    /* armature recode checks */
-    for (arm = static_cast<bArmature *>(bmain->armatures.first); arm;
-         arm = static_cast<bArmature *>(arm->id.next))
-    {
-      BKE_armature_where_is(arm);
-
-      for (Bone &bone : arm->bonebase) {
-        do_version_bone_head_tail_237(&bone);
-      }
-    }
     for (ob = static_cast<Object *>(bmain->objects.first); ob;
          ob = static_cast<Object *>(ob->id.next))
     {
@@ -1260,24 +1165,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         }
       }
 
-      /* NOTE: #BKE_pose_rebuild is further only called on leave edit-mode. */
-      if (ob->type == OB_ARMATURE) {
-        if (ob->pose) {
-          BKE_pose_tag_recalc(bmain, ob->pose);
-        }
-
-        /* Cannot call stuff now (pointers!), done in #setup_app_data. */
-        ob->id.recalc |= ID_RECALC_ALL;
-
-        /* New generic X-ray option. */
-        arm = static_cast<bArmature *>(
-            blo_do_versions_newlibadr(fd, &ob->id, ID_IS_LINKED(ob), ob->data));
-        enum { ARM_DRAWXRAY = (1 << 1) };
-        if (arm->flag & eArmature_Flag(ARM_DRAWXRAY)) {
-          ob->dtx |= OB_DRAW_IN_FRONT;
-        }
-      }
-      else if (ob->type == OB_MESH) {
+      if (ob->type == OB_MESH) {
         Mesh *mesh = static_cast<Mesh *>(
             blo_do_versions_newlibadr(fd, &ob->id, ID_IS_LINKED(ob), ob->data));
 
@@ -1332,7 +1220,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
   if (bmain->versionfile <= 238) {
     Lattice *lt;
     Object *ob;
-    bArmature *arm;
     Mesh *mesh;
     Key *key;
     Scene *sce = static_cast<Scene *>(bmain->scenes.first);
@@ -1386,30 +1273,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         ob->softflag &= ~OB_SB_ENABLE;
       }
 
-      if (ob->pose) {
-        for (bPoseChannel &pchan : ob->pose->chanbase) {
-          if (pchan.limitmin[0] == 0.0f && pchan.limitmax[0] == 0.0f) {
-            pchan.limitmin[0] = pchan.limitmin[1] = pchan.limitmin[2] = -180.0f;
-            pchan.limitmax[0] = pchan.limitmax[1] = pchan.limitmax[2] = 180.0f;
-
-            for (bConstraint &con : pchan.constraints) {
-              if (con.type == CONSTRAINT_TYPE_KINEMATIC) {
-                bKinematicConstraint *data = static_cast<bKinematicConstraint *>(con.data);
-                data->weight = 1.0f;
-                data->orientweight = 1.0f;
-                data->flag &= ~CONSTRAINT_IK_ROT;
-
-                /* enforce conversion from old IK_TOPARENT to rootbone index */
-                data->rootbone = -1;
-
-                /* update_pose_etc handles rootbone == -1 */
-                BKE_pose_tag_recalc(bmain, ob->pose);
-              }
-            }
-          }
-        }
-      }
-
       paf = BKE_object_do_version_give_parteff_245(ob);
       if (paf) {
         if (paf->disp == 0) {
@@ -1422,13 +1285,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
           paf->omat = 1;
         }
       }
-    }
-
-    for (arm = static_cast<bArmature *>(bmain->armatures.first); arm;
-         arm = static_cast<bArmature *>(arm->id.next))
-    {
-      bone_version_238(&arm->bonebase);
-      arm->deformflag |= ARM_DEF_VGROUP;
     }
 
     for (mesh = static_cast<Mesh *>(bmain->meshes.first); mesh;
@@ -1464,38 +1320,9 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
   }
 
   if (bmain->versionfile <= 239) {
-    bArmature *arm;
-    Object *ob;
     Scene *sce = static_cast<Scene *>(bmain->scenes.first);
     Camera *cam = static_cast<Camera *>(bmain->cameras.first);
     int set_passepartout = 0;
-
-    /* deformflag is local in modifier now */
-    for (ob = static_cast<Object *>(bmain->objects.first); ob;
-         ob = static_cast<Object *>(ob->id.next))
-    {
-      for (ModifierData &md : ob->modifiers) {
-        if (md.type == eModifierType_Armature) {
-          ArmatureModifierData *amd = reinterpret_cast<ArmatureModifierData *>(&md);
-          if (amd->object && amd->deformflag == 0) {
-            Object *oba = static_cast<Object *>(
-                blo_do_versions_newlibadr(fd, &ob->id, ID_IS_LINKED(ob), amd->object));
-            arm = static_cast<bArmature *>(
-                blo_do_versions_newlibadr(fd, &oba->id, ID_IS_LINKED(oba), oba->data));
-            amd->deformflag = arm->deformflag;
-          }
-        }
-      }
-    }
-
-    for (arm = static_cast<bArmature *>(bmain->armatures.first); arm;
-         arm = static_cast<bArmature *>(arm->id.next))
-    {
-      bone_version_239(&arm->bonebase);
-      if (arm->layer == 0) {
-        arm->layer = 1;
-      }
-    }
 
     for (; sce; sce = static_cast<Scene *>(sce->id.next)) {
       if (sce->r.scemode & R_PASSEPARTOUT) {
@@ -1524,18 +1351,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
   if (bmain->versionfile <= 241) {
     Object *ob;
     Scene *sce;
-    bArmature *arm;
     bNodeTree *ntree;
-
-    /* updating layers still */
-    for (arm = static_cast<bArmature *>(bmain->armatures.first); arm;
-         arm = static_cast<bArmature *>(arm->id.next))
-    {
-      bone_version_239(&arm->bonebase);
-      if (arm->layer == 0) {
-        arm->layer = 1;
-      }
-    }
     for (sce = static_cast<Scene *>(bmain->scenes.first); sce;
          sce = static_cast<Scene *>(sce->id.next))
     {
@@ -1571,16 +1387,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
          ntree = static_cast<bNodeTree *>(ntree->id.next))
     {
       ntree_version_241(ntree);
-    }
-
-    /* for empty drawsize and drawtype */
-    for (ob = static_cast<Object *>(bmain->objects.first); ob;
-         ob = static_cast<Object *>(ob->id.next))
-    {
-      if (ob->empty_drawsize == 0.0f) {
-        ob->empty_drawtype = OB_ARROWS;
-        ob->empty_drawsize = 1.0;
-      }
     }
 
     /* during 2.41 images with this name were used for viewer node output, lets fix that */
@@ -1700,36 +1506,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
           }
           default:
             break;
-        }
-      }
-
-      if (ob->type == OB_ARMATURE) {
-        if (ob->pose) {
-          for (bPoseChannel &pchan : ob->pose->chanbase) {
-            for (bConstraint &curcon : pchan.constraints) {
-              switch (curcon.type) {
-                case CONSTRAINT_TYPE_KINEMATIC: {
-                  bKinematicConstraint *data = static_cast<bKinematicConstraint *>(curcon.data);
-                  if (!(data->flag & CONSTRAINT_IK_POS)) {
-                    data->flag |= CONSTRAINT_IK_POS;
-                    data->flag |= CONSTRAINT_IK_STRETCH;
-                  }
-                  break;
-                }
-                case CONSTRAINT_TYPE_ROTLIKE: {
-                  bRotateLikeConstraint *data = static_cast<bRotateLikeConstraint *>(curcon.data);
-
-                  /* version patch from buttons_object.c */
-                  if (data->flag == 0) {
-                    data->flag = ROTLIKE_X | ROTLIKE_Y | ROTLIKE_Z;
-                  }
-                  break;
-                }
-                default:
-                  break;
-              }
-            }
-          }
         }
       }
 
@@ -1952,37 +1728,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         /* correctly initialize constinv matrix */
         unit_m4(ob->constinv);
 
-        if (ob->type == OB_ARMATURE) {
-          if (ob->pose) {
-            for (bPoseChannel &pchan : ob->pose->chanbase) {
-              /* make sure constraints are all up to date */
-              for (bConstraint &curcon : pchan.constraints) {
-                /* old CONSTRAINT_LOCAL check -> convert to CONSTRAINT_SPACE_LOCAL */
-                if (curcon.flag & 0x20) {
-                  curcon.ownspace = CONSTRAINT_SPACE_LOCAL;
-                  curcon.tarspace = CONSTRAINT_SPACE_LOCAL;
-                }
-
-                switch (curcon.type) {
-                  case CONSTRAINT_TYPE_ACTION: {
-                    bActionConstraint *data = static_cast<bActionConstraint *>(curcon.data);
-
-                    /* 'data->local' used to mean that target was in local-space */
-                    if (data->local) {
-                      curcon.tarspace = CONSTRAINT_SPACE_LOCAL;
-                    }
-                    break;
-                  }
-                  default:
-                    break;
-                }
-              }
-
-              /* correctly initialize constinv matrix */
-              unit_m4(pchan.constinv);
-            }
-          }
-        }
       }
     }
 
@@ -2102,27 +1847,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 245, 4)) {
-    bArmature *arm;
-    Object *ob;
-
-    for (arm = static_cast<bArmature *>(bmain->armatures.first); arm;
-         arm = static_cast<bArmature *>(arm->id.next))
-    {
-      arm->deformflag |= ARM_DEF_B_BONE_REST;
-    }
-
-    for (ob = static_cast<Object *>(bmain->objects.first); ob;
-         ob = static_cast<Object *>(ob->id.next))
-    {
-      for (ModifierData &md : ob->modifiers) {
-        if (md.type == eModifierType_Armature) {
-          (reinterpret_cast<ArmatureModifierData *>(&md))->deformflag |= ARM_DEF_B_BONE_REST;
-        }
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 245, 5)) {
     /* foreground color needs to be something other than black */
     Scene *sce;
@@ -2153,13 +1877,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     for (ob = static_cast<Object *>(bmain->objects.first); ob;
          ob = static_cast<Object *>(ob->id.next))
     {
-      if (ob->pose) {
-        for (bPoseChannel &pchan : ob->pose->chanbase) {
-          do_version_constraints_245(&pchan.constraints);
-        }
-      }
-      do_version_constraints_245(&ob->constraints);
-
       if (ob->soft && ob->soft->keys) {
         SoftBody *sb = ob->soft;
         int k;
@@ -2395,7 +2112,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     idproperties_fix_group_lengths(bmain->texts);
     idproperties_fix_group_lengths(bmain->sounds);
     idproperties_fix_group_lengths(bmain->collections);
-    idproperties_fix_group_lengths(bmain->armatures);
     idproperties_fix_group_lengths(bmain->actions);
     idproperties_fix_group_lengths(bmain->nodetrees);
     idproperties_fix_group_lengths(bmain->brushes);

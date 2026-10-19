@@ -158,11 +158,12 @@ class BlenderAnimation():
         """Restores the actions for an animation by its track name."""
         for vnode_id in gltf.vnodes:
             vnode = gltf.vnodes[vnode_id]
-            if vnode.type == VNode.Bone:
-                obj = gltf.vnodes[vnode.bone_arma].blender_object
-            elif vnode.type == VNode.Object:
+            if vnode.type == VNode.Object:
                 obj = vnode.blender_object
             else:
+                continue
+
+            if obj is None:
                 continue
 
             restore_animation_on_object(obj, animation_name)

@@ -29,7 +29,6 @@
 
 #include "BKE_action.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_constraint.h"
 #include "BKE_fcurve_driver.h"
 #include "BKE_global.hh"
@@ -442,28 +441,15 @@ static float dvar_eval_rotDiff(const AnimationEvalContext * /*anim_eval_context*
     /* Get pointer to loc values to store in. */
     DriverTarget *dtar = &dvar->targets[i];
     Object *ob = id_cast<Object *>(dtar->id);
-    bPoseChannel *pchan;
 
     /* After the checks above, the targets should be valid here. */
     BLI_assert((ob != nullptr) && (GS(ob->id.name) == ID_OB));
-
-    /* Try to get pose-channel. */
-    pchan = BKE_pose_channel_find_name(ob->pose, dtar->pchan_name);
-
-    /* Check if object or bone. */
-    if (pchan) {
-      /* Bone. */
-      mat[i] = pchan->pose_mat;
-    }
-    else {
-      /* Object. */
-      mat[i] = ob->object_to_world().ptr();
-    }
+    mat[i] = ob->object_to_world().ptr();
   }
 
   float q1[4], q2[4], quat[4], angle;
 
-  /* Use the final posed locations. */
+  /* Use the final object locations. */
   mat4_to_quat(q1, mat[0]);
   mat4_to_quat(q2, mat[1]);
 
@@ -505,65 +491,32 @@ static float dvar_eval_locDiff(const AnimationEvalContext * /*anim_eval_context*
   DRIVER_TARGETS_USED_LOOPER_BEGIN (dvar) {
     /* Get pointer to loc values to store in. */
     Object *ob = id_cast<Object *>(dtar->id);
-    bPoseChannel *pchan;
     float tmp_loc[3];
 
     /* After the checks above, the targets should be valid here. */
     BLI_assert((ob != nullptr) && (GS(ob->id.name) == ID_OB));
 
-    /* Try to get pose-channel. */
-    pchan = BKE_pose_channel_find_name(ob->pose, dtar->pchan_name);
+    if (dtar->flag & DTAR_FLAG_LOCALSPACE) {
+      if (dtar->flag & DTAR_FLAG_LOCAL_CONSTS) {
+        /* XXX: this should practically be the same as transform space. */
+        float mat[4][4];
 
-    /* Check if object or bone. */
-    if (pchan) {
-      /* Bone. */
-      if (dtar->flag & DTAR_FLAG_LOCALSPACE) {
-        if (dtar->flag & DTAR_FLAG_LOCAL_CONSTS) {
-          float mat[4][4];
+        /* Extract transform just like how the constraints do it! */
+        copy_m4_m4(mat, ob->object_to_world().ptr());
+        BKE_constraint_mat_convertspace(
+            ob, nullptr, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL, false);
 
-          /* Extract transform just like how the constraints do it! */
-          copy_m4_m4(mat, pchan->pose_mat);
-          BKE_constraint_mat_convertspace(
-              ob, pchan, nullptr, mat, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_LOCAL, false);
-
-          /* ... and from that, we get our transform. */
-          copy_v3_v3(tmp_loc, mat[3]);
-        }
-        else {
-          /* Transform space (use transform values directly). */
-          copy_v3_v3(tmp_loc, pchan->loc);
-        }
+        /* ... and from that, we get our transform. */
+        copy_v3_v3(tmp_loc, mat[3]);
       }
       else {
-        /* Convert to world-space. */
-        copy_v3_v3(tmp_loc, pchan->pose_head);
-        mul_m4_v3(ob->object_to_world().ptr(), tmp_loc);
+        /* Transform space (use transform values directly). */
+        copy_v3_v3(tmp_loc, ob->loc);
       }
     }
     else {
-      /* Object. */
-      if (dtar->flag & DTAR_FLAG_LOCALSPACE) {
-        if (dtar->flag & DTAR_FLAG_LOCAL_CONSTS) {
-          /* XXX: this should practically be the same as transform space. */
-          float mat[4][4];
-
-          /* Extract transform just like how the constraints do it! */
-          copy_m4_m4(mat, ob->object_to_world().ptr());
-          BKE_constraint_mat_convertspace(
-              ob, nullptr, nullptr, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL, false);
-
-          /* ... and from that, we get our transform. */
-          copy_v3_v3(tmp_loc, mat[3]);
-        }
-        else {
-          /* Transform space (use transform values directly). */
-          copy_v3_v3(tmp_loc, ob->loc);
-        }
-      }
-      else {
-        /* World-space. */
-        copy_v3_v3(tmp_loc, ob->object_to_world().location());
-      }
+      /* World-space. */
+      copy_v3_v3(tmp_loc, ob->object_to_world().location());
     }
 
     /* Copy the location to the right place. */
@@ -590,7 +543,6 @@ static float dvar_eval_transChan(const AnimationEvalContext * /*anim_eval_contex
 {
   DriverTarget *dtar = &dvar->targets[0];
   Object *ob = id_cast<Object *>(dtar->id);
-  bPoseChannel *pchan;
   float mat[4][4];
   float oldEul[3] = {0.0f, 0.0f, 0.0f};
   bool use_eulers = false;
@@ -604,74 +556,36 @@ static float dvar_eval_transChan(const AnimationEvalContext * /*anim_eval_contex
     return 0.0f;
   }
 
-  /* Try to get pose-channel. */
-  pchan = BKE_pose_channel_find_name(ob->pose, dtar->pchan_name);
-  if (dtar->pchan_name[0] != '\0' && !pchan) {
-    driver->flag |= DRIVER_FLAG_INVALID;
-    dtar->flag |= DTAR_FLAG_INVALID;
-    return 0.0f;
-  }
-
   /* Target should be valid now. */
   dtar->flag &= ~DTAR_FLAG_INVALID;
 
-  /* Check if object or bone, and get transform matrix accordingly:
+  /* Get the transform matrix:
    * - "use_eulers" code is used to prevent the problems associated with non-uniqueness
    *   of euler decomposition from matrices #20870.
    * - "local-space" is for #21384, where parent results are not wanted
-   *   but #DTAR_FLAG_LOCAL_CONSTS is for all the common "corrective-shapes-for-limbs" situations.
+   *   but #DTAR_FLAG_LOCAL_CONSTS includes constraints in the local transform.
    */
-  if (pchan) {
-    /* Bone. */
-    if (pchan->rotmode > 0) {
-      copy_v3_v3(oldEul, pchan->eul);
-      rot_order = pchan->rotmode;
-      use_eulers = true;
-    }
+  if (ob->rotmode > 0) {
+    copy_v3_v3(oldEul, ob->rot);
+    rot_order = ob->rotmode;
+    use_eulers = true;
+  }
 
-    if (dtar->flag & DTAR_FLAG_LOCALSPACE) {
-      if (dtar->flag & DTAR_FLAG_LOCAL_CONSTS) {
-        /* Just like how the constraints do it! */
-        copy_m4_m4(mat, pchan->pose_mat);
-        BKE_constraint_mat_convertspace(
-            ob, pchan, nullptr, mat, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_LOCAL, false);
-      }
-      else {
-        /* Specially calculate local matrix, since chan_mat is not valid
-         * since it stores delta transform of pose_mat so that deforms work
-         * so it cannot be used here for "transform" space. */
-        BKE_pchan_to_mat4({pchan, pchan->bone_get(*ob)}, mat);
-      }
+  if (dtar->flag & DTAR_FLAG_LOCALSPACE) {
+    if (dtar->flag & DTAR_FLAG_LOCAL_CONSTS) {
+      /* Just like how the constraints do it! */
+      copy_m4_m4(mat, ob->object_to_world().ptr());
+      BKE_constraint_mat_convertspace(
+          ob, nullptr, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL, false);
     }
     else {
-      /* World-space matrix. */
-      mul_m4_m4m4(mat, ob->object_to_world().ptr(), pchan->pose_mat);
+      /* Transforms to matrix. */
+      BKE_object_to_mat4(ob, mat);
     }
   }
   else {
-    /* Object. */
-    if (ob->rotmode > 0) {
-      copy_v3_v3(oldEul, ob->rot);
-      rot_order = ob->rotmode;
-      use_eulers = true;
-    }
-
-    if (dtar->flag & DTAR_FLAG_LOCALSPACE) {
-      if (dtar->flag & DTAR_FLAG_LOCAL_CONSTS) {
-        /* Just like how the constraints do it! */
-        copy_m4_m4(mat, ob->object_to_world().ptr());
-        BKE_constraint_mat_convertspace(
-            ob, nullptr, nullptr, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL, false);
-      }
-      else {
-        /* Transforms to matrix. */
-        BKE_object_to_mat4(ob, mat);
-      }
-    }
-    else {
-      /* World-space matrix - just the good-old one. */
-      copy_m4_m4(mat, ob->object_to_world().ptr());
-    }
+    /* World-space matrix - just the good-old one. */
+    copy_m4_m4(mat, ob->object_to_world().ptr());
   }
 
   /* Check which transform. */
@@ -813,22 +727,20 @@ static DriverVarTypeInfo dvar_types[MAX_DVAR_TYPES] = {
 
     BEGIN_DVAR_TYPEDEF(DVAR_TYPE_ROT_DIFF) dvar_eval_rotDiff, /* Eval callback. */
     2,                                                        /* Number of targets used. */
-    {"Object/Bone 1", "Object/Bone 2"},                       /* UI names for targets */
-    {DTAR_FLAG_STRUCT_REF | DTAR_FLAG_ID_OB_ONLY,
-     DTAR_FLAG_STRUCT_REF | DTAR_FLAG_ID_OB_ONLY} /* Flags. */
+    {"Object 1", "Object 2"},                                 /* UI names for targets */
+    {DTAR_FLAG_ID_OB_ONLY, DTAR_FLAG_ID_OB_ONLY} /* Flags. */
     END_DVAR_TYPEDEF,
 
     BEGIN_DVAR_TYPEDEF(DVAR_TYPE_LOC_DIFF) dvar_eval_locDiff, /* Eval callback. */
     2,                                                        /* Number of targets used. */
-    {"Object/Bone 1", "Object/Bone 2"},                       /* UI names for targets */
-    {DTAR_FLAG_STRUCT_REF | DTAR_FLAG_ID_OB_ONLY,
-     DTAR_FLAG_STRUCT_REF | DTAR_FLAG_ID_OB_ONLY} /* Flags. */
+    {"Object 1", "Object 2"},                                 /* UI names for targets */
+    {DTAR_FLAG_ID_OB_ONLY, DTAR_FLAG_ID_OB_ONLY} /* Flags. */
     END_DVAR_TYPEDEF,
 
     BEGIN_DVAR_TYPEDEF(DVAR_TYPE_TRANSFORM_CHAN) dvar_eval_transChan, /* Eval callback. */
     1,                                                                /* Number of targets used. */
-    {"Object/Bone"},                                                  /* UI names for targets */
-    {DTAR_FLAG_STRUCT_REF | DTAR_FLAG_ID_OB_ONLY}                     /* Flags. */
+    {"Object"},                                                       /* UI names for targets */
+    {DTAR_FLAG_ID_OB_ONLY}                                            /* Flags. */
     END_DVAR_TYPEDEF,
 
     BEGIN_DVAR_TYPEDEF(DVAR_TYPE_CONTEXT_PROP) dvar_eval_contextProp, /* Eval callback. */

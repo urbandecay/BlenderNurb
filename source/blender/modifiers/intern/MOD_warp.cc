@@ -21,12 +21,13 @@
 #include "DNA_screen_types.h"
 #include "DNA_texture_types.h"
 
-#include "BKE_action.hh" /* BKE_pose_channel_find_name */
 #include "BKE_colortools.hh"
 #include "BKE_deform.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_modifier.hh"
 #include "BKE_texture.h"
+
+#include "DEG_depsgraph_build.hh"
 
 #include "UI_interface.hh"
 #include "UI_interface_layout.hh"
@@ -77,22 +78,6 @@ static void required_data_mask(ModifierData *md, CustomData_MeshMasks *r_cddata_
   }
 }
 
-static void matrix_from_obj_pchan(float mat[4][4],
-                                  const float obinv[4][4],
-                                  Object *ob,
-                                  const char *bonename)
-{
-  bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, bonename);
-  if (pchan) {
-    float mat_bone_world[4][4];
-    mul_m4_m4m4(mat_bone_world, ob->object_to_world().ptr(), pchan->pose_mat);
-    mul_m4_m4m4(mat, obinv, mat_bone_world);
-  }
-  else {
-    mul_m4_m4m4(mat, obinv, ob->object_to_world().ptr());
-  }
-}
-
 static bool depends_on_time(Scene * /*scene*/, ModifierData *md)
 {
   WarpModifierData *wmd = reinterpret_cast<WarpModifierData *>(md);
@@ -140,10 +125,9 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
   bool need_transform_relation = false;
 
   if (wmd->object_from != nullptr && wmd->object_to != nullptr) {
-    MOD_depsgraph_update_object_bone_relation(
-        ctx->node, wmd->object_from, wmd->bone_from, "Warp Modifier");
-    MOD_depsgraph_update_object_bone_relation(
-        ctx->node, wmd->object_to, wmd->bone_to, "Warp Modifier");
+    DEG_add_object_relation(
+        ctx->node, wmd->object_from, DEG_OB_COMP_TRANSFORM, "Warp Modifier");
+    DEG_add_object_relation(ctx->node, wmd->object_to, DEG_OB_COMP_TRANSFORM, "Warp Modifier");
     need_transform_relation = true;
   }
 
@@ -151,8 +135,7 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
     DEG_add_generic_id_relation(ctx->node, &wmd->texture->id, "Warp Modifier");
 
     if ((wmd->texmapping == MOD_DISP_MAP_OBJECT) && wmd->map_object != nullptr) {
-      MOD_depsgraph_update_object_bone_relation(
-          ctx->node, wmd->map_object, wmd->map_bone, "Warp Modifier");
+      DEG_add_object_relation(ctx->node, wmd->map_object, DEG_OB_COMP_TRANSFORM, "Warp Modifier");
       need_transform_relation = true;
     }
     else if (wmd->texmapping == MOD_DISP_MAP_GLOBAL) {
@@ -209,9 +192,9 @@ static void warpModifier_do(WarpModifierData *wmd,
 
   invert_m4_m4(obinv, ob->object_to_world().ptr());
 
-  /* Checks that the objects/bones are available. */
-  matrix_from_obj_pchan(mat_from, obinv, wmd->object_from, wmd->bone_from);
-  matrix_from_obj_pchan(mat_to, obinv, wmd->object_to, wmd->bone_to);
+  /* The object transforms provide the source and target mapping. */
+  mul_m4_m4m4(mat_from, obinv, wmd->object_from->object_to_world().ptr());
+  mul_m4_m4m4(mat_to, obinv, wmd->object_to->object_to_world().ptr());
 
   invert_m4_m4(tmat, mat_from);  // swap?
   mul_m4_m4m4(mat_final, tmat, mat_to);
@@ -349,21 +332,9 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
 
   ui::Layout *col = &layout.column(true);
   col->prop(ptr, "object_from", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  PointerRNA from_obj_ptr = RNA_pointer_get(ptr, "object_from");
-  if (!RNA_pointer_is_null(&from_obj_ptr) && RNA_enum_get(&from_obj_ptr, "type") == OB_ARMATURE) {
-
-    PointerRNA from_obj_data_ptr = RNA_pointer_get(&from_obj_ptr, "data");
-    col->prop_search(
-        ptr, "bone_from", &from_obj_data_ptr, "bones", IFACE_("Bone"), ICON_BONE_DATA);
-  }
 
   col = &layout.column(true);
   col->prop(ptr, "object_to", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  PointerRNA to_obj_ptr = RNA_pointer_get(ptr, "object_to");
-  if (!RNA_pointer_is_null(&to_obj_ptr) && RNA_enum_get(&to_obj_ptr, "type") == OB_ARMATURE) {
-    PointerRNA to_obj_data_ptr = RNA_pointer_get(&to_obj_ptr, "data");
-    col->prop_search(ptr, "bone_to", &to_obj_data_ptr, "bones", IFACE_("Bone"), ICON_BONE_DATA);
-  }
 
   layout.prop(ptr, "use_volume_preserve", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
@@ -412,18 +383,6 @@ static void texture_panel_draw(const bContext *C, Panel *panel)
   col.prop(ptr, "texture_coords", UI_ITEM_NONE, IFACE_("Coordinates"), ICON_NONE);
   if (texture_coords == MOD_DISP_MAP_OBJECT) {
     col.prop(ptr, "texture_coords_object", UI_ITEM_NONE, IFACE_("Object"), ICON_NONE);
-    PointerRNA texture_coords_obj_ptr = RNA_pointer_get(ptr, "texture_coords_object");
-    if (!RNA_pointer_is_null(&texture_coords_obj_ptr) &&
-        (RNA_enum_get(&texture_coords_obj_ptr, "type") == OB_ARMATURE))
-    {
-      PointerRNA texture_coords_obj_data_ptr = RNA_pointer_get(&texture_coords_obj_ptr, "data");
-      col.prop_search(ptr,
-                      "texture_coords_bone",
-                      &texture_coords_obj_data_ptr,
-                      "bones",
-                      IFACE_("Bone"),
-                      ICON_NONE);
-    }
   }
   else if (texture_coords == MOD_DISP_MAP_UV && RNA_enum_get(&ob_ptr, "type") == OB_MESH) {
     PointerRNA obj_data_ptr = RNA_pointer_get(&ob_ptr, "data");

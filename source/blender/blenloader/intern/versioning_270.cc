@@ -17,7 +17,6 @@
 #define DNA_GENFILE_VERSIONING_MACROS
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_cloth_types.h"
@@ -186,16 +185,6 @@ static void do_version_action_editor_properties_region(ListBaseT<ARegion> *regio
   }
 }
 
-static void do_version_bones_super_bbone(ListBaseT<Bone> *lb)
-{
-  for (Bone &bone : *lb) {
-    bone.scale_in_x = bone.scale_in_z = 1.0f;
-    bone.scale_out_x = bone.scale_out_z = 1.0f;
-
-    do_version_bones_super_bbone(&bone.childbase);
-  }
-}
-
 /* TODO(sergey): Consider making it somewhat more generic function in BLI_anim.h. */
 static void anim_change_prop_name(FCurve *fcu,
                                   const char *prefix,
@@ -343,65 +332,6 @@ static void do_versions_compositor_render_passes(bNodeTree *ntree)
   }
 }
 
-static char *replace_bbone_easing_rnapath(char *old_path)
-{
-  char *new_path = nullptr;
-
-  /* NOTE: This will break paths for any bones/custom-properties
-   * which happen be named after the bbone property id's
-   */
-  if (strstr(old_path, "bbone_in")) {
-    new_path = BLI_string_replaceN(old_path, "bbone_in", "bbone_easein");
-  }
-  else if (strstr(old_path, "bbone_out")) {
-    new_path = BLI_string_replaceN(old_path, "bbone_out", "bbone_easeout");
-  }
-
-  if (new_path) {
-    MEM_delete(old_path);
-    return new_path;
-  }
-
-  return old_path;
-}
-
-static void do_version_bbone_easing_fcurve_fix(ID * /*id*/, FCurve *fcu)
-{
-  /* F-Curve's path (for bbone_in/out) */
-  if (fcu->rna_path) {
-    fcu->rna_path = replace_bbone_easing_rnapath(fcu->rna_path);
-  }
-
-  /* Driver -> Driver Vars (for bbone_in/out) */
-  if (fcu->driver) {
-    for (DriverVar &dvar : fcu->driver->variables) {
-      DRIVER_TARGETS_LOOPER_BEGIN (&dvar) {
-        if (dtar->rna_path) {
-          dtar->rna_path = replace_bbone_easing_rnapath(dtar->rna_path);
-        }
-      }
-      DRIVER_TARGETS_LOOPER_END;
-    }
-  }
-
-  /* FModifiers -> Stepped (for frame_start/end) */
-  if (fcu->modifiers.first) {
-    for (FModifier &fcm : fcu->modifiers) {
-      if (fcm.type == FMODIFIER_TYPE_STEPPED) {
-        FMod_Stepped *data = static_cast<FMod_Stepped *>(fcm.data);
-
-        /* Modifier doesn't work if the modifier's copy of start/end frame are both 0
-         * as those were only getting written to the fcm->data copy (#52009)
-         */
-        if ((fcm.sfra == fcm.efra) && (fcm.sfra == 0)) {
-          fcm.sfra = data->start_frame;
-          fcm.efra = data->end_frame;
-        }
-      }
-    }
-  }
-}
-
 static bool strip_update_proxy_cb(Strip *strip, void * /*user_data*/)
 {
   strip->stereo3d_format = MEM_new<Stereo3dFormat>("Stereo Display 3d Format");
@@ -491,13 +421,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
     /* Update Transform constraint (another deg -> rad stuff). */
     for (Object &ob : bmain->objects) {
       do_version_constraints_radians_degrees_270_1(&ob.constraints);
-
-      if (ob.pose) {
-        /* Bones constraints! */
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          do_version_constraints_radians_degrees_270_1(&pchan.constraints);
-        }
-      }
     }
   }
 
@@ -538,13 +461,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
     /* Update Transform constraint (again :|). */
     for (Object &ob : bmain->objects) {
       do_version_constraints_radians_degrees_270_5(&ob.constraints);
-
-      if (ob.pose) {
-        /* Bones constraints! */
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          do_version_constraints_radians_degrees_270_5(&pchan.constraints);
-        }
-      }
     }
   }
 
@@ -644,13 +560,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
       /* Update Transform constraint (again :|). */
       for (Object &ob : bmain->objects) {
         do_version_constraints_stretch_to_limits(&ob.constraints);
-
-        if (ob.pose) {
-          /* Bones constraints! */
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            do_version_constraints_stretch_to_limits(&pchan.constraints);
-          }
-        }
       }
     }
   }
@@ -938,16 +847,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 276, 2)) {
-    if (!DNA_struct_member_exists(fd->filesdna, "bPoseChannel", "float", "custom_scale")) {
-      for (Object &ob : bmain->objects) {
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            pchan.custom_scale = 1.0f;
-          }
-        }
-      }
-    }
-
 #define RV3D_VIEW_PERSPORTHO 7
     for (bScreen &screen : bmain->screens) {
       for (ScrArea &area : screen.areabase) {
@@ -1106,33 +1005,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 277, 2)) {
-    if (!DNA_struct_member_exists(fd->filesdna, "Bone", "float", "scale_in_x")) {
-      for (bArmature &arm : bmain->armatures) {
-        do_version_bones_super_bbone(&arm.bonebase);
-      }
-    }
-    if (!DNA_struct_member_exists(fd->filesdna, "bPoseChannel", "float", "scale_in_x")) {
-      for (Object &ob : bmain->objects) {
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            /* see do_version_bones_super_bbone()... */
-            pchan.scale_in_x = pchan.scale_in_z = 1.0f;
-            pchan.scale_out_x = pchan.scale_out_z = 1.0f;
-
-            /* also make sure some legacy (unused for over a decade) flags are unset,
-             * so that we can reuse them for stuff that matters now...
-             * (i.e. POSE_IK_MAT, (unknown/unused x 4), POSE_HAS_IK)
-             *
-             * These seem to have been runtime flags used by the IK solver, but that stuff
-             * should be able to be recalculated automatically anyway, so it should be fine.
-             */
-            pchan.flag &= ~ePchan_Flag((1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) |
-                                       (1 << 8));
-          }
-        }
-      }
-    }
-
     for (Camera &camera : bmain->cameras) {
       if (camera.stereo.pole_merge_angle_from == 0.0f && camera.stereo.pole_merge_angle_to == 0.0f)
       {
@@ -1313,18 +1185,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
           mpath->color[2] = 0.0f;
           mpath->line_thickness = 1;
           mpath->flag |= MOTIONPATH_FLAG_LINES;
-        }
-        /* bones motion path */
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            if (bMotionPath *mpath = pchan.mpath) {
-              mpath->color[0] = 1.0f;
-              mpath->color[1] = 0.0f;
-              mpath->color[2] = 0.0f;
-              mpath->line_thickness = 1;
-              mpath->flag |= MOTIONPATH_FLAG_LINES;
-            }
-          }
         }
       }
     }
@@ -1515,10 +1375,6 @@ void do_versions_after_linking_270(Main *bmain)
     FOREACH_NODETREE_END;
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 279, 2)) {
-    /* B-Bones (bbone_in/out -> bbone_easein/out) + Stepped FMod Frame Start/End fix */
-    animrig::versioning::fcurves_main_cb(bmain, do_version_bbone_easing_fcurve_fix);
-  }
 }
 
 }  // namespace blender

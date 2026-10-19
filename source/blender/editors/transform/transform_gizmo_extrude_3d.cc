@@ -151,10 +151,6 @@ static void gizmo_mesh_extrude_setup(const bContext *C, wmGizmoGroup *gzgroup)
       op_idname = "MESH_OT_extrude_context_move";
       ggd->normal_axis = 2;
     }
-    else if (obact->type == OB_ARMATURE) {
-      op_idname = "ARMATURE_OT_extrude_move";
-      ggd->normal_axis = 1;
-    }
     else if (obact->type == OB_CURVES_LEGACY) {
       op_idname = "CURVE_OT_extrude_move";
       ggd->normal_axis = 2;

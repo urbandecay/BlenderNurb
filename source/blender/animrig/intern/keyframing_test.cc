@@ -9,7 +9,6 @@
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_gtest_base.hh"
 #include "BKE_idtype.hh"
@@ -27,8 +26,7 @@
 #include "RNA_access.hh"
 #include "RNA_prototypes.hh"
 
-#include "BLI_listbase.h"
-#include "BLI_string.h"
+#include "BLI_assert.h"
 
 #include "testing/testing.h"
 
@@ -40,11 +38,6 @@ class KeyframingTest : public bke::BlenderGTestBase {
   /* For standard single-action testing. */
   Object *object;
   PointerRNA object_rna_pointer;
-
-  /* For pose bone single-action testing. */
-  Object *armature_object;
-  bArmature *armature;
-  PointerRNA armature_object_rna_pointer;
 
   /* For NLA testing. */
   Object *object_with_nla;
@@ -63,19 +56,8 @@ class KeyframingTest : public bke::BlenderGTestBase {
   {
     bmain = BKE_main_new();
 
-    object = BKE_object_add_only_object(bmain, OB_EMPTY, "Empty");
+    object = BKE_object_add_only_object(bmain, OB_NO_DATA, "NoData");
     object_rna_pointer = RNA_id_pointer_create(&object->id);
-
-    Bone *bone = MEM_new<Bone>("BONE");
-    STRNCPY(bone->name, "Bone");
-
-    armature = BKE_armature_add(bmain, "Armature");
-    BLI_addtail(&armature->bonebase, bone);
-
-    armature_object = BKE_object_add_only_object(bmain, OB_ARMATURE, "Armature");
-    armature_object->data = id_cast<ID *>(armature);
-    BKE_pose_ensure(bmain, armature_object, armature, false);
-    armature_object_rna_pointer = RNA_id_pointer_create(&armature_object->id);
 
     cube = BKE_object_add_only_object(bmain, OB_MESH, "cube");
     cube_rna_pointer = RNA_id_pointer_create(&cube->id);
@@ -91,7 +73,7 @@ class KeyframingTest : public bke::BlenderGTestBase {
     id_us_min(&material->id);
     BKE_object_material_assign(bmain, cube, material, 0, BKE_MAT_ASSIGN_OBDATA);
 
-    object_with_nla = BKE_object_add_only_object(bmain, OB_EMPTY, "EmptyWithNLA");
+    object_with_nla = BKE_object_add_only_object(bmain, OB_NO_DATA, "NoDataWithNLA");
     object_with_nla_rna_pointer = RNA_id_pointer_create(&object_with_nla->id);
     nla_action = BKE_id_new<bAction>(bmain, "NLAAction");
     /* Set up an NLA system with a single NLA track with a single offset-in-time
@@ -152,11 +134,11 @@ TEST_F(KeyframingTest, insert_keyframes__non_array_property)
    * - Infinite KeyframeStrip
    * - FCurve with a single key
    */
-  object->empty_drawsize = 42.0;
+  object->display_size = 42.0;
   const CombinedKeyingResult result_1 = insert_keyframes(bmain,
                                                          &object_rna_pointer,
                                                          std::nullopt,
-                                                         {{"empty_display_size"}},
+                                                         {{"display_size"}},
                                                          1.0,
                                                          anim_eval_context,
                                                          BEZT_KEYTYPE_KEYFRAME,
@@ -188,7 +170,7 @@ TEST_F(KeyframingTest, insert_keyframes__non_array_property)
 
   /* The fcurves in the channel bag are what we expect. */
   EXPECT_EQ(1, channelbag->fcurves().size());
-  const FCurve *fcurve = channelbag->fcurve_find({"empty_display_size", 0});
+  const FCurve *fcurve = channelbag->fcurve_find({"display_size", 0});
   ASSERT_NE(nullptr, fcurve);
   ASSERT_NE(nullptr, fcurve->bezt);
   EXPECT_EQ(1, fcurve->totvert);
@@ -197,11 +179,11 @@ TEST_F(KeyframingTest, insert_keyframes__non_array_property)
 
   /* Second time inserting with a different value on the same frame should
    * simply replace the key. */
-  object->empty_drawsize = 86.0;
+  object->display_size = 86.0;
   const CombinedKeyingResult result_2 = insert_keyframes(bmain,
                                                          &object_rna_pointer,
                                                          std::nullopt,
-                                                         {{"empty_display_size"}},
+                                                         {{"display_size"}},
                                                          1.0,
                                                          anim_eval_context,
                                                          BEZT_KEYTYPE_KEYFRAME,
@@ -212,11 +194,11 @@ TEST_F(KeyframingTest, insert_keyframes__non_array_property)
   EXPECT_EQ(86.0, fcurve->bezt[0].vec[1][1]);
 
   /* Third time inserting on a different time should add a second key. */
-  object->empty_drawsize = 7.0;
+  object->display_size = 7.0;
   const CombinedKeyingResult result_3 = insert_keyframes(bmain,
                                                          &object_rna_pointer,
                                                          std::nullopt,
-                                                         {{"empty_display_size"}},
+                                                         {{"display_size"}},
                                                          10.0,
                                                          anim_eval_context,
                                                          BEZT_KEYTYPE_KEYFRAME,
@@ -227,48 +209,6 @@ TEST_F(KeyframingTest, insert_keyframes__non_array_property)
   EXPECT_EQ(86.0, fcurve->bezt[0].vec[1][1]);
   EXPECT_EQ(10.0, fcurve->bezt[1].vec[1][0]);
   EXPECT_EQ(7.0, fcurve->bezt[1].vec[1][1]);
-}
-
-TEST_F(KeyframingTest, insert_keyframes__action_reuse)
-{
-  AnimationEvalContext anim_eval_context = {nullptr, 1.0};
-  CombinedKeyingResult result_ob;
-  result_ob = insert_keyframes(bmain,
-                               &armature_object_rna_pointer,
-                               std::nullopt,
-                               {{"location"}},
-                               10.0,
-                               anim_eval_context,
-                               BEZT_KEYTYPE_KEYFRAME,
-                               INSERTKEY_NOFLAGS);
-
-  ASSERT_EQ(result_ob.get_count(SingleKeyingResult::SUCCESS), 3);
-  ASSERT_TRUE(armature_object->adt != nullptr);
-  ASSERT_TRUE(armature_object->adt->action != nullptr);
-
-  PointerRNA armature_rna_pointer = RNA_id_pointer_create(&armature->id);
-
-  result_ob = insert_keyframes(bmain,
-                               &armature_rna_pointer,
-                               std::nullopt,
-                               {{"display_type"}},
-                               10.0,
-                               anim_eval_context,
-                               BEZT_KEYTYPE_KEYFRAME,
-                               INSERTKEY_NOFLAGS);
-  ASSERT_EQ(result_ob.get_count(SingleKeyingResult::SUCCESS), 1);
-  ASSERT_TRUE(armature->adt != nullptr);
-  ASSERT_TRUE(armature->adt->action != nullptr);
-
-  /* Action is expected to be reused between object and data. */
-  ASSERT_EQ(armature->adt->action, armature_object->adt->action);
-
-  Action &action = armature->adt->action->wrap();
-  /* Should have two slots now. */
-  ASSERT_EQ(action.slot_array_num, 2);
-  for (Slot *slot : action.slots()) {
-    ASSERT_TRUE(slot->idtype == ID_AR || slot->idtype == ID_OB);
-  }
 }
 
 TEST_F(KeyframingTest, insert_keyframes__action_reuse_material)
@@ -454,68 +394,6 @@ TEST_F(KeyframingTest, insert_keyframes__all_elements)
   EXPECT_NE(nullptr, channelbag->fcurve_find({"rotation_euler", 2}));
 }
 
-/* Keying a pose bone from its own RNA pointer. */
-TEST_F(KeyframingTest, insert_keyframes__pose_bone_rna_pointer)
-{
-  AnimationEvalContext anim_eval_context = {nullptr, 1.0};
-  bPoseChannel *pchan = BKE_pose_channel_find_name(armature_object->pose, "Bone");
-  PointerRNA pose_bone_rna_pointer = RNA_pointer_create_discrete(
-      &armature_object->id, RNA_PoseBone, pchan);
-
-  const CombinedKeyingResult result = insert_keyframes(bmain,
-                                                       &pose_bone_rna_pointer,
-                                                       std::nullopt,
-                                                       {{"rotation_euler", std::nullopt, 0}},
-                                                       1.0,
-                                                       anim_eval_context,
-                                                       BEZT_KEYTYPE_KEYFRAME,
-                                                       INSERTKEY_NOFLAGS);
-
-  EXPECT_EQ(1, result.get_count(SingleKeyingResult::SUCCESS));
-  ASSERT_NE(nullptr, armature_object->adt);
-  ASSERT_NE(nullptr, armature_object->adt->action);
-  Action &action = armature_object->adt->action->wrap();
-  ASSERT_EQ(1, action.slots().size());
-  ASSERT_EQ(1, action.layers().size());
-  ASSERT_EQ(1, action.layer(0)->strips().size());
-  StripKeyframeData *strip_data = &action.layer(0)->strip(0)->data<StripKeyframeData>(action);
-  ASSERT_EQ(1, strip_data->channelbags().size());
-  Channelbag *channelbag = strip_data->channelbag(0);
-
-  EXPECT_EQ(1, channelbag->fcurves().size());
-  EXPECT_NE(nullptr, channelbag->fcurve_find({"pose.bones[\"Bone\"].rotation_euler", 0}));
-}
-
-/* Keying a pose bone from its owning ID's RNA pointer. */
-TEST_F(KeyframingTest, insert_keyframes__pose_bone_owner_id_pointer)
-{
-  AnimationEvalContext anim_eval_context = {nullptr, 1.0};
-
-  const CombinedKeyingResult result = insert_keyframes(
-      bmain,
-      &armature_object_rna_pointer,
-      std::nullopt,
-      {{"pose.bones[\"Bone\"].rotation_euler", std::nullopt, 0}},
-      1.0,
-      anim_eval_context,
-      BEZT_KEYTYPE_KEYFRAME,
-      INSERTKEY_NOFLAGS);
-
-  EXPECT_EQ(1, result.get_count(SingleKeyingResult::SUCCESS));
-  ASSERT_NE(nullptr, armature_object->adt);
-  ASSERT_NE(nullptr, armature_object->adt->action);
-  Action &action = armature_object->adt->action->wrap();
-  ASSERT_EQ(1, action.slots().size());
-  ASSERT_EQ(1, action.layers().size());
-  ASSERT_EQ(1, action.layer(0)->strips().size());
-  StripKeyframeData *strip_data = &action.layer(0)->strip(0)->data<StripKeyframeData>(action);
-  ASSERT_EQ(1, strip_data->channelbags().size());
-  Channelbag *channelbag = strip_data->channelbag(0);
-
-  EXPECT_EQ(1, channelbag->fcurves().size());
-  EXPECT_NE(nullptr, channelbag->fcurve_find({"pose.bones[\"Bone\"].rotation_euler", 0}));
-}
-
 /* Keying multiple elements of multiple properties at once. */
 TEST_F(KeyframingTest, insert_keyframes__multiple_properties)
 {
@@ -525,7 +403,7 @@ TEST_F(KeyframingTest, insert_keyframes__multiple_properties)
                                                        &object_rna_pointer,
                                                        std::nullopt,
                                                        {
-                                                           {"empty_display_size"},
+                                                           {"display_size"},
                                                            {"location"},
                                                            {"rotation_euler", std::nullopt, 0},
                                                            {"rotation_euler", std::nullopt, 2},
@@ -547,7 +425,7 @@ TEST_F(KeyframingTest, insert_keyframes__multiple_properties)
   Channelbag *channelbag = strip_data->channelbag(0);
 
   EXPECT_EQ(6, channelbag->fcurves().size());
-  EXPECT_NE(nullptr, channelbag->fcurve_find({"empty_display_size", 0}));
+  EXPECT_NE(nullptr, channelbag->fcurve_find({"display_size", 0}));
   EXPECT_NE(nullptr, channelbag->fcurve_find({"location", 0}));
   EXPECT_NE(nullptr, channelbag->fcurve_find({"location", 1}));
   EXPECT_NE(nullptr, channelbag->fcurve_find({"location", 2}));
@@ -564,7 +442,7 @@ TEST_F(KeyframingTest, insert_keyframes__multiple_ids)
   const CombinedKeyingResult result_1 = insert_keyframes(bmain,
                                                          &object_rna_pointer,
                                                          std::nullopt,
-                                                         {{"empty_display_size"}},
+                                                         {{"display_size"}},
                                                          1.0,
                                                          anim_eval_context,
                                                          BEZT_KEYTYPE_KEYFRAME,
@@ -592,15 +470,15 @@ TEST_F(KeyframingTest, insert_keyframes__multiple_ids)
   ASSERT_NE(nullptr, channelbag_1);
 
   /* Assign the action to the second object, with no slot. */
-  ASSERT_TRUE(assign_action(&action, armature_object->id));
-  ASSERT_EQ(assign_action_slot(nullptr, armature_object->id), ActionSlotAssignmentResult::OK);
+  ASSERT_TRUE(assign_action(&action, cube->id));
+  ASSERT_EQ(assign_action_slot(nullptr, cube->id), ActionSlotAssignmentResult::OK);
 
   /* Keying the second object should go into the same action, creating a new
    * slot and channel bag. */
   const CombinedKeyingResult result_2 = insert_keyframes(bmain,
-                                                         &armature_object_rna_pointer,
+                                                         &cube_rna_pointer,
                                                          std::nullopt,
-                                                         {{"empty_display_size"}},
+                                                         {{"display_size"}},
                                                          1.0,
                                                          anim_eval_context,
                                                          BEZT_KEYTYPE_KEYFRAME,
@@ -608,10 +486,10 @@ TEST_F(KeyframingTest, insert_keyframes__multiple_ids)
   EXPECT_EQ(1, result_2.get_count(SingleKeyingResult::SUCCESS));
 
   ASSERT_EQ(2, action.slots().size());
-  Slot *slot_2 = action.slot_for_handle(armature_object->adt->slot_handle);
+  Slot *slot_2 = action.slot_for_handle(cube->adt->slot_handle);
   ASSERT_NE(nullptr, slot_2);
-  EXPECT_STREQ(armature_object->id.name, slot_2->identifier);
-  EXPECT_STREQ(armature_object->adt->last_slot_identifier, slot_2->identifier);
+  EXPECT_STREQ(cube->id.name, slot_2->identifier);
+  EXPECT_STREQ(cube->adt->last_slot_identifier, slot_2->identifier);
 
   ASSERT_EQ(2, strip_data->channelbags().size());
   Channelbag *channelbag_2 = strip_data->channelbag_for_slot(*slot_2);

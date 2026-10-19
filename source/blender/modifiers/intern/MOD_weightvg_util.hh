@@ -79,7 +79,6 @@ void weightvg_do_mask(const ModifierEvalContext *ctx,
                       int tex_use_channel,
                       int tex_mapping,
                       Object *tex_map_object,
-                      const char *text_map_bone,
                       const char *tex_uvlayer_name,
                       bool invert_vgroup_mask);
 

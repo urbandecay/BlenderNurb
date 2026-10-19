@@ -947,23 +947,6 @@ float BKE_defvert_total_selected_weight(const MDeformVert *dv,
   return total;
 }
 
-float BKE_defvert_multipaint_collective_weight(const MDeformVert *dv,
-                                               const int defbase_num,
-                                               const bool *defbase_sel,
-                                               const int defbase_sel_num,
-                                               const bool is_normalized)
-{
-  float total = BKE_defvert_total_selected_weight(dv, defbase_num, defbase_sel);
-
-  /* in multipaint, get the average if auto normalize is inactive
-   * get the sum if it is active */
-  if (!is_normalized) {
-    total /= defbase_sel_num;
-  }
-
-  return total;
-}
-
 float BKE_defvert_calc_lock_relative_weight(float weight,
                                             float locked_weight,
                                             float unlocked_weight)
@@ -1489,14 +1472,6 @@ bool data_transfer_layersmapping_vgroups(Vector<CustomDataTransferLayerMap> *r_m
       case DT_LAYERS_ALL_SRC:
         use_layers_src = BKE_object_defgroup_subset_from_select_type(
             ob_src, WT_VGROUP_ALL, &num_src, &num_sel_unused);
-        break;
-      case DT_LAYERS_VGROUP_SRC_BONE_SELECT:
-        use_layers_src = BKE_object_defgroup_subset_from_select_type(
-            ob_src, WT_VGROUP_BONE_SELECT, &num_src, &num_sel_unused);
-        break;
-      case DT_LAYERS_VGROUP_SRC_BONE_DEFORM:
-        use_layers_src = BKE_object_defgroup_subset_from_select_type(
-            ob_src, WT_VGROUP_BONE_DEFORM, &num_src, &num_sel_unused);
         break;
     }
 

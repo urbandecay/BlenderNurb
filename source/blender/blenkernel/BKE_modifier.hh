@@ -24,7 +24,6 @@ namespace bke {
 struct GeometrySet;
 }
 struct ARegionType;
-struct bArmature;
 struct BMEditMesh;
 struct BlendDataReader;
 struct BlendWriter;
@@ -529,11 +528,6 @@ int BKE_modifiers_get_cage_index(const Scene *scene,
                                  int *r_lastPossibleCageIndex,
                                  bool is_virtual);
 
-/**
- * Takes an object and returns its first selected armature, else just its armature.
- * This should work for multiple armatures per object.
- */
-Object *BKE_modifiers_is_deformed_by_armature(Object *ob);
 Object *BKE_modifiers_is_deformed_by_meshdeform(Object *ob);
 /**
  * Takes an object and returns its first selected lattice, else just its lattice.
@@ -546,9 +540,7 @@ Object *BKE_modifiers_is_deformed_by_lattice(Object *ob);
  */
 Object *BKE_modifiers_is_deformed_by_curve(Object *ob);
 bool BKE_modifiers_uses_multires(Object *ob);
-bool BKE_modifiers_uses_armature(Object *ob, bArmature *arm);
 bool BKE_modifiers_is_correctable_deformed(const Scene *scene, Object *ob);
-void BKE_modifier_free_temporary_data(ModifierData *md);
 /**
  * Add a modifier at the end of the stack, but respect if there are modifiers which are "pinned to
  * last" (put the new modifier before then). Also take into account that some modifiers can only be
@@ -574,7 +566,6 @@ CDMaskLink *BKE_modifier_calc_data_masks(const Scene *scene,
                                          int required_mode);
 
 struct VirtualModifierData {
-  ArmatureModifierData amd;
   CurveModifierData cmd;
   LatticeModifierData lmd;
   ShapeKeyModifierData smd;
@@ -582,7 +573,7 @@ struct VirtualModifierData {
 
 /**
  * This is to include things that are not modifiers in the evaluation of the modifier stack,
- * for example parenting to an armature.
+ * for example object parenting and shape keys.
  */
 ModifierData *BKE_modifiers_get_virtual_modifierlist(const Object *ob, VirtualModifierData *data);
 

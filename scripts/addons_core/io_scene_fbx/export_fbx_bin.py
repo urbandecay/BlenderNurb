@@ -36,7 +36,7 @@ from .fbx_utils import (
     FBX_GEOMETRY_SMOOTHING_VERSION, FBX_GEOMETRY_CREASE_VERSION, FBX_GEOMETRY_VCOLOR_VERSION, FBX_GEOMETRY_UV_VERSION,
     FBX_GEOMETRY_MATERIAL_VERSION, FBX_GEOMETRY_LAYER_VERSION,
     FBX_GEOMETRY_SHAPE_VERSION, FBX_DEFORMER_SHAPE_VERSION, FBX_DEFORMER_SHAPECHANNEL_VERSION,
-    FBX_POSE_BIND_VERSION, FBX_DEFORMER_SKIN_VERSION, FBX_DEFORMER_CLUSTER_VERSION,
+    FBX_POSE_BIND_VERSION,
     FBX_MATERIAL_VERSION, FBX_TEXTURE_VERSION,
     FBX_ANIM_KEY_VERSION,
     FBX_ANIM_PROPSGROUP_NAME,
@@ -59,8 +59,7 @@ from .fbx_utils import (
     # Key generators.
     get_blenderID_key, get_blenderID_name,
     get_blender_mesh_shape_key, get_blender_mesh_shape_channel_key,
-    get_blender_empty_key, get_blender_bone_key,
-    get_blender_bindpose_key, get_blender_armature_skin_key, get_blender_bone_cluster_key,
+    get_blender_bindpose_key,
     get_blender_anim_id_base, get_blender_anim_stack_key, get_blender_anim_layer_key,
     get_blender_anim_curve_node_key, get_blender_anim_curve_key,
     get_blender_nodetexture_key,
@@ -184,17 +183,6 @@ def fbx_template_def_model(scene, settings, override_defaults=None, nbr_users=0)
     if override_defaults is not None:
         props.update(override_defaults)
     return FBXTemplate(b"Model", b"FbxNode", props, nbr_users, [False])
-
-
-def fbx_template_def_null(scene, settings, override_defaults=None, nbr_users=0):
-    props = {
-        b"Color": ((0.8, 0.8, 0.8), "p_color_rgb", False),
-        b"Size": (100.0, "p_double", False),
-        b"Look": (1, "p_enum", False),  # Cross (0 is None, i.e. invisible?).
-    }
-    if override_defaults is not None:
-        props.update(override_defaults)
-    return FBXTemplate(b"NodeAttribute", b"FbxNull", props, nbr_users, [False])
 
 
 def fbx_template_def_light(scene, settings, override_defaults=None, nbr_users=0):
@@ -331,13 +319,6 @@ def fbx_template_def_camera(scene, settings, override_defaults=None, nbr_users=0
     if override_defaults is not None:
         props.update(override_defaults)
     return FBXTemplate(b"NodeAttribute", b"FbxCamera", props, nbr_users, [False])
-
-
-def fbx_template_def_bone(scene, settings, override_defaults=None, nbr_users=0):
-    props = {}
-    if override_defaults is not None:
-        props.update(override_defaults)
-    return FBXTemplate(b"NodeAttribute", b"LimbNode", props, nbr_users, [False])
 
 
 def fbx_template_def_geometry(scene, settings, override_defaults=None, nbr_users=0):
@@ -551,35 +532,6 @@ def fbx_data_element_custom_properties(props, bid):
             elem_props_set(props, "p_string", k.encode(), str(v), custom=True)
 
 
-def fbx_data_empty_elements(root, empty, scene_data):
-    """
-    Write the Empty data block (you can control its FBX datatype with the 'fbx_type' string custom property) or Armature
-    NodeAttribute.
-    """
-    empty_key = scene_data.data_empties[empty]
-
-    null = elem_data_single_int64(root, b"NodeAttribute", get_fbx_uuid_from_key(empty_key))
-    null.add_string(fbx_name_class(empty.name.encode(), b"NodeAttribute"))
-    bdata = empty.bdata
-    if bdata.type == 'EMPTY':
-        val = bdata.get('fbx_type', None)
-        fbx_type = val.encode() if val and isinstance(val, str) else b"Null"
-    else:
-        fbx_type = b"Null"
-    null.add_string(fbx_type)
-
-    elem_data_single_string(null, b"TypeFlags", b"Null")
-
-    tmpl = elem_props_template_init(scene_data.templates, b"Null")
-    props = elem_properties(null)
-    elem_props_template_finalize(tmpl, props)
-
-    # Empty/Armature Object custom properties have already been saved with the Model.
-    # Only Armature data custom properties need to be saved here with the NodeAttribute.
-    if bdata.type == 'ARMATURE':
-        fbx_data_element_custom_properties(props, bdata.data)
-
-
 def fbx_data_light_elements(root, lamp, scene_data):
     """
     Write the Lamp data block.
@@ -723,43 +675,21 @@ def fbx_data_camera_elements(root, cam_obj, scene_data):
     elem_data_single_float64(cam, b"CameraOrthoZoom", 1.0)
 
 
-def fbx_data_bindpose_element(root, me_obj, me, scene_data, arm_obj=None, mat_world_arm=None, bones=[]):
-    """
-    Helper, since bindpose are used by both meshes shape keys and armature bones...
-    """
-    if arm_obj is None:
-        arm_obj = me_obj
-    # We assume bind pose for our bones are their "Editmode" pose...
-    # All matrices are expected in global (world) space.
-    bindpose_key = get_blender_bindpose_key(arm_obj.bdata, me)
+def fbx_data_bindpose_element(root, me_obj, me, scene_data):
+    """Write the object bind pose used by shape-key data."""
+    bindpose_key = get_blender_bindpose_key(me_obj.bdata, me)
     fbx_pose = elem_data_single_int64(root, b"Pose", get_fbx_uuid_from_key(bindpose_key))
     fbx_pose.add_string(fbx_name_class(me.name.encode(), b"Pose"))
     fbx_pose.add_string(b"BindPose")
 
     elem_data_single_string(fbx_pose, b"Type", b"BindPose")
     elem_data_single_int32(fbx_pose, b"Version", FBX_POSE_BIND_VERSION)
-    elem_data_single_int32(fbx_pose, b"NbPoseNodes", 1 + (1 if (arm_obj != me_obj) else 0) + len(bones))
+    elem_data_single_int32(fbx_pose, b"NbPoseNodes", 1)
 
-    # First node is mesh/object.
-    mat_world_obj = me_obj.fbx_object_matrix(scene_data, global_space=True)
     fbx_posenode = elem_empty(fbx_pose, b"PoseNode")
     elem_data_single_int64(fbx_posenode, b"Node", me_obj.fbx_uuid)
+    mat_world_obj = me_obj.fbx_object_matrix(scene_data, global_space=True)
     elem_data_single_float64_array(fbx_posenode, b"Matrix", matrix4_to_array(mat_world_obj))
-    # Second node is armature object itself.
-    if arm_obj != me_obj:
-        fbx_posenode = elem_empty(fbx_pose, b"PoseNode")
-        elem_data_single_int64(fbx_posenode, b"Node", arm_obj.fbx_uuid)
-        elem_data_single_float64_array(fbx_posenode, b"Matrix", matrix4_to_array(mat_world_arm))
-    # And all bones of armature!
-    mat_world_bones = {}
-    for bo_obj in bones:
-        bomat = bo_obj.fbx_object_matrix(scene_data, rest=True, global_space=True)
-        mat_world_bones[bo_obj] = bomat
-        fbx_posenode = elem_empty(fbx_pose, b"PoseNode")
-        elem_data_single_int64(fbx_posenode, b"Node", bo_obj.fbx_uuid)
-        elem_data_single_float64_array(fbx_posenode, b"Matrix", matrix4_to_array(bomat))
-
-    return mat_world_obj, mat_world_bones
 
 
 def fbx_data_mesh_shapes_elements(root, me_obj, me, scene_data, fbx_me_tmpl, fbx_me_props):
@@ -1809,174 +1739,10 @@ def fbx_data_video_elements(root, vid, scene_data):
         fbx_data_element_custom_properties(props, vid)
 
 
-def fbx_data_armature_elements(root, arm_obj, scene_data):
-    """
-    Write:
-        * Bones "data" (NodeAttribute::LimbNode, contains pretty much nothing!).
-        * Deformers (i.e. Skin), bind between an armature and a mesh.
-        ** SubDeformers (i.e. Cluster), one per bone/vgroup pair.
-        * BindPose.
-    Note armature itself has no data, it is a mere "Null" Model...
-    """
-    mat_world_arm = arm_obj.fbx_object_matrix(scene_data, global_space=True)
-    bones = tuple(bo_obj for bo_obj in arm_obj.bones if bo_obj in scene_data.objects)
-
-    bone_radius_scale = 33.0
-
-    # Bones "data".
-    for bo_obj in bones:
-        bo = bo_obj.bdata
-        bo_data_key = scene_data.data_bones[bo_obj]
-        fbx_bo = elem_data_single_int64(root, b"NodeAttribute", get_fbx_uuid_from_key(bo_data_key))
-        fbx_bo.add_string(fbx_name_class(bo.name.encode(), b"NodeAttribute"))
-        fbx_bo.add_string(b"LimbNode")
-        elem_data_single_string(fbx_bo, b"TypeFlags", b"Skeleton")
-
-        tmpl = elem_props_template_init(scene_data.templates, b"Bone")
-        props = elem_properties(fbx_bo)
-        elem_props_template_set(tmpl, props, "p_double", b"Size", bo.head_radius * bone_radius_scale)
-        elem_props_template_finalize(tmpl, props)
-
-        # Custom properties.
-        if scene_data.settings.use_custom_props:
-            fbx_data_element_custom_properties(props, bo)
-
-        # Store Blender bone length - XXX Not much useful actually :/
-        # (LimbLength can't be used because it is a scale factor 0-1 for the parent-child distance:
-        # http://docs.autodesk.com/FBX/2014/ENU/FBX-SDK-Documentation/cpp_ref/class_fbx_skeleton.html#a9bbe2a70f4ed82cd162620259e649f0f )
-        # elem_props_set(
-        #     props, "p_double", "BlenderBoneLength".encode(), (bo.tail_local - bo.head_local).length, custom=True,
-        # )
-
-    # Skin deformers and BindPoses.
-    # Note: we might also use Deformers for our "parent to vertex" stuff???
-    deformer = scene_data.data_deformers_skin.get(arm_obj, None)
-    if deformer is not None:
-        for me, (skin_key, ob_obj, clusters) in deformer.items():
-            # BindPose.
-            mat_world_obj, mat_world_bones = fbx_data_bindpose_element(root, ob_obj, me, scene_data,
-                                                                       arm_obj, mat_world_arm, bones)
-
-            # Deformer.
-            fbx_skin = elem_data_single_int64(root, b"Deformer", get_fbx_uuid_from_key(skin_key))
-            fbx_skin.add_string(fbx_name_class(arm_obj.name.encode(), b"Deformer"))
-            fbx_skin.add_string(b"Skin")
-
-            elem_data_single_int32(fbx_skin, b"Version", FBX_DEFORMER_SKIN_VERSION)
-            elem_data_single_float64(fbx_skin, b"Link_DeformAcuracy", 50.0)  # Only vague idea what it is...
-
-            # Pre-process vertex weights so that the vertices only need to be iterated once.
-            ob = ob_obj.bdata
-            bo_vg_idx = {bo_obj.bdata.name: ob.vertex_groups[bo_obj.bdata.name].index
-                         for bo_obj in clusters.keys() if bo_obj.bdata.name in ob.vertex_groups}
-            valid_idxs = set(bo_vg_idx.values())
-            vgroups = {vg.index: {} for vg in ob.vertex_groups}
-            for idx, v in enumerate(me.vertices):
-                for vg in v.groups:
-                    if (w := vg.weight) and (vg_idx := vg.group) in valid_idxs:
-                        vgroups[vg_idx][idx] = w
-
-            for bo_obj, clstr_key in clusters.items():
-                bo = bo_obj.bdata
-                # Find which vertices are affected by this bone/vgroup pair, and matching weights.
-                # Note we still write a cluster for bones not affecting the mesh, to get 'rest pose' data
-                # (the TransformBlah matrices).
-                vg_idx = bo_vg_idx.get(bo.name, None)
-                indices, weights = ((), ()) if vg_idx is None or not vgroups[vg_idx] else zip(*vgroups[vg_idx].items())
-
-                # Create the cluster.
-                fbx_clstr = elem_data_single_int64(root, b"Deformer", get_fbx_uuid_from_key(clstr_key))
-                fbx_clstr.add_string(fbx_name_class(bo.name.encode(), b"SubDeformer"))
-                fbx_clstr.add_string(b"Cluster")
-
-                elem_data_single_int32(fbx_clstr, b"Version", FBX_DEFORMER_CLUSTER_VERSION)
-                # No idea what that user data might be...
-                fbx_userdata = elem_data_single_string(fbx_clstr, b"UserData", b"")
-                fbx_userdata.add_string(b"")
-                if indices:
-                    elem_data_single_int32_array(fbx_clstr, b"Indexes", indices)
-                    elem_data_single_float64_array(fbx_clstr, b"Weights", weights)
-                # Transform, TransformLink and TransformAssociateModel matrices...
-                # They seem to be duplicates of BindPose ones??? Have armature (associatemodel) in addition, though.
-                # WARNING! Even though official FBX API presents Transform in global space,
-                #          **it is stored in bone space in FBX data!** See:
-                #          http://area.autodesk.com/forum/autodesk-fbx/fbx-sdk/why-the-values-return-
-                #                 by-fbxcluster-gettransformmatrix-x-not-same-with-the-value-in-ascii-fbx-file/
-                elem_data_single_float64_array(
-                    fbx_clstr, b"Transform", matrix4_to_array(
-                        mat_world_bones[bo_obj].inverted_safe() @ mat_world_obj))
-                elem_data_single_float64_array(fbx_clstr, b"TransformLink", matrix4_to_array(mat_world_bones[bo_obj]))
-                elem_data_single_float64_array(fbx_clstr, b"TransformAssociateModel", matrix4_to_array(mat_world_arm))
-
-
-def fbx_data_leaf_bone_elements(root, scene_data):
-    # Write a dummy leaf bone that is used by applications to show the length of the last bone in a chain
-    for (node_name, _par_uuid, node_uuid, attr_uuid, matrix, hide, size) in scene_data.data_leaf_bones:
-        # Bone 'data'...
-        fbx_bo = elem_data_single_int64(root, b"NodeAttribute", attr_uuid)
-        fbx_bo.add_string(fbx_name_class(node_name.encode(), b"NodeAttribute"))
-        fbx_bo.add_string(b"LimbNode")
-        elem_data_single_string(fbx_bo, b"TypeFlags", b"Skeleton")
-
-        tmpl = elem_props_template_init(scene_data.templates, b"Bone")
-        props = elem_properties(fbx_bo)
-        elem_props_template_set(tmpl, props, "p_double", b"Size", size)
-        elem_props_template_finalize(tmpl, props)
-
-        # And bone object.
-        model = elem_data_single_int64(root, b"Model", node_uuid)
-        model.add_string(fbx_name_class(node_name.encode(), b"Model"))
-        model.add_string(b"LimbNode")
-
-        elem_data_single_int32(model, b"Version", FBX_MODELS_VERSION)
-
-        # Object transform info.
-        loc, rot, scale = matrix.decompose()
-        rot = rot.to_euler('XYZ')
-        rot = tuple(convert_rad_to_deg_iter(rot))
-
-        tmpl = elem_props_template_init(scene_data.templates, b"Model")
-        # For now add only loc/rot/scale...
-        props = elem_properties(model)
-        # Generated leaf bones are obviously never animated!
-        elem_props_template_set(tmpl, props, "p_lcl_translation", b"Lcl Translation", loc)
-        elem_props_template_set(tmpl, props, "p_lcl_rotation", b"Lcl Rotation", rot)
-        elem_props_template_set(tmpl, props, "p_lcl_scaling", b"Lcl Scaling", scale)
-        elem_props_template_set(tmpl, props, "p_visibility", b"Visibility", float(not hide))
-
-        # Absolutely no idea what this is, but seems mandatory for validity of the file, and defaults to
-        # invalid -1 value...
-        elem_props_template_set(tmpl, props, "p_integer", b"DefaultAttributeIndex", 0)
-
-        elem_props_template_set(tmpl, props, "p_enum", b"InheritType", 1)  # RSrs
-
-        # Those settings would obviously need to be edited in a complete version of the exporter, may depends on
-        # object type, etc.
-        elem_data_single_int32(model, b"MultiLayer", 0)
-        elem_data_single_int32(model, b"MultiTake", 0)
-        # Probably the FbxNode.EShadingMode enum. Full description in fbx_data_object_elements.
-        elem_data_single_char(model, b"Shading", b"\x01")
-        elem_data_single_string(model, b"Culling", b"CullingOff")
-
-        elem_props_template_finalize(tmpl, props)
-
-
 def fbx_data_object_elements(root, ob_obj, scene_data):
-    """
-    Write the Object (Model) data blocks.
-    Note this "Model" can also be bone or dupli!
-    """
+    """Write the Object (Model) data blocks."""
     obj_type = b"Null"  # default, sort of empty...
-    if ob_obj.is_bone:
-        obj_type = b"LimbNode"
-    elif (ob_obj.type == 'ARMATURE'):
-        if scene_data.settings.armature_nodetype == 'ROOT':
-            obj_type = b"Root"
-        elif scene_data.settings.armature_nodetype == 'LIMBNODE':
-            obj_type = b"LimbNode"
-        else:  # Default, preferred option...
-            obj_type = b"Null"
-    elif (ob_obj.type in BLENDER_OBJECT_TYPES_MESHLIKE):
+    if ob_obj.type in BLENDER_OBJECT_TYPES_MESHLIKE:
         obj_type = b"Mesh"
     elif (ob_obj.type == 'LIGHT'):
         obj_type = b"Light"
@@ -2011,9 +1777,7 @@ def fbx_data_object_elements(root, ob_obj, scene_data):
 
     # Custom properties.
     if scene_data.settings.use_custom_props:
-        # Here we want customprops from the 'pose' bone, not the 'edit' bone...
-        bdata = ob_obj.bdata_pose_bone if ob_obj.is_bone else ob_obj.bdata
-        fbx_data_element_custom_properties(props, bdata)
+        fbx_data_element_custom_properties(props, ob_obj.bdata)
 
     # Those settings would obviously need to be edited in a complete version of the exporter, may depends on
     # object type, etc.
@@ -2152,104 +1916,6 @@ PRINCIPLED_TEXTURE_SOCKETS_TO_FBX = (
 )
 
 
-def fbx_skeleton_from_armature(scene, settings, arm_obj, objects, data_meshes,
-                               data_bones, data_deformers_skin, data_empties, arm_parents):
-    """
-    Create skeleton from armature/bones (NodeAttribute/LimbNode and Model/LimbNode), and for each deformed mesh,
-    create Pose/BindPose(with sub PoseNode) and Deformer/Skin(with Deformer/SubDeformer/Cluster).
-    Also supports "parent to bone" (simple parent to Model/LimbNode).
-    arm_parents is a set of tuples (armature, object) for all successful armature bindings.
-    """
-    # We need some data for our armature 'object' too!!!
-    data_empties[arm_obj] = get_blender_empty_key(arm_obj.bdata)
-
-    arm_data = arm_obj.bdata.data
-    bones = {}
-    for bo in arm_obj.bones:
-        if settings.use_armature_deform_only:
-            if bo.bdata.use_deform:
-                bones[bo] = True
-                bo_par = bo.parent
-                while bo_par.is_bone:
-                    bones[bo_par] = True
-                    bo_par = bo_par.parent
-            elif bo not in bones:  # Do not override if already set in the loop above!
-                bones[bo] = False
-        else:
-            bones[bo] = True
-
-    bones = {bo: None for bo, use in bones.items() if use}
-
-    if not bones:
-        return
-
-    data_bones.update((bo, get_blender_bone_key(arm_obj.bdata, bo.bdata)) for bo in bones)
-
-    for ob_obj in objects:
-        if not ob_obj.is_deformed_by_armature(arm_obj):
-            continue
-
-        # Always handled by an Armature modifier...
-        found = False
-        for mod in ob_obj.bdata.modifiers:
-            if mod.type not in {'ARMATURE'} or not mod.object:
-                continue
-            # We only support vertex groups binding method, not bone envelopes one!
-            if mod.object == arm_obj.bdata and mod.use_vertex_groups:
-                found = True
-                break
-
-        if not found:
-            continue
-
-        # Now we have a mesh using this armature.
-        # Note: bind-pose have no relations at all (no connections), so no need for any preprocess for them.
-        # Create skin & clusters relations (note skins are connected to geometry, *not* model!).
-        _key, me, _free = data_meshes[ob_obj]
-        clusters = {bo: get_blender_bone_cluster_key(arm_obj.bdata, me, bo.bdata) for bo in bones}
-        data_deformers_skin.setdefault(arm_obj, {})[me] = (get_blender_armature_skin_key(arm_obj.bdata, me),
-                                                           ob_obj, clusters)
-
-        # We don't want a regular parent relationship for those in FBX...
-        arm_parents.add((arm_obj, ob_obj))
-        # Needed to handle matrices/spaces (since we do not parent them to 'armature' in FBX :/ ).
-        ob_obj.parented_to_armature = True
-
-    objects.update(bones)
-
-
-def fbx_generate_leaf_bones(settings, data_bones):
-    # Find which bones have no children.
-    child_count = {bo: 0 for bo in data_bones.keys()}
-    for bo in data_bones.keys():
-        if bo.parent and bo.parent.is_bone:
-            child_count[bo.parent] += 1
-
-    bone_radius_scale = settings.global_scale * 33.0
-
-    # generate bone data
-    leaf_parents = [bo for bo, count in child_count.items() if count == 0]
-    leaf_bones = []
-    for parent in leaf_parents:
-        node_name = parent.name + "_end"
-        parent_uuid = parent.fbx_uuid
-        parent_key = parent.key
-        node_uuid = get_fbx_uuid_from_key(parent_key + "_end_node")
-        attr_uuid = get_fbx_uuid_from_key(parent_key + "_end_nodeattr")
-
-        hide = parent.hide
-        size = parent.bdata.head_radius * bone_radius_scale
-        bone_length = (parent.bdata.tail_local - parent.bdata.head_local).length
-        matrix = Matrix.Translation((0, bone_length, 0))
-        if settings.bone_correction_matrix_inv:
-            matrix = settings.bone_correction_matrix_inv @ matrix
-        if settings.bone_correction_matrix:
-            matrix = matrix @ settings.bone_correction_matrix
-        leaf_bones.append((node_name, parent_uuid, node_uuid, attr_uuid, matrix, hide, size))
-
-    return leaf_bones
-
-
 def fbx_animations_do(scene_data, ref_id, f_start, f_end, start_zero, objects=None, force_keep=False):
     """
     Generate animation data (a single AnimStack) from objects, for a given frame range.
@@ -2258,17 +1924,12 @@ def fbx_animations_do(scene_data, ref_id, f_start, f_end, start_zero, objects=No
     simplify_fac = scene_data.settings.bake_anim_simplify_factor
     scene = scene_data.scene
     depsgraph = scene_data.depsgraph
-    force_keying = scene_data.settings.bake_anim_use_all_bones
     force_sek = scene_data.settings.bake_anim_force_startend_keying
     gscale = scene_data.settings.global_scale
 
     if objects is not None:
-        # Add bones and duplis!
+        # Add duplicate object instances.
         for ob_obj in tuple(objects):
-            if not ob_obj.is_object:
-                continue
-            if ob_obj.type == 'ARMATURE':
-                objects |= {bo_obj for bo_obj in ob_obj.bones if bo_obj in scene_data.objects}
             for dp_obj in ob_obj.dupli_list_gen(depsgraph):
                 if dp_obj in scene_data.objects:
                     objects.add(dp_obj)
@@ -2280,12 +1941,10 @@ def fbx_animations_do(scene_data, ref_id, f_start, f_end, start_zero, objects=No
     p_rots = {}
 
     for ob_obj in objects:
-        if ob_obj.parented_to_armature:
-            continue
         ACNW = AnimationCurveNodeWrapper
         loc, rot, scale, _m, _mr = ob_obj.fbx_object_tx(scene_data)
         rot_deg = tuple(convert_rad_to_deg_iter(rot))
-        force_key = (simplify_fac == 0.0) or (ob_obj.is_bone and force_keying)
+        force_key = simplify_fac == 0.0
         animdata_ob[ob_obj] = (ACNW(ob_obj.key, 'LCL_TRANSLATION', force_key, force_sek, loc),
                                ACNW(ob_obj.key, 'LCL_ROTATION', force_key, force_sek, rot_deg),
                                ACNW(ob_obj.key, 'LCL_SCALING', force_key, force_sek, scale))
@@ -2480,7 +2139,6 @@ def fbx_animations(scene_data):
         strips = []
         ob_actions = []
         for ob_obj in scene_data.objects:
-            # NLA tracks only for objects, not bones!
             if not ob_obj.is_object:
                 continue
             ob = ob_obj.bdata  # Back to real Blender Object.
@@ -2547,7 +2205,7 @@ def fbx_animations(scene_data):
                 'delta_location', 'delta_rotation_euler', 'delta_rotation_quaternion', 'delta_scale',
                 'lock_location', 'lock_rotation', 'lock_rotation_w', 'lock_rotations_4d', 'lock_scale',
                 'tag', 'track_axis', 'up_axis', 'active_material', 'active_material_index',
-                'empty_display_type', 'empty_display_size', 'empty_image_offset', 'pass_index',
+                'display_size', 'pass_index',
                 'color', 'hide_viewport', 'hide_select', 'hide_render', 'instance_type',
                 'display_type', 'show_bounds', 'display_bounds_type', 'show_name', 'show_axis', 'show_texture_space',
                 'show_wire', 'show_all_edges', 'show_transparent', 'show_in_front',
@@ -2558,7 +2216,6 @@ def fbx_animations(scene_data):
                     setattr(ob_to, p, getattr(ob_from, p))
 
         for ob_obj in scene_data.objects:
-            # Actions only for objects, not bones!
             if not ob_obj.is_object:
                 continue
 
@@ -2573,9 +2230,6 @@ def fbx_animations(scene_data):
             # We can't play with animdata and actions and get back to org state easily.
             # So we have to add a temp copy of the object to the scene, animate it, and remove it... :/
             ob_copy = ob.copy()
-            # Great, have to handle bones as well if needed...
-            pbones_matrices = [pbo.matrix_basis.copy() for pbo in ob.pose.bones] if ob.type == 'ARMATURE' else ...
-
             org_act = ob.animation_data.action
             org_act_slot = ob.animation_data.action_slot
             path_resolve = ob.path_resolve
@@ -2595,19 +2249,12 @@ def fbx_animations(scene_data):
                 add_anim(animations, animated,
                          fbx_animations_do(scene_data, (ob, act), frame_start, frame_end, True,
                                            objects={ob_obj}, force_keep=True))
-                # Ugly! :/
-                if pbones_matrices is not ...:
-                    for pbo, mat in zip(ob.pose.bones, pbones_matrices):
-                        pbo.matrix_basis = mat.copy()
                 ob.animation_data.action = org_act
                 if org_act:
                     ob.animation_data.action_slot = org_act_slot
                 restore_object(ob, ob_copy)
                 scene.frame_set(scene.frame_current, subframe=0.0)
 
-            if pbones_matrices is not ...:
-                for pbo, mat in zip(ob.pose.bones, pbones_matrices):
-                    pbo.matrix_basis = mat.copy()
             ob.animation_data.action = org_act
             if org_act:
                 ob.animation_data.action_slot = org_act_slot
@@ -2630,7 +2277,7 @@ def fbx_data_from_scene(scene, depsgraph, settings):
     Do some pre-processing over scene's data...
     """
     objtypes = settings.object_types
-    dp_objtypes = objtypes - {'ARMATURE'}  # Armatures are not supported as dupli instances currently...
+    dp_objtypes = objtypes
     perfmon = PerfMon()
     perfmon.level_up()
 
@@ -2652,17 +2299,13 @@ def fbx_data_from_scene(scene, depsgraph, settings):
                 continue
             objects[dp_obj] = None
 
-    perfmon.step("FBX export prepare: Wrapping Data (lamps, cameras, empties)...")
+    perfmon.step("FBX export prepare: Wrapping Data (lamps and cameras)...")
 
     data_lights = {ob_obj.bdata.data: get_blenderID_key(ob_obj.bdata.data)
                    for ob_obj in objects if ob_obj.type == 'LIGHT'}
     # Unfortunately, FBX camera data contains object-level data (like position, orientation, etc.)...
     data_cameras = {ob_obj: get_blenderID_key(ob_obj.bdata.data)
                     for ob_obj in objects if ob_obj.type == 'CAMERA'}
-    # Yep! Contains nothing, but needed!
-    data_empties = {ob_obj: get_blender_empty_key(ob_obj.bdata)
-                    for ob_obj in objects if ob_obj.type == 'EMPTY'}
-
     perfmon.step("FBX export prepare: Wrapping Meshes...")
 
     data_meshes = {}
@@ -2698,37 +2341,22 @@ def fbx_data_from_scene(scene, depsgraph, settings):
         # If the Object is a mesh, and we're applying modifiers, check if there are actually any modifiers to apply.
         # If there are then the mesh will need to be evaluated, and we may need to make some temporary changes to the
         # modifiers or scene before the mesh is evaluated.
-        backup_pose_positions = []
         tmp_mods = []
         if ob.type == 'MESH' and settings.use_mesh_modifiers:
             # No need to create a new mesh in this case, if no modifier is active!
             last_subsurf = None
             for mod in ob.modifiers:
-                # For meshes, when armature export is enabled, disable Armature modifiers here!
-                # XXX Temp hacks here since currently we only have access to a viewport depsgraph...
-                #
-                # NOTE: We put armature to the rest pose instead of disabling it so we still
-                # have vertex groups in the evaluated mesh.
-                if mod.type == 'ARMATURE' and 'ARMATURE' in settings.object_types:
-                    object = mod.object
-                    if object and object.type == 'ARMATURE':
-                        armature = object.data
-                        # If armature is already in REST position, there's nothing to back-up
-                        # This cuts down on export time dramatically, if all armatures are already in REST position
-                        # by not triggering dependency graph update
-                        if armature.pose_position != 'REST':
-                            backup_pose_positions.append((armature, armature.pose_position))
-                            armature.pose_position = 'REST'
-                elif mod.show_render or mod.show_viewport:
-                    # If exporting with subsurf collect the last Catmull-Clark subsurf modifier
-                    # and disable it. We can use the original data as long as this is the first
-                    # found applicable subsurf modifier.
-                    if settings.use_subsurf and mod.type == 'SUBSURF' and mod.subdivision_type == 'CATMULL_CLARK':
-                        if last_subsurf:
-                            do_evaluate = True
-                        last_subsurf = mod
-                    else:
+                if not (mod.show_render or mod.show_viewport):
+                    continue
+                # If exporting with subsurf collect the last Catmull-Clark subsurf modifier
+                # and disable it. We can use the original data as long as this is the first
+                # found applicable subsurf modifier.
+                if settings.use_subsurf and mod.type == 'SUBSURF' and mod.subdivision_type == 'CATMULL_CLARK':
+                    if last_subsurf:
                         do_evaluate = True
+                    last_subsurf = mod
+                else:
+                    do_evaluate = True
             if settings.use_subsurf and last_subsurf:
                 # XXX: When exporting with subsurf information temporarily disable
                 # the last subsurf modifier.
@@ -2737,8 +2365,8 @@ def fbx_data_from_scene(scene, depsgraph, settings):
                 last_subsurf.show_viewport = False
 
         if do_evaluate:
-            # If modifiers has been altered need to update dependency graph.
-            if backup_pose_positions or tmp_mods:
+            # If modifiers have been altered, update the dependency graph.
+            if tmp_mods:
                 depsgraph.update()
             ob_to_convert = ob.evaluated_get(depsgraph)
             # NOTE: The dependency graph might be re-evaluating multiple times, which could
@@ -2784,16 +2412,11 @@ def fbx_data_from_scene(scene, depsgraph, settings):
             # A temporary mesh was created for this Object, which should be deleted once the export is complete.
             data_meshes[ob_obj] = (get_blenderID_key(tmp_me), tmp_me, True)
 
-        # Change armatures back.
-        for armature, pose_position in backup_pose_positions:
-            print((armature, pose_position))
-            armature.pose_position = pose_position
-            # Update now, so we don't leave modified state after last object was exported.
-        # Re-enable temporary disabled modifiers.
+        # Re-enable temporarily disabled modifiers.
         for mod, show_render, show_viewport in tmp_mods:
             mod.show_render = show_render
             mod.show_viewport = show_viewport
-        if backup_pose_positions or tmp_mods:
+        if tmp_mods:
             depsgraph.update()
 
         # In case "real" source object of that dupli did not yet still existed in data_meshes, create it now!
@@ -2876,23 +2499,6 @@ def fbx_data_from_scene(scene, depsgraph, settings):
 
         del sk_cos_nors
 
-    perfmon.step("FBX export prepare: Wrapping Armatures...")
-
-    # Armatures!
-    data_deformers_skin = {}
-    data_bones = {}
-    arm_parents = set()
-    for ob_obj in tuple(objects):
-        if not (ob_obj.is_object and ob_obj.type in {'ARMATURE'}):
-            continue
-        fbx_skeleton_from_armature(scene, settings, ob_obj, objects, data_meshes,
-                                   data_bones, data_deformers_skin, data_empties, arm_parents)
-
-    # Generate leaf bones
-    data_leaf_bones = []
-    if settings.add_leaf_bones:
-        data_leaf_bones = fbx_generate_leaf_bones(settings, data_bones)
-
     perfmon.step("FBX export prepare: Wrapping World...")
 
     # Some world settings are embedded in FBX materials...
@@ -2950,13 +2556,12 @@ def fbx_data_from_scene(scene, depsgraph, settings):
     frame_start = scene.frame_start
     frame_end = scene.frame_end
     if settings.bake_anim:
-        # From objects & bones only for a start.
-        # Kind of hack, we need a temp scene_data for object's space handling to bake animations...
+        # Build temporary scene data so object transforms can be evaluated consistently.
         tmp_scdata = FBXExportData(
             None, None, None,
             settings, scene, depsgraph, objects, None, None, 0.0, 0.0,
-            data_empties, data_lights, data_cameras, data_meshes, None,
-            data_bones, data_leaf_bones, data_deformers_skin, data_deformers_shape,
+            data_lights, data_cameras, data_meshes, None,
+            data_deformers_shape,
             data_world, data_materials, data_textures, data_videos,
         )
         animations, animated, frame_start, frame_end = fbx_animations(tmp_scdata)
@@ -2968,17 +2573,11 @@ def fbx_data_from_scene(scene, depsgraph, settings):
     templates = {}
     templates[b"GlobalSettings"] = fbx_template_def_globalsettings(scene, settings, nbr_users=1)
 
-    if data_empties:
-        templates[b"Null"] = fbx_template_def_null(scene, settings, nbr_users=len(data_empties))
-
     if data_lights:
         templates[b"Light"] = fbx_template_def_light(scene, settings, nbr_users=len(data_lights))
 
     if data_cameras:
         templates[b"Camera"] = fbx_template_def_camera(scene, settings, nbr_users=len(data_cameras))
-
-    if data_bones:
-        templates[b"Bone"] = fbx_template_def_bone(scene, settings, nbr_users=len(data_bones))
 
     if data_meshes:
         nbr = len({me_key for me_key, _me, _free in data_meshes.values()})
@@ -2989,20 +2588,11 @@ def fbx_data_from_scene(scene, depsgraph, settings):
     if objects:
         templates[b"Model"] = fbx_template_def_model(scene, settings, nbr_users=len(objects))
 
-    if arm_parents:
-        # Number of Pose|BindPose elements should be the same as number of meshes-parented-to-armatures
-        templates[b"BindPose"] = fbx_template_def_pose(scene, settings, nbr_users=len(arm_parents))
-
-    if data_deformers_skin or data_deformers_shape:
-        nbr = 0
-        if data_deformers_skin:
-            nbr += len(data_deformers_skin)
-            nbr += sum(len(clusters) for def_me in data_deformers_skin.values() for a, b, clusters in def_me.values())
-        if data_deformers_shape:
-            nbr += len(data_deformers_shape)
-            nbr += sum(len(shapes[2]) for shapes in data_deformers_shape.values())
-        assert nbr != 0
-        templates[b"Deformers"] = fbx_template_def_deformer(scene, settings, nbr_users=nbr)
+    if data_deformers_shape:
+        shape_count = sum(len(shapes[2]) for shapes in data_deformers_shape.values())
+        templates[b"BindPose"] = fbx_template_def_pose(scene, settings, nbr_users=len(data_deformers_shape))
+        templates[b"Deformers"] = fbx_template_def_deformer(
+            scene, settings, nbr_users=len(data_deformers_shape) + shape_count)
 
     # No world support in FBX...
     """
@@ -3048,45 +2638,23 @@ def fbx_data_from_scene(scene, depsgraph, settings):
 
     # Objects (with classical parenting).
     for ob_obj in objects:
-        # Bones are handled later.
-        if not ob_obj.is_bone:
-            par_obj = ob_obj.parent
-            # Meshes parented to armature are handled separately, yet we want the 'no parent' connection (0).
-            if par_obj and ob_obj.has_valid_parent(objects) and (par_obj, ob_obj) not in arm_parents:
-                connections.append((b"OO", ob_obj.fbx_uuid, par_obj.fbx_uuid, None))
-            else:
-                connections.append((b"OO", ob_obj.fbx_uuid, 0, None))
-
-    # Armature & Bone chains.
-    for bo_obj in data_bones.keys():
-        par_obj = bo_obj.parent
-        if par_obj not in objects:
-            continue
-        connections.append((b"OO", bo_obj.fbx_uuid, par_obj.fbx_uuid, None))
+        par_obj = ob_obj.parent
+        if par_obj and ob_obj.has_valid_parent(objects):
+            connections.append((b"OO", ob_obj.fbx_uuid, par_obj.fbx_uuid, None))
+        else:
+            connections.append((b"OO", ob_obj.fbx_uuid, 0, None))
 
     # Object data.
     for ob_obj in objects:
-        if ob_obj.is_bone:
-            bo_data_key = data_bones[ob_obj]
-            connections.append((b"OO", get_fbx_uuid_from_key(bo_data_key), ob_obj.fbx_uuid, None))
-        else:
-            if ob_obj.type == 'LIGHT':
-                light_key = data_lights[ob_obj.bdata.data]
-                connections.append((b"OO", get_fbx_uuid_from_key(light_key), ob_obj.fbx_uuid, None))
-            elif ob_obj.type == 'CAMERA':
-                cam_key = data_cameras[ob_obj]
-                connections.append((b"OO", get_fbx_uuid_from_key(cam_key), ob_obj.fbx_uuid, None))
-            elif ob_obj.type == 'EMPTY' or ob_obj.type == 'ARMATURE':
-                empty_key = data_empties[ob_obj]
-                connections.append((b"OO", get_fbx_uuid_from_key(empty_key), ob_obj.fbx_uuid, None))
-            elif ob_obj.type in BLENDER_OBJECT_TYPES_MESHLIKE:
-                mesh_key, _me, _free = data_meshes[ob_obj]
-                connections.append((b"OO", get_fbx_uuid_from_key(mesh_key), ob_obj.fbx_uuid, None))
-
-    # Leaf Bones
-    for (_node_name, par_uuid, node_uuid, attr_uuid, _matrix, _hide, _size) in data_leaf_bones:
-        connections.append((b"OO", node_uuid, par_uuid, None))
-        connections.append((b"OO", attr_uuid, node_uuid, None))
+        if ob_obj.type == 'LIGHT':
+            light_key = data_lights[ob_obj.bdata.data]
+            connections.append((b"OO", get_fbx_uuid_from_key(light_key), ob_obj.fbx_uuid, None))
+        elif ob_obj.type == 'CAMERA':
+            cam_key = data_cameras[ob_obj]
+            connections.append((b"OO", get_fbx_uuid_from_key(cam_key), ob_obj.fbx_uuid, None))
+        elif ob_obj.type in BLENDER_OBJECT_TYPES_MESHLIKE:
+            mesh_key, _me, _free = data_meshes[ob_obj]
+            connections.append((b"OO", get_fbx_uuid_from_key(mesh_key), ob_obj.fbx_uuid, None))
 
     # 'Shape' deformers (shape keys, only for meshes currently)...
     for me_key, shapes_key, shapes in data_deformers_shape.values():
@@ -3097,19 +2665,6 @@ def fbx_data_from_scene(scene, depsgraph, settings):
             connections.append((b"OO", get_fbx_uuid_from_key(channel_key), get_fbx_uuid_from_key(shapes_key), None))
             # geometry (keys) -> shape channel
             connections.append((b"OO", get_fbx_uuid_from_key(geom_key), get_fbx_uuid_from_key(channel_key), None))
-
-    # 'Skin' deformers (armature-to-geometry, only for meshes currently)...
-    for arm, deformed_meshes in data_deformers_skin.items():
-        for me, (skin_key, ob_obj, clusters) in deformed_meshes.items():
-            # skin -> geometry
-            mesh_key, _me, _free = data_meshes[ob_obj]
-            assert me == _me
-            connections.append((b"OO", get_fbx_uuid_from_key(skin_key), get_fbx_uuid_from_key(mesh_key), None))
-            for bo_obj, clstr_key in clusters.items():
-                # cluster -> skin
-                connections.append((b"OO", get_fbx_uuid_from_key(clstr_key), get_fbx_uuid_from_key(skin_key), None))
-                # bone -> cluster
-                connections.append((b"OO", bo_obj.fbx_uuid, get_fbx_uuid_from_key(clstr_key), None))
 
     # Materials
     mesh_material_indices = {}
@@ -3187,8 +2742,8 @@ def fbx_data_from_scene(scene, depsgraph, settings):
     return FBXExportData(
         templates, templates_users, connections,
         settings, scene, depsgraph, objects, animations, animated, frame_start, frame_end,
-        data_empties, data_lights, data_cameras, data_meshes, mesh_material_indices,
-        data_bones, data_leaf_bones, data_deformers_skin, data_deformers_shape,
+        data_lights, data_cameras, data_meshes, mesh_material_indices,
+        data_deformers_shape,
         data_world, data_materials, data_textures, data_videos,
     )
 
@@ -3386,17 +2941,10 @@ def fbx_definitions_elements(root, scene_data):
 
 
 def fbx_objects_elements(root, scene_data):
-    """
-    Data (objects, geometry, material, textures, armatures, etc.).
-    """
+    """Data (objects, geometry, materials, textures, and related assets)."""
     perfmon = PerfMon()
     perfmon.level_up()
     objects = elem_empty(root, b"Objects")
-
-    perfmon.step("FBX export fetch empties (%d)..." % len(scene_data.data_empties))
-
-    for empty in scene_data.data_empties:
-        fbx_data_empty_elements(objects, empty, scene_data)
 
     perfmon.step("FBX export fetch lamps (%d)..." % len(scene_data.data_lights))
 
@@ -3428,14 +2976,6 @@ def fbx_objects_elements(root, scene_data):
             fbx_data_object_elements(objects, dp_obj, scene_data)
 
     perfmon.step("FBX export fetch remaining...")
-
-    for ob_obj in scene_data.objects:
-        if not (ob_obj.is_object and ob_obj.type == 'ARMATURE'):
-            continue
-        fbx_data_armature_elements(objects, ob_obj, scene_data)
-
-    if scene_data.data_leaf_bones:
-        fbx_data_leaf_bone_elements(objects, scene_data)
 
     for ma in scene_data.data_materials:
         fbx_data_material_elements(objects, ma, scene_data)
@@ -3503,17 +3043,12 @@ def save_single(operator, scene, depsgraph, filepath="",
                 use_mesh_modifiers_render=True,
                 mesh_smooth_type='FACE',
                 use_subsurf=False,
-                use_armature_deform_only=False,
                 bake_anim=True,
-                bake_anim_use_all_bones=True,
                 bake_anim_use_nla_strips=True,
                 bake_anim_use_all_actions=True,
                 bake_anim_step=1.0,
                 bake_anim_simplify_factor=1.0,
                 bake_anim_force_startend_keying=True,
-                add_leaf_bones=False,
-                primary_bone_axis='Y',
-                secondary_bone_axis='X',
                 use_metadata=True,
                 path_mode='AUTO',
                 use_mesh_edges=True,
@@ -3522,7 +3057,6 @@ def save_single(operator, scene, depsgraph, filepath="",
                 embed_textures=False,
                 use_custom_props=False,
                 bake_space_transform=False,
-                armature_nodetype='NULL',
                 colors_type='SRGB',
                 prioritize_active_color=False,
                 **kwargs
@@ -3532,7 +3066,7 @@ def save_single(operator, scene, depsgraph, filepath="",
     ObjectWrapper.cache_clear()
 
     if object_types is None:
-        object_types = {'EMPTY', 'CAMERA', 'LIGHT', 'ARMATURE', 'MESH', 'OTHER'}
+        object_types = {'CAMERA', 'LIGHT', 'MESH', 'OTHER'}
 
     if 'OTHER' in object_types:
         object_types |= BLENDER_OTHER_OBJECT_TYPES
@@ -3559,18 +3093,6 @@ def save_single(operator, scene, depsgraph, filepath="",
     if embed_textures and path_mode != 'COPY':
         embed_textures = False
 
-    # Calculate bone correction matrix
-    bone_correction_matrix = None  # Default is None = no change
-    bone_correction_matrix_inv = None
-    if (primary_bone_axis, secondary_bone_axis) != ('Y', 'X'):
-        from bpy_extras.io_utils import axis_conversion
-        bone_correction_matrix = axis_conversion(from_forward=secondary_bone_axis,
-                                                 from_up=primary_bone_axis,
-                                                 to_forward='X',
-                                                 to_up='Y',
-                                                 ).to_4x4()
-        bone_correction_matrix_inv = bone_correction_matrix.inverted()
-
     media_settings = FBXExportSettingsMedia(
         path_mode,
         os.path.dirname(bpy.data.filepath),  # base_src
@@ -3587,9 +3109,7 @@ def save_single(operator, scene, depsgraph, filepath="",
         bake_space_transform, global_matrix_inv, global_matrix_inv_transposed,
         context_objects, object_types, use_mesh_modifiers, use_mesh_modifiers_render,
         mesh_smooth_type, use_subsurf, use_mesh_edges, use_tspace, use_triangles,
-        armature_nodetype, use_armature_deform_only,
-        add_leaf_bones, bone_correction_matrix, bone_correction_matrix_inv,
-        bake_anim, bake_anim_use_all_bones, bake_anim_use_nla_strips, bake_anim_use_all_actions,
+        bake_anim, bake_anim_use_nla_strips, bake_anim_use_all_actions,
         bake_anim_step, bake_anim_simplify_factor, bake_anim_force_startend_keying,
         False, media_settings, use_custom_props, colors_type, prioritize_active_color
     )
@@ -3657,7 +3177,7 @@ def defaults_unity3d():
 
         "use_selection": False,
 
-        "object_types": {'ARMATURE', 'EMPTY', 'MESH', 'OTHER'},
+        "object_types": {'MESH', 'OTHER'},
         "use_mesh_modifiers": True,
         "use_mesh_modifiers_render": True,
         "use_mesh_edges": False,
@@ -3667,8 +3187,6 @@ def defaults_unity3d():
         "use_tspace": False,  # XXX Why? Unity is expected to support tspace import...
         "use_triangles": False,
 
-        "use_armature_deform_only": True,
-
         "use_custom_props": True,
 
         "bake_anim": True,
@@ -3676,10 +3194,6 @@ def defaults_unity3d():
         "bake_anim_step": 1.0,
         "bake_anim_use_nla_strips": True,
         "bake_anim_use_all_actions": True,
-        "add_leaf_bones": False,  # Avoid memory/performance cost for something only useful for modeling.
-        "primary_bone_axis": 'Y',  # Doesn't really matter for Unity, so leave unchanged
-        "secondary_bone_axis": 'X',
-
         "path_mode": 'AUTO',
         "embed_textures": False,
         "batch_mode": 'OFF',
@@ -3829,7 +3343,6 @@ def save(operator, context,
 
                 # new scene [only one viewlayer to update]
                 scene.view_layers[0].update()
-                # TODO - BUMMER! Armatures not in the group wont animate the mesh
             else:
                 scene = data
 

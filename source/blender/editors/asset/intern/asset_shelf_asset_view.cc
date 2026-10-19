@@ -129,8 +129,7 @@ void AssetView::build_items()
     }
     if (!shelf_.type->drag_operator.empty()) {
       /* For now always select/activate items on click instead of press when there's a drag
-       * operator set. Important for pose library blending. Maybe we want to make this an explicit
-       * option of the asset shelf instead. */
+       * operator set. This may become an explicit option of the asset shelf. */
       item.select_on_click_set();
     }
     /* Make sure every click calls the #bl_activate_operator. We might want to add a flag to
@@ -479,12 +478,8 @@ void AssetDragController::on_drag_start(bContext &C, ui::AbstractViewItem &item)
     WM_operator_properties_free(drag_op->opptr);
     MEM_delete(drag_op->opptr);
 
-    /* Display as active so it's clear which item is being operated on. #activate() would trigger
-     * the activation operator. We really don't want this for poses, since dragging shouldn't fully
-     * apply a pose, but trigger interactive pose blending instead.
-     *
-     * Messing with the active state could cause problems, in that case a separate highlighting
-     * feature might make sense (so e.g. dragged from assets get an outline). */
+    /* Display as active so it's clear which item is being operated on. Calling #activate() here
+     * would trigger the activation operator a second time. */
     item.set_state_active();
   }
 }
@@ -503,7 +498,6 @@ void *AssetDragController::create_drag_data() const
 
   AssetImportSettings import_settings{};
   import_settings.method = import_method;
-  import_settings.use_instance_collections = false;
 
   return WM_drag_create_asset_data(&asset_, import_settings);
 }

@@ -2792,14 +2792,12 @@ class WM_OT_batch_rename(Operator):
             ('CURVE', "Curves", "", 'CURVE_DATA', 4),
             ('META', "Metaballs", "", 'META_DATA', 5),
             ('VOLUME', "Volumes", "", 'VOLUME_DATA', 6),
-            ('ARMATURE', "Armatures", "", 'ARMATURE_DATA', 8),
             ('LATTICE', "Lattices", "", 'LATTICE_DATA', 9),
             ('LIGHT', "Lights", "", 'LIGHT_DATA', 10),
             ('LIGHT_PROBE', "Light Probes", "", 'OUTLINER_DATA_LIGHTPROBE', 11),
             ('CAMERA', "Cameras", "", 'CAMERA_DATA', 12),
             ('SPEAKER', "Speakers", "", 'OUTLINER_DATA_SPEAKER', 13),
             None,
-            ('BONE', "Bones", "", 'BONE_DATA', 14),
             ('NODE', "Nodes", "", 'NODETREE', 15),
             ('SEQUENCE_STRIP', "Sequence Strips", "", 'SEQ_SEQUENCER', 16),
             ('ACTION_CLIP', "Action Clips", "", 'ACTION', 17),
@@ -2906,32 +2904,6 @@ class WM_OT_batch_rename(Operator):
                     "name",
                     iface_("Collection(s)"),
                 )
-        else:
-            if mode == 'POSE' or (mode == 'WEIGHT_PAINT' and context.pose_object):
-                data_type_test = 'BONE'
-                if check_context:
-                    return data_type_test
-                if data_type == data_type_test:
-                    data = (
-                        [pchan.bone for pchan in context.selected_pose_bones]
-                        if only_selected else
-                        [pbone.bone for ob in context.objects_in_mode_unique_data for pbone in ob.pose.bones],
-                        "name",
-                        iface_("Bone(s)"),
-                    )
-            elif mode == 'EDIT_ARMATURE':
-                data_type_test = 'BONE'
-                if check_context:
-                    return data_type_test
-                if data_type == data_type_test:
-                    data = (
-                        context.selected_editable_bones
-                        if only_selected else
-                        [ebone for ob in context.objects_in_mode_unique_data for ebone in ob.data.edit_bones],
-                        "name",
-                        iface_("Edit Bone(s)"),
-                    )
-
         if check_context:
             return 'OBJECT'
 
@@ -2940,7 +2912,6 @@ class WM_OT_batch_rename(Operator):
             'CURVE': ("curves", iface_("Curve(s)"), bpy.types.Curve),
             'META': ("metaballs", iface_("Metaball(s)"), bpy.types.MetaBall),
             'VOLUME': ("volumes", iface_("Volume(s)"), bpy.types.Volume),
-            'ARMATURE': ("armatures", iface_("Armature(s)"), bpy.types.Armature),
             'LATTICE': ("lattices", iface_("Lattice(s)"), bpy.types.Lattice),
             'LIGHT': ("lights", iface_("Light(s)"), bpy.types.Light),
             'LIGHT_PROBE': ("lightprobes", iface_("Light Probe(s)"), bpy.types.LightProbe),
@@ -2967,14 +2938,9 @@ class WM_OT_batch_rename(Operator):
                 )
             elif data_type == 'COLLECTION':
                 data = (
-                    # Outliner case is handled already.
-                    tuple(set(
-                        ob.instance_collection
-                        for ob in context.selected_objects
-                        if ((ob.instance_type == 'COLLECTION') and
-                            (collection := ob.instance_collection) is not None and
-                            (collection.is_editable))
-                    ))
+                    cls._selected_ids_from_outliner_by_type(context, bpy.types.Collection)
+                    if only_selected and space_type == 'OUTLINER' else
+                    tuple()
                     if only_selected else
                     [id for id in bpy.data.collections if id.is_editable],
                     "name",

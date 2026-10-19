@@ -21,8 +21,6 @@ from .material.extensions import variants as ext_variants
 @cached
 def gather_primitive_cache_key(
         blender_data,
-        uuid_for_skined_data,
-        vertex_groups,
         modifiers,
         materials,
         export_settings):
@@ -43,8 +41,6 @@ def gather_primitive_cache_key(
 @cached_by_key(key=gather_primitive_cache_key)
 def gather_primitives(
         blender_data,
-        uuid_for_skined_data,
-        vertex_groups: bpy.types.VertexGroups,
         modifiers: Optional[bpy.types.ObjectModifiers],
         materials: Tuple[bpy.types.Material],
         export_settings
@@ -57,7 +53,7 @@ def gather_primitives(
     primitives = []
 
     blender_primitives, addional_materials_udim = __gather_cache_primitives(
-        materials, blender_data, uuid_for_skined_data, vertex_groups, modifiers, export_settings)
+        materials, blender_data, modifiers, export_settings)
 
     for internal_primitive, udim_material in zip(blender_primitives, addional_materials_udim):
 
@@ -110,8 +106,6 @@ def gather_primitives(
 def get_primitive_cache_key(
         materials,
         blender_data,
-        uuid_for_skined_data,
-        vertex_groups,
         modifiers,
         export_settings):
 
@@ -132,8 +126,6 @@ def get_primitive_cache_key(
 def __gather_cache_primitives(
         materials,
         blender_data,
-        uuid_for_skined_data,
-        vertex_groups: bpy.types.VertexGroups,
         modifiers: Optional[bpy.types.ObjectModifiers],
         export_settings
 ) -> List[dict]:
@@ -152,7 +144,7 @@ def __gather_cache_primitives(
         # Mesh
 
         blender_primitives, additional_materials_udim, shared_attributes = gltf2_blender_gather_primitives_extract.extract_primitives(
-            materials, blender_data, uuid_for_skined_data, vertex_groups, modifiers, export_settings)
+            materials, blender_data, modifiers, export_settings)
 
     if shared_attributes is not None:
 

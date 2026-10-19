@@ -216,11 +216,6 @@ struct DriverTarget {
   /** RNA path defining the setting to use (for DVAR_TYPE_SINGLE_PROP). */
   char *rna_path = nullptr;
 
-  /**
-   * Name of the pose-bone to use
-   * (for vars where DTAR_FLAG_STRUCT_REF is used).
-   */
-  char pchan_name[/*MAX_NAME*/ 64] = "";
   /** Transform channel index (for #DVAR_TYPE_TRANSFORM_CHAN). */
   eDriverTarget_TransformChannels transChan = {};
 

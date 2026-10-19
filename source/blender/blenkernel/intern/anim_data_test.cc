@@ -28,8 +28,8 @@ TEST_F(AnimDataTest, BKE_fcurves_id_cb_test)
 {
   Main *bmain = BKE_main_new();
   bAction *action = BKE_id_new<bAction>(bmain, "ACÄnimåtië");
-  Object *cube = BKE_object_add_only_object(bmain, OB_EMPTY, "Küüübus");
-  Object *suzanne = BKE_object_add_only_object(bmain, OB_EMPTY, "OBSuzanne");
+  Object *cube = BKE_object_add_only_object(bmain, OB_NO_DATA, "Küüübus");
+  Object *suzanne = BKE_object_add_only_object(bmain, OB_NO_DATA, "OBSuzanne");
 
   /* Create F-Curves for Cube. */
   ASSERT_TRUE(animrig::assign_action(action, cube->id));

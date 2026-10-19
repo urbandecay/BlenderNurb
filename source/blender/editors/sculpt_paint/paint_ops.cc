@@ -588,7 +588,6 @@ void ED_operatortypes_paint()
   WM_operatortype_append(PAINT_OT_weight_paint_toggle);
   WM_operatortype_append(PAINT_OT_weight_paint);
   WM_operatortype_append(PAINT_OT_weight_set);
-  WM_operatortype_append(PAINT_OT_weight_from_bones);
   WM_operatortype_append(PAINT_OT_weight_gradient);
   WM_operatortype_append(PAINT_OT_weight_sample);
   WM_operatortype_append(PAINT_OT_weight_sample_group);

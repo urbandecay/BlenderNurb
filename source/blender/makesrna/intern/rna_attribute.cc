@@ -152,7 +152,7 @@ const EnumPropertyItem rna_enum_attribute_domain_items[] = {
     /* Not implement yet */
     // {ATTR_DOMAIN_GRIDS, "GRIDS", 0, "Grids", "Attribute on mesh multires grids"},
     {int(AttrDomain::Curve), "CURVE", ICON_CURVE_DATA, "Spline", "Attribute on spline"},
-    {int(AttrDomain::Instance), "INSTANCE", ICON_EMPTY_AXIS, "Instance", "Attribute on instance"},
+    {int(AttrDomain::Instance), "INSTANCE", ICON_AXIS_3D, "Instance", "Attribute on instance"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -212,7 +212,7 @@ const EnumPropertyItem rna_enum_attribute_domain_without_corner_items[] = {
     {int(AttrDomain::Edge), "EDGE", ICON_EDGESEL, "Edge", "Attribute on mesh edge"},
     {int(AttrDomain::Face), "FACE", ICON_FACESEL, "Face", "Attribute on mesh faces"},
     {int(AttrDomain::Curve), "CURVE", ICON_CURVE_DATA, "Spline", "Attribute on spline"},
-    {int(AttrDomain::Instance), "INSTANCE", ICON_EMPTY_AXIS, "Instance", "Attribute on instance"},
+    {int(AttrDomain::Instance), "INSTANCE", ICON_AXIS_3D, "Instance", "Attribute on instance"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -227,7 +227,7 @@ const EnumPropertyItem rna_enum_attribute_domain_with_auto_items[] = {
      "Face Corner",
      "Attribute on mesh face corner"},
     {int(AttrDomain::Curve), "CURVE", ICON_CURVE_DATA, "Spline", "Attribute on spline"},
-    {int(AttrDomain::Instance), "INSTANCE", ICON_EMPTY_AXIS, "Instance", "Attribute on instance"},
+    {int(AttrDomain::Instance), "INSTANCE", ICON_AXIS_3D, "Instance", "Attribute on instance"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 

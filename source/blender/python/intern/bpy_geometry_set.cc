@@ -143,23 +143,11 @@ static BPy_GeometrySet *BPy_GeometrySet_static_from_evaluated_object(PyObject * 
     return nullptr;
   }
 
-  const bool is_instance_collection = evaluated_object->type == OB_EMPTY &&
-                                      evaluated_object->instance_collection;
   GeometrySet geometry;
-  if (is_instance_collection) {
-    bke::Instances *instances = new bke::Instances(1);
-    const int handle = instances->add_new_reference(
-        bke::InstanceReference{*evaluated_object->instance_collection});
-    instances->reference_handles_for_write().first() = handle;
-    instances->transforms_for_write().first() = float4x4::identity();
-    geometry.replace_instances(instances);
-  }
-  else {
-    bke::Instances instances = object_duplilist_legacy_instances(*depsgraph, *evaluated_object);
-    geometry = bke::object_get_evaluated_geometry_set(*evaluated_object, false);
-    if (instances.instances_num() > 0) {
-      geometry.replace_instances(new bke::Instances(std::move(instances)));
-    }
+  bke::Instances instances = object_duplilist_legacy_instances(*depsgraph, *evaluated_object);
+  geometry = bke::object_get_evaluated_geometry_set(*evaluated_object, false);
+  if (instances.instances_num() > 0) {
+    geometry.replace_instances(new bke::Instances(std::move(instances)));
   }
   BPy_GeometrySet *self = python_object_from_geometry_set(std::move(geometry));
   return self;

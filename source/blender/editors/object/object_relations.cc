@@ -15,7 +15,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
@@ -40,7 +39,6 @@
 
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
-#include "BKE_armature.hh"
 #include "BKE_collection.hh"
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
@@ -83,7 +81,6 @@
 #include "RNA_define.hh"
 #include "RNA_enum_types.hh"
 
-#include "ED_armature.hh"
 #include "ED_curve.hh"
 #include "ED_mesh.hh"
 #include "ED_object.hh"
@@ -375,7 +372,6 @@ enum {
   MAKE_LINKS_MATERIALS = 2,
   MAKE_LINKS_ANIMDATA = 3,
   MAKE_LINKS_GROUP = 4,
-  MAKE_LINKS_DUPLICOLLECTION = 5,
   MAKE_LINKS_MODIFIERS = 6,
   MAKE_LINKS_CONSTRAINTS = 7,
   MAKE_LINKS_FONTS = 8,
@@ -401,10 +397,6 @@ static bool has_geometry_visibility(const Object &object)
     return true;
   }
 
-  if (object.transflag & OB_DUPLICOLLECTION && object.instance_collection) {
-    return true;
-  }
-
   return false;
 }
 
@@ -413,7 +405,7 @@ static bool allow_make_links_data(const int type, Object *ob_src, Object *ob_dst
 {
   switch (type) {
     case MAKE_LINKS_OBDATA:
-      if (ob_src->type == ob_dst->type && ob_src->type != OB_EMPTY) {
+      if (ob_src->type == ob_dst->type && ob_src->type != OB_NO_DATA) {
         return true;
       }
       break;
@@ -423,16 +415,11 @@ static bool allow_make_links_data(const int type, Object *ob_src, Object *ob_dst
         return true;
       }
       break;
-    case MAKE_LINKS_DUPLICOLLECTION:
-      if (ob_dst->type == OB_EMPTY) {
-        return true;
-      }
-      break;
     case MAKE_LINKS_ANIMDATA:
     case MAKE_LINKS_GROUP:
       return true;
     case MAKE_LINKS_MODIFIERS:
-      if (!ELEM(OB_EMPTY, ob_src->type, ob_dst->type)) {
+      if (!ELEM(OB_NO_DATA, ob_src->type, ob_dst->type)) {
         return true;
       }
       break;
@@ -462,7 +449,6 @@ static wmOperatorStatus make_links_data_exec(bContext *C, wmOperator *op)
 
   /* collection */
   LinkNode *ob_collections = nullptr;
-  bool is_cycle = false;
   bool is_lib = false;
 
   ob_src = context_active_object(C);
@@ -491,9 +477,6 @@ static wmOperatorStatus make_links_data_exec(bContext *C, wmOperator *op)
             /* if amount of material indices changed: */
             BKE_object_materials_sync_length(bmain, ob_dst, ob_dst->data);
 
-            if (ob_dst->type == OB_ARMATURE) {
-              BKE_pose_rebuild(bmain, ob_dst, id_cast<bArmature *>(ob_dst->data), true);
-            }
             DEG_id_tag_update(&ob_dst->id, ID_RECALC_GEOMETRY);
             break;
           case MAKE_LINKS_MATERIALS:
@@ -528,24 +511,11 @@ static wmOperatorStatus make_links_data_exec(bContext *C, wmOperator *op)
             for (collection_node = ob_collections; collection_node;
                  collection_node = collection_node->next)
             {
-              if (ob_dst->instance_collection != collection_node->link) {
-                BKE_collection_object_add(
-                    bmain, static_cast<Collection *>(collection_node->link), ob_dst);
-              }
-              else {
-                is_cycle = true;
-              }
+              BKE_collection_object_add(
+                  bmain, static_cast<Collection *>(collection_node->link), ob_dst);
             }
             break;
           }
-          case MAKE_LINKS_DUPLICOLLECTION:
-            ob_dst->instance_collection = ob_src->instance_collection;
-            if (ob_dst->instance_collection) {
-              id_us_plus(&ob_dst->instance_collection->id);
-              ob_dst->transflag |= OB_DUPLICOLLECTION;
-            }
-            DEG_id_tag_update(&ob_dst->id, ID_RECALC_SYNC_TO_EVAL);
-            break;
           case MAKE_LINKS_MODIFIERS:
             BKE_object_link_modifiers(ob_dst, ob_src);
             DEG_id_tag_update(&ob_dst->id,
@@ -604,9 +574,6 @@ static wmOperatorStatus make_links_data_exec(bContext *C, wmOperator *op)
       BLI_linklist_free(ob_collections, nullptr);
     }
 
-    if (is_cycle) {
-      BKE_report(op->reports, RPT_WARNING, "Skipped some collections because of cycle detected");
-    }
   }
 
   if (is_lib) {
@@ -656,11 +623,6 @@ void OBJECT_OT_make_links_data(wmOperatorType *ot)
        "Link Animation Data",
        "Replace assigned Animation Data"},
       {MAKE_LINKS_GROUP, "GROUPS", 0, "Link Collections", "Replace assigned Collections"},
-      {MAKE_LINKS_DUPLICOLLECTION,
-       "DUPLICOLLECTION",
-       0,
-       "Link Instance Collection",
-       "Replace assigned Collection Instance"},
       {MAKE_LINKS_FONTS, "FONTS", 0, "Link Fonts to Text", "Replace Text object Fonts"},
       RNA_ENUM_ITEM_SEPR,
       {MAKE_LINKS_MODIFIERS, "MODIFIERS", 0, "Copy Modifiers", "Replace Modifiers"},
@@ -837,7 +799,7 @@ static void single_obdata_users(
         DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
 
         switch (ob->type) {
-          case OB_EMPTY:
+          case OB_NO_DATA:
             ob->data = ID_NEW_SET(ob->data,
                                   BKE_id_copy_ex(bmain,
                                                  static_cast<const ID *>(ob->data),
@@ -895,15 +857,6 @@ static void single_obdata_users(
                                                  static_cast<const ID *>(ob->data),
                                                  nullptr,
                                                  LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
-            break;
-          case OB_ARMATURE:
-            DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
-            ob->data = ID_NEW_SET(ob->data,
-                                  BKE_id_copy_ex(bmain,
-                                                 static_cast<const ID *>(ob->data),
-                                                 nullptr,
-                                                 LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
-            BKE_pose_rebuild(bmain, ob, id_cast<bArmature *>(ob->data), true);
             break;
           case OB_SPEAKER:
             ob->data = ID_NEW_SET(ob->data,
@@ -1326,26 +1279,10 @@ static wmOperatorStatus make_override_library_exec(bContext *C, wmOperator *op)
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *obact = CTX_data_active_object(C);
   ID *id_root = nullptr;
-  bool is_override_instancing_object = false;
 
   bool user_overrides_from_selected_objects = false;
 
-  if (!ID_IS_LINKED(obact) && obact->instance_collection != nullptr &&
-      ID_IS_LINKED(obact->instance_collection))
-  {
-    if (!ID_IS_OVERRIDABLE_LIBRARY(obact->instance_collection)) {
-      BKE_reportf(op->reports,
-                  RPT_ERROR_INVALID_INPUT,
-                  "Collection '%s' (instantiated by the active object) is not overridable",
-                  obact->instance_collection->id.name + 2);
-      return OPERATOR_CANCELLED;
-    }
-
-    id_root = &obact->instance_collection->id;
-    is_override_instancing_object = true;
-    user_overrides_from_selected_objects = false;
-  }
-  else if (!make_override_library_object_overridable_check(bmain, obact)) {
+  if (!make_override_library_object_overridable_check(bmain, obact)) {
     const int i = RNA_property_int_get(op->ptr, op->type->prop);
     const uint collection_session_uid = *(reinterpret_cast<const uint *>(&i));
     if (collection_session_uid == MAIN_ID_SESSION_UID_UNSET) {
@@ -1407,13 +1344,7 @@ static wmOperatorStatus make_override_library_exec(bContext *C, wmOperator *op)
     FOREACH_SELECTED_OBJECT_END;
   }
   else {
-    /* Only armatures inside the root collection (and their children) can be 'user overrides'. */
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN ((Collection *)id_root, ob_iter) {
-      if (ob_iter->type == OB_ARMATURE) {
-        user_overrides_objects_uids->add(ob_iter->id.session_uid);
-      }
-    }
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
+    /* No object types in this path require per-object user overrides. */
   }
 
   BKE_main_id_tag_all(bmain, ID_TAG_DOIT, false);
@@ -1446,7 +1377,7 @@ static wmOperatorStatus make_override_library_exec(bContext *C, wmOperator *op)
                                                        nullptr,
                                                        id_root,
                                                        id_root,
-                                                       &obact->id,
+                                                       nullptr,
                                                        &id_root_override,
                                                        do_fully_editable);
 
@@ -1469,36 +1400,29 @@ static wmOperatorStatus make_override_library_exec(bContext *C, wmOperator *op)
   }
 
   if (success) {
-    if (is_override_instancing_object) {
-      /* Remove the instance empty from this scene, the items now have an overridden collection
-       * instead. */
-      base_free_and_unlink(bmain, scene, obact);
-    }
-    else {
-      /* Remove the found root ID from the view layer. */
-      switch (GS(id_root->name)) {
-        case ID_GR: {
-          Collection *collection_root = id_cast<Collection *>(id_root);
-          for (CollectionParent &collection_parent :
-               collection_root->runtime->parents.items_mutable())
+    /* Remove the found root ID from the view layer. */
+    switch (GS(id_root->name)) {
+      case ID_GR: {
+        Collection *collection_root = id_cast<Collection *>(id_root);
+        for (CollectionParent &collection_parent :
+             collection_root->runtime->parents.items_mutable())
+        {
+          if (ID_IS_LINKED(collection_parent.collection) ||
+              !BKE_view_layer_has_collection(view_layer, collection_parent.collection))
           {
-            if (ID_IS_LINKED(collection_parent.collection) ||
-                !BKE_view_layer_has_collection(view_layer, collection_parent.collection))
-            {
-              continue;
-            }
-            BKE_collection_child_remove(bmain, collection_parent.collection, collection_root);
+            continue;
           }
-          break;
+          BKE_collection_child_remove(bmain, collection_parent.collection, collection_root);
         }
-        case ID_OB: {
-          /* TODO: Not sure how well we can handle this case, when we don't have the collections
-           * as reference containers... */
-          break;
-        }
-        default:
-          break;
+        break;
       }
+      case ID_OB: {
+        /* TODO: Not sure how well we can handle this case, when we don't have the collections
+         * as reference containers... */
+        break;
+      }
+      default:
+        break;
     }
   }
 
@@ -1525,10 +1449,7 @@ static wmOperatorStatus make_override_library_invoke(bContext *C,
     return OPERATOR_CANCELLED;
   }
 
-  if ((!ID_IS_LINKED(obact) && obact->instance_collection != nullptr &&
-       ID_IS_OVERRIDABLE_LIBRARY(obact->instance_collection)) ||
-      make_override_library_object_overridable_check(bmain, obact))
-  {
+  if (make_override_library_object_overridable_check(bmain, obact)) {
     return make_override_library_exec(C, op);
   }
 
@@ -1619,9 +1540,7 @@ static bool make_override_library_poll(bContext *C)
   Object *obact = base_act->object;
   return (
       ED_operator_objectmode(C) && obact != nullptr &&
-      (ID_IS_LINKED(obact) || ID_IS_OVERRIDE_LIBRARY(obact) ||
-       (obact->instance_collection != nullptr &&
-        ID_IS_OVERRIDABLE_LIBRARY(obact->instance_collection) && !ID_IS_OVERRIDE_LIBRARY(obact))));
+      (ID_IS_LINKED(obact) || ID_IS_OVERRIDE_LIBRARY(obact)));
 }
 
 void OBJECT_OT_make_override_library(wmOperatorType *ot)
@@ -2100,60 +2019,6 @@ void OBJECT_OT_drop_geometry_nodes(wmOperatorType *ot)
                   true,
                   "Show the data-block selector in the modifier",
                   "");
-}
-
-/** \} */
-
-/* ------------------------------------------------------------------- */
-/** \name Unlink Object Operator
- * \{ */
-
-static wmOperatorStatus object_unlink_data_exec(bContext *C, wmOperator *op)
-{
-  ID *id;
-  PropertyPointerRNA pprop;
-
-  ui::context_active_but_prop_get_templateID(C, &pprop.ptr, &pprop.prop);
-
-  if (pprop.prop == nullptr) {
-    BKE_report(op->reports, RPT_ERROR, "Incorrect context for running object data unlink");
-    return OPERATOR_CANCELLED;
-  }
-
-  id = pprop.ptr.owner_id;
-
-  if (GS(id->name) == ID_OB) {
-    Object *ob = id_cast<Object *>(id);
-    if (ob->data) {
-      ID *id_data = ob->data;
-
-      if (GS(id_data->name) == ID_IM) {
-        id_us_min(id_data);
-        ob->data = nullptr;
-      }
-      else {
-        BKE_report(op->reports, RPT_ERROR, "Cannot unlink this object data");
-        return OPERATOR_CANCELLED;
-      }
-    }
-  }
-
-  RNA_property_update(C, &pprop.ptr, pprop.prop);
-
-  return OPERATOR_FINISHED;
-}
-
-void OBJECT_OT_unlink_data(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Unlink";
-  ot->idname = "OBJECT_OT_unlink_data";
-
-  /* API callbacks. */
-  ot->exec = object_unlink_data_exec;
-
-  /* flags */
-  ot->flag = OPTYPE_INTERNAL;
 }
 
 /** \} */

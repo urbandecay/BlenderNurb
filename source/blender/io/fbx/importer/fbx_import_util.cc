@@ -44,27 +44,6 @@ void matrix_to_m44(const ufbx_matrix &src, float dst[4][4])
   dst[3][3] = 1.0f;
 }
 
-ufbx_matrix calc_bone_pose_matrix(const ufbx_transform &local_xform,
-                                  const ufbx_node &node,
-                                  const ufbx_matrix &local_bind_inv_matrix)
-{
-  ufbx_transform xform = local_xform;
-
-  /* For bones that have "ignore parent scale" on them, ufbx helpfully applies global scale to
-   * the evaluated transform. However we really need to get local transform without global
-   * scale, so undo that. */
-  if (node.adjust_post_scale != 1.0) {
-    xform.scale.x /= node.adjust_post_scale;
-    xform.scale.y /= node.adjust_post_scale;
-    xform.scale.z /= node.adjust_post_scale;
-  }
-
-  /* Transformed to the bind transform in joint-local space. */
-  ufbx_matrix matrix = ufbx_transform_to_matrix(&xform);
-  matrix = ufbx_matrix_mul(&local_bind_inv_matrix, &matrix);
-  return matrix;
-}
-
 void ufbx_matrix_to_obj(const ufbx_matrix &mtx, Object *obj)
 {
 #ifdef FBX_DEBUG_PRINT
@@ -222,25 +201,6 @@ void read_custom_properties(const ufbx_props &props, ID &id, bool enums_as_strin
       continue;
     }
     IDProperty *idgroup = IDP_EnsureProperties(&id);
-    read_ufbx_property(prop, idgroup, enums_as_strings);
-  }
-}
-
-static IDProperty *pchan_EnsureProperties(bPoseChannel &pchan)
-{
-  if (pchan.prop == nullptr) {
-    pchan.prop = bke::idprop::create_group("").release();
-  }
-  return pchan.prop;
-}
-
-void read_custom_properties(const ufbx_props &props, bPoseChannel &pchan, bool enums_as_strings)
-{
-  for (const ufbx_prop &prop : props.props) {
-    if ((prop.flags & UFBX_PROP_FLAG_USER_DEFINED) == 0) {
-      continue;
-    }
-    IDProperty *idgroup = pchan_EnsureProperties(pchan);
     read_ufbx_property(prop, idgroup, enums_as_strings);
   }
 }

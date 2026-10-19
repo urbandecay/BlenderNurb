@@ -1094,7 +1094,7 @@ bool popup_context_menu_for_button(bContext *C, Button *but, const wmEvent *even
   }
 
   /* Pointer properties and string properties with
-   * prop_search support jumping to target object/bone. */
+   * prop_search support jumping to the target object or sub-property. */
   if (but->rnapoin.data && but->rnaprop) {
     const PropertyType prop_type = RNA_property_type(but->rnaprop);
     if (((prop_type == PROP_POINTER) ||

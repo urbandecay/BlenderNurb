@@ -35,7 +35,7 @@ extern const EnumPropertyItem *rna_enum_attribute_domain_itemf(const AttributeOw
                                                                bool *r_free);
 
 /**
- * For ID filters (#FILTER_ID_AC, #FILTER_ID_AR, ...) an int isn't enough. This version allows 64
+ * For ID filters (#FILTER_ID_AC, #FILTER_ID_BR, ...) an int isn't enough. This version allows 64
  * bit integers. So can't use the regular #EnumPropertyItem. Would be nice if RNA supported this
  * itself.
  *

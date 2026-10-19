@@ -323,23 +323,21 @@ static std::pair<bool, AbcObjectReader *> visit_object(
     /* The root itself is not an object we should import. */
   }
   else if (IXform::matches(md)) {
-    bool create_empty;
+    bool create_transform;
 
-    /* An xform can either be a Blender Object (if it contains a mesh, for
-     * example), but it can also be an Empty. Its correct translation to
-     * Blender's data model depends on its children. */
+    /* An Xform can carry geometry itself, or only define a transform for its children.
+     * Preserve transform-only nodes when they represent a locator or a leaf in the hierarchy. */
 
-    /* Check whether or not this object is a Maya locator, which is
-     * similar to empties used as parent object in Blender. */
+    /* Preserve Maya locators as generic transform nodes. */
     if (has_property(object.getProperties(), "locator")) {
-      create_empty = true;
+      create_transform = true;
     }
     else {
-      create_empty = claiming_child_readers.empty();
+      create_transform = claiming_child_readers.empty();
     }
 
-    if (create_empty) {
-      reader = new AbcEmptyReader(args);
+    if (create_transform) {
+      reader = new AbcTransformReader(args);
     }
   }
   else if (IPolyMesh::matches(md)) {

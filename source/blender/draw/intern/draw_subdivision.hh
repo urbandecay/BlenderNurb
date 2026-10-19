@@ -84,9 +84,8 @@ struct DRWSubdivCache {
   uint num_subdiv_verts;
   uint num_subdiv_quads;
 
-  /* We only do the subdivision traversal for full faces, however we may have geometries that only
-   * have loose edges (e.g. a custom bone shape). This flag is used to detect those cases, as the
-   * counters above will all be set to zero if we do not have subdivision loops. */
+  /* We only do the subdivision traversal for full faces, but geometry may contain only loose
+   * edges. This flag detects those cases, where the counters above will all be zero. */
   bool may_have_loose_geom;
 
   /* Number of faces in the coarse mesh, notably used to compute a coarse face index given a

@@ -87,8 +87,7 @@ ListBaseT<TimeMarker> *ED_scene_markers_get_from_area(const Main &bmain,
     return nullptr;
   }
 
-  /* If the area is the dopesheet, AND it is configured to show scene markers (instead of
-   * pose/action markers), directly go for the scene markers. */
+  /* If the area is the dope sheet and it is configured to show scene markers, directly use them. */
   if (area->spacetype == SPACE_ACTION) {
     const SpaceAction *saction = static_cast<SpaceAction *>(area->spacedata.first);
     if (!(saction->flag & SACTION_POSEMARKERS_SHOW)) {

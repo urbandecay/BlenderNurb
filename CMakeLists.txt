@@ -290,14 +290,6 @@ Enable optimizations even on Debug builds for executables used for the build pro
 )
 mark_as_advanced(WITH_OPTIMIZED_BUILD_TOOLS)
 
-option(WITH_IK_ITASC "\
-Enable ITASC IK solver (only disable for development & for incompatible C++ compilers)"
-  ON
-)
-option(WITH_IK_SOLVER "\
-Enable Legacy IK solver (only disable for development)"
-  ON
-)
 option(WITH_FFTW3 "Enable FFTW3 support (Used for smoke, ocean sim, glare, and audio effects)" ON)
 option(WITH_PUGIXML "Enable PugiXML support (Used for OpenImageIO)" ON)
 option(WITH_BULLET "Enable Bullet (Physics Engine)" ON)
@@ -2523,8 +2515,6 @@ if(FIRST_RUN)
   info_cfg_option(WITH_FREESTYLE)
   info_cfg_option(WITH_GMP)
   info_cfg_option(WITH_HARU)
-  info_cfg_option(WITH_IK_ITASC)
-  info_cfg_option(WITH_IK_SOLVER)
   info_cfg_option(WITH_INPUT_NDOF)
   info_cfg_option(WITH_INPUT_IME)
   info_cfg_option(WITH_INTERNATIONAL)

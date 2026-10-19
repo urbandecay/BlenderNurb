@@ -103,10 +103,8 @@ enum eSpaceButtons_Context : short {
   BCONTEXT_TEXTURE = 6,
   BCONTEXT_PARTICLE = 7,
   BCONTEXT_PHYSICS = 8,
-  BCONTEXT_BONE = 9,
   BCONTEXT_MODIFIER = 10,
   BCONTEXT_CONSTRAINT = 11,
-  BCONTEXT_BONE_CONSTRAINT = 12,
   BCONTEXT_VIEW_LAYER = 13,
   BCONTEXT_TOOL = 14,
   BCONTEXT_OUTPUT = 16,
@@ -168,8 +166,6 @@ enum eSpaceOutliner_Filter : int {
   /** Show overrides that are defined/controlled by Blender. */
   SO_FILTER_SHOW_SYSTEM_OVERRIDES = SO_FILTER_UNUSED_5, /* re-use */
   SO_FILTER_NO_OB_MESH = (1 << 6),
-  SO_FILTER_NO_OB_ARMATURE = (1 << 7),
-  SO_FILTER_NO_OB_EMPTY = (1 << 8),
   SO_FILTER_NO_OB_LAMP = (1 << 9),
   SO_FILTER_NO_OB_CAMERA = (1 << 10),
   SO_FILTER_NO_OB_OTHERS = (1 << 11),
@@ -188,9 +184,7 @@ enum eSpaceOutliner_Filter : int {
 ENUM_OPERATORS(eSpaceOutliner_Filter)
 
 #define SO_FILTER_OB_TYPE \
-  (SO_FILTER_NO_OB_MESH | SO_FILTER_NO_OB_ARMATURE | SO_FILTER_NO_OB_EMPTY | \
-   SO_FILTER_NO_OB_LAMP | SO_FILTER_NO_OB_CAMERA | \
-   SO_FILTER_NO_OB_OTHERS)
+  (SO_FILTER_NO_OB_MESH | SO_FILTER_NO_OB_LAMP | SO_FILTER_NO_OB_CAMERA | SO_FILTER_NO_OB_OTHERS)
 
 #define SO_FILTER_OB_STATE \
   (SO_FILTER_OB_STATE_VISIBLE | SO_FILTER_OB_STATE_SELECTED | SO_FILTER_OB_STATE_ACTIVE | \
@@ -508,12 +502,6 @@ enum eFileAssetImportMethod : short {
    */
   FILE_ASSET_IMPORT_PACK = 4,
 };
-
-enum eFileAssetImportFlags : short {
-  FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_LINK = (1 << 0),
-  FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_APPEND = (1 << 1),
-};
-ENUM_OPERATORS(eFileAssetImportFlags)
 
 enum eFileSel_AssetParams_Flag : int {
   // FILE_ASSETS_FLAG_DEPRECATED_1 = (1 << 0), /* Not cleared! */

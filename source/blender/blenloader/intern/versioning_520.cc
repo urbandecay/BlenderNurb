@@ -465,9 +465,9 @@ static void versioning_replace_legacy_compositor_switch_node(bNodeTree *node_tre
 /**
  * Build the static world transform of an object-parent chain using the legacy transform formula.
  *
- * This intentionally supports only ordinary object parenting. Bone, vertex, path, and implicit
- * armature parenting require evaluated geometry or pose data, which is not available reliably in
- * file versioning before depsgraph evaluation.
+ * This intentionally supports only ordinary object parenting. Other parent modes require
+ * evaluated geometry, which is not available reliably in file versioning before depsgraph
+ * evaluation.
  */
 static bool version_object_parent_static_world_matrix(const Object &object,
                                                       float r_world_matrix[4][4])
@@ -498,7 +498,7 @@ static bool version_object_parent_static_world_matrix(const Object &object,
     }
 
     if ((current->partype & PARTYPE) != PAROBJECT) {
-      /* Bone, vertex, PARSKEL, and unknown parent modes need legacy evaluation. */
+      /* Non-object and unknown parent modes need legacy evaluation. */
       return false;
     }
 
@@ -588,8 +588,6 @@ static void version_remove_static_object_parenting(Main &bmain)
     object.parent = nullptr;
     object.partype = PAROBJECT;
     object.par1 = object.par2 = object.par3 = 0;
-    object.parsubstr[0] = '\0';
-    object.parent_bone_head_tail_factor = 1.0f;
     unit_m4(object.parentinv);
   }
 }
@@ -634,15 +632,6 @@ void do_versions_after_linking_520(FileData *fd, Main *bmain)
         animviz_free_motionpath(object.mpath);
         object.mpath = nullptr;
         object.avs.path_bakeflag &= ~MOTIONPATH_BAKE_HAS_PATHS;
-      }
-      if (object.pose && (object.pose->avs.path_bakeflag & MOTIONPATH_BAKE_CAMERA_SPACE)) {
-        for (bPoseChannel &pose_bone : object.pose->chanbase) {
-          if (pose_bone.mpath) {
-            animviz_free_motionpath(pose_bone.mpath);
-            pose_bone.mpath = nullptr;
-          }
-        }
-        object.pose->avs.path_bakeflag &= ~MOTIONPATH_BAKE_HAS_PATHS;
       }
     }
   }
@@ -921,12 +910,6 @@ void blo_do_versions_520(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
       }
     }
     FOREACH_NODETREE_END;
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 35)) {
-    for (Object &object : bmain->objects) {
-      object.parent_bone_head_tail_factor = 1.0;
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 502, 37)) {

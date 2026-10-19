@@ -539,12 +539,12 @@ TEST_F(AssetCatalogTest, create_catalog_simple_name)
 {
   AssetCatalogService service;
   AssetCatalog *cat = service.create_catalog(
-      "production/Spite Fright/Characters/Victora/Pose Library/Approved/Body Parts/Hands");
+      "production/Spite Fright/Characters/Victora/Transform Library/Approved/Body Parts/Hands");
 
   EXPECT_FALSE(BLI_uuid_is_nil(cat->catalog_id));
-  EXPECT_EQ("production/Spite Fright/Characters/Victora/Pose Library/Approved/Body Parts/Hands",
+  EXPECT_EQ("production/Spite Fright/Characters/Victora/Transform Library/Approved/Body Parts/Hands",
             cat->path.str());
-  EXPECT_EQ("...ht-Characters-Victora-Pose Library-Approved-Body Parts-Hands", cat->simple_name);
+  EXPECT_EQ("...ht-Characters-Victora-Transform Library-Approved-Body Parts-Hands", cat->simple_name);
 }
 
 TEST_F(AssetCatalogTest, delete_catalog_leaf)

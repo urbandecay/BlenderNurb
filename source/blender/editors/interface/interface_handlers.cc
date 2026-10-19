@@ -1340,7 +1340,7 @@ static void apply_but_TEX(bContext *C, Button *but, HandleButtonData *data)
   /* only if there are afterfuncs, otherwise 'renam_orig' isn't freed */
   if (text_button && afterfunc_check(but->block, but)) {
     /* give butfunc a copy of the original text too.
-     * feature used for bone renaming, channels, etc.
+     * feature used for renaming and other text edits.
      * afterfunc frees rename_orig */
     if (data->text_edit.original_string && (but->flag & BUT_TEXTEDIT_UPDATE)) {
       /* In this case, we need to keep `original_string` available,
@@ -5735,9 +5735,8 @@ static int do_but_VIEW_ITEM(bContext *C, Button *but, HandleButtonData *data, co
             data->dragstarty = event->xy[1];
           }
 
-          /* Always continue for drag and drop handling. Also for cases where keymap items are
-           * registered to add custom activate or drag operators (the pose library does this for
-           * example). */
+          /* Always continue for drag and drop handling, including custom activation or drag
+           * operators registered by editor tools. */
           return WM_UI_HANDLER_CONTINUE;
         case KM_DBL_CLICK:
           if (view_item_can_rename(*view_item_but->view_item)) {

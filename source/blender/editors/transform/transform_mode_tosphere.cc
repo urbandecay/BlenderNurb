@@ -48,7 +48,6 @@ static void to_sphere_radius_update(TransInfo *t)
   float vec[3];
 
   const bool is_local_center = transdata_check_local_center(t, t->around);
-  const bool is_data_space = (t->options & CTX_POSE_BONE) != 0;
 
   if (t->flag & T_PROP_EDIT_ALL) {
     int factor_accum = 0.0f;
@@ -59,12 +58,7 @@ static void to_sphere_radius_update(TransInfo *t)
           continue;
         }
         const float *center = is_local_center ? td->center : tc->center_local;
-        if (is_data_space) {
-          copy_v3_v3(vec, td->center);
-        }
-        else {
-          copy_v3_v3(vec, td->iloc);
-        }
+        copy_v3_v3(vec, td->iloc);
 
         sub_v3_v3(vec, center);
         radius += td->factor * len_v3(vec);
@@ -80,12 +74,7 @@ static void to_sphere_radius_update(TransInfo *t)
       TransData *td = tc->data;
       for (int i = 0; i < tc->data_len; i++, td++) {
         const float *center = is_local_center ? td->center : tc->center_local;
-        if (is_data_space) {
-          copy_v3_v3(vec, td->center);
-        }
-        else {
-          copy_v3_v3(vec, td->iloc);
-        }
+        copy_v3_v3(vec, td->iloc);
 
         sub_v3_v3(vec, center);
         radius += len_v3(vec);
@@ -109,29 +98,17 @@ static void transdata_elem_to_sphere(const TransInfo * /*t*/,
                                      TransData *td,
                                      const float ratio,
                                      const ToSphereInfo *to_sphere_info,
-                                     const bool is_local_center,
-                                     const bool is_data_space)
+                                     const bool is_local_center)
 {
   float vec[3];
   const float *center = is_local_center ? td->center : tc->center_local;
-  if (is_data_space) {
-    copy_v3_v3(vec, td->center);
-  }
-  else {
-    copy_v3_v3(vec, td->iloc);
-  }
+  copy_v3_v3(vec, td->iloc);
 
   sub_v3_v3(vec, center);
   const float radius = normalize_v3(vec);
   const float tratio = ratio * td->factor;
   mul_v3_fl(vec, radius * (1.0f - tratio) + to_sphere_info->radius * tratio);
   add_v3_v3(vec, center);
-
-  if (is_data_space) {
-    sub_v3_v3(vec, td->center);
-    mul_m3_v3(td->smtx, vec);
-    add_v3_v3(vec, td->iloc);
-  }
 
   copy_v3_v3(td->loc, vec);
 }
@@ -145,7 +122,6 @@ static void transdata_elem_to_sphere(const TransInfo * /*t*/,
 static void applyToSphere(TransInfo *t)
 {
   const bool is_local_center = transdata_check_local_center(t, t->around);
-  const bool is_data_space = (t->options & CTX_POSE_BONE) != 0;
 
   float ratio;
   char str[UI_MAX_DRAW_STR];
@@ -185,7 +161,7 @@ static void applyToSphere(TransInfo *t)
         if (td->flag & TD_SKIP) {
           continue;
         }
-        transdata_elem_to_sphere(t, tc, td, ratio, to_sphere_info, is_local_center, is_data_space);
+        transdata_elem_to_sphere(t, tc, td, ratio, to_sphere_info, is_local_center);
       }
     });
   }

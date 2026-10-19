@@ -864,11 +864,7 @@ static void sequencer_preview_region_listener(const wmRegionListenerParams *para
   switch (wmn->category) {
     case NC_OBJECT: /* To handle changes in 3D viewport. */
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
-        case ND_BONE_COLLECTION:
         case ND_TRANSFORM:
-        case ND_POSE:
         case ND_DRAW:
         case ND_MODIFIER:
         case ND_CONSTRAINT:

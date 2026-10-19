@@ -145,10 +145,7 @@ static void add_object_relation(const ModifierUpdateDepsgraphContext *ctx,
     return;
   }
   if (info.geometry) {
-    if (object.type == OB_EMPTY && object.instance_collection != nullptr) {
-      add_collection_relation(ctx, *object.instance_collection);
-    }
-    else if (DEG_object_has_geometry_component(&object)) {
+    if (DEG_object_has_geometry_component(&object)) {
       DEG_add_object_relation(ctx->node, &object, DEG_OB_COMP_GEOMETRY, "Nodes Modifier");
       DEG_add_customdata_mask(ctx->node, &object, &dependency_data_mask);
     }
@@ -156,11 +153,6 @@ static void add_object_relation(const ModifierUpdateDepsgraphContext *ctx,
   if (object.type == OB_CAMERA) {
     if (info.camera_parameters) {
       DEG_add_object_relation(ctx->node, &object, DEG_OB_COMP_PARAMETERS, "Nodes Modifier");
-    }
-  }
-  if (object.type == OB_ARMATURE) {
-    if (info.pose) {
-      DEG_add_object_relation(ctx->node, &object, DEG_OB_COMP_EVAL_POSE, "Nodes Modifier");
     }
   }
 }

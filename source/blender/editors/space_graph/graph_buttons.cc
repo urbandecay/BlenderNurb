@@ -788,7 +788,6 @@ static void graph_panel_driverVar__singleProp(ui::Layout &layout, ID *id, Driver
 }
 
 /* settings for 'rotation difference' driver variable type */
-/* FIXME: 1) Must be same armature for both dtars, 2) Alignment issues... */
 static void graph_panel_driverVar__rotDiff(ui::Layout &layout, ID *id, DriverVar *dvar)
 {
   for (int i : IndexRange(2)) {
@@ -801,11 +800,6 @@ static void graph_panel_driverVar__rotDiff(ui::Layout &layout, ID *id, DriverVar
     StringRef name = i == 1 ? IFACE_("Object 1") : IFACE_("Object 2");
     col.prop(&ptr, "id", UI_ITEM_NONE, name, ICON_NONE);
 
-    Object *ob = id_cast<Object *>(dtar->id);
-    if (dtar->id && GS(dtar->id->name) == ID_OB && ob->pose) {
-      PointerRNA tar_ptr = RNA_pointer_create_discrete(dtar->id, RNA_Pose, ob->pose);
-      col.prop_search(&ptr, "bone_target", &tar_ptr, "bones", "", ICON_BONE_DATA);
-    }
   }
 }
 
@@ -824,14 +818,7 @@ static void graph_panel_driverVar__locDiff(ui::Layout &layout, ID *id, DriverVar
     StringRef name = i == 1 ? IFACE_("Object 1") : IFACE_("Object 2");
     col.prop(&ptr, "id", UI_ITEM_NONE, name, ICON_NONE);
 
-    Object *ob = id_cast<Object *>(dtar->id);
-
-    if (dtar->id && GS(dtar->id->name) == ID_OB && ob->pose) {
-      PointerRNA tar_ptr = RNA_pointer_create_discrete(dtar->id, RNA_Pose, ob->pose);
-      col.prop_search(&ptr, "bone_target", &tar_ptr, "bones", IFACE_("Bone"), ICON_BONE_DATA);
-    }
-
-    /* We can clear it again now - it's only needed when creating the ID/Bone fields */
+    /* We can clear this again now; it is only needed while creating target fields. */
     col.red_alert_set(false);
 
     col.prop(&ptr, "transform_space", UI_ITEM_NONE, std::nullopt, ICON_NONE);
@@ -842,7 +829,6 @@ static void graph_panel_driverVar__locDiff(ui::Layout &layout, ID *id, DriverVar
 static void graph_panel_driverVar__transChan(ui::Layout &layout, ID *id, DriverVar *dvar)
 {
   DriverTarget *dtar = &dvar->targets[0];
-  Object *ob = id_cast<Object *>(dtar->id);
 
   /* initialize RNA pointer to the target */
   PointerRNA dtar_ptr = RNA_pointer_create_discrete(id, RNA_DriverTarget, dtar);
@@ -851,11 +837,6 @@ static void graph_panel_driverVar__transChan(ui::Layout &layout, ID *id, DriverV
   ui::Layout &col = layout.column(true);
   col.red_alert_set(dtar->flag & DTAR_FLAG_INVALID); /* XXX: per field... */
   col.prop(&dtar_ptr, "id", UI_ITEM_NONE, IFACE_("Object"), ICON_NONE);
-
-  if (dtar->id && GS(dtar->id->name) == ID_OB && ob->pose) {
-    PointerRNA tar_ptr = RNA_pointer_create_discrete(dtar->id, RNA_Pose, ob->pose);
-    col.prop_search(&dtar_ptr, "bone_target", &tar_ptr, "bones", IFACE_("Bone"), ICON_BONE_DATA);
-  }
 
   ui::Layout &sub = layout.column(true);
   sub.prop(&dtar_ptr, "transform_type", UI_ITEM_NONE, std::nullopt, ICON_NONE);
@@ -959,8 +940,7 @@ static void graph_draw_driven_property_panel(ui::Layout &layout, ID *id, FCurve 
   row.alignment_set(ui::LayoutAlign::Left);
 
   /* -> user friendly 'name' for datablock that owns F-Curve */
-  /* XXX: Actually, we may need the datablock icons only...
-   * (e.g. right now will show bone for bone props). */
+  /* Prefer datablock icons for the owner of the animated property. */
   row.label(id->name + 2, icon);
 
   /* -> user friendly 'name' for F-Curve/driver target */

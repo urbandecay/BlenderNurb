@@ -48,6 +48,7 @@ struct View3D;
 struct ViewLayer;
 
 enum ObjectType : short;
+enum eRotationModes : short;
 
 template<typename CoordT> struct KDTree;
 
@@ -250,46 +251,6 @@ void BKE_object_apply_mat4(Object *ob, const float mat[4][4], bool use_compat);
 
 void BKE_object_matrix_local_get(Object *ob, float r_mat[4][4]);
 
-bool BKE_object_pose_context_check(const Object *ob);
-
-Object *BKE_object_pose_armature_get(Object *ob);
-/**
- * A version of #BKE_object_pose_armature_get with an additional check.
- * When `ob` isn't an armature: only return the referenced pose object
- * when the active object is in weight paint mode.
- *
- * \note Some callers need to check that pose bones are selectable
- * which isn't the case when the object using the armature isn't in weight-paint mode.
- */
-Object *BKE_object_pose_armature_get_with_wpaint_check(Object *ob);
-Object *BKE_object_pose_armature_get_visible(
-    const Main &bmain, Object *ob, const Scene *scene, ViewLayer *view_layer, View3D *v3d);
-
-/**
- * Access pose array with special check to get pose object when in weight paint mode.
- */
-Vector<Object *> BKE_object_pose_array_get_ex(
-    const Main &bmain, const Scene *scene, ViewLayer *view_layer, View3D *v3d, bool unique);
-Vector<Object *> BKE_object_pose_array_get_unique(const Main &bmain,
-                                                  const Scene *scene,
-                                                  ViewLayer *view_layer,
-                                                  View3D *v3d);
-Vector<Object *> BKE_object_pose_array_get(const Main &bmain,
-                                           const Scene *scene,
-                                           ViewLayer *view_layer,
-                                           View3D *v3d);
-
-Vector<Base *> BKE_object_pose_base_array_get_ex(
-    const Main &bmain, const Scene *scene, ViewLayer *view_layer, View3D *v3d, bool unique);
-Vector<Base *> BKE_object_pose_base_array_get_unique(const Main &bmain,
-                                                     const Scene *scene,
-                                                     ViewLayer *view_layer,
-                                                     View3D *v3d);
-Vector<Base *> BKE_object_pose_base_array_get(const Main &bmain,
-                                              const Scene *scene,
-                                              ViewLayer *view_layer,
-                                              View3D *v3d);
-
 /**
  * Compute object world transform and store it in `ob->object_to_world().ptr()`.
  */
@@ -312,7 +273,7 @@ void BKE_object_where_is_calc_mat4(const Object *ob, float r_obmat[4][4]);
  * available.
  *
  * \note This only includes the bounds of data stored in #GeometrySet, so it won't include the
- * bounds of other object types that aren't considered "geometry", like armatures.
+ * bounds of other object types that aren't represented as geometry.
  */
 std::optional<Bounds<float3>> BKE_object_evaluated_geometry_bounds(const Object *ob);
 
@@ -352,18 +313,10 @@ void BKE_object_dimensions_set_ex(Object *ob,
                                   const float ob_obmat_orig[4][4]);
 void BKE_object_dimensions_set(Object *ob, const float value[3], int axis_mask);
 
-void BKE_object_empty_draw_type_set(Object *ob, int value);
 
 void BKE_object_minmax(Object *ob, float3 &r_min, float3 &r_max);
 bool BKE_object_minmax_dupli(
     Depsgraph *depsgraph, Object *ob, float3 &r_min, float3 &r_max, bool use_hidden);
-/**
- * Calculate visual bounds from an empty objects draw-type.
- *
- * \note This is not part of the calculation used by #BKE_object_boundbox_get
- * as these bounds represent the extents of visual guides (use for viewport culling for example)
- */
-bool BKE_object_minmax_empty_drawtype(const Object *ob, float r_min[3], float r_max[3]);
 
 /**
  * Sometimes min-max isn't enough, we need to loop over each point.
@@ -568,12 +521,6 @@ void BKE_object_batch_cache_dirty_tag(Object *ob);
 
 /* this function returns a superset of the scenes selection based on relationships */
 
-enum eObRelationTypes {
-  OB_REL_NONE = 0,                /* Just the selection as is. */
-  OB_REL_MOD_ARMATURE = (1 << 4), /* Armatures related to the selected objects. */
-  // OB_REL_SCENE_CAMERA = (1 << 5), /* You might want the scene camera too even if unselected? */
-};
-
 enum eObjectSet {
   OB_SET_SELECTED, /* Selected Objects. */
   OB_SET_VISIBLE,  /* Visible Objects. */
@@ -584,14 +531,12 @@ enum eObjectSet {
  * Iterates over all objects of the given scene layer.
  * Depending on the #eObjectSet flag:
  * collect either #OB_SET_ALL, #OB_SET_VISIBLE or #OB_SET_SELECTED objects.
- * If #OB_SET_VISIBLE or#OB_SET_SELECTED are collected,
- * then also add related objects according to the given \a includeFilter.
+ * The result contains only the selected or visible objects themselves.
  */
 LinkNode *BKE_object_relational_superset(const Main &bmain,
                                          const Scene *scene,
                                          ViewLayer *view_layer,
-                                         eObjectSet objectSet,
-                                         eObRelationTypes includeFilter);
+                                         eObjectSet objectSet);
 /**
  * \return All groups this object is a part of, caller must free.
  */
@@ -641,8 +586,6 @@ void BKE_object_modifier_update_subframe_only_callback(
     int /*ModifierType*/ modifier_type,
     FunctionRef<void(Object *object, bool update_mesh)> update_or_tag_fn);
 
-bool BKE_object_empty_image_frame_is_visible_in_view3d(const Object *ob, const RegionView3D *rv3d);
-bool BKE_object_empty_image_data_is_visible_in_view3d(const Object *ob, const RegionView3D *rv3d);
 
 /**
  * This is an utility function for Python's object.to_mesh() (the naming is not very clear though).
@@ -674,8 +617,6 @@ Curve *BKE_object_to_curve(Object *object, Depsgraph *depsgraph, bool apply_modi
 
 void BKE_object_to_curve_clear(Object *object);
 
-void BKE_object_check_uids_unique_and_report(const Object *object);
-
 /**
  * Return the last subsurf modifier of an object, this does not check whether modifiers on top of
  * it are disabled. Return NULL if no such modifier is found.
@@ -701,5 +642,13 @@ void BKE_object_protected_rotation_quaternion_set(Object *ob, const float quat[4
 void BKE_object_protected_rotation_euler_set(Object *ob, const float euler[3]);
 /** Sets the quaternion rotation of the object, respecting #Object::protectflag. */
 void BKE_object_protected_rotation_axisangle_set(Object *ob, const float axis[3], float angle);
+
+/** Convert rotation values when changing between object rotation representations. */
+void BKE_rotMode_change_values(float quat[4],
+                               float eul[3],
+                               float axis[3],
+                               float *angle,
+                               eRotationModes oldMode,
+                               eRotationModes newMode);
 
 }  // namespace blender

@@ -11,11 +11,8 @@ from ...io.exp.user_extensions import export_user_extensions
 from ..com.extras import generate_extras, BLACK_LIST
 from ..com.blender_default import LIGHTS
 from ..com import gltf2_blender_math
-from . import tree as gltf2_blender_gather_tree
-from . import skins as gltf2_blender_gather_skins
 from . import cameras as gltf2_blender_gather_cameras
 from . import obj_data as gltf2_blender_gather_mesh
-from . import joints as gltf2_blender_gather_joints
 from . import lights as gltf2_blender_gather_lights
 from .tree import VExportNode
 
@@ -27,10 +24,6 @@ from .tree import VExportNode
 def gather_node(vnode, export_settings):
 
     blender_object = vnode.blender_object
-
-    skin = gather_skin(vnode.uuid, export_settings)
-    if skin is not None:
-        vnode.skin = skin
 
     # Hook to check if we should export mesh or not (force it to None)
 
@@ -46,13 +39,6 @@ def gather_node(vnode, export_settings):
     else:
         mesh = None
 
-    # If blender data is skined, but failed to export
-    # We should ignore the skin too,
-    # As it will generate a not valid glTF file
-    if mesh is None and skin is not None:
-        skin = None
-        vnode.skin = None
-
     node = gltf2_io.Node(
         camera=__gather_camera(vnode, export_settings),
         children=__gather_children(vnode, export_settings),
@@ -63,14 +49,11 @@ def gather_node(vnode, export_settings):
         name=__gather_name(blender_object, export_settings),
         rotation=None,
         scale=None,
-        skin=skin,
         translation=None,
         weights=__gather_weights(blender_object, export_settings)
     )
 
-    # If node mesh is skined, transforms should be ignored at import, so no need to set them here
-    if node.skin is None:
-        node.translation, node.rotation, node.scale = __gather_trans_rot_scale(vnode, export_settings)
+    node.translation, node.rotation, node.scale = __gather_trans_rot_scale(vnode, export_settings)
 
     export_user_extensions('gather_node_hook', export_settings, node, blender_object)
 
@@ -105,32 +88,10 @@ def __gather_children(vnode, export_settings):
 
     vtree = export_settings['vtree']
 
-    # Standard Children / Collection
-    if export_settings['gltf_armature_object_remove'] is False:
-        for c in [vtree.nodes[c]
-                  for c in vnode.children if vtree.nodes[c].blender_type != gltf2_blender_gather_tree.VExportNode.BONE]:
-            node = gather_node(c, export_settings)
-            if node is not None:
-                children.append(node)
-    else:
-        for c in [vtree.nodes[c] for c in vnode.children]:
-            if c.blender_type != gltf2_blender_gather_tree.VExportNode.BONE:
-                node = gather_node(c, export_settings)
-                if node is not None:
-                    children.append(node)
-            else:
-                # We come here because armature was remove, and bone can be a child of any object
-                joint = gltf2_blender_gather_joints.gather_joint_vnode(c.uuid, export_settings)
-                children.append(joint)
-
-    # Armature --> Retrieve Blender bones
-    # This can't happen if we remove the Armature Object
-    if vnode.blender_type == gltf2_blender_gather_tree.VExportNode.ARMATURE:
-        armature_object_uuid = vnode.uuid
-        root_bones_uuid = export_settings['vtree'].get_root_bones_uuid(vnode.uuid)
-        for bone_uuid in root_bones_uuid:
-            joint = gltf2_blender_gather_joints.gather_joint_vnode(bone_uuid, export_settings)
-            children.append(joint)
+    for child_uuid in vnode.children:
+        node = gather_node(vtree.nodes[child_uuid], export_settings)
+        if node is not None:
+            children.append(node)
 
     return children
 
@@ -207,7 +168,6 @@ def __gather_mesh(vnode, blender_object, export_settings):
             materials = tuple(ms.material for ms in vnode.original_object.material_slots)
             __keep_material_info(materials, True, export_settings)
 
-        uuid_for_skined_data = None
         modifiers = None
 
         if blender_data is None:
@@ -238,14 +198,6 @@ def __gather_mesh(vnode, blender_object, export_settings):
                 materials = tuple(ms.material for ms in blender_object.material_slots)
                 __keep_material_info(materials, True, export_settings)
             else:
-                armature_modifiers = {}
-                if export_settings['gltf_skins']:
-                    # temporarily disable Armature modifiers if exporting skins
-                    for idx, modifier in enumerate(blender_object.modifiers):
-                        if modifier.type == 'ARMATURE':
-                            armature_modifiers[idx] = modifier.show_viewport
-                            modifier.show_viewport = False
-
                 depsgraph = bpy.context.evaluated_depsgraph_get()
                 blender_data_owner = blender_object.evaluated_get(depsgraph)
                 blender_data = blender_data_owner.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
@@ -265,11 +217,6 @@ def __gather_mesh(vnode, blender_object, export_settings):
                 # exporter, and is not a GN instance data
                 blender_data['gltf2_mesh_applied'] = True
 
-                if export_settings['gltf_skins']:
-                    # restore Armature modifiers
-                    for idx, show_viewport in armature_modifiers.items():
-                        blender_object.modifiers[idx].show_viewport = show_viewport
-
                 # Keep materials from the newly created tmp data, but if no materials, keep from object
                 materials = tuple(mat for mat in blender_data.materials)
                 # We need to store link between the original material and the tmp data material,
@@ -281,30 +228,13 @@ def __gather_mesh(vnode, blender_object, export_settings):
 
         else:
             blender_data = blender_object.data
-            if not export_settings['gltf_skins']:
-                modifiers = None
-            else:
-                # Check if there is an armature modidier
-                if len([mod for mod in blender_object.modifiers if mod.type == "ARMATURE"]) == 0:
-                    modifiers = None
-
             # Keep materials from object, as no modifiers are applied, so no risk that
             # modifiers changed them
             materials = tuple(ms.material for ms in blender_object.material_slots)
             __keep_material_info(materials, True, export_settings)
 
-        # retrieve armature
-        # Because data will be transforms to skeleton space,
-        # we can't instantiate multiple object at different location, skined by same armature
-        uuid_for_skined_data = None
-        if export_settings['gltf_skins']:
-            for idx, modifier in enumerate(blender_object.modifiers):
-                if modifier.type == 'ARMATURE':
-                    uuid_for_skined_data = vnode.uuid
-
     result = gltf2_blender_gather_mesh.gather_mesh(blender_data,
-                                                   uuid_for_skined_data,
-                                                   blender_object.vertex_groups if blender_object else None,
+                                                   blender_object,
                                                    modifiers,
                                                    materials,
                                                    None,
@@ -352,11 +282,8 @@ def __gather_mesh_from_blender_nonmesh(blender_object, export_settings):
 
         materials = tuple([ms.material for ms in blender_object.material_slots if ms.material is not None])
         modifiers = None
-        blender_object_for_skined_data = None
-
         result = gltf2_blender_gather_mesh.gather_mesh(blender_mesh,
-                                                       blender_object_for_skined_data,
-                                                       blender_object.vertex_groups,
+                                                       blender_object,
                                                        modifiers,
                                                        materials,
                                                        blender_object.data,
@@ -394,18 +321,8 @@ def __gather_trans_rot_scale(vnode, export_settings):
             trans, rot, sca = vnode.matrix_world.decompose()
     else:
         # calculate local matrix
-        if export_settings['vtree'].nodes[vnode.parent_uuid].skin is None:
-            trans, rot, sca = (
-                export_settings['vtree'].nodes[vnode.parent_uuid].matrix_world.inverted_safe() @ vnode.matrix_world).decompose()
-        else:
-            # But ... if parent has skin, the parent TRS are not taken into account, so don't get local from parent, but from armature
-            # It also depens if skined data is parented to armature or not
-            if export_settings['vtree'].nodes[vnode.parent_uuid].parent_uuid is not None and export_settings['vtree'].nodes[
-                    export_settings['vtree'].nodes[vnode.parent_uuid].parent_uuid].blender_type == VExportNode.ARMATURE:
-                trans, rot, sca = (export_settings['vtree'].nodes[export_settings['vtree'].nodes[vnode.parent_uuid].armature].matrix_world.inverted_safe(
-                ) @ vnode.matrix_world).decompose()
-            else:
-                trans, rot, sca = vnode.matrix_world.decompose()
+        trans, rot, sca = (
+            export_settings['vtree'].nodes[vnode.parent_uuid].matrix_world.inverted_safe() @ vnode.matrix_world).decompose()
 
     # make sure the rotation is normalized
     rot.normalize()
@@ -413,18 +330,6 @@ def __gather_trans_rot_scale(vnode, export_settings):
     trans = __convert_swizzle_location(trans, export_settings)
     rot = __convert_swizzle_rotation(rot, export_settings)
     sca = __convert_swizzle_scale(sca, export_settings)
-
-    if vnode.blender_object and vnode.blender_type != VExportNode.COLLECTION and vnode.blender_object.instance_type == 'COLLECTION' and vnode.blender_object.instance_collection:
-        offset = -__convert_swizzle_location(
-            vnode.blender_object.instance_collection.instance_offset, export_settings)
-
-        s = Matrix.Diagonal(sca).to_4x4()
-        r = rot.to_matrix().to_4x4()
-        t = Matrix.Translation(trans).to_4x4()
-        o = Matrix.Translation(offset).to_4x4()
-        m = t @ r @ s @ o
-
-        trans = m.translation
 
     translation, rotation, scale = (None, None, None)
     trans[0], trans[1], trans[2] = gltf2_blender_math.round_if_near(
@@ -447,37 +352,6 @@ def __gather_trans_rot_scale(vnode, export_settings):
     if sca[0] != 1.0 or sca[1] != 1.0 or sca[2] != 1.0:
         scale = [sca[0], sca[1], sca[2]]
     return translation, rotation, scale
-
-
-def gather_skin(vnode, export_settings):
-
-    if export_settings['vtree'].nodes[vnode].blender_type == VExportNode.COLLECTION:
-        return None
-
-    blender_object = export_settings['vtree'].nodes[vnode].blender_object
-
-    # Lattice can have armature modifiers & vertex groups, but we don't want to export them
-    # Avoid crash getting skin from lattices
-    if blender_object and blender_object.type == 'LATTICE':
-        return None
-
-    modifiers = {m.type: m for m in blender_object.modifiers} if blender_object else {}
-    if "ARMATURE" not in modifiers or modifiers["ARMATURE"].object is None:
-        return None
-
-    # no skin needed when the modifier is linked without having a vertex group
-    if len(blender_object.vertex_groups) == 0:
-        return None
-
-    # check if any vertices in the data are part of a vertex group
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    blender_data_owner = blender_object.evaluated_get(depsgraph)
-    blender_data = blender_data_owner.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
-    if not any(vertex.groups is not None and len(vertex.groups) > 0 for vertex in blender_data.vertices):
-        return None
-
-    # glTF Skins and mesh must be in the same glTF node, which is different from how blender handles armatures
-    return gltf2_blender_gather_skins.gather_skin(export_settings['vtree'].nodes[vnode].armature, export_settings)
 
 
 def __gather_weights(blender_object, export_settings):

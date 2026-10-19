@@ -10,7 +10,6 @@
 #include <cstring>
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -25,7 +24,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_layer.hh"
 #include "BKE_library.hh"
@@ -36,7 +34,6 @@
 #include "RNA_prototypes.hh"
 
 #include "ED_anim_api.hh"
-#include "ED_armature.hh"
 #include "ED_clip.hh"
 
 #include "SEQ_channels.hh"
@@ -48,8 +45,6 @@
 #include "WM_api.hh"
 
 #include "ANIM_action.hh"
-#include "ANIM_armature.hh"
-#include "ANIM_bone_collections.hh"
 
 #include "screen_intern.hh"
 
@@ -65,15 +60,6 @@ const char *screen_context_dir[] = {
     "selected_editable_objects",
     "objects_in_mode",
     "objects_in_mode_unique_data",
-    "visible_bones",
-    "editable_bones",
-    "selected_bones",
-    "selected_editable_bones",
-    "visible_pose_bones",
-    "selected_pose_bones",
-    "selected_pose_bones_from_active_object",
-    "active_bone",
-    "active_pose_bone",
     "active_object",
     "object",
     "edit_object",
@@ -81,7 +67,6 @@ const char *screen_context_dir[] = {
     "vertex_paint_object",
     "weight_paint_object",
     "particle_edit_object",
-    "pose_object",
     "active_nla_track",
     "active_nla_strip",
     "selected_nla_strips", /* nla editor */
@@ -254,289 +239,6 @@ static eContextResult screen_ctx_objects_in_mode_unique_data(const bContext *C,
   CTX_data_type_set(result, ContextDataType::Collection);
   return CTX_RESULT_OK;
 }
-static eContextResult screen_ctx_visible_or_editable_bones_(const bContext *C,
-                                                            bContextDataResult *result,
-                                                            const bool editable_bones)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obedit = BKE_view_layer_edit_object_get(view_layer);
-
-  bArmature *arm = id_cast<bArmature *>((obedit && obedit->type == OB_ARMATURE) ? obedit->data :
-                                                                                  nullptr);
-  EditBone *flipbone = nullptr;
-
-  if (arm && arm->edbo) {
-    Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-        *bmain, scene, view_layer, CTX_wm_view3d(C));
-    for (Object *ob : objects) {
-      arm = id_cast<bArmature *>(ob->data);
-
-      /* Attention: X-Axis Mirroring is also handled here... */
-      for (EditBone &ebone : *arm->edbo) {
-        /* first and foremost, bone must be visible and selected */
-        if (animrig::bone_is_visible(arm, &ebone)) {
-          /* Get 'x-axis mirror equivalent' bone if the X-Axis Mirroring option is enabled
-           * so that most users of this data don't need to explicitly check for it themselves.
-           *
-           * We need to make sure that these mirrored copies are not selected, otherwise some
-           * bones will be operated on twice.
-           */
-          if (arm->flag & ARM_MIRROR_EDIT) {
-            flipbone = ED_armature_ebone_get_mirrored(arm->edbo, &ebone);
-          }
-
-          /* if we're filtering for editable too, use the check for that instead,
-           * as it has selection check too */
-          if (editable_bones) {
-            /* only selected + editable */
-            if (EBONE_EDITABLE(&ebone)) {
-              CTX_data_list_add(result, &arm->id, RNA_EditBone, &ebone);
-
-              if ((flipbone) && !(flipbone->flag & BONE_SELECTED)) {
-                CTX_data_list_add(result, &arm->id, RNA_EditBone, flipbone);
-              }
-            }
-          }
-          else {
-            /* only include bones if visible */
-            CTX_data_list_add(result, &arm->id, RNA_EditBone, &ebone);
-
-            if ((flipbone) && animrig::bone_is_visible(arm, flipbone) == 0) {
-              CTX_data_list_add(result, &arm->id, RNA_EditBone, flipbone);
-            }
-          }
-        }
-      }
-    }
-
-    CTX_data_type_set(result, ContextDataType::Collection);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_visible_bones(const bContext *C, bContextDataResult *result)
-{
-  return screen_ctx_visible_or_editable_bones_(C, result, false);
-}
-static eContextResult screen_ctx_editable_bones(const bContext *C, bContextDataResult *result)
-{
-  return screen_ctx_visible_or_editable_bones_(C, result, true);
-}
-static eContextResult screen_ctx_selected_bones_(const bContext *C,
-                                                 bContextDataResult *result,
-                                                 const bool selected_editable_bones)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obedit = BKE_view_layer_edit_object_get(view_layer);
-  bArmature *arm = id_cast<bArmature *>((obedit && obedit->type == OB_ARMATURE) ? obedit->data :
-                                                                                  nullptr);
-  EditBone *flipbone = nullptr;
-
-  if (arm && arm->edbo) {
-    Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-        *bmain, scene, view_layer, CTX_wm_view3d(C));
-    for (Object *ob : objects) {
-      arm = id_cast<bArmature *>(ob->data);
-
-      /* Attention: X-Axis Mirroring is also handled here... */
-      for (EditBone &ebone : *arm->edbo) {
-        /* first and foremost, bone must be visible and selected */
-        if (animrig::bone_is_visible(arm, &ebone) && (ebone.flag & BONE_SELECTED)) {
-          /* Get 'x-axis mirror equivalent' bone if the X-Axis Mirroring option is enabled
-           * so that most users of this data don't need to explicitly check for it themselves.
-           *
-           * We need to make sure that these mirrored copies are not selected, otherwise some
-           * bones will be operated on twice.
-           */
-          if (arm->flag & ARM_MIRROR_EDIT) {
-            flipbone = ED_armature_ebone_get_mirrored(arm->edbo, &ebone);
-          }
-
-          /* if we're filtering for editable too, use the check for that instead,
-           * as it has selection check too */
-          if (selected_editable_bones) {
-            /* only selected + editable */
-            if (EBONE_EDITABLE(&ebone)) {
-              CTX_data_list_add(result, &arm->id, RNA_EditBone, &ebone);
-
-              if ((flipbone) && !(flipbone->flag & BONE_SELECTED)) {
-                CTX_data_list_add(result, &arm->id, RNA_EditBone, flipbone);
-              }
-            }
-          }
-          else {
-            /* only include bones if selected */
-            CTX_data_list_add(result, &arm->id, RNA_EditBone, &ebone);
-
-            if ((flipbone) && !(flipbone->flag & BONE_SELECTED)) {
-              CTX_data_list_add(result, &arm->id, RNA_EditBone, flipbone);
-            }
-          }
-        }
-      }
-    }
-
-    CTX_data_type_set(result, ContextDataType::Collection);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_selected_bones(const bContext *C, bContextDataResult *result)
-{
-  return screen_ctx_selected_bones_(C, result, false);
-}
-static eContextResult screen_ctx_selected_editable_bones(const bContext *C,
-                                                         bContextDataResult *result)
-{
-  return screen_ctx_selected_bones_(C, result, true);
-}
-static eContextResult screen_ctx_visible_pose_bones(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  View3D *v3d = CTX_wm_view3d(C); /* This may be nullptr in a lot of cases. */
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  Object *obpose = BKE_object_pose_armature_get(obact);
-  if (obpose && obpose->pose && obpose->data) {
-    if (obpose != obact) {
-      FOREACH_PCHAN_VISIBLE_IN_OBJECT_BEGIN (obpose, pchan) {
-        CTX_data_list_add(result, &obpose->id, RNA_PoseBone, pchan);
-      }
-      FOREACH_PCHAN_SELECTED_IN_OBJECT_END;
-    }
-    else if (obact->mode & OB_MODE_POSE) {
-      FOREACH_OBJECT_IN_MODE_BEGIN (
-          bmain, scene, view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter)
-      {
-        FOREACH_PCHAN_VISIBLE_IN_OBJECT_BEGIN (ob_iter, pchan) {
-          CTX_data_list_add(result, &ob_iter->id, RNA_PoseBone, pchan);
-        }
-        FOREACH_PCHAN_VISIBLE_IN_OBJECT_END;
-      }
-      FOREACH_OBJECT_IN_MODE_END;
-    }
-    CTX_data_type_set(result, ContextDataType::Collection);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_selected_pose_bones(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  View3D *v3d = CTX_wm_view3d(C); /* This may be nullptr in a lot of cases. */
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  Object *obpose = BKE_object_pose_armature_get(obact);
-  if (obpose && obpose->pose && obpose->data) {
-    if (obpose->pose->flag & POSE_RECALC) {
-      /* Can happen with undo-redo, see #150451. */
-      BKE_pose_rebuild(CTX_data_main(C), obpose, id_cast<bArmature *>(obpose->data), false);
-    }
-    if (obpose != obact) {
-      FOREACH_PCHAN_SELECTED_IN_OBJECT_BEGIN (obpose, pchan) {
-        CTX_data_list_add(result, &obpose->id, RNA_PoseBone, pchan);
-      }
-      FOREACH_PCHAN_SELECTED_IN_OBJECT_END;
-    }
-    else if (obact->mode & OB_MODE_POSE) {
-      FOREACH_OBJECT_IN_MODE_BEGIN (
-          bmain, scene, view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter)
-      {
-        FOREACH_PCHAN_SELECTED_IN_OBJECT_BEGIN (ob_iter, pchan) {
-          CTX_data_list_add(result, &ob_iter->id, RNA_PoseBone, pchan);
-        }
-        FOREACH_PCHAN_SELECTED_IN_OBJECT_END;
-      }
-      FOREACH_OBJECT_IN_MODE_END;
-    }
-    CTX_data_type_set(result, ContextDataType::Collection);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_selected_pose_bones_from_active_object(const bContext *C,
-                                                                        bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  Object *obpose = BKE_object_pose_armature_get(obact);
-  if (obpose && obpose->pose && obpose->data) {
-    if (obpose != obact) {
-      FOREACH_PCHAN_SELECTED_IN_OBJECT_BEGIN (obpose, pchan) {
-        CTX_data_list_add(result, &obpose->id, RNA_PoseBone, pchan);
-      }
-      FOREACH_PCHAN_SELECTED_IN_OBJECT_END;
-    }
-    else if (obact->mode & OB_MODE_POSE) {
-      FOREACH_PCHAN_SELECTED_IN_OBJECT_BEGIN (obact, pchan) {
-        CTX_data_list_add(result, &obact->id, RNA_PoseBone, pchan);
-      }
-      FOREACH_PCHAN_SELECTED_IN_OBJECT_END;
-    }
-    CTX_data_type_set(result, ContextDataType::Collection);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_active_bone(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  if (obact && obact->type == OB_ARMATURE) {
-    bArmature *arm = id_cast<bArmature *>(obact->data);
-    if (arm->edbo) {
-      if (arm->act_edbone) {
-        CTX_data_pointer_set(result, &arm->id, RNA_EditBone, arm->act_edbone);
-        return CTX_RESULT_OK;
-      }
-    }
-    else {
-      if (arm->act_bone) {
-        CTX_data_pointer_set(result, &arm->id, RNA_Bone, arm->act_bone);
-        return CTX_RESULT_OK;
-      }
-    }
-  }
-  return CTX_RESULT_NO_DATA;
-}
-static eContextResult screen_ctx_active_pose_bone(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  Object *obpose = BKE_object_pose_armature_get(obact);
-
-  bPoseChannel *pchan = BKE_pose_channel_active_if_bonecoll_visible(obpose);
-  if (pchan) {
-    CTX_data_pointer_set(result, &obpose->id, RNA_PoseBone, pchan);
-    return CTX_RESULT_OK;
-  }
-  return CTX_RESULT_NO_DATA;
-}
 static eContextResult screen_ctx_active_object(const bContext *C, bContextDataResult *result)
 {
   wmWindow *win = CTX_wm_window(C);
@@ -663,21 +365,6 @@ static eContextResult screen_ctx_particle_edit_object(const bContext *C,
 
   return CTX_RESULT_OK;
 }
-static eContextResult screen_ctx_pose_object(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  Object *obpose = BKE_object_pose_armature_get(obact);
-  if (obpose) {
-    CTX_data_id_pointer_set(result, &obpose->id);
-  }
-  return CTX_RESULT_OK;
-}
-
 static eContextResult screen_ctx_active_nla_track(const bContext *C, bContextDataResult *result)
 {
   PointerRNA ptr;
@@ -1113,16 +800,6 @@ static const Map<StringRef, context_callback> &ensure_ed_screen_context_function
     map.add("editable_objects", screen_ctx_editable_objects);
     map.add("objects_in_mode", screen_ctx_objects_in_mode);
     map.add("objects_in_mode_unique_data", screen_ctx_objects_in_mode_unique_data);
-    map.add("visible_bones", screen_ctx_visible_bones);
-    map.add("editable_bones", screen_ctx_editable_bones);
-    map.add("selected_bones", screen_ctx_selected_bones);
-    map.add("selected_editable_bones", screen_ctx_selected_editable_bones);
-    map.add("visible_pose_bones", screen_ctx_visible_pose_bones);
-    map.add("selected_pose_bones", screen_ctx_selected_pose_bones);
-    map.add("selected_pose_bones_from_active_object",
-            screen_ctx_selected_pose_bones_from_active_object);
-    map.add("active_bone", screen_ctx_active_bone);
-    map.add("active_pose_bone", screen_ctx_active_pose_bone);
     map.add("active_object", screen_ctx_active_object);
     map.add("object", screen_ctx_object);
     map.add("edit_object", screen_ctx_edit_object);
@@ -1130,7 +807,6 @@ static const Map<StringRef, context_callback> &ensure_ed_screen_context_function
     map.add("vertex_paint_object", screen_ctx_vertex_paint_object);
     map.add("weight_paint_object", screen_ctx_weight_paint_object);
     map.add("particle_edit_object", screen_ctx_particle_edit_object);
-    map.add("pose_object", screen_ctx_pose_object);
     map.add("active_nla_track", screen_ctx_active_nla_track);
     map.add("active_nla_strip", screen_ctx_active_nla_strip);
     map.add("selected_nla_strips", screen_ctx_selected_nla_strips);

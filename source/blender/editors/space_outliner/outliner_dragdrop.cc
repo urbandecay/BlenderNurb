@@ -230,12 +230,6 @@ static bool is_object_element(TreeElement *te)
   return (tselem->type == TSE_SOME_ID) && te->idcode == ID_OB;
 }
 
-static bool is_pchan_element(TreeElement *te)
-{
-  TreeStoreElem *tselem = TREESTORE(te);
-  return tselem->type == TSE_POSE_CHANNEL;
-}
-
 static TreeElement *outliner_drop_insert_collection_find(bContext *C,
                                                          const int xy[2],
                                                          TreeElementInsertType *r_insert_type)
@@ -441,7 +435,6 @@ enum eDataStackDropAction {
 
 struct StackDropData {
   Object *ob_parent;
-  bPoseChannel *pchan_parent;
   TreeStoreElem *drag_tselem;
   void *drag_directdata;
   int drag_index;
@@ -453,7 +446,6 @@ struct StackDropData {
 
 static void datastack_drop_data_init(wmDrag *drag,
                                      Object *ob,
-                                     bPoseChannel *pchan,
                                      TreeElement *te,
                                      TreeStoreElem *tselem,
                                      void *directdata)
@@ -461,7 +453,6 @@ static void datastack_drop_data_init(wmDrag *drag,
   StackDropData *drop_data = MEM_new_zeroed<StackDropData>("datastack drop data");
 
   drop_data->ob_parent = ob;
-  drop_data->pchan_parent = pchan;
   drop_data->drag_tselem = tselem;
   drop_data->drag_directdata = directdata;
   drop_data->drag_index = te->index;
@@ -498,15 +489,6 @@ static bool datastack_drop_init(bContext *C, const wmEvent *event, StackDropData
     ob = id_cast<Object *>(TREESTORE(object_te)->id);
   }
 
-  bPoseChannel *pchan = nullptr;
-  TreeElement *pchan_te = outliner_data_from_tree_element_and_parents(is_pchan_element, te_target);
-  if (pchan_te) {
-    pchan = static_cast<bPoseChannel *>(pchan_te->directdata);
-  }
-  if (pchan) {
-    ob = nullptr;
-  }
-
   if (ob && !BKE_id_is_editable(CTX_data_main(C), &ob->id)) {
     return false;
   }
@@ -519,11 +501,7 @@ static bool datastack_drop_init(bContext *C, const wmEvent *event, StackDropData
     drop_data->insert_type = TE_INSERT_INTO;
     drop_data->drop_action = DATA_STACK_DROP_LINK;
 
-    if (pchan && pchan != drop_data->pchan_parent) {
-      drop_data->drop_te = pchan_te;
-      tselem_target = TREESTORE(pchan_te);
-    }
-    else if (ob && ob != drop_data->ob_parent) {
+    if (ob && ob != drop_data->ob_parent) {
       drop_data->drop_te = object_te;
       tselem_target = TREESTORE(object_te);
     }
@@ -531,15 +509,9 @@ static bool datastack_drop_init(bContext *C, const wmEvent *event, StackDropData
       return false;
     }
   }
-  else if (ob || pchan) {
+  else if (ob) {
     /* Drag a single item. */
-    if (pchan && pchan != drop_data->pchan_parent) {
-      drop_data->insert_type = TE_INSERT_INTO;
-      drop_data->drop_action = DATA_STACK_DROP_COPY;
-      drop_data->drop_te = pchan_te;
-      tselem_target = TREESTORE(pchan_te);
-    }
-    else if (ob && ob != drop_data->ob_parent) {
+    if (ob != drop_data->ob_parent) {
       drop_data->insert_type = TE_INSERT_INTO;
       drop_data->drop_action = DATA_STACK_DROP_COPY;
       drop_data->drop_te = object_te;
@@ -563,35 +535,6 @@ static bool datastack_drop_init(bContext *C, const wmEvent *event, StackDropData
   return true;
 }
 
-/* Ensure that modifier data stays with its object. */
-static bool datastack_drop_are_types_valid(StackDropData *drop_data)
-{
-  TreeStoreElem *tselem = TREESTORE(drop_data->drop_te);
-
-  /* Don't allow data to be moved between objects and bones. */
-  if (tselem->type == TSE_CONSTRAINT) {
-  }
-  else if ((drop_data->pchan_parent && tselem->type != TSE_POSE_CHANNEL) ||
-           (!drop_data->pchan_parent && tselem->type == TSE_POSE_CHANNEL))
-  {
-    return false;
-  }
-
-  switch (drop_data->drag_tselem->type) {
-    case TSE_MODIFIER_BASE:
-    case TSE_MODIFIER:
-      return true;
-    case TSE_CONSTRAINT_BASE:
-    case TSE_CONSTRAINT:
-
-      break;
-    default:
-      break;
-  }
-
-  return true;
-}
-
 static bool datastack_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
 {
   if (drag->type != WM_DRAG_DATASTACK) {
@@ -608,10 +551,6 @@ static bool datastack_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
   }
 
   if (!datastack_drop_init(C, event, drop_data)) {
-    return false;
-  }
-
-  if (!datastack_drop_are_types_valid(drop_data)) {
     return false;
   }
 
@@ -645,15 +584,9 @@ static std::string datastack_drop_tooltip(bContext * /*C*/,
     case DATA_STACK_DROP_REORDER:
       return TIP_("Reorder");
     case DATA_STACK_DROP_COPY:
-      if (drop_data->pchan_parent) {
-        return TIP_("Copy to bone");
-      }
       return TIP_("Copy to object");
 
     case DATA_STACK_DROP_LINK:
-      if (drop_data->pchan_parent) {
-        return TIP_("Link all to bone");
-      }
       return TIP_("Link all to object");
   }
   return {};
@@ -670,25 +603,8 @@ static void datastack_drop_link(bContext *C, StackDropData *drop_data)
       object::modifier_link(C, ob_dst, drop_data->ob_parent);
       break;
     case TSE_CONSTRAINT_BASE: {
-      ListBaseT<bConstraint> *src;
-
-      if (drop_data->pchan_parent) {
-        src = &drop_data->pchan_parent->constraints;
-      }
-      else {
-        src = &drop_data->ob_parent->constraints;
-      }
-
-      ListBaseT<bConstraint> *dst;
-      if (tselem->type == TSE_POSE_CHANNEL) {
-        bPoseChannel *pchan = static_cast<bPoseChannel *>(drop_data->drop_te->directdata);
-        dst = &pchan->constraints;
-      }
-      else {
-        dst = &ob_dst->constraints;
-      }
-
-      object::constraint_link(bmain, ob_dst, dst, src);
+      object::constraint_link(
+          bmain, ob_dst, &ob_dst->constraints, &drop_data->ob_parent->constraints);
       break;
     }
     default:
@@ -716,17 +632,8 @@ static void datastack_drop_copy(bContext *C, StackDropData *drop_data)
       break;
     }
     case TSE_CONSTRAINT:
-      if (tselem->type == TSE_POSE_CHANNEL) {
-        object::constraint_copy_for_pose(
-            bmain,
-            ob_dst,
-            static_cast<bPoseChannel *>(drop_data->drop_te->directdata),
-            static_cast<bConstraint *>(drop_data->drag_directdata));
-      }
-      else {
-        object::constraint_copy_for_object(
-            bmain, ob_dst, static_cast<bConstraint *>(drop_data->drag_directdata));
-      }
+      object::constraint_copy_for_object(
+          bmain, ob_dst, static_cast<bConstraint *>(drop_data->drag_directdata));
       break;
     default:
       break;
@@ -760,13 +667,7 @@ static void datastack_drop_reorder(bContext *C, ReportList *reports, StackDropDa
                                      true);
       break;
     case TSE_CONSTRAINT:
-      if (drop_data->pchan_parent) {
-        index = outliner_get_insert_index(
-            drag_te, drop_te, insert_type, &drop_data->pchan_parent->constraints);
-      }
-      else {
-        index = outliner_get_insert_index(drag_te, drop_te, insert_type, &ob->constraints);
-      }
+      index = outliner_get_insert_index(drag_te, drop_te, insert_type, &ob->constraints);
       object::constraint_move_to_index(
           ob, static_cast<bConstraint *>(drop_data->drag_directdata), index);
 
@@ -1191,10 +1092,8 @@ static wmOperatorStatus outliner_item_drag_drop_invoke(bContext *C,
   wmDrag *drag = WM_drag_data_create(C, data.icon, wm_drag_type, nullptr, WM_DRAG_NOP);
 
   if (use_datastack_drag) {
-    TreeElement *te_bone = nullptr;
-    bPoseChannel *pchan = outliner_find_parent_bone(te, &te_bone);
     datastack_drop_data_init(
-        drag, id_cast<Object *>(tselem->id), pchan, te, tselem, te->directdata);
+        drag, id_cast<Object *>(tselem->id), te, tselem, te->directdata);
   }
   else if (ELEM(GS(data.drag_id->name), ID_OB, ID_GR)) {
     /* For collections and objects we cheat and drag all selected. */

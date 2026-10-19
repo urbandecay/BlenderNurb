@@ -330,9 +330,7 @@ static wmOperatorStatus wm_usd_export_exec(bContext *C, wmOperator *op)
   params.export_mesh_colors = RNA_boolean_get(op->ptr, "export_mesh_colors");
   params.export_materials = RNA_boolean_get(op->ptr, "export_materials");
 
-  params.export_armatures = RNA_boolean_get(op->ptr, "export_armatures");
   params.export_shapekeys = RNA_boolean_get(op->ptr, "export_shapekeys");
-  params.only_deform_bones = RNA_boolean_get(op->ptr, "only_deform_bones");
 
   params.use_instancing = RNA_boolean_get(op->ptr, "use_instancing");
   params.export_custom_properties = RNA_boolean_get(op->ptr, "export_custom_properties");
@@ -462,15 +460,8 @@ static void wm_usd_export_draw(bContext *C, wmOperator *op)
     col.prop(ptr, "export_subdivision", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
 
-  if (ui::Layout *panel = layout.panel(C, "USD_export_rigging", true, IFACE_("Rigging"))) {
-    ui::Layout &col = panel->column(false);
-
-    col.prop(ptr, "export_shapekeys", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-    col.prop(ptr, "export_armatures", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-
-    ui::Layout &row = col.row(true);
-    row.prop(ptr, "only_deform_bones", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-    row.active_set(RNA_boolean_get(ptr, "export_armatures"));
+  if (ui::Layout *panel = layout.panel(C, "USD_export_deformation", true, IFACE_("Shape Keys"))) {
+    panel->column(false).prop(ptr, "export_shapekeys", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
 
   {
@@ -645,19 +636,6 @@ void WM_OT_usd_export(wmOperatorType *ot)
                "Subdivision",
                "Choose how subdivision modifiers will be mapped to the USD subdivision scheme "
                "during export");
-
-  RNA_def_boolean(ot->srna,
-                  "export_armatures",
-                  true,
-                  "Armatures",
-                  "Export armatures and meshes with armature modifiers as USD skeletons and "
-                  "skinned meshes");
-
-  RNA_def_boolean(ot->srna,
-                  "only_deform_bones",
-                  false,
-                  "Only Deform Bones",
-                  "Only export deform bones and their parents");
 
   RNA_def_boolean(
       ot->srna, "export_shapekeys", true, "Shape Keys", "Export shape keys as USD blend shapes");
@@ -946,10 +924,8 @@ static wmOperatorStatus wm_usd_import_exec(bContext *C, wmOperator *op)
   params.import_volumes = RNA_boolean_get(op->ptr, "import_volumes");
 
   params.create_collection = RNA_boolean_get(op->ptr, "create_collection");
-  params.support_scene_instancing = RNA_boolean_get(op->ptr, "support_scene_instancing");
 
   params.import_shapes = RNA_boolean_get(op->ptr, "import_shapes");
-  params.import_skeletons = RNA_boolean_get(op->ptr, "import_skeletons");
   params.import_blendshapes = RNA_boolean_get(op->ptr, "import_blendshapes");
 
   params.validate_meshes = RNA_boolean_get(op->ptr, "validate_meshes");
@@ -1056,10 +1032,8 @@ static void wm_usd_import_draw(bContext *C, wmOperator *op)
     col->prop(ptr, "merge_parent_xform", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
 
-  if (ui::Layout *panel = layout.panel(C, "USD_import_rigging", true, IFACE_("Rigging"))) {
-    ui::Layout &col = panel->column(false);
-    col.prop(ptr, "import_blendshapes", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-    col.prop(ptr, "import_skeletons", UI_ITEM_NONE, std::nullopt, ICON_NONE);
+  if (ui::Layout *panel = layout.panel(C, "USD_import_deformation", true, IFACE_("Shape Keys"))) {
+    panel->column(false).prop(ptr, "import_blendshapes", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   }
 
   if (ui::Layout *panel = layout.panel(C, "USD_import_material", true, IFACE_("Materials"))) {
@@ -1091,12 +1065,6 @@ static void wm_usd_import_draw(bContext *C, wmOperator *op)
     col.enabled_set(RNA_boolean_get(ptr, "import_materials"));
   }
 
-  if (ui::Layout *panel = layout.panel(
-          C, "USD_import_instancing", true, IFACE_("Particles and Instancing")))
-  {
-    ui::Layout &col = panel->column(false);
-    col.prop(ptr, "support_scene_instancing", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  }
 }
 
 void WM_OT_usd_import(wmOperatorType *ot)
@@ -1148,7 +1116,6 @@ void WM_OT_usd_import(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "import_meshes", true, "Meshes", "");
   RNA_def_boolean(ot->srna, "import_volumes", true, "Volumes", "");
   RNA_def_boolean(ot->srna, "import_shapes", true, "USD Shapes", "");
-  RNA_def_boolean(ot->srna, "import_skeletons", true, "Armatures", "");
   RNA_def_boolean(ot->srna, "import_blendshapes", true, "Shape Keys", "");
   RNA_def_boolean(ot->srna, "import_points", true, "Point Clouds", "");
 
@@ -1158,12 +1125,6 @@ void WM_OT_usd_import(wmOperatorType *ot)
                   "Import Subdivision Scheme",
                   "Create subdivision surface modifiers based on the USD "
                   "SubdivisionScheme attribute");
-
-  RNA_def_boolean(ot->srna,
-                  "support_scene_instancing",
-                  true,
-                  "Scene Instancing",
-                  "Import USD scene graph instances as collection instances");
 
   RNA_def_boolean(ot->srna,
                   "import_visible_only",

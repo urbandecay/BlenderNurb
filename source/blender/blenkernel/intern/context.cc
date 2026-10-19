@@ -1411,8 +1411,6 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
         return CTX_MODE_EDIT_SURFACE;
       case OB_FONT:
         return CTX_MODE_EDIT_TEXT;
-      case OB_ARMATURE:
-        return CTX_MODE_EDIT_ARMATURE;
       case OB_MBALL:
         return CTX_MODE_EDIT_METABALL;
       case OB_LATTICE:
@@ -1428,9 +1426,6 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
   else {
     // Object *ob = CTX_data_active_object(C);
     if (ob) {
-      if (object_mode & OB_MODE_POSE) {
-        return CTX_MODE_POSE;
-      }
       if (object_mode & OB_MODE_SCULPT) {
         return CTX_MODE_SCULPT;
       }
@@ -1469,12 +1464,10 @@ static const char *data_mode_strings[] = {
     "curve_edit",
     "surface_edit",
     "text_edit",
-    "armature_edit",
     "mball_edit",
     "lattice_edit",
     "curves_edit",
     "pointcloud_edit",
-    "posemode",
     "sculpt_mode",
     "weightpaint",
     "vertexpaint",
@@ -1622,59 +1615,9 @@ Mask *CTX_data_edit_mask(const bContext *C)
   return static_cast<Mask *>(ctx_data_pointer_get(C, "edit_mask"));
 }
 
-EditBone *CTX_data_active_bone(const bContext *C)
-{
-  return static_cast<EditBone *>(ctx_data_pointer_get(C, "active_bone"));
-}
-
 CacheFile *CTX_data_edit_cachefile(const bContext *C)
 {
   return static_cast<CacheFile *>(ctx_data_pointer_get(C, "edit_cachefile"));
-}
-
-bool CTX_data_selected_bones(const bContext *C, Vector<PointerRNA> *list)
-{
-  return ctx_data_collection_get(C, "selected_bones", list);
-}
-
-bool CTX_data_selected_editable_bones(const bContext *C, Vector<PointerRNA> *list)
-{
-  return ctx_data_collection_get(C, "selected_editable_bones", list);
-}
-
-bool CTX_data_visible_bones(const bContext *C, Vector<PointerRNA> *list)
-{
-  return ctx_data_collection_get(C, "visible_bones", list);
-}
-
-bool CTX_data_editable_bones(const bContext *C, Vector<PointerRNA> *list)
-{
-  return ctx_data_collection_get(C, "editable_bones", list);
-}
-
-bPoseChannel *CTX_data_active_pose_bone(const bContext *C)
-{
-  return static_cast<bPoseChannel *>(ctx_data_pointer_get(C, "active_pose_bone"));
-}
-
-PointerRNA CTX_data_active_pose_bone_ptr(const bContext *C)
-{
-  return CTX_data_pointer_get(C, "active_pose_bone");
-}
-
-bool CTX_data_selected_pose_bones(const bContext *C, Vector<PointerRNA> *list)
-{
-  return ctx_data_collection_get(C, "selected_pose_bones", list);
-}
-
-bool CTX_data_selected_pose_bones_from_active_object(const bContext *C, Vector<PointerRNA> *list)
-{
-  return ctx_data_collection_get(C, "selected_pose_bones_from_active_object", list);
-}
-
-bool CTX_data_visible_pose_bones(const bContext *C, Vector<PointerRNA> *list)
-{
-  return ctx_data_collection_get(C, "visible_pose_bones", list);
 }
 
 const AssetLibraryReference *CTX_wm_asset_library_ref(const bContext *C)

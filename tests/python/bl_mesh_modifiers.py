@@ -12,8 +12,6 @@
 # ./blender.bin --factory-startup --python tests/python/bl_mesh_modifiers.py
 #
 
-import math
-
 USE_QUICK_RENDER = False
 
 # -----------------------------------------------------------------------------
@@ -301,10 +299,6 @@ def mesh_shape_add(obj, mode=0):
     pass
 
 
-def mesh_armature_add(obj, mode=0):
-    pass
-
-
 # -----------------------------------------------------------------------------
 # modifiers
 
@@ -314,56 +308,6 @@ def modifier_subsurf_add(scene, obj, levels=2):
 
     mod.levels = levels
     mod.render_levels = levels
-    return mod
-
-
-def modifier_armature_add(scene, obj):
-    mod = obj.modifiers.new(name=whoami(), type='ARMATURE')
-    defaults_modifier(mod)
-
-    arm_data = bpy.data.armatures.new(whoami())
-    obj_arm = bpy.data.objects.new(whoami(), arm_data)
-
-    scene.objects.link(obj_arm)
-
-    obj_arm.select = True
-    scene.objects.active = obj_arm
-
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-
-    # XXX, annoying, remove bone.
-    while arm_data.edit_bones:
-        obj_arm.edit_bones.remove(arm_data.edit_bones[-1])
-
-    bone_a = arm_data.edit_bones.new("Bone.A")
-    bone_b = arm_data.edit_bones.new("Bone.B")
-    bone_b.parent = bone_a
-
-    bone_a.head = -1, 0, 0
-    bone_a.tail = 0, 0, 0
-    bone_b.head = 0, 0, 0
-    bone_b.tail = 1, 0, 0
-
-    # Get armature animation data
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-
-    # 45d armature
-    obj_arm.pose.bones["Bone.B"].rotation_quaternion = 1, -0.5, 0, 0
-
-    # set back to the original
-    scene.objects.active = obj
-
-    # display options
-    obj_arm.show_in_front = True
-    arm_data.draw_type = 'STICK'
-
-    # apply to modifier
-    mod.object = obj_arm
-
-    mesh_vgroup_add(obj, name="Bone.A", axis=0, invert=True)
-    mesh_vgroup_add(obj, name="Bone.B", axis=0, invert=False)
-
     return mod
 
 
@@ -379,41 +323,6 @@ def modifier_solidify_add(scene, obj, thickness=0.25):
     defaults_modifier(mod)
 
     mod.thickness = thickness
-
-    return mod
-
-
-def modifier_hook_add(scene, obj, use_vgroup=True):
-    scene.objects.active = obj
-
-    # no nice way to add hooks from py api yet
-    # assume object mode, hook first face!
-    mesh = obj.data
-
-    if use_vgroup:
-        for v in mesh.vertices:
-            v.select = True
-    else:
-        for v in mesh.vertices:
-            v.select = False
-
-        for i in mesh.faces[0].vertices:
-            mesh.vertices[i].select = True
-
-    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-    bpy.ops.object.hook_add_newob()
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-
-    # mod = obj.modifiers.new(name=whoami(), type='HOOK')
-    mod = obj.modifiers[-1]
-    defaults_modifier(mod)
-
-    obj_hook = mod.object
-    obj_hook.rotation_euler = 0, math.radians(45), 0
-    obj_hook.show_in_front = True
-
-    if use_vgroup:
-        mod.vertex_group = obj.vertex_groups[0].name
 
     return mod
 
@@ -673,12 +582,6 @@ global_tests.append(
 global_tests.append(
     ("subsurf_single",
      ((modifier_subsurf_add, dict(levels=2)), ),
-     )
-)
-
-global_tests.append(
-    ("armature_single",
-     ((modifier_armature_add, dict()), ),
      )
 )
 

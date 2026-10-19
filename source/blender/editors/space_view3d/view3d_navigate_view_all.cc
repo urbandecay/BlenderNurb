@@ -6,7 +6,6 @@
  * \ingroup spview3d
  */
 
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_layer.hh"
 #include "BKE_library.hh"
@@ -55,13 +54,6 @@ static bool view3d_object_skip_minmax(const View3D *v3d,
 
   if (skip_camera && (ob == v3d->camera)) {
     return true;
-  }
-
-  if ((ob->type == OB_EMPTY) && (ob->empty_drawtype == OB_EMPTY_IMAGE) &&
-      !BKE_object_empty_image_frame_is_visible_in_view3d(ob, rv3d))
-  {
-    *r_only_center = true;
-    return false;
   }
 
   return false;
@@ -276,28 +268,6 @@ std::optional<Bounds<float3>> view3d_calc_minmax_selected(Depsgraph *depsgraph,
     ob_eval = nullptr;
   }
 
-  if (ob_eval && (ob_eval->mode & OB_MODE_WEIGHT_PAINT)) {
-    /* hard-coded exception, we look for the one selected armature */
-    /* this is weak code this way, we should make a generic
-     * active/selection callback interface once... */
-    Base *base_eval;
-    for (base_eval = static_cast<Base *>(BKE_view_layer_object_bases_get(view_layer_eval)->first);
-         base_eval;
-         base_eval = base_eval->next)
-    {
-      if (BASE_SELECTED_EDITABLE(v3d, base_eval)) {
-        if (base_eval->object->type == OB_ARMATURE) {
-          if (base_eval->object->mode & OB_MODE_POSE) {
-            break;
-          }
-        }
-      }
-    }
-    if (base_eval) {
-      ob_eval = base_eval->object;
-    }
-  }
-
   constexpr Main *null_bmain = nullptr;
   if (is_face_map) {
     changed = WM_gizmomap_minmax(region->runtime->gizmo_map, true, true, min, max);
@@ -308,23 +278,6 @@ std::optional<Bounds<float3>> view3d_calc_minmax_selected(Depsgraph *depsgraph,
         null_bmain, scene_eval, view_layer_eval, v3d, obedit->type, obedit->mode, ob_eval_iter)
     {
       changed |= ED_view3d_minmax_verts(scene_eval, ob_eval_iter, min, max);
-    }
-    FOREACH_OBJECT_IN_MODE_END;
-  }
-  else if (ob_eval && (ob_eval->mode & OB_MODE_POSE)) {
-    /* NOTE: Passing `bmain` here because this iterator ensures that view-layers are in sync.
-     * We already assert about it in code above. */
-    FOREACH_OBJECT_IN_MODE_BEGIN (
-        null_bmain, scene_eval, view_layer_eval, v3d, ob_eval->type, ob_eval->mode, ob_eval_iter)
-    {
-      const std::optional<Bounds<float3>> bounds = BKE_pose_minmax(ob_eval_iter, true);
-      if (bounds) {
-        const Bounds<float3> world_bounds = bounds::transform_bounds<float, 4>(
-            ob_eval->object_to_world(), *bounds);
-        minmax_v3v3_v3(min, max, world_bounds.min);
-        minmax_v3v3_v3(min, max, world_bounds.max);
-        changed = true;
-      }
     }
     FOREACH_OBJECT_IN_MODE_END;
   }

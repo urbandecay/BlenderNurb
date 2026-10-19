@@ -8,7 +8,6 @@
 
 #define DNA_DEPRECATED_ALLOW
 
-#include "ANIM_armature_iter.hh"
 
 /* Define macros in `DNA_genfile.h`. */
 #define DNA_GENFILE_VERSIONING_MACROS
@@ -34,7 +33,6 @@
 #include "BLI_task.hh"
 
 #include "BKE_anim_data.hh"
-#include "BKE_armature.hh"
 #include "BKE_main.hh"
 #include "BKE_nla.hh"
 #include "BKE_node.hh"
@@ -934,32 +932,6 @@ void blo_do_versions_410(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Prevent custom bone colors from having alpha zero.
-     * Part of the fix for issue #115434. */
-    for (bArmature &arm : bmain->armatures) {
-      animrig::ANIM_armature_foreach_bone(&arm.bonebase, [](Bone *bone) {
-        bone->color.custom.solid[3] = 255;
-        bone->color.custom.select[3] = 255;
-        bone->color.custom.active[3] = 255;
-      });
-      if (arm.edbo) {
-        for (EditBone &ebone : *arm.edbo) {
-          ebone.color.custom.solid[3] = 255;
-          ebone.color.custom.select[3] = 255;
-          ebone.color.custom.active[3] = 255;
-        }
-      }
-    }
-    for (Object &obj : bmain->objects) {
-      if (obj.pose == nullptr) {
-        continue;
-      }
-      for (bPoseChannel &pchan : obj.pose->chanbase) {
-        pchan.color.custom.solid[3] = 255;
-        pchan.color.custom.select[3] = 255;
-        pchan.color.custom.active[3] = 255;
-      }
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 401, 10)) {

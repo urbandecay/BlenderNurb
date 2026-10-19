@@ -68,27 +68,13 @@ enum [[host_shared]] VertexClass : uint32_t {
   VCLASS_SCREENSPACE = 1 << 8,
   VCLASS_SCREENALIGNED = 1 << 9,
 
-  VCLASS_EMPTY_SCALED = 1 << 10,
-  VCLASS_EMPTY_AXES = 1 << 11,
-  VCLASS_EMPTY_AXES_NAME = 1 << 12,
-  VCLASS_EMPTY_AXES_SHADOW = 1 << 13,
-  VCLASS_EMPTY_SIZE = 1 << 14,
+  VCLASS_HELPER_SCALED = 1 << 10,
+  VCLASS_HELPER_AXES = 1 << 11,
+  VCLASS_HELPER_AXES_NAME = 1 << 12,
+  VCLASS_DISPLAY_SIZE = 1 << 14,
 };
 #ifndef GPU_SHADER
 ENUM_OPERATORS(VertexClass)
-#endif
-
-enum [[host_shared]] StickBoneFlag : uint32_t {
-  COL_WIRE = (1u << 0u),
-  COL_HEAD = (1u << 1u),
-  COL_TAIL = (1u << 2u),
-  COL_BONE = (1u << 3u),
-  POS_HEAD = (1u << 4u),
-  POS_TAIL = (1u << 5u),
-  POS_BONE = (1u << 6u),
-};
-#ifndef GPU_SHADER
-ENUM_OPERATORS(StickBoneFlag)
 #endif
 
 /* data[0] (1st byte flags) */
@@ -197,7 +183,7 @@ struct [[host_shared]] ThemeColors {
   float4 speaker;
   float4 camera;
   float4 camera_path;
-  float4 empty;
+  float4 no_data_object;
   float4 vert; /* "vertex" is reserved keyword in MSL. */
   float4 vert_select;
   float4 vert_unreferenced;
@@ -247,22 +233,6 @@ struct [[host_shared]] ThemeColors {
   float4 nurb_vline;
   float4 nurb_sel_uline;
   float4 nurb_sel_vline;
-
-  float4 bone_pose;
-  float4 bone_pose_active;
-  float4 bone_pose_active_unsel;
-  float4 bone_pose_constraint;
-  float4 bone_pose_ik;
-  float4 bone_pose_spline_ik;
-  float4 bone_pose_no_target;
-  float4 bone_solid;
-  float4 bone_locked;
-  float4 bone_active;
-  float4 bone_active_unsel;
-  float4 bone_select;
-  float4 bone_ik_line;
-  float4 bone_ik_line_no_target;
-  float4 bone_ik_line_spline;
 
   float4 text;
   float4 text_hi;
@@ -389,72 +359,6 @@ struct [[host_shared]] ParticlePointData {
   float value;
   /* Rotation encoded as quaternion. */
   float4 rotation;
-};
-
-struct [[host_shared]] BoneEnvelopeData {
-  float4 head_sphere;
-  float4 tail_sphere;
-  /* TODO(pragma37): wire width is never used in the shader. */
-  float4 bone_color_and_wire_width;
-  float4 state_color;
-  float4 x_axis;
-
-#ifndef GPU_SHADER
-  BoneEnvelopeData() = default;
-
-  /* For bone fills. */
-  BoneEnvelopeData(float4 &head_sphere,
-                   float4 &tail_sphere,
-                   float3 &bone_color,
-                   float3 &state_color,
-                   float3 &x_axis)
-      : head_sphere(head_sphere),
-        tail_sphere(tail_sphere),
-        bone_color_and_wire_width(bone_color, 0.0f),
-        state_color(state_color, 0.0f),
-        x_axis(x_axis, 0.0f) {};
-
-  /* For bone outlines. */
-  BoneEnvelopeData(float4 &head_sphere,
-                   float4 &tail_sphere,
-                   float4 &color_and_wire_width,
-                   float3 &x_axis)
-      : head_sphere(head_sphere),
-        tail_sphere(tail_sphere),
-        bone_color_and_wire_width(color_and_wire_width),
-        x_axis(x_axis, 0.0f) {};
-
-  /* For bone distance volumes. */
-  BoneEnvelopeData(float4 &head_sphere, float4 &tail_sphere, float3 &x_axis)
-      : head_sphere(head_sphere), tail_sphere(tail_sphere), x_axis(x_axis, 0.0f) {};
-#endif
-};
-
-struct [[host_shared]] BoneStickData {
-  float4 bone_start;
-  float4 bone_end;
-  float4 wire_color;
-  float4 bone_color;
-  float4 head_color;
-  float4 tail_color;
-
-#ifndef GPU_SHADER
-  BoneStickData() = default;
-
-  /* For bone fills. */
-  BoneStickData(const float3 &bone_start,
-                const float3 &bone_end,
-                const float4 &wire_color,
-                const float4 &bone_color,
-                const float4 &head_color,
-                const float4 &tail_color)
-      : bone_start(float3(bone_start), 0.0f),
-        bone_end(float3(bone_end), 0.0f),
-        wire_color(wire_color),
-        bone_color(bone_color),
-        head_color(head_color),
-        tail_color(tail_color) {};
-#endif
 };
 
 /**

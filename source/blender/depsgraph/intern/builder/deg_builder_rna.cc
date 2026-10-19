@@ -14,12 +14,8 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
-#include "DNA_action_types.h"
-#include "DNA_constraint_types.h"
 #include "DNA_key_types.h"
 #include "DNA_object_types.h"
-
-#include "BKE_constraint.h"
 
 #include "RNA_access.hh"
 #include "RNA_prototypes.hh"
@@ -32,49 +28,6 @@
 #include "intern/node/deg_node_operation.hh"
 
 namespace blender::deg {
-
-/* ********************************* ID Data ******************************** */
-
-class RNANodeQueryIDData {
- public:
-  explicit RNANodeQueryIDData(const ID *id) : id_(id) {}
-
-  ~RNANodeQueryIDData()
-  {
-    delete constraint_to_pchan_map_;
-  }
-
-  const bPoseChannel *get_pchan_for_constraint(const bConstraint *constraint)
-  {
-    ensure_constraint_to_pchan_map();
-    return constraint_to_pchan_map_->lookup_default(constraint, nullptr);
-  }
-
-  void ensure_constraint_to_pchan_map()
-  {
-    if (constraint_to_pchan_map_ != nullptr) {
-      return;
-    }
-    BLI_assert(GS(id_->name) == ID_OB);
-    const Object *object = reinterpret_cast<const Object *>(id_);
-    constraint_to_pchan_map_ = new Map<const bConstraint *, const bPoseChannel *>();
-    if (object->pose != nullptr) {
-      for (const bPoseChannel &pchan : object->pose->chanbase) {
-        for (const bConstraint &constraint : pchan.constraints) {
-          constraint_to_pchan_map_->add_new(&constraint, &pchan);
-        }
-      }
-    }
-  }
-
- protected:
-  /* ID this data corresponds to. */
-  const ID *id_;
-
-  /* indexed by bConstraint*, returns pose channel which contains that
-   * constraint. */
-  Map<const bConstraint *, const bPoseChannel *> *constraint_to_pchan_map_ = nullptr;
-};
 
 /* ***************************** Node Identifier **************************** */
 
@@ -162,111 +115,19 @@ RNANodeIdentifier RNANodeQuery::construct_node_identifier(const PointerRNA *ptr,
   node_identifier.operation_name_tag = -1;
   /* Handling of commonly known scenarios. */
   if (rna_prop_affects_parameters_node(ptr, prop)) {
-    /* Custom properties of bones are placed in their components to improve granularity. */
-    if (RNA_struct_is_a(ptr->type, RNA_PoseBone)) {
-      const bPoseChannel *pchan = static_cast<const bPoseChannel *>(ptr->data);
-      node_identifier.type = NodeType::BONE;
-      node_identifier.component_name = pchan->name;
-    }
-    else {
-      node_identifier.type = NodeType::PARAMETERS;
-    }
+    node_identifier.type = NodeType::PARAMETERS;
     node_identifier.operation_code = OperationCode::ID_PROPERTY;
     node_identifier.operation_name = RNA_property_identifier(prop);
     return node_identifier;
   }
-  if (ptr->type == RNA_PoseBone) {
-    const bPoseChannel *pchan = static_cast<const bPoseChannel *>(ptr->data);
-    /* Bone - generally, we just want the bone component. */
-    node_identifier.type = NodeType::BONE;
-    node_identifier.component_name = pchan->name;
-    /* However check property name for special handling. */
-    if (prop != nullptr) {
-      Object *object = reinterpret_cast<Object *>(node_identifier.id);
-      const char *prop_name = RNA_property_identifier(prop);
-      /* B-Bone properties should connect to the final operation. */
-      if (STRPREFIX(prop_name, "bbone_")) {
-        if (builder_->check_pchan_has_bbone_segments(object, pchan)) {
-          node_identifier.operation_code = OperationCode::BONE_SEGMENTS;
-        }
-        else {
-          node_identifier.operation_code = OperationCode::BONE_DONE;
-        }
-      }
-      /* Final transform properties go to the Done node for the exit. */
-      else if (STR_ELEM(prop_name, "head", "tail", "length") || STRPREFIX(prop_name, "matrix")) {
-        if (source == RNAPointerSource::EXIT) {
-          node_identifier.operation_code = OperationCode::BONE_DONE;
-        }
-      }
-      /* Bone visibility has its own depsgraph node. */
-      else if (STREQ(prop_name, "hide")) {
-        node_identifier.operation_code = OperationCode::BONE_VISIBILITY;
-      }
-      /* And other properties can always go to the entry operation. */
-      else {
-        node_identifier.operation_code = OperationCode::BONE_LOCAL;
-      }
-    }
-    return node_identifier;
-  }
-  if (ptr->type == RNA_Bone) {
-    /* Armature-level bone mapped to Armature Eval, and thus Pose Init.
-     * Drivers have special code elsewhere that links them to the pose
-     * bone components, instead of using this generic code. */
-    node_identifier.type = NodeType::ARMATURE;
-    node_identifier.operation_code = OperationCode::ARMATURE_EVAL;
-    /* If trying to look up via an Object, e.g. due to lookup via
-     * obj.pose.bones[].bone in a driver attached to the Object,
-     * redirect to its data. */
-    if (GS(node_identifier.id->name) == ID_OB) {
-      node_identifier.id = id_cast<Object *>(node_identifier.id)->data;
-    }
-    return node_identifier;
-  }
-
   const char *prop_identifier = prop != nullptr ?
                                     RNA_property_identifier(const_cast<PropertyRNA *>(prop)) :
                                     "";
 
   if (RNA_struct_is_a(ptr->type, RNA_Constraint)) {
-    const Object *object = reinterpret_cast<const Object *>(ptr->owner_id);
-    const bConstraint *constraint = static_cast<const bConstraint *>(ptr->data);
-    RNANodeQueryIDData *id_data = ensure_id_data(&object->id);
-    /* Check whether is object or bone constraint. */
-    /* NOTE: Currently none of the area can address transform of an object
-     * at a given constraint, but for rigging one might use constraint
-     * influence to be used to drive some corrective shape keys or so. */
-    const bPoseChannel *pchan = id_data->get_pchan_for_constraint(constraint);
-    if (pchan == nullptr) {
-      node_identifier.type = NodeType::TRANSFORM;
-      node_identifier.operation_code = OperationCode::TRANSFORM_LOCAL;
-    }
-    else {
-      node_identifier.type = NodeType::BONE;
-      node_identifier.operation_code = OperationCode::BONE_LOCAL;
-      node_identifier.component_name = pchan->name;
-    }
+    node_identifier.type = NodeType::TRANSFORM;
+    node_identifier.operation_code = OperationCode::TRANSFORM_LOCAL;
     return node_identifier;
-  }
-  if (ELEM(ptr->type, RNA_ConstraintTarget, RNA_ConstraintTargetBone)) {
-    Object *object = reinterpret_cast<Object *>(ptr->owner_id);
-    bConstraintTarget *tgt = static_cast<bConstraintTarget *>(ptr->data);
-    /* Check whether is object or bone constraint. */
-    bPoseChannel *pchan = nullptr;
-    bConstraint *con = BKE_constraint_find_from_target(object, tgt, &pchan);
-    if (con != nullptr) {
-      if (pchan != nullptr) {
-        node_identifier.type = NodeType::BONE;
-        node_identifier.operation_code = OperationCode::BONE_LOCAL;
-        node_identifier.component_name = pchan->name;
-      }
-      else {
-        node_identifier.type = NodeType::TRANSFORM;
-        node_identifier.operation_code = OperationCode::TRANSFORM_LOCAL;
-      }
-      return node_identifier;
-    }
   }
   else if (RNA_struct_is_a(ptr->type, RNA_Modifier) &&
            (contains(prop_identifier, "show_viewport") ||
@@ -321,8 +182,7 @@ RNANodeIdentifier RNANodeQuery::construct_node_identifier(const PointerRNA *ptr,
         return node_identifier;
       }
       if (contains(prop_identifier, "data")) {
-        /* We access object.data, most likely a geometry.
-         * Might be a bone tho. */
+        /* We access object.data, most likely a geometry. */
         node_identifier.type = NodeType::GEOMETRY;
         return node_identifier;
       }
@@ -396,13 +256,6 @@ RNANodeIdentifier RNANodeQuery::construct_node_identifier(const PointerRNA *ptr,
     return node_identifier;
   }
   return node_identifier;
-}
-
-RNANodeQueryIDData *RNANodeQuery::ensure_id_data(const ID *id)
-{
-  std::unique_ptr<RNANodeQueryIDData> &id_data = id_data_map_.lookup_or_add_cb(
-      id, [&]() { return std::make_unique<RNANodeQueryIDData>(id); });
-  return id_data.get();
 }
 
 bool rna_prop_affects_parameters_node(const PointerRNA *ptr, const PropertyRNA *prop)

@@ -17,7 +17,6 @@
 #include "BLI_string_utf8.h"
 #include "BLI_utildefines.h"
 
-#include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
@@ -484,41 +483,16 @@ static bool hook_op_edit_poll(bContext *C)
   return false;
 }
 
-static Object *add_hook_object_new(
-    Main *bmain, Scene *scene, ViewLayer *view_layer, View3D *v3d, Object *obedit)
-{
-  Base *basedit;
-  Object *ob;
-  ob = BKE_object_add(bmain, scene, view_layer, OB_EMPTY, nullptr);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Base *basact = BKE_view_layer_active_base_get(view_layer);
-  BLI_assert(basact->object == ob);
-  if (v3d && v3d->localvd) {
-    basact->local_view_bits |= v3d->local_view_uid;
-  }
-
-  /* icky, BKE_object_add sets new base as active.
-   * so set it back to the original edit object */
-  basedit = BKE_view_layer_base_find(view_layer, obedit);
-  view_layer->basact = basedit;
-
-  return ob;
-}
-
 static int add_hook_object(const bContext *C,
                            Main *bmain,
                            Scene *scene,
-                           ViewLayer *view_layer,
-                           View3D *v3d,
                            Object *obedit,
                            Object *ob,
-                           int mode,
                            ReportList *reports)
 {
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   HookModifierData *hmd = nullptr;
   float cent[3];
-  float pose_mat[4][4];
   int indexar_num, ok, *indexar;
   char name[MAX_NAME];
 
@@ -527,14 +501,6 @@ static int add_hook_object(const bContext *C,
   if (!ok) {
     BKE_report(reports, RPT_ERROR, "Requires selected vertices or active vertex group");
     return false;
-  }
-
-  if (mode == OBJECT_ADDHOOK_NEWOB && !ob) {
-
-    ob = add_hook_object_new(bmain, scene, view_layer, v3d, obedit);
-
-    /* transform cent to global coords for loc */
-    mul_v3_m4v3(ob->loc, obedit->object_to_world().ptr(), cent);
   }
 
   hmd = reinterpret_cast<HookModifierData *>(BKE_modifier_new(eModifierType_Hook));
@@ -549,36 +515,8 @@ static int add_hook_object(const bContext *C,
   hmd->indexar_num = indexar_num;
   STRNCPY_UTF8(hmd->name, name);
 
-  unit_m4(pose_mat);
-
   invert_m4_m4(obedit->runtime->world_to_object.ptr(), obedit->object_to_world().ptr());
-  if (mode == OBJECT_ADDHOOK_NEWOB) {
-    /* pass */
-  }
-  else {
-    /* may overwrite with pose-bone location, below */
-    mul_v3_m4v3(cent, obedit->world_to_object().ptr(), ob->object_to_world().location());
-  }
-
-  if (mode == OBJECT_ADDHOOK_SELOB_BONE) {
-    bArmature *arm = id_cast<bArmature *>(ob->data);
-    BLI_assert(ob->type == OB_ARMATURE);
-    if (arm->act_bone) {
-      bPoseChannel *pchan_act;
-
-      STRNCPY_UTF8(hmd->subtarget, arm->act_bone->name);
-
-      pchan_act = BKE_pose_channel_active_if_bonecoll_visible(ob);
-      if (LIKELY(pchan_act)) {
-        invert_m4_m4(pose_mat, pchan_act->pose_mat);
-        mul_v3_m4v3(cent, ob->object_to_world().ptr(), pchan_act->pose_mat[3]);
-        mul_v3_m4v3(cent, obedit->world_to_object().ptr(), cent);
-      }
-    }
-    else {
-      BKE_report(reports, RPT_WARNING, "Armature has no active object bone");
-    }
-  }
+  mul_v3_m4v3(cent, obedit->world_to_object().ptr(), ob->object_to_world().location());
 
   copy_v3_v3(hmd->cent, cent);
 
@@ -592,11 +530,9 @@ static int add_hook_object(const bContext *C,
   BKE_object_where_is_calc(depsgraph, scene_eval, object_eval);
 
   invert_m4_m4(object_eval->runtime->world_to_object.ptr(), object_eval->object_to_world().ptr());
-  /* apparently this call goes from right to left... */
-  mul_m4_series(hmd->parentinv,
-                pose_mat,
-                object_eval->world_to_object().ptr(),
-                obedit->object_to_world().ptr());
+  mul_m4_m4m4(hmd->parentinv,
+              object_eval->world_to_object().ptr(),
+              obedit->object_to_world().ptr());
 
   DEG_id_tag_update(&obedit->id, ID_RECALC_GEOMETRY);
   DEG_relations_tag_update(bmain);
@@ -608,12 +544,8 @@ static wmOperatorStatus object_add_hook_selob_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *obedit = CTX_data_edit_object(C);
   Object *obsel = nullptr;
-  const bool use_bone = RNA_boolean_get(op->ptr, "use_bone");
-  const int mode = use_bone ? OBJECT_ADDHOOK_SELOB_BONE : OBJECT_ADDHOOK_SELOB;
-
   CTX_DATA_BEGIN (C, Object *, ob, selected_objects) {
     if (ob != obedit) {
       obsel = ob;
@@ -627,12 +559,7 @@ static wmOperatorStatus object_add_hook_selob_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (use_bone && obsel->type != OB_ARMATURE) {
-    BKE_report(op->reports, RPT_ERROR, "Cannot add hook bone for a non armature object");
-    return OPERATOR_CANCELLED;
-  }
-
-  if (add_hook_object(C, bmain, scene, view_layer, nullptr, obedit, obsel, mode, op->reports)) {
+  if (add_hook_object(C, bmain, scene, obedit, obsel, op->reports)) {
     WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, obedit);
     return OPERATOR_FINISHED;
   }
@@ -653,45 +580,6 @@ void OBJECT_OT_hook_add_selob(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  RNA_def_boolean(ot->srna,
-                  "use_bone",
-                  false,
-                  "Active Bone",
-                  "Assign the hook to the hook object's active bone");
-}
-
-static wmOperatorStatus object_add_hook_newob_exec(bContext *C, wmOperator *op)
-{
-  Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  View3D *v3d = CTX_wm_view3d(C);
-  Object *obedit = CTX_data_edit_object(C);
-
-  if (add_hook_object(
-          C, bmain, scene, view_layer, v3d, obedit, nullptr, OBJECT_ADDHOOK_NEWOB, op->reports))
-  {
-    DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
-    WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-    WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, obedit);
-    return OPERATOR_FINISHED;
-  }
-  return OPERATOR_CANCELLED;
-}
-
-void OBJECT_OT_hook_add_newob(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Hook to New Object";
-  ot->description = "Hook selected vertices to a newly created object";
-  ot->idname = "OBJECT_OT_hook_add_newob";
-
-  /* API callbacks. */
-  ot->exec = object_add_hook_newob_exec;
-  ot->poll = hook_op_edit_poll;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 static wmOperatorStatus object_hook_remove_exec(bContext *C, wmOperator *op)

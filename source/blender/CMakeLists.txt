@@ -8,7 +8,6 @@ set(SRC_DNA_INC
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_action_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_anim_enums.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_anim_types.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_armature_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_asset_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_attribute_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_boid_types.h
@@ -125,7 +124,6 @@ add_subdirectory(blentranslation)
 add_subdirectory(blenloader)
 add_subdirectory(blenloader_core)
 add_subdirectory(depsgraph)
-add_subdirectory(ikplugin)
 add_subdirectory(simulation)
 add_subdirectory(geometry)
 add_subdirectory(gpu)

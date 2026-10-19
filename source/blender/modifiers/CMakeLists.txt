@@ -17,7 +17,6 @@ set(INC_SYS
 )
 
 set(SRC
-  intern/MOD_armature.cc
   intern/MOD_array.cc
   intern/MOD_bevel.cc
   intern/MOD_boolean.cc

@@ -101,36 +101,6 @@ const char *operationCodeAsString(OperationCode opcode)
       return "SPEAKER_EVAL";
     case OperationCode::SOUND_EVAL:
       return "SOUND_EVAL";
-    case OperationCode::ARMATURE_EVAL:
-      return "ARMATURE_EVAL";
-    /* Pose. */
-    case OperationCode::POSE_INIT:
-      return "POSE_INIT";
-    case OperationCode::POSE_INIT_IK:
-      return "POSE_INIT_IK";
-    case OperationCode::POSE_CLEANUP:
-      return "POSE_CLEANUP";
-    case OperationCode::POSE_DONE:
-      return "POSE_DONE";
-    case OperationCode::POSE_IK_SOLVER:
-      return "POSE_IK_SOLVER";
-    case OperationCode::POSE_SPLINE_IK_SOLVER:
-      return "POSE_SPLINE_IK_SOLVER";
-    /* Bone. */
-    case OperationCode::BONE_LOCAL:
-      return "BONE_LOCAL";
-    case OperationCode::BONE_POSE_PARENT:
-      return "BONE_POSE_PARENT";
-    case OperationCode::BONE_CONSTRAINTS:
-      return "BONE_CONSTRAINTS";
-    case OperationCode::BONE_READY:
-      return "BONE_READY";
-    case OperationCode::BONE_DONE:
-      return "BONE_DONE";
-    case OperationCode::BONE_SEGMENTS:
-      return "BONE_SEGMENTS";
-    case OperationCode::BONE_VISIBILITY:
-      return "BONE_VISIBILITY";
     /* Particle System. */
     case OperationCode::PARTICLE_SYSTEM_INIT:
       return "PARTICLE_SYSTEM_INIT";
@@ -202,8 +172,6 @@ const char *operationCodeAsString(OperationCode opcode)
     case OperationCode::COMPOSITOR_EVAL:
       return "COMPOSITOR_EVAL";
     /* instancing. */
-    case OperationCode::INSTANCER:
-      return "INSTANCER";
     case OperationCode::INSTANCE:
       return "INSTANCE";
     case OperationCode::INSTANCE_GEOMETRY:
@@ -223,7 +191,7 @@ std::string OperationNode::identifier() const
 std::string OperationNode::full_identifier() const
 {
   std::string owner_str = owner->owner->name;
-  if (owner->type == NodeType::BONE || !owner->name.empty()) {
+  if (!owner->name.empty()) {
     owner_str += "/" + owner->name;
   }
   return owner_str + "/" + identifier();

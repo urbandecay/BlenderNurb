@@ -53,16 +53,8 @@ ignore_files: set[str] = set([
     # "intern/cycles/render/sobol.cpp",
 ])
 
-# Directories not to format (recursively).
-#
-# Notes:
-# - These directories must also have a `.clang-format` that disables formatting,
-#   so developers who use format-on-save functionality enabled don't have these files formatted on save.
-# - The reason to exclude here is to prevent unnecessary work were the files would run through clang-format
-#   only to do nothing because the `.clang-format` file prevents it.
-ignore_directories = {
-    "intern/itasc"
-}
+# Directories that are not formatted recursively.
+ignore_directories: set[str] = set()
 
 
 def compute_paths(paths: list[str], use_default_paths: bool) -> list[str]:

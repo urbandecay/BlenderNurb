@@ -4,16 +4,12 @@
 
 import bpy
 import typing
-from mathutils import Matrix
 from ....blender.com.data_path import get_sk_exported
 from ....io.com import gltf2_io
 from ....io.exp.user_extensions import export_user_extensions
-from ..tree import VExportNode
-from .sampled.armature.action_sampled import gather_action_armature_sampled
 from .sampled.object.action_sampled import gather_action_object_sampled
 from .sampled.shapekeys.channels import gather_sampled_sk_channel
 from .sampled.data.channels import gather_data_sampled_channels
-from .drivers import get_sk_drivers
 
 
 def link_samplers(animation: gltf2_io.Animation, export_settings):
@@ -42,24 +38,6 @@ def link_samplers(animation: gltf2_io.Animation, export_settings):
         animation.channels[i].sampler = __append_unique_and_get_index(animation.samplers, channel.sampler)
 
 
-def reset_bone_matrix(blender_object, export_settings) -> None:
-    if export_settings['gltf_export_reset_pose_bones'] is False:
-        return
-
-    # Only for armatures
-    if blender_object.type != "ARMATURE":
-        return
-
-    # Remove current action if any
-    if blender_object.animation_data and blender_object.animation_data.action:
-        blender_object.animation_data.action_slot = None
-        blender_object.animation_data.action = None
-
-    # Resetting bones TRS to avoid to keep not keyed value on a future action set
-    for bone in blender_object.pose.bones:
-        bone.matrix_basis = Matrix()
-
-
 def reset_sk_data(blender_object, datas, export_settings) -> None:
     # Using NLA for SK is not so common
     # Reset to 0.0 will happen here only if there are at least 2 tracks to export
@@ -86,20 +64,11 @@ def reset_sk_data(blender_object, datas, export_settings) -> None:
         sk.value = 0.0
 
 
-def add_slide_data(start_frame, uuid: int, key: str, export_settings, add_drivers=True):
+def add_slide_data(start_frame, uuid: int, key: str, export_settings):
 
     if uuid not in export_settings['slide'].keys():
         export_settings['slide'][uuid] = {}
     export_settings['slide'][uuid][key] = start_frame
-
-    # Add slide info for driver sk too
-    if add_drivers is True:
-        obj_drivers = get_sk_drivers(uuid, export_settings)
-        for obj_dr in obj_drivers:
-            if obj_dr not in export_settings['slide'].keys():
-                export_settings['slide'][obj_dr] = {}
-            export_settings['slide'][obj_dr][uuid + "_" + key] = start_frame
-
 
 def merge_tracks_perform(merged_tracks, animations, export_settings):
     # Depending on the option choose, here "track" can be the NLA Track or the action name
@@ -200,41 +169,27 @@ def bake_animation(obj_uuid: str, animation_key: str, export_settings, mode=None
     # If force sampling is OFF, can lead to inconsistent export anyway
     if (export_settings['gltf_bake_animation'] is True
             or export_settings['gltf_animation_mode'] == "NLA_TRACKS") \
-            and blender_object and blender_object.type != "ARMATURE" and export_settings['gltf_force_sampling'] is True:
+            and blender_object and export_settings['gltf_force_sampling'] is True:
         animation = None
-        # We also have to check if this is a skinned mesh, because we don't have to force animation baking on this case
-        # (skinned meshes TRS must be ignored, says glTF specification)
-        if export_settings['vtree'].nodes[obj_uuid].skin is None:
-            if mode is None or mode == "OBJECT":
-                channels, _ = gather_action_object_sampled(obj_uuid, None, None, animation_key, export_settings)
-                if channels:
-                    animation = gltf2_io.Animation(
-                        channels=channels,
-                        extensions=None,  # as other animations
-                        extras=None,  # Because there is no animation to get extras from
-                        name=export_settings['vtree'].nodes[obj_uuid].blender_object.name if obj_uuid == animation_key else animation_key,
-                        samplers=[]
-                    )
+        if mode is None or mode == "OBJECT":
+            channels, _ = gather_action_object_sampled(obj_uuid, None, None, animation_key, export_settings)
+            if channels:
+                animation = gltf2_io.Animation(
+                    channels=channels,
+                    extensions=None,
+                    extras=None,
+                    name=export_settings['vtree'].nodes[obj_uuid].blender_object.name if obj_uuid == animation_key else animation_key,
+                    samplers=[]
+                )
 
-        # Need to bake sk only if not linked to a driver sk by parent armature
-        # In case of NLA track export, no baking of SK
+        # In NLA track export, shape key animation is gathered through its own channel.
         if export_settings['gltf_morph_anim'] \
                 and blender_object \
                 and blender_object.type == "MESH" \
                 and blender_object.data is not None \
                 and blender_object.data.shape_keys is not None:
 
-            ignore_sk = False
-            if export_settings['vtree'].nodes[obj_uuid].parent_uuid is not None \
-                    and export_settings['vtree'].nodes[export_settings['vtree'].nodes[obj_uuid].parent_uuid].blender_type == VExportNode.ARMATURE:
-                obj_drivers = get_sk_drivers(export_settings['vtree'].nodes[obj_uuid].parent_uuid, export_settings)
-                if obj_uuid in obj_drivers:
-                    ignore_sk = True
-
-            if mode == "OBJECT":
-                ignore_sk = True
-
-            if ignore_sk is False:
+            if mode != "OBJECT":
                 channel = gather_sampled_sk_channel(obj_uuid, animation_key, None, export_settings)
                 if channel is not None:
                     if animation is None:
@@ -252,27 +207,6 @@ def bake_animation(obj_uuid: str, animation_key: str, export_settings, mode=None
             link_samplers(animation, export_settings)
             return animation
 
-    elif (export_settings['gltf_bake_animation'] is True
-            or export_settings['gltf_animation_mode'] == "NLA_TRACKS") \
-            and blender_object \
-            and blender_object.type == "ARMATURE" \
-            and mode is None or mode == "OBJECT":
-        # We need to bake all bones. Because some bone can have some constraints linking to
-        # some other armature bones, for example
-
-        animation = None
-        channels, _ = gather_action_armature_sampled(obj_uuid, None, None, animation_key, export_settings)
-        if channels:
-            animation = gltf2_io.Animation(
-                channels=channels,
-                extensions=None,  # as other animations
-                extras=None,  # Because there is no animation to get extras from
-                name=export_settings['vtree'].nodes[obj_uuid].blender_object.name if obj_uuid == animation_key else animation_key,
-                samplers=[]
-            )
-            link_samplers(animation, export_settings)
-        if animation is not None:
-            return animation
     return None
 
 

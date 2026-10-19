@@ -1207,8 +1207,6 @@ class CYCLES_CAMERA_PT_dof(CyclesButtonsPanel, Panel):
 
         col = split.column()
         col.prop(dof, "focus_object", text="Focus on Object")
-        if dof.focus_object and dof.focus_object.type == 'ARMATURE':
-            col.prop_search(dof, "focus_subtarget", dof.focus_object.data, "bones", text="Focus Bone")
 
         sub = col.row()
         sub.active = dof.focus_object is None
@@ -1337,8 +1335,6 @@ class CYCLES_OBJECT_PT_motion_blur(CyclesButtonsPanel, Panel):
         if CyclesButtonsPanel.poll(context) and ob:
             if ob.type in {'MESH', 'CURVE', 'CURVE', 'SURFACE', 'FONT',
                            'META', 'CAMERA', 'CURVES', 'POINTCLOUD', 'VOLUME'}:
-                return True
-            if ob.instance_type == 'COLLECTION' and ob.instance_collection:
                 return True
             # TODO(sergey): More duplicator types here?
         return False

@@ -288,21 +288,12 @@ Added
 
 * :class:`bpy.types.Panel.list_panel_index`
 
-bpy.types.PoseBoneConstraints
------------------------------
-
-Added
-^^^^^
-
-* :class:`bpy.types.PoseBoneConstraints.copy`
-
 bpy.types.PreferencesEdit
 -------------------------
 
 Added
 ^^^^^
 
-* :class:`bpy.types.PreferencesEdit.collection_instance_empty_size`
 * :class:`bpy.types.PreferencesEdit.use_duplicate_hair`
 * :class:`bpy.types.PreferencesEdit.use_duplicate_pointcloud`
 

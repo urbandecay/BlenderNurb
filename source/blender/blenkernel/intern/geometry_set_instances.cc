@@ -60,14 +60,6 @@ GeometrySet object_get_evaluated_geometry_set(const Object &object, const bool a
     add_final_mesh_as_geometry_component(object, geometry_set, apply_subdiv);
     return geometry_set;
   }
-  if (object.type == OB_EMPTY && object.instance_collection != nullptr) {
-    Collection &collection = *object.instance_collection;
-    auto instances = std::make_unique<Instances>(1);
-    instances->reference_handles_for_write().first() = instances->add_reference(collection);
-    instances->transforms_for_write().first() = float4x4::identity();
-    return GeometrySet::from_instances(std::move(instances));
-  }
-
   /* Return by value since there is not always an existing geometry set owned elsewhere to use. */
   return {};
 }
@@ -123,7 +115,7 @@ void Instances::ensure_geometry_instances()
         /* Create a new reference that contains the geometry set of the object. We may want to
          * treat e.g. lamps and similar object types separately here. */
         Object &object = reference.object();
-        if (ELEM(object.type, OB_LAMP, OB_CAMERA, OB_SPEAKER, OB_ARMATURE)) {
+        if (ELEM(object.type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
           new_references.append(InstanceReference(object));
           break;
         }

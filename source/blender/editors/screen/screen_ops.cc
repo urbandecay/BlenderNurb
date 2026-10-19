@@ -22,7 +22,6 @@
 #include "BLT_translation.hh"
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
@@ -59,7 +58,6 @@
 #include "DEG_depsgraph_query.hh"
 
 #include "ED_anim_api.hh"
-#include "ED_armature.hh"
 #include "ED_buttons.hh"
 #include "ED_fileselect.hh"
 #include "ED_image.hh"
@@ -680,97 +678,6 @@ bool ED_operator_editmesh_region_view3d(bContext *C)
   }
 
   CTX_wm_operator_poll_msg_set(C, "Expected a view3d region & editmesh");
-  return false;
-}
-
-bool ED_operator_editarmature(bContext *C)
-{
-  Object *obedit = CTX_data_edit_object(C);
-  if (obedit && obedit->type == OB_ARMATURE) {
-    return nullptr != (id_cast<bArmature *>(obedit->data))->edbo;
-  }
-  return false;
-}
-
-/**
- * Check for pose mode (no mixed modes).
- *
- * We want to enable most pose operations in weight paint mode, when it comes to transforming
- * bones, but managing bones layers/groups and their constraints can be left for pose mode only
- * (not weight paint mode).
- */
-static bool ed_operator_posemode_exclusive_ex(bContext *C, Object *obact)
-{
-  if (obact != nullptr && !(obact->mode & OB_MODE_EDIT)) {
-    if (obact == BKE_object_pose_armature_get(obact)) {
-      return true;
-    }
-  }
-
-  CTX_wm_operator_poll_msg_set(C, "No object, or not exclusively in pose mode");
-  return false;
-}
-
-bool ED_operator_posemode_exclusive(bContext *C)
-{
-  Object *obact = ed::object::context_active_object(C);
-
-  return ed_operator_posemode_exclusive_ex(C, obact);
-}
-
-bool ED_operator_object_active_local_editable_posemode_exclusive(bContext *C)
-{
-  Object *obact = ed::object::context_active_object(C);
-
-  if (!ed_operator_posemode_exclusive_ex(C, obact)) {
-    return false;
-  }
-
-  if (ID_IS_OVERRIDE_LIBRARY(obact)) {
-    CTX_wm_operator_poll_msg_set(C, "Object is a local library override");
-    return false;
-  }
-
-  return true;
-}
-
-bool ED_operator_posemode_context(bContext *C)
-{
-  Object *obpose = ED_pose_object_from_context(C);
-
-  if (obpose && !(obpose->mode & OB_MODE_EDIT)) {
-    if (BKE_object_pose_context_check(obpose)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool ED_operator_posemode(bContext *C)
-{
-  Object *obact = CTX_data_active_object(C);
-
-  if (obact && !(obact->mode & OB_MODE_EDIT)) {
-    Object *obpose = BKE_object_pose_armature_get(obact);
-    if (obpose != nullptr) {
-      if ((obact == obpose) || (obact->mode & OB_MODE_ALL_WEIGHT_PAINT)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-bool ED_operator_posemode_local(bContext *C)
-{
-  if (ED_operator_posemode(C)) {
-    Main *bmain = CTX_data_main(C);
-    Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
-    bArmature *arm = id_cast<bArmature *>(ob->data);
-    return (BKE_id_is_editable(bmain, &ob->id) && BKE_id_is_editable(bmain, &arm->id));
-  }
   return false;
 }
 

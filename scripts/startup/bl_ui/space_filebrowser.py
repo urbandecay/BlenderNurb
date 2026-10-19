@@ -748,11 +748,6 @@ class ASSETBROWSER_PT_import_settings(asset_utils.AssetBrowserPanel, Panel):
 
         layout.prop(params, "import_method", text="Import Method")
 
-        col = layout.column(heading="Instance Collections")
-        col.prop(params, "instance_collections_on_link", text="When Linking")
-        col.prop(params, "instance_collections_on_append", text="When Appending")
-
-
 class ASSETBROWSER_PT_metadata(asset_utils.AssetBrowserPanel, Panel):
     bl_region_type = 'TOOL_PROPS'
     bl_label = "Asset Metadata"

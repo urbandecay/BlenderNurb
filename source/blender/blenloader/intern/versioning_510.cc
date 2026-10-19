@@ -672,18 +672,6 @@ void blo_do_versions_510(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
     version_mesh_uv_map_strings(*bmain);
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 501, 8)) {
-    for (Object &obj : bmain->objects) {
-      if (!obj.pose) {
-        continue;
-      }
-      for (bPoseChannel &pose_bone : obj.pose->chanbase) {
-        /* Those flags were previously unused, so to be safe we clear them. */
-        pose_bone.flag &= ~(POSE_SELECTED_ROOT | POSE_SELECTED_TIP);
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 501, 9)) {
     init_node_tool_operator_idnames(*bmain);
 
@@ -743,7 +731,6 @@ void blo_do_versions_510(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
       if (scene.toolsettings) {
         scene.toolsettings->anim_mirror_object = nullptr;
         scene.toolsettings->anim_relative_object = nullptr;
-        scene.toolsettings->anim_mirror_bone[0] = '\0';
       }
     }
   }

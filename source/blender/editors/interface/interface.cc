@@ -1773,7 +1773,6 @@ enum PredefinedExtraOpIconType {
   PREDEFINED_EXTRA_OP_ICON_NONE = 1,
   PREDEFINED_EXTRA_OP_ICON_CLEAR,
   PREDEFINED_EXTRA_OP_ICON_EYEDROPPER,
-  PREDEFINED_EXTRA_OP_ICON_BONE_EYEDROPPER
 };
 
 static PointerRNA *but_extra_operator_icon_add_ptr(Button *but,
@@ -1863,26 +1862,6 @@ static bool but_icon_extra_is_visible_search_eyedropper(Button *but)
   return ((but->editstr == nullptr) && (idcode == ID_OB || OB_DATA_SUPPORT_ID(idcode)));
 }
 
-static bool but_icon_extra_is_visible_bone_eyedropper(Button *but)
-{
-  if (but->type != ButtonType::SearchMenu || !(but->flag & BUT_VALUE_CLEAR)) {
-    return false;
-  }
-  if (but->editstr != nullptr) {
-    return false;
-  }
-  if (!ELEM(RNA_property_type(but->rnaprop), PROP_STRING, PROP_POINTER)) {
-    return false;
-  }
-  ButtonSearch *search_but = static_cast<ButtonSearch *>(but);
-  if (!search_but->rnasearchprop) {
-    return false;
-  }
-  const StructRNA *type = RNA_property_pointer_type(&search_but->rnasearchpoin,
-                                                    search_but->rnasearchprop);
-  return type == RNA_Bone || type == RNA_EditBone || type == RNA_PoseBone;
-}
-
 static PredefinedExtraOpIconType but_icon_extra_get(Button *but)
 {
   switch (but->type) {
@@ -1900,9 +1879,6 @@ static PredefinedExtraOpIconType but_icon_extra_get(Button *but)
       }
       else if (but_icon_extra_is_visible_search_eyedropper(but)) {
         return PREDEFINED_EXTRA_OP_ICON_EYEDROPPER;
-      }
-      else if (but_icon_extra_is_visible_bone_eyedropper(but)) {
-        return PREDEFINED_EXTRA_OP_ICON_BONE_EYEDROPPER;
       }
       break;
     default:
@@ -1934,17 +1910,6 @@ static void but_predefined_extra_operator_icons_add(Button *but)
       optype = id_eyedropper_ot;
       icon = ICON_EYEDROPPER;
 
-      break;
-    }
-    case PREDEFINED_EXTRA_OP_ICON_BONE_EYEDROPPER: {
-      static wmOperatorType *id_eyedropper_ot = nullptr;
-      if (!id_eyedropper_ot) {
-        id_eyedropper_ot = WM_operatortype_find("UI_OT_eyedropper_bone", false);
-      }
-      BLI_assert(id_eyedropper_ot);
-
-      optype = id_eyedropper_ot;
-      icon = ICON_EYEDROPPER;
       break;
     }
     case PREDEFINED_EXTRA_OP_ICON_CLEAR: {
@@ -5241,7 +5206,7 @@ void autocomplete_update_name(AutoComplete *autocpl, const StringRef name)
       name.copy_utf8_truncated(truncate, autocpl->maxncpy);
     }
     else {
-      /* remove from truncate what is not in bone->name */
+      /* Remove from the truncated text what is not in the original name. */
       for (int a = 0; a < std::min<size_t>(name.size(), autocpl->maxncpy) - 1; a++) {
         if (name[a] == 0) {
           truncate[a] = 0;

@@ -22,6 +22,8 @@
 #include "BKE_lib_query.hh"
 #include "BKE_texture.h"
 
+#include "DEG_depsgraph_build.hh"
+
 #include "UI_interface.hh"
 #include "UI_interface_layout.hh"
 #include "UI_resources.hh"
@@ -83,8 +85,8 @@ static void update_depsgraph(ModifierData *md, const ModifierUpdateDepsgraphCont
     DEG_add_generic_id_relation(ctx->node, &wmd->texture->id, "Wave Modifier");
 
     if ((wmd->texmapping == MOD_DISP_MAP_OBJECT) && wmd->map_object != nullptr) {
-      MOD_depsgraph_update_object_bone_relation(
-          ctx->node, wmd->map_object, wmd->map_bone, "Wave Modifier");
+      DEG_add_object_relation(
+          ctx->node, wmd->map_object, DEG_OB_COMP_TRANSFORM, "Wave Modifier");
       need_transform_relation = true;
     }
     else if (wmd->texmapping == MOD_DISP_MAP_GLOBAL) {
@@ -372,18 +374,6 @@ static void texture_panel_draw(const bContext *C, Panel *panel)
   col.prop(ptr, "texture_coords", UI_ITEM_NONE, IFACE_("Coordinates"), ICON_NONE);
   if (texture_coords == MOD_DISP_MAP_OBJECT) {
     col.prop(ptr, "texture_coords_object", UI_ITEM_NONE, IFACE_("Object"), ICON_NONE);
-    PointerRNA texture_coords_obj_ptr = RNA_pointer_get(ptr, "texture_coords_object");
-    if (!RNA_pointer_is_null(&texture_coords_obj_ptr) &&
-        (RNA_enum_get(&texture_coords_obj_ptr, "type") == OB_ARMATURE))
-    {
-      PointerRNA texture_coords_obj_data_ptr = RNA_pointer_get(&texture_coords_obj_ptr, "data");
-      col.prop_search(ptr,
-                      "texture_coords_bone",
-                      &texture_coords_obj_data_ptr,
-                      "bones",
-                      IFACE_("Bone"),
-                      ICON_NONE);
-    }
   }
   else if (texture_coords == MOD_DISP_MAP_UV && RNA_enum_get(&ob_ptr, "type") == OB_MESH) {
     PointerRNA obj_data_ptr = RNA_pointer_get(&ob_ptr, "data");

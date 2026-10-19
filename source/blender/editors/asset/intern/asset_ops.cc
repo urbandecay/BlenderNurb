@@ -104,10 +104,10 @@ static const char *asset_operation_unsupported_type_msg(const bool is_single)
 {
   const char *msg_single = N_(
       "Data-block does not support asset operations - must be a "
-      "Brush, Collection, Node Group, Object, Pose Action, Scene, or World");
+      "Brush, Collection, Node Group, Object, Action, Scene, or World");
   const char *msg_multiple = N_(
       "No data-block selected that supports asset operations - select at least one "
-      "Brush, Collection, Node Group, Object, Pose Action, Scene, or World");
+      "Brush, Collection, Node Group, Object, Action, Scene, or World");
   return is_single ? msg_single : msg_multiple;
 }
 
@@ -1655,7 +1655,7 @@ static bool screenshot_preview_poll(bContext *C)
 
 static void ASSET_OT_screenshot_preview(wmOperatorType *ot)
 {
-  /* This should be a generic operator for assets not linked to the pose-library. */
+  /* This is a generic operator for creating asset previews. */
 
   ot->name = "Capture Screenshot Preview";
   ot->description = "Capture a screenshot to use as a preview for the selected asset";

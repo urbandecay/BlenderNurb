@@ -304,18 +304,9 @@ float BKE_camera_object_dof_distance(const Object *ob)
   if (cam->dof.focus_object) {
     float view_dir[3], dof_dir[3];
     normalize_v3_v3(view_dir, ob->object_to_world().ptr()[2]);
-    bPoseChannel *pchan = BKE_pose_channel_find_name(cam->dof.focus_object->pose,
-                                                     cam->dof.focus_subtarget);
-    if (pchan) {
-      float posemat[4][4];
-      mul_m4_m4m4(posemat, cam->dof.focus_object->object_to_world().ptr(), pchan->pose_mat);
-      sub_v3_v3v3(dof_dir, ob->object_to_world().location(), posemat[3]);
-    }
-    else {
-      sub_v3_v3v3(dof_dir,
-                  ob->object_to_world().location(),
-                  cam->dof.focus_object->object_to_world().location());
-    }
+    sub_v3_v3v3(dof_dir,
+                ob->object_to_world().location(),
+                cam->dof.focus_object->object_to_world().location());
     return fmax(fabsf(dot_v3v3(view_dir, dof_dir)), 1e-5f);
   }
   return fmax(cam->dof.focus_distance, 1e-5f);

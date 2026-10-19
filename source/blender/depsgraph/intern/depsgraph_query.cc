@@ -12,7 +12,6 @@
 
 #include "BLI_listbase.h"
 
-#include "BKE_action.hh" /* XXX: BKE_pose_channel_find_name */
 #include "BKE_idtype.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
@@ -231,17 +230,6 @@ void DEG_get_evaluated_rna_pointer(const Depsgraph *depsgraph,
     /* For ID pointers, it's easy... */
     r_ptr_eval->owner_id = cow_id;
     r_ptr_eval->data = static_cast<void *>(cow_id);
-    r_ptr_eval->type = ptr->type;
-  }
-  else if (ptr->type == RNA_PoseBone) {
-    /* HACK: Since bone keyframing is quite commonly used,
-     * speed things up for this case by doing a special lookup
-     * for bones */
-    const Object *ob_eval = id_cast<Object *>(cow_id);
-    bPoseChannel *pchan = static_cast<bPoseChannel *>(ptr->data);
-    bPoseChannel *pchan_eval = BKE_pose_channel_find_name(ob_eval->pose, pchan->name);
-    r_ptr_eval->owner_id = cow_id;
-    r_ptr_eval->data = pchan_eval;
     r_ptr_eval->type = ptr->type;
   }
   else {

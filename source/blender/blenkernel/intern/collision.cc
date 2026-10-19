@@ -1224,7 +1224,6 @@ static void hair_collision(void *__restrict userdata,
 
 static void add_collision_object(ListBaseT<CollisionRelation> *relations,
                                  Object *ob,
-                                 int level,
                                  const ModifierType modifier_type)
 {
   /* only get objects with collision modifier */
@@ -1236,18 +1235,6 @@ static void add_collision_object(ListBaseT<CollisionRelation> *relations,
     BLI_addtail(relations, relation);
   }
 
-  /* objects in dupli groups, one level only for now */
-  /* TODO: this doesn't really work, we are not taking into account the
-   * dupli transforms and can get objects in the list multiple times. */
-  if (ob->instance_collection && level == 0) {
-    Collection *collection = ob->instance_collection;
-
-    /* add objects */
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (collection, object) {
-      add_collision_object(relations, object, level + 1, modifier_type);
-    }
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
-  }
 }
 
 ListBaseT<CollisionRelation> *BKE_collision_relations_create(Depsgraph *depsgraph,
@@ -1265,7 +1252,7 @@ ListBaseT<CollisionRelation> *BKE_collision_relations_create(Depsgraph *depsgrap
 
   for (; base; base = base->next) {
     if (base->flag & base_flag) {
-      add_collision_object(relations, base->object, 0, ModifierType(modifier_type));
+      add_collision_object(relations, base->object, ModifierType(modifier_type));
     }
   }
 

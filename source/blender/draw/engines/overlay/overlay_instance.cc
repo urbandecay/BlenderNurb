@@ -97,15 +97,12 @@ void Instance::init()
       state.v3d_flag = 0;
       state.v3d_gridflag = 0;
       state.overlay.flag = V3D_OVERLAY_HIDE_TEXT | V3D_OVERLAY_HIDE_MOTION_PATHS |
-                           V3D_OVERLAY_HIDE_BONES | V3D_OVERLAY_HIDE_OBJECT_XTRAS |
+                           V3D_OVERLAY_HIDE_OBJECT_XTRAS |
                            V3D_OVERLAY_HIDE_OBJECT_ORIGINS;
       state.overlay.wireframe_threshold = state.v3d->overlay.wireframe_threshold;
       state.overlay.wireframe_opacity = state.v3d->overlay.wireframe_opacity;
     }
 
-    state.do_pose_xray = state.show_bone_selection();
-    state.do_pose_fade_geom = state.do_pose_xray && !(state.object_mode & OB_MODE_WEIGHT_PAINT) &&
-                              ctx->object_pose != nullptr;
   }
   else if (state.is_space_image()) {
     SpaceImage *space_image = reinterpret_cast<SpaceImage *>(
@@ -261,7 +258,7 @@ void Resources::update_theme_settings(const DRWContext *ctx, const State &state)
   ui::theme::get_color_4fv(TH_SPEAKER, gb.colors.speaker);
   ui::theme::get_color_4fv(TH_CAMERA, gb.colors.camera);
   ui::theme::get_color_4fv(TH_CAMERA_PATH, gb.colors.camera_path);
-  ui::theme::get_color_4fv(TH_EMPTY, gb.colors.empty);
+  ui::theme::get_color_4fv(TH_NO_DATA_OBJECT, gb.colors.no_data_object);
   ui::theme::get_color_4fv(TH_VERTEX, gb.colors.vert);
   ui::theme::get_color_4fv(TH_VERTEX_SELECT, gb.colors.vert_select);
   ui::theme::get_color_4fv(TH_VERTEX_UNREFERENCED, gb.colors.vert_unreferenced);
@@ -311,25 +308,6 @@ void Resources::update_theme_settings(const DRWContext *ctx, const State &state)
 
   ui::theme::get_color_4fv(TH_TEXT, gb.colors.text);
   ui::theme::get_color_4fv(TH_TEXT_HI, gb.colors.text_hi);
-
-  /* Bone colors */
-  ui::theme::get_color_4fv(TH_BONE_POSE, gb.colors.bone_pose);
-  ui::theme::get_color_4fv(TH_BONE_POSE_ACTIVE, gb.colors.bone_pose_active);
-  ui::theme::get_color_shade_4fv(TH_EDGE_SELECT, 60, gb.colors.bone_active);
-  ui::theme::get_color_shade_4fv(TH_EDGE_SELECT, -20, gb.colors.bone_select);
-  ui::theme::get_color_blend_shade_4fv(
-      TH_WIRE, TH_BONE_POSE, 0.15f, 0, gb.colors.bone_pose_active_unsel);
-  ui::theme::get_color_blend_shade_3fv(
-      TH_WIRE_EDIT, TH_EDGE_SELECT, 0.15f, 0, gb.colors.bone_active_unsel);
-  gb.colors.bone_pose_no_target = rgba_uchar_to_float(255, 150, 0, 80);
-  gb.colors.bone_pose_ik = rgba_uchar_to_float(255, 255, 0, 80);
-  gb.colors.bone_pose_spline_ik = rgba_uchar_to_float(200, 255, 0, 80);
-  gb.colors.bone_pose_constraint = rgba_uchar_to_float(0, 255, 120, 80);
-  ui::theme::get_color_4fv(TH_BONE_SOLID, gb.colors.bone_solid);
-  ui::theme::get_color_4fv(TH_BONE_LOCKED_WEIGHT, gb.colors.bone_locked);
-  gb.colors.bone_ik_line = float4(0.8f, 0.8f, 0.0f, 1.0f);
-  gb.colors.bone_ik_line_no_target = float4(0.8f, 0.5f, 0.2f, 1.0f);
-  gb.colors.bone_ik_line_spline = float4(0.8f, 0.8f, 0.2f, 1.0f);
 
   /* Curve */
   ui::theme::get_color_4fv(TH_HANDLE_FREE, gb.colors.handle_free);
@@ -467,7 +445,6 @@ void Instance::begin_sync()
   outline.begin_sync(resources, state);
 
   auto begin_sync_layer = [&](OverlayLayer &layer) {
-    layer.armatures.begin_sync(resources, state);
     layer.attribute_viewer.begin_sync(resources, state);
     layer.attribute_texts.begin_sync(resources, state);
     layer.axes.begin_sync(resources, state);
@@ -475,7 +452,6 @@ void Instance::begin_sync()
     layer.cameras.begin_sync(resources, state);
     layer.curves.begin_sync(resources, state);
     layer.text.begin_sync(resources, state);
-    layer.empties.begin_sync(resources, state);
     layer.facing.begin_sync(resources, state);
     layer.fade.begin_sync(resources, state);
     layer.force_fields.begin_sync(resources, state);
@@ -572,9 +548,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
       case OB_MESH:
         layer.meshes.edit_object_sync(manager, ob_ref, resources, state);
         break;
-      case OB_ARMATURE:
-        layer.armatures.edit_object_sync(manager, ob_ref, resources, state);
-        break;
       case OB_SURF:
       case OB_CURVES_LEGACY:
         layer.curves.edit_object_sync_legacy(manager, ob_ref, resources);
@@ -606,16 +579,8 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
 
   if (!state.hide_overlays) {
     switch (ob_ref.object->type) {
-      case OB_EMPTY:
-        layer.empties.object_sync(manager, ob_ref, resources, state);
-        break;
       case OB_CAMERA:
         layer.cameras.object_sync(manager, ob_ref, resources, state);
-        break;
-      case OB_ARMATURE:
-        if (!in_edit_mode) {
-          layer.armatures.object_sync(manager, ob_ref, resources, state);
-        }
         break;
       case OB_LATTICE:
         if (!in_edit_mode) {
@@ -666,12 +631,10 @@ void Instance::end_sync()
   resources.end_sync();
 
   auto end_sync_layer = [&](OverlayLayer &layer) {
-    layer.armatures.end_sync(resources, state);
     layer.axes.end_sync(resources, state);
     layer.bounds.end_sync(resources, state);
     layer.cameras.end_sync(resources, state);
     layer.text.end_sync(resources, state);
-    layer.empties.end_sync(resources, state);
     layer.force_fields.end_sync(resources, state);
     layer.lights.end_sync(resources, state);
     layer.light_probes.end_sync(resources, state);
@@ -744,7 +707,6 @@ void Instance::draw(Manager &manager)
     auto pre_draw = [&](OverlayLayer &layer) {
       layer.attribute_viewer.pre_draw(manager, view);
       layer.cameras.pre_draw(manager, view);
-      layer.empties.pre_draw(manager, view);
       layer.facing.pre_draw(manager, view);
       layer.fade.pre_draw(manager, view);
       layer.lattices.pre_draw(manager, view);
@@ -839,7 +801,6 @@ void Instance::draw_v3d(Manager &manager, View &view)
     layer.bounds.draw_line(framebuffer, manager, view);
     layer.wireframe.draw_line(framebuffer, manager, view);
     layer.cameras.draw_line(framebuffer, manager, view);
-    layer.empties.draw_line(framebuffer, manager, view);
     layer.axes.draw_line(framebuffer, manager, view);
     layer.force_fields.draw_line(framebuffer, manager, view);
     layer.lights.draw_line(framebuffer, manager, view);
@@ -852,7 +813,6 @@ void Instance::draw_v3d(Manager &manager, View &view)
     layer.fluids.draw_line(framebuffer, manager, view);
     layer.particles.draw_line(framebuffer, manager, view);
     layer.attribute_viewer.draw_line(framebuffer, manager, view);
-    layer.armatures.draw_line(framebuffer, manager, view);
     layer.sculpts.draw_line(framebuffer, manager, view);
     /* NOTE: Temporarily moved after grid drawing (See #136764). */
     // layer.meshes.draw_line(framebuffer, manager, view);
@@ -897,10 +857,6 @@ void Instance::draw_v3d(Manager &manager, View &view)
     }
 
     regular.prepass.draw_line(resources.overlay_line_fb, manager, view);
-
-    /* TODO(fclem): Split overlay and rename draw functions. */
-    /* TODO(fclem): Draw on line framebuffer. */
-    regular.empties.draw_images(resources.overlay_fb, manager, view);
 
     if (state.xray_enabled || (state.v3d && state.v3d->shading.type > OB_SOLID)) {
       /* If workbench is not enabled, the infront buffer might contain garbage. */
@@ -953,9 +909,6 @@ void Instance::draw_v3d(Manager &manager, View &view)
     draw_color_only(regular, resources.overlay_color_only_fb);
     draw_color_only(infront, resources.overlay_color_only_fb);
 
-    /* TODO(fclem): Split overlay and rename draw functions. */
-    regular.empties.draw_in_front_images(resources.overlay_color_only_fb, manager, view);
-    infront.empties.draw_in_front_images(resources.overlay_color_only_fb, manager, view);
     regular.cameras.draw_in_front(resources.overlay_color_only_fb, manager, view);
     infront.cameras.draw_in_front(resources.overlay_color_only_fb, manager, view);
 
@@ -970,7 +923,6 @@ void Instance::draw_v3d(Manager &manager, View &view)
     /* TODO(fclem): Split overlay and rename draw functions. */
     regular.cameras.draw_background_images(resources.overlay_output_color_only_fb, manager, view);
     infront.cameras.draw_background_images(resources.overlay_output_color_only_fb, manager, view);
-    regular.empties.draw_background_images(resources.overlay_output_color_only_fb, manager, view);
 
     background.draw_output(resources.overlay_output_color_only_fb, manager, view);
     anti_aliasing.draw_output(resources.overlay_output_color_only_fb, manager, view);
@@ -1058,8 +1010,6 @@ bool Instance::object_is_edit_mode(const Object *object)
     switch (object->type) {
       case OB_MESH:
         return state.ctx_mode == CTX_MODE_EDIT_MESH;
-      case OB_ARMATURE:
-        return state.ctx_mode == CTX_MODE_EDIT_ARMATURE;
       case OB_CURVES_LEGACY:
         return state.ctx_mode == CTX_MODE_EDIT_CURVE;
       case OB_SURF:
@@ -1086,13 +1036,7 @@ bool Instance::object_is_edit_mode(const Object *object)
 
 bool Instance::object_is_in_front(const Object *object, const State &state)
 {
-  switch (object->type) {
-    case OB_ARMATURE:
-      return (object->dtx & OB_DRAW_IN_FRONT) ||
-             (state.do_pose_xray && Armatures::is_pose_mode(object, state));
-    default:
-      return state.use_in_front && (object->dtx & OB_DRAW_IN_FRONT);
-  }
+  return state.use_in_front && (object->dtx & OB_DRAW_IN_FRONT);
 }
 
 bool Instance::object_needs_prepass(const ObjectRef &ob_ref, bool in_paint_mode)

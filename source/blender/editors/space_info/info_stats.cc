@@ -11,7 +11,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
@@ -36,7 +35,6 @@
 #include "BLT_translation.hh"
 
 #include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_blender_version.h"
 #include "BKE_curve.hh"
 #include "BKE_curves.hh"
@@ -66,7 +64,6 @@ struct SceneStats {
   uint64_t totvert, totvertsel, totvertsculpt;
   uint64_t totedge, totedgesel;
   uint64_t totface, totfacesel, totfacesculpt;
-  uint64_t totbone, totbonesel;
   uint64_t totobj, totobjsel;
   uint64_t totlamp, totlampsel;
   uint64_t tottri, tottrisel;
@@ -82,7 +79,6 @@ struct SceneStatsFmt {
   char totface[BLI_STR_FORMAT_UINT64_GROUPED_SIZE], totfacesel[BLI_STR_FORMAT_UINT64_GROUPED_SIZE];
   char totedge[BLI_STR_FORMAT_UINT64_GROUPED_SIZE], totedgesel[BLI_STR_FORMAT_UINT64_GROUPED_SIZE],
       totfacesculpt[BLI_STR_FORMAT_UINT64_GROUPED_SIZE];
-  char totbone[BLI_STR_FORMAT_UINT64_GROUPED_SIZE], totbonesel[BLI_STR_FORMAT_UINT64_GROUPED_SIZE];
   char totobj[BLI_STR_FORMAT_UINT64_GROUPED_SIZE], totobjsel[BLI_STR_FORMAT_UINT64_GROUPED_SIZE];
   char totlamp[BLI_STR_FORMAT_UINT64_GROUPED_SIZE], totlampsel[BLI_STR_FORMAT_UINT64_GROUPED_SIZE];
   char tottri[BLI_STR_FORMAT_UINT64_GROUPED_SIZE], tottrisel[BLI_STR_FORMAT_UINT64_GROUPED_SIZE];
@@ -218,38 +214,6 @@ static void stats_object_edit(Object *obedit, SceneStats *stats)
 
     stats->tottri += em->looptris.size();
   }
-  else if (obedit->type == OB_ARMATURE) {
-    /* Armature Edit */
-    bArmature *arm = id_cast<bArmature *>(obedit->data);
-
-    for (EditBone &ebo : *arm->edbo) {
-      stats->totbone++;
-
-      if ((ebo.flag & BONE_CONNECTED) && ebo.parent) {
-        stats->totvert--;
-      }
-
-      if (ebo.flag & BONE_TIPSEL) {
-        stats->totvertsel++;
-      }
-      if (ebo.flag & BONE_ROOTSEL) {
-        stats->totvertsel++;
-      }
-
-      if (ebo.flag & BONE_SELECTED) {
-        stats->totbonesel++;
-      }
-
-      /* if this is a connected child and its parent is being moved, remove our root */
-      if ((ebo.flag & BONE_CONNECTED) && (ebo.flag & BONE_ROOTSEL) && ebo.parent &&
-          (ebo.parent->flag & BONE_TIPSEL))
-      {
-        stats->totvertsel--;
-      }
-
-      stats->totvert += 2;
-    }
-  }
   else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) { /* OB_FONT has no cu->editnurb */
     /* Curve Edit */
     Curve *cu = id_cast<Curve *>(obedit->data);
@@ -375,22 +339,6 @@ static void stats_object_edit(Object *obedit, SceneStats *stats)
   }
 }
 
-static void stats_object_pose(const Object *ob, SceneStats *stats)
-{
-  if (ob->pose) {
-    bArmature *arm = id_cast<bArmature *>(ob->data);
-
-    for (bPoseChannel &pchan : ob->pose->chanbase) {
-      stats->totbone++;
-      if ((pchan.flag & POSE_SELECTED)) {
-        if (BKE_pose_is_bonecoll_visible(arm, &pchan)) {
-          stats->totbonesel++;
-        }
-      }
-    }
-  }
-}
-
 static bool stats_is_object_dynamic_topology_sculpt(const Object *ob)
 {
   BLI_assert(ob->mode & OB_MODE_SCULPT);
@@ -461,25 +409,6 @@ static void stats_update(const Main *bmain,
         else {
           /* Skip hidden objects in local view that are not in edit-mode,
            * an exception for edit-mode, in most other modes these would be considered hidden. */
-          if (v3d_local && !BKE_object_is_visible_in_viewport(v3d_local, ob_iter)) {
-            continue;
-          }
-        }
-        stats->totobj++;
-      }
-    }
-    FOREACH_OBJECT_END;
-  }
-  else if (ob && (ob->mode & OB_MODE_POSE)) {
-    /* Pose Mode. */
-    FOREACH_OBJECT_BEGIN (bmain, scene, view_layer, ob_iter) {
-      if (ob_iter->base_flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) {
-        if (ob_iter->mode & OB_MODE_POSE) {
-          stats_object_pose(ob_iter, stats);
-          stats->totobjsel++;
-        }
-        else {
-          /* See comment for edit-mode. */
           if (v3d_local && !BKE_object_is_visible_in_viewport(v3d_local, ob_iter)) {
             continue;
           }
@@ -564,9 +493,6 @@ static bool format_stats(
   SCENE_STATS_FMT_INT(totfacesel);
   SCENE_STATS_FMT_INT(totfacesculpt);
 
-  SCENE_STATS_FMT_INT(totbone);
-  SCENE_STATS_FMT_INT(totbonesel);
-
   SCENE_STATS_FMT_INT(totobj);
   SCENE_STATS_FMT_INT(totobjsel);
 
@@ -631,16 +557,6 @@ static void get_stats_string(char *info,
                                      stats_fmt->totface,
                                      stats_fmt->tottri);
     }
-    else if (ob->type == OB_ARMATURE) {
-      *ofs += BLI_snprintf_utf8_rlen(info + *ofs,
-                                     len - *ofs,
-
-                                     IFACE_("Joints:%s/%s | Bones:%s/%s"),
-                                     stats_fmt->totvertsel,
-                                     stats_fmt->totvert,
-                                     stats_fmt->totbonesel,
-                                     stats_fmt->totbone);
-    }
     else if (ob->type == OB_CURVES) {
       *ofs += BLI_snprintf_utf8_rlen(info + *ofs,
                                      len - *ofs,
@@ -662,10 +578,6 @@ static void get_stats_string(char *info,
                                      stats_fmt->totvertsel,
                                      stats_fmt->totvert);
     }
-  }
-  else if (ob && (object_mode & OB_MODE_POSE)) {
-    *ofs += BLI_snprintf_utf8_rlen(
-        info + *ofs, len - *ofs, IFACE_("Bones:%s/%s"), stats_fmt->totbonesel, stats_fmt->totbone);
   }
   else if (ob && (ob->type == OB_CURVES)) {
     const char *count = (object_mode == OB_MODE_SCULPT_CURVES) ? stats_fmt->totvertsculpt :
@@ -849,8 +761,6 @@ void ED_info_draw_stats(
     EDGES,
     FACES,
     TRIS,
-    JOINTS,
-    BONES,
     LAYERS,
     FRAMES,
     STROKES,
@@ -866,8 +776,6 @@ void ED_info_draw_stats(
   STRNCPY_UTF8(labels[EDGES], IFACE_("Edges"));
   STRNCPY_UTF8(labels[FACES], IFACE_("Faces"));
   STRNCPY_UTF8(labels[TRIS], IFACE_("Triangles"));
-  STRNCPY_UTF8(labels[JOINTS], IFACE_("Joints"));
-  STRNCPY_UTF8(labels[BONES], IFACE_("Bones"));
   STRNCPY_UTF8(labels[LAYERS], IFACE_("Layers"));
   STRNCPY_UTF8(labels[FRAMES], IFACE_("Frames"));
   STRNCPY_UTF8(labels[STROKES], IFACE_("Strokes"));
@@ -914,10 +822,6 @@ void ED_info_draw_stats(
       stats_row(col1, labels[FACES], col2, stats_fmt.totfacesel, stats_fmt.totface, y, height);
       stats_row(col1, labels[TRIS], col2, stats_fmt.tottri, nullptr, y, height);
     }
-    else if (ob->type == OB_ARMATURE) {
-      stats_row(col1, labels[JOINTS], col2, stats_fmt.totvertsel, stats_fmt.totvert, y, height);
-      stats_row(col1, labels[BONES], col2, stats_fmt.totbonesel, stats_fmt.totbone, y, height);
-    }
     else if (ob->type == OB_POINTCLOUD) {
       stats_row(col1, labels[POINTS], col2, stats_fmt.totvertsel, stats_fmt.totpoints, y, height);
     }
@@ -941,9 +845,6 @@ void ED_info_draw_stats(
   }
   else if (ob && (object_mode & OB_MODE_SCULPT_CURVES)) {
     stats_row(col1, labels[VERTS], col2, stats_fmt.totvertsculpt, nullptr, y, height);
-  }
-  else if (ob && (object_mode & OB_MODE_POSE)) {
-    stats_row(col1, labels[BONES], col2, stats_fmt.totbonesel, stats_fmt.totbone, y, height);
   }
   else if ((ob) && (ob->type == OB_LAMP)) {
     stats_row(col1, labels[LIGHTS], col2, stats_fmt.totlampsel, stats_fmt.totlamp, y, height);

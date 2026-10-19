@@ -29,11 +29,11 @@ struct ObjectRuntime;
 
 struct AnimData;
 struct BoundBox;
+struct bConstraint;
 struct Collection;
 struct Curve;
 struct Effect;
 struct FluidsimSettings;
-struct ImageUser;
 struct LightgroupMembership;
 struct Material;
 struct ModifierData;
@@ -85,7 +85,7 @@ ENUM_OPERATORS(eObject_Flag)
 
 /** #Object.type */
 enum ObjectType : short {
-  OB_EMPTY = 0,
+  OB_NO_DATA = 0,
   OB_MESH = 1,
   /** Curve object is still used but replaced by "Curves" for the future (see #95355). */
   OB_CURVES_LEGACY = 2,
@@ -100,8 +100,6 @@ enum ObjectType : short {
   OB_LIGHTPROBE = 13,
 
   OB_LATTICE = 22,
-
-  OB_ARMATURE = 25,
 
   OB_CURVES = 27,
 
@@ -136,7 +134,6 @@ enum eObject_TransFlag : short {
   OB_TRANSFLAG_UNUSED_6 = 1 << 6, /* cleared */
   /* runtime, calculate derivedmesh for dupli before it's used */
   OB_TRANSFLAG_UNUSED_7 = 1 << 7, /* dirty */
-  OB_DUPLICOLLECTION = 1 << 8,
   OB_TRANSFLAG_UNUSED_9 = 1 << 9, /* cleared */
   OB_TRANSFLAG_UNUSED_10 = 1 << 10, /* cleared */
   OB_DUPLIPARTS = 1 << 11,
@@ -145,7 +142,7 @@ enum eObject_TransFlag : short {
   OB_NO_CONSTRAINTS = 1 << 13,
   OB_TRANSFLAG_UNUSED_14 = 1 << 14, /* cleared */
 
-  OB_DUPLI = OB_DUPLIVERTS | OB_DUPLICOLLECTION | OB_DUPLIPARTS,
+  OB_DUPLI = OB_DUPLIVERTS | OB_DUPLIPARTS,
 };
 ENUM_OPERATORS(eObject_TransFlag)
 
@@ -177,16 +174,15 @@ enum eObject_DrawExtraFlag : short {
 };
 ENUM_OPERATORS(eObject_DrawExtraFlag)
 
-/** #Object.empty_drawtype: no flags */
-enum eObject_EmptyDrawType : char {
+/** Helper display shape. */
+enum eObject_HelperDisplayType : char {
   OB_ARROWS = 1,
   OB_PLAINAXES = 2,
   OB_CIRCLE = 3,
   OB_SINGLE_ARROW = 4,
   OB_CUBE = 5,
-  OB_EMPTY_SPHERE = 6,
-  OB_EMPTY_CONE = 7,
-  OB_EMPTY_IMAGE = 8,
+  OB_HELPER_SPHERE = 6,
+  OB_HELPER_CONE = 7,
 };
 
 /** #Object.boundtype */
@@ -274,29 +270,6 @@ enum eObject_DuplicatorVisibilityFlag : char {
   OB_DUPLI_FLAG_RENDER = 1 << 1,
 };
 ENUM_OPERATORS(eObject_DuplicatorVisibilityFlag)
-
-/** #Object.empty_image_depth */
-enum eObject_EmptyImageDepth : char {
-  OB_EMPTY_IMAGE_DEPTH_DEFAULT = 0,
-  OB_EMPTY_IMAGE_DEPTH_FRONT = 1,
-  OB_EMPTY_IMAGE_DEPTH_BACK = 2,
-};
-
-/** #Object.empty_image_visibility_flag */
-enum eObject_EmptyImageVisibilityFlag : char {
-  OB_EMPTY_IMAGE_HIDE_PERSPECTIVE = 1 << 0,
-  OB_EMPTY_IMAGE_HIDE_ORTHOGRAPHIC = 1 << 1,
-  OB_EMPTY_IMAGE_HIDE_BACK = 1 << 2,
-  OB_EMPTY_IMAGE_HIDE_FRONT = 1 << 3,
-  OB_EMPTY_IMAGE_HIDE_NON_AXIS_ALIGNED = 1 << 4,
-};
-ENUM_OPERATORS(eObject_EmptyImageVisibilityFlag)
-
-/** #Object.empty_image_flag */
-enum eObject_EmptyImageFlag : char {
-  OB_EMPTY_IMAGE_USE_ALPHA_BLEND = 1 << 0,
-};
-ENUM_OPERATORS(eObject_EmptyImageFlag)
 
 enum ObjectModifierFlag : uchar {
   OB_MODIFIER_FLAG_ADD_REST_POSITION = 1 << 0,
@@ -412,24 +385,15 @@ struct Object {
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt = nullptr;
 
-  ObjectType type = OB_EMPTY;
+  ObjectType type = OB_NO_DATA;
   eObject_Partype partype = PAROBJECT;
   /** Can be vertex indices. */
   int par1 = 0, par2 = 0, par3 = 0;
-  /** String describing sub-object info. */
-  char parsubstr[/*MAX_NAME*/ 64] = "";
   struct Object *parent = nullptr, *track = nullptr;
-  float parent_bone_head_tail_factor = 1.0f;
-  char _pad4[4] = {};
   /* Proxy pointer are deprecated, only kept for conversion to liboverrides. */
   DNA_DEPRECATED struct Object *proxy = nullptr;
   DNA_DEPRECATED struct Object *proxy_group = nullptr;
   DNA_DEPRECATED struct Object *proxy_from = nullptr;
-  // struct Path *path = nullptr;
-  struct bAction *poselib DNA_DEPRECATED =
-      nullptr; /* Pre-Blender 3.0 pose library, deprecated in 3.5. */
-  /** Pose data, armature objects only. */
-  struct bPose *pose = nullptr;
   /** Pointer to objects data - an 'ID' or NULL. */
   ID *data = nullptr;
 
@@ -523,8 +487,8 @@ struct Object {
   eObject_DrawExtraFlag dtx = {};
   /** Viewport draw type. */
   eDrawType dt = OB_TEXTURE;
-  eObject_EmptyDrawType empty_drawtype = OB_PLAINAXES;
-  float empty_drawsize = 1.0;
+  eObject_HelperDisplayType helper_display_type = OB_PLAINAXES;
+  float display_size = 1.0;
   /** Reserved for the removed face-instancing scale. */
   DNA_DEPRECATED float instance_faces_scale = 1;
 
@@ -558,9 +522,6 @@ struct Object {
   struct PartDeflect *pd = nullptr;
   /** If exists, saved in file. */
   struct SoftBody *soft = nullptr;
-  /** Object duplicator for group. */
-  struct Collection *instance_collection = nullptr;
-
   /** If fluidsim enabled, store additional settings. */
   struct FluidsimSettings *fluidsimSettings DNA_DEPRECATED =
       nullptr; /* XXX deprecated... replaced by mantaflow, keep for readfile */
@@ -572,14 +533,9 @@ struct Object {
   /** Settings for Bullet constraint. */
   struct RigidBodyCon *rigidbody_constraint = nullptr;
 
-  /** Offset for image empties. */
-  float ima_ofs[2] = {-0.5, -0.5};
-  /** Must be non-null when object is an empty image. */
-  ImageUser *iuser = nullptr;
-  eObject_EmptyImageVisibilityFlag empty_image_visibility_flag = {};
-  eObject_EmptyImageDepth empty_image_depth = OB_EMPTY_IMAGE_DEPTH_DEFAULT;
-  eObject_EmptyImageFlag empty_image_flag = {};
-
+  float _pad4[2] = {};
+  void *_pad5 = nullptr;
+  char _pad6[3] = {};
   ObjectModifierFlag modifier_flag = {};
 
   float shadow_terminator_normal_offset = 0;
@@ -644,7 +600,7 @@ struct ObHook {
    ((_type) >= OB_CURVES && (_type) <= OB_VOLUME))
 
 /**
- * Does the object have some render-able geometry (unlike empties, cameras, etc.). True for
+ * Does the object have some render-able geometry (unlike no-data objects, cameras, etc.). True for
  * #OB_CURVES_LEGACY, since these often evaluate to objects with geometry.
  */
 #define OB_TYPE_IS_GEOMETRY(_type) \
@@ -668,7 +624,6 @@ struct ObHook {
         OB_SURF, \
         OB_MBALL, \
         OB_LATTICE, \
-        OB_ARMATURE, \
         OB_CURVES, \
         OB_POINTCLOUD))
 
@@ -677,7 +632,7 @@ struct ObHook {
 
 /** Matches #OB_TYPE_SUPPORT_EDITMODE. */
 #define OB_DATA_SUPPORT_EDITMODE(_type) \
-  (ELEM(_type, ID_ME, ID_CU_LEGACY, ID_MB, ID_LT, ID_AR, ID_CV))
+  (ELEM(_type, ID_ME, ID_CU_LEGACY, ID_MB, ID_LT, ID_CV))
 
 /* is this ID type used as object data */
 #define OB_DATA_SUPPORT_ID(_id_type) \
@@ -690,7 +645,6 @@ struct ObHook {
         ID_LP, \
         ID_CA, \
         ID_LT, \
-        ID_AR, \
         ID_CV, \
         ID_PT, \
         ID_VO))
@@ -704,7 +658,6 @@ struct ObHook {
   case ID_LP: \
   case ID_CA: \
   case ID_LT: \
-  case ID_AR: \
   case ID_CV: \
   case ID_PT: \
   case ID_VO

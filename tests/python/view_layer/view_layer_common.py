@@ -287,10 +287,7 @@ class ViewLayerTesting(unittest.TestCase):
             override["scene_collection"] = layer.collections.active.collection
 
             # add new objects
-            if add_mode == 'EMPTY':
-                bpy.ops.object.add(override)  # 'Empty'
-
-            elif add_mode == 'CYLINDER':
+            if add_mode == 'CYLINDER':
                 bpy.ops.mesh.primitive_cylinder_add(override)  # 'Cylinder'
 
             elif add_mode == 'TORUS':
@@ -329,10 +326,7 @@ class ViewLayerTesting(unittest.TestCase):
             layer.collections.unlink(layer.collections[0])
 
         # add new objects
-        if add_mode == 'EMPTY':
-            bpy.ops.object.add()  # 'Empty'
-
-        elif add_mode == 'CYLINDER':
+        if add_mode == 'CYLINDER':
             bpy.ops.mesh.primitive_cylinder_add()  # 'Cylinder'
 
         elif add_mode == 'TORUS':
@@ -346,7 +340,7 @@ class ViewLayerTesting(unittest.TestCase):
         import bpy
         self.assertEqual(master_collection.name, "Master Collection")
         self.assertEqual(master_collection, bpy.context.scene.master_collection)
-        master_collection.objects.link(bpy.data.objects.new('object', None))
+        master_collection.objects.link(bpy.data.objects.new('object', bpy.data.meshes.new('object_mesh')))
 
     def do_scene_copy(self, filepath_json_reference, copy_mode, data_callbacks):
         import bpy
@@ -464,10 +458,7 @@ class ViewLayerTesting(unittest.TestCase):
         self.assertEqual(len(bpy.data.objects), 0)
 
         # add new objects
-        if add_mode == 'EMPTY':
-            bpy.ops.object.add()  # 'Empty'
-
-        elif add_mode == 'CYLINDER':
+        if add_mode == 'CYLINDER':
             bpy.ops.mesh.primitive_cylinder_add()  # 'Cylinder'
 
         elif add_mode == 'TORUS':

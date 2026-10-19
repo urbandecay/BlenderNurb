@@ -17,7 +17,6 @@ import pathlib
 
 from . import global_report
 from io import StringIO
-from mathutils import Matrix
 
 from collections.abc import (
     Callable,
@@ -40,11 +39,6 @@ def fmtrot(f: float) -> str:
     if str == "-3.142":
         str = "3.142"
     return str
-
-
-def is_approx_identity(mat: Matrix, tol=0.001):
-    identity = Matrix.Identity(4)
-    return all(abs(mat[i][j] - identity[i][j]) <= tol for i in range(4) for j in range(4))
 
 
 class Report:
@@ -603,30 +597,6 @@ integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw
                                 f"crease:{mod.use_creases}"
                             )
                         desc.write(f"\n")
-                # for a pose, only print bones that either have non-identity pose matrix, or custom properties
-                if obj.pose:
-                    bones = sorted(obj.pose.bones, key=lambda b: b.name)
-                    for bone in bones:
-                        mtx = bone.matrix_basis
-                        mtx_identity = is_approx_identity(mtx)
-                        desc_props = StringIO()
-                        Report._write_custom_props(bone, desc_props, '  ')
-                        props_str = desc_props.getvalue()
-                        if not mtx_identity or len(props_str) > 0:
-                            desc.write(f"  - posed bone '{bone.name}'\n")
-                            if not mtx_identity:
-                                desc.write(
-                                    f"      {fmtf(mtx[0][0])} {fmtf(mtx[0][1])} {fmtf(mtx[0][2])} {fmtf(mtx[0][3])}\n"
-                                )
-                                desc.write(
-                                    f"      {fmtf(mtx[1][0])} {fmtf(mtx[1][1])} {fmtf(mtx[1][2])} {fmtf(mtx[1][3])}\n"
-                                )
-                                desc.write(
-                                    f"      {fmtf(mtx[2][0])} {fmtf(mtx[2][1])} {fmtf(mtx[2][2])} {fmtf(mtx[2][3])}\n"
-                                )
-                            if len(props_str) > 0:
-                                desc.write(props_str)
-
                 Report._write_animdata_desc(obj.animation_data, desc)
                 Report._write_custom_props(obj, desc)
             desc.write(f"\n")
@@ -813,42 +783,6 @@ integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw
                                     )
                                     Report._write_collection_multi(fcu.keyframe_points, desc)
                 Report._write_custom_props(act, desc)
-                desc.write(f"\n")
-
-        # armatures
-        if len(bpy.data.armatures):
-            desc.write(f"==== Armatures: {len(bpy.data.armatures)}\n")
-            for arm in bpy.data.armatures:
-                bones = sorted(arm.bones, key=lambda b: b.name)
-                desc.write(f"- Armature '{arm.name}' {len(bones)} bones")
-                if arm.display_type != 'OCTAHEDRAL':
-                    desc.write(f" display:{arm.display_type}")
-                desc.write("\n")
-                for bone in bones:
-                    desc.write(f"  - bone '{bone.name}'")
-                    if bone.parent:
-                        desc.write(f" parent:'{bone.parent.name}'")
-                    desc.write(
-                        f" h:({fmtf(bone.head[0])}, {fmtf(bone.head[1])}, {fmtf(bone.head[2])}) "
-                        f"t:({fmtf(bone.tail[0])}, {fmtf(bone.tail[1])}, {fmtf(bone.tail[2])})"
-                    )
-                    if bone.use_connect:
-                        desc.write(f" connect")
-                    if not bone.use_deform:
-                        desc.write(f" no-deform")
-                    if bone.inherit_scale != 'FULL':
-                        desc.write(f" inh_scale:{bone.inherit_scale}")
-                    if bone.head_radius > 0.0 or bone.tail_radius > 0.0:
-                        desc.write(f" radius h:{bone.head_radius:.3f} t:{bone.tail_radius:.3f}")
-                    desc.write(f"\n")
-                    mtx = bone.matrix_local
-                    desc.write(f"      {fmtf(mtx[0][0])} {fmtf(mtx[0][1])} {fmtf(mtx[0][2])} {fmtf(mtx[0][3])}\n")
-                    desc.write(f"      {fmtf(mtx[1][0])} {fmtf(mtx[1][1])} {fmtf(mtx[1][2])} {fmtf(mtx[1][3])}\n")
-                    desc.write(f"      {fmtf(mtx[2][0])} {fmtf(mtx[2][1])} {fmtf(mtx[2][2])} {fmtf(mtx[2][3])}\n")
-                    # mtx[3] is always 0,0,0,1, not worth printing it
-                    Report._write_custom_props(bone, desc)
-                Report._write_animdata_desc(arm.animation_data, desc)
-                Report._write_custom_props(arm, desc)
                 desc.write(f"\n")
 
         # images

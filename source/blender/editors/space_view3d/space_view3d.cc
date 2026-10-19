@@ -331,7 +331,7 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
 
   /* object ops. */
 
-  /* important to be before Pose keymap since they can both be enabled at once */
+  /* Register this keymap before the other paint keymaps. */
   keymap = WM_keymap_ensure(wm->runtime->defaultconf,
                             "Paint Face Mask (Weight, Vertex, Texture)",
                             SPACE_EMPTY,
@@ -348,17 +348,13 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Paint Curve", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
-  /* Before 'Pose' so weight paint menus aren't overridden by pose menus. */
+  /* Keep weight paint menus above other paint tools. */
   keymap = WM_keymap_ensure(
       wm->runtime->defaultconf, "Weight Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   keymap = WM_keymap_ensure(
       wm->runtime->defaultconf, "Vertex Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  /* pose is not modal, operator poll checks for this */
-  keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Pose", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Object Mode", SPACE_EMPTY, RGN_TYPE_WINDOW);
@@ -379,7 +375,6 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Mesh", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
-  keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Armature", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Metaball", SPACE_EMPTY, RGN_TYPE_WINDOW);
@@ -441,11 +436,9 @@ static void view3d_widgets()
   WM_gizmogrouptype_append_and_link(gzmap_type, VIEW3D_GGT_force_field);
   WM_gizmogrouptype_append_and_link(gzmap_type, VIEW3D_GGT_camera);
   WM_gizmogrouptype_append_and_link(gzmap_type, VIEW3D_GGT_camera_view);
-  WM_gizmogrouptype_append_and_link(gzmap_type, VIEW3D_GGT_empty_image);
   WM_gizmogrouptype_append_and_link(gzmap_type, VIEW3D_GGT_geometry_nodes);
   /* TODO(@ideasman42): Not working well enough, disable for now. */
 #if 0
-  WM_gizmogrouptype_append_and_link(gzmap_type, VIEW3D_GGT_armature_spline);
 #endif
 
   WM_gizmogrouptype_append(ed::transform::VIEW3D_GGT_xform_gizmo);
@@ -607,11 +600,7 @@ static void view3d_main_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
-        case ND_BONE_COLLECTION:
         case ND_TRANSFORM:
-        case ND_POSE:
         case ND_DRAW:
         case ND_MODIFIER:
         case ND_CONSTRAINT:
@@ -1105,9 +1094,6 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
     case CTX_MODE_EDIT_TEXT:
       ARRAY_SET_ITEMS(contexts, ".text_edit");
       break;
-    case CTX_MODE_EDIT_ARMATURE:
-      ARRAY_SET_ITEMS(contexts, ".armature_edit");
-      break;
     case CTX_MODE_EDIT_METABALL:
       ARRAY_SET_ITEMS(contexts, ".mball_edit");
       break;
@@ -1116,9 +1102,6 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
       break;
     case CTX_MODE_EDIT_POINTCLOUD:
       ARRAY_SET_ITEMS(contexts, ".pointcloud_edit");
-      break;
-    case CTX_MODE_POSE:
-      ARRAY_SET_ITEMS(contexts, ".posemode");
       break;
     case CTX_MODE_SCULPT:
       ARRAY_SET_ITEMS(contexts, ".paint_common", ".sculpt_mode");
@@ -1203,11 +1186,7 @@ static void view3d_buttons_region_listener(const wmRegionListenerParams *params)
       break;
     case NC_OBJECT:
       switch (wmn->data) {
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
-        case ND_BONE_COLLECTION:
         case ND_TRANSFORM:
-        case ND_POSE:
         case ND_DRAW:
         case ND_KEYS:
         case ND_MODIFIER:
@@ -1363,17 +1342,6 @@ static void space_view3d_refresh(const bContext *C, ScrArea *area)
   }
 }
 
-static void view3d_id_remap_v3d_ob_centers(View3D *v3d, const bke::id::IDRemapper &mappings)
-{
-  if (mappings.apply(reinterpret_cast<ID **>(&v3d->ob_center), ID_REMAP_APPLY_DEFAULT) ==
-      ID_REMAP_RESULT_SOURCE_UNASSIGNED)
-  {
-    /* Otherwise, bone-name may remain valid...
-     * We could be smart and check this, too? */
-    v3d->ob_center_bone[0] = '\0';
-  }
-}
-
 static void view3d_id_remap_v3d(ScrArea *area,
                                 SpaceLink *slink,
                                 View3D *v3d,
@@ -1408,7 +1376,6 @@ static void view3d_id_remap(ScrArea *area, SpaceLink *slink, const bke::id::IDRe
 
   View3D *view3d = reinterpret_cast<View3D *>(slink);
   view3d_id_remap_v3d(area, slink, view3d, mappings, false);
-  view3d_id_remap_v3d_ob_centers(view3d, mappings);
   if (view3d->localvd != nullptr) {
     /* Object centers in local-view aren't used, see: #52663 */
     view3d_id_remap_v3d(area, slink, view3d->localvd, mappings, true);

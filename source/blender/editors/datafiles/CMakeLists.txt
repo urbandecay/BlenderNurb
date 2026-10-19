@@ -55,9 +55,6 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   brush.uv_sculpt.pinch
   brush.uv_sculpt.relax
   none
-  ops.armature.bone.roll
-  ops.armature.extrude_cursor
-  ops.armature.extrude_move
   ops.curve.draw
   ops.curve.extrude_cursor
   ops.curve.extrude_move
@@ -132,8 +129,6 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   ops.sequencer.blade
   ops.sequencer.retime
   ops.sequencer.slip
-  ops.transform.bone_envelope
-  ops.transform.bone_size
   ops.transform.edge_slide
   ops.transform.push_pull
   ops.transform.resize.cage
@@ -189,7 +184,6 @@ if(WITH_BLENDER)
       area_join_left
       area_join_up
       area_swap
-      armature_data
       arrow_leftright
       asset_manager
       auto
@@ -204,7 +198,6 @@ if(WITH_BLENDER)
       blender_logo_large
       boids
       bold
-      bone_data
       bookmarks
       bordermove
       brushes_all
@@ -239,9 +232,7 @@ if(WITH_BLENDER)
       cone
       console
       constraint
-      constraint_bone
       con_action
-      con_armature
       con_camerasolver
       con_childof
       con_clampto
@@ -313,10 +304,6 @@ if(WITH_BLENDER)
       edge_seam
       edge_sharp
       editmode_hlt
-      empty_arrows
-      empty_axis
-      empty_data
-      empty_single_arrow
       error
       experimental
       export
@@ -396,7 +383,6 @@ if(WITH_BLENDER)
       grip_v
       grip_corner_bottom_right
       group
-      group_bone
       group_uvs
       group_vcol
       group_vertex
@@ -543,7 +529,6 @@ if(WITH_BLENDER)
       modifier_data
       modifier_off
       modifier_on
-      mod_armature
       mod_array
       mod_bevel
       mod_boolean
@@ -658,11 +643,9 @@ if(WITH_BLENDER)
       orphan_data
       outliner
       outliner_collection
-      outliner_data_armature
       outliner_data_camera
       outliner_data_curve
       outliner_data_curves
-      outliner_data_empty
       outliner_data_font
       outliner_data_lattice
       outliner_data_light
@@ -673,11 +656,9 @@ if(WITH_BLENDER)
       outliner_data_speaker
       outliner_data_surface
       outliner_data_volume
-      outliner_ob_armature
       outliner_ob_camera
       outliner_ob_curve
       outliner_ob_curves
-      outliner_ob_empty
       outliner_ob_font
       outliner_ob_force_field
       outliner_ob_group_instance

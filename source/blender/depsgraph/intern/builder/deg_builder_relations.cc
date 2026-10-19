@@ -24,7 +24,6 @@
 
 #include "DNA_action_types.h"
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_cloth_types.h"
@@ -87,7 +86,6 @@
 #include "DEG_depsgraph_debug.hh"
 
 #include "intern/builder/deg_builder.h"
-#include "intern/builder/deg_builder_pchanmap.h"
 #include "intern/builder/deg_builder_relations_drivers.h"
 #include "intern/debug/deg_debug.h"
 #include "intern/depsgraph_physics.hh"
@@ -205,26 +203,6 @@ bool check_id_has_driver_component(ID *id)
     return false;
   }
   return !adt->drivers.is_empty();
-}
-
-OperationCode bone_target_opcode(ID *target,
-                                 const char *subtarget,
-                                 ID *id,
-                                 const char *component_subdata,
-                                 RootPChanMap *root_map)
-{
-  /* Same armature. root_map will be nullptr when building object-level constraints, and in that
-   * case we don't need to check for the common chains. */
-  if (target == id && root_map != nullptr) {
-    /* Using "done" here breaks in-chain deps, while using
-     * "ready" here breaks most production rigs instead.
-     * So, we do a compromise here, and only do this when an
-     * IK chain conflict may occur. */
-    if (root_map->has_common_root(component_subdata, subtarget)) {
-      return OperationCode::BONE_READY;
-    }
-  }
-  return OperationCode::BONE_DONE;
 }
 
 bool object_have_geometry_component(const Object *object)
@@ -522,9 +500,6 @@ void DepsgraphRelationBuilder::build_id(ID *id)
     case ID_AC:
       build_action(id_cast<bAction *>(id));
       break;
-    case ID_AR:
-      build_armature(id_cast<bArmature *>(id));
-      break;
     case ID_CA:
       build_camera(id_cast<Camera *>(id));
       break;
@@ -709,15 +684,6 @@ void DepsgraphRelationBuilder::build_collection(LayerCollection *from_layer_coll
         &object->id, NodeType::INSTANCING, OperationCode::INSTANCE_GEOMETRY};
     add_relation(object_instance_geometry_key, collection_geometry_key, "Collection Geometry");
 
-    /* An instance is part of the geometry of the collection. */
-    if (object->type == OB_EMPTY) {
-      Collection *collection_instance = cob.ob->instance_collection;
-      if (collection_instance != nullptr) {
-        const OperationKey collection_instance_key{
-            &collection_instance->id, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL_DONE};
-        add_relation(collection_instance_key, collection_geometry_key, "Collection Geometry");
-      }
-    }
   }
 
   for (CollectionChild &child : collection->children) {
@@ -777,7 +743,7 @@ void DepsgraphRelationBuilder::build_object(Object *object)
     OperationKey constraint_key(
         &object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_CONSTRAINTS);
     /* Constraint relations. */
-    build_constraints(&object->id, NodeType::TRANSFORM, "", &object->constraints, nullptr);
+    build_constraints(&object->id, &object->constraints);
     /* operation order */
     add_relation(base_op_key, constraint_key, "ObBase-> Constraint Stack");
     add_relation(constraint_key, final_transform_key, "ObConstraints -> Done");
@@ -818,7 +784,6 @@ void DepsgraphRelationBuilder::build_object(Object *object)
     build_texture(object->pd->tex);
   }
 
-  build_object_instance_collection(object);
   build_object_pointcache(object);
 
   build_object_shading(object);
@@ -954,8 +919,8 @@ void DepsgraphRelationBuilder::build_object_modifiers(Object *object)
 
 void DepsgraphRelationBuilder::build_object_data(Object *object)
 {
-  if (object->type == OB_EMPTY && !BLI_listbase_is_empty(&object->modifiers)) {
-    build_object_data_empty(object);
+  if (object->type == OB_NO_DATA && !BLI_listbase_is_empty(&object->modifiers)) {
+    build_no_data_object_relations(object);
     return;
   }
   if (object->data == nullptr) {
@@ -992,9 +957,6 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
       }
       break;
     }
-    case OB_ARMATURE:
-      build_rig(object);
-      break;
     case OB_LAMP:
       build_object_data_light(object);
       break;
@@ -1007,7 +969,7 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
     case OB_SPEAKER:
       build_object_data_speaker(object);
       break;
-    case OB_EMPTY:
+    case OB_NO_DATA:
     case OB_TYPE_MAX:
       break;
   }
@@ -1165,32 +1127,6 @@ void DepsgraphRelationBuilder::build_object_pointcache(Object *object)
   }
 }
 
-void DepsgraphRelationBuilder::build_object_instance_collection(Object *object)
-{
-  if (object->instance_collection == nullptr) {
-    return;
-  }
-
-  Collection *instance_collection = object->instance_collection;
-
-  build_collection(nullptr, instance_collection);
-
-  const OperationKey object_transform_final_key(
-      &object->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_FINAL);
-  const OperationKey instancer_key(&object->id, NodeType::INSTANCING, OperationCode::INSTANCER);
-
-  FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_BEGIN (instance_collection, ob, graph_->mode) {
-    const ComponentKey dupli_transform_key(&ob->id, NodeType::TRANSFORM);
-    add_relation(dupli_transform_key, object_transform_final_key, "Dupligroup");
-
-    /* Hook to special component, to ensure proper visibility/evaluation optimizations. */
-    add_relation(OperationKey(&ob->id, NodeType::INSTANCING, OperationCode::INSTANCE),
-                 instancer_key,
-                 "Instance -> Instancer");
-  }
-  FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_END;
-}
-
 void DepsgraphRelationBuilder::build_object_shading(Object *object)
 {
   const OperationKey shading_done_key(&object->id, NodeType::SHADING, OperationCode::SHADING_DONE);
@@ -1279,18 +1215,10 @@ void DepsgraphRelationBuilder::build_light_linking_collection(Object *emitter,
                "Collection -> Object Light Linking");
 }
 
-void DepsgraphRelationBuilder::build_constraints(ID *id,
-                                                 NodeType component_type,
-                                                 const char *component_subdata,
-                                                 ListBaseT<bConstraint> *constraints,
-                                                 RootPChanMap *root_map)
+void DepsgraphRelationBuilder::build_constraints(ID *id, ListBaseT<bConstraint> *constraints)
 {
-  OperationKey constraint_op_key(id,
-                                 component_type,
-                                 component_subdata,
-                                 (component_type == NodeType::BONE) ?
-                                     OperationCode::BONE_CONSTRAINTS :
-                                     OperationCode::TRANSFORM_CONSTRAINTS);
+  OperationKey constraint_op_key(
+      id, NodeType::TRANSFORM, "", OperationCode::TRANSFORM_CONSTRAINTS);
   /* Add dependencies for each constraint in turn. */
   for (bConstraint &con : *constraints) {
     const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(&con);
@@ -1352,33 +1280,12 @@ void DepsgraphRelationBuilder::build_constraints(ID *id,
         if (ct.tar == nullptr) {
           continue;
         }
-        if (ELEM(con.type, CONSTRAINT_TYPE_KINEMATIC, CONSTRAINT_TYPE_SPLINEIK)) {
-          /* Ignore IK constraints - these are handled separately
-           * (on pose level). */
-        }
-        else if (ELEM(con.type, CONSTRAINT_TYPE_FOLLOWPATH, CONSTRAINT_TYPE_CLAMPTO)) {
+        if (ELEM(con.type, CONSTRAINT_TYPE_FOLLOWPATH, CONSTRAINT_TYPE_CLAMPTO)) {
           /* These constraints require path geometry data. */
           ComponentKey target_key(&ct.tar->id, NodeType::GEOMETRY);
           add_relation(target_key, constraint_op_key, cti->name);
           ComponentKey target_transform_key(&ct.tar->id, NodeType::TRANSFORM);
           add_relation(target_transform_key, constraint_op_key, cti->name);
-        }
-        else if ((ct.tar->type == OB_ARMATURE) && (ct.subtarget[0])) {
-          OperationCode opcode;
-          /* relation to bone */
-          opcode = bone_target_opcode(&ct.tar->id, ct.subtarget, id, component_subdata, root_map);
-          /* Armature constraint always wants the final position and chan_mat. */
-          if (ELEM(con.type, CONSTRAINT_TYPE_ARMATURE)) {
-            opcode = OperationCode::BONE_DONE;
-          }
-          /* if needs bbone shape, reference the segment computation */
-          if (BKE_constraint_target_uses_bbone(&con, &ct) &&
-              check_pchan_has_bbone_segments(ct.tar, ct.subtarget))
-          {
-            opcode = OperationCode::BONE_SEGMENTS;
-          }
-          OperationKey target_key(&ct.tar->id, NodeType::BONE, ct.subtarget, opcode);
-          add_relation(target_key, constraint_op_key, cti->name);
         }
         else if (ELEM(ct.tar->type, OB_MESH, OB_LATTICE) && (ct.subtarget[0])) {
           /* Vertex group. */
@@ -1424,23 +1331,10 @@ void DepsgraphRelationBuilder::build_constraints(ID *id,
           /* Standard object relation. */
           /* TODO: loc vs rot vs scale? */
           if (&ct.tar->id == id) {
-            /* Constraint targeting its own object:
-             * - This case is fine IF we're dealing with a bone
-             *   constraint pointing to its own armature. In that
-             *   case, it's just transform -> bone.
-             * - If however it is a real self targeting case, just
-             *   make it depend on the previous constraint (or the
-             *   pre-constraint state). */
-            if ((ct.tar->type == OB_ARMATURE) && (component_type == NodeType::BONE)) {
-              OperationKey target_key(
-                  &ct.tar->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_FINAL);
-              add_relation(target_key, constraint_op_key, cti->name);
-            }
-            else {
-              OperationKey target_key(
-                  &ct.tar->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_LOCAL);
-              add_relation(target_key, constraint_op_key, cti->name);
-            }
+            /* A constraint targeting its own object depends on the pre-constraint state. */
+            OperationKey target_key(
+                &ct.tar->id, NodeType::TRANSFORM, OperationCode::TRANSFORM_LOCAL);
+            add_relation(target_key, constraint_op_key, cti->name);
           }
           else {
             /* Normal object dependency. */
@@ -1543,14 +1437,6 @@ void DepsgraphRelationBuilder::build_animdata_fcurve_target(
     return;
   }
   OperationNode *operation_to = node_to->get_entry_operation();
-  /* NOTE: Special case for bones, avoid relation from animation to
-   * each of the bones. Bone evaluation could only start from pose
-   * init anyway. */
-  if (operation_to->opcode == OperationCode::BONE_LOCAL) {
-    OperationKey pose_init_key(id, NodeType::EVAL_POSE, OperationCode::POSE_INIT);
-    add_relation(adt_key, pose_init_key, "Animation -> Prop", RELATION_CHECK_BEFORE_ADD);
-    return;
-  }
   graph_->add_new_relation(
       operation_from, operation_to, "Animation -> Prop", RELATION_CHECK_BEFORE_ADD);
   /* It is possible that animation is writing to a nested ID data-block,
@@ -1773,91 +1659,31 @@ void DepsgraphRelationBuilder::build_driver_data(ID *id, FCurve *fcu)
   }
   OperationKey driver_key(
       id, NodeType::PARAMETERS, OperationCode::DRIVER, rna_path, fcu->array_index);
-  /* If the target of the driver is a Bone property, find the Armature data,
-   * and then link the driver to all pose bone evaluation components that use
-   * it. This is necessary to provide more granular dependencies specifically for
-   * Bone objects, because the armature data doesn't have per-bone components,
-   * and generic add_relation can only add one link. */
   ID *id_ptr = property_entry_key.ptr.owner_id;
-  bool is_bone = id_ptr && property_entry_key.ptr.type == RNA_Bone;
-  /* If the Bone property is referenced via obj.pose.bones[].bone,
-   * the RNA pointer refers to the Object ID, so skip to data. */
-  if (is_bone && GS(id_ptr->name) == ID_OB) {
-    id_ptr = (id_cast<Object *>(id_ptr))->data;
+  Node *node_to = get_node(property_entry_key);
+  if (node_to != nullptr) {
+    add_relation(driver_key, property_entry_key, "Driver -> Driven Property");
   }
-  if (is_bone && GS(id_ptr->name) == ID_AR) {
-    /* Drivers on armature-level bone settings (i.e. bbone stuff),
-     * which will affect the evaluation of corresponding pose bones. */
-    Bone *bone = static_cast<Bone *>(property_entry_key.ptr.data);
-    if (bone == nullptr) {
-      fprintf(stderr, "Couldn't find armature bone name for driver path - '%s'\n", rna_path);
-      return;
-    }
 
-    const char *prop_identifier = RNA_property_identifier(property_entry_key.prop);
-    const bool driver_targets_bbone = STRPREFIX(prop_identifier, "bbone_");
-
-    /* Find objects which use this, and make their eval callbacks depend on this. */
-    for (IDNode *to_node : graph_->id_nodes) {
-      if (GS(to_node->id_orig->name) != ID_OB) {
-        continue;
+  /* A driver can target a nested data-block, which must be copied before the driver runs. */
+  {
+    PointerRNA id_ptr_rna = RNA_id_pointer_create(id);
+    PointerRNA ptr;
+    if (RNA_path_resolve_full(&id_ptr_rna, fcu->rna_path, &ptr, nullptr, nullptr)) {
+      if (id_ptr_rna.owner_id != ptr.owner_id) {
+        ComponentKey cow_key(ptr.owner_id, NodeType::COPY_ON_EVAL);
+        add_relation(
+            cow_key, driver_key, "Driven Copy-on-Eval -> Driver", RELATION_CHECK_BEFORE_ADD);
       }
-
-      /* We only care about objects with pose data which use this. */
-      Object *object = id_cast<Object *>(to_node->id_orig);
-      if (object->data != id_ptr || object->pose == nullptr) {
-        continue;
-      }
-
-      bPoseChannel *pchan = BKE_pose_channel_find_name(object->pose, bone->name);
-      if (pchan == nullptr) {
-        continue;
-      }
-
-      OperationCode target_op = OperationCode::BONE_LOCAL;
-      if (driver_targets_bbone) {
-        target_op = check_pchan_has_bbone_segments(object, pchan) ? OperationCode::BONE_SEGMENTS :
-                                                                    OperationCode::BONE_DONE;
-      }
-      OperationKey bone_key(&object->id, NodeType::BONE, pchan->name, target_op);
-      add_relation(driver_key, bone_key, "Arm Bone -> Driver -> Bone");
-    }
-    /* Make the driver depend on copy-on-eval, similar to the generic case below. */
-    if (id_ptr != id) {
-      ComponentKey cow_key(id_ptr, NodeType::COPY_ON_EVAL);
-      add_relation(
-          cow_key, driver_key, "Driven Copy-on-Eval -> Driver", RELATION_CHECK_BEFORE_ADD);
     }
   }
-  else {
-    /* If it's not a Bone, handle the generic single dependency case. */
-    Node *node_to = get_node(property_entry_key);
-    if (node_to != nullptr) {
-      add_relation(driver_key, property_entry_key, "Driver -> Driven Property");
-    }
-
-    /* Similar to the case with f-curves, driver might drive a nested
-     * data-block, which means driver execution should wait for that
-     * data-block to be copied. */
-    {
-      PointerRNA id_ptr = RNA_id_pointer_create(id);
-      PointerRNA ptr;
-      if (RNA_path_resolve_full(&id_ptr, fcu->rna_path, &ptr, nullptr, nullptr)) {
-        if (id_ptr.owner_id != ptr.owner_id) {
-          ComponentKey cow_key(ptr.owner_id, NodeType::COPY_ON_EVAL);
-          add_relation(
-              cow_key, driver_key, "Driven Copy-on-Eval -> Driver", RELATION_CHECK_BEFORE_ADD);
-        }
-      }
-    }
-    if (rna_prop_affects_parameters_node(&property_entry_key.ptr, property_entry_key.prop)) {
-      RNAPathKey property_exit_key(property_entry_key.id,
-                                   property_entry_key.ptr,
-                                   property_entry_key.prop,
-                                   RNAPointerSource::EXIT);
-      OperationKey parameters_key(id, NodeType::PARAMETERS, OperationCode::PARAMETERS_EVAL);
-      add_relation(property_exit_key, parameters_key, "Driven Property -> Properties");
-    }
+  if (rna_prop_affects_parameters_node(&property_entry_key.ptr, property_entry_key.prop)) {
+    RNAPathKey property_exit_key(property_entry_key.id,
+                                 property_entry_key.ptr,
+                                 property_entry_key.prop,
+                                 RNAPointerSource::EXIT);
+    OperationKey parameters_key(id, NodeType::PARAMETERS, OperationCode::PARAMETERS_EVAL);
+    add_relation(property_exit_key, parameters_key, "Driven Property -> Properties");
   }
 
   /* Assume drivers on a node tree affect the evaluated output of the node tree. In theory we could
@@ -1903,31 +1729,13 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
       BLI_assert(target_prop.owner_id);
 
       ID *target_id = target_prop.owner_id;
+      Object *object = GS(target_id->name) == ID_OB ? id_cast<Object *>(target_id) : nullptr;
 
       build_id(target_id);
       build_driver_id_property(target_prop, dtar->rna_path);
 
-      Object *object = nullptr;
-      if (GS(target_id->name) == ID_OB) {
-        object = id_cast<Object *>(target_id);
-      }
-      /* Special handling for directly-named bones. */
-      if ((dtar->flag & DTAR_FLAG_STRUCT_REF) && (object && object->type == OB_ARMATURE) &&
-          (dtar->pchan_name[0]))
-      {
-        bPoseChannel *target_pchan = BKE_pose_channel_find_name(object->pose, dtar->pchan_name);
-        if (target_pchan == nullptr) {
-          continue;
-        }
-        OperationKey variable_key(
-            target_id, NodeType::BONE, target_pchan->name, OperationCode::BONE_DONE);
-        if (is_same_bone_dependency(variable_key, self_key)) {
-          continue;
-        }
-        add_relation(variable_key, driver_key, "Bone Target -> Driver");
-      }
-      else if (dtar->flag & DTAR_FLAG_STRUCT_REF) {
-        /* Get node associated with the object's transforms. */
+      if (ELEM(dvar.type, DVAR_TYPE_TRANSFORM_CHAN, DVAR_TYPE_ROT_DIFF, DVAR_TYPE_LOC_DIFF)) {
+        /* These driver variable types read object transforms directly. */
         if (target_id == id) {
           /* Ignore input dependency if we're driving properties of
            * the same ID, otherwise we'll be ending up in a cyclic
@@ -1965,8 +1773,7 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
         }
       }
       else {
-        /* If rna_path is nullptr, and DTAR_FLAG_STRUCT_REF isn't set, this
-         * is an incomplete target reference, so nothing to do here. */
+        /* An empty RNA path on a non-transform target is incomplete. */
       }
     }
     DRIVER_TARGETS_LOOPER_END;
@@ -2008,8 +1815,7 @@ void DepsgraphRelationBuilder::build_driver_rna_path_variable(const OperationKey
   if (RNA_pointer_is_null(&variable_exit_key.ptr)) {
     return;
   }
-  if (is_same_bone_dependency(variable_exit_key, self_key) ||
-      is_same_nodetree_node_dependency(variable_exit_key, self_key))
+  if (is_same_nodetree_node_dependency(variable_exit_key, self_key))
   {
     return;
   }
@@ -2078,23 +1884,8 @@ void DepsgraphRelationBuilder::build_driver_id_property(const PointerRNA &target
     build_id(ptr.owner_id);
   }
   const char *prop_identifier = RNA_property_identifier(prop);
-  /* Custom properties of bones are placed in their components to improve granularity. */
-  OperationKey id_property_key;
-  if (RNA_struct_is_a(ptr.type, RNA_PoseBone)) {
-    const bPoseChannel *pchan = static_cast<const bPoseChannel *>(ptr.data);
-    id_property_key = OperationKey(
-        ptr.owner_id, NodeType::BONE, pchan->name, OperationCode::ID_PROPERTY, prop_identifier);
-    /* Create relation from the parameters component so that tagging armature for parameters update
-     * properly propagates updates to all properties on bones and deeper (if needed). */
-    OperationKey parameters_init_key(
-        ptr.owner_id, NodeType::PARAMETERS, OperationCode::PARAMETERS_ENTRY);
-    add_relation(
-        parameters_init_key, id_property_key, "Init -> ID Property", RELATION_CHECK_BEFORE_ADD);
-  }
-  else {
-    id_property_key = OperationKey(
-        ptr.owner_id, NodeType::PARAMETERS, OperationCode::ID_PROPERTY, prop_identifier);
-  }
+  OperationKey id_property_key(
+      ptr.owner_id, NodeType::PARAMETERS, OperationCode::ID_PROPERTY, prop_identifier);
   OperationKey parameters_exit_key(
       ptr.owner_id, NodeType::PARAMETERS, OperationCode::PARAMETERS_EXIT);
   add_relation(
@@ -2648,8 +2439,8 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
   }
 }
 
-/* Empties can have geometry nodes modifiers which require specific relations to work correctly. */
-void DepsgraphRelationBuilder::build_object_data_empty(Object *object)
+/* No-data objects can have Geometry Nodes modifiers which require specific relations. */
+void DepsgraphRelationBuilder::build_no_data_object_relations(Object *object)
 {
   OperationKey obdata_ubereval_key(&object->id, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
   /* Special case: modifiers evaluation queries scene for various things like
@@ -2657,7 +2448,7 @@ void DepsgraphRelationBuilder::build_object_data_empty(Object *object)
    * evaluated prior to Scene's evaluated copy is ready. */
   ComponentKey scene_key(&scene_->id, NodeType::SCENE);
   add_relation(scene_key, obdata_ubereval_key, "Copy-on-Eval Relation", RELATION_FLAG_NO_FLUSH);
-  /* Relation to the instance, so that instancer can use geometry of this object. */
+  /* Relation to generated instances using the geometry of this object. */
   add_relation(ComponentKey(&object->id, NodeType::GEOMETRY),
                OperationKey(&object->id, NodeType::INSTANCING, OperationCode::INSTANCE_GEOMETRY),
                "Transform -> Instance Geometry");
@@ -2667,39 +2458,6 @@ void DepsgraphRelationBuilder::build_object_data_empty(Object *object)
   OperationKey synchronize_key(
       &object->id, NodeType::SYNCHRONIZATION, OperationCode::SYNCHRONIZE_TO_ORIGINAL);
   add_relation(final_geometry_key, synchronize_key, "Synchronize to Original");
-}
-
-void DepsgraphRelationBuilder::build_armature(bArmature *armature)
-{
-  if (built_map_.check_is_built_and_tag(armature)) {
-    return;
-  }
-
-  const BuilderStack::ScopedEntry stack_entry = stack_.trace(armature->id);
-
-  build_idproperties(armature->id.properties);
-  build_idproperties(armature->id.system_properties);
-  build_animdata(&armature->id);
-  build_parameters(&armature->id);
-  build_armature_bones(&armature->bonebase);
-  build_armature_bone_collections(armature->collections_span());
-}
-
-void DepsgraphRelationBuilder::build_armature_bones(ListBaseT<Bone> *bones)
-{
-  for (Bone &bone : *bones) {
-    build_idproperties(bone.prop);
-    build_idproperties(bone.system_properties);
-    build_armature_bones(&bone.childbase);
-  }
-}
-
-void DepsgraphRelationBuilder::build_armature_bone_collections(Span<BoneCollection *> collections)
-{
-  for (BoneCollection *bcoll : collections) {
-    build_idproperties(bcoll->prop);
-    build_idproperties(bcoll->system_properties);
-  }
 }
 
 void DepsgraphRelationBuilder::build_camera(Camera *camera)
@@ -2719,13 +2477,6 @@ void DepsgraphRelationBuilder::build_camera(Camera *camera)
     ComponentKey camera_parameters_key(&camera->id, NodeType::PARAMETERS);
     ComponentKey dof_ob_key(&camera->dof.focus_object->id, NodeType::TRANSFORM);
     add_relation(dof_ob_key, camera_parameters_key, "Camera DOF");
-    if (camera->dof.focus_object->type == OB_ARMATURE && camera->dof.focus_subtarget[0]) {
-      OperationKey target_key(&camera->dof.focus_object->id,
-                              NodeType::BONE,
-                              camera->dof.focus_subtarget,
-                              OperationCode::BONE_DONE);
-      add_relation(target_key, camera_parameters_key, "Camera DOF subtarget");
-    }
   }
 }
 
@@ -3523,7 +3274,7 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
       }
     }
     else {
-      BLI_assert(object->type == OB_EMPTY);
+      BLI_assert(object->type == OB_NO_DATA);
     }
   }
 

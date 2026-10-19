@@ -154,7 +154,7 @@ def object_data_add(context, obdata, operator=None, name=None):
             if obdata and obdata.library is None:
                 obtype = obj_new.type
                 mode = None
-                if obtype in {'ARMATURE', 'CURVE', 'CURVES', 'FONT', 'LATTICE', 'MESH', 'META', 'SURFACE'}:
+                if obtype in {'CURVE', 'CURVES', 'FONT', 'LATTICE', 'MESH', 'META', 'SURFACE'}:
                     mode = 'EDIT'
 
                 if mode is not None:

@@ -192,7 +192,7 @@ static int add_driver_with_target(ReportList * /*reports*/,
      */
     dvar = driver_add_new_variable(driver);
 
-    if (ELEM(src_ptr->type, RNA_Object, RNA_PoseBone) &&
+    if (src_ptr->type == RNA_Object &&
         (STREQ(prop_name, "location") || STREQ(prop_name, "scale") ||
          STRPREFIX(prop_name, "rotation_")) &&
         (src_ptr->data != dst_ptr->data))
@@ -203,13 +203,8 @@ static int add_driver_with_target(ReportList * /*reports*/,
       driver_change_variable_type(dvar, DVAR_TYPE_TRANSFORM_CHAN);
       dtar = &dvar->targets[0];
 
-      /* Bone or Object target? */
       dtar->id = src_id;
       dtar->idtype = GS(src_id->name);
-
-      if (src_ptr->type == RNA_PoseBone) {
-        RNA_string_get(src_ptr, "name", dtar->pchan_name);
-      }
 
       /* Transform channel depends on type */
       if (STREQ(prop_name, "location")) {

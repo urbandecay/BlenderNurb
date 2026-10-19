@@ -71,8 +71,6 @@ struct CollectionRuntime {
    */
   ListBaseT<Base> object_cache = {};
 
-  ListBaseT<Base> object_cache_instanced = {};
-
   /** List of collections that are a parent of this data-block. */
   ListBaseT<CollectionParent> parents = {};
 
@@ -206,13 +204,12 @@ bool BKE_collection_contains_geometry_recursive(const Collection *collection);
 
 bool BKE_collection_has_object(Collection *collection, const Object *ob);
 bool BKE_collection_has_object_recursive(Collection *collection, Object *ob);
-bool BKE_collection_has_object_recursive_instanced(Collection *collection, Object *ob);
 /**
- * Find whether an evaluated object's original ID is contained or instanced by any object in this
- * collection. The collection is expected to be an evaluated data-block too.
+ * Find whether an evaluated object's original ID is contained in this collection hierarchy.
+ * The collection is expected to be an evaluated data-block too.
  */
-bool BKE_collection_has_object_recursive_instanced_orig_id(Collection *collection_eval,
-                                                           Object *object_eval);
+bool BKE_collection_has_object_recursive_orig_id(Collection *collection_eval,
+                                                 Object *object_eval);
 Collection *BKE_collection_object_find(Main *bmain,
                                        Scene *scene,
                                        Collection *collection,
@@ -306,12 +303,10 @@ void BKE_collections_child_remove_nulls(Main *bmain,
 
 bool BKE_collection_is_in_scene(Collection *collection);
 void BKE_collections_after_lib_link(Main *bmain);
-bool BKE_collection_object_cyclic_check(Main *bmain, Object *object, Collection *collection);
 
 /* Object list cache. */
 
 ListBaseT<Base> BKE_collection_object_cache_get(Collection *collection);
-ListBaseT<Base> BKE_collection_object_cache_instanced_get(Collection *collection);
 /**
  * Free the object cache of given `collection` and all of its ancestors (recursively).
  *

@@ -50,7 +50,6 @@ def save_gltf(gltf, export_settings, encoder, glb_buffer):
         "meshes",
         "textures",
         "images",
-        "skins",
         "accessors",
         "bufferViews",
         "samplers",

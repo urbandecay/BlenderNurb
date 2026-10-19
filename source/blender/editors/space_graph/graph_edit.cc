@@ -499,8 +499,7 @@ static bool copy_graph_keys(bAnimContext *ac)
 static eKeyPasteError paste_graph_keys(bAnimContext *ac,
                                        const eKeyPasteOffset offset_mode,
                                        const eKeyPasteValueOffset value_offset_mode,
-                                       const eKeyMergeMode merge_mode,
-                                       const bool flip)
+                                       const eKeyMergeMode merge_mode)
 {
   /* TODO: deduplicate this function and `paste_action_keys()` in `action_edit.cc`, */
 
@@ -509,7 +508,6 @@ static eKeyPasteError paste_graph_keys(bAnimContext *ac,
   paste_context.offset_mode = offset_mode;
   paste_context.value_offset_mode = value_offset_mode;
   paste_context.merge_mode = merge_mode;
-  paste_context.flip = flip;
   paste_context.num_slots_selected = 0; /* Graph editor doesn't show slots. */
 
   /* Find F-Curves to paste into, in two stages.
@@ -582,7 +580,6 @@ static wmOperatorStatus graphkeys_paste_exec(bContext *C, wmOperator *op)
   const eKeyPasteValueOffset value_offset_mode = eKeyPasteValueOffset(
       RNA_enum_get(op->ptr, "value_offset"));
   const eKeyMergeMode merge_mode = eKeyMergeMode(RNA_enum_get(op->ptr, "merge"));
-  const bool flipped = RNA_boolean_get(op->ptr, "flipped");
 
   /* Get editor data. */
   if (ANIM_animdata_get_context(C, &ac) == 0) {
@@ -592,8 +589,7 @@ static wmOperatorStatus graphkeys_paste_exec(bContext *C, wmOperator *op)
   /* Ac.reports by default will be the global reports list, which won't show warnings. */
   ac.reports = op->reports;
 
-  const eKeyPasteError kf_empty = paste_graph_keys(
-      &ac, offset_mode, value_offset_mode, merge_mode, flipped);
+  const eKeyPasteError kf_empty = paste_graph_keys(&ac, offset_mode, value_offset_mode, merge_mode);
   switch (kf_empty) {
     case KEYFRAME_PASTE_OK:
       break;
@@ -613,23 +609,8 @@ static wmOperatorStatus graphkeys_paste_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static std::string graphkeys_paste_get_description(bContext * /*C*/,
-                                                   wmOperatorType * /*ot*/,
-                                                   PointerRNA *ptr)
-{
-  /* Custom description if the 'flipped' option is used. */
-  if (RNA_boolean_get(ptr, "flipped")) {
-    return TIP_("Paste keyframes from mirrored bones if they exist");
-  }
-
-  /* Use the default description in the other cases. */
-  return "";
-}
-
 void GRAPH_OT_paste(wmOperatorType *ot)
 {
-  PropertyRNA *prop;
-
   /* Identifiers */
   ot->name = "Paste Keyframes";
   ot->idname = "GRAPH_OT_paste";
@@ -641,7 +622,6 @@ void GRAPH_OT_paste(wmOperatorType *ot)
   /* API callbacks */
 
   // ot->invoke = WM_operator_props_popup; /* better wait for graph redo panel */
-  ot->get_description = graphkeys_paste_get_description;
   ot->exec = graphkeys_paste_exec;
   ot->poll = graphop_editable_keyframes_poll;
 
@@ -667,9 +647,6 @@ void GRAPH_OT_paste(wmOperatorType *ot)
                KEYFRAME_PASTE_MERGE_MIX,
                "Type",
                "Method of merging pasted keys and existing");
-  prop = RNA_def_boolean(
-      ot->srna, "flipped", false, "Flipped", "Paste keyframes from mirrored bones if they exist");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 /** \} */
@@ -1827,7 +1804,7 @@ static ListBaseT<tEulerFilter> euler_filter_group_channels(
 
     /* Check if this is an appropriate F-Curve:
      * - Only rotation curves.
-     * - For pose-channel curves, make sure we're only using the euler curves.
+     * - For object rotation curves, make sure we're only using the Euler curves.
      */
     if (strstr(fcu->rna_path, "rotation_euler") == nullptr) {
       continue;

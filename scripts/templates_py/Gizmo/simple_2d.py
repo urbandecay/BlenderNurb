@@ -51,7 +51,7 @@ class MyTranslateWidgetGroup(GizmoGroup):
         gz.show_drag = True
 
         # Can also use gz.icon_value to use a custom/generated preview icon.
-        gz.icon = 'EMPTY_ARROWS'
+        gz.icon = 'ORIENTATION_GLOBAL'
 
         self.translate_gizmo = gz
 

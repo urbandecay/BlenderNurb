@@ -10,7 +10,6 @@
 #include <climits>
 #include <cstdlib>
 
-#include "DNA_armature_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -131,7 +130,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      "MASK",
      ICON_MOD_MASK,
      "Mask",
-     "Dynamically hide vertices based on a vertex group or armature"},
+     "Dynamically hide vertices based on a vertex group"},
     {eModifierType_Mirror,
      "MIRROR",
      ICON_MOD_MIRROR,
@@ -191,11 +190,6 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      "Convert faces into thickened edges"},
 
     RNA_ENUM_ITEM_HEADING(N_("Deform"), nullptr),
-    {eModifierType_Armature,
-     "ARMATURE",
-     ICON_MOD_ARMATURE,
-     "Armature",
-     "Deform the shape using an armature object"},
     {eModifierType_Cast,
      "CAST",
      ICON_MOD_CAST,
@@ -602,16 +596,6 @@ const EnumPropertyItem rna_enum_dt_mix_mode_items[] = {
 const EnumPropertyItem rna_enum_dt_layers_select_src_items[] = {
     {DT_LAYERS_ACTIVE_SRC, "ACTIVE", 0, "Active Layer", "Only transfer active data layer"},
     {DT_LAYERS_ALL_SRC, "ALL", 0, "All Layers", "Transfer all data layers"},
-    {DT_LAYERS_VGROUP_SRC_BONE_SELECT,
-     "BONE_SELECT",
-     0,
-     "Selected Pose Bones",
-     "Transfer all vertex groups used by selected pose bones"},
-    {DT_LAYERS_VGROUP_SRC_BONE_DEFORM,
-     "BONE_DEFORM",
-     0,
-     "Deform Pose Bones",
-     "Transfer all vertex groups used by deform bones"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -865,7 +849,6 @@ static void rna_Modifier_use_pin_to_last_set(PointerRNA *ptr, bool value)
       rna_object_vgroup_name_set(ptr, value, tmd->_prop, sizeof(tmd->_prop)); \
     }
 
-RNA_MOD_VGROUP_NAME_SET(Armature, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Bevel, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Cast, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Curve, name);
@@ -947,7 +930,7 @@ static void modifier_object_set(Object *self, Object **ob_p, int type, PointerRN
   Object *ob = static_cast<Object *>(value.data);
 
   if (!self || ob != self) {
-    if (!ob || type == OB_EMPTY || ob->type == type) {
+    if (!ob || type == OB_NO_DATA || ob->type == type) {
       id_lib_extern(id_cast<ID *>(ob));
       *ob_p = ob;
     }
@@ -962,18 +945,16 @@ static void modifier_object_set(Object *self, Object **ob_p, int type, PointerRN
       modifier_object_set((Object *)ptr->owner_id, &tmd->_prop, _obtype, value); \
     }
 
-RNA_MOD_OBJECT_SET(Armature, object, OB_ARMATURE);
 RNA_MOD_OBJECT_SET(Array, start_cap, OB_MESH);
 RNA_MOD_OBJECT_SET(Array, end_cap, OB_MESH);
 RNA_MOD_OBJECT_SET(Array, curve_ob, OB_CURVES_LEGACY);
 RNA_MOD_OBJECT_SET(Boolean, object, OB_MESH);
-RNA_MOD_OBJECT_SET(Cast, object, OB_EMPTY);
+RNA_MOD_OBJECT_SET(Cast, object, OB_NO_DATA);
 RNA_MOD_OBJECT_SET(Curve, object, OB_CURVES_LEGACY);
 RNA_MOD_OBJECT_SET(DataTransfer, ob_source, OB_MESH);
 RNA_MOD_OBJECT_SET(Lattice, object, OB_LATTICE);
-RNA_MOD_OBJECT_SET(Mask, ob_arm, OB_ARMATURE);
 RNA_MOD_OBJECT_SET(MeshDeform, object, OB_MESH);
-RNA_MOD_OBJECT_SET(NormalEdit, target, OB_EMPTY);
+RNA_MOD_OBJECT_SET(NormalEdit, target, OB_NO_DATA);
 RNA_MOD_OBJECT_SET(Shrinkwrap, target, OB_MESH);
 RNA_MOD_OBJECT_SET(Shrinkwrap, auxTarget, OB_MESH);
 RNA_MOD_OBJECT_SET(SurfaceDeform, target, OB_MESH);
@@ -1029,15 +1010,6 @@ static bool rna_HookModifier_object_override_apply(Main *bmain,
   }
   RNA_property_update_main(bmain, nullptr, ptr_dst, prop_dst);
   return true;
-}
-
-static void rna_HookModifier_subtarget_set(PointerRNA *ptr, const char *value)
-{
-  Object *owner = id_cast<Object *>(ptr->owner_id);
-  HookModifierData *hmd = static_cast<HookModifierData *>(ptr->data);
-
-  STRNCPY(hmd->subtarget, value);
-  BKE_object_modifier_hook_reset(owner, hmd);
 }
 
 static int rna_HookModifier_vertex_indices_get_length(const PointerRNA *ptr,
@@ -1390,15 +1362,6 @@ static const EnumPropertyItem *rna_DataTransferModifier_layers_select_src_itemf(
 
   if (STREQ(RNA_property_identifier(prop), "layers_vgroup_select_src")) {
     Object *ob_src = dtmd->ob_source;
-
-#  if 0 /* XXX Don't think we want this in modifier version... */
-    if (BKE_object_pose_armature_get(ob_src)) {
-      RNA_enum_items_add_value(
-          &item, &totitem, rna_enum_dt_layers_select_src_items, DT_LAYERS_VGROUP_SRC_BONE_SELECT);
-      RNA_enum_items_add_value(
-          &item, &totitem, rna_enum_dt_layers_select_src_items, DT_LAYERS_VGROUP_SRC_BONE_DEFORM);
-    }
-#  endif
 
     if (ob_src) {
       const bDeformGroup *dg;
@@ -2373,11 +2336,6 @@ static void rna_def_modifier_generic_map_info(StructRNA *srna)
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
-  prop = RNA_def_property(srna, "texture_coords_bone", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "map_bone");
-  RNA_def_property_ui_text(prop, "Texture Coordinate Bone", "Bone to set the texture coordinates");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
   RNA_define_lib_overridable(false);
 }
 
@@ -2399,20 +2357,10 @@ static void rna_def_modifier_warp(BlenderRNA *brna)
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
-  prop = RNA_def_property(srna, "bone_from", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "bone_from");
-  RNA_def_property_ui_text(prop, "Bone From", "Bone to transform from");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
   prop = RNA_def_property(srna, "object_to", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, nullptr, "object_to");
   RNA_def_property_ui_text(prop, "Object To", "Object to transform to");
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "bone_to", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "bone_to");
-  RNA_def_property_ui_text(prop, "Bone To", "Bone defining offset");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_NONE);
@@ -3056,68 +3004,6 @@ static void rna_def_modifier_wave(BlenderRNA *brna)
   rna_def_modifier_generic_map_info(srna);
 }
 
-static void rna_def_modifier_armature(BlenderRNA *brna)
-{
-  StructRNA *srna;
-  PropertyRNA *prop;
-
-  srna = RNA_def_struct(brna, "ArmatureModifier", "Modifier");
-  RNA_def_struct_ui_text(srna, "Armature Modifier", "Armature deformation modifier");
-  RNA_def_struct_sdna(srna, "ArmatureModifierData");
-  RNA_def_struct_ui_icon(srna, ICON_MOD_ARMATURE);
-
-  RNA_define_lib_overridable(true);
-
-  prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
-  RNA_def_property_ui_text(prop, "Object", "Armature object to deform with");
-  RNA_def_property_pointer_funcs(
-      prop, nullptr, "rna_ArmatureModifier_object_set", nullptr, "rna_Armature_object_poll");
-  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "use_bone_envelopes", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "deformflag", ARM_DEF_ENVELOPE);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop, "Use Bone Envelopes", "Bind Bone envelopes to armature modifier");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "use_vertex_groups", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "deformflag", ARM_DEF_VGROUP);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop, "Use Vertex Groups", "Bind vertex groups to armature modifier");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "use_deform_preserve_volume", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "deformflag", ARM_DEF_QUATERNION);
-  RNA_def_property_ui_text(
-      prop, "Preserve Volume", "Deform rotation interpolation with quaternions");
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  prop = RNA_def_property(srna, "use_multi_modifier", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "multi", 0);
-  RNA_def_property_ui_text(
-      prop,
-      "Multi Modifier",
-      "Use same input as previous modifier, and mix results using overall vgroup");
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "defgrp_name");
-  RNA_def_property_ui_text(
-      prop,
-      "Vertex Group",
-      "Name of Vertex Group which determines influence of modifier per point");
-  RNA_def_property_string_funcs(prop, nullptr, nullptr, "rna_ArmatureModifier_defgrp_name_set");
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  prop = RNA_def_property(srna, "invert_vertex_group", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "deformflag", ARM_DEF_INVERT_VGROUP);
-  RNA_def_property_ui_text(prop, "Invert", "Invert vertex group influence");
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  RNA_define_lib_overridable(false);
-}
-
 static void rna_def_modifier_hook(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -3179,15 +3065,6 @@ static void rna_def_modifier_hook(BlenderRNA *brna)
   RNA_def_property_override_funcs(
       prop, nullptr, nullptr, "rna_HookModifier_object_override_apply");
   RNA_def_property_pointer_funcs(prop, nullptr, "rna_HookModifier_object_set", nullptr, nullptr);
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "subtarget", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "subtarget");
-  RNA_def_property_ui_text(
-      prop,
-      "Sub-Target",
-      "Name of Parent Bone for hook (if applicable), also recalculates and clears offset");
-  RNA_def_property_string_funcs(prop, nullptr, nullptr, "rna_HookModifier_subtarget_set");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "use_falloff_uniform", PROP_BOOLEAN, PROP_NONE);
@@ -4975,31 +4852,12 @@ static void rna_def_modifier_mask(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  static const EnumPropertyItem modifier_mask_mode_items[] = {
-      {MOD_MASK_MODE_VGROUP, "VERTEX_GROUP", 0, "Vertex Group", ""},
-      {MOD_MASK_MODE_ARM, "ARMATURE", 0, "Armature", ""},
-      {0, nullptr, 0, nullptr, nullptr},
-  };
-
   srna = RNA_def_struct(brna, "MaskModifier", "Modifier");
   RNA_def_struct_ui_text(srna, "Mask Modifier", "Mask modifier to hide parts of the mesh");
   RNA_def_struct_sdna(srna, "MaskModifierData");
   RNA_def_struct_ui_icon(srna, ICON_MOD_MASK);
 
   RNA_define_lib_overridable(true);
-
-  prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, modifier_mask_mode_items);
-  RNA_def_property_ui_text(prop, "Mode", "");
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  prop = RNA_def_property(srna, "armature", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "ob_arm");
-  RNA_def_property_ui_text(prop, "Armature", "Armature to use as source of bones to mask");
-  RNA_def_property_pointer_funcs(
-      prop, nullptr, "rna_MaskModifier_ob_arm_set", nullptr, "rna_Armature_object_poll");
-  RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
   RNA_def_property_string_sdna(prop, nullptr, "vgroup");
@@ -5551,20 +5409,10 @@ static void rna_def_modifier_uvwarp(BlenderRNA *brna)
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
-  prop = RNA_def_property(srna, "bone_from", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "bone_src");
-  RNA_def_property_ui_text(prop, "Bone From", "Bone defining offset");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
   prop = RNA_def_property(srna, "object_to", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, nullptr, "object_dst");
   RNA_def_property_ui_text(prop, "Object To", "Object defining offset");
   RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "bone_to", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "bone_dst");
-  RNA_def_property_ui_text(prop, "Bone To", "Bone defining offset");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
@@ -5672,12 +5520,6 @@ static void rna_def_modifier_weightvg_mask(BlenderRNA * /*brna*/,
                            "Which object to take texture "
                            "coordinates from");
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "mask_tex_map_bone", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "mask_tex_map_bone");
-  RNA_def_property_ui_text(
-      prop, "Texture Coordinate Bone", "Which bone to take texture coordinates from");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
   RNA_define_lib_overridable(false);
@@ -8282,7 +8124,6 @@ void RNA_def_modifier(BlenderRNA *brna)
   rna_def_modifier_mirror(brna);
   rna_def_modifier_decimate(brna);
   rna_def_modifier_wave(brna);
-  rna_def_modifier_armature(brna);
   rna_def_modifier_hook(brna);
   rna_def_modifier_softbody(brna);
   rna_def_modifier_boolean(brna);

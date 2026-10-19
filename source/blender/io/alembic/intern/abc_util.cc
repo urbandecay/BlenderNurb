@@ -161,7 +161,7 @@ AbcObjectReader *create_reader(const AbcReaderConstructorArgs &args)
   const Alembic::AbcGeom::MetaData &md = args.object.getMetaData();
 
   if (Alembic::AbcGeom::IXform::matches(md)) {
-    reader = new AbcEmptyReader(args);
+    reader = new AbcTransformReader(args);
   }
   else if (Alembic::AbcGeom::IPolyMesh::matches(md)) {
     reader = new AbcMeshReader(args);

@@ -482,7 +482,7 @@
         object_selected="#f15800"
         object_active="#ffaa40"
         camera="#000000"
-        empty="#000000"
+        no_data_object="#000000"
         light="#00000028"
         speaker="#000000"
         vertex="#000000"
@@ -515,10 +515,6 @@
         normal="#22dddd"
         vertex_normal="#2361dd"
         split_normal="#dd23dd"
-        bone_pose="#50c8ff"
-        bone_pose_active="#8cffff"
-        bone_solid="#e6e6e6"
-        bone_locked_weight="#ff000080"
         before_current_frame="#f22e23"
         after_current_frame="#78f244"
         bundle_solid="#c8c8c8"
@@ -992,148 +988,6 @@
         </space>
       </ThemeSpreadsheet>
     </spreadsheet>
-    <bone_color_sets>
-      <ThemeBoneColorSet
-        normal="#9a0000"
-        select="#bd1111"
-        active="#f70a0a"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#f74018"
-        select="#f66913"
-        active="#fa9900"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#1e9109"
-        select="#59b70b"
-        active="#83ef1d"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#0a3694"
-        select="#3667df"
-        active="#5ec1ef"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#a9294e"
-        select="#c1416a"
-        active="#f05d91"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#430c78"
-        select="#543aa3"
-        active="#8764d5"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#24785a"
-        select="#3c9579"
-        active="#6fb6ab"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#4b707c"
-        select="#6a8691"
-        active="#9bc2cd"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#f4c90c"
-        select="#eec236"
-        active="#f3ff00"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#1e2024"
-        select="#484c56"
-        active="#ffffff"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#6f2f6a"
-        select="#9845be"
-        active="#d330d6"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#6c8e22"
-        select="#7fb022"
-        active="#bbef5b"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#8d8d8d"
-        select="#b0b0b0"
-        active="#dedede"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#834326"
-        select="#8b5811"
-        active="#bd6a11"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#08310e"
-        select="#1c430b"
-        active="#34622b"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#000000"
-        select="#000000"
-        active="#000000"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#000000"
-        select="#000000"
-        active="#000000"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#000000"
-        select="#000000"
-        active="#000000"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#000000"
-        select="#000000"
-        active="#000000"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-      <ThemeBoneColorSet
-        normal="#000000"
-        select="#000000"
-        active="#000000"
-        show_colored_constraints="FALSE"
-        >
-      </ThemeBoneColorSet>
-    </bone_color_sets>
     <collection_color>
       <ThemeCollectionColor
         color="#dd473f"

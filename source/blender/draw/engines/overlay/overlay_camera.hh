@@ -19,7 +19,8 @@
 
 #include "draw_manager_text.hh"
 #include "overlay_base.hh"
-#include "overlay_empty.hh"
+#include "overlay_extra_shapes.hh"
+#include "overlay_image.hh"
 
 namespace blender::draw::overlay {
 struct CameraInstanceData : public ExtraInstanceData {
@@ -83,7 +84,7 @@ class Cameras : Overlay {
     CameraInstanceBuf sphere_solid_buf = {selection_type_, "camera_sphere_solid_buf"};
     LinePrimitiveBuf stereo_connect_lines = {selection_type_, "camera_dashed_lines_buf"};
     LinePrimitiveBuf tracking_path = {selection_type_, "camera_tracking_path_buf"};
-    Empties::CallBuffers empties{selection_type_};
+    ExtraShapes::CallBuffers extra_shapes{selection_type_};
   } call_buffers_;
 
   bool images_enabled_ = false;
@@ -116,7 +117,7 @@ class Cameras : Overlay {
       call_buffers_.sphere_solid_buf.clear();
       call_buffers_.stereo_connect_lines.clear();
       call_buffers_.tracking_path.clear();
-      Empties::begin_sync(call_buffers_.empties);
+      ExtraShapes::begin_sync(call_buffers_.extra_shapes);
     }
 
     if (images_enabled_) {
@@ -213,8 +214,8 @@ class Cameras : Overlay {
       call_buffers_.tracking_path.end_sync(sub_pass);
     }
 
-    PassSimple::Sub &sub_pass = ps_.sub("empties");
-    Empties::end_sync(res, state, sub_pass, call_buffers_.empties);
+    PassSimple::Sub &sub_pass = ps_.sub("extra_shapes");
+    ExtraShapes::end_sync(res, state, sub_pass, call_buffers_.extra_shapes);
   }
 
   void pre_draw(Manager &manager, View &view) final
@@ -428,7 +429,7 @@ class Cameras : Overlay {
     const float4 &color = res.object_wire_color(ob_ref, state);
 
     const bool is_selection = res.is_selection();
-    const bool is_solid_bundle = (v3d->bundle_drawtype == OB_EMPTY_SPHERE) &&
+    const bool is_solid_bundle = (v3d->bundle_drawtype == OB_HELPER_SPHERE) &&
                                  ((v3d->shading.type != OB_SOLID) || !XRAY_FLAG_ENABLED(v3d));
 
     MovieTracking *tracking = &clip->tracking;
@@ -499,12 +500,12 @@ class Cameras : Overlay {
         const select::ID track_select_id = res.select_id(ob_ref, track_index++ << 16);
         if (is_solid_bundle) {
           if (is_selected) {
-            Empties::object_sync(track_select_id,
-                                 bundle_mat,
-                                 v3d->bundle_size,
-                                 v3d->bundle_drawtype,
-                                 color,
-                                 call_buffers_.empties);
+            ExtraShapes::object_sync(track_select_id,
+                                     bundle_mat,
+                                     v3d->bundle_size,
+                                     v3d->bundle_drawtype,
+                                     color,
+                                     call_buffers_.extra_shapes);
           }
 
           call_buffers_.sphere_solid_buf.append(
@@ -512,12 +513,12 @@ class Cameras : Overlay {
               track_select_id);
         }
         else {
-          Empties::object_sync(track_select_id,
-                               bundle_mat,
-                               v3d->bundle_size,
-                               v3d->bundle_drawtype,
-                               bundle_color,
-                               call_buffers_.empties);
+          ExtraShapes::object_sync(track_select_id,
+                                   bundle_mat,
+                                   v3d->bundle_size,
+                                   v3d->bundle_drawtype,
+                                   bundle_color,
+                                   call_buffers_.extra_shapes);
         }
 
         if ((v3d->flag2 & V3D_SHOW_BUNDLENAME) && !is_selection) {
@@ -567,9 +568,7 @@ class Cameras : Overlay {
     const bool is_active = ob_ref.object == camera_object;
     const bool is_camera_view = (is_active && (state.rv3d->persp == RV3D_CAMOB));
     const bool show_image = (cam.flag & CAM_SHOW_BG_IMAGE) && !cam.bg_images.is_empty();
-    const bool show_frame = BKE_object_empty_image_frame_is_visible_in_view3d(ob, state.rv3d);
-
-    if (!images_enabled_ || !is_camera_view || !show_image || !show_frame) {
+    if (!images_enabled_ || !is_camera_view || !show_image) {
       return;
     }
 

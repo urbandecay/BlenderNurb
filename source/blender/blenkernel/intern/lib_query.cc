@@ -630,7 +630,7 @@ static bool library_ID_is_used(Main *bmain, void *idv, const bool check_linked)
 
     for (; id_curr && !is_defined; id_curr = static_cast<ID *>(id_curr->next)) {
       if (id_curr == id) {
-        /* We are not interested in self-usages (mostly from drivers or bone constraints...). */
+        /* We are not interested in self-usages (mostly from drivers or constraints). */
         continue;
       }
       iter.curr_id = id_curr;
@@ -676,7 +676,7 @@ void BKE_library_ID_test_usages(Main *bmain,
 
     for (; id_curr && !is_defined; id_curr = static_cast<ID *>(id_curr->next)) {
       if (id_curr == id) {
-        /* We are not interested in self-usages (mostly from drivers or bone constraints...). */
+        /* We are not interested in self-usages (mostly from drivers or constraints). */
         continue;
       }
       iter.curr_id = id_curr;

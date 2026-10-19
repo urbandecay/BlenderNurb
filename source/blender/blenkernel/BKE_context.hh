@@ -24,12 +24,10 @@ struct ARegion;
 struct AssetLibraryReference;
 struct AssetWeakReference;
 struct Base;
-struct bPoseChannel;
 struct bScreen;
 struct CacheFile;
 struct Collection;
 struct Depsgraph;
-struct EditBone;
 struct ID;
 struct Image;
 struct LayerCollection;
@@ -131,12 +129,10 @@ enum eContextObjectMode {
   CTX_MODE_EDIT_CURVE,
   CTX_MODE_EDIT_SURFACE,
   CTX_MODE_EDIT_TEXT,
-  CTX_MODE_EDIT_ARMATURE,
   CTX_MODE_EDIT_METABALL,
   CTX_MODE_EDIT_LATTICE,
   CTX_MODE_EDIT_CURVES,
   CTX_MODE_EDIT_POINTCLOUD,
-  CTX_MODE_POSE,
   CTX_MODE_SCULPT,
   CTX_MODE_PAINT_WEIGHT,
   CTX_MODE_PAINT_VERTEX,
@@ -289,8 +285,8 @@ Vector<PointerRNA> CTX_data_collection_get(const bContext *C, const char *member
  *
  * Example:
  *
- *   lb = CTX_data_collection_get(C, "selected_pose_bones"); // lb contains pose bones.
- *   CTX_data_collection_remap_property(lb, "color");        // lb now contains bone colors.
+ *   lb = CTX_data_collection_get(C, "selected_objects"); // lb contains objects.
+ *   CTX_data_collection_remap_property(lb, "name");      // lb now contains object names.
  */
 void CTX_data_collection_remap_property(MutableSpan<PointerRNA> collection_pointers,
                                         const char *propname);
@@ -422,18 +418,6 @@ Mask *CTX_data_edit_mask(const bContext *C);
 CacheFile *CTX_data_edit_cachefile(const bContext *C);
 
 bool CTX_data_selected_nodes(const bContext *C, Vector<PointerRNA> *list);
-
-EditBone *CTX_data_active_bone(const bContext *C);
-bool CTX_data_selected_bones(const bContext *C, Vector<PointerRNA> *list);
-bool CTX_data_selected_editable_bones(const bContext *C, Vector<PointerRNA> *list);
-bool CTX_data_visible_bones(const bContext *C, Vector<PointerRNA> *list);
-bool CTX_data_editable_bones(const bContext *C, Vector<PointerRNA> *list);
-
-bPoseChannel *CTX_data_active_pose_bone(const bContext *C);
-PointerRNA CTX_data_active_pose_bone_ptr(const bContext *C);
-bool CTX_data_selected_pose_bones(const bContext *C, Vector<PointerRNA> *list);
-bool CTX_data_selected_pose_bones_from_active_object(const bContext *C, Vector<PointerRNA> *list);
-bool CTX_data_visible_pose_bones(const bContext *C, Vector<PointerRNA> *list);
 
 const AssetLibraryReference *CTX_wm_asset_library_ref(const bContext *C);
 class asset_system::AssetRepresentation *CTX_wm_asset(const bContext *C);

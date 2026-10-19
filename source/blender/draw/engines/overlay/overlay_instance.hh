@@ -11,7 +11,6 @@
 #include "overlay_private.hh"
 
 #include "overlay_antialiasing.hh"
-#include "overlay_armature.hh"
 #include "overlay_attribute_text.hh"
 #include "overlay_attribute_viewer.hh"
 #include "overlay_axes.hh"
@@ -20,7 +19,7 @@
 #include "overlay_camera.hh"
 #include "overlay_cursor.hh"
 #include "overlay_curve.hh"
-#include "overlay_empty.hh"
+#include "overlay_extra_shapes.hh"
 #include "overlay_facing.hh"
 #include "overlay_fade.hh"
 #include "overlay_fluid.hh"
@@ -74,7 +73,6 @@ class Instance : public DrawEngine {
 
   struct OverlayLayer {
     const SelectionType selection_type_;
-    Armatures armatures = {selection_type_};
     AttributeViewer attribute_viewer;
     AttributeTexts attribute_texts;
     Axes axes = {selection_type_};
@@ -82,7 +80,6 @@ class Instance : public DrawEngine {
     Cameras cameras = {selection_type_};
     Curves curves;
     Text text = {selection_type_};
-    Empties empties = {selection_type_};
     Facing facing;
     Fade fade;
     Fluids fluids = {selection_type_};

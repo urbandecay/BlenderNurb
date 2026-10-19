@@ -50,7 +50,6 @@
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
 #include "BKE_anonymous_attribute_id.hh"
-#include "BKE_armature.hh"
 #include "BKE_attribute.h"
 #include "BKE_camera.h"
 #include "BKE_collection.hh"
@@ -115,7 +114,6 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
-#include "ED_armature.hh"
 #include "ED_asset.hh"
 #include "ED_asset_menu_utils.hh"
 #include "ED_curve.hh"
@@ -136,8 +134,6 @@
 #include "MOD_nodes.hh"
 
 #include "AS_asset_library.hh"
-
-#include "ANIM_bone_collections.hh"
 
 #include "UI_resources.hh"
 
@@ -749,7 +745,8 @@ void OBJECT_OT_add(wmOperatorType *ot)
 
   /* properties */
   add_unit_props_radius(ot);
-  PropertyRNA *prop = RNA_def_enum(ot->srna, "type", rna_enum_object_type_items, 0, "Type", "");
+  PropertyRNA *prop = RNA_def_enum(
+      ot->srna, "type", rna_enum_object_type_add_items, 0, "Type", "");
   RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_ID);
 
   add_generic_props(ot, true);
@@ -1133,10 +1130,10 @@ static wmOperatorStatus effector_add_exec(bContext *C, wmOperator *op)
     }
   }
   else {
-    ob = add_type(C, OB_EMPTY, get_effector_defname(type), loc, rot, false, local_view_bits);
+    ob = add_type(C, OB_NO_DATA, get_effector_defname(type), loc, rot, false, local_view_bits);
     BKE_object_obdata_size_init(ob, dia);
     if (ELEM(type, PFIELD_WIND, PFIELD_VORTEX)) {
-      ob->empty_drawtype = OB_SINGLE_ARROW;
+      ob->helper_display_type = OB_SINGLE_ARROW;
     }
   }
 
@@ -1149,7 +1146,7 @@ void OBJECT_OT_effector_add(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Add Effector";
-  ot->description = "Add an empty object with a physics effector to the scene";
+  ot->description = "Add a force field to the scene";
   ot->idname = "OBJECT_OT_effector_add";
 
   /* API callbacks. */
@@ -1345,268 +1342,6 @@ void OBJECT_OT_text_add(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Add Armature Operator
- * \{ */
-
-static wmOperatorStatus object_armature_add_exec(bContext *C, wmOperator *op)
-{
-  Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obedit = BKE_view_layer_edit_object_get(view_layer);
-
-  RegionView3D *rv3d = CTX_wm_region_view3d(C);
-  bool newob = false;
-  bool enter_editmode;
-  ushort local_view_bits;
-  float loc[3], rot[3], dia;
-  bool view_aligned = rv3d && (U.flag & USER_ADD_VIEWALIGNED);
-
-  WM_operator_view3d_unit_defaults(C, op);
-  add_generic_get_opts(C, op, 'Z', loc, rot, nullptr, &enter_editmode, &local_view_bits, nullptr);
-
-  if ((obedit == nullptr) || (obedit->type != OB_ARMATURE)) {
-    obedit = add_type(C, OB_ARMATURE, nullptr, loc, rot, true, local_view_bits);
-    editmode_enter_ex(bmain, scene, obedit, 0);
-    newob = true;
-  }
-  else {
-    DEG_id_tag_update(&obedit->id, ID_RECALC_GEOMETRY);
-  }
-
-  if (obedit == nullptr) {
-    BKE_report(op->reports, RPT_ERROR, "Cannot create editmode armature");
-    return OPERATOR_CANCELLED;
-  }
-
-  /* Give the Armature its default bone collection. */
-  bArmature *armature = id_cast<bArmature *>(obedit->data);
-  BoneCollection *default_bonecoll = ANIM_armature_bonecoll_new(armature, "");
-  ANIM_armature_bonecoll_active_set(armature, default_bonecoll);
-
-  dia = RNA_float_get(op->ptr, "radius");
-  ED_armature_ebone_add_primitive(obedit, dia, view_aligned);
-
-  /* userdef */
-  if (newob && !enter_editmode) {
-    editmode_exit_ex(bmain, scene, obedit, EM_FREEDATA);
-  }
-
-  return OPERATOR_FINISHED;
-}
-
-void OBJECT_OT_armature_add(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Add Armature";
-  ot->description = "Add an armature object to the scene";
-  ot->idname = "OBJECT_OT_armature_add";
-
-  /* API callbacks. */
-  ot->exec = object_armature_add_exec;
-  ot->poll = ED_operator_objectmode;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  /* properties */
-  add_unit_props_radius(ot);
-  add_generic_props(ot, true);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Add Empty Operator
- * \{ */
-
-static wmOperatorStatus object_empty_add_exec(bContext *C, wmOperator *op)
-{
-  Object *ob;
-  int type = RNA_enum_get(op->ptr, "type");
-  ushort local_view_bits;
-  float loc[3], rot[3];
-
-  WM_operator_view3d_unit_defaults(C, op);
-  add_generic_get_opts(C, op, 'Z', loc, rot, nullptr, nullptr, &local_view_bits, nullptr);
-
-  ob = add_type(C, OB_EMPTY, nullptr, loc, rot, false, local_view_bits);
-
-  BKE_object_empty_draw_type_set(ob, type);
-  BKE_object_obdata_size_init(ob, RNA_float_get(op->ptr, "radius"));
-
-  return OPERATOR_FINISHED;
-}
-
-void OBJECT_OT_empty_add(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Add Empty";
-  ot->description = "Add an empty object to the scene";
-  ot->idname = "OBJECT_OT_empty_add";
-
-  /* API callbacks. */
-  ot->invoke = WM_menu_invoke;
-  ot->exec = object_empty_add_exec;
-  ot->poll = ED_operator_objectmode;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  /* properties */
-  ot->prop = RNA_def_enum(ot->srna, "type", rna_enum_object_empty_drawtype_items, 0, "Type", "");
-
-  add_unit_props_radius(ot);
-  add_generic_props(ot, false);
-}
-
-static wmOperatorStatus object_image_add_exec(bContext *C, wmOperator *op)
-{
-  Image *ima = nullptr;
-
-  ima = id_cast<Image *>(WM_operator_drop_load_path(C, op, ID_IM));
-  if (!ima) {
-    return OPERATOR_CANCELLED;
-  }
-
-  if (!ED_operator_objectmode(C)) {
-    BKE_report(op->reports, RPT_ERROR, "Image objects can only be added in Object Mode");
-    return OPERATOR_CANCELLED;
-  }
-
-  /* Add new empty. */
-  ushort local_view_bits;
-  float loc[3], rot[3];
-
-  add_generic_get_opts(C, op, 'Z', loc, rot, nullptr, nullptr, &local_view_bits, nullptr);
-
-  Object *ob = add_type(C, OB_EMPTY, nullptr, loc, rot, false, local_view_bits);
-  ob->empty_drawsize = 5.0f;
-
-  if (RNA_boolean_get(op->ptr, "background")) {
-    /* When "background" has been set to "true", set image to render in the background. */
-    ob->empty_image_depth = OB_EMPTY_IMAGE_DEPTH_BACK;
-    ob->empty_image_visibility_flag = OB_EMPTY_IMAGE_HIDE_BACK;
-
-    RegionView3D *rv3d = CTX_wm_region_view3d(C);
-    if (rv3d->persp != RV3D_PERSP) {
-      ob->empty_image_visibility_flag |= OB_EMPTY_IMAGE_HIDE_PERSPECTIVE;
-    }
-  }
-
-  BKE_object_empty_draw_type_set(ob, OB_EMPTY_IMAGE);
-
-  ob->data = id_cast<ID *>(ima);
-
-  return OPERATOR_FINISHED;
-}
-
-static wmOperatorStatus object_image_add_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-  if (!RNA_struct_property_is_set(op->ptr, "align")) {
-    /* Default to Aligned unless something else was explicitly passed. */
-    RNA_enum_set(op->ptr, "align", ALIGN_VIEW);
-  }
-
-  /* Check if the user has not specified the image to load.
-   * If they have not, assume this is a drag an drop operation. */
-  if (!RNA_struct_property_is_set(op->ptr, "filepath") &&
-      !WM_operator_properties_id_lookup_is_set(op->ptr))
-  {
-    WM_event_add_fileselect(C, op);
-    return OPERATOR_RUNNING_MODAL;
-  }
-
-  if (!RNA_struct_property_is_set(op->ptr, "background")) {
-    /* Check if we should switch to "background" mode. */
-    RegionView3D *rv3d = CTX_wm_region_view3d(C);
-    if (rv3d->persp != RV3D_PERSP) {
-      RNA_boolean_set(op->ptr, "background", true);
-    }
-  }
-
-  float loc[3];
-  location_from_view(C, loc);
-  ED_view3d_cursor3d_position(C, event->mval, false, loc);
-  RNA_float_set_array(op->ptr, "location", loc);
-
-  Object *ob_cursor = ED_view3d_give_object_under_cursor(C, event->mval);
-
-  /* Either change empty under cursor or create a new empty. */
-  if (!ob_cursor || ob_cursor->type != OB_EMPTY) {
-    return object_image_add_exec(C, op);
-  }
-  /* User dropped an image on an existing image. */
-  Image *ima = nullptr;
-
-  ima = id_cast<Image *>(WM_operator_drop_load_path(C, op, ID_IM));
-  if (!ima) {
-    return OPERATOR_CANCELLED;
-  }
-  /* Handled below. */
-  id_us_min(&ima->id);
-
-  Scene *scene = CTX_data_scene(C);
-  WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
-  DEG_id_tag_update(id_cast<ID *>(ob_cursor), ID_RECALC_TRANSFORM);
-
-  BKE_object_empty_draw_type_set(ob_cursor, OB_EMPTY_IMAGE);
-
-  id_us_min(ob_cursor->data);
-  ob_cursor->data = id_cast<ID *>(ima);
-  id_us_plus(ob_cursor->data);
-  return OPERATOR_FINISHED;
-}
-
-static bool object_image_add_poll(bContext *C)
-{
-  return CTX_wm_region_view3d(C);
-}
-
-void OBJECT_OT_empty_image_add(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Add Empty Image/Drop Image to Empty";
-  ot->description = "Add an empty image type to scene with data";
-  ot->idname = "OBJECT_OT_empty_image_add";
-
-  /* API callbacks. */
-  ot->invoke = object_image_add_invoke;
-  ot->exec = object_image_add_exec;
-  ot->poll = object_image_add_poll;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  /* properties */
-  WM_operator_properties_filesel(ot,
-                                 FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE,
-                                 FILE_SPECIAL,
-                                 FILE_OPENFILE,
-                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH,
-                                 FILE_DEFAULTDISPLAY,
-                                 FILE_SORT_DEFAULT);
-
-  WM_operator_properties_id_lookup(ot, true);
-  add_generic_props(ot, false);
-  PropertyRNA *prop;
-  prop = RNA_def_boolean(ot->srna,
-                         "background",
-                         false,
-                         "Put in Background",
-                         "Make the image render behind all objects");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  /* Hide the filepath and relative path prop */
-  prop = RNA_struct_type_find_property(ot->srna, "filepath");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_PRESET);
-  prop = RNA_struct_type_find_property(ot->srna, "relative_path");
-  RNA_def_property_flag(prop, PROP_HIDDEN);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Add Light Operator
  * \{ */
 
@@ -1689,10 +1424,6 @@ void OBJECT_OT_light_add(wmOperatorType *ot)
 
 /** \} */
 
-/* -------------------------------------------------------------------- */
-/** \name Add Collection Instance Operator
- * \{ */
-
 struct CollectionAddInfo {
   /* The collection that is supposed to be added, determined through operator properties. */
   Collection *collection;
@@ -1760,30 +1491,6 @@ static std::optional<CollectionAddInfo> collection_add_info_get_from_op(bContext
   return add_info;
 }
 
-static wmOperatorStatus collection_instance_add_exec(bContext *C, wmOperator *op)
-{
-  std::optional<CollectionAddInfo> add_info = collection_add_info_get_from_op(C, op);
-  if (!add_info) {
-    return OPERATOR_CANCELLED;
-  }
-
-  Object *ob = add_type(C,
-                        OB_EMPTY,
-                        add_info->collection->id.name + 2,
-                        add_info->loc,
-                        add_info->rot,
-                        false,
-                        add_info->local_view_bits);
-  /* `add_type()` does not have scale argument so copy that value separately. */
-  copy_v3_v3(ob->scale, add_info->scale);
-  ob->instance_collection = add_info->collection;
-  ob->empty_drawsize = U.collection_instance_empty_size;
-  ob->transflag |= OB_DUPLICOLLECTION;
-  id_us_plus(&add_info->collection->id);
-
-  return OPERATOR_FINISHED;
-}
-
 static wmOperatorStatus object_instance_add_invoke(bContext *C,
                                                    wmOperator *op,
                                                    const wmEvent *event)
@@ -1799,39 +1506,6 @@ static wmOperatorStatus object_instance_add_invoke(bContext *C,
   return op->type->exec(C, op);
 }
 
-void OBJECT_OT_collection_instance_add(wmOperatorType *ot)
-{
-  PropertyRNA *prop;
-
-  /* identifiers */
-  ot->name = "Add Collection Instance";
-  ot->description = "Add a collection instance";
-  ot->idname = "OBJECT_OT_collection_instance_add";
-
-  /* API callbacks. */
-  ot->invoke = object_instance_add_invoke;
-  ot->exec = collection_instance_add_exec;
-  ot->poll = ED_operator_objectmode;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  /* properties */
-  RNA_def_string(
-      ot->srna, "name", "Collection", MAX_ID_NAME - 2, "Name", "Collection name to add");
-  prop = RNA_def_enum(ot->srna, "collection", rna_enum_dummy_NULL_items, 0, "Collection", "");
-  RNA_def_enum_funcs(prop, RNA_collection_itemf);
-  RNA_def_property_flag(prop, PROP_ENUM_NO_TRANSLATE);
-  ot->prop = prop;
-  add_generic_props(ot, false);
-
-  WM_operator_properties_id_lookup(ot, false);
-
-  object_add_drop_xy_props(ot);
-}
-
-/** \} */
-
 /* -------------------------------------------------------------------- */
 /** \name Collection Drop Operator
  *
@@ -1843,49 +1517,19 @@ void OBJECT_OT_collection_instance_add(wmOperatorType *ot)
  * The drop-box callback imports the collection, links it into the view-layer, selects all imported
  * objects (which may include peripheral objects like parents or boolean-objects of an object in
  * the collection) and activates one. Only the callback has enough info to do this reliably. Based
- * on the instancing operator option, this operator then does one of two things:
- * - Instancing enabled: Unlink the collection again, and instead add a collection instance empty
- *   at the drop position.
- * - Instancing disabled: Transform the objects to the drop position, keeping all relative
- *   transforms of the objects to each other as is.
+ * This operator then transforms the objects to the drop position, keeping all relative transforms
+ * of the objects to each other as is.
  *
  * \{ */
 
 static wmOperatorStatus collection_drop_exec(bContext *C, wmOperator *op)
 {
-  Main *bmain = CTX_data_main(C);
-  Collection *active_collection = BKE_collection_parent_editable_find_recursive(
-      CTX_data_view_layer(C), CTX_data_collection(C));
   std::optional<CollectionAddInfo> add_info = collection_add_info_get_from_op(C, op);
   if (!add_info) {
     return OPERATOR_CANCELLED;
   }
 
-  if (RNA_boolean_get(op->ptr, "use_instance")) {
-    /* In case no active editable collection is found, link/append code will have added imported
-     * collections/objects to a new collection (see code in
-     * `loose_data_instantiate_ensure_active_collection`). There is no easy way to retrieve these
-     * currently from here, so just leave the data in these for now - this is not a situation that
-     * should happen in 'normal expected use-cases' anyway. */
-    if (active_collection) {
-      BKE_collection_child_remove(bmain, active_collection, add_info->collection);
-      DEG_id_tag_update(&active_collection->id, ID_RECALC_SYNC_TO_EVAL);
-    }
-
-    Object *ob = add_type(C,
-                          OB_EMPTY,
-                          add_info->collection->id.name + 2,
-                          add_info->loc,
-                          add_info->rot,
-                          false,
-                          add_info->local_view_bits);
-    ob->instance_collection = add_info->collection;
-    ob->empty_drawsize = U.collection_instance_empty_size;
-    ob->transflag |= OB_DUPLICOLLECTION;
-    id_us_plus(&add_info->collection->id);
-    DEG_relations_tag_update(bmain);
-  }
-  else if (ID_IS_EDITABLE(&add_info->collection->id)) {
+  if (ID_IS_EDITABLE(&add_info->collection->id)) {
     ViewLayer *view_layer = CTX_data_view_layer(C);
     float delta_mat[4][4];
     unit_m4(delta_mat);
@@ -1894,8 +1538,7 @@ static wmOperatorStatus collection_drop_exec(bContext *C, wmOperator *op)
     loc_eul_size_to_mat4(delta_mat, add_info->loc, add_info->rot, scale);
 
     float offset[3];
-    /* Reverse apply the instance offset, so toggling the Instance option doesn't cause the
-     * collection to jump. */
+    /* Reverse apply the collection offset so its contents are placed under the cursor. */
     negate_v3_v3(offset, add_info->collection->instance_offset);
     translate_m4(delta_mat, UNPACK3(offset));
 
@@ -1930,13 +1573,6 @@ void OBJECT_OT_collection_external_asset_drop(wmOperatorType *ot)
   WM_operator_properties_id_lookup(ot, false);
 
   add_generic_props(ot, false);
-
-  prop = RNA_def_boolean(ot->srna,
-                         "use_instance",
-                         true,
-                         "Instance",
-                         "Add the dropped collection as collection instance");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
   object_add_drop_xy_props(ot);
 
@@ -2579,16 +2215,11 @@ static void make_object_duplilist_real(bContext *C,
 
     ob_dst->parent = nullptr;
     ob_dst->partype = PAROBJECT;
-    ob_dst->parsubstr[0] = '\0';
     ob_dst->par1 = ob_dst->par2 = ob_dst->par3 = 0;
     unit_m4(ob_dst->parentinv);
     BKE_constraints_free(&ob_dst->constraints);
     ob_dst->runtime->curve_cache = nullptr;
     ob_dst->transflag &= ~OB_DUPLI;
-    /* Remove instantiated collection, it's annoying to keep it here
-     * (and get potentially a lot of usages of it then...). */
-    id_us_min(id_cast<ID *>(ob_dst->instance_collection));
-    ob_dst->instance_collection = nullptr;
 
     copy_m4_m4(ob_dst->runtime->object_to_world.ptr(), dob.mat);
     BKE_object_apply_mat4(ob_dst, ob_dst->object_to_world().ptr(), false);
@@ -2605,10 +2236,6 @@ static void make_object_duplilist_real(bContext *C,
 
     DEG_id_tag_update(&ob_dst->id, ID_RECALC_GEOMETRY);
 
-  }
-
-  if (base->object->transflag & OB_DUPLICOLLECTION && base->object->instance_collection) {
-    base->object->instance_collection = nullptr;
   }
 
   base_select(base, BA_DESELECT);
@@ -2791,7 +2418,7 @@ static Base *duplibase_for_convert(
   const bool is_meta_ball = (obn->type == OB_MBALL);
   ID *obdata = obn->data;
   if (is_meta_ball) {
-    obn->type = OB_EMPTY;
+    obn->type = OB_NO_DATA;
     obn->data = nullptr;
   }
 
@@ -2971,23 +2598,6 @@ static Object *convert_mesh_component_to_mesh(Base &base,
   }
 
   return newob;
-}
-
-static Object *convert_empty(Base &base,
-                             const ObjectType target,
-                             ObjectConversionInfo &info,
-                             Base **r_new_base)
-{
-  switch (target) {
-    case OB_CURVES:
-      return convert_curves_component_to_curves(base, info, r_new_base);
-    case OB_POINTCLOUD:
-      return convert_pointcloud_component_to_pointcloud(base, info, r_new_base);
-    case OB_MESH:
-      return convert_mesh_component_to_mesh(base, info, r_new_base);
-    default:
-      return nullptr;
-  }
 }
 
 static Object *convert_mesh_to_curves_legacy(Base &base,
@@ -3566,9 +3176,6 @@ static wmOperatorStatus object_convert_exec(bContext *C, wmOperator *op)
     else {
       const ObjectType target_type = ObjectType(target);
       switch (ob->type) {
-        case OB_EMPTY:
-          newob = convert_empty(*base, target_type, info, &new_base);
-          break;
         case OB_MESH:
           newob = convert_mesh(*base, target_type, info, &new_base);
           break;
@@ -3800,10 +3407,6 @@ static void object_add_duplicate_internal(Main *bmain,
                                           const eLibIDDuplicateFlags duplicate_options,
                                           Object **r_ob_new)
 {
-  if (ob->mode & OB_MODE_POSE) {
-    return;
-  }
-
   Object *obn = BKE_object_duplicate(bmain, ob, dupflag, duplicate_options);
   if (r_ob_new) {
     *r_ob_new = obn;
@@ -4262,7 +3865,6 @@ static bool object_join_poll(bContext *C)
            OB_MESH,
            OB_CURVES_LEGACY,
            OB_SURF,
-           OB_ARMATURE,
            OB_CURVES,
            OB_POINTCLOUD))
   {
@@ -4298,9 +3900,6 @@ static wmOperatorStatus object_join_exec(bContext *C, wmOperator *op)
   }
   else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF)) {
     ret = ED_curve_join_objects_exec(C, op);
-  }
-  else if (ob->type == OB_ARMATURE) {
-    ret = ED_armature_join_objects_exec(C, op);
   }
   else if (ob->type == OB_POINTCLOUD) {
     ret = pointcloud::join_objects_exec(C, op);

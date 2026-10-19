@@ -424,13 +424,7 @@ static bool object_in_any_scene(Main *bmain, Object *ob)
   return false;
 }
 
-/**
- * Check if the given collection is instantiated by any other object or collection from the same
- * batch of linked/appended data.
- *
- * This allows to re-instantiate data that was already linked previously, while avoiding to create
- * instances for data that would already be instantiated through another mean.
- */
+/** Check whether a collection is already nested in another collection from this batch. */
 static bool is_collection_instantiated_by_other_link_append_data(
     LooseDataInstantiateContext *instantiate_context, Collection *collection)
 {
@@ -440,13 +434,7 @@ static bool is_collection_instantiated_by_other_link_append_data(
     if (!item_id) {
       continue;
     }
-    if (GS(item_id->name) == ID_OB) {
-      Object *item_ob = id_cast<Object *>(item_id);
-      if (item_ob->type == OB_EMPTY && item_ob->instance_collection == collection) {
-        return true;
-      }
-    }
-    else if (GS(item_id->name) == ID_GR) {
+    if (GS(item_id->name) == ID_GR) {
       Collection *item_col = id_cast<Collection *>(item_id);
       if (BKE_collection_has_collection(item_col, collection)) {
         return true;
@@ -623,11 +611,8 @@ static void loose_data_instantiate_collection_process(
   Main *bmain = lapp_context->params->bmain;
   Scene *scene = lapp_context->params->context.scene;
   ViewLayer *view_layer = lapp_context->params->context.view_layer;
-  const View3D *v3d = lapp_context->params->context.v3d;
 
   const bool do_append = (lapp_context->params->flag & FILE_LINK) == 0;
-  const bool do_instantiate_as_empty = (lapp_context->params->flag &
-                                        BLO_LIBLINK_COLLECTION_INSTANCE) != 0;
 
   /* NOTE: For collections we only view_layer-instantiate duplicated collections that have
    * non-instantiated objects in them.
@@ -649,10 +634,8 @@ static void loose_data_instantiate_collection_process(
      * children.
      */
     Collection *collection = id_cast<Collection *>(id);
-    /* The collection could be linked/appended together with an Empty object instantiating it,
-     * better not instantiate the collection in the view-layer in that case.
-     *
-     * Can easily happen when copy/pasting such instantiating empty, see #93839. */
+    /* The collection could be linked/appended together with an object instantiating it, better not
+     * instantiate the collection in the view-layer in that case. */
     const bool collection_is_instantiated = is_collection_instantiated_by_other_link_append_data(
         instantiate_context, collection);
     /* Always consider adding collections directly selected by the user. */
@@ -675,8 +658,7 @@ static void loose_data_instantiate_collection_process(
     }
   }
 
-  /* Second loop to actually instantiate collections tagged as such in first loop, unless some of
-   * their ancestor is also instantiated in case this is not an empty-instantiation. */
+  /* Second loop to add collections tagged as such in the first loop. */
   for (BlendfileLinkAppendContextItem &item : lapp_context->items) {
     ID *id = loose_data_instantiate_process_check(instantiate_context, &item);
     if (id == nullptr || GS(id->name) != ID_GR) {
@@ -689,64 +671,29 @@ static void loose_data_instantiate_collection_process(
     if (!do_add_collection) {
       continue;
     }
-    /* When instantiated into view-layer, do not add collections if one of their parents is also
-     * instantiated. */
-    if (!do_instantiate_as_empty &&
-        loose_data_instantiate_collection_parents_check_recursive(collection))
-    {
-      continue;
-    }
-    /* When instantiated as empty, do not add indirectly linked (i.e. non-user-selected)
-     * collections. */
-    if (do_instantiate_as_empty && (item.tag & LINK_APPEND_TAG_INDIRECT) != 0) {
+    /* Do not add collections if one of their parents is also instantiated. */
+    if (loose_data_instantiate_collection_parents_check_recursive(collection)) {
       continue;
     }
 
     loose_data_instantiate_ensure_active_collection(instantiate_context);
     Collection *active_collection = instantiate_context->active_collection;
 
-    if (do_instantiate_as_empty) {
-      /* BKE_object_add(...) messes with the selection. */
-      Object *ob = BKE_object_add_only_object(bmain, OB_EMPTY, collection->id.name + 2);
-      ob->type = OB_EMPTY;
-      ob->empty_drawsize = U.collection_instance_empty_size;
+    /* Add collection as child of active collection. */
+    BKE_collection_child_add(bmain, active_collection, collection);
+    BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
 
-      const bool set_selected = (lapp_context->params->flag & FILE_AUTOSELECT) != 0;
-      /* TODO: why is it OK to make this active here but not in other situations?
-       * See other callers of #object_base_instance_init */
-      const bool set_active = set_selected;
-      loose_data_instantiate_object_base_instance_init(bmain,
-                                                       active_collection,
-                                                       ob,
-                                                       scene,
-                                                       view_layer,
-                                                       v3d,
-                                                       lapp_context->params->flag,
-                                                       set_active);
-
-      /* Assign the collection. */
-      ob->instance_collection = collection;
-      id_us_plus(&collection->id);
-      ob->transflag |= OB_DUPLICOLLECTION;
-      copy_v3_v3(ob->loc, scene->cursor.location);
-    }
-    else {
-      /* Add collection as child of active collection. */
-      BKE_collection_child_add(bmain, active_collection, collection);
-      BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-
-      if ((lapp_context->params->flag & FILE_AUTOSELECT) != 0) {
-        /* All objects contained in this collection need to be processed, including the ones
-         * belonging to children collections. */
-        FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (collection, ob) {
-          Base *base = BKE_view_layer_base_find(view_layer, ob);
-          if (base) {
-            base->flag |= BASE_SELECTED;
-            BKE_scene_object_base_flag_sync_from_base(base);
-          }
+    if ((lapp_context->params->flag & FILE_AUTOSELECT) != 0) {
+      /* All objects contained in this collection need to be processed, including the ones
+       * belonging to children collections. */
+      FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (collection, ob) {
+        Base *base = BKE_view_layer_base_find(view_layer, ob);
+        if (base) {
+          base->flag |= BASE_SELECTED;
+          BKE_scene_object_base_flag_sync_from_base(base);
         }
-        FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
       }
+      FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
     }
   }
 }
@@ -760,37 +707,12 @@ static void loose_data_gather_instanciated_objects_for_viewlayer(
   BKE_view_layer_synced_ensure(
       *instantiate_context.lapp_context->params->bmain, &scene, &view_layer);
 
-  Stack<Collection *> instance_collections;
-  Set<Collection *> known_instance_collections;
-
   FOREACH_OBJECT_BEGIN (
       instantiate_context.lapp_context->params->bmain, &scene, &view_layer, ob_iter)
   {
     r_instanciated_objects.add(ob_iter);
-    Collection *instance_collection = ob_iter->instance_collection;
-    if (instance_collection && !known_instance_collections.contains(instance_collection)) {
-      instance_collections.push_as(instance_collection);
-      known_instance_collections.add_new(instance_collection);
-    }
   }
   FOREACH_OBJECT_END;
-
-  /* Instanced collections may instance other collections. So we need to accumulate and process all
-   * these instanced collections recursively. */
-  while (!instance_collections.is_empty()) {
-    Collection *instance_collection = instance_collections.pop();
-    BLI_assert(known_instance_collections.contains(instance_collection));
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (instance_collection, ob_coll_iter) {
-      r_instanciated_objects.add(ob_coll_iter);
-      if (ob_coll_iter->instance_collection &&
-          !known_instance_collections.contains(ob_coll_iter->instance_collection))
-      {
-        instance_collections.push_as(ob_coll_iter->instance_collection);
-        known_instance_collections.add_new(ob_coll_iter->instance_collection);
-      }
-    }
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
-  }
 }
 
 static void loose_data_gather_instanciated_objects(
@@ -800,10 +722,8 @@ static void loose_data_gather_instanciated_objects(
   const Scene *scene = lapp_context->params->context.scene;
   ViewLayer *view_layer = lapp_context->params->context.view_layer;
 
-  /* Linked/appended objects only need to be instantiated if they are not already in the current
-   * view layer, either:
-   * - Directly instantiated there (i.e. in one of the view layer instantiated collections).
-   * - Indirectly instanciated (i.e. being in a collection that is object-instanciated).
+  /* Linked/appended objects only need to be added to the active collection if they are not
+   * already in the current view layer.
    */
   loose_data_gather_instanciated_objects_for_viewlayer(
       instantiate_context, *scene, *view_layer, instanciated_objects);
@@ -889,9 +809,7 @@ static void loose_data_instantiate_object_process(LooseDataInstantiateContext *i
                                                      lapp_context->params->flag,
                                                      object_set_active);
 
-    /* Instancing an object may also instance implicitly others, so we need to update the set
-     * every time. */
-    loose_data_gather_instanciated_objects(*instantiate_context, instanciated_objects);
+    instanciated_objects.add(ob);
   }
 }
 

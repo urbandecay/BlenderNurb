@@ -752,7 +752,7 @@ class USDImportTest(AbstractUSDTest):
         self.assertEqual(4, num_uvmaps_found, "One or more test materials failed to import")
 
     def test_import_animation(self):
-        """Test importing objects with xform, armature, and USD blend shape animations."""
+        """Test importing generic animated xform objects."""
 
         # Use the existing animation test file to create the USD file
         # for import. It is validated as part of the bl_usd_export test.
@@ -773,11 +773,6 @@ class USDImportTest(AbstractUSDTest):
         # Validate some simple aspects of the animated objects which prove that they're animating.
         ob_xform = bpy.data.objects["cube_anim_xform"]
         ob_xform_child = bpy.data.objects["cube_anim_child_mesh"]
-        ob_shapekeys = bpy.data.objects["cube_anim_keys.001"]
-        ob_arm = bpy.data.objects["column_anim_armature"]
-        ob_arm2_side_a = bpy.data.objects["side_a"]
-        ob_arm2_side_b = bpy.data.objects["side_b"]
-        self.assertEqual(bpy.data.objects["Armature.001"].animation_data.action.name, "ArmatureAction_001")
 
         bpy.context.scene.frame_set(1)
         self.assertEqual(len(ob_xform.constraints), 1)
@@ -785,12 +780,6 @@ class USDImportTest(AbstractUSDTest):
         self.assertEqual(self.round_vector(ob_xform.matrix_world.translation), [0.0, -2.0, 0.0])
         self.assertEqual(self.round_vector(ob_xform_child.matrix_world.translation), [0.0, -2.0, 1.0])
         self.assertEqual(self.round_vector(ob_xform_child.matrix_world.to_euler('XYZ')), [0.0, 0.0, 0.0])
-        self.assertEqual(self.round_vector(ob_shapekeys.dimensions), [1.0, 1.0, 1.0])
-        self.assertEqual(self.round_vector(ob_arm.dimensions), [0.4, 0.4, 3.0])
-        self.assertEqual(self.round_vector(ob_arm2_side_a.dimensions), [0.5, 0.0, 0.5])
-        self.assertEqual(self.round_vector(ob_arm2_side_b.dimensions), [0.5, 0.0, 0.5])
-        self.assertAlmostEqual(ob_arm2_side_a.matrix_world.to_euler('XYZ').z, 0, 5)
-        self.assertAlmostEqual(ob_arm2_side_b.matrix_world.to_euler('XYZ').z, 0, 5)
 
         bpy.context.scene.frame_set(5)
         self.assertEqual(len(ob_xform.constraints), 1)
@@ -798,12 +787,6 @@ class USDImportTest(AbstractUSDTest):
         self.assertEqual(self.round_vector(ob_xform.matrix_world.translation), [3.0, -2.0, 0.0])
         self.assertEqual(self.round_vector(ob_xform_child.matrix_world.translation), [3.0, -2.0, 1.0])
         self.assertEqual(self.round_vector(ob_xform_child.matrix_world.to_euler('XYZ')), [0.0, 1.5708, 0.0])
-        self.assertEqual(self.round_vector(ob_shapekeys.dimensions), [0.1, 0.1, 0.1])
-        self.assertEqual(self.round_vector(ob_arm.dimensions), [1.65545, 0.4, 2.38953])
-        self.assertEqual(self.round_vector(ob_arm2_side_a.dimensions), [0.25, 0.0, 0.25])
-        self.assertEqual(self.round_vector(ob_arm2_side_b.dimensions), [1.0, 0.0, 1.0])
-        self.assertAlmostEqual(ob_arm2_side_a.matrix_world.to_euler('XYZ').z, 1.5708, 5)
-        self.assertAlmostEqual(ob_arm2_side_b.matrix_world.to_euler('XYZ').z, 1.5708, 5)
 
     def test_import_volumes(self):
         """Validate volume import."""
@@ -1469,12 +1452,14 @@ class USDImportTest(AbstractUSDTest):
         """Test importing object and data IDProperties."""
 
         # Create our set of ID's with all relevant IDProperty types/values that we support
-        bpy.ops.object.empty_add()
+        bpy.ops.mesh.primitive_plane_add()
+        object_properties = bpy.context.object
+        object_properties.name = "ObjectProperties"
         bpy.ops.object.light_add()
         bpy.ops.object.camera_add()
         bpy.ops.mesh.primitive_plane_add()
 
-        ids = [ob if ob.type == 'EMPTY' else ob.data for ob in bpy.data.objects]
+        ids = [object_properties] + [ob.data for ob in bpy.data.objects if ob != object_properties]
         properties = [
             True, "string", 1, 2.0, [1, 2], [1, 2, 3], [1, 2, 3, 4], [1.0, 2.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0, 4.0]
         ]
@@ -1516,8 +1501,12 @@ class USDImportTest(AbstractUSDTest):
         # Helper functions to check IDProperty validity
         import idprop
 
+        def relevant_ids():
+            object_id = bpy.data.objects["ObjectProperties"]
+            return [object_id] + [ob.data for ob in bpy.data.objects if ob != object_id]
+
         def assert_all_props_present(properties, ns):
-            ids = [ob if ob.type == 'EMPTY' else ob.data for ob in bpy.data.objects]
+            ids = relevant_ids()
             for id in ids:
                 for i, p in enumerate(properties):
                     prop_name = (ns + ":" if ns != "" else "") + "prop" + str(i)
@@ -1526,7 +1515,7 @@ class USDImportTest(AbstractUSDTest):
                     self.assertEqual(p, value, f"Property {prop_name} is incorrect")
 
         def assert_no_props_present(properties, ns):
-            ids = [ob if ob.type == 'EMPTY' else ob.data for ob in bpy.data.objects]
+            ids = relevant_ids()
             for id in ids:
                 for i, p in enumerate(properties):
                     prop_name = (ns + ":" if ns != "" else "") + "prop" + str(i)

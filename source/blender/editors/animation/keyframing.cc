@@ -19,14 +19,12 @@
 
 #include "DNA_ID.h"
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
 
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_global.hh"
@@ -48,8 +46,6 @@
 #include "ANIM_action.hh"
 #include "ANIM_action_iterators.hh"
 #include "ANIM_animdata.hh"
-#include "ANIM_armature.hh"
-#include "ANIM_bone_collections.hh"
 #include "ANIM_driver.hh"
 #include "ANIM_fcurve.hh"
 #include "ANIM_keyframing.hh"
@@ -325,10 +321,6 @@ static bool get_selection(bContext *C, Vector<PointerRNA> *r_selection)
   switch (context_mode) {
     case CTX_MODE_OBJECT: {
       CTX_data_selected_objects(C, r_selection);
-      break;
-    }
-    case CTX_MODE_POSE: {
-      CTX_data_selected_pose_bones(C, r_selection);
       break;
     }
     default:
@@ -719,36 +711,9 @@ void ANIM_OT_keyframe_delete_by_name(wmOperatorType *ot)
  * it is more useful for animators working in the 3D view.
  */
 
-/* While in pose mode, the selection of bones has to be considered. */
-static bool can_delete_fcurve(FCurve *fcu, Object *ob)
+static bool can_delete_fcurve(FCurve * /*fcu*/, Object * /*ob*/)
 {
-  bool can_delete = false;
-  /* in pose mode, only delete the F-Curve if it belongs to a selected bone */
-  if (ob->mode & OB_MODE_POSE) {
-    if (fcu->rna_path) {
-      /* Get bone-name, and check if this bone is selected. */
-      bPoseChannel *pchan = nullptr;
-      char bone_name[sizeof(pchan->name)];
-      if (BLI_str_quoted_substr(fcu->rna_path, "pose.bones[", bone_name, sizeof(bone_name))) {
-        pchan = BKE_pose_channel_find_name(ob->pose, bone_name);
-        /* Delete if bone is selected. */
-        if ((pchan) && (pchan->bone_get(*ob))) {
-          /* TODO(Sybren): use bone_is_selected() to avoid treating invisible bone as selected. */
-          if (pchan->flag & POSE_SELECTED) {
-            can_delete = true;
-          }
-        }
-      }
-    }
-  }
-  else {
-    /* object mode - all of Object's F-Curves are affected */
-    /* TODO: this logic isn't solid. Only delete FCurves of the object, not of bones in this case.
-     */
-    can_delete = true;
-  }
-
-  return can_delete;
+  return true;
 }
 
 static wmOperatorStatus clear_anim_v3d_exec(bContext *C, wmOperator * /*op*/)
@@ -948,33 +913,6 @@ static bool can_delete_key(FCurve *fcu, Object *ob, ReportList *reports)
                 fcu->rna_path,
                 ob->id.name + 2);
     return false;
-  }
-
-  /* Special exception for bones, as this makes this operator more convenient to use
-   * NOTE: This is only done in pose mode.
-   * In object mode, we're dealing with the entire object.
-   * TODO: While this means bone animation is not deleted of all bones while in pose mode. Running
-   * the code on the armature object WILL delete keys of all bones.
-   */
-  if (ob->mode & OB_MODE_POSE) {
-    bPoseChannel *pchan = nullptr;
-
-    /* Get bone-name, and check if this bone is selected. */
-    char bone_name[sizeof(pchan->name)];
-    if (!BLI_str_quoted_substr(fcu->rna_path, "pose.bones[", bone_name, sizeof(bone_name))) {
-      return false;
-    }
-    pchan = BKE_pose_channel_find_name(ob->pose, bone_name);
-
-    /* skip if bone is not selected */
-    if ((pchan) && (pchan->bone_get(*ob))) {
-      bArmature *arm = id_cast<bArmature *>(ob->data);
-
-      /* Only selected bones should be affected. */
-      if (!animrig::bone_is_selected(arm, {pchan, pchan->bone_get(*ob)})) {
-        return false;
-      }
-    }
   }
 
   return true;

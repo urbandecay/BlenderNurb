@@ -187,42 +187,6 @@ class VIEW3D_PT_tools_meshedit_options_uvs(View3DPanel, Panel):
         layout.prop(tool_settings, "use_edge_path_live_unwrap")
 
 
-# ********** default tools for editmode_armature ****************
-
-
-class VIEW3D_PT_tools_armatureedit_options(View3DPanel, Panel):
-    bl_category = "Tool"
-    bl_context = ".armature_edit"  # dot on purpose (access from topbar)
-    bl_label = "Options"
-
-    def draw(self, context):
-        arm = context.active_object.data
-
-        self.layout.prop(arm, "use_mirror_x")
-
-
-# ********** default tools for pose-mode ****************
-
-class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
-    bl_category = "Tool"
-    bl_context = ".posemode"  # dot on purpose (access from topbar)
-    bl_label = "Pose Options"
-
-    def draw(self, context):
-        pose = context.active_object.pose
-        layout = self.layout
-
-        tool_settings = context.tool_settings
-
-        layout.prop(pose, "use_auto_ik")
-        layout.prop(pose, "use_mirror_x")
-        col = layout.column()
-        col.active = pose.use_mirror_x and not pose.use_auto_ik
-        col.prop(pose, "use_mirror_relative")
-
-        layout.label(text="Affect Only")
-        layout.prop(tool_settings, "use_transform_pivot_point_align", text="Locations")
-
 # ********** default tools for paint modes ****************
 
 
@@ -870,7 +834,6 @@ class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
 
         col.prop(tool_settings, "use_auto_normalize", text="Auto Normalize")
         col.prop(tool_settings, "use_lock_relative", text="Lock-Relative")
-        col.prop(tool_settings, "use_multipaint", text="Multi-Paint")
 
         col.prop(wpaint, "use_group_restrict")
 
@@ -1050,9 +1013,6 @@ classes = (
     VIEW3D_PT_tools_meshedit_options,
     VIEW3D_PT_tools_meshedit_options_transform,
     VIEW3D_PT_tools_meshedit_options_uvs,
-    VIEW3D_PT_tools_armatureedit_options,
-    VIEW3D_PT_tools_posemode_options,
-
     VIEW3D_PT_slots_color_attributes,
     VIEW3D_PT_slots_vertex_groups,
     VIEW3D_PT_tools_brush_select,

@@ -348,10 +348,6 @@ def fake_helper():
     rna_prop_ui.PropertyPanel = PropertyPanel
     rna_prop_ui.draw = NewAttr("rna_prop_ui.draw", "draw")
 
-    rigify = module_add("rigify")
-    rigify.get_submodule_types = lambda: []
-
-
 def fake_runtime():
     """Only call this before `draw()` functions."""
 

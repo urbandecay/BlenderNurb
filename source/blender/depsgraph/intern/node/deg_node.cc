@@ -66,10 +66,6 @@ const char *nodeTypeAsString(NodeType type)
     case NodeType::HIERARCHY:
       return "HIERARCHY";
     /* **** Evaluation-Related Outer Types (with Sub-data) **** */
-    case NodeType::EVAL_POSE:
-      return "EVAL_POSE";
-    case NodeType::BONE:
-      return "BONE";
     case NodeType::PARTICLE_SYSTEM:
       return "PARTICLE_SYSTEM";
     case NodeType::PARTICLE_SETTINGS:
@@ -90,8 +86,6 @@ const char *nodeTypeAsString(NodeType type)
       return "SYNCHRONIZATION";
     case NodeType::AUDIO:
       return "AUDIO";
-    case NodeType::ARMATURE:
-      return "ARMATURE";
     case NodeType::GENERIC_DATABLOCK:
       return "GENERIC_DATABLOCK";
     case NodeType::SCENE:
@@ -146,7 +140,6 @@ eDepsSceneComponentType nodeTypeToSceneComponent(NodeType type)
     case NodeType::OBJECT_FROM_LAYER:
     case NodeType::HIERARCHY:
     case NodeType::AUDIO:
-    case NodeType::ARMATURE:
     case NodeType::GENERIC_DATABLOCK:
     case NodeType::SCENE:
     case NodeType::PARTICLE_SYSTEM:
@@ -160,8 +153,6 @@ eDepsSceneComponentType nodeTypeToSceneComponent(NodeType type)
     case NodeType::NUM_TYPES:
     case NodeType::TRANSFORM:
     case NodeType::GEOMETRY:
-    case NodeType::EVAL_POSE:
-    case NodeType::BONE:
     case NodeType::SHADING:
     case NodeType::CACHE:
     case NodeType::NTREE_OUTPUT:
@@ -189,10 +180,6 @@ NodeType nodeTypeFromObjectComponent(eDepsObjectComponentType component_type)
       return NodeType::TRANSFORM;
     case DEG_OB_COMP_GEOMETRY:
       return NodeType::GEOMETRY;
-    case DEG_OB_COMP_EVAL_POSE:
-      return NodeType::EVAL_POSE;
-    case DEG_OB_COMP_BONE:
-      return NodeType::BONE;
     case DEG_OB_COMP_SHADING:
       return NodeType::SHADING;
     case DEG_OB_COMP_CACHE:
@@ -212,10 +199,6 @@ eDepsObjectComponentType nodeTypeToObjectComponent(NodeType type)
       return DEG_OB_COMP_TRANSFORM;
     case NodeType::GEOMETRY:
       return DEG_OB_COMP_GEOMETRY;
-    case NodeType::EVAL_POSE:
-      return DEG_OB_COMP_EVAL_POSE;
-    case NodeType::BONE:
-      return DEG_OB_COMP_BONE;
     case NodeType::SHADING:
       return DEG_OB_COMP_SHADING;
     case NodeType::CACHE:
@@ -231,7 +214,6 @@ eDepsObjectComponentType nodeTypeToObjectComponent(NodeType type)
     case NodeType::OBJECT_FROM_LAYER:
     case NodeType::HIERARCHY:
     case NodeType::AUDIO:
-    case NodeType::ARMATURE:
     case NodeType::GENERIC_DATABLOCK:
     case NodeType::SCENE:
     case NodeType::PARTICLE_SYSTEM:

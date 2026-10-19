@@ -5,6 +5,7 @@
 set(INC
   ../include
   ../uvedit
+  ../../../../intern/eigen
   ../../makesrna
   # RNA_prototypes.hh
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -46,6 +47,7 @@ set(SRC
   editmesh_undo.cc
   editmesh_utils.cc
   mesh_data.cc
+  meshdeform_bind.cc
   mesh_join.cc
   mesh_mirror.cc
   mesh_ops.cc
@@ -71,6 +73,7 @@ set(LIB
   PRIVATE bf::intern::guardedalloc
   PRIVATE bf::render
   PRIVATE bf::windowmanager
+  bf_intern_eigen
 )
 
 if(WITH_FREESTYLE)

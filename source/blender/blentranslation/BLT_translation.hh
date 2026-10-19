@@ -107,7 +107,6 @@ StringRef BLT_translate_do_new_dataname(StringRef msgctxt, StringRef msgid);
 /* WARNING! Keep it in sync with ID-types in `blenkernel/intern/idtype.cc`. */
 #define BLT_I18NCONTEXT_ID_ACTION "Action"
 #define BLT_I18NCONTEXT_ID_ANIMATION "Animation"
-#define BLT_I18NCONTEXT_ID_ARMATURE "Armature"
 #define BLT_I18NCONTEXT_ID_BRUSH "Brush"
 #define BLT_I18NCONTEXT_ID_CACHEFILE "CacheFile"
 #define BLT_I18NCONTEXT_ID_CAMERA "Camera"
@@ -182,7 +181,6 @@ struct BLT_i18n_contexts_descriptor {
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_PLURAL, "plural"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_COUNTABLE, "countable"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_ACTION, "id_action"), \
-        BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_ARMATURE, "id_armature"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_NO_TRANSLATION, "no_translation"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_BRUSH, "id_brush"), \
         BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_CACHEFILE, "id_cachefile"), \

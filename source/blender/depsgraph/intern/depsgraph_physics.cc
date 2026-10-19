@@ -104,8 +104,6 @@ enum class CollisionComponentFlag : uint8_t {
   Transform = 1 << 0,
   /** #DEG_OB_COMP_GEOMETRY is set. */
   Geometry = 1 << 1,
-  /** #DEG_OB_COMP_EVAL_POSE is set. */
-  EvalPose = 1 << 2,
 };
 ENUM_OPERATORS(CollisionComponentFlag);
 
@@ -177,13 +175,6 @@ void DEG_add_collision_relations(DepsNodeHandle *handle,
               if (!flag_is_set(update_flag, test_flag)) {
                 update_flag |= test_flag;
                 DEG_add_object_pointcache_relation(handle, ob, DEG_OB_COMP_GEOMETRY, name);
-              }
-            }
-            if (ob->type == OB_ARMATURE) {
-              constexpr CollisionComponentFlag test_flag = CollisionComponentFlag::EvalPose;
-              if (!flag_is_set(update_flag, test_flag)) {
-                update_flag |= test_flag;
-                DEG_add_object_pointcache_relation(handle, ob, DEG_OB_COMP_EVAL_POSE, name);
               }
             }
           });

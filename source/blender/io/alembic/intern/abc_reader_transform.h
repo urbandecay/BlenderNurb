@@ -20,11 +20,11 @@ struct Object;
 
 namespace io::alembic {
 
-class AbcEmptyReader final : public AbcObjectReader {
+class AbcTransformReader final : public AbcObjectReader {
   Alembic::AbcGeom::IXformSchema m_schema;
 
  public:
-  AbcEmptyReader(const AbcReaderConstructorArgs &args);
+  AbcTransformReader(const AbcReaderConstructorArgs &args);
 
   bool valid() const override;
   bool accepts_object_type(const Alembic::AbcCoreAbstract::ObjectHeader &alembic_header,

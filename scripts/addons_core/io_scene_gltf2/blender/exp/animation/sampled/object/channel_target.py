@@ -31,11 +31,11 @@ def gather_object_sampled_channel_target(
     return animation_channel_target
 
 
-def __gather_extensions(armature_uuid, channel, export_settings):
+def __gather_extensions(obj_uuid, channel, export_settings):
     return None
 
 
-def __gather_extras(armature_uuid, channel, export_settings):
+def __gather_extras(obj_uuid, channel, export_settings):
     return None
 
 

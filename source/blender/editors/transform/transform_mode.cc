@@ -8,7 +8,6 @@
 
 #include <cstdlib>
 
-#include "DNA_armature_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_space_types.h"
 #include "DNA_windowmanager_types.h"
@@ -22,7 +21,6 @@
 
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
-#include "BKE_layer.hh"
 
 #include "BLT_translation.hh"
 
@@ -37,35 +35,16 @@
 
 namespace blender::ed::transform {
 
-eTfmMode transform_mode_really_used(bContext *C, eTfmMode mode)
-{
-  if (mode == TFM_BONESIZE) {
-    /* Use context here as `TransInfo` scene/view_layer members aren't yet initialized. */
-    Main &bmain = *CTX_data_main(C);
-    Scene *scene = CTX_data_scene(C);
-    ViewLayer *view_layer = CTX_data_view_layer(C);
-    BKE_view_layer_synced_ensure(bmain, scene, view_layer);
-    const Object *ob = BKE_view_layer_active_object_get(view_layer);
-    BLI_assert(ob);
-    if (ob->type != OB_ARMATURE) {
-      return TFM_RESIZE;
-    }
-  }
-
-  return mode;
-}
-
 bool transdata_check_local_center(const TransInfo *t, short around)
 {
   return ((around == V3D_AROUND_LOCAL_ORIGINS) &&
-          ((t->options & (CTX_OBJECT | CTX_POSE_BONE)) ||
+          ((t->options & CTX_OBJECT) ||
            /* Implicit: `(t->flag & T_EDIT)`. */
            ELEM(t->obedit_type,
                 OB_MESH,
                 OB_CURVES_LEGACY,
                 OB_CURVES,
-                OB_MBALL,
-                OB_ARMATURE) ||
+                OB_MBALL) ||
            (t->spacetype == SPACE_GRAPH) ||
            (t->options & (CTX_MOVIECLIP | CTX_MASK | CTX_PAINT_CURVE | CTX_SEQUENCER_IMAGE))));
 }
@@ -307,11 +286,6 @@ void constraintTransLim(const TransInfo *t, const TransDataContainer *tc, TransD
             add_v3_v3(cob.matrix[3], tc->mat[3]);
           }
         }
-        else if (con->ownspace == CONSTRAINT_SPACE_POSE) {
-          /* Bone space without considering object transformations. */
-          mul_m3_v3(td->mtx, cob.matrix[3]);
-          mul_m3_v3(tc->imat3, cob.matrix[3]);
-        }
         else if (con->ownspace != CONSTRAINT_SPACE_LOCAL) {
           /* Skip... incompatible spacetype. */
           continue;
@@ -333,11 +307,6 @@ void constraintTransLim(const TransInfo *t, const TransDataContainer *tc, TransD
           }
           mul_m3_v3(td->smtx, cob.matrix[3]);
         }
-        else if (con->ownspace == CONSTRAINT_SPACE_POSE) {
-          mul_m3_v3(tc->mat3, cob.matrix[3]);
-          mul_m3_v3(td->smtx, cob.matrix[3]);
-        }
-
         /* Free targets list. */
         targets.free_no_destruct();
       }
@@ -360,7 +329,7 @@ static void constraintob_from_transdata(bConstraintOb *cob, TransDataExtension *
   }
   if (td_ext->rotOrder == ROT_MODE_QUAT) {
     /* Quaternion. */
-    /* Objects and bones do normalization first too, otherwise
+    /* Objects do normalization first too, otherwise
      * we don't necessarily end up with a rotation matrix, and
      * then conversion back to quat gives a different result. */
     float quat[4];
@@ -515,11 +484,6 @@ void constraintScaleLim(const TransInfo *t, const TransDataContainer *tc, int td
         /* Just multiply by `td->mtx` (this should be ok). */
         mul_m4_m3m4(cob.matrix, td->mtx, cob.matrix);
       }
-      else if (con->ownspace == CONSTRAINT_SPACE_POSE) {
-        /* Bone space without considering object transformations. */
-        mul_m4_m3m4(cob.matrix, td->mtx, cob.matrix);
-        mul_m4_m3m4(cob.matrix, tc->imat3, cob.matrix);
-      }
       else if (con->ownspace != CONSTRAINT_SPACE_LOCAL) {
         /* Skip... incompatible `spacetype`. */
         continue;
@@ -531,10 +495,6 @@ void constraintScaleLim(const TransInfo *t, const TransDataContainer *tc, int td
       /* Convert spaces again. */
       if (con->ownspace == CONSTRAINT_SPACE_WORLD) {
         /* Just multiply by `td->smtx` (this should be ok). */
-        mul_m4_m3m4(cob.matrix, td->smtx, cob.matrix);
-      }
-      else if (con->ownspace == CONSTRAINT_SPACE_POSE) {
-        mul_m4_m3m4(cob.matrix, tc->mat3, cob.matrix);
         mul_m4_m3m4(cob.matrix, td->smtx, cob.matrix);
       }
     }
@@ -622,112 +582,6 @@ void ElementRotation_ex(const TransInfo *t,
         /* Is there a reason not to have this here? -jahka. */
         protectedQuaternionBits(td->protectflag, td_ext->quat, td_ext->iquat);
       }
-    }
-  }
-  /**
-   * HACK WARNING
-   *
-   * This is some VERY ugly special case to deal with pose mode.
-   *
-   * The problem is that mtx and smtx include each bone orientation.
-   *
-   * That is needed to rotate each bone properly, HOWEVER, to calculate
-   * the translation component, we only need the actual armature object's
-   * matrix (and inverse). That is not all though. Once the proper translation
-   * has been computed, it has to be converted back into the bone's space.
-   */
-  else if (t->options & CTX_POSE_BONE) {
-    /* Extract and invert armature object matrix. */
-
-    if ((td->flag & TD_NO_LOC) == 0) {
-      sub_v3_v3v3(vec, td_ext->center_no_override, center);
-
-      mul_m3_v3(tc->mat3, vec);  /* To Global space. */
-      mul_m3_v3(mat, vec);       /* Applying rotation. */
-      mul_m3_v3(tc->imat3, vec); /* To Local space. */
-
-      add_v3_v3(vec, center);
-      /* `vec` now is the location where the object has to be. */
-
-      /* Translation needed from the initial location. */
-      sub_v3_v3v3(vec, vec, td_ext->center_no_override);
-
-      /* Special exception, see TD_PBONE_LOCAL_MTX definition comments. */
-      if (td->flag & TD_PBONE_LOCAL_MTX_P) {
-        /* Do nothing. */
-      }
-      else if (td->flag & TD_PBONE_LOCAL_MTX_C) {
-        mul_m3_v3(tc->mat3, vec);       /* To Global space. */
-        mul_m3_v3(td_ext->l_smtx, vec); /* To Pose space (Local Location). */
-      }
-      else {
-        mul_m3_v3(tc->mat3, vec); /* To Global space. */
-        mul_m3_v3(td->smtx, vec); /* To Pose space. */
-      }
-
-      protectedTransBits(td->protectflag, vec);
-
-      add_v3_v3v3(td->loc, td->iloc, vec);
-
-      constraintTransLim(t, tc, td);
-    }
-
-    /* Rotation. */
-    /* MORE HACK: as in some cases the matrix to apply location and rot/scale is not the same,
-     * and ElementRotation() might be called in Translation context (with align snapping),
-     * we need to be sure to actually use the *rotation* matrix here...
-     * So no other way than storing it in some dedicated members of `td_ext`! */
-    if ((t->flag & T_V3D_ALIGN) == 0) { /* Align mode doesn't rotate objects itself. */
-      /* Euler or quaternion/axis-angle? */
-      if (td_ext->rotOrder == ROT_MODE_QUAT) {
-        mul_m3_series(fmat, td_ext->r_smtx, mat, td_ext->r_mtx);
-
-        mat3_to_quat(quat, fmat); /* Actual transform. */
-
-        mul_qt_qtqt(td_ext->quat, quat, td_ext->iquat);
-        /* This function works on end result. */
-        protectedQuaternionBits(td->protectflag, td_ext->quat, td_ext->iquat);
-      }
-      else if (td_ext->rotOrder == ROT_MODE_AXISANGLE) {
-        /* Calculate effect based on quaternions. */
-        float iquat[4], tquat[4];
-
-        axis_angle_to_quat(iquat, td_ext->irotAxis, td_ext->irotAngle);
-
-        mul_m3_series(fmat, td_ext->r_smtx, mat, td_ext->r_mtx);
-        mat3_to_quat(quat, fmat); /* Actual transform. */
-        mul_qt_qtqt(tquat, quat, iquat);
-
-        quat_to_axis_angle(td_ext->rotAxis, td_ext->rotAngle, tquat);
-
-        /* This function works on end result. */
-        protectedAxisAngleBits(td->protectflag,
-                               td_ext->rotAxis,
-                               td_ext->rotAngle,
-                               td_ext->irotAxis,
-                               td_ext->irotAngle);
-      }
-      else {
-        float eulmat[3][3];
-
-        mul_m3_m3m3(totmat, mat, td_ext->r_mtx);
-        mul_m3_m3m3(smat, td_ext->r_smtx, totmat);
-
-        /* Calculate the total rotation in eulers. */
-        copy_v3_v3(eul, td_ext->irot);
-        eulO_to_mat3(eulmat, eul, td_ext->rotOrder);
-
-        /* `mat = transform`, `obmat = bone rotation`. */
-        mul_m3_m3m3(fmat, smat, eulmat);
-
-        mat3_to_compatible_eulO(eul, td_ext->rot, td_ext->rotOrder, fmat);
-
-        /* And apply (to end result only). */
-        protectedRotateBits(td->protectflag, eul, td_ext->irot);
-        copy_v3_v3(td_ext->rot, eul);
-      }
-
-      constraintRotLim(t, td, td_ext);
     }
   }
   else {
@@ -999,8 +853,7 @@ void ElementResize(const TransInfo *t,
       if (ELEM(t->data_type,
                &TransConvertType_Sculpt,
                &TransConvertType_Object,
-               &TransConvertType_ObjectTexSpace,
-               &TransConvertType_Pose))
+               &TransConvertType_ObjectTexSpace))
       {
         float ob_scale_mat[3][3];
         /* Reorient the size mat to fit the oriented object. */
@@ -1060,12 +913,7 @@ void ElementResize(const TransInfo *t,
 
   mul_v3_fl(vec, td->factor);
 
-  if (t->options & (CTX_OBJECT | CTX_POSE_BONE)) {
-    if (t->options & CTX_POSE_BONE) {
-      /* Without this, the resulting location of scaled bones aren't correct,
-       * especially noticeable scaling root or disconnected bones around the cursor, see #92515. */
-      mul_mat3_m4_v3(tc->poseobj->object_to_world().ptr(), vec);
-    }
+  if (t->options & CTX_OBJECT) {
     mul_m3_v3(td->smtx, vec);
   }
 
@@ -1116,17 +964,10 @@ static TransModeInfo *mode_info_get(TransInfo *t, const int mode)
       return &TransMode_edgecrease;
     case TFM_VERT_CREASE:
       return &TransMode_vertcrease;
-    case TFM_BONESIZE:
-      return &TransMode_bboneresize;
-    case TFM_BONE_ENVELOPE:
-    case TFM_BONE_ENVELOPE_DIST:
-      return &TransMode_boneenvelope;
     case TFM_EDGE_SLIDE:
       return &TransMode_edgeslide;
     case TFM_VERT_SLIDE:
       return &TransMode_vertslide;
-    case TFM_BONE_ROLL:
-      return &TransMode_boneroll;
     case TFM_TIME_TRANSLATE:
       return &TransMode_timetranslate;
     case TFM_TIME_SLIDE:

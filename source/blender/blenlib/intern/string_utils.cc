@@ -321,7 +321,7 @@ size_t BLI_string_flip_side_name(char *name_dst,
   /* We first check the case with a .### extension, let's find the last period */
   if (isdigit(name_dst[len - 1])) {
     index = strrchr(name_dst, '.');   /* Last occurrence. */
-    if (index && isdigit(index[1])) { /* Doesn't handle case `bone.1abc2` correct..., whatever! */
+    if (index && isdigit(index[1])) { /* Doesn't handle case `object.1abc2` correctly. */
       if (strip_number == false) {
         BLI_strncpy_utf8(number, index, name_dst_maxncpy);
       }

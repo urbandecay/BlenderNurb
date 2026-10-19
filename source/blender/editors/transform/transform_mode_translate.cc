@@ -89,13 +89,7 @@ static void transdata_elem_translate(const TransInfo *t,
 
       float3 original_normal;
 
-      /* In pose mode, we want to align normals with Y axis of bones. */
-      if (t->options & CTX_POSE_BONE) {
-        original_normal = td->axismtx[1];
-      }
-      else {
-        original_normal = td->axismtx[2];
-      }
+      original_normal = td->axismtx[2];
 
       if (t->flag & T_POINTS) {
         /* Convert to Global Space since #ElementRotation_ex operates with the matrix in global
@@ -232,15 +226,6 @@ static void headerTranslation(TransInfo *t, const float vec[3], char str[UI_MAX_
                                   IFACE_("Proportional Size"),
                                   t->proptext,
                                   prop_str);
-  }
-
-  if (t->flag & T_AUTOIK) {
-    short chainlen = t->settings->autoik_chainlen;
-    if (chainlen) {
-      ofs += BLI_snprintf_utf8_rlen(
-          str + ofs, UI_MAX_DRAW_STR - ofs, IFACE_("Auto IK Length: %d"), chainlen);
-      ofs += BLI_strncpy_utf8_rlen(str + ofs, "   ", UI_MAX_DRAW_STR - ofs);
-    }
   }
 
   if (t->con.mode & CON_APPLY) {
@@ -405,7 +390,7 @@ static void applyTranslationValue(TransInfo *t, const float vec[3])
        * since re-applying translation without rotation removes rotation. */
     }
     else {
-      /* When transforming data that itself stores rotation (objects, bones etc),
+      /* When transforming data that itself stores rotation (objects, etc.),
        * apply rotation if it was applied (with the snap normal) previously.
        * This is needed because failing to rotate will leave the rotation at the last
        * value used before snapping was disabled. */

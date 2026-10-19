@@ -41,7 +41,6 @@ void animviz_settings_init(bAnimVizSettings *avs)
 
   avs->path_step = 1;
 
-  avs->path_bakeflag |= MOTIONPATH_BAKE_HEADS;
 }
 
 /* ------------------- */
@@ -106,8 +105,7 @@ bMotionPath *animviz_copy_motionpath(const bMotionPath *mpath_src)
 
 bMotionPath *animviz_verify_motionpaths(ReportList *reports,
                                         Scene *scene,
-                                        Object *ob,
-                                        bPoseChannel *pchan)
+                                        Object *ob)
 {
   bAnimVizSettings *avs;
   bMotionPath *mpath, **dst;
@@ -117,24 +115,15 @@ bMotionPath *animviz_verify_motionpaths(ReportList *reports,
     return nullptr;
   }
 
-  /* get destination data */
-  if (pchan) {
-    /* Paths for pose-channel - assume that pose-channel belongs to the object. */
-    avs = &ob->pose->avs;
-    dst = &pchan->mpath;
-  }
-  else {
-    /* paths for object */
-    avs = &ob->avs;
-    dst = &ob->mpath;
-  }
+  avs = &ob->avs;
+  dst = &ob->mpath;
 
   /* Avoid 0 size allocations. */
   if (avs->path_sf >= avs->path_ef) {
     BKE_reportf(reports,
                 RPT_ERROR,
                 "Motion path frame extents invalid for %s (%d to %d)%s",
-                (pchan) ? pchan->name : ob->id.name,
+                ob->id.name,
                 avs->path_sf,
                 avs->path_ef,
                 (avs->path_sf == avs->path_ef) ? RPT_(", cannot have single-frame paths") : "");
@@ -176,13 +165,6 @@ bMotionPath *animviz_verify_motionpaths(ReportList *reports,
   mpath->start_frame = avs->path_sf;
   mpath->end_frame = avs->path_ef + 1;
   mpath->length = expected_length;
-
-  if (avs->path_bakeflag & MOTIONPATH_BAKE_HEADS) {
-    mpath->flag |= MOTIONPATH_FLAG_BHEAD;
-  }
-  else {
-    mpath->flag &= ~MOTIONPATH_FLAG_BHEAD;
-  }
 
   if (avs->path_bakeflag & MOTIONPATH_BAKE_CAMERA_SPACE) {
     mpath->flag |= MOTIONPATH_FLAG_BAKE_CAMERA;

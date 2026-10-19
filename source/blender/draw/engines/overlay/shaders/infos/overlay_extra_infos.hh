@@ -280,7 +280,7 @@ CREATE_INFO_VARIANT(overlay_motion_path_point_clipped, overlay_motion_path_point
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Image Empty
+/** \name Viewport and Camera Images
  * \{ */
 
 GPU_SHADER_INTERFACE_INFO(overlay_image_iface)

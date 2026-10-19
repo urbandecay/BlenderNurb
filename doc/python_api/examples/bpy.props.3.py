@@ -2,8 +2,7 @@
 Collection Example
 ++++++++++++++++++
 
-Custom properties can be added to any subclass of an :class:`ID`,
-:class:`Bone` and :class:`PoseBone`.
+Custom properties can be added to any subclass of an :class:`ID`.
 """
 
 import bpy
@@ -19,7 +18,6 @@ bpy.utils.register_class(SceneSettingItem)
 
 bpy.types.Scene.my_settings = bpy.props.CollectionProperty(type=SceneSettingItem)
 
-# Assume an armature object selected.
 print("Adding 2 values!")
 
 my_item = bpy.context.scene.my_settings.add()

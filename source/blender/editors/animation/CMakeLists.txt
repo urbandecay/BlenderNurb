@@ -16,7 +16,6 @@ set(INC_SYS
 )
 
 set(SRC
-  anim_asset_ops.cc
   anim_channels_defines.cc
   anim_channels_edit.cc
   anim_deps.cc

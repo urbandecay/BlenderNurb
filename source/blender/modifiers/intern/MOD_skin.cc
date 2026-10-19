@@ -2117,7 +2117,6 @@ static void panel_draw(const bContext * /*C*/, Panel *panel)
   layout.prop(ptr, "use_smooth_shade", UI_ITEM_NONE, std::nullopt, ICON_NONE);
 
   row = &layout.row(false);
-  row->op("OBJECT_OT_skin_armature_create", IFACE_("Create Armature"), ICON_NONE);
   row->op("MESH_OT_customdata_skin_add", std::nullopt, ICON_NONE);
 
   row = &layout.row(false);

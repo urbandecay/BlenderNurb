@@ -23,7 +23,6 @@
 #include "UI_view2d.hh"
 
 #include "ED_anim_api.hh"
-#include "ED_armature.hh"
 #include "ED_asset.hh"
 #include "ED_clip.hh"
 #include "ED_curve.hh"
@@ -105,7 +104,6 @@ void ED_spacetypes_init()
   ED_operatortypes_curve();
   curves::operatortypes_curves();
   pointcloud::operatortypes_pointcloud();
-  ED_operatortypes_armature();
   ED_operatortypes_marker();
   ED_operatortypes_metaball();
   ED_operatortypes_sound();
@@ -150,7 +148,6 @@ void ED_spacemacros_init()
   using namespace blender::ed;
   /* Macros must go last since they reference other operators.
    * They need to be registered after python operators too. */
-  ED_operatormacros_armature();
   ED_operatormacros_mesh();
   ED_operatormacros_uvedit();
   ED_operatormacros_metaball();
@@ -190,7 +187,6 @@ void ED_spacetypes_keymap(wmKeyConfig *keyconf)
   ED_keymap_curve(keyconf);
   curves::keymap_curves(keyconf);
   pointcloud::keymap_pointcloud(keyconf);
-  ED_keymap_armature(keyconf);
   ED_keymap_physics(keyconf);
   ED_keymap_metaball(keyconf);
   ED_keymap_paint(keyconf);

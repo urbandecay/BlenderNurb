@@ -9,7 +9,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_meta_types.h"
@@ -19,8 +18,6 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 
-#include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_lattice.hh"
 #include "BKE_layer.hh"
@@ -74,17 +71,6 @@ bool calc_active_center_for_editmode(Object *obedit, const bool select_only, flo
       }
       break;
     }
-    case OB_ARMATURE: {
-      bArmature *arm = id_cast<bArmature *>(obedit->data);
-      EditBone *ebo = arm->act_edbone;
-
-      if (ebo && (!select_only || (ebo->flag & (BONE_SELECTED | BONE_ROOTSEL)))) {
-        copy_v3_v3(r_center, ebo->head);
-        return true;
-      }
-
-      break;
-    }
     case OB_CURVES_LEGACY:
     case OB_SURF: {
       Curve *cu = id_cast<Curve *>(obedit->data);
@@ -120,28 +106,10 @@ bool calc_active_center_for_editmode(Object *obedit, const bool select_only, flo
   return false;
 }
 
-bool calc_active_center_for_posemode(Object *ob, const bool select_only, float r_center[3])
-{
-  bPoseChannel *pchan = BKE_pose_channel_active_if_bonecoll_visible(ob);
-  if (pchan && (!select_only || (pchan->flag & POSE_SELECTED))) {
-    const bArmature *arm = id_cast<bArmature *>(ob->data);
-    BKE_pose_channel_transform_location(arm, pchan, r_center);
-    return true;
-  }
-  return false;
-}
-
 bool calc_active_center(Object *ob, const bool select_only, float r_center[3])
 {
   if (ob->mode & OB_MODE_EDIT) {
     if (calc_active_center_for_editmode(ob, select_only, r_center)) {
-      mul_m4_v3(ob->object_to_world().ptr(), r_center);
-      return true;
-    }
-    return false;
-  }
-  if (ob->mode & OB_MODE_POSE) {
-    if (calc_active_center_for_posemode(ob, select_only, r_center)) {
       mul_m4_v3(ob->object_to_world().ptr(), r_center);
       return true;
     }
@@ -209,13 +177,7 @@ void data_xform_container_update_all(XFormObjectData_Container *xds,
     invert_m4(dmat.ptr());
 
     data_xform_by_mat4(*xf->xod, dmat);
-    if (xf->ob->type == OB_ARMATURE) {
-      /* TODO: none of the current flags properly update armatures, needs investigation. */
-      DEG_id_tag_update(id, 0);
-    }
-    else {
-      DEG_id_tag_update(id, ID_RECALC_GEOMETRY);
-    }
+    DEG_id_tag_update(id, ID_RECALC_GEOMETRY);
   }
 }
 

@@ -4,7 +4,6 @@
 
 set(INC
   ../include
-  ../../ikplugin
   ../../makesrna
   ../../modifiers
   ../../nodes

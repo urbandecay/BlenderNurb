@@ -606,9 +606,9 @@ NodeType geometry_tag_to_component(const ID *id)
     case ID_OB: {
       const Object *object = id_cast<Object *>(const_cast<ID *>(id));
       switch (object->type) {
-        /* Empties don't contain original geometry, but can have evaluated geometry if there are
+        /* No-data objects don't contain original geometry, but can have evaluated geometry from
          * modifiers. */
-        case OB_EMPTY: {
+        case OB_NO_DATA: {
           if (!BLI_listbase_is_empty(&object->modifiers)) {
             return NodeType::GEOMETRY;
           }
@@ -624,8 +624,6 @@ NodeType geometry_tag_to_component(const ID *id)
         case OB_POINTCLOUD:
         case OB_VOLUME:
           return NodeType::GEOMETRY;
-        case OB_ARMATURE:
-          return NodeType::EVAL_POSE;
           /* TODO(sergey): More cases here? */
         default:
           break;

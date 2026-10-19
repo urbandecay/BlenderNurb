@@ -15,7 +15,6 @@
 #include "BKE_idtype.hh"
 
 #include "DNA_ID.h"
-#include "DNA_action_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_modifier_types.h"
 
@@ -49,11 +48,6 @@ void print(std::ostream &stream, const ModifierData *modifier_data)
   stream << std::setw(kPrintTypeWidth) << ("Modifier") << modifier_data->name << "\n";
 }
 
-void print(std::ostream &stream, const bPoseChannel *pchan)
-{
-  stream << std::setw(kPrintTypeWidth) << ("Pose Channel") << pchan->name << "\n";
-}
-
 }  // namespace
 
 void BuilderStack::print_backtrace(std::ostream &stream)
@@ -83,9 +77,6 @@ void BuilderStack::print_backtrace(std::ostream &stream)
     }
     else if (entry.modifier_data_ != nullptr) {
       print(stream, entry.modifier_data_);
-    }
-    else if (entry.pchan_ != nullptr) {
-      print(stream, entry.pchan_);
     }
   }
 

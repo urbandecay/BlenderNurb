@@ -9,7 +9,7 @@ import pprint
 import sys
 import tempfile
 import unittest
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdMtlx, UsdShade, UsdSkel, UsdUI, UsdUtils, UsdVol
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdMtlx, UsdShade, UsdUI, UsdUtils, UsdVol
 
 import bpy
 
@@ -1109,35 +1109,6 @@ class USDExportTest(AbstractUSDTest):
         self.assertEqual(rot_samples, [1.0, 2.0, 3.0, 4.0])
         self.assertEqual(scale_samples, [1.0])
 
-        # Validate the armature animation
-        prim = stage.GetPrimAtPath("/root/Armature/Armature")
-        self.assertEqual(prim.GetTypeName(), "Skeleton")
-        prim_skel = UsdSkel.BindingAPI(prim)
-        anim = UsdSkel.Animation(prim_skel.GetAnimationSource())
-        self.assertEqual(anim.GetPrim().GetName(), "ArmatureAction_001")
-        self.assertEqual(anim.GetJointsAttr().Get(),
-                         ['Bone',
-                          'Bone/Bone_001',
-                          'Bone/Bone_001/Bone_002',
-                          'Bone/Bone_001/Bone_002/Bone_003',
-                          'Bone/Bone_001/Bone_002/Bone_003/Bone_004'])
-        loc_samples = anim.GetTranslationsAttr().GetTimeSamples()
-        rot_samples = anim.GetRotationsAttr().GetTimeSamples()
-        scale_samples = anim.GetScalesAttr().GetTimeSamples()
-        self.assertEqual(loc_samples, [])
-        self.assertEqual(rot_samples, [1.0, 2.0, 3.0])
-        self.assertEqual(scale_samples, [])
-
-        # Validate the shape key animation
-        prim = stage.GetPrimAtPath("/root/cube_anim_keys")
-        self.assertEqual(prim.GetTypeName(), "SkelRoot")
-        prim_skel = UsdSkel.BindingAPI(prim.GetPrimAtPath("cube_anim_keys"))
-        self.assertEqual(prim_skel.GetBlendShapesAttr().Get(), ['Key_1'])
-        prim_skel = UsdSkel.BindingAPI(prim.GetPrimAtPath("Skel"))
-        anim = UsdSkel.Animation(prim_skel.GetAnimationSource())
-        weight_samples = anim.GetBlendShapeWeightsAttr().GetTimeSamples()
-        self.assertEqual(weight_samples, [1.0, 2.0, 3.0, 4.0, 5.0])
-
     def test_export_text(self):
         """Test various forms of Text/Font export."""
 
@@ -1396,20 +1367,10 @@ class USDExportTest(AbstractUSDTest):
 
         expected_prim_map = {
             Sdf.Path('/root/cube_anim_xform/cube_anim_child'): [bpy.data.objects['cube_anim_child']],
-            Sdf.Path('/root/Armature/column_anim_armature/column_anim_armature'): [bpy.data.meshes['column_anim_armature']],
             Sdf.Path('/root/_materials/Material'): [bpy.data.materials['Material']],
-            Sdf.Path('/root/Armature2/side_b'): [bpy.data.objects['side_b']],
-            Sdf.Path('/root/Armature2/side_b/side_b'): [bpy.data.meshes['side_b']],
-            Sdf.Path('/root/cube_anim_keys'): [bpy.data.objects['cube_anim_keys']],
-            Sdf.Path('/root/Armature2/side_a'): [bpy.data.objects['side_a']],
             Sdf.Path('/root/cube_anim_xform/cube_anim_child/cube_anim_child_mesh'): [bpy.data.meshes['cube_anim_child_mesh']],
-            Sdf.Path('/root/Armature'): [bpy.data.objects['Armature']],
             Sdf.Path('/root/cube_anim_xform/cube_anim_xform_mesh'): [bpy.data.meshes['cube_anim_xform_mesh']],
-            Sdf.Path('/root/Armature2'): [bpy.data.objects['Armature2']],
-            Sdf.Path('/root/Armature/column_anim_armature'): [bpy.data.objects['column_anim_armature']],
-            Sdf.Path('/root/cube_anim_keys/cube_anim_keys'): [bpy.data.meshes['cube_anim_keys']],
             Sdf.Path('/root/cube_anim_xform'): [bpy.data.objects['cube_anim_xform']],
-            Sdf.Path('/root/Armature2/side_a/side_a'): [bpy.data.meshes['side_a']],
         }
 
         self.assertDictEqual(prim_map, expected_prim_map)

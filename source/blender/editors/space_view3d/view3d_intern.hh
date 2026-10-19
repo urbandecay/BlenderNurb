@@ -87,7 +87,6 @@ void VIEW3D_OT_select_circle(wmOperatorType *ot);
 void VIEW3D_OT_select_box(wmOperatorType *ot);
 void VIEW3D_OT_select_lasso(wmOperatorType *ot);
 void VIEW3D_OT_select_menu(wmOperatorType *ot);
-void VIEW3D_OT_bone_select_menu(wmOperatorType *ot);
 
 /* `view3d_utils.cc` */
 
@@ -212,8 +211,6 @@ void VIEW3D_GGT_light_target(wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_camera(wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_camera_view(wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_force_field(wmGizmoGroupType *gzgt);
-void VIEW3D_GGT_empty_image(wmGizmoGroupType *gzgt);
-void VIEW3D_GGT_armature_spline(wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_navigate(wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_mesh_preselect_elem(wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_mesh_preselect_edgering(wmGizmoGroupType *gzgt);

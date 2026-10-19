@@ -902,7 +902,7 @@ struct UserDef {
                         USER_HIDE_DOT_DATABLOCK;
   /** #eDupli_ID_Flags. */
   unsigned int dupflag = USER_DUP_MESH | USER_DUP_CURVE | USER_DUP_SURF | USER_DUP_LATTICE |
-                         USER_DUP_FONT | USER_DUP_MBALL | USER_DUP_LAMP | USER_DUP_ARM |
+                         USER_DUP_FONT | USER_DUP_MBALL | USER_DUP_LAMP |
                          USER_DUP_CAMERA | USER_DUP_SPEAKER | USER_DUP_ACT | USER_DUP_LIGHTPROBE |
                          USER_DUP_CURVES | USER_DUP_POINTCLOUD;
   /** Preferences for the preferences. */
@@ -1243,7 +1243,7 @@ struct UserDef {
   eUserpref_SeqProxySetup sequencer_proxy_setup = USER_SEQ_PROXY_SETUP_AUTOMATIC;
   short _pad1 = {};
 
-  float collection_instance_empty_size = 1.0f;
+  char _pad_removed_float[4] = {};
   eTextEdit_Flags text_flag = {};
 
   eUserpref_Save_Modified_Images save_modified_images = USER_SAVE_MODIFIED_IMAGES_ASK;

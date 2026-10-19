@@ -19,10 +19,8 @@ namespace animrig {
 
 /**
  * This helper function determines if visual-keyframing should be used when
- * inserting keyframes for the given channel. As visual-keyframing only works
- * on Object and Pose-Channel blocks, this should only get called for those
- * block-types, when using "standard" keying but 'Visual Keying' option in Auto-Keying
- * settings is on.
+ * inserting keyframes for an Object transform, when using "standard" keying
+ * with the 'Visual Keying' option in Auto-Keying settings enabled.
  */
 bool visualkey_can_use(PointerRNA *ptr, PropertyRNA *prop);
 

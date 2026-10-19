@@ -64,14 +64,6 @@ void TreeElementModifier::expand(SpaceOutliner & /*space_outliner*/) const
                 TSE_LINKED_OB,
                 0);
   }
-  else if (md->type == eModifierType_Armature) {
-    add_element(&legacy_te_.subtree,
-                reinterpret_cast<ID *>((reinterpret_cast<ArmatureModifierData *>(md))->object),
-                nullptr,
-                &legacy_te_,
-                TSE_LINKED_OB,
-                0);
-  }
   else if (md->type == eModifierType_Hook) {
     add_element(&legacy_te_.subtree,
                 reinterpret_cast<ID *>((reinterpret_cast<HookModifierData *>(md))->object),

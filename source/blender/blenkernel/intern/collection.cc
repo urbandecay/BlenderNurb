@@ -162,7 +162,7 @@ static void collection_copy_data(Main *bmain,
     collection_dst->preview = nullptr;
   }
 
-  collection_dst->flag &= ~(COLLECTION_HAS_OBJECT_CACHE | COLLECTION_HAS_OBJECT_CACHE_INSTANCED);
+  collection_dst->flag &= ~COLLECTION_HAS_OBJECT_CACHE;
 
   collection_dst->gobject.clear_no_delete();
   collection_dst->children.clear_no_delete();
@@ -882,8 +882,7 @@ const char *BKE_collection_ui_name_get(Collection *collection)
 
 static void collection_object_cache_fill(ListBaseT<Base> *lb,
                                          Collection *collection,
-                                         int parent_restrict,
-                                         bool with_instances)
+                                         int parent_restrict)
 {
   int child_restrict = collection->flag | parent_restrict;
 
@@ -894,10 +893,6 @@ static void collection_object_cache_fill(ListBaseT<Base> *lb,
       base = MEM_new<Base>("Object Base");
       base->object = cob.ob;
       BLI_addtail(lb, base);
-      if (with_instances && cob.ob->instance_collection) {
-        collection_object_cache_fill(
-            lb, cob.ob->instance_collection, child_restrict, with_instances);
-      }
     }
 
     /* Only collection flags are checked here currently, object restrict flag is checked
@@ -912,7 +907,7 @@ static void collection_object_cache_fill(ListBaseT<Base> *lb,
   }
 
   for (CollectionChild &child : collection->children) {
-    collection_object_cache_fill(lb, child.collection, child_restrict, with_instances);
+    collection_object_cache_fill(lb, child.collection, child_restrict);
   }
 }
 
@@ -923,7 +918,7 @@ ListBaseT<Base> BKE_collection_object_cache_get(Collection *collection)
 
     std::scoped_lock lock(cache_lock);
     if (!(collection->flag & COLLECTION_HAS_OBJECT_CACHE)) {
-      collection_object_cache_fill(&collection->runtime->object_cache, collection, 0, false);
+      collection_object_cache_fill(&collection->runtime->object_cache, collection, 0);
       collection->flag |= COLLECTION_HAS_OBJECT_CACHE;
     }
   }
@@ -931,30 +926,13 @@ ListBaseT<Base> BKE_collection_object_cache_get(Collection *collection)
   return collection->runtime->object_cache;
 }
 
-ListBaseT<Base> BKE_collection_object_cache_instanced_get(Collection *collection)
-{
-  if (!(collection->flag & COLLECTION_HAS_OBJECT_CACHE_INSTANCED)) {
-    static Mutex cache_lock;
-
-    std::scoped_lock lock(cache_lock);
-    if (!(collection->flag & COLLECTION_HAS_OBJECT_CACHE_INSTANCED)) {
-      collection_object_cache_fill(
-          &collection->runtime->object_cache_instanced, collection, 0, true);
-      collection->flag |= COLLECTION_HAS_OBJECT_CACHE_INSTANCED;
-    }
-  }
-
-  return collection->runtime->object_cache_instanced;
-}
-
 static void collection_object_cache_free(const Main *bmain,
                                          Collection *collection,
                                          const int id_create_flag,
                                          const uint id_recalc_flag)
 {
-  collection->flag &= ~(COLLECTION_HAS_OBJECT_CACHE | COLLECTION_HAS_OBJECT_CACHE_INSTANCED);
+  collection->flag &= ~COLLECTION_HAS_OBJECT_CACHE;
   collection->runtime->object_cache.free_no_destruct();
-  collection->runtime->object_cache_instanced.free_no_destruct();
 
   /* Although it may seem abusive to call depsgraph updates from this utility function,
    * it is called from any code-path modifying the collections hierarchy and/or their objects.
@@ -1061,43 +1039,6 @@ Collection *BKE_collection_master_add(Scene *scene)
 /** \name Cyclic Checks
  * \{ */
 
-static bool collection_object_cyclic_check_internal(Object *object, Collection *collection)
-{
-  if (object->instance_collection) {
-    Collection *dup_collection = object->instance_collection;
-    if ((dup_collection->id.tag & ID_TAG_DOIT) == 0) {
-      /* Cycle already exists in collections, let's prevent further creepiness. */
-      return true;
-    }
-    /* flag the object to identify cyclic dependencies in further dupli collections */
-    dup_collection->id.tag &= ~ID_TAG_DOIT;
-
-    if (dup_collection == collection) {
-      return true;
-    }
-
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (dup_collection, collection_object) {
-      if (collection_object_cyclic_check_internal(collection_object, dup_collection)) {
-        return true;
-      }
-    }
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
-
-    /* un-flag the object, it's allowed to have the same collection multiple times in parallel */
-    dup_collection->id.tag |= ID_TAG_DOIT;
-  }
-
-  return false;
-}
-
-bool BKE_collection_object_cyclic_check(Main *bmain, Object *object, Collection *collection)
-{
-  /* first flag all collections */
-  BKE_main_id_tag_listbase(&bmain->collections.cast<ID>(), ID_TAG_DOIT, true);
-
-  return collection_object_cyclic_check_internal(object, collection);
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1123,22 +1064,12 @@ bool BKE_collection_has_object_recursive(Collection *collection, Object *ob)
   return BLI_findptr(&objects, ob, offsetof(Base, object));
 }
 
-bool BKE_collection_has_object_recursive_instanced(Collection *collection, Object *ob)
-{
-  if (ELEM(nullptr, collection, ob)) {
-    return false;
-  }
-
-  const ListBaseT<Base> objects = BKE_collection_object_cache_instanced_get(collection);
-  return BLI_findptr(&objects, ob, offsetof(Base, object));
-}
-
-bool BKE_collection_has_object_recursive_instanced_orig_id(Collection *collection_eval,
-                                                           Object *object_eval)
+bool BKE_collection_has_object_recursive_orig_id(Collection *collection_eval,
+                                                 Object *object_eval)
 {
   BLI_assert(collection_eval->id.tag & ID_TAG_COPIED_ON_EVAL);
   const Object *ob_orig = DEG_get_original(object_eval);
-  const ListBaseT<Base> objects = BKE_collection_object_cache_instanced_get(collection_eval);
+  const ListBaseT<Base> objects = BKE_collection_object_cache_get(collection_eval);
   for (Base &base : objects) {
     if (DEG_get_original(base.object) == ob_orig) {
       return true;
@@ -1447,15 +1378,6 @@ static bool collection_object_add(Main *bmain,
                                   const int id_create_flag,
                                   const bool add_us)
 {
-  /* Cyclic dependency check. */
-  if (ob->instance_collection) {
-    if ((ob->instance_collection == collection) ||
-        collection_find_child_recursive(ob->instance_collection, collection))
-    {
-      return false;
-    }
-  }
-
   collection_gobject_hash_ensure(collection);
 
   bool newly_added = false;
@@ -1919,29 +1841,6 @@ void BKE_collections_after_lib_link(Main *bmain)
 /** \name Collection Children
  * \{ */
 
-static bool collection_instance_find_recursive(Collection *collection,
-                                               Collection *instance_collection)
-{
-  for (CollectionObject &collection_object : collection->gobject) {
-    if (collection_object.ob != nullptr &&
-        /* Object from a given collection should never instantiate that collection either. */
-        ELEM(collection_object.ob->instance_collection, instance_collection, collection))
-    {
-      return true;
-    }
-  }
-
-  for (CollectionChild &collection_child : collection->children) {
-    if (collection_child.collection != nullptr &&
-        collection_instance_find_recursive(collection_child.collection, instance_collection))
-    {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 bool BKE_collection_cycle_find(Collection *new_ancestor, Collection *collection)
 {
   if (collection == new_ancestor) {
@@ -1958,32 +1857,7 @@ bool BKE_collection_cycle_find(Collection *new_ancestor, Collection *collection)
     }
   }
 
-  /* Find possible objects in collection or its children, that would instantiate the given ancestor
-   * collection (that would also make a fully invalid cycle of dependencies). */
-  return collection_instance_find_recursive(collection, new_ancestor);
-}
-
-static bool collection_instance_fix_recursive(Collection *parent_collection,
-                                              Collection *collection)
-{
-  bool cycles_found = false;
-
-  for (CollectionObject &collection_object : parent_collection->gobject) {
-    if (collection_object.ob != nullptr && collection_object.ob->instance_collection == collection)
-    {
-      id_us_min(&collection->id);
-      collection_object.ob->instance_collection = nullptr;
-      cycles_found = true;
-    }
-  }
-
-  for (CollectionChild &collection_child : parent_collection->children) {
-    if (collection_instance_fix_recursive(collection_child.collection, collection)) {
-      cycles_found = true;
-    }
-  }
-
-  return cycles_found;
+  return false;
 }
 
 static bool collection_cycle_fix_recursive(Main *bmain,
@@ -2007,8 +1881,7 @@ static bool collection_cycle_fix_recursive(Main *bmain,
 
 bool BKE_collection_cycles_fix(Main *bmain, Collection *collection)
 {
-  return collection_cycle_fix_recursive(bmain, collection, collection) ||
-         collection_instance_fix_recursive(collection, collection);
+  return collection_cycle_fix_recursive(bmain, collection, collection);
 }
 
 CollectionChild *BKE_collection_child_find(Collection *parent, Collection *collection)

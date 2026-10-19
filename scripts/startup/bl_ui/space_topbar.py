@@ -714,27 +714,12 @@ class TOPBAR_PT_name(Panel):
                 row.prop(item, "name", text="")
                 found = True
         else:
-            if mode == 'POSE' or (mode == 'WEIGHT_PAINT' and context.pose_object):
-                layout.label(text="Bone Name")
-                item = context.active_pose_bone
-                if item:
-                    row = row_with_icon(layout, 'BONE_DATA')
-                    row.prop(item, "name", text="")
-                    found = True
-            elif mode == 'EDIT_ARMATURE':
-                layout.label(text="Bone Name")
-                item = context.active_bone
-                if item:
-                    row = row_with_icon(layout, 'BONE_DATA')
-                    row.prop(item, "name", text="")
-                    found = True
-            else:
-                layout.label(text="Object Name")
-                item = context.object
-                if item:
-                    row = row_with_icon(layout, 'OBJECT_DATA')
-                    row.prop(item, "name", text="")
-                    found = True
+            layout.label(text="Object Name")
+            item = context.object
+            if item:
+                row = row_with_icon(layout, 'OBJECT_DATA')
+                row.prop(item, "name", text="")
+                found = True
 
         if not found:
             row = row_with_icon(layout, 'ERROR')
@@ -803,7 +788,7 @@ class TOPBAR_PT_name_marker(Panel):
         if marker.camera is not None:
             icon = 'CAMERA_DATA'
         elif self.is_using_pose_markers(context):
-            icon = 'ARMATURE_DATA'
+            icon = 'PMARKER'
         row = self.row_with_icon(layout, icon)
         row.prop(marker, "name", text="")
 

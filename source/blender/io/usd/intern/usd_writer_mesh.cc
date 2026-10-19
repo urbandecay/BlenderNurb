@@ -3,18 +3,15 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include "usd_writer_mesh.hh"
 
-#include "usd_armature_utils.hh"
 #include "usd_attribute_utils.hh"
 #include "usd_blend_shape_utils.hh"
 #include "usd_hierarchy_iterator.hh"
-#include "usd_skel_convert.hh"
 #include "usd_utils.hh"
 
 #include <pxr/usd/usdGeom/mesh.h>
 #include <pxr/usd/usdGeom/primvarsAPI.h>
 #include <pxr/usd/usdShade/material.h>
 #include <pxr/usd/usdShade/materialBindingAPI.h>
-#include <pxr/usd/usdSkel/bindingAPI.h>
 
 #include "BLI_array_utils.hh"
 #include "BLI_assert.h"
@@ -36,7 +33,6 @@
 
 #include "DEG_depsgraph.hh"
 
-#include "DNA_key_types.h"
 #include "DNA_material_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -167,27 +163,6 @@ void USDGenericMeshWriter::write_custom_data(const Object *obj,
              "custom_normal",
              "sharp_face"))
     {
-      return;
-    }
-
-    if ((usd_export_context_.export_params.export_armatures ||
-         usd_export_context_.export_params.export_shapekeys) &&
-        iter.name.rfind("skel:") == 0)
-    {
-      /* If we're exporting armatures or shape keys to UsdSkel, we skip any
-       * attributes that have names with the "skel:" namespace, to avoid possible
-       * conflicts. Such attribute might have been previously imported into Blender
-       * from USD, but can no longer be considered valid. */
-      return;
-    }
-
-    if (usd_export_context_.export_params.export_armatures &&
-        is_armature_modifier_bone_name(*obj, iter.name, usd_export_context_.depsgraph))
-    {
-      /* This attribute is likely a vertex group for the armature modifier,
-       * and it may conflict with skinning data that will be written to
-       * the USD mesh, so we skip it.  Such vertex groups will instead be
-       * handled in #export_deform_verts(). */
       return;
     }
 
@@ -761,90 +736,18 @@ void USDGenericMeshWriter::write_surface_velocity(const Mesh *mesh,
 }
 
 USDMeshWriter::USDMeshWriter(const USDExporterContext &ctx)
-    : USDGenericMeshWriter(ctx), write_skinned_mesh_(false), write_blend_shapes_(false)
+    : USDGenericMeshWriter(ctx), write_blend_shapes_(false)
 {
 }
 
-void USDMeshWriter::set_skel_export_flags(const HierarchyContext &context)
+void USDMeshWriter::set_shape_key_export_flags(const HierarchyContext &context)
 {
-  write_skinned_mesh_ = false;
   write_blend_shapes_ = false;
 
   const USDExportParams &params = usd_export_context_.export_params;
 
-  /* We can write a skinned mesh if exporting armatures is enabled and the object has an armature
-   * modifier. */
-  write_skinned_mesh_ = params.export_armatures &&
-                        can_export_skinned_mesh(*context.object, usd_export_context_.depsgraph);
-
   /* We can write blend shapes if exporting shape keys is enabled and the object has shape keys. */
   write_blend_shapes_ = params.export_shapekeys && is_mesh_with_shape_keys(context.object);
-}
-
-void USDMeshWriter::init_skinned_mesh(const HierarchyContext &context)
-{
-  pxr::UsdStageRefPtr stage = usd_export_context_.stage;
-
-  pxr::UsdPrim mesh_prim = stage->GetPrimAtPath(usd_export_context_.usd_path);
-
-  if (!mesh_prim.IsValid()) {
-    CLOG_WARN(&LOG,
-              "%s: couldn't get valid mesh prim for mesh %s",
-              __func__,
-              usd_export_context_.usd_path.GetAsString().c_str());
-    return;
-  }
-
-  pxr::UsdSkelBindingAPI skel_api = pxr::UsdSkelBindingAPI::Apply(mesh_prim);
-
-  if (!skel_api) {
-    CLOG_WARN(&LOG,
-              "Couldn't apply UsdSkelBindingAPI to mesh prim %s",
-              usd_export_context_.usd_path.GetAsString().c_str());
-    return;
-  }
-
-  const Object *arm_obj = get_armature_modifier_obj(*context.object,
-                                                    usd_export_context_.depsgraph);
-
-  if (!arm_obj) {
-    CLOG_WARN(&LOG,
-              "Couldn't get armature modifier object for skinned mesh %s",
-              usd_export_context_.usd_path.GetAsString().c_str());
-    return;
-  }
-
-  Vector<StringRef> bone_names;
-  get_armature_bone_names(
-      arm_obj, usd_export_context_.export_params.only_deform_bones, bone_names);
-
-  if (bone_names.is_empty()) {
-    CLOG_WARN(&LOG,
-              "No armature bones for skinned mesh %s",
-              usd_export_context_.usd_path.GetAsString().c_str());
-    return;
-  }
-
-  bool needsfree = false;
-  Mesh *mesh = get_export_mesh(context.object, needsfree);
-
-  if (mesh == nullptr) {
-    return;
-  }
-
-  try {
-    export_deform_verts(mesh, skel_api, bone_names);
-
-    if (needsfree) {
-      free_export_mesh(mesh);
-    }
-  }
-  catch (...) {
-    if (needsfree) {
-      free_export_mesh(mesh);
-    }
-    throw;
-  }
 }
 
 void USDMeshWriter::init_blend_shapes(const HierarchyContext &context)
@@ -868,27 +771,17 @@ void USDMeshWriter::init_blend_shapes(const HierarchyContext &context)
 
 void USDMeshWriter::do_write(HierarchyContext &context)
 {
-  set_skel_export_flags(context);
+  set_shape_key_export_flags(context);
 
-  if (frame_has_been_written_ && (write_skinned_mesh_ || write_blend_shapes_)) {
-    /* When writing skinned meshes or blend shapes, we only write the rest mesh once,
-     * so we return early after the first frame has been written. However, we still
-     * update blend shape weights if needed. */
-    if (write_blend_shapes_) {
-      add_shape_key_weights_sample(context.object);
-    }
+  if (frame_has_been_written_ && write_blend_shapes_) {
+    /* Shape key targets are static; write the mesh only once. */
     return;
   }
 
   USDGenericMeshWriter::do_write(context);
 
-  if (write_skinned_mesh_) {
-    init_skinned_mesh(context);
-  }
-
   if (write_blend_shapes_) {
     init_blend_shapes(context);
-    add_shape_key_weights_sample(context.object);
   }
 }
 
@@ -901,59 +794,9 @@ Mesh *USDMeshWriter::get_export_mesh(Object *object_eval, bool &r_needsfree)
     return get_shape_key_basis_mesh(object_eval);
   }
 
-  if (write_skinned_mesh_) {
-    r_needsfree = false;
-    /* We must export the skinned mesh in its rest pose.  We therefore
-     * return the pre-modified mesh, so that the armature modifier isn't
-     * applied. */
-    /* TODO: Store the "needs free" mesh in a separate variable. */
-    return const_cast<Mesh *>(BKE_object_get_pre_modified_mesh(object_eval));
-  }
-
   /* Return the fully evaluated mesh. */
   r_needsfree = false;
   return BKE_object_get_evaluated_mesh(object_eval);
-}
-
-void USDMeshWriter::add_shape_key_weights_sample(const Object *obj)
-{
-  if (!obj) {
-    return;
-  }
-
-  const Key *key = get_mesh_shape_key(obj);
-  if (!key) {
-    return;
-  }
-
-  pxr::UsdStageRefPtr stage = usd_export_context_.stage;
-
-  pxr::UsdPrim mesh_prim = stage->GetPrimAtPath(usd_export_context_.usd_path);
-
-  if (!mesh_prim.IsValid()) {
-    CLOG_WARN(&LOG,
-              "Couldn't get valid mesh prim for mesh %s",
-              usd_export_context_.usd_path.GetAsString().c_str());
-    return;
-  }
-
-  pxr::VtFloatArray weights = get_blendshape_weights(key);
-  pxr::UsdTimeCode time = get_export_time_code();
-
-  /* Save the weights samples to a temporary privar which will be copied to
-   * a skeleton animation later. */
-  pxr::UsdAttribute temp_weights_attr = pxr::UsdGeomPrimvarsAPI(mesh_prim).CreatePrimvar(
-      TempBlendShapeWeightsPrimvarName, pxr::SdfValueTypeNames->FloatArray);
-
-  if (!temp_weights_attr) {
-    CLOG_WARN(&LOG,
-              "Couldn't create primvar %s on prim %s",
-              TempBlendShapeWeightsPrimvarName.GetText(),
-              mesh_prim.GetPath().GetAsString().c_str());
-    return;
-  }
-
-  temp_weights_attr.Set(weights, time);
 }
 
 }  // namespace io::usd

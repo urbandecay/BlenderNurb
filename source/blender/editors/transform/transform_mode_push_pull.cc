@@ -39,8 +39,7 @@ static void transdata_elem_push_pull(const TransInfo *t,
                                      TransData *td,
                                      const float distance,
                                      const float axis_global[3],
-                                     const bool is_lock_constraint,
-                                     const bool is_data_space)
+                                     const bool is_lock_constraint)
 {
   float vec[3];
   sub_v3_v3v3(vec, tc->center_local, td->center);
@@ -60,10 +59,6 @@ static void transdata_elem_push_pull(const TransInfo *t,
     }
   }
   normalize_v3_length(vec, distance * td->factor);
-  if (is_data_space) {
-    mul_m3_v3(td->smtx, vec);
-  }
-
   add_v3_v3v3(td->loc, td->iloc, vec);
 }
 
@@ -99,8 +94,6 @@ static void applyPushPull(TransInfo *t)
   }
 
   const bool is_lock_constraint = isLockConstraint(t);
-  const bool is_data_space = (t->options & CTX_POSE_BONE) != 0;
-
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     threading::parallel_for(IndexRange(tc->data_len), 1024, [&](const IndexRange range) {
       for (const int i : range) {
@@ -108,8 +101,7 @@ static void applyPushPull(TransInfo *t)
         if (td->flag & TD_SKIP) {
           continue;
         }
-        transdata_elem_push_pull(
-            t, tc, td, distance, axis_global, is_lock_constraint, is_data_space);
+        transdata_elem_push_pull(t, tc, td, distance, axis_global, is_lock_constraint);
       }
     });
   }

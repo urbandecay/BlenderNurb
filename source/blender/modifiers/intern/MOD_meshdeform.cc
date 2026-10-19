@@ -418,8 +418,6 @@ static void deform_verts(ModifierData *md,
                          Mesh *mesh,
                          MutableSpan<float3> positions)
 {
-  /* if next modifier needs original vertices */
-  MOD_previous_vcos_store(md, reinterpret_cast<float (*)[3]>(positions.data()));
   meshdeformModifier_do(
       md, ctx, mesh, reinterpret_cast<float (*)[3]>(positions.data()), positions.size());
 }

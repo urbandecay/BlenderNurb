@@ -177,10 +177,9 @@ PyDoc_STRVAR(
     bpy_flip_name_doc,
     ".. function:: flip_name(name, *, strip_digits=False)\n"
     "\n"
-    "   Flip a name between left/right sides, useful for \n"
-    "   mirroring bone names.\n"
+    "   Flip a name between left/right sides, useful for mirroring paired names.\n"
     "\n"
-    "   :param name: Bone name to flip.\n"
+    "   :param name: Name to flip.\n"
     "   :type name: str\n"
     "   :param strip_digits: Whether to remove ``.###`` suffix.\n"
     "   :type strip_digits: bool\n"

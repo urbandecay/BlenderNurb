@@ -2052,8 +2052,7 @@ struct ToolSettings {
   /** Present weights as if all locked vertex groups were
    *  deleted, and the remaining deform groups normalized. */
   char wpaint_lock_relative = 0;
-  /** Paint multiple bones in wpaint. */
-  char multipaint = 0;
+  char _pad_multipaint = 0;
   eTool_WeightUser weightuser = OB_DRAW_GROUPUSER_ACTIVE;
   /** Subset selection filter in wpaint. */
   eVGroupSelect vgroupsubset = WT_VGROUP_ALL;
@@ -2121,7 +2120,6 @@ struct ToolSettings {
   /* Animation settings, used by "Paste Global Transform" operator. */
   struct Object *anim_mirror_object = nullptr;
   struct Object *anim_relative_object = nullptr;
-  char anim_mirror_bone[64] = "";
 
   /* Flags for "Fix to Camera" operator. */
   uint8_t fix_to_cam_flag = FIX_TO_CAM_FLAG_USE_LOC | FIX_TO_CAM_FLAG_USE_ROT |
@@ -2664,7 +2662,6 @@ extern const char *RE_engine_id_BLENDER_EEVEE_NEXT;
 
 /* deprecate this! */
 #define OBEDIT_FROM_OBACT(ob) ((ob) ? (((ob)->mode & OB_MODE_EDIT) ? ob : NULL) : NULL)
-#define OBPOSE_FROM_OBACT(ob) ((ob) ? (((ob)->mode & OB_MODE_POSE) ? ob : NULL) : NULL)
 #define OBWEIGHTPAINT_ALL_FROM_OBACT(ob) \
   ((ob) ? (((ob)->mode & OB_MODE_ALL_WEIGHT_PAINT) ? ob : NULL) : NULL)
 

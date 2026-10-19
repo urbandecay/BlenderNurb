@@ -165,7 +165,7 @@ class USDPrimReader {
    * If the generated object has instantiated data, it's assumed that the data
    * represents the USD prim, and the prim properties will be set on the data ID.
    * If the object data is null (which would be the case when a USD Xform is
-   * converted to an Empty object), then the prim properties will be set on the
+   * represented by a no-data object), then the prim properties will be set on the
    * object ID.  Finally, a true value for the 'merge_with_parent' argument indicates
    * that the object represents a USD Xform and its child prim that were merged
    * on import, and the properties of the prim's parent will be set on the object

@@ -11,10 +11,6 @@
 #include "intern/node/deg_node.hh"
 #include "intern/node/deg_node_operation.hh"
 
-#include "BLI_map.hh"
-
-#include <memory>
-
 namespace blender {
 
 struct ID;
@@ -25,7 +21,6 @@ namespace deg {
 
 struct Depsgraph;
 struct Node;
-class RNANodeQueryIDData;
 class DepsgraphBuilder;
 
 /* For queries which gives operation node or key defines whether we are
@@ -72,17 +67,11 @@ class RNANodeQuery {
   Depsgraph *depsgraph_;
   DepsgraphBuilder *builder_;
 
-  /* Indexed by an ID, returns RNANodeQueryIDData associated with that ID. */
-  Map<const ID *, std::unique_ptr<RNANodeQueryIDData>> id_data_map_;
-
   /* Construct identifier of the node which corresponds given configuration
    * of RNA property. */
   RNANodeIdentifier construct_node_identifier(const PointerRNA *ptr,
                                               const PropertyRNA *prop,
                                               RNAPointerSource source);
-
-  /* Make sure ID data exists for the given ID, and returns it. */
-  RNANodeQueryIDData *ensure_id_data(const ID *id);
 
   /* Check whether prop_identifier contains rna_path_component.
    *
@@ -92,8 +81,8 @@ class RNANodeQuery {
    * ------------------------  -------------------------------------
    * location                  true
    * ["test_location"]         false
-   * pose["bone"].location     true
-   * pose["bone"].location.x   true
+   * object["custom_property"].location     true
+   * object["custom_property"].location.x   true
    */
   static bool contains(const char *prop_identifier, const char *rna_path_component);
 };

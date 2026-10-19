@@ -49,9 +49,6 @@ class USDStageReader {
    * traversal, for importing unused materials. */
   Vector<pxr::SdfPath> material_paths_;
 
-  /* Readers for scene-graph instance prototypes. */
-  ProtoReaderMap proto_readers_;
-
   /* Readers for point instancer prototypes. */
   ProtoReaderMap instancer_proto_readers_;
 
@@ -67,13 +64,6 @@ class USDStageReader {
   USDPrimReader *create_reader(const pxr::UsdPrim &prim);
 
   void collect_readers();
-
-  /**
-   * Complete setting up the armature modifiers that
-   * were created for skinned meshes by setting the
-   * modifier object on the corresponding modifier.
-   */
-  void process_armature_modifiers() const;
 
   /* Convert every material prim on the stage to a Blender
    * material, including materials not used by any geometry.

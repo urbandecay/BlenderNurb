@@ -11,7 +11,6 @@
 #include <numeric>
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_light_types.h"
@@ -31,7 +30,6 @@
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
 
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
 #include "BKE_curves.hh"
@@ -67,7 +65,6 @@
 #include "ANIM_keyingsets.hh"
 
 #include "ED_anim_api.hh"
-#include "ED_armature.hh"
 #include "ED_mesh.hh"
 #include "ED_object.hh"
 #include "ED_screen.hh"
@@ -244,7 +241,7 @@ static void object_clear_rot(Object *ob, const bool clear_delta)
         copy_v3_v3(ob->rot, eul);
       }
     }
-  } /* Duplicated in source/blender/editors/armature/armature_edit.cc */
+  }
   else {
     if (ob->rotmode == ROT_MODE_QUAT) {
       unit_qt(ob->quat);
@@ -578,7 +575,6 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
   CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects) {
     if (ELEM(ob->type,
              OB_MESH,
-             OB_ARMATURE,
              OB_LATTICE,
              OB_MBALL,
              OB_CURVES_LEGACY,
@@ -754,10 +750,6 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
         bke::mesh_flip_faces(*mesh, IndexMask(mesh->faces_num));
       }
     }
-    else if (ob->type == OB_ARMATURE) {
-      bArmature *arm = id_cast<bArmature *>(ob->data);
-      BKE_armature_transform(arm, mat, do_props);
-    }
     else if (ob->type == OB_LATTICE) {
       Lattice *lt = id_cast<Lattice *>(ob->data);
 
@@ -813,13 +805,13 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
         BKE_tracking_reconstruction_scale(&clip->tracking, ob->scale);
       }
     }
-    else if (ob->type == OB_EMPTY) {
-      /* It's possible for empties too, even though they don't
-       * really have obdata, since we can simply apply the maximum
-       * scaling to the empty's drawsize.
+    else if (ob->type == OB_NO_DATA) {
+      /* It's possible for helper objects too, even though they don't
+       * really have object data, since we can simply apply the maximum
+       * scaling to the helper display size.
        *
        * Core Assumptions:
-       * 1) Most scaled empties have uniform scaling
+       * 1) Most scaled helpers have uniform scaling
        *    (i.e. for visibility reasons), AND/OR
        * 2) Preserving non-uniform scaling is not that important,
        *    and is something that many users would be willing to
@@ -829,7 +821,7 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
       if (apply_scale) {
         float max_scale = std::max(
             {fabsf(ob->scale[0]), fabsf(ob->scale[1]), fabsf(ob->scale[2])});
-        ob->empty_drawsize *= max_scale;
+        ob->display_size *= max_scale;
       }
     }
     else if (ob->type == OB_LAMP) {
@@ -917,12 +909,6 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
     BKE_object_transform_copy(ob_eval, ob);
 
     BKE_object_where_is_calc(depsgraph, scene, ob_eval);
-    if (ob->type == OB_ARMATURE) {
-      /* needed for bone parents */
-      BKE_armature_copy_bone_transforms(id_cast<bArmature *>(ob_eval->data),
-                                        id_cast<bArmature *>(ob->data));
-      BKE_pose_where_is(depsgraph, scene, ob_eval);
-    }
 
     DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 
@@ -1050,7 +1036,7 @@ void OBJECT_OT_transform_apply(wmOperatorType *ot)
                   "properties",
                   true,
                   "Apply Properties",
-                  "Modify properties such as curve vertex radius, font size and bone envelope");
+                  "Modify properties such as curve vertex radius and font size");
   RNA_def_boolean(ot->srna,
                   "corrective_flip_normals",
                   true,
@@ -1109,7 +1095,7 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
   int centermode = RNA_enum_get(op->ptr, "type");
 
   /* keep track of what is changed */
-  int tot_change = 0, tot_lib_error = 0, tot_multiuser_arm_error = 0;
+  int tot_change = 0, tot_lib_error = 0;
 
   if (obedit && centermode != GEOMETRY_TO_ORIGIN) {
     BKE_report(op->reports, RPT_ERROR, "Operation cannot be performed in edit mode");
@@ -1197,9 +1183,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
     if (tob.data) {
       (tob.data)->tag &= ~ID_TAG_DOIT;
     }
-    if (tob.instance_collection) {
-      (id_cast<ID *>(tob.instance_collection))->tag &= ~ID_TAG_DOIT;
-    }
   }
 
   bool reported_empty = false;
@@ -1219,39 +1202,10 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
     }
 
     if (ob->data == nullptr) {
-      /* Special support for instanced collections. */
-      if ((ob->transflag & OB_DUPLICOLLECTION) && ob->instance_collection &&
-          (ob->instance_collection->id.tag & ID_TAG_DOIT) == 0)
-      {
-        if (!BKE_id_is_editable(bmain, &ob->instance_collection->id)) {
-          tot_lib_error++;
-        }
-        else {
-          if (centermode == ORIGIN_TO_CURSOR) {
-            /* done */
-          }
-          else {
-            float3 min, max;
-            /* only bounds support */
-            INIT_MINMAX(min, max);
-            BKE_object_minmax_dupli(depsgraph, ob, min, max, true);
-            mid_v3_v3v3(cent, min, max);
-            invert_m4_m4(ob->runtime->world_to_object.ptr(), ob->object_to_world().ptr());
-            mul_m4_v3(ob->world_to_object().ptr(), cent);
-          }
-          add_v3_v3(ob->instance_collection->instance_offset, cent);
-
-          tot_change++;
-          ob->instance_collection->id.tag |= ID_TAG_DOIT;
-          do_inverse_offset = true;
-        }
-      }
-      else {
-        BLI_assert(ob->type == OB_EMPTY);
-        if (!reported_empty) {
-          reported_empty = true;
-          BKE_report(op->reports, RPT_INFO, "Set Origin not supported for Empty object(s)");
-        }
+      BLI_assert(ob->type == OB_NO_DATA);
+      if (!reported_empty) {
+        reported_empty = true;
+        BKE_report(op->reports, RPT_INFO, "Set Origin not supported for no-data object(s)");
       }
     }
     else if (!ID_IS_EDITABLE(ob->data) || ID_IS_OVERRIDE_LIBRARY(ob->data)) {
@@ -1347,38 +1301,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
         tot_change++;
         cu->id.tag |= ID_TAG_DOIT;
         do_inverse_offset = true;
-      }
-    }
-    else if (ob->type == OB_ARMATURE) {
-      bArmature *arm = id_cast<bArmature *>(ob->data);
-
-      if (ID_REAL_USERS(arm) > 1) {
-#if 0
-        BKE_report(op->reports, RPT_ERROR, "Cannot apply to a multi user armature");
-        return;
-#endif
-        tot_multiuser_arm_error++;
-      }
-      else {
-        /* Function to recenter armatures in editarmature.c
-         * Bone + object locations are handled there.
-         */
-        ED_armature_origin_set(bmain, ob, cursor, centermode, around);
-
-        tot_change++;
-        arm->id.tag |= ID_TAG_DOIT;
-        // do_inverse_offset = true; /* docenter_armature() handles this. */
-
-        Object *ob_eval = DEG_get_evaluated(depsgraph, ob);
-        BKE_object_transform_copy(ob_eval, ob);
-        BKE_armature_copy_bone_transforms(id_cast<bArmature *>(ob_eval->data),
-                                          id_cast<bArmature *>(ob->data));
-        BKE_object_where_is_calc(depsgraph, scene, ob_eval);
-        BKE_pose_where_is(depsgraph, scene, ob_eval); /* needed for bone parents */
-
-        if (obedit) {
-          break;
-        }
       }
     }
     else if (ob->type == OB_MBALL) {
@@ -1521,12 +1443,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
       Object *ob_eval = DEG_get_evaluated(depsgraph, ob);
       BKE_object_transform_copy(ob_eval, ob);
       BKE_object_where_is_calc(depsgraph, scene, ob_eval);
-      if (ob->type == OB_ARMATURE) {
-        /* needed for bone parents */
-        BKE_armature_copy_bone_transforms(id_cast<bArmature *>(ob_eval->data),
-                                          id_cast<bArmature *>(ob->data));
-        BKE_pose_where_is(depsgraph, scene, ob_eval);
-      }
 
       /* other users? */
       // CTX_DATA_BEGIN (C, Object *, ob_other, selected_editable_objects)
@@ -1535,9 +1451,7 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
       /* use existing context looper */
       for (Object *ob_other : objects) {
         if ((ob_other->flag & OB_DONE) == 0 &&
-            ((ob->data && (ob->data == ob_other->data)) ||
-             (ob->instance_collection == ob_other->instance_collection &&
-              (ob->transflag | ob_other->transflag) & OB_DUPLICOLLECTION)))
+            (ob->data && (ob->data == ob_other->data)))
         {
           ob_other->flag |= OB_DONE;
           DEG_id_tag_update(&ob_other->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
@@ -1549,12 +1463,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
           Object *ob_other_eval = DEG_get_evaluated(depsgraph, ob_other);
           BKE_object_transform_copy(ob_other_eval, ob_other);
           BKE_object_where_is_calc(depsgraph, scene, ob_other_eval);
-          if (ob_other->type == OB_ARMATURE) {
-            /* needed for bone parents */
-            BKE_armature_copy_bone_transforms(id_cast<bArmature *>(ob_eval->data),
-                                              id_cast<bArmature *>(ob->data));
-            BKE_pose_where_is(depsgraph, scene, ob_other_eval);
-          }
         }
       }
       // CTX_DATA_END;
@@ -1566,11 +1474,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
       BKE_object_batch_cache_dirty_tag(&tob);
       DEG_id_tag_update(&tob.id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
     }
-    /* Special support for dupli-groups. */
-    else if (tob.instance_collection && tob.instance_collection->id.tag & ID_TAG_DOIT) {
-      DEG_id_tag_update(&tob.id, ID_RECALC_TRANSFORM);
-      DEG_id_tag_update(&tob.instance_collection->id, ID_RECALC_SYNC_TO_EVAL);
-    }
   }
 
   if (tot_change) {
@@ -1578,19 +1481,13 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
   }
 
   /* Warn if any errors occurred */
-  if (tot_lib_error + tot_multiuser_arm_error) {
+  if (tot_lib_error) {
     BKE_reportf(op->reports,
                 RPT_WARNING,
                 "%i object(s) not centered, %i changed:",
-                tot_lib_error + tot_multiuser_arm_error,
+                tot_lib_error,
                 tot_change);
-    if (tot_lib_error) {
-      BKE_reportf(op->reports, RPT_WARNING, "|%i linked library object(s)", tot_lib_error);
-    }
-    if (tot_multiuser_arm_error) {
-      BKE_reportf(
-          op->reports, RPT_WARNING, "|%i multiuser armature object(s)", tot_multiuser_arm_error);
-    }
+    BKE_reportf(op->reports, RPT_WARNING, "|%i linked library object(s)", tot_lib_error);
   }
 
   return OPERATOR_FINISHED;

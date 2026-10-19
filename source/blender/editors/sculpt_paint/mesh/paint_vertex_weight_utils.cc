@@ -13,15 +13,14 @@
 #include "BLI_listbase.h"
 #include "BLI_string_utils.hh"
 
-#include "DNA_armature_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_defs.h"
 #include "DNA_object_types.h"
 
 #include "BKE_action.hh"
 #include "BKE_context.hh"
 #include "BKE_deform.hh"
 #include "BKE_mesh.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_object_deform.h"
 #include "BKE_report.hh"
@@ -80,30 +79,6 @@ bool ED_wpaint_ensure_data(bContext *C,
 
   const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(ob);
 
-  /* this happens on a Bone select, when no vgroup existed yet */
-  if (mesh->vertex_group_active_index <= 0) {
-    Object *modob;
-    if ((modob = BKE_modifiers_is_deformed_by_armature(ob))) {
-      Bone *actbone = (id_cast<bArmature *>(modob->data))->act_bone;
-      if (actbone) {
-        bPoseChannel *pchan = BKE_pose_channel_find_name(modob->pose, actbone->name);
-
-        if (pchan) {
-          bDeformGroup *dg = BKE_object_defgroup_find_name(ob, pchan->name);
-          if (dg == nullptr) {
-            dg = BKE_object_defgroup_add_name(ob, pchan->name); /* sets actdef */
-            DEG_relations_tag_update(bmain);
-          }
-          else {
-
-            int actdef = 1 + BLI_findindex(defbase, dg);
-            BLI_assert(actdef >= 0);
-            mesh->vertex_group_active_index = actdef;
-          }
-        }
-      }
-    }
-  }
   if (defbase->is_empty()) {
     BKE_object_defgroup_add(ob);
     DEG_relations_tag_update(bmain);
@@ -140,7 +115,7 @@ int ED_wpaint_mirror_vgroup_ensure(Object *ob, const int vgroup_active)
 
   if (defgroup) {
     int mirrdef;
-    char name_flip[MAXBONENAME];
+    char name_flip[MAX_NAME];
 
     BLI_string_flip_side_name(name_flip, defgroup->name, false, sizeof(name_flip));
     mirrdef = BKE_object_defgroup_name_index(ob, name_flip);

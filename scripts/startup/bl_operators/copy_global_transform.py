@@ -15,7 +15,7 @@ from typing import Iterable, Optional, Any, TypeAlias
 
 import bpy
 from bpy.types import (
-    Context, Object, Operator, PoseBone,
+    Context, Object, Operator,
     Camera, ID, ActionChannelbag,
 )
 from mathutils import Matrix
@@ -33,28 +33,13 @@ KeyInfo: TypeAlias = dict[float, str]
 
 
 def get_matrix(context: Context) -> Matrix:
-    bone = context.active_pose_bone
-    if bone:
-        # Convert matrix to world space
-        arm = context.active_object
-        mat = arm.matrix_world @ bone.matrix
-    else:
-        mat = context.active_object.matrix_world
-
-    return mat
+    return context.active_object.matrix_world
 
 
 def set_matrix(context: Context, mat: Matrix) -> None:
     from bpy_extras.anim_utils import AutoKeying
-    bone = context.active_pose_bone
-    if bone:
-        # Convert matrix to local space
-        arm_eval = context.active_object.evaluated_get(context.view_layer.depsgraph)
-        bone.matrix = arm_eval.matrix_world.inverted() @ mat
-        AutoKeying.autokey_transformation(context, bone)
-    else:
-        context.active_object.matrix_world = mat
-        AutoKeying.autokey_transformation(context, context.active_object)
+    context.active_object.matrix_world = mat
+    AutoKeying.autokey_transformation(context, context.active_object)
 
 
 def _channelbag_for_id(animated_id: ID) -> ActionChannelbag | None:
@@ -80,22 +65,9 @@ def _channelbag_for_id(animated_id: ID) -> ActionChannelbag | None:
 def _selected_keyframes(context: Context) -> list[float]:
     """Return the list of frame numbers that have a selected key.
 
-    Only keys on the active bone/object are considered.
+    Only keys on the active object are considered.
     """
-
-    bone = context.active_pose_bone
-    if bone:
-        return _selected_keyframes_for_bone(context.active_object, bone)
     return _selected_keyframes_for_object(context.active_object)
-
-
-def _selected_keyframes_for_bone(object: Object, bone: PoseBone) -> list[float]:
-    """Return the list of frame numbers that have a selected key.
-
-    Only keys on the given pose bone are considered.
-    """
-    name = bpy.utils.escape_identifier(bone.name)
-    return _selected_keyframes_for_action_slot(object, "pose.bones[\"{:s}\"].".format(name))
 
 
 def _selected_keyframes_for_object(object: Object) -> list[float]:
@@ -137,15 +109,13 @@ def _copy_matrix_to_clipboard(window_manager: bpy.types.WindowManager, matrix: M
 class OBJECT_OT_copy_global_transform(Operator):
     bl_idname = "object.copy_global_transform"
     bl_label = "Copy Global Transform"
-    bl_description = (
-        "Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices"
-    )
+    bl_description = "Copies the active object's world-space matrix to the clipboard"
     # This operator cannot be un-done because it manipulates data outside Blender.
     bl_options = {'REGISTER'}
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return bool(context.active_pose_bone) or bool(context.active_object)
+        return bool(context.active_object)
 
     def execute(self, context: Context) -> set[str]:
         mat = get_matrix(context)
@@ -165,7 +135,7 @@ def get_relative_ob(context: Context) -> Optional[Object]:
 class OBJECT_OT_copy_relative_transform(Operator):
     bl_idname = "object.copy_relative_transform"
     bl_label = "Copy Relative Transform"
-    bl_description = "Copies the matrix of the currently active object or pose bone to the clipboard. " \
+    bl_description = "Copies the matrix of the currently active object. " \
         "Uses matrices relative to a specific object or the active scene camera"
     # This operator cannot be un-done because it manipulates data outside Blender.
     bl_options = {'REGISTER'}
@@ -175,7 +145,7 @@ class OBJECT_OT_copy_relative_transform(Operator):
         rel_ob = get_relative_ob(context)
         if not rel_ob:
             return False
-        return bool(context.active_pose_bone) or bool(context.active_object)
+        return bool(context.active_object)
 
     def execute(self, context: Context) -> set[str]:
         rel_ob = get_relative_ob(context)
@@ -190,14 +160,14 @@ class OBJECT_OT_copy_relative_transform(Operator):
 
 
 class UnableToMirrorError(Exception):
-    """Raised when mirroring is enabled but no mirror object/bone is set."""
+    """Raised when mirroring is enabled but no mirror object is set."""
 
 
 class OBJECT_OT_paste_transform(Operator):
     bl_idname = "object.paste_transform"
     bl_label = "Paste Global Transform"
     bl_description = (
-        "Pastes the matrix from the clipboard to the currently active pose bone or object. Uses world-space matrices"
+        "Pastes the matrix from the clipboard to the active object using world-space coordinates"
     )
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -235,7 +205,7 @@ class OBJECT_OT_paste_transform(Operator):
 
     use_mirror: bpy.props.BoolProperty(  # type: ignore
         name="Mirror Transform",
-        description="When pasting, mirror the transform relative to a specific object or bone",
+        description="When pasting, mirror the transform relative to a specific object",
         default=False,
         options={'SKIP_SAVE'},
     )
@@ -264,8 +234,8 @@ class OBJECT_OT_paste_transform(Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        if not context.active_pose_bone and not context.active_object:
-            cls.poll_message_set("Select an object or pose bone")
+        if not context.active_object:
+            cls.poll_message_set("Select an object")
             return False
         return True
 
@@ -333,7 +303,7 @@ class OBJECT_OT_paste_transform(Operator):
         try:
             mat = self._preprocess_matrix(context, mat)
         except UnableToMirrorError:
-            self.report({'ERROR'}, "Unable to mirror, no mirror object/bone configured")
+            self.report({'ERROR'}, "Unable to mirror, no mirror object configured")
             return {'CANCELLED'}
 
         applicator = {
@@ -361,27 +331,12 @@ class OBJECT_OT_paste_transform(Operator):
 
     def _mirror_matrix(self, context: Context, matrix: Matrix) -> Matrix:
         mirror_ob = context.scene.tool_settings.anim_mirror_object
-        mirror_bone = context.scene.tool_settings.anim_mirror_bone
-
-        # No mirror object means "current armature object".
-        ctx_ob = context.object
-        if not mirror_ob and mirror_bone and ctx_ob and ctx_ob.type == 'ARMATURE':
-            mirror_ob = ctx_ob
-
         if not mirror_ob:
             raise UnableToMirrorError()
-
-        if mirror_ob.type == 'ARMATURE' and mirror_bone:
-            return self._mirror_over_bone(matrix, mirror_ob, mirror_bone)
         return self._mirror_over_ob(matrix, mirror_ob)
 
     def _mirror_over_ob(self, matrix: Matrix, mirror_ob: bpy.types.Object) -> Matrix:
         mirror_matrix = mirror_ob.matrix_world
-        return self._mirror_over_matrix(matrix, mirror_matrix)
-
-    def _mirror_over_bone(self, matrix: Matrix, mirror_ob: bpy.types.Object, mirror_bone_name: str) -> Matrix:
-        bone = mirror_ob.pose.bones[mirror_bone_name]
-        mirror_matrix = mirror_ob.matrix_world @ bone.matrix
         return self._mirror_over_matrix(matrix, mirror_matrix)
 
     def _mirror_over_matrix(self, matrix: Matrix, mirror_matrix: Matrix) -> Matrix:
@@ -401,7 +356,7 @@ class OBJECT_OT_paste_transform(Operator):
             case 'x':
                 rot_e = rot_q.to_euler('XYZ')
                 rot_e.x *= -1  # Flip the requested rotation axis.
-                rot_e.y *= -1  # Also flip the bone roll.
+                rot_e.y *= -1  # Flip the coupled rotation axis.
             case 'y':
                 rot_e = rot_q.to_euler('YZX')
                 rot_e.y *= -1  # Flip the requested rotation axis.
@@ -409,7 +364,7 @@ class OBJECT_OT_paste_transform(Operator):
             case 'z':
                 rot_e = rot_q.to_euler('ZYX')
                 rot_e.z *= -1  # Flip the requested rotation axis.
-                rot_e.y *= -1  # Also flip the bone roll.
+                rot_e.y *= -1  # Flip the coupled rotation axis.
 
         # Recompose the local matrix:
         mat_local = Matrix.LocRotScale(trans, rot_e, scale)
@@ -474,7 +429,7 @@ class OBJECT_OT_paste_transform(Operator):
 
 
 class Transformable(metaclass=abc.ABCMeta):
-    """Interface for a bone or an object."""
+    """Interface for an object transform."""
 
     def __init__(self) -> None:
         self._key_info_cache: Optional[KeyInfo] = None
@@ -567,45 +522,6 @@ class TransformableObject(Transformable):
         yield from cbag.fcurves
 
 
-class TransformableBone(Transformable):
-    arm_object: Object
-    pose_bone: PoseBone
-
-    def __init__(self, pose_bone: PoseBone) -> None:
-        super().__init__()
-        self.arm_object = pose_bone.id_data
-        self.pose_bone = pose_bone
-
-    def __str__(self) -> str:
-        return "TransformableBone({:s}, bone={:s})".format(self.arm_object.name, self.pose_bone.name)
-
-    def matrix_world(self) -> Matrix:
-        mat = self.arm_object.matrix_world @ self.pose_bone.matrix
-        return mat
-
-    def _set_matrix_world(self, context: Context, matrix: Matrix) -> None:
-        # Convert matrix to armature-local space
-        arm_eval = self.arm_object.evaluated_get(context.view_layer.depsgraph)
-        self.pose_bone.matrix = arm_eval.matrix_world.inverted() @ matrix
-
-    def _autokey_matrix_world(self, context: Context) -> None:
-        from bpy_extras.anim_utils import AutoKeying
-        AutoKeying.autokey_transformation(context, self.pose_bone)
-
-    def __hash__(self) -> int:
-        return hash(self.pose_bone.as_pointer())
-
-    def _my_fcurves(self) -> Iterable[bpy.types.FCurve]:
-        cbag = _channelbag_for_id(self.arm_object)
-        if not cbag:
-            return
-
-        rna_prefix = self.pose_bone.path_from_id() + "."
-        for fcurve in cbag.fcurves:
-            if fcurve.data_path.startswith(rna_prefix):
-                yield fcurve
-
-
 class FixToCameraCommon:
     """Common functionality for the Fix To Scene Camera operator + its 'delete' button."""
 
@@ -625,11 +541,11 @@ class FixToCameraCommon:
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        if not context.active_pose_bone and not context.active_object:
-            cls.poll_message_set("Select an object or pose bone")
+        if not context.active_object:
+            cls.poll_message_set("Select an object")
             return False
-        if context.mode not in {'POSE', 'OBJECT'}:
-            cls.poll_message_set("Switch to Pose or Object mode")
+        if context.mode != 'OBJECT':
+            cls.poll_message_set("Switch to Object mode")
             return False
         if not context.scene.camera:
             cls.poll_message_set("The Scene needs a camera")
@@ -637,14 +553,7 @@ class FixToCameraCommon:
         return True
 
     def execute(self, context: Context) -> set[str]:
-        match context.mode:
-            case 'OBJECT':
-                transformables = self._transformable_objects(context)
-            case 'POSE':
-                transformables = self._transformable_pbones(context)
-            case mode:
-                self.report({'ERROR'}, "Unsupported mode: {!r}".format(mode))
-                return {'CANCELLED'}
+        transformables = self._transformable_objects(context)
 
         restore_frame = context.scene.frame_current
         restore_matrices = [(transformable, transformable.matrix_world().copy()) for transformable in transformables]
@@ -665,14 +574,11 @@ class FixToCameraCommon:
     def _transformable_objects(self, context: Context) -> list[Transformable]:
         return [TransformableObject(object=ob) for ob in context.selected_editable_objects]
 
-    def _transformable_pbones(self, context: Context) -> list[Transformable]:
-        return [TransformableBone(pose_bone=bone) for bone in context.selected_pose_bones]
-
 
 class OBJECT_OT_fix_to_camera(FixToCameraCommon, Operator):
     bl_idname = "object.fix_to_camera"
     bl_label = "Fix to Scene Camera"
-    bl_description = "Generate new keys to fix the selected object/bone to the camera on unkeyed frames"
+    bl_description = "Generate new keys to fix selected objects to the camera on unkeyed frames"
     bl_options = {'REGISTER', 'UNDO'}
 
     use_location: bpy.props.BoolProperty(  # type: ignore

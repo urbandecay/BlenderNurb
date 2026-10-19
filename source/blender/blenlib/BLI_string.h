@@ -158,7 +158,7 @@ char *BLI_str_quoted_substrN(const char *__restrict str,
 #endif
 /**
  * Fills \a result with text within "" that appear after some the contents of \a prefix.
- * i.e. for string `pose["apples"]` with prefix `pose[`, it will return `apples`.
+ * i.e. for string `item["apples"]` with prefix `item[`, it will return `apples`.
  *
  * \param str: is the entire string to chop.
  * \param prefix: is the part of the string to step over.

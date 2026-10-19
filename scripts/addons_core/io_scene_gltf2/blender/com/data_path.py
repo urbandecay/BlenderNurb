@@ -16,8 +16,6 @@ def get_target_object_path(data_path: str) -> str:
     """Retrieve target object data path without property"""
     if data_path.endswith("]"):
         return data_path.rsplit('[', 1)[0]
-    elif data_path.startswith("pose.bones["):
-        return data_path[:data_path.find('"]')] + '"]'
     path_split = data_path.rsplit('.', 1)
     self_targeting = len(path_split) < 2
     if self_targeting:
@@ -52,10 +50,6 @@ def is_scale(target_property):
 def get_delta_modes(target_property: str) -> str:
     """Retrieve location based on target_property"""
     return target_property.startswith("delta_")
-
-
-def is_bone_anim_channel(data_path: str) -> bool:
-    return data_path[:10] == "pose.bones"
 
 
 def get_sk_exported(key_blocks):

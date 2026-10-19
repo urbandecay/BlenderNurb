@@ -126,7 +126,7 @@ void BKE_keyingsets_blend_read_data(struct BlendDataReader *reader, ListBaseT<Ke
  * with input validity checks on top of the basic method.
  *
  * \note it is assumed that the structure we're replacing is `<prefix><["><name><"]>`
- * i.e. `pose.bones["Bone"]`.
+ * i.e. `location`.
  */
 char *BKE_animsys_fix_rna_path_rename(struct ID *owner_id,
                                       char *old_path,
@@ -144,7 +144,7 @@ char *BKE_animsys_fix_rna_path_rename(struct ID *owner_id,
  * with input validity checks on top of the basic method.
  *
  * \note it is assumed that the structure we're replacing is `<prefix><["><name><"]>`
- * i.e. `pose.bones["Bone"]`.
+ * i.e. `location`.
  */
 void BKE_action_fix_paths_rename(struct ID *owner_id,
                                  struct bAction *act,
@@ -164,7 +164,7 @@ void BKE_action_fix_paths_rename(struct ID *owner_id,
  *
  * \param infix_is_name: If true, old_infix and new_infix are treated as names and padded with
  * [""] so that only exact matches are made. For example, the structure we're replacing is
- * `<prefix><["><name><"]>` i.e. `pose.bones["Bone"]`.
+ * `<prefix><["><name><"]>` i.e. `custom_properties["Property"]`.
  */
 void BKE_animdata_fix_paths_rename(struct ID *owner_id,
                                    struct AnimData *adt,
@@ -185,7 +185,7 @@ void BKE_animdata_fix_paths_rename(struct ID *owner_id,
  *
  * \param infix_is_name: If true, old_infix and new_infix are treated as names and padded with
  * [""] so that only exact matches are made. For example, the structure we're replacing is
- * `<prefix><["><name><"]>` i.e. `pose.bones["Bone"]`
+ * `<prefix><["><name><"]>` i.e. `custom_properties["Property"]`
  */
 void BKE_animdata_fix_paths_rename_all_ex(struct Main *bmain,
                                           struct ID *ref_id,
@@ -343,8 +343,8 @@ void BKE_animsys_evaluate_animdata(struct ID *id,
 /* There are a few special tools which require these following functions. They are NOT to be used
  * for standard animation evaluation UNDER ANY CIRCUMSTANCES!
  *
- * i.e. Pose Library (PoseLib) uses some of these for selectively applying poses, but
- *      Particles/Sequencer performing funky time manipulation is not ok.
+ * Specialized tools may use these functions to selectively apply animation, but
+ *      Particles/Sequencer performing time manipulation is not ok.
  */
 
 /**

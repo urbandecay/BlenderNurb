@@ -186,10 +186,8 @@ class OBJECT_PT_display(ObjectButtonsPanel, Panel):
 
         obj = context.object
         obj_type = obj.type
-        # Empties can have evaluated geometry
         is_geometry = (
             obj_type in {
-                'EMPTY',
                 'MESH',
                 'CURVE',
                 'SURFACE',
@@ -198,15 +196,14 @@ class OBJECT_PT_display(ObjectButtonsPanel, Panel):
                 'VOLUME',
                 'CURVES',
                 'POINTCLOUD'})
-        has_bounds = (is_geometry or obj_type in {'LATTICE', 'ARMATURE'})
-        is_empty_image = (obj_type == 'EMPTY' and obj.empty_display_type == 'IMAGE')
+        has_bounds = (is_geometry or obj_type == 'LATTICE')
         is_dupli = (obj.instance_type != 'NONE')
 
         col = layout.column(heading="Show")
         col.prop(obj, "show_name", text="Name")
         col.prop(obj, "show_axis", text="Axes")
 
-        # Makes no sense for cameras, armatures, etc.!
+        # Makes no sense for cameras, etc.!
         # but these settings do apply to dupli instances
         if is_geometry or is_dupli:
             col.prop(obj, "show_wire", text="Wireframe")
@@ -216,15 +213,12 @@ class OBJECT_PT_display(ObjectButtonsPanel, Panel):
             col.prop(obj, "show_texture_space", text="Texture Space")
             col.prop(obj.display, "show_shadows", text="Shadow")
         col.prop(obj, "show_in_front", text="In Front")
-        # if obj_type == 'MESH' or is_empty_image:
-        #    col.prop(obj, "show_transparent", text="Transparency")
         sub = layout.column()
-        # wire objects only use the max. display type for duplis
-        # and empties with geometry nodes modifier
+        # Wire objects only use the maximum display type for dupli instances.
         sub.active = obj_type != 'CAMERA'
         sub.prop(obj, "display_type", text="Display As")
 
-        if is_geometry or is_dupli or is_empty_image:
+        if is_geometry or is_dupli:
             # Only useful with object having faces/materials...
             col.prop(obj, "color")
 
@@ -247,8 +241,8 @@ class OBJECT_PT_instancing(ObjectButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         ob = context.object
-        # FONT objects need (vertex) instancing for the "Object Font" feature.
-        return (ob.type in {'EMPTY', 'FONT'})
+        # FONT objects need vertex instancing for the "Object Font" feature.
+        return ob.type == 'FONT'
 
     def draw(self, context):
         layout = self.layout
@@ -259,10 +253,6 @@ class OBJECT_PT_instancing(ObjectButtonsPanel, Panel):
         row.prop(ob, "instance_type", expand=True)
 
         layout.use_property_split = True
-
-        if ob.instance_type == 'COLLECTION':
-            col = layout.column()
-            col.prop(ob, "instance_collection", text="Collection")
 
         if ob.instance_type != 'NONE' or ob.particle_systems:
             col = layout.column(heading="Show Instancer", align=True)
@@ -379,7 +369,7 @@ def has_geometry_visibility(ob):
             'VOLUME',
             'POINTCLOUD',
             'CURVES',
-        }) or (ob.instance_type == 'COLLECTION' and ob.instance_collection)
+        })
     )
 
 

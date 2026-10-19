@@ -9,13 +9,11 @@
 #pragma once
 
 #include "BLI_map.hh"
-#include "BLI_set.hh"
 #include "BLI_string_ref.hh"
 
 #include "ANIM_action.hh"
 
 #include <limits>
-#include <optional>
 #include <string>
 
 namespace blender {
@@ -84,13 +82,6 @@ struct KeyframeCopyBuffer {
    */
   Map<animrig::slot_handle_t, ID *> slot_animated_ids;
 
-  /**
-   * Pointers to F-Curves in this->keyframe_data that animate bones.
-   *
-   * This is mostly to indicate which F-Curves are flipped when pasting flipped.
-   */
-  Set<const FCurve *> bone_fcurves;
-
   /* The first and last frames that got copied. */
   float first_frame = std::numeric_limits<float>::infinity();
   float last_frame = -std::numeric_limits<float>::infinity();
@@ -104,7 +95,6 @@ struct KeyframeCopyBuffer {
 
   bool is_empty() const;
   bool is_single_fcurve() const;
-  bool is_bone(const FCurve &fcurve) const;
   int num_slots() const;
 
   animrig::Channelbag *channelbag_for_slot(StringRef slot_identifier);
@@ -118,14 +108,6 @@ struct KeyframeCopyBuffer {
 extern KeyframeCopyBuffer *keyframe_copy_buffer;
 
 /**
- * Flip bone names in the RNA path, returning the flipped path.
- *
- * Returns empty optional if the `rna_path` is not animating a bone,
- * i.e. doesn't have the `pose.bones["` prefix.
- */
-std::optional<std::string> flip_names(StringRefNull rna_path);
-
-/**
  * Most strict paste buffer matching method: exact matches on RNA path and array index only.
  */
 bool pastebuf_match_path_full(Main *bmain,
@@ -133,8 +115,7 @@ bool pastebuf_match_path_full(Main *bmain,
                               const FCurve &fcurve_in_copy_buffer,
                               animrig::slot_handle_t slot_handle_in_copy_buffer,
                               bool from_single,
-                              bool to_single,
-                              bool flip);
+                              bool to_single);
 
 /**
  * Medium strict paste buffer matching method: match the property name (so not the entire RNA path)
@@ -145,8 +126,7 @@ bool pastebuf_match_path_property(Main *bmain,
                                   const FCurve &fcurve_in_copy_buffer,
                                   animrig::slot_handle_t slot_handle_in_copy_buffer,
                                   bool from_single,
-                                  bool to_single,
-                                  bool flip);
+                                  bool to_single);
 
 /**
  * Least strict paste buffer matching method: array indices only.
@@ -156,8 +136,7 @@ bool pastebuf_match_index_only(Main *bmain,
                                const FCurve &fcurve_in_copy_buffer,
                                animrig::slot_handle_t slot_handle_in_copy_buffer,
                                bool from_single,
-                               bool to_single,
-                               bool flip);
+                               bool to_single);
 
 }  // namespace ed::animation
 }  // namespace blender

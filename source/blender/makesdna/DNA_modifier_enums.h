@@ -156,11 +156,6 @@ enum eDTMultilayerIndex : int {
 enum eDTLayersSrc : int {
   DT_LAYERS_ACTIVE_SRC = -1,
   DT_LAYERS_ALL_SRC = -2,
-  /* Datatype-specific. */
-  DT_LAYERS_VGROUP_SRC = 1 << 8,
-  DT_LAYERS_VGROUP_SRC_BONE_SELECT = -(DT_LAYERS_VGROUP_SRC | 1),
-  DT_LAYERS_VGROUP_SRC_BONE_DEFORM = -(DT_LAYERS_VGROUP_SRC | 2),
-  /* Other types-related modes... */
 };
 
 /* How to map a source layer to a destination layer, for types supporting multi-layers.

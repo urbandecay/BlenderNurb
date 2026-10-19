@@ -56,7 +56,7 @@ set(INC_SYS
 )
 
 set(SRC
-  intern/usd_armature_utils.cc
+  intern/usd_animation_utils.cc
   intern/usd_asset_utils.cc
   intern/usd_attribute_utils.cc
   intern/usd_blend_shape_utils.cc
@@ -71,7 +71,6 @@ set(SRC
   intern/usd_utils.cc
 
   intern/usd_writer_abstract.cc
-  intern/usd_writer_armature.cc
   intern/usd_writer_camera.cc
   intern/usd_writer_curves.cc
   intern/usd_writer_hair.cc
@@ -89,7 +88,6 @@ set(SRC
   intern/usd_reader_curve.cc
   intern/usd_reader_domelight.cc
   intern/usd_reader_geom.cc
-  intern/usd_reader_instance.cc
   intern/usd_reader_light.cc
   intern/usd_reader_material.cc
   intern/usd_reader_mesh.cc
@@ -98,20 +96,18 @@ set(SRC
   intern/usd_reader_points.cc
   intern/usd_reader_prim.cc
   intern/usd_reader_shape.cc
-  intern/usd_reader_skeleton.cc
   intern/usd_reader_stage.cc
   intern/usd_reader_utils.cc
   intern/usd_reader_volume.cc
   intern/usd_reader_xform.cc
-  intern/usd_skel_convert.cc
-  intern/usd_skel_root_utils.cc
+  intern/usd_blend_shape_convert.cc
 
   usd.hh
   usd_api_hook.hh
   usd_api_modifier.hh
   usd_private.hh
 
-  intern/usd_armature_utils.hh
+  intern/usd_animation_utils.hh
   intern/usd_asset_utils.hh
   intern/usd_attribute_utils.hh
   intern/usd_blend_shape_utils.hh
@@ -127,7 +123,6 @@ set(SRC
   intern/usd_utils.hh
 
   intern/usd_writer_abstract.hh
-  intern/usd_writer_armature.hh
   intern/usd_writer_camera.hh
   intern/usd_writer_curves.hh
   intern/usd_writer_hair.hh
@@ -145,7 +140,6 @@ set(SRC
   intern/usd_reader_curve.hh
   intern/usd_reader_domelight.hh
   intern/usd_reader_geom.hh
-  intern/usd_reader_instance.hh
   intern/usd_reader_light.hh
   intern/usd_reader_material.hh
   intern/usd_reader_mesh.hh
@@ -154,13 +148,11 @@ set(SRC
   intern/usd_reader_points.hh
   intern/usd_reader_prim.hh
   intern/usd_reader_shape.hh
-  intern/usd_reader_skeleton.hh
   intern/usd_reader_stage.hh
   intern/usd_reader_utils.hh
   intern/usd_reader_volume.hh
   intern/usd_reader_xform.hh
-  intern/usd_skel_convert.hh
-  intern/usd_skel_root_utils.hh
+  intern/usd_blend_shape_convert.hh
 )
 
 if(WITH_HYDRA)

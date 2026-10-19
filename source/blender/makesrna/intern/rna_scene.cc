@@ -627,8 +627,7 @@ const EnumPropertyItem rna_enum_transform_orientation_items[] = {
      "NORMAL",
      ICON_ORIENTATION_NORMAL,
      "Normal",
-     "Align the transformation axes to average normal of selected elements "
-     "(bone Y axis for pose mode)"},
+     "Align the transformation axes to average normal of selected elements"},
     {V3D_ORIENT_GIMBAL,
      "GIMBAL",
      ICON_ORIENTATION_GIMBAL,
@@ -644,11 +643,6 @@ const EnumPropertyItem rna_enum_transform_orientation_items[] = {
      ICON_ORIENTATION_CURSOR,
      "Cursor",
      "Align the transformation axes to the 3D cursor"},
-    {V3D_ORIENT_PARENT,
-     "PARENT",
-     ICON_ORIENTATION_PARENT,
-     "Parent",
-     "Align the transformation axes to the object's parent space"},
     // {V3D_ORIENT_CUSTOM, "CUSTOM", 0, "Custom", "Use a custom transform orientation"},
     {0, nullptr, 0, nullptr, nullptr},
 };
@@ -733,7 +727,6 @@ static const EnumPropertyItem eevee_resolution_scale_items[] = {
 #  include "MOV_util.hh"
 
 #  include "BKE_animsys.h"
-#  include "BKE_armature.hh"
 #  include "BKE_bake_geometry_nodes_modifier.hh"
 #  include "BKE_brush.hh"
 #  include "BKE_collection.hh"
@@ -752,6 +745,7 @@ static const EnumPropertyItem eevee_resolution_scale_items[] = {
 #  include "BKE_node.hh"
 #  include "BKE_node_legacy_types.hh"
 #  include "BKE_node_runtime.hh"
+#  include "BKE_object.hh"
 #  include "BKE_pointcache.h"
 #  include "BKE_scene.hh"
 #  include "BKE_screen.hh"
@@ -2143,13 +2137,6 @@ static void object_simplify_update(Scene *scene,
     psys->recalc |= ID_RECALC_PSYS_CHILD;
   }
 
-  if (ob->instance_collection) {
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (ob->instance_collection, ob_collection) {
-      object_simplify_update(scene, ob_collection, update_normals, depsgraph);
-    }
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
-  }
-
   if (ob->type == OB_VOLUME) {
     DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   }
@@ -2469,11 +2456,7 @@ static std::optional<std::string> rna_MeshStatVis_path(const PointerRNA * /*ptr*
   return "tool_settings.statvis";
 }
 
-/* NOTE: without this, when Multi-Paint is activated/deactivated, the colors
- * will not change right away when multiple bones are selected, this function
- * is not for general use and only for the few cases where changing scene
- * settings and NOT for general purpose updates, possibly this should be
- * given its own notifier. */
+/* Update object drawing when weight-paint display settings change. */
 static void rna_Scene_update_active_object_data(bContext *C, PointerRNA * /*ptr*/)
 {
   const Main *bmain = CTX_data_main(C);
@@ -3172,17 +3155,8 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   };
 
   static const EnumPropertyItem vertex_group_select_items[] = {
+      {WT_VGROUP_ACTIVE, "ACTIVE", 0, "Active", "Only the active Vertex Group"},
       {WT_VGROUP_ALL, "ALL", 0, "All", "All Vertex Groups"},
-      {WT_VGROUP_BONE_DEFORM,
-       "BONE_DEFORM",
-       0,
-       "Deform",
-       "Vertex Groups assigned to Deform Bones"},
-      {WT_VGROUP_BONE_DEFORM_OFF,
-       "OTHER_DEFORM",
-       0,
-       "Other",
-       "Vertex Groups assigned to non Deform Bones"},
       {0, nullptr, 0, nullptr, nullptr},
   };
 
@@ -3228,7 +3202,7 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "auto_normalize", 1);
   RNA_def_property_ui_text(prop,
                            "Weight Paint Auto-Normalize",
-                           "Ensure all bone-deforming vertex groups add up "
+                           "Ensure vertex group weights add up "
                            "to 1.0 while weight painting or assigning to vertices");
   RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
 
@@ -3237,17 +3211,8 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "wpaint_lock_relative", 1);
   RNA_def_property_ui_text(prop,
                            "Weight Paint Lock-Relative",
-                           "Display bone-deforming groups as if all locked deform groups "
+                           "Display weights as if all locked groups "
                            "were deleted, and the remaining ones were re-normalized");
-  RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
-
-  prop = RNA_def_property(srna, "use_multipaint", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE | PROP_DEG_SYNC_ONLY);
-  RNA_def_property_boolean_sdna(prop, nullptr, "multipaint", 1);
-  RNA_def_property_ui_text(prop,
-                           "Weight Paint Multi-Paint",
-                           "Paint across the weights of all selected bones, "
-                           "maintaining their relative influence");
   RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
 
   prop = RNA_def_property(srna, "vertex_group_user", PROP_ENUM, PROP_NONE);
@@ -3842,12 +3807,7 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   RNA_def_property_pointer_funcs(prop, nullptr, nullptr, nullptr, nullptr);
   RNA_def_property_ui_text(prop,
                            "Mirror Object",
-                           "Object to mirror over. Leave empty and name a bone to always mirror "
-                           "over that bone of the active armature");
-
-  prop = RNA_def_property(srna, "anim_mirror_bone", PROP_STRING, PROP_NONE);
-  RNA_def_struct_name_property(srna, prop);
-  RNA_def_property_ui_text(prop, "Mirror Bone", "Bone to use for the mirroring");
+                           "Object whose transform is used as the mirror reference");
 
   prop = RNA_def_property(srna, "anim_relative_object", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);

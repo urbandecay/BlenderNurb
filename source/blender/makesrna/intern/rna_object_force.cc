@@ -75,7 +75,7 @@ static const EnumPropertyItem curve_shape_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-static const EnumPropertyItem empty_shape_items[] = {
+static const EnumPropertyItem no_data_shape_items[] = {
     {PFIELD_SHAPE_POINT, "POINT", 0, "Point", "Field originates from the object center"},
     {PFIELD_SHAPE_LINE, "LINE", 0, "Line", "Field originates from the local Z axis of the object"},
     {PFIELD_SHAPE_PLANE,
@@ -101,7 +101,7 @@ static const EnumPropertyItem curve_vortex_shape_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-static const EnumPropertyItem empty_vortex_shape_items[] = {
+static const EnumPropertyItem no_data_vortex_shape_items[] = {
     {PFIELD_SHAPE_POINT, "POINT", 0, "Point", ""},
     {PFIELD_SHAPE_PLANE, "PLANE", 0, "Plane", ""},
     {0, nullptr, 0, nullptr, nullptr},
@@ -734,10 +734,10 @@ static void rna_FieldSettings_type_set(PointerRNA *ptr, int value)
     Object *ob = id_cast<Object *>(ptr->owner_id);
     ob->pd->forcefield = ePFieldType(value);
     if (ELEM(value, PFIELD_WIND, PFIELD_VORTEX)) {
-      ob->empty_drawtype = OB_SINGLE_ARROW;
+      ob->helper_display_type = OB_SINGLE_ARROW;
     }
     else {
-      ob->empty_drawtype = OB_PLAINAXES;
+      ob->helper_display_type = OB_PLAINAXES;
     }
   }
 }
@@ -956,7 +956,7 @@ static const EnumPropertyItem *rna_Effector_shape_itemf(bContext * /*C*/,
   Object *ob = nullptr;
 
   if (particle_id_check(ptr)) {
-    return empty_shape_items;
+    return no_data_shape_items;
   }
 
   ob = id_cast<Object *>(ptr->owner_id);
@@ -977,10 +977,10 @@ static const EnumPropertyItem *rna_Effector_shape_itemf(bContext * /*C*/,
   }
   else {
     if (ob->pd->forcefield == PFIELD_VORTEX) {
-      return empty_vortex_shape_items;
+      return no_data_vortex_shape_items;
     }
 
-    return empty_shape_items;
+    return no_data_shape_items;
   }
 }
 

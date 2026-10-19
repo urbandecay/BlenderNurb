@@ -321,8 +321,8 @@ static void mesh_calc_modifiers(Depsgraph &depsgraph,
   ModifierData *md = firstmd;
 
   /* Compute accumulated datamasks needed by each modifier. It helps to do
-   * this fine grained so that for example vertex groups are preserved up to
-   * an armature modifier, but not through a following subsurf modifier where
+   * this fine grained so that for example vertex groups are preserved for
+   * deformation modifiers, but not through a following subsurf modifier where
    * subdividing them is expensive. */
   CustomData_MeshMasks final_datamask = dataMask;
   CDMaskLink *datamasks = BKE_modifier_calc_data_masks(&scene, md, &final_datamask, required_mode);
@@ -626,10 +626,6 @@ static void mesh_calc_modifiers(Depsgraph &depsgraph,
 
   BLI_linklist_free(reinterpret_cast<LinkNode *>(datamasks), nullptr);
 
-  for (md = firstmd; md; md = md->next) {
-    BKE_modifier_free_temporary_data(md);
-  }
-
   if (mesh == nullptr) {
     if (allow_shared_mesh) {
       mesh = &mesh_input;
@@ -772,8 +768,8 @@ static void editbmesh_calc_modifiers(Depsgraph &depsgraph,
   ModifierData *md = BKE_modifiers_get_virtual_modifierlist(&ob, &virtual_modifier_data);
 
   /* Compute accumulated datamasks needed by each modifier. It helps to do
-   * this fine grained so that for example vertex groups are preserved up to
-   * an armature modifier, but not through a following subsurf modifier where
+   * this fine grained so that for example vertex groups are preserved for
+   * deformation modifiers, but not through a following subsurf modifier where
    * subdividing them is expensive. */
   CustomData_MeshMasks final_datamask = dataMask;
   CDMaskLink *datamasks = BKE_modifier_calc_data_masks(&scene, md, &final_datamask, required_mode);

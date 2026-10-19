@@ -89,11 +89,6 @@ struct bActionStrip {
   /** The number of frames on either end of the strip's length to fade in/out. */
   float blendin = 0, blendout = 0;
 
-  /** Instead of stridelen, it uses an action channel. */
-  char stridechannel[32] = "";
-  /** If repeat, use this bone/channel for defining offset. */
-  char offs_bone[32] = "";
-
   /** Modifier stack. */
   ListBaseT<bActionModifier> modifiers = {nullptr, nullptr};
 };

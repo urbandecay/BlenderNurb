@@ -75,7 +75,7 @@ class ForceFields : Overlay {
     float &size_y = matrix[1][3];
     float &size_z = matrix[2][3];
 
-    size_x = size_y = size_z = ob->empty_drawsize;
+    size_x = size_y = size_z = ob->display_size;
 
     switch (pd->forcefield) {
       case PFIELD_FORCE:

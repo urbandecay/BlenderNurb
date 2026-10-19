@@ -12,8 +12,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_ID.h"
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_light_types.h"
 #include "DNA_modifier_types.h"
@@ -27,8 +27,6 @@
 
 #include "BLT_translation.hh"
 
-#include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_collection.hh"
 #include "BKE_context.hh"
 #include "BKE_global.hh"
@@ -46,15 +44,12 @@
 #include "WM_message.hh"
 #include "WM_types.hh"
 
-#include "ED_armature.hh"
 #include "ED_keyframing.hh"
 #include "ED_object.hh"
 #include "ED_outliner.hh"
 #include "ED_screen.hh"
 #include "ED_select_utils.hh"
 
-#include "ANIM_armature.hh"
-#include "ANIM_bone_collections.hh"
 #include "ANIM_keyingsets.hh"
 
 #include "UI_interface.hh"
@@ -263,7 +258,7 @@ bool jump_to_object(bContext *C, Object *ob, const bool /*reveal_hidden*/)
     return false;
   }
 
-  /* TODO: use 'reveal_hidden', as is done with bones. */
+  /* TODO: use 'reveal_hidden'. */
 
   if (BKE_view_layer_active_base_get(view_layer) != base || !(base->flag & BASE_SELECTED)) {
     /* Select if not selected. */
@@ -282,73 +277,6 @@ bool jump_to_object(bContext *C, Object *ob, const bool /*reveal_hidden*/)
   }
 
   return true;
-}
-
-bool jump_to_bone(bContext *C, Object *ob, const char *bone_name, const bool reveal_hidden)
-{
-  /* Verify it's a valid armature object. */
-  if (ob == nullptr || ob->type != OB_ARMATURE) {
-    return false;
-  }
-
-  bArmature *arm = id_cast<bArmature *>(ob->data);
-
-  /* Activate the armature object. */
-  if (!jump_to_object(C, ob, reveal_hidden)) {
-    return false;
-  }
-
-  /* Switch to pose mode from object mode. */
-  if (!ELEM(ob->mode, OB_MODE_EDIT, OB_MODE_POSE)) {
-    mode_set(C, OB_MODE_POSE);
-  }
-
-  if (ob->mode == OB_MODE_EDIT && arm->edbo != nullptr) {
-    /* In Edit mode select and activate the target Edit-Bone. */
-    EditBone *ebone = ED_armature_ebone_find_name(arm->edbo, bone_name);
-    if (ebone != nullptr) {
-      if (reveal_hidden) {
-        /* Unhide the bone. */
-        ebone->flag &= ~BONE_HIDDEN_A;
-        ANIM_armature_bonecoll_show_from_ebone(arm, ebone);
-      }
-
-      /* Select it. */
-      ED_armature_edit_deselect_all(ob);
-
-      if (EBONE_SELECTABLE(arm, ebone)) {
-        ED_armature_ebone_select_set(ebone, true);
-        ED_armature_edit_sync_selection(arm->edbo);
-      }
-
-      arm->act_edbone = ebone;
-
-      ED_pose_bone_select_tag_update(ob);
-      return true;
-    }
-  }
-  else if (ob->mode == OB_MODE_POSE && ob->pose != nullptr) {
-    /* In Pose mode select and activate the target Bone/Pose-Channel. */
-    bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, bone_name);
-    if (pchan != nullptr) {
-      if (reveal_hidden) {
-        /* Unhide the bone. */
-        pchan->drawflag &= ~PCHAN_DRAW_HIDDEN;
-        ANIM_armature_bonecoll_show_from_pchan(arm, pchan);
-      }
-
-      /* Select it. */
-      ED_pose_deselect_all(ob, SEL_DESELECT, true);
-      ED_pose_bone_select(ob, pchan, true, true);
-
-      arm->act_bone = pchan->bone_get(*ob);
-
-      ED_pose_bone_select_tag_update(ob);
-      return true;
-    }
-  }
-
-  return false;
 }
 
 /** \} */
@@ -430,7 +358,7 @@ void OBJECT_OT_select_by_type(wmOperatorType *ot)
                   false,
                   "Extend",
                   "Extend selection instead of deselecting everything first");
-  ot->prop = RNA_def_enum(ot->srna, "type", rna_enum_object_type_items, 1, "Type", "");
+  ot->prop = RNA_def_enum(ot->srna, "type", rna_enum_object_type_add_items, 1, "Type", "");
   RNA_def_property_translation_context(ot->prop, BLT_I18NCONTEXT_ID_ID);
 }
 
@@ -444,7 +372,6 @@ enum {
   OBJECT_SELECT_LINKED_IPO = 1,
   OBJECT_SELECT_LINKED_OBDATA,
   OBJECT_SELECT_LINKED_MATERIAL,
-  OBJECT_SELECT_LINKED_DUPGROUP,
   OBJECT_SELECT_LINKED_PARTICLE,
   OBJECT_SELECT_LINKED_LIBRARY,
   OBJECT_SELECT_LINKED_LIBRARY_OBDATA,
@@ -455,7 +382,6 @@ static const EnumPropertyItem prop_select_linked_types[] = {
     // {OBJECT_SELECT_LINKED_IPO, "IPO", 0, "Object IPO", ""},
     {OBJECT_SELECT_LINKED_OBDATA, "OBDATA", 0, "Object Data", ""},
     {OBJECT_SELECT_LINKED_MATERIAL, "MATERIAL", 0, "Material", ""},
-    {OBJECT_SELECT_LINKED_DUPGROUP, "DUPGROUP", 0, "Instanced Collection", ""},
     {OBJECT_SELECT_LINKED_PARTICLE, "PARTICLE", 0, "Particle System", ""},
     {OBJECT_SELECT_LINKED_LIBRARY, "LIBRARY", 0, "Library", ""},
     {OBJECT_SELECT_LINKED_LIBRARY_OBDATA, "LIBRARY_OBDATA", 0, "Library (Object Data)", ""},
@@ -496,29 +422,6 @@ static bool object_select_all_by_material(bContext *C, Material *mat)
           base_select(base, BA_SELECT);
           changed = true;
         }
-      }
-    }
-  }
-  CTX_DATA_END;
-
-  return changed;
-}
-
-static bool object_select_all_by_instance_collection(bContext *C, Object *ob)
-{
-  bool changed = false;
-  Collection *instance_collection = (ob->transflag & OB_DUPLICOLLECTION) ?
-                                        ob->instance_collection :
-                                        nullptr;
-
-  CTX_DATA_BEGIN (C, Base *, base, visible_bases) {
-    if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLE) != 0)) {
-      Collection *instance_collection_other = (base->object->transflag & OB_DUPLICOLLECTION) ?
-                                                  base->object->instance_collection :
-                                                  nullptr;
-      if (instance_collection == instance_collection_other) {
-        base_select(base, BA_SELECT);
-        changed = true;
       }
     }
   }
@@ -653,13 +556,6 @@ static wmOperatorStatus object_select_linked_exec(bContext *C, wmOperator *op)
     }
 
     changed = object_select_all_by_material(C, mat);
-  }
-  else if (nr == OBJECT_SELECT_LINKED_DUPGROUP) {
-    if (ob->instance_collection == nullptr) {
-      return OPERATOR_CANCELLED;
-    }
-
-    changed = object_select_all_by_instance_collection(C, ob);
   }
   else if (nr == OBJECT_SELECT_LINKED_PARTICLE) {
     const ParticleSystem *psys_act = psys_get_current(ob);
@@ -1166,7 +1062,7 @@ static wmOperatorStatus object_select_mirror_exec(bContext *C, wmOperator *op)
   extend = RNA_boolean_get(op->ptr, "extend");
 
   CTX_DATA_BEGIN (C, Base *, primbase, selected_bases) {
-    char name_flip[MAXBONENAME];
+    char name_flip[MAX_ID_NAME];
 
     BLI_string_flip_side_name(name_flip, primbase->object->id.name + 2, true, sizeof(name_flip));
 

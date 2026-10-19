@@ -24,7 +24,6 @@
 #define DNA_GENFILE_VERSIONING_MACROS
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_cloth_types.h"
@@ -481,77 +480,6 @@ static void do_versions_area_ensure_tool_region(Main *bmain,
           }
         }
       }
-    }
-  }
-}
-
-static void do_version_bones_split_bbone_scale(ListBaseT<Bone> *lb)
-{
-  for (Bone &bone : *lb) {
-    bone.scale_in_z = bone.scale_in_x;
-    bone.scale_out_z = bone.scale_out_x;
-
-    do_version_bones_split_bbone_scale(&bone.childbase);
-  }
-}
-
-static void do_version_bones_inherit_scale(ListBaseT<Bone> *lb)
-{
-  for (Bone &bone : *lb) {
-    if (bone.flag & BONE_NO_SCALE) {
-      bone.inherit_scale_mode = BONE_INHERIT_SCALE_NONE_LEGACY;
-      bone.flag &= ~BONE_NO_SCALE;
-    }
-
-    do_version_bones_inherit_scale(&bone.childbase);
-  }
-}
-
-static bool replace_bbone_scale_rnapath(char **p_old_path)
-{
-  char *old_path = *p_old_path;
-
-  if (old_path == nullptr) {
-    return false;
-  }
-
-  if (BLI_str_endswith(old_path, "bbone_scalein") || BLI_str_endswith(old_path, "bbone_scaleout"))
-  {
-    *p_old_path = BLI_strdupcat(old_path, "x");
-
-    MEM_delete(old_path);
-    return true;
-  }
-
-  return false;
-}
-
-static void do_version_bbone_scale_fcurve_fix(ListBaseT<FCurve> *curves, FCurve *fcu)
-{
-  /* Update driver variable paths. */
-  if (fcu->driver) {
-    for (DriverVar &dvar : fcu->driver->variables) {
-      DRIVER_TARGETS_LOOPER_BEGIN (&dvar) {
-        replace_bbone_scale_rnapath(&dtar->rna_path);
-      }
-      DRIVER_TARGETS_LOOPER_END;
-    }
-  }
-
-  /* Update F-Curve's path. */
-  if (replace_bbone_scale_rnapath(&fcu->rna_path)) {
-    /* If matched, duplicate the curve and tweak name. */
-    FCurve *second = BKE_fcurve_copy(fcu);
-
-    second->rna_path[strlen(second->rna_path) - 1] = 'y';
-
-    BLI_insertlinkafter(curves, fcu, second);
-
-    /* Add to the curve group. */
-    second->grp = fcu->grp;
-
-    if (fcu->grp != nullptr && fcu->grp->channels.last == fcu) {
-      fcu->grp->channels.last = second;
     }
   }
 }
@@ -2386,55 +2314,6 @@ void do_versions_after_linking_280(FileData *fd, Main *bmain)
     }
   }
 
-  /* Move B-Bone custom handle settings from bPoseChannel to Bone. */
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 280, 25)) {
-    for (Object &ob : bmain->objects) {
-      /* If it is an armature from the same file. */
-      if (ob.pose && ob.data && ob.data->lib == ob.id.lib) {
-        bArmature *arm = id_cast<bArmature *>(ob.data);
-        bool rebuild = false;
-
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          /* If the 2.7 flag is enabled, processing is needed. */
-          Bone *pchan_bone = pchan.bone_get(ob);
-          if (pchan_bone && (pchan.bboneflag & PCHAN_BBONE_CUSTOM_HANDLES)) {
-            /* If the settings in the Bone are not set, copy. */
-            if (pchan_bone->bbone_prev_type == BBONE_HANDLE_AUTO &&
-                pchan_bone->bbone_next_type == BBONE_HANDLE_AUTO &&
-                pchan_bone->bbone_prev == nullptr && pchan_bone->bbone_next == nullptr)
-            {
-              pchan_bone->bbone_prev_type = (pchan.bboneflag & PCHAN_BBONE_CUSTOM_START_REL) ?
-                                                BBONE_HANDLE_RELATIVE :
-                                                BBONE_HANDLE_ABSOLUTE;
-              pchan_bone->bbone_next_type = (pchan.bboneflag & PCHAN_BBONE_CUSTOM_END_REL) ?
-                                                BBONE_HANDLE_RELATIVE :
-                                                BBONE_HANDLE_ABSOLUTE;
-
-              if (pchan.bbone_prev) {
-                pchan_bone->bbone_prev = pchan.bbone_prev->bone_get(ob);
-              }
-              if (pchan.bbone_next) {
-                pchan_bone->bbone_next = pchan.bbone_next->bone_get(ob);
-              }
-            }
-
-            rebuild = true;
-            pchan.bboneflag = 0;
-          }
-        }
-
-        /* Tag pose rebuild for all objects that use this armature. */
-        if (rebuild) {
-          for (Object &ob2 : bmain->objects) {
-            if (ob2.pose && ob2.data == id_cast<ID *>(arm)) {
-              ob2.pose->flag |= POSE_RECALC;
-            }
-          }
-        }
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 280, 38)) {
     /* Ensure we get valid rigidbody object/constraint data in relevant collections' objects.
      */
@@ -2751,21 +2630,6 @@ void do_versions_after_linking_280(FileData *fd, Main *bmain)
       }
     }
 
-    /* 2.8x dropped support for non-empty dupli instances. but proper do-versioning was never
-     * done correctly. So added here as a 'safe' place version wise, always better than in
-     * readfile lib-linking code! */
-    for (Object &ob : bmain->objects) {
-      if (ob.type != OB_EMPTY && ob.instance_collection != nullptr) {
-        BLO_reportf_wrap(fd->reports,
-                         RPT_INFO,
-                         RPT_("Non-Empty object '%s' cannot duplicate collection '%s' "
-                              "anymore in Blender 2.80 and later, removed instancing"),
-                         ob.id.name + 2,
-                         ob.instance_collection->id.name + 2);
-        ob.instance_collection = nullptr;
-        ob.transflag &= ~OB_DUPLICOLLECTION;
-      }
-    }
   }
 
   /**
@@ -2925,11 +2789,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
     /* 2.79 style Maintain Volume mode. */
     for (Object &ob : bmain->objects) {
       do_version_constraints_maintain_volume_mode_uniform(&ob.constraints);
-      if (ob.pose) {
-        for (bPoseChannel &pchan : ob.pose->chanbase) {
-          do_version_constraints_maintain_volume_mode_uniform(&pchan.constraints);
-        }
-      }
     }
   }
 
@@ -3463,18 +3322,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
               View3D *v3d = reinterpret_cast<View3D *>(&sl);
               v3d->shading.cavity_valley_factor = 1.0f;
               v3d->shading.cavity_ridge_factor = 1.0f;
-            }
-          }
-        }
-      }
-    }
-    if (!DNA_struct_member_exists(fd->filesdna, "View3DOverlay", "float", "xray_alpha_bone")) {
-      for (bScreen &screen : bmain->screens) {
-        for (ScrArea &area : screen.areabase) {
-          for (SpaceLink &sl : area.spacedata) {
-            if (sl.spacetype == SPACE_VIEW3D) {
-              View3D *v3d = reinterpret_cast<View3D *>(&sl);
-              v3d->overlay.xray_alpha_bone = 0.5f;
             }
           }
         }
@@ -4125,14 +3972,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 280, 38)) {
-    if (DNA_struct_member_exists(fd->filesdna, "Object", "char", "empty_image_visibility_flag")) {
-      for (Object &ob : bmain->objects) {
-        ob.empty_image_visibility_flag ^= (OB_EMPTY_IMAGE_HIDE_PERSPECTIVE |
-                                           OB_EMPTY_IMAGE_HIDE_ORTHOGRAPHIC |
-                                           OB_EMPTY_IMAGE_HIDE_BACK);
-      }
-    }
-
     for (bScreen &screen : bmain->screens) {
       for (ScrArea &area : screen.areabase) {
         for (SpaceLink &sl : area.spacedata) {
@@ -4380,7 +4219,7 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
       {
         enum { OB_WAVE = 21, OB_LIFE = 23, OB_SECTOR = 24 };
         if (ELEM(int(ob.type), OB_WAVE, OB_LIFE, OB_SECTOR)) {
-          ob.type = OB_EMPTY;
+          ob.type = OB_NO_DATA;
         }
       }
 
@@ -4388,11 +4227,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
                         OB_TRANSFLAG_UNUSED_3 | OB_TRANSFLAG_UNUSED_6 | OB_TRANSFLAG_UNUSED_12);
 
       ob.nlaflag &= ~(OB_ADS_UNUSED_1 | OB_ADS_UNUSED_2);
-    }
-
-    for (bArmature &arm : bmain->armatures) {
-      arm.flag &= ~(ARM_FLAG_UNUSED_1 | ARM_DRAW_RELATION_FROM_HEAD | ARM_BCOLL_SOLO_ACTIVE |
-                    ARM_FLAG_UNUSED_7 | ARM_FLAG_UNUSED_12);
     }
 
     for (Text &text : bmain->texts) {
@@ -4534,9 +4368,7 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
         for (SpaceLink &sl : area.spacedata) {
           if (sl.spacetype == SPACE_VIEW3D) {
             View3D *v3d = reinterpret_cast<View3D *>(&sl);
-            v3d->gizmo_show_armature = V3D_GIZMO_SHOW_ARMATURE_BBONE |
-                                       V3D_GIZMO_SHOW_ARMATURE_ROLL;
-            v3d->gizmo_show_empty = V3D_GIZMO_SHOW_EMPTY_IMAGE | V3D_GIZMO_SHOW_EMPTY_FORCE_FIELD;
+            v3d->gizmo_show_helpers = V3D_GIZMO_SHOW_HELPER_FORCE_FIELD;
             v3d->gizmo_show_light = V3D_GIZMO_SHOW_LIGHT_SIZE | V3D_GIZMO_SHOW_LIGHT_LOOK_AT;
             v3d->gizmo_show_camera = V3D_GIZMO_SHOW_CAMERA_LENS | V3D_GIZMO_SHOW_CAMERA_DOF_DIST;
           }
@@ -4605,23 +4437,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 280, 60)) {
-    if (!DNA_struct_member_exists(fd->filesdna, "bSplineIKConstraint", "short", "yScaleMode")) {
-      for (Object &ob : bmain->objects) {
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            for (bConstraint &con : pchan.constraints) {
-              if (con.type == CONSTRAINT_TYPE_SPLINEIK) {
-                bSplineIKConstraint *data = static_cast<bSplineIKConstraint *>(con.data);
-                if ((data->flag & CONSTRAINT_SPLINEIK_SCALE_LIMITED) == 0) {
-                  data->yScaleMode = CONSTRAINT_SPLINEIK_YS_FIT_CURVE;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
     if (!DNA_struct_member_exists(
             fd->filesdna, "View3DOverlay", "float", "sculpt_mode_mask_opacity"))
     {
@@ -4643,36 +4458,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Split bbone_scalein/bbone_scaleout into x and y fields. */
-    if (!DNA_struct_member_exists(fd->filesdna, "bPoseChannel", "float", "scale_out_z")) {
-      /* Update armature data and pose channels. */
-      for (bArmature &arm : bmain->armatures) {
-        do_version_bones_split_bbone_scale(&arm.bonebase);
-      }
-
-      for (Object &ob : bmain->objects) {
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            pchan.scale_in_z = pchan.scale_in_x;
-            pchan.scale_out_z = pchan.scale_out_x;
-          }
-        }
-      }
-
-      /* Update action curves and drivers. */
-      for (bAction &act : bmain->actions) {
-        for (FCurve &fcu : act.curves.items_mutable()) {
-          do_version_bbone_scale_fcurve_fix(&act.curves, &fcu);
-        }
-      }
-
-      BKE_animdata_main_cb(bmain, [](ID * /*id*/, AnimData *adt) {
-        for (FCurve &fcu : adt->drivers.items_mutable()) {
-          do_version_bbone_scale_fcurve_fix(&adt->drivers, &fcu);
-        }
-      });
-    }
-
     for (Scene &sce : bmain->scenes) {
       if (sce.ed != nullptr) {
         do_versions_seq_set_cache_defaults(sce.ed);
@@ -4685,11 +4470,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
     if (!DNA_struct_member_exists(fd->filesdna, "bSizeLikeConstraint", "float", "power")) {
       for (Object &ob : bmain->objects) {
         do_version_constraints_copy_scale_power(&ob.constraints);
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            do_version_constraints_copy_scale_power(&pchan.constraints);
-          }
-        }
       }
     }
 
@@ -4748,10 +4528,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 280, 69)) {
-    for (bArmature &arm : bmain->armatures) {
-      arm.flag &= ~(ARM_FLAG_UNUSED_7 | ARM_FLAG_UNUSED_9);
-    }
-
     /* Initializes sun lights with the new angular diameter property */
     if (!DNA_struct_member_exists(fd->filesdna, "Light", "float", "sun_angle")) {
       for (Light &light : bmain->lights) {
@@ -4839,9 +4615,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    for (bArmature &arm : bmain->armatures) {
-      arm.flag &= ~ARM_BCOLL_SOLO_ACTIVE;
-    }
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 281, 1)) {
@@ -4987,22 +4760,10 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
       }
     }
 
-    /* Convert the BONE_NO_SCALE flag to inherit_scale_mode enum. */
-    if (!DNA_struct_member_exists(fd->filesdna, "Bone", "char", "inherit_scale_mode")) {
-      for (bArmature &arm : bmain->armatures) {
-        do_version_bones_inherit_scale(&arm.bonebase);
-      }
-    }
-
     /* Convert the Offset flag to the mix mode enum. */
     if (!DNA_struct_member_exists(fd->filesdna, "bRotateLikeConstraint", "char", "mix_mode")) {
       for (Object &ob : bmain->objects) {
         do_version_constraints_copy_rotation_mix_mode(&ob.constraints);
-        if (ob.pose) {
-          for (bPoseChannel &pchan : ob.pose->chanbase) {
-            do_version_constraints_copy_rotation_mix_mode(&pchan.constraints);
-          }
-        }
       }
     }
 

@@ -6,7 +6,7 @@
  * Adapted from the Blender Alembic importer implementation. */
 
 #include "usd_reader_camera.hh"
-#include "usd_armature_utils.hh"
+#include "usd_animation_utils.hh"
 
 #include "ANIM_action.hh"
 #include "ANIM_animdata.hh"

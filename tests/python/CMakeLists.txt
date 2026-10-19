@@ -614,12 +614,6 @@ if(TEST_SRC_DIR_EXISTS)
   )
 
   add_blender_test(
-    modifiers_armature
-    ${TEST_SRC_DIR}/modeling/modifiers/armature_modifier.blend
-    --python ${TEST_PYTHON_DIR}/modeling/modifiers/armature_modifier.py
-  )
-
-  add_blender_test(
     physics_cloth
     ${TEST_SRC_DIR}/physics/cloth_test.blend
     --python ${TEST_PYTHON_DIR}/physics_cloth.py
@@ -704,30 +698,13 @@ endif()
 # ------------------------------------------------------------------------------
 
 add_blender_test(
-  bl_animation_armature
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_armature.py
-  --
-  --testdir "${TEST_SRC_DIR}/animation"
-)
-
-add_blender_test(
   bl_animation_bake
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_bake.py
 )
 
 add_blender_test(
-  bl_animation_rename
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_rename.py
-)
-
-add_blender_test(
   bl_animation_nla_strip
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_nla_strip.py
-)
-
-add_blender_test(
-  bl_animation_pose_slide
-  --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_pose_slide.py
 )
 
 if(TEST_SRC_DIR_EXISTS)
@@ -770,20 +747,6 @@ if(TEST_SRC_DIR_EXISTS)
   add_blender_test(
     bl_animation_motion_path
     --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_motion_path.py
-    --
-    --testdir "${TEST_SRC_DIR}/animation"
-  )
-
-  add_blender_test(
-    bl_pose_assets
-    --python ${CMAKE_CURRENT_LIST_DIR}/bl_pose_assets.py
-    --
-    --testdir "${TEST_SRC_DIR}/animation"
-  )
-
-  add_blender_test(
-    bl_rigging_symmetrize
-    --python ${CMAKE_CURRENT_LIST_DIR}/bl_rigging_symmetrize.py
     --
     --testdir "${TEST_SRC_DIR}/animation"
   )

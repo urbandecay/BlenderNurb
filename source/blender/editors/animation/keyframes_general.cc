@@ -12,21 +12,19 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <optional>
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
 #include "BLI_math_vector.h"
 #include "BLI_string.h"
-#include "BLI_string_utils.hh"
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_space_types.h"
 
-#include "BKE_action.hh"
 #include "BKE_curve.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_main.hh"
@@ -1274,11 +1272,6 @@ bool KeyframeCopyBuffer::is_single_fcurve() const
   return channelbag->fcurves().size() == 1;
 }
 
-bool KeyframeCopyBuffer::is_bone(const FCurve &fcurve) const
-{
-  return this->bone_fcurves.contains(&fcurve);
-}
-
 int KeyframeCopyBuffer::num_slots() const
 {
   /* The number of slots can be taken from any of these properties, so just assert that they are
@@ -1334,9 +1327,6 @@ void KeyframeCopyBuffer::debug_print() const
     }
     for (const FCurve *fcurve : channelbag->fcurves()) {
       std::cout << "      " << fcurve->rna_path << "[" << fcurve->array_index << "]";
-      if (this->is_bone(*fcurve)) {
-        std::cout << " (bone)";
-      }
       std::cout << std::endl;
     }
   }
@@ -1360,33 +1350,6 @@ void ANIM_fcurves_copybuf_free()
 }
 
 /* ------------------- */
-
-static bool is_animating_bone(const bAnimListElem *ale)
-{
-  BLI_assert(ale->datatype == ALE_FCURVE);
-
-  if (!ale->id || GS(ale->id->name) != ID_OB) {
-    return false;
-  }
-
-  Object *ob = reinterpret_cast<Object *>(ale->id);
-  if (ob->type != OB_ARMATURE) {
-    return false;
-  }
-
-  FCurve *fcurve = static_cast<FCurve *>(ale->key_data);
-  if (!fcurve->rna_path) {
-    return false;
-  }
-
-  char bone_name[sizeof(bPoseChannel::name)];
-  if (!BLI_str_quoted_substr(fcurve->rna_path, "pose.bones[", bone_name, sizeof(bone_name))) {
-    return false;
-  }
-
-  bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, bone_name);
-  return pchan != nullptr;
-};
 
 namespace {
 
@@ -1529,12 +1492,6 @@ bool copy_animedit_keys(bAnimContext *ac, ListBaseT<bAnimListElem> *anim_data)
       channelbag.fcurve_assign_to_channel_group(fcurve_copy, group);
     }
 
-    /* Detect if this is a bone. We do that here rather than during pasting
-     * because ID pointers will get invalidated on undo / loading another file. */
-    if (is_animating_bone(&ale)) {
-      keyframe_copy_buffer->bone_fcurves.add(&fcurve_copy);
-    }
-
     /* Add selected keyframes to the buffer F-Curve. */
     int bezt_index = 0;
     BezTriple *bezt = fcu->bezt;
@@ -1567,32 +1524,12 @@ bool copy_animedit_keys(bAnimContext *ac, ListBaseT<bAnimListElem> *anim_data)
 
 namespace ed::animation {
 
-std::optional<std::string> flip_names(const StringRefNull rna_path)
-{
-  int ofs_start, ofs_end;
-  if (!BLI_str_quoted_substr_range(rna_path.c_str(), "pose.bones[", &ofs_start, &ofs_end)) {
-    return {};
-  }
-
-  /* NOTE: there is no need to un-escape the string to flip it.
-   * However the buffer does need to be twice the size. */
-  char bname_new[MAX_VGROUP_NAME * 2];
-
-  /* Take a copy so it's 0-terminated. */
-  const std::string bone_name = rna_path.substr(ofs_start, ofs_end - ofs_start);
-
-  BLI_string_flip_side_name(bname_new, bone_name.c_str(), false, sizeof(bname_new));
-
-  return rna_path.substr(0, ofs_start) + bname_new + rna_path.substr(ofs_end);
-}
-
 using pastebuf_match_func = bool (*)(Main *bmain,
                                      const FCurve &fcurve_to_match,
                                      const FCurve &fcurve_in_copy_buffer,
                                      animrig::slot_handle_t slot_handle_in_copy_buffer,
                                      bool from_single,
-                                     bool to_single,
-                                     bool flip);
+                                     bool to_single);
 
 namespace {
 
@@ -1768,8 +1705,7 @@ static const FCurve *pastebuf_find_matching_copybuf_item(const pastebuf_match_fu
                    *fcurve,
                    channelbag->slot_handle,
                    from_single,
-                   to_single,
-                   paste_context.flip))
+                   to_single))
       {
         return fcurve;
       }
@@ -1784,8 +1720,7 @@ bool pastebuf_match_path_full(Main * /*bmain*/,
                               const FCurve &fcurve_in_copy_buffer,
                               animrig::slot_handle_t /*slot_handle_in_copy_buffer*/,
                               const bool from_single,
-                              const bool to_single,
-                              const bool flip)
+                              const bool to_single)
 {
   if (!fcurve_to_match.rna_path || !fcurve_in_copy_buffer.rna_path) {
     /* No paths to compare to, so only ok if pasting to a single F-Curve. */
@@ -1801,12 +1736,6 @@ bool pastebuf_match_path_full(Main * /*bmain*/,
     return false;
   }
 
-  if (!to_single && flip && keyframe_copy_buffer->is_bone(fcurve_in_copy_buffer)) {
-    const std::optional<std::string> with_flipped_name = ed::animation::flip_names(
-        fcurve_in_copy_buffer.rna_path);
-    return with_flipped_name && with_flipped_name == fcurve_to_match.rna_path;
-  }
-
   return to_single || STREQ(fcurve_in_copy_buffer.rna_path, fcurve_to_match.rna_path);
 }
 
@@ -1815,8 +1744,7 @@ bool pastebuf_match_path_property(Main *bmain,
                                   const FCurve &fcurve_in_copy_buffer,
                                   animrig::slot_handle_t slot_handle_in_copy_buffer,
                                   const bool from_single,
-                                  const bool /*to_single*/,
-                                  const bool /*flip*/)
+                                  const bool /*to_single*/)
 {
   if (!fcurve_in_copy_buffer.rna_path || !fcurve_to_match.rna_path) {
     return false;
@@ -1834,8 +1762,8 @@ bool pastebuf_match_path_property(Main *bmain,
   /* find the property of the fcurve and compare against the end of the tAnimCopybufItem
    * more involved since it needs to do path lookups.
    * This is not 100% reliable since the user could be editing the curves on a path that won't
-   * resolve, or a bone could be renamed after copying for eg. but in normal copy & paste
-   * this should work out ok.
+   * resolve, or a property path could change after copying. In normal copy and paste this should
+   * work out okay.
    */
   const std::optional<ID *> optional_id = keyframe_copy_buffer->slot_animated_ids.lookup_try(
       slot_handle_in_copy_buffer);
@@ -1876,57 +1804,18 @@ bool pastebuf_match_index_only(Main * /*bmain*/,
                                const FCurve &fcurve_in_copy_buffer,
                                animrig::slot_handle_t /* slot_handle_in_copy_buffer */,
                                const bool from_single,
-                               const bool /*to_single*/,
-                               const bool /*flip*/)
+                               const bool /*to_single*/)
 {
   return from_single || fcurve_in_copy_buffer.array_index == fcurve_to_match.array_index;
 }
 
 /* ................ */
 
-static void do_curve_mirror_flippping(const FCurve &fcurve, BezTriple &bezt)
-{
-  if (!keyframe_copy_buffer->is_bone(fcurve)) {
-    return;
-  }
-
-  /* TODO: pull the investigation of the RNA path out of this function, and out of the loop over
-   * all keys of the F-Curve. It only has to be done once per F-Curve, and not for every single
-   * key. */
-  const size_t slength = strlen(fcurve.rna_path);
-  bool flip = false;
-  if (BLI_strn_endswith(fcurve.rna_path, "location", slength) && fcurve.array_index == 0) {
-    flip = true;
-  }
-  else if (BLI_strn_endswith(fcurve.rna_path, "rotation_quaternion", slength) &&
-           ELEM(fcurve.array_index, 2, 3))
-  {
-    flip = true;
-  }
-  else if (BLI_strn_endswith(fcurve.rna_path, "rotation_euler", slength) &&
-           ELEM(fcurve.array_index, 1, 2))
-  {
-    flip = true;
-  }
-  else if (BLI_strn_endswith(fcurve.rna_path, "rotation_axis_angle", slength) &&
-           ELEM(fcurve.array_index, 2, 3))
-  {
-    flip = true;
-  }
-
-  if (flip) {
-    bezt.vec[0][1] = -bezt.vec[0][1];
-    bezt.vec[1][1] = -bezt.vec[1][1];
-    bezt.vec[2][1] = -bezt.vec[2][1];
-  }
-}
-
 /* helper for paste_animedit_keys() - performs the actual pasting */
 static void paste_animedit_keys_fcurve(FCurve *fcu,
                                        const FCurve &fcurve_in_copy_buffer,
                                        float offset[2],
-                                       const eKeyMergeMode merge_mode,
-                                       bool flip)
+                                       const eKeyMergeMode merge_mode)
 {
   BezTriple *bezt;
   int i;
@@ -1985,10 +1874,6 @@ static void paste_animedit_keys_fcurve(FCurve *fcu,
      * If the insertion is done before the offset is applied, it will replace
      * the original key and _then_ move it to the new position. */
     BezTriple bezt_copy = *bezt;
-
-    if (flip) {
-      do_curve_mirror_flippping(fcurve_in_copy_buffer, bezt_copy);
-    }
 
     add_v2_v2(bezt_copy.vec[0], offset);
     add_v2_v2(bezt_copy.vec[1], offset);
@@ -2160,8 +2045,7 @@ eKeyPasteError paste_animedit_keys(bAnimContext *ac,
         ac, fcurve_in_copy_buffer, ale, paste_context.value_offset_mode);
 
     ANIM_nla_mapping_apply_if_needed_fcurve(ale, fcu, false, false);
-    paste_animedit_keys_fcurve(
-        fcu, fcurve_in_copy_buffer, offset, paste_context.merge_mode, false);
+    paste_animedit_keys_fcurve(fcu, fcurve_in_copy_buffer, offset, paste_context.merge_mode);
     ANIM_nla_mapping_apply_if_needed_fcurve(ale, fcu, true, false);
 
     ale->update |= ANIM_UPDATE_DEFAULT;
@@ -2198,8 +2082,7 @@ eKeyPasteError paste_animedit_keys(bAnimContext *ac,
       paste_animedit_keys_fcurve(fcurve_to_paste_into,
                                  *fcurve_in_copy_buffer,
                                  offset,
-                                 paste_context.merge_mode,
-                                 paste_context.flip);
+                                 paste_context.merge_mode);
       ANIM_nla_mapping_apply_if_needed_fcurve(&ale, fcurve_to_paste_into, true, false);
 
       found_match = true;

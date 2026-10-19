@@ -31,7 +31,6 @@ from collections.abc import (
 import bpy
 from bpy.types import (
     ActionChannelbag,
-    PoseBone,
 )
 
 from rna_prop_ui import (
@@ -51,12 +50,6 @@ ListKeyframes = list[float]
 
 @dataclass
 class BakeOptions:
-    only_selected: bool
-    """Only bake selected bones."""
-
-    do_pose: bool
-    """Bake pose channels"""
-
     do_object: bool
     """Bake objects."""
 
@@ -77,9 +70,6 @@ class BakeOptions:
 
     do_scale: bool
     """Bake scale channels"""
-
-    do_bbone: bool
-    """Bake b-bone channels"""
 
     do_custom_props: bool
     """Bake custom properties."""
@@ -199,7 +189,7 @@ def bake_action(
     :return: Action or None.
     :rtype: :class:`bpy.types.Action` | None
     """
-    if not (bake_options.do_pose or bake_options.do_object):
+    if not bake_options.do_object:
         return None
 
     action, = bake_action_objects(
@@ -229,7 +219,7 @@ def bake_action_objects(
     :return: A sequence of Action or None types (aligned with ``object_action_pairs``)
     :rtype: Sequence[:class:`bpy.types.Action`]
     """
-    if not (bake_options.do_pose or bake_options.do_object):
+    if not bake_options.do_object:
         return []
 
     iter = bake_action_objects_iter(object_action_pairs, bake_options=bake_options)
@@ -298,27 +288,6 @@ def bake_action_iter(
     # -------------------------------------------------------------------------
     # Helper Functions and vars
 
-    # Note: BBONE_PROPS is a list so we can preserve the ordering
-    BBONE_PROPS = [
-        "bbone_curveinx", "bbone_curveoutx",
-        "bbone_curveinz", "bbone_curveoutz",
-        "bbone_rollin", "bbone_rollout",
-        "bbone_scalein", "bbone_scaleout",
-        "bbone_easein", "bbone_easeout",
-    ]
-    BBONE_PROPS_LENGTHS = {
-        "bbone_curveinx": 1,
-        "bbone_curveoutx": 1,
-        "bbone_curveinz": 1,
-        "bbone_curveoutz": 1,
-        "bbone_rollin": 1,
-        "bbone_rollout": 1,
-        "bbone_scalein": 3,
-        "bbone_scaleout": 3,
-        "bbone_easein": 1,
-        "bbone_easeout": 1,
-    }
-
     def can_be_keyed(value):
         """Returns a tri-state boolean.
 
@@ -381,34 +350,6 @@ def bake_action_iter(
                 # itself cannot be animated.
                 continue
 
-    def pose_frame_info(obj):
-        matrix = {}
-        bbones = {}
-        custom_props = {}
-        for name, pbone in obj.pose.bones.items():
-            if bake_options.do_visual_keying:
-                # Get the final transform of the bone in its own local space...
-                matrix[name] = obj.convert_space(
-                    pose_bone=pbone, matrix=pbone.matrix,
-                    from_space='POSE', to_space='LOCAL',
-                )
-            else:
-                matrix[name] = pbone.matrix_basis.copy()
-
-            # Bendy Bones
-            if pbone.bone.bbone_segments > 1:
-                bbones[name] = {bb_prop: getattr(pbone, bb_prop) for bb_prop in BBONE_PROPS}
-
-            # Custom Properties
-            custom_props[name] = clean_custom_properties(pbone)
-
-        return matrix, bbones, custom_props
-
-    def armature_frame_info(obj):
-        if obj.type != 'ARMATURE':
-            return {}
-        return clean_custom_properties(obj)
-
     if bake_options.do_visual_keying:
         def obj_frame_info(obj):
             return obj.matrix_world.copy(), clean_custom_properties(obj)
@@ -419,14 +360,6 @@ def bake_action_iter(
     # -------------------------------------------------------------------------
     # Setup the Context
 
-    if obj.pose is None:
-        bake_options.do_pose = False
-
-    if not (bake_options.do_pose or bake_options.do_object):
-        raise Exception("Pose and object baking is disabled, no action needed")
-
-    pose_info = []
-    armature_info = []
     obj_info = []
 
     # -------------------------------------------------------------------------
@@ -439,9 +372,6 @@ def bake_action_iter(
         # Signal we're done!
         if frame is None:
             break
-        if bake_options.do_pose:
-            pose_info.append((frame, *pose_frame_info(obj)))
-            armature_info.append((frame, armature_frame_info(obj)))
         if bake_options.do_object:
             obj_info.append((frame, *obj_frame_info(obj)))
 
@@ -487,110 +417,9 @@ def bake_action_iter(
     # -------------------------------------------------------------------------
     # Apply transformations to action
 
-    # pose
     lookup_fcurves = {(fcurve.data_path, fcurve.array_index): fcurve for fcurve in channelbag.fcurves}
 
-    if bake_options.do_pose:
-        for f, armature_custom_properties in armature_info:
-            bake_custom_properties(
-                obj,
-                custom_props=armature_custom_properties,
-                frame=f,
-                group_name="Armature Custom Properties"
-            )
-
-        for name, pbone in obj.pose.bones.items():
-            if bake_options.only_selected and not pbone.select:
-                continue
-
-            if bake_options.do_constraint_clear:
-                for con in pbone.constraints[:]:
-                    if not con.is_override_data:
-                        pbone.constraints.remove(con)
-
-            # Create compatible euler & quaternion rotation values.
-            euler_prev = None
-            quat_prev = None
-
-            base_fcurve_path = pbone.path_from_id() + "."
-            path_location = base_fcurve_path + "location"
-            path_quaternion = base_fcurve_path + "rotation_quaternion"
-            path_axis_angle = base_fcurve_path + "rotation_axis_angle"
-            path_euler = base_fcurve_path + "rotation_euler"
-            path_scale = base_fcurve_path + "scale"
-            paths_bbprops = [(base_fcurve_path + bbprop) for bbprop in BBONE_PROPS]
-
-            keyframes = KeyframesCo()
-
-            if bake_options.do_location:
-                keyframes.add_paths(path_location, 3)
-            if bake_options.do_rotation:
-                keyframes.add_paths(path_quaternion, 4)
-                keyframes.add_paths(path_axis_angle, 4)
-                keyframes.add_paths(path_euler, 3)
-            if bake_options.do_scale:
-                keyframes.add_paths(path_scale, 3)
-
-            if bake_options.do_bbone and pbone.bone.bbone_segments > 1:
-                for prop_name, path in zip(BBONE_PROPS, paths_bbprops):
-                    keyframes.add_paths(path, BBONE_PROPS_LENGTHS[prop_name])
-
-            rotation_mode = pbone.rotation_mode
-            total_new_keys = len(pose_info)
-            for (f, matrix, bbones, custom_props) in pose_info:
-                pbone.matrix_basis = matrix[name].copy()
-
-                if bake_options.do_location:
-                    keyframes.extend_co_values(path_location, 3, f, pbone.location)
-
-                if bake_options.do_rotation:
-                    if rotation_mode == 'QUATERNION':
-                        if quat_prev is not None:
-                            quat = pbone.rotation_quaternion.copy()
-                            quat.make_compatible(quat_prev)
-                            pbone.rotation_quaternion = quat
-                            quat_prev = quat
-                            del quat
-                        else:
-                            quat_prev = pbone.rotation_quaternion.copy()
-                        keyframes.extend_co_values(path_quaternion, 4, f, pbone.rotation_quaternion)
-                    elif rotation_mode == 'AXIS_ANGLE':
-                        keyframes.extend_co_values(path_axis_angle, 4, f, pbone.rotation_axis_angle)
-                    else:  # euler, XYZ, ZXY etc
-                        if euler_prev is not None:
-                            euler = pbone.matrix_basis.to_euler(pbone.rotation_mode, euler_prev)
-                            pbone.rotation_euler = euler
-                            del euler
-                        euler_prev = pbone.rotation_euler.copy()
-                        keyframes.extend_co_values(path_euler, 3, f, pbone.rotation_euler)
-
-                if bake_options.do_scale:
-                    keyframes.extend_co_values(path_scale, 3, f, pbone.scale)
-
-                # Bendy Bones
-                if bake_options.do_bbone and pbone.bone.bbone_segments > 1:
-                    bbone_shape = bbones[name]
-                    for prop_index, prop_name in enumerate(BBONE_PROPS):
-                        prop_len = BBONE_PROPS_LENGTHS[prop_name]
-                        if prop_len > 1:
-                            keyframes.extend_co_values(
-                                paths_bbprops[prop_index], prop_len, f, bbone_shape[prop_name]
-                            )
-                        else:
-                            keyframes.extend_co_value(
-                                paths_bbprops[prop_index], f, bbone_shape[prop_name]
-                            )
-                # Custom Properties
-                if bake_options.do_custom_props:
-                    bake_custom_properties(pbone, custom_props=custom_props[name], frame=f, group_name=name)
-
-            if is_new_action:
-                keyframes.insert_keyframes_into_new_action(total_new_keys, channelbag, name)
-            else:
-                keyframes.insert_keyframes_into_existing_action(
-                    lookup_fcurves, total_new_keys, channelbag)
-
-    # object. TODO. multiple objects
+    # Object animation.
     if bake_options.do_object:
         if bake_options.do_constraint_clear:
             for con in obj.constraints[:]:
@@ -962,18 +791,18 @@ class AutoKeying:
         return options
 
     @staticmethod
-    def get_4d_rotlock(bone):
+    def get_4d_rotlock(target):
         """
-        Retrieve the lock status for 4D rotation.
+        Retrieve the lock status for 4D object rotation.
 
-        :param bone: The pose bone to check.
-        :type bone: :class:`bpy.types.PoseBone`
+        :param target: The object to check.
+        :type target: :class:`bpy.types.Object`
         :return: Lock status for W, X, Y, Z rotation channels.
         :rtype: list[bool]
         """
-        if bone.lock_rotations_4d:
-            return [bone.lock_rotation_w, *bone.lock_rotation]
-        return [all(bone.lock_rotation)] * 4
+        if target.lock_rotations_4d:
+            return [target.lock_rotation_w, *target.lock_rotation]
+        return [all(target.lock_rotation)] * 4
 
     @classmethod
     def keyframe_channels(
@@ -987,8 +816,8 @@ class AutoKeying:
         """
         Keyframe channels, avoiding keying locked channels.
 
-        :param target: The object or pose bone to keyframe.
-        :type target: :class:`bpy.types.Object` | :class:`bpy.types.PoseBone`
+        :param target: The object to keyframe.
+        :type target: :class:`bpy.types.Object`
         :param options: Keyframing options.
         :type options: set[str]
         :param data_path: The data path to keyframe.
@@ -1019,22 +848,18 @@ class AutoKeying:
         """
         Keyframe transformation properties, avoiding keying locked channels.
 
-        :param target: The object or pose bone to keyframe.
-        :type target: :class:`bpy.types.Object` | :class:`bpy.types.PoseBone`
+        :param target: The object to keyframe.
+        :type target: :class:`bpy.types.Object`
         :param options: Keyframing options.
         :type options: set[str]
         """
 
-        is_bone = isinstance(target, PoseBone)
-        if is_bone:
-            group = target.name
-        else:
-            group = "Object Transforms"
+        group = "Object Transforms"
 
         def keyframe(data_path: str, locks: Iterable[bool]) -> None:
             cls.keyframe_channels(target, options, data_path, group, locks)
 
-        if cls._use_loc and not (is_bone and target.bone.use_connect):
+        if cls._use_loc:
             keyframe("location", target.lock_location)
 
         if cls._use_rot:
@@ -1055,15 +880,14 @@ class AutoKeying:
 
         :param context: The context.
         :type context: :class:`bpy.types.Context`
-        :param target: The object or pose bone to keyframe.
-        :type target: :class:`bpy.types.Object` | :class:`bpy.types.PoseBone`
+        :param target: The object to keyframe.
+        :type target: :class:`bpy.types.Object`
         :param keyingset: The keying set to use.
         :type keyingset: :class:`bpy.types.KeyingSet`
         """
 
         keyingset.refresh()
 
-        is_bone = isinstance(target, PoseBone)
         options = cls.keying_options_from_keyingset(context, keyingset)
 
         paths_to_key = {keysetpath.data_path: keysetpath for keysetpath in keyingset.paths}
@@ -1087,7 +911,7 @@ class AutoKeying:
 
             cls.keyframe_channels(target, options, data_path, group, locks)
 
-        if cls._use_loc and not (is_bone and target.bone.use_connect):
+        if cls._use_loc:
             keyframe("location", target.lock_location)
 
         if cls._use_rot:
@@ -1137,8 +961,8 @@ class AutoKeying:
 
         :param context: The context.
         :type context: :class:`bpy.types.Context`
-        :param target: The object or pose bone to keyframe.
-        :type target: :class:`bpy.types.Object` | :class:`bpy.types.PoseBone`
+        :param target: The object to keyframe.
+        :type target: :class:`bpy.types.Object`
         """
 
         # See if the active keying set should be used.

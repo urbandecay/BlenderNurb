@@ -24,7 +24,6 @@
 
 #include "BLT_translation.hh"
 
-#include "DNA_armature_types.h"
 #include "DNA_asset_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_curve_types.h"
@@ -37,7 +36,6 @@
 #include "DNA_scene_types.h"
 
 #include "BKE_anim_visualization.h"
-#include "BKE_armature.hh"
 #include "BKE_collection.hh"
 #include "BKE_constraint.h"
 #include "BKE_context.hh"
@@ -72,7 +70,6 @@
 #include "DEG_depsgraph_build.hh"
 
 #include "ED_anim_api.hh"
-#include "ED_armature.hh"
 #include "ED_asset.hh"
 #include "ED_asset_menu_utils.hh"
 #include "ED_curve.hh"
@@ -169,8 +166,7 @@ Vector<Object *> objects_in_mode_or_selected(bContext *C,
   BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
   Object *ob_active = BKE_view_layer_active_object_get(view_layer);
   ID *id_pin = nullptr;
-  const bool use_objects_in_mode = (ob_active != nullptr) &&
-                                   (ob_active->mode & (OB_MODE_EDIT | OB_MODE_POSE));
+  const bool use_objects_in_mode = (ob_active != nullptr) && (ob_active->mode & OB_MODE_EDIT);
   const eSpace_Type space_type = area ? eSpace_Type(area->spacetype) : SPACE_EMPTY;
 
   Object *ob = nullptr;
@@ -561,45 +557,6 @@ void OBJECT_OT_hide_collection(wmOperatorType *ot)
 /** \name Toggle Edit-Mode Operator
  * \{ */
 
-/* When switching mode, certain data needs to be copied from the `bPoseChannel` to the `Bone`. This
- * is not done in `BKE_pose_rebuild` because that is called in other cases other than mode
- * switching. */
-static void flush_bone_selection_to_pose(Object &ob)
-{
-  BLI_assert(ob.pose);
-  for (bPoseChannel &pose_bone : ob.pose->chanbase) {
-    pose_bone.flag &= ~(POSE_SELECTED | POSE_SELECTED_ROOT | POSE_SELECTED_TIP);
-    const Bone *bone = pose_bone.bone_get(ob);
-    if (bone->flag & BONE_ROOTSEL) {
-      pose_bone.flag |= POSE_SELECTED_ROOT;
-    }
-    if (bone->flag & BONE_TIPSEL) {
-      pose_bone.flag |= POSE_SELECTED_TIP;
-    }
-    if (bone->flag & BONE_SELECTED) {
-      pose_bone.flag |= POSE_SELECTED;
-    }
-  }
-}
-
-static void flush_pose_selection_to_bone(Object &ob)
-{
-  BLI_assert(ob.pose);
-  for (bPoseChannel &pose_bone : ob.pose->chanbase) {
-    Bone *bone = pose_bone.bone_get(ob);
-    bone->flag &= ~(BONE_ROOTSEL | BONE_TIPSEL | BONE_SELECTED);
-    if (pose_bone.flag & POSE_SELECTED_ROOT) {
-      bone->flag |= BONE_ROOTSEL;
-    }
-    if (pose_bone.flag & POSE_SELECTED_TIP) {
-      bone->flag |= BONE_TIPSEL;
-    }
-    if (pose_bone.flag & POSE_SELECTED) {
-      bone->flag |= BONE_SELECTED;
-    }
-  }
-}
-
 static bool mesh_needs_keyindex(Main *bmain, const Mesh *mesh)
 {
   if (mesh->key) {
@@ -663,36 +620,6 @@ static bool editmode_load_free_ex(Main *bmain,
       ED_mesh_mirror_spatial_table_end(obedit);
       ED_mesh_mirror_topo_table_end(obedit);
     }
-  }
-  else if (obedit->type == OB_ARMATURE) {
-    const bArmature *arm = id_cast<const bArmature *>(obedit->data);
-    if (arm->edbo == nullptr) {
-      return false;
-    }
-
-    if (load_data) {
-      ED_armature_from_edit(bmain, id_cast<bArmature *>(obedit->data));
-    }
-
-    if (free_data) {
-      ED_armature_edit_free(id_cast<bArmature *>(obedit->data));
-
-      if (load_data == false) {
-        /* Don't keep unused pose channels created by duplicating bones
-         * which may have been deleted/undone, see: #87631. */
-        if (obedit->pose != nullptr) {
-          BKE_pose_channels_clear_with_null_bone(obedit, true);
-        }
-      }
-    }
-
-    /* After regenerating the bones, sync the selection onto the pose bones. */
-    flush_bone_selection_to_pose(*obedit);
-    /* TODO(sergey): Pose channels might have been changed, so need
-     * to inform dependency graph about this. But is it really the
-     * best place to do this?
-     */
-    DEG_relations_tag_update(bmain);
   }
   else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
     const Curve *cu = id_cast<const Curve *>(obedit->data);
@@ -900,35 +827,6 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
 
     WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_MESH, nullptr);
   }
-  else if (ob->type == OB_ARMATURE) {
-    /* Syncing the selection to the `Bone` before converting to edit bones. This is not possible if
-     * the Armature was just created, because then there is no pose data yet. Which is fine, the
-     * just-created edit bones already have the expected selection state. */
-    if (ob->pose) {
-      flush_pose_selection_to_bone(*ob);
-    }
-
-    bArmature *arm = id_cast<bArmature *>(ob->data);
-    ok = true;
-    ED_armature_to_edit(arm);
-    /* To ensure all goes in rest-position and without striding. */
-
-    arm->needs_flush_to_id = 0;
-
-    /* WORKAROUND / FIXME: this is a temporary workaround to ensure that
-     * full bone collection data gets restored when exiting edit mode
-     * via an undo step. The correct fix is to have a full edit-mode
-     * copy of bone collections so that edit-mode changes don't modify
-     * object-mode armature data until exiting edit mode. But that
-     * change is a bit of a project, and will be done later. This line
-     * should be removed when that is done. */
-    bmain->is_memfile_undo_written = false;
-
-    /* XXX: should this be ID_RECALC_GEOMETRY? */
-    DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
-
-    WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_ARMATURE, scene);
-  }
   else if (ob->type == OB_FONT) {
     ok = true;
     ED_curve_editfont_make(ob);
@@ -1087,101 +985,6 @@ void OBJECT_OT_editmode_toggle(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Toggle Pose-Mode Operator
- * \{ */
-
-static wmOperatorStatus posemode_exec(bContext *C, wmOperator *op)
-{
-  wmMsgBus *mbus = CTX_wm_message_bus(C);
-  Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  Base *base = CTX_data_active_base(C);
-
-  if (!object_mode_set_ok_or_report(op->reports)) {
-    return OPERATOR_CANCELLED;
-  }
-
-  /* If the base is nullptr it means we have an active object, but the object itself is hidden. */
-  if (base == nullptr) {
-    return OPERATOR_CANCELLED;
-  }
-
-  Object *obact = base->object;
-  const int mode_flag = OB_MODE_POSE;
-  bool is_mode_set = (obact->mode & mode_flag) != 0;
-
-  if (!is_mode_set) {
-    if (!mode_compat_set(C, obact, eObjectMode(mode_flag), op->reports)) {
-      return OPERATOR_CANCELLED;
-    }
-  }
-
-  if (obact->type != OB_ARMATURE) {
-    return OPERATOR_PASS_THROUGH;
-  }
-
-  {
-    BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-    Object *obedit = BKE_view_layer_edit_object_get(view_layer);
-    if (obact == obedit) {
-      editmode_exit_ex(bmain, scene, obedit, EM_FREEDATA);
-      is_mode_set = false;
-    }
-  }
-
-  if (is_mode_set) {
-    bool ok = ED_object_posemode_exit(C, obact);
-    if (ok) {
-      FOREACH_OBJECT_BEGIN (bmain, scene, view_layer, ob) {
-        if ((ob != obact) && (ob->type == OB_ARMATURE) && (ob->mode & mode_flag)) {
-          ED_object_posemode_exit_ex(bmain, ob);
-        }
-      }
-      FOREACH_OBJECT_END;
-    }
-  }
-  else {
-    bool ok = ED_object_posemode_enter(C, obact);
-    if (ok) {
-      const View3D *v3d = CTX_wm_view3d(C);
-      FOREACH_SELECTED_OBJECT_BEGIN (view_layer, v3d, ob) {
-        if ((ob != obact) && (ob->type == OB_ARMATURE) && (ob->mode == OB_MODE_OBJECT) &&
-            BKE_id_is_editable(bmain, &ob->id))
-        {
-          ED_object_posemode_enter_ex(bmain, ob);
-        }
-      }
-      FOREACH_SELECTED_OBJECT_END;
-    }
-  }
-
-  WM_msg_publish_rna_prop(mbus, &obact->id, obact, Object, mode);
-
-  if (G.background == false) {
-    WM_toolsystem_update_from_context_view3d(C);
-  }
-
-  return OPERATOR_FINISHED;
-}
-
-void OBJECT_OT_posemode_toggle(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Toggle Pose Mode";
-  ot->idname = "OBJECT_OT_posemode_toggle";
-  ot->description = "Enable or disable posing/selecting bones";
-
-  /* API callbacks. */
-  ot->exec = posemode_exec;
-  ot->poll = ED_operator_object_active_editable;
-
-  /* flag */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
-/** \} */
-
 /* -------------------------------------------------------------------- */
 /** \name Force Field Toggle Operator
  * \{ */
@@ -1216,11 +1019,11 @@ static wmOperatorStatus forcefield_toggle_exec(bContext *C, wmOperator * /*op*/)
 
   if (ob->pd == nullptr) {
     ob->pd = BKE_partdeflect_new(PFIELD_FORCE);
-    ob->empty_drawtype = OB_PLAINAXES;
+    ob->helper_display_type = OB_PLAINAXES;
   }
   else if (ob->pd->forcefield == 0) {
     ob->pd->forcefield = PFIELD_FORCE;
-    ob->empty_drawtype = OB_PLAINAXES;
+    ob->helper_display_type = OB_PLAINAXES;
   }
   else {
     ob->pd->forcefield = ePFieldType{};
@@ -1262,11 +1065,6 @@ static bool has_object_motion_paths(Object *ob)
   return (ob->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS) != 0;
 }
 
-static bool has_pose_motion_paths(Object *ob)
-{
-  return ob->pose && (ob->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS) != 0;
-}
-
 void motion_paths_recalc(bContext *C,
                          Scene *scene,
                          const eAnimvizCalcRange range,
@@ -1283,10 +1081,6 @@ void motion_paths_recalc(bContext *C,
       ob->avs.recalc |= ANIMVIZ_RECALC_PATHS;
     }
 
-    if (has_pose_motion_paths(ob)) {
-      ob->pose->avs.recalc |= ANIMVIZ_RECALC_PATHS;
-    }
-
     animviz_build_motionpath_targets(ob, targets);
   }
 
@@ -1298,7 +1092,7 @@ void motion_paths_recalc(bContext *C,
   /* Tag objects for copy-on-eval - so paths will draw/redraw
    * For currently frame only we update evaluated object directly. */
   for (Object *ob : objects) {
-    if (has_object_motion_paths(ob) || has_pose_motion_paths(ob)) {
+    if (has_object_motion_paths(ob)) {
       DEG_id_tag_update(&ob->id, ID_RECALC_SYNC_TO_EVAL);
     }
   }
@@ -1365,7 +1159,7 @@ static wmOperatorStatus object_calculate_paths_exec(bContext *C, wmOperator *op)
     animviz_motionpath_compute_range(ob, scene);
 
     /* verify that the selected object has the appropriate settings */
-    animviz_verify_motionpaths(op->reports, scene, ob, nullptr);
+    animviz_verify_motionpaths(op->reports, scene, ob);
   }
   CTX_DATA_END;
 
@@ -1376,7 +1170,7 @@ static wmOperatorStatus object_calculate_paths_exec(bContext *C, wmOperator *op)
   WM_event_add_notifier(C, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
   /* NOTE: the notifier below isn't actually correct, but kept around just to be on the safe side.
    * If further testing shows it's not necessary (for both bones and objects) removal is fine. */
-  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM | ND_POSE, nullptr);
+  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -1437,7 +1231,7 @@ static wmOperatorStatus object_update_paths_exec(bContext *C, wmOperator *op)
   CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects) {
     animviz_motionpath_compute_range(ob, scene);
     /* verify that the selected object has the appropriate settings */
-    animviz_verify_motionpaths(op->reports, scene, ob, nullptr);
+    animviz_verify_motionpaths(op->reports, scene, ob);
   }
   CTX_DATA_END;
 
@@ -1448,7 +1242,7 @@ static wmOperatorStatus object_update_paths_exec(bContext *C, wmOperator *op)
   WM_event_add_notifier(C, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
   /* NOTE: the notifier below isn't actually correct, but kept around just to be on the safe side.
    * If further testing shows it's not necessary (for both bones and objects) removal is fine. */
-  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM | ND_POSE, nullptr);
+  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -1489,7 +1283,7 @@ static wmOperatorStatus object_update_all_paths_exec(bContext *C, wmOperator * /
 
   motion_paths_recalc_visible(C, scene, ANIMVIZ_CALC_RANGE_FULL);
 
-  WM_event_add_notifier(C, NC_OBJECT | ND_POSE | ND_TRANSFORM, nullptr);
+  WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -1499,7 +1293,7 @@ void OBJECT_OT_paths_update_visible(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Update All Object Paths";
   ot->idname = "OBJECT_OT_paths_update_visible";
-  ot->description = "Recalculate all visible motion paths for objects and poses";
+  ot->description = "Recalculate all visible motion paths for objects";
 
   /* API callbacks. */
   ot->exec = object_update_all_paths_exec;

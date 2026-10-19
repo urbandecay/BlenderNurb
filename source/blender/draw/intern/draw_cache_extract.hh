@@ -46,20 +46,14 @@ struct DRW_MeshWeightState {
   short flags;
   char alert_mode;
 
-  /* Set of all selected bones for Multi-paint. */
-  bool *defgroup_sel; /* #defgroup_len */
-  int defgroup_sel_count;
-
-  /* Set of all locked and unlocked deform bones for Lock Relative mode. */
+  /* Set of all locked and unlocked vertex groups for Lock Relative mode. */
   bool *defgroup_locked;   /* #defgroup_len */
   bool *defgroup_unlocked; /* #defgroup_len */
 };
 
 /* DRW_MeshWeightState.flags */
 enum {
-  DRW_MESH_WEIGHT_STATE_MULTIPAINT = (1 << 0),
-  DRW_MESH_WEIGHT_STATE_AUTO_NORMALIZE = (1 << 1),
-  DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE = (1 << 2),
+  DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE = (1 << 0),
 };
 
 /**

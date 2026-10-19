@@ -95,8 +95,6 @@ class DopesheetFilterPopoverBase:
         flow.prop(dopesheet, "show_nodes", text="Node Trees")
 
         # object types
-        if bpy.data.armatures:
-            flow.prop(dopesheet, "show_armatures", text="Armatures")
         if bpy.data.cameras:
             flow.prop(dopesheet, "show_cameras", text="Cameras")
         if bpy.data.lights:
@@ -631,7 +629,6 @@ class DOPESHEET_MT_key(Menu):
 
         layout.operator("action.copy")
         layout.operator("action.paste")
-        layout.operator("action.paste", text="Paste Flipped").flipped = True
         layout.operator("action.duplicate_move")
         layout.operator("action.delete")
 
@@ -771,7 +768,6 @@ class DOPESHEET_MT_context_menu(Menu):
 
         layout.operator("action.copy", text="Copy", icon='COPYDOWN')
         layout.operator("action.paste", text="Paste", icon='PASTEDOWN')
-        layout.operator("action.paste", text="Paste Flipped", icon='PASTEFLIPDOWN').flipped = True
 
         layout.separator()
 

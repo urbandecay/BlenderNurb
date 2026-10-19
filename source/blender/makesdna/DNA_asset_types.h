@@ -157,7 +157,6 @@ struct AssetMetaData {
 #
 struct AssetImportSettings {
   eAssetImportMethod method = {};
-  bool use_instance_collections = false;
 };
 
 /**

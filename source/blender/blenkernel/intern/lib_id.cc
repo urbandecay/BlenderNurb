@@ -44,7 +44,6 @@
 #include "BLT_translation.hh"
 
 #include "BKE_anim_data.hh"
-#include "BKE_armature.hh"
 #include "BKE_asset.hh"
 #include "BKE_bpath.hh"
 #include "BKE_context.hh"
@@ -2435,28 +2434,6 @@ void BKE_library_make_local(Main *bmain,
 
 #ifdef DEBUG_TIME
   printf("Step 4: Remap local usages of old (linked) ID to new (local) ID: Done.\n");
-  TIMEIT_VALUE_PRINT(make_local);
-#endif
-
-  /* This is probably more of a hack than something we should do here, but...
-   * Issue is, the whole copying + remapping done in complex cases above may leave pose-channels
-   * of armatures in complete invalid state (more precisely, the bone pointers of the
-   * pose-channels - very crappy cross-data-blocks relationship), so we tag it to be fully
-   * recomputed, but this does not seems to be enough in some cases, and evaluation code ends up
-   * trying to evaluate a not-yet-updated armature object's deformations.
-   * Try "make all local" in 04_01_H.lighting.blend from Agent327 without this, e.g. */
-  for (Object *ob = static_cast<Object *>(bmain->objects.first); ob;
-       ob = static_cast<Object *>(ob->id.next))
-  {
-    if (ob->data != nullptr && ob->type == OB_ARMATURE && ob->pose != nullptr &&
-        ob->pose->flag & POSE_RECALC)
-    {
-      BKE_pose_rebuild(bmain, ob, id_cast<bArmature *>(ob->data), true);
-    }
-  }
-
-#ifdef DEBUG_TIME
-  printf("Hack: Forcefully rebuild armature object poses: Done.\n");
   TIMEIT_VALUE_PRINT(make_local);
 #endif
 

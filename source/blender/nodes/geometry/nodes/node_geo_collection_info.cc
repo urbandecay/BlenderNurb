@@ -68,7 +68,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   }
   const Object *self_object = params.self_object();
   /* Compare by `orig_id` because objects may be copied into separate depsgraphs. */
-  const bool is_recursive = BKE_collection_has_object_recursive_instanced_orig_id(
+  const bool is_recursive = BKE_collection_has_object_recursive_orig_id(
       collection, const_cast<Object *>(self_object));
   if (is_recursive) {
     params.error_message_add(NodeWarningType::Error, TIP_("Collection contains current object"));

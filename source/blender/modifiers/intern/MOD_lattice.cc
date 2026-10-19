@@ -89,9 +89,6 @@ static void deform_verts(ModifierData *md,
 {
   LatticeModifierData *lmd = reinterpret_cast<LatticeModifierData *>(md);
 
-  /* if next modifier needs original vertices */
-  MOD_previous_vcos_store(md, reinterpret_cast<const float (*)[3]>(positions.data()));
-
   BKE_lattice_deform_coords_with_mesh(lmd->object,
                                       ctx->object,
                                       reinterpret_cast<float (*)[3]>(positions.data()),
@@ -114,9 +111,6 @@ static void deform_verts_EM(ModifierData *md,
   }
 
   LatticeModifierData *lmd = reinterpret_cast<LatticeModifierData *>(md);
-
-  /* if next modifier needs original vertices */
-  MOD_previous_vcos_store(md, reinterpret_cast<const float (*)[3]>(positions.data()));
 
   BKE_lattice_deform_coords_with_editmesh(lmd->object,
                                           ctx->object,

@@ -4,7 +4,6 @@
 
 set(INC
   ../include
-  ../../ikplugin
   ../../makesrna
   # RNA_prototypes.hh
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -17,7 +16,6 @@ set(SRC
   transform_constraints.cc
   transform_convert.cc
   transform_convert_action.cc
-  transform_convert_armature.cc
   transform_convert_cursor.cc
   transform_convert_curve.cc
   transform_convert_curves.cc
@@ -54,10 +52,7 @@ set(SRC
   transform_mode.cc
   transform_mode_align.cc
   transform_mode_baketime.cc
-  transform_mode_bbone_resize.cc
   transform_mode_bend.cc
-  transform_mode_boneenvelope.cc
-  transform_mode_boneroll.cc
   transform_mode_curveshrinkfatten.cc
   transform_mode_customdata.cc
   transform_mode_edge_rotate_normal.cc
@@ -87,7 +82,6 @@ set(SRC
   transform_snap.cc
   transform_snap_animation.cc
   transform_snap_object.cc
-  transform_snap_object_armature.cc
   transform_snap_object_camera.cc
   transform_snap_object_curve.cc
   transform_snap_object_editmesh.cc

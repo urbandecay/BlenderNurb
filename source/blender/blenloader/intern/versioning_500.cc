@@ -47,7 +47,6 @@
 
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_attribute_legacy_convert.hh"
 #include "BKE_colortools.hh"
 #include "BKE_curves.hh"
@@ -119,31 +118,6 @@ void version_system_idprops_generate(Main *bmain)
     }
   }
 
-  for (Object &object : bmain->objects) {
-    if (!object.pose) {
-      continue;
-    }
-    for (bPoseChannel &pchan : object.pose->chanbase) {
-      idprops_process(pchan.prop, &pchan.system_properties);
-    }
-  }
-
-  for (bArmature &armature : bmain->armatures) {
-    for (BoneCollection *bcoll : armature.collections_span()) {
-      idprops_process(bcoll->prop, &bcoll->system_properties);
-    }
-    /* There is no way to iterate directly over all bones of an armature currently, use a recursive
-     * approach instead. */
-    auto process_bone_recursive = [](const auto &process_bone_recursive, Bone *bone) -> void {
-      idprops_process(bone->prop, &bone->system_properties);
-      for (Bone &bone_it : bone->childbase) {
-        process_bone_recursive(process_bone_recursive, &bone_it);
-      }
-    };
-    for (Bone &bone_it : armature.bonebase) {
-      process_bone_recursive(process_bone_recursive, &bone_it);
-    }
-  }
 }
 void version_system_idprops_nodes_generate(Main *bmain)
 {
@@ -157,32 +131,6 @@ void version_system_idprops_nodes_generate(Main *bmain)
   }
   FOREACH_NODETREE_END;
 }
-void version_system_idprops_children_bones_generate(Main *bmain)
-{
-  /* Separate callback for non-root bones,
-   * because they were missed in the initial implementation. */
-
-  for (bArmature &armature : bmain->armatures) {
-    /* There is no way to iterate directly over all bones of an armature currently, use a recursive
-     * approach instead. */
-    auto process_bone_recursive = [](const auto &process_bone_recursive, Bone *bone) -> void {
-      /* Do not overwrite children bones' system properties if they were already defined by some
-       * scripts or add-on e.g. */
-      if (bone->system_properties == nullptr) {
-        idprops_process(bone->prop, &bone->system_properties);
-      }
-      for (Bone &bone_it : bone->childbase) {
-        process_bone_recursive(process_bone_recursive, &bone_it);
-      }
-    };
-    for (Bone &bone_it : armature.bonebase) {
-      for (Bone &bone_child_it : bone_it.childbase) {
-        process_bone_recursive(process_bone_recursive, &bone_child_it);
-      }
-    }
-  }
-}
-
 static CustomDataLayer *find_old_seam_layer(CustomData &custom_data, const StringRef name)
 {
   for (CustomDataLayer &layer : MutableSpan(custom_data.layers, custom_data.totlayer)) {
@@ -2664,46 +2612,6 @@ static void do_version_lift_gamma_gain_srgb_to_linear(bNodeTree &node_tree, bNod
   version_node_add_link(node_tree, node, *image_output, *gamma_node, *gamma_color_input);
 }
 
-static void version_bone_hide_property_driver(AnimData *arm_adt, Vector<Object *> &users)
-{
-  using namespace blender::animrig;
-  constexpr char const *hide_prop_prefix = "bones[";
-  constexpr char const *hide_prop_suffix = "\"].hide";
-
-  Vector<FCurve *> drivers_to_fix;
-  for (FCurve &fcurve : arm_adt->drivers) {
-    const StringRef rna_path(fcurve.rna_path);
-    int quoted_bone_name_start = 0;
-    int quoted_bone_name_end = 0;
-    const bool is_prefix_found = BLI_str_quoted_substr_range(
-        fcurve.rna_path, hide_prop_prefix, &quoted_bone_name_start, &quoted_bone_name_end);
-    if (is_prefix_found && STREQ(fcurve.rna_path + quoted_bone_name_end, hide_prop_suffix)) {
-      drivers_to_fix.append(&fcurve);
-    }
-  }
-
-  if (drivers_to_fix.is_empty()) {
-    return;
-  }
-
-  for (Object *ob : users) {
-    AnimData *ob_adt = BKE_animdata_ensure_id(&ob->id);
-    for (FCurve *original : drivers_to_fix) {
-      /* Has to be a copy in case there is more than 1 object using the armature. */
-      FCurve *copy = BKE_fcurve_copy(original);
-      char *fixed_path = BLI_string_joinN("pose.", copy->rna_path);
-      MEM_SAFE_DELETE(copy->rna_path);
-      copy->rna_path = fixed_path;
-      BLI_addtail(&ob_adt->drivers, copy);
-    }
-  }
-
-  for (FCurve *original : drivers_to_fix) {
-    BLI_remlink(&arm_adt->drivers, original);
-    BKE_fcurve_free(original);
-  }
-}
-
 void do_versions_after_linking_500(FileData *fd, Main *bmain)
 {
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 9)) {
@@ -2772,23 +2680,6 @@ void do_versions_after_linking_500(FileData *fd, Main *bmain)
     FOREACH_NODETREE_END;
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 54)) {
-    for (Object &object : bmain->objects) {
-      if (object.type != OB_ARMATURE || !object.data) {
-        continue;
-      }
-      BKE_pose_rebuild(nullptr, &object, id_cast<bArmature *>(object.data), false);
-      for (bPoseChannel &pose_bone : object.pose->chanbase) {
-        if (pose_bone.bone_get(object)->flag & BONE_HIDDEN_P) {
-          pose_bone.drawflag |= PCHAN_DRAW_HIDDEN;
-        }
-        else {
-          pose_bone.drawflag &= ~PCHAN_DRAW_HIDDEN;
-        }
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 57)) {
     FOREACH_NODETREE_BEGIN (bmain, node_tree, id) {
       if (node_tree->type == NTREE_COMPOSIT) {
@@ -2844,39 +2735,6 @@ void do_versions_after_linking_500(FileData *fd, Main *bmain)
         continue;
       }
       scene.toolsettings->fix_to_cam_flag = default_flags;
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 500, 110)) {
-    /* Build map of armature->object to quickly find out afterwards which armature is used by which
-     * objects. */
-    Map<bArmature *, Vector<Object *>> armature_usage_map;
-    for (Object &ob : bmain->objects) {
-      if (ob.type != OB_ARMATURE || !ob.data) {
-        continue;
-      }
-      bArmature *arm = reinterpret_cast<bArmature *>(ob.data);
-      Vector<Object *> &users = armature_usage_map.lookup_or_add_default(arm);
-      users.append(&ob);
-    }
-
-    for (bArmature &armature : bmain->armatures) {
-      AnimData *arm_adt = BKE_animdata_from_id(&armature.id);
-
-      if (!arm_adt || arm_adt->drivers.is_empty()) {
-        continue;
-      }
-
-      Vector<Object *> *users = armature_usage_map.lookup_ptr(&armature);
-      if (!users) {
-        /* If `users` is a nullptr that means there is no user of that armature. That means the
-         * property won't be fixed for armatures that are not used by an object during versioning.
-         * However since the driver has to be moved to an object there is no way to fix it in this
-         * case. */
-        continue;
-      }
-
-      version_bone_hide_property_driver(arm_adt, *users);
     }
   }
 

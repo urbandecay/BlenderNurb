@@ -122,10 +122,6 @@ struct CurvesTransformData {
 
 /* `transform_convert.cc` */
 
-/**
- * Change the chain-length of auto-IK.
- */
-void transform_autoik_update(TransInfo *t, short mode);
 int special_transform_moving(TransInfo *t);
 /**
  * Inserting keys, point-cache, redraw events.
@@ -155,7 +151,7 @@ bool transform_convert_sequencer_clamp(const TransInfo *t, float r_val[2]);
 bool transform_mode_use_local_origins(const TransInfo *t);
 /**
  * Transforming around ourselves is no use, fall back to individual origins,
- * useful for curve/armatures.
+ * useful for curve data.
  */
 void transform_around_single_fallback_ex(TransInfo *t, int data_len_all);
 void transform_around_single_fallback(TransInfo *t);
@@ -228,16 +224,6 @@ bool update_handle_types_for_transform(eTfmMode mode,
 /* `transform_convert_action.cc` */
 
 extern TransConvertTypeInfo TransConvertType_Action;
-
-/* `transform_convert_armature.cc` */
-
-extern TransConvertTypeInfo TransConvertType_EditArmature;
-extern TransConvertTypeInfo TransConvertType_Pose;
-
-/**
- * Sets transform flags in the bones.
- */
-void transform_convert_pose_transflags_update(Object *ob, int mode, short around);
 
 /* `transform_convert_cursor.cc` */
 

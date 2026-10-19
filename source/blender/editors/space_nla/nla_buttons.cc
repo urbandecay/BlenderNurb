@@ -121,7 +121,6 @@ bool nla_panel_context(const bContext *C,
       case ANIMTYPE_DSNTREE:
       case ANIMTYPE_DSPART:
       case ANIMTYPE_DSMBALL:
-      case ANIMTYPE_DSARM:
       case ANIMTYPE_DSMESH:
       case ANIMTYPE_DSTEX:
       case ANIMTYPE_DSLAT:

@@ -15,7 +15,6 @@
 #include "../outliner_intern.hh"
 #include "common.hh"
 #include "tree_element_id_action.hh"
-#include "tree_element_id_armature.hh"
 #include "tree_element_id_collection.hh"
 #include "tree_element_id_curve.hh"
 #include "tree_element_id_library.hh"
@@ -55,8 +54,6 @@ std::unique_ptr<TreeElementID> TreeElementID::create_from_id(TreeElement &legacy
       return std::make_unique<TreeElementIDLineStyle>(legacy_te, (FreestyleLineStyle &)id);
     case ID_GR:
       return std::make_unique<TreeElementIDCollection>(legacy_te, (Collection &)id);
-    case ID_AR:
-      return std::make_unique<TreeElementIDArmature>(legacy_te, (bArmature &)id);
     case ID_OB:
       return std::make_unique<TreeElementIDObject>(legacy_te, (Object &)id);
     case ID_AC:

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import bpy
-from .vnode import VNode
 from ..com.data_path import get_channelbag_for_slot
 
 # Here data can be object, object.data, material, material.node_tree, camera, light
@@ -92,10 +91,6 @@ def make_fcurve(action, slot, co, data_path, index=0, group_name='', interpolati
 def get_or_create_action_and_slot(gltf, vnode_idx, anim_idx, path):
     animation = gltf.data.animations[anim_idx]
     vnode = gltf.vnodes[vnode_idx]
-
-    if vnode.type == VNode.Bone:
-        # For bones, the action goes on the armature.
-        vnode = gltf.vnodes[vnode.bone_arma]
 
     obj = vnode.blender_object
 

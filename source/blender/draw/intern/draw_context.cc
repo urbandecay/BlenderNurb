@@ -143,17 +143,6 @@ DRWContext::DRWContext(Mode mode_,
   this->object_mode = (this->obact) ? this->obact->mode : OB_MODE_OBJECT;
   /* Edit object. */
   this->object_edit = (this->object_mode & OB_MODE_EDIT) ? this->obact : nullptr;
-  /* Pose object. */
-  if (this->object_mode & OB_MODE_POSE) {
-    this->object_pose = this->obact;
-  }
-  else if (this->object_mode & OB_MODE_ALL_WEIGHT_PAINT) {
-    this->object_pose = BKE_object_pose_armature_get(this->obact);
-  }
-  else {
-    this->object_pose = nullptr;
-  }
-
   /* View layer can be lazily synced. */
   BKE_view_layer_synced_ensure(*DEG_get_bmain(depsgraph), this->scene, this->view_layer);
 
@@ -640,7 +629,7 @@ namespace draw {
 
 static bool supports_handle_ranges(DupliObject *dupli, Object *parent, const DRWContext &draw_ctx)
 {
-  int ob_type = dupli->ob_data ? BKE_object_obdata_to_type(dupli->ob_data) : OB_EMPTY;
+  int ob_type = dupli->ob_data ? BKE_object_obdata_to_type(dupli->ob_data) : OB_NO_DATA;
   if (!ELEM(ob_type, OB_MESH, OB_CURVES_LEGACY, OB_SURF, OB_FONT, OB_POINTCLOUD)) {
     return false;
   }
@@ -1826,10 +1815,6 @@ void DRW_draw_select_loop(Depsgraph *depsgraph,
   draw_ctx.enable_engines();
   draw_ctx.engines_data_validate();
   draw_ctx.engines_init_and_sync([&](DupliCacheManager &duplis, ExtractionGraph &extraction) {
-    /* When selecting pose-bones in pose mode, check for visibility not select-ability
-     * as pose-bones have their own selection restriction flag. */
-    const bool use_pose_exception = (draw_ctx.object_pose != nullptr);
-
     const int object_type_exclude_select = v3d->object_type_exclude_select;
 
     auto should_draw_object = [&](Object &ob, const bool has_duplis) -> DrawFilter {
@@ -1853,12 +1838,7 @@ void DRW_draw_select_loop(Depsgraph *depsgraph,
       if (!BKE_object_is_visible_in_viewport(v3d, &ob)) {
         return DrawFilter::Skip;
       }
-      if (use_pose_exception && (ob.mode & OB_MODE_POSE)) {
-        if ((ob.base_flag & BASE_ENABLED_AND_VISIBLE_IN_DEFAULT_VIEWPORT) == 0) {
-          return DrawFilter::Skip;
-        }
-      }
-      else if ((ob.base_flag & BASE_SELECTABLE) == 0) {
+      if ((ob.base_flag & BASE_SELECTABLE) == 0) {
         return DrawFilter::Skip;
       }
 

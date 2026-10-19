@@ -82,7 +82,7 @@ class WholeIDTestData : public TestData {
     CTX_data_scene_set(this->C, this->scene);
 
     this->object = BKE_object_add_only_object(this->bmain, OB_MESH, "IDLibQueryObject");
-    this->target = BKE_object_add_only_object(this->bmain, OB_EMPTY, "IDLibQueryTarget");
+    this->target = BKE_object_add_only_object(this->bmain, OB_NO_DATA, "IDLibQueryTarget");
 
     this->mesh = BKE_mesh_add(this->bmain, "IDLibQueryMesh");
     this->object->data = id_cast<ID *>(this->mesh);
@@ -344,7 +344,7 @@ class UnusedIDsTestData : public TestData {
 
     this->object = BKE_object_add_only_object(this->bmain, OB_MESH, "IDLibQueryObject");
     used_ids.add(&this->object->id);
-    this->target = BKE_object_add_only_object(this->bmain, OB_EMPTY, "IDLibQueryTarget");
+    this->target = BKE_object_add_only_object(this->bmain, OB_NO_DATA, "IDLibQueryTarget");
     used_ids.add(&this->target->id);
 
     this->mesh = BKE_id_new_in_lib<Mesh>(this->bmain, this->library, "IDLibQueryMesh");
@@ -362,7 +362,7 @@ class UnusedIDsTestData : public TestData {
     unused_ids.add(&world0->id);
 
     /* 'Fake User' IDs are always considered as used. */
-    Object *ob0 = BKE_object_add_only_object(this->bmain, OB_EMPTY, "IDLibQueryObjectUnused");
+    Object *ob0 = BKE_object_add_only_object(this->bmain, OB_NO_DATA, "IDLibQueryObjectUnused");
     id_fake_user_set(&ob0->id);
     used_ids.add(&ob0->id);
 

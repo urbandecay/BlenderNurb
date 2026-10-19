@@ -14,7 +14,6 @@
 #include "BKE_action.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_lib_id.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object_types.hh"
 
 #include "BLI_linear_allocator.hh"
@@ -142,23 +141,9 @@ static Vector<ElementAnimations> gather_animated_properties(const FbxElementMapp
       }
     }
     else {
-      /* Animating Bone/Armature/Object property. */
-      const ufbx_node *fnode = ufbx_as_node(fprop.element);
-      Object *obj = nullptr;
-      if (fnode) {
-        obj = mapping.bone_to_armature.lookup_default(fnode, nullptr);
-      }
+      /* Animating an object transform. */
+      Object *obj = mapping.el_to_object.lookup_default(fprop.element, nullptr);
       if (obj == nullptr) {
-        obj = mapping.el_to_object.lookup_default(fprop.element, nullptr);
-      }
-      if (obj == nullptr) {
-        continue;
-      }
-      /* Ignore animation of rigged meshes (very hard to handle; matches behavior of python fbx
-       * importer). */
-      if (obj->type == OB_MESH &&
-          BKE_modifiers_findby_type(obj, eModifierType_Armature) != nullptr)
-      {
         continue;
       }
       target_id = &obj->id;
@@ -213,45 +198,34 @@ static void finalize_curve(FCurve *cu)
   }
 }
 
-static void create_transform_curve_desc(const FbxElementMapping &mapping,
-                                        const ElementAnimations &anim,
+static void create_transform_curve_desc(const ElementAnimations &anim,
                                         LinearAllocator<> &curve_name_alloc,
                                         Vector<animrig::FCurveDescriptor> &r_curve_desc)
 {
-  /* For animated bones, prepend bone path to animation curve path. */
-  std::string rna_prefix;
-  std::string group_name_str = get_fbx_name(anim.fbx_elem->name);
-  const ufbx_node *fnode = ufbx_as_node(anim.fbx_elem);
-  const bool is_bone = mapping.node_is_blender_bone.contains(fnode);
-  if (is_bone) {
-    group_name_str = mapping.node_to_name.lookup_default(fnode, "");
-    rna_prefix = std::string("pose.bones[\"") + group_name_str + "\"].";
-  }
-
+  const std::string group_name_str = get_fbx_name(anim.fbx_elem->name);
   StringRefNull group_name = curve_name_alloc.copy_string(group_name_str);
 
-  StringRefNull rna_position = curve_name_alloc.copy_string(rna_prefix + "location");
+  StringRefNull rna_position = curve_name_alloc.copy_string("location");
 
   StringRefNull rna_rotation;
   int rot_channels = 3;
-  /* Bones are created with quaternion rotation. */
-  eRotationModes rot_mode = is_bone ? ROT_MODE_QUAT : anim.object_rotmode;
+  eRotationModes rot_mode = anim.object_rotmode;
   switch (rot_mode) {
     case ROT_MODE_QUAT:
-      rna_rotation = curve_name_alloc.copy_string(rna_prefix + "rotation_quaternion");
+      rna_rotation = curve_name_alloc.copy_string("rotation_quaternion");
       rot_channels = 4;
       break;
     case ROT_MODE_AXISANGLE:
-      rna_rotation = curve_name_alloc.copy_string(rna_prefix + "rotation_axis_angle");
+      rna_rotation = curve_name_alloc.copy_string("rotation_axis_angle");
       rot_channels = 4;
       break;
     default:
-      rna_rotation = curve_name_alloc.copy_string(rna_prefix + "rotation_euler");
+      rna_rotation = curve_name_alloc.copy_string("rotation_euler");
       rot_channels = 3;
       break;
   }
 
-  StringRefNull rna_scale = curve_name_alloc.copy_string(rna_prefix + "scale");
+  StringRefNull rna_scale = curve_name_alloc.copy_string("scale");
 
   /* Fill the f-curve descriptors. */
   for (int i = 0; i < 3; i++) {
@@ -265,39 +239,15 @@ static void create_transform_curve_desc(const FbxElementMapping &mapping,
   }
 }
 
-static void create_transform_curve_data(const FbxElementMapping &mapping,
-                                        const ufbx_anim *fbx_anim,
+static void create_transform_curve_data(const ufbx_anim *fbx_anim,
                                         const ElementAnimations &anim,
                                         const double fps,
                                         const float anim_offset,
                                         FCurve **curves)
 {
   const ufbx_node *fnode = ufbx_as_node(anim.fbx_elem);
-  ufbx_matrix bone_xform = ufbx_identity_matrix;
-  const bool is_bone = mapping.node_is_blender_bone.contains(fnode);
-  if (is_bone) {
-    /* Bone transform curves need to be transformed to the bind transform
-     * in joint-local space:
-     * - Calculate local space bind matrix: inv(parent_bind) * bind
-     * - Invert the result; this will be used to transform loc/rot/scale curves. */
-
-    const bool bone_at_scene_root = fnode->node_depth <= 1;
-    ufbx_matrix world_to_arm = ufbx_identity_matrix;
-    if (!bone_at_scene_root) {
-      Object *arm_obj = mapping.bone_to_armature.lookup_default(fnode, nullptr);
-      if (arm_obj != nullptr) {
-        world_to_arm = mapping.armature_world_to_arm_pose_matrix.lookup_default(
-            arm_obj, ufbx_identity_matrix);
-      }
-    }
-
-    bone_xform = mapping.calc_local_bind_matrix(fnode, world_to_arm);
-    bone_xform = ufbx_matrix_invert(&bone_xform);
-  }
-
   int rot_channels = 3;
-  /* Bones are created with quaternion rotation. */
-  eRotationModes rot_mode = is_bone ? ROT_MODE_QUAT : anim.object_rotmode;
+  eRotationModes rot_mode = anim.object_rotmode;
   switch (rot_mode) {
     case ROT_MODE_QUAT:
       rot_channels = 4;
@@ -371,11 +321,6 @@ static void create_transform_curve_data(const FbxElementMapping &mapping,
     double t = sorted_key_times[i];
     float tf = float(t * fps + anim_offset);
     ufbx_transform xform = ufbx_evaluate_transform(fbx_anim, fnode, t);
-
-    if (is_bone) {
-      ufbx_matrix matrix = calc_bone_pose_matrix(xform, *fnode, bone_xform);
-      xform = ufbx_matrix_to_transform(&matrix);
-    }
 
     set_curve_sample(curves[pos_index + 0], i, tf, float(xform.translation.x));
     set_curve_sample(curves[pos_index + 1], i, tf, float(xform.translation.y));
@@ -577,9 +522,9 @@ void import_animations(Main &bmain,
 
         /* Create animation curves for this ID. */
         Vector<const ElementAnimations *> id_anims = id_to_anims.lookup(id);
-        /* Batch create the transform curves: creating them one by one is not very fast,
-         * especially for armatures where many bones often are animated. So first create
-         * their descriptors, then create the f-curves in one step, and finally fill their data. */
+        /* Batch create the transform curves: creating them one by one is not very fast.
+         * First create their descriptors, then create the f-curves in one step, and finally
+         * fill their data. */
         Vector<animrig::FCurveDescriptor> curve_desc;
         Vector<int64_t> anim_transform_curve_index(id_anims.size());
         LinearAllocator name_alloc;
@@ -587,7 +532,7 @@ void import_animations(Main &bmain,
           const ElementAnimations *anim = id_anims[index];
           if (anim->prop_position || anim->prop_rotation || anim->prop_scale) {
             anim_transform_curve_index[index] = curve_desc.size();
-            create_transform_curve_desc(mapping, *anim, name_alloc, curve_desc);
+            create_transform_curve_desc(*anim, name_alloc, curve_desc);
           }
           else {
             anim_transform_curve_index[index] = -1;
@@ -601,8 +546,7 @@ void import_animations(Main &bmain,
         for (const int64_t index : id_anims.index_range()) {
           const ElementAnimations *anim = id_anims[index];
           if (anim->prop_position || anim->prop_rotation || anim->prop_scale) {
-            create_transform_curve_data(mapping,
-                                        flayer->anim,
+            create_transform_curve_data(flayer->anim,
                                         *anim,
                                         fps,
                                         anim_offset,

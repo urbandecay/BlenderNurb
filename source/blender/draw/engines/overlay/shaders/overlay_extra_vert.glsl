@@ -48,8 +48,8 @@ void main()
   float camera_dist_end = inst_data.w;
   float camera_distance_color = inst_data.x;
 
-  float3 empty_size = inst_data.xyz;
-  float empty_scale = inst_data.w;
+  float3 display_size = inst_data.xyz;
+  float helper_scale = inst_data.w;
 
   float lamp_spot_sine;
   float3 vpos = pos;
@@ -126,20 +126,20 @@ void main()
       }
     }
   }
-  /* Empties */
-  else if (flag_test(vclass, VCLASS_EMPTY_SCALED)) {
+  /* Helper geometry */
+  else if (flag_test(vclass, VCLASS_HELPER_SCALED)) {
     /* This is a bit silly but we avoid scaling the object matrix on CPU (saving a float4x4 mul) */
-    vpos *= empty_scale;
+    vpos *= helper_scale;
   }
-  else if (flag_test(vclass, VCLASS_EMPTY_SIZE)) {
+  else if (flag_test(vclass, VCLASS_DISPLAY_SIZE)) {
     /* This is a bit silly but we avoid scaling the object matrix on CPU (saving a float4x4 mul) */
-    vpos *= empty_size;
+    vpos *= display_size;
   }
-  else if (flag_test(vclass, VCLASS_EMPTY_AXES)) {
+  else if (flag_test(vclass, VCLASS_HELPER_AXES)) {
     float axis = vpos.z;
-    vofs[int(axis)] = (1.0f + fract(axis)) * empty_scale;
+    vofs[int(axis)] = (1.0f + fract(axis)) * helper_scale;
     /* Scale uniformly by axis length */
-    vpos *= length(obmat[int(axis)].xyz) * empty_scale;
+    vpos *= length(obmat[int(axis)].xyz) * helper_scale;
 
     float3 axis_color = float3(0.0f);
     axis_color[int(axis)] = 1.0f;

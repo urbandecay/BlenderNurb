@@ -786,7 +786,7 @@ static bool fcurves_path_rename_fix(ID *owner_id,
     fcu->rna_path = rna_path_rename_fix(
         owner_id, prefix, oldKey, newKey, fcu->rna_path, verify_paths);
     /* if path changed and the F-Curve is grouped, check if its group also needs renaming
-     * (i.e. F-Curve is first of a bone's F-Curves;
+     * (i.e. F-Curve is first of a nested property's F-Curves;
      * hence renaming this should also trigger rename) */
     if (fcu->rna_path != old_path) {
       /* If the path changed, make sure to update the fcurve flags to the new property type. See
@@ -842,16 +842,6 @@ static bool drivers_path_rename_fix(ID *owner_id,
           dtar->rna_path = rna_path_rename_fix(
               dtar->id, prefix, oldKey, newKey, dtar->rna_path, verify_paths);
           is_changed |= (dtar->rna_path != old_rna_path);
-        }
-        /* also fix the bone-name (if applicable) */
-        if (strstr(prefix, "bones")) {
-          if (((dtar->id) && (GS(dtar->id->name) == ID_OB) &&
-               (!ref_id || (id_cast<Object *>(dtar->id))->data == ref_id)) &&
-              (dtar->pchan_name[0]) && STREQ(oldName, dtar->pchan_name))
-          {
-            is_changed = true;
-            STRNCPY(dtar->pchan_name, newName);
-          }
         }
       }
       DRIVER_TARGETS_LOOPER_END;

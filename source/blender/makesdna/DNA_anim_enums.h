@@ -133,9 +133,6 @@ enum eDriverTarget_Options : short {
 
 /** Driver Target flags. */
 enum eDriverTarget_Flag : short {
-  /** used for targets that use the pchan_name instead of RNA path
-   * (i.e. rotation difference) */
-  DTAR_FLAG_STRUCT_REF = (1 << 0),
   /** The `idtype` can only be "Object". */
   DTAR_FLAG_ID_OB_ONLY = (1 << 1),
 
@@ -211,11 +208,11 @@ enum eDriverTarget_ContextProperty : int {
 enum eDriverVar_Types : char {
   /** single RNA property */
   DVAR_TYPE_SINGLE_PROP = 0,
-  /** rotation difference (between 2 bones) */
+  /** rotation difference between two targets */
   DVAR_TYPE_ROT_DIFF,
-  /** distance between objects/bones */
+  /** distance between two targets */
   DVAR_TYPE_LOC_DIFF,
-  /** 'final' transform for object/bones */
+  /** final transform for an object target */
   DVAR_TYPE_TRANSFORM_CHAN,
   /** Property within a current evaluation context */
   DVAR_TYPE_CONTEXT_PROP,

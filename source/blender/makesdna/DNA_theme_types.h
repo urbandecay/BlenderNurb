@@ -323,7 +323,7 @@ typedef struct ThemeSpace {
   unsigned char view_overlay[4];
 
   unsigned char wire[4], wire_edit[4], select[4];
-  unsigned char lamp[4], speaker[4], empty[4], camera[4];
+  unsigned char lamp[4], speaker[4], no_data_object[4], camera[4];
   unsigned char active[4], transform[4];
   unsigned char vertex[4], vertex_select[4], vertex_active[4], vertex_unreferenced[4];
   unsigned char edge[4], edge_select[4], edge_mode_select[4];
@@ -335,7 +335,6 @@ typedef struct ThemeSpace {
   unsigned char normal[4];
   unsigned char vertex_normal[4];
   unsigned char loop_normal[4];
-  unsigned char bone_solid[4], bone_pose[4], bone_pose_active[4], bone_locked_weight[4];
   unsigned char strip[4], strip_select[4];
   unsigned char before_current_frame[4], after_current_frame[4];
   unsigned char time_gp_keyframe[4];
@@ -476,7 +475,7 @@ typedef enum eBackgroundGradientTypes {
   TH_BACKGROUND_GRADIENT_RADIAL = 2,
 } eBackgroundGradientTypes;
 
-/** Set of colors for use as a custom color set for Objects/Bones wire drawing. */
+/** Set of colors for custom action group drawing. */
 typedef struct ThemeWireColor {
   unsigned char solid[4];
   unsigned char select[4];
@@ -549,9 +548,8 @@ typedef struct bTheme {
   ThemeSpace space_statusbar;
   ThemeSpace space_spreadsheet;
 
-  /* 20 sets of bone colors for this theme */
-  ThemeWireColor tarm[20];
-  // ThemeWireColor tobj[20];
+  /* 20 sets of custom action group colors for this theme. */
+  ThemeWireColor color_sets[20];
 
   /* See COLLECTION_COLOR_TOT for the number of collection colors. */
   ThemeCollectionColor collection_color[8];

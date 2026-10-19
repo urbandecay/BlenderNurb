@@ -22,7 +22,6 @@
 #define DNA_GENFILE_VERSIONING_MACROS
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_collection_types.h"
@@ -48,7 +47,6 @@
 
 #undef DNA_GENFILE_VERSIONING_MACROS
 
-#include "BKE_armature.hh"
 #include "BKE_collection.hh"
 #include "BKE_colortools.hh"
 #include "BKE_cryptomatte.h"
@@ -481,14 +479,6 @@ void do_versions_after_linking_290(FileData * /*fd*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 292, 8)) {
-    /* Systematically rebuild pose-bones to ensure consistent ordering matching the one of bones in
-     * Armature obdata. */
-    for (Object &ob : bmain->objects) {
-      if (ob.type == OB_ARMATURE) {
-        BKE_pose_rebuild(bmain, &ob, id_cast<bArmature *>(ob.data), true);
-      }
-    }
-
     /* Wet Paint Radius Factor */
     for (Brush &br : bmain->brushes) {
       if (br.ob_mode & OB_MODE_SCULPT && br.wet_paint_radius_factor == 0.0f) {
@@ -1668,13 +1658,6 @@ void blo_do_versions_290(FileData *fd, Library * /*lib*/, Main *bmain)
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 293, 18)) {
-    if (!DNA_struct_member_exists(fd->filesdna, "bArmature", "float", "axes_position")) {
-      /* Convert the axes draw position to its old default (tip of bone). */
-      for (bArmature &arm : bmain->armatures) {
-        arm.axes_position = 1.0;
-      }
-    }
-
     /* Initialize the spread parameter for area lights. */
     if (!DNA_struct_member_exists(fd->filesdna, "Light", "float", "area_spread")) {
       for (Light &la : bmain->lights) {

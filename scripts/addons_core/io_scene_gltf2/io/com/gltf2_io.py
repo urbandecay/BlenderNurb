@@ -468,7 +468,7 @@ class BufferView:
 
 
 class Buffer:
-    """A buffer points to binary geometry, animation, or skins."""
+    """A buffer points to binary geometry or animation."""
 
     def __init__(self, byte_length, extensions, extras, name, uri):
         self.byte_length = byte_length
@@ -928,8 +928,7 @@ class Mesh:
 
 
 class Node:
-    """A node in the node hierarchy.  When the node contains `skin`, all `mesh.primitives` must
-    contain `JOINTS_0` and `WEIGHTS_0` attributes.  A node can have either a `matrix` or any
+    """A node in the node hierarchy. A node can have either a `matrix` or any
     combination of `translation`/`rotation`/`scale` (TRS) properties. TRS properties are
     converted to matrices and postmultiplied in the `T * R * S` order to compose the
     transformation matrix; first the scale is applied to the vertices, then the rotation, and
@@ -938,7 +937,7 @@ class Node:
     may be present; `matrix` will not be present.
     """
 
-    def __init__(self, camera, children, extensions, extras, matrix, mesh, name, rotation, scale, skin, translation,
+    def __init__(self, camera, children, extensions, extras, matrix, mesh, name, rotation, scale, translation,
                  weights):
         self.camera = camera
         self.children = children
@@ -949,7 +948,6 @@ class Node:
         self.name = name
         self.rotation = rotation
         self.scale = scale
-        self.skin = skin
         self.translation = translation
         self.weights = weights
 
@@ -966,10 +964,9 @@ class Node:
         name = from_union([from_str, from_none], obj.get("name"))
         rotation = from_union([lambda x: from_list(from_float, x), from_none], obj.get("rotation"))
         scale = from_union([lambda x: from_list(from_float, x), from_none], obj.get("scale"))
-        skin = from_union([from_int, from_none], obj.get("skin"))
         translation = from_union([lambda x: from_list(from_float, x), from_none], obj.get("translation"))
         weights = from_union([lambda x: from_list(from_float, x), from_none], obj.get("weights"))
-        return Node(camera, children, extensions, extras, matrix, mesh, name, rotation, scale, skin, translation,
+        return Node(camera, children, extensions, extras, matrix, mesh, name, rotation, scale, translation,
                     weights)
 
     def to_dict(self):
@@ -984,7 +981,6 @@ class Node:
         result["name"] = from_union([from_str, from_none], self.name)
         result["rotation"] = from_union([lambda x: from_list(to_float, x), from_none], self.rotation)
         result["scale"] = from_union([lambda x: from_list(to_float, x), from_none], self.scale)
-        result["skin"] = from_union([from_int, from_none], self.skin)
         result["translation"] = from_union([lambda x: from_list(to_float, x), from_none], self.translation)
         result["weights"] = from_union([lambda x: from_list(to_float, x), from_none], self.weights)
         return result
@@ -1057,41 +1053,6 @@ class Scene:
         return result
 
 
-class Skin:
-    """Joints and matrices defining a skin."""
-
-    def __init__(self, extensions, extras, inverse_bind_matrices, joints, name, skeleton):
-        self.extensions = extensions
-        self.extras = extras
-        self.inverse_bind_matrices = inverse_bind_matrices
-        self.joints = joints
-        self.name = name
-        self.skeleton = skeleton
-
-    @staticmethod
-    def from_dict(obj):
-        assert isinstance(obj, dict)
-        extensions = from_union([lambda x: from_dict(lambda x: from_dict(lambda x: x, x), x), from_none],
-                                obj.get("extensions"))
-        extras = obj.get("extras")
-        inverse_bind_matrices = from_union([from_int, from_none], obj.get("inverseBindMatrices"))
-        joints = from_list(from_int, obj.get("joints"))
-        name = from_union([from_str, from_none], obj.get("name"))
-        skeleton = from_union([from_int, from_none], obj.get("skeleton"))
-        return Skin(extensions, extras, inverse_bind_matrices, joints, name, skeleton)
-
-    def to_dict(self):
-        result = {}
-        result["extensions"] = from_union([lambda x: from_dict(from_extension, x), from_none],
-                                          self.extensions)
-        result["extras"] = from_extra(self.extras)
-        result["inverseBindMatrices"] = from_union([from_int, from_none], self.inverse_bind_matrices)
-        result["joints"] = from_list(from_int, self.joints)
-        result["name"] = from_union([from_str, from_none], self.name)
-        result["skeleton"] = from_union([from_int, from_none], self.skeleton)
-        return result
-
-
 class Texture:
     """A texture and its sampler."""
 
@@ -1128,7 +1089,7 @@ class Gltf:
     """The root object for a glTF asset."""
 
     def __init__(self, accessors, animations, asset, buffers, buffer_views, cameras, extensions, extensions_required,
-                 extensions_used, extras, images, materials, meshes, nodes, samplers, scene, scenes, skins, textures):
+                 extensions_used, extras, images, materials, meshes, nodes, samplers, scene, scenes, textures):
         self.accessors = accessors
         self.animations = animations
         self.asset = asset
@@ -1146,7 +1107,6 @@ class Gltf:
         self.samplers = samplers
         self.scene = scene
         self.scenes = scenes
-        self.skins = skins
         self.textures = textures
 
     @staticmethod
@@ -1170,10 +1130,9 @@ class Gltf:
         samplers = from_union([lambda x: from_list(Sampler.from_dict, x), from_none], obj.get("samplers"))
         scene = from_union([from_int, from_none], obj.get("scene"))
         scenes = from_union([lambda x: from_list(Scene.from_dict, x), from_none], obj.get("scenes"))
-        skins = from_union([lambda x: from_list(Skin.from_dict, x), from_none], obj.get("skins"))
         textures = from_union([lambda x: from_list(Texture.from_dict, x), from_none], obj.get("textures"))
         return Gltf(accessors, animations, asset, buffers, buffer_views, cameras, extensions, extensions_required,
-                    extensions_used, extras, images, materials, meshes, nodes, samplers, scene, scenes, skins, textures)
+                    extensions_used, extras, images, materials, meshes, nodes, samplers, scene, scenes, textures)
 
     def to_dict(self):
         result = {}
@@ -1201,7 +1160,6 @@ class Gltf:
                                         self.samplers)
         result["scene"] = from_union([from_int, from_none], self.scene)
         result["scenes"] = from_union([lambda x: from_list(lambda x: to_class(Scene, x), x), from_none], self.scenes)
-        result["skins"] = from_union([lambda x: from_list(lambda x: to_class(Skin, x), x), from_none], self.skins)
         result["textures"] = from_union([lambda x: from_list(lambda x: to_class(Texture, x), x), from_none],
                                         self.textures)
         return result

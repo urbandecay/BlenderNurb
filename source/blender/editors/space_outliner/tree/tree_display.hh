@@ -95,7 +95,7 @@ class AbstractTreeDisplay {
 
   /**
    * Define if the display mode should be allowed to show a mode column on the left. This column
-   * adds an icon to indicate which objects are in the current mode (edit mode, pose mode, etc.)
+   * adds an icon to indicate which objects are in the current mode (such as edit mode)
    * and allows adding other objects to the mode by clicking the icon.
    *
    * Returns false by default.

@@ -74,22 +74,6 @@ static eSnapMode snapObjectsTransform(
 /** \name Implementations
  * \{ */
 
-#if 0
-int BIF_snappingSupported(Object *obedit)
-{
-  int status = 0;
-
-  /* Only support object mesh, armature, curves. */
-  if (obedit == nullptr ||
-      ELEM(obedit->type, OB_MESH, OB_ARMATURE, OB_CURVES_LEGACY, OB_LATTICE, OB_MBALL))
-  {
-    status = 1;
-  }
-
-  return status;
-}
-#endif
-
 static bool snap_use_backface_culling(const TransInfo *t)
 {
   BLI_assert(t->spacetype == SPACE_VIEW3D);
@@ -468,7 +452,6 @@ static bool applyFaceProject(TransInfo *t,
     const float *original_normal;
     float mat[3][3];
 
-    /* In pose mode, we want to align normals with Y axis of bones. */
     original_normal = td->axismtx[2];
 
     rotation_between_vecs_to_mat3(mat, original_normal, no);
@@ -825,14 +808,13 @@ static eSnapTargetOP snap_target_select_from_spacetype_and_tool_settings(TransIn
           target_operation |= SCE_SNAP_TARGET_NOT_SELECTED;
         }
       }
-      else if (ELEM(obedit_type, OB_ARMATURE, OB_CURVES_LEGACY, OB_SURF, OB_LATTICE, OB_MBALL)) {
-        /* Temporary limited to edit mode armature, curves, surfaces, lattices, and meta-balls.
-         */
+      else if (ELEM(obedit_type, OB_CURVES_LEGACY, OB_SURF, OB_LATTICE, OB_MBALL)) {
+        /* Temporary limited to edit mode curves, surfaces, lattices, and meta-balls. */
         target_operation |= SCE_SNAP_TARGET_NOT_SELECTED;
       }
     }
     else {
-      /* Object or pose mode. */
+      /* Object mode. */
       target_operation |= SCE_SNAP_TARGET_NOT_SELECTED | SCE_SNAP_TARGET_NOT_ACTIVE;
     }
   }

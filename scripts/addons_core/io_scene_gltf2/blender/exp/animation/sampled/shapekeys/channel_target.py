@@ -26,11 +26,11 @@ def gather_sk_sampled_channel_target(
     return animation_channel_target
 
 
-def __gather_extensions(armature_uuid, export_settings):
+def __gather_extensions(obj_uuid, export_settings):
     return None
 
 
-def __gather_extras(armature_uuid, export_settings):
+def __gather_extras(obj_uuid, export_settings):
     return None
 
 

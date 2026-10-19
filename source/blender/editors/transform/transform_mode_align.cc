@@ -43,7 +43,7 @@ static void applyAlign(TransInfo *t)
       }
 
       /* Around local centers. */
-      if (t->options & (CTX_OBJECT | CTX_POSE_BONE)) {
+      if (t->options & CTX_OBJECT) {
         copy_v3_v3(tc->center_local, td->center);
       }
       else {

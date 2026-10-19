@@ -362,8 +362,8 @@ float mat4_to_volume_scale(const float mat[4][4]);
 
 /**
  * This gets the average scale of a matrix, only use when your scaling
- * data that has no idea of scale axis, examples are bone-envelope-radius
- * and curve radius.
+ * data that has no idea of scale axis, examples are curve radii or other
+ * orientation-independent widths.
  */
 float mat3_to_scale(const float mat[3][3]);
 float mat4_to_scale(const float mat[4][4]);

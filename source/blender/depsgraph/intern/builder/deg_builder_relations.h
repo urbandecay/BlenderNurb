@@ -15,7 +15,6 @@
 #include "DNA_ID.h"
 #include "DNA_listBase.h"
 
-#include "BLI_span.hh"
 
 #include "BKE_lib_query.hh" /* For LibraryForeachIDCallbackFlag enum. */
 
@@ -61,11 +60,9 @@ struct VFont;
 struct ViewLayer;
 struct World;
 struct bAction;
-struct bArmature;
 struct bConstraint;
 struct bNodeSocket;
 struct bNodeTree;
-struct bPoseChannel;
 struct bSound;
 
 namespace deg {
@@ -78,7 +75,6 @@ struct IDNode;
 struct Node;
 struct OperationNode;
 struct Relation;
-struct RootPChanMap;
 struct TimeSourceNode;
 
 class DepsgraphRelationBuilder : public DepsgraphBuilder {
@@ -155,23 +151,18 @@ class DepsgraphRelationBuilder : public DepsgraphBuilder {
   virtual void build_object_data_camera(Object *object);
   virtual void build_object_data_geometry(Object *object);
   virtual void build_object_data_geometry_datablock(ID *obdata);
-  virtual void build_object_data_empty(Object *object);
+  virtual void build_no_data_object_relations(Object *object);
   virtual void build_object_data_light(Object *object);
   virtual void build_object_data_lightprobe(Object *object);
   virtual void build_object_data_speaker(Object *object);
   virtual void build_object_pointcache(Object *object);
-  virtual void build_object_instance_collection(Object *object);
 
   virtual void build_object_shading(Object *object);
 
   virtual void build_object_light_linking(Object *emitter);
   virtual void build_light_linking_collection(Object *emitter, Collection *collection);
 
-  virtual void build_constraints(ID *id,
-                                 NodeType component_type,
-                                 const char *component_subdata,
-                                 ListBaseT<bConstraint> *constraints,
-                                 RootPChanMap *root_map);
+  virtual void build_constraints(ID *id, ListBaseT<bConstraint> *constraints);
   virtual void build_animdata(ID *id);
   virtual void build_animdata_curves(ID *id);
   virtual void build_animdata_fcurve_target(ID *id,
@@ -228,23 +219,7 @@ class DepsgraphRelationBuilder : public DepsgraphBuilder {
   virtual void build_particle_system_visualization_object(Object *object,
                                                           ParticleSystem *psys,
                                                           Object *draw_object);
-  virtual void build_ik_pose(Object *object,
-                             bPoseChannel *pchan,
-                             bConstraint *con,
-                             RootPChanMap *root_map);
-  virtual void build_splineik_pose(Object *object,
-                                   bPoseChannel *pchan,
-                                   bConstraint *con,
-                                   RootPChanMap *root_map);
-  virtual void build_inter_ik_chains(Object *object,
-                                     const OperationKey &solver_key,
-                                     const bPoseChannel *rootchan,
-                                     const RootPChanMap *root_map);
-  virtual void build_rig(Object *object);
   virtual void build_shapekeys(Key *key);
-  virtual void build_armature(bArmature *armature);
-  virtual void build_armature_bones(ListBaseT<Bone> *bones);
-  virtual void build_armature_bone_collections(Span<BoneCollection *> collections);
   virtual void build_camera(Camera *camera);
   virtual void build_light(Light *lamp);
   virtual void build_nodetree(bNodeTree *ntree);
@@ -321,14 +296,6 @@ class DepsgraphRelationBuilder : public DepsgraphBuilder {
   DepsNodeHandle create_node_handle(const KeyType &key, const char *default_name = "");
 
   /* TODO(sergey): All those is_same* functions are to be generalized. */
-
-  /* Check whether two keys corresponds to the same bone from same armature.
-   *
-   * This is used by drivers relations builder to avoid possible fake
-   * dependency cycle when one bone property drives another property of the
-   * same bone. */
-  template<typename KeyFrom, typename KeyTo>
-  bool is_same_bone_dependency(const KeyFrom &key_from, const KeyTo &key_to);
 
   /* Similar to above, but used to check whether driver is using node from
    * the same node tree as a driver variable. */

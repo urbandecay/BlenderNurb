@@ -927,7 +927,7 @@ std::optional<std::string> RNA_path_from_struct_to_idproperty(PointerRNA *ptr,
 {
   const IDProperty *haystack = RNA_struct_system_idprops(ptr, false);
 
-  if (!haystack) { /* can fail when called on bones */
+  if (!haystack) {
     return std::nullopt;
   }
 
@@ -946,11 +946,6 @@ static std::optional<std::string> rna_path_from_ID_to_idpgroup(const PointerRNA 
 {
   BLI_assert(ptr->owner_id != nullptr);
 
-  /* TODO: Support Bones/PoseBones. no pointers stored to the bones from here, only the ID.
-   *       See example in #25746.
-   *       Unless this is added only way to find this is to also search
-   *       all bones and pose bones of an armature or object.
-   */
   PointerRNA id_ptr = RNA_id_pointer_create(ptr->owner_id);
 
   return RNA_path_from_struct_to_idproperty(&id_ptr, static_cast<const IDProperty *>(ptr->data));

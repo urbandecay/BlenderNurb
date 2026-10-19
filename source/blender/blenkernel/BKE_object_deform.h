@@ -117,14 +117,6 @@ void BKE_object_defgroup_subset_to_index_array(const bool *defgroup_validmap,
 bool *BKE_object_defgroup_lock_flags_get(struct Object *ob, int defbase_tot);
 bool *BKE_object_defgroup_validmap_get(struct Object *ob, int defbase_tot);
 /**
- * Returns total selected vgroups,
- * `wpi.defbase_sel` is assumed malloc'd, all values are set.
- */
-bool *BKE_object_defgroup_selected_get(struct Object *ob,
-                                       int defbase_tot,
-                                       int *r_dg_flags_sel_tot);
-
-/**
  * Checks if the lock relative mode is applicable.
  *
  * \return true if an unlocked deform group is active.
@@ -137,11 +129,6 @@ bool BKE_object_defgroup_check_lock_relative(const bool *lock_flags,
  *
  * \return true if none of the selected groups are locked.
  */
-bool BKE_object_defgroup_check_lock_relative_multi(int defbase_tot,
-                                                   const bool *lock_flags,
-                                                   const bool *selected,
-                                                   int sel_tot);
-
 /**
  * Return lock status of active vertex group.
  */
@@ -158,7 +145,7 @@ void BKE_object_defgroup_split_locked_validmap(
 /**
  * Marks mirror vgroups in output and counts them.
  * Output and counter assumed to be already initialized.
- * Designed to be usable after BKE_object_defgroup_selected_get to extend selection to mirror.
+ * Designed to extend a vertex-group selection to mirrored groups.
  */
 void BKE_object_defgroup_mirror_selection(struct Object *ob,
                                           int defbase_tot,

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import bpy
-from mathutils import Vector
 
 from ...io.imp.user_extensions import import_user_extensions
 from ...io.imp.gltf2_io_binary import BinaryData
@@ -21,6 +20,15 @@ class BlenderNodeAnim():
         """Manage animation targeting a node's TRS."""
         animation = gltf.data.animations[anim_idx]
         node = gltf.data.nodes[node_idx]
+        vnode = gltf.vnodes[node_idx]
+
+        if vnode.blender_object is None:
+            if anim_idx in node.animations:
+                gltf.log.warning(
+                    "Skipping TRS animation for transform-only glTF node '%s' because Empty objects are unsupported",
+                    vnode.name or vnode.default_name,
+                )
+            return
 
         if anim_idx not in node.animations.keys():
             return
@@ -90,57 +98,6 @@ class BlenderNodeAnim():
             num_components = 3
             values = [gltf.scale_gltf_to_blender(vals) for vals in values]
             values = vnode.base_scales_to_final_scales(values)
-
-        # Objects parented to a bone are translated to the bone tip by default.
-        # Correct for this by translating backwards from the tip to the root.
-        if vnode.type == VNode.Object and path == "translation":
-            if vnode.parent is not None and gltf.vnodes[vnode.parent].type == VNode.Bone:
-                bone_length = gltf.vnodes[vnode.parent].bone_length
-                off = Vector((0, -bone_length, 0))
-                values = [vals + off for vals in values]
-
-        if vnode.type == VNode.Bone:
-            # Need to animate the pose bone when the node is a bone.
-            group_name = vnode.blender_bone_name
-            blender_path = 'pose.bones["%s"].%s' % (
-                bpy.utils.escape_identifier(vnode.blender_bone_name),
-                blender_path
-            )
-
-            # We have the final TRS of the bone in values. We need to give
-            # the TRS of the pose bone though, which is relative to the edit
-            # bone.
-            #
-            #     Final = EditBone * PoseBone
-            #   where
-            #     Final =    Trans[ft] Rot[fr] Scale[fs]
-            #     EditBone = Trans[et] Rot[er]
-            #     PoseBone = Trans[pt] Rot[pr] Scale[ps]
-            #
-            # Solving for PoseBone gives
-            #
-            #     pt = Rot[er^{-1}] (ft - et)
-            #     pr = er^{-1} fr
-            #     ps = fs
-
-            if path == 'translation':
-                edit_trans, edit_rot = vnode.editbone_trans, vnode.editbone_rot
-                edit_rot_inv = edit_rot.conjugated()
-                values = [
-                    edit_rot_inv @ (trans - edit_trans)
-                    for trans in values
-                ]
-
-            elif path == 'rotation':
-                edit_rot = vnode.editbone_rot
-                edit_rot_inv = edit_rot.conjugated()
-                values = [
-                    edit_rot_inv @ rot
-                    for rot in values
-                ]
-
-            elif path == 'scale':
-                pass  # no change needed
 
         # To ensure rotations always take the shortest path, we flip
         # adjacent antipodal quaternions.

@@ -53,41 +53,13 @@ class SelectPattern(Operator):
                 lambda a, b:
                 fnmatch.fnmatchcase(a.upper(), b.upper())
             )
-        is_ebone = False
-        is_pbone = False
-        obj = context.object
-        if obj and obj.mode == 'POSE':
-            items = obj.pose.bones
-            if not self.extend:
-                bpy.ops.pose.select_all(action='DESELECT')
-            is_pbone = True
-        elif obj and obj.type == 'ARMATURE' and obj.mode == 'EDIT':
-            items = obj.data.edit_bones
-            if not self.extend:
-                bpy.ops.armature.select_all(action='DESELECT')
-            is_ebone = True
-        else:
-            items = context.visible_objects
-            if not self.extend:
-                bpy.ops.object.select_all(action='DESELECT')
+        items = context.visible_objects
+        if not self.extend:
+            bpy.ops.object.select_all(action='DESELECT')
 
-        # Can be pose bones, edit bones or objects
         for item in items:
             if pattern_match(item.name, self.pattern):
-
-                # hrmf, perhaps there should be a utility function for this.
-                if is_ebone:
-                    item.select = True
-                    item.select_head = True
-                    item.select_tail = True
-                    if item.use_connect:
-                        item_parent = item.parent
-                        if item_parent is not None:
-                            item_parent.select_tail = True
-                elif is_pbone:
-                    item.select = True
-                else:
-                    item.select_set(True)
+                item.select_set(True)
 
         return {'FINISHED'}
 
@@ -105,8 +77,7 @@ class SelectPattern(Operator):
 
     @classmethod
     def poll(cls, context):
-        obj = context.object
-        return (not obj) or (obj.mode == 'OBJECT') or (obj.type == 'ARMATURE')
+        return (not context.object) or (context.object.mode == 'OBJECT')
 
 
 class SelectCamera(Operator):
@@ -823,18 +794,17 @@ class DupliOffsetFromObject(Operator):
 
 class OBJECT_OT_assign_property_defaults(Operator):
     """Assign the current values of custom properties as their defaults, """ \
-        """for use as part of the rest pose state in NLA track mixing"""
+        """for use as part of custom-property defaults in NLA track mixing"""
     bl_idname = "object.assign_property_defaults"
     bl_label = "Assign Custom Property Values as Default"
     bl_options = {'UNDO', 'REGISTER'}
 
     process_data: BoolProperty(name="Process data properties", default=True)
-    process_bones: BoolProperty(name="Process bone properties", default=True)
 
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        return obj is not None and obj.is_editable and obj.mode in {'POSE', 'OBJECT'}
+        return obj is not None and obj.is_editable and obj.mode == 'OBJECT'
 
     @staticmethod
     def assign_defaults(obj):
@@ -851,16 +821,8 @@ class OBJECT_OT_assign_property_defaults(Operator):
 
         self.assign_defaults(obj)
 
-        if self.process_bones and obj.pose:
-            for pbone in obj.pose.bones:
-                self.assign_defaults(pbone)
-
         if self.process_data and obj.data and obj.data.is_editable:
             self.assign_defaults(obj.data)
-
-            if self.process_bones and isinstance(obj.data, bpy.types.Armature):
-                for bone in obj.data.bones:
-                    self.assign_defaults(bone)
 
         return {'FINISHED'}
 

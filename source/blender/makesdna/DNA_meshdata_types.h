@@ -27,7 +27,7 @@ enum eMSelect_Type : int {
 enum eMVertSkinFlag : int {
   /**
    * Marks a vertex as the edge-graph root, used for calculating rotations for all connected
-   * edges (recursively). Also used to choose a root when generating an armature.
+   * edges (recursively). Also used to choose a root for generated geometry.
    */
   MVERT_SKIN_ROOT = 1,
 

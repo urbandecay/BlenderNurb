@@ -188,7 +188,6 @@ static void outliner_main_region_listener(const wmRegionListenerParams *params)
     case NC_OBJECT:
       switch (wmn->data) {
         case ND_TRANSFORM:
-        case ND_POSE:
           /* Does not change Outliner data, but displays Override properties. */
           if ((space_outliner->outlinevis == SO_OVERRIDES_LIBRARY) &&
               (space_outliner->lib_override_view_mode == SO_LIB_OVERRIDE_VIEW_PROPERTIES))
@@ -196,9 +195,6 @@ static void outliner_main_region_listener(const wmRegionListenerParams *params)
             ED_region_tag_redraw_no_rebuild(region);
           }
           break;
-        case ND_BONE_ACTIVE:
-        case ND_BONE_SELECT:
-        case ND_BONE_COLLECTION:
         case ND_DRAW:
         case ND_PARENT:
         case ND_OB_SHADING:

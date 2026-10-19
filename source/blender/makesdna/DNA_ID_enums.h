@@ -150,7 +150,6 @@ enum ID_Type {
   ID_SPK = MAKE_ID2('S', 'K'),       /* Speaker */
   ID_SO = MAKE_ID2('S', 'O'),        /* Sound */
   ID_GR = MAKE_ID2('G', 'R'),        /* Collection */
-  ID_AR = MAKE_ID2('A', 'R'),        /* bArmature */
   ID_AC = MAKE_ID2('A', 'C'),        /* bAction */
   ID_NT = MAKE_ID2('N', 'T'),        /* bNodeTree */
   ID_BR = MAKE_ID2('B', 'R'),        /* Brush */
@@ -179,8 +178,6 @@ enum ID_Type {
 #define ID_SEQ MAKE_ID2('S', 'Q')
 /* constraint */
 #define ID_CO MAKE_ID2('C', 'O')
-/* pose (action channel, used to be ID_AC in code, so we keep code for backwards compatible). */
-#define ID_PO MAKE_ID2('A', 'C')
 /* used in outliner... */
 #define ID_NLA MAKE_ID2('N', 'L')
 /* fluidsim Ipo */

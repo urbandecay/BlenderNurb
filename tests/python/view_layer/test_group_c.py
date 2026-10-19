@@ -30,7 +30,10 @@ class UnitTesting(ViewLayerTesting):
         # clean slate
         self.cleanup_tree()
 
-        children = [bpy.data.objects.new("Child", None) for i in range(3)]
+        children = [
+            bpy.data.objects.new("Child", bpy.data.meshes.new(f"ChildMesh{i}"))
+            for i in range(3)
+        ]
         master_collection = scene.master_collection
 
         grandma_scene_collection = master_collection.collections.new('Grand-Mother')

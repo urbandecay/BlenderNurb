@@ -21,7 +21,6 @@
 #include "BLI_threads.h"
 #include "BLI_time.h"
 
-#include "BKE_armature.hh"
 #include "BKE_camera.h"
 #include "BKE_collection.hh"
 #include "BKE_context.hh"
@@ -42,7 +41,6 @@
 
 #include "BLT_translation.hh"
 
-#include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_key_types.h"
 #include "DNA_object_types.h"
@@ -59,7 +57,6 @@
 #include "ED_view3d_offscreen.hh"
 #include "ED_viewer_path.hh"
 
-#include "ANIM_bone_collections.hh"
 
 #include "DEG_depsgraph_debug.hh"
 #include "DEG_depsgraph_query.hh"
@@ -1214,7 +1211,7 @@ static void draw_viewport_name(ARegion *region, View3D *v3d, int xoffset, int *y
 
 /**
  * Draw info beside axes in top-left corner:
- * frame-number, collection, object name, bone name (if available), marker name (if available).
+ * frame-number, collection, object name, and marker name (if available).
  */
 static void draw_selected_name(const Main &bmain,
                                const View3D *v3d,
@@ -1278,43 +1275,8 @@ static void draw_selected_name(const Main &bmain,
       }
     }
 
-    /* name(s) to display depends on type of object */
-    if (ob->type == OB_ARMATURE) {
-      bArmature *arm = id_cast<bArmature *>(ob->data);
-
-      /* show name of active bone too (if possible) */
-      if (arm->edbo) {
-        if (arm->act_edbone) {
-          info_array[i++] = msg_sep;
-          info_array[i++] = arm->act_edbone->name;
-        }
-      }
-      else if (ob->mode & OB_MODE_POSE) {
-        if (arm->act_bone) {
-
-          if (ANIM_bonecoll_is_visible_actbone(arm)) {
-            info_array[i++] = msg_sep;
-            info_array[i++] = arm->act_bone->name;
-          }
-        }
-      }
-    }
-    else if (ELEM(ob->type, OB_MESH, OB_LATTICE, OB_CURVES_LEGACY)) {
-      /* Try to display active bone and active shape-key too (if they exist). */
-
-      if (ob->type == OB_MESH && ob->mode & OB_MODE_WEIGHT_PAINT) {
-        Object *armobj = BKE_object_pose_armature_get(ob);
-        if (armobj && armobj->mode & OB_MODE_POSE) {
-          bArmature *arm = id_cast<bArmature *>(armobj->data);
-          if (arm->act_bone) {
-            if (ANIM_bonecoll_is_visible_actbone(arm)) {
-              info_array[i++] = msg_sep;
-              info_array[i++] = arm->act_bone->name;
-            }
-          }
-        }
-      }
-
+    /* Try to display the active shape key, when available. */
+    if (ELEM(ob->type, OB_MESH, OB_LATTICE, OB_CURVES_LEGACY)) {
       Key *key = BKE_key_from_object(ob);
       if (key) {
         KeyBlock *kb = static_cast<KeyBlock *>(BLI_findlink(&key->block, ob->shapenr - 1));
@@ -1879,9 +1841,6 @@ void ED_view3d_draw_offscreen_simple(Depsgraph *depsgraph,
                         V3D_OVERLAY_HIDE_MOTION_PATHS | V3D_OVERLAY_HIDE_OBJECT_ORIGINS;
     if ((draw_flags & V3D_OFSDRAW_SHOW_OBJECT_EXTRAS) == 0) {
       v3d.overlay.flag |= V3D_OVERLAY_HIDE_OBJECT_XTRAS;
-    }
-    if ((object_type_exclude_viewport_override & (1 << OB_ARMATURE)) != 0) {
-      v3d.overlay.flag |= V3D_OVERLAY_HIDE_BONES;
     }
     v3d.flag |= V3D_HIDE_HELPLINES;
   }

@@ -147,9 +147,8 @@ Vector<float> get_property_values(PointerRNA *ptr, PropertyRNA *prop, bool visua
  * down to a clearer core functionality.
  *
  * \param struct_pointer: RNA pointer to the struct to be keyed. This is often
- * an ID, but not necessarily. For example, pose bones are also common. Note
- * that if you have an `ID` and want to pass it here for keying, you can create
- * the `PointerRNA` for it with `RNA_id_pointer_create()`.
+ * an ID, but not necessarily. If you have an `ID` and want to pass it here for
+ * keying, you can create the `PointerRNA` for it with `RNA_id_pointer_create()`.
  *
  * \param channel_group: the channel group to put any newly created fcurves
  * under. If not given, the standard groups are used.
@@ -276,22 +275,6 @@ void autokeyframe_object(bContext *C, const Scene *scene, Object *ob, Span<RNAPa
  * so must check before using it as it's a luxury for a few cases.
  */
 bool autokeyframe_object(bContext *C, Scene *scene, Object *ob, KeyingSet *ks);
-bool autokeyframe_pchan(bContext *C, Scene *scene, Object *ob, bPoseChannel *pchan, KeyingSet *ks);
-/**
- * Auto-keyframing feature - for poses/pose-channels
- *
- * \param rna_paths: Only inserts keys on those RNA paths.
- * \param targetless_ik: Has targetless ik been done on any channels?
- *
- * \note Context may not always be available,
- * so must check before using it as it's a luxury for a few cases.
- */
-void autokeyframe_pose_channel(bContext *C,
-                               Scene *scene,
-                               Object *ob,
-                               bPoseChannel *pose_channel,
-                               Span<RNAPath> rna_paths,
-                               short targetless_ik);
 /**
  * Use for auto-key-framing.
  * \param only_if_property_keyed: if true, auto-key-framing only creates keyframes on already keyed

@@ -63,7 +63,6 @@ class GlTF2Exporter:
             samplers=[],
             scene=-1,
             scenes=[],
-            skins=[],
             textures=[]
         )
 
@@ -92,7 +91,6 @@ class GlTF2Exporter:
             gltf2_io.Node: self.__gltf.nodes,
             gltf2_io.Sampler: self.__gltf.samplers,
             gltf2_io.Scene: self.__gltf.scenes,
-            gltf2_io.Skin: self.__gltf.skins,
             gltf2_io.Texture: self.__gltf.textures
         }
 
@@ -241,7 +239,6 @@ class GlTF2Exporter:
                     name=node.name + "." + str(h),
                     rotation=None,
                     scale=None,
-                    skin=None,
                     translation=None,
                     weights=None,
                 )
@@ -409,16 +406,6 @@ class GlTF2Exporter:
                     new_node_list.append(node_idx - len_)
                 self.__gltf.scenes[scene_num].nodes = new_node_list
 
-                for skin in self.__gltf.skins:
-                    new_joint_list = []
-                    for node_idx in skin.joints:
-                        len_ = len([i for i in self.nodes_idx_to_remove if i < node_idx])
-                        new_joint_list.append(node_idx - len_)
-                    skin.joints = new_joint_list
-                    if skin.skeleton is not None:
-                        len_ = len([i for i in self.nodes_idx_to_remove if i < skin.skeleton])
-                        skin.skeleton = skin.skeleton - len_
-
             # Remove animation channels that was targeting a node that will be removed
             new_animation_list = []
             for animation in self.__gltf.animations:
@@ -465,10 +452,6 @@ class GlTF2Exporter:
             self.recursive_slide_node_idx(child_idx)
 
         node.children = new_node_children
-
-    def traverse_unused_skins(self, skins):
-        for s in skins:
-            self.__traverse(s)
 
     def traverse_additional_textures(self):
         if self.export_settings['gltf_unused_textures'] is True:

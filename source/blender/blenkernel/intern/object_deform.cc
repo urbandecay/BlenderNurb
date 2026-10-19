@@ -13,14 +13,13 @@
 
 #include "BLT_translation.hh"
 
-#include "BLI_ghash.h"
 #include "BLI_listbase.h"
 #include "BLI_string_utils.hh"
 #include "BLI_utildefines.h"
 
-#include "DNA_armature_types.h"
 #include "DNA_cloth_types.h"
 #include "DNA_curve_types.h"
+#include "DNA_defs.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -30,13 +29,10 @@
 #include "DNA_particle_types.h"
 #include "DNA_scene_types.h"
 
-#include "BKE_action.hh"
 #include "BKE_attribute.hh"
-#include "BKE_armature.hh"
 #include "BKE_deform.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_mesh.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_object_deform.h" /* own include */
 
@@ -548,105 +544,14 @@ bool *BKE_object_defgroup_lock_flags_get(Object *ob, const int defbase_tot)
   return nullptr;
 }
 
-bool *BKE_object_defgroup_validmap_get(Object *ob, const int defbase_tot)
+bool *BKE_object_defgroup_validmap_get(Object * /*ob*/, const int defbase_tot)
 {
-  bDeformGroup *dg;
-  ModifierData *md;
-  bool *defgroup_validmap;
-  GHash *gh;
-  int i, step1 = 1;
-  const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(ob);
-  VirtualModifierData virtual_modifier_data;
-
-  if (defbase->is_empty()) {
+  if (defbase_tot == 0) {
     return nullptr;
   }
-
-  gh = BLI_ghash_str_new_ex(__func__, defbase_tot);
-
-  /* add all names to a hash table */
-  for (bDeformGroup &dg : *defbase) {
-    BLI_ghash_insert(gh, dg.name, nullptr);
-  }
-
-  BLI_assert(BLI_ghash_len(gh) == defbase_tot);
-
-  /* now loop through the armature modifiers and identify deform bones */
-  for (md = static_cast<ModifierData *>(ob->modifiers.first); md;
-       md = !md->next && step1 ? (step1 = 0),
-      BKE_modifiers_get_virtual_modifierlist(ob, &virtual_modifier_data) :
-       md->next)
-  {
-    if (!(md->mode & (eModifierMode_Realtime | eModifierMode_Virtual))) {
-      continue;
-    }
-
-    if (md->type == eModifierType_Armature) {
-      Object *object = reinterpret_cast<ArmatureModifierData *>(md)->object;
-      if (object && object->pose) {
-        bPose *pose = object->pose;
-        bArmature *armature = id_cast<bArmature *>(object->data);
-        BKE_pose_ensure_bone_indices(*object);
-        for (bPoseChannel &chan : pose->chanbase) {
-          void **val_p;
-          if (chan.bone_get(*armature)->flag & BONE_NO_DEFORM) {
-            continue;
-          }
-
-          val_p = BLI_ghash_lookup_p(gh, chan.name);
-          if (val_p) {
-            *val_p = POINTER_FROM_INT(1);
-          }
-        }
-      }
-    }
-  }
-
-  defgroup_validmap = MEM_new_array_uninitialized<bool>(size_t(defbase_tot), "wpaint valid map");
-
-  /* add all names to a hash table */
-  for (dg = static_cast<bDeformGroup *>(defbase->first), i = 0; dg; dg = dg->next, i++) {
-    defgroup_validmap[i] = (BLI_ghash_lookup(gh, dg->name) != nullptr);
-  }
-
-  BLI_assert(i == BLI_ghash_len(gh));
-
-  BLI_ghash_free(gh, nullptr, nullptr);
-
+  bool *defgroup_validmap = MEM_new_array_uninitialized<bool>(size_t(defbase_tot), __func__);
+  memset(defgroup_validmap, true, sizeof(*defgroup_validmap) * defbase_tot);
   return defgroup_validmap;
-}
-
-bool *BKE_object_defgroup_selected_get(Object *ob, int defbase_tot, int *r_dg_flags_sel_tot)
-{
-  bool *dg_selection = MEM_new_array_uninitialized<bool>(size_t(defbase_tot), __func__);
-  bDeformGroup *defgroup;
-  uint i;
-  Object *armob = BKE_object_pose_armature_get(ob);
-  (*r_dg_flags_sel_tot) = 0;
-
-  const ListBaseT<bDeformGroup> *defbase = BKE_object_defgroup_list(ob);
-
-  if (armob) {
-    bPose *pose = armob->pose;
-    for (i = 0, defgroup = static_cast<bDeformGroup *>(defbase->first);
-         i < defbase_tot && defgroup;
-         defgroup = defgroup->next, i++)
-    {
-      bPoseChannel *pchan = BKE_pose_channel_find_name(pose, defgroup->name);
-      if (pchan && (pchan->flag & POSE_SELECTED)) {
-        dg_selection[i] = true;
-        (*r_dg_flags_sel_tot) += 1;
-      }
-      else {
-        dg_selection[i] = false;
-      }
-    }
-  }
-  else {
-    memset(dg_selection, false, sizeof(*dg_selection) * defbase_tot);
-  }
-
-  return dg_selection;
 }
 
 bool BKE_object_defgroup_check_lock_relative(const bool *lock_flags,
@@ -654,28 +559,6 @@ bool BKE_object_defgroup_check_lock_relative(const bool *lock_flags,
                                              int index)
 {
   return validmap && validmap[index] && !(lock_flags && lock_flags[index]);
-}
-
-bool BKE_object_defgroup_check_lock_relative_multi(int defbase_tot,
-                                                   const bool *lock_flags,
-                                                   const bool *selected,
-                                                   int sel_tot)
-{
-  if (lock_flags == nullptr) {
-    return true;
-  }
-
-  if (selected == nullptr || sel_tot <= 1) {
-    return true;
-  }
-
-  for (int i = 0; i < defbase_tot; i++) {
-    if (selected[i] && lock_flags[i]) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 bool BKE_object_defgroup_active_is_locked(const Object *ob)
@@ -730,7 +613,7 @@ void BKE_object_defgroup_mirror_selection(Object *ob,
        defgroup = defgroup->next, i++)
   {
     if (dg_selection[i]) {
-      char name_flip[MAXBONENAME];
+      char name_flip[MAX_NAME];
 
       BLI_string_flip_side_name(name_flip, defgroup->name, false, sizeof(name_flip));
       i_mirr = STREQ(name_flip, defgroup->name) ? i :
@@ -764,33 +647,6 @@ bool *BKE_object_defgroup_subset_from_select_type(Object *ob,
       }
       else {
         *r_subset_count = 0;
-      }
-      break;
-    }
-    case WT_VGROUP_BONE_SELECT: {
-      defgroup_validmap = BKE_object_defgroup_selected_get(ob, *r_defgroup_tot, r_subset_count);
-      break;
-    }
-    case WT_VGROUP_BONE_DEFORM: {
-      int i;
-      defgroup_validmap = BKE_object_defgroup_validmap_get(ob, *r_defgroup_tot);
-      *r_subset_count = 0;
-      for (i = 0; i < *r_defgroup_tot; i++) {
-        if (defgroup_validmap[i] == true) {
-          *r_subset_count += 1;
-        }
-      }
-      break;
-    }
-    case WT_VGROUP_BONE_DEFORM_OFF: {
-      int i;
-      defgroup_validmap = BKE_object_defgroup_validmap_get(ob, *r_defgroup_tot);
-      *r_subset_count = 0;
-      for (i = 0; i < *r_defgroup_tot; i++) {
-        defgroup_validmap[i] = !defgroup_validmap[i];
-        if (defgroup_validmap[i] == true) {
-          *r_subset_count += 1;
-        }
       }
       break;
     }

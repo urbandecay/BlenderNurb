@@ -17,7 +17,6 @@
 #include "BLI_math_vector.h"
 #include "BLI_string.h"
 
-#include "BKE_armature.hh"
 #include "BKE_constraint.h"
 #include "BKE_curve.hh"
 #include "BKE_curves.h"
@@ -72,7 +71,7 @@ void BKE_object_eval_constraints(Depsgraph *depsgraph, Scene *scene, Object *ob)
    *
    * Not sure why, this is from Joshua - sergey
    */
-  cob = BKE_constraints_make_evalob(depsgraph, scene, ob, nullptr, CONSTRAINT_OBTYPE_OBJECT);
+  cob = BKE_constraints_make_evalob(depsgraph, scene, ob);
   BKE_constraints_solve(depsgraph, &ob->constraints, cob, ctime);
   BKE_constraints_clear_evalob(cob);
 }
@@ -94,10 +93,10 @@ void BKE_object_eval_transform_final(Depsgraph *depsgraph, Object *ob)
   ob->runtime->last_update_transform = DEG_get_update_count(depsgraph);
 }
 
-static void empty_object_apply_modifiers(Depsgraph *depsgraph,
-                                         Scene *scene,
-                                         Object *object,
-                                         bke::GeometrySet &geometry_set)
+static void no_data_object_apply_modifiers(Depsgraph *depsgraph,
+                                           Scene *scene,
+                                           Object *object,
+                                           bke::GeometrySet &geometry_set)
 {
   const bool use_render = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
   const int required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
@@ -123,21 +122,13 @@ static void empty_object_apply_modifiers(Depsgraph *depsgraph,
   }
 }
 
-static void empty_object_update(Depsgraph *depsgraph, Scene *scene, Object *object)
+static void no_data_object_update(Depsgraph *depsgraph, Scene *scene, Object *object)
 {
   BKE_object_free_derived_caches(object);
 
   bke::GeometrySet geometry_set;
-  /* If the empty is instancing a collection, create an input geometry set of this collection. */
-  if (object->instance_collection != nullptr) {
-    Collection &collection = *object->instance_collection;
-    auto instances = std::make_unique<bke::Instances>(1);
-    instances->reference_handles_for_write().first() = instances->add_reference(collection);
-    instances->transforms_for_write().first() = float4x4::identity();
-    geometry_set = bke::GeometrySet::from_instances(std::move(instances));
-  }
   /* Evaluate modifiers. */
-  empty_object_apply_modifiers(depsgraph, scene, object, geometry_set);
+  no_data_object_apply_modifiers(depsgraph, scene, object, geometry_set);
 
   object->runtime->geometry_set_eval = new bke::GeometrySet(std::move(geometry_set));
 }
@@ -148,8 +139,8 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
 
   /* includes all keys and modifiers */
   switch (ob->type) {
-    case OB_EMPTY: {
-      empty_object_update(depsgraph, scene, ob);
+    case OB_NO_DATA: {
+      no_data_object_update(depsgraph, scene, ob);
       break;
     }
     case OB_MESH: {
@@ -170,10 +161,6 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
       bke::mesh_data_update(*depsgraph, *scene, *ob, cddata_masks);
       break;
     }
-    case OB_ARMATURE:
-      BKE_pose_where_is(depsgraph, scene, ob);
-      break;
-
     case OB_MBALL:
       BKE_mball_data_update(depsgraph, scene, ob);
       break;
@@ -334,7 +321,6 @@ void BKE_object_batch_cache_dirty_tag(Object *ob)
 void BKE_object_eval_uber_data(Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
   DEG_debug_print_eval(depsgraph, __func__, ob->id.name, ob);
-  BLI_assert(ob->type != OB_ARMATURE);
   BKE_object_handle_data_update(depsgraph, scene, ob);
   BKE_object_batch_cache_dirty_tag(ob);
 

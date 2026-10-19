@@ -137,7 +137,6 @@ set(SRC
   engines/external/external_engine.cc
   engines/select/select_engine.cc
   engines/select/select_instance.cc
-  engines/overlay/overlay_armature.cc
   engines/overlay/overlay_engine.cc
   engines/overlay/overlay_instance.cc
   engines/overlay/overlay_mode_transfer.cc
@@ -231,7 +230,6 @@ set(SRC
   engines/image/image_texture_info.hh
   engines/image/image_usage.hh
   engines/overlay/overlay_antialiasing.hh
-  engines/overlay/overlay_armature.hh
   engines/overlay/overlay_attribute_text.hh
   engines/overlay/overlay_attribute_viewer.hh
   engines/overlay/overlay_axes.hh
@@ -241,7 +239,7 @@ set(SRC
   engines/overlay/overlay_camera.hh
   engines/overlay/overlay_cursor.hh
   engines/overlay/overlay_curve.hh
-  engines/overlay/overlay_empty.hh
+  engines/overlay/overlay_extra_shapes.hh
   engines/overlay/overlay_engine.h
   engines/overlay/overlay_facing.hh
   engines/overlay/overlay_fade.hh
@@ -318,7 +316,7 @@ set(GLSL_SRC
   engines/image/shaders/infos/engine_image_infos.hh
 
 
-  engines/overlay/shaders/infos/overlay_armature_infos.hh
+  engines/overlay/shaders/infos/overlay_sphere_outline_infos.hh
   engines/overlay/shaders/infos/overlay_background_infos.hh
   engines/overlay/shaders/infos/overlay_common_infos.hh
   engines/overlay/shaders/infos/overlay_edit_mode_infos.hh
@@ -589,23 +587,8 @@ set(GLSL_SRC
   engines/select/select_shader_shared.hh
 
   engines/overlay/shaders/overlay_antialiasing.bsl.hh
-  engines/overlay/shaders/overlay_armature_dof_solid_frag.glsl
-  engines/overlay/shaders/overlay_armature_dof_vert.glsl
-  engines/overlay/shaders/overlay_armature_envelope_outline_vert.glsl
-  engines/overlay/shaders/overlay_armature_envelope_solid_frag.glsl
-  engines/overlay/shaders/overlay_armature_envelope_solid_vert.glsl
-  engines/overlay/shaders/overlay_armature_shape_outline_vert.glsl
-  engines/overlay/shaders/overlay_armature_shape_solid_frag.glsl
-  engines/overlay/shaders/overlay_armature_shape_solid_vert.glsl
-  engines/overlay/shaders/overlay_armature_shape_wire_vert.glsl
-  engines/overlay/shaders/overlay_armature_shape_wire_frag.glsl
-  engines/overlay/shaders/overlay_armature_sphere_outline_vert.glsl
-  engines/overlay/shaders/overlay_armature_sphere_solid_frag.glsl
-  engines/overlay/shaders/overlay_armature_sphere_solid_vert.glsl
-  engines/overlay/shaders/overlay_armature_stick_frag.glsl
-  engines/overlay/shaders/overlay_armature_stick_vert.glsl
-  engines/overlay/shaders/overlay_armature_wire_frag.glsl
-  engines/overlay/shaders/overlay_armature_wire_vert.glsl
+  engines/overlay/shaders/overlay_sphere_outline_vert.glsl
+  engines/overlay/shaders/overlay_sphere_outline_frag.glsl
   engines/overlay/shaders/overlay_background_frag.glsl
   engines/overlay/shaders/overlay_clipbound_vert.glsl
   engines/overlay/shaders/overlay_common_lib.glsl

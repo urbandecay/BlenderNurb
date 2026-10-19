@@ -372,7 +372,6 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "arctan(A)",
     "ascii",
     "author",                        # Addons' field. :/
-    "bItasc",
     "blender.org",
     "bytes",
     "color_index is invalid",
@@ -399,8 +398,6 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "invoke() needs to be called before execute()",
     "iScale",
     "iso-8859-15",
-    "iTaSC",
-    "iTaSC parameters",
     "kb",
     "local",
     "location",                      # Addons' field. :/
@@ -416,7 +413,6 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "oneAPI",
     "p0",
     "parent_index should not be less than -1: %d",
-    "parent_index (%d) should be less than the number of bone collections (%d)",
     "px",
     "re",
     "res",
@@ -442,7 +438,6 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "y",
     "y = (Ax + B)",
     # ID plural names, defined in IDTypeInfo.
-    "armatures",
     "brushes",
     "cache_files",
     "cameras",
@@ -561,12 +556,10 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
 WARN_MSGID_NOT_CAPITALIZED_ALLOWED |= set(lng[2] for lng in LANGUAGES)
 
 WARN_MSGID_END_POINT_ALLOWED = {
-    "Cannot figure out which object this bone belongs to.",
     "Circle|Alt .",
     "Float Neg. Exp.",
     "Max Ext.",
     "Newer graphics drivers may be available to improve Blender support.",
-    "Not assigned to any bone collection.",
     "Numpad .",
     "Pad.",
     "Please file a bug report.",

@@ -109,13 +109,6 @@ enum eDepsObjectComponentType {
   /* Geometry Component (#Mesh / #Curves, etc.). */
   DEG_OB_COMP_GEOMETRY,
 
-  /* Evaluation-Related Outer Types (with Sub-data) */
-
-  /* Pose Component - Owner/Container of Bones Eval */
-  DEG_OB_COMP_EVAL_POSE,
-  /* Bone Component - Child/Sub-component of Pose */
-  DEG_OB_COMP_BONE,
-
   /* Material Shading Component */
   DEG_OB_COMP_SHADING,
   /* Cache Component */

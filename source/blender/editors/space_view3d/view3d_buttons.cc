@@ -10,7 +10,6 @@
 #include <cfloat>
 #include <cstring>
 
-#include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
@@ -33,8 +32,6 @@
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
 
-#include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
 #include "BKE_curves.hh"
@@ -65,7 +62,6 @@
 #include "ED_object_vgroup.hh"
 #include "ED_screen.hh"
 
-#include "ANIM_bone_collections.hh"
 
 #include "UI_interface.hh"
 #include "UI_interface_layout.hh"
@@ -1863,14 +1859,6 @@ static void v3d_transform_butsR(ui::Layout &layout, PointerRNA *ptr)
 {
   ui::Layout *split = &layout.split(0.8f, false);
 
-  if (ptr->type == RNA_PoseBone) {
-    PointerRNA boneptr;
-    Bone *bone;
-
-    boneptr = RNA_pointer_get(ptr, "bone");
-    bone = static_cast<Bone *>(boneptr.data);
-    split->active_set(!(bone->parent && bone->flag & BONE_CONNECTED));
-  }
   ui::Layout *colsub = &split->column(true);
   colsub->prop(ptr, "location", UI_ITEM_NONE, std::nullopt, ICON_NONE);
   colsub = &split->column(true);
@@ -1949,55 +1937,6 @@ static void v3d_transform_butsR(ui::Layout &layout, PointerRNA *ptr)
   colsub->label("", ICON_NONE);
   colsub->prop(
       ptr, "lock_scale", ui::ITEM_R_TOGGLE | ui::ITEM_R_ICON_ONLY, "", ICON_DECORATE_UNLOCKED);
-}
-
-static void v3d_posearmature_buts(ui::Layout &layout, Object *ob)
-{
-  bPoseChannel *pchan = BKE_pose_channel_active_if_bonecoll_visible(ob);
-
-  if (!pchan) {
-    layout.label(IFACE_("No Bone Active"), ICON_NONE);
-    return;
-  }
-
-  PointerRNA pchanptr = RNA_pointer_create_discrete(&ob->id, RNA_PoseBone, pchan);
-
-  ui::Layout &col = layout.column(false);
-
-  /* XXX: RNA buts show data in native types (i.e. quaternion, 4-component axis/angle, etc.)
-   * but old-school UI shows in eulers always. Do we want to be able to still display in Eulers?
-   * Maybe needs RNA/UI options to display rotations as different types. */
-  v3d_transform_butsR(col, &pchanptr);
-}
-
-static void v3d_editarmature_buts(ui::Layout &layout, Object *ob)
-{
-  bArmature *arm = id_cast<bArmature *>(ob->data);
-  EditBone *ebone = arm->act_edbone;
-
-  if (!ebone || !ANIM_bonecoll_is_visible_editbone(arm, ebone)) {
-    layout.label(IFACE_("Nothing selected"), ICON_NONE);
-    return;
-  }
-
-  PointerRNA eboneptr = RNA_pointer_create_discrete(&arm->id, RNA_EditBone, ebone);
-
-  ui::Layout &col = layout.column(false);
-  col.prop(&eboneptr, "head", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  if (ebone->parent && ebone->flag & BONE_CONNECTED) {
-    PointerRNA parptr = RNA_pointer_get(&eboneptr, "parent");
-    col.prop(&parptr, "tail_radius", UI_ITEM_NONE, IFACE_("Radius (Parent)"), ICON_NONE);
-  }
-  else {
-    col.prop(&eboneptr, "head_radius", UI_ITEM_NONE, IFACE_("Radius"), ICON_NONE);
-  }
-
-  col.prop(&eboneptr, "tail", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  col.prop(&eboneptr, "tail_radius", UI_ITEM_NONE, IFACE_("Radius"), ICON_NONE);
-
-  col.prop(&eboneptr, "roll", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  col.prop(&eboneptr, "length", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  col.prop(&eboneptr, "envelope_distance", UI_ITEM_NONE, IFACE_("Envelope"), ICON_NONE);
 }
 
 static void v3d_editmetaball_buts(ui::Layout &layout, Object *ob)
@@ -2104,19 +2043,13 @@ static void view3d_panel_transform(const bContext *C, Panel *panel)
   ui::Layout &col = panel->layout->column(false);
 
   if (ob == obedit) {
-    if (ob->type == OB_ARMATURE) {
-      v3d_editarmature_buts(col, ob);
-    }
-    else if (ob->type == OB_MBALL) {
+    if (ob->type == OB_MBALL) {
       v3d_editmetaball_buts(col, ob);
     }
     else {
       View3D *v3d = CTX_wm_view3d(C);
       v3d_editvertex_buts(C, &col, v3d, ob, FLT_MAX);
     }
-  }
-  else if (ob->mode & OB_MODE_POSE) {
-    v3d_posearmature_buts(col, ob);
   }
   else {
     PointerRNA obptr = RNA_id_pointer_create(&ob->id);
@@ -2534,11 +2467,6 @@ static wmOperatorStatus view3d_object_mode_menu_exec(bContext *C, wmOperator *op
     BKE_report(op->reports, RPT_WARNING, "No active object found");
     return OPERATOR_CANCELLED;
   }
-  if (((ob->mode & OB_MODE_EDIT) == 0) && ELEM(ob->type, OB_ARMATURE)) {
-    ed::object::mode_set(C, (ob->mode == OB_MODE_OBJECT) ? OB_MODE_POSE : OB_MODE_OBJECT);
-    return OPERATOR_CANCELLED;
-  }
-
   ui::pie_menu_invoke(C, "VIEW3D_MT_object_mode_pie", CTX_wm_window(C)->runtime->eventstate);
   return OPERATOR_CANCELLED;
 }

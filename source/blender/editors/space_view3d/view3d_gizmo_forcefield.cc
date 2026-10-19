@@ -41,7 +41,7 @@ static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmGizmoGroupType * /*
   if (v3d->gizmo_flag & (V3D_GIZMO_HIDE | V3D_GIZMO_HIDE_CONTEXT)) {
     return false;
   }
-  if ((v3d->gizmo_show_empty & V3D_GIZMO_SHOW_EMPTY_FORCE_FIELD) == 0) {
+  if ((v3d->gizmo_show_helpers & V3D_GIZMO_SHOW_HELPER_FORCE_FIELD) == 0) {
     return false;
   }
 
@@ -94,7 +94,7 @@ static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmGizmoGroup *gzgr
   PartDeflect *pd = ob->pd;
 
   if (pd->forcefield == PFIELD_WIND) {
-    const float size = (ob->type == OB_EMPTY) ? ob->empty_drawsize : 1.0f;
+    const float size = (ob->type == OB_NO_DATA) ? ob->display_size : 1.0f;
     const float ofs[3] = {0.0f, -size, 0.0f};
 
     PointerRNA field_ptr = RNA_pointer_create_discrete(&ob->id, RNA_FieldSettings, pd);

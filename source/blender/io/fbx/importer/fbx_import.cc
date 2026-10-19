@@ -31,7 +31,6 @@
 
 #include "fbx_import.hh"
 #include "fbx_import_anim.hh"
-#include "fbx_import_armature.hh"
 #include "fbx_import_material.hh"
 #include "fbx_import_mesh.hh"
 #include "fbx_import_util.hh"
@@ -85,8 +84,7 @@ struct FbxImportContext {
   void import_meshes();
   void import_cameras();
   void import_lights();
-  void import_empties();
-  void import_armatures();
+  void import_transform_nodes();
   void import_animation(double fps);
 
 };
@@ -249,19 +247,12 @@ void FbxImportContext::import_lights()
   }
 }
 
-void FbxImportContext::import_armatures()
+void FbxImportContext::import_transform_nodes()
 {
-  io::fbx::import_armatures(*this->bmain, this->fbx, this->mapping, this->params);
-}
-
-void FbxImportContext::import_empties()
-{
-  /* Create empties for fbx nodes. */
+  /* Preserve transform-only FBX nodes in the imported hierarchy. */
   for (const ufbx_node *node : this->fbx.nodes) {
-    /* Ignore root, bones and nodes for which we have created objects already. */
-    if (node->is_root || this->mapping.node_is_blender_bone.contains(node) ||
-        this->mapping.el_to_object.contains(&node->element))
-    {
+    /* Ignore the root and nodes for which we have created objects already. */
+    if (node->is_root || this->mapping.el_to_object.contains(&node->element)) {
       continue;
     }
     /* Ignore nodes at root for cameras (normally already imported, except for ignored cameras)
@@ -271,7 +262,7 @@ void FbxImportContext::import_empties()
     {
       continue;
     }
-    Object *obj = BKE_object_add_only_object(this->bmain, OB_EMPTY, get_fbx_name(node->name));
+    Object *obj = BKE_object_add_only_object(this->bmain, OB_NO_DATA, get_fbx_name(node->name));
     obj->data = nullptr;
     if (!node->visible) {
       obj->visibility_flag |= OB_HIDE_VIEWPORT;
@@ -325,10 +316,8 @@ void importer_main(Main *bmain, Scene *scene, ViewLayer *view_layer, const FBXIm
   ufbx_load_opts opts = {};
   opts.filename.data = params.filepath;
   opts.filename.length = strlen(params.filepath);
-  opts.evaluate_skinning = false;
   opts.evaluate_caches = false;
   opts.load_external_files = false;
-  opts.clean_skin_weights = true;
   opts.use_blender_pbr_material = true;
 
   opts.geometry_transform_handling = UFBX_GEOMETRY_TRANSFORM_HANDLING_MODIFY_GEOMETRY;
@@ -409,11 +398,10 @@ void importer_main(Main *bmain, Scene *scene, ViewLayer *view_layer, const FBXIm
 #endif
 
   ctx.import_materials();
-  ctx.import_armatures();
   ctx.import_meshes();
   ctx.import_cameras();
   ctx.import_lights();
-  ctx.import_empties();
+  ctx.import_transform_nodes();
   ctx.import_animation(scene->frames_per_second());
   ufbx_free_scene(fbx);
 

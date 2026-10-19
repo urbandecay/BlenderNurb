@@ -83,8 +83,6 @@ static constexpr short GEOMETRY_SET_DUPLI_GENERATOR_TYPE = 1;
 
 struct DupliContext {
   Depsgraph *depsgraph;
-  /** XXX child objects are selected from this group if set, could be nicer. */
-  Collection *collection;
   /** Only to check if the object is in edit-mode. */
   Object *obedit;
 
@@ -155,7 +153,6 @@ static void init_context(DupliContext *r_ctx,
                          DupliList &duplilist)
 {
   r_ctx->depsgraph = depsgraph;
-  r_ctx->collection = nullptr;
 
   r_ctx->root_object = ob;
   r_ctx->object = ob;
@@ -194,12 +191,6 @@ static bool copy_dupli_context(DupliContext *r_ctx,
                                int64_t instance_index = 0)
 {
   *r_ctx = *ctx;
-
-  /* XXX annoying, previously was done by passing an ID* argument,
-   * this at least is more explicit. */
-  if (ctx->gen && ctx->gen->type == OB_DUPLICOLLECTION) {
-    r_ctx->collection = ctx->object->instance_collection;
-  }
 
   r_ctx->object = ob;
   r_ctx->instance_stack = ctx->instance_stack;
@@ -383,59 +374,6 @@ static void make_recursive_duplis(const DupliContext *ctx,
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Dupli-Collection Implementation (#OB_DUPLICOLLECTION)
- * \{ */
-
-static void make_duplis_collection(const DupliContext *ctx)
-{
-  Object *ob = ctx->object;
-  Collection *collection;
-  float collection_mat[4][4];
-
-  if (ob->instance_collection == nullptr) {
-    return;
-  }
-  collection = ob->instance_collection;
-
-  /* Combine collection offset and `obmat`. */
-  unit_m4(collection_mat);
-  sub_v3_v3(collection_mat[3], collection->instance_offset);
-  mul_m4_m4m4(collection_mat, ob->object_to_world().ptr(), collection_mat);
-  /* Don't access 'ob->object_to_world().ptr()' from now on. */
-
-  eEvaluationMode mode = DEG_get_mode(ctx->depsgraph);
-  FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_BEGIN (collection, cob, mode) {
-    if (cob == ob) {
-      continue;
-    }
-
-    if (ctx->include_objects) {
-      Object *original_object = cob->id.orig_id ? reinterpret_cast<Object *>(cob->id.orig_id) :
-                                                  cob;
-      if (!ctx->include_objects->contains(original_object)) {
-        continue;
-      }
-    }
-
-    float mat[4][4];
-
-    /* Collection dupli-offset, should apply after everything else. */
-    mul_m4_m4m4(mat, collection_mat, cob->object_to_world().ptr());
-
-    make_dupli(ctx, cob, mat, _base_id);
-
-    /* Recursion. */
-    make_recursive_duplis(ctx, cob, collection_mat, _base_id);
-  }
-  FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_END;
-}
-
-static const DupliGenerator gen_dupli_collection = {
-    /*type*/ OB_DUPLICOLLECTION,
-    /*make_duplis*/ make_duplis_collection};
-
-/** \} */
-
 /* -------------------------------------------------------------------- */
 /** \name Dupli-Vertices Implementation (#OB_DUPLIVERTS for 3D Text)
  * \{ */
@@ -472,11 +410,6 @@ static Object *find_family_object(
 
 static void make_duplis_font(const DupliContext *ctx)
 {
-  /* Font dupli-verts not supported inside collections. */
-  if (ctx->collection) {
-    return;
-  }
-
   Object *par = ctx->object;
   GHash *family_gh;
   Object *ob;
@@ -1124,10 +1057,6 @@ static const DupliGenerator *get_dupli_generator(const DupliContext *ctx)
   if (transflag & OB_DUPLIPARTS) {
     return &gen_dupli_particles;
   }
-  if (transflag & OB_DUPLICOLLECTION) {
-    return &gen_dupli_collection;
-  }
-
   return nullptr;
 }
 

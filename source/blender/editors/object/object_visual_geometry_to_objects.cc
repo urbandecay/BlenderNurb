@@ -16,6 +16,7 @@
 #include "BKE_multires.hh"
 #include "BKE_object.hh"
 #include "BKE_pointcloud.hh"
+#include "BKE_report.hh"
 
 #include "DEG_depsgraph_query.hh"
 
@@ -107,32 +108,19 @@ static void copy_materials_to_new_geometry_object(const Object &src_ob_eval,
   }
 }
 
-struct CollectionWithTransform {
-  /* A collection that should be instanced. */
-  Collection *collection = nullptr;
-  /* A transform that needs to be applied to instances of that collection. */
-  float4x4 transform = float4x4::identity();
-};
-
 /** Utility class to build objects for a #GeometrySet recursively. */
 class GeometryToObjectsBuilder {
  private:
   Main &bmain_;
   Map<const ID *, Object *> new_object_by_generated_geometry_;
-  Map<bke::InstanceReference, CollectionWithTransform> collection_by_instance_;
-  Vector<Collection *> new_instance_collections_;
+  int skipped_instances_ = 0;
 
  public:
   GeometryToObjectsBuilder(Main &bmain) : bmain_(bmain) {}
 
-  Collection *build_collection_for_geometry(const Object &src_ob_eval,
-                                            const bke::GeometrySet &geometry)
+  int skipped_instances() const
   {
-    ComponentObjects component_objects = this->get_objects_for_geometry(src_ob_eval, geometry);
-    const StringRefNull name = geometry.name().is_empty() ?
-                                   StringRefNull(BKE_id_name(src_ob_eval.id)) :
-                                   StringRefNull(geometry.name());
-    return this->collection_from_component_objects(component_objects, name);
+    return skipped_instances_;
   }
 
   ComponentObjects get_objects_for_geometry(const Object &src_ob_eval,
@@ -163,22 +151,7 @@ class GeometryToObjectsBuilder {
     return objects;
   }
 
-  Span<Collection *> new_instance_collections() const
-  {
-    return new_instance_collections_;
-  }
-
  private:
-  Collection *collection_from_component_objects(const ComponentObjects &component_objects,
-                                                const StringRefNull name)
-  {
-    Collection *collection = BKE_collection_add(&bmain_, nullptr, name.c_str());
-    for (Object *object : component_objects.all_objects()) {
-      BKE_collection_object_add(&bmain_, collection, object);
-    }
-    return collection;
-  }
-
   Object *ensure_object_for_mesh(const Object &src_ob_eval,
                                  const Mesh &src_mesh,
                                  const StringRefNull name)
@@ -234,72 +207,22 @@ class GeometryToObjectsBuilder {
   Vector<Object *> create_objects_for_instances(const Object &src_ob_eval,
                                                 const bke::Instances &src_instances)
   {
-    if (std::optional<Vector<Object *>> simple_objects = this->create_objects_for_instances_simple(
-            src_ob_eval, src_instances))
-    {
-      return *simple_objects;
-    }
-
-    bke::Instances instances = src_instances;
-    instances.remove_unused_references();
-
-    /* Each instance will be a collection instance, so we need to get the collection for each
-     * #InstanceReference that is instanced. */
-    Vector<CollectionWithTransform> data_by_handle;
-    for (const bke::InstanceReference &reference : instances.references()) {
-      data_by_handle.append(
-          this->get_or_create_collection_for_instance_reference(src_ob_eval, reference));
-    }
-
-    const Span<int> handles = instances.reference_handles();
-    const Span<float4x4> transforms = instances.transforms();
-
-    Vector<Object *> objects;
-    for (const int instance_i : IndexRange(instances.instances_num())) {
-      const int handle = handles[instance_i];
-      if (!data_by_handle.index_range().contains(handle)) {
-        continue;
-      }
-      const CollectionWithTransform &instance = data_by_handle[handle];
-      if (!instance.collection) {
-        continue;
-      }
-      /* Create an empty object that then instances the collection. */
-      Object *instance_object = BKE_object_add_only_object(
-          &bmain_, OB_EMPTY, BKE_id_name(instance.collection->id));
-      instance_object->transflag = OB_DUPLICOLLECTION;
-      instance_object->instance_collection = instance.collection;
-      id_us_plus(&instance.collection->id);
-
-      const float4x4 &transform = transforms[instance_i];
-      set_local_object_transform(*instance_object, transform * instance.transform);
-
-      objects.append(instance_object);
-    }
-    return objects;
-  }
-
-  /**
-   * Under some circumstances, additional nested collection instances can be avoided and objects
-   * can be instanced directly. This is the case when the instances have the identity transform.
-   * If nullopt is returned, a fallback method has to be used that creates additional collections.
-   */
-  std::optional<Vector<Object *>> create_objects_for_instances_simple(
-      const Object &src_ob_eval, const bke::Instances &src_instances)
-  {
+    /* Only direct object references and identity-transformed geometry references can be
+     * converted without creating collection-instancer objects. Other instance types are skipped. */
     const Span<float4x4> transforms = src_instances.transforms();
     const Span<int> handles = src_instances.reference_handles();
     const Span<bke::InstanceReference> references = src_instances.references();
 
     Vector<Object *> objects;
     for (const int i : IndexRange(src_instances.instances_num())) {
-      const float4x4 &transform = transforms[i];
-      if (transform != float4x4::identity()) {
-        return std::nullopt;
+      if (transforms[i] != float4x4::identity()) {
+        skipped_instances_++;
+        continue;
       }
       const int handle = handles[i];
       if (handle < 0 || handle >= references.size()) {
-        return std::nullopt;
+        skipped_instances_++;
+        continue;
       }
       const bke::InstanceReference &reference = references[handle];
       switch (reference.type()) {
@@ -310,13 +233,15 @@ class GeometryToObjectsBuilder {
           Object &object_eval = reference.object();
           Object *object_orig = DEG_get_original(&object_eval);
           if (ELEM(object_orig, &src_ob_eval, nullptr)) {
-            return std::nullopt;
+            skipped_instances_++;
+            break;
           }
           objects.append(object_orig);
           break;
         }
         case bke::InstanceReference::Type::Collection: {
-          return std::nullopt;
+          skipped_instances_++;
+          break;
         }
         case bke::InstanceReference::Type::GeometrySet: {
           const ComponentObjects component_objects = this->get_objects_for_geometry(
@@ -330,58 +255,6 @@ class GeometryToObjectsBuilder {
     return objects;
   }
 
-  CollectionWithTransform get_or_create_collection_for_instance_reference(
-      const Object &src_ob_eval, const bke::InstanceReference &reference)
-  {
-    if (const CollectionWithTransform *instance = collection_by_instance_.lookup_ptr(reference)) {
-      return *instance;
-    }
-    CollectionWithTransform instance;
-    switch (reference.type()) {
-      case bke::InstanceReference::Type::None: {
-        break;
-      }
-      case bke::InstanceReference::Type::Object: {
-        /* Create a collection for the object because we can't instance objects directly. */
-        Object &object_eval = reference.object();
-        Object *object_orig = DEG_get_original(&object_eval);
-
-        if (object_orig->type == OB_EMPTY && object_orig->instance_collection) {
-          instance.collection = object_orig->instance_collection;
-        }
-        else {
-          instance.collection = BKE_collection_add(&bmain_, nullptr, BKE_id_name(object_orig->id));
-          new_instance_collections_.append(instance.collection);
-          BKE_collection_object_add(&bmain_, instance.collection, object_orig);
-
-          /* Handle the object transform because it may not be the identity matrix. The location is
-           * handled by setting the collection instance offset to it. The rotation and scale are
-           * handled by offsetting the instance using the collection by the inverse amount. */
-          float4x4 object_transform;
-          BKE_object_to_mat4(object_orig, object_transform.ptr());
-          instance.transform = float4x4(math::invert(float3x3(object_transform)));
-          copy_v3_v3(instance.collection->instance_offset, object_transform.location());
-        }
-        break;
-      }
-      case bke::InstanceReference::Type::Collection: {
-        /* For collections, we don't need to create a new wrapper collection, we can just create
-         * objects that instance the existing collection. */
-        Collection &collection_eval = reference.collection();
-        Collection *collection_orig = DEG_get_original(&collection_eval);
-        instance.collection = collection_orig;
-        break;
-      }
-      case bke::InstanceReference::Type::GeometrySet: {
-        instance.collection = this->build_collection_for_geometry(src_ob_eval,
-                                                                  reference.geometry_set());
-        new_instance_collections_.append(instance.collection);
-        break;
-      }
-    }
-    collection_by_instance_.add(reference, instance);
-    return instance;
-  }
 };
 
 static Vector<Collection *> find_collections_containing_object(Main &bmain,
@@ -398,7 +271,7 @@ static Vector<Collection *> find_collections_containing_object(Main &bmain,
   return collections.extract_vector();
 }
 
-static wmOperatorStatus visual_geometry_to_objects_exec(bContext *C, wmOperator * /*op*/)
+static wmOperatorStatus visual_geometry_to_objects_exec(bContext *C, wmOperator *wm_op)
 {
   Main &bmain = *CTX_data_main(C);
   Scene &scene = *CTX_data_scene(C);
@@ -441,12 +314,13 @@ static wmOperatorStatus visual_geometry_to_objects_exec(bContext *C, wmOperator 
     }
   }
 
-  const Span<Collection *> new_instance_collections = op.new_instance_collections();
-  for (Collection *new_collection : new_instance_collections) {
-    /* Add the new collections to the scene collection. This makes them more visible to the user,
-     * compared to having collection instances which use collections that are not in the scene. */
-    BKE_collection_child_add(&bmain, scene.master_collection, new_collection);
+  if (op.skipped_instances() > 0) {
+    BKE_reportf(wm_op->reports,
+                RPT_WARNING,
+                "%d transformed or collection instances were skipped",
+                op.skipped_instances());
   }
+
   /* Ensure that the #Base for objects and #LayerCollection for collections are created. */
   BKE_scene_view_layers_synced_ensure(bmain, &scene);
 
@@ -463,15 +337,6 @@ static wmOperatorStatus visual_geometry_to_objects_exec(bContext *C, wmOperator 
     BKE_view_layer_base_select_and_set_active(&active_view_layer, first_base);
     base_active_refresh(&bmain, &scene, &active_view_layer);
   }
-  /* Exclude the new collections. This is done because they are only instanced by other objects but
-   * should not be visible by themselves. */
-  for (ViewLayer &view_layer : scene.view_layers) {
-    for (Collection *new_collection : new_instance_collections) {
-      LayerCollection *new_layer_collection = BKE_layer_collection_first_from_scene_collection(
-          &view_layer, new_collection);
-      BKE_layer_collection_set_flag(new_layer_collection, LAYER_COLLECTION_EXCLUDE, true);
-    }
-  }
   BKE_view_layer_need_resync_tag(&active_view_layer);
   DEG_id_tag_update(&scene.id, ID_RECALC_BASE_FLAGS);
 
@@ -486,7 +351,7 @@ static wmOperatorStatus visual_geometry_to_objects_exec(bContext *C, wmOperator 
 void OBJECT_OT_visual_geometry_to_objects(wmOperatorType *ot)
 {
   ot->name = "Visual Geometry to Objects";
-  ot->description = "Convert geometry and instances into editable objects and collections";
+  ot->description = "Convert evaluated geometry and supported instances into editable objects";
   ot->idname = "OBJECT_OT_visual_geometry_to_objects";
 
   ot->exec = visual_geometry_to_objects_exec;

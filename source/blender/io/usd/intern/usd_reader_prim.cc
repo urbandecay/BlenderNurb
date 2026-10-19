@@ -46,7 +46,7 @@ void USDPrimReader::set_props(const bool merge_with_parent, const pxr::UsdTimeCo
   }
   if (!object_->data) {
     /* If the object has no data, set the prim's custom properties on the object.
-     * This applies to Xforms that have been converted to Empty objects. */
+     * This applies to Xforms represented by no-data objects. */
     set_id_props_from_prim(&object_->id, prim_, property_import_mode, time);
   }
 

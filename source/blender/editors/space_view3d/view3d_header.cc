@@ -123,11 +123,6 @@ static void uiTemplatePaintModeSelection(ui::Layout *layout, bContext *C)
     row.prop(&meshptr, "use_paint_mask", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
     row.prop(&meshptr, "use_paint_mask_vertex", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
 
-    /* Show the bone selection mode icon only if there is a pose mode armature */
-    Object *ob_armature = BKE_object_pose_armature_get(ob);
-    if (ob_armature) {
-      row.prop(&meshptr, "use_paint_bone_selection", ui::ITEM_R_ICON_ONLY, "", ICON_NONE);
-    }
   }
 }
 

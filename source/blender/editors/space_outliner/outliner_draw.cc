@@ -6,7 +6,6 @@
  * \ingroup spoutliner
  */
 
-#include "DNA_armature_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_key_types.h"
@@ -30,7 +29,6 @@
 #include "BLT_translation.hh"
 
 #include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
 #include "BKE_deform.hh"
@@ -49,14 +47,11 @@
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
 
-#include "ANIM_armature.hh"
-#include "ANIM_bone_collections.hh"
 #include "ANIM_keyframing.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_build.hh"
 
-#include "ED_armature.hh"
 #include "ED_fileselect.hh"
 #include "ED_id_management.hh"
 #include "ED_outliner.hh"
@@ -142,106 +137,9 @@ static bool is_object_data_in_editmode(const ID *id, const Object *obact)
 /** \name Button Callbacks
  * \{ */
 
-static void restrictbutton_recursive_ebone(bArmature *arm,
-                                           EditBone *ebone_parent,
-                                           eBone_Flag flag,
-                                           bool set_flag)
-{
-  for (EditBone &ebone : *arm->edbo) {
-    if (ED_armature_ebone_is_child_recursive(ebone_parent, &ebone)) {
-      if (set_flag) {
-        ebone.flag &= ~(BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL);
-        ebone.flag |= flag;
-      }
-      else {
-        ebone.flag &= ~flag;
-      }
-    }
-  }
-}
-
-static void restrictbutton_recursive_bone(Bone *bone_parent, eBone_Flag flag, bool set_flag)
-{
-  for (Bone &bone : bone_parent->childbase) {
-    if (set_flag) {
-      bone.flag &= ~(BONE_TIPSEL | BONE_SELECTED | BONE_ROOTSEL);
-      bone.flag |= flag;
-    }
-    else {
-      bone.flag &= ~flag;
-    }
-    restrictbutton_recursive_bone(&bone, flag, set_flag);
-  }
-}
-
 static void restrictbutton_r_lay_fn(bContext *C, void *poin, void * /*poin2*/)
 {
   WM_event_add_notifier(C, NC_SCENE | ND_RENDER_OPTIONS, poin);
-}
-
-static void restrictbutton_bone_visibility_fn(bContext *C, void *poin, void *poin2)
-{
-  Object *ob = static_cast<Object *>(poin);
-  bPoseChannel *pchan = static_cast<bPoseChannel *>(poin2);
-  if (CTX_wm_window(C)->runtime->eventstate->modifier & KM_SHIFT) {
-    animrig::pose_bone_descendent_iterator(*ob, *pchan, [&](bPoseChannel &descendent) {
-      if (pchan->drawflag & PCHAN_DRAW_HIDDEN) {
-        descendent.drawflag |= PCHAN_DRAW_HIDDEN;
-      }
-      else {
-        descendent.drawflag &= ~PCHAN_DRAW_HIDDEN;
-      }
-    });
-  }
-}
-
-static void restrictbutton_bone_select_fn(bContext *C, void *poin, void *poin2)
-{
-  bArmature *arm = static_cast<bArmature *>(poin);
-  Bone *bone = static_cast<Bone *>(poin2);
-
-  if (bone->flag & BONE_UNSELECTABLE) {
-    bone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-  }
-
-  if (CTX_wm_window(C)->runtime->eventstate->modifier & KM_SHIFT) {
-    restrictbutton_recursive_bone(bone, BONE_UNSELECTABLE, (bone->flag & BONE_UNSELECTABLE) != 0);
-  }
-
-  DEG_id_tag_update(&arm->id, ID_RECALC_SYNC_TO_EVAL);
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, nullptr);
-}
-
-static void restrictbutton_ebone_select_fn(bContext *C, void *poin, void *poin2)
-{
-  bArmature *arm = static_cast<bArmature *>(poin);
-  EditBone *ebone = static_cast<EditBone *>(poin2);
-
-  if (ebone->flag & BONE_UNSELECTABLE) {
-    ebone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-  }
-
-  if (CTX_wm_window(C)->runtime->eventstate->modifier & KM_SHIFT) {
-    restrictbutton_recursive_ebone(
-        arm, ebone, BONE_UNSELECTABLE, (ebone->flag & BONE_UNSELECTABLE) != 0);
-  }
-
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, nullptr);
-}
-
-static void restrictbutton_ebone_visibility_fn(bContext *C, void *poin, void *poin2)
-{
-  bArmature *arm = static_cast<bArmature *>(poin);
-  EditBone *ebone = static_cast<EditBone *>(poin2);
-  if (ebone->flag & BONE_HIDDEN_A) {
-    ebone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-  }
-
-  if (CTX_wm_window(C)->runtime->eventstate->modifier & KM_SHIFT) {
-    restrictbutton_recursive_ebone(arm, ebone, BONE_HIDDEN_A, (ebone->flag & BONE_HIDDEN_A) != 0);
-  }
-
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, nullptr);
 }
 
 static void restrictbutton_id_user_toggle(bContext * /*C*/, void *poin, void * /*poin2*/)
@@ -757,73 +655,6 @@ static void namebutton_fn(bContext *C, TreeStoreElem *tselem, const char *oldnam
 
           break;
         }
-        case TSE_EBONE: {
-          bArmature *arm = id_cast<bArmature *>(tselem->id);
-          if (arm->edbo) {
-            EditBone *ebone = static_cast<EditBone *>(te->directdata);
-            char newname[sizeof(ebone->name)];
-
-            /* restore bone name */
-            STRNCPY_UTF8(newname, ebone->name);
-            STRNCPY_UTF8(ebone->name, oldname);
-            ED_armature_bone_rename(bmain, arm, oldname, newname);
-            WM_msg_publish_rna_prop(mbus, &arm->id, ebone, EditBone, name);
-            WM_event_add_notifier(C, NC_OBJECT | ND_ARMATURE_STRUCTURE, arm);
-            WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN, arm);
-            DEG_id_tag_update(tselem->id, ID_RECALC_SYNC_TO_EVAL);
-            undo_str = CTX_N_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Rename Edit Bone");
-          }
-          break;
-        }
-
-        case TSE_BONE: {
-          TreeViewContext tvc;
-          outliner_viewcontext_init(C, &tvc);
-
-          bArmature *arm = id_cast<bArmature *>(tselem->id);
-          Bone *bone = static_cast<Bone *>(te->directdata);
-          char newname[sizeof(bone->name)];
-
-          /* always make current object active */
-          tree_element_activate(C, tvc, te, OL_SETSEL_NORMAL, true);
-
-          /* restore bone name */
-          STRNCPY_UTF8(newname, bone->name);
-          STRNCPY_UTF8(bone->name, oldname);
-          ED_armature_bone_rename(bmain, arm, oldname, newname);
-          WM_msg_publish_rna_prop(mbus, &arm->id, bone, Bone, name);
-          WM_event_add_notifier(C, NC_OBJECT | ND_ARMATURE_STRUCTURE, arm);
-          WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN, arm);
-          DEG_id_tag_update(tselem->id, ID_RECALC_SYNC_TO_EVAL);
-          undo_str = CTX_N_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Rename Bone");
-          break;
-        }
-        case TSE_POSE_CHANNEL: {
-          TreeViewContext tvc;
-          outliner_viewcontext_init(C, &tvc);
-
-          Object *ob = id_cast<Object *>(tselem->id);
-          bArmature *arm = id_cast<bArmature *>(ob->data);
-          bPoseChannel *pchan = static_cast<bPoseChannel *>(te->directdata);
-          char newname[sizeof(pchan->name)];
-
-          /* always make current pose-bone active */
-          tree_element_activate(C, tvc, te, OL_SETSEL_NORMAL, true);
-
-          BLI_assert(ob->type == OB_ARMATURE);
-
-          /* restore bone name */
-          STRNCPY_UTF8(newname, pchan->name);
-          STRNCPY_UTF8(pchan->name, oldname);
-          ED_armature_bone_rename(bmain, id_cast<bArmature *>(ob->data), oldname, newname);
-          WM_msg_publish_rna_prop(mbus, &arm->id, pchan->bone_get(*ob), Bone, name);
-          WM_event_add_notifier(C, NC_OBJECT | ND_ARMATURE_STRUCTURE, arm);
-          WM_event_add_notifier(C, NC_ANIMATION | ND_ANIMCHAN, arm);
-          DEG_id_tag_update(tselem->id, ID_RECALC_SYNC_TO_EVAL);
-          DEG_id_tag_update(&arm->id, ID_RECALC_SYNC_TO_EVAL);
-          undo_str = CTX_N_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Rename Pose Bone");
-          break;
-        }
         case TSE_R_LAYER: {
           Scene *scene = id_cast<Scene *>(tselem->id);
           ViewLayer *view_layer = static_cast<ViewLayer *>(te->directdata);
@@ -849,18 +680,6 @@ static void namebutton_fn(bContext *C, TreeStoreElem *tselem, const char *oldnam
           WM_msg_publish_rna_prop(mbus, tselem->id, tselem->id, ID, name);
           WM_event_add_notifier(C, NC_ID | NA_RENAME, nullptr);
           DEG_id_tag_update(tselem->id, ID_RECALC_SYNC_TO_EVAL);
-          break;
-        }
-
-        case TSE_BONE_COLLECTION: {
-          bArmature *arm = id_cast<bArmature *>(tselem->id);
-          BoneCollection *bcoll = static_cast<BoneCollection *>(te->directdata);
-
-          ANIM_armature_bonecoll_name_set(arm, bcoll, bcoll->name);
-          WM_msg_publish_rna_prop(mbus, &arm->id, bcoll, BoneCollection, name);
-          WM_event_add_notifier(C, NC_OBJECT | ND_BONE_COLLECTION, arm);
-          DEG_id_tag_update(&arm->id, ID_RECALC_SYNC_TO_EVAL);
-          undo_str = CTX_N_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Rename Bone Collection");
           break;
         }
 
@@ -905,7 +724,6 @@ struct RestrictProperties {
       *layer_collection_indirect_only, *layer_collection_hide_viewport;
   PropertyRNA *modifier_show_viewport, *modifier_show_render;
   PropertyRNA *constraint_enable;
-  PropertyRNA *bone_hide_viewport;
 };
 
 /* We don't care about the value of the property
@@ -925,7 +743,6 @@ struct RestrictPropertiesActive {
   bool modifier_show_viewport;
   bool modifier_show_render;
   bool constraint_enable;
-  bool bone_hide_viewport;
 };
 
 static void outliner_restrict_properties_enable_collection_set(
@@ -1073,8 +890,6 @@ static void outliner_draw_restrictbuts(ui::Block *block,
     props.modifier_show_render = RNA_struct_type_find_property(RNA_Modifier, "show_render");
 
     props.constraint_enable = RNA_struct_type_find_property(RNA_Constraint, "enabled");
-
-    props.bone_hide_viewport = RNA_struct_type_find_property(RNA_PoseBone, "hide");
 
     props.initialized = true;
   }
@@ -1310,95 +1125,6 @@ static void outliner_draw_restrictbuts(ui::Block *block,
           if (!props_active.modifier_show_render) {
             button_flag_enable(bt, ui::BUT_INACTIVE);
           }
-        }
-      }
-      else if (tselem->type == TSE_POSE_CHANNEL) {
-        bPoseChannel *pchan = static_cast<bPoseChannel *>(te.directdata);
-        Object *ob = id_cast<Object *>(tselem->id);
-        bArmature *arm = id_cast<bArmature *>(ob->data);
-
-        PointerRNA ptr = RNA_pointer_create_discrete(&arm->id, RNA_PoseBone, pchan);
-
-        if (space_outliner->show_restrict_flags & SO_RESTRICT_VIEWPORT) {
-          bt = uiDefIconButR_prop(block,
-                                  ui::ButtonType::IconToggle,
-                                  ICON_NONE,
-                                  int(region->v2d.cur.xmax - restrict_offsets.viewport),
-                                  te.ys,
-                                  UI_UNIT_X,
-                                  UI_UNIT_Y,
-                                  &ptr,
-                                  props.bone_hide_viewport,
-                                  -1,
-                                  0,
-                                  0,
-                                  TIP_("Restrict visibility in the 3D View\n"
-                                       " \u2022 Shift to set children"));
-          button_func_set(bt, restrictbutton_bone_visibility_fn, ob, pchan);
-          button_flag_enable(bt, ui::BUT_DRAG_LOCK);
-          button_drawflag_enable(bt, ui::BUT_ICON_REVERSE);
-        }
-
-        if (space_outliner->show_restrict_flags & SO_RESTRICT_SELECT) {
-          Bone *bone = pchan->bone_get(*ob);
-          bt = uiDefIconButBit(block,
-                               ui::ButtonType::IconToggle,
-                               BONE_UNSELECTABLE,
-                               ICON_RESTRICT_SELECT_OFF,
-                               int(region->v2d.cur.xmax - restrict_offsets.select),
-                               te.ys,
-                               UI_UNIT_X,
-                               UI_UNIT_Y,
-                               &bone->flag,
-                               0,
-                               0,
-                               TIP_("Restrict selection in the 3D View\n"
-                                    " \u2022 Shift to set children"));
-          button_func_set(bt, restrictbutton_bone_select_fn, ob->data, bone);
-          button_flag_enable(bt, ui::BUT_DRAG_LOCK);
-          button_drawflag_enable(bt, ui::BUT_ICON_REVERSE);
-        }
-      }
-      else if (tselem->type == TSE_EBONE) {
-        bArmature *arm = id_cast<bArmature *>(tselem->id);
-        EditBone *ebone = static_cast<EditBone *>(te.directdata);
-
-        if (space_outliner->show_restrict_flags & SO_RESTRICT_VIEWPORT) {
-          bt = uiDefIconButBit(block,
-                               ui::ButtonType::IconToggle,
-                               BONE_HIDDEN_A,
-                               ICON_RESTRICT_VIEW_OFF,
-                               int(region->v2d.cur.xmax - restrict_offsets.viewport),
-                               te.ys,
-                               UI_UNIT_X,
-                               UI_UNIT_Y,
-                               &ebone->flag,
-                               0,
-                               0,
-                               TIP_("Restrict visibility in the 3D View\n"
-                                    " \u2022 Shift to set children"));
-          button_func_set(bt, restrictbutton_ebone_visibility_fn, arm, ebone);
-          button_flag_enable(bt, ui::BUT_DRAG_LOCK);
-          button_drawflag_enable(bt, ui::BUT_ICON_REVERSE);
-        }
-
-        if (space_outliner->show_restrict_flags & SO_RESTRICT_SELECT) {
-          bt = uiDefIconButBit(block,
-                               ui::ButtonType::IconToggle,
-                               BONE_UNSELECTABLE,
-                               ICON_RESTRICT_SELECT_OFF,
-                               int(region->v2d.cur.xmax - restrict_offsets.select),
-                               te.ys,
-                               UI_UNIT_X,
-                               UI_UNIT_Y,
-                               &ebone->flag,
-                               0,
-                               0,
-                               TIP_("Restrict selection in the 3D View\n"
-                                    " \u2022 Shift to set children"));
-          button_func_set(bt, restrictbutton_ebone_select_fn, arm, ebone);
-          button_flag_enable(bt, ui::BUT_DRAG_LOCK);
-          button_drawflag_enable(bt, ui::BUT_ICON_REVERSE);
         }
       }
       else if (outliner_is_collection_tree_element(&te)) {
@@ -1999,10 +1725,7 @@ static void outliner_buttons(const bContext *C,
   BLI_assert(tselem->flag & TSE_TEXTBUT);
   /* If we add support to rename Sequence, need change this. */
 
-  if (tselem->type == TSE_EBONE) {
-    len = sizeof(EditBone::name);
-  }
-  else if (tselem->type == TSE_MODIFIER) {
+  if (tselem->type == TSE_MODIFIER) {
     len = sizeof(ModifierData::name);
   }
   else if (tselem->id && GS(tselem->id->name) == ID_LI) {
@@ -2115,7 +1838,7 @@ static void outliner_draw_mode_column_toggle(ui::Block *block,
    * allow multi-object editing, these other objects should still show be viewed as not in the
    * mode. Otherwise multiple objects show the same mode icon in the outliner even though only
    * one object is actually editable in the mode. */
-  if (!lock_object_modes && ob != ob_active && !(tvc.ob_edit || tvc.ob_pose)) {
+  if (!lock_object_modes && ob != ob_active && !tvc.ob_edit) {
     draw_active_icon = false;
   }
 
@@ -2314,8 +2037,6 @@ static BIFIconID tree_element_get_icon_from_id(const ID *id)
     case ID_SPK:
     case ID_SO:
       return ICON_OUTLINER_DATA_SPEAKER;
-    case ID_AR:
-      return ICON_OUTLINER_DATA_ARMATURE;
     case ID_CA:
       return ICON_OUTLINER_DATA_CAMERA;
     case ID_KE:
@@ -2427,10 +2148,6 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
       case TSE_DEFGROUP:
         data.icon = ICON_GROUP_VERTEX;
         break;
-      case TSE_BONE:
-      case TSE_EBONE:
-        data.icon = ICON_BONE_DATA;
-        break;
       case TSE_CONSTRAINT_BASE:
         data.icon = ICON_CONSTRAINT;
         data.drag_id = tselem->id;
@@ -2487,14 +2204,8 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
           case CONSTRAINT_TYPE_DAMPTRACK:
             data.icon = ICON_CON_TRACKTO;
             break;
-          case CONSTRAINT_TYPE_KINEMATIC:
-            data.icon = ICON_CON_KINEMATIC;
-            break;
           case CONSTRAINT_TYPE_LOCKTRACK:
             data.icon = ICON_CON_LOCKTRACK;
-            break;
-          case CONSTRAINT_TYPE_SPLINEIK:
-            data.icon = ICON_CON_SPLINEIK;
             break;
           case CONSTRAINT_TYPE_STRETCHTO:
             data.icon = ICON_CON_STRETCHTO;
@@ -2504,9 +2215,6 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
             break;
           case CONSTRAINT_TYPE_ACTION:
             data.icon = ICON_CON_ACTION;
-            break;
-          case CONSTRAINT_TYPE_ARMATURE:
-            data.icon = ICON_CON_ARMATURE;
             break;
           case CONSTRAINT_TYPE_CHILDOF:
             data.icon = ICON_CON_CHILDOF;
@@ -2567,12 +2275,6 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
       case TSE_LINKED_NODE_TREE:
         data.icon = ICON_NODETREE;
         break;
-      case TSE_POSE_BASE:
-        data.icon = ICON_ARMATURE_DATA;
-        break;
-      case TSE_POSE_CHANNEL:
-        data.icon = ICON_BONE_DATA;
-        break;
       case TSE_R_LAYER_BASE:
         data.icon = ICON_RENDERLAYERS;
         break;
@@ -2581,10 +2283,6 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
         break;
       case TSE_R_LAYER:
         data.icon = ICON_RENDER_RESULT;
-        break;
-      case TSE_BONE_COLLECTION_BASE:
-      case TSE_BONE_COLLECTION:
-        data.icon = ICON_GROUP_BONE;
         break;
       case TSE_STRIP: {
         const TreeElementStrip *te_strip = tree_element_cast<TreeElementStrip>(te);
@@ -2904,7 +2602,6 @@ static void outliner_draw_iconrow(ui::Block *block,
                                   int *offsx,
                                   int ys,
                                   float alpha_fac,
-                                  bool in_bone_hierarchy,
                                   MergedIconRow *merged)
 {
   eOLDrawState active = OL_DRAWSEL_NONE;
@@ -2913,13 +2610,8 @@ static void outliner_draw_iconrow(ui::Block *block,
     TreeStoreElem *tselem = TREESTORE(&te);
     te.flag &= ~(TE_ICONROW | TE_ICONROW_MERGED);
 
-    /* object hierarchy always, further constrained on level */
-    /* Bones are also hierarchies and get a merged count, but we only start recursing into them if
-     * an they are at the root level of a collapsed subtree (e.g. not "hidden" in a collapsed
-     * collection). */
-    const bool is_bone = ELEM(tselem->type, TSE_BONE, TSE_EBONE, TSE_POSE_CHANNEL);
-    if ((level < 1) || ((tselem->type == TSE_SOME_ID) && (te.idcode == ID_OB)) ||
-        (in_bone_hierarchy && is_bone))
+    /* Object hierarchy always, further constrained on level. */
+    if ((level < 1) || ((tselem->type == TSE_SOME_ID) && (te.idcode == ID_OB)))
     {
       /* active blocks get white circle */
       if (tselem->type == TSE_SOME_ID) {
@@ -2946,10 +2638,6 @@ static void outliner_draw_iconrow(ui::Block *block,
                 TSE_LIBRARY_OVERRIDE_BASE,
                 TSE_LIBRARY_OVERRIDE,
                 TSE_LIBRARY_OVERRIDE_OPERATION,
-                TSE_BONE,
-                TSE_EBONE,
-                TSE_POSE_CHANNEL,
-                TSE_BONE_COLLECTION,
                 TSE_DEFGROUP,
                 TSE_ACTION_SLOT,
                 TSE_NLA_TRACK) &&
@@ -2968,12 +2656,7 @@ static void outliner_draw_iconrow(ui::Block *block,
     }
 
     /* TSE_R_LAYER tree element always has same amount of branches, so don't draw. */
-    /* Also only recurse into bone hierarchies if a direct child of the collapsed element to
-     * merge into. */
-    const bool is_root_level_bone = is_bone && (level == 0);
-    in_bone_hierarchy |= is_root_level_bone;
-    if (!ELEM(tselem->type, TSE_R_LAYER, TSE_BONE, TSE_EBONE, TSE_POSE_CHANNEL) ||
-        in_bone_hierarchy)
+    if (tselem->type != TSE_R_LAYER)
     {
       outliner_draw_iconrow(block,
                             fstyle,
@@ -2985,7 +2668,6 @@ static void outliner_draw_iconrow(ui::Block *block,
                             offsx,
                             ys,
                             alpha_fac,
-                            in_bone_hierarchy,
                             merged);
     }
   }
@@ -3272,7 +2954,6 @@ static void outliner_draw_tree_element(ui::Block *block,
                                 &tempx,
                                 *starty,
                                 alpha_fac,
-                                false,
                                 &merged);
 
           GPU_blend(GPU_BLEND_NONE);
@@ -3342,11 +3023,9 @@ static void outliner_draw_hierarchy_lines_recursive(uint pos,
 
   /* Draw vertical lines between collections */
   bool draw_hierarchy_line;
-  bool use_dashed_line;
   for (TreeElement &te : *lb) {
     TreeStoreElem *tselem = TREESTORE(&te);
     draw_hierarchy_line = false;
-    use_dashed_line = false;
     *starty -= UI_UNIT_Y;
     short color_tag = COLLECTION_COLOR_NONE;
 
@@ -3360,12 +3039,6 @@ static void outliner_draw_hierarchy_lines_recursive(uint pos,
 
         y = *starty;
       }
-      else if (ELEM(tselem->type, TSE_BONE, TSE_EBONE, TSE_POSE_CHANNEL)) {
-        draw_hierarchy_line = true;
-        use_dashed_line = true;
-        y = *starty;
-      }
-
       outliner_draw_hierarchy_lines_recursive(
           pos, space_outliner, &te.subtree, tvc, startx + UI_UNIT_X, col, draw_grayed_out, starty);
     }
@@ -3382,7 +3055,7 @@ static void outliner_draw_hierarchy_lines_recursive(uint pos,
 
       line_color[3] = alpha_fac;
       immUniformColor4ubv(line_color);
-      outliner_draw_hierarchy_line(pos, startx, y, *starty, use_dashed_line);
+      outliner_draw_hierarchy_line(pos, startx, y, *starty, false);
     }
   }
 }

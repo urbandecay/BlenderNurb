@@ -32,7 +32,6 @@
 #  include <stdio.h>
 #endif
 
-#include "BKE_armature.hh"
 #include "BKE_idprop.hh"
 #include "BKE_idtype.hh"
 #include "BKE_lib_override.hh"
@@ -159,12 +158,6 @@ bool RNA_property_overridable_get(const PointerRNA *ptr, PropertyRNA *prop)
     else if (RNA_struct_is_a(ptr->type, RNA_CameraBackgroundImage)) {
       CameraBGImage *bgpic = static_cast<CameraBGImage *>(ptr->data);
       if (bgpic->flag & CAM_BGIMG_FLAG_OVERRIDE_LIBRARY_LOCAL) {
-        return true;
-      }
-    }
-    else if (RNA_struct_is_a(ptr->type, RNA_BoneCollection)) {
-      BoneCollection *bcoll = static_cast<BoneCollection *>(ptr->data);
-      if (bcoll->flags & BONE_COLLECTION_OVERRIDE_LIBRARY_LOCAL) {
         return true;
       }
     }
@@ -674,27 +667,6 @@ bool RNA_struct_override_matches(Main *bmain,
     _timeit_time_global = BLI_time_now_seconds();
   }
 #endif
-
-  if (ptr_local->owner_id == ptr_local->data && GS(ptr_local->owner_id->name) == ID_OB) {
-    /* Our beloved pose's bone cross-data pointers. Usually, depsgraph evaluation would
-     * ensure this is valid, but in some situations (like hidden collections etc.) this won't
-     * be the case, so we need to take care of this ourselves.
-     *
-     * NOTE: Typically callers of this function (from BKE_lib_override area) will already have
-     * ensured this. However, studio is still reporting sporadic, unreproducible crashes due to
-     * invalid pose data, so think there are still some cases where some armatures are somehow
-     * missing updates (possibly due to dependencies?). Since calling this function on same ID
-     * several time is almost free, and safe even in a threaded context as long as it has been done
-     * at least once first outside of threaded processing, we do it another time here. */
-    Object *ob_local = id_cast<Object *>(ptr_local->owner_id);
-    if (ob_local->type == OB_ARMATURE) {
-      Object *ob_reference = id_cast<Object *>(ptr_local->owner_id->override_library->reference);
-      BLI_assert(ob_local->data != nullptr);
-      BLI_assert(ob_reference->data != nullptr);
-      BKE_pose_ensure(bmain, ob_local, id_cast<bArmature *>(ob_local->data), true);
-      BKE_pose_ensure(bmain, ob_reference, id_cast<bArmature *>(ob_reference->data), true);
-    }
-  }
 
   iterprop = RNA_struct_iterator_property(ptr_local->type);
 

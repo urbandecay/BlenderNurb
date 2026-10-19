@@ -111,7 +111,6 @@ class SpellChecker:
         "blackbody",
         "blendfile",
         "blendin",
-        "bonesize",
         "boundbox",
         "boxpack",
         "buffersize",
@@ -168,7 +167,6 @@ class SpellChecker:
         "multifractal",
         "multiframe",
         "multilayer",
-        "multipaint",
         "multires", "multiresolution",
         "multisampling",
         "multiscatter",
@@ -211,7 +209,6 @@ class SpellChecker:
         "resample",
         "rescale",
         "resize",
-        "restpose",
         "resync", "resynced",
         "retarget", "retargets", "retargeting", "retargeted",
         "retime", "retimed", "retiming",
@@ -503,7 +500,6 @@ class SpellChecker:
         "bezier", "beziers",
         "bicubic",
         "bilinear",
-        "bindpose",
         "binormal",
         "blackpoint", "whitepoint",
         "blendshape", "blendshapes",  # USD slang :(
@@ -598,9 +594,7 @@ class SpellChecker:
         "audaspace",
         "azone",  # action zone
         "backwire",
-        "bbone",
         "bdata",
-        "bendy",  # bones
         "bmesh",
         "breakdowner",
         "bspline",
@@ -617,7 +611,6 @@ class SpellChecker:
         "dupligroup",
         "duplivert",
         "dyntopo",
-        "editbone",
         "editmode",
         "eevee",
         "fcurve", "fcurves",
@@ -647,7 +640,6 @@ class SpellChecker:
         "paintmap", "paintmaps",
         "pointclouds",
         "polygroup", "polygroups",
-        "poselib",
         "pushpull",
         "qe",  # keys...
         "shapekey", "shapekeys",
@@ -837,7 +829,6 @@ class SpellChecker:
         "bvh",
         "dbvt",
         "dop",  # BLI K-DOP BVH
-        "ik",
         "nla",
         "py",
         "qbvh",

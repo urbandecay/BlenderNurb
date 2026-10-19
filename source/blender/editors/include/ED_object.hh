@@ -38,7 +38,6 @@ struct View3D;
 struct ViewLayer;
 struct bConstraint;
 struct bContext;
-struct bPoseChannel;
 struct wmKeyConfig;
 struct wmOperator;
 struct wmOperatorType;
@@ -67,7 +66,7 @@ void collection_hide_menu_draw(const bContext *C, ui::Layout &layout);
 /**
  * Return an array of objects:
  * - When in the property space, return the pinned or active object.
- * - When in edit-mode/pose-mode, return an array of objects in the mode.
+ * - When in edit mode, return an array of objects in the mode.
  * - Otherwise return selected objects,
  *   the callers \a filter_fn needs to check of they are editable
  *   (assuming they need to be modified).
@@ -120,7 +119,6 @@ void shape_key_mirror(Object *ob, KeyBlock *kb, bool use_topology, int &totmirr,
 /* `object_utils.cc` */
 
 bool calc_active_center_for_editmode(Object *obedit, bool select_only, float r_center[3]);
-bool calc_active_center_for_posemode(Object *ob, bool select_only, float r_center[3]);
 bool calc_active_center(Object *ob, bool select_only, float r_center[3]);
 
 /* Object Data Container helper API. */
@@ -298,43 +296,29 @@ void single_obdata_user_make(Main *bmain, Scene *scene, Object *ob);
 void motion_paths_clear(bContext *C, bool only_selected);
 
 /**
- * Recalculate the motion paths on the given objects. This includes bones when recalculating
- * armature objects.
+ * Recalculate the motion paths on the given objects.
  */
 void motion_paths_recalc(bContext *C,
                          Scene *scene,
                          const eAnimvizCalcRange range,
                          const Span<Object *> objects);
 /**
- * Recalculate motion paths on all selected objects. This includes bones when recalculating
- * armature objects.
+ * Recalculate motion paths on all selected objects.
  */
 void motion_paths_recalc_selected(bContext *C, Scene *scene, eAnimvizCalcRange range);
 
 /**
- * Recalculate motion paths on all visible objects. This includes bones when recalculating armature
- * objects.
+ * Recalculate motion paths on all visible objects.
  */
 void motion_paths_recalc_visible(bContext *C, Scene *scene, eAnimvizCalcRange range);
 
 /* constraints */
-/**
- * If object is in pose-mode, return active bone constraints, else object constraints.
- * No constraints are returned for a bone on an inactive bone-layer.
- */
+/** Return the object's constraint stack. */
 ListBaseT<bConstraint> *constraint_active_list(Object *ob);
 /**
- * Get the constraints for the active pose bone. Bone may be on an inactive bone-layer
- * (unlike #constraint_active_list, such constraints are not excluded here).
+ * Find the object's constraint list containing the given constraint.
  */
-ListBaseT<bConstraint> *pose_constraint_list(const bContext *C);
-/**
- * Find the list that a given constraint belongs to,
- * and/or also get the pose-channel this is from (if applicable).
- */
-ListBaseT<bConstraint> *constraint_list_from_constraint(Object *ob,
-                                                        bConstraint *con,
-                                                        bPoseChannel **r_pchan);
+ListBaseT<bConstraint> *constraint_list_from_constraint(Object *ob, bConstraint *con);
 /**
  * Single constraint.
  */
@@ -355,7 +339,6 @@ void constraint_link(Main *bmain,
                      ListBaseT<bConstraint> *dst,
                      ListBaseT<bConstraint> *src);
 void constraint_copy_for_object(Main *bmain, Object *ob_dst, bConstraint *con);
-void constraint_copy_for_pose(Main *bmain, Object *ob_dst, bPoseChannel *pchan, bConstraint *con);
 
 /* `object_modes.cc` */
 
@@ -380,10 +363,8 @@ bool mode_set(bContext *C, eObjectMode mode);
 void mode_generic_exit(Main *bmain, Depsgraph *depsgraph, Scene *scene, Object *ob);
 bool mode_generic_has_data(Depsgraph *depsgraph, const Object *ob);
 
-void posemode_set_for_weight_paint(bContext *C, Main *bmain, Object *ob, bool is_mode_set);
-
 /**
- * Return the index of an object in a mode (typically edit/pose mode).
+ * Return the index of an object in a mode (typically edit mode).
  *
  * Useful for operators with multi-mode editing to be able to redo an action on an object
  * by its index which (unlike pointers) the operator can store for redo.
@@ -502,15 +483,6 @@ Base *find_first_by_data_id(const Main &bmain, const Scene *scene, ViewLayer *vi
  * \returns false if not found in current view layer
  */
 bool jump_to_object(bContext *C, Object *ob, bool reveal_hidden);
-/**
- * Select and make the target object and bone active.
- * Switches to Pose mode if in Object mode so the selection is visible.
- * Un-hides the target bone and bone layer if necessary.
- *
- * \returns false if object not in layer, bone not found, or other error
- */
-bool jump_to_bone(bContext *C, Object *ob, const char *bone_name, bool reveal_hidden);
-
 /* `object_data_transform.cc` */
 
 struct XFormObjectData {

@@ -18,7 +18,6 @@
 
 #include "BLT_translation.hh"
 
-#include "DNA_armature_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
@@ -245,9 +244,6 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
   {
     return true;
   }
-  if (RNA_struct_is_a(ptr->type, RNA_Armature) && ELEM(type, -1, OB_ARMATURE)) {
-    return true;
-  }
   if (RNA_struct_is_a(ptr->type, RNA_MetaBall) && ELEM(type, -1, OB_MBALL)) {
     return true;
   }
@@ -280,13 +276,6 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
     Object *ob = static_cast<Object *>(path->ptr[path->len - 1].data);
 
     if (ob && ELEM(type, -1, ob->type)) {
-      if (ob->type == OB_EMPTY && ob->empty_drawtype != OB_EMPTY_IMAGE) {
-        if (ID *id = ob->data; id && GS(id->name) == ID_IM) {
-          path->ptr[path->len] = PointerRNA_NULL;
-          path->len++;
-          return true;
-        }
-      }
       path->ptr[path->len] = RNA_id_pointer_create(ob->data);
       path->len++;
 
@@ -304,7 +293,7 @@ static bool buttons_context_path_modifier(ButsContextPath *path)
     Object *ob = static_cast<Object *>(path->ptr[path->len - 1].data);
 
     if (ELEM(ob->type,
-             OB_EMPTY,
+             OB_NO_DATA,
              OB_MESH,
              OB_CURVES_LEGACY,
              OB_FONT,
@@ -357,68 +346,6 @@ static bool buttons_context_path_material(ButsContextPath *path)
   }
 
   /* no path to a material possible */
-  return false;
-}
-
-static bool buttons_context_path_bone(ButsContextPath *path)
-{
-  /* if we have an armature, get the active bone */
-  if (buttons_context_path_data(path, OB_ARMATURE)) {
-    bArmature *arm = static_cast<bArmature *>(path->ptr[path->len - 1].data);
-
-    if (arm->edbo) {
-      if (arm->act_edbone) {
-        EditBone *edbo = arm->act_edbone;
-        path->ptr[path->len] = RNA_pointer_create_discrete(&arm->id, RNA_EditBone, edbo);
-        path->len++;
-        return true;
-      }
-    }
-    else {
-      if (arm->act_bone) {
-        path->ptr[path->len] = RNA_pointer_create_discrete(&arm->id, RNA_Bone, arm->act_bone);
-        path->len++;
-        return true;
-      }
-    }
-  }
-
-  /* no path to a bone possible */
-  return false;
-}
-
-static bool buttons_context_path_pose_bone(ButsContextPath *path)
-{
-  PointerRNA *ptr = &path->ptr[path->len - 1];
-
-  /* if we already have a (pinned) PoseBone, we're done */
-  if (RNA_struct_is_a(ptr->type, RNA_PoseBone)) {
-    return true;
-  }
-
-  /* if we have an armature, get the active bone */
-  if (buttons_context_path_object(path)) {
-    Object *ob = static_cast<Object *>(path->ptr[path->len - 1].data);
-    if (ob->type != OB_ARMATURE) {
-      return false;
-    }
-
-    bArmature *arm = id_cast<bArmature *>(ob->data); /* path->ptr[path->len-1].data - works too */
-    if (arm->edbo) {
-      return false;
-    }
-
-    if (arm->act_bone) {
-      bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, arm->act_bone->name);
-      if (pchan) {
-        path->ptr[path->len] = RNA_pointer_create_discrete(&ob->id, RNA_PoseBone, pchan);
-        path->len++;
-        return true;
-      }
-    }
-  }
-
-  /* no path to a bone possible */
   return false;
 }
 
@@ -687,15 +614,6 @@ static bool buttons_context_path(
       found = buttons_context_path_texture(
           C, path, static_cast<ButsContextTexture *>(sbuts->texuser));
       break;
-    case BCONTEXT_BONE:
-      found = buttons_context_path_bone(path);
-      if (!found) {
-        found = buttons_context_path_data(path, OB_ARMATURE);
-      }
-      break;
-    case BCONTEXT_BONE_CONSTRAINT:
-      found = buttons_context_path_pose_bone(path);
-      break;
     case BCONTEXT_STRIP:
       found = buttons_context_path_strip(path);
       break;
@@ -786,7 +704,7 @@ void buttons_context_compute(const bContext *C, SpaceProperties *sbuts)
           }
         }
         else {
-          sbuts->dataicon = ICON_EMPTY_DATA;
+          sbuts->dataicon = ICON_OBJECT_DATA;
         }
       }
     }
@@ -877,7 +795,6 @@ const char *buttons_context_dir[] = {
     "world",
     "object",
     "mesh",
-    "armature",
     "lattice",
     "curve",
     "meta_ball",
@@ -891,9 +808,6 @@ const char *buttons_context_dir[] = {
     "texture_user",
     "texture_user_property",
     "texture_node",
-    "bone",
-    "edit_bone",
-    "pose_bone",
     "particle_system",
     "particle_system_editable",
     "particle_settings",
@@ -965,10 +879,6 @@ int /*eContextResult*/ buttons_context(const bContext *C,
   }
   if (CTX_data_equals(member, "mesh")) {
     set_pointer_type(path, result, RNA_Mesh);
-    return CTX_RESULT_OK;
-  }
-  if (CTX_data_equals(member, "armature")) {
-    set_pointer_type(path, result, RNA_Armature);
     return CTX_RESULT_OK;
   }
   if (CTX_data_equals(member, "lattice")) {
@@ -1113,18 +1023,6 @@ int /*eContextResult*/ buttons_context(const bContext *C,
       }
     }
 
-    return CTX_RESULT_OK;
-  }
-  if (CTX_data_equals(member, "bone")) {
-    set_pointer_type(path, result, RNA_Bone);
-    return CTX_RESULT_OK;
-  }
-  if (CTX_data_equals(member, "edit_bone")) {
-    set_pointer_type(path, result, RNA_EditBone);
-    return CTX_RESULT_OK;
-  }
-  if (CTX_data_equals(member, "pose_bone")) {
-    set_pointer_type(path, result, RNA_PoseBone);
     return CTX_RESULT_OK;
   }
   if (CTX_data_equals(member, "particle_system")) {
@@ -1349,13 +1247,6 @@ ID *buttons_context_id_path(const bContext *C)
       if (ptr->type == RNA_ParticleSystem && ptr->data) {
         ParticleSystem *psys = static_cast<ParticleSystem *>(ptr->data);
         return &psys->part->id;
-      }
-    }
-
-    /* There is no valid image ID panel, Image Empty objects need this workaround. */
-    if (sbuts->mainb == BCONTEXT_DATA && sbuts->flag & SB_PIN_CONTEXT) {
-      if (ptr->type == RNA_Image && ptr->data) {
-        continue;
       }
     }
 

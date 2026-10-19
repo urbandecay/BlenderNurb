@@ -65,7 +65,7 @@ const EnumPropertyItem rna_enum_geometry_component_type_items[] = {
      "Curve component containing spline and control point data"},
     {int(bke::GeometryComponent::Type::Instance),
      "INSTANCES",
-     ICON_EMPTY_AXIS,
+     ICON_AXIS_3D,
      "Instances",
      "Instances of objects or collections"},
     {int(bke::GeometryComponent::Type::Volume),
@@ -578,12 +578,6 @@ const EnumPropertyItem buttons_context_items[] = {
      "Object Constraint Properties"},
     {BCONTEXT_MODIFIER, "MODIFIER", ICON_MODIFIER, "Modifiers", "Modifier Properties"},
     {BCONTEXT_DATA, "DATA", ICON_NONE, "Data", "Object Data Properties"},
-    {BCONTEXT_BONE, "BONE", ICON_BONE_DATA, "Bone", "Bone Properties"},
-    {BCONTEXT_BONE_CONSTRAINT,
-     "BONE_CONSTRAINT",
-     ICON_CONSTRAINT_BONE,
-     "Bone Constraints",
-     "Bone Constraint Properties"},
     {BCONTEXT_MATERIAL, "MATERIAL", ICON_MATERIAL, "Material", "Material Properties"},
     {BCONTEXT_TEXTURE, "TEXTURE", ICON_TEXTURE, "Texture", "Texture Properties"},
     {BCONTEXT_PARTICLE, "PARTICLES", ICON_PARTICLES, "Particles", "Particle Properties"},
@@ -4009,12 +4003,12 @@ static IDFilterEnumPropertyItem rna_enum_space_file_id_filter_categories[] = {
      ICON_GROUP,
      "Objects & Collections",
      "Show objects and collections"},
-    {FILTER_ID_AR | FILTER_ID_CU_LEGACY | FILTER_ID_LT | FILTER_ID_MB | FILTER_ID_ME |
-         FILTER_ID_CV | FILTER_ID_PT | FILTER_ID_VO,
+    {FILTER_ID_CU_LEGACY | FILTER_ID_LT | FILTER_ID_MB | FILTER_ID_ME | FILTER_ID_CV |
+         FILTER_ID_PT | FILTER_ID_VO,
      "category_geometry",
      ICON_GEOMETRY_NODES,
      "Geometry",
-     "Show meshes, curves, lattice, armatures and metaballs data"},
+     "Show meshes, curves, lattice and metaballs data"},
     {FILTER_ID_LS | FILTER_ID_MA | FILTER_ID_NT | FILTER_ID_TE,
      "category_shading",
      ICON_MATERIAL_DATA,
@@ -4098,8 +4092,8 @@ static void rna_def_space_generic_show_region_toggles(StructRNA *srna, int regio
     RNA_def_property_ui_text(
         prop,
         "Asset Shelf",
-        "Display a region with assets that may currently be relevant (such as "
-        "brushes in paint modes, or poses in Pose Mode)");
+        "Display a region with assets that may currently be relevant (such as brushes in paint "
+        "modes)");
     RNA_def_property_update(prop, 0, "rna_Space_show_region_asset_shelf_update");
   }
   BLI_assert(region_type_mask == 0);
@@ -4559,16 +4553,6 @@ static void rna_def_space_outliner(BlenderRNA *brna)
   prop = RNA_def_property(srna, "use_filter_object_mesh", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_negative_sdna(prop, nullptr, "filter", SO_FILTER_NO_OB_MESH);
   RNA_def_property_ui_text(prop, "Show Meshes", "Show mesh objects");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, nullptr);
-
-  prop = RNA_def_property(srna, "use_filter_object_armature", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_negative_sdna(prop, nullptr, "filter", SO_FILTER_NO_OB_ARMATURE);
-  RNA_def_property_ui_text(prop, "Show Armatures", "Show armature objects");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, nullptr);
-
-  prop = RNA_def_property(srna, "use_filter_object_empty", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_negative_sdna(prop, nullptr, "filter", SO_FILTER_NO_OB_EMPTY);
-  RNA_def_property_ui_text(prop, "Show Empties", "Show empty objects");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, nullptr);
 
   prop = RNA_def_property(srna, "use_filter_object_light", PROP_BOOLEAN, PROP_NONE);
@@ -5090,7 +5074,7 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_boolean_negative_sdna(
       prop, nullptr, "overlay.flag", V3D_OVERLAY_HIDE_OBJECT_XTRAS);
   RNA_def_property_ui_text(
-      prop, "Extras", "Object details, including empty wire, cameras and other visual guides");
+      prop, "Extras", "Object details, including wire guides, cameras and other visual guides");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "show_light_colors", PROP_BOOLEAN, PROP_NONE);
@@ -5121,28 +5105,6 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, nullptr, "overlay.fade_alpha");
   RNA_def_property_ui_text(prop, "Opacity", "Strength of the fade effect");
   RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
-  prop = RNA_def_property(srna, "show_xray_bone", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "overlay.flag", V3D_OVERLAY_BONE_SELECT);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_text(prop, "Show Bone X-Ray", "Show the bone selection overlay");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
-  prop = RNA_def_property(srna, "xray_alpha_bone", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "overlay.xray_alpha_bone");
-  RNA_def_property_ui_text(prop, "Opacity", "Opacity to use for bone selection");
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
-  prop = RNA_def_property(srna, "bone_wire_alpha", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "overlay.bone_wire_alpha");
-  RNA_def_property_ui_text(
-      prop, "Bone Wireframe Opacity", "Maximum opacity of bones in wireframe display mode");
-  RNA_def_property_range(prop, 0.0f, FLT_MAX);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 1, 2);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
@@ -5471,8 +5433,8 @@ static void rna_def_space_view3d(BlenderRNA *brna)
       {OB_SINGLE_ARROW, "SINGLE_ARROW", 0, "Single Arrow", ""},
       {OB_CIRCLE, "CIRCLE", 0, "Circle", ""},
       {OB_CUBE, "CUBE", 0, "Cube", ""},
-      {OB_EMPTY_SPHERE, "SPHERE", 0, "Sphere", ""},
-      {OB_EMPTY_CONE, "CONE", 0, "Cone", ""},
+      {OB_HELPER_SPHERE, "SPHERE", 0, "Sphere", ""},
+      {OB_HELPER_CONE, "CONE", 0, "Cone", ""},
       {0, nullptr, 0, nullptr, nullptr},
   };
 
@@ -5533,12 +5495,6 @@ static void rna_def_space_view3d(BlenderRNA *brna)
   RNA_def_property_pointer_sdna(prop, nullptr, "ob_center");
   RNA_def_property_ui_text(
       prop, "Lock to Object", "3D View center is locked to this object's position");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
-  prop = RNA_def_property(srna, "lock_bone", PROP_STRING, PROP_NONE);
-  RNA_def_property_string_sdna(prop, nullptr, "ob_center_bone");
-  RNA_def_property_ui_text(
-      prop, "Lock to Bone", "3D View center is locked to this bone's position");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   prop = RNA_def_property(srna, "lock_cursor", PROP_BOOLEAN, PROP_NONE);
@@ -5622,16 +5578,10 @@ static void rna_def_space_view3d(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Show Object Scale", "Gizmo to adjust scale");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
-  /* Empty Object Data. */
-  prop = RNA_def_property(srna, "show_gizmo_empty_image", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "gizmo_show_empty", V3D_GIZMO_SHOW_EMPTY_IMAGE);
-  RNA_def_property_ui_text(prop, "Show Empty Image", "Gizmo to adjust image size and position");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
-  prop = RNA_def_property(srna, "show_gizmo_empty_force_field", PROP_BOOLEAN, PROP_NONE);
+  prop = RNA_def_property(srna, "show_gizmo_helper_force_field", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(
-      prop, nullptr, "gizmo_show_empty", V3D_GIZMO_SHOW_EMPTY_FORCE_FIELD);
-  RNA_def_property_ui_text(prop, "Show Empty Force Field", "Gizmo to adjust the force field");
+      prop, nullptr, "gizmo_show_helpers", V3D_GIZMO_SHOW_HELPER_FORCE_FIELD);
+  RNA_def_property_ui_text(prop, "Show Force Field Helper", "Gizmo to adjust the force field");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
   /* Light Object Data. */
@@ -5943,7 +5893,7 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 static void rna_def_space_properties_filter(StructRNA *srna)
 {
   /* Order must follow `buttons_context_items`. */
-  constexpr std::array<StringRefNull, BCONTEXT_TOT> filter_items = {
+  constexpr std::array<StringRefNull, 17> filter_items = {
       "show_properties_tool",
       "show_properties_scene",
       "show_properties_render",
@@ -5955,28 +5905,29 @@ static void rna_def_space_properties_filter(StructRNA *srna)
       "show_properties_constraints",
       "show_properties_modifiers",
       "show_properties_data",
-      "show_properties_bone",
-      "show_properties_bone_constraints",
       "show_properties_material",
       "show_properties_texture",
       "show_properties_particles",
       "show_properties_physics",
-      "show_properties_effects",
       "show_properties_strip",
       "show_properties_strip_modifier",
   };
 
-  for (const int i : IndexRange(BCONTEXT_TOT)) {
-    EnumPropertyItem item = buttons_context_items[i];
-    const int value = (1 << item.value);
+  int i = 0;
+  for (const EnumPropertyItem *item = buttons_context_items; item->identifier != nullptr;
+       item++, i++)
+  {
+    BLI_assert(i < filter_items.size());
+    const int value = (1 << item->value);
     StringRefNull prop_name = filter_items[i];
 
     PropertyRNA *prop = RNA_def_property(srna, prop_name.c_str(), PROP_BOOLEAN, PROP_NONE);
     RNA_def_property_boolean_sdna(prop, nullptr, "visible_tabs", value);
-    RNA_def_property_ui_text(prop, item.name, "");
+    RNA_def_property_ui_text(prop, item->name, "");
     RNA_def_property_update(
         prop, NC_SPACE | ND_SPACE_PROPERTIES, "rna_SpaceProperties_context_update");
   }
+  BLI_assert(i == filter_items.size());
 }
 
 static void rna_def_space_properties(BlenderRNA *brna)
@@ -6998,7 +6949,7 @@ static void rna_def_space_dopesheet(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_pose_markers", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", SACTION_POSEMARKERS_SHOW);
   RNA_def_property_ui_text(prop,
-                           "Show Pose Markers",
+                           "Show Action Markers",
                            "Show markers belonging to the active action instead of Scene markers "
                            "(Action and Shape Key Editors only)");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_DOPESHEET, nullptr);
@@ -7773,29 +7724,12 @@ static void rna_def_fileselect_asset_params(BlenderRNA *brna)
    * import method changes. */
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_LIST, nullptr);
 
-  prop = RNA_def_property(srna, "instance_collections_on_link", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(
-      prop, nullptr, "import_flags", FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_LINK);
-  RNA_def_property_ui_text(prop,
-                           "Instance Collections on Linking",
-                           "Create instances for collections when linking, rather than adding "
-                           "them directly to the scene");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, nullptr);
-
   prop = RNA_def_property(srna, "asset_access", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, rna_enum_asset_access_items);
   RNA_def_property_ui_text(
       prop, "Asset Access", "Choose the visibility of online and offline assets");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, nullptr);
 
-  prop = RNA_def_property(srna, "instance_collections_on_append", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(
-      prop, nullptr, "import_flags", FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_APPEND);
-  RNA_def_property_ui_text(prop,
-                           "Instance Collections on Appending",
-                           "Create instances for collections when appending, rather than adding "
-                           "them directly to the scene");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, nullptr);
 }
 
 static void rna_def_filemenu_entry(BlenderRNA *brna)
@@ -8701,7 +8635,7 @@ static void rna_def_space_clip(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_graph_hidden", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", SC_SHOW_GRAPH_HIDDEN);
   RNA_def_property_ui_text(
-      prop, "Display Hidden", "Include channels from objects/bone that are not visible");
+      prop, "Display Hidden", "Include channels from objects and their data that are not visible");
   RNA_def_property_ui_icon(prop, ICON_GHOST_ENABLED, 0);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, nullptr);
 

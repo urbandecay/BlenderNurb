@@ -109,45 +109,6 @@ enum class OperationCode {
   LIGHT_PROBE_EVAL,
   SPEAKER_EVAL,
   SOUND_EVAL,
-  ARMATURE_EVAL,
-
-  /* Pose. ---------------------------------------------------------------- */
-  /* Init pose, clear flags, etc. */
-  POSE_INIT,
-  /* Initialize IK solver related pose stuff. */
-  POSE_INIT_IK,
-  /* Pose is evaluated, and runtime data can be freed. */
-  POSE_CLEANUP,
-  /* Pose has been fully evaluated and ready to be used by others. */
-  POSE_DONE,
-  /* IK/Spline Solvers */
-  POSE_IK_SOLVER,
-  POSE_SPLINE_IK_SOLVER,
-
-  /* Bone. ---------------------------------------------------------------- */
-  /* Bone local transforms - entry point */
-  BONE_LOCAL,
-  /* Pose-space conversion (includes parent + rest-pose). */
-  BONE_POSE_PARENT,
-  /* Constraints */
-  BONE_CONSTRAINTS,
-  /* Bone transforms are ready
-   *
-   * - "READY"  This (internal, noop) is used to signal that all pre-IK
-   *            operations are done. Its role is to help mediate situations
-   *            where cyclic relations may otherwise form (i.e. one bone in
-   *            chain targeting another in same chain),
-   *
-   * - "DONE"   This noop is used to signal that the bone's final pose
-   *            transform can be read by others. */
-  /* TODO: deform mats could get calculated in the final_transform ops... */
-  BONE_READY,
-  BONE_DONE,
-  /* B-Bone segment shape computation (after DONE) */
-  BONE_SEGMENTS,
-  /* Getting the visibility doesn't need evaluation of the pose. */
-  BONE_VISIBILITY,
-
   /* Particle System. ----------------------------------------------------- */
   PARTICLE_SYSTEM_INIT,
   PARTICLE_SYSTEM_EVAL,
@@ -213,7 +174,6 @@ enum class OperationCode {
   /* instancing system. --------------------------------------------------- */
 
   /* Operation on an instancer object. Relations from instanced objects go here. */
-  INSTANCER,
 
   /* Operation on an object which is being instanced. */
   INSTANCE,

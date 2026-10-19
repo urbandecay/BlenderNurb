@@ -68,7 +68,6 @@ static const char OP_PUSH_PULL[] = "TRANSFORM_OT_push_pull";
 static const char OP_TILT[] = "TRANSFORM_OT_tilt";
 static const char OP_TRACKBALL[] = "TRANSFORM_OT_trackball";
 static const char OP_MIRROR[] = "TRANSFORM_OT_mirror";
-static const char OP_BONE_SIZE[] = "TRANSFORM_OT_bbone_resize";
 static const char OP_EDGE_SLIDE[] = "TRANSFORM_OT_edge_slide";
 static const char OP_VERT_SLIDE[] = "TRANSFORM_OT_vert_slide";
 static const char OP_EDGE_CREASE[] = "TRANSFORM_OT_edge_crease";
@@ -89,7 +88,6 @@ static void TRANSFORM_OT_push_pull(wmOperatorType *ot);
 static void TRANSFORM_OT_tilt(wmOperatorType *ot);
 static void TRANSFORM_OT_trackball(wmOperatorType *ot);
 static void TRANSFORM_OT_mirror(wmOperatorType *ot);
-static void TRANSFORM_OT_bbone_resize(wmOperatorType *ot);
 static void TRANSFORM_OT_edge_slide(wmOperatorType *ot);
 static void TRANSFORM_OT_vert_slide(wmOperatorType *ot);
 static void TRANSFORM_OT_edge_crease(wmOperatorType *ot);
@@ -111,7 +109,6 @@ static TransformModeItem transform_modes[] = {
     {OP_TILT, TFM_TILT, TRANSFORM_OT_tilt},
     {OP_TRACKBALL, TFM_TRACKBALL, TRANSFORM_OT_trackball},
     {OP_MIRROR, TFM_MIRROR, TRANSFORM_OT_mirror},
-    {OP_BONE_SIZE, TFM_BONESIZE, TRANSFORM_OT_bbone_resize},
     {OP_EDGE_SLIDE, TFM_EDGE_SLIDE, TRANSFORM_OT_edge_slide},
     {OP_VERT_SLIDE, TFM_VERT_SLIDE, TRANSFORM_OT_vert_slide},
     {OP_EDGE_CREASE, TFM_EDGE_CREASE, TRANSFORM_OT_edge_crease},
@@ -141,12 +138,8 @@ const EnumPropertyItem rna_enum_transform_mode_type_items[] = {
     {ed::transform::TFM_EDGE_CREASE, "CREASE", 0, "Crease", ""},
     {ed::transform::TFM_VERT_CREASE, "VERTEX_CREASE", 0, "Vertex Crease", ""},
     {ed::transform::TFM_MIRROR, "MIRROR", 0, "Mirror", ""},
-    {ed::transform::TFM_BONESIZE, "BONE_SIZE", 0, "Bone Size", ""},
-    {ed::transform::TFM_BONE_ENVELOPE, "BONE_ENVELOPE", 0, "Bone Envelope", ""},
-    {ed::transform::TFM_BONE_ENVELOPE_DIST, "BONE_ENVELOPE_DIST", 0, "Bone Envelope Distance", ""},
     {ed::transform::TFM_CURVE_SHRINKFATTEN, "CURVE_SHRINKFATTEN", 0, "Curve Shrink/Fatten", ""},
     {ed::transform::TFM_MASK_SHRINKFATTEN, "MASK_SHRINKFATTEN", 0, "Mask Shrink/Fatten", ""},
-    {ed::transform::TFM_BONE_ROLL, "BONE_ROLL", 0, "Bone Roll", ""},
     {ed::transform::TFM_TIME_TRANSLATE, "TIME_TRANSLATE", 0, "Time Translate", ""},
     {ed::transform::TFM_TIME_SLIDE, "TIME_SLIDE", 0, "Time Slide", ""},
     {ed::transform::TFM_TIME_SCALE, "TIME_SCALE", 0, "Time Scale", ""},
@@ -1176,30 +1169,6 @@ static void TRANSFORM_OT_mirror(wmOperatorType *ot)
   ot->poll_property = transform_poll_property;
 
   properties_register(ot, P_ORIENT_MATRIX | P_CONSTRAINT | P_CENTER);
-}
-
-static void TRANSFORM_OT_bbone_resize(wmOperatorType *ot)
-{
-  /* Identifiers. */
-  ot->name = "Scale B-Bone";
-  ot->description = "Scale selected bendy bones display size";
-  ot->idname = OP_BONE_SIZE;
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
-
-  /* API callbacks. */
-  ot->invoke = transform_invoke;
-  ot->exec = transform_exec;
-  ot->modal = transform_modal;
-  ot->cancel = transform_cancel;
-  ot->poll = ED_operator_object_active_only_from_view_layer;
-  ot->poll_property = transform_poll_property;
-
-  RNA_def_float_translation(
-      ot->srna, "value", 3, VecOne, -FLT_MAX, FLT_MAX, "Display Size", "", -FLT_MAX, FLT_MAX);
-
-  WM_operatortype_props_advanced_begin(ot);
-
-  properties_register(ot, P_ORIENT_MATRIX | P_CONSTRAINT | P_MIRROR);
 }
 
 static void TRANSFORM_OT_edge_slide(wmOperatorType *ot)

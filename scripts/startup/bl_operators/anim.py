@@ -212,11 +212,6 @@ class NLA_OT_bake(Operator):
         min=1, max=120,
         default=1,
     )
-    only_selected: BoolProperty(
-        name="Only Selected Bones",
-        description="Only key selected bones (Pose baking only)",
-        default=True,
-    )
     visual_keying: BoolProperty(
         name="Visual Keying",
         description="Keyframe from the final transformations (with constraints applied)",
@@ -225,7 +220,7 @@ class NLA_OT_bake(Operator):
     clear_constraints: BoolProperty(
         name="Clear Local Constraints",
         description=(
-            "Remove all constraints from keyed object/bones. "
+            "Remove all constraints from keyed objects. "
             "To get a correct bake with this setting Visual Keying should be enabled"
         ),
         default=False,
@@ -233,24 +228,13 @@ class NLA_OT_bake(Operator):
     use_current_action: BoolProperty(
         name="Overwrite Current Action",
         description="Bake animation into current action, instead of creating a new one "
-        "(useful for baking only part of bones in an armature)",
+        "(useful for baking only part of an object's animation)",
         default=False,
     )
     clean_curves: BoolProperty(
         name="Clean Curves",
         description="After baking curves, remove redundant keys",
         default=False,
-    )
-    bake_types: EnumProperty(
-        name="Bake Data",
-        translation_context=i18n_contexts.id_action,
-        description="Which data's transformations to bake",
-        options={'ENUM_FLAG'},
-        items=(
-            ('POSE', "Pose", "Bake bones transformations"),
-            ('OBJECT', "Object", "Bake object transformations"),
-        ),
-        default={'POSE'},
     )
     channel_types: EnumProperty(
         name="Channels",
@@ -260,42 +244,26 @@ class NLA_OT_bake(Operator):
             ('LOCATION', "Location", "Bake location channels"),
             ('ROTATION', "Rotation", "Bake rotation channels"),
             ('SCALE', "Scale", "Bake scale channels"),
-            ('BBONE', "B-Bone", "Bake B-Bone channels"),
             ('PROPS', "Custom Properties", "Bake custom properties"),
         ),
-        default={'LOCATION', 'ROTATION', 'SCALE', 'BBONE', 'PROPS'},
+        default={'LOCATION', 'ROTATION', 'SCALE', 'PROPS'},
     )
 
     def execute(self, context):
         from bpy_extras import anim_utils
 
         bake_options = anim_utils.BakeOptions(
-            only_selected=self.only_selected,
-            do_pose='POSE' in self.bake_types,
-            do_object='OBJECT' in self.bake_types,
+            do_object=True,
             do_visual_keying=self.visual_keying,
             do_constraint_clear=self.clear_constraints,
             do_clean=self.clean_curves,
             do_location='LOCATION' in self.channel_types,
             do_rotation='ROTATION' in self.channel_types,
             do_scale='SCALE' in self.channel_types,
-            do_bbone='BBONE' in self.channel_types,
             do_custom_props='PROPS' in self.channel_types,
         )
 
-        if bake_options.do_pose and self.only_selected:
-            pose_bones = context.selected_pose_bones or []
-            armatures = {pose_bone.id_data for pose_bone in pose_bones}
-            objects = list(armatures)
-        else:
-            objects = context.selected_editable_objects
-            if bake_options.do_pose and not bake_options.do_object:
-                pose_object = getattr(context, "pose_object", None)
-                if pose_object and pose_object not in objects:
-                    # The active object might not be selected, but it is the one in pose mode.
-                    # It can be assumed this pose needs baking.
-                    objects.append(pose_object)
-                objects = [obj for obj in objects if obj.pose is not None]
+        objects = context.selected_editable_objects
 
         object_action_pairs = (
             [(obj, getattr(obj.animation_data, "action", None)) for obj in objects]
@@ -323,8 +291,6 @@ class NLA_OT_bake(Operator):
         else:
             self.frame_start = scene.frame_start
             self.frame_end = scene.frame_end
-        self.bake_types = {'POSE'} if context.mode == 'POSE' else {'OBJECT'}
-
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
 
@@ -464,225 +430,6 @@ class UpdateAnimatedTransformConstraint(Operator):
         return {'FINISHED'}
 
 
-class ARMATURE_OT_copy_bone_color_to_selected(Operator):
-    """Copy the bone color of the active bone to all selected bones"""
-    bl_idname = "armature.copy_bone_color_to_selected"
-    bl_label = "Copy Colors to Selected"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    _bone_type_enum = [
-        ('EDIT', "Bone", "Copy Bone colors from the active bone to all selected bones"),
-        ('POSE', "Pose Bone", "Copy Pose Bone colors from the active pose bone to all selected pose bones"),
-    ]
-
-    bone_type: EnumProperty(
-        name="Type",
-        items=_bone_type_enum,
-    )
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode in {'EDIT_ARMATURE', 'POSE'}
-
-    def execute(self, context):
-        match(self.bone_type, context.mode):
-            # Armature in edit mode:
-            case('POSE', 'EDIT_ARMATURE'):
-                self.report({'ERROR'}, "Go to pose mode to copy pose bone colors")
-                return {'OPERATOR_CANCELLED'}
-            case('EDIT', 'EDIT_ARMATURE'):
-                bone_source = context.active_bone
-                bones_dest = context.selected_bones
-                pose_bones_to_check = []
-
-            # Armature in pose mode:
-            case('POSE', 'POSE'):
-                bone_source = context.active_pose_bone
-                bones_dest = context.selected_pose_bones
-                pose_bones_to_check = []
-            case('EDIT', 'POSE'):
-                bone_source = context.active_bone
-                pose_bones_to_check = context.selected_pose_bones
-                bones_dest = [posebone.bone for posebone in pose_bones_to_check]
-
-            # Anything else:
-            case _:
-                self.report({'ERROR'}, rpt_("Cannot do anything in mode {!r}").format(context.mode))
-                return {'CANCELLED'}
-
-        if not bone_source:
-            self.report({'ERROR'}, "No active bone to copy from")
-            return {'CANCELLED'}
-
-        if not bones_dest:
-            self.report({'ERROR'}, "No selected bones to copy to")
-            return {'CANCELLED'}
-
-        num_pose_color_overrides = 0
-        for index, bone_dest in enumerate(bones_dest):
-            bone_dest.color.palette = bone_source.color.palette
-            for custom_field in ("normal", "select", "active"):
-                color = getattr(bone_source.color.custom, custom_field)
-                setattr(bone_dest.color.custom, custom_field, color)
-
-            if self.bone_type == 'EDIT' and pose_bones_to_check:
-                pose_bone = pose_bones_to_check[index]
-                if pose_bone.color.palette != 'DEFAULT':
-                    # A pose color has been set, and we're now syncing edit bone
-                    # colors. This means that the synced color will not be
-                    # visible. Better to let the user know about this.
-                    num_pose_color_overrides += 1
-
-        if num_pose_color_overrides:
-            self.report(
-                {'INFO'},
-                rpt_("Bone colors were synced; "
-                     "for {:d} bones this will not be visible due to pose bone color overrides").format(
-                    num_pose_color_overrides,
-                ),
-            )
-
-        return {'FINISHED'}
-
-
-def _armature_from_context(context):
-    pin_armature = getattr(context, "armature", None)
-    if pin_armature:
-        return pin_armature
-    ob = context.object
-    if ob and ob.type == 'ARMATURE':
-        return ob.data
-    return None
-
-
-class ARMATURE_OT_collection_show_all(Operator):
-    """Show all bone collections"""
-    bl_idname = "armature.collection_show_all"
-    bl_label = "Show All"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return _armature_from_context(context) is not None
-
-    def execute(self, context):
-        arm = _armature_from_context(context)
-        for bcoll in arm.collections_all:
-            bcoll.is_visible = True
-        return {'FINISHED'}
-
-
-class ARMATURE_OT_collection_unsolo_all(Operator):
-    """Clear the 'solo' setting on all bone collections"""
-    bl_idname = "armature.collection_unsolo_all"
-    bl_label = "Un-solo All"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        armature = _armature_from_context(context)
-        if not armature:
-            return False
-        if not armature.collections.is_solo_active:
-            cls.poll_message_set("None of the bone collections is marked 'solo'")
-            return False
-        return True
-
-    def execute(self, context):
-        arm = _armature_from_context(context)
-        for bcoll in arm.collections_all:
-            bcoll.is_solo = False
-        return {'FINISHED'}
-
-
-class ARMATURE_OT_collection_remove_unused(Operator):
-    """Remove all bone collections that have neither bones nor children. """ \
-        """This is done recursively, so bone collections that only have unused children are also removed"""
-
-    bl_idname = "armature.collection_remove_unused"
-    bl_label = "Remove Unused Bone Collections"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        armature = _armature_from_context(context)
-        if not armature:
-            return False
-        return len(armature.collections) > 0
-
-    def execute(self, context):
-        if context.mode == 'EDIT_ARMATURE':
-            return self.execute_edit_mode(context)
-
-        armature = _armature_from_context(context)
-
-        # Build a set of bone collections that don't contain any bones, and
-        # whose children also don't contain any bones.
-        bcolls_to_remove = {
-            bcoll
-            for bcoll in armature.collections_all
-            if len(bcoll.bones_recursive) == 0}
-
-        if not bcolls_to_remove:
-            self.report({'INFO'}, "All bone collections are in use")
-            return {'CANCELLED'}
-
-        self.remove_bcolls(armature, bcolls_to_remove)
-        return {'FINISHED'}
-
-    def execute_edit_mode(self, context):
-        # BoneCollection.bones_recursive or .bones are not available in armature
-        # edit mode, because that has a completely separate list of edit bones.
-        # This is why edit mode needs separate handling.
-
-        armature = _armature_from_context(context)
-        bcolls_with_bones = {
-            bcoll
-            for ebone in armature.edit_bones
-            for bcoll in ebone.collections
-        }
-
-        bcolls_to_remove = []
-        for root in armature.collections:
-            self.visit(root, bcolls_with_bones, bcolls_to_remove)
-
-        if not bcolls_to_remove:
-            self.report({'INFO'}, "All bone collections are in use")
-            return {'CANCELLED'}
-
-        self.remove_bcolls(armature, bcolls_to_remove)
-        return {'FINISHED'}
-
-    def visit(self, bcoll, bcolls_with_bones, bcolls_to_remove):
-        has_bones = bcoll in bcolls_with_bones
-
-        for child in bcoll.children:
-            child_has_bones = self.visit(child, bcolls_with_bones, bcolls_to_remove)
-            has_bones = has_bones or child_has_bones
-
-        if not has_bones:
-            bcolls_to_remove.append(bcoll)
-
-        return has_bones
-
-    def remove_bcolls(self, armature, bcolls_to_remove):
-        # Count things before they get removed.
-        num_bcolls_before_removal = len(armature.collections_all)
-        num_bcolls_to_remove = len(bcolls_to_remove)
-
-        # Create a copy of bcolls_to_remove so that it doesn't change when we
-        # remove bone collections.
-        for bcoll in reversed(list(bcolls_to_remove)):
-            armature.collections.remove(bcoll)
-
-        self.report(
-            {'INFO'},
-            rpt_("Removed {:d} of {:d} bone collections").format(
-                num_bcolls_to_remove,
-                num_bcolls_before_removal),
-        )
-
-
 class ANIM_OT_slot_new_for_id(Operator):
     """Create a new Action Slot for an ID.
 
@@ -809,109 +556,13 @@ class ANIM_OT_slot_unassign_from_constraint(generic_slot_unassign_mixin, Operato
 
 
 # This is for the versioning from 4.5 to 5.0 and can be removed in 6.0.
-class ANIM_OT_version_bone_hide_property(Operator):
-    bl_idname = "anim.version_bone_hide_property"
-    bl_label = "Version Bone Hide Property"
-    bl_description = "Moves any F-Curves for the `hide` property of selected armatures " \
-        "into the action of the object. This will only operate on the first layer " \
-        "and strip of the action"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-
-        if len(context.selected_objects) == 0:
-            cls.poll_message_set("No objects selected")
-            return False
-        return True
-
-    @staticmethod
-    def find_property_fcurves(channelbag):
-        fcurves = []
-        for fcurve in channelbag.fcurves:
-            if fcurve.data_path.startswith("bones[") and fcurve.data_path.endswith("].hide"):
-                fcurves.append(fcurve)
-        return fcurves
-
-    def execute(self, context):
-        from bpy_extras import anim_utils
-        selected_armatures = []
-        for arm_ob in context.selected_objects:
-            if arm_ob.type != 'ARMATURE' or not arm_ob.data:
-                continue
-            armature = arm_ob.data
-            assigned_channelbag = anim_utils.animdata_get_channelbag_for_assigned_slot(armature.animation_data)
-            if not assigned_channelbag:
-                # Armature not animated. Cannot have the FCurve we need.
-                continue
-            selected_armatures.append(arm_ob)
-
-        if not selected_armatures:
-            self.report({'WARNING'}, rpt_("No animated armatures selected"))
-            return {'CANCELLED'}
-
-        warn = True
-        modified_armatures = []
-        # The objects also have to be animated -> have an assigned action + slot.
-        # This means we know with certainty which action to move the data into.
-        for arm_ob in selected_armatures:
-            ob_adt = arm_ob.animation_data
-            arm_adt = arm_ob.data.animation_data
-            if warn and (not ob_adt or not ob_adt.action or not ob_adt.action_slot):
-                self.report({'WARNING'}, rpt_("Not all armature objects have an action and slot assigned"))
-                # Only warn once.
-                warn = False
-                continue
-
-            # Only armatures with an action and slot are added to `selected_armatures`.
-            assert arm_adt is not None
-            armature_channelbag = anim_utils.action_get_channelbag_for_slot(arm_adt.action, arm_adt.action_slot)
-            if not armature_channelbag:
-                continue
-
-            fcurves = self.find_property_fcurves(armature_channelbag)
-
-            if not fcurves:
-                # No FCurves for the hide property found.
-                continue
-
-            # An action + slot is assigned, but that doesn't mean there is a layer and a strip.
-            ob_channelbag = anim_utils.action_ensure_channelbag_for_slot(ob_adt.action, ob_adt.action_slot)
-
-            for fcurve in fcurves:
-                new_path = "pose." + fcurve.data_path
-                if ob_channelbag.fcurves.find(new_path):
-                    # FCurve for that property already exists.
-                    continue
-
-                ob_channelbag.fcurves.new_from_fcurve(fcurve, data_path=new_path)
-
-            modified_armatures.append(arm_ob)
-
-        if not modified_armatures:
-            self.report({'WARNING'}, rpt_("No armature animation was modified"))
-            return {'CANCELLED'}
-
-        self.report({'INFO'}, rpt_("Modified the animation of {:d} armatures").format(len(modified_armatures)))
-        for screen in bpy.data.screens:
-            for area in screen.areas:
-                area.tag_redraw()
-
-        return {'FINISHED'}
-
-
 classes = (
     ANIM_OT_keying_set_export,
     NLA_OT_bake,
     ClearUselessActions,
     UpdateAnimatedTransformConstraint,
-    ARMATURE_OT_copy_bone_color_to_selected,
-    ARMATURE_OT_collection_show_all,
-    ARMATURE_OT_collection_unsolo_all,
-    ARMATURE_OT_collection_remove_unused,
     ANIM_OT_slot_new_for_id,
     ANIM_OT_slot_unassign_from_id,
     ANIM_OT_slot_unassign_from_nla_strip,
     ANIM_OT_slot_unassign_from_constraint,
-    ANIM_OT_version_bone_hide_property,
 )

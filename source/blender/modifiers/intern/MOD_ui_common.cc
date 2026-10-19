@@ -378,7 +378,7 @@ static void modifier_panel_header(const bContext *C, Panel *panel)
   }
   /* Collision and Surface are always enabled, hide buttons. */
   if (!ELEM(md->type, eModifierType_Collision, eModifierType_Surface)) {
-    if (ob->type != OB_EMPTY && (mti->flags & eModifierTypeFlag_SupportsEditmode) != 0) {
+    if (ob->type != OB_NO_DATA && (mti->flags & eModifierTypeFlag_SupportsEditmode) != 0) {
       sub = &row.row(true);
       sub->active_set(md->mode & eModifierMode_Realtime);
       sub->prop(ptr, "show_in_editmode", UI_ITEM_NONE, "", ICON_NONE);

@@ -173,14 +173,6 @@ static bool view3d_collection_drop_poll(bContext *C, wmDrag *drag, const wmEvent
   return view3d_drop_id_in_main_region_poll(C, drag, event, ID_GR);
 }
 
-static bool view3d_collection_drop_poll_local_id(bContext *C, wmDrag *drag, const wmEvent *event)
-{
-  if (!view3d_collection_drop_poll(C, drag, event) || (drag->type != WM_DRAG_ID)) {
-    return false;
-  }
-  return true;
-}
-
 static bool view3d_collection_drop_poll_external_asset(bContext *C,
                                                        wmDrag *drag,
                                                        const wmEvent *event)
@@ -269,25 +261,6 @@ static bool view3d_ima_bg_drop_poll(bContext *C, wmDrag *drag, const wmEvent *ev
   }
 
   return view3d_ima_bg_is_camera_view(C);
-}
-
-static bool view3d_ima_empty_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
-{
-  if (!view3d_ima_drop_poll(C, drag, event)) {
-    return false;
-  }
-
-  Object *ob = ED_view3d_give_object_under_cursor(C, event->mval);
-
-  if (ob == nullptr) {
-    return true;
-  }
-
-  if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE) {
-    return true;
-  }
-
-  return false;
 }
 
 static bool view3d_geometry_nodes_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
@@ -519,17 +492,8 @@ static void view3d_ob_drop_copy_external_asset(bContext *C, wmDrag *drag, wmDrop
   }
 }
 
-static void view3d_collection_drop_on_enter(wmDropBox *drop, wmDrag *drag)
+static void view3d_collection_drop_on_enter(wmDropBox *drop, wmDrag * /*drag*/)
 {
-  if (WM_drag_asset_will_import_linked(drag)) {
-    const wmDragAsset *asset_drag = WM_drag_get_asset_data(drag, 0);
-    /* Linked collections cannot be transformed except when using instancing. Don't enable
-     * snapping. */
-    if (!asset_drag->import_settings.use_instance_collections) {
-      return;
-    }
-  }
-
   view3d_drop_snap_init(drop);
 }
 
@@ -545,19 +509,6 @@ static void view3d_collection_drop_matrix_from_snap(V3DSnapCursorState *snap_sta
   copy_v3_v3(r_loc, snap_data->loc);
 }
 
-static void view3d_collection_drop_copy_local_id(bContext * /*C*/, wmDrag *drag, wmDropBox *drop)
-{
-  ID *id = WM_drag_get_local_ID(drag, ID_GR);
-  RNA_int_set(drop->ptr, "session_uid", int(id->session_uid));
-
-  V3DSnapCursorState *snap_state = ED_view3d_cursor_snap_state_active_get();
-
-  float loc[3], rot[3];
-  view3d_collection_drop_matrix_from_snap(snap_state, loc, rot);
-  RNA_float_set_array(drop->ptr, "location", loc);
-  RNA_float_set_array(drop->ptr, "rotation", rot);
-}
-
 /* Mostly the same logic as #view3d_ob_drop_copy_external_asset(), just different enough to make
  * sharing code a bit difficult. */
 static void view3d_collection_drop_copy_external_asset(bContext *C, wmDrag *drag, wmDropBox *drop)
@@ -571,18 +522,11 @@ static void view3d_collection_drop_copy_external_asset(bContext *C, wmDrag *drag
 
   BKE_view_layer_base_deselect_all(*bmain, scene, view_layer);
 
-  const bool use_instance_collections = asset_drag->import_settings.use_instance_collections;
-  /* Temporarily disable instancing for the import, the drop operator handles that. */
-  asset_drag->import_settings.use_instance_collections = false;
-
   ID *id = WM_drag_asset_id_import(C, asset_drag, FILE_AUTOSELECT);
   if (!id) {
     return;
   }
   Collection *collection = id_cast<Collection *>(id);
-
-  /* Reset temporary override. */
-  asset_drag->import_settings.use_instance_collections = use_instance_collections;
 
   /* TODO(sergey): Only update relations for the current scene. */
   DEG_relations_tag_update(bmain);
@@ -600,7 +544,7 @@ static void view3d_collection_drop_copy_external_asset(bContext *C, wmDrag *drag
   DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 
   /* Make objects local so they can be transformed. */
-  if (WM_drag_asset_will_import_packed(drag) && !use_instance_collections) {
+  if (WM_drag_asset_will_import_packed(drag)) {
     make_selected_objects_local(*bmain, *scene, *view_layer, *CTX_wm_view3d(C), true);
 
     /* Making the IDs local might result in a new, copied ID. */
@@ -612,8 +556,6 @@ static void view3d_collection_drop_copy_external_asset(bContext *C, wmDrag *drag
 
   /* Do after making local, since that changes the session UID. */
   RNA_int_set(drop->ptr, "session_uid", int(id->session_uid));
-  RNA_boolean_set(drop->ptr, "use_instance", asset_drag->import_settings.use_instance_collections);
-
   V3DSnapCursorState *snap_state = static_cast<V3DSnapCursorState *>(drop->draw_data);
   if (snap_state) {
     float loc[3], rot[3];
@@ -709,16 +651,6 @@ void view3d_dropboxes()
   drop->draw_droptip = WM_drag_draw_item_name_fn;
   drop->on_enter = view3d_collection_drop_on_enter;
   drop->on_exit = view3d_drop_snap_exit;
-  drop = WM_dropbox_add(lb,
-                        "OBJECT_OT_collection_instance_add",
-                        view3d_collection_drop_poll_local_id,
-                        view3d_collection_drop_copy_local_id,
-                        WM_drag_free_imported_drag_ID,
-                        nullptr);
-  drop->draw_droptip = WM_drag_draw_item_name_fn;
-  drop->on_enter = view3d_collection_drop_on_enter;
-  drop->on_exit = view3d_drop_snap_exit;
-
   WM_dropbox_add(lb,
                  "OBJECT_OT_drop_named_material",
                  view3d_mat_drop_poll,
@@ -734,12 +666,6 @@ void view3d_dropboxes()
   WM_dropbox_add(lb,
                  "VIEW3D_OT_camera_background_image_add",
                  view3d_ima_bg_drop_poll,
-                 view3d_id_path_drop_copy,
-                 WM_drag_free_imported_drag_ID,
-                 nullptr);
-  WM_dropbox_add(lb,
-                 "OBJECT_OT_empty_image_add",
-                 view3d_ima_empty_drop_poll,
                  view3d_id_path_drop_copy,
                  WM_drag_free_imported_drag_ID,
                  nullptr);

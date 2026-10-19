@@ -24,7 +24,6 @@ enum eObjectMode : int {
   /* Brush capability bit for Image Editor painting, not an Object mode. */
   OB_MODE_IMAGE_PAINT = 1 << 4,
   OB_MODE_PARTICLE_EDIT = 1 << 5,
-  OB_MODE_POSE = 1 << 6,
   OB_MODE_SCULPT_CURVES = 1 << 12,
 };
 ENUM_OPERATORS(eObjectMode)
@@ -54,7 +53,7 @@ enum eDrawType : char {
  * see: #ed::object::mode_generic_exit
  */
 #define OB_MODE_ALL_MODE_DATA \
-  (OB_MODE_EDIT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_SCULPT | OB_MODE_POSE | \
+  (OB_MODE_EDIT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_SCULPT | \
    OB_MODE_SCULPT_CURVES)
 
 }  // namespace blender

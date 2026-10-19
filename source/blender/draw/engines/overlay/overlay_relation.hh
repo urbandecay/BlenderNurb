@@ -97,8 +97,7 @@ class Relations : Overlay {
     /* Drawing the constraint lines */
     if (!ob->constraints.is_empty()) {
       Scene *scene = const_cast<Scene *>(state.scene);
-      bConstraintOb *cob = BKE_constraints_make_evalob(
-          state.depsgraph, scene, ob, nullptr, CONSTRAINT_OBTYPE_OBJECT);
+      bConstraintOb *cob = BKE_constraints_make_evalob(state.depsgraph, scene, ob);
 
       for (bConstraint *constraint : ListBaseWrapper<bConstraint>(ob->constraints)) {
         if (ELEM(constraint->type, CONSTRAINT_TYPE_FOLLOWTRACK, CONSTRAINT_TYPE_OBJECTSOLVER)) {

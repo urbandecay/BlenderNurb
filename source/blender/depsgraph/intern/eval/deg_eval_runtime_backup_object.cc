@@ -6,8 +6,6 @@
  * \ingroup depsgraph
  */
 
-#include "BLI_session_uid.h"
-
 #include "intern/eval/deg_eval_runtime_backup_object.h"
 
 #include <cstring>
@@ -16,7 +14,6 @@
 
 #include "BLI_listbase.h"
 
-#include "BKE_action.hh"
 #include "BKE_light_linking.h"
 #include "BKE_mesh_types.hh"
 #include "BKE_modifier.hh"
@@ -51,8 +48,6 @@ void ObjectRuntimeBackup::init_from_object(Object *object)
   base_local_view_bits = object->base_local_view_bits;
   /* Backup runtime data of all modifiers. */
   backup_modifier_runtime_data(object);
-  /* Backup runtime data of all pose channels. */
-  backup_pose_channel_runtime_data(object);
 }
 
 void ObjectRuntimeBackup::backup_modifier_runtime_data(Object *object)
@@ -64,19 +59,6 @@ void ObjectRuntimeBackup::backup_modifier_runtime_data(Object *object)
 
     modifier_runtime_data.add(modifier_data.persistent_uid, ModifierDataBackup(&modifier_data));
     modifier_data.runtime = nullptr;
-  }
-}
-
-void ObjectRuntimeBackup::backup_pose_channel_runtime_data(Object *object)
-{
-  if (object->pose != nullptr) {
-    for (bPoseChannel &pchan : object->pose->chanbase) {
-      const SessionUID &session_uid = pchan.runtime.session_uid;
-      BLI_assert(BLI_session_uid_is_generated(&session_uid));
-
-      pose_channel_runtime_data.add(session_uid, pchan.runtime);
-      BKE_pose_channel_runtime_reset(&pchan.runtime);
-    }
   }
 }
 
@@ -144,7 +126,6 @@ void ObjectRuntimeBackup::restore_to_object(Object *object)
   /* Restore modifier's runtime data.
    * NOTE: Data of unused modifiers will be freed there. */
   restore_modifier_runtime_data(object);
-  restore_pose_channel_runtime_data(object);
 }
 
 void ObjectRuntimeBackup::restore_modifier_runtime_data(Object *object)
@@ -170,22 +151,6 @@ void ObjectRuntimeBackup::restore_modifier_runtime_data(Object *object)
         }
       }
     }
-  }
-}
-
-void ObjectRuntimeBackup::restore_pose_channel_runtime_data(Object *object)
-{
-  if (object->pose != nullptr) {
-    for (bPoseChannel &pchan : object->pose->chanbase) {
-      const SessionUID &session_uid = pchan.runtime.session_uid;
-      std::optional<bPoseChannel_Runtime> runtime = pose_channel_runtime_data.pop_try(session_uid);
-      if (runtime.has_value()) {
-        pchan.runtime = *runtime;
-      }
-    }
-  }
-  for (bPoseChannel_Runtime &runtime : pose_channel_runtime_data.values()) {
-    BKE_pose_channel_runtime_free(&runtime);
   }
 }
 

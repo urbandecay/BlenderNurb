@@ -22,7 +22,6 @@ extern ModifierTypeInfo modifierType_Build;
 extern ModifierTypeInfo modifierType_Mirror;
 extern ModifierTypeInfo modifierType_Decimate;
 extern ModifierTypeInfo modifierType_Wave;
-extern ModifierTypeInfo modifierType_Armature;
 extern ModifierTypeInfo modifierType_Hook;
 extern ModifierTypeInfo modifierType_Softbody;
 extern ModifierTypeInfo modifierType_Boolean;

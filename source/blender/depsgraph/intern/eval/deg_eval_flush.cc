@@ -142,16 +142,6 @@ inline void flush_handle_component_node(IDNode *id_node,
       op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
     }
   }
-  /* when some target changes bone, we might need to re-run the
-   * whole IK solver, otherwise result might be unpredictable. */
-  if (comp_node->type == NodeType::BONE) {
-    ComponentNode *pose_comp = id_node->find_component(NodeType::EVAL_POSE);
-    BLI_assert(pose_comp != nullptr);
-    if (pose_comp->custom_flags == COMPONENT_STATE_NONE) {
-      queue->push_front(pose_comp->get_entry_operation());
-      pose_comp->custom_flags = COMPONENT_STATE_SCHEDULED;
-    }
-  }
 }
 
 /* Schedule children of the given operation node for traversal.

@@ -860,11 +860,6 @@ void blo_do_versions_userdef(UserDef *userdef)
     STRNCPY(userdef->sounddir, "/");
   }
 
-  /* patch to set Dupli Armature */
-  if (!USER_VERSION_ATLEAST(220, 0)) {
-    userdef->dupflag |= USER_DUP_ARM;
-  }
-
   /* added seam, normal color, undo */
   if (!USER_VERSION_ATLEAST(235, 0)) {
     userdef->uiflag |= USER_GLOBALUNDO;
@@ -924,10 +919,7 @@ void blo_do_versions_userdef(UserDef *userdef)
 
   if (!USER_VERSION_ATLEAST(250, 8)) {
     for (wmKeyMap &km : userdef->user_keymaps) {
-      if (STREQ(km.idname, "Armature_Sketch")) {
-        STRNCPY(km.idname, "Armature Sketch");
-      }
-      else if (STREQ(km.idname, "View3D")) {
+      if (STREQ(km.idname, "View3D")) {
         STRNCPY(km.idname, "3D View");
       }
       else if (STREQ(km.idname, "View3D Generic")) {
@@ -1274,9 +1266,6 @@ void blo_do_versions_userdef(UserDef *userdef)
   }
 
   if (!USER_VERSION_ATLEAST(291, 1)) {
-    if (userdef->collection_instance_empty_size == 0) {
-      userdef->collection_instance_empty_size = 1.0f;
-    }
   }
 
   if (!USER_VERSION_ATLEAST(292, 3)) {
@@ -1316,10 +1305,6 @@ void blo_do_versions_userdef(UserDef *userdef)
     }
 
     userdef->sequencer_proxy_setup = USER_SEQ_PROXY_SETUP_AUTOMATIC;
-  }
-
-  if (!USER_VERSION_ATLEAST(293, 13)) {
-    BKE_addon_ensure(&userdef->addons, "pose_library");
   }
 
   if (!USER_VERSION_ATLEAST(300, 21)) {
@@ -1519,11 +1504,6 @@ void blo_do_versions_userdef(UserDef *userdef)
 
   if (!USER_VERSION_ATLEAST(402, 63)) {
     userdef->statusbar_flag |= STATUSBAR_SHOW_EXTENSIONS_UPDATES;
-  }
-
-  if (!USER_VERSION_ATLEAST(402, 65)) {
-    /* Bone Selection Sets is no longer an add-on, but core functionality. */
-    BKE_addon_remove_safe(&userdef->addons, "bone_selection_sets");
   }
 
   if (!USER_VERSION_ATLEAST(403, 3)) {

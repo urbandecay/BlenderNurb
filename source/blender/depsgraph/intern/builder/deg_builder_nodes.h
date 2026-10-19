@@ -12,7 +12,6 @@
 
 #include "BLI_set.hh"
 
-#include "DNA_armature_types.h"
 #include "DNA_listBase.h"
 
 #include "intern/builder/deg_builder.h"
@@ -26,7 +25,7 @@
 
 namespace blender {
 
-struct BoneCollection;
+struct AnimData;
 struct CacheFile;
 struct Camera;
 struct Collection;
@@ -53,11 +52,9 @@ struct Tex;
 struct VFont;
 struct World;
 struct bAction;
-struct bArmature;
 struct bConstraint;
 struct bNodeSocket;
 struct bNodeTree;
-struct bPoseChannel;
 struct bSound;
 struct PointerRNA;
 
@@ -178,7 +175,7 @@ class DepsgraphNodeBuilder : public DepsgraphBuilder {
   virtual void build_scene_parameters(Scene *scene);
   virtual void build_scene_compositor(Scene *scene);
 
-  virtual void build_empty_object(Object *object);
+  virtual void build_no_data_object(Object *object);
 
   virtual void build_layer_collections(ListBaseT<LayerCollection> *lb);
   virtual void build_view_layer(Scene *scene,
@@ -189,7 +186,6 @@ class DepsgraphNodeBuilder : public DepsgraphBuilder {
                             Object *object,
                             eDepsNode_LinkedState_Type linked_state,
                             bool is_visible);
-  virtual void build_object_instance_collection(Object *object, bool is_object_visible);
   virtual void build_object_from_layer(int base_index,
                                        Object *object,
                                        eDepsNode_LinkedState_Type linked_state);
@@ -212,7 +208,6 @@ class DepsgraphNodeBuilder : public DepsgraphBuilder {
   virtual void build_object_light_linking(Object *object);
   virtual void build_light_linking_collection(Collection *collection);
 
-  virtual void build_pose_constraints(Object *object, bPoseChannel *pchan, int pchan_index);
   virtual void build_rigidbody(Scene *scene);
   virtual void build_particle_systems(Object *object, bool is_object_visible);
   virtual void build_particle_settings(ParticleSettings *part);
@@ -255,15 +250,6 @@ class DepsgraphNodeBuilder : public DepsgraphBuilder {
 
   virtual void build_parameters(ID *id);
   virtual void build_dimensions(Object *object);
-  /** IK Solver Eval Steps. */
-  virtual void build_ik_pose(Object *object, bPoseChannel *pchan, bConstraint *con);
-  /** Spline IK Eval Steps. */
-  virtual void build_splineik_pose(Object *object, bPoseChannel *pchan, bConstraint *con);
-  /** Pose/Armature Bones Graph. */
-  virtual void build_rig(Object *object);
-  virtual void build_armature(bArmature *armature);
-  virtual void build_armature_bones(ListBaseT<Bone> *bones);
-  virtual void build_armature_bone_collections(Span<BoneCollection *> collections);
   /** Shape-keys. */
   virtual void build_shapekeys(Key *key);
   virtual void build_camera(Camera *camera);

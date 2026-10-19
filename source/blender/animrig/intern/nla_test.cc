@@ -34,7 +34,7 @@ class NLASlottedActionTest : public bke::BlenderGTestBase {
     bmain = BKE_main_new();
     action = BKE_id_new<Action>(bmain, "ACÄnimåtië");
     action->id.us = 0; /* Nothing references this yet. */
-    cube = BKE_object_add_only_object(bmain, OB_EMPTY, "Küüübus");
+    cube = BKE_object_add_only_object(bmain, OB_NO_DATA, "Küüübus");
     cube->id.us = 0; /* Nothing references this yet. */
   }
 

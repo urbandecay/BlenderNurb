@@ -3080,13 +3080,6 @@ static void image_walk_id_all_users(
     void callback(Image *ima, ID *iuser_id, ImageUser *iuser, void *customdata))
 {
   switch (GS(id->name)) {
-    case ID_OB: {
-      Object *ob = id_cast<Object *>(id);
-      if (ob->empty_drawtype == OB_EMPTY_IMAGE && ob->data) {
-        callback(id_cast<Image *>(ob->data), &ob->id, ob->iuser, customdata);
-      }
-      break;
-    }
     case ID_MA: {
       Material *ma = id_cast<Material *>(id);
       if (ma->nodetree && !skip_nested_nodes) {

@@ -16,7 +16,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_global.hh"
 #include "BKE_gtest_base.hh"
@@ -24,9 +23,6 @@
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_object.hh"
-
-#include "BLI_listbase.h"
-#include "BLI_string_utf8.h"
 
 #include <functional>
 #include <optional>
@@ -193,10 +189,6 @@ class KeylistSummaryTest : public bke::BlenderGTestBase {
   Main *bmain;
   animrig::Action *action;
   Object *cube;
-  Object *armature;
-  bArmature *armature_data;
-  Bone *bone1;
-  Bone *bone2;
 
   SpaceAction saction = {};
   bAnimContext ac = {nullptr};
@@ -207,20 +199,7 @@ class KeylistSummaryTest : public bke::BlenderGTestBase {
     G_MAIN = bmain; /* For BKE_animdata_free(). */
 
     action = &BKE_id_new<bAction>(bmain, "ACÄnimåtië")->wrap();
-    cube = BKE_object_add_only_object(bmain, OB_EMPTY, "Küüübus");
-
-    armature_data = BKE_armature_add(bmain, "ARArmature");
-    bone1 = MEM_new<Bone>("KeylistSummaryTest");
-    bone2 = MEM_new<Bone>("KeylistSummaryTest");
-    STRNCPY_UTF8(bone1->name, "Bone.001");
-    STRNCPY_UTF8(bone2->name, "Bone.002");
-    BLI_addtail(&armature_data->bonebase, bone1);
-    BLI_addtail(&armature_data->bonebase, bone2);
-    BKE_armature_bone_hash_make(armature_data);
-
-    armature = BKE_object_add_only_object(bmain, OB_ARMATURE, "OBArmature");
-    armature->data = id_cast<ID *>(armature_data);
-    BKE_pose_ensure(bmain, armature, armature_data, false);
+    cube = BKE_object_add_only_object(bmain, OB_NO_DATA, "Küüübus");
 
     /*
      * Fill in the common bits for the mock bAnimContext, for an Action editor.
@@ -302,61 +281,6 @@ TEST_F(KeylistSummaryTest, slot_summary_simple)
   EXPECT_EQ(3, col_2->totkey);
   EXPECT_EQ(1, col_3->totkey);
   EXPECT_EQ(1, col_5->totkey);
-
-  ED_keylist_free(keylist);
-}
-
-TEST_F(KeylistSummaryTest, slot_summary_bone_selection)
-{
-  /* Test that a key summary is generated correctly, excluding keys for
-   * unselected bones when filter-by-selection is on. */
-
-  using namespace blender::animrig;
-
-  Slot &slot_armature = action->slot_add_for_id(armature->id);
-  ASSERT_EQ(ActionSlotAssignmentResult::OK,
-            assign_action_and_slot(action, &slot_armature, armature->id));
-  Channelbag &channelbag = action_channelbag_ensure(*action, armature->id);
-
-  FCurve &bone1_loc_x = channelbag.fcurve_ensure(
-      bmain, {"pose.bones[\"Bone.001\"].location", 0, {}, {}, "Bone.001"});
-  FCurve &bone2_loc_x = channelbag.fcurve_ensure(
-      bmain, {"pose.bones[\"Bone.002\"].location", 0, {}, {}, "Bone.002"});
-
-  ASSERT_EQ(SingleKeyingResult::SUCCESS, insert_vert_fcurve(&bone1_loc_x, {1.0, 0.0}, {}, {}));
-  ASSERT_EQ(SingleKeyingResult::SUCCESS, insert_vert_fcurve(&bone1_loc_x, {2.0, 1.0}, {}, {}));
-  ASSERT_EQ(SingleKeyingResult::SUCCESS, insert_vert_fcurve(&bone2_loc_x, {2.0, 2.0}, {}, {}));
-  ASSERT_EQ(SingleKeyingResult::SUCCESS, insert_vert_fcurve(&bone2_loc_x, {3.0, 3.0}, {}, {}));
-
-  /* Select only Bone.001. */
-  bPoseChannel *pose_bone1 = BKE_pose_channel_find_name(armature->pose, bone1->name);
-  ASSERT_NE(pose_bone1, nullptr);
-  pose_bone1->flag |= POSE_SELECTED;
-  bPoseChannel *pose_bone2 = BKE_pose_channel_find_name(armature->pose, bone2->name);
-  pose_bone2->flag &= ~POSE_SELECTED;
-
-  /* Generate slot summary keylist. */
-  AnimKeylist *keylist = ED_keylist_create();
-  saction.ads.filterflag = ADS_FILTER_ONLYSEL; /* Filter by selection. */
-  ac.obact = armature;
-  ac.active_action_user = &armature->id;
-  ac.filters.flag = eDopeSheet_FilterFlag(saction.ads.filterflag);
-  action_slot_summary_to_keylist(
-      &ac, &armature->id, *action, slot_armature.handle, keylist, 0, {0.0, 6.0});
-  ED_keylist_prepare_for_direct_access(keylist);
-
-  const ActKeyColumn *col_1 = ED_keylist_find_exact(keylist, 1.0);
-  const ActKeyColumn *col_2 = ED_keylist_find_exact(keylist, 2.0);
-  const ActKeyColumn *col_3 = ED_keylist_find_exact(keylist, 3.0);
-
-  /* Check that we only have columns at the frames with keys for Bone.001. */
-  EXPECT_NE(nullptr, col_1);
-  EXPECT_NE(nullptr, col_2);
-  EXPECT_EQ(nullptr, col_3);
-
-  /* Check that the right number of keys are indicated in each column. */
-  EXPECT_EQ(1, col_1->totkey);
-  EXPECT_EQ(1, col_2->totkey);
 
   ED_keylist_free(keylist);
 }

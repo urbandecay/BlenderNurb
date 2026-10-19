@@ -47,28 +47,6 @@ class CONSTRAINT_OT_remove_target(Operator):
         return {'FINISHED'}
 
 
-class CONSTRAINT_OT_normalize_target_weights(Operator):
-    """Normalize weights of all target bones"""
-    bl_idname = "constraint.normalize_target_weights"
-    bl_label = "Normalize Weights"
-    bl_options = {'UNDO', 'INTERNAL'}
-
-    @classmethod
-    def poll(cls, context):
-        constraint = getattr(context, "constraint", None)
-        return constraint
-
-    def execute(self, context):
-        tgts = context.constraint.targets
-        total = sum(t.weight for t in tgts)
-
-        if total > 0:
-            for t in tgts:
-                t.weight = t.weight / total
-
-        return {'FINISHED'}
-
-
 class CONSTRAINT_OT_disable_keep_transform(Operator):
     """Set the influence of this constraint to zero while """ \
         """trying to maintain the object's transformation. Other active """ \
@@ -94,21 +72,13 @@ class CONSTRAINT_OT_disable_keep_transform(Operator):
         # additive rather than replacing the transform entirely.
 
         # Get the matrix in world space.
-        is_bone_constraint = context.space_data.context == 'BONE_CONSTRAINT'
         ob = context.object
-        if is_bone_constraint:
-            bone = context.pose_bone
-            mat = ob.matrix_world @ bone.matrix
-        else:
-            mat = ob.matrix_world
+        mat = ob.matrix_world
 
         context.constraint.influence = 0.0
 
         # Set the matrix.
-        if is_bone_constraint:
-            bone.matrix = ob.matrix_world.inverted() @ mat
-        else:
-            ob.matrix_world = mat
+        ob.matrix_world = mat
 
         return {'FINISHED'}
 
@@ -116,6 +86,5 @@ class CONSTRAINT_OT_disable_keep_transform(Operator):
 classes = (
     CONSTRAINT_OT_add_target,
     CONSTRAINT_OT_remove_target,
-    CONSTRAINT_OT_normalize_target_weights,
     CONSTRAINT_OT_disable_keep_transform,
 )

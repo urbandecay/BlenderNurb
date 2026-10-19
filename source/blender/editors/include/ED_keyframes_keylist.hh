@@ -217,8 +217,8 @@ void summary_to_keylist(bAnimContext *ac, AnimKeylist *keylist, int saction_flag
  * editor indicated by `ac`
  *
  * \param animated_id: the particular animated ID that the slot summary is being
- * generated for. This is needed for filtering channels based on bone selection,
- * etc. NOTE: despite being passed as a pointer, this should never be null. It's
+ * generated for. This is needed for filtering channels based on object selection
+ * and visibility. NOTE: despite being passed as a pointer, this should never be null. It's
  * currently passed as a pointer to be defensive because I (Nathan) am not 100%
  * confident at the time of writing (PR #134922) that the callers of this
  * actually guarantee a non-null pointer (they should, but bugs). This way we

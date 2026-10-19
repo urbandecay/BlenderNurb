@@ -30,7 +30,6 @@
 #include "BKE_deform.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_iterators.hh"
-#include "BKE_modifier.hh"
 #include "BKE_object.hh"
 #include "BKE_object_deform.h"
 #include "BKE_paint.hh"
@@ -42,7 +41,6 @@
 #include "WM_api.hh"
 #include "WM_types.hh"
 
-#include "ED_armature.hh"
 #include "ED_mesh.hh"
 #include "ED_screen.hh"
 #include "ED_view3d.hh"
@@ -92,70 +90,6 @@ static void wpaint_prev_destroy(WPaintPrev *wpp)
   }
   wpp->wpaint_prev = nullptr;
   wpp->tot = 0;
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Weight from Bones Operator
- * \{ */
-
-static bool weight_from_bones_poll(bContext *C)
-{
-  Object *ob = CTX_data_active_object(C);
-
-  return (ob && (ob->mode & OB_MODE_WEIGHT_PAINT) && BKE_modifiers_is_deformed_by_armature(ob));
-}
-
-static wmOperatorStatus weight_from_bones_exec(bContext *C, wmOperator *op)
-{
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-  Scene *scene = CTX_data_scene(C);
-  Object *ob = CTX_data_active_object(C);
-  Object *armob = BKE_modifiers_is_deformed_by_armature(ob);
-  Mesh *mesh = id_cast<Mesh *>(ob->data);
-  int type = RNA_enum_get(op->ptr, "type");
-
-  ED_object_vgroup_calc_from_armature(
-      op->reports, depsgraph, scene, ob, armob, type, (mesh->symmetry & ME_SYMMETRY_X));
-
-  DEG_id_tag_update(&mesh->id, ID_RECALC_GEOMETRY);
-  DEG_relations_tag_update(CTX_data_main(C));
-  WM_event_add_notifier(C, NC_GEOM | ND_DATA, mesh);
-
-  return OPERATOR_FINISHED;
-}
-
-void PAINT_OT_weight_from_bones(wmOperatorType *ot)
-{
-  static const EnumPropertyItem type_items[] = {
-      {ARM_GROUPS_AUTO, "AUTOMATIC", 0, "Automatic", "Automatic weights from bones"},
-      {ARM_GROUPS_ENVELOPE,
-       "ENVELOPES",
-       0,
-       "From Envelopes",
-       "Weights from envelopes with user defined radius"},
-      {0, nullptr, 0, nullptr, nullptr},
-  };
-
-  /* identifiers */
-  ot->name = "Weight from Bones";
-  ot->idname = "PAINT_OT_weight_from_bones";
-  ot->description =
-      ("Set the weights of the groups matching the attached armature's bones that have \"Deform\" "
-       "option enabled, using the distance between the vertices and the bones");
-
-  /* API callbacks. */
-  ot->exec = weight_from_bones_exec;
-  ot->invoke = WM_menu_invoke;
-  ot->poll = weight_from_bones_poll;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  /* properties */
-  ot->prop = RNA_def_enum(
-      ot->srna, "type", type_items, 0, "Type", "Method to use for assigning weights");
 }
 
 /** \} */
@@ -222,31 +156,6 @@ static wmOperatorStatus weight_sample_invoke(bContext *C, wmOperator *op, const 
 
         use_lock_relative = BKE_object_defgroup_check_lock_relative(
             defbase_locked, defbase_unlocked, vgroup_active);
-      }
-
-      /* use combined weight in multipaint mode,
-       * since that's what is displayed to the user in the colors */
-      if (ts->multipaint) {
-        int defbase_tot_sel;
-        bool *defbase_sel = BKE_object_defgroup_selected_get(
-            vc.obact, defbase_tot, &defbase_tot_sel);
-
-        if (defbase_tot_sel > 1) {
-          if (ME_USING_MIRROR_X_VERTEX_GROUPS(mesh)) {
-            BKE_object_defgroup_mirror_selection(
-                vc.obact, defbase_tot, defbase_sel, defbase_sel, &defbase_tot_sel);
-          }
-
-          use_lock_relative = use_lock_relative &&
-                              BKE_object_defgroup_check_lock_relative_multi(
-                                  defbase_tot, defbase_locked, defbase_sel, defbase_tot_sel);
-
-          bool is_normalized = ts->auto_normalize || use_lock_relative;
-          vgroup_weight = BKE_defvert_multipaint_collective_weight(
-              &dvert[v_idx_best], defbase_tot, defbase_sel, defbase_tot_sel, is_normalized);
-        }
-
-        MEM_delete(defbase_sel);
       }
 
       if (use_lock_relative) {

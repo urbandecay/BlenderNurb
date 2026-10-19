@@ -65,34 +65,13 @@ def _get_nla_context():
 
 
 def _create_animation_object():
-    anim_object = bpy.data.objects.new("anim_object", None)
+    anim_object = bpy.data.objects.new("anim_object", bpy.data.meshes.new("anim_mesh"))
     # Ensure that the rotation mode is correct so we can check against rotation_euler
     anim_object.rotation_mode = "XYZ"
     bpy.context.scene.collection.objects.link(anim_object)
     bpy.context.view_layer.objects.active = anim_object
     anim_object.select_set(True)
     return anim_object
-
-
-_BONE_NAME = "bone"
-
-
-def _create_armature():
-    armature = bpy.data.armatures.new("anim_armature")
-    armature_obj = bpy.data.objects.new("anim_object", armature)
-    bpy.context.scene.collection.objects.link(armature_obj)
-    bpy.context.view_layer.objects.active = armature_obj
-    armature_obj.select_set(True)
-
-    bpy.ops.object.mode_set(mode='EDIT')
-    edit_bone = armature.edit_bones.new(_BONE_NAME)
-    edit_bone.head = (1, 0, 0)
-    bpy.ops.object.mode_set(mode='POSE')
-    armature_obj.pose.bones[_BONE_NAME].rotation_mode = "XYZ"
-    armature_obj.pose.bones[_BONE_NAME].select = True
-    bpy.ops.object.mode_set(mode='OBJECT')
-
-    return armature_obj
 
 
 def _insert_by_name_test(insert_key: str, expected_paths: list):
@@ -179,7 +158,7 @@ class InsertKeyTest(AbstractKeyframingTest, unittest.TestCase):
 
     def test_insert_custom_properties(self):
         # Used to create a datablock reference property.
-        ref_object = bpy.data.objects.new("ref_object", None)
+        ref_object = bpy.data.objects.new("ref_object", bpy.data.meshes.new("ref_mesh"))
         bpy.context.scene.collection.objects.link(ref_object)
 
         bpy.context.preferences.edit.key_insert_channels = {"CUSTOM_PROPS"}
@@ -472,29 +451,15 @@ class AutoKeyframingTest(AbstractKeyframingTest, unittest.TestCase):
         channelbag = _channelbag(keyed_object)
         _fcurve_paths_match(channelbag.fcurves, ["location", "rotation_euler", "scale"])
 
-    def test_autokey_bone(self):
-        armature_obj = _create_armature()
-
-        bpy.ops.object.mode_set(mode='POSE')
-        # Not overriding the context because it would mean context.selected_pose_bones is empty
-        # resulting in a failure to move/key the bone
-        bpy.ops.transform.translate(value=(1, 0, 0))
-        bpy.ops.object.mode_set(mode='OBJECT')
-
-        channelbag = _channelbag(armature_obj)
-        bone_path = f"pose.bones[\"{_BONE_NAME}\"]"
-        expected_paths = [f"{bone_path}.location", f"{bone_path}.rotation_euler", f"{bone_path}.scale"]
-        _fcurve_paths_match(channelbag.fcurves, expected_paths)
-
     def test_key_selection_state(self):
-        armature_obj = _create_armature()
-        bpy.ops.object.mode_set(mode='POSE')
-        bpy.ops.transform.translate(value=(1, 0, 0))
+        keyed_object = _create_animation_object()
+        with bpy.context.temp_override(**_get_view3d_context()):
+            bpy.ops.transform.translate(value=(1, 0, 0))
         bpy.context.scene.frame_set(5)
-        bpy.ops.transform.translate(value=(0, 1, 0))
-        bpy.ops.object.mode_set(mode='OBJECT')
+        with bpy.context.temp_override(**_get_view3d_context()):
+            bpy.ops.transform.translate(value=(0, 1, 0))
 
-        channelbag = _channelbag(armature_obj)
+        channelbag = _channelbag(keyed_object)
         for fcurve in channelbag.fcurves:
             self.assertEqual(len(fcurve.keyframe_points), 2)
             self.assertFalse(fcurve.keyframe_points[0].select_control_point)
@@ -538,39 +503,7 @@ class InsertAvailableTest(AbstractKeyframingTest, unittest.TestCase):
         _fcurve_paths_match(channelbag.fcurves, ["location", "rotation_euler"])
 
         for fcurve in channelbag.fcurves:
-            # Translating the bone would also add rotation keys as long as "Only Insert Needed" is off.
-            if "location" in fcurve.data_path or "rotation" in fcurve.data_path:
-                self.assertEqual(len(fcurve.keyframe_points), 2)
-            else:
-                raise AssertionError(f"Did not expect keys other than location and rotation, got {fcurve.data_path}.")
-
-    def test_autokey_available_bone(self):
-        armature_obj = _create_armature()
-
-        bpy.ops.object.mode_set(mode='POSE')
-        with bpy.context.temp_override(**_get_view3d_context()):
-            bpy.context.scene.frame_set(1)
-            bpy.ops.anim.keyframe_insert_by_name(type="Rotation")
-            bpy.context.scene.frame_set(5)
-            bpy.ops.transform.translate(value=(1, 0, 0))
-
-        # Test that no new keyframes have been added.
-        channelbag = _channelbag(armature_obj)
-        bone_path = f"pose.bones[\"{_BONE_NAME}\"]"
-        expected_paths = [f"{bone_path}.rotation_euler"]
-        _fcurve_paths_match(channelbag.fcurves, expected_paths)
-
-        with bpy.context.temp_override(**_get_view3d_context()):
-            bpy.context.scene.frame_set(1)
-            bpy.ops.anim.keyframe_insert_by_name(type="Location")
-            bpy.context.scene.frame_set(5)
-            bpy.ops.transform.translate(value=(1, 0, 0))
-
-        expected_paths = [f"{bone_path}.location", f"{bone_path}.rotation_euler"]
-        _fcurve_paths_match(channelbag.fcurves, expected_paths)
-
-        for fcurve in channelbag.fcurves:
-            # Translating the bone would also add rotation keys as long as "Only Insert Needed" is off.
+            # Translating the object would also add rotation keys as long as "Only Insert Needed" is off.
             if "location" in fcurve.data_path or "rotation" in fcurve.data_path:
                 self.assertEqual(len(fcurve.keyframe_points), 2)
             else:
@@ -645,37 +578,6 @@ class InsertNeededTest(AbstractKeyframingTest, unittest.TestCase):
                 raise AssertionError(f"Did not expect a key on {fcurve.data_path}")
             self.assertEqual(expected_keys[fcurve.data_path][fcurve.array_index], len(fcurve.keyframe_points))
 
-    def test_insert_needed_bone(self):
-        armature_obj = _create_armature()
-
-        bpy.ops.object.mode_set(mode='POSE')
-        with bpy.context.temp_override(**_get_view3d_context()):
-            bpy.context.scene.frame_set(1)
-            bpy.ops.transform.translate(value=(-1, 0, 0), orient_type='LOCAL')
-            bpy.context.scene.frame_set(5)
-            bpy.ops.transform.translate(value=(1, 0, 0), orient_type='LOCAL')
-
-        bpy.ops.object.mode_set(mode='OBJECT')
-
-        channelbag = _channelbag(armature_obj)
-        bone_path = f"pose.bones[\"{_BONE_NAME}\"]"
-        _fcurve_paths_match(channelbag.fcurves, [f"{bone_path}.location"])
-
-        # With "Insert Needed" enabled it has to key all location channels first,
-        # before it can add keys only to the channels where values have actually
-        # changed.
-        expected_keys = {
-            f"{bone_path}.location": (2, 1, 1)
-        }
-
-        self.assertEqual(len(channelbag.fcurves), 3)
-
-        for fcurve in channelbag.fcurves:
-            if fcurve.data_path not in expected_keys:
-                raise AssertionError(f"Did not expect a key on {fcurve.data_path}")
-            self.assertEqual(expected_keys[fcurve.data_path][fcurve.array_index], len(fcurve.keyframe_points))
-
-
 def _create_nla_anim_object():
     """
     Creates an object with 3 NLA tracks each with a strip that has its own action.
@@ -687,7 +589,7 @@ def _create_nla_anim_object():
         base: 0, 1
     """
 
-    anim_object = bpy.data.objects.new("anim_object", None)
+    anim_object = bpy.data.objects.new("anim_object", bpy.data.meshes.new("anim_mesh"))
 
     def _ensure_fcurve(action: bpy.types.Action, *, data_path: str, index: int) -> bpy.types.FCurve:
         # Briefly directly assign the Action so that Blender knows what to do.
@@ -826,42 +728,6 @@ class NlaInsertTest(AbstractKeyframingTest, unittest.TestCase):
         self.assertAlmostEqual(nla_anim_object.location.x, 2.0, 8)
         fcurve_loc_x = channelbag.fcurves.find("location", index=0)
         self.assertAlmostEqual(fcurve_loc_x.keyframe_points[-1].co[1], 1.0, 8)
-
-
-class KeyframeDeleteTest(AbstractKeyframingTest, unittest.TestCase):
-
-    def test_delete_in_v3d_pose_mode(self):
-        armature = _create_armature()
-        bpy.context.scene.frame_set(1)
-        with bpy.context.temp_override(**_get_view3d_context()):
-            bpy.ops.anim.keyframe_insert_by_name(type="Location")
-        self.assertTrue(armature.animation_data is not None)
-        self.assertTrue(armature.animation_data.action is not None)
-        channelbag = _channelbag(armature)
-        self.assertEqual(len(channelbag.fcurves), 3)
-
-        bpy.ops.object.mode_set(mode='POSE')
-        with bpy.context.temp_override(**_get_view3d_context()):
-            bpy.ops.anim.keyframe_insert_by_name(type="Location")
-            bpy.context.scene.frame_set(5)
-            bpy.ops.anim.keyframe_insert_by_name(type="Location")
-            # This should have added new FCurves for the pose bone.
-            self.assertEqual(len(channelbag.fcurves), 6)
-
-            bpy.ops.anim.keyframe_delete_v3d()
-            # No Fcurves should yet be deleted.
-            self.assertEqual(len(channelbag.fcurves), 6)
-            self.assertEqual(len(channelbag.fcurves[0].keyframe_points), 1)
-            bpy.context.scene.frame_set(1)
-            bpy.ops.anim.keyframe_delete_v3d()
-            # This should leave the object level keyframes of the armature
-            self.assertEqual(len(channelbag.fcurves), 3)
-
-        bpy.ops.object.mode_set(mode='OBJECT')
-        with bpy.context.temp_override(**_get_view3d_context()):
-            bpy.ops.anim.keyframe_delete_v3d()
-        # The last FCurves should be deleted from the object now.
-        self.assertEqual(len(channelbag.fcurves), 0)
 
 
 def main():

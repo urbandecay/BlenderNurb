@@ -18,7 +18,7 @@ static constexpr int inner_nsegments = 8;
 static constexpr int outer_nsegments = 10;
 static constexpr int circle_nsegments = 32;
 
-static constexpr float bone_box_verts[8][3] = {
+static constexpr float box_verts[8][3] = {
     {1.0f, 0.0f, 1.0f},
     {1.0f, 0.0f, -1.0f},
     {-1.0f, 0.0f, -1.0f},
@@ -29,11 +29,11 @@ static constexpr float bone_box_verts[8][3] = {
     {-1.0f, 1.0f, 1.0f},
 };
 
-static constexpr std::array<uint, 24> bone_box_wire_lines = {
+static constexpr std::array<uint, 24> box_wire_lines = {
     0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7,
 };
 
-static const std::array<uint3, 12> bone_box_solid_tris{
+static const std::array<uint3, 12> box_solid_tris{
     uint3{0, 2, 1}, /* bottom */
     {0, 3, 2},
 
@@ -51,121 +51,6 @@ static const std::array<uint3, 12> bone_box_solid_tris{
 
     {4, 5, 6}, /* top */
     {4, 6, 7},
-};
-
-/**
- * Store indices of generated verts from `bone_box_solid_tris` to define adjacency information.
- * See `bone_octahedral_solid_tris` for more information.
- */
-static const std::array<uint4, 12> bone_box_wire_lines_adjacency = {
-    uint4{4, 2, 0, 11},
-    {0, 1, 2, 8},
-    {2, 4, 1, 14},
-    {1, 0, 4, 20}, /* bottom */
-    {0, 8, 11, 14},
-    {2, 14, 8, 20},
-    {1, 20, 14, 11},
-    {4, 11, 20, 8}, /* top */
-    {20, 0, 11, 2},
-    {11, 2, 8, 1},
-    {8, 1, 14, 4},
-    {14, 4, 20, 0}, /* sides */
-};
-
-/* aligned with bone_box_solid_tris */
-static const std::array<float3, 12> bone_box_solid_normals = {
-    float3{0.0f, -1.0f, 0.0f},
-    {0.0f, -1.0f, 0.0f},
-
-    {1.0f, 0.0f, 0.0f},
-    {1.0f, 0.0f, 0.0f},
-
-    {0.0f, 0.0f, -1.0f},
-    {0.0f, 0.0f, -1.0f},
-
-    {-1.0f, 0.0f, 0.0f},
-    {-1.0f, 0.0f, 0.0f},
-
-    {0.0f, 0.0f, 1.0f},
-    {0.0f, 0.0f, 1.0f},
-
-    {0.0f, 1.0f, 0.0f},
-    {0.0f, 1.0f, 0.0f},
-};
-
-static const std::array<float3, 6> bone_octahedral_verts{
-    float3{0.0f, 0.0f, 0.0f},
-    {0.1f, 0.1f, 0.1f},
-    {0.1f, 0.1f, -0.1f},
-    {-0.1f, 0.1f, -0.1f},
-    {-0.1f, 0.1f, 0.1f},
-    {0.0f, 1.0f, 0.0f},
-};
-
-static const std::array<uint2, 12> bone_octahedral_wire_lines = {
-    uint2{0, 1},
-    {1, 5},
-    {5, 3},
-    {3, 0},
-    {0, 4},
-    {4, 5},
-    {5, 2},
-    {2, 0},
-    {1, 2},
-    {2, 3},
-    {3, 4},
-    {4, 1},
-};
-
-static const std::array<uint3, 8> bone_octahedral_solid_tris = {
-    uint3{2, 1, 0}, /* bottom */
-    {3, 2, 0},
-    {4, 3, 0},
-    {1, 4, 0},
-
-    {5, 1, 2}, /* top */
-    {5, 2, 3},
-    {5, 3, 4},
-    {5, 4, 1},
-};
-
-/**
- * Store indices of generated verts from `bone_octahedral_solid_tris` to define adjacency
- * information.
- * Example: triangle {2, 1, 0} is adjacent to {3, 2, 0}, {1, 4, 0} and {5, 1, 2}.
- * {2, 1, 0} becomes {0, 1, 2}
- * {3, 2, 0} becomes {3, 4, 5}
- * {1, 4, 0} becomes {9, 10, 11}
- * {5, 1, 2} becomes {12, 13, 14}
- * According to opengl specification it becomes (starting from
- * the first vertex of the first face aka. vertex 2):
- * {0, 12, 1, 10, 2, 3}
- */
-static const std::array<uint4, 12> bone_octahedral_wire_lines_adjacency = {
-    uint4{0, 1, 2, 6},
-    {0, 12, 1, 6},
-    {0, 3, 12, 6},
-    {0, 2, 3, 6},
-    {1, 6, 2, 3},
-    {1, 12, 6, 3},
-    {1, 0, 12, 3},
-    {1, 2, 0, 3},
-    {2, 0, 1, 12},
-    {2, 3, 0, 12},
-    {2, 6, 3, 12},
-    {2, 1, 6, 12},
-};
-
-/* aligned with bone_octahedral_solid_tris */
-static const float bone_octahedral_solid_normals[8][3] = {
-    {M_SQRT1_2, -M_SQRT1_2, 0.00000000f},
-    {-0.00000000f, -M_SQRT1_2, -M_SQRT1_2},
-    {-M_SQRT1_2, -M_SQRT1_2, 0.00000000f},
-    {0.00000000f, -M_SQRT1_2, M_SQRT1_2},
-    {0.99388373f, 0.11043154f, -0.00000000f},
-    {0.00000000f, 0.11043154f, -0.99388373f},
-    {-0.99388373f, 0.11043154f, 0.00000000f},
-    {0.00000000f, 0.11043154f, 0.99388373f},
 };
 
 static void append_line_loop(
@@ -263,7 +148,7 @@ static VertShaded sphere_lat_lon_vert(const float2 &lat_pt, const float2 &lon_pt
   const float x = lon_pt.y * lat_pt.x;
   const float y = lon_pt.x;
   const float z = lon_pt.y * lat_pt.y;
-  return VertShaded{{x, y, z}, VCLASS_EMPTY_SCALED, {x, y, z}};
+  return VertShaded{{x, y, z}, VCLASS_HELPER_SCALED, {x, y, z}};
 }
 
 static void append_sphere(Vector<VertShaded> &dest, const eDRWLevelOfDetail level_of_detail)
@@ -314,235 +199,17 @@ static void append_sphere(Vector<VertShaded> &dest, const eDRWLevelOfDetail leve
 
 ShapeCache::ShapeCache()
 {
-  UNUSED_VARS(bone_octahedral_wire_lines);
-
-  /* Armature Octahedron. */
-  {
-    Vector<VertShaded> verts;
-    for (int tri = 0; tri < 8; tri++) {
-      for (int v = 0; v < 3; v++) {
-        verts.append({bone_octahedral_verts[bone_octahedral_solid_tris[tri][v]],
-                      VCLASS_NONE,
-                      bone_octahedral_solid_normals[tri]});
-      }
-    }
-    bone_octahedron = BatchPtr(
-        GPU_batch_create_ex(GPU_PRIM_TRIS, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-  {
-    GPUIndexBufBuilder elb;
-    GPU_indexbuf_init(&elb, GPU_PRIM_LINES_ADJ, 12, 24);
-
-    for (auto line : bone_octahedral_wire_lines_adjacency) {
-      GPU_indexbuf_add_line_adj_verts(&elb, line[0], line[1], line[2], line[3]);
-    }
-    gpu::IndexBuf *ibo = GPU_indexbuf_build(&elb);
-
-    /* NOTE: Reuses the same VBO as bone_octahedron. Thus has the same vertex format. */
-    bone_octahedron_wire = BatchPtr(GPU_batch_create_ex(
-        GPU_PRIM_LINES_ADJ, bone_octahedron.get()->verts[0], ibo, GPU_BATCH_OWNS_INDEX));
-  }
-
-  /* Armature Sphere. */
-  {
-    constexpr int resolution = 64;
-    Vector<float2> ring = ring_vertices(0.05f, resolution);
-
-    Vector<Vertex> verts;
-    for (int a : IndexRange(resolution + 1)) {
-      float2 cv = ring[a % resolution];
-      verts.append({{cv.x, cv.y, 0.0f}, VCLASS_EMPTY_SCALED});
-    }
-
-    bone_sphere = BatchPtr(GPU_batch_create_ex(
-        GPU_PRIM_TRI_FAN, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-  {
-    bone_sphere_wire = BatchPtr(
-        GPU_batch_create(GPU_PRIM_LINE_STRIP, bone_sphere.get()->verts[0], nullptr));
-  }
-
-  /* Armature Stick. */
-  {
-    const StickBoneFlag bone = StickBoneFlag(COL_BONE | POS_BONE);
-    /* Gather as a strip and add to main buffer as a list of triangles. */
-    Vector<VertexBone> vert_strip;
-    vert_strip.append({{0.0f, 1.0f, 0.0f}, StickBoneFlag(bone | POS_HEAD | COL_HEAD | COL_WIRE)});
-    vert_strip.append({{0.0f, 1.0f, 0.0f}, StickBoneFlag(bone | POS_TAIL | COL_TAIL | COL_WIRE)});
-    vert_strip.append({{0.0f, 0.0f, 0.0f}, StickBoneFlag(bone | POS_HEAD | COL_HEAD)});
-    vert_strip.append({{0.0f, 0.0f, 0.0f}, StickBoneFlag(bone | POS_TAIL | COL_TAIL)});
-    vert_strip.append({{0.0f, -1.0f, 0.0f}, StickBoneFlag(bone | POS_HEAD | COL_HEAD | COL_WIRE)});
-    vert_strip.append({{0.0f, -1.0f, 0.0f}, StickBoneFlag(bone | POS_TAIL | COL_TAIL | COL_WIRE)});
-
-    Vector<VertexBone> verts;
-    /* Bone rectangle */
-    for (int t : IndexRange(vert_strip.size() - 2)) {
-      /* NOTE: Don't care about winding.
-       * Theses triangles are facing the camera and should not be backface culled. */
-      verts.append(vert_strip[t]);
-      verts.append(vert_strip[t + 1]);
-      verts.append(vert_strip[t + 2]);
-    }
-
-    constexpr int resolution = 12;
-    Vector<float2> ring = ring_vertices(2.0f, resolution);
-    for (int a : IndexRange(resolution)) {
-      float2 cv1 = ring[a % resolution];
-      float2 cv2 = ring[(a + 1) % resolution];
-      /* Head point. */
-      verts.append({{0.0f, 0.0f, 0.0f}, StickBoneFlag(POS_HEAD | COL_HEAD)});
-      verts.append({{cv1.x, cv1.y, 0.0f}, StickBoneFlag(POS_HEAD | COL_HEAD | COL_WIRE)});
-      verts.append({{cv2.x, cv2.y, 0.0f}, StickBoneFlag(POS_HEAD | COL_HEAD | COL_WIRE)});
-      /* Tail point. */
-      verts.append({{0.0f, 0.0f, 0.0f}, StickBoneFlag(POS_TAIL | COL_TAIL)});
-      verts.append({{cv1.x, cv1.y, 0.0f}, StickBoneFlag(POS_TAIL | COL_TAIL | COL_WIRE)});
-      verts.append({{cv2.x, cv2.y, 0.0f}, StickBoneFlag(POS_TAIL | COL_TAIL | COL_WIRE)});
-    }
-
-    bone_stick = BatchPtr(
-        GPU_batch_create_ex(GPU_PRIM_TRIS, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-
-  /* Armature BBones. */
-  {
-    Vector<VertShaded> verts;
-    for (int tri = 0; tri < 12; tri++) {
-      for (int v = 0; v < 3; v++) {
-        verts.append({bone_box_verts[bone_box_solid_tris[tri][v]],
-                      VCLASS_NONE,
-                      bone_box_solid_normals[tri]});
-      }
-    }
-    bone_box = BatchPtr(
-        GPU_batch_create_ex(GPU_PRIM_TRIS, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-  {
-    GPUIndexBufBuilder elb;
-    GPU_indexbuf_init(&elb, GPU_PRIM_LINES_ADJ, 12, 36);
-
-    for (auto line : bone_box_wire_lines_adjacency) {
-      GPU_indexbuf_add_line_adj_verts(&elb, line[0], line[1], line[2], line[3]);
-    }
-    gpu::IndexBuf *ibo = GPU_indexbuf_build(&elb);
-
-    /* NOTE: Reuses the same VBO as bone_box. Thus has the same vertex format. */
-    bone_box_wire = BatchPtr(GPU_batch_create_ex(
-        GPU_PRIM_LINES_ADJ, bone_box.get()->verts[0], ibo, GPU_BATCH_OWNS_INDEX));
-  }
-
-  /* Armature Envelope. */
-  {
-    constexpr int lon_res = 24;
-    constexpr int lat_res = 24;
-    constexpr float lon_inc = 2.0f * M_PI / lon_res;
-    constexpr float lat_inc = M_PI / lat_res;
-
-    auto lat_lon_to_co = [](const float lat, const float lon) {
-      return float3(sinf(lat) * cosf(lon), sinf(lat) * sinf(lon), cosf(lat));
-    };
-
-    Vector<Vertex> verts;
-    float lon = 0.0f;
-    for (int i = 0; i < lon_res; i++, lon += lon_inc) {
-      float lat = 0.0f;
-      /* NOTE: the poles are duplicated on purpose, to restart the strip. */
-      for (int j = 0; j < lat_res; j++, lat += lat_inc) {
-        verts.append({lat_lon_to_co(lat, lon), VCLASS_NONE});
-        verts.append({lat_lon_to_co(lat, lon + lon_inc), VCLASS_NONE});
-      }
-      /* Closing the loop */
-      verts.append({lat_lon_to_co(M_PI, lon), VCLASS_NONE});
-      verts.append({lat_lon_to_co(M_PI, lon + lon_inc), VCLASS_NONE});
-    }
-
-    bone_envelope = BatchPtr(GPU_batch_create_ex(
-        GPU_PRIM_TRI_STRIP, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-  {
-    constexpr int circle_resolution = 64;
-    float2 v0, v1, v2;
-
-    auto circle_pt = [](const float angle) { return float2(sinf(angle), cosf(angle)); };
-
-    Vector<VertexTriple> verts;
-    /* Output 3 verts for each position. See shader for explanation. */
-    v0 = circle_pt((2.0f * M_PI * -2) / float(circle_resolution));
-    v1 = circle_pt((2.0f * M_PI * -1) / float(circle_resolution));
-    for (int a = 0; a <= circle_resolution; a++, v0 = v1, v1 = v2) {
-      v2 = circle_pt((2.0f * M_PI * a) / float(circle_resolution));
-      verts.append({v0, v1, v2});
-    }
-
-    bone_envelope_wire = BatchPtr(GPU_batch_create_ex(
-        GPU_PRIM_LINE_STRIP, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-
-  /* Degrees of freedom. */
-  {
-    constexpr int resolution = 16;
-
-    Vector<Vertex> verts;
-    auto set_vert = [&](const float x, const float y, const int quarter) {
-      verts.append({{(quarter % 2 == 0) ? -x : x, (quarter < 2) ? -y : y, 0.0f}, VCLASS_NONE});
-    };
-
-    for (int quarter : IndexRange(4)) {
-      float prev_z = 0.0f;
-      for (int i : IndexRange(1, resolution - 1)) {
-        float z = sinf(M_PI_2 * i / float(resolution - 1));
-        float prev_x = 0.0f;
-        for (int j : IndexRange(1, resolution - i)) {
-          float x = sinf(M_PI_2 * j / float(resolution - 1));
-          if (j == resolution - i) {
-            /* Pole triangle. */
-            set_vert(prev_x, z, quarter);
-            set_vert(prev_x, prev_z, quarter);
-            set_vert(x, prev_z, quarter);
-          }
-          else {
-            /* Quad. */
-            set_vert(x, z, quarter);
-            set_vert(x, prev_z, quarter);
-            set_vert(prev_x, z, quarter);
-
-            set_vert(x, prev_z, quarter);
-            set_vert(prev_x, prev_z, quarter);
-            set_vert(prev_x, z, quarter);
-          }
-          prev_x = x;
-        }
-        prev_z = z;
-      }
-    }
-
-    bone_degrees_of_freedom = BatchPtr(
-        GPU_batch_create_ex(GPU_PRIM_TRIS, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-  {
-    constexpr int resolution = 16 * 4;
-    Vector<float2> ring = ring_vertices(1.0f, resolution);
-
-    Vector<Vertex> verts;
-    for (int a : IndexRange(resolution + 1)) {
-      float2 cv = ring[a % resolution];
-      verts.append({{cv.x, cv.y, 0.0f}, VCLASS_NONE});
-    }
-
-    bone_degrees_of_freedom_wire = BatchPtr(GPU_batch_create_ex(
-        GPU_PRIM_LINE_STRIP, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
-
   /* quad_wire */
   {
     Vector<Vertex> verts;
-    verts.append({{-1.0f, -1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{-1.0f, +1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{-1.0f, +1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{+1.0f, +1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{+1.0f, +1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{+1.0f, -1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{+1.0f, -1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{-1.0f, -1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
+    verts.append({{-1.0f, -1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{-1.0f, +1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{-1.0f, +1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{+1.0f, +1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{+1.0f, +1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{+1.0f, -1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{+1.0f, -1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{-1.0f, -1.0f, 0.0f}, VCLASS_HELPER_SCALED});
 
     quad_wire = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -552,7 +219,7 @@ ShapeCache::ShapeCache()
     const Array<float2> quad = {{-1.0f, 1.0f}, {1.0f, 1.0f}, {-1.0f, -1.0f}, {1.0f, -1.0f}};
     Vector<Vertex> verts;
     for (const float2 &point : quad) {
-      verts.append({{point, 0.0f}, VCLASS_EMPTY_SCALED});
+      verts.append({{point, 0.0f}, VCLASS_HELPER_SCALED});
     }
     quad_solid = BatchPtr(GPU_batch_create_ex(
         GPU_PRIM_TRI_STRIP, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -560,12 +227,12 @@ ShapeCache::ShapeCache()
   /* plain_axes */
   {
     Vector<Vertex> verts;
-    verts.append({{0.0f, -1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{0.0f, +1.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{-1.0f, 0.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{+1.0f, 0.0f, 0.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{0.0f, 0.0f, -1.0f}, VCLASS_EMPTY_SCALED});
-    verts.append({{0.0f, 0.0f, +1.0f}, VCLASS_EMPTY_SCALED});
+    verts.append({{0.0f, -1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{0.0f, +1.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{-1.0f, 0.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{+1.0f, 0.0f, 0.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{0.0f, 0.0f, -1.0f}, VCLASS_HELPER_SCALED});
+    verts.append({{0.0f, 0.0f, +1.0f}, VCLASS_HELPER_SCALED});
 
     plain_axes = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -590,12 +257,12 @@ ShapeCache::ShapeCache()
         p[2][0] = -p[2][0];
       }
       for (int i = 0, a = 1; i < 2; i++, a++) {
-        verts.append({{p[i][0], p[i][1], p[i][2]}, VCLASS_EMPTY_SCALED});
-        verts.append({{p[a][0], p[a][1], p[a][2]}, VCLASS_EMPTY_SCALED});
+        verts.append({{p[i][0], p[i][1], p[i][2]}, VCLASS_HELPER_SCALED});
+        verts.append({{p[a][0], p[a][1], p[a][2]}, VCLASS_HELPER_SCALED});
       }
     }
-    verts.append({{0.0f, 0.0f, 0.0}, VCLASS_EMPTY_SCALED});
-    verts.append({{0.0f, 0.0f, 0.75f}, VCLASS_EMPTY_SCALED});
+    verts.append({{0.0f, 0.0f, 0.0}, VCLASS_HELPER_SCALED});
+    verts.append({{0.0f, 0.0f, 0.75f}, VCLASS_HELPER_SCALED});
 
     single_arrow = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -603,11 +270,11 @@ ShapeCache::ShapeCache()
   /* cube */
   {
     Vector<Vertex> verts;
-    for (auto index : bone_box_wire_lines) {
-      float x = bone_box_verts[index][0];
-      float y = bone_box_verts[index][1] * 2.0 - 1.0f;
-      float z = bone_box_verts[index][2];
-      verts.append({{x, y, z}, VCLASS_EMPTY_SCALED});
+    for (auto index : box_wire_lines) {
+      float x = box_verts[index][0];
+      float y = box_verts[index][1] * 2.0 - 1.0f;
+      float z = box_verts[index][2];
+      verts.append({{x, y, z}, VCLASS_HELPER_SCALED});
     }
 
     cube = BatchPtr(
@@ -626,21 +293,21 @@ ShapeCache::ShapeCache()
     for (int a : IndexRange(resolution + 1)) {
       float2 cv1 = ring[(a + 0) % resolution];
       float2 cv2 = ring[(a + 1) % resolution];
-      verts.append({{cv1.x, 0.0f, cv1.y}, VCLASS_EMPTY_SCALED});
-      verts.append({{cv2.x, 0.0f, cv2.y}, VCLASS_EMPTY_SCALED});
+      verts.append({{cv1.x, 0.0f, cv1.y}, VCLASS_HELPER_SCALED});
+      verts.append({{cv2.x, 0.0f, cv2.y}, VCLASS_HELPER_SCALED});
     }
 
     circle = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
   }
-  /* empty_sphere */
+  /* helper_sphere */
   {
-    Vector<Vertex> verts = sphere_axes_circles(1.0f, VCLASS_EMPTY_SCALED, 32);
+    Vector<Vertex> verts = sphere_axes_circles(1.0f, VCLASS_HELPER_SCALED, 32);
 
-    empty_sphere = BatchPtr(
+    helper_sphere = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
   }
-  /* empty_cone */
+  /* helper_cone */
   {
     constexpr int resolution = 8;
     Vector<float2> ring = ring_vertices(1.0f, resolution);
@@ -649,16 +316,16 @@ ShapeCache::ShapeCache()
     for (int i : IndexRange(resolution)) {
       float2 cv = ring[i % resolution];
       /* Cone sides. */
-      verts.append({{cv[0], 0.0f, cv[1]}, VCLASS_EMPTY_SCALED});
-      verts.append({{0.0f, 2.0f, 0.0f}, VCLASS_EMPTY_SCALED});
+      verts.append({{cv[0], 0.0f, cv[1]}, VCLASS_HELPER_SCALED});
+      verts.append({{0.0f, 2.0f, 0.0f}, VCLASS_HELPER_SCALED});
       /* Base ring. */
       for (int j : IndexRange(2)) {
         float2 cv = ring[(i + j) % resolution];
-        verts.append({{cv[0], 0.0f, cv[1]}, VCLASS_EMPTY_SCALED});
+        verts.append({{cv[0], 0.0f, cv[1]}, VCLASS_HELPER_SCALED});
       }
     }
 
-    empty_cone = BatchPtr(
+    helper_cone = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
   }
   /* cylinder */
@@ -667,13 +334,13 @@ ShapeCache::ShapeCache()
     const Vector<float2> ring = ring_vertices(1.0f, n_segments);
     Vector<Vertex> verts;
     /* top ring */
-    append_line_loop(verts, ring, 1.0f, VCLASS_EMPTY_SCALED);
+    append_line_loop(verts, ring, 1.0f, VCLASS_HELPER_SCALED);
     /* bottom ring */
-    append_line_loop(verts, ring, -1.0f, VCLASS_EMPTY_SCALED);
+    append_line_loop(verts, ring, -1.0f, VCLASS_HELPER_SCALED);
     /* cylinder sides */
     for (const float2 &point : ring) {
-      verts.append({{point.x, point.y, 1.0f}, VCLASS_EMPTY_SCALED});
-      verts.append({{point.x, point.y, -1.0f}, VCLASS_EMPTY_SCALED});
+      verts.append({{point.x, point.y, 1.0f}, VCLASS_HELPER_SCALED});
+      verts.append({{point.x, point.y, -1.0f}, VCLASS_HELPER_SCALED});
     }
     cylinder = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -770,10 +437,9 @@ ShapeCache::ShapeCache()
     for (int axis : IndexRange(3)) {
       /* Vertex layout is XY screen position and axis in Z.
        * Fractional part of Z is a positive offset at axis unit position. */
-      VertexClass flag = VCLASS_EMPTY_AXES | VCLASS_SCREENALIGNED;
+      VertexClass flag = VCLASS_HELPER_AXES | VCLASS_SCREENALIGNED;
       /* Center to axis line. */
-      /* NOTE: overlay_armature_shape_wire_vert.glsl expects the axis verts at the origin to be the
-       * only ones with this coordinates (it derives the VCLASS from it). */
+      /* The camera tracking axis marker shader derives the vertex class from these coordinates. */
       float pos_on_axis = float(axis) + 1e-8f;
       verts.append({{0.0f, 0.0f, 0.0f}, VCLASS_NONE});
       verts.append({{0.0f, 0.0f, pos_on_axis}, flag});
@@ -787,7 +453,7 @@ ShapeCache::ShapeCache()
       /* Axis name. */
       const Vector<float2> *axis_names[3] = {&x_axis_name, &y_axis_name, &z_axis_name};
       for (float2 axis_name_vert : *(axis_names[axis])) {
-        VertexClass flag = VCLASS_EMPTY_AXES | VCLASS_EMPTY_AXES_NAME | VCLASS_SCREENALIGNED;
+        VertexClass flag = VCLASS_HELPER_AXES | VCLASS_HELPER_AXES_NAME | VCLASS_SCREENALIGNED;
         verts.append({{axis_name_vert * 4.0f, pos_on_axis + 0.25f}, flag});
       }
     }
@@ -892,12 +558,12 @@ ShapeCache::ShapeCache()
   /* camera volume */
   {
     Vector<Vertex> verts;
-    for (const uint3 &tri : bone_box_solid_tris) {
+    for (const uint3 &tri : box_solid_tris) {
       for (const int i : IndexRange(uint3::type_length)) {
         const int v = tri[i];
-        const float x = bone_box_verts[v][2];
-        const float y = bone_box_verts[v][0];
-        const float z = bone_box_verts[v][1];
+        const float x = box_verts[v][2];
+        const float y = box_verts[v][0];
+        const float z = box_verts[v][1];
         verts.append({{x, y, z}, VCLASS_CAMERA_FRAME | VCLASS_CAMERA_VOLUME});
       }
     }
@@ -907,10 +573,10 @@ ShapeCache::ShapeCache()
   /* camera volume wire */
   {
     Vector<Vertex> verts;
-    for (int i : bone_box_wire_lines) {
-      const float x = bone_box_verts[i][2];
-      const float y = bone_box_verts[i][0];
-      const float z = bone_box_verts[i][1];
+    for (int i : box_wire_lines) {
+      const float x = box_verts[i][2];
+      const float y = box_verts[i][0];
+      const float z = box_verts[i][1];
       verts.append({{x, y, z}, VCLASS_CAMERA_FRAME | VCLASS_CAMERA_VOLUME});
     }
     camera_volume_wire = BatchPtr(
@@ -1071,7 +737,7 @@ ShapeCache::ShapeCache()
   /* field_force */
   {
     constexpr int circle_resol = 32;
-    constexpr VertexClass flag = VCLASS_EMPTY_SIZE | VCLASS_SCREENALIGNED;
+    constexpr VertexClass flag = VCLASS_DISPLAY_SIZE | VCLASS_SCREENALIGNED;
     constexpr std::array<float, 2> scales{2.0f, 0.75};
     Vector<float2> ring = ring_vertices(1.0f, circle_resol);
 
@@ -1097,7 +763,7 @@ ShapeCache::ShapeCache()
 
     for (const int i : IndexRange(4)) {
       const float z = 0.05f * float(i);
-      append_line_loop(verts, ring, z, VCLASS_EMPTY_SIZE);
+      append_line_loop(verts, ring, z, VCLASS_DISPLAY_SIZE);
     }
 
     field_wind = BatchPtr(
@@ -1116,7 +782,7 @@ ShapeCache::ShapeCache()
       /* index: [9, spiral_resol - 1, spiral_resol - 2, .., 2, 1, 0, 1, 2, .., spiral_resol - 1, 0]
        */
       const float2 point = ring[abs(spiral_resol - i) % spiral_resol] * r;
-      verts.append({float3(point.y, point.x, 0.0f), VCLASS_EMPTY_SIZE});
+      verts.append({float3(point.y, point.x, 0.0f), VCLASS_DISPLAY_SIZE});
     }
     field_vortex = BatchPtr(GPU_batch_create_ex(
         GPU_PRIM_LINE_STRIP, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -1128,7 +794,7 @@ ShapeCache::ShapeCache()
 
     Vector<Vertex> verts;
 
-    append_line_loop(verts, ring, 0.0f, VCLASS_EMPTY_SIZE | VCLASS_SCREENALIGNED);
+    append_line_loop(verts, ring, 0.0f, VCLASS_DISPLAY_SIZE | VCLASS_SCREENALIGNED);
 
     field_curve = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -1140,7 +806,7 @@ ShapeCache::ShapeCache()
 
     Vector<Vertex> verts;
 
-    append_line_loop(verts, ring, 0.0f, VCLASS_EMPTY_SIZE | VCLASS_SCREENALIGNED, true);
+    append_line_loop(verts, ring, 0.0f, VCLASS_DISPLAY_SIZE | VCLASS_SCREENALIGNED, true);
 
     field_sphere_limit = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
@@ -1157,13 +823,13 @@ ShapeCache::ShapeCache()
     /* Caps */
     for (const int i : IndexRange(2)) {
       const float z = i * 2.0f - 1.0f;
-      append_line_loop(verts, ring, z, VCLASS_EMPTY_SIZE, true);
+      append_line_loop(verts, ring, z, VCLASS_DISPLAY_SIZE, true);
     }
     /* Side Edges */
     for (const float2 &point : diamond) {
       for (const int i : IndexRange(side_stipple)) {
         const float z = (i / float(side_stipple)) * 2.0f - 1.0f;
-        verts.append({float3(point.y, point.x, z), VCLASS_EMPTY_SIZE});
+        verts.append({float3(point.y, point.x, z), VCLASS_DISPLAY_SIZE});
       }
     }
 
@@ -1182,13 +848,13 @@ ShapeCache::ShapeCache()
     /* Caps */
     for (const int i : IndexRange(2)) {
       const float z = i * 2.0f - 1.0f;
-      append_line_loop(verts, ring, z, VCLASS_EMPTY_SIZE, true);
+      append_line_loop(verts, ring, z, VCLASS_DISPLAY_SIZE, true);
     }
     /* Side Edges */
     for (const float2 &point : diamond) {
       for (const int i : IndexRange(side_stipple)) {
         const float z = (i / float(side_stipple)) * 2.0f - 1.0f;
-        verts.append({float3(point.y * z, point.x * z, z), VCLASS_EMPTY_SIZE});
+        verts.append({float3(point.y * z, point.x * z, z), VCLASS_DISPLAY_SIZE});
       }
     }
 

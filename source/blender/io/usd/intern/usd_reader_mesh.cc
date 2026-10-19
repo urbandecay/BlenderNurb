@@ -11,7 +11,7 @@
 #include "usd_hash_types.hh"
 #include "usd_mesh_utils.hh"
 #include "usd_reader_material.hh"
-#include "usd_skel_convert.hh"
+#include "usd_blend_shape_convert.hh"
 
 #include "BKE_attribute.h"
 #include "BKE_attribute.hh"
@@ -49,9 +49,6 @@
 #include <pxr/usd/usdGeom/xformCache.h>
 #include <pxr/usd/usdShade/materialBindingAPI.h>
 #include <pxr/usd/usdShade/tokens.h>
-#include <pxr/usd/usdSkel/bindingAPI.h>
-#include <pxr/usd/usdSkel/skeleton.h>
-
 #include <algorithm>
 
 #include "CLG_log.h"
@@ -253,10 +250,6 @@ void USDMeshReader::read_object_data(Main *bmain, const pxr::UsdTimeCode time)
 
   if (import_params_.import_blendshapes) {
     import_blendshapes(bmain, object_, prim_, reports());
-  }
-
-  if (import_params_.import_skeletons) {
-    import_mesh_skel_bindings(object_, prim_, reports());
   }
 
   USDXformReader::read_object_data(bmain, time);
@@ -1034,79 +1027,6 @@ void USDMeshReader::read_geometry(bke::GeometrySet &geometry_set,
   if (new_mesh != existing_mesh) {
     geometry_set.replace_mesh(new_mesh);
   }
-}
-
-pxr::SdfPath USDMeshReader::get_skeleton_path() const
-{
-  /* Make sure we can apply UsdSkelBindingAPI to the prim.
-   * Attempting to apply the API to instance proxies generates
-   * a USD error. */
-  if (!prim_ || prim_.IsInstanceProxy()) {
-    return {};
-  }
-
-  pxr::UsdSkelBindingAPI skel_api(prim_);
-
-  if (pxr::UsdSkelSkeleton skel = skel_api.GetInheritedSkeleton()) {
-    return skel.GetPath();
-  }
-
-  return {};
-}
-
-std::optional<XformResult> USDMeshReader::get_world_usd_xform(const pxr::UsdTimeCode time) const
-{
-  if (!import_params_.import_skeletons || prim_.IsInstanceProxy()) {
-    /* Use the standard transform computation, since we are ignoring
-     * skinning data. Note that applying the UsdSkelBinding API to an
-     * instance proxy generates a USD error. */
-    return USDXformReader::get_world_usd_xform(time);
-  }
-
-  const pxr::SdfPath skeleton_path = get_skeleton_path();
-  if (skeleton_path.IsEmpty()) {
-    return USDXformReader::get_world_usd_xform(time);
-  }
-
-  const pxr::UsdPrim skeleton_prim = prim_.GetStage()->GetPrimAtPath(skeleton_path);
-  if (!skeleton_prim) {
-    return USDXformReader::get_world_usd_xform(time);
-  }
-
-  pxr::UsdGeomXformCache xform_cache(time);
-  pxr::GfMatrix4d world_xform = xform_cache.GetLocalToWorldTransform(skeleton_prim);
-  bool is_constant = true;
-  for (pxr::UsdPrim ancestor = skeleton_prim; ancestor && !ancestor.IsPseudoRoot();
-       ancestor = ancestor.GetParent())
-  {
-    const pxr::UsdGeomXformable xformable(ancestor);
-    if (xformable && xformable.TransformMightBeTimeVarying()) {
-      is_constant = false;
-      break;
-    }
-  }
-
-  /* Per the UsdSkel spec, the skinned mesh's own xformOps do not position the skinned result.
-   * Bake the skeleton world transform and geomBindTransform into the mesh object matrix, which
-   * replaces the former Blender parent link while retaining the armature modifier. */
-  const pxr::UsdSkelBindingAPI skel_api(prim_);
-  const pxr::UsdAttribute bind_transform_attr = skel_api.GetGeomBindTransformAttr();
-  if (bind_transform_attr && bind_transform_attr.HasAuthoredValue()) {
-    pxr::GfMatrix4d bind_xform;
-    if (bind_transform_attr.Get(&bind_xform, time)) {
-      world_xform = world_xform * bind_xform;
-      is_constant &= !bind_transform_attr.ValueMightBeTimeVarying();
-    }
-    else {
-      BKE_reportf(reports(),
-                  RPT_WARNING,
-                  "%s: Couldn't compute geom bind transform for %s",
-                  __func__,
-                  prim_.GetPath().GetAsString().c_str());
-    }
-  }
-
-  return XformResult(pxr::GfMatrix4f(world_xform), is_constant);
 }
 
 }  // namespace io::usd

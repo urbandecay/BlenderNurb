@@ -13,7 +13,6 @@
 #include "BLI_math_constants.h"
 #include "BLI_span.hh"
 
-#include "DNA_armature_types.h"
 #include "DNA_defs.h"
 #include "DNA_listBase.h"
 #include "DNA_modifier_enums.h"
@@ -42,7 +41,7 @@ enum ModifierType : int {
   eModifierType_Mirror = 5,
   eModifierType_Decimate = 6,
   eModifierType_Wave = 7,
-  eModifierType_Armature = 8,
+  /* 8 is reserved to keep subsequent on-disk values stable. */
   eModifierType_Hook = 9,
   eModifierType_Softbody = 10,
   eModifierType_Boolean = 11,
@@ -185,7 +184,6 @@ struct MappingInfoModifierData {
 
   struct Tex *texture = nullptr;
   struct Object *map_object = nullptr;
-  char map_bone[/*MAXBONENAME*/ 64] = "";
   char uvlayer_name[/*MAX_CUSTOMDATA_LAYER_NAME*/ 68] = "";
   char _pad1[4] = {};
   int uvlayer_tmp = 0;
@@ -313,12 +311,6 @@ struct BuildModifierData {
   int seed = 0;
 };
 
-/** #MaskModifierData.mode */
-enum MaskModifierMode : short {
-  MOD_MASK_MODE_VGROUP = 0,
-  MOD_MASK_MODE_ARM = 1,
-};
-
 /** #MaskModifierData.flag */
 enum MaskModifierFlag : short {
   MOD_MASK_INV = (1 << 0),
@@ -330,13 +322,10 @@ ENUM_OPERATORS(MaskModifierFlag);
 struct MaskModifierData {
   ModifierData modifier;
 
-  /** Armature to use to in place of hardcoded vgroup. */
-  struct Object *ob_arm = nullptr;
   /** Name of vertex group to use to mask. */
   char vgroup[/*MAX_VGROUP_NAME*/ 64] = "";
 
-  /** Using armature or hardcoded vgroup. */
-  MaskModifierMode mode = MOD_MASK_MODE_VGROUP;
+  char _pad2[2] = {};
   /** Flags for various things. */
   MaskModifierFlag flag = {};
   float threshold = 0.0f;
@@ -656,7 +645,6 @@ struct DisplaceModifierData {
 
   struct Tex *texture = nullptr;
   struct Object *map_object = nullptr;
-  char map_bone[/*MAXBONENAME*/ 64] = "";
   char uvlayer_name[/*MAX_CUSTOMDATA_LAYER_NAME*/ 68] = "";
   char _pad1[4] = {};
   int uvlayer_tmp = 0;
@@ -797,7 +785,6 @@ struct WaveModifierData {
 
   struct Tex *texture = nullptr;
   struct Object *map_object = nullptr;
-  char map_bone[/*MAXBONENAME*/ 64] = "";
   char uvlayer_name[/*MAX_CUSTOMDATA_LAYER_NAME*/ 68] = "";
   char _pad1[4] = {};
   int uvlayer_tmp = 0;
@@ -817,18 +804,6 @@ struct WaveModifierData {
   float timeoffs = 0.0f, lifetime = 0.0f;
   char _pad3[4] = {};
   void *_pad4 = nullptr;
-};
-
-struct ArmatureModifierData {
-  ModifierData modifier;
-
-  /** #eArmature_DeformFlag use instead of #bArmature.deformflag. */
-  short deformflag = ARM_DEF_VGROUP, multi = 0.0f;
-  char _pad2[4] = {};
-  struct Object *object = nullptr;
-  /** Stored input of previous modifier, for vertex-group blending. */
-  float (*vert_coords_prev)[3] = {};
-  char defgrp_name[/*MAX_VGROUP_NAME*/ 64] = "";
 };
 
 enum HookModifierFlag : char {
@@ -855,8 +830,6 @@ struct HookModifierData {
   ModifierData modifier;
 
   struct Object *object = nullptr;
-  /** Optional name of bone target. */
-  char subtarget[/*MAX_NAME*/ 64] = "";
 
   HookModifierFlag flag = {};
   /** Use enums from WarpModifier (exact same functionality). */
@@ -1515,7 +1488,6 @@ struct WarpModifierData {
 
   struct Tex *texture = nullptr;
   struct Object *map_object = nullptr;
-  char map_bone[/*MAXBONENAME*/ 64] = "";
   char uvlayer_name[/*MAX_CUSTOMDATA_LAYER_NAME*/ 68] = "";
   char _pad1[4] = {};
   int uvlayer_tmp = 0;
@@ -1524,10 +1496,6 @@ struct WarpModifierData {
 
   struct Object *object_from = nullptr;
   struct Object *object_to = nullptr;
-  /** Optional name of bone target. */
-  char bone_from[/*MAX_NAME*/ 64] = "";
-  /** Optional name of bone target. */
-  char bone_to[/*MAX_NAME*/ 64] = "";
 
   struct CurveMapping *curfalloff = nullptr;
   /** Optional vertex-group name. */
@@ -1677,8 +1645,6 @@ struct WeightVGEditModifierData {
   struct Tex *mask_texture = nullptr;
   /** Name of the map object. */
   struct Object *mask_tex_map_obj = nullptr;
-  /** Name of the map bone. */
-  char mask_tex_map_bone[/*MAXBONENAME*/ 64] = "";
   /** How to map the texture (using MOD_DISP_MAP_* enums). */
   DisplaceModifierTexMapping mask_tex_mapping = MOD_DISP_MAP_LOCAL;
   /** Name of the UV map. */
@@ -1719,8 +1685,6 @@ struct WeightVGMixModifierData {
   struct Tex *mask_texture = nullptr;
   /** Name of the map object. */
   struct Object *mask_tex_map_obj = nullptr;
-  /** Name of the map bone. */
-  char mask_tex_map_bone[/*MAXBONENAME*/ 64] = "";
   /** How to map the texture. */
   DisplaceModifierTexMapping mask_tex_mapping = MOD_DISP_MAP_LOCAL;
   /** Name of the UV map. */
@@ -1764,8 +1728,6 @@ struct WeightVGProximityModifierData {
   struct Tex *mask_texture = nullptr;
   /** Name of the map object. */
   struct Object *mask_tex_map_obj = nullptr;
-  /** Name of the map bone. */
-  char mask_tex_map_bone[/*MAXBONENAME*/ 64] = "";
   /** How to map the texture. */
   DisplaceModifierTexMapping mask_tex_mapping = MOD_DISP_MAP_LOCAL;
   /** Name of the UV Map. */
@@ -2005,12 +1967,8 @@ struct UVWarpModifierData {
 
   /** Source. */
   struct Object *object_src = nullptr;
-  /** Optional name of bone target. */
-  char bone_src[/*MAX_NAME*/ 64] = "";
   /** Target. */
   struct Object *object_dst = nullptr;
-  /** Optional name of bone target. */
-  char bone_dst[/*MAX_NAME*/ 64] = "";
 
   /** Optional vertex-group name. */
   char vgroup_name[64] = "";

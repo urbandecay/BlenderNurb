@@ -45,7 +45,6 @@ _stale_filename = ".~stale~"
 # See #71486 and follow up discussion on #151863.
 _addons_hidden_core = {
     "bl_pkg",
-    "io_anim_bvh",
     "io_curve_svg",
     "io_mesh_uv_layout",
     "io_scene_fbx",

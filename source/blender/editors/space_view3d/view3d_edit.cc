@@ -8,7 +8,6 @@
  * 3D view manipulation/operators.
  */
 
-#include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_world_types.h"
 
@@ -23,7 +22,6 @@
 #include "BLI_string_utf8.h"
 
 #include "BKE_action.hh"
-#include "BKE_armature.hh"
 #include "BKE_camera.h"
 #include "BKE_lib_id.hh"
 #include "BKE_object.hh"
@@ -128,23 +126,6 @@ static wmOperatorStatus view_lock_to_active_exec(bContext *C, wmOperator * /*op*
 
     v3d->ob_center = obact; /* can be nullptr */
 
-    if (obact && obact->type == OB_ARMATURE) {
-      if (obact->mode & OB_MODE_POSE) {
-        Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-        Object *obact_eval = DEG_get_evaluated(depsgraph, obact);
-        bPoseChannel *pcham_act = BKE_pose_channel_active_if_bonecoll_visible(obact_eval);
-        if (pcham_act) {
-          STRNCPY_UTF8(v3d->ob_center_bone, pcham_act->name);
-        }
-      }
-      else {
-        EditBone *ebone_act = (id_cast<bArmature *>(obact->data))->act_edbone;
-        if (ebone_act) {
-          STRNCPY_UTF8(v3d->ob_center_bone, ebone_act->name);
-        }
-      }
-    }
-
     WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 
     return OPERATOR_FINISHED;
@@ -158,7 +139,7 @@ void VIEW3D_OT_view_lock_to_active(wmOperatorType *ot)
 
   /* identifiers */
   ot->name = "View Lock to Active";
-  ot->description = "Lock the view to the active object/bone";
+  ot->description = "Lock the view to the active object";
   ot->idname = "VIEW3D_OT_view_lock_to_active";
 
   /* API callbacks. */
@@ -1233,24 +1214,17 @@ static wmOperatorStatus toggle_xray_exec(bContext *C, wmOperator *op)
   ScrArea *area = CTX_wm_area(C);
   Object *obact = CTX_data_active_object(C);
 
-  if (obact && ((obact->mode & OB_MODE_POSE) ||
-                ((obact->mode & OB_MODE_WEIGHT_PAINT) && BKE_object_pose_armature_get(obact))))
-  {
-    v3d->overlay.flag ^= V3D_OVERLAY_BONE_SELECT;
+  const bool xray_active = ((obact && (obact->mode & OB_MODE_EDIT)) ||
+                            ELEM(v3d->shading.type, OB_WIRE, OB_SOLID));
+
+  if (v3d->shading.type == OB_WIRE) {
+    v3d->shading.flag ^= V3D_SHADING_XRAY_WIREFRAME;
   }
   else {
-    const bool xray_active = ((obact && (obact->mode & OB_MODE_EDIT)) ||
-                              ELEM(v3d->shading.type, OB_WIRE, OB_SOLID));
-
-    if (v3d->shading.type == OB_WIRE) {
-      v3d->shading.flag ^= V3D_SHADING_XRAY_WIREFRAME;
-    }
-    else {
-      v3d->shading.flag ^= V3D_SHADING_XRAY;
-    }
-    if (!xray_active) {
-      BKE_report(op->reports, RPT_INFO, "X-Ray not available in current mode");
-    }
+    v3d->shading.flag ^= V3D_SHADING_XRAY;
+  }
+  if (!xray_active) {
+    BKE_report(op->reports, RPT_INFO, "X-Ray not available in current mode");
   }
 
   ED_area_tag_redraw(area);

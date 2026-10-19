@@ -25,35 +25,19 @@ static float evaluate_vertex_weight(const MDeformVert *dvert, const DRW_MeshWeig
   }
 
   float input = 0.0f;
-  if (wstate->flags & DRW_MESH_WEIGHT_STATE_MULTIPAINT) {
-    /* Multi-Paint feature */
-    bool is_normalized = (wstate->flags & (DRW_MESH_WEIGHT_STATE_AUTO_NORMALIZE |
-                                           DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE));
-    input = BKE_defvert_multipaint_collective_weight(dvert,
-                                                     wstate->defgroup_len,
-                                                     wstate->defgroup_sel,
-                                                     wstate->defgroup_sel_count,
-                                                     is_normalized);
-    /* make it black if the selected groups have no weight on a vertex */
-    if (input == 0.0f) {
-      return -1.0f;
-    }
-  }
-  else {
-    /* default, non tricky behavior */
-    input = BKE_defvert_find_weight(dvert, wstate->defgroup_active);
+  input = BKE_defvert_find_weight(dvert, wstate->defgroup_active);
 
-    if (input == 0.0f) {
-      switch (wstate->alert_mode) {
-        case OB_DRAW_GROUPUSER_ACTIVE:
+  if (input == 0.0f) {
+    switch (wstate->alert_mode) {
+      case OB_DRAW_GROUPUSER_ACTIVE:
+        return -1.0f;
+      case OB_DRAW_GROUPUSER_ALL:
+        if (BKE_defvert_is_weight_zero(dvert, wstate->defgroup_len)) {
           return -1.0f;
-          break;
-        case OB_DRAW_GROUPUSER_ALL:
-          if (BKE_defvert_is_weight_zero(dvert, wstate->defgroup_len)) {
-            return -1.0f;
-          }
-          break;
       }
+        break;
+      default:
+        break;
     }
   }
 

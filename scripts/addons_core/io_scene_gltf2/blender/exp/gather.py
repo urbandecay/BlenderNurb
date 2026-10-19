@@ -9,7 +9,6 @@ from ...io.exp.user_extensions import export_user_extensions
 from ..com.extras import generate_extras
 from .cache import cached
 from . import nodes as gltf2_blender_gather_nodes
-from . import joints as gltf2_blender_gather_joints
 from . import tree as gltf2_blender_gather_tree
 from .animation.sampled.object.keyframes import get_cache_data
 from .animation.animations import gather_animations
@@ -71,20 +70,11 @@ def __gather_scene(blender_scene, export_settings):
 
     vtree = gltf2_blender_gather_tree.VExportTree(export_settings)
     vtree.construct(blender_scene)
-    vtree.search_missing_armature()  # In case armature are no parented correctly
-    if export_settings['gltf_armature_object_remove'] is True:
-        vtree.check_if_we_can_remove_armature()  # Check if we can remove the armatures objects
 
     export_user_extensions('vtree_before_filter_hook', export_settings, vtree)
 
     # Now, we can filter tree if needed
     vtree.filter()
-
-    if export_settings['gltf_flatten_bones_hierarchy'] is True:
-        vtree.break_bone_hierarchy()
-
-    vtree.bake_armature_bone_list()  # Used in case we remove the armature. Doing it after filter, as filter can remove some bones
-    # And ater breaking bone hierarchy, as this changed the root list
 
     if export_settings['gltf_flatten_obj_hierarchy'] is True:
         vtree.break_obj_hierarchy()
@@ -102,40 +92,10 @@ def __gather_scene(blender_scene, export_settings):
 
     export_settings['vtree'] = vtree
 
-    # If we don't remove armature object, we can't have bones directly at root of scene
-    # So looping only on root nodes, as they are all nodes, not bones
-    if export_settings['gltf_armature_object_remove'] is False:
-        for r in [vtree.nodes[r] for r in vtree.roots]:
-            node = gltf2_blender_gather_nodes.gather_node(
-                r, export_settings)
-            if node is not None:
-                scene.nodes.append(node)
-    else:
-        # If we remove armature objects, we can have bone at root of scene
-        armature_root_joints = {}
-        for r in [vtree.nodes[r] for r in vtree.roots]:
-            # Classic Object/node case
-            if r.blender_type != gltf2_blender_gather_tree.VExportNode.BONE:
-                node = gltf2_blender_gather_nodes.gather_node(
-                    r, export_settings)
-                if node is not None:
-                    scene.nodes.append(node)
-            else:
-                # We can have bone are root of scene because we remove the armature object
-                # and the armature was at root of scene
-                node = gltf2_blender_gather_joints.gather_joint_vnode(
-                    r.uuid, export_settings)
-                if node is not None:
-                    scene.nodes.append(node)
-                    if r.armature not in armature_root_joints.keys():
-                        armature_root_joints[r.armature] = []
-                    armature_root_joints[r.armature].append(node)
-
-        # Manage objects parented to bones, now we go through all root objects
-        for k, v in armature_root_joints.items():
-            gltf2_blender_gather_nodes.get_objects_parented_to_bones(k, v, export_settings)
-
-    vtree.add_neutral_bones()
+    for root in [vtree.nodes[uuid] for uuid in vtree.roots]:
+        node = gltf2_blender_gather_nodes.gather_node(root, export_settings)
+        if node is not None:
+            scene.nodes.append(node)
 
     export_user_extensions('gather_scene_hook', export_settings, scene, blender_scene)
 

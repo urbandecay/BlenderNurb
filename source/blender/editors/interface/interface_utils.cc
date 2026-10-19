@@ -619,8 +619,8 @@ int icon_from_id(const ID *id)
   if (GS(id->name) == ID_OB) {
     Object *ob = id_cast<Object *>(const_cast<ID *>(id));
 
-    if (ob->type == OB_EMPTY) {
-      return ICON_EMPTY_DATA;
+    if (ob->type == OB_NO_DATA) {
+      return ICON_OBJECT_DATA;
     }
     return icon_from_id(static_cast<const ID *>(ob->data));
   }

@@ -44,8 +44,6 @@
 #include "DNA_space_types.h"
 #include "DNA_world_types.h"
 
-#include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_brush.hh"
 #include "BKE_collection.hh"
 #include "BKE_colortools.hh"
@@ -62,7 +60,6 @@
 #include "BKE_material.hh"
 #include "BKE_node.hh"
 #include "BKE_object.hh"
-#include "BKE_pose_backup.h"
 #include "BKE_preview_image.hh"
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
@@ -97,8 +94,6 @@
 
 #include "UI_interface_icons.hh"
 
-#include "ANIM_action.hh"
-#include "ANIM_pose.hh"
 
 namespace blender {
 
@@ -406,14 +401,11 @@ static ID *duplicate_ids(ID *id, const bool allow_failure)
                                        LIB_ID_COPY_NO_ANIMDATA);
       return id_copy;
     }
-    case ID_GR: {
-      /* Doesn't really duplicate the collection. Just creates a collection instance empty. */
-      BLI_assert(BKE_previewimg_id_supports_jobs(id));
-      Object *instance_empty = BKE_object_add_only_object(nullptr, OB_EMPTY, nullptr);
-      instance_empty->instance_collection = id_cast<Collection *>(id);
-      instance_empty->transflag |= OB_DUPLICOLLECTION;
-      return &instance_empty->id;
-    }
+    case ID_GR:
+      if (!allow_failure) {
+        BLI_assert_msg(0, "Collection previews are not supported.");
+      }
+      return nullptr;
     /* These support threading, but don't need duplicating. */
     case ID_IM:
       BLI_assert(BKE_previewimg_id_supports_jobs(id));
@@ -916,126 +908,6 @@ static void object_preview_render(const PreviewImage *prv_img,
 
   DEG_graph_free(depsgraph);
   BKE_main_free(preview_main);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Collection Preview
- *
- * For the most part this reuses the object preview code by creating an instance collection empty
- * object and rendering that.
- *
- * \{ */
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Action Preview
- * \{ */
-
-static PoseBackup *action_preview_render_prepare(IconPreview *preview)
-{
-  Object *object = preview->active_object;
-  if (object == nullptr) {
-    WM_global_report(RPT_WARNING, "No active object, unable to apply the Action before rendering");
-    return nullptr;
-  }
-  if (object->pose == nullptr) {
-    WM_global_reportf(RPT_WARNING,
-                      "Object %s has no pose, unable to apply the Action before rendering",
-                      object->id.name + 2);
-    return nullptr;
-  }
-
-  /* Create a backup of the current pose. */
-  animrig::Action &pose_action = reinterpret_cast<bAction *>(preview->id)->wrap();
-
-  if (pose_action.slot_array_num == 0) {
-    WM_global_report(RPT_WARNING, "Action has no data, cannot render preview");
-    return nullptr;
-  }
-
-  animrig::Slot &slot = animrig::get_best_pose_slot_for_id(object->id, pose_action);
-  PoseBackup *pose_backup = BKE_pose_backup_create_all_bones({object}, &pose_action);
-
-  /* Apply the Action as pose, so that it can be rendered. This assumes the Action represents a
-   * single pose, and that thus the evaluation time doesn't matter. */
-  AnimationEvalContext anim_eval_context = {preview->depsgraph, 0.0f};
-  animrig::pose_apply_action_all_bones(object, &pose_action, slot.handle, &anim_eval_context);
-
-  /* Force evaluation of the new pose, before the preview is rendered. */
-  DEG_id_tag_update(&object->id, ID_RECALC_GEOMETRY);
-  DEG_evaluate_on_refresh(preview->depsgraph);
-
-  return pose_backup;
-}
-
-static void action_preview_render_cleanup(IconPreview *preview, PoseBackup *pose_backup)
-{
-  if (pose_backup == nullptr) {
-    return;
-  }
-  BKE_pose_backup_restore(pose_backup);
-  BKE_pose_backup_free(pose_backup);
-
-  DEG_id_tag_update(&preview->active_object->id, ID_RECALC_GEOMETRY);
-}
-
-/* Render a pose from the scene camera. It is assumed that the scene camera is
- * capturing the pose. The pose is applied temporarily to the current object
- * before rendering. */
-static void action_preview_render(const PreviewImage *prv_img,
-                                  IconPreview *preview,
-                                  const eIconSizes icon_size)
-{
-  char err_out[256] = "";
-
-  Depsgraph *depsgraph = preview->depsgraph;
-  /* Not all code paths that lead to this function actually provide a depsgraph.
-   * The "Refresh Asset Preview" button (#ED_OT_lib_id_generate_preview) does,
-   * but #WM_OT_previews_ensure does not. */
-  BLI_assert(depsgraph != nullptr);
-  BLI_assert(preview->scene == DEG_get_input_scene(depsgraph));
-
-  /* Apply the pose before getting the evaluated scene, so that the new pose is evaluated. */
-  PoseBackup *pose_backup = action_preview_render_prepare(preview);
-
-  Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
-  Object *camera_eval = scene_eval->camera;
-  if (camera_eval == nullptr) {
-    printf("Scene has no camera, unable to render preview of %s without it.\n",
-           preview->id->name + 2);
-    action_preview_render_cleanup(preview, pose_backup);
-    return;
-  }
-
-  /* This renders with the Workbench engine settings stored on the Scene. */
-  ImBuf *ibuf = ED_view3d_draw_offscreen_imbuf_simple(depsgraph,
-                                                      scene_eval,
-                                                      nullptr,
-                                                      OB_SOLID,
-                                                      camera_eval,
-                                                      prv_img->w[icon_size],
-                                                      prv_img->h[icon_size],
-                                                      ImBufFlags::ByteData,
-                                                      V3D_OFSDRAW_NONE,
-                                                      R_ADDSKY,
-                                                      nullptr,
-                                                      nullptr,
-                                                      nullptr,
-                                                      err_out);
-
-  action_preview_render_cleanup(preview, pose_backup);
-
-  if (err_out[0] != '\0') {
-    printf("Error rendering Action %s preview: %s\n", preview->id->name + 2, err_out);
-  }
-
-  if (ibuf) {
-    icon_copy_rect(ibuf, prv_img->w[icon_size], prv_img->h[icon_size], prv_img->rect[icon_size]);
-    IMB_freeImBuf(ibuf);
-  }
 }
 
 /** \} */
@@ -1563,7 +1435,7 @@ static void icon_preview_startjob_all_sizes(void *customdata, wmJobWorkerStatus 
     /* TODO: Decouple the ID-type-specific render functions from this function, so that it's not
      * necessary to know here what happens inside lower-level functions. */
     const bool use_solid_render_mode = (ip->id != nullptr) &&
-                                       ELEM(GS(ip->id->name), ID_OB, ID_AC, ID_IM, ID_GR, ID_SCE);
+                                       ELEM(GS(ip->id->name), ID_OB, ID_IM, ID_GR, ID_SCE);
     if (!use_solid_render_mode && preview_method_is_render(pr_method) &&
         !ED_check_engine_supports_preview(ip->scene))
     {
@@ -1587,16 +1459,6 @@ static void icon_preview_startjob_all_sizes(void *customdata, wmJobWorkerStatus 
             /* Much simpler than the ShaderPreview mess used for other ID types. */
             object_preview_render(prv, ip, icon_size);
           }
-          continue;
-        case ID_GR:
-          BLI_assert(BKE_collection_contains_geometry_recursive(
-              reinterpret_cast<const Collection *>(ip->id)));
-          /* A collection instance empty was created, so this can just reuse the object preview
-           * rendering. */
-          object_preview_render(prv, ip, icon_size);
-          continue;
-        case ID_AC:
-          action_preview_render(prv, ip, icon_size);
           continue;
         case ID_SCE:
           scene_preview_render(prv, ip, icon_size, worker_status->reports);
@@ -2131,10 +1993,7 @@ bool ED_preview_id_render_is_supported(const ID *id, const char **r_disabled_hin
         return {object_preview_is_type_supported(id_cast<const Object *>(id)),
                 RPT_("Object type does not support automatic previews")};
       case ID_GR:
-        return {
-            BKE_collection_contains_geometry_recursive(reinterpret_cast<const Collection *>(id)),
-            RPT_("Collection does not contain object types that can be rendered for the automatic "
-                 "preview")};
+        return {false, RPT_("Collections do not support automatic previews")};
       case ID_SCE:
         return {scene_preview_is_supported(id_cast<const Scene *>(id)),
                 RPT_("Scenes without a camera do not support previews")};
@@ -2149,8 +2008,6 @@ bool ED_preview_id_render_is_supported(const ID *id, const char **r_disabled_hin
       case ID_LA:
         return {true, ""};
       case ID_IM:
-        return {true, ""};
-      case ID_AC:
         return {true, ""};
       case ID_SCR:
         return {false, RPT_("Screens do not support automatic previews")};

@@ -144,41 +144,6 @@ DepsNodeHandle DepsgraphRelationBuilder::create_node_handle(const KeyType &key,
   return DepsNodeHandle(this, get_node(key), default_name);
 }
 
-/* Rig compatibility: we check if bone is using local transform as a variable
- * for driver on itself and ignore those relations to avoid "false-positive"
- * dependency cycles.
- */
-template<typename KeyFrom, typename KeyTo>
-bool DepsgraphRelationBuilder::is_same_bone_dependency(const KeyFrom &key_from,
-                                                       const KeyTo &key_to)
-{
-  /* Get operations for requested keys. */
-  Node *node_from = get_node(key_from);
-  Node *node_to = get_node(key_to);
-  if (node_from == nullptr || node_to == nullptr) {
-    return false;
-  }
-  OperationNode *op_from = node_from->get_exit_operation();
-  OperationNode *op_to = node_to->get_entry_operation();
-  if (op_from == nullptr || op_to == nullptr) {
-    return false;
-  }
-  /* Different armatures, bone can't be the same. */
-  if (op_from->owner->owner != op_to->owner->owner) {
-    return false;
-  }
-  /* We are only interested in relations like BONE_DONE -> BONE_LOCAL... */
-  if (!(op_from->opcode == OperationCode::BONE_DONE && op_to->opcode == OperationCode::BONE_LOCAL))
-  {
-    return false;
-  }
-  /* ... BUT, we also need to check if it's same bone. */
-  if (op_from->owner->name != op_to->owner->name) {
-    return false;
-  }
-  return true;
-}
-
 template<typename KeyFrom, typename KeyTo>
 bool DepsgraphRelationBuilder::is_same_nodetree_node_dependency(const KeyFrom &key_from,
                                                                 const KeyTo &key_to)

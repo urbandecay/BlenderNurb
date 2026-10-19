@@ -589,61 +589,6 @@ class _defs_view3d_add:
 # -----------------------------------------------------------------------------
 # Object Modes (named based on context.mode)
 
-class _defs_edit_armature:
-
-    @ToolDef.from_fn
-    def roll():
-        return dict(
-            idname="builtin.roll",
-            label="Roll",
-            icon="ops.armature.bone.roll",
-            widget="VIEW3D_GGT_tool_generic_handle_free",
-            keymap=(),
-        )
-
-    @ToolDef.from_fn
-    def bone_envelope():
-        return dict(
-            idname="builtin.bone_envelope",
-            label="Bone Envelope",
-            icon="ops.transform.bone_envelope",
-            widget="VIEW3D_GGT_tool_generic_handle_free",
-            keymap=(),
-        )
-
-    @ToolDef.from_fn
-    def bone_size():
-        return dict(
-            idname="builtin.bone_size",
-            label="B-Bone Size",
-            icon="ops.transform.bone_size",
-            widget="VIEW3D_GGT_tool_generic_handle_free",
-            keymap=(),
-        )
-
-    @ToolDef.from_fn
-    def extrude():
-        return dict(
-            idname="builtin.extrude",
-            label="Extrude",
-            icon="ops.armature.extrude_move",
-            widget="VIEW3D_GGT_xform_extrude",
-            keymap=(),
-            draw_settings=_template_widget.VIEW3D_GGT_xform_extrude.draw_settings,
-        )
-
-    @ToolDef.from_fn
-    def extrude_cursor():
-        return dict(
-            idname="builtin.extrude_to_cursor",
-            label="Extrude to Cursor",
-            cursor='CROSSHAIR',
-            icon="ops.armature.extrude_cursor",
-            widget=None,
-            keymap=(),
-        )
-
-
 class _defs_edit_mesh:
 
     @ToolDef.from_fn
@@ -1270,39 +1215,6 @@ class _defs_edit_text:
             icon="ops.generic.select_box",
             widget=None,
             keymap=(),
-        )
-
-
-class _defs_pose:
-
-    @ToolDef.from_fn
-    def breakdown():
-        return dict(
-            idname="builtin.breakdowner",
-            label="Breakdowner",
-            icon="ops.pose.breakdowner",
-            widget=None,
-            keymap="3D View Tool: Breakdowner",
-        )
-
-    @ToolDef.from_fn
-    def push():
-        return dict(
-            idname="builtin.push",
-            label="Push",
-            icon="ops.pose.push",
-            widget=None,
-            keymap="3D View Tool: Push",
-        )
-
-    @ToolDef.from_fn
-    def relax():
-        return dict(
-            idname="builtin.relax",
-            label="Relax",
-            icon="ops.pose.relax",
-            widget=None,
-            keymap="3D View Tool: Relax",
         )
 
 
@@ -1970,8 +1882,6 @@ class _defs_weight_paint:
                 ob and ob.type == 'MESH' and
                 (ob.data.use_paint_mask or ob.data.use_paint_mask_vertex)
         ):
-            return VIEW3D_PT_tools_active._tools_select
-        elif context.pose_object:
             return VIEW3D_PT_tools_active._tools_select
         return ()
 
@@ -3145,12 +3055,6 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
         _defs_view3d_add.ico_sphere_add,
     )
 
-    _tools_pose = (
-        _defs_pose.breakdown,
-        _defs_pose.push,
-        _defs_pose.relax,
-    )
-
     _tools_default = (
         *_tools_select,
         _defs_view3d_generic.cursor,
@@ -3173,28 +3077,6 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             *_tools_default,
             None,
             _tools_view3d_add,
-            None,
-            _tools_pose,
-        ],
-        'POSE': [
-            *_tools_default,
-            None,
-            _tools_pose,
-        ],
-        'EDIT_ARMATURE': [
-            *_tools_default,
-            None,
-            _defs_edit_armature.roll,
-            (
-                _defs_edit_armature.bone_size,
-                _defs_edit_armature.bone_envelope,
-            ),
-            None,
-            (
-                _defs_edit_armature.extrude,
-                _defs_edit_armature.extrude_cursor,
-            ),
-            _defs_transform.shear,
         ],
         'EDIT_MESH': [
             *_tools_default,
@@ -3387,17 +3269,6 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
                 _defs_weight_paint.sample_weight,
                 _defs_weight_paint.sample_weight_group,
             ),
-            None,
-            lambda context: (
-                (
-                    _defs_view3d_generic.cursor,
-                    None,
-                    *VIEW3D_PT_tools_active._tools_transform,
-                )
-                if context is None or context.pose_object
-                else ()
-            ),
-            None,
             _defs_weight_paint.poll_select_tools,
         ],
         'SCULPT_CURVES': [

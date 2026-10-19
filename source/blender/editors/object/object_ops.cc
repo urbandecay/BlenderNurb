@@ -39,7 +39,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_mode_set);
   WM_operatortype_append(OBJECT_OT_mode_set_with_submode);
   WM_operatortype_append(OBJECT_OT_editmode_toggle);
-  WM_operatortype_append(OBJECT_OT_posemode_toggle);
   WM_operatortype_append(OBJECT_OT_shade_smooth);
   WM_operatortype_append(OBJECT_OT_shade_smooth_by_angle);
   WM_operatortype_append(OBJECT_OT_shade_auto_smooth);
@@ -79,10 +78,7 @@ void operatortypes_object()
 
   WM_operatortype_append(OBJECT_OT_delete);
   WM_operatortype_append(OBJECT_OT_text_add);
-  WM_operatortype_append(OBJECT_OT_armature_add);
-  WM_operatortype_append(OBJECT_OT_empty_add);
   WM_operatortype_append(OBJECT_OT_lightprobe_add);
-  WM_operatortype_append(OBJECT_OT_empty_image_add);
   WM_operatortype_append(OBJECT_OT_light_add);
   WM_operatortype_append(OBJECT_OT_camera_add);
   WM_operatortype_append(OBJECT_OT_speaker_add);
@@ -96,7 +92,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_add_named);
   WM_operatortype_append(OBJECT_OT_transform_to_mouse);
   WM_operatortype_append(OBJECT_OT_effector_add);
-  WM_operatortype_append(OBJECT_OT_collection_instance_add);
   WM_operatortype_append(OBJECT_OT_collection_external_asset_drop);
   WM_operatortype_append(OBJECT_OT_data_instance_add);
   WM_operatortype_append(OBJECT_OT_metaball_add);
@@ -132,7 +127,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_skin_root_mark);
   WM_operatortype_append(OBJECT_OT_skin_loose_mark_clear);
   WM_operatortype_append(OBJECT_OT_skin_radii_equalize);
-  WM_operatortype_append(OBJECT_OT_skin_armature_create);
   WM_operatortype_append(OBJECT_OT_geometry_nodes_input_attribute_toggle);
   WM_operatortype_append(OBJECT_OT_geometry_node_tree_copy_assign);
 
@@ -143,14 +137,8 @@ void operatortypes_object()
 
   WM_operatortype_append(OBJECT_OT_constraint_add);
   WM_operatortype_append(OBJECT_OT_constraint_add_with_targets);
-  WM_operatortype_append(POSE_OT_constraint_add);
-  WM_operatortype_append(POSE_OT_constraint_add_with_targets);
   WM_operatortype_append(OBJECT_OT_constraints_copy);
-  WM_operatortype_append(POSE_OT_constraints_copy);
   WM_operatortype_append(OBJECT_OT_constraints_clear);
-  WM_operatortype_append(POSE_OT_constraints_clear);
-  WM_operatortype_append(POSE_OT_ik_add);
-  WM_operatortype_append(POSE_OT_ik_clear);
   WM_operatortype_append(CONSTRAINT_OT_delete);
   WM_operatortype_append(CONSTRAINT_OT_apply);
   WM_operatortype_append(CONSTRAINT_OT_copy);
@@ -219,7 +207,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_collection_objects_select);
 
   WM_operatortype_append(OBJECT_OT_hook_add_selob);
-  WM_operatortype_append(OBJECT_OT_hook_add_newob);
   WM_operatortype_append(OBJECT_OT_hook_remove);
   WM_operatortype_append(OBJECT_OT_hook_select);
   WM_operatortype_append(OBJECT_OT_hook_assign);
@@ -237,7 +224,6 @@ void operatortypes_object()
   WM_operatortype_append(bake_simulation::OBJECT_OT_geometry_node_bake_unpack_single);
   WM_operatortype_append(OBJECT_OT_drop_named_material);
   WM_operatortype_append(OBJECT_OT_drop_geometry_nodes);
-  WM_operatortype_append(OBJECT_OT_unlink_data);
   WM_operatortype_append(OBJECT_OT_laplaciandeform_bind);
 
   WM_operatortype_append(TRANSFORM_OT_vertex_random);

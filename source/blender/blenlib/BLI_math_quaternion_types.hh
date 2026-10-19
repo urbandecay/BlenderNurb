@@ -25,8 +25,8 @@ namespace blender::math {
 /**
  * A `math::QuaternionBase<T>` represents either an orientation or a rotation.
  *
- * Mainly used for rigging and armature deformations as they have nice mathematical properties
- * (eg: smooth shortest path interpolation). A `math::QuaternionBase<T>` is cheaper to
+ * Useful for representing rotations and smooth shortest path interpolation. A
+ * `math::QuaternionBase<T>` is cheaper to
  * combine than `MatBase<T, 3, 3>`. However, transforming points is slower. Consider converting to
  * a rotation matrix if you are rotating many points.
  *

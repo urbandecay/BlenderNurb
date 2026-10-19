@@ -37,42 +37,26 @@ namespace blender {
 template<> struct gpu::AttrType<VertexClass> {
   static constexpr VertAttrType type = VertAttrType::SINT_32;
 };
-template<> struct gpu::AttrType<StickBoneFlag> {
-  static constexpr VertAttrType type = VertAttrType::SINT_32;
-};
-
 namespace draw::overlay {
 
-struct BoneInstanceData {
-  /* Keep sync with bone instance vertex format (OVERLAY_InstanceFormats) */
+struct OverlayColorInstanceData {
   union {
     float4x4 mat44;
     float mat[4][4];
     struct {
-      float _pad0[3], color_hint_a;
-      float _pad1[3], color_hint_b;
+      float _pad0[3], color_aux_a;
+      float _pad1[3], color_aux_b;
       float _pad2[3], color_a;
       float _pad3[3], color_b;
     };
-    struct {
-      float _pad00[3], amin_a;
-      float _pad01[3], amin_b;
-      float _pad02[3], amax_a;
-      float _pad03[3], amax_b;
-    };
   };
 
-  BoneInstanceData() = default;
+  OverlayColorInstanceData() = default;
 
-  /**
-   * Constructor used by meta-ball overlays and expected to be used for drawing
-   * meta-ball edit circles with armature wire shader that produces wide-lines.
-   */
-  BoneInstanceData(const float4x4 &ob_mat,
-                   const float3 &pos,
-                   const float radius,
-                   const float color[4])
-
+  OverlayColorInstanceData(const float4x4 &ob_mat,
+                           const float3 &pos,
+                           const float radius,
+                           const float color[4])
   {
     mat44[0] = ob_mat[0] * radius;
     mat44[1] = ob_mat[1] * radius;
@@ -81,30 +65,10 @@ struct BoneInstanceData {
     set_color(color);
   }
 
-  BoneInstanceData(const float4x4 &bone_mat, const float4 &bone_color, const float4 &hint_color)
-      : mat44(bone_mat)
+  void set_color(const float4 &color)
   {
-    set_color(bone_color);
-    set_hint_color(hint_color);
-  };
-
-  BoneInstanceData(const float4x4 &bone_mat, const float4 &bone_color) : mat44(bone_mat)
-  {
-    set_color(bone_color);
-  };
-
-  void set_color(const float4 &bone_color)
-  {
-    /* Encoded color into 2 floats to be able to use the matrix to color the custom bones. */
-    color_a = encode_2f_to_float(bone_color[0], bone_color[1]);
-    color_b = encode_2f_to_float(bone_color[2], bone_color[3]);
-  }
-
-  void set_hint_color(const float4 &hint_color)
-  {
-    /* Encoded color into 2 floats to be able to use the matrix to color the custom bones. */
-    color_hint_a = encode_2f_to_float(hint_color[0], hint_color[1]);
-    color_hint_b = encode_2f_to_float(hint_color[2], hint_color[3]);
+    color_a = encode_2f_to_float(color[0], color[1]);
+    color_b = encode_2f_to_float(color[2], color[3]);
   }
 
  private:
@@ -164,10 +128,6 @@ struct State {
   bool xray_enabled_and_not_wire = false;
   /** Can be true even if X-ray Alpha is 1.0. */
   bool xray_flag_enabled = false;
-  /** Brings the active pose armature in front of all objects. */
-  bool do_pose_xray = false;
-  /** Add a veil on top of all surfaces to make the active pose armature pop out. */
-  bool do_pose_fade_geom = false;
   float xray_opacity = 0.0f;
   short v3d_flag = 0;     /* TODO: move to #View3DOverlay. */
   short v3d_gridflag = 0; /* TODO: move to #View3DOverlay. */
@@ -234,10 +194,6 @@ struct State {
   {
     return (this->overlay.flag & V3D_OVERLAY_FACE_ORIENTATION);
   }
-  bool show_bone_selection() const
-  {
-    return (this->overlay.flag & V3D_OVERLAY_BONE_SELECT);
-  }
   bool show_wireframes() const
   {
     return (this->overlay.flag & V3D_OVERLAY_WIREFRAMES);
@@ -245,10 +201,6 @@ struct State {
   bool show_motion_paths() const
   {
     return (this->overlay.flag & V3D_OVERLAY_HIDE_MOTION_PATHS) == 0;
-  }
-  bool show_bones() const
-  {
-    return (this->overlay.flag & V3D_OVERLAY_HIDE_BONES) == 0;
   }
   bool show_object_origins() const
   {
@@ -292,13 +244,6 @@ struct Vertex {
   GPU_VERTEX_FORMAT_FUNC(Vertex, pos, vclass);
 };
 
-struct VertexBone {
-  float3 pos;
-  StickBoneFlag vclass;
-
-  GPU_VERTEX_FORMAT_FUNC(VertexBone, pos, vclass);
-};
-
 struct VertexWithColor {
   float3 pos;
   float3 color;
@@ -312,15 +257,6 @@ struct VertShaded {
   float3 nor;
 
   GPU_VERTEX_FORMAT_FUNC(VertShaded, pos, vclass, nor);
-};
-
-/* TODO(fclem): Might be good to remove for simplicity. */
-struct VertexTriple {
-  float2 pos0;
-  float2 pos1;
-  float2 pos2;
-
-  GPU_VERTEX_FORMAT_FUNC(VertexTriple, pos0, pos1, pos2);
 };
 
 /**
@@ -337,19 +273,6 @@ class ShapeCache {
   using BatchPtr = std::unique_ptr<gpu::Batch, BatchDeleter>;
 
  public:
-  BatchPtr bone_box;
-  BatchPtr bone_box_wire;
-  BatchPtr bone_envelope;
-  BatchPtr bone_envelope_wire;
-  BatchPtr bone_octahedron;
-  BatchPtr bone_octahedron_wire;
-  BatchPtr bone_sphere;
-  BatchPtr bone_sphere_wire;
-  BatchPtr bone_stick;
-
-  BatchPtr bone_degrees_of_freedom;
-  BatchPtr bone_degrees_of_freedom_wire;
-
   BatchPtr grid;
   BatchPtr cube_solid;
 
@@ -362,8 +285,8 @@ class ShapeCache {
   BatchPtr single_arrow;
   BatchPtr cube;
   BatchPtr circle;
-  BatchPtr empty_sphere;
-  BatchPtr empty_cone;
+  BatchPtr helper_sphere;
+  BatchPtr helper_cone;
   BatchPtr cylinder;
   BatchPtr capsule_body;
   BatchPtr capsule_cap;
@@ -450,7 +373,6 @@ class ShaderModule {
  public:
   /** Shaders */
   StaticShader anti_aliasing = {"overlay_antialiasing_pipeline"};
-  StaticShader armature_degrees_of_freedom = shader_clippable("overlay_armature_dof");
   StaticShader attribute_viewer_mesh = shader_clippable("overlay_viewer_attribute_mesh");
   StaticShader attribute_viewer_pointcloud = shader_clippable(
       "overlay_viewer_attribute_pointcloud");
@@ -518,16 +440,7 @@ class ShaderModule {
   StaticShader xray_fade = {"overlay_xray_fade_pipeline"};
 
   /** Selectable Shaders */
-  StaticShader armature_envelope_fill = shader_selectable("overlay_armature_envelope_solid");
-  StaticShader armature_envelope_outline = shader_selectable("overlay_armature_envelope_outline");
-  StaticShader armature_shape_outline = shader_selectable("overlay_armature_shape_outline");
-  StaticShader armature_shape_fill = shader_selectable("overlay_armature_shape_solid");
-  StaticShader armature_shape_wire = shader_selectable("overlay_armature_shape_wire");
-  StaticShader armature_shape_wire_strip = shader_selectable("overlay_armature_shape_wire_strip");
-  StaticShader armature_sphere_outline = shader_selectable("overlay_armature_sphere_outline");
-  StaticShader armature_sphere_fill = shader_selectable("overlay_armature_sphere_solid");
-  StaticShader armature_stick = shader_selectable("overlay_armature_stick");
-  StaticShader armature_wire = shader_selectable("overlay_armature_wire");
+  StaticShader sphere_outline = shader_selectable("overlay_sphere_outline");
   StaticShader depth_curves = shader_selectable("overlay_depth_curves");
   StaticShader depth_mesh = shader_selectable("overlay_depth_mesh");
   StaticShader depth_mesh_conservative = shader_selectable("overlay_depth_mesh_conservative");
@@ -667,17 +580,7 @@ struct Resources : public select::SelectMap {
   {
     shaders = &overlay::ShaderModule::module_get(selection_type, clipping_enabled);
     shaders->anti_aliasing.ensure_compile_async();
-    shaders->armature_degrees_of_freedom.ensure_compile_async();
-    shaders->armature_envelope_fill.ensure_compile_async();
-    shaders->armature_envelope_outline.ensure_compile_async();
-    shaders->armature_shape_fill.ensure_compile_async();
-    shaders->armature_shape_outline.ensure_compile_async();
-    shaders->armature_shape_wire_strip.ensure_compile_async();
-    shaders->armature_shape_wire.ensure_compile_async();
-    shaders->armature_sphere_fill.ensure_compile_async();
-    shaders->armature_sphere_outline.ensure_compile_async();
-    shaders->armature_stick.ensure_compile_async();
-    shaders->armature_wire.ensure_compile_async();
+    shaders->sphere_outline.ensure_compile_async();
     shaders->attribute_viewer_curve.ensure_compile_async();
     shaders->attribute_viewer_curves.ensure_compile_async();
     shaders->attribute_viewer_mesh.ensure_compile_async();
@@ -864,9 +767,9 @@ struct Resources : public select::SelectMap {
       case OB_CAMERA:
         return TH_CAMERA;
       case OB_LIGHTPROBE:
-        /* TODO: add light-probe color. Use empty color for now. */
-      case OB_EMPTY:
-        return TH_EMPTY;
+        /* TODO: add light-probe color. Use the no-data object color for now. */
+      case OB_NO_DATA:
+        return TH_NO_DATA_OBJECT;
       default:
         return (is_edit) ? TH_WIRE_EDIT : TH_WIRE;
     }
@@ -890,8 +793,8 @@ struct Resources : public select::SelectMap {
         return theme.colors.speaker;
       case TH_CAMERA:
         return theme.colors.camera;
-      case TH_EMPTY:
-        return theme.colors.empty;
+      case TH_NO_DATA_OBJECT:
+        return theme.colors.no_data_object;
       case TH_LIGHT:
         return theme.colors.light;
       default:

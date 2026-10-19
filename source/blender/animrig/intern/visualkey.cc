@@ -12,8 +12,6 @@
 #include "ANIM_rna.hh"
 #include "ANIM_visualkey.hh"
 
-#include "BKE_armature.hh"
-
 #include "BLI_math_matrix.h"
 #include "BLI_math_rotation.h"
 
@@ -38,47 +36,24 @@ bool visualkey_can_use(PointerRNA *ptr, PropertyRNA *prop)
 {
   bConstraint *con = nullptr;
   bool has_rigidbody = false;
-  bool has_parent = false;
 
   if (ELEM(nullptr, ptr, ptr->data, prop)) {
     return false;
   }
 
-  /* Get first constraint and determine type of keyframe constraints to check for
-   * - constraints can be on either Objects or PoseChannels, so we only check if the
-   *   ptr->type is RNA_Object or RNA_PoseBone, which are the RNA wrapping-info for
-   *   those structs, allowing us to identify the owner of the data
-   */
-  if (ptr->type == RNA_Object) {
-    Object *ob = static_cast<Object *>(ptr->data);
-    RigidBodyOb *rbo = ob->rigidbody_object;
-
-    con = static_cast<bConstraint *>(ob->constraints.first);
-
-    /* Active rigidbody objects only, as only those are affected by sim. */
-    has_rigidbody = ((rbo) && (rbo->type == RBO_TYPE_ACTIVE));
-  }
-  else if (ptr->type == RNA_PoseBone) {
-    bPoseChannel *pchan = static_cast<bPoseChannel *>(ptr->data);
-
-    if (pchan->constflag & (PCHAN_HAS_IK | PCHAN_INFLUENCED_BY_IK)) {
-      /* Spline IK cannot generally be keyed visually, because (at least with the default
-       * constraint settings) it requires non-uniform scaling that causes shearing in child bones,
-       * which cannot be represented by the bone's loc/rot/scale properties. */
-      return true;
-    }
-
-    con = static_cast<bConstraint *>(pchan->constraints.first);
-    has_parent = (pchan->parent != nullptr);
-  }
-  else {
-    BLI_assert_msg(false,
-                   "visualkey_can_use called for data-block that is not an Object or PoseBone.");
+  if (ptr->type != RNA_Object) {
     return false;
   }
 
-  /* Parent or rigidbody are always matching, no need to check further. */
-  if (has_parent || has_rigidbody) {
+  Object *ob = static_cast<Object *>(ptr->data);
+  RigidBodyOb *rbo = ob->rigidbody_object;
+  con = static_cast<bConstraint *>(ob->constraints.first);
+
+  /* Active rigidbody objects only, as only those are affected by simulation. */
+  has_rigidbody = ((rbo) && (rbo->type == RBO_TYPE_ACTIVE));
+
+  /* Rigid body transforms are always visually keyed. */
+  if (has_rigidbody) {
     return true;
   }
 
@@ -118,14 +93,11 @@ bool visualkey_can_use(PointerRNA *ptr, PropertyRNA *prop)
     switch (con->type) {
       /* Multi-transform constraints. */
       case CONSTRAINT_TYPE_CHILDOF:
-      case CONSTRAINT_TYPE_ARMATURE:
         return true;
       case CONSTRAINT_TYPE_TRANSFORM:
       case CONSTRAINT_TYPE_TRANSLIKE:
         return true;
       case CONSTRAINT_TYPE_FOLLOWPATH:
-        return true;
-      case CONSTRAINT_TYPE_KINEMATIC:
         return true;
 
       /* Single-transform constraints. */
@@ -200,12 +172,8 @@ Vector<float> visualkey_get_values(PointerRNA *ptr, PropertyRNA *prop)
   float tmat[4][4];
   int rotmode;
 
-  /* Handle for Objects or PoseChannels only
-   * - only Location, Rotation or Scale keyframes are supported currently
-   * - constraints can be on either Objects or PoseChannels, so we only check if the
-   *   ptr->type is RNA_Object or RNA_PoseBone, which are the RNA wrapping-info for
-   *       those structs, allowing us to identify the owner of the data
-   * - assume that array_index will be sane
+  /* Handle Object transforms only. Other pointer types use their property values directly.
+   * Assume that array_index will be sane.
    */
   if (ptr->type == RNA_Object) {
     Object *ob = static_cast<Object *>(ptr->data);
@@ -217,23 +185,6 @@ Vector<float> visualkey_get_values(PointerRNA *ptr, PropertyRNA *prop)
 
     copy_m4_m4(tmat, ob->object_to_world().ptr());
     rotmode = ob->rotmode;
-  }
-  else if (ptr->type == RNA_PoseBone) {
-    Object *ob = id_cast<Object *>(ptr->owner_id);
-    bPoseChannel *pchan = static_cast<bPoseChannel *>(ptr->data);
-    Bone *bone = pchan->bone_get(*ob);
-
-    BKE_armature_mat_pose_to_bone({pchan, bone}, pchan->pose_mat, tmat);
-    rotmode = pchan->rotmode;
-
-    /* Loc code is specific... */
-    if (strstr(identifier, "location")) {
-      /* Only use for non-connected bones. */
-      if ((bone->parent == nullptr) || !(bone->flag & BONE_CONNECTED)) {
-        values.extend({tmat[3], 3});
-        return values;
-      }
-    }
   }
   else {
     return get_rna_values(ptr, prop);

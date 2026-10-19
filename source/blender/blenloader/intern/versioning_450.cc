@@ -29,7 +29,6 @@
 
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_curves.hh"
 #include "BKE_customdata.hh"
 #include "BKE_fcurve.hh"
@@ -48,7 +47,6 @@
 
 #include "ANIM_action.hh"
 #include "ANIM_action_iterators.hh"
-#include "ANIM_armature_iter.hh"
 
 #include "RNA_access.hh"
 
@@ -4966,15 +4964,6 @@ static void node_interface_single_value_to_structure_type(bNodeTreeInterfaceItem
   }
 }
 
-static void version_set_default_bone_drawtype(Main *bmain)
-{
-  for (bArmature &arm : bmain->armatures) {
-    animrig::ANIM_armature_foreach_bone(
-        &arm.bonebase, [](Bone *bone) { bone->drawtype = ARM_DRAW_TYPE_ARMATURE_DEFINED; });
-    BLI_assert_msg(!arm.edbo, "Armatures should not be saved in edit mode");
-  }
-}
-
 void blo_do_versions_450(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
 {
 
@@ -5022,22 +5011,6 @@ void blo_do_versions_450(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
                 node.custom1 = VOLUME_GRID_FLOAT;
                 break;
             }
-          }
-        }
-      }
-    }
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 405, 9)) {
-    for (bScreen &screen : bmain->screens) {
-      for (ScrArea &area : screen.areabase) {
-        for (SpaceLink &sl : area.spacedata) {
-          if (sl.spacetype != SPACE_FILE) {
-            continue;
-          }
-          SpaceFile *sfile = reinterpret_cast<SpaceFile *>(&sl);
-          if (sfile->asset_params) {
-            sfile->asset_params->import_flags |= FILE_ASSET_IMPORT_INSTANCE_COLLECTIONS_ON_LINK;
           }
         }
       }
@@ -5581,24 +5554,6 @@ void blo_do_versions_450(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
     version_convert_sculpt_planar_brushes(bmain);
   }
 
-  /* Enforce that bone envelope radii match for parent and connected children. */
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 405, 57)) {
-    for (bArmature &arm : bmain->armatures) {
-      animrig::ANIM_armature_foreach_bone(&arm.bonebase, [](Bone *bone) {
-        if (bone->parent && (bone->flag & BONE_CONNECTED)) {
-          bone->rad_head = bone->parent->rad_tail;
-        }
-      });
-      if (arm.edbo) {
-        for (EditBone &ebone : *arm.edbo) {
-          if (ebone.parent && (ebone.flag & BONE_CONNECTED)) {
-            ebone.rad_head = ebone.parent->rad_tail;
-          }
-        }
-      }
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 405, 58)) {
     FOREACH_NODETREE_BEGIN (bmain, node_tree, id) {
       if (node_tree->type == NTREE_COMPOSIT) {
@@ -5765,10 +5720,6 @@ void blo_do_versions_450(FileData * /*fd*/, Library * /*lib*/, Main *bmain)
       }
     }
     FOREACH_NODETREE_END;
-  }
-
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 405, 72)) {
-    version_set_default_bone_drawtype(bmain);
   }
 
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 405, 73)) {

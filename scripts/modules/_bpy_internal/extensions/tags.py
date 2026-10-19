@@ -31,7 +31,6 @@ addons = {
     "Physics",
     "Pipeline",
     "Render",
-    "Rigging",
     "Scene",
     "Sculpt",
     "Sequencer",

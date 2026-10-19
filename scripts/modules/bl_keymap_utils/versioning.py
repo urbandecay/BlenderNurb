@@ -164,7 +164,6 @@ def keyconfig_update(keyconfig_data, keyconfig_version):
             "transform.translate": ["alt_navigation"],
             "transform.vert_slide": ["alt_navigation"],
             "view3d.edit_mesh_extrude_move_normal": ["alt_navigation"],
-            "armature.extrude_move": ["TRANSFORM_OT_translate"],
             "curve.extrude_move": ["TRANSFORM_OT_translate"],
             "mesh.rip_edge_move": ["TRANSFORM_OT_translate"],
             "mesh.duplicate_move": ["TRANSFORM_OT_translate"],

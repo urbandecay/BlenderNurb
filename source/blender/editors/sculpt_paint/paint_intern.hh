@@ -440,7 +440,6 @@ void PAINT_OT_vertex_color_levels(wmOperatorType *ot);
 
 /* `paint_vertex_weight_ops.cc` */
 
-void PAINT_OT_weight_from_bones(wmOperatorType *ot);
 void PAINT_OT_weight_sample(wmOperatorType *ot);
 void PAINT_OT_weight_sample_group(wmOperatorType *ot);
 

@@ -11,8 +11,6 @@
 /* so modifier types match their defines */
 #include "MOD_modifiertypes.hh"
 
-#include "DEG_depsgraph_build.hh"
-
 namespace blender {
 
 struct MDeformVert;
@@ -32,17 +30,11 @@ void MOD_get_texture_coords(MappingInfoModifierData *dmd,
                             float (*cos)[3],
                             float (*r_texco)[3]);
 
-void MOD_previous_vcos_store(ModifierData *md, const float (*vert_coords)[3]);
 
 void MOD_get_vgroup(const Object *ob,
                     const Mesh *mesh,
                     const char *name,
                     const MDeformVert **dvert,
                     int *defgrp_index);
-
-void MOD_depsgraph_update_object_bone_relation(DepsNodeHandle *node,
-                                               Object *object,
-                                               const char *bonename,
-                                               const char *description);
 
 }  // namespace blender

@@ -506,9 +506,8 @@ struct ID {
    * - When this #ID is deleted, the #BPy_StructRNA can be invalidated
    *   so accessing it from Python raises an exception instead of crashing.
    *
-   *   This is of limited benefit though, as it doesn't apply to non #ID data
-   *   that references this ID (the bones of an armature or the modifiers of an object for
-   *   example).
+   *   This is of limited benefit though, as it doesn't apply to non-#ID data that references
+   *   this ID, such as modifiers on an object.
    */
   void *py_instance = nullptr;
 
@@ -1054,10 +1053,7 @@ enum IDRecalcFlag {
 
   /* ** Geometry changed. **
    *
-   * When object of armature type gets tagged with this flag, its pose is
-   * re-evaluated.
-   *
-   * When object of other type is tagged with this flag it makes the modifier
+   * When an object is tagged with this flag it makes the modifier
    * stack to be re-evaluated.
    *
    * When object data type (mesh, curve, ...) gets tagged with this flag it
@@ -1194,7 +1190,6 @@ enum IDRecalcFlag {
 
 /* To filter ID types (filter_id). 64 bit to fit all types. */
 #define FILTER_ID_AC (1ULL << 0)
-#define FILTER_ID_AR (1ULL << 1)
 #define FILTER_ID_BR (1ULL << 2)
 #define FILTER_ID_CA (1ULL << 3)
 #define FILTER_ID_CU_LEGACY (1ULL << 4)
@@ -1234,7 +1229,7 @@ enum IDRecalcFlag {
 #define FILTER_ID_IP (1ULL << 41)
 
 #define FILTER_ID_ALL \
-  (FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU_LEGACY | \
+  (FILTER_ID_AC | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU_LEGACY | \
    FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | \
    FILTER_ID_LT | FILTER_ID_MA | FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | \
    FILTER_ID_NT | FILTER_ID_OB | FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | \
@@ -1312,7 +1307,6 @@ enum eID_Index {
   INDEX_ID_KE,
 
   /* Object data types. */
-  INDEX_ID_AR,
   INDEX_ID_ME,
   INDEX_ID_CU_LEGACY,
   INDEX_ID_MB,

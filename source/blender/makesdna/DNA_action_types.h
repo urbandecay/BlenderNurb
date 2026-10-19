@@ -15,9 +15,7 @@
 #include <cmath>
 
 #include "DNA_ID.h"
-#include "DNA_armature_types.h"
 #include "DNA_listBase.h"
-#include "DNA_session_uid_types.h"
 #include "DNA_userdef_types.h" /* ThemeWireColor */
 #include "DNA_view2d_types.h"
 
@@ -27,7 +25,6 @@
 
 namespace blender {
 
-struct bItasc;
 struct AnimData;
 struct Collection;
 struct FCurve;
@@ -75,8 +72,6 @@ ENUM_OPERATORS(eMotionPathVert_Flag);
 
 /* bMotionPath->flag */
 enum eMotionPath_Flag : int {
-  /* (for bones) path represents the head of the bone */
-  MOTIONPATH_FLAG_BHEAD = (1 << 0),
   /* motion path is being edited */
   MOTIONPATH_FLAG_EDIT = (1 << 1),
   /* Custom colors */
@@ -120,8 +115,6 @@ enum eMotionPaths_ViewFlag : short {
   MOTIONPATH_VIEW_KFRAS = (1 << 1),
   /* show keyframe/frame numbers */
   MOTIONPATH_VIEW_KFNOS = (1 << 2),
-  /* find keyframes in whole action (instead of just in matching group name) */
-  MOTIONPATH_VIEW_KFACT = (1 << 3),
   /* draw lines on path */
   /* MOTIONPATH_VIEW_LINES = (1 << 4), */ /* UNUSED */
 };
@@ -131,8 +124,6 @@ ENUM_OPERATORS(eMotionPaths_ViewFlag);
 enum eMotionPath_BakeFlag : short {
   /** motion paths directly associated with this block of settings needs updating */
   /* MOTIONPATH_BAKE_NEEDS_RECALC = (1 << 0), */ /* UNUSED */
-  /** for bones - calculate head-points for curves instead of tips */
-  MOTIONPATH_BAKE_HEADS = (1 << 1),
   /** motion paths exist for AnimVizSettings instance - set when calc for first time,
    * and unset when clearing */
   MOTIONPATH_BAKE_HAS_PATHS = (1 << 2),
@@ -141,138 +132,7 @@ enum eMotionPath_BakeFlag : short {
 };
 ENUM_OPERATORS(eMotionPath_BakeFlag);
 
-/**
- * Runtime flags on pose bones. Those are only used internally and are not exposed to the user.
- */
-enum bPoseChannelRuntimeFlag : uint8_t {
-  /**
-   * Used during transform. Not every selected bone is transformed. For example in a chain of
-   * bones, only the first selected may be transformed.
-   */
-  POSE_RUNTIME_TRANSFORM = (1 << 0),
-  /** Set to prevent hinge child bones from influencing the transform center. */
-  POSE_RUNTIME_HINGE_CHILD_TRANSFORM = (1 << 1),
-  /** Indicates that a parent is also being transformed. */
-  POSE_RUNTIME_TRANSFORM_CHILD = (1 << 2),
-  /** Set on bones during selection to tell following code that this bone should be operated on. */
-  POSE_RUNTIME_IN_SELECTION_AREA = (1 << 3),
-};
-ENUM_OPERATORS(bPoseChannelRuntimeFlag);
-
-/* PoseChannel (transform) flags. */
-enum ePchan_Flag : short {
-  /* (1 << 0) to (1 << 3) used to be flags to determine if a type of channel
-   * should be modified by pose sliding.
-   * This has been moved to the `SlideSubject` struct in Blender 5.2. */
-
-  /* old IK/cache stuff
-   * - used to be here from (1 << 3) to (1 << 8)
-   *   but has been repurposed since 2.77.2
-   *   as they haven't been used in over 10 years
-   */
-
-  /**
-   * When set and bPoseChan.custom_tx is not a nullptr,
-   * the gizmo will be drawn at the location and
-   * orientation of the custom_tx instead of this bone.
-   */
-  POSE_TRANSFORM_AT_CUSTOM_TX = (1 << 4),
-  /**
-   * When set, transformations will modify the bone as if it was a child of the
-   * #bPoseChan.custom_tx. The flag only has an effect when #POSE_TRANSFORM_AT_CUSTOM_TX and
-   * `custom_tx` are set. This can be useful for rigs where the deformation is coming from
-   * shape-keys in addition to the armature.
-   */
-  POSE_TRANSFORM_AROUND_CUSTOM_TX = (1 << 5),
-  /**
-   * Marks the pose bone as selected. Do not set directly, use
-   * animrig::bone_select and animrig::bone_deselect instead.
-   */
-  POSE_SELECTED = (1 << 6),
-  /**
-   * Even though root and tip selection is not used in pose mode, we still have to store that
-   * state in order to retain selection when switching back and forth between pose and edit mode.
-   */
-  POSE_SELECTED_ROOT = (1 << 7),
-  POSE_SELECTED_TIP = (1 << 8),
-  /**
-   * selection state should only be against `POSE_SELECTED`. Do not set directly, use
-   * animrig::bone_select and animrig::bone_deselect instead.
-   */
-  POSE_SELECTED_ALL = (POSE_SELECTED | POSE_SELECTED_ROOT | POSE_SELECTED_TIP),
-
-  /* IK/Pose solving */
-  POSE_CHAIN = (1 << 9),
-  POSE_DONE = (1 << 10),
-  /* POSE_KEY = (1 << 11) */     /* UNUSED */
-  /* POSE_STRIDE = (1 << 12), */ /* UNUSED */
-  /* standard IK solving */
-  POSE_IKTREE = (1 << 13),
-#if 0
-  /* has Spline IK */
-  POSE_HAS_IKS = (1 << 14),
-#endif
-  /* spline IK solving */
-  POSE_IKSPLINE = static_cast<short>(1 << 15),
-};
-ENUM_OPERATORS(ePchan_Flag)
-
-/* PoseChannel constflag (constraint detection) */
-enum ePchan_ConstFlag : char {
-  PCHAN_HAS_IK = (1 << 0),           /* Has IK constraint. */
-  PCHAN_HAS_CONST = (1 << 1),        /* Has any constraint. */
-  /* PCHAN_HAS_ACTION = (1 << 2), */ /* UNUSED */
-  PCHAN_HAS_NO_TARGET = (1 << 3),    /* Has (spline) IK constraint but no target is set. */
-  /* PCHAN_HAS_STRIDE = (1 << 4), */ /* UNUSED */
-  PCHAN_HAS_SPLINEIK = (1 << 5),     /* Has Spline IK constraint. */
-  PCHAN_INFLUENCED_BY_IK = (1 << 6), /* Is part of a (non-spline) IK chain. */
-};
-ENUM_OPERATORS(ePchan_ConstFlag);
-
-/* PoseChannel->ikflag */
-enum ePchan_IkFlag : short {
-  BONE_IK_NO_XDOF = (1 << 0),
-  BONE_IK_NO_YDOF = (1 << 1),
-  BONE_IK_NO_ZDOF = (1 << 2),
-
-  BONE_IK_XLIMIT = (1 << 3),
-  BONE_IK_YLIMIT = (1 << 4),
-  BONE_IK_ZLIMIT = (1 << 5),
-
-  BONE_IK_ROTCTL = (1 << 6),
-  BONE_IK_LINCTL = (1 << 7),
-
-  BONE_IK_NO_XDOF_TEMP = (1 << 10),
-  BONE_IK_NO_YDOF_TEMP = (1 << 11),
-  BONE_IK_NO_ZDOF_TEMP = (1 << 12),
-};
-ENUM_OPERATORS(ePchan_IkFlag);
-
-/* PoseChannel->drawflag */
-enum ePchan_DrawFlag : char {
-  PCHAN_DRAW_NO_CUSTOM_BONE_SIZE = (1 << 0),
-  PCHAN_DRAW_HIDDEN = (1 << 1),
-};
-ENUM_OPERATORS(ePchan_DrawFlag);
-
-/* NOTE: It doesn't take custom_scale_xyz into account. */
-#define PCHAN_CUSTOM_BONE_LENGTH(pchanbone) \
-  (((pchanbone).pchan->drawflag & PCHAN_DRAW_NO_CUSTOM_BONE_SIZE) ? 1.0f : \
-                                                                    (pchanbone).bone->length)
-
-#ifdef DNA_DEPRECATED_ALLOW
-/* PoseChannel->bboneflag */
-enum ePchan_BBoneFlag : char {
-  /* Use custom reference bones (for roll and handle alignment), instead of immediate neighbors */
-  PCHAN_BBONE_CUSTOM_HANDLES = (1 << 1),
-  /* Evaluate start handle as being "relative" */
-  PCHAN_BBONE_CUSTOM_START_REL = (1 << 2),
-  /* Evaluate end handle as being "relative" */
-  PCHAN_BBONE_CUSTOM_END_REL = (1 << 3),
-};
-#endif
-
-/* PoseChannel->rotmode and Object->rotmode */
+/* Object rotation modes. */
 enum eRotationModes : short {
   /* quaternion rotations (default, and for older Blender versions) */
   ROT_MODE_QUAT = 0,
@@ -293,54 +153,6 @@ enum eRotationModes : short {
 
   ROT_MODE_MIN = ROT_MODE_AXISANGLE, /* sentinel for Py API */
   ROT_MODE_MAX = ROT_MODE_ZYX,
-};
-
-/* Pose->flag */
-enum ePose_Flags : short {
-  /* results in BKE_pose_rebuild being called */
-  POSE_RECALC = (1 << 0),
-  /* pose has constraints which depend on time (used when depsgraph updates for a new frame) */
-  POSE_CONSTRAINTS_TIMEDEPEND = (1 << 3),
-  /* recalculate bone paths */
-  /* POSE_RECALCPATHS = (1 << 4), */ /* UNUSED */
-  /* set by BKE_pose_rebuild to give a chance to the IK solver to rebuild IK tree */
-  POSE_WAS_REBUILT = (1 << 5),
-  POSE_FLAG_DEPRECATED = (1 << 6), /* deprecated. */
-  /* pose constraint flags needs to be updated */
-  POSE_CONSTRAINTS_NEED_UPDATE_FLAGS = (1 << 7),
-  /* Use auto IK in pose mode */
-  POSE_AUTO_IK = (1 << 8),
-  /* Use x-axis mirror in pose mode */
-  POSE_MIRROR_EDIT = (1 << 9),
-  /* Use relative mirroring in mirror mode */
-  POSE_MIRROR_RELATIVE = (1 << 10),
-};
-ENUM_OPERATORS(ePose_Flags);
-
-/* bPose->iksolver and bPose->ikparam->iksolver */
-enum ePose_IKSolverType : int {
-  IKSOLVER_STANDARD = 0,
-  IKSOLVER_ITASC = 1,
-};
-
-/* bItasc->flag */
-enum eItasc_Flags : short {
-  ITASC_AUTO_STEP = (1 << 0),
-  ITASC_INITIAL_REITERATION = (1 << 1),
-  ITASC_REITERATION = (1 << 2),
-  ITASC_SIMULATION = (1 << 3),
-  /**
-   * Set this flag to always translate root bones (i.e. bones without a parent) to (0, 0, 0).
-   * This was the pre-3.6 behavior, and this flag was introduced for backward compatibility.
-   */
-  ITASC_TRANSLATE_ROOT_BONES = (1 << 4),
-};
-ENUM_OPERATORS(eItasc_Flags);
-
-/* bItasc->solver */
-enum eItasc_Solver : short {
-  ITASC_SOLVER_SDLS = 0, /* selective damped least square, suitable for CopyPose constraint */
-  ITASC_SOLVER_DLS = 1,  /* damped least square with numerical filtering of damping */
 };
 
 /* Action Group flags */
@@ -505,7 +317,7 @@ enum eSAction_Flag : short {
   SACTION_NOTRANSKEYCULL = (1 << 4),
   /* don't include keyframes that are out of view */
   // SACTION_HORIZOPTIMISEON = (1 << 5), /* Deprecated, old irrelevant trick. */
-  /* show pose-markers (local to action) in Action Editor mode. */
+  /* show markers local to the active action in Action Editor mode. */
   SACTION_POSEMARKERS_SHOW = (1 << 6),
   /* don't draw action channels using group colors (where applicable) */
   /* SACTION_NODRAWGCOLORS = (1 << 7), DEPRECATED */
@@ -577,7 +389,7 @@ ENUM_OPERATORS(eTimeline_Cache_Flag)
 /* Visualization */
 
 /* Motion Paths ------------------------------------ */
-/* (used for Pose Channels and Objects) */
+/* (used for objects) */
 
 /** Data point for motion path (`mpv`). */
 struct bMotionPathVert {
@@ -620,7 +432,7 @@ struct bMotionPath {
 };
 
 /* Visualization General --------------------------- */
-/* for Objects or Poses (but NOT PoseChannels) */
+/* for Objects */
 
 /* Animation Visualization Settings (avs) */
 struct bAnimVizSettings {
@@ -643,332 +455,6 @@ struct bAnimVizSettings {
   int path_bc = 0, path_ac = 0;
 };
 
-/* runtime */
-#
-#
-struct bPoseChannelDrawData {
-  float solid_color[4] = {};
-  float wire_color[4] = {};
-
-  int bbone_matrix_len = 0;
-  /* keep last */
-  float bbone_matrix[0][4][4] = {};
-};
-
-struct DualQuat;
-struct Mat4;
-
-/* Describes a plane in pose space that delimits B-Bone segments. */
-struct bPoseChannel_BBoneSegmentBoundary {
-  /* Boundary data in pose space. */
-  float point[3] = {};
-  float plane_normal[3] = {};
-  /* Dot product of point and plane_normal to speed up distance computation. */
-  float plane_offset = 0;
-
-  /**
-   * Inverse width of the smoothing at this level in head-tail space.
-   * Optimization: this value is actually indexed by BSP depth (0 to `bsp_depth - 1`), not joint
-   * index. It's put here to avoid allocating a separate array by utilizing the padding space.
-   */
-  float depth_scale = 0;
-};
-
-static constexpr int64_t BONE_INDEX_UNKNOWN = -1;
-struct bPoseChannel_Runtime {
-  SessionUID session_uid;
-
-  int64_t bone_index = BONE_INDEX_UNKNOWN;
-
-  /* Cached dual quaternion for deformation. */
-  struct DualQuat deform_dual_quat;
-
-  /* B-Bone shape data: copy of the segment count for validation. */
-  int bbone_segments = 0;
-
-  /* Inverse of the total length of the segment polyline. */
-  float bbone_arc_length_reciprocal = 0;
-  bPoseChannelRuntimeFlag flag = {};
-  char _pad1[3] = {};
-
-  /* Rest and posed matrices for segments. */
-  struct Mat4 *bbone_rest_mats = nullptr;
-  struct Mat4 *bbone_pose_mats = nullptr;
-
-  /* Delta from rest to pose in matrix and DualQuat form. */
-  struct Mat4 *bbone_deform_mats = nullptr;
-  struct DualQuat *bbone_dual_quats = nullptr;
-
-  /* Segment boundaries for curved mode. */
-  struct bPoseChannel_BBoneSegmentBoundary *bbone_segment_boundaries = nullptr;
-  void *_pad = nullptr;
-};
-
-/* ************************************************ */
-/* Poses */
-
-/* PoseChannel ------------------------------------ */
-
-/**
- * PoseChannel
- *
- * A #bPoseChannel stores the results of Actions and transform information
- * with respect to the rest-position of #bArmature bones.
- */
-struct bPoseChannel {
-  DNA_DEFINE_CXX_METHODS(bPoseChannel)
-
-  struct bPoseChannel *next = nullptr, *prev = nullptr;
-
-  /**
-   * User-defined custom properties storage on this PoseChannel. Typically Accessed through the
-   * 'dict' syntax from Python.
-   */
-  IDProperty *prop = nullptr;
-
-  /**
-   * System-defined custom properties storage. Used to store data dynamically defined either by
-   * Blender itself (e.g. the GeoNode modifier), or some python script, extension etc.
-   *
-   * Typically accessed through RNA paths (`C.object.my_dynamic_float_property = 33.3`), when
-   * wrapped/defined by RNA.
-   */
-  IDProperty *system_properties = nullptr;
-
-  /** Constraints that act on this PoseChannel. */
-  ListBaseT<struct bConstraint> constraints = {nullptr, nullptr};
-  char name[/*MAXBONENAME*/ 64] = "";
-
-  /** Dynamic, for detecting transform changes. */
-  ePchan_Flag flag = {};
-  /** Settings for IK bones. */
-  ePchan_IkFlag ikflag = {};
-  /** Protect channels from being transformed. */
-  short protectflag = 0;
-  /** Index of action-group this bone belongs to (0 = default/no group). */
-  short agrp_index = 0;
-  /** For quick detecting which constraints affect this channel. */
-  ePchan_ConstFlag constflag = {};
-  /**
-   * This used to store the selection-flag for serialization but is not longer required
-   * since that is now natively stored on the `flag` property.
-   */
-  DNA_DEPRECATED char selectflag = 0;
-  ePchan_DrawFlag drawflag = {};
-  DNA_DEPRECATED char bboneflag = 0;
-  char _pad0[4] = {};
-
-  /** Set on read file or rebuild pose. */
-  struct bPoseChannel *parent = nullptr;
-  /** Set on read file or rebuild pose, the 'ik' child, for b-bones. */
-  struct bPoseChannel *child = nullptr;
-
-  /** "IK trees" - only while evaluating pose. */
-  ListBaseT<struct PoseTree> iktree = {nullptr, nullptr};
-  /** Spline-IK "trees" - only while evaluating pose. */
-  ListBaseT<struct tSplineIK_Tree> siktree = {nullptr, nullptr};
-
-  /** Motion path cache for this bone. */
-  bMotionPath *mpath = nullptr;
-  /**
-   * Draws custom object instead of default bone shape.
-   *
-   * \note For the purpose of user interaction (selection, display etc),
-   * it's important this value is treated as NULL when #ARM_NO_CUSTOM is set.
-   */
-  struct Object *custom = nullptr;
-  /**
-   * This is a specific feature to display with another bones transform.
-   * Needed in rare cases for advanced rigs, since alternative solutions are highly complicated.
-   *
-   * \note This depends #bPoseChannel.custom being set and the #ARM_NO_CUSTOM flag being unset.
-   */
-  struct bPoseChannel *custom_tx = nullptr;
-  float custom_scale = 0; /* Deprecated */
-  float custom_scale_xyz[3] = {1.0f, 1.0f, 1.0f};
-  float custom_translation[3] = {0.0f, 0.0f, 0.0f};
-  float custom_rotation_euler[3] = {};
-  float custom_shape_wire_width = 0;
-
-  /** Transforms - written in by actions or transform. */
-  float loc[3] = {};
-  float scale[3] = {1.0f, 1.0f, 1.0f};
-
-  /**
-   * Rotations - written in by actions or transform
-   * (but only one representation gets used at any time)
-   */
-  /** Euler rotation. */
-  float eul[3] = {};
-  /** Quaternion rotation. */
-  float quat[4] = {1.0f, 0.0f, 0.0f};
-  /** Axis-angle rotation. */
-  float rotAxis[3] = {}, rotAngle = 0;
-  /** Rotation representation to use. */
-  eRotationModes rotmode = {};
-  char _pad[6] = {};
-
-  /**
-   * Matrix result of location/rotation/scale components, and evaluation of
-   * animation data and constraints.
-   *
-   * This is the dynamic component of `pose_mat` (without #Bone.arm_mat).
-   */
-  float chan_mat[4][4] = {};
-  /**
-   * Channel matrix in the armature object space, i.e. `pose_mat = bone->arm_mat * chan_mat`.
-   */
-  float pose_mat[4][4] = {};
-  /** For display, pose_mat with bone length applied. */
-  float disp_mat[4][4] = {};
-  /** For display, pose_mat with bone length applied and translated to tail. */
-  float disp_tail_mat[4][4] = {};
-  /**
-   * Inverse result of constraints.
-   * doesn't include effect of rest-position, parent, and local transform.
-   */
-  float constinv[4][4] = {};
-
-  /** Actually pose_mat[3]. */
-  float pose_head[3] = {};
-  /** Also used for drawing help lines. */
-  float pose_tail[3] = {};
-
-  /** DOF constraint, note! - these are stored in degrees, not radians. */
-  float limitmin[3] = {}, limitmax[3] = {};
-  /** DOF stiffness. */
-  float stiffness[3] = {};
-  float ikstretch = 0;
-  /** Weight of joint rotation constraint. */
-  float ikrotweight = 0;
-  /** Weight of joint stretch constraint. */
-  float iklinweight = 0;
-
-  /**
-   * Curved bones settings - these are for animating,
-   * and are applied on top of the copies in pchan->bone_get(*ob)
-   */
-  float roll1 = 0, roll2 = 0;
-  float curve_in_x = 0, curve_in_z = 0;
-  float curve_out_x = 0, curve_out_z = 0;
-  float ease1 = 0, ease2 = 0;
-  DNA_DEPRECATED float scale_in_x = 0;
-  DNA_DEPRECATED float scale_in_z = 0;
-  DNA_DEPRECATED float scale_out_x = 0;
-  DNA_DEPRECATED float scale_out_z = 0;
-  float scale_in[3] = {1.0f, 1.0f, 1.0f};
-  float scale_out[3] = {1.0f, 1.0f, 1.0f};
-
-  /** B-Bone custom handles; set on read file or rebuild pose based on pchan->bone_get(*ob)
-   * data. */
-  struct bPoseChannel *bbone_prev = nullptr;
-  struct bPoseChannel *bbone_next = nullptr;
-
-  /** Use for outliner. */
-  void *temp = nullptr;
-  /** Runtime data for color and bbone segment matrix. */
-  bPoseChannelDrawData *draw_data = nullptr;
-
-  /** Points to an original pose channel. */
-  struct bPoseChannel *orig_pchan = nullptr;
-
-  BoneColor color; /* MUST be named the same as in Bone and EditBone structs. */
-
-  /** Runtime data (keep last). */
-  struct bPoseChannel_Runtime runtime;
-
-#ifdef __cplusplus
-  /**
-   * Get the armature bone that corresponds to this bPoseChannel.
-   *
-   * Prefer this function over bone_get(armature), as it performs more checks at runtime.
-   */
-  const Bone *bone_get(const Object &owner) const;
-  Bone *bone_get(Object &owner);
-
-  /**
-   * Get the armature bone that corresponds to this bPoseChannel.
-   *
-   * Prefer bone_get(object) over this function, as that performs more checks at runtime.
-   *
-   * \warning only use when you are sure bone indices are up to date.
-   * Call `BKE_pose_ensure_bone_indices` to ensure bone indices are correct.
-   */
-  const Bone *bone_get(const bArmature &armature) const;
-  Bone *bone_get(bArmature &armature);
-#endif
-};
-
-/* Pose ------------------------------------ */
-
-/* Pose-Object.
- *
- * It is only found under ob->pose. It is not library data, even
- * though there is a define for it (hack for the outliner).
- */
-struct bPose {
-  /** List of pose channels, PoseBones in RNA. */
-  ListBaseT<bPoseChannel> chanbase = {nullptr, nullptr};
-  /** Use a hash-table for quicker string lookups. */
-  struct GHash *chanhash = nullptr;
-
-  /* Flat array of pose channels. It references pointers from
-   * chanbase. Used for quick pose channel lookup from an index.
-   */
-  bPoseChannel **chan_array = nullptr;
-
-  ePose_Flags flag = {};
-  char _pad[2] = {};
-
-  /** Local action time of this pose. */
-  float ctime = 0;
-  /** Applied to object. */
-  float stride_offset[3] = {};
-  /** Result of match and cycles, applied in BKE_pose_where_is(). */
-  float cyclic_offset[3] = {};
-
-  /** List of bActionGroups. */
-  ListBaseT<struct bActionGroup> agroups = {nullptr, nullptr};
-
-  /** Index of active group (starts from 1). */
-  int active_group = 0;
-  /** Ik solver to use. */
-  ePose_IKSolverType iksolver = {};
-  /** Temporary IK data, depends on the IK solver. Not saved in file. */
-  void *ikdata = nullptr;
-  /** IK solver parameter for ItaSC. */
-  bItasc *ikparam = nullptr;
-
-  /** Settings for visualization of bone animation. */
-  bAnimVizSettings avs;
-};
-
-/* IK Solvers ------------------------------------ */
-
-/* header for all bPose->ikparam structures */
-struct bIKParam {
-  ePose_IKSolverType iksolver = {};
-};
-
-/* bPose->ikparam when bPose->iksolver=1 */
-struct bItasc {
-  ePose_IKSolverType iksolver = {};
-  float precision = 0;
-  short numiter = 0;
-  short numstep = 0;
-  float minstep = 0;
-  float maxstep = 0;
-  eItasc_Solver solver = {};
-  eItasc_Flags flag = {};
-  float feedback = 0;
-  /** Max velocity to SDLS solver. */
-  float maxvel = 0;
-  /** Maximum damping for DLS solver. */
-  float dampmax = 0;
-  /** Threshold of singular value from which the damping start progressively. */
-  float dampeps = 0;
-};
-
 /* ************************************************ */
 /* Action */
 
@@ -984,11 +470,7 @@ struct bItasc {
  * holds references to the achans within that list which belong to it. Care must be taken to
  * ensure that action-groups never end up being the sole 'owner' of a channel.
  *
- * This is also exploited for bone-groups. Bone-Groups are stored per bPose, and are used
- * primarily to color bones in the 3d-view. There are other benefits too, but those are mostly
- * related to Action-Groups.
- *
- * Note that these two uses each have their own RNA 'ActionGroup' and 'BoneGroup'.
+ * Groups organize channels in animation editors and can have custom colors.
  */
 struct bActionGroup {
   struct bActionGroup *next = nullptr, *prev = nullptr;
@@ -1027,8 +509,8 @@ struct bActionGroup {
   /** Settings for this action-group. */
   eActionGroup_Flag flag = {};
   /**
-   * Index of custom color set to use when used for bones
-   * (0=default - used for all old files, -1=custom set).
+   * Index of custom color set to use for the action group
+   * (0=default, -1=custom set).
    */
   int customCol = 0;
   /** Name of the group. */
@@ -1096,7 +578,7 @@ struct bAction {
   /** Legacy Groups of function-curves (bActionGroup), introduced in Blender 2.5. */
   ListBaseT<bActionGroup> groups = {nullptr, nullptr};
 
-  /** Markers local to the Action (used to provide Pose-Libraries). */
+  /** Markers local to the Action. */
   ListBaseT<struct TimeMarker> markers = {nullptr, nullptr};
 
   /** Settings for this action. */

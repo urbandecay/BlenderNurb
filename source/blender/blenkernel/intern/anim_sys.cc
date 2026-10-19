@@ -42,7 +42,6 @@
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_global.hh"
@@ -733,7 +732,7 @@ static void blend_rotation_with_conversion(PointerRNA &ptr,
     }
     case ROT_MODE_EUL: {
       /* TODO: determine the rotation order for euler angles. This has to be stored at the
-       * point of pose creation. */
+       * point of action creation. */
       eulO_to_quat(fcurve_quat, fcurve_rotation_values, ROT_MODE_XYZ);
       break;
     }
@@ -747,13 +746,7 @@ static void blend_rotation_with_conversion(PointerRNA &ptr,
   }
 
   float4 interp_quat;
-  if (ptr.type == RNA_PoseBone) {
-    bPoseChannel *pose_bone = static_cast<bPoseChannel *>(ptr.data);
-    const float4 quat = BKE_pchan_rot_to_quat(*pose_bone);
-    interp_qt_qtqt(interp_quat, quat, fcurve_quat, blend_factor);
-    BKE_pchan_quat_to_rot(*pose_bone, interp_quat);
-  }
-  else if (ptr.type == RNA_Object) {
+  if (ptr.type == RNA_Object) {
     Object *object = static_cast<Object *>(ptr.data);
     const float4 quat = BKE_object_rot_to_quat(*object);
     interp_qt_qtqt(interp_quat, quat, fcurve_quat, blend_factor);
@@ -799,8 +792,8 @@ static void animsys_blend_in_fcurves(PointerRNA *ptr,
                                      const AnimationEvalContext *anim_eval_context,
                                      const float blend_factor)
 {
-  /* Rotations are a special case since the rotation mode of the pose may not match with the
-   * current rotation mode of the `ptr`. Also quaternions need to be handled together. */
+  /* Rotations are a special case since the stored rotation mode may not match the current rotation
+   * mode of `ptr`. Also, quaternions need to be handled together. */
   Map<StringRefNull, Vector<FCurve *>> rotation_fcurve_map;
   for (FCurve *fcurve : fcurves) {
     StringRefNull rna_path(fcurve->rna_path);
@@ -3775,7 +3768,7 @@ NlaKeyframingContext *BKE_animsys_get_nla_keyframing_context(
 {
   /* The PointerRNA needs to point to an ID because animsys_evaluate_nla_for_keyframing uses
    * F-Curve paths to resolve properties. Since F-Curve paths are always relative to the ID this
-   * would fail if the PointerRNA was e.g. a bone. */
+   * would fail if the PointerRNA referred to a sub-ID property. */
   BLI_assert(RNA_struct_is_ID(ptr->type));
 
   /* No remapping needed if NLA is off or no action. */

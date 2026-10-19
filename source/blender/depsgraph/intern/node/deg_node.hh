@@ -88,7 +88,6 @@ enum class NodeType {
   HIERARCHY,
   /* Audio-related evaluation. */
   AUDIO,
-  ARMATURE,
   /* Un-interesting data-block, which is a part of dependency graph, but does
    * not have very distinctive update procedure. */
   GENERIC_DATABLOCK,
@@ -110,15 +109,11 @@ enum class NodeType {
    * affecting directly visible ID.
    *
    * This is the way to ensure objects needed for visualization without any actual data dependency
-   * properly evaluated. Example of this is custom shapes for bones. */
+   * properly evaluated. */
   VISIBILITY,
 
   /* **** Evaluation-Related Outer Types (with Sub-data) **** */
 
-  /* Pose Component - Owner/Container of Bones Eval */
-  EVAL_POSE,
-  /* Bone Component - Child/Subcomponent of Pose */
-  BONE,
   /* Particle Systems Component */
   PARTICLE_SYSTEM,
   PARTICLE_SETTINGS,

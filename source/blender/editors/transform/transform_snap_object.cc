@@ -478,7 +478,7 @@ static bool snap_object_is_snappable(const SnapObjectContext *sctx,
     }
   }
   else {
-    /* Handle target selection options that make sense for edit/pose mode. */
+    /* Handle target selection options that make sense for edit mode. */
     if ((snap_target_select & SCE_SNAP_TARGET_NOT_ACTIVE) && is_active) {
       return false;
     }
@@ -982,9 +982,6 @@ static eSnapMode snap_obj_fn(SnapObjectContext *sctx,
     case OB_MESH: {
       break;
     }
-    case OB_ARMATURE:
-      retval = snapArmature(sctx, ob_eval, obmat, is_object_active);
-      break;
     case OB_LATTICE:
       retval = snapLattice(sctx, ob_eval, obmat);
       break;
@@ -997,7 +994,7 @@ static eSnapMode snap_obj_fn(SnapObjectContext *sctx,
     case OB_FONT: {
       break;
     }
-    case OB_EMPTY:
+    case OB_NO_DATA:
     case OB_LAMP:
       retval = snap_object_center(sctx, ob_eval, obmat, sctx->runtime.snap_to_flag);
       break;

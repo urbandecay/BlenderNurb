@@ -6,8 +6,6 @@ import bpy
 from ....io.com import gltf2_io
 from ...com.extras import generate_extras
 from ..tree import VExportNode
-from .drivers import get_sk_drivers
-from .sampled.armature.channels import gather_armature_sampled_channels
 from .sampled.object.channels import gather_object_sampled_channels
 from .sampled.shapekeys.channels import gather_sk_sampled_channels
 from .sampled.data.channels import gather_data_sampled_channels
@@ -39,12 +37,7 @@ def gather_scene_animations(export_settings):
 
         # Do not manage not exported objects
         if vtree.nodes[obj_uuid].node is None:
-            if export_settings['gltf_armature_object_remove'] is True:
-                # Manage armature object, as this is the object that has the animation
-                if not vtree.nodes[obj_uuid].blender_object:
-                    continue
-            else:
-                continue
+            continue
 
         if export_settings['vtree'].nodes[obj_uuid].blender_type == VExportNode.COLLECTION:
             continue
@@ -54,60 +47,30 @@ def gather_scene_animations(export_settings):
 
         export_settings['ranges'][obj_uuid] = {}
         export_settings['ranges'][obj_uuid][obj_uuid] = {'start': start_frame, 'end': end_frame}
-        if blender_object and blender_object.type == "ARMATURE":
-            # Manage sk drivers
-            obj_drivers = get_sk_drivers(obj_uuid, export_settings)
-            for obj_dr in obj_drivers:
-                if obj_dr not in export_settings['ranges']:
-                    export_settings['ranges'][obj_dr] = {}
-                export_settings['ranges'][obj_dr][obj_uuid + "_" + obj_uuid] = {}
-                export_settings['ranges'][obj_dr][obj_uuid + "_" + obj_uuid]['start'] = start_frame
-                export_settings['ranges'][obj_dr][obj_uuid + "_" + obj_uuid]['end'] = end_frame
-
         if export_settings['gltf_anim_slide_to_zero'] is True and start_frame > 0:
             add_slide_data(start_frame, obj_uuid, obj_uuid, export_settings)
 
         # Perform baking animation export
 
-        if blender_object and blender_object.type != "ARMATURE":
-            # We have to check if this is a skinned mesh, because we don't have to force animation baking on this case
-            if export_settings['vtree'].nodes[obj_uuid].skin is None:
-                # Setting slot_identifier to None, always
-                channels, _ = gather_object_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
-                if channels is not None:
-                    total_channels.extend(channels)
+        if blender_object is not None:
+            channels, _ = gather_object_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
+            if channels is not None:
+                total_channels.extend(channels)
 
             if export_settings['gltf_morph_anim'] and blender_object.type == "MESH" \
                     and blender_object.data is not None \
                     and blender_object.data.shape_keys is not None:
 
-                # We must ignore sk for meshes that are driven by armature parent
-                ignore_sk = False
-                if export_settings['vtree'].nodes[obj_uuid].parent_uuid is not None \
-                        and export_settings['vtree'].nodes[export_settings['vtree'].nodes[obj_uuid].parent_uuid].blender_type == VExportNode.ARMATURE:
-                    obj_drivers = get_sk_drivers(export_settings['vtree'].nodes[obj_uuid].parent_uuid, export_settings)
-                    if obj_uuid in obj_drivers:
-                        ignore_sk = True
-
-                if ignore_sk is False:
-                    # Setting slot_identifier to None, always
-                    channels = gather_sk_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
-                    if channels is not None:
-                        total_channels.extend(channels)
-        elif blender_object is None:
+                channels = gather_sk_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
+                if channels is not None:
+                    total_channels.extend(channels)
+        else:
             # This is GN instances
-            # Currently, not checking if this instance is skinned.... #TODO
             # No action / slot for GN instances
             # Setting slot_identifier to None, always
             channels, _ = gather_object_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
             if channels is not None:
                 total_channels.extend(channels)
-        else:
-            # Setting slot_identifier to None, always
-            channels, _ = gather_armature_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
-            if channels is not None:
-                total_channels.extend(channels)
-
         if export_settings['gltf_anim_scene_split_object'] is True:
             if len(total_channels) > 0:
                 animation = gltf2_io.Animation(
@@ -138,7 +101,7 @@ def gather_scene_animations(export_settings):
                 'start': start_frame, 'end': end_frame}
 
             if export_settings['gltf_anim_slide_to_zero'] is True and start_frame > 0:
-                add_slide_data(start_frame, mat, mat, export_settings, add_drivers=False)
+                add_slide_data(start_frame, mat, mat, export_settings)
 
             # Setting slot_identifier to None, always
             channels = gather_data_sampled_channels('materials', mat, mat, None, None, export_settings)
@@ -170,7 +133,7 @@ def gather_scene_animations(export_settings):
             export_settings['ranges'][id(blender_light)][id(blender_light)] = {'start': start_frame, 'end': end_frame}
 
             if export_settings['gltf_anim_slide_to_zero'] is True and start_frame > 0:
-                add_slide_data(start_frame, light, light, export_settings, add_drivers=False)
+                add_slide_data(start_frame, light, light, export_settings)
 
             # Setting slot_identifier to None, always
             channels = gather_data_sampled_channels('lights', light, light, None, None, export_settings)
@@ -202,7 +165,7 @@ def gather_scene_animations(export_settings):
             export_settings['ranges'][id(blender_camera)][id(blender_camera)] = {'start': start_frame, 'end': end_frame}
 
             if export_settings['gltf_anim_slide_to_zero'] is True and start_frame > 0:
-                add_slide_data(start_frame, cam, cam, export_settings, add_drivers=False)
+                add_slide_data(start_frame, cam, cam, export_settings)
 
             # Setting slot_identifier to None, always
             channels = gather_data_sampled_channels('cameras', cam, cam, None, None, export_settings)

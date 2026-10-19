@@ -353,8 +353,8 @@ class Action : public bAction {
   /**
    * Return whether the action has one unique point in time keyed.
    *
-   * This is mostly for the pose library, which will have different behavior depending on whether
-   * an Action corresponds to a "pose" (one keyframe) or "animation snippet" (multiple keyframes).
+   * This is useful for actions that represent a static configuration, such as a one-frame pose,
+   * instead of a multi-frame animation.
    *
    * \return `false` when there is no keyframe at all or keys on different points in time, `true`
    * when exactly one point in time is keyed.
@@ -1000,8 +1000,7 @@ static_assert(sizeof(StripKeyframeData) == sizeof(ActionStripKeyframeData),
  * Collection of F-Curves, intended for a specific Slot handle.
  *
  * In addition to F-Curves, Channelbags can also contain ChannelGroups, which
- * are used to organize F-Curves within the Channelbag (e.g. all F-Curves for a
- * given bone can be put into a ChannelGroup with that bone's name).
+ * are used to organize F-Curves within the Channelbag by property.
  *
  * \see ChannelGroup
  */
@@ -1689,8 +1688,8 @@ FCurve *fcurve_find_in_assigned_slot(AnimData &adt, const FCurveDescriptor &fcur
 /**
  * Return whether `fcurve` targets the given collection path + data name.
  *
- * For example, to match F-Curves for the pose bone named `"botje"`, you'd pass
- * `collection_rna_path = "pose.bones["` and `data_name="botje"`.
+ * For example, to match F-Curves for an item named `"botje"`, you'd pass
+ * `collection_rna_path = "items["` and `data_name="botje"`.
  *
  * \return True if `fcurve` matches, false if it doesn't.
  */

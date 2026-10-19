@@ -8,19 +8,16 @@ from math import ceil
 from ....io.com import gltf2_io
 from ....io.exp.user_extensions import export_user_extensions
 from ....blender.com.conversion import get_gltf_interpolation
-from ...com.data_path import is_bone_anim_channel, get_channelbag_for_slot
+from ...com.data_path import get_channelbag_for_slot
 from ...com.extras import generate_extras
 from ..cache import cached
 from ..tree import VExportNode
 from .fcurves.animation import gather_animation_fcurves
-from .sampled.armature.action_sampled import gather_action_armature_sampled
-from .sampled.armature.channels import gather_sampled_bone_channel
 from .sampled.object.action_sampled import gather_action_object_sampled
 from .sampled.shapekeys.action_sampled import gather_action_sk_sampled
 from .sampled.object.channels import gather_object_sampled_channels, gather_sampled_object_channel
 from .sampled.shapekeys.channels import gather_sampled_sk_channel
-from .drivers import get_sk_drivers, get_driver_on_shapekey
-from .anim_utils import reset_bone_matrix, reset_sk_data, link_samplers, add_slide_data, merge_tracks_perform, bake_animation
+from .anim_utils import reset_sk_data, link_samplers, add_slide_data, merge_tracks_perform, bake_animation
 
 
 class ActionsData:
@@ -157,12 +154,7 @@ def gather_actions_animations(export_settings):
 
         # Do not manage not exported objects
         if vtree.nodes[obj_uuid].node is None:
-            if export_settings["gltf_armature_object_remove"] is True:
-                # Manage armature object, as this is the object that has the animation
-                if not vtree.nodes[obj_uuid].blender_object:
-                    continue
-            else:
-                continue
+            continue
 
         if export_settings['vtree'].nodes[obj_uuid].blender_type == VExportNode.COLLECTION:
             continue
@@ -176,7 +168,7 @@ def gather_actions_animations(export_settings):
     if export_settings['gltf_optimize_disable_viewport']:
         for obj, default_hide_viewport in [
             (n.blender_object, n.default_hide_viewport) for n in export_settings['vtree'].nodes.values() if n.blender_type in [
-                VExportNode.OBJECT, VExportNode.ARMATURE, VExportNode.COLLECTION]]:
+                VExportNode.OBJECT, VExportNode.COLLECTION]]:
             # Set it back to the initial value, in case some objects were hidden in viewport before export
             obj.hide_viewport = default_hide_viewport
 
@@ -230,12 +222,7 @@ def prepare_actions_range(export_settings):
 
         # Do not manage not exported objects
         if vtree.nodes[obj_uuid].node is None:
-            if export_settings["gltf_armature_object_remove"] is True:
-                # Manage armature object, as this is the object that has the animation
-                if not vtree.nodes[obj_uuid].blender_object:
-                    continue
-            else:
-                continue
+            continue
 
         if obj_uuid not in export_settings['ranges']:
             export_settings['ranges'][obj_uuid] = {}
@@ -329,17 +316,6 @@ def prepare_actions_range(export_settings):
                         start_frame_reference, bpy.context.scene.frame_start, export_settings)
                     export_settings['ranges'][obj_uuid][obj_uuid]['end'] = bpy.context.scene.frame_end
 
-                # For baking drivers
-                if export_settings['vtree'].nodes[obj_uuid].blender_type == VExportNode.ARMATURE and export_settings['gltf_morph_anim'] is True:
-                    obj_drivers = get_sk_drivers(obj_uuid, export_settings)
-                    for obj_dr in obj_drivers:
-                        if obj_dr not in export_settings['ranges']:
-                            export_settings['ranges'][obj_dr] = {}
-                        export_settings['ranges'][obj_dr][obj_uuid + "_" + blender_action.name] = {}
-                        export_settings['ranges'][obj_dr][obj_uuid + "_" + blender_action.name]['start'] = _align_frame_start(
-                            start_frame_reference, start_frame, export_settings)
-                        export_settings['ranges'][obj_dr][obj_uuid + "_" + blender_action.name]['end'] = end_frame
-
         if len(blender_actions) == 0 and export_settings['gltf_bake_animation']:
             # No animation on this object
             # In case of baking animation, we will use scene frame range
@@ -348,17 +324,6 @@ def prepare_actions_range(export_settings):
             export_settings['ranges'][obj_uuid][obj_uuid]['start'] = _align_frame_start(
                 start_frame_reference, bpy.context.scene.frame_start, export_settings)
             export_settings['ranges'][obj_uuid][obj_uuid]['end'] = bpy.context.scene.frame_end
-
-            # For baking drivers
-            if export_settings['vtree'].nodes[obj_uuid].blender_type == VExportNode.ARMATURE and export_settings['gltf_morph_anim'] is True:
-                obj_drivers = get_sk_drivers(obj_uuid, export_settings)
-                for obj_dr in obj_drivers:
-                    if obj_dr not in export_settings['ranges']:
-                        export_settings['ranges'][obj_dr] = {}
-                    export_settings['ranges'][obj_dr][obj_uuid + "_" + obj_uuid] = {}
-                    export_settings['ranges'][obj_dr][obj_uuid + "_" + obj_uuid]['start'] = _align_frame_start(
-                        start_frame_reference, bpy.context.scene.frame_start, export_settings)
-                    export_settings['ranges'][obj_dr][obj_uuid + "_" + obj_uuid]['end'] = bpy.context.scene.frame_end
 
     if (export_settings['gltf_negative_frames'] == "SLIDE"
             or export_settings['gltf_anim_slide_to_zero'] is True) \
@@ -372,12 +337,7 @@ def prepare_actions_range(export_settings):
 
             # Do not manage not exported objects
             if vtree.nodes[obj_uuid].node is None:
-                if export_settings['gltf_armature_object_remove'] is True:
-                    # Manage armature object, as this is the object that has the animation
-                    if not vtree.nodes[obj_uuid].blender_object:
-                        continue
-                else:
-                    continue
+                continue
 
             blender_actions = __get_blender_actions(obj_uuid, export_settings)
             for action_data in blender_actions.values():
@@ -470,29 +430,6 @@ def gather_action_animations(obj_uuid: int,
         # Enable viewport for the object we are exporting
         export_settings['vtree'].nodes[obj_uuid].blender_object.hide_viewport = False
 
-        if export_settings['vtree'].nodes[obj_uuid].blender_object.type == "ARMATURE":
-            # We need to create custom properties on armature to store shape keys drivers on disabled meshes
-            # This way, we can evaluate drivers on shape keys, and bake them
-            drivers = get_sk_drivers(obj_uuid, export_settings)
-            if drivers:
-                # So ... Let's create some custom properties and the armature
-                # First, retrieve the armature object
-                for mesh_uuid in drivers:
-                    _, channels = get_driver_on_shapekey(mesh_uuid, export_settings)
-                    blender_object["gltf_" + mesh_uuid] = [0.0] * len(channels)
-                    for idx, channel in enumerate(channels):
-                        if channel is None:
-                            continue
-                        if blender_object.animation_data is None or blender_object.animation_data.drivers is None:
-                            # There is no animation on the armature, so no need to create driver
-                            # But, we need to copy the current value of the shape key to the custom property
-                            blender_object["gltf_" + mesh_uuid][idx] = blender_object.data.shape_keys.key_blocks[channel.data_path.split('"')[
-                                1]].value
-                        else:
-                            dr = blender_object.animation_data.drivers.from_existing(src_driver=channel)
-                            dr.data_path = "[\"gltf_" + mesh_uuid + "\"]"
-                            dr.array_index = idx
-
     export_user_extensions('animation_switch_loop_hook', export_settings, blender_object, False)
 
 # Export
@@ -515,7 +452,6 @@ def gather_action_animations(obj_uuid: int,
                     if blender_object.animation_data.is_property_readonly('action'):
                         blender_object.animation_data.use_tweak_mode = False
                     try:
-                        reset_bone_matrix(blender_object, export_settings)
                         export_user_extensions(
                             'pre_animation_switch_hook',
                             export_settings,
@@ -604,12 +540,7 @@ def gather_action_animations(obj_uuid: int,
                         on_type)
 
             if export_settings['gltf_force_sampling'] is True:
-                if export_settings['vtree'].nodes[obj_uuid].blender_object.type == "ARMATURE":
-                    channels, extra_samplers = gather_action_armature_sampled(
-                        obj_uuid, blender_action, slot.slot.identifier, None, export_settings)
-                    if channels:
-                        all_channels.extend(channels)
-                elif on_type == "OBJECT":
+                if on_type == "OBJECT":
                     channels, extra_samplers = gather_action_object_sampled(
                         obj_uuid, blender_action, slot.slot.identifier, None, export_settings)
                     if channels:
@@ -624,24 +555,13 @@ def gather_action_animations(obj_uuid: int,
                 # This returns
                 #  - animation on fcurves
                 #  - fcurve that cannot be handled not sampled, to be sampled
-                # to_be_sampled is : (object_uuid , type , prop, optional(bone.name) )
+                # to_be_sampled contains object or shape-key channels.
                 channels, to_be_sampled, extra_samplers = gather_animation_fcurves(
                     obj_uuid, blender_action, slot.slot.identifier, export_settings)
                 if channels:
                     all_channels.extend(channels)
-                for (obj_uuid, type_, prop, bone) in to_be_sampled:
-                    if type_ == "BONE":
-                        channel = gather_sampled_bone_channel(  # TODOSLOT
-                            obj_uuid,
-                            bone,
-                            prop,
-                            blender_action.name,
-                            slot.slot.identifier,
-                            True,
-                            get_gltf_interpolation(
-                                export_settings['gltf_sampling_interpolation_fallback'], export_settings),
-                            export_settings)
-                    elif type_ == "OBJECT":
+                for (obj_uuid, type_, prop) in to_be_sampled:
+                    if type_ == "OBJECT":
                         channel = gather_sampled_object_channel(
                             obj_uuid, prop, blender_action.name, slot.slot.identifier, True, get_gltf_interpolation(
                                 export_settings['gltf_sampling_interpolation_fallback'], export_settings), export_settings)
@@ -672,16 +592,12 @@ def gather_action_animations(obj_uuid: int,
             if len([a for a in blender_actions.values() if len(
                     [s for s in a.slots if s.target_id_type == "OBJECT"]) != 0]) == 0 and slot.target_id_type == "KEY":
                 if export_settings['gltf_bake_animation'] is True and export_settings['gltf_force_sampling'] is True:
-                    # We also have to check if this is a skinned mesh, because we don't have to force animation baking on this case
-                    # (skinned meshes TRS must be ignored, says glTF specification)
-                    if export_settings['vtree'].nodes[obj_uuid].skin is None:
-                        if obj_uuid not in export_settings['ranges'].keys():
-                            export_settings['ranges'][obj_uuid] = {}
-                        export_settings['ranges'][obj_uuid][obj_uuid] = export_settings['ranges'][obj_uuid][blender_action.name]
-                        # No TRS animation, so no slot
-                        channels, _ = gather_object_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
-                        if channels is not None:
-                            all_channels.extend(channels)
+                    if obj_uuid not in export_settings['ranges'].keys():
+                        export_settings['ranges'][obj_uuid] = {}
+                    export_settings['ranges'][obj_uuid][obj_uuid] = export_settings['ranges'][obj_uuid][blender_action.name]
+                    channels, _ = gather_object_sampled_channels(obj_uuid, obj_uuid, None, export_settings)
+                    if channels is not None:
+                        all_channels.extend(channels)
 
             if len([a for a in blender_actions.values() if len([s for s in a.slots if s.target_id_type == "KEY"]) != 0]) == 0 \
                     and export_settings['gltf_morph_anim'] \
@@ -689,23 +605,12 @@ def gather_action_animations(obj_uuid: int,
                     and blender_object.data is not None \
                     and blender_object.data.shape_keys is not None:
                 if export_settings['gltf_bake_animation'] is True and export_settings['gltf_force_sampling'] is True:
-                    # We need to check that this mesh is not driven by armature parent
-                    # In that case, no need to bake, because animation is already baked by driven sk armature
-                    ignore_sk = False
-                    if export_settings['vtree'].nodes[obj_uuid].parent_uuid is not None \
-                            and export_settings['vtree'].nodes[export_settings['vtree'].nodes[obj_uuid].parent_uuid].blender_type == VExportNode.ARMATURE:
-                        obj_drivers = get_sk_drivers(
-                            export_settings['vtree'].nodes[obj_uuid].parent_uuid, export_settings)
-                        if obj_uuid in obj_drivers:
-                            ignore_sk = True
-
-                    if ignore_sk is False:
-                        if obj_uuid not in export_settings['ranges'].keys():
-                            export_settings['ranges'][obj_uuid] = {}
-                        export_settings['ranges'][obj_uuid][obj_uuid] = export_settings['ranges'][obj_uuid][blender_action.name]
-                        channel = gather_sampled_sk_channel(obj_uuid, obj_uuid, None, export_settings)
-                        if channel is not None:
-                            all_channels.append(channel)
+                    if obj_uuid not in export_settings['ranges'].keys():
+                        export_settings['ranges'][obj_uuid] = {}
+                    export_settings['ranges'][obj_uuid][obj_uuid] = export_settings['ranges'][obj_uuid][blender_action.name]
+                    channel = gather_sampled_sk_channel(obj_uuid, obj_uuid, None, export_settings)
+                    if channel is not None:
+                        all_channels.append(channel)
 
             # Now we did the first cache, we can disable viewport object for all objects
             # We kept all object for the first cache, to be sure to have all data needed for sampling, for all objects with active action
@@ -715,7 +620,7 @@ def gather_action_animations(obj_uuid: int,
             if not first_cache_is_done and export_settings['gltf_optimize_disable_viewport']:
                 for obj in [
                     n.blender_object for n in export_settings['vtree'].nodes.values() if n.blender_type in [
-                        VExportNode.OBJECT, VExportNode.ARMATURE, VExportNode.COLLECTION] and n.uuid != obj_uuid]:
+                        VExportNode.OBJECT, VExportNode.COLLECTION] and n.uuid != obj_uuid]:
                     # Set it back to the initial value, in case some objects were hidden in viewport before export
                     obj.hide_viewport = True
                 first_cache_is_done = True
@@ -769,20 +674,17 @@ def gather_action_animations(obj_uuid: int,
         if blender_object.animation_data.action is not None:
             if current_action is None:
                 # remove last exported action
-                reset_bone_matrix(blender_object, export_settings)
                 if blender_object.animation_data.action is not None:
                     blender_object.animation_data.action_slot = None
                 blender_object.animation_data.action = None
             # TODO action name is not unique (library)
             elif blender_object.animation_data.action.name != current_action.name:
                 # Restore action that was active at start of exporting
-                reset_bone_matrix(blender_object, export_settings)
                 blender_object.animation_data.action = current_action
                 if current_action is not None:
                     blender_object.animation_data.action_slot = current_action_slot
             elif blender_object.animation_data.action_slot.handle != current_action_slot.handle:
                 # Restore action that was active at start of exporting
-                reset_bone_matrix(blender_object, export_settings)
                 blender_object.animation_data.action = current_action
                 if current_action is not None:
                     blender_object.animation_data.action_slot = current_action_slot
@@ -807,16 +709,6 @@ def gather_action_animations(obj_uuid: int,
         # And now, disable viewport for the object we exported, to not have
         # performance issue during export of other objects
         export_settings['vtree'].nodes[obj_uuid].blender_object.hide_viewport = True
-
-        if export_settings['vtree'].nodes[obj_uuid].blender_object.type == "ARMATURE":
-            # Let's remove the custom properties, and first, remove drivers
-            drivers = get_sk_drivers(obj_uuid, export_settings)
-            if drivers:
-                for mesh_uuid in drivers:
-                    for armature_driver in blender_object.animation_data.drivers:
-                        if "gltf_" + mesh_uuid in armature_driver.data_path:
-                            blender_object.animation_data.drivers.remove(armature_driver)
-                    del blender_object["gltf_" + mesh_uuid]
 
     export_user_extensions('animation_switch_loop_hook', export_settings, blender_object, True)
 
@@ -938,55 +830,6 @@ def __get_blender_actions(obj_uuid: str,
                     else:
                         actions.add_action(new_action)
 
-    # If there are only 1 armature, include all animations, even if not in NLA
-    # But only if armature has already some animation_data
-    # If not, we says that this armature is never animated, so don't add these additional actions
-    if export_settings['gltf_export_anim_single_armature'] is True:
-        if blender_object and blender_object.type == "ARMATURE" and blender_object.animation_data is not None:
-            if len(export_settings['vtree'].get_all_node_of_type(VExportNode.ARMATURE)) == 1:
-                # Keep all actions on objects (no Shapekey animation)
-                for act in bpy.data.actions:
-                    already_added_action = False
-
-                    # For the assigned action, we already have the slot
-                    if act == blender_object.animation_data.action:
-                        continue
-
-                    # If we already have this action, we skip it
-                    # (We got it from NLA)
-                    if actions.exists_action(act):
-                        continue
-
-                    for slot in [s for s in act.slots if s.target_id_type == "OBJECT"]:
-                        # We need to check this is an armature action
-                        # Checking that at least 1 bone is animated
-                        if not __is_armature_slot(act, slot):
-                            continue
-                        # Check if this action is already taken into account
-                        if actions.exists(act, slot):
-                            continue
-
-                        # Check the action is not in list of actions to ignore
-                        if hasattr(bpy.data.scenes[0], "gltf_action_filter") and id(act) in [id(item.action)
-                                                                                             for item in bpy.data.scenes[0].gltf_action_filter if item.keep is False]:
-                            continue  # We ignore this action
-
-                        if already_added_action is True:
-                            # We already added an action for this object
-                            # So forcing creation of another animation
-                            # Instead of adding a new slot to the existing action
-                            new_action = ActionData(act)
-                            new_action.add_slot(slot, slot.target_id_type, None)
-                            # Force new name to avoid merging later
-                            new_action.force_name(act.name + "-" + slot.name_display)
-                            actions.add_action(new_action, force_new_action=True)
-                            continue
-
-                        new_action = ActionData(act)
-                        new_action.add_slot(slot, slot.target_id_type, None)
-                        actions.add_action(new_action)
-                        already_added_action = True
-
     export_user_extensions('gather_actions_hook', export_settings, blender_object, actions)
 
     # Duplicate actions/slot are already managed when inserting data
@@ -998,14 +841,6 @@ def __get_blender_actions(obj_uuid: str,
 
     return actions
 
-
-def __is_armature_slot(blender_action, slot) -> bool:
-    channelbag = get_channelbag_for_slot(blender_action, slot)
-    if channelbag:
-        for fcurve in channelbag.fcurves:
-            if is_bone_anim_channel(fcurve.data_path):
-                return True
-    return False
 
 
 def __gather_extras(blender_action, export_settings):
@@ -1042,31 +877,10 @@ def __get_blender_actions_broadcast(obj_uuid, export_settings):
                 if blender_object.animation_data is None:
                     continue
 
-                if blender_object and blender_object.type == "ARMATURE" and __is_armature_slot(blender_action, slot):
-
+                if blender_object:
                     if already_added_object_slot is True:
-                        # We already added an action for this object
-                        # So forcing creation of another animation
-                        # Instead of adding a new slot to the existing action
                         new_action_forced = ActionData(blender_action)
                         new_action_forced.add_slot(slot, slot.target_id_type, None)
-                        # Force new name to avoid merging later
-                        new_action_forced.force_name(blender_action.name + "-" + slot.name_display)
-                        blender_actions.add_action(new_action_forced, force_new_action=True)
-                        continue
-
-                    new_action.add_slot(slot, slot.target_id_type, None)
-                    blender_actions.add_action(new_action)
-                    already_added_object_slot = True
-                elif blender_object and blender_object.type == "MESH" and not __is_armature_slot(blender_action, slot):
-
-                    if already_added_object_slot is True:
-                        # We already added an action for this object
-                        # So forcing creation of another animation
-                        # Instead of adding a new slot to the existing action
-                        new_action_forced = ActionData(blender_action)
-                        new_action_forced.add_slot(slot, slot.target_id_type, None)
-                        # Force new name to avoid merging later
                         new_action_forced.force_name(blender_action.name + "-" + slot.name_display)
                         blender_actions.add_action(new_action_forced, force_new_action=True)
                         continue

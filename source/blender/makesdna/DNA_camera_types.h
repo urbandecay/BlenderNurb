@@ -178,7 +178,6 @@ struct CameraBGImage {
 struct CameraDOFSettings {
   /** Focal distance for depth of field. */
   struct Object *focus_object = nullptr;
-  char focus_subtarget[64] = "";
   float focus_distance = 10.0f;
   float aperture_fstop = 2.8f;
   float aperture_rotation = 0;

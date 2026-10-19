@@ -35,7 +35,6 @@
 #include "DEG_depsgraph_build.hh"
 
 #include "BKE_anim_data.hh"
-#include "BKE_armature.hh"
 #include "BKE_blender.hh"
 #include "BKE_collection.hh"
 #include "BKE_fcurve.hh"
@@ -122,23 +121,6 @@ BLI_INLINE IDOverrideLibraryRuntime *override_library_runtime_ensure(
     liboverride->runtime = MEM_new<IDOverrideLibraryRuntime>(__func__);
   }
   return liboverride->runtime;
-}
-
-/**
- * Helper to preserve Pose mode on override objects.
- * A bit annoying to have this special case, but not much to be done here currently, since the
- * matching RNA property is read-only.
- */
-BLI_INLINE void lib_override_object_posemode_transfer(ID *id_dst, ID *id_src)
-{
-  if (GS(id_src->name) == ID_OB && GS(id_dst->name) == ID_OB) {
-    Object *ob_src = reinterpret_cast<Object *>(id_src);
-    Object *ob_dst = reinterpret_cast<Object *>(id_dst);
-    if (ob_src->type == OB_ARMATURE && (ob_src->mode & OB_MODE_POSE) != 0) {
-      ob_dst->restore_mode = ob_dst->mode;
-      ob_dst->mode |= OB_MODE_POSE;
-    }
-  }
 }
 
 /** Get override data for a given ID. Needed because of our beloved shape keys snowflake. */
@@ -1061,8 +1043,8 @@ static bool lib_override_hierarchy_dependencies_recursive_tag(LibOverrideGroupTa
   /* If the current ID is/has been tagged for override above, then check its reversed dependencies
    * (i.e. IDs that depend on the current one).
    *
-   * This will cover e.g. the case where user override an armature, and would expect the mesh
-   * object deformed by that armature to also be overridden. */
+   * This covers objects connected to the hierarchy through a dependency that points back to its
+   * root. */
   if ((*reinterpret_cast<uint *>(&id->tag) & data->tag) != 0 && !is_resync) {
     lib_override_hierarchy_dependencies_recursive_tag_from(data);
   }
@@ -1157,30 +1139,10 @@ static bool lib_override_linked_group_tag_collections_keep_tagged_check_recursiv
   return false;
 }
 
-static void lib_override_linked_group_tag_clear_boneshapes_objects(LibOverrideGroupTagData *data)
+static void lib_override_linked_group_tag_clear_unneeded_collections(LibOverrideGroupTagData *data)
 {
   Main *bmain = data->bmain;
   ID *id_root = data->root_get();
-
-  /* Remove (untag) bone shape objects, they shall never need to be to directly/explicitly
-   * overridden. */
-  for (Object &ob : bmain->objects) {
-    if (ob.id.lib != id_root->lib) {
-      continue;
-    }
-    if (ob.type == OB_ARMATURE && ob.pose != nullptr &&
-        ((ob.id.tag & data->tag) || data->linked_ids_hierarchy_default_override.contains(&ob.id)))
-    {
-      for (bPoseChannel *pchan = static_cast<bPoseChannel *>(ob.pose->chanbase.first);
-           pchan != nullptr;
-           pchan = pchan->next)
-      {
-        if (pchan->custom != nullptr && &pchan->custom->id != id_root) {
-          data->id_tag_clear(&pchan->custom->id, bool(pchan->custom->id.tag & ID_TAG_MISSING));
-        }
-      }
-    }
-  }
 
   /* Remove (untag) collections if they do not own any tagged object (either themselves, or in
    * their children collections). */
@@ -1247,8 +1209,7 @@ static void lib_override_linked_group_tag(LibOverrideGroupTagData *data)
     data->root_set(hierarchy_root_id);
     lib_override_linked_group_tag_recursive(data);
 
-    /* Do not override objects used as bone shapes, nor their collections if possible. */
-    lib_override_linked_group_tag_clear_boneshapes_objects(data);
+    lib_override_linked_group_tag_clear_unneeded_collections(data);
 
     BKE_main_relations_tag_set(bmain, MAINIDRELATIONS_ENTRY_TAGS_PROCESSED, false);
     data->root_set(id_root);
@@ -1259,8 +1220,7 @@ static void lib_override_linked_group_tag(LibOverrideGroupTagData *data)
   id_root->tag |= data->tag;
   lib_override_linked_group_tag_recursive(data);
 
-  /* Do not override objects used as bone shapes, nor their collections if possible. */
-  lib_override_linked_group_tag_clear_boneshapes_objects(data);
+  lib_override_linked_group_tag_clear_unneeded_collections(data);
 
   if (use_linked_overrides_set) {
     data->linked_ids_hierarchy_default_override.clear();
@@ -1486,7 +1446,7 @@ static void lib_override_library_create_post_process(Main *bmain,
                                                      ViewLayer *view_layer,
                                                      const Library *owner_library,
                                                      ID *id_root,
-                                                     ID *id_instance_hint,
+                                                     Collection *collection_parent_hint,
                                                      Collection *residual_storage,
                                                      const Object *old_active_object,
                                                      const bool is_resync)
@@ -1529,20 +1489,13 @@ static void lib_override_library_create_post_process(Main *bmain,
   else {
     switch (GS(id_root->name)) {
       case ID_GR: {
-        Object *ob_reference = id_instance_hint != nullptr && GS(id_instance_hint->name) == ID_OB ?
-                                   reinterpret_cast<Object *>(id_instance_hint) :
-                                   nullptr;
         Collection *collection_new = (reinterpret_cast<Collection *>(id_root->newid));
         if (is_resync && BKE_collection_is_in_scene(collection_new)) {
           break;
         }
-        if (ob_reference != nullptr) {
-          BKE_collection_add_from_object(bmain, scene, ob_reference, collection_new);
-        }
-        else if (id_instance_hint != nullptr) {
-          BLI_assert(GS(id_instance_hint->name) == ID_GR);
+        if (collection_parent_hint != nullptr) {
           BKE_collection_add_from_collection(
-              bmain, scene, (reinterpret_cast<Collection *>(id_instance_hint)), collection_new);
+              bmain, scene, collection_parent_hint, collection_new);
         }
         else {
           BKE_collection_add_from_collection(
@@ -1677,7 +1630,7 @@ bool BKE_lib_override_library_create(Main *bmain,
                                      Library *owner_library,
                                      ID *id_root_reference,
                                      ID *id_hierarchy_root_reference,
-                                     ID *id_instance_hint,
+                                     Collection *collection_parent_hint,
                                      ID **r_id_root_override,
                                      const bool do_fully_editable)
 {
@@ -1717,7 +1670,7 @@ bool BKE_lib_override_library_create(Main *bmain,
                                            view_layer,
                                            owner_library,
                                            id_root_reference,
-                                           id_instance_hint,
+                                           collection_parent_hint,
                                            nullptr,
                                            old_active_object,
                                            false);
@@ -2598,7 +2551,6 @@ static bool lib_override_library_resync(Main *bmain,
         id_override_old->tag |= ID_TAG_NO_MAIN;
         id_override_new->tag &= ~ID_TAG_NO_MAIN;
 
-        lib_override_object_posemode_transfer(id_override_new, id_override_old);
 
         /* Missing old liboverrides cannot transfer their override rules to new liboverride.
          * This is fine though, since these are expected to only be 'virtual' linked overrides
@@ -2873,7 +2825,7 @@ static bool lib_override_library_resync(Main *bmain,
                                              view_layer,
                                              nullptr,
                                              id_root_reference,
-                                             id_root,
+                                             nullptr,
                                              override_resync_residual_storage,
                                              old_active_object,
                                              true);
@@ -3347,9 +3299,8 @@ static void lib_override_resync_tagging_finalize(Main *bmain,
   /* Process above cleared all IDs actually still in relation with their root from the tag.
    *
    * The only exception being IDs only in relation with their root through a 'reversed' from
-   * pointer (typical case: armature object is the hierarchy root, its child mesh object is only
-   * related to it through its own 'parent' pointer, the armature one has no 'to' relationships to
-   * its deformed mesh object).
+   * pointer (typical case: an object is the hierarchy root and its child is only related through
+   * the child's 'parent' pointer, without a corresponding 'to' relationship).
    *
    * Remaining ones are in a limbo, typically they could have been removed or moved around in the
    * hierarchy (e.g. an object moved into another sub-collection). Tag them as needing resync,
@@ -4145,20 +4096,6 @@ void BKE_lib_override_flag_subdata_local(ID &id)
       for (bConstraint &constraint : ob.constraints) {
         constraint.flag |= CONSTRAINT_OVERRIDE_LIBRARY_LOCAL;
       }
-      if (ob.pose) {
-        for (bPoseChannel &pose_bone : ob.pose->chanbase) {
-          for (bConstraint &constraint : pose_bone.constraints) {
-            constraint.flag |= CONSTRAINT_OVERRIDE_LIBRARY_LOCAL;
-          }
-        }
-      }
-      break;
-    }
-    case ID_AR: {
-      bArmature &arm = id_cast<bArmature &>(id);
-      for (BoneCollection *bcoll : arm.collections_span()) {
-        bcoll->flags |= BONE_COLLECTION_OVERRIDE_LIBRARY_LOCAL;
-      }
       break;
     }
     case ID_CA: {
@@ -4799,20 +4736,6 @@ bool BKE_lib_override_library_status_check_local(Main *bmain, ID *local)
   BLI_assert(reference);
   BLI_assert(GS(local->name) == GS(reference->name));
 
-  if (GS(local->name) == ID_OB) {
-    /* Our beloved pose's bone cross-data pointers. Usually, depsgraph evaluation would
-     * ensure this is valid, but in some situations (like hidden collections etc.) this won't
-     * be the case, so we need to take care of this ourselves. */
-    Object *ob_local = reinterpret_cast<Object *>(local);
-    if (ob_local->type == OB_ARMATURE) {
-      Object *ob_reference = reinterpret_cast<Object *>(local->override_library->reference);
-      BLI_assert(ob_local->data != nullptr);
-      BLI_assert(ob_reference->data != nullptr);
-      BKE_pose_ensure(bmain, ob_local, id_cast<bArmature *>(ob_local->data), true);
-      BKE_pose_ensure(bmain, ob_reference, id_cast<bArmature *>(ob_reference->data), true);
-    }
-  }
-
   /* Note that reference is assumed always valid, caller has to ensure that itself. */
 
   PointerRNA rnaptr_local = RNA_id_pointer_create(local);
@@ -4854,20 +4777,6 @@ bool BKE_lib_override_library_status_check_reference(Main *bmain, ID *local)
     }
   }
 
-  if (GS(local->name) == ID_OB) {
-    /* Our beloved pose's bone cross-data pointers. Usually, depsgraph evaluation would
-     * ensure this is valid, but in some situations (like hidden collections etc.) this won't
-     * be the case, so we need to take care of this ourselves. */
-    Object *ob_local = reinterpret_cast<Object *>(local);
-    if (ob_local->type == OB_ARMATURE) {
-      Object *ob_reference = reinterpret_cast<Object *>(local->override_library->reference);
-      BLI_assert(ob_local->data != nullptr);
-      BLI_assert(ob_reference->data != nullptr);
-      BKE_pose_ensure(bmain, ob_local, id_cast<bArmature *>(ob_local->data), true);
-      BKE_pose_ensure(bmain, ob_reference, id_cast<bArmature *>(ob_reference->data), true);
-    }
-  }
-
   PointerRNA rnaptr_local = RNA_id_pointer_create(local);
   PointerRNA rnaptr_reference = RNA_id_pointer_create(reference);
 
@@ -4900,20 +4809,6 @@ static void lib_override_library_operations_create(Main *bmain,
    * is in the file in that case, until broken lib is fixed. */
   if (ID_MISSING(local->override_library->reference)) {
     return;
-  }
-
-  if (GS(local->name) == ID_OB) {
-    /* Our beloved pose's bone cross-data pointers. Usually, depsgraph evaluation would
-     * ensure this is valid, but in some situations (like hidden collections etc.) this won't
-     * be the case, so we need to take care of this ourselves. */
-    Object *ob_local = reinterpret_cast<Object *>(local);
-    if (ob_local->type == OB_ARMATURE) {
-      Object *ob_reference = reinterpret_cast<Object *>(local->override_library->reference);
-      BLI_assert(ob_local->data != nullptr);
-      BLI_assert(ob_reference->data != nullptr);
-      BKE_pose_ensure(bmain, ob_local, id_cast<bArmature *>(ob_local->data), true);
-      BKE_pose_ensure(bmain, ob_reference, id_cast<bArmature *>(ob_reference->data), true);
-    }
   }
 
   PointerRNA rnaptr_local = RNA_id_pointer_create(local);
@@ -5035,16 +4930,6 @@ void BKE_lib_override_library_main_operations_create(Main *bmain,
     BKE_lib_override_library_main_tag(bmain, LIBOVERRIDE_PROP_OP_TAG_UNUSED, true);
   }
 
-  /* Usual pose bones issue, need to be done outside of the threaded process or we may run into
-   * concurrency issues here.
-   * Note that calling #BKE_pose_ensure again in thread in
-   * #BKE_lib_override_library_operations_create is not a problem then. */
-  for (Object &ob : bmain->objects) {
-    if (ob.type == OB_ARMATURE) {
-      BLI_assert(ob.data != nullptr);
-      BKE_pose_ensure(bmain, &ob, id_cast<bArmature *>(ob.data), true);
-    }
-  }
   /* Similar issue with view layers, some may not be up-to-date, and re-syncing them from a
    * multi-threaded process is utterly unsafe. Some RNA property access may cause this, see e.g.
    * #147565 and the `node_warnings` property of the Geometry Nodes. */
@@ -5095,15 +4980,6 @@ void BKE_lib_override_library_main_operations_create(Main *bmain,
     }
 
     if (force_auto || (id->tag & ID_TAG_LIBOVERRIDE_AUTOREFRESH)) {
-      /* Usual issue with pose, it's quiet rare but sometimes they may not be up to date when this
-       * function is called. */
-      if (GS(id->name) == ID_OB) {
-        Object *ob = reinterpret_cast<Object *>(id);
-        if (ob->type == OB_ARMATURE) {
-          BLI_assert(ob->data != nullptr);
-          BKE_pose_ensure(bmain, ob, id_cast<bArmature *>(ob->data), true);
-        }
-      }
       /* Only check overrides if we do have the real reference data available, and not some empty
        * 'placeholder' for missing data (broken links). */
       if ((id->override_library->reference->tag & ID_TAG_MISSING) == 0) {
@@ -5503,7 +5379,6 @@ void BKE_lib_override_library_update(Main *bmain, ID *local)
                             local->override_library,
                             RNA_OVERRIDE_APPLY_FLAG_NOP);
 
-  lib_override_object_posemode_transfer(tmp_id, local);
 
   /* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa.
    * So when we'll free tmp_id, we'll actually free old, outdated data from local. */
@@ -5527,22 +5402,8 @@ void BKE_lib_override_library_update(Main *bmain, ID *local)
    * exists in `bmain`. */
   BKE_id_free_ex(bmain, tmp_id, LIB_ID_FREE_NO_UI_USER | LIB_ID_FREE_NO_NAMEMAP_REMOVE, true);
 
-  if (GS(local->name) == ID_AR) {
-    /* Fun times again, thanks to bone pointers in pose data of objects. We keep same ID addresses,
-     * but internal data has changed for sure, so we need to invalidate pose-bones caches. */
-    for (Object &ob : bmain->objects) {
-      if (ob.pose != nullptr && ob.data == local) {
-        BLI_assert(ob.type == OB_ARMATURE);
-        ob.pose->flag |= POSE_RECALC;
-        /* We need to clear pose bone pointers immediately, some code may access those before pose
-         * is actually recomputed, which can lead to segfault. */
-        BKE_pose_clear_pointers(ob.pose);
-      }
-    }
-  }
-
-  /* NLA Tweak Mode is, in a way, an "edit mode" for certain animation data. However, contrary to
-   * mesh/armature edit modes, it doesn't use its own runtime data, but directly changes various
+  /* NLA Tweak Mode is, in a way, an "edit mode" for certain animation data. However, unlike
+   * regular Edit Mode, it doesn't use its own runtime data, but directly changes various
    * DNA pointers & flags. As these need to be all consistently set for the system to behave in a
    * well-defined manner, and the values can come from different files (library NLA tracks/strips
    * vs. override-added NLA tracks/strips), they need to be checked _after_ all overrides have been

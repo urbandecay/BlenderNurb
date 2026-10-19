@@ -31,7 +31,7 @@ ID Data
 
 ID data-blocks are used in Blender as top-level data containers.
 From the user interface this isn't so obvious, but when developing you need to know about ID data-blocks.
-ID data types include Scene, Collection, Object, Mesh, Workspace, World, Armature, Image and Texture.
+ID data types include Scene, Collection, Object, Mesh, Workspace, World, Image and Texture.
 For a full list see the subclasses of :class:`bpy.types.ID`.
 
 Here are some characteristics ID data-blocks share:
@@ -72,7 +72,7 @@ If you happen to be writing a tool that only runs in Weight Paint Mode,
 then using ``weight_paint_object`` would be appropriate.
 However, to access an item the user last selected, look for the ``active`` members,
 Having access to a single active member the user selects is a convention in Blender:
-e.g. ``active_bone``, ``active_pose_bone``, ``active_node``, etc. and in this case you can use ``active_object``.
+ e.g. ``active_node``, etc. and in this case you can use ``active_object``.
 
 So now you have enough information to find the location of the active object.
 

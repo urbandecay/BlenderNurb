@@ -238,8 +238,6 @@ SECTIONS = (
             ("eigen", "Wrapper (see extern/Eigen3/)"),
             ("ghost", "Platform abstraction for windowing and user (mouse, keyboard) input."),
             ("guardedalloc", "Memory allocator used across most of Blender's internal code."),
-            ("iksolver", "An IK-solver (useful for character animation)"),
-            ("itasc", "An IK-solver (useful for robotics)."),
             ("libc_compat", "C-library compatibility (Linux only)."),
             ("libmv", "Movie clip motion tracking solver."),
             ("mantaflow", "Wrapper (see extern)."),

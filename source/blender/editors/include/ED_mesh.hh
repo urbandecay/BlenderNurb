@@ -35,6 +35,7 @@ struct KeyBlock;
 struct Main;
 struct MDeformVert;
 struct Mesh;
+struct MeshDeformModifierData;
 struct Object;
 struct ReportList;
 struct Scene;
@@ -655,6 +656,14 @@ bool ED_mesh_pick_edge(bContext *C, Object *ob, const int mval[2], uint dist_px,
 MDeformVert *ED_mesh_active_dvert_get_em(Object *ob, BMVert **r_eve);
 MDeformVert *ED_mesh_active_dvert_get_ob(Object *ob, int *r_index);
 MDeformVert *ED_mesh_active_dvert_get_only(Object *ob);
+
+/** Bind the Mesh Deform modifier to its cage mesh. */
+void ED_mesh_deform_bind_callback(Object *object,
+                                  MeshDeformModifierData *mmd,
+                                  Mesh *cagemesh,
+                                  float *vertexcos,
+                                  int verts_num,
+                                  float cagemat[4][4]);
 
 void EDBM_mesh_stats_multi(Span<Object *> objects, int totelem[3], int totelem_sel[3]);
 void EDBM_mesh_elem_index_ensure_multi(Span<Object *> objects, char htype);

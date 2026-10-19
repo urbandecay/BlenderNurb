@@ -415,7 +415,7 @@ static void icon_node_socket_draw(
 static void vicon_colorset_draw(int index, int x, int y, int w, int h, float /*alpha*/)
 {
   bTheme *btheme = theme::theme_get();
-  const ThemeWireColor *cs = &btheme->tarm[index];
+  const ThemeWireColor *cs = &btheme->color_sets[index];
 
   /* Draw three bands of color: One per color
    *    x-----a-----b-----c
@@ -1997,8 +1997,6 @@ int icon_from_idcode(const int idcode)
   switch (ID_Type(idcode)) {
     case ID_AC:
       return ICON_ACTION;
-    case ID_AR:
-      return ICON_ARMATURE_DATA;
     case ID_BR:
       return ICON_BRUSH_DATA;
     case ID_CA:
@@ -2091,8 +2089,6 @@ int icon_from_object_mode(const int mode)
       return ICON_TPAINT_HLT;
     case OB_MODE_PARTICLE_EDIT:
       return ICON_PARTICLEMODE;
-    case OB_MODE_POSE:
-      return ICON_POSE_HLT;
   }
   return ICON_NONE;
 }
@@ -2112,8 +2108,6 @@ int icon_from_object_type(const Object *object)
       return ICON_OUTLINER_OB_META;
     case OB_LATTICE:
       return ICON_OUTLINER_OB_LATTICE;
-    case OB_ARMATURE:
-      return ICON_OUTLINER_OB_ARMATURE;
     case OB_FONT:
       return ICON_OUTLINER_OB_FONT;
     case OB_SURF:
@@ -2128,18 +2122,12 @@ int icon_from_object_type(const Object *object)
       return ICON_OUTLINER_OB_POINTCLOUD;
     case OB_VOLUME:
       return ICON_OUTLINER_OB_VOLUME;
-    case OB_EMPTY:
-      if (object->instance_collection && (object->transflag & OB_DUPLICOLLECTION)) {
-        return ICON_OUTLINER_OB_GROUP_INSTANCE;
-      }
-      else if (object->empty_drawtype == OB_EMPTY_IMAGE) {
-        return ICON_OUTLINER_OB_IMAGE;
-      }
-      else if (object->pd && object->pd->forcefield) {
+    case OB_NO_DATA:
+      if (object->pd && object->pd->forcefield) {
         return ICON_OUTLINER_OB_FORCE_FIELD;
       }
       else {
-        return ICON_OUTLINER_OB_EMPTY;
+        return ICON_OBJECT_DATA;
       }
     case OB_TYPE_MAX:
       break;

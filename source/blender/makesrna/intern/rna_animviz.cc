@@ -20,32 +20,17 @@
 
 namespace blender {
 
-/* Which part of bone(s) get baked */
-/* TODO: icons? */
-const EnumPropertyItem rna_enum_motionpath_bake_location_items[] = {
-    {MOTIONPATH_BAKE_HEADS, "HEADS", 0, "Heads", "Calculate bone paths from heads"},
-    {0, "TAILS", 0, "Tails", "Calculate bone paths from tails"},
-#if 0
-    {MOTIONPATH_BAKE_CENTERS,
-     "CENTROID",
-     0,
-     "Centers",
-     "Calculate bone paths from center of mass"},
-#endif
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
 const EnumPropertyItem rna_enum_motionpath_display_type_items[] = {
     {MOTIONPATH_TYPE_ACFRA,
      "CURRENT_FRAME",
      0,
      "Around Frame",
-     "Display Paths of poses within a fixed number of frames around the current frame"},
+     "Display paths within a fixed number of frames around the current frame"},
     {MOTIONPATH_TYPE_RANGE,
      "RANGE",
      0,
      "In Range",
-     "Display Paths of poses within specified range"},
+     "Display paths within the specified range"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -184,15 +169,6 @@ static void rna_def_animviz_motion_path(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
 
-  /* Settings */
-  prop = RNA_def_property(srna, "use_bone_head", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOTIONPATH_FLAG_BHEAD);
-  RNA_def_property_clear_flag(prop, PROP_EDITABLE); /* xxx */
-  RNA_def_property_ui_text(
-      prop,
-      "Use Bone Heads",
-      "For PoseBone paths, use the bone head location when calculating this path");
-
   /* FIXME: Motion Paths are not currently editable... */
   prop = RNA_def_property(srna, "is_modified", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", MOTIONPATH_FLAG_EDIT);
@@ -240,12 +216,6 @@ static void rna_def_animviz_paths(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Paths Range", "Type of range to calculate for Motion Paths");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
 
-  prop = RNA_def_property(srna, "bake_location", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_bitflag_sdna(prop, nullptr, "path_bakeflag");
-  RNA_def_property_enum_items(prop, rna_enum_motionpath_bake_location_items);
-  RNA_def_property_ui_text(prop, "Bake Location", "When calculating Bone Paths, use Head or Tips");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
-
   /* Settings */
   prop = RNA_def_property(srna, "show_frame_numbers", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "path_viewflag", MOTIONPATH_VIEW_FNUMS);
@@ -262,15 +232,6 @@ static void rna_def_animviz_paths(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, nullptr, "path_viewflag", MOTIONPATH_VIEW_KFNOS);
   RNA_def_property_ui_text(
       prop, "Show Keyframe Numbers", "Show frame numbers of Keyframes on Motion Paths");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
-
-  prop = RNA_def_property(srna, "show_keyframe_action_all", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "path_viewflag", MOTIONPATH_VIEW_KFACT);
-  RNA_def_property_ui_text(
-      prop,
-      "All Action Keyframes",
-      "For bone motion paths, search whole Action for keyframes instead of in group"
-      " with matching name only (is slower)");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
 
   prop = RNA_def_property(srna, "frame_step", PROP_INT, PROP_NONE);
@@ -320,13 +281,13 @@ static void rna_def_animviz_paths(BlenderRNA *brna)
                            "(only for 'Around Frame' Onion-skinning method)");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW_ANIMVIZ, nullptr);
 
-  /* Readonly Property - Do any motion paths exist/need updating? (Mainly for bone paths) */
+  /* Readonly property indicating whether motion paths need updating. */
   prop = RNA_def_property(srna, "has_motion_paths", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "path_bakeflag", MOTIONPATH_BAKE_HAS_PATHS);
   /* NOTE: This is really an internal state var for convenience, so don't allow edits! */
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(
-      prop, "Has Motion Paths", "Are there any bone paths that will need updating (read-only)");
+      prop, "Has Motion Paths", "Are there motion paths that will need updating (read-only)");
 
   /* If enabled, bakes the motion paths into camera space. */
   prop = RNA_def_property(srna, "use_camera_space_bake", PROP_BOOLEAN, PROP_NONE);

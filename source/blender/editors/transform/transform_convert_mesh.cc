@@ -1339,7 +1339,7 @@ void transform_convert_mesh_crazyspace_detect(TransInfo *t,
     if (BKE_modifiers_is_correctable_deformed(t->scene, tc->obedit)) {
       BKE_scene_graph_evaluated_ensure(t->depsgraph, CTX_data_main(t->context));
 
-      /* Use evaluated state because we need b-bone cache. */
+      /* Use evaluated state because deform matrices are generated during evaluation. */
       Scene *scene_eval = DEG_get_evaluated(t->depsgraph, t->scene);
       Object *obedit_eval = DEG_get_evaluated(t->depsgraph, tc->obedit);
       /* We always want the edit-mesh (evaluation may clear it). */

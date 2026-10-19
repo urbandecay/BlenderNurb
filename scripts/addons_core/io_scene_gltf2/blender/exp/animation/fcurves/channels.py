@@ -34,7 +34,7 @@ def gather_animation_fcurves_channels(
     for chan in [chan for chan in channels_to_perform.values() if len(chan['properties']) != 0]:
         for channel_group in chan['properties'].values():
             channel = __gather_animation_fcurve_channel(
-                chan['obj_uuid'], channel_group, chan['bone'], custom_range, export_settings)
+                chan['obj_uuid'], channel_group, custom_range, export_settings)
             if channel is not None:
                 channels.append(channel)
 
@@ -44,7 +44,7 @@ def gather_animation_fcurves_channels(
 
                 # No glTF channel here, as we don't have any target
                 # Trying to retrieve sampler directly
-                sampler = __gather_sampler(obj_uuid, tuple(channel_group), None, custom_range, True, export_settings)
+                sampler = __gather_sampler(obj_uuid, tuple(channel_group), custom_range, True, export_settings)
                 if sampler is not None:
                     extra_samplers.append((channel_group_name, sampler, "OBJECT", None))
 
@@ -63,7 +63,7 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
     multiple_rotation_mode_detected = {}
 
     # When both normal and delta are used --> Set to to_be_sampled list
-    to_be_sampled = []  # (object_uuid , type , prop, optional(bone.name) )
+    to_be_sampled = []  # (object_uuid, type, property)
 
     channelbag = get_channelbag_for_slot(blender_action, slot)
     fcurves = channelbag.fcurves if channelbag else []
@@ -83,7 +83,7 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
         object_path = get_target_object_path(fcurve.data_path)
 
         # find the object affected by this action
-        # object_path : blank for blender_object itself, key_blocks["<name>"] for SK, pose.bones["<name>"] for bones
+        # object_path is blank for the Blender object itself or key_blocks for shape keys.
         if not object_path:
             if fcurve.data_path.startswith("["):
                 target = blender_object
@@ -95,17 +95,7 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
             try:
                 target = get_object_from_datapath(blender_object, object_path)
 
-                if blender_object.type == "ARMATURE" and fcurve.data_path.startswith("pose.bones["):
-                    if target_property is not None:
-                        if get_target(target_property) is not None:
-                            type_ = "BONE"
-                        else:
-                            type_ = "EXTRA"
-                    else:
-                        type_ = "EXTRA"
-
-                else:
-                    type_ = "EXTRA"
+                type_ = "EXTRA"
                 if blender_object.type == "MESH" and object_path.startswith("key_blocks"):
                     shape_key = blender_object.data.shape_keys.path_resolve(object_path)
                     if skip_sk(blender_object.data.shape_keys.key_blocks, shape_key):
@@ -123,7 +113,7 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
                         target = blender_object.data.shape_keys
                         type_ = "SK"
                     except Exception as _e:
-                        # Something is wrong, for example a bone animation is linked to an object mesh...
+                        # The animation target could not be resolved on this mesh.
                         export_settings['log'].warning(
                             "Invalid animation fcurve data path on action {}".format(
                                 blender_action.name))
@@ -132,7 +122,7 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
                     export_settings['log'].warning("Animation target {} not found".format(object_path))
                     continue
 
-        # Detect that object or bone are not multiple keyed for euler and quaternion
+        # Detect properties with multiple keyed rotation modes.
         # Keep only the current rotation mode used by object
         rotation, rotation_modes = get_rotation_modes(target_property)
         if rotation and target.rotation_mode not in rotation_modes:
@@ -144,11 +134,9 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
             # We are going to evaluate fcurve, so no check if need to be sampled
             if target_property is None:
                 target_property = fcurve.data_path
-            if not target_property.startswith("pose.bones["):
-                target_property = fcurve.data_path
+            target_property = fcurve.data_path
             target_data = targets_extra.get(target, {})
             target_data['type'] = type_
-            target_data['bone'] = target.name if type_ == "BONE" else None
             target_data['obj_uuid'] = obj_uuid
             target_properties = target_data.get('properties', {})
             channels = target_properties.get(target_property, [])
@@ -162,8 +150,6 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
         target_data = targets.get(target, {})
         target_data['type'] = type_
         target_data['obj_uuid'] = obj_uuid
-        target_data['bone'] = target.name if type_ == "BONE" else None
-
         target_properties = target_data.get('properties', {})
         channels = target_properties.get(target_property, [])
         channels.append(fcurve)
@@ -190,7 +176,7 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
                 if len([get_target(p) for p in target_data['properties'] if get_target(p) == get_target(prop)]) > 1:
                     # normal + delta
                     to_be_sampled.append((obj_uuid, target_data['type'], get_channel_from_target(
-                        get_target(prop)), None))  # None, because no delta exists on Bones
+                        get_target(prop))))
                 else:
                     new_properties[prop] = target_data['properties'][prop]
 
@@ -202,7 +188,7 @@ def get_channel_groups(obj_uuid: str, blender_action: bpy.types.Action,
             if no_sample_option is False and needs_baking(
                     obj_uuid, target_data['properties'][prop], export_settings) is True:
                 to_be_sampled.append((obj_uuid, target_data['type'], get_channel_from_target(
-                    get_target(prop)), target_data['bone']))  # bone can be None if not a bone :)
+                    get_target(prop))))
             else:
                 new_properties[prop] = target_data['properties'][prop]
 
@@ -232,8 +218,7 @@ def __get_channel_group_sorted(channels: typing.Tuple[bpy.types.FCurve], blender
         object_path = get_target_object_path(first_channel.data_path)
         if object_path:
             if not blender_object.data.shape_keys:
-                # Something is wrong. Maybe the user assigned an armature action
-                # to a mesh object. Returning without sorting
+                # No shape keys are available, so there is nothing to sort.
                 return channels
 
             # This is shapekeys, we need to sort channels
@@ -253,7 +238,6 @@ def __get_channel_group_sorted(channels: typing.Tuple[bpy.types.FCurve], blender
                     sk_name = blender_object.data.shape_keys.path_resolve(get_target_object_path(sk_c.data_path)).name
                     idx_channel_mapping.append((shapekeys_idx[sk_name], sk_c))
                 except Exception as _e:
-                    # Something is wrong. For example, an armature action linked to a mesh object
                     continue
 
             existing_idx = dict(idx_channel_mapping)
@@ -264,7 +248,7 @@ def __get_channel_group_sorted(channels: typing.Tuple[bpy.types.FCurve], blender
                     all_sorted_channels.append(existing_idx[i])
 
             if all([i is None for i in all_sorted_channels]):  # all channel in error, and some non keyed SK
-                return channels             # This happen when an armature action is linked to a mesh object with non keyed SK
+                return channels
 
             return tuple(all_sorted_channels)
 
@@ -274,14 +258,13 @@ def __get_channel_group_sorted(channels: typing.Tuple[bpy.types.FCurve], blender
 
 def __gather_animation_fcurve_channel(obj_uuid: str,
                                       channel_group: typing.Tuple[bpy.types.FCurve],
-                                      bone: typing.Optional[str],
                                       custom_range: typing.Optional[set],
                                       export_settings
                                       ) -> typing.Union[gltf2_io.AnimationChannel, None]:
 
-    __target = __gather_target(obj_uuid, channel_group, bone, export_settings)
+    __target = __gather_target(obj_uuid, channel_group, export_settings)
     if __target.path is not None:
-        sampler = __gather_sampler(obj_uuid, channel_group, bone, custom_range, False, export_settings)
+        sampler = __gather_sampler(obj_uuid, channel_group, custom_range, False, export_settings)
 
         if sampler is None:
             # After check, no need to animate this node for this channel
@@ -295,7 +278,7 @@ def __gather_animation_fcurve_channel(obj_uuid: str,
         )
 
         blender_object = export_settings['vtree'].nodes[obj_uuid].blender_object
-        export_user_extensions('animation_gather_fcurve_channel', export_settings, blender_object, bone, channel_group)
+        export_user_extensions('animation_gather_fcurve_channel', export_settings, blender_object, None, channel_group)
 
         return animation_channel
     return None
@@ -303,21 +286,19 @@ def __gather_animation_fcurve_channel(obj_uuid: str,
 
 def __gather_target(obj_uuid: str,
                     channel_group: typing.Tuple[bpy.types.FCurve],
-                    bone: typing.Optional[str],
                     export_settings
                     ) -> gltf2_io.AnimationChannelTarget:
 
-    return gather_fcurve_channel_target(obj_uuid, channel_group, bone, export_settings)
+    return gather_fcurve_channel_target(obj_uuid, channel_group, export_settings)
 
 
 def __gather_sampler(obj_uuid: str,
                      channel_group: typing.Tuple[bpy.types.FCurve],
-                     bone: typing.Optional[str],
                      custom_range: typing.Optional[set],
                      extra_mode: bool,
                      export_settings) -> gltf2_io.AnimationSampler:
 
-    return gather_animation_fcurves_sampler(obj_uuid, channel_group, bone, custom_range, extra_mode, export_settings)
+    return gather_animation_fcurves_sampler(obj_uuid, channel_group, custom_range, extra_mode, export_settings)
 
 
 def needs_baking(obj_uuid: str,
@@ -364,15 +345,5 @@ def needs_baking(obj_uuid: str,
         # The channels have differently located keyframes
         export_settings['log'].warning("Baking animation because of differently located keyframes in one channel")
         return True
-
-    if export_settings['vtree'].nodes[obj_uuid].blender_object.type == "ARMATURE":
-        animation_target = get_object_from_datapath(
-            export_settings['vtree'].nodes[obj_uuid].blender_object, [
-                c for c in channels if c is not None][0].data_path)
-        if isinstance(animation_target, bpy.types.PoseBone):
-            if len(animation_target.constraints) != 0:
-                # Constraints such as IK act on the bone -> can not be represented in glTF atm
-                export_settings['log'].warning("Baking animation because of unsupported constraints acting on the bone")
-                return True
 
     return False

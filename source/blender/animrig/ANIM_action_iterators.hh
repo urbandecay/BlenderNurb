@@ -41,7 +41,7 @@ void foreach_fcurve_in_action(Action &action, FunctionRef<void(FCurve &fcurve)> 
  * `foreach_fcurve_in_action_slot_editable`.
  *
  * \note This could almost take a `const Action &` except for the fact that we do need to iterate
- * all FCurves in an editable way sometimes, e.g. for the pose library code.
+ * all FCurves in an editable way sometimes, e.g. when applying edits to an Action.
  *
  * \note Use lambdas to have access to specific data in the callback.
  */
@@ -62,7 +62,7 @@ void foreach_fcurve_in_action_slot_editable(Action &action,
  * The following cases are visited:
  *   - Direct Action+Slot assignment.
  *   - NLA strips.
- *   - Action Constraints, both on Object and Pose Bone level.
+ *   - Action Constraints on Objects.
  *
  * \param callback: The function to call for each Action+Slot used. Even when there is no slot
  * assigned, this function will be called (but then with slot_handle = Slot::unassigned). The

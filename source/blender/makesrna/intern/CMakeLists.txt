@@ -27,7 +27,6 @@ set(DEFSRC
   rna_action.cc
   rna_animation.cc
   rna_animviz.cc
-  rna_armature.cc
   rna_asset.cc
   rna_attribute.cc
   rna_blendfile_import.cc
@@ -71,7 +70,6 @@ set(DEFSRC
   rna_palette.cc
   rna_particle.cc
   rna_pointcloud.cc
-  rna_pose.cc
   rna_render.cc
   rna_rigidbody.cc
   rna_rna.cc
@@ -110,9 +108,7 @@ if(WITH_EXPERIMENTAL_FEATURES)
 endif()
 
 set(APISRC
-  rna_action_api.cc
   rna_animation_api.cc
-  rna_armature_api.cc
   rna_camera_api.cc
   rna_curve_api.cc
   rna_curves_api.cc
@@ -124,7 +120,6 @@ set(APISRC
   rna_mesh_api.cc
   rna_meta_api.cc
   rna_object_api.cc
-  rna_pose_api.cc
   rna_scene_api.cc
   rna_sequencer_api.cc
   rna_sound_api.cc
@@ -244,7 +239,6 @@ set(INC
   ../../draw
   ../../functions
   ../../gpu
-  ../../ikplugin
   ../../imbuf
   ../../imbuf/movie
   ../../io/usd
@@ -447,7 +441,6 @@ set(LIB
   bf_editor_space_api
 
   bf_editor_animation
-  bf_editor_armature
   bf_editor_asset
   bf_editor_curve
   bf_editor_curves

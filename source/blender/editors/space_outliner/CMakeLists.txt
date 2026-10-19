@@ -40,16 +40,12 @@ set(SRC
   tree/tree_element.cc
   tree/tree_element_action_slot.cc
   tree/tree_element_anim_data.cc
-  tree/tree_element_bone.cc
-  tree/tree_element_bone_collection.cc
   tree/tree_element_collection.cc
   tree/tree_element_constraint.cc
   tree/tree_element_defgroup.cc
   tree/tree_element_driver.cc
-  tree/tree_element_edit_bone.cc
   tree/tree_element_id.cc
   tree/tree_element_id_action.cc
-  tree/tree_element_id_armature.cc
   tree/tree_element_id_collection.cc
   tree/tree_element_id_curve.cc
   tree/tree_element_id_library.cc
@@ -67,7 +63,6 @@ set(SRC
   tree/tree_element_nla.cc
   tree/tree_element_overrides.cc
   tree/tree_element_particle_system.cc
-  tree/tree_element_pose.cc
   tree/tree_element_rna.cc
   tree/tree_element_scene_objects.cc
   tree/tree_element_seq.cc
@@ -82,16 +77,12 @@ set(SRC
   tree/tree_element.hh
   tree/tree_element_action_slot.hh
   tree/tree_element_anim_data.hh
-  tree/tree_element_bone.hh
-  tree/tree_element_bone_collection.hh
   tree/tree_element_collection.hh
   tree/tree_element_constraint.hh
   tree/tree_element_defgroup.hh
   tree/tree_element_driver.hh
-  tree/tree_element_edit_bone.hh
   tree/tree_element_id.hh
   tree/tree_element_id_action.hh
-  tree/tree_element_id_armature.hh
   tree/tree_element_id_collection.hh
   tree/tree_element_id_curve.hh
   tree/tree_element_id_library.hh
@@ -109,7 +100,6 @@ set(SRC
   tree/tree_element_nla.hh
   tree/tree_element_overrides.hh
   tree/tree_element_particle_system.hh
-  tree/tree_element_pose.hh
   tree/tree_element_rna.hh
   tree/tree_element_scene_objects.hh
   tree/tree_element_seq.hh

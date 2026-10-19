@@ -19,7 +19,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
+#include "DNA_action_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
@@ -63,7 +63,6 @@
 #include "BKE_anim_path.h"
 #include "BKE_anim_visualization.h"
 #include "BKE_animsys.h"
-#include "BKE_armature.hh"
 #include "BKE_asset.hh"
 #include "BKE_bpath.hh"
 #include "BKE_camera.h"
@@ -84,7 +83,6 @@
 #include "BKE_global.hh"
 #include "BKE_idprop.hh"
 #include "BKE_idtype.hh"
-#include "BKE_image.hh"
 #include "BKE_key.hh"
 #include "BKE_lattice.hh"
 #include "BKE_layer.hh"
@@ -110,7 +108,6 @@
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 #include "BKE_pointcloud.hh"
-#include "BKE_pose_backup.h"
 #include "BKE_preview_image.hh"
 #include "BKE_report.hh"
 #include "BKE_rigidbody.h"
@@ -151,14 +148,13 @@ static CLG_LogRef LOG = {"object"};
 static_assert(sizeof(blender::bke::ObjectRuntime::contained_geometry_types) * 8 >=
               GEO_COMPONENT_TYPE_ENUM_SIZE);
 
-static void copy_object_pose(Object *obn, const Object *ob, const int flag);
 
 static void object_init_data(ID *id)
 {
   Object *ob = id_cast<Object *>(id);
   INIT_DEFAULT_STRUCT_AFTER(ob, id);
 
-  ob->type = OB_EMPTY;
+  ob->type = OB_NO_DATA;
 
   ob->trackflag = OB_POSY;
   ob->upflag = OB_POSZ;
@@ -194,19 +190,6 @@ static void object_copy_data(Main *bmain,
         0, "Object copy: non-nullptr material pointers with zero counter, should not happen.");
     ob_dst->mat = nullptr;
     ob_dst->matbits = nullptr;
-  }
-
-  if (ob_src->iuser) {
-    ob_dst->iuser = MEM_dupalloc(ob_src->iuser);
-  }
-
-  if (ob_src->pose) {
-    copy_object_pose(ob_dst, ob_src, flag_subdata);
-    /* backwards compat... non-armatures can get poses in older files? */
-    if (ob_src->type == OB_ARMATURE) {
-      const bool do_pose_id_user = (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0;
-      BKE_pose_rebuild(bmain, ob_dst, id_cast<bArmature *>(ob_dst->data), do_pose_id_user);
-    }
   }
 
   BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag_subdata, true);
@@ -266,12 +249,7 @@ static void object_free_data(ID *id)
   BKE_object_free_modifiers(ob, LIB_ID_CREATE_NO_USER_REFCOUNT);
   MEM_SAFE_DELETE(ob->mat);
   MEM_SAFE_DELETE(ob->matbits);
-  MEM_SAFE_DELETE(ob->iuser);
 
-  if (ob->pose) {
-    BKE_pose_free_ex(ob->pose, false);
-    ob->pose = nullptr;
-  }
   if (ob->mpath) {
     animviz_free_motionpath(ob->mpath);
     ob->mpath = nullptr;
@@ -346,8 +324,8 @@ static void object_foreach_id(ID *id, LibraryForeachIDData *data)
   const int flag = BKE_lib_query_foreachid_process_flags_get(data);
 
   /* object data special case */
-  if (object->type == OB_EMPTY) {
-    /* empty can have nullptr or Image */
+  if (object->type == OB_NO_DATA) {
+    /* No-data objects can have a null data pointer. */
     BKE_LIB_FOREACHID_PROCESS_ID(data, object->data, IDWALK_CB_USER);
   }
   else {
@@ -365,31 +343,9 @@ static void object_foreach_id(ID *id, LibraryForeachIDData *data)
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, object->mat[i], IDWALK_CB_USER);
   }
 
-  BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, object->instance_collection, IDWALK_CB_USER);
-
   if (object->pd) {
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, object->pd->tex, IDWALK_CB_USER);
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, object->pd->f_source, IDWALK_CB_NOP);
-  }
-
-  if (object->pose) {
-    for (bPoseChannel &pchan : object->pose->chanbase) {
-      BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-          data, IDP_foreach_property(pchan.prop, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
-            BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
-          }));
-      BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-          data,
-          IDP_foreach_property(pchan.system_properties, IDP_TYPE_FILTER_ID, [&](IDProperty *prop) {
-            BKE_lib_query_idpropertiesForeachIDLink_callback(prop, data);
-          }));
-
-      BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, pchan.custom, IDWALK_CB_USER);
-      BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
-          data,
-          BKE_constraints_id_loop(
-              &pchan.constraints, library_foreach_constraintObjectLooper, flag, data));
-    }
   }
 
   if (object->rigidbody_constraint) {
@@ -428,7 +384,6 @@ static void object_foreach_id(ID *id, LibraryForeachIDData *data)
   }
 
   if (flag & IDWALK_DO_DEPRECATED_POINTERS) {
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, object->poselib, IDWALK_CB_USER);
     /* Note: This is technically _not_ needed currently, because readcode (see
      * #object_blend_read_data) directly converts and removes these deprecated ObHook data.
      * However, for sake of consistency, better have this ID pointer handled here nonetheless. */
@@ -731,10 +686,6 @@ static void object_blend_write(BlendWriter *writer, ID *id, const void *id_addre
   writer->write_pointer_array(ob->totcol, ob->mat);
   writer->write_char_array(ob->totcol, ob->matbits);
 
-  if (ob->pose) {
-    BLI_assert(ob->type == OB_ARMATURE);
-    BKE_pose_blend_write(writer, ob->pose);
-  }
   BKE_constraint_blend_write(writer, &ob->constraints);
   animviz_motionpath_blend_write(writer, ob->mpath);
 
@@ -755,10 +706,6 @@ static void object_blend_write(BlendWriter *writer, ID *id, const void *id_addre
   }
   if (ob->rigidbody_constraint) {
     writer->write_struct(ob->rigidbody_constraint);
-  }
-
-  if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE) {
-    writer->write_struct(ob->iuser);
   }
 
   BKE_particle_system_blend_write(writer, &ob->particlesystem);
@@ -808,9 +755,6 @@ static void object_blend_read_data(BlendDataReader *reader, ID *id)
      * TODO: Check if we should not disable more edit modes here? */
     ob->mode &= ~(OB_MODE_EDIT | OB_MODE_PARTICLE_EDIT);
   }
-
-  BLO_read_struct(reader, bPose, &ob->pose);
-  BKE_pose_blend_read_data(reader, &ob->id, ob->pose);
 
   BLO_read_struct(reader, bMotionPath, &ob->mpath);
   if (ob->mpath) {
@@ -965,11 +909,6 @@ static void object_blend_read_data(BlendDataReader *reader, ID *id)
     MEM_delete(hook);
   }
 
-  BLO_read_struct(reader, ImageUser, &ob->iuser);
-  if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE && !ob->iuser) {
-    BKE_object_empty_draw_type_set(ob, ob->empty_drawtype);
-  }
-
   BLO_read_struct_list(reader, LinkData, &ob->pc_ids);
 
   /* in case this value changes in future, clamp else we get undefined behavior */
@@ -1006,22 +945,12 @@ static void object_blend_read_after_liblink(BlendLibReader *reader, ID *id)
   Main *bmain = BLO_read_lib_get_main(reader);
   BlendFileReadReport *reports = BLO_read_lib_reports(reader);
 
-  if (ob->data == nullptr && ob->type != OB_EMPTY) {
+  if (ob->data == nullptr && ob->type != OB_NO_DATA) {
     /* NOTE: This case is not expected to happen anymore, since in when a linked ID disappears, an
      * empty placeholder is created for it by readfile code. Only some serious corruption of data
      * should be able to trigger this code nowadays. */
 
-    ob->type = OB_EMPTY;
-
-    if (ob->pose) {
-      /* This code is now executed after _all_ ID pointers have been lib-linked,so it's safe to do
-       * a proper cleanup. Further more, since user count of IDs is not done in read-code anymore,
-       * `BKE_pose_free_ex(ob->pose, false)` can be called (instead of
-       * `BKE_pose_free_ex(ob->pose)`), avoiding any access to other IDs altogether. */
-      BKE_pose_free_ex(ob->pose, false);
-      ob->pose = nullptr;
-      ob->mode &= ~OB_MODE_POSE;
-    }
+    ob->type = OB_NO_DATA;
 
     if (ob->id.lib) {
       BLO_reportf_wrap(reports,
@@ -1054,10 +983,6 @@ static void object_blend_read_after_liblink(BlendLibReader *reader, ID *id)
   if (ob->data && ob->id.lib != ob->data->lib) {
     BKE_object_materials_sync_length(bmain, ob, ob->data);
   }
-
-  /* Performs quite extensive rebuilding & validation of object-level Pose data from the Armature
-   * obdata. */
-  BKE_pose_blend_read_after_liblink(reader, ob, ob->pose);
 
   BKE_particle_system_blend_read_after_liblink(reader, ob, &ob->id, &ob->particlesystem);
 }
@@ -1256,26 +1181,11 @@ void BKE_object_free_modifiers(Object *ob, const int flag)
 
 void BKE_object_modifier_hook_reset(Object *ob, HookModifierData *hmd)
 {
-  /* reset functionality */
   if (hmd->object) {
-    bPoseChannel *pchan = BKE_pose_channel_find_name(hmd->object->pose, hmd->subtarget);
-
-    if (hmd->subtarget[0] && pchan) {
-      float imat[4][4], mat[4][4];
-
-      /* Calculate the world-space matrix for the pose-channel target first,
-       * then carry on as usual. */
-      mul_m4_m4m4(mat, hmd->object->object_to_world().ptr(), pchan->pose_mat);
-
-      invert_m4_m4(imat, mat);
-      mul_m4_m4m4(hmd->parentinv, imat, ob->object_to_world().ptr());
-    }
-    else {
-      invert_m4_m4(hmd->object->runtime->world_to_object.ptr(),
-                   hmd->object->object_to_world().ptr());
-      mul_m4_m4m4(
-          hmd->parentinv, hmd->object->world_to_object().ptr(), ob->object_to_world().ptr());
-    }
+    invert_m4_m4(hmd->object->runtime->world_to_object.ptr(),
+                 hmd->object->object_to_world().ptr());
+    mul_m4_m4m4(
+        hmd->parentinv, hmd->object->world_to_object().ptr(), ob->object_to_world().ptr());
   }
 }
 
@@ -1324,7 +1234,7 @@ bool BKE_object_supports_modifiers(const Object *ob)
               OB_LATTICE,
               OB_POINTCLOUD,
               OB_VOLUME,
-              OB_EMPTY);
+              OB_NO_DATA);
 }
 
 bool BKE_object_support_modifier_type_check(const Object *ob, int modifier_type)
@@ -1336,8 +1246,8 @@ bool BKE_object_support_modifier_type_check(const Object *ob, int modifier_type)
     return false;
   }
 
-  /* Empties only support geometry nodes modifiers. */
-  if (ob->type == OB_EMPTY) {
+  /* No-data objects only support Geometry Nodes modifiers. */
+  if (ob->type == OB_NO_DATA) {
     return modifier_type == eModifierType_Nodes;
   }
   if (ELEM(ob->type, OB_POINTCLOUD, OB_CURVES)) {
@@ -1709,7 +1619,6 @@ void BKE_object_free_derived_caches(Object *ob)
   }
 
   BKE_object_to_mesh_clear(ob);
-  BKE_pose_backup_clear(ob);
   BKE_object_to_curve_clear(ob);
   BKE_object_free_curve_cache(ob);
 
@@ -1778,8 +1687,6 @@ bool BKE_object_is_in_editmode(const Object *ob)
   switch (ob->type) {
     case OB_MESH:
       return (id_cast<Mesh *>(ob->data))->runtime->edit_mesh != nullptr;
-    case OB_ARMATURE:
-      return (id_cast<bArmature *>(ob->data))->edbo != nullptr;
     case OB_FONT:
       return (id_cast<Curve *>(ob->data))->editfont != nullptr;
     case OB_MBALL:
@@ -1816,8 +1723,6 @@ bool BKE_object_data_is_in_editmode(const Object *ob, const ID *id)
       return (id_cast<const MetaBall *>(id))->editelems != nullptr;
     case ID_LT:
       return (id_cast<const Lattice *>(id))->editlatt != nullptr;
-    case ID_AR:
-      return (id_cast<const bArmature *>(id))->edbo != nullptr;
     case ID_CV:
     case ID_PT:
       if (ob) {
@@ -1866,10 +1771,6 @@ char *BKE_object_data_editmode_flush_ptr_get(ID *id)
       }
       break;
     }
-    case ID_AR: {
-      bArmature *arm = id_cast<bArmature *>(id);
-      return &arm->needs_flush_to_id;
-    }
     case ID_PT:
     case ID_CV:
       return nullptr;
@@ -1915,11 +1816,6 @@ bool BKE_object_has_mode_data(const Object *ob, eObjectMode object_mode)
   else if (object_mode & OB_MODE_SCULPT) {
     if (ob->runtime->sculpt_session && (ob->runtime->sculpt_session->mode_type == OB_MODE_SCULPT))
     {
-      return true;
-    }
-  }
-  else if (object_mode & OB_MODE_POSE) {
-    if (ob->pose != nullptr) {
       return true;
     }
   }
@@ -2005,8 +1901,6 @@ static const char *get_obdata_defname(ObjectType type)
       return CTX_DATA_(BLT_I18NCONTEXT_ID_LIGHT, "Light");
     case OB_LATTICE:
       return DATA_("Lattice");
-    case OB_ARMATURE:
-      return DATA_("Armature");
     case OB_SPEAKER:
       return DATA_("Speaker");
     case OB_CURVES:
@@ -2015,13 +1909,13 @@ static const char *get_obdata_defname(ObjectType type)
       return DATA_("PointCloud");
     case OB_VOLUME:
       return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "Volume");
-    case OB_EMPTY:
-      return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "Empty");
+    case OB_NO_DATA:
+      return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "No Data");
     case OB_LIGHTPROBE:
       return DATA_("LightProbe");
     default:
       CLOG_ERROR(&LOG, "Internal error, bad type: %d", type);
-      return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "Empty");
+      return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "Unknown");
   }
 }
 
@@ -2030,10 +1924,6 @@ static void object_init(Object *ob, const ObjectType ob_type)
   object_init_data(&ob->id);
 
   ob->type = ob_type;
-
-  if (ob->type != OB_EMPTY) {
-    zero_v2(ob->ima_ofs);
-  }
 
   if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
     ob->trackflag = OB_NEGZ;
@@ -2070,8 +1960,6 @@ void *BKE_object_obdata_add_from_type(Main *bmain, ObjectType type, const char *
       return BKE_light_add(bmain, name);
     case OB_LATTICE:
       return BKE_lattice_add(bmain, name);
-    case OB_ARMATURE:
-      return BKE_armature_add(bmain, name);
     case OB_SPEAKER:
       return BKE_speaker_add(bmain, name);
     case OB_LIGHTPROBE:
@@ -2082,7 +1970,7 @@ void *BKE_object_obdata_add_from_type(Main *bmain, ObjectType type, const char *
       return BKE_pointcloud_add(bmain, name);
     case OB_VOLUME:
       return BKE_volume_add(bmain, name);
-    case OB_EMPTY:
+    case OB_NO_DATA:
       return nullptr;
     default:
       CLOG_ERROR(&LOG, "Internal error, bad type: %d", type);
@@ -2108,8 +1996,6 @@ int BKE_object_obdata_to_type(const ID *id)
       return OB_CAMERA;
     case ID_LT:
       return OB_LATTICE;
-    case ID_AR:
-      return OB_ARMATURE;
     case ID_LP:
       return OB_LIGHTPROBE;
     case ID_CV:
@@ -2146,6 +2032,9 @@ static Object *object_add_common(
     Main *bmain, const Scene *scene, ViewLayer *view_layer, ObjectType type, const char *name)
 {
   Object *ob = BKE_object_add_only_object(bmain, type, name);
+  if (ob == nullptr) {
+    return nullptr;
+  }
   ob->data = static_cast<ID *>(BKE_object_obdata_add_from_type(bmain, type, name));
   BKE_view_layer_base_deselect_all(*bmain, scene, view_layer);
 
@@ -2158,6 +2047,9 @@ Object *BKE_object_add(
     Main *bmain, Scene *scene, ViewLayer *view_layer, ObjectType type, const char *name)
 {
   Object *ob = object_add_common(bmain, scene, view_layer, type, name);
+  if (ob == nullptr) {
+    return nullptr;
+  }
 
   LayerCollection *layer_collection = BKE_layer_collection_get_active(view_layer);
   BKE_collection_viewlayer_object_add(bmain, view_layer, layer_collection->collection, ob);
@@ -2181,6 +2073,9 @@ Object *BKE_object_add_from(Main *bmain,
                             Object *ob_src)
 {
   Object *ob = object_add_common(bmain, scene, view_layer, type, name);
+  if (ob == nullptr) {
+    return nullptr;
+  }
   BKE_collection_object_add_from(bmain, scene, ob_src, ob);
 
   BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
@@ -2328,178 +2223,6 @@ void BKE_object_copy_particlesystems(Object *ob_dst, const Object *ob_src, const
   }
 }
 
-static void copy_object_pose(Object *obn, const Object *ob, const int flag)
-{
-  /* NOTE: need to clear `obn->pose` pointer first,
-   * so that #BKE_pose_copy_data works (otherwise there's a crash) */
-  obn->pose = nullptr;
-  BKE_pose_copy_data_ex(&obn->pose, ob->pose, flag, true); /* true = copy constraints */
-
-  for (bPoseChannel &chan : obn->pose->chanbase) {
-
-    /* XXX Remapping object pointing onto itself should be handled by generic
-     *     BKE_library_remap stuff, but...
-     *     the flush_constraint_targets callback am not sure about, so will delay that for now. */
-    for (bConstraint &con : chan.constraints) {
-      ListBaseT<bConstraintTarget> targets = {nullptr, nullptr};
-
-      if (BKE_constraint_targets_get(&con, &targets)) {
-        for (bConstraintTarget &ct : targets) {
-          if (ct.tar == ob) {
-            ct.tar = obn;
-          }
-        }
-
-        BKE_constraint_targets_flush(&con, &targets, false);
-      }
-    }
-  }
-}
-
-bool BKE_object_pose_context_check(const Object *ob)
-{
-  if ((ob) && (ob->type == OB_ARMATURE) && (ob->pose) && (ob->mode & OB_MODE_POSE)) {
-    return true;
-  }
-
-  return false;
-}
-
-Object *BKE_object_pose_armature_get(Object *ob)
-{
-  if (ob == nullptr) {
-    return nullptr;
-  }
-
-  if (BKE_object_pose_context_check(ob)) {
-    return ob;
-  }
-
-  ob = BKE_modifiers_is_deformed_by_armature(ob);
-
-  /* Only use selected check when non-active. */
-  if (BKE_object_pose_context_check(ob)) {
-    return ob;
-  }
-
-  return nullptr;
-}
-
-Object *BKE_object_pose_armature_get_with_wpaint_check(Object *ob)
-{
-  /* When not in weight paint mode. */
-  if (ob) {
-    switch (ob->type) {
-      case OB_MESH: {
-        if ((ob->mode & OB_MODE_WEIGHT_PAINT) == 0) {
-          return nullptr;
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  return BKE_object_pose_armature_get(ob);
-}
-
-Object *BKE_object_pose_armature_get_visible(
-    const Main &bmain, Object *ob, const Scene *scene, ViewLayer *view_layer, View3D *v3d)
-{
-  Object *ob_armature = BKE_object_pose_armature_get(ob);
-  if (ob_armature) {
-    BKE_view_layer_synced_ensure(bmain, scene, view_layer);
-    Base *base = BKE_view_layer_base_find(view_layer, ob_armature);
-    if (base) {
-      if (BASE_VISIBLE(v3d, base)) {
-        return ob_armature;
-      }
-    }
-  }
-  return nullptr;
-}
-
-Vector<Object *> BKE_object_pose_array_get_ex(
-    const Main &bmain, const Scene *scene, ViewLayer *view_layer, View3D *v3d, bool unique)
-{
-  BKE_view_layer_synced_ensure(bmain, scene, view_layer);
-  Object *ob_active = BKE_view_layer_active_object_get(view_layer);
-  Object *ob_pose = BKE_object_pose_armature_get(ob_active);
-  if (ob_pose == ob_active) {
-    ObjectsInModeParams ob_params{};
-    ob_params.object_mode = OB_MODE_POSE;
-    ob_params.no_dup_data = unique;
-
-    return BKE_view_layer_array_from_objects_in_mode_params(
-        bmain, scene, view_layer, v3d, &ob_params);
-  }
-  if (ob_pose != nullptr) {
-    return {ob_pose};
-  }
-
-  return {};
-}
-Vector<Object *> BKE_object_pose_array_get_unique(const Main &bmain,
-                                                  const Scene *scene,
-                                                  ViewLayer *view_layer,
-                                                  View3D *v3d)
-{
-  return BKE_object_pose_array_get_ex(bmain, scene, view_layer, v3d, true);
-}
-Vector<Object *> BKE_object_pose_array_get(const Main &bmain,
-                                           const Scene *scene,
-                                           ViewLayer *view_layer,
-                                           View3D *v3d)
-{
-  return BKE_object_pose_array_get_ex(bmain, scene, view_layer, v3d, false);
-}
-
-Vector<Base *> BKE_object_pose_base_array_get_ex(
-    const Main &bmain, const Scene *scene, ViewLayer *view_layer, View3D *v3d, bool unique)
-{
-  BKE_view_layer_synced_ensure(bmain, scene, view_layer);
-  Base *base_active = BKE_view_layer_active_base_get(view_layer);
-  Object *ob_pose = base_active ? BKE_object_pose_armature_get(base_active->object) : nullptr;
-  Base *base_pose = nullptr;
-
-  if (base_active) {
-    if (ob_pose == base_active->object) {
-      base_pose = base_active;
-    }
-    else {
-      base_pose = BKE_view_layer_base_find(view_layer, ob_pose);
-    }
-  }
-
-  if (base_active && (base_pose == base_active)) {
-    ObjectsInModeParams ob_params{};
-    ob_params.object_mode = OB_MODE_POSE;
-    ob_params.no_dup_data = unique;
-
-    return BKE_view_layer_array_from_bases_in_mode_params(
-        bmain, scene, view_layer, v3d, &ob_params);
-  }
-  if (base_pose != nullptr) {
-    return {base_pose};
-  }
-
-  return {};
-}
-Vector<Base *> BKE_object_pose_base_array_get_unique(const Main &bmain,
-                                                     const Scene *scene,
-                                                     ViewLayer *view_layer,
-                                                     View3D *v3d)
-{
-  return BKE_object_pose_base_array_get_ex(bmain, scene, view_layer, v3d, true);
-}
-Vector<Base *> BKE_object_pose_base_array_get(const Main &bmain,
-                                              const Scene *scene,
-                                              ViewLayer *view_layer,
-                                              View3D *v3d)
-{
-  return BKE_object_pose_base_array_get_ex(bmain, scene, view_layer, v3d, false);
-}
-
 void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src)
 {
   copy_v3_v3(ob_tar->loc, ob_src->loc);
@@ -2592,11 +2315,6 @@ Object *BKE_object_duplicate(Main *bmain,
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
       }
       break;
-    case OB_ARMATURE:
-      if (dupflag & USER_DUP_ARM) {
-        id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
-      }
-      break;
     case OB_LATTICE:
       if (dupflag & USER_DUP_LATTICE) {
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
@@ -2672,14 +2390,6 @@ Object *BKE_object_duplicate(Main *bmain,
     BKE_main_id_newptr_and_tag_clear(bmain);
   }
 
-  if (obn->type == OB_ARMATURE) {
-    DEG_id_tag_update(&obn->id, ID_RECALC_GEOMETRY);
-    if (obn->pose) {
-      BKE_pose_tag_recalc(bmain, obn->pose);
-    }
-    //    BKE_pose_rebuild(bmain, obn, obn->data, true);
-  }
-
   if (obn->data != nullptr) {
     DEG_id_tag_update_ex(bmain, obn->data, ID_RECALC_EDITORS);
   }
@@ -2703,8 +2413,8 @@ void BKE_object_obdata_size_init(Object *ob, const float size)
 {
   /* apply radius as a scale to types that support it */
   switch (ob->type) {
-    case OB_EMPTY: {
-      ob->empty_drawsize *= size;
+    case OB_NO_DATA: {
+      ob->display_size *= size;
       break;
     }
     case OB_FONT: {
@@ -3014,7 +2724,7 @@ static void object_where_is_calc_ex(Depsgraph *depsgraph,
   /* solve constraints */
   if (ob->constraints.first && !(ob->transflag & OB_NO_CONSTRAINTS)) {
     bConstraintOb *cob;
-    cob = BKE_constraints_make_evalob(depsgraph, scene, ob, nullptr, CONSTRAINT_OBTYPE_OBJECT);
+    cob = BKE_constraints_make_evalob(depsgraph, scene, ob);
     BKE_constraints_solve(depsgraph, &ob->constraints, cob, ctime);
     BKE_constraints_clear_evalob(cob);
   }
@@ -3101,8 +2811,6 @@ std::optional<Bounds<float3>> BKE_object_boundbox_get(const Object *ob)
       return BKE_object_evaluated_geometry_bounds(ob);
     case OB_LATTICE:
       return BKE_lattice_minmax(id_cast<const Lattice *>(ob->data));
-    case OB_ARMATURE:
-      return BKE_armature_min_max(ob);
     case OB_CURVES:
       return id_cast<const Curves *>(ob->data)->geometry.wrap().bounds_min_max();
     case OB_POINTCLOUD:
@@ -3209,151 +2917,12 @@ void BKE_object_minmax(Object *ob, float3 &r_min, float3 &r_max)
   }
 
   float3 size = ob->scale;
-  if (ob->type == OB_EMPTY) {
-    size *= ob->empty_drawsize;
+  if (ob->type == OB_NO_DATA) {
+    size *= ob->display_size;
   }
 
   math::min_max(object_to_world.location() + size, r_min, r_max);
   math::min_max(object_to_world.location() - size, r_min, r_max);
-}
-
-void BKE_object_empty_draw_type_set(Object *ob, const int value)
-{
-  ob->empty_drawtype = eObject_EmptyDrawType(value);
-
-  if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE) {
-    if (!ob->iuser) {
-      ob->iuser = MEM_new<ImageUser>("image user");
-      ob->iuser->flag |= IMA_ANIM_ALWAYS;
-      ob->iuser->frames = 100;
-      ob->iuser->sfra = 1;
-    }
-  }
-  else {
-    MEM_SAFE_DELETE(ob->iuser);
-  }
-}
-
-bool BKE_object_empty_image_frame_is_visible_in_view3d(const Object *ob, const RegionView3D *rv3d)
-{
-  const char visibility_flag = ob->empty_image_visibility_flag;
-  if (rv3d->is_persp) {
-    return (visibility_flag & OB_EMPTY_IMAGE_HIDE_PERSPECTIVE) == 0;
-  }
-
-  return (visibility_flag & OB_EMPTY_IMAGE_HIDE_ORTHOGRAPHIC) == 0;
-}
-
-bool BKE_object_empty_image_data_is_visible_in_view3d(const Object *ob, const RegionView3D *rv3d)
-{
-  /* Caller is expected to check this. */
-  BLI_assert(BKE_object_empty_image_frame_is_visible_in_view3d(ob, rv3d));
-
-  const char visibility_flag = ob->empty_image_visibility_flag;
-
-  if ((visibility_flag & (OB_EMPTY_IMAGE_HIDE_BACK | OB_EMPTY_IMAGE_HIDE_FRONT)) != 0) {
-    float eps, dot;
-    if (rv3d->is_persp) {
-      /* NOTE: we could normalize the 'view_dir' then use 'eps'
-       * however the issue with empty objects being visible when viewed from the side
-       * is only noticeable in orthographic views. */
-      float3 view_dir;
-      sub_v3_v3v3(view_dir, rv3d->viewinv[3], ob->object_to_world().location());
-      dot = dot_v3v3(ob->object_to_world().ptr()[2], view_dir);
-      eps = 0.0f;
-    }
-    else {
-      dot = dot_v3v3(ob->object_to_world().ptr()[2], rv3d->viewinv[2]);
-      eps = 1e-5f;
-    }
-    if (visibility_flag & OB_EMPTY_IMAGE_HIDE_BACK) {
-      if (dot < eps) {
-        return false;
-      }
-    }
-    if (visibility_flag & OB_EMPTY_IMAGE_HIDE_FRONT) {
-      if (dot > -eps) {
-        return false;
-      }
-    }
-  }
-
-  if (visibility_flag & OB_EMPTY_IMAGE_HIDE_NON_AXIS_ALIGNED) {
-    float3 proj, ob_z_axis;
-    normalize_v3_v3(ob_z_axis, ob->object_to_world().ptr()[2]);
-    project_plane_v3_v3v3(proj, ob_z_axis, rv3d->viewinv[2]);
-    const float proj_length_sq = len_squared_v3(proj);
-    if (proj_length_sq > 1e-5f) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool BKE_object_minmax_empty_drawtype(const Object *ob, float r_min[3], float r_max[3])
-{
-  BLI_assert(ob->type == OB_EMPTY);
-  float3 min(0), max(0);
-
-  bool ok = false;
-  const float radius = ob->empty_drawsize;
-
-  switch (ob->empty_drawtype) {
-    case OB_ARROWS: {
-      max = float3(radius);
-      ok = true;
-      break;
-    }
-    case OB_PLAINAXES:
-    case OB_CUBE:
-    case OB_EMPTY_SPHERE: {
-      min = float3(-radius);
-      max = float3(radius);
-      ok = true;
-      break;
-    }
-    case OB_CIRCLE: {
-      max[0] = max[2] = radius;
-      min[0] = min[2] = -radius;
-      ok = true;
-      break;
-    }
-    case OB_SINGLE_ARROW: {
-      max[2] = radius;
-      ok = true;
-      break;
-    }
-    case OB_EMPTY_CONE: {
-      min = float3(-radius, 0.0f, -radius);
-      max = float3(radius, radius * 2.0f, radius);
-      ok = true;
-      break;
-    }
-    case OB_EMPTY_IMAGE: {
-      const float *ofs = ob->ima_ofs;
-      /* NOTE: this is the best approximation that can be calculated without loading the image.
-       */
-      min[0] = ofs[0] * radius;
-      min[1] = ofs[1] * radius;
-      max[0] = radius + (ofs[0] * radius);
-      max[1] = radius + (ofs[1] * radius);
-      /* Since the image aspect can shrink the bounds towards the object origin,
-       * adjust the min/max to account for that. */
-      for (int i = 0; i < 2; i++) {
-        CLAMP_MAX(min[i], 0.0f);
-        CLAMP_MIN(max[i], 0.0f);
-      }
-      ok = true;
-      break;
-    }
-  }
-
-  if (ok) {
-    copy_v3_v3(r_min, min);
-    copy_v3_v3(r_max, max);
-  }
-  return ok;
 }
 
 bool BKE_object_minmax_dupli(
@@ -3593,6 +3162,45 @@ void BKE_object_protected_rotation_axisangle_set(Object *ob,
   }
 }
 
+void BKE_rotMode_change_values(float quat[4],
+                               float eul[3],
+                               float axis[3],
+                               float *angle,
+                               const eRotationModes oldMode,
+                               const eRotationModes newMode)
+{
+  if (newMode > 0) {
+    if (oldMode == ROT_MODE_AXISANGLE) {
+      axis_angle_to_eulO(eul, newMode, axis, *angle);
+    }
+    else if (oldMode == ROT_MODE_QUAT) {
+      normalize_qt(quat);
+      quat_to_eulO(eul, newMode, quat);
+    }
+  }
+  else if (newMode == ROT_MODE_QUAT) {
+    if (oldMode == ROT_MODE_AXISANGLE) {
+      axis_angle_to_quat(quat, axis, *angle);
+    }
+    else if (oldMode > 0) {
+      eulO_to_quat(quat, eul, oldMode);
+    }
+  }
+  else if (newMode == ROT_MODE_AXISANGLE) {
+    if (oldMode > 0) {
+      eulO_to_axis_angle(axis, angle, eul, oldMode);
+    }
+    else if (oldMode == ROT_MODE_QUAT) {
+      normalize_qt(quat);
+      quat_to_axis_angle(axis, angle, quat);
+    }
+
+    if (IS_EQF(axis[0], axis[1]) && IS_EQF(axis[1], axis[2])) {
+      axis[1] = 1.0f;
+    }
+  }
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -3611,25 +3219,6 @@ void BKE_object_handle_update_ex(Depsgraph *depsgraph,
                                false;
   if (!recalc_object && !recalc_data) {
     return;
-  }
-  /* Speed optimization for animation lookups. */
-  if (ob->pose != nullptr) {
-    BKE_pose_channels_hash_ensure(ob->pose);
-    if (ob->pose->flag & POSE_CONSTRAINTS_NEED_UPDATE_FLAGS) {
-      BKE_pose_update_constraint_flags(*ob);
-    }
-  }
-  if (recalc_data) {
-    if (ob->type == OB_ARMATURE) {
-      /* this happens for reading old files and to match library armatures
-       * with poses we do it ahead of BKE_object_where_is_calc to ensure animation
-       * is evaluated on the rebuilt pose, otherwise we get incorrect poses
-       * on file load */
-      if (ob->pose == nullptr || (ob->pose->flag & POSE_RECALC)) {
-        /* No need to pass `bmain` here, we assume we do not need to rebuild DEG from here. */
-        BKE_pose_rebuild(nullptr, ob, id_cast<bArmature *>(ob->data), true);
-      }
-    }
   }
   /* XXX new animsys warning: depsgraph tag ID_RECALC_GEOMETRY should not skip drivers,
    * which is only in BKE_object_where_is_calc now */
@@ -4453,7 +4042,6 @@ void BKE_object_runtime_reset_on_copy(Object *object, const int /*flag*/)
   runtime->mesh_deform_eval = nullptr;
   runtime->curve_cache = nullptr;
   runtime->object_as_temp_mesh = nullptr;
-  runtime->pose_backup = nullptr;
   runtime->object_as_temp_curve = nullptr;
   runtime->geometry_set_eval = nullptr;
   runtime->contained_geometry_types = 0;
@@ -4477,22 +4065,6 @@ void BKE_object_runtime_free_data(Object *object)
 /** \name Object Relationships
  * \{ */
 
-/**
- * Find an associated armature object.
- */
-static Object *obrel_armature_find(Object *ob)
-{
-  Object *ob_arm = nullptr;
-
-  for (ModifierData &mod : ob->modifiers) {
-    if (mod.type == eModifierType_Armature) {
-      ob_arm = (reinterpret_cast<ArmatureModifierData *>(&mod))->object;
-    }
-  }
-
-  return ob_arm;
-}
-
 static bool obrel_list_test(Object *ob)
 {
   return ob && !(ob->id.tag & ID_TAG_DOIT);
@@ -4507,8 +4079,7 @@ static void obrel_list_add(LinkNode **links, Object *ob)
 LinkNode *BKE_object_relational_superset(const Main &bmain,
                                          const Scene *scene,
                                          ViewLayer *view_layer,
-                                         eObjectSet objectSet,
-                                         eObRelationTypes includeFilter)
+                                         eObjectSet objectSet)
 {
   LinkNode *links = nullptr;
 
@@ -4535,13 +4106,6 @@ LinkNode *BKE_object_relational_superset(const Main &bmain,
           obrel_list_add(&links, ob);
         }
 
-        /* include related armatures */
-        if (includeFilter & OB_REL_MOD_ARMATURE) {
-          Object *arm = obrel_armature_find(ob);
-          if (obrel_list_test(arm)) {
-            obrel_list_add(&links, arm);
-          }
-        }
       }
     }
   }
@@ -4852,13 +4416,6 @@ void BKE_object_modifier_update_subframe(Depsgraph *depsgraph,
       BKE_animsys_evaluate_animdata(
           &cu->id, cu->adt, &anim_eval_context, ADT_RECALC_ANIM, flush_to_original);
     }
-    /* and armatures... */
-    if (ob->type == OB_ARMATURE) {
-      bArmature *arm = id_cast<bArmature *>(ob->data);
-      BKE_animsys_evaluate_animdata(
-          &arm->id, arm->adt, &anim_eval_context, ADT_RECALC_ANIM, flush_to_original);
-      BKE_pose_where_is(depsgraph, scene, ob);
-    }
   };
 
   BKE_object_modifier_update_subframe_only_callback(
@@ -4915,11 +4472,6 @@ void BKE_object_to_curve_clear(Object *object)
   }
   BKE_id_free(nullptr, object->runtime->object_as_temp_curve);
   object->runtime->object_as_temp_curve = nullptr;
-}
-
-void BKE_object_check_uids_unique_and_report(const Object *object)
-{
-  BKE_pose_check_uids_unique_and_report(object->pose);
 }
 
 SubsurfModifierData *BKE_object_get_last_subsurf_modifier(const Object *ob)

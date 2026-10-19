@@ -27,12 +27,12 @@ def gather_object_sampled_channels(object_uuid: str, blender_action_name: str, s
             # Not bake situation
             channels_animated, to_be_sampled, extra_channels = get_channel_groups(
                 object_uuid, bpy.data.actions[blender_action_name], bpy.data.actions[blender_action_name].slots[slot_identifier], export_settings)
-            for chan in [chan for chan in channels_animated.values() if chan['bone'] is None]:
+            for chan in channels_animated.values():
                 for prop in chan['properties'].keys():
                     list_of_animated_channels[get_channel_from_target(get_target(prop))] = get_gltf_interpolation(
                         chan['properties'][prop][0].keyframe_points[0].interpolation, export_settings)  # Could be exported without sampling : keep interpolation
 
-            for _, _, chan_prop, _ in [chan for chan in to_be_sampled if chan[1] == "OBJECT"]:
+            for _, _, chan_prop in [chan for chan in to_be_sampled if chan[1] == "OBJECT"]:
                 list_of_animated_channels[chan_prop] = get_gltf_interpolation(
                     export_settings['gltf_sampling_interpolation_fallback'],
                     export_settings)  # if forced to be sampled, keep the interpolation chosen by the user
@@ -99,7 +99,7 @@ def gather_sampled_object_channel(
                                animation_channel,
                                channel,
                                export_settings['vtree'].nodes[obj_uuid].blender_object,
-                               None,  # No bone
+                               None,
                                action_name,
                                node_channel_is_animated
                                )

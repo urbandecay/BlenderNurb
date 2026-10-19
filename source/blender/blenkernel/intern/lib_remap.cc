@@ -16,7 +16,6 @@
 #include "DNA_collection_types.h"
 #include "DNA_object_types.h"
 
-#include "BKE_armature.hh"
 #include "BKE_collection.hh"
 #include "BKE_curve.hh"
 #include "BKE_layer.hh"
@@ -308,54 +307,6 @@ static int foreach_libblock_remap_callback(LibraryIDLinkCallbackData *cb_data)
   return IDWALK_RET_NOP;
 }
 
-static void libblock_remap_data_preprocess_ob(Object *ob,
-                                              eIDRemapType remap_type,
-                                              const IDRemapper &id_remapper)
-{
-  if (ob->type != OB_ARMATURE) {
-    return;
-  }
-  if (ob->pose == nullptr) {
-    return;
-  }
-
-  const bool is_cleanup_type = remap_type == ID_REMAP_TYPE_CLEANUP;
-  /* Early exit when mapping, but no armature mappings present. */
-  if (!is_cleanup_type && !id_remapper.contains_mappings_for_any(FILTER_ID_AR)) {
-    return;
-  }
-
-  /* Object's pose holds reference to armature bones. sic */
-  /* Note that in theory, we should have to bother about linked/non-linked/never-null/etc.
-   * flags/states.
-   * Fortunately, this is just a tag, so we can accept to 'over-tag' a bit for pose recalc,
-   * and avoid another complex and risky condition nightmare like the one we have in
-   * foreach_libblock_remap_callback(). */
-  const IDRemapperApplyResult expected_mapping_result = id_remapper.get_mapping_result(
-      ob->data, ID_REMAP_APPLY_DEFAULT, nullptr);
-  if (is_cleanup_type || expected_mapping_result == ID_REMAP_RESULT_SOURCE_REMAPPED) {
-    ob->pose->flag |= POSE_RECALC;
-    /* We need to clear pose bone pointers immediately, some code may access those before
-     * pose is actually recomputed, which can lead to segfault. */
-    BKE_pose_clear_pointers(ob->pose);
-  }
-}
-
-static void libblock_remap_data_preprocess(ID *id_owner,
-                                           eIDRemapType remap_type,
-                                           const IDRemapper &id_remapper)
-{
-  switch (GS(id_owner->name)) {
-    case ID_OB: {
-      Object *ob = id_cast<Object *>(id_owner);
-      libblock_remap_data_preprocess_ob(ob, remap_type, id_remapper);
-      break;
-    }
-    default:
-      break;
-  }
-}
-
 /**
  * Can be called with both old_ob and new_ob being nullptr,
  * this means we have to check whole Main database then.
@@ -526,7 +477,6 @@ static void libblock_remap_data(
     printf("\tchecking id %s (%p, %p)\n", id->name, id, id->lib);
 #endif
     id_remap_data.id_owner = (id->flag & ID_FLAG_EMBEDDED_DATA) ? BKE_id_owner_get(id) : id;
-    libblock_remap_data_preprocess(id_remap_data.id_owner, remap_type, id_remapper);
     BKE_library_foreach_ID_link(
         bmain, id, foreach_libblock_remap_callback, &id_remap_data, foreach_id_flags);
   }
@@ -551,7 +501,6 @@ static void libblock_remap_data(
        * XXX No more true (except for debug usage of those
        * skipping counters). */
       id_remap_data.id_owner = id_curr;
-      libblock_remap_data_preprocess(id_remap_data.id_owner, remap_type, id_remapper);
       BKE_library_foreach_ID_link(
           bmain, id_curr, foreach_libblock_remap_callback, &id_remap_data, foreach_id_flags);
     }

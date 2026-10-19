@@ -545,20 +545,6 @@ ID *template_id_liboverride_hierarchy_make(
                                         &id_override,
                                         false);
       }
-      else if (object_active != nullptr && !ID_IS_LINKED(object_active) &&
-               &object_active->instance_collection->id == id)
-      {
-        object_active->id.tag |= ID_TAG_DOIT;
-        BKE_lib_override_library_create(bmain,
-                                        scene,
-                                        view_layer,
-                                        id->lib,
-                                        id,
-                                        &object_active->id,
-                                        &object_active->id,
-                                        &id_override,
-                                        false);
-      }
       break;
     case ID_OB:
       if (collection_active != nullptr &&
@@ -595,7 +581,6 @@ ID *template_id_liboverride_hierarchy_make(
     case ID_LA:
     case ID_CA:
     case ID_SPK:
-    case ID_AR:
     case ID_CV:
     case ID_PT:
     case ID_VO:
@@ -877,8 +862,6 @@ static StringRef template_id_browse_tip(const StructRNA *type)
         return N_("Browse Speaker Data to be linked");
       case ID_SO:
         return N_("Browse Sound to be linked");
-      case ID_AR:
-        return N_("Browse Armature data to be linked");
       case ID_AC:
         return N_("Browse Action to be linked");
       case ID_NT:
@@ -974,7 +957,6 @@ static Button *template_id_def_new_but(Block *block,
   BLT_I18N_MSGID_MULTI_CTXT("New",
                             BLT_I18NCONTEXT_DEFAULT,
                             BLT_I18NCONTEXT_ID_ACTION,
-                            BLT_I18NCONTEXT_ID_ARMATURE,
                             BLT_I18NCONTEXT_ID_BRUSH,
                             BLT_I18NCONTEXT_ID_CAMERA,
                             BLT_I18NCONTEXT_ID_CURVES,

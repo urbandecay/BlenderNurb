@@ -9,7 +9,6 @@
 #include "DNA_mesh_types.h"
 #include "MEM_guardedalloc.h"
 
-#include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_curves_types.h"
 #include "DNA_lattice_types.h"
@@ -21,7 +20,6 @@
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_armature.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
 #include "BKE_editmesh.hh"
@@ -33,11 +31,9 @@
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
 
-#include "ED_armature.hh"
 #include "ED_curves.hh"
 #include "ED_pointcloud.hh"
 
-#include "ANIM_armature.hh"
 
 #include "ED_transverts.hh" /* own include */
 
@@ -128,49 +124,6 @@ void ED_transverts_update_obedit(TransVertStore *tvs, Object *obedit)
       nu = nu->next;
     }
   }
-  else if (obedit->type == OB_ARMATURE) {
-    bArmature *arm = id_cast<bArmature *>(obedit->data);
-    TransVert *tv = tvs->transverts;
-    int a = 0;
-
-    /* Ensure all bone tails are correctly adjusted */
-    for (EditBone &ebo : *arm->edbo) {
-      if (!animrig::bone_is_visible(arm, &ebo)) {
-        continue;
-      }
-      /* adjust tip if both ends selected */
-      if ((ebo.flag & BONE_ROOTSEL) && (ebo.flag & BONE_TIPSEL)) {
-        if (tv) {
-          float diffvec[3];
-
-          sub_v3_v3v3(diffvec, tv->loc, tv->oldloc);
-          add_v3_v3(ebo.tail, diffvec);
-
-          a++;
-          if (a < tvs->transverts_tot) {
-            tv++;
-          }
-        }
-      }
-    }
-
-    /* Ensure all bones are correctly adjusted */
-    for (EditBone &ebo : *arm->edbo) {
-      if ((ebo.flag & BONE_CONNECTED) && ebo.parent) {
-        /* If this bone has a parent tip that has been moved */
-        if (animrig::bone_is_visible(arm, ebo.parent) && (ebo.parent->flag & BONE_TIPSEL)) {
-          copy_v3_v3(ebo.head, ebo.parent->tail);
-        }
-        /* If this bone has a parent tip that has NOT been moved */
-        else {
-          copy_v3_v3(ebo.parent->tail, ebo.head);
-        }
-      }
-    }
-    if (arm->flag & ARM_MIRROR_EDIT) {
-      ED_armature_edit_transform_mirror_update(obedit);
-    }
-  }
   else if (obedit->type == OB_LATTICE) {
     Lattice *lt = id_cast<Lattice *>(obedit->data);
 
@@ -218,7 +171,6 @@ static void set_mapped_co(void *vuserdata, int index, const float co[3], const f
 bool ED_transverts_check_obedit(const Object *obedit)
 {
   return ELEM(obedit->type,
-              OB_ARMATURE,
               OB_LATTICE,
               OB_MESH,
               OB_SURF,
@@ -349,53 +301,6 @@ void ED_transverts_create_from_obedit(TransVertStore *tvs, const Object *obedit,
         BM_mesh_elem_table_ensure(bm, BM_VERT);
         BKE_mesh_foreach_mapped_vert(
             editmesh_eval_cage, set_mapped_co, userdata, MESH_FOREACH_NOP);
-      }
-    }
-  }
-  else if (obedit->type == OB_ARMATURE) {
-    bArmature *arm = id_cast<bArmature *>(obedit->data);
-    int totmalloc = arm->edbo->count();
-
-    totmalloc *= 2; /* probably overkill but bones can have 2 trans verts each */
-
-    tv = tvs->transverts = MEM_new_array_zeroed<TransVert>(totmalloc, __func__);
-
-    for (EditBone &ebo : *arm->edbo) {
-      if (animrig::bone_is_visible(arm, &ebo)) {
-        const bool tipsel = (ebo.flag & BONE_TIPSEL) != 0;
-        const bool rootsel = (ebo.flag & BONE_ROOTSEL) != 0;
-        const bool rootok = !(
-            ebo.parent && (ebo.flag & BONE_CONNECTED) &&
-            (animrig::bone_is_visible(arm, ebo.parent) && (ebo.parent->flag & BONE_TIPSEL)));
-
-        if ((tipsel && rootsel) || (rootsel)) {
-          /* Don't add the tip (unless mode & TM_ALL_JOINTS, for getting all joints),
-           * otherwise we get zero-length bones as tips will snap to the same
-           * location as heads.
-           */
-          if (rootok) {
-            copy_v3_v3(tv->oldloc, ebo.head);
-            tv->loc = ebo.head;
-            tv->flag = SELECT;
-            tv++;
-            tvs->transverts_tot++;
-          }
-
-          if ((mode & TM_ALL_JOINTS) && (tipsel)) {
-            copy_v3_v3(tv->oldloc, ebo.tail);
-            tv->loc = ebo.tail;
-            tv->flag = SELECT;
-            tv++;
-            tvs->transverts_tot++;
-          }
-        }
-        else if (tipsel) {
-          copy_v3_v3(tv->oldloc, ebo.tail);
-          tv->loc = ebo.tail;
-          tv->flag = SELECT;
-          tv++;
-          tvs->transverts_tot++;
-        }
       }
     }
   }
