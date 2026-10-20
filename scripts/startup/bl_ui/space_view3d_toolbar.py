@@ -928,7 +928,6 @@ classes = (
     VIEW3D_PT_tools_brush_falloff,
     VIEW3D_PT_tools_brush_falloff_frontface,
     VIEW3D_PT_tools_brush_display,
-    VIEW3D_PT_tools_weight_gradient,
 
     VIEW3D_PT_sculpt_dyntopo,
     VIEW3D_PT_sculpt_voxel_remesh,
