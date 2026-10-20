@@ -23,7 +23,6 @@
 #include "BLI_hash.h"
 #include "DNA_curve_types.h"
 #include "DNA_layer_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_object_types.h"
 
 #include "DRW_render.hh"
@@ -152,12 +151,6 @@ inline void ObjectInfos::sync(const draw::ObjectRef ref,
       BKE_curve_texspace_ensure(&cu);
       orco_add = cu.texspace_location;
       orco_mul = cu.texspace_size;
-      break;
-    }
-    case ID_MB: {
-      MetaBall &mb = DRW_object_get_data_for_drawing<MetaBall>(*ref.object);
-      orco_add = mb.texspace_location;
-      orco_mul = mb.texspace_size;
       break;
     }
     default:

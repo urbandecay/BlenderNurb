@@ -1824,7 +1824,7 @@ static void rna_Scene_mesh_quality_update(Main *bmain, Scene * /*scene*/, Pointe
   Scene *scene = id_cast<Scene *>(ptr->owner_id);
 
   FOREACH_SCENE_OBJECT_BEGIN (scene, ob) {
-    if (ELEM(ob->type, OB_MESH, OB_CURVES_LEGACY, OB_VOLUME, OB_MBALL)) {
+    if (ELEM(ob->type, OB_MESH, OB_CURVES_LEGACY, OB_VOLUME)) {
       DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
     }
   }
@@ -3201,18 +3201,8 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE | PROP_DEG_SYNC_ONLY);
   RNA_def_property_boolean_sdna(prop, nullptr, "auto_normalize", 1);
   RNA_def_property_ui_text(prop,
-                           "Weight Paint Auto-Normalize",
-                           "Ensure vertex group weights add up "
-                           "to 1.0 while weight painting or assigning to vertices");
-  RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
-
-  prop = RNA_def_property(srna, "use_lock_relative", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE | PROP_DEG_SYNC_ONLY);
-  RNA_def_property_boolean_sdna(prop, nullptr, "wpaint_lock_relative", 1);
-  RNA_def_property_ui_text(prop,
-                           "Weight Paint Lock-Relative",
-                           "Display weights as if all locked groups "
-                           "were deleted, and the remaining ones were re-normalized");
+                           "Auto Normalize",
+                           "Keep assigned vertex group weights summing to 1.0");
   RNA_def_property_update(prop, 0, "rna_Scene_update_active_object_data");
 
   prop = RNA_def_property(srna, "vertex_group_user", PROP_ENUM, PROP_NONE);
@@ -3233,10 +3223,6 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   prop = RNA_def_property(srna, "vertex_paint", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, nullptr, "vpaint");
   RNA_def_property_ui_text(prop, "Vertex Paint", "");
-
-  prop = RNA_def_property(srna, "weight_paint", PROP_POINTER, PROP_NONE);
-  RNA_def_property_pointer_sdna(prop, nullptr, "wpaint");
-  RNA_def_property_ui_text(prop, "Weight Paint", "");
 
   prop = RNA_def_property(srna, "image_paint", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, nullptr, "imapaint");

@@ -248,39 +248,19 @@ static void mesh_cd_calc_used_gpu_layers(const Object &object,
 /** \name Vertex Group Selection
  * \{ */
 
-/** Reset the selection structure, deallocating heap memory as appropriate. */
+/** Reset the vertex group display state. */
 static void drw_mesh_weight_state_clear(DRW_MeshWeightState *wstate)
 {
-  MEM_SAFE_DELETE(wstate->defgroup_locked);
-  MEM_SAFE_DELETE(wstate->defgroup_unlocked);
-
   memset(wstate, 0, sizeof(*wstate));
 
   wstate->defgroup_active = -1;
 }
 
-/** Copy selection data from one structure to another, including heap memory. */
+/** Copy vertex group display state. */
 static void drw_mesh_weight_state_copy(DRW_MeshWeightState *wstate_dst,
                                        const DRW_MeshWeightState *wstate_src)
 {
-  MEM_SAFE_DELETE(wstate_dst->defgroup_locked);
-  MEM_SAFE_DELETE(wstate_dst->defgroup_unlocked);
-
-  memcpy(wstate_dst, wstate_src, sizeof(*wstate_dst));
-
-  if (wstate_src->defgroup_locked) {
-    wstate_dst->defgroup_locked = MEM_dupalloc(wstate_src->defgroup_locked);
-  }
-  if (wstate_src->defgroup_unlocked) {
-    wstate_dst->defgroup_unlocked = static_cast<bool *>(
-        MEM_dupalloc(wstate_src->defgroup_unlocked));
-  }
-}
-
-static bool drw_mesh_flags_equal(const bool *array1, const bool *array2, int size)
-{
-  return ((!array1 && !array2) ||
-          (array1 && array2 && memcmp(array1, array2, size * sizeof(bool)) == 0));
+  *wstate_dst = *wstate_src;
 }
 
 /** Compare two selection structures. */
@@ -288,13 +268,11 @@ static bool drw_mesh_weight_state_compare(const DRW_MeshWeightState *a,
                                           const DRW_MeshWeightState *b)
 {
   return a->defgroup_active == b->defgroup_active && a->defgroup_len == b->defgroup_len &&
-         a->flags == b->flags && a->alert_mode == b->alert_mode &&
-         drw_mesh_flags_equal(a->defgroup_locked, b->defgroup_locked, a->defgroup_len) &&
-         drw_mesh_flags_equal(a->defgroup_unlocked, b->defgroup_unlocked, a->defgroup_len);
+         a->alert_mode == b->alert_mode;
 }
 
 static void drw_mesh_weight_state_extract(
-    Object &ob, Mesh &mesh, const ToolSettings &ts, bool paint_mode, DRW_MeshWeightState *wstate)
+    Mesh &mesh, const ToolSettings &ts, DRW_MeshWeightState *wstate)
 {
   /* Extract complete vertex weight group selection state and mode flags. */
   memset(wstate, 0, sizeof(*wstate));
@@ -304,28 +282,6 @@ static void drw_mesh_weight_state_extract(
 
   wstate->alert_mode = ts.weightuser;
 
-  if (paint_mode && ts.wpaint_lock_relative) {
-    /* Set of locked vertex groups for the lock relative mode. */
-    wstate->defgroup_locked = BKE_object_defgroup_lock_flags_get(&ob, wstate->defgroup_len);
-    wstate->defgroup_unlocked = BKE_object_defgroup_validmap_get(&ob, wstate->defgroup_len);
-
-    /* Check that the active group can use Lock Relative display. */
-    if (BKE_object_defgroup_check_lock_relative(
-            wstate->defgroup_locked, wstate->defgroup_unlocked, wstate->defgroup_active)) {
-      wstate->flags |= DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE;
-
-      /* Compute the set of locked and unlocked deform vertex groups. */
-      BKE_object_defgroup_split_locked_validmap(wstate->defgroup_len,
-                                                wstate->defgroup_locked,
-                                                wstate->defgroup_unlocked,
-                                                wstate->defgroup_locked, /* out */
-                                                wstate->defgroup_unlocked);
-    }
-    else {
-      MEM_SAFE_DELETE(wstate->defgroup_unlocked);
-      MEM_SAFE_DELETE(wstate->defgroup_locked);
-    }
-  }
 }
 
 /** \} */
@@ -1038,7 +994,7 @@ void DRW_mesh_batch_cache_create_requested(TaskGraph &task_graph,
     if ((cache.batch.surface_weights != nullptr) && (ts != nullptr)) {
       DRW_MeshWeightState wstate;
       BLI_assert(ob.type == OB_MESH);
-      drw_mesh_weight_state_extract(ob, mesh, *ts, is_paint_mode, &wstate);
+      drw_mesh_weight_state_extract(mesh, *ts, &wstate);
       mesh_batch_cache_check_vertex_group(cache, &wstate);
       drw_mesh_weight_state_copy(&cache.weight_state, &wstate);
       drw_mesh_weight_state_clear(&wstate);
@@ -1316,7 +1272,7 @@ void DRW_mesh_batch_cache_create_requested(TaskGraph &task_graph,
       /* Sculpt mode does not support selection, therefore the generic `is_paint_mode` check cannot
        * be used */
       const bool is_face_selectable =
-          ELEM(ob.mode, OB_MODE_VERTEX_PAINT, OB_MODE_WEIGHT_PAINT) &&
+          ob.mode == OB_MODE_VERTEX_PAINT &&
           use_face_selection;
 
       const IBOType ibo = is_face_selectable || is_editmode ? IBOType::UVTris : IBOType::Tris;

@@ -1199,7 +1199,6 @@ NlaEvalStrip *nlastrips_ctime_get_strip(ListBaseT<NlaEvalStrip> *list,
       break;
     }
     case NLASTRIP_TYPE_META:
-    case NLASTRIP_TYPE_SOUND:
       break;
   }
 

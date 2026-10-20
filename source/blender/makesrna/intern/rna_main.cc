@@ -164,7 +164,6 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(linestyles)
 RNA_MAIN_LISTBASE_FUNCS_DEF(masks)
 RNA_MAIN_LISTBASE_FUNCS_DEF(materials)
 RNA_MAIN_LISTBASE_FUNCS_DEF(meshes)
-RNA_MAIN_LISTBASE_FUNCS_DEF(metaballs)
 RNA_MAIN_LISTBASE_FUNCS_DEF(movieclips)
 RNA_MAIN_LISTBASE_FUNCS_DEF(nodetrees)
 RNA_MAIN_LISTBASE_FUNCS_DEF(objects)
@@ -176,7 +175,6 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(scenes)
 RNA_MAIN_LISTBASE_FUNCS_DEF(screens)
 RNA_MAIN_LISTBASE_FUNCS_DEF(shapekeys)
 RNA_MAIN_LISTBASE_FUNCS_DEF(sounds)
-RNA_MAIN_LISTBASE_FUNCS_DEF(speakers)
 RNA_MAIN_LISTBASE_FUNCS_DEF(texts)
 RNA_MAIN_LISTBASE_FUNCS_DEF(textures)
 RNA_MAIN_LISTBASE_FUNCS_DEF(volumes)
@@ -393,12 +391,6 @@ void RNA_def_main(BlenderRNA *brna)
        "Curves",
        "Curve data-blocks",
        RNA_def_main_curves},
-      {"metaballs",
-       "MetaBall",
-       "rna_Main_metaballs_begin",
-       "Metaballs",
-       "Metaball data-blocks",
-       RNA_def_main_metaballs},
       {"fonts",
        "VectorFont",
        "rna_Main_fonts_begin",
@@ -436,12 +428,6 @@ void RNA_def_main(BlenderRNA *brna)
        "Shape Key data-blocks",
        nullptr},
       {"texts", "Text", "rna_Main_texts_begin", "Texts", "Text data-blocks", RNA_def_main_texts},
-      {"speakers",
-       "Speaker",
-       "rna_Main_speakers_begin",
-       "Speakers",
-       "Speaker data-blocks",
-       RNA_def_main_speakers},
       {"sounds",
        "Sound",
        "rna_Main_sounds_begin",

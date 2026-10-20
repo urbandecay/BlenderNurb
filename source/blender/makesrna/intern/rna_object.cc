@@ -12,7 +12,6 @@
 #include "DNA_action_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_lightprobe_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_object_types.h"
 
 #include "BLI_math_rotation.h"
@@ -38,7 +37,6 @@ const EnumPropertyItem rna_enum_object_mode_items[] = {
     {OB_MODE_EDIT, "EDIT", ICON_EDITMODE_HLT, "Edit Mode", ""},
     {OB_MODE_SCULPT, "SCULPT", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {OB_MODE_VERTEX_PAINT, "VERTEX_PAINT", ICON_VPAINT_HLT, "Vertex Paint", ""},
-    {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
     {OB_MODE_PARTICLE_EDIT, "PARTICLE_EDIT", ICON_PARTICLEMODE, "Particle Edit", ""},
     {OB_MODE_SCULPT_CURVES, "SCULPT_CURVES", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {0, nullptr, 0, nullptr, nullptr},
@@ -49,7 +47,6 @@ const EnumPropertyItem rna_enum_workspace_object_mode_items[] = {
     {OB_MODE_EDIT, "EDIT", ICON_EDITMODE_HLT, "Edit Mode", ""},
     {OB_MODE_SCULPT, "SCULPT", ICON_SCULPTMODE_HLT, "Sculpt Mode", ""},
     {OB_MODE_VERTEX_PAINT, "VERTEX_PAINT", ICON_VPAINT_HLT, "Vertex Paint", ""},
-    {OB_MODE_WEIGHT_PAINT, "WEIGHT_PAINT", ICON_WPAINT_HLT, "Weight Paint", ""},
     {OB_MODE_PARTICLE_EDIT, "PARTICLE_EDIT", ICON_PARTICLEMODE, "Particle Edit", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
@@ -97,7 +94,6 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     {OB_MESH, "MESH", ICON_OUTLINER_OB_MESH, "Mesh", ""},
     OBTYPE_CU_CURVE,
     OBTYPE_CU_SURF,
-    {OB_MBALL, "META", ICON_OUTLINER_OB_META, "Metaball", ""},
     OBTYPE_CU_FONT,
     {OB_CURVES, "CURVES", ICON_OUTLINER_OB_CURVES, "Hair Curves", ""},
     {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
@@ -110,7 +106,6 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     RNA_ENUM_ITEM_SEPR,
     {OB_CAMERA, "CAMERA", ICON_OUTLINER_OB_CAMERA, "Camera", ""},
     RNA_ENUM_ITEM_SEPR,
-    {OB_SPEAKER, "SPEAKER", ICON_OUTLINER_OB_SPEAKER, "Speaker", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -125,7 +120,6 @@ const EnumPropertyItem rna_enum_object_type_add_items[] = {
     {OB_MESH, "MESH", ICON_OUTLINER_OB_MESH, "Mesh", ""},
     OBTYPE_CU_CURVE,
     OBTYPE_CU_SURF,
-    {OB_MBALL, "META", ICON_OUTLINER_OB_META, "Metaball", ""},
     OBTYPE_CU_FONT,
     {OB_CURVES, "CURVES", ICON_OUTLINER_OB_CURVES, "Hair Curves", ""},
     {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
@@ -138,7 +132,6 @@ const EnumPropertyItem rna_enum_object_type_add_items[] = {
     RNA_ENUM_ITEM_SEPR,
     {OB_CAMERA, "CAMERA", ICON_OUTLINER_OB_CAMERA, "Camera", ""},
     RNA_ENUM_ITEM_SEPR,
-    {OB_SPEAKER, "SPEAKER", ICON_OUTLINER_OB_SPEAKER, "Speaker", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -460,16 +453,12 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
       return RNA_Curve;
     case OB_FONT:
       return RNA_Curve;
-    case OB_MBALL:
-      return RNA_MetaBall;
     case OB_LAMP:
       return RNA_Light;
     case OB_CAMERA:
       return RNA_Camera;
     case OB_LATTICE:
       return RNA_Lattice;
-    case OB_SPEAKER:
-      return RNA_Speaker;
     case OB_LIGHTPROBE:
       return RNA_LightProbe;
     case OB_CURVES:
@@ -1737,11 +1726,6 @@ static int rna_Object_mesh_symmetry_yz_editable(const PointerRNA *ptr, const cha
   }
 
   const Mesh *mesh = id_cast<Mesh *>(ob->data);
-  if (ob->mode == OB_MODE_WEIGHT_PAINT && mesh->editflag & ME_EDIT_MIRROR_VERTEX_GROUPS) {
-    /* Only X symmetry is available in weight-paint mode. */
-    return 0;
-  }
-
   return PROP_EDITABLE;
 }
 

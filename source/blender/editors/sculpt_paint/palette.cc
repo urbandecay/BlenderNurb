@@ -270,10 +270,6 @@ static wmOperatorStatus palette_color_add_exec(bContext *C, wmOperator * /*op*/)
       copy_v3_v3(color->color, BKE_brush_color_get(paint, brush));
       color->value = 0.0;
     }
-    else if (mode == PaintMode::Weight) {
-      zero_v3(color->color);
-      color->value = brush->weight;
-    }
   }
 
   return OPERATOR_FINISHED;

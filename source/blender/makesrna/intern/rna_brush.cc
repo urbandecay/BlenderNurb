@@ -199,14 +199,6 @@ const EnumPropertyItem rna_enum_brush_vertex_brush_type_items[] = {
     {0, nullptr, 0, nullptr, nullptr},
 };
 
-const EnumPropertyItem rna_enum_brush_weight_brush_type_items[] = {
-    {WPAINT_BRUSH_TYPE_DRAW, "DRAW", 0, "Draw", ""},
-    {WPAINT_BRUSH_TYPE_BLUR, "BLUR", 0, "Blur", ""},
-    {WPAINT_BRUSH_TYPE_AVERAGE, "AVERAGE", 0, "Average", ""},
-    {WPAINT_BRUSH_TYPE_SMEAR, "SMEAR", 0, "Smear", ""},
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
 const EnumPropertyItem rna_enum_brush_image_brush_type_items[] = {
     {IMAGE_PAINT_BRUSH_TYPE_DRAW, "DRAW", 0, "Draw", ""},
     {IMAGE_PAINT_BRUSH_TYPE_SOFTEN, "SOFTEN", 0, "Soften", ""},
@@ -518,12 +510,6 @@ static bool rna_BrushCapabilitiesVertexPaint_has_color_get(PointerRNA *ptr)
   return ELEM(br->vertex_brush_type, VPAINT_BRUSH_TYPE_DRAW);
 }
 
-static bool rna_BrushCapabilitiesWeightPaint_has_weight_get(PointerRNA *ptr)
-{
-  Brush *br = static_cast<Brush *>(ptr->data);
-  return ELEM(br->weight_brush_type, WPAINT_BRUSH_TYPE_DRAW);
-}
-
 static PointerRNA rna_Sculpt_brush_capabilities_get(PointerRNA *ptr)
 {
   BLI_assert(ptr->owner_id == ptr->data);
@@ -540,12 +526,6 @@ static PointerRNA rna_Vertexpaint_brush_capabilities_get(PointerRNA *ptr)
 {
   BLI_assert(ptr->owner_id == ptr->data);
   return RNA_pointer_create_with_parent(*ptr, RNA_BrushCapabilitiesVertexPaint, ptr->data);
-}
-
-static PointerRNA rna_Weightpaint_brush_capabilities_get(PointerRNA *ptr)
-{
-  BLI_assert(ptr->owner_id == ptr->data);
-  return RNA_pointer_create_with_parent(*ptr, RNA_BrushCapabilitiesWeightPaint, ptr->data);
 }
 
 static PointerRNA rna_Brush_capabilities_get(PointerRNA *ptr)
@@ -1075,29 +1055,6 @@ static void rna_def_vertex_paint_capabilities(BlenderRNA *brna)
 #  undef VPAINT_BRUSH_CAPABILITY
 }
 
-static void rna_def_weight_paint_capabilities(BlenderRNA *brna)
-{
-  StructRNA *srna;
-  PropertyRNA *prop;
-
-  srna = RNA_def_struct(brna, "BrushCapabilitiesWeightPaint", nullptr);
-  RNA_def_struct_sdna(srna, "Brush");
-  RNA_def_struct_nested(brna, srna, "Brush");
-  RNA_def_struct_ui_text(
-      srna, "Weight Paint Capabilities", "Read-only indications of supported operations");
-
-#  define WPAINT_BRUSH_CAPABILITY(prop_name_, ui_name_) \
-    prop = RNA_def_property(srna, #prop_name_, PROP_BOOLEAN, PROP_NONE); \
-    RNA_def_property_clear_flag(prop, PROP_EDITABLE); \
-    RNA_def_property_boolean_funcs( \
-        prop, "rna_BrushCapabilitiesWeightPaint_" #prop_name_ "_get", nullptr); \
-    RNA_def_property_ui_text(prop, ui_name_, nullptr)
-
-  WPAINT_BRUSH_CAPABILITY(has_weight, "Has Weight");
-
-#  undef WPAINT_BRUSH_CAPABILITY
-}
-
 static void rna_def_curves_sculpt_options(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -1618,12 +1575,6 @@ static void rna_def_brush(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Brush Type", "");
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
-  prop = RNA_def_property(srna, "weight_brush_type", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, nullptr, "weight_brush_type");
-  RNA_def_property_enum_items(prop, rna_enum_brush_weight_brush_type_items);
-  RNA_def_property_ui_text(prop, "Brush Type", "");
-  RNA_def_property_update(prop, 0, "rna_Brush_update");
-
   prop = RNA_def_property(srna, "image_brush_type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, nullptr, "image_brush_type");
   RNA_def_property_enum_items(prop, rna_enum_brush_image_brush_type_items);
@@ -1985,12 +1936,6 @@ static void rna_def_brush(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, nullptr, "secondary_color");
   RNA_def_property_ui_text(prop, "Secondary Color", "");
   RNA_def_property_update(prop, 0, "rna_Brush_color_update");
-
-  prop = RNA_def_property(srna, "weight", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.001, 3);
-  RNA_def_property_ui_text(prop, "Weight", "Vertex weight when brush is applied");
-  RNA_def_property_update(prop, 0, "rna_Brush_update");
 
   prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, nullptr, "alpha");
@@ -2822,11 +2767,6 @@ static void rna_def_brush(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Use Vertex", "Use this brush in vertex paint mode");
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
-  prop = RNA_def_property(srna, "use_paint_weight", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "ob_mode", OB_MODE_WEIGHT_PAINT);
-  RNA_def_property_ui_text(prop, "Use Weight", "Use this brush in weight paint mode");
-  RNA_def_property_update(prop, 0, "rna_Brush_update");
-
   prop = RNA_def_property(srna, "use_paint_image", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "ob_mode", OB_MODE_IMAGE_PAINT);
   RNA_def_property_ui_text(prop, "Use Image", "Use this brush in Image Editor painting");
@@ -2920,13 +2860,6 @@ static void rna_def_brush(BlenderRNA *brna)
       prop, "rna_Vertexpaint_brush_capabilities_get", nullptr, nullptr, nullptr);
   RNA_def_property_ui_text(prop, "Vertex Paint Capabilities", "");
 
-  prop = RNA_def_property(srna, "weight_paint_capabilities", PROP_POINTER, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_NEVER_NULL);
-  RNA_def_property_struct_type(prop, "BrushCapabilitiesWeightPaint");
-  RNA_def_property_pointer_funcs(
-      prop, "rna_Weightpaint_brush_capabilities_get", nullptr, nullptr, nullptr);
-  RNA_def_property_ui_text(prop, "Weight Paint Capabilities", "");
-
   prop = RNA_def_property(srna, "curves_sculpt_settings", PROP_POINTER, PROP_NONE);
   RNA_def_property_struct_type(prop, "BrushCurvesSculptSettings");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -3015,7 +2948,6 @@ void RNA_def_brush(BlenderRNA *brna)
   rna_def_sculpt_capabilities(brna);
   rna_def_image_paint_capabilities(brna);
   rna_def_vertex_paint_capabilities(brna);
-  rna_def_weight_paint_capabilities(brna);
   rna_def_curves_sculpt_options(brna);
   rna_def_brush_texture_slot(brna);
   rna_def_operator_stroke_element(brna);

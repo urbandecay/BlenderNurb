@@ -37,7 +37,6 @@
 #include "BKE_lattice.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
-#include "BKE_mball.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_modifier.hh"
@@ -272,7 +271,6 @@ bool DRW_object_use_hide_faces(const Object *ob)
     switch (ob->mode) {
       case OB_MODE_SCULPT:
       case OB_MODE_VERTEX_PAINT:
-      case OB_MODE_WEIGHT_PAINT:
         return true;
       default:
         break;

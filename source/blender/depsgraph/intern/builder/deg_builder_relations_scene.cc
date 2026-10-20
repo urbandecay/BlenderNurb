@@ -17,20 +17,18 @@
 
 namespace blender::deg {
 
-void DepsgraphRelationBuilder::build_scene_render(Scene *scene, ViewLayer *view_layer)
+void DepsgraphRelationBuilder::build_scene_render(Scene *scene, ViewLayer * /*view_layer*/)
 {
   scene_ = scene;
   const bool build_compositor = (scene->r.scemode & R_DOCOMP);
-  const bool build_sequencer = (scene->r.scemode & R_DOSEQ);
   build_scene_parameters(scene);
   build_animdata(&scene->id);
   build_scene_audio(scene);
   if (build_compositor) {
     build_scene_compositor(scene);
   }
-  if (build_sequencer) {
+  if (scene->r.scemode & R_DOSEQ) {
     build_scene_sequencer(scene);
-    build_scene_speakers(scene, view_layer);
   }
   build_scene_camera(scene);
 }

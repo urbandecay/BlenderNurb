@@ -871,9 +871,6 @@ static TransConvertTypeInfo *convert_type_get(const TransInfo *t)
     if (t->obedit_type == OB_LATTICE) {
       return &TransConvertType_Lattice;
     }
-    if (t->obedit_type == OB_MBALL) {
-      return &TransConvertType_MBall;
-    }
     if (t->obedit_type == OB_CURVES) {
       return &curves::TransConvertType_Curves;
     }

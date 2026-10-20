@@ -72,7 +72,7 @@ static bool vertex_group_supported_poll_ex(bContext *C, const Object *ob);
 /** \name Local Utility Functions
  * \{ */
 
-static bool object_array_for_wpaint_filter(const Object *ob, void *user_data)
+static bool object_array_for_vertex_group_filter(const Object *ob, void *user_data)
 {
   bContext *C = static_cast<bContext *>(user_data);
   if (vertex_group_supported_poll_ex(C, ob)) {
@@ -81,9 +81,9 @@ static bool object_array_for_wpaint_filter(const Object *ob, void *user_data)
   return false;
 }
 
-static Vector<Object *> object_array_for_wpaint(bContext *C)
+static Vector<Object *> object_array_for_vertex_groups(bContext *C)
 {
-  return objects_in_mode_or_selected(C, object_array_for_wpaint_filter, C);
+  return objects_in_mode_or_selected(C, object_array_for_vertex_group_filter, C);
 }
 
 static bool vertex_group_use_vert_sel(Object *ob)
@@ -1923,7 +1923,7 @@ void vgroup_mirror(Object *ob,
       EDBM_verts_mirror_cache_end(em);
     }
     else {
-      /* object mode / weight paint */
+      /* object mode */
       const bool use_sel = (mesh->editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)) !=
                            0;
       if (mesh->deform_verts().is_empty()) {
@@ -2187,7 +2187,7 @@ static bool UNUSED_FUNCTION(vertex_group_poll_edit)(bContext *C)
   return BKE_object_is_in_editmode_vgroup(ob);
 }
 
-/* editmode _or_ weight paint vertex sel */
+/* Edit-mode vertex selection. */
 static bool vertex_group_vert_poll_ex(bContext *C,
                                       const bool needs_select,
                                       const short ob_type_flag)
@@ -2205,16 +2205,7 @@ static bool vertex_group_vert_poll_ex(bContext *C,
   if (BKE_object_is_in_editmode_vgroup(ob)) {
     return true;
   }
-  if (ob->mode & OB_MODE_WEIGHT_PAINT) {
-    if (needs_select) {
-      if (BKE_object_is_in_wpaint_select_vert(ob)) {
-        return true;
-      }
-      CTX_wm_operator_poll_msg_set(C, "Vertex select needs to be enabled in weight paint mode");
-      return false;
-    }
-    return true;
-  }
+  UNUSED_VARS(needs_select);
   return false;
 }
 
@@ -2242,7 +2233,7 @@ static bool vertex_group_mesh_vert_select_poll(bContext *C)
 }
 #endif
 
-/* editmode _or_ weight paint vertex sel and active group unlocked */
+/* Edit-mode vertex selection and active group unlocked. */
 static bool vertex_group_vert_select_unlocked_poll(bContext *C)
 {
   Object *ob = context_object(C);
@@ -2251,7 +2242,7 @@ static bool vertex_group_vert_select_unlocked_poll(bContext *C)
     return false;
   }
 
-  if (!(BKE_object_is_in_editmode_vgroup(ob) || BKE_object_is_in_wpaint_select_vert(ob))) {
+  if (!BKE_object_is_in_editmode_vgroup(ob)) {
     return false;
   }
 
@@ -2280,7 +2271,7 @@ static bool vertex_group_vert_select_mesh_poll(bContext *C)
     return false;
   }
 
-  return (BKE_object_is_in_editmode_vgroup(ob) || BKE_object_is_in_wpaint_select_vert(ob));
+  return BKE_object_is_in_editmode_vgroup(ob);
 }
 
 /** \} */
@@ -2900,7 +2891,7 @@ static wmOperatorStatus vertex_group_smooth_exec(bContext *C, wmOperator *op)
   const float fac_expand = RNA_float_get(op->ptr, "expand");
 
   bool has_vgroup_multi = false;
-  const Vector<Object *> objects = object_array_for_wpaint(C);
+  const Vector<Object *> objects = object_array_for_vertex_groups(C);
   for (Object *ob : objects) {
     int subset_count, vgroup_tot;
 
@@ -2990,7 +2981,7 @@ static wmOperatorStatus vertex_group_clean_exec(bContext *C, wmOperator *op)
   const eVGroupSelect subset_type = static_cast<eVGroupSelect>(
       RNA_enum_get(op->ptr, "group_select_mode"));
 
-  const Vector<Object *> objects = object_array_for_wpaint(C);
+  const Vector<Object *> objects = object_array_for_vertex_groups(C);
   for (Object *ob : objects) {
     int subset_count, vgroup_tot;
 
@@ -3098,7 +3089,7 @@ static wmOperatorStatus vertex_group_limit_total_exec(bContext *C, wmOperator *o
       RNA_enum_get(op->ptr, "group_select_mode"));
   int removed_total = 0;
 
-  const Vector<Object *> objects = object_array_for_wpaint(C);
+  const Vector<Object *> objects = object_array_for_vertex_groups(C);
   for (Object *ob : objects) {
     int subset_count, group_tot;
     const bool *group_mask = BKE_object_defgroup_subset_from_select_type(

@@ -544,14 +544,12 @@ class OUTLINER_PT_options_filter(Panel):
             row.prop(space, "use_filter_object_camera", text="Cameras")
         if (
                 bpy.data.curves or
-                bpy.data.metaballs or
                 (hasattr(bpy.data, "hair_curves") and bpy.data.hair_curves) or
                 (hasattr(bpy.data, "pointclouds") and bpy.data.pointclouds) or
                 bpy.data.volumes or
                 bpy.data.lightprobes or
                 bpy.data.lattices or
-                bpy.data.fonts or
-                bpy.data.speakers
+                bpy.data.fonts
         ):
             row = sub.row()
             row.label(icon='BLANK1')

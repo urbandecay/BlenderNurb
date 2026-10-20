@@ -71,7 +71,7 @@ set(SRC_GLSL_VERT
   overlay_outline_prepass_wire_vert.glsl
   overlay_paint_face_vert.glsl
   overlay_paint_point_vert.glsl
-  overlay_paint_weight_vert.glsl
+  overlay_vertex_group_weight_vert.glsl
   overlay_paint_wire_vert.glsl
   overlay_particle_hair_vert.glsl
   overlay_particle_shape_vert.glsl
@@ -106,7 +106,7 @@ set(SRC_GLSL_FRAG
   overlay_motion_path_line_frag.glsl
   overlay_outline_detect_frag.glsl
   overlay_outline_prepass_frag.glsl
-  overlay_paint_weight_frag.glsl
+  overlay_vertex_group_weight_frag.glsl
   overlay_particle_frag.glsl
   overlay_particle_shape_frag.glsl
   overlay_point_varying_color_frag.glsl

@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "BKE_mball.hh"
 
 #include "BLI_bounds_types.hh"
 #include "BLI_utildefines.h"
@@ -70,8 +69,7 @@ class Bounds : Overlay {
     const bool no_data_object_with_geometry =
         (ob->type == OB_NO_DATA) && ob->runtime->geometry_set_eval &&
         !ob->runtime->geometry_set_eval->is_empty();
-    const bool has_bounds = (!ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER, OB_LIGHTPROBE) &&
-                             (ob->type != OB_MBALL || BKE_mball_is_basis(ob))) ||
+    const bool has_bounds = !ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_LIGHTPROBE) ||
                             no_data_object_with_geometry;
     const bool show_extras = !from_dupli && state.show_extras();
 
@@ -190,11 +188,6 @@ class Bounds : Overlay {
           Curve &cu = DRW_object_get_data_for_drawing<Curve>(*ob);
           BKE_curve_texspace_ensure(&cu);
           add_bounds_ex(cu.texspace_location, cu.texspace_size, OB_BOUND_BOX);
-          break;
-        }
-        case ID_MB: {
-          MetaBall &mb = DRW_object_get_data_for_drawing<MetaBall>(*ob);
-          add_bounds_ex(mb.texspace_location, mb.texspace_size, OB_BOUND_BOX);
           break;
         }
         case ID_CV:

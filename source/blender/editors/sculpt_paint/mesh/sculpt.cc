@@ -4830,7 +4830,7 @@ static bool stroke_get_location_bvh_ex(Depsgraph &depsgraph,
   const Brush *brush = BKE_paint_brush_for_read(&paint);
 
   if (sd) {
-    /* TODO: This code is shared by Sculpt, Vertex, and Weight paint. Ideally, we wouldn't need
+    /* TODO: This code is shared by Sculpt and Vertex Paint. Ideally, we wouldn't need
      * to pass in `Sculpt` and `Paint` separately, but until we have further C++ DNA types, this
      * is fine */
     stroke_modifiers_check(depsgraph, vc.rv3d, *sd, ob, brush);

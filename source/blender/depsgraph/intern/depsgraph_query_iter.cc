@@ -450,9 +450,6 @@ bool DEG_iterator_dupli_is_visible(const DupliObject *dupli, eEvaluationMode /*e
   if (dupli->no_draw) {
     return false;
   }
-  if (dupli->ob_data && GS(dupli->ob_data->name) == ID_MB) {
-    return false;
-  }
   return true;
 }
 

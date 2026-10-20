@@ -244,9 +244,6 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
   {
     return true;
   }
-  if (RNA_struct_is_a(ptr->type, RNA_MetaBall) && ELEM(type, -1, OB_MBALL)) {
-    return true;
-  }
   if (RNA_struct_is_a(ptr->type, RNA_Lattice) && ELEM(type, -1, OB_LATTICE)) {
     return true;
   }
@@ -254,9 +251,6 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
     return true;
   }
   if (RNA_struct_is_a(ptr->type, RNA_Light) && ELEM(type, -1, OB_LAMP)) {
-    return true;
-  }
-  if (RNA_struct_is_a(ptr->type, RNA_Speaker) && ELEM(type, -1, OB_SPEAKER)) {
     return true;
   }
   if (RNA_struct_is_a(ptr->type, RNA_LightProbe) && ELEM(type, -1, OB_LIGHTPROBE)) {
@@ -797,9 +791,7 @@ const char *buttons_context_dir[] = {
     "mesh",
     "lattice",
     "curve",
-    "meta_ball",
     "light",
-    "speaker",
     "lightprobe",
     "camera",
     "material",
@@ -889,20 +881,12 @@ int /*eContextResult*/ buttons_context(const bContext *C,
     set_pointer_type(path, result, RNA_Curve);
     return CTX_RESULT_OK;
   }
-  if (CTX_data_equals(member, "meta_ball")) {
-    set_pointer_type(path, result, RNA_MetaBall);
-    return CTX_RESULT_OK;
-  }
   if (CTX_data_equals(member, "light")) {
     set_pointer_type(path, result, RNA_Light);
     return CTX_RESULT_OK;
   }
   if (CTX_data_equals(member, "camera")) {
     set_pointer_type(path, result, RNA_Camera);
-    return CTX_RESULT_OK;
-  }
-  if (CTX_data_equals(member, "speaker")) {
-    set_pointer_type(path, result, RNA_Speaker);
     return CTX_RESULT_OK;
   }
   if (CTX_data_equals(member, "lightprobe")) {

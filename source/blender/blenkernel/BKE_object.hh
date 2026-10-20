@@ -122,7 +122,6 @@ bool BKE_object_exists_check(Main *bmain, const Object *obtest);
  */
 bool BKE_object_is_in_editmode(const Object *ob);
 bool BKE_object_is_in_editmode_vgroup(const Object *ob);
-bool BKE_object_is_in_wpaint_select_vert(const Object *ob);
 bool BKE_object_has_mode_data(const Object *ob, eObjectMode object_mode);
 bool BKE_object_is_mode_compat(const Object *ob, eObjectMode object_mode);
 

@@ -43,8 +43,7 @@ bool transdata_check_local_center(const TransInfo *t, short around)
            ELEM(t->obedit_type,
                 OB_MESH,
                 OB_CURVES_LEGACY,
-                OB_CURVES,
-                OB_MBALL) ||
+                OB_CURVES) ||
            (t->spacetype == SPACE_GRAPH) ||
            (t->options & (CTX_MOVIECLIP | CTX_MASK | CTX_PAINT_CURVE | CTX_SEQUENCER_IMAGE))));
 }

@@ -750,32 +750,6 @@ static void keymap_update_mesh_vertex_paint_brushes(wmKeyMap *keymap)
   keymap_update_brushes(keymap, asset_prefix, tool_property, tool_tool_map, {}, id_asset_map);
 }
 
-static void keymap_update_mesh_weight_paint_brushes(wmKeyMap *keymap)
-{
-  constexpr StringRef asset_prefix = "brushes/essentials_brushes-mesh_weight.blend/Brush/";
-  constexpr StringRef tool_property = "weight_tool";
-
-  const auto tool_tool_map = []() {
-    Map<StringRef, StringRefNull> map;
-    map.add_new("builtin_brush.Draw", "builtin.brush");
-    map.add_new("builtin_brush.Blur", "builtin_brush.blur");
-    map.add_new("builtin_brush.Average", "builtin_brush.average");
-    map.add_new("builtin_brush.Smear", "builtin_brush.smear");
-    return map;
-  }();
-
-  const auto asset_id_map = []() {
-    Map<int, StringRef> map;
-    map.add_new(WPAINT_BRUSH_TYPE_DRAW, "Paint");
-    map.add_new(WPAINT_BRUSH_TYPE_BLUR, "Blur");
-    map.add_new(WPAINT_BRUSH_TYPE_AVERAGE, "Average");
-    map.add_new(WPAINT_BRUSH_TYPE_SMEAR, "Smear");
-    return map;
-  }();
-
-  keymap_update_brushes(keymap, asset_prefix, tool_property, tool_tool_map, {}, asset_id_map);
-}
-
 static void keymap_update_image_paint_brushes(wmKeyMap *keymap)
 {
   constexpr StringRef asset_prefix = "brushes/essentials_brushes-mesh_texture.blend/Brush/";
@@ -1316,10 +1290,9 @@ void blo_do_versions_userdef(UserDef *userdef)
   }
 
   if (!USER_VERSION_ATLEAST(300, 38)) {
-    /* Patch to set Dupli Lattice/Camera/Speaker. */
+    /* Patch to set Dupli Lattice/Camera. */
     userdef->dupflag |= USER_DUP_LATTICE;
     userdef->dupflag |= USER_DUP_CAMERA;
-    userdef->dupflag |= USER_DUP_SPEAKER;
   }
 
   if (!USER_VERSION_ATLEAST(300, 40)) {
@@ -1541,9 +1514,6 @@ void blo_do_versions_userdef(UserDef *userdef)
       }
       else if (STREQ("Vertex Paint", keymap.idname)) {
         keymap_update_mesh_vertex_paint_brushes(&keymap);
-      }
-      else if (STREQ("Weight Paint", keymap.idname)) {
-        keymap_update_mesh_weight_paint_brushes(&keymap);
       }
       else if (STREQ("Image Paint", keymap.idname)) {
         keymap_update_image_paint_brushes(&keymap);

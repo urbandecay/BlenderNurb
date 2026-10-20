@@ -198,8 +198,6 @@ float BKE_brush_unprojected_radius_get(const Paint *paint, const Brush *brush);
 
 float BKE_brush_alpha_get(const Paint *paint, const Brush *brush);
 void BKE_brush_alpha_set(Paint *paint, Brush *brush, float alpha);
-float BKE_brush_weight_get(const Paint *paint, const Brush *brush);
-void BKE_brush_weight_set(Paint *paint, Brush *brush, float value);
 
 int BKE_brush_input_samples_get(const Paint *paint, const Brush *brush);
 void BKE_brush_input_samples_set(Paint *paint, Brush *brush, int value);

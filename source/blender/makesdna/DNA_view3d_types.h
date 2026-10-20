@@ -319,12 +319,6 @@ enum eView3DOverlay_PaintFlag : int {
 };
 ENUM_OPERATORS(eView3DOverlay_PaintFlag)
 
-/** #View3DOverlay.wpaint_flag */
-enum eView3DOverlay_WPaintFlag : int {
-  V3D_OVERLAY_WPAINT_CONTOURS = (1 << 0),
-};
-ENUM_OPERATORS(eView3DOverlay_WPaintFlag)
-
 /** #View3D.around */
 enum eView3D_Around : int {
   /* center of the bounding box */
@@ -614,15 +608,15 @@ struct View3DOverlay {
   /** Paint mode settings. */
   eView3DOverlay_PaintFlag paint_flag = {};
 
-  /** Weight paint mode settings. */
-  eView3DOverlay_WPaintFlag wpaint_flag = {};
+  /** Reserved for removed Weight Paint contour settings. */
+  int _pad_wpaint_flag = 0;
 
   /** Reserved DNA slot for removed mode opacity. */
   float _pad_mode_opacity = 0.0f;
 
   /** Alpha for weight and vertex paint overlay. */
   float vertex_paint_mode_opacity = 1.0f;
-  float weight_paint_mode_opacity = 1.0f;
+  float vertex_group_weights_opacity = 1.0f;
   float sculpt_mode_mask_opacity = 0.75f;
   float sculpt_mode_face_sets_opacity = 1.0f;
   float viewer_attribute_opacity = 1.0f;

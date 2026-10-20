@@ -4,7 +4,7 @@
 
 #include "infos/overlay_paint_infos.hh"
 
-FRAGMENT_SHADER_CREATE_INFO(overlay_paint_weight)
+FRAGMENT_SHADER_CREATE_INFO(overlay_vertex_group_weight)
 
 float contours(float value, float steps, float width_px, float max_rel_width, float gradient)
 {

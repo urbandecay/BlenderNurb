@@ -135,7 +135,6 @@ enum ID_Type {
   ID_OB = MAKE_ID2('O', 'B'),        /* Object */
   ID_ME = MAKE_ID2('M', 'E'),        /* Mesh */
   ID_CU_LEGACY = MAKE_ID2('C', 'U'), /* Curve. ID_CV should be used in the future (see #95355). */
-  ID_MB = MAKE_ID2('M', 'B'),        /* MetaBall */
   ID_MA = MAKE_ID2('M', 'A'),        /* Material */
   ID_TE = MAKE_ID2('T', 'E'),        /* Tex (Texture) */
   ID_IM = MAKE_ID2('I', 'M'),        /* Image */
@@ -147,7 +146,6 @@ enum ID_Type {
   ID_SCR = MAKE_ID2('S', 'R'),       /* bScreen */
   ID_VF = MAKE_ID2('V', 'F'),        /* VFont (Vector Font) */
   ID_TXT = MAKE_ID2('T', 'X'),       /* Text */
-  ID_SPK = MAKE_ID2('S', 'K'),       /* Speaker */
   ID_SO = MAKE_ID2('S', 'O'),        /* Sound */
   ID_GR = MAKE_ID2('G', 'R'),        /* Collection */
   ID_AC = MAKE_ID2('A', 'C'),        /* bAction */

@@ -49,7 +49,6 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_MSK, "MASK", ICON_MOD_MASK, "Mask", ""},
     {ID_MA, "MATERIAL", ICON_MATERIAL_DATA, "Material", ""},
     {ID_ME, "MESH", ICON_MESH_DATA, "Mesh", ""},
-    {ID_MB, "META", ICON_META_DATA, "Metaball", ""},
     {ID_MC, "MOVIECLIP", ICON_TRACKER, "Movie Clip", ""},
     {ID_NT, "NODETREE", ICON_NODETREE, "Node Tree", ""},
     {ID_OB, "OBJECT", ICON_OBJECT_DATA, "Object", ""},
@@ -60,7 +59,6 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_SCE, "SCENE", ICON_SCENE_DATA, "Scene", ""},
     {ID_SCR, "SCREEN", ICON_WORKSPACE, "Screen", ""},
     {ID_SO, "SOUND", ICON_SOUND, "Sound", ""},
-    {ID_SPK, "SPEAKER", ICON_SPEAKER, "Speaker", ""},
     {ID_TXT, "TEXT", ICON_TEXT, "Text", ""},
     {ID_TE, "TEXTURE", ICON_TEXTURE_DATA, "Texture", ""},
     {ID_VO, "VOLUME", ICON_VOLUME_DATA, "Volume", ""},
@@ -151,7 +149,6 @@ const IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
      ICON_MATERIAL_DATA,
      "Materials",
      "Show Material data-blocks"},
-    {FILTER_ID_MB, "filter_metaball", ICON_META_DATA, "Metaballs", "Show Metaball data-blocks"},
     {FILTER_ID_MC,
      "filter_movie_clip",
      ICON_TRACKER,
@@ -178,7 +175,6 @@ const IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
      "Point Clouds",
      "Show/hide Point Cloud data-blocks"},
     {FILTER_ID_SCE, "filter_scene", ICON_SCENE_DATA, "Scenes", "Show Scene data-blocks"},
-    {FILTER_ID_SPK, "filter_speaker", ICON_SPEAKER, "Speakers", "Show Speaker data-blocks"},
     {FILTER_ID_SO, "filter_sound", ICON_SOUND, "Sounds", "Show Sound data-blocks"},
     {FILTER_ID_TE, "filter_texture", ICON_TEXTURE_DATA, "Textures", "Show Texture data-blocks"},
     {FILTER_ID_TXT, "filter_text", ICON_TEXT, "Texts", "Show Text data-blocks"},
@@ -437,9 +433,6 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == RNA_Material) {
     return ID_MA;
   }
-  if (base_type == RNA_MetaBall) {
-    return ID_MB;
-  }
   if (base_type == RNA_MovieClip) {
     return ID_MC;
   }
@@ -478,9 +471,6 @@ short RNA_type_to_ID_code(const StructRNA *type)
   }
   if (base_type == RNA_Sound) {
     return ID_SO;
-  }
-  if (base_type == RNA_Speaker) {
-    return ID_SPK;
   }
   if (base_type == RNA_Texture) {
     return ID_TE;
@@ -540,8 +530,6 @@ StructRNA *ID_code_to_RNA_type(short idcode)
       return RNA_Lattice;
     case ID_MA:
       return RNA_Material;
-    case ID_MB:
-      return RNA_MetaBall;
     case ID_MC:
       return RNA_MovieClip;
     case ID_ME:
@@ -568,8 +556,6 @@ StructRNA *ID_code_to_RNA_type(short idcode)
       return RNA_Screen;
     case ID_SO:
       return RNA_Sound;
-    case ID_SPK:
-      return RNA_Speaker;
     case ID_TE:
       return RNA_Texture;
     case ID_TXT:

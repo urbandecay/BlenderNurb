@@ -28,7 +28,6 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_speaker_types.h"
 
 #include "BKE_action.hh"
 #include "BKE_anim_data.hh"
@@ -38,7 +37,6 @@
 #include "BKE_lib_query.hh"
 #include "BKE_main.hh"
 #include "BKE_nla.hh"
-#include "BKE_sound.hh"
 
 #include "BLO_read_write.hh"
 
@@ -64,14 +62,6 @@ static void nla_tweakmode_find_active(ListBaseT<NlaTrack> *nla_tracks,
 
 /* *************************************************** */
 /* Data Management */
-
-bke::NlaStripRuntime &NlaStrip::runtime_get()
-{
-  if (this->runtime == nullptr) {
-    this->runtime = MEM_new<bke::NlaStripRuntime>(__func__);
-  }
-  return *this->runtime;
-}
 
 /* Freeing ------------------------------------------- */
 
@@ -620,42 +610,6 @@ NlaStrip *BKE_nlastack_add_strip(const OwnedAnimData owned_adt, const bool is_li
   BKE_nlastrip_validate_name(adt, strip);
 
   /* returns the strip added */
-  return strip;
-}
-
-NlaStrip *BKE_nla_add_soundstrip(Main *bmain, Scene *scene, Speaker *speaker)
-{
-  NlaStrip *strip = MEM_new<NlaStrip>("NlaSoundStrip");
-
-/* if speaker has a sound, set the strip length to the length of the sound,
- * otherwise default to length of 10 frames
- */
-#ifdef WITH_AUDASPACE
-  if (speaker->sound) {
-    SoundInfo info;
-    if (BKE_sound_info_get(bmain, speaker->sound, &info)) {
-      strip->end = float(ceil(double(info.length) * scene->frames_per_second()));
-    }
-  }
-  else
-#endif
-  {
-    strip->end = 10.0f;
-    /* quiet compiler warnings */
-    UNUSED_VARS(bmain, scene, speaker);
-  }
-
-  /* general settings */
-  strip->type = NLASTRIP_TYPE_SOUND;
-
-  strip->flag = NLASTRIP_FLAG_SELECT;
-  strip->extendmode = NLASTRIP_EXTEND_NOTHING; /* nothing to extend... */
-
-  /* strip should be referenced as-is */
-  strip->scale = 1.0f;
-  strip->repeat = 1.0f;
-
-  /* return this strip */
   return strip;
 }
 

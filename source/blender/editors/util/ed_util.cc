@@ -160,9 +160,6 @@ void ED_editors_init(bContext *C)
         else if (mode == OB_MODE_VERTEX_PAINT) {
           ED_object_vpaintmode_enter_ex(*bmain, *depsgraph, *scene, ob);
         }
-        else if (mode == OB_MODE_WEIGHT_PAINT) {
-          ED_object_wpaintmode_enter_ex(*bmain, *depsgraph, *scene, ob);
-        }
         else {
           BLI_assert_unreachable();
         }

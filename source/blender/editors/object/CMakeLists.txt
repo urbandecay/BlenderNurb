@@ -61,7 +61,6 @@ set(LIB
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   bf_editor_mesh
-  bf_editor_metaball
   PRIVATE bf::functions
   PRIVATE bf::geometry
   PRIVATE bf::gpu

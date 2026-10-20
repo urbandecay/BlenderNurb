@@ -155,7 +155,6 @@ class BrushAssetShelf:
         mode_map = {
             'SCULPT': "VIEW3D_AST_brush_sculpt",
             'PAINT_VERTEX': "VIEW3D_AST_brush_vertex_paint",
-            'PAINT_WEIGHT': "VIEW3D_AST_brush_weight_paint",
             'PAINT_2D': "IMAGE_AST_brush_paint",
             'SCULPT_CURVES': "VIEW3D_AST_brush_sculpt_curves",
         }
@@ -255,8 +254,6 @@ class UnifiedPaintPanel:
             return tool_settings.sculpt
         elif mode == 'PAINT_VERTEX':
             return tool_settings.vertex_paint
-        elif mode == 'PAINT_WEIGHT':
-            return tool_settings.weight_paint
         elif mode == 'PARTICLE':
             return tool_settings.particle_edit
         # 2D paint settings
@@ -635,7 +632,7 @@ class FalloffPanel(BrushPanel):
             row = col.row(align=True)
 
         show_falloff_shape = False
-        if mode in {'SCULPT', 'PAINT_VERTEX', 'PAINT_WEIGHT'} and brush.sculpt_brush_type != 'POSE':
+        if mode in {'SCULPT', 'PAINT_VERTEX'} and brush.sculpt_brush_type != 'POSE':
             show_falloff_shape = True
         if not show_falloff_shape and mode == 'SCULPT_CURVES' and context.space_data.type == 'PROPERTIES':
             show_falloff_shape = True
@@ -718,7 +715,7 @@ class DisplayPanel(BrushPanel):
 
 
 def brush_settings(layout, context, brush, popover=False):
-    """Draw simple brush settings for Sculpt and Vertex/Weight Paint modes."""
+    """Draw simple brush settings for Sculpt and Vertex Paint modes."""
 
     mode = UnifiedPaintPanel.get_brush_mode(context)
 
@@ -1051,7 +1048,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
     strength = False
     strength_pressure = False
     size_pressure = False
-    weight = False
     direction = False
 
     # 2D image paint mode.
@@ -1081,17 +1077,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
             strength_pressure = True
             size_pressure = True
 
-    # Weight Paint #
-    if mode == 'PAINT_WEIGHT':
-        if not popover:
-            size = True
-            weight = brush.weight_paint_capabilities.has_weight
-            strength = strength_pressure = True
-            size_pressure = True
-        # Only draw blend mode for the Draw tool, because for other tools it is pointless. D5928#137944
-        if brush.weight_brush_type == 'DRAW':
-            blend_mode = True
-
     # Sculpt Curves #
     if mode == 'SCULPT_CURVES':
         tool = brush.curves_sculpt_brush_type
@@ -1107,16 +1092,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
     if blend_mode:
         layout.prop(brush, "blend", text="Blend")
         layout.separator()
-
-    if weight:
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "weight",
-            unified_name="use_unified_weight",
-            slider=True,
-        )
 
     size_owner = ups if ups.use_unified_size else brush
     size_prop = "size"
@@ -1139,7 +1114,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
                 'PAINT_2D',
                 'SCULPT',
                 'PAINT_VERTEX',
-                'PAINT_WEIGHT',
                     'SCULPT_CURVES'}:
                 UnifiedPaintPanel.prop_custom_pressure(
                     layout,
@@ -1169,7 +1143,6 @@ def brush_shared_settings(layout, context, brush, popover=False):
             'PAINT_2D',
             'SCULPT',
             'PAINT_VERTEX',
-            'PAINT_WEIGHT',
                 'SCULPT_CURVES'}:
             UnifiedPaintPanel.prop_custom_pressure(
                 layout,
@@ -1221,7 +1194,7 @@ def draw_color_jitter_panel(layout, context, brush):
 
 
 def brush_settings_advanced(layout, context, settings, brush, popover=False):
-    """Draw advanced brush settings for Sculpt, Texture/Vertex/Weight Paint modes."""
+    """Draw advanced brush settings for Sculpt, Texture, and Vertex Paint modes."""
 
     mode = UnifiedPaintPanel.get_brush_mode(context)
 
@@ -1304,16 +1277,6 @@ def brush_settings_advanced(layout, context, settings, brush, popover=False):
         container.prop(brush, "use_frontface", text="Front Faces Only")
         if popover:
             draw_color_jitter_panel(container, context, brush)
-
-    # Weight Paint
-    elif mode == 'PAINT_WEIGHT':
-        container.prop(brush, "weight_brush_type")
-
-        # TODO: Make this a "Capability"
-        if brush.weight_brush_type != 'SMEAR':
-            container.prop(brush, "use_accumulate")
-
-        container.prop(brush, "use_frontface", text="Front Faces Only")
 
     # Sculpt Curves
     elif mode == 'SCULPT_CURVES':

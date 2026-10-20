@@ -5,10 +5,10 @@
 /** \file
  * \ingroup edsculpt
  *
- * Used for vertex color & weight paint and mode switching.
+ * Used for vertex color paint and mode switching.
  *
  * \note This file is already big,
- * use `paint_vertex_color_ops.cc` & `paint_vertex_weight_ops.cc` for general purpose operators.
+ * use `paint_vertex_color_ops.cc` for general purpose operators.
  */
 
 #include "MEM_guardedalloc.h"
@@ -72,14 +72,14 @@
 #include "sculpt_automask.hh"
 #include "sculpt_intern.hh"
 #include "sculpt_pose.hh"
-#include "vw_paint_intern.hh" /* own include */
+#include "v_paint_intern.hh" /* own include */
 
 namespace blender {
 
 using bke::AttrDomain;
 using namespace color;
-using namespace ed::sculpt_paint; /* For vwpaint namespace. */
-using ed::sculpt_paint::vwpaint::NormalAnglePrecalc;
+using namespace ed::sculpt_paint; /* For vpaint namespace. */
+using ed::sculpt_paint::vpaint::NormalAnglePrecalc;
 
 static CLG_LogRef LOG = {"paint.vertex"};
 
@@ -125,10 +125,10 @@ template<typename BlendType> struct VPaintAverageAccum {
 
 /** \} */
 
-namespace ed::sculpt_paint::vwpaint {
+namespace ed::sculpt_paint::vpaint {
 
 /* -------------------------------------------------------------------- */
-/** \name Shared vertex/weight paint code.
+/** \name Vertex paint utility functions.
  * \{ */
 
 void view_angle_limits_init(NormalAnglePrecalc *a, float angle, bool do_mask_normal)
@@ -175,7 +175,7 @@ bool test_brush_angle_falloff(const Brush &brush,
 {
   if (((brush.flag & BRUSH_FRONTFACE) == 0 || (angle_cos > 0.0f)) &&
       ((brush.flag & BRUSH_FRONTFACE_FALLOFF) == 0 ||
-       vwpaint::view_angle_limits_apply_falloff(&normal_angle_precalc, angle_cos, brush_strength)))
+       vpaint::view_angle_limits_apply_falloff(&normal_angle_precalc, angle_cos, brush_strength)))
   {
     return true;
   }
@@ -188,18 +188,16 @@ bool use_normal(const VPaint &vp)
   return ((brush.flag & BRUSH_FRONTFACE) != 0) || ((brush.flag & BRUSH_FRONTFACE_FALLOFF) != 0);
 }
 
-bool brush_use_accumulate_ex(const Brush &brush, const eObjectMode ob_mode)
+bool brush_use_accumulate_ex(const Brush &brush)
 {
   return ((brush.flag & BRUSH_ACCUMULATE) != 0 ||
-          (ob_mode == OB_MODE_VERTEX_PAINT ?
-               (brush.vertex_brush_type == VPAINT_BRUSH_TYPE_SMEAR) :
-               (brush.weight_brush_type == WPAINT_BRUSH_TYPE_SMEAR)));
+          brush.vertex_brush_type == VPAINT_BRUSH_TYPE_SMEAR);
 }
 
 bool brush_use_accumulate(const VPaint &vp)
 {
   const Brush *brush = BKE_paint_brush_for_read(&vp.paint);
-  return brush_use_accumulate_ex(*brush, eObjectMode(vp.paint.runtime->ob_mode));
+  return brush_use_accumulate_ex(*brush);
 }
 
 void init_stroke(const wmOperator &op, Main &main, Paint &paint, Depsgraph &depsgraph, Object &ob)
@@ -208,11 +206,11 @@ void init_stroke(const wmOperator &op, Main &main, Paint &paint, Depsgraph &deps
   SculptSession &ss = *ob.runtime->sculpt_session;
 
   /* Ensure ss.cache is allocated.  It will mostly be initialized in
-   * vwpaint::update_cache_invariants and vwpaint::update_cache_variants.
+   * vpaint::update_cache_invariants and vpaint::update_cache_variants.
    */
   if (!ss.cache) {
     ss.cache = MEM_new<StrokeCache>(__func__);
-    ss.cache->toggle_settings = vwpaint::create_toggle_settings(op, main, paint);
+    ss.cache->toggle_settings = vpaint::create_toggle_settings(op, main, paint);
   }
 }
 
@@ -224,7 +222,7 @@ IndexMask pbvh_gather_generic(const Depsgraph &depsgraph,
 {
   SculptSession &ss = *ob.runtime->sculpt_session;
   const bke::pbvh::Tree &pbvh = *bke::object::pbvh_get(ob);
-  const bool use_normal = vwpaint::use_normal(wp);
+  const bool use_normal = vpaint::use_normal(wp);
   IndexMask nodes;
 
   /* Build a list of all nodes that are potentially within the brush's area of influence */
@@ -288,22 +286,11 @@ void mode_enter_generic(
     ED_paint_cursor_start(paint, vertex_paint_poll);
     BKE_paint_init(&bmain, &scene, paint_mode);
   }
-  else if (mode_flag == OB_MODE_WEIGHT_PAINT) {
-    const PaintMode paint_mode = PaintMode::Weight;
-
-    BKE_paint_ensure(scene.toolsettings, reinterpret_cast<Paint **>(&scene.toolsettings->wpaint));
-    paint = BKE_paint_get_active_from_paintmode(&scene, paint_mode);
-    ED_paint_cursor_start(paint, weight_paint_poll);
-    BKE_paint_init(&bmain, &scene, paint_mode);
-
-    /* weight paint specific */
-    ED_mesh_mirror_spatial_table_end(&ob);
-  }
   else {
     BLI_assert(0);
   }
 
-  /* Create vertex/weight paint mode session data */
+  /* Create vertex paint mode session data. */
   if (ob.runtime->sculpt_session) {
     MEM_delete(ob.runtime->sculpt_session->cache);
     ob.runtime->sculpt_session->cache = nullptr;
@@ -330,14 +317,6 @@ void mode_exit_generic(Object &ob, const eObjectMode mode_flag)
       bke::mesh_select_vert_flush(*mesh);
     }
   }
-  else if (mode_flag == OB_MODE_WEIGHT_PAINT) {
-    if (mesh->editflag & ME_EDIT_PAINT_VERT_SEL) {
-      bke::mesh_select_vert_flush(*mesh);
-    }
-    else if (mesh->editflag & ME_EDIT_PAINT_FACE_SEL) {
-      bke::mesh_select_face_flush(*mesh);
-    }
-  }
   else {
     BLI_assert(0);
   }
@@ -351,11 +330,6 @@ void mode_exit_generic(Object &ob, const eObjectMode mode_flag)
   BKE_sculptsession_free(&ob);
 
   paint_cursor_delete_textures();
-
-  if (mode_flag == OB_MODE_WEIGHT_PAINT) {
-    ED_mesh_mirror_spatial_table_end(&ob);
-    ED_mesh_mirror_topo_table_end(&ob);
-  }
 
   /* Never leave derived meshes behind. */
   BKE_object_free_derived_caches(&ob);
@@ -405,7 +379,7 @@ StrokeToggleSettings create_toggle_settings(const wmOperator &op, Main &bmain, P
    * we can't handle brush appearance inversion hotkey separately (sergey) */
 
   if (toggle_settings.alt_smooth) {
-    vwpaint::smooth_brush_toggle_on(&bmain, &paint, toggle_settings);
+    vpaint::smooth_brush_toggle_on(&bmain, &paint, toggle_settings);
   }
 
   return toggle_settings;
@@ -563,7 +537,7 @@ void smooth_brush_toggle_on(Main *bmain, Paint *paint, StrokeToggleSettings &tog
   bke::brush::common_pressure_curves_init(*smooth_brush);
 }
 /** \} */
-}  // namespace ed::sculpt_paint::vwpaint
+}  // namespace ed::sculpt_paint::vpaint
 
 /* -------------------------------------------------------------------- */
 /** \name Vertex Paint Mode Poll & Sampling
@@ -621,7 +595,6 @@ static ColorPaint4f vpaint_get_current_col(VPaint &vp, bool secondary)
   return ColorPaint4f(brush_color.x, brush_color.y, brush_color.z, 1.0f);
 }
 
-/* wpaint has 'wpaint_blend' */
 template<typename Color, typename Traits>
 static Color vpaint_blend(const VPaint &vp,
                           Color color_curr,
@@ -638,7 +611,7 @@ static Color vpaint_blend(const VPaint &vp,
   const Color color_blend = BLI_mix_colors<Color, Traits>(blend, color_curr, color_paint, alpha);
 
   /* If no accumulate, clip color adding with `color_orig` & `color_test`. */
-  if (!vwpaint::brush_use_accumulate(vp)) {
+  if (!vpaint::brush_use_accumulate(vp)) {
     uint a;
     Color color_test;
     Value *cp, *ct, *co;
@@ -698,7 +671,7 @@ static Color vpaint_blend_stroke(const VPaint &vp,
                                  int index)
 {
   Color result;
-  if (!vwpaint::brush_use_accumulate(vp)) {
+  if (!vpaint::brush_use_accumulate(vp)) {
     BLI_assert(!stroke_buffer.is_empty());
     BLI_assert(!prev_vertex_colors.is_empty());
 
@@ -770,7 +743,7 @@ static void paint_and_tex_color_alpha_intern(const VPaint &vp,
 
 void ED_object_vpaintmode_enter_ex(Main &bmain, Depsgraph &depsgraph, Scene &scene, Object &ob)
 {
-  vwpaint::mode_enter_generic(bmain, depsgraph, scene, ob, OB_MODE_VERTEX_PAINT);
+  vpaint::mode_enter_generic(bmain, depsgraph, scene, ob, OB_MODE_VERTEX_PAINT);
 }
 void ED_object_vpaintmode_enter(bContext *C, Depsgraph &depsgraph)
 {
@@ -788,7 +761,7 @@ void ED_object_vpaintmode_enter(bContext *C, Depsgraph &depsgraph)
 
 void ED_object_vpaintmode_exit_ex(Object &ob)
 {
-  vwpaint::mode_exit_generic(ob, OB_MODE_VERTEX_PAINT);
+  vpaint::mode_exit_generic(ob, OB_MODE_VERTEX_PAINT);
 }
 void ED_object_vpaintmode_exit(bContext *C)
 {
@@ -803,7 +776,6 @@ void ED_object_vpaintmode_exit(bContext *C)
  * \{ */
 
 /**
- * \note Keep in sync with #wpaint_mode_toggle_exec
  */
 static wmOperatorStatus vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 {
@@ -855,7 +827,7 @@ void PAINT_OT_vertex_paint_toggle(wmOperatorType *ot)
   ot->description = "Toggle the vertex paint mode in 3D view";
 
   ot->exec = vpaint_mode_toggle_exec;
-  ot->poll = vwpaint::mode_toggle_poll_test;
+  ot->poll = vpaint::mode_toggle_poll_test;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
@@ -937,7 +909,7 @@ static std::unique_ptr<VPaintData> vpaint_init_vpaint(wmOperator *op,
 
   vpd->vc = vc;
 
-  vwpaint::view_angle_limits_init(&vpd->normal_angle_precalc,
+  vpaint::view_angle_limits_init(&vpd->normal_angle_precalc,
                                   brush.falloff_angle,
                                   (brush.flag & BRUSH_FRONTFACE_FALLOFF) != 0);
 
@@ -954,7 +926,7 @@ static std::unique_ptr<VPaintData> vpaint_init_vpaint(wmOperator *op,
     vpd->smear.color_curr = vpd->smear.color_prev;
   }
 
-  if (!vwpaint::brush_use_accumulate(vp)) {
+  if (!vpaint::brush_use_accumulate(vp)) {
     if (vpd->prev_colors.is_empty()) {
       const GVArray attribute = *mesh.attributes().lookup(mesh.active_color_attribute);
       vpd->prev_colors = GArray(attribute.type(), attribute.size());
@@ -1041,7 +1013,7 @@ bool VertexPaintStroke::test_start(wmOperator *op, const float mouse[2])
   BKE_curvemapping_init(brush.curve_rand_saturation);
   BKE_curvemapping_init(brush.curve_rand_value);
 
-  vwpaint::update_cache_invariants(vp, ss, op, mouse);
+  vpaint::update_cache_invariants(vp, ss, op, mouse);
   init_session_data(ob);
 
   return true;
@@ -1081,9 +1053,9 @@ static void do_vpaint_brush_blur_loops(const Depsgraph &depsgraph,
   const Brush &brush = *ob.runtime->sculpt_session->cache->brush;
 
   float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
-  vwpaint::get_brush_alpha_data(
+  vpaint::get_brush_alpha_data(
       ss, vp.paint, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
-  const bool use_normal = vwpaint::use_normal(vp);
+  const bool use_normal = vpaint::use_normal(vp);
   const bool use_vert_sel = (mesh.editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)) !=
                             0;
   const bool use_face_sel = (mesh.editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
@@ -1143,7 +1115,7 @@ static void do_vpaint_brush_blur_loops(const Depsgraph &depsgraph,
           const float angle_cos = use_normal ?
                                       dot_v3v3(sculpt_normal_frontface, vert_normals[vert]) :
                                       1.0f;
-          if (!vwpaint::test_brush_angle_falloff(
+          if (!vpaint::test_brush_angle_falloff(
                   brush, vpd.normal_angle_precalc, angle_cos, &brush_strength))
           {
             continue;
@@ -1242,9 +1214,9 @@ static void do_vpaint_brush_blur_verts(const Depsgraph &depsgraph,
   const Brush &brush = *ss.cache->brush;
 
   float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
-  vwpaint::get_brush_alpha_data(
+  vpaint::get_brush_alpha_data(
       ss, vp.paint, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
-  const bool use_normal = vwpaint::use_normal(vp);
+  const bool use_normal = vpaint::use_normal(vp);
   const bool use_vert_sel = (mesh.editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)) !=
                             0;
   const bool use_face_sel = (mesh.editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
@@ -1304,7 +1276,7 @@ static void do_vpaint_brush_blur_verts(const Depsgraph &depsgraph,
           const float angle_cos = use_normal ?
                                       dot_v3v3(sculpt_normal_frontface, vert_normals[vert]) :
                                       1.0f;
-          if (!vwpaint::test_brush_angle_falloff(
+          if (!vpaint::test_brush_angle_falloff(
                   brush, vpd.normal_angle_precalc, angle_cos, &brush_strength))
           {
             continue;
@@ -1397,9 +1369,9 @@ static void do_vpaint_brush_smear(const Depsgraph &depsgraph,
 
   float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
 
-  vwpaint::get_brush_alpha_data(
+  vpaint::get_brush_alpha_data(
       ss, vp.paint, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
-  const bool use_normal = vwpaint::use_normal(vp);
+  const bool use_normal = vpaint::use_normal(vp);
   const bool use_vert_sel = (mesh.editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)) !=
                             0;
   const bool use_face_sel = (mesh.editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
@@ -1466,7 +1438,7 @@ static void do_vpaint_brush_smear(const Depsgraph &depsgraph,
           const float angle_cos = use_normal ?
                                       dot_v3v3(sculpt_normal_frontface, vert_normals[vert]) :
                                       1.0f;
-          if (!vwpaint::test_brush_angle_falloff(
+          if (!vpaint::test_brush_angle_falloff(
                   brush, vpd.normal_angle_precalc, angle_cos, &brush_strength))
           {
             continue;
@@ -1738,9 +1710,9 @@ static void vpaint_do_draw(const Depsgraph &depsgraph,
   const Brush &brush = *ob.runtime->sculpt_session->cache->brush;
 
   float brush_size_pressure, brush_alpha_value, brush_alpha_pressure;
-  vwpaint::get_brush_alpha_data(
+  vpaint::get_brush_alpha_data(
       ss, vp.paint, brush, &brush_size_pressure, &brush_alpha_value, &brush_alpha_pressure);
-  const bool use_normal = vwpaint::use_normal(vp);
+  const bool use_normal = vpaint::use_normal(vp);
   const bool use_vert_sel = (mesh.editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)) !=
                             0;
   const bool use_face_sel = (mesh.editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
@@ -1805,7 +1777,7 @@ static void vpaint_do_draw(const Depsgraph &depsgraph,
           const float angle_cos = use_normal ?
                                       dot_v3v3(sculpt_normal_frontface, vert_normals[vert]) :
                                       1.0f;
-          if (!vwpaint::test_brush_angle_falloff(
+          if (!vpaint::test_brush_angle_falloff(
                   brush, vpd.normal_angle_precalc, angle_cos, &brush_strength))
           {
             continue;
@@ -1942,7 +1914,7 @@ static void vpaint_do_paint(const Depsgraph &depsgraph,
   cache_calc_brushdata_symm(*ss.cache, symm, axis, angle);
 
   IndexMaskMemory memory;
-  const IndexMask node_mask = vwpaint::pbvh_gather_generic(depsgraph, ob, vp, brush, memory);
+  const IndexMask node_mask = vpaint::pbvh_gather_generic(depsgraph, ob, vp, brush, memory);
 
   bke::GSpanAttributeWriter attribute = mesh.attributes_for_write().lookup_for_write_span(
       mesh.active_color_attribute);
@@ -1976,8 +1948,7 @@ static void vpaint_do_radial_symmetry(const Depsgraph &depsgraph,
   }
 }
 
-/* near duplicate of: sculpt.cc's,
- * 'do_symmetrical_brush_actions' and 'wpaint_do_symmetrical_brush_actions'. */
+/* Near duplicate of sculpt.cc's 'do_symmetrical_brush_actions'. */
 static void vpaint_do_symmetrical_brush_actions(const Depsgraph &depsgraph,
                                                 const VPaint &vp,
                                                 VPaintData &vpd,
@@ -2033,7 +2004,7 @@ void VertexPaintStroke::update_step(wmOperator * /*op*/, PointerRNA *itemptr)
 
   ss.cache->stroke_distance = this->stroke_distance();
 
-  vwpaint::update_cache_variants(*this->depsgraph, *vertex_paint_, ob, itemptr);
+  vpaint::update_cache_variants(*this->depsgraph, *vertex_paint_, ob, itemptr);
 
   float mat[4][4];
 
@@ -2058,7 +2029,7 @@ void VertexPaintStroke::update_step(wmOperator * /*op*/, PointerRNA *itemptr)
    * also needed for "Frame Selected" on last stroke. */
   float loc_world[3];
   mul_v3_m4v3(loc_world, ob.object_to_world().ptr(), ss.cache->location);
-  vwpaint::last_stroke_update(loc_world, *this->paint);
+  vpaint::last_stroke_update(loc_world, *this->paint);
 
   ED_region_tag_redraw(vc.region);
 
@@ -2073,7 +2044,7 @@ void VertexPaintStroke::done(bool /*is_cancel*/, bool /*stroke_started*/)
   SculptSession &ss = *ob.runtime->sculpt_session;
 
   if (ss.cache && ss.cache->toggle_settings.alt_smooth) {
-    vwpaint::smooth_brush_toggle_off(this->paint, ss.cache);
+    vpaint::smooth_brush_toggle_off(this->paint, ss.cache);
   }
 
   WM_event_add_notifier(this->evil_C, NC_OBJECT | ND_DRAW, &ob);
@@ -2087,7 +2058,7 @@ static wmOperatorStatus vpaint_invoke(bContext *C, wmOperator *op, const wmEvent
   VertexPaintStroke *stroke = MEM_new<VertexPaintStroke>(__func__, C, op, event);
   op->customdata = stroke;
 
-  vwpaint::init_stroke(*op, *stroke->bmain_, *stroke->paint, *stroke->depsgraph, *stroke->object);
+  vpaint::init_stroke(*op, *stroke->bmain_, *stroke->paint, *stroke->depsgraph, *stroke->object);
 
   const wmOperatorStatus retval = op->type->modal(C, op, event);
   OPERATOR_RETVAL_CHECK(retval);
@@ -2113,7 +2084,7 @@ static wmOperatorStatus vpaint_exec(bContext *C, wmOperator *op)
   VertexPaintStroke *stroke = MEM_new<VertexPaintStroke>(__func__, C, op, nullptr);
   op->customdata = stroke;
 
-  vwpaint::init_stroke(*op, *stroke->bmain_, *stroke->paint, *stroke->depsgraph, *stroke->object);
+  vpaint::init_stroke(*op, *stroke->bmain_, *stroke->paint, *stroke->depsgraph, *stroke->object);
 
   stroke->exec(C, op);
 

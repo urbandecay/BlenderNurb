@@ -368,7 +368,6 @@ static void brush_asset_metadata_ensure(void *asset_ptr, AssetMetaData *asset_da
   constexpr std::array mode_map{
       std::tuple{"use_paint_sculpt", OB_MODE_SCULPT, "sculpt_brush_type"},
       std::tuple{"use_paint_vertex", OB_MODE_VERTEX_PAINT, "vertex_brush_type"},
-      std::tuple{"use_paint_weight", OB_MODE_WEIGHT_PAINT, "weight_brush_type"},
       std::tuple{"use_paint_image", OB_MODE_IMAGE_PAINT, "image_brush_type"},
       /* Sculpt UVs in the image editor while in edit mode. */
       std::tuple{"use_paint_uv_sculpt", OB_MODE_EDIT, "image_brush_type"},
@@ -1200,26 +1199,6 @@ float BKE_brush_alpha_get(const Paint *paint, const Brush *brush)
     return ups->alpha;
   }
   return brush->alpha;
-}
-
-float BKE_brush_weight_get(const Paint *paint, const Brush *brush)
-{
-  const UnifiedPaintSettings *ups = &paint->unified_paint_settings;
-
-  return (ups->flag & UNIFIED_PAINT_WEIGHT) ? ups->weight : brush->weight;
-}
-
-void BKE_brush_weight_set(Paint *paint, Brush *brush, float value)
-{
-  UnifiedPaintSettings *ups = &paint->unified_paint_settings;
-
-  if (ups->flag & UNIFIED_PAINT_WEIGHT) {
-    ups->weight = value;
-  }
-  else {
-    brush->weight = value;
-    BKE_brush_tag_unsaved_changes(brush);
-  }
 }
 
 int BKE_brush_input_samples_get(const Paint *paint, const Brush *brush)

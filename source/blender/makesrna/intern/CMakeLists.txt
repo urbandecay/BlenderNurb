@@ -57,7 +57,6 @@ set(DEFSRC
   rna_mask.cc
   rna_material.cc
   rna_mesh.cc
-  rna_meta.cc
   rna_modifier.cc
   rna_movieclip.cc
   rna_nla.cc
@@ -79,7 +78,6 @@ set(DEFSRC
   rna_sequencer.cc
   rna_sound.cc
   rna_space.cc
-  rna_speaker.cc
   rna_test.cc
   rna_text.cc
   rna_texture.cc
@@ -118,7 +116,6 @@ set(APISRC
   rna_main_api.cc
   rna_material_api.cc
   rna_mesh_api.cc
-  rna_meta_api.cc
   rna_object_api.cc
   rna_scene_api.cc
   rna_sequencer_api.cc

@@ -338,7 +338,6 @@ def keyconfig_update(keyconfig_data, keyconfig_version):
                 if item_op in {
                     "paint.image_paint",
                     "paint.vertex_paint",
-                    "paint.weight_paint",
                     "sculpt.brush_stroke",
                     "sculpt_curves.brush_stroke",
                 } and item_prop:

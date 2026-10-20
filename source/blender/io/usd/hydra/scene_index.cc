@@ -46,7 +46,6 @@ bool HydraSceneIndex::object_is_supported(const Object *object) const
     case OB_SURF:
     case OB_FONT:
     case OB_CURVES_LEGACY:
-    case OB_MBALL:
     case OB_LAMP:
     case OB_CURVES:
     case OB_VOLUME:
@@ -58,7 +57,7 @@ bool HydraSceneIndex::object_is_supported(const Object *object) const
 
 static bool object_render_as_geometry(const Object *object)
 {
-  return ELEM(object->type, OB_MESH, OB_SURF, OB_FONT, OB_CURVES_LEGACY, OB_MBALL, OB_CURVES);
+  return ELEM(object->type, OB_MESH, OB_SURF, OB_FONT, OB_CURVES_LEGACY, OB_CURVES);
 }
 
 bool HydraSceneIndex::object_is_visible(Depsgraph *depsgraph,

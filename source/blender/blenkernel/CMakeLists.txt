@@ -165,8 +165,6 @@ set(SRC
   intern/mask_evaluate.cc
   intern/mask_rasterize.cc
   intern/material.cc
-  intern/mball.cc
-  intern/mball_tessellate.cc
   intern/mesh.cc
   intern/mesh_attributes.cc
   intern/mesh_calc_edges.cc
@@ -245,7 +243,6 @@ set(SRC
   intern/shrinkwrap.cc
   intern/softbody.cc
   intern/sound.cc
-  intern/speaker.cc
   intern/studiolight.cc
   intern/subdiv.cc
   intern/subdiv_ccg.cc
@@ -415,8 +412,6 @@ set(SRC
   BKE_main_namemap.hh
   BKE_mask.hh
   BKE_material.hh
-  BKE_mball.hh
-  BKE_mball_tessellate.hh
   BKE_mesh.h
   BKE_mesh.hh
   BKE_mesh_fair.hh
@@ -474,7 +469,6 @@ set(SRC
   BKE_sound.hh
   BKE_sound_sample.hh
   BKE_sound_types.hh
-  BKE_speaker.hh
   BKE_studiolight.h
   BKE_subdiv.hh
   BKE_subdiv_ccg.hh

@@ -278,10 +278,6 @@ static void nla_strip_get_color_inside(AnimData *adt, NlaStrip *strip, float col
       ui::theme::get_color_3fv(is_selected ? TH_NLA_TRANSITION_SEL : TH_NLA_TRANSITION, color);
       break;
     }
-    case NLASTRIP_TYPE_SOUND:
-      /* Sound Strip. */
-      ui::theme::get_color_3fv(is_selected ? TH_NLA_SOUND_SEL : TH_NLA_SOUND, color);
-      break;
     default: {
       /* default to unselected theme. */
       ui::theme::get_color_3fv(TH_STRIP, color);

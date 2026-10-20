@@ -81,7 +81,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_lightprobe_add);
   WM_operatortype_append(OBJECT_OT_light_add);
   WM_operatortype_append(OBJECT_OT_camera_add);
-  WM_operatortype_append(OBJECT_OT_speaker_add);
   WM_operatortype_append(OBJECT_OT_curves_random_add);
   WM_operatortype_append(OBJECT_OT_curves_empty_hair_add);
   WM_operatortype_append(OBJECT_OT_pointcloud_random_add);
@@ -94,7 +93,6 @@ void operatortypes_object()
   WM_operatortype_append(OBJECT_OT_effector_add);
   WM_operatortype_append(OBJECT_OT_collection_external_asset_drop);
   WM_operatortype_append(OBJECT_OT_data_instance_add);
-  WM_operatortype_append(OBJECT_OT_metaball_add);
   WM_operatortype_append(OBJECT_OT_duplicates_make_real);
   WM_operatortype_append(OBJECT_OT_duplicate);
   WM_operatortype_append(OBJECT_OT_join);

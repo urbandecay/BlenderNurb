@@ -738,8 +738,7 @@ bool ED_mesh_pick_edge(bContext *C, Object *ob, const int mval[2], uint dist_px,
 }
 
 /**
- * Vertex selection in object mode,
- * currently only weight paint uses this.
+ * Vertex selection in object mode.
  *
  * \return boolean true == Found
  */

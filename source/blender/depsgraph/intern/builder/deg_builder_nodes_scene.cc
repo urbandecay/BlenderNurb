@@ -19,7 +19,6 @@ void DepsgraphNodeBuilder::build_scene_render(Scene *scene, ViewLayer *view_laye
   scene_ = scene;
   view_layer_ = view_layer;
   const bool build_compositor = (scene->r.scemode & R_DOCOMP);
-  const bool build_sequencer = (scene->r.scemode & R_DOSEQ);
   IDNode *id_node = add_id_node(&scene->id);
   id_node->linked_state = DEG_ID_LINKED_DIRECTLY;
   add_time_source();
@@ -29,9 +28,8 @@ void DepsgraphNodeBuilder::build_scene_render(Scene *scene, ViewLayer *view_laye
   if (build_compositor) {
     build_scene_compositor(scene);
   }
-  if (build_sequencer) {
+  if (scene->r.scemode & R_DOSEQ) {
     build_scene_sequencer(scene);
-    build_scene_speakers(scene, view_layer);
   }
   build_scene_camera(scene);
 }

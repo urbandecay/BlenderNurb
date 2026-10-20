@@ -468,12 +468,10 @@ class USERPREF_PT_edit_objects_duplicate_data(EditingPanel, CenterAlignMixIn, Pa
             ("use_duplicate_lightprobe", "Light Probe", 'OUTLINER_DATA_LIGHTPROBE', ""),
             ("use_duplicate_material", "Material", 'MATERIAL_DATA', ""),
             ("use_duplicate_mesh", "Mesh", 'OUTLINER_DATA_MESH', ""),
-            ("use_duplicate_metaball", "Metaball", 'OUTLINER_DATA_META', ""),
             ("use_duplicate_node_tree", "Node Tree", 'NODETREE', ""),
             ("use_duplicate_particle", "Particle", 'PARTICLES', ""),
             (None, None, None, None),
             ("use_duplicate_pointcloud", "Point Cloud", 'OUTLINER_DATA_POINTCLOUD', ""),
-            ("use_duplicate_speaker", "Speaker", 'OUTLINER_DATA_SPEAKER', ""),
             ("use_duplicate_surface", "Surface", 'OUTLINER_DATA_SURFACE', ""),
             ("use_duplicate_text", "Text", 'OUTLINER_DATA_FONT', ""),
             ("use_duplicate_volume", "Volume", 'OUTLINER_DATA_VOLUME', "i18n_contexts.id_id"),
@@ -505,23 +503,6 @@ class USERPREF_PT_edit_cursor(EditingPanel, CenterAlignMixIn, Panel):
         col = layout.column(heading="Cursor")
         col.prop(edit, "use_mouse_depth_cursor", text="Surface Project")
         col.prop(edit, "use_cursor_lock_adjust", text="Lock Adjust")
-
-
-class USERPREF_PT_edit_weight_paint(EditingPanel, CenterAlignMixIn, Panel):
-    bl_label = "Weight Paint"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw_centered(self, context, layout):
-        prefs = context.preferences
-        view = prefs.view
-
-        layout.use_property_split = False
-
-        layout.prop(view, "use_weight_color_range", text="Custom Gradient")
-
-        col = layout.column()
-        col.active = view.use_weight_color_range
-        col.template_color_ramp(view, "weight_color_range", expand=True)
 
 
 class USERPREF_PT_edit_text_editor(EditingPanel, CenterAlignMixIn, Panel):
@@ -3016,7 +2997,6 @@ classes = (
     USERPREF_PT_edit_objects_new,
     USERPREF_PT_edit_objects_duplicate_data,
     USERPREF_PT_edit_cursor,
-    USERPREF_PT_edit_weight_paint,
     USERPREF_PT_edit_text_editor,
     USERPREF_PT_edit_node_editor,
     USERPREF_PT_edit_sequence_editor,

@@ -139,7 +139,6 @@ struct TreeElementIcon {
         ID_OB, \
         ID_ME, \
         ID_CU_LEGACY, \
-        ID_MB, \
         ID_NT, \
         ID_MA, \
         ID_TE, \
@@ -150,7 +149,6 @@ struct TreeElementIcon {
    ELEM(GS((_id)->name), \
         ID_KE, \
         ID_WO, \
-        ID_SPK, \
         ID_GR, \
         ID_AC, \
         ID_BR, \

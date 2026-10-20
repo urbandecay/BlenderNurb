@@ -4052,8 +4052,6 @@ def km_object_non_modal(params):
              {"properties": [("mode", 'EDIT'), ("toggle", True)]}),
             ("object.mode_set", {"type": 'V', "value": 'PRESS'},
              {"properties": [("mode", 'VERTEX_PAINT'), ("toggle", True)]}),
-            ("object.mode_set", {"type": 'TAB', "value": 'PRESS', "ctrl": True},
-             {"properties": [("mode", 'WEIGHT_PAINT'), ("toggle", True)]}),
 
             ("object.origin_set", {"type": 'C', "value": 'PRESS', "shift": True, "ctrl": True, "alt": True}, None),
         ])
@@ -4492,61 +4490,11 @@ def km_vertex_paint(params):
     return keymap
 
 
-def km_weight_paint(params):
-    items = []
-    keymap = (
-        "Weight Paint",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        ("paint.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
-        ("paint.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-         {"properties": [("mode", 'INVERT')]}),
-        ("paint.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-         {"properties": [("brush_toggle", 'SMOOTH')]}),
-        ("paint.weight_sample", {"type": 'X', "value": 'PRESS', "shift": True}, None),
-        ("paint.weight_sample_group", {"type": 'X', "value": 'PRESS', "ctrl": True, "shift": True}, None),
-        ("paint.weight_gradient", {"type": 'A', "value": 'PRESS', "shift": True, "alt": True},
-         {"properties": [("type", 'RADIAL')]}),
-        ("paint.weight_gradient", {"type": 'A', "value": 'PRESS', "shift": True},
-         {"properties": [("type", 'LINEAR')]}),
-        ("paint.weight_set", {"type": 'X', "value": 'PRESS', "ctrl": True}, None),
-        ("brush.scale_size", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 0.9)]}),
-        ("brush.scale_size", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 1.0 / 0.9)]}),
-        *_template_paint_radial_control("weight_paint"),
-        ("wm.radial_control", {"type": 'F', "value": 'PRESS', "ctrl": True},
-         radial_control_properties(
-             "weight_paint", "weight",
-             secondary_prop="use_unified_weight",
-        )),
-        ("wm.context_menu_enum", {"type": 'E', "value": 'PRESS', "alt": True},
-         {"properties": [("data_path", "tool_settings.vertex_paint.brush.stroke_method")]}),
-        ("wm.context_toggle", {"type": 'ONE', "value": 'PRESS'},
-         {"properties": [("data_path", "weight_paint_object.data.use_paint_mask")]}),
-        ("wm.context_toggle", {"type": 'TWO', "value": 'PRESS'},
-         {"properties": [("data_path", "weight_paint_object.data.use_paint_mask_vertex")]}),
-        ("wm.context_toggle", {"type": 'S', "value": 'PRESS', "shift": True},
-         {"properties": [("data_path", "tool_settings.weight_paint.brush.use_smooth_stroke")]}),
-        op_menu_pie("VIEW3D_MT_wpaint_vgroup_lock_pie", {"type": 'K', "value": 'PRESS'}),
-        *_template_items_context_panel("VIEW3D_PT_paint_weight_context_menu", params.context_menu_event),
-        *_template_asset_shelf_popup("VIEW3D_AST_brush_weight_paint", params.spacebar_action),
-    ])
-
-    if params.legacy:
-        items.extend(_template_items_legacy_tools_from_numbers())
-
-    return keymap
-
-
 def km_paint_face_mask(params):
-    # Use for vertex-paint & weight-paint modes.
+    # Use for vertex-paint and texture-paint modes.
     items = []
     keymap = (
-        "Paint Face Mask (Weight, Vertex, Texture)",
+        "Paint Face Mask (Vertex, Texture)",
         {"space_type": 'EMPTY', "region_type": 'WINDOW'},
         {"items": items},
     )
@@ -4572,10 +4520,10 @@ def km_paint_face_mask(params):
 
 
 def km_paint_vertex_mask(params):
-    # Use for vertex-paint & weight-paint modes.
+    # Use for vertex-paint mode.
     items = []
     keymap = (
-        "Paint Vertex Selection (Weight, Vertex)",
+        "Paint Vertex Selection (Vertex)",
         {"space_type": 'EMPTY', "region_type": 'WINDOW'},
         {"items": items},
     )
@@ -5007,33 +4955,6 @@ def km_edit_mesh(params):
             ("mesh.beautify_fill", {"type": 'F', "value": 'PRESS', "shift": True, "alt": True}, None),
             *_template_items_object_subdivision_set(),
         ])
-
-    return keymap
-
-
-def km_edit_metaball(params):
-    items = []
-    keymap = (
-        "Metaball",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        # Transform Actions.
-        *_template_items_transform_actions(params, use_mirror=True),
-
-        ("object.metaball_add", {"type": 'A', "value": 'PRESS', "shift": True}, None),
-        *_template_items_hide_reveal_actions("mball.hide_metaelems", "mball.reveal_metaelems"),
-        ("mball.delete_metaelems", {"type": 'X', "value": 'PRESS'}, None),
-        ("mball.delete_metaelems", {"type": 'DEL', "value": 'PRESS'}, None),
-        ("mball.duplicate_move", {"type": 'D', "value": 'PRESS', "shift": True}, None),
-        *_template_items_select_actions(params, "mball.select_all"),
-        ("mball.select_similar", {"type": 'G', "value": 'PRESS', "shift": True}, None),
-        *_template_items_proportional_editing(
-            params, connected=True, toggle_data_path="tool_settings.use_proportional_edit"),
-        *_template_items_context_menu("VIEW3D_MT_edit_metaball_context_menu", params.context_menu_event),
-    ])
 
     return keymap
 
@@ -7522,41 +7443,6 @@ def km_3d_view_tool_sculpt_face_set_edit(params):
 
 
 # ------------------------------------------------------------------------------
-# Tool System (3D View, Weight Paint)
-
-def km_3d_view_tool_paint_weight_sample_weight(params):
-    return (
-        "3D View Tool: Paint Weight, Sample Weight",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("paint.weight_sample", {"type": params.tool_mouse, "value": 'PRESS'}, None),
-        ]},
-    )
-
-
-def km_3d_view_tool_paint_weight_sample_vertex_group(params):
-    return (
-        "3D View Tool: Paint Weight, Sample Vertex Group",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("paint.weight_sample_group", {"type": params.tool_mouse, "value": 'PRESS'}, None),
-        ]},
-    )
-
-
-def km_3d_view_tool_paint_weight_gradient(params):
-    return (
-        "3D View Tool: Paint Weight, Gradient",
-        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("paint.weight_gradient", params.tool_maybe_tweak_event, None),
-        ]},
-    )
-
-
-
-
-# ------------------------------------------------------------------------------
 
 
 
@@ -7934,7 +7820,6 @@ def generate_keymaps(params=None):
         km_paint_curve(params),
         km_image_paint(params),
         km_vertex_paint(params),
-        km_weight_paint(params),
         km_paint_face_mask(params),
         km_paint_vertex_mask(params),
         # Object sculpt modes.
@@ -7942,7 +7827,6 @@ def generate_keymaps(params=None):
         km_sculpt_curves(params),
         # Object edit modes.
         km_edit_mesh(params),
-        km_edit_metaball(params),
         km_edit_lattice(params),
         km_edit_particle(params),
         km_edit_font(params),
@@ -8094,9 +7978,6 @@ def generate_keymaps(params=None):
         km_3d_view_tool_sculpt_color_filter(params),
         km_3d_view_tool_sculpt_mask_by_color(params),
         km_3d_view_tool_sculpt_face_set_edit(params),
-        km_3d_view_tool_paint_weight_sample_weight(params),
-        km_3d_view_tool_paint_weight_sample_vertex_group(params),
-        km_3d_view_tool_paint_weight_gradient(params),
         *(km_sequencer_tool_generic_select_box(params, fallback=fallback)
           for fallback in (False, True)),
         *(km_sequencer_preview_tool_generic_select(params, fallback=fallback)

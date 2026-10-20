@@ -43,7 +43,6 @@
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
 #include "DNA_sound_types.h"
-#include "DNA_speaker_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_world_types.h"
@@ -617,16 +616,12 @@ void DepsgraphNodeBuilder::build_id(ID *id, const bool force_be_visible)
       build_movieclip(id_cast<MovieClip *>(id));
       break;
     case ID_ME:
-    case ID_MB:
     case ID_CU_LEGACY:
     case ID_LT:
     case ID_CV:
     case ID_PT:
     case ID_VO:
       build_object_data_geometry_datablock(id);
-      break;
-    case ID_SPK:
-      build_speaker(id_cast<Speaker *>(id));
       break;
     case ID_SO:
       build_sound(id_cast<bSound *>(id));
@@ -943,7 +938,6 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
     case OB_CURVES_LEGACY:
     case OB_FONT:
     case OB_SURF:
-    case OB_MBALL:
     case OB_LATTICE:
     case OB_CURVES:
     case OB_POINTCLOUD:
@@ -958,9 +952,6 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
       break;
     case OB_LIGHTPROBE:
       build_object_data_lightprobe(object);
-      break;
-    case OB_SPEAKER:
-      build_object_data_speaker(object);
       break;
     default: {
       ID *obdata = object->data;
@@ -995,13 +986,6 @@ void DepsgraphNodeBuilder::build_object_data_lightprobe(Object *object)
   LightProbe *probe = id_cast<LightProbe *>(object->data);
   build_lightprobe(probe);
   add_operation_node(&object->id, NodeType::PARAMETERS, OperationCode::LIGHT_PROBE_EVAL);
-}
-
-void DepsgraphNodeBuilder::build_object_data_speaker(Object *object)
-{
-  Speaker *speaker = id_cast<Speaker *>(object->data);
-  build_speaker(speaker);
-  add_operation_node(&object->id, NodeType::AUDIO, OperationCode::SPEAKER_EVAL);
 }
 
 void DepsgraphNodeBuilder::build_object_transform(Object *object)
@@ -1733,11 +1717,6 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
       op_node->set_as_entry();
       break;
     }
-    case ID_MB: {
-      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
-      op_node->set_as_entry();
-      break;
-    }
     case ID_CU_LEGACY: {
       op_node = add_operation_node(obdata,
                                    NodeType::GEOMETRY,
@@ -2183,22 +2162,6 @@ void DepsgraphNodeBuilder::build_lightprobe(LightProbe *probe)
   build_parameters(&probe->id);
 }
 
-void DepsgraphNodeBuilder::build_speaker(Speaker *speaker)
-{
-  if (built_map_.check_is_built_and_tag(speaker)) {
-    return;
-  }
-  /* Placeholder so we can add relations and tag ID node for update. */
-  add_operation_node(&speaker->id, NodeType::AUDIO, OperationCode::SPEAKER_EVAL);
-  build_idproperties(speaker->id.properties);
-  build_idproperties(speaker->id.system_properties);
-  build_animdata(&speaker->id);
-  build_parameters(&speaker->id);
-  if (speaker->sound != nullptr) {
-    build_sound(speaker->sound);
-  }
-}
-
 void DepsgraphNodeBuilder::build_sound(bSound *sound)
 {
   if (built_map_.check_is_built_and_tag(sound)) {
@@ -2244,8 +2207,6 @@ static bool strip_node_build_cb(Strip *strip, void *user_data)
     if (strip->flag & SEQ_SCENE_STRIPS) {
       nb->build_scene_sequencer(strip->scene);
     }
-    ViewLayer *strip_view_layer = BKE_view_layer_find(strip->scene, strip->scene_view_layer_name);
-    nb->build_scene_speakers(strip->scene, strip_view_layer);
   }
 
   if (strip->type == STRIP_TYPE_COMPOSITOR && strip->effectdata) {
@@ -2309,19 +2270,6 @@ void DepsgraphNodeBuilder::build_scene_audio(Scene *scene)
                      [scene_cow](blender::Depsgraph *depsgraph) {
                        BKE_scene_update_tag_audio_volume(depsgraph, scene_cow);
                      });
-}
-
-void DepsgraphNodeBuilder::build_scene_speakers(Scene *scene, ViewLayer *view_layer)
-{
-  BKE_view_layer_synced_ensure(*bmain_, scene, view_layer);
-  for (Base &base : *BKE_view_layer_object_bases_get(view_layer)) {
-    Object *object = base.object;
-    if (object->type != OB_SPEAKER || !need_pull_base_into_graph(&base)) {
-      continue;
-    }
-    /* NOTE: Can not use base because it does not belong to a current view layer. */
-    build_object(-1, base.object, DEG_ID_LINKED_INDIRECTLY, true);
-  }
 }
 
 /* **** ID traversal callbacks functions **** */

@@ -13,7 +13,6 @@
 #include "DNA_anim_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_speaker_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -829,10 +828,6 @@ static wmOperatorStatus nlaedit_add_transition_exec(bContext *C, wmOperator *op)
       if (ELEM(NLASTRIP_TYPE_TRANSITION, s1->type, s2->type)) {
         continue;
       }
-      /* also make sure neither one is a soundclip */
-      if (ELEM(NLASTRIP_TYPE_SOUND, s1->type, s2->type)) {
-        continue;
-      }
 
       /* allocate new strip */
       strip = MEM_new<NlaStrip>("NlaStrip");
@@ -894,96 +889,6 @@ void NLA_OT_transition_add(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = nlaedit_add_transition_exec;
-  ot->poll = nlaop_poll_tweakmode_off;
-
-  /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Add Sound Clip Operator
- * \{ */
-
-static wmOperatorStatus nlaedit_add_sound_exec(bContext *C, wmOperator * /*op*/)
-{
-  Main *bmain = CTX_data_main(C);
-  bAnimContext ac;
-
-  ListBaseT<bAnimListElem> anim_data = {nullptr, nullptr};
-
-  /* get editor data */
-  if (ANIM_animdata_get_context(C, &ac) == 0) {
-    return OPERATOR_CANCELLED;
-  }
-
-  Scene *scene = ac.scene;
-  int cfra = scene->r.cfra;
-
-  /* get a list of the editable tracks being shown in the NLA */
-  eAnimFilter_Flags filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_SEL |
-                              ANIMFILTER_FOREDIT | ANIMFILTER_FCURVESONLY);
-  ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, eAnimCont_Types(ac.datatype));
-
-  /* for each track, add sound clips if it belongs to a speaker */
-  /* TODO: what happens if there aren't any tracks,
-   * well that's a more general problem for later. */
-  for (bAnimListElem &ale : anim_data) {
-    Object *ob = reinterpret_cast<Object *>(
-        ale.id); /* may not be object until we actually check! */
-
-    AnimData *adt = ale.adt;
-    NlaTrack *nlt = static_cast<NlaTrack *>(ale.data);
-    const bool is_liboverride = ID_IS_OVERRIDE_LIBRARY(ale.id);
-
-    /* does this belong to speaker - assumed to live on Object level only */
-    if ((GS(ale.id->name) != ID_OB) || (ob->type != OB_SPEAKER)) {
-      continue;
-    }
-
-    /* create a new strip, and offset it to start on the current frame */
-    NlaStrip *strip = BKE_nla_add_soundstrip(bmain, ac.scene, id_cast<Speaker *>(ob->data));
-
-    strip->start += cfra;
-    strip->end += cfra;
-
-    /* firstly try adding strip to our current track, but if that fails, add to a new track */
-    if (BKE_nlatrack_add_strip(nlt, strip, is_liboverride) == 0) {
-      /* trying to add to the current failed (no space),
-       * so add a new track to the stack, and add to that...
-       */
-      nlt = BKE_nlatrack_new_tail(&adt->nla_tracks, is_liboverride);
-      BKE_nlatrack_set_active(&adt->nla_tracks, nlt);
-      BKE_nlatrack_add_strip(nlt, strip, is_liboverride);
-    }
-
-    /* auto-name it */
-    BKE_nlastrip_validate_name(adt, strip);
-  }
-
-  /* free temp data */
-  ANIM_animdata_freelist(&anim_data);
-
-  /* refresh auto strip properties */
-  ED_nla_postop_refresh(&ac);
-
-  /* set notifier that things have changed */
-  WM_event_add_notifier(C, NC_ANIMATION | ND_NLA | NA_ADDED, nullptr);
-
-  /* done */
-  return OPERATOR_FINISHED;
-}
-
-void NLA_OT_soundclip_add(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Add Sound Clip";
-  ot->idname = "NLA_OT_soundclip_add";
-  ot->description = "Add a strip for controlling when speaker plays its sound clip";
-
-  /* API callbacks. */
-  ot->exec = nlaedit_add_sound_exec;
   ot->poll = nlaop_poll_tweakmode_off;
 
   /* flags */
@@ -2606,10 +2511,6 @@ static wmOperatorStatus nla_fmodifier_add_exec(bContext *C, wmOperator *op)
         }
       }
 
-      /* sound clips are not affected by FModifiers */
-      if (strip.type == NLASTRIP_TYPE_SOUND) {
-        continue;
-      }
 
       /* add F-Modifier of specified type to selected, and make it the active one */
       fcm = add_fmodifier(&strip.modifiers, type, nullptr);

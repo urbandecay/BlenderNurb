@@ -1298,16 +1298,6 @@ void blo_do_versions_270(FileData *fd, Library * /*lib*/, Main *bmain)
                      BRUSH_GRAB_ACTIVE_VERTEX | BRUSH_SCENE_SPACING | BRUSH_FRONTFACE_FALLOFF);
       }
 
-      for (Scene &scene : bmain->scenes) {
-        ToolSettings *ts = scene.toolsettings;
-        for (int i = 0; i < 2; i++) {
-          VPaint *vp = i ? ts->vpaint : ts->wpaint;
-          if (vp != nullptr) {
-            /* remove all other flags */
-            vp->flag &= (VP_FLAG_VGROUP_RESTRICT);
-          }
-        }
-      }
     }
 
     /* Simple deform modifier no longer assumes Z axis (X for bend type).

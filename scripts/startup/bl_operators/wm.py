@@ -2790,13 +2790,11 @@ class WM_OT_batch_rename(Operator):
             # Follow order in "Add" menu.
             ('MESH', "Meshes", "", 'MESH_DATA', 3),
             ('CURVE', "Curves", "", 'CURVE_DATA', 4),
-            ('META', "Metaballs", "", 'META_DATA', 5),
             ('VOLUME', "Volumes", "", 'VOLUME_DATA', 6),
             ('LATTICE', "Lattices", "", 'LATTICE_DATA', 9),
             ('LIGHT', "Lights", "", 'LIGHT_DATA', 10),
             ('LIGHT_PROBE', "Light Probes", "", 'OUTLINER_DATA_LIGHTPROBE', 11),
             ('CAMERA', "Cameras", "", 'CAMERA_DATA', 12),
-            ('SPEAKER', "Speakers", "", 'OUTLINER_DATA_SPEAKER', 13),
             None,
             ('NODE', "Nodes", "", 'NODETREE', 15),
             ('SEQUENCE_STRIP', "Sequence Strips", "", 'SEQ_SEQUENCER', 16),
@@ -2910,13 +2908,11 @@ class WM_OT_batch_rename(Operator):
         object_data_type_attrs_map = {
             'MESH': ("meshes", iface_("Mesh(es)"), bpy.types.Mesh),
             'CURVE': ("curves", iface_("Curve(s)"), bpy.types.Curve),
-            'META': ("metaballs", iface_("Metaball(s)"), bpy.types.MetaBall),
             'VOLUME': ("volumes", iface_("Volume(s)"), bpy.types.Volume),
             'LATTICE': ("lattices", iface_("Lattice(s)"), bpy.types.Lattice),
             'LIGHT': ("lights", iface_("Light(s)"), bpy.types.Light),
             'LIGHT_PROBE': ("lightprobes", iface_("Light Probe(s)"), bpy.types.LightProbe),
             'CAMERA': ("cameras", iface_("Camera(s)"), bpy.types.Camera),
-            'SPEAKER': ("speakers", iface_("Speaker(s)"), bpy.types.Speaker),
         }
 
         # Finish with space types.

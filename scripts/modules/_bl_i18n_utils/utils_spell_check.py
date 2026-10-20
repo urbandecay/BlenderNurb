@@ -627,7 +627,6 @@ class SpellChecker:
         "lookdev",
         "luminocity",
         "mathvis",
-        "metaball", "metaballs", "mball",
         "metaelement", "metaelements",
         "metastrip", "metastrips",
         "movieclip", "movieclips",
@@ -664,7 +663,6 @@ class SpellChecker:
         "vse",
         "wasd", "wasdqe",  # keys...
         "wetmap", "wetmaps",
-        "wpaint",
         "uvwarp",
 
         # UOC (Ugly Operator Categories)

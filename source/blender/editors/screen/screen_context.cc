@@ -65,7 +65,6 @@ const char *screen_context_dir[] = {
     "edit_object",
     "sculpt_object",
     "vertex_paint_object",
-    "weight_paint_object",
     "particle_edit_object",
     "active_nla_track",
     "active_nla_strip",
@@ -331,20 +330,6 @@ static eContextResult screen_ctx_vertex_paint_object(const bContext *C, bContext
   BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
   Object *obact = BKE_view_layer_active_object_get(view_layer);
   if (obact && (obact->mode & OB_MODE_VERTEX_PAINT)) {
-    CTX_data_id_pointer_set(result, &obact->id);
-  }
-
-  return CTX_RESULT_OK;
-}
-static eContextResult screen_ctx_weight_paint_object(const bContext *C, bContextDataResult *result)
-{
-  wmWindow *win = CTX_wm_window(C);
-  const Main *bmain = CTX_data_main(C);
-  const Scene *scene = WM_window_get_active_scene(win);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
-  Object *obact = BKE_view_layer_active_object_get(view_layer);
-  if (obact && (obact->mode & OB_MODE_ALL_WEIGHT_PAINT)) {
     CTX_data_id_pointer_set(result, &obact->id);
   }
 
@@ -805,7 +790,6 @@ static const Map<StringRef, context_callback> &ensure_ed_screen_context_function
     map.add("edit_object", screen_ctx_edit_object);
     map.add("sculpt_object", screen_ctx_sculpt_object);
     map.add("vertex_paint_object", screen_ctx_vertex_paint_object);
-    map.add("weight_paint_object", screen_ctx_weight_paint_object);
     map.add("particle_edit_object", screen_ctx_particle_edit_object);
     map.add("active_nla_track", screen_ctx_active_nla_track);
     map.add("active_nla_strip", screen_ctx_active_nla_strip);

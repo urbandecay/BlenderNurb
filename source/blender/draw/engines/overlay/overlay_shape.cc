@@ -460,51 +460,6 @@ ShapeCache::ShapeCache()
     arrows = BatchPtr(
         GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
   }
-  /* metaball_wire_circle */
-  {
-    constexpr int resolution = 64;
-    constexpr float radius = 1.0f;
-    Vector<float2> ring = ring_vertices(radius, resolution);
-
-    Vector<Vertex> verts;
-    for (int i : IndexRange(resolution + 1)) {
-      float2 cv = ring[i % resolution];
-      verts.append({{cv[0], cv[1], 0.0f}, VCLASS_SCREENALIGNED});
-    }
-    metaball_wire_circle = BatchPtr(GPU_batch_create_ex(
-        GPU_PRIM_LINE_STRIP, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  };
-  /* speaker */
-  {
-    constexpr int segments = 16;
-    constexpr float bottom_r = 0.5f;
-    constexpr float bottom_z = -0.125f;
-    constexpr float step_z = 0.25f;
-    const Vector<float2> diamond = ring_vertices(bottom_r, 4);
-    Vector<float2> ring = ring_vertices(bottom_r, segments);
-    Vector<Vertex> verts;
-
-    append_line_loop(verts, ring, bottom_z, VCLASS_NONE);
-    for (float2 &point : ring) {
-      point *= 0.5f;
-    }
-    for (const int j : IndexRange(1, 2)) {
-      const float z = step_z * j + bottom_z;
-      append_line_loop(verts, ring, z, VCLASS_NONE);
-    }
-
-    for (const float2 &point : diamond) {
-      Vertex vertex{float3(point, bottom_z)};
-      verts.append(vertex);
-      vertex.pos = float3(point * 0.5f, bottom_z + step_z);
-      verts.append(vertex);
-      verts.append(vertex);
-      vertex.pos.z += step_z;
-      verts.append(vertex);
-    }
-    speaker = BatchPtr(
-        GPU_batch_create_ex(GPU_PRIM_LINES, vbo_from_vector(verts), nullptr, GPU_BATCH_OWNS_VBO));
-  }
   /* camera distances */
   {
     const Vector<float2> diamond = ring_vertices(1.5f, 5);

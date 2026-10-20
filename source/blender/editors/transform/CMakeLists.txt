@@ -22,7 +22,6 @@ set(SRC
   transform_convert_graph.cc
   transform_convert_lattice.cc
   transform_convert_mask.cc
-  transform_convert_mball.cc
   transform_convert_mesh.cc
   transform_convert_mesh_edge.cc
   transform_convert_mesh_skin.cc

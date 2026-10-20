@@ -547,7 +547,6 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
     /* Whitelist: */
     case ID_ME:        /* Mesh */
     case ID_CU_LEGACY: /* Curve */
-    case ID_MB:        /* MetaBall */
     case ID_MA:        /* Material */
     case ID_TE:        /* Tex (Texture) */
     case ID_IM:        /* Image */
@@ -557,7 +556,6 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
     case ID_KE:        /* Key (shape key) */
     case ID_VF:        /* VFont (Vector Font) */
     case ID_TXT:       /* Text */
-    case ID_SPK:       /* Speaker */
     case ID_SO:        /* Sound */
     case ID_NT:        /* bNodeTree */
     case ID_PA:        /* ParticleSettings */

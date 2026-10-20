@@ -65,9 +65,6 @@ _km_hierarchy = [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_CURVE'),
         ]),
         ('Curves', 'EMPTY', 'WINDOW', []),
-        ('Metaball', 'EMPTY', 'WINDOW', [
-            _km_expand_from_toolsystem('VIEW_3D', 'EDIT_METABALL'),
-        ]),
         ('Lattice', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'EDIT_LATTICE'),
         ]),
@@ -79,11 +76,8 @@ _km_hierarchy = [
         ('Vertex Paint', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'PAINT_VERTEX'),
         ]),
-        ('Weight Paint', 'EMPTY', 'WINDOW', [
-            _km_expand_from_toolsystem('VIEW_3D', 'PAINT_WEIGHT'),
-        ]),
-        ('Paint Vertex Selection (Weight, Vertex)', 'EMPTY', 'WINDOW', []),
-        ('Paint Face Mask (Weight, Vertex)', 'EMPTY', 'WINDOW', []),
+        ('Paint Vertex Selection (Vertex)', 'EMPTY', 'WINDOW', []),
+        ('Paint Face Mask (Vertex, Texture)', 'EMPTY', 'WINDOW', []),
         ('Sculpt', 'EMPTY', 'WINDOW', [
             _km_expand_from_toolsystem('VIEW_3D', 'SCULPT'),
         ]),

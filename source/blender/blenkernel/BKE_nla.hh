@@ -27,7 +27,6 @@ struct Main;
 struct NlaStrip;
 struct NlaTrack;
 struct Scene;
-struct Speaker;
 struct bAction;
 
 struct BlendDataReader;
@@ -228,10 +227,6 @@ void BKE_nlastrip_remove_and_free(ListBaseT<NlaStrip> *strips,
  */
 NlaStrip *BKE_nlastack_add_strip(OwnedAnimData owned_adt, const bool is_liboverride);
 
-/**
- * Add a NLA Strip referencing the given speaker's sound.
- */
-NlaStrip *BKE_nla_add_soundstrip(Main *bmain, Scene *scene, Speaker *speaker);
 
 /**
  * Callback used by lib_query to walk over all ID usages

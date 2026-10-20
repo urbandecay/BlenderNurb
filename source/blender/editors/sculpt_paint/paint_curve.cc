@@ -693,9 +693,6 @@ static wmOperatorStatus paintcurve_draw_exec(bContext *C, wmOperator * /*op*/)
     case PaintMode::Texture2D:
       name = "PAINT_OT_image_paint";
       break;
-    case PaintMode::Weight:
-      name = "PAINT_OT_weight_paint";
-      break;
     case PaintMode::Vertex:
       name = "PAINT_OT_vertex_paint";
       break;

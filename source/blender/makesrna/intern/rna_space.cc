@@ -4003,12 +4003,12 @@ static IDFilterEnumPropertyItem rna_enum_space_file_id_filter_categories[] = {
      ICON_GROUP,
      "Objects & Collections",
      "Show objects and collections"},
-    {FILTER_ID_CU_LEGACY | FILTER_ID_LT | FILTER_ID_MB | FILTER_ID_ME | FILTER_ID_CV |
+    {FILTER_ID_CU_LEGACY | FILTER_ID_LT | FILTER_ID_ME | FILTER_ID_CV |
          FILTER_ID_PT | FILTER_ID_VO,
      "category_geometry",
      ICON_GEOMETRY_NODES,
      "Geometry",
-     "Show meshes, curves, lattice and metaballs data"},
+     "Show meshes, curves, and lattice data"},
     {FILTER_ID_LS | FILTER_ID_MA | FILTER_ID_NT | FILTER_ID_TE,
      "category_shading",
      ICON_MATERIAL_DATA,
@@ -4019,11 +4019,11 @@ static IDFilterEnumPropertyItem rna_enum_space_file_id_filter_categories[] = {
      ICON_IMAGE_DATA,
      "Images & Sounds",
      "Show images, movie clips, sounds and masks"},
-    {FILTER_ID_CA | FILTER_ID_LA | FILTER_ID_LP | FILTER_ID_SPK | FILTER_ID_WO,
+    {FILTER_ID_CA | FILTER_ID_LA | FILTER_ID_LP | FILTER_ID_WO,
      "category_environment",
      ICON_WORLD_DATA,
      "Environment",
-     "Show worlds, lights, cameras and speakers"},
+     "Show worlds, lights, and cameras"},
     {FILTER_ID_BR | FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC |
          FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_CF | FILTER_ID_WS,
      "category_misc",
@@ -5182,14 +5182,6 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Show Wire", "Use wireframe display in painting modes");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
-  prop = RNA_def_property(srna, "show_wpaint_contours", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "overlay.wpaint_flag", V3D_OVERLAY_WPAINT_CONTOURS);
-  RNA_def_property_ui_text(
-      prop,
-      "Show Weight Contours",
-      "Show contour lines formed by points with the same interpolated weight");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
-
   prop = RNA_def_property(srna, "show_weight", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "overlay.edit_flag", V3D_OVERLAY_EDIT_WEIGHT);
   RNA_def_property_ui_text(prop, "Show Weights", "Display weights in editmode");
@@ -5365,10 +5357,10 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 
-  prop = RNA_def_property(srna, "weight_paint_mode_opacity", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "overlay.weight_paint_mode_opacity");
+  prop = RNA_def_property(srna, "vertex_group_weights_opacity", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, nullptr, "overlay.vertex_group_weights_opacity");
   RNA_def_property_ui_text(
-      prop, "Weight Paint Opacity", "Opacity of the weight paint mode overlay");
+      prop, "Vertex Group Weight Opacity", "Opacity of vertex group weights in edit mode");
   RNA_def_property_range(prop, 0.0f, 1.0f);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, nullptr);
 

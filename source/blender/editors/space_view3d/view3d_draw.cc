@@ -2219,7 +2219,7 @@ static void validate_object_select_id(const Main &bmain,
   BLI_assert(region->regiontype == RGN_TYPE_WINDOW);
   UNUSED_VARS_NDEBUG(region);
 
-  if (obact_eval && (obact_eval->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT) ||
+  if (obact_eval && (obact_eval->mode & OB_MODE_VERTEX_PAINT ||
                      BKE_paint_select_face_test(obact_eval)))
   {
     /* do nothing */

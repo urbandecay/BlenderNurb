@@ -43,17 +43,7 @@ struct DRW_MeshWeightState {
   int defgroup_active;
   int defgroup_len;
 
-  short flags;
   char alert_mode;
-
-  /* Set of all locked and unlocked vertex groups for Lock Relative mode. */
-  bool *defgroup_locked;   /* #defgroup_len */
-  bool *defgroup_unlocked; /* #defgroup_len */
-};
-
-/* DRW_MeshWeightState.flags */
-enum {
-  DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE = (1 << 0),
 };
 
 /**

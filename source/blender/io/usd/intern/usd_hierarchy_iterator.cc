@@ -13,7 +13,6 @@
 #include "usd_writer_hair.hh"
 #include "usd_writer_light.hh"
 #include "usd_writer_mesh.hh"
-#include "usd_writer_metaball.hh"
 #include "usd_writer_pointinstancer.hh"
 #include "usd_writer_points.hh"
 #include "usd_writer_text.hh"
@@ -54,7 +53,6 @@ bool USDHierarchyIterator::mark_as_weak_export(const Object *object) const
       /* No-data transform objects are exported intentionally. */
       return false;
     case OB_MESH:
-    case OB_MBALL:
     case OB_FONT:
     case OB_SURF:
       return !params_.export_meshes;
@@ -294,9 +292,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
         return nullptr;
       }
       break;
-    case OB_MBALL:
-      data_writer = new USDMetaballWriter(usd_export_context);
-      break;
     case OB_FONT:
       data_writer = new USDTextWriter(usd_export_context);
       break;
@@ -349,7 +344,6 @@ AbstractHierarchyWriter *USDHierarchyIterator::create_data_writer(const Hierarch
       break;
 
     case OB_NO_DATA:
-    case OB_SPEAKER:
     case OB_LIGHTPROBE:
     case OB_LATTICE:
       return nullptr;

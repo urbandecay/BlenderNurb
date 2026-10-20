@@ -206,12 +206,10 @@ enum eAnim_ChannelType {
   ANIMTYPE_DSWOR,
   ANIMTYPE_DSNTREE,
   ANIMTYPE_DSPART,
-  ANIMTYPE_DSMBALL,
   ANIMTYPE_DSMESH,
   ANIMTYPE_DSTEX,
   ANIMTYPE_DSLAT,
   ANIMTYPE_DSLINESTYLE,
-  ANIMTYPE_DSSPK,
   ANIMTYPE_DSMCLIP,
   ANIMTYPE_DSHAIR,
   ANIMTYPE_DSPOINTCLOUD,
@@ -445,10 +443,8 @@ ENUM_OPERATORS(eAnimFilter_Flags);
 #define FILTER_CUR_OBJD(cu) (CHECK_TYPE_INLINE(cu, Curve *), ((cu->flag & CU_DS_EXPAND)))
 #define FILTER_PART_OBJD(part) \
   (CHECK_TYPE_INLINE(part, ParticleSettings *), (((part)->flag & PART_DS_EXPAND)))
-#define FILTER_MBALL_OBJD(mb) (CHECK_TYPE_INLINE(mb, MetaBall *), ((mb->flag2 & MB_DS_EXPAND)))
 #define FILTER_MESH_OBJD(me) (CHECK_TYPE_INLINE(me, Mesh *), ((me->flag & ME_DS_EXPAND)))
 #define FILTER_LATTICE_OBJD(lt) (CHECK_TYPE_INLINE(lt, Lattice *), ((lt->flag & LT_DS_EXPAND)))
-#define FILTER_SPK_OBJD(spk) (CHECK_TYPE_INLINE(spk, Speaker *), ((spk->flag & SPK_DS_EXPAND)))
 #define FILTER_CURVES_OBJD(ha) (CHECK_TYPE_INLINE(ha, Curves *), ((ha->flag & HA_DS_EXPAND)))
 #define FILTER_POINTS_OBJD(pt) (CHECK_TYPE_INLINE(pt, PointCloud *), ((pt->flag & PT_DS_EXPAND)))
 #define FILTER_VOLUME_OBJD(vo) (CHECK_TYPE_INLINE(vo, Volume *), ((vo->flag & VO_DS_EXPAND)))

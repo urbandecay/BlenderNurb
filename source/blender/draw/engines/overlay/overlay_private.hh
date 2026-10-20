@@ -291,10 +291,6 @@ class ShapeCache {
   BatchPtr capsule_body;
   BatchPtr capsule_cap;
   BatchPtr arrows;
-  BatchPtr metaball_wire_circle;
-
-  BatchPtr speaker;
-
   BatchPtr camera_distances;
   BatchPtr camera_frame;
   BatchPtr camera_tria_wire;
@@ -417,9 +413,9 @@ class ShaderModule {
   StaticShader paint_region_edge = shader_clippable("overlay_paint_wire");
   StaticShader paint_region_face = shader_clippable("overlay_paint_face");
   StaticShader paint_region_vert = shader_clippable("overlay_paint_point");
-  StaticShader paint_weight = shader_clippable("overlay_paint_weight");
+  StaticShader vertex_group_weight = shader_clippable("overlay_vertex_group_weight");
   /* TODO(fclem): Specialization constant. */
-  StaticShader paint_weight_fake_shading = shader_clippable("overlay_paint_weight_fake_shading");
+  StaticShader vertex_group_weight_fake_shading = shader_clippable("overlay_vertex_group_weight_fake_shading");
   StaticShader particle_edit_vert = shader_clippable("overlay_edit_particle_point");
   StaticShader particle_edit_edge = shader_clippable("overlay_edit_particle_strand");
   StaticShader pointcloud_points = shader_clippable("overlay_edit_pointcloud");
@@ -627,7 +623,7 @@ struct Resources : public select::SelectMap {
     shaders->outline_prepass_mesh.ensure_compile_async();
     shaders->outline_prepass_pointcloud.ensure_compile_async();
     shaders->outline_prepass_wire.ensure_compile_async();
-    shaders->paint_weight_fake_shading.ensure_compile_async();
+    shaders->vertex_group_weight_fake_shading.ensure_compile_async();
     shaders->particle_dot.ensure_compile_async();
     shaders->particle_edit_edge.ensure_compile_async();
     shaders->particle_edit_vert.ensure_compile_async();
@@ -762,8 +758,6 @@ struct Resources : public select::SelectMap {
     switch (ob_ref.object->type) {
       case OB_LAMP:
         return TH_LIGHT;
-      case OB_SPEAKER:
-        return TH_SPEAKER;
       case OB_CAMERA:
         return TH_CAMERA;
       case OB_LIGHTPROBE:
@@ -789,8 +783,6 @@ struct Resources : public select::SelectMap {
         return theme.colors.object_select;
       case TH_TRANSFORM:
         return theme.colors.transform;
-      case TH_SPEAKER:
-        return theme.colors.speaker;
       case TH_CAMERA:
         return theme.colors.camera;
       case TH_NO_DATA_OBJECT:

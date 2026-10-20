@@ -15,7 +15,7 @@
 /* -------------------------------------------------------------------- */
 /** \name OVERLAY_shader_paint_face.
  *
- * Used for face selection mode in Weight and Vertex Paint.
+ * Used for face selection mode in Vertex Paint.
  * \{ */
 
 GPU_SHADER_CREATE_INFO(overlay_paint_face)
@@ -38,7 +38,7 @@ CREATE_INFO_VARIANT(overlay_paint_face_clipped, overlay_paint_face, drw_clipped)
 /* -------------------------------------------------------------------- */
 /** \name OVERLAY_shader_paint_point.
  *
- * Used for vertex selection mode in Weight and Vertex Paint.
+ * Used for vertex selection mode in Vertex Paint.
  * \{ */
 
 GPU_SHADER_INTERFACE_INFO(overlay_overlay_paint_point_iface)
@@ -63,46 +63,46 @@ CREATE_INFO_VARIANT(overlay_paint_point_clipped, overlay_paint_point, drw_clippe
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name OVERLAY_shader_paint_weight.
+/** \name OVERLAY_shader_vertex_group_weight.
  *
- * Used to display Vertex Weights.
- * `overlay paint weight` is for wireframe display mode.
+ * Used to display vertex group weights in Mesh Edit Mode.
+ * The unshaded variant is used in wireframe display mode.
  * \{ */
 
-GPU_SHADER_INTERFACE_INFO(overlay_paint_weight_iface)
+GPU_SHADER_INTERFACE_INFO(overlay_vertex_group_weight_iface)
 SMOOTH(float2, weight_interp) /* (weight, alert) */
 SMOOTH(float, color_fac)
 GPU_SHADER_INTERFACE_END()
 
-GPU_SHADER_CREATE_INFO(overlay_paint_weight)
+GPU_SHADER_CREATE_INFO(overlay_vertex_group_weight)
 DO_STATIC_COMPILATION()
 VERTEX_IN(0, float, weight)
 VERTEX_IN(1, float3, pos)
 VERTEX_IN(2, float3, nor)
-VERTEX_OUT(overlay_paint_weight_iface)
+VERTEX_OUT(overlay_vertex_group_weight_iface)
 SAMPLER(0, sampler1D, colorramp)
 PUSH_CONSTANT(float, opacity)      /* `1.0f` by default. */
 PUSH_CONSTANT(bool, draw_contours) /* `false` by default. */
 FRAGMENT_OUT(0, float4, frag_color)
 FRAGMENT_OUT(1, float4, line_output)
-VERTEX_SOURCE("overlay_paint_weight_vert.glsl")
-FRAGMENT_SOURCE("overlay_paint_weight_frag.glsl")
+VERTEX_SOURCE("overlay_vertex_group_weight_vert.glsl")
+FRAGMENT_SOURCE("overlay_vertex_group_weight_frag.glsl")
 ADDITIONAL_INFO(draw_view)
 ADDITIONAL_INFO(draw_modelmat)
 ADDITIONAL_INFO(draw_globals)
 GPU_SHADER_CREATE_END()
 
-CREATE_INFO_VARIANT(overlay_paint_weight_clipped, overlay_paint_weight, drw_clipped)
+CREATE_INFO_VARIANT(overlay_vertex_group_weight_clipped, overlay_vertex_group_weight, drw_clipped)
 
-GPU_SHADER_CREATE_INFO(overlay_paint_weight_fake_shading)
+GPU_SHADER_CREATE_INFO(overlay_vertex_group_weight_fake_shading)
 DO_STATIC_COMPILATION()
-ADDITIONAL_INFO(overlay_paint_weight)
+ADDITIONAL_INFO(overlay_vertex_group_weight)
 DEFINE("FAKE_SHADING")
 PUSH_CONSTANT(float3, light_dir)
 GPU_SHADER_CREATE_END()
 
-CREATE_INFO_VARIANT(overlay_paint_weight_fake_shading_clipped,
-                    overlay_paint_weight_fake_shading,
+CREATE_INFO_VARIANT(overlay_vertex_group_weight_fake_shading_clipped,
+                    overlay_vertex_group_weight_fake_shading,
                     drw_clipped)
 
 /** \} */
@@ -110,8 +110,7 @@ CREATE_INFO_VARIANT(overlay_paint_weight_fake_shading_clipped,
 /* -------------------------------------------------------------------- */
 /** \name OVERLAY_shader_paint_wire.
  *
- * Used in face selection mode to display edges of selected faces in Weight and Vertex paint
- * modes.
+ * Used in face selection mode to display selected face edges in Vertex Paint mode.
  * \{ */
 
 GPU_SHADER_INTERFACE_INFO(overlay_paint_wire_iface)

@@ -196,19 +196,6 @@ void initialize_execution(DepsgraphEvalState *state, Depsgraph *graph)
   }
 }
 
-bool is_metaball_object_operation(const OperationNode *operation_node)
-{
-  const ComponentNode *component_node = operation_node->owner;
-  const IDNode *id_node = component_node->owner;
-  /* This runs after the COPY_ON_EVAL stage which creates id_cow. */
-  BLI_assert(id_node->id_cow);
-  if (GS(id_node->id_cow->name) != ID_OB) {
-    return false;
-  }
-  const Object *object = reinterpret_cast<const Object *>(id_node->id_cow);
-  return object->type == OB_MBALL;
-}
-
 /* Simulation modifiers with sub-frames (fluid domain, dynamic paint canvas) perform direct updates
  * of other objects, which can cause race conditions over certain data (#115636). Unless and until
  * sub-steps are fully supported in depsgraph evaluation such objects must use single-threaded
@@ -252,10 +239,6 @@ bool need_evaluate_operation_at_stage(DepsgraphEvalState *state,
       return operation_node->flag & OperationFlag::DEPSOP_FLAG_AFFECTS_VISIBILITY;
 
     case EvaluationStage::THREADED_EVALUATION:
-      if (is_metaball_object_operation(operation_node)) {
-        state->need_single_thread_pass = true;
-        return false;
-      }
       if (is_modifier_subframe_operation(operation_node)) {
         state->need_single_thread_pass = true;
         return false;
@@ -464,9 +447,6 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
    *   something heavy is not currently visible.
    *
    * - Multi-threaded evaluation of all possible nodes.
-   *   Certain operations (and their subtrees) could be ignored. For example, meta-balls are not
-   *   safe from threading point of view, so the threaded evaluation will stop at the metaball
-   *   operation node.
    *
    * - Single-threaded pass of all remaining operations. */
 

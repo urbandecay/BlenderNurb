@@ -271,9 +271,6 @@ static bool nla_strip_eval_panel_poll(const bContext *C, PanelType * /*pt*/)
 
   NlaStrip *strip = static_cast<NlaStrip *>(ptr.data);
 
-  if (strip->type == NLASTRIP_TYPE_SOUND) {
-    return false;
-  }
 
   return true;
 }
@@ -376,9 +373,6 @@ static void nla_panel_stripname(const bContext *C, Panel *panel)
   else if (strip_type == NLASTRIP_TYPE_META) {
     row.label("", ICON_SEQ_STRIP_META);
   }
-  else if (strip_type == NLASTRIP_TYPE_SOUND) {
-    row.label("", ICON_SOUND);
-  }
 
   row.prop(&strip_ptr, "name", UI_ITEM_NONE, "", ICON_NLA);
 
@@ -412,11 +406,6 @@ static void nla_panel_properties(const bContext *C, Panel *panel)
   frame_col.prop(&strip_ptr, "frame_end_ui", UI_ITEM_NONE, IFACE_("End"), ICON_NONE);
 
   /* Evaluation-Related Strip Properties ------------------ */
-
-  /* sound properties strips don't have these settings */
-  if (RNA_enum_get(&strip_ptr, "type") == NLASTRIP_TYPE_SOUND) {
-    showEvalProps = 0;
-  }
 
   /* only show if allowed to... */
   if (showEvalProps) {

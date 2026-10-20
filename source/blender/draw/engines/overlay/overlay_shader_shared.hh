@@ -180,7 +180,6 @@ struct [[host_shared]] ThemeColors {
   float4 library;
   float4 transform;
   float4 light;
-  float4 speaker;
   float4 camera;
   float4 camera_path;
   float4 no_data_object;
@@ -238,11 +237,6 @@ struct [[host_shared]] ThemeColors {
   float4 text_hi;
 
   float4 bundle_solid;
-
-  float4 mball_radius;
-  float4 mball_radius_select;
-  float4 mball_stiffness;
-  float4 mball_stiffness_select;
 
   float4 current_frame;
   float4 before_frame;

@@ -33,7 +33,6 @@
 #include "DNA_lightprobe_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_nla_types.h"
 #include "DNA_object_fluidsim_types.h"
@@ -96,7 +95,6 @@
 #include "BKE_linestyle.h"
 #include "BKE_main.hh"
 #include "BKE_material.hh"
-#include "BKE_mball.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_modifier.hh"
@@ -113,7 +111,6 @@
 #include "BKE_rigidbody.h"
 #include "BKE_scene.hh"
 #include "BKE_softbody.h"
-#include "BKE_speaker.hh"
 #include "BKE_subdiv_ccg.hh"
 #include "BKE_vfont.hh"
 #include "BKE_volume.hh"
@@ -1689,8 +1686,6 @@ bool BKE_object_is_in_editmode(const Object *ob)
       return (id_cast<Mesh *>(ob->data))->runtime->edit_mesh != nullptr;
     case OB_FONT:
       return (id_cast<Curve *>(ob->data))->editfont != nullptr;
-    case OB_MBALL:
-      return (id_cast<MetaBall *>(ob->data))->editelems != nullptr;
     case OB_LATTICE:
       return (id_cast<Lattice *>(ob->data))->editlatt != nullptr;
     case OB_SURF:
@@ -1719,8 +1714,6 @@ bool BKE_object_data_is_in_editmode(const Object *ob, const ID *id)
     case ID_CU_LEGACY:
       return (((id_cast<const Curve *>(id))->editnurb != nullptr) ||
               ((id_cast<const Curve *>(id))->editfont != nullptr));
-    case ID_MB:
-      return (id_cast<const MetaBall *>(id))->editelems != nullptr;
     case ID_LT:
       return (id_cast<const Lattice *>(id))->editlatt != nullptr;
     case ID_CV:
@@ -1760,10 +1753,6 @@ char *BKE_object_data_editmode_flush_ptr_get(ID *id)
       }
       break;
     }
-    case ID_MB: {
-      MetaBall *mb = id_cast<MetaBall *>(id);
-      return &mb->needs_flush_to_id;
-    }
     case ID_LT: {
       EditLatt *editlatt = (id_cast<Lattice *>(id))->editlatt;
       if (editlatt) {
@@ -1781,17 +1770,6 @@ char *BKE_object_data_editmode_flush_ptr_get(ID *id)
   return nullptr;
 }
 
-bool BKE_object_is_in_wpaint_select_vert(const Object *ob)
-{
-  if (ob->type == OB_MESH) {
-    Mesh *mesh = id_cast<Mesh *>(ob->data);
-    return ((ob->mode & OB_MODE_WEIGHT_PAINT) && (mesh->runtime->edit_mesh == nullptr) &&
-            (ME_EDIT_PAINT_SEL_MODE(mesh) == SCE_SELECT_VERTEX));
-  }
-
-  return false;
-}
-
 bool BKE_object_has_mode_data(const Object *ob, eObjectMode object_mode)
 {
   if (object_mode & OB_MODE_EDIT) {
@@ -1802,13 +1780,6 @@ bool BKE_object_has_mode_data(const Object *ob, eObjectMode object_mode)
   else if (object_mode & OB_MODE_VERTEX_PAINT) {
     if (ob->runtime->sculpt_session &&
         (ob->runtime->sculpt_session->mode_type == OB_MODE_VERTEX_PAINT))
-    {
-      return true;
-    }
-  }
-  else if (object_mode & OB_MODE_WEIGHT_PAINT) {
-    if (ob->runtime->sculpt_session &&
-        (ob->runtime->sculpt_session->mode_type == OB_MODE_WEIGHT_PAINT))
     {
       return true;
     }
@@ -1893,16 +1864,12 @@ static const char *get_obdata_defname(ObjectType type)
       return DATA_("Surf");
     case OB_FONT:
       return DATA_("Text");
-    case OB_MBALL:
-      return DATA_("Mball");
     case OB_CAMERA:
       return DATA_("Camera");
     case OB_LAMP:
       return CTX_DATA_(BLT_I18NCONTEXT_ID_LIGHT, "Light");
     case OB_LATTICE:
       return DATA_("Lattice");
-    case OB_SPEAKER:
-      return DATA_("Speaker");
     case OB_CURVES:
       return DATA_("Curves");
     case OB_POINTCLOUD:
@@ -1925,7 +1892,7 @@ static void object_init(Object *ob, const ObjectType ob_type)
 
   ob->type = ob_type;
 
-  if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+  if (ELEM(ob->type, OB_LAMP, OB_CAMERA)) {
     ob->trackflag = OB_NEGZ;
     ob->upflag = OB_POSY;
   }
@@ -1952,16 +1919,12 @@ void *BKE_object_obdata_add_from_type(Main *bmain, ObjectType type, const char *
       return BKE_curve_add(bmain, name, OB_SURF);
     case OB_FONT:
       return BKE_curve_add(bmain, name, OB_FONT);
-    case OB_MBALL:
-      return BKE_mball_add(bmain, name);
     case OB_CAMERA:
       return BKE_camera_add(bmain, name);
     case OB_LAMP:
       return BKE_light_add(bmain, name);
     case OB_LATTICE:
       return BKE_lattice_add(bmain, name);
-    case OB_SPEAKER:
-      return BKE_speaker_add(bmain, name);
     case OB_LIGHTPROBE:
       return BKE_lightprobe_add(bmain, name);
     case OB_CURVES:
@@ -1986,12 +1949,8 @@ int BKE_object_obdata_to_type(const ID *id)
       return OB_MESH;
     case ID_CU_LEGACY:
       return reinterpret_cast<const Curve *>(id)->ob_type;
-    case ID_MB:
-      return OB_MBALL;
     case ID_LA:
       return OB_LAMP;
-    case ID_SPK:
-      return OB_SPEAKER;
     case ID_CA:
       return OB_CAMERA;
     case ID_LT:
@@ -2305,11 +2264,6 @@ Object *BKE_object_duplicate(Main *bmain,
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
       }
       break;
-    case OB_MBALL:
-      if (dupflag & USER_DUP_MBALL) {
-        id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
-      }
-      break;
     case OB_LAMP:
       if (dupflag & USER_DUP_LAMP) {
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
@@ -2327,11 +2281,6 @@ Object *BKE_object_duplicate(Main *bmain,
       break;
     case OB_LIGHTPROBE:
       if (dupflag & USER_DUP_LIGHTPROBE) {
-        id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
-      }
-      break;
-    case OB_SPEAKER:
-      if (dupflag & USER_DUP_SPEAKER) {
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
       }
       break;
@@ -2435,7 +2384,7 @@ void BKE_object_obdata_size_init(Object *ob, const float size)
       lamp->area_sizez *= size;
       break;
     }
-    /* Only lattice (not mesh, curve, mball...),
+    /* Only lattice (not mesh or curve),
      * because its got data when newly added */
     case OB_LATTICE: {
       Lattice *lt = id_cast<Lattice *>(ob->data);
@@ -2807,8 +2756,6 @@ std::optional<Bounds<float3>> BKE_object_boundbox_get(const Object *ob)
     case OB_SURF:
     case OB_FONT:
       return BKE_curve_minmax(id_cast<const Curve *>(ob->data), true);
-    case OB_MBALL:
-      return BKE_object_evaluated_geometry_bounds(ob);
     case OB_LATTICE:
       return BKE_lattice_minmax(id_cast<const Lattice *>(ob->data));
     case OB_CURVES:
@@ -3273,19 +3220,6 @@ bool BKE_object_obdata_texspace_get(Object *ob,
       }
       if (r_texspace_size) {
         *r_texspace_size = cu->texspace_size;
-      }
-      break;
-    }
-    case ID_MB: {
-      MetaBall *mb = id_cast<MetaBall *>(ob->data);
-      if (r_texspace_flag) {
-        *r_texspace_flag = &mb->texspace_flag;
-      }
-      if (r_texspace_location) {
-        *r_texspace_location = mb->texspace_location;
-      }
-      if (r_texspace_size) {
-        *r_texspace_size = mb->texspace_size;
       }
       break;
     }
@@ -4018,7 +3952,6 @@ bool BKE_object_supports_material_slots(Object *ob)
               OB_CURVES_LEGACY,
               OB_SURF,
               OB_FONT,
-              OB_MBALL,
               OB_CURVES,
               OB_POINTCLOUD,
               OB_VOLUME);

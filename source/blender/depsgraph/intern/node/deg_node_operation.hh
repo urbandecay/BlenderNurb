@@ -107,7 +107,6 @@ enum class OperationCode {
 
   /* Object data. --------------------------------------------------------- */
   LIGHT_PROBE_EVAL,
-  SPEAKER_EVAL,
   SOUND_EVAL,
   /* Particle System. ----------------------------------------------------- */
   PARTICLE_SYSTEM_INIT,

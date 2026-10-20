@@ -102,11 +102,6 @@ NodeGroup *BlenderFileLoader::Load()
       continue;
     }
 
-    /* Evaluated meta-balls will appear as mesh objects in the iterator. */
-    if (ob->type == blender::OB_MBALL) {
-      continue;
-    }
-
     blender::Mesh *mesh = BKE_object_to_mesh(nullptr, ob, false);
 
     if (mesh) {

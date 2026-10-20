@@ -252,7 +252,6 @@ set(SRC
   engines/overlay/overlay_light.hh
   engines/overlay/overlay_lightprobe.hh
   engines/overlay/overlay_mesh.hh
-  engines/overlay/overlay_metaball.hh
   engines/overlay/overlay_mode_transfer.hh
   engines/overlay/overlay_motion_path.hh
   engines/overlay/overlay_name.hh
@@ -265,7 +264,6 @@ set(SRC
   engines/overlay/overlay_private.hh
   engines/overlay/overlay_relation.hh
   engines/overlay/overlay_sculpt.hh
-  engines/overlay/overlay_speaker.hh
   engines/overlay/overlay_text.hh
   engines/overlay/overlay_wireframe.hh
   engines/overlay/overlay_xray_fade.hh
@@ -656,8 +654,8 @@ set(GLSL_SRC
   engines/overlay/shaders/overlay_outline_prepass_wire_vert.glsl
   engines/overlay/shaders/overlay_paint_face_vert.glsl
   engines/overlay/shaders/overlay_paint_point_vert.glsl
-  engines/overlay/shaders/overlay_paint_weight_frag.glsl
-  engines/overlay/shaders/overlay_paint_weight_vert.glsl
+  engines/overlay/shaders/overlay_vertex_group_weight_frag.glsl
+  engines/overlay/shaders/overlay_vertex_group_weight_vert.glsl
   engines/overlay/shaders/overlay_paint_wire_vert.glsl
   engines/overlay/shaders/overlay_particle_frag.glsl
   engines/overlay/shaders/overlay_particle_vert.glsl

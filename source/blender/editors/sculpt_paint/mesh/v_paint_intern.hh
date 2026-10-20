@@ -17,7 +17,7 @@
 
 #include "sculpt_intern.hh"
 
-namespace blender::ed::sculpt_paint::vwpaint {
+namespace blender::ed::sculpt_paint::vpaint {
 struct NormalAnglePrecalc {
   bool do_mask_normal;
   /* what angle to mask at */
@@ -72,4 +72,4 @@ void update_cache_variants(const Depsgraph &depsgraph, VPaint &vp, Object &ob, P
 /** Initialize the stroke cache invariants from operator properties. */
 void update_cache_invariants(VPaint &vp, SculptSession &ss, wmOperator *op, const float mval[2]);
 void last_stroke_update(const float location[3], Paint &paint);
-}  // namespace blender::ed::sculpt_paint::vwpaint
+}  // namespace blender::ed::sculpt_paint::vpaint

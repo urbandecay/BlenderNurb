@@ -1545,7 +1545,7 @@ UserDef *BKE_blendfile_userdef_from_defaults()
   userdef->memcachelimit = min_ii(BLI_system_memory_max_in_megabytes_int() / 2,
                                   userdef->memcachelimit);
 
-  /* Init weight paint range. */
+  /* Initialize vertex group weight display range. */
   BKE_colorband_init(&userdef->coba_weight, true);
 
   /* Default studio light. */

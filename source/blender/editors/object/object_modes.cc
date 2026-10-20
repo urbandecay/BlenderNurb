@@ -67,9 +67,6 @@ static const char *object_mode_op_string(eObjectMode mode)
   if (mode == OB_MODE_VERTEX_PAINT) {
     return "PAINT_OT_vertex_paint_toggle";
   }
-  if (mode == OB_MODE_WEIGHT_PAINT) {
-    return "PAINT_OT_weight_paint_toggle";
-  }
   if (mode == OB_MODE_PARTICLE_EDIT) {
     return "PARTICLE_OT_particle_edit_toggle";
   }
@@ -87,7 +84,7 @@ bool mode_compat_test(const Object *ob, eObjectMode mode)
 
   switch (ob->type) {
     case OB_MESH:
-      if (mode & (OB_MODE_EDIT | OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT))
+      if (mode & (OB_MODE_EDIT | OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT))
       {
         return true;
       }
@@ -100,7 +97,6 @@ bool mode_compat_test(const Object *ob, eObjectMode mode)
     case OB_CURVES_LEGACY:
     case OB_SURF:
     case OB_FONT:
-    case OB_MBALL:
     case OB_POINTCLOUD:
     case OB_LATTICE:
       if (mode & OB_MODE_EDIT) {
@@ -254,16 +250,6 @@ static bool ed_object_mode_generic_exit_ex(
         return true;
       }
       ED_object_vpaintmode_exit_ex(*ob);
-    }
-  }
-  else if (ob->mode & OB_MODE_WEIGHT_PAINT) {
-    if (ob->runtime->sculpt_session &&
-        (ob->runtime->sculpt_session->mode_type == OB_MODE_WEIGHT_PAINT))
-    {
-      if (only_test) {
-        return true;
-      }
-      ED_object_wpaintmode_exit_ex(*ob);
     }
   }
   else if (ob->mode & OB_MODE_SCULPT) {

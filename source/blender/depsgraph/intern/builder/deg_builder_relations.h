@@ -54,7 +54,6 @@ struct Object;
 struct ParticleSettings;
 struct ParticleSystem;
 struct Scene;
-struct Speaker;
 struct Tex;
 struct VFont;
 struct ViewLayer;
@@ -154,7 +153,6 @@ class DepsgraphRelationBuilder : public DepsgraphBuilder {
   virtual void build_no_data_object_relations(Object *object);
   virtual void build_object_data_light(Object *object);
   virtual void build_object_data_lightprobe(Object *object);
-  virtual void build_object_data_speaker(Object *object);
   virtual void build_object_pointcache(Object *object);
 
   virtual void build_object_shading(Object *object);
@@ -234,11 +232,9 @@ class DepsgraphRelationBuilder : public DepsgraphBuilder {
   virtual void build_mask(Mask *mask);
   virtual void build_movieclip(MovieClip *clip);
   virtual void build_lightprobe(LightProbe *probe);
-  virtual void build_speaker(Speaker *speaker);
   virtual void build_sound(bSound *sound);
   virtual void build_scene_sequencer(Scene *scene);
   virtual void build_scene_audio(Scene *scene);
-  virtual void build_scene_speakers(Scene *scene, ViewLayer *view_layer);
   virtual void build_vfont(VFont *vfont);
 
   virtual void build_nested_datablock(ID *owner, ID *id, bool flush_cow_changes);

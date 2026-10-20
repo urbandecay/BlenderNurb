@@ -43,11 +43,11 @@ namespace blender {
 /** \name Internal Utility Functions
  * \{ */
 
-static bool vertex_weight_paint_mode_poll(bContext *C)
+static bool vertex_paint_mode_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
   Mesh *mesh = BKE_mesh_from_object(ob);
-  return (ob && ELEM(ob->mode, OB_MODE_VERTEX_PAINT, OB_MODE_WEIGHT_PAINT)) &&
+  return (ob && ob->mode == OB_MODE_VERTEX_PAINT) &&
          (mesh && mesh->faces_num && !mesh->deform_verts().is_empty());
 }
 
@@ -137,7 +137,7 @@ void PAINT_OT_vertex_color_from_weight(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = vertex_paint_from_weight_exec;
-  ot->poll = vertex_weight_paint_mode_poll;
+  ot->poll = vertex_paint_mode_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

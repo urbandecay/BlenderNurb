@@ -25,7 +25,6 @@
 #include "BKE_instances.hh"
 #include "BKE_lattice.hh"
 #include "BKE_layer.hh"
-#include "BKE_mball.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
 #include "BKE_object.hh"
@@ -161,9 +160,6 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
       bke::mesh_data_update(*depsgraph, *scene, *ob, cddata_masks);
       break;
     }
-    case OB_MBALL:
-      BKE_mball_data_update(depsgraph, scene, ob);
-      break;
 
     case OB_CURVES_LEGACY:
     case OB_SURF:
@@ -294,15 +290,6 @@ void BKE_object_batch_cache_dirty_tag(Object *ob)
     case OB_FONT:
       BKE_curve_batch_cache_dirty_tag(id_cast<Curve *>(ob->data), BKE_CURVE_BATCH_DIRTY_ALL);
       break;
-    case OB_MBALL: {
-      /* This function is currently called on original objects, so to properly
-       * clear the actual displayed geometry, we have to tag the evaluated mesh. */
-      Mesh *mesh = BKE_object_get_evaluated_mesh_no_subsurf(ob);
-      if (mesh) {
-        BKE_mesh_batch_cache_dirty_tag(mesh, BKE_MESH_BATCH_DIRTY_ALL);
-      }
-      break;
-    }
     case OB_CURVES:
       BKE_curves_batch_cache_dirty_tag(id_cast<Curves *>(ob->data), BKE_CURVES_BATCH_DIRTY_ALL);
       break;

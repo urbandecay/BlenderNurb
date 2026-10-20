@@ -1411,8 +1411,6 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
         return CTX_MODE_EDIT_SURFACE;
       case OB_FONT:
         return CTX_MODE_EDIT_TEXT;
-      case OB_MBALL:
-        return CTX_MODE_EDIT_METABALL;
       case OB_LATTICE:
         return CTX_MODE_EDIT_LATTICE;
       case OB_CURVES:
@@ -1428,9 +1426,6 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
     if (ob) {
       if (object_mode & OB_MODE_SCULPT) {
         return CTX_MODE_SCULPT;
-      }
-      if (object_mode & OB_MODE_WEIGHT_PAINT) {
-        return CTX_MODE_PAINT_WEIGHT;
       }
       if (object_mode & OB_MODE_VERTEX_PAINT) {
         return CTX_MODE_PAINT_VERTEX;
@@ -1464,12 +1459,10 @@ static const char *data_mode_strings[] = {
     "curve_edit",
     "surface_edit",
     "text_edit",
-    "mball_edit",
     "lattice_edit",
     "curves_edit",
     "pointcloud_edit",
     "sculpt_mode",
-    "weightpaint",
     "vertexpaint",
     "particlemode",
     "objectmode",

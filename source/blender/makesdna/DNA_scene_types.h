@@ -1091,8 +1091,8 @@ struct UnifiedPaintSettings {
   /** Unified strength of brush. */
   float alpha = 0.5f;
 
-  /** Unified brush weight, [0, 1]. */
-  float weight = 0.5f;
+  /** Reserved for removed Weight Paint setting. */
+  float _pad_weight = 0.5f;
 
   /** Unified brush color. */
   float color[3] = {0.0f, 0.0f, 0.0f};
@@ -1740,10 +1740,8 @@ ENUM_OPERATORS(eTool_UvSculptFlag)
 
 /** #VPaint::flag */
 enum eVPaint_Flag : char {
-  /** Weight paint only. */
-  VP_FLAG_VGROUP_RESTRICT = (char)(1 << 7),
+  VP_FLAG_UNUSED_7 = (char)(1 << 7),
 };
-ENUM_OPERATORS(eVPaint_Flag)
 
 /** #ToolSettings::snap_transform_mode_flag */
 enum eSnapTransformMode : char {
@@ -1915,8 +1913,8 @@ struct ToolSettings {
 
   /** Vertex paint. */
   VPaint *vpaint = nullptr;
-  /** Weight paint. */
-  VPaint *wpaint = nullptr;
+  /** Reserved for removed Weight Paint settings. */
+  void *_pad_weight_paint = nullptr;
   Sculpt *sculpt = nullptr;
   /** UV smooth. */
   UvSculpt uvsculpt;
@@ -1928,7 +1926,7 @@ struct ToolSettings {
   /** Curves sculpt. */
   CurvesSculpt *curves_sculpt = nullptr;
 
-  /** Vertex group weight - used only for editmode, not weight paint. */
+  /** Default weight for edit-mode vertex group assignments. */
   float vgroup_weight = 1.0f;
 
   /** Remove doubles limit. */
@@ -2047,14 +2045,13 @@ struct ToolSettings {
   /** Lock marker editing. */
   char lock_markers = 0;
 
-  /** Auto normalizing mode in wpaint. */
+  /** Auto normalize vertex group assignments. */
   char auto_normalize = 0;
-  /** Present weights as if all locked vertex groups were
-   *  deleted, and the remaining deform groups normalized. */
-  char wpaint_lock_relative = 0;
+  /** Reserved for removed Weight Paint lock-relative setting. */
+  char _pad_wpaint_lock_relative = 0;
   char _pad_multipaint = 0;
   eTool_WeightUser weightuser = OB_DRAW_GROUPUSER_ACTIVE;
-  /** Subset selection filter in wpaint. */
+  /** Subset selection filter for vertex groups. */
   eVGroupSelect vgroupsubset = WT_VGROUP_ALL;
   /* Reserved for the removed Grease Pencil vertex selection mode. */
   char _pad_gpencil_selectmode_vertex = 0;
@@ -2662,8 +2659,6 @@ extern const char *RE_engine_id_BLENDER_EEVEE_NEXT;
 
 /* deprecate this! */
 #define OBEDIT_FROM_OBACT(ob) ((ob) ? (((ob)->mode & OB_MODE_EDIT) ? ob : NULL) : NULL)
-#define OBWEIGHTPAINT_ALL_FROM_OBACT(ob) \
-  ((ob) ? (((ob)->mode & OB_MODE_ALL_WEIGHT_PAINT) ? ob : NULL) : NULL)
 
 #define V3D_CAMERA_LOCAL(v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : NULL)
 #define V3D_CAMERA_SCENE(scene, v3d) \

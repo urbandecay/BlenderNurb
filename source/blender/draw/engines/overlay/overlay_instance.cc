@@ -143,7 +143,7 @@ void Instance::init()
 
 void Instance::ensure_weight_ramp_texture()
 {
-  /* Weight Painting color ramp texture */
+  /* Vertex group weight color ramp texture. */
   bool user_weight_ramp = (U.flag & USER_CUSTOM_RANGE) != 0;
 
   auto is_equal = [](const ColorBand &a, const ColorBand &b) {
@@ -255,7 +255,6 @@ void Resources::update_theme_settings(const DRWContext *ctx, const State &state)
   gb.colors.library = rgba_uchar_to_float(0x55, 0xCC, 0xCC, 155);
   ui::theme::get_color_4fv(TH_TRANSFORM, gb.colors.transform);
   ui::theme::get_color_4fv(TH_LIGHT, gb.colors.light);
-  ui::theme::get_color_4fv(TH_SPEAKER, gb.colors.speaker);
   ui::theme::get_color_4fv(TH_CAMERA, gb.colors.camera);
   ui::theme::get_color_4fv(TH_CAMERA_PATH, gb.colors.camera_path);
   ui::theme::get_color_4fv(TH_NO_DATA_OBJECT, gb.colors.no_data_object);
@@ -329,11 +328,6 @@ void Resources::update_theme_settings(const DRWContext *ctx, const State &state)
   ui::theme::get_color_4fv(TH_FRAME_BEFORE, gb.colors.before_frame);
   ui::theme::get_color_4fv(TH_FRAME_AFTER, gb.colors.after_frame);
 
-  /* Meta-ball. */
-  gb.colors.mball_radius = rgba_uchar_to_float(0xA0, 0x30, 0x30, 0xFF);
-  gb.colors.mball_radius_select = rgba_uchar_to_float(0xF0, 0xA0, 0xA0, 0xFF);
-  gb.colors.mball_stiffness = rgba_uchar_to_float(0x30, 0xA0, 0x30, 0xFF);
-  gb.colors.mball_stiffness_select = rgba_uchar_to_float(0xA0, 0xF0, 0xA0, 0xFF);
 
   /* Grid */
   ui::theme::get_color_shade_4fv(TH_GRID, 10, gb.colors.grid);
@@ -459,7 +453,6 @@ void Instance::begin_sync()
     layer.lattices.begin_sync(resources, state);
     layer.lights.begin_sync(resources, state);
     layer.light_probes.begin_sync(resources, state);
-    layer.metaballs.begin_sync(resources, state);
     layer.meshes.begin_sync(resources, state);
     layer.mesh_uvs.begin_sync(resources, state);
     layer.mode_transfer.begin_sync(resources, state);
@@ -469,7 +462,6 @@ void Instance::begin_sync()
     layer.pointclouds.begin_sync(resources, state);
     layer.prepass.begin_sync(resources, state);
     layer.relations.begin_sync(resources, state);
-    layer.speakers.begin_sync(resources, state);
     layer.sculpts.begin_sync(resources, state);
     layer.wireframe.begin_sync(resources, state);
   };
@@ -558,9 +550,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
       case OB_LATTICE:
         layer.lattices.edit_object_sync(manager, ob_ref, resources, state);
         break;
-      case OB_MBALL:
-        layer.metaballs.edit_object_sync(manager, ob_ref, resources, state);
-        break;
       case OB_POINTCLOUD:
         layer.pointclouds.edit_object_sync(manager, ob_ref, resources, state);
         break;
@@ -592,14 +581,6 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
         break;
       case OB_LIGHTPROBE:
         layer.light_probes.object_sync(manager, ob_ref, resources, state);
-        break;
-      case OB_MBALL:
-        if (!in_edit_mode) {
-          layer.metaballs.object_sync(manager, ob_ref, resources, state);
-        }
-        break;
-      case OB_SPEAKER:
-        layer.speakers.object_sync(manager, ob_ref, resources, state);
         break;
       default:
         break;
@@ -639,10 +620,8 @@ void Instance::end_sync()
     layer.lights.end_sync(resources, state);
     layer.light_probes.end_sync(resources, state);
     layer.mesh_uvs.end_sync(resources, state);
-    layer.metaballs.end_sync(resources, state);
     layer.relations.end_sync(resources, state);
     layer.fluids.end_sync(resources, state);
-    layer.speakers.end_sync(resources, state);
   };
   end_sync_layer(regular);
   end_sync_layer(infront);
@@ -805,9 +784,7 @@ void Instance::draw_v3d(Manager &manager, View &view)
     layer.force_fields.draw_line(framebuffer, manager, view);
     layer.lights.draw_line(framebuffer, manager, view);
     layer.light_probes.draw_line(framebuffer, manager, view);
-    layer.speakers.draw_line(framebuffer, manager, view);
     layer.lattices.draw_line(framebuffer, manager, view);
-    layer.metaballs.draw_line(framebuffer, manager, view);
     layer.pointclouds.draw_line(framebuffer, manager, view);
     layer.relations.draw_line(framebuffer, manager, view);
     layer.fluids.draw_line(framebuffer, manager, view);
@@ -1016,8 +993,6 @@ bool Instance::object_is_edit_mode(const Object *object)
         return state.ctx_mode == CTX_MODE_EDIT_SURFACE;
       case OB_LATTICE:
         return state.ctx_mode == CTX_MODE_EDIT_LATTICE;
-      case OB_MBALL:
-        return state.ctx_mode == CTX_MODE_EDIT_METABALL;
       case OB_FONT:
         return state.ctx_mode == CTX_MODE_EDIT_TEXT;
       case OB_CURVES:

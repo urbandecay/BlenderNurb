@@ -1021,9 +1021,6 @@ static void rna_UserDef_weight_color_update(Main *bmain, Scene *scene, PointerRN
   for (ob = static_cast<Object *>(bmain->objects.first); ob;
        ob = static_cast<Object *>(ob->id.next))
   {
-    if (ob->mode & OB_MODE_WEIGHT_PAINT) {
-      DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
-    }
   }
 
   rna_userdef_update(bmain, scene, ptr);
@@ -2986,11 +2983,6 @@ static void rna_def_userdef_theme_space_view3d(BlenderRNA *brna)
   RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_LIGHT);
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
-  prop = RNA_def_property(srna, "speaker", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(prop, "Speaker", "");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
   /* Mesh Object specific */
 
   rna_def_userdef_theme_spaces_vertex(srna, false);
@@ -4092,20 +4084,6 @@ static void rna_def_userdef_theme_space_nla(BlenderRNA *brna)
       prop, "Meta Strips Selected", "Selected Meta Strip (for grouping related strips)");
   RNA_def_property_update(prop, 0, "rna_userdef_update");
 
-  prop = RNA_def_property(srna, "sound_strips", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_float_sdna(prop, nullptr, "nla_sound");
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(
-      prop, "Sound Strips", "Unselected Sound Strip (for timing speaker sounds)");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
-  prop = RNA_def_property(srna, "sound_strips_selected", PROP_FLOAT, PROP_COLOR_GAMMA);
-  RNA_def_property_float_sdna(prop, nullptr, "nla_sound_sel");
-  RNA_def_property_array(prop, 3);
-  RNA_def_property_ui_text(
-      prop, "Sound Strips Selected", "Selected Sound Strip (for timing speaker sounds)");
-  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
-
   prop = RNA_def_property(srna, "tweak", PROP_FLOAT, PROP_COLOR_GAMMA);
   RNA_def_property_float_sdna(prop, nullptr, "nla_tweaking");
   RNA_def_property_array(prop, 3);
@@ -5137,14 +5115,14 @@ static void rna_def_userdef_view(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Factor Display Type", "How factor values are displayed");
   RNA_def_property_update(prop, 0, "rna_userdef_update");
 
-  /* Weight Paint */
+  /* Vertex group weight display. */
 
   prop = RNA_def_property(srna, "use_weight_color_range", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", USER_CUSTOM_RANGE);
   RNA_def_property_ui_text(
       prop,
       "Use Weight Color Range",
-      "Enable color range used for weight visualization in weight painting mode");
+      "Use this color range when displaying vertex group weights");
   RNA_def_property_update(prop, 0, "rna_UserDef_weight_color_update");
 
   prop = RNA_def_property(srna, "weight_color_range", PROP_POINTER, PROP_NONE);
@@ -5153,7 +5131,7 @@ static void rna_def_userdef_view(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "ColorRamp");
   RNA_def_property_ui_text(prop,
                            "Weight Color Range",
-                           "Color range used for weight visualization in weight painting mode");
+                           "Color range used to display vertex group weights");
   RNA_def_property_update(prop, 0, "rna_UserDef_weight_color_update");
 
   prop = RNA_def_property(srna, "show_navigate_ui", PROP_BOOLEAN, PROP_NONE);
@@ -5820,20 +5798,10 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Duplicate Text", "Causes text data to be duplicated with the object");
 
-  prop = RNA_def_property(srna, "use_duplicate_metaball", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_MBALL);
-  RNA_def_property_ui_text(
-      prop, "Duplicate Metaball", "Causes metaball data to be duplicated with the object");
-
   prop = RNA_def_property(srna, "use_duplicate_camera", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_CAMERA);
   RNA_def_property_ui_text(
       prop, "Duplicate Camera", "Causes camera data to be duplicated with the object");
-
-  prop = RNA_def_property(srna, "use_duplicate_speaker", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_SPEAKER);
-  RNA_def_property_ui_text(
-      prop, "Duplicate Speaker", "Causes speaker data to be duplicated with the object");
 
   prop = RNA_def_property(srna, "use_duplicate_light", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "dupflag", USER_DUP_LAMP);

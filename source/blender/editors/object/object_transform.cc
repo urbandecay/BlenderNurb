@@ -15,7 +15,6 @@
 #include "DNA_lattice_types.h"
 #include "DNA_light_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
@@ -40,7 +39,6 @@
 #include "BKE_lib_id.hh"
 #include "BKE_library.hh"
 #include "BKE_main.hh"
-#include "BKE_mball.hh"
 #include "BKE_mesh.hh"
 #include "BKE_multires.hh"
 #include "BKE_object.hh"
@@ -576,7 +574,6 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
     if (ELEM(ob->type,
              OB_MESH,
              OB_LATTICE,
-             OB_MBALL,
              OB_CURVES_LEGACY,
              OB_SURF,
              OB_FONT,
@@ -754,10 +751,6 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
       Lattice *lt = id_cast<Lattice *>(ob->data);
 
       BKE_lattice_transform(lt, mat, true);
-    }
-    else if (ob->type == OB_MBALL) {
-      MetaBall *mb = id_cast<MetaBall *>(ob->data);
-      BKE_mball_transform(mb, mat, do_props);
     }
     else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF)) {
       Curve *cu = id_cast<Curve *>(ob->data);
@@ -1301,33 +1294,6 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
         tot_change++;
         cu->id.tag |= ID_TAG_DOIT;
         do_inverse_offset = true;
-      }
-    }
-    else if (ob->type == OB_MBALL) {
-      MetaBall *mb = id_cast<MetaBall *>(ob->data);
-
-      if (centermode == ORIGIN_TO_CURSOR) {
-        /* done */
-      }
-      else if (around == V3D_AROUND_CENTER_BOUNDS) {
-        BKE_mball_center_bounds(mb, cent);
-      }
-      else { /* #V3D_AROUND_CENTER_MEDIAN. */
-        BKE_mball_center_median(mb, cent);
-      }
-
-      negate_v3_v3(cent_neg, cent);
-      BKE_mball_translate(mb, cent_neg);
-
-      tot_change++;
-      mb->id.tag |= ID_TAG_DOIT;
-      do_inverse_offset = true;
-
-      if (obedit) {
-        if (centermode == GEOMETRY_TO_ORIGIN) {
-          DEG_id_tag_update(&obedit->id, ID_RECALC_GEOMETRY);
-        }
-        break;
       }
     }
     else if (ob->type == OB_LATTICE) {

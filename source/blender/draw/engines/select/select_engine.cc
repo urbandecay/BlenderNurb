@@ -471,7 +471,7 @@ struct Instance : public DrawEngine {
   short get_object_select_mode(Scene *scene, Object *ob)
   {
     short select_mode = 0;
-    if (ob->mode & (OB_MODE_WEIGHT_PAINT | OB_MODE_VERTEX_PAINT)) {
+    if (ob->mode & OB_MODE_VERTEX_PAINT) {
       /* In order to sample flat colors for vertex weights and vertex paint, we need to be in
        * SCE_SELECT_FACE mode so select_cache_init() correctly sets up a shgroup with
        * select_id_flat.

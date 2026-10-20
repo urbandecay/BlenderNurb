@@ -2067,7 +2067,7 @@ void BKE_mesh_tessface_clear(Mesh *mesh)
 }
 
 /* -------------------------------------------------------------------- */
-/* MSelect functions (currently used in weight paint mode) */
+/* Mesh selection history functions. */
 
 void BKE_mesh_mselect_clear(Mesh *mesh)
 {

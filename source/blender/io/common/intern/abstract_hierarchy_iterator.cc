@@ -777,7 +777,7 @@ bool AbstractHierarchyIterator::should_visit_dupli_object(const DupliObject *dup
 {
   /* Do not visit dupli objects if their `no_draw` flag is set (such as helper display objects) or
    * if they are meta-balls / text objects / NURBS surfaces. */
-  if (dupli_object->no_draw || ELEM(dupli_object->ob->type, OB_MBALL, OB_FONT, OB_SURF)) {
+  if (dupli_object->no_draw || ELEM(dupli_object->ob->type, OB_FONT, OB_SURF)) {
     return false;
   }
 

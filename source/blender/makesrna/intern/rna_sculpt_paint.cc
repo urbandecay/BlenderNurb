@@ -275,14 +275,9 @@ static std::optional<std::string> rna_Sculpt_path(const PointerRNA * /*ptr*/)
   return "tool_settings.sculpt";
 }
 
-static std::optional<std::string> rna_VertexPaint_path(const PointerRNA *ptr)
+static std::optional<std::string> rna_VertexPaint_path(const PointerRNA * /*ptr*/)
 {
-  const Scene *scene = id_cast<Scene *>(ptr->owner_id);
-  const ToolSettings *ts = scene->toolsettings;
-  if (ptr->data == ts->vpaint) {
-    return "tool_settings.vertex_paint";
-  }
-  return "tool_settings.weight_paint";
+  return "tool_settings.vertex_paint";
 }
 
 static std::optional<std::string> rna_ImagePaintSettings_path(const PointerRNA * /*ptr*/)
@@ -460,11 +455,6 @@ static std::optional<std::string> rna_UnifiedPaintSettings_path(const PointerRNA
       ptr->data)
   {
     return "tool_settings.vertex_paint.unified_paint_settings";
-  }
-  if (rna_UnifiedPaintSettings_address_get(reinterpret_cast<Paint *>(tool_settings->wpaint)) ==
-      ptr->data)
-  {
-    return "tool_settings.weight_paint.unified_paint_settings";
   }
   if (rna_UnifiedPaintSettings_address_get(reinterpret_cast<Paint *>(tool_settings->sculpt)) ==
       ptr->data)
@@ -676,13 +666,6 @@ static void rna_def_unified_paint_settings(BlenderRNA *brna)
                            "Instead of per-brush strength, the strength is shared across brushes");
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
 
-  prop = RNA_def_property(srna, "use_unified_weight", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flag", UNIFIED_PAINT_WEIGHT);
-  RNA_def_property_ui_text(prop,
-                           "Use Unified Weight",
-                           "Instead of per-brush weight, the weight is shared across brushes");
-  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
-
   prop = RNA_def_property(srna, "use_unified_color", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, nullptr, "flag", UNIFIED_PAINT_COLOR);
   RNA_def_property_ui_text(
@@ -723,14 +706,6 @@ static void rna_def_unified_paint_settings(BlenderRNA *brna)
   RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.001, 3);
   RNA_def_property_ui_text(
       prop, "Strength", "How powerful the effect of the brush is when applied");
-  RNA_def_property_update(prop, 0, "rna_UnifiedPaintSettings_update");
-
-  prop = RNA_def_property(srna, "weight", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, nullptr, "weight");
-  RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-  RNA_def_property_range(prop, 0.0f, 1.0f);
-  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.001, 3);
-  RNA_def_property_ui_text(prop, "Weight", "Weight to assign in vertex groups");
   RNA_def_property_update(prop, 0, "rna_UnifiedPaintSettings_update");
 
   prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR);
@@ -1142,7 +1117,6 @@ static void rna_def_uv_sculpt(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
 }
 
-/* use for weight paint too */
 static void rna_def_vertex_paint(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -1151,14 +1125,8 @@ static void rna_def_vertex_paint(BlenderRNA *brna)
   srna = RNA_def_struct(brna, "VertexPaint", "Paint");
   RNA_def_struct_sdna(srna, "VPaint");
   RNA_def_struct_path_func(srna, "rna_VertexPaint_path");
-  RNA_def_struct_ui_text(srna, "Vertex Paint", "Properties of vertex and weight paint mode");
+  RNA_def_struct_ui_text(srna, "Vertex Paint", "Properties of vertex paint mode");
   RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
-
-  /* weight paint only */
-  prop = RNA_def_property(srna, "use_group_restrict", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, nullptr, "flag", VP_FLAG_VGROUP_RESTRICT);
-  RNA_def_property_ui_text(prop, "Restrict", "Restrict painting to vertices in the group");
-  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, nullptr);
 }
 
 static void rna_def_image_paint(BlenderRNA *brna)

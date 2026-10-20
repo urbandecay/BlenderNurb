@@ -18,7 +18,6 @@
 #include "BLI_math_matrix.h"
 
 #include "DNA_lattice_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_pointcloud_types.h"
 
 #include "BKE_action.hh"
@@ -640,25 +639,6 @@ static int gizmo_3d_foreach_selected(const bContext *C,
             }
           }
           nu = nu->next;
-        }
-      }
-      FOREACH_EDIT_OBJECT_END();
-    }
-    else if (obedit->type == OB_MBALL) {
-      FOREACH_EDIT_OBJECT_BEGIN (ob_iter, use_mat_local) {
-        MetaBall *mb = id_cast<MetaBall *>(ob_iter->data);
-
-        float mat_local[4][4];
-        if (use_mat_local) {
-          mul_m4_m4m4(
-              mat_local, obedit->world_to_object().ptr(), ob_iter->object_to_world().ptr());
-        }
-
-        for (MetaElem &ml : *mb->editelems) {
-          if (ml.flag & SELECT) {
-            run_coord_with_matrix(&ml.x, use_mat_local, mat_local);
-            totsel++;
-          }
         }
       }
       FOREACH_EDIT_OBJECT_END();

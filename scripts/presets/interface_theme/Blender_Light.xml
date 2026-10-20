@@ -484,7 +484,6 @@
         camera="#000000"
         no_data_object="#000000"
         light="#00000028"
-        speaker="#000000"
         vertex="#000000"
         vertex_select="#ff7a00"
         vertex_size="3"

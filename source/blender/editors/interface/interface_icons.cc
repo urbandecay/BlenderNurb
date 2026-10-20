@@ -2017,8 +2017,6 @@ int icon_from_idcode(const int idcode)
       return ICON_LATTICE_DATA;
     case ID_MA:
       return ICON_MATERIAL_DATA;
-    case ID_MB:
-      return ICON_META_DATA;
     case ID_MC:
       return ICON_TRACKER;
     case ID_ME:
@@ -2039,8 +2037,6 @@ int icon_from_idcode(const int idcode)
       return ICON_OUTLINER_DATA_LIGHTPROBE;
     case ID_SCE:
       return ICON_SCENE_DATA;
-    case ID_SPK:
-      return ICON_SPEAKER;
     case ID_SO:
       return ICON_SOUND;
     case ID_TE:
@@ -2083,8 +2079,6 @@ int icon_from_object_mode(const int mode)
       return ICON_SCULPTMODE_HLT;
     case OB_MODE_VERTEX_PAINT:
       return ICON_VPAINT_HLT;
-    case OB_MODE_WEIGHT_PAINT:
-      return ICON_WPAINT_HLT;
     case OB_MODE_IMAGE_PAINT:
       return ICON_TPAINT_HLT;
     case OB_MODE_PARTICLE_EDIT:
@@ -2104,16 +2098,12 @@ int icon_from_object_type(const Object *object)
       return ICON_OUTLINER_OB_CAMERA;
     case OB_CURVES_LEGACY:
       return ICON_OUTLINER_OB_CURVE;
-    case OB_MBALL:
-      return ICON_OUTLINER_OB_META;
     case OB_LATTICE:
       return ICON_OUTLINER_OB_LATTICE;
     case OB_FONT:
       return ICON_OUTLINER_OB_FONT;
     case OB_SURF:
       return ICON_OUTLINER_OB_SURFACE;
-    case OB_SPEAKER:
-      return ICON_OUTLINER_OB_SPEAKER;
     case OB_LIGHTPROBE:
       return ICON_OUTLINER_OB_LIGHTPROBE;
     case OB_CURVES:

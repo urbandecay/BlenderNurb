@@ -149,7 +149,7 @@ class SubdivisionSet(Operator):
         active_object = context.active_object
 
         # For paint modes, defer to the active object, not the selected objects.
-        if active_object and active_object.mode in {'SCULPT', 'VERTEX_PAINT', 'WEIGHT_PAINT'}:
+        if active_object and active_object.mode in {'SCULPT', 'VERTEX_PAINT'}:
             objs = [active_object]
         else:
             objs = context.selected_editable_objects

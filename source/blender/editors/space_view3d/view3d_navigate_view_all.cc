@@ -297,8 +297,7 @@ std::optional<Bounds<float3>> view3d_calc_minmax_selected(Depsgraph *depsgraph,
     }
     FOREACH_OBJECT_IN_MODE_END;
   }
-  else if (ob_eval && (ob_eval->mode & (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT |
-                                        OB_MODE_WEIGHT_PAINT)))
+  else if (ob_eval && (ob_eval->mode & (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT)))
   {
     PaintMode mode = PaintMode::Invalid;
     if (ob_eval->mode & OB_MODE_SCULPT) {
@@ -306,9 +305,6 @@ std::optional<Bounds<float3>> view3d_calc_minmax_selected(Depsgraph *depsgraph,
     }
     else if (ob_eval->mode & OB_MODE_VERTEX_PAINT) {
       mode = PaintMode::Vertex;
-    }
-    else if (ob_eval->mode & OB_MODE_WEIGHT_PAINT) {
-      mode = PaintMode::Weight;
     }
     Paint *paint = BKE_paint_get_active_from_paintmode(scene, mode);
     BKE_paint_stroke_get_average(paint, ob_eval, min);

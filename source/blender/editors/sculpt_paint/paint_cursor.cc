@@ -753,7 +753,7 @@ static bool paint_draw_alpha_overlay(
     }
   }
   else {
-    if (!(flags & PAINT_OVERLAY_OVERRIDE_PRIMARY) && (mode != PaintMode::Weight)) {
+    if (!(flags & PAINT_OVERLAY_OVERRIDE_PRIMARY)) {
       alpha_overlay_active = paint_draw_tex_overlay(
           paint, brush, vc, x, y, zoom, mode, false, true);
     }
@@ -949,7 +949,6 @@ static bool paint_use_2d_cursor(PaintMode mode)
   switch (mode) {
     case PaintMode::Sculpt:
     case PaintMode::Vertex:
-    case PaintMode::Weight:
       return false;
     case PaintMode::Texture2D:
     case PaintMode::SculptCurves:
@@ -992,10 +991,7 @@ static bool paint_cursor_context_init(bContext *C,
     pcontext.sd = CTX_data_tool_settings(C)->sculpt;
   }
 
-  if (ELEM(pcontext.mode,
-           PaintMode::Sculpt,
-           PaintMode::Vertex,
-           PaintMode::Weight))
+  if (ELEM(pcontext.mode, PaintMode::Sculpt, PaintMode::Vertex))
   {
     pcontext.base = CTX_data_active_base(C);
   }
@@ -1119,8 +1115,7 @@ static void paint_draw_legacy_3D_view_brush_cursor(PaintCursorContext &pcontext)
 
 static void paint_cursor_draw_3D_view_brush_cursor(PaintCursorContext &pcontext)
 {
-  BLI_assert(ELEM(
-      pcontext.mode, PaintMode::Sculpt, PaintMode::Vertex, PaintMode::Weight));
+  BLI_assert(ELEM(pcontext.mode, PaintMode::Sculpt, PaintMode::Vertex));
 
   BLI_assert(pcontext.ss);
 

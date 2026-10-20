@@ -75,8 +75,7 @@ class VIEW3D_HT_tool_header(Header):
 
         def draw_3d_brush_settings(layout, tool_mode):
             layout.popover("VIEW3D_PT_tools_brush_settings_advanced", text="Brush")
-            if tool_mode != 'PAINT_WEIGHT':
-                layout.popover("VIEW3D_PT_tools_brush_texture")
+            layout.popover("VIEW3D_PT_tools_brush_texture")
             layout.popover("VIEW3D_PT_tools_brush_stroke")
             layout.popover("VIEW3D_PT_tools_brush_falloff")
             layout.popover("VIEW3D_PT_tools_brush_display")
@@ -86,9 +85,6 @@ class VIEW3D_HT_tool_header(Header):
             if is_valid_context:
                 draw_3d_brush_settings(layout, tool_mode)
         elif tool_mode == 'PAINT_VERTEX':
-            if is_valid_context:
-                draw_3d_brush_settings(layout, tool_mode)
-        elif tool_mode == 'PAINT_WEIGHT':
             if is_valid_context:
                 draw_3d_brush_settings(layout, tool_mode)
         elif tool_mode == 'EDIT_CURVE':
@@ -113,7 +109,7 @@ class VIEW3D_HT_tool_header(Header):
             sub.scale_x = 0.6
             return row, sub
 
-        if mode_string in {'EDIT_MESH', 'PAINT_WEIGHT', 'SCULPT', 'PAINT_VERTEX'}:
+        if mode_string in {'EDIT_MESH', 'SCULPT', 'PAINT_VERTEX'}:
             # Mesh Modes, Use Mesh Symmetry
             ob = context.object
             row, sub = row_for_mirror()
@@ -122,8 +118,6 @@ class VIEW3D_HT_tool_header(Header):
             sub.prop(ob, "use_mesh_mirror_z", text="Z", toggle=True)
             if mode_string == 'EDIT_MESH':
                 layout.prop(tool_settings, "use_mesh_automerge", text="")
-            elif mode_string == 'PAINT_WEIGHT':
-                row.popover(panel="VIEW3D_PT_tools_weightpaint_symmetry_for_topbar", text="")
             elif mode_string == 'SCULPT':
                 row.popover(panel="VIEW3D_PT_sculpt_symmetry_for_topbar", text="")
             elif mode_string == 'PAINT_VERTEX':
@@ -148,12 +142,8 @@ class VIEW3D_HT_tool_header(Header):
             layout.popover_group(context=".sculpt_mode", **popover_kw)
         elif mode_string == 'PAINT_VERTEX':
             layout.popover_group(context=".vertexpaint", **popover_kw)
-        elif mode_string == 'PAINT_WEIGHT':
-            layout.popover_group(context=".weightpaint", **popover_kw)
         elif mode_string == 'EDIT_TEXT':
             layout.popover_group(context=".text_edit", **popover_kw)
-        elif mode_string == 'EDIT_METABALL':
-            layout.popover_group(context=".mball_edit", **popover_kw)
         elif mode_string == 'EDIT_LATTICE':
             layout.popover_group(context=".lattice_edit", **popover_kw)
         elif mode_string == 'EDIT_CURVE':
@@ -244,57 +234,6 @@ class _draw_tool_settings_context_mode:
         brush_basic_texpaint_settings(layout, context, brush, compact=True)
 
         return True
-
-    @staticmethod
-    def PAINT_WEIGHT(context, layout, tool):
-        if (tool is None) or (not tool.use_brushes):
-            return False
-
-        paint = context.tool_settings.weight_paint
-        brush = paint.brush
-
-        BrushAssetShelf.draw_popup_selector(layout, context, brush)
-
-        if brush is None:
-            return False
-
-        capabilities = brush.weight_paint_capabilities
-        if capabilities.has_weight:
-            UnifiedPaintPanel.prop_unified(
-                layout,
-                context,
-                brush,
-                "weight",
-                unified_name="use_unified_weight",
-                slider=True,
-                header=True,
-            )
-
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "size",
-            pressure_name="use_pressure_size",
-            unified_name="use_unified_size",
-            slider=True,
-            text="Size",
-            header=True,
-        )
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "strength",
-            pressure_name="use_pressure_strength",
-            unified_name="use_unified_strength",
-            header=True,
-        )
-
-        return True
-
-
-
 
     @staticmethod
     def PARTICLE(context, layout, tool):
@@ -464,7 +403,7 @@ class VIEW3D_HT_header(Header):
         else:
             if object_mode not in {
                     'SCULPT', 'SCULPT_CURVES',
-                    'VERTEX_PAINT', 'WEIGHT_PAINT',
+                    'VERTEX_PAINT',
             }:
                 show_snap = True
             else:
@@ -635,16 +574,6 @@ class VIEW3D_HT_header(Header):
         elif object_mode == 'VERTEX_PAINT':
             row = layout.row()
             row.popover(panel="VIEW3D_PT_slots_color_attributes", icon='GROUP_VCOL')
-        elif object_mode == 'WEIGHT_PAINT':
-            row = layout.row()
-            row.popover(panel="VIEW3D_PT_slots_vertex_groups", icon='GROUP_VERTEX')
-
-            layout.popover(
-                panel="VIEW3D_PT_sculpt_snapping",
-                icon='SNAP_INCREMENT',
-                text="",
-                translate=False,
-            )
         else:
             # Transform settings depending on tool header visibility
             VIEW3D_HT_header.draw_xform_template(layout, context)
@@ -686,8 +615,6 @@ class VIEW3D_HT_header(Header):
             sub.popover(panel="VIEW3D_PT_overlay_sculpt", text="", icon='SCULPTMODE_HLT')
         elif mode_string == 'SCULPT_CURVES':
             sub.popover(panel="VIEW3D_PT_overlay_sculpt_curves", text="", icon='SCULPTMODE_HLT')
-        elif mode_string == 'PAINT_WEIGHT':
-            sub.popover(panel="VIEW3D_PT_overlay_weight_paint", text="", icon='WPAINT_HLT')
         elif mode_string == 'PAINT_VERTEX':
             sub.popover(panel="VIEW3D_PT_overlay_vertex_paint", text="", icon='VPAINT_HLT')
 
@@ -734,11 +661,11 @@ class VIEW3D_MT_editor_menus(Menu):
         layout.menu("VIEW3D_MT_view")
 
         # Select Menu
-        if mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX'}:
+        if mode_string == 'PAINT_VERTEX':
             mesh = obj.data
             if mesh.use_paint_mask:
                 layout.menu("VIEW3D_MT_select_paint_mask")
-            elif mesh.use_paint_mask_vertex and mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX'}:
+            elif mesh.use_paint_mask_vertex:
                 layout.menu("VIEW3D_MT_select_paint_mask_vertex")
         elif mode_string not in {'SCULPT', 'SCULPT_CURVES'}:
             layout.menu("VIEW3D_MT_select_" + mode_string.lower())
@@ -753,8 +680,6 @@ class VIEW3D_MT_editor_menus(Menu):
             layout.menu("VIEW3D_MT_edit_curves_add", text="Add", text_ctxt=i18n_contexts.operator_default)
         elif mode_string == 'EDIT_SURFACE':
             layout.menu("VIEW3D_MT_surface_add", text="Add", text_ctxt=i18n_contexts.operator_default)
-        elif mode_string == 'EDIT_METABALL':
-            layout.menu("VIEW3D_MT_metaball_add", text="Add", text_ctxt=i18n_contexts.operator_default)
 
         if edit_object:
             layout.menu("VIEW3D_MT_edit_" + edit_object.type.lower())
@@ -857,7 +782,6 @@ class VIEW3D_MT_transform(VIEW3D_MT_transform_base, Menu):
             'EDIT_CURVE',
             'EDIT_CURVES',
             'EDIT_LATTICE',
-            'EDIT_METABALL',
             'EDIT_POINTCLOUD',
         }:
             layout.operator("transform.vertex_warp", text="Warp")
@@ -988,7 +912,7 @@ class VIEW3D_MT_view(Menu):
 
         layout.separator()
 
-        if context.mode in {'PAINT_VERTEX', 'PAINT_WEIGHT', 'SCULPT'}:
+        if context.mode in {'PAINT_VERTEX', 'SCULPT'}:
             layout.operator("view3d.view_selected", text="Center Last Stroke")
         else:
             layout.operator("view3d.view_selected", text="Frame Selected")
@@ -1497,31 +1421,6 @@ class VIEW3D_MT_select_edit_text(Menu):
         layout.operator("font.move_select", text="Next Word").type = 'NEXT_WORD'
 
 
-class VIEW3D_MT_select_edit_metaball(Menu):
-    bl_label = "Select"
-
-    def draw(self, _context):
-        layout = self.layout
-
-        layout.operator("mball.select_all", text="All").action = 'SELECT'
-        layout.operator("mball.select_all", text="None").action = 'DESELECT'
-        layout.operator("mball.select_all", text="Invert").action = 'INVERT'
-
-        layout.separator()
-
-        layout.operator("view3d.select_box")
-        layout.operator("view3d.select_circle")
-        layout.operator_menu_enum("view3d.select_lasso", "mode")
-
-        layout.separator()
-
-        layout.operator("mball.select_random_metaelems")
-
-        layout.separator()
-
-        layout.operator_menu_enum("mball.select_similar", "type")
-
-
 class VIEW3D_MT_edit_lattice_context_menu(Menu):
     bl_label = "Lattice"
 
@@ -1791,42 +1690,6 @@ class VIEW3D_MT_surface_add(Menu):
         layout.operator("surface.primitive_nurbs_surface_torus_add", text="Nurbs Torus", icon='SURFACE_NTORUS')
 
 
-class VIEW3D_MT_edit_metaball_context_menu(Menu):
-    bl_label = "Metaball"
-
-    def draw(self, _context):
-        layout = self.layout
-
-        layout.operator_context = 'INVOKE_REGION_WIN'
-
-        # Add
-        layout.operator("mball.duplicate_move")
-
-        layout.separator()
-
-        # Modify
-        layout.menu("VIEW3D_MT_mirror")
-        layout.menu("VIEW3D_MT_snap")
-
-        layout.separator()
-
-        # Remove
-        layout.operator_context = 'EXEC_REGION_WIN'
-        layout.operator("mball.delete_metaelems", text="Delete")
-
-
-class VIEW3D_MT_metaball_add(Menu):
-    bl_idname = "VIEW3D_MT_metaball_add"
-    bl_label = "Metaball"
-    bl_options = {'SEARCH_ON_KEY_PRESS'}
-
-    def draw(self, _context):
-        layout = self.layout
-
-        layout.operator_context = 'INVOKE_REGION_WIN'
-        layout.operator_enum("object.metaball_add", "type")
-
-
 class TOPBAR_MT_edit_curve_add(Menu):
     bl_idname = "TOPBAR_MT_edit_curve_add"
     bl_label = "Add"
@@ -1938,7 +1801,6 @@ class VIEW3D_MT_add(Menu):
         layout.menu("VIEW3D_MT_curve_add", icon='OUTLINER_OB_CURVE')
         # layout.operator_menu_enum("object.surface_add", "type", text="Surface", icon='OUTLINER_OB_SURFACE')
         layout.menu("VIEW3D_MT_surface_add", icon='OUTLINER_OB_SURFACE')
-        layout.menu("VIEW3D_MT_metaball_add", text="Metaball", icon='OUTLINER_OB_META')
         layout.operator("object.text_add", text="Text", icon='OUTLINER_OB_FONT')
         layout.operator("object.pointcloud_random_add", text="Point Cloud", icon='OUTLINER_OB_POINTCLOUD')
         layout.menu("VIEW3D_MT_volume_add", text="Volume", text_ctxt=i18n_contexts.id_id, icon='OUTLINER_OB_VOLUME')
@@ -1962,10 +1824,6 @@ class VIEW3D_MT_add(Menu):
             layout.menu("VIEW3D_MT_camera_add", icon='OUTLINER_OB_CAMERA')
         else:
             VIEW3D_MT_camera_add.draw(self, context)
-
-        layout.separator()
-
-        layout.operator("object.speaker_add", text="Speaker", icon='OUTLINER_OB_SPEAKER')
 
         layout.separator()
 
@@ -2705,7 +2563,7 @@ class VIEW3D_MT_vertex_group(Menu):
         layout.operator("object.vertex_group_assign_new")
 
         ob = context.active_object
-        if ob.mode == 'EDIT' or (ob.mode == 'WEIGHT_PAINT' and ob.type == 'MESH' and ob.data.use_paint_mask_vertex):
+        if ob.mode == 'EDIT':
             if ob.vertex_groups.active:
                 layout.separator()
 
@@ -2724,7 +2582,7 @@ class VIEW3D_MT_vertex_group(Menu):
             layout.operator("object.vertex_group_remove", text="Remove All Groups").all = True
 
 
-class VIEW3D_MT_paint_weight_lock(Menu):
+class VIEW3D_MT_vertex_group_lock(Menu):
     bl_label = "Vertex Group Locks"
 
     def draw(self, _context):
@@ -2744,7 +2602,7 @@ class VIEW3D_MT_paint_weight_lock(Menu):
         props.action = 'INVERT'
 
 
-class VIEW3D_MT_paint_weight(Menu):
+class VIEW3D_MT_vertex_group_weights(Menu):
     bl_label = "Weights"
 
     @staticmethod
@@ -2773,23 +2631,9 @@ class VIEW3D_MT_paint_weight(Menu):
             props.use_reverse_transfer = True
             props.data_type = 'VGROUP_WEIGHTS'
 
-        if not is_editmode:
-            layout.separator()
-
-            # Primarily for shortcut discoverability.
-            layout.operator("paint.weight_set")
-            layout.operator("paint.weight_sample", text="Sample Weight")
-            layout.operator("paint.weight_sample_group", text="Sample Group")
-
-            layout.separator()
-
-            # Primarily for shortcut discoverability.
-            layout.operator("paint.weight_gradient", text="Gradient (Linear)").type = 'LINEAR'
-            layout.operator("paint.weight_gradient", text="Gradient (Radial)").type = 'RADIAL'
-
         layout.separator()
 
-        layout.menu("VIEW3D_MT_paint_weight_lock", text="Locks")
+        layout.menu("VIEW3D_MT_vertex_group_lock", text="Locks")
 
     def draw(self, _context):
         self.draw_generic(self.layout, is_editmode=False)
@@ -3950,7 +3794,7 @@ class VIEW3D_MT_edit_mesh_weights(Menu):
 
     def draw(self, _context):
         layout = self.layout
-        VIEW3D_MT_paint_weight.draw_generic(layout, is_editmode=True)
+        VIEW3D_MT_vertex_group_weights.draw_generic(layout, is_editmode=True)
         layout.template_node_operator_asset_menu_items(catalog_path="Mesh/Weights")
 
 
@@ -4345,39 +4189,6 @@ class VIEW3D_MT_edit_font_context_menu(Menu):
         layout.menu("VIEW3D_MT_edit_font")
 
 
-class VIEW3D_MT_edit_meta(Menu):
-    bl_label = "Metaball"
-
-    def draw(self, _context):
-        layout = self.layout
-
-        layout.menu("VIEW3D_MT_transform")
-        layout.menu("VIEW3D_MT_mirror")
-        layout.menu("VIEW3D_MT_snap")
-
-        layout.separator()
-
-        layout.operator("mball.duplicate_metaelems")
-
-        layout.separator()
-
-        layout.menu("VIEW3D_MT_edit_meta_showhide")
-
-        layout.operator_context = 'EXEC_REGION_WIN'
-        layout.operator("mball.delete_metaelems", text="Delete")
-
-
-class VIEW3D_MT_edit_meta_showhide(Menu):
-    bl_label = "Show/Hide"
-
-    def draw(self, _context):
-        layout = self.layout
-
-        layout.operator("mball.reveal_metaelems")
-        layout.operator("mball.hide_metaelems", text="Hide Selected").unselected = False
-        layout.operator("mball.hide_metaelems", text="Hide Unselected").unselected = True
-
-
 class VIEW3D_MT_edit_lattice(Menu):
     bl_label = "Lattice"
 
@@ -4602,7 +4413,7 @@ class VIEW3D_MT_pivot_pie(Menu):
         pie.prop_enum(tool_settings, "transform_pivot_point", value='INDIVIDUAL_ORIGINS')
         pie.prop_enum(tool_settings, "transform_pivot_point", value='MEDIAN_POINT')
         pie.prop_enum(tool_settings, "transform_pivot_point", value='ACTIVE_ELEMENT')
-        if (obj is None) or (mode in {'OBJECT', 'WEIGHT_PAINT'}):
+        if (obj is None) or (mode == 'OBJECT'):
             pie.prop(tool_settings, "use_transform_pivot_point_align")
 
 
@@ -4722,24 +4533,6 @@ class VIEW3D_MT_sculpt_face_sets_edit_pie(Menu):
 
         props = pie.operator("paint.hide_show_all", text="Show All")
         props.action = 'SHOW'
-
-
-class VIEW3D_MT_wpaint_vgroup_lock_pie(Menu):
-    bl_label = "Vertex Group Locks"
-
-    def draw(self, _context):
-        layout = self.layout
-        pie = layout.menu_pie()
-
-        # 1: Left
-        props = pie.operator("object.vertex_group_lock", icon='LOCKED', text="Lock All")
-        props.action = 'LOCK'
-        # 2: Right
-        props = pie.operator("object.vertex_group_lock", icon='UNLOCKED', text="Unlock All")
-        props.action = 'UNLOCK'
-        # 3: Down
-        props = pie.operator("object.vertex_group_lock", text="Invert Locks")
-        props.action = 'INVERT'
 
 
 # ********** Panel **********
@@ -4965,7 +4758,6 @@ class VIEW3D_PT_object_type_visibility(Panel):
             ("mesh", "Mesh", 'OUTLINER_OB_MESH'),
             ("curve", "Curve", 'OUTLINER_OB_CURVE'),
             ("surf", "Surface", 'OUTLINER_OB_SURFACE'),
-            ("meta", "Meta", 'OUTLINER_OB_META'),
             ("font", "Text", 'OUTLINER_OB_FONT'),
             ("curves", "Hair Curves", 'OUTLINER_OB_CURVES'),
             ("pointcloud", "Point Cloud", 'OUTLINER_OB_POINTCLOUD'),
@@ -4974,7 +4766,6 @@ class VIEW3D_PT_object_type_visibility(Panel):
             ("light", "Light", 'OUTLINER_OB_LIGHT'),
             ("light_probe", "Light Probe", 'OUTLINER_OB_LIGHTPROBE'),
             ("camera", "Camera", 'OUTLINER_OB_CAMERA'),
-            ("speaker", "Speaker", 'OUTLINER_OB_SPEAKER'),
         )
 
         for attr, attr_name, attr_icon in attr_object_types:
@@ -5550,7 +5341,6 @@ class VIEW3D_PT_overlay_object(Panel):
             'PAINT_2D',
             'SCULPT',
             'PAINT_VERTEX',
-            'PAINT_WEIGHT',
             'SCULPT_CURVES',
         }
         subsub = sub.column()
@@ -6034,38 +5824,6 @@ class VIEW3D_PT_overlay_vertex_paint(Panel):
         col.prop(overlay, "show_paint_wire")
 
 
-class VIEW3D_PT_overlay_weight_paint(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
-    bl_label = "Weight Paint"
-    bl_ui_units_x = 12
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == 'PAINT_WEIGHT'
-
-    def draw(self, context):
-        layout = self.layout
-        view = context.space_data
-        overlay = view.overlay
-        display_all = overlay.show_overlays
-        tool_settings = context.tool_settings
-
-        layout.label(text="Weight Paint Overlays")
-
-        col = layout.column()
-        col.active = display_all
-
-        col.prop(overlay, "weight_paint_mode_opacity", text="Opacity")
-        row = col.split(factor=0.33)
-        row.label(text="Zero Weights")
-        sub = row.row()
-        sub.prop(tool_settings, "vertex_group_user", expand=True)
-
-        col.prop(overlay, "show_wpaint_contours")
-        col.prop(overlay, "show_paint_wire")
-
-
 class VIEW3D_PT_snapping(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'HEADER'
@@ -6472,49 +6230,6 @@ class VIEW3D_PT_paint_vertex_context_menu(Panel):
         )
 
 
-class VIEW3D_PT_paint_weight_context_menu(Panel):
-    # Only for popover, these are dummy values.
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'WINDOW'
-    bl_label = "Weights"
-
-    def draw(self, context):
-        layout = self.layout
-
-        brush = context.tool_settings.weight_paint.brush
-
-        # Use unified_paint_settings_override to allow 'brush-like' tools (e.g. Gradient).
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "weight",
-            unified_paint_settings_override=context.tool_settings.weight_paint.unified_paint_settings,
-            unified_name="use_unified_weight",
-            slider=True,
-        )
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "size",
-            unified_paint_settings_override=context.tool_settings.weight_paint.unified_paint_settings,
-            unified_name="use_unified_size",
-            pressure_name="use_pressure_size",
-            slider=True,
-        )
-        UnifiedPaintPanel.prop_unified(
-            layout,
-            context,
-            brush,
-            "strength",
-            unified_paint_settings_override=context.tool_settings.weight_paint.unified_paint_settings,
-            unified_name="use_unified_strength",
-            pressure_name="use_pressure_strength",
-            slider=True,
-        )
-
-
 class VIEW3D_PT_sculpt_automasking(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'HEADER'
@@ -6770,11 +6485,6 @@ class View3DAssetShelf(BrushAssetShelf):
     bl_space_type = "VIEW_3D"
 
 
-class AssetShelfHiddenByDefault:
-    # Take #BrushAssetShelf.bl_options but remove the 'DEFAULT_VISIBLE' flag.
-    bl_options = {option for option in BrushAssetShelf.bl_options if option != 'DEFAULT_VISIBLE'}
-
-
 class VIEW3D_AST_brush_sculpt(View3DAssetShelf, bpy.types.AssetShelf):
     mode = 'SCULPT'
     mode_prop = "use_paint_sculpt"
@@ -6791,12 +6501,6 @@ class VIEW3D_AST_brush_vertex_paint(View3DAssetShelf, bpy.types.AssetShelf):
     mode = 'VERTEX_PAINT'
     mode_prop = "use_paint_vertex"
     brush_type_prop = "vertex_brush_type"
-
-
-class VIEW3D_AST_brush_weight_paint(AssetShelfHiddenByDefault, View3DAssetShelf, bpy.types.AssetShelf):
-    mode = 'WEIGHT_PAINT'
-    mode_prop = "use_paint_weight"
-    brush_type_prop = "weight_brush_type"
 
 
 classes = (
@@ -6826,7 +6530,6 @@ classes = (
     VIEW3D_MT_select_edit_curve,
     VIEW3D_MT_select_edit_surface,
     VIEW3D_MT_select_edit_text,
-    VIEW3D_MT_select_edit_metaball,
     VIEW3D_MT_edit_lattice_context_menu,
     VIEW3D_MT_select_edit_lattice,
     VIEW3D_MT_select_paint_mask,
@@ -6838,8 +6541,6 @@ classes = (
     VIEW3D_MT_mesh_add,
     VIEW3D_MT_curve_add,
     VIEW3D_MT_surface_add,
-    VIEW3D_MT_edit_metaball_context_menu,
-    VIEW3D_MT_metaball_add,
     TOPBAR_MT_edit_curve_add,
     VIEW3D_MT_light_add,
     VIEW3D_MT_lightprobe_add,
@@ -6871,8 +6572,8 @@ classes = (
     VIEW3D_MT_paint_vertex,
     VIEW3D_MT_hook,
     VIEW3D_MT_vertex_group,
-    VIEW3D_MT_paint_weight,
-    VIEW3D_MT_paint_weight_lock,
+    VIEW3D_MT_vertex_group_weights,
+    VIEW3D_MT_vertex_group_lock,
     VIEW3D_MT_sculpt,
     VIEW3D_MT_sculpt_set_pivot,
     VIEW3D_MT_sculpt_transform,
@@ -6919,8 +6620,6 @@ classes = (
     VIEW3D_MT_edit_font_kerning,
     VIEW3D_MT_edit_font_delete,
     VIEW3D_MT_edit_font_context_menu,
-    VIEW3D_MT_edit_meta,
-    VIEW3D_MT_edit_meta_showhide,
     VIEW3D_MT_edit_lattice,
     VIEW3D_MT_edit_curves,
     VIEW3D_MT_edit_curves_add,
@@ -6939,7 +6638,6 @@ classes = (
     VIEW3D_MT_proportional_editing_falloff_pie,
     VIEW3D_MT_sculpt_mask_edit_pie,
     VIEW3D_MT_sculpt_automasking_pie,
-    VIEW3D_MT_wpaint_vgroup_lock_pie,
     VIEW3D_MT_sculpt_face_sets_edit_pie,
     VIEW3D_MT_sculpt_curves,
     VIEW3D_PT_active_tool,
@@ -6976,7 +6674,6 @@ classes = (
     VIEW3D_PT_overlay_edit_curve,
     VIEW3D_PT_overlay_edit_curves,
     VIEW3D_PT_overlay_vertex_paint,
-    VIEW3D_PT_overlay_weight_paint,
     VIEW3D_PT_overlay_sculpt,
     VIEW3D_PT_overlay_sculpt_curves,
     VIEW3D_PT_snapping,
@@ -6985,7 +6682,6 @@ classes = (
     VIEW3D_PT_transform_orientations,
     VIEW3D_PT_context_properties,
     VIEW3D_PT_paint_vertex_context_menu,
-    VIEW3D_PT_paint_weight_context_menu,
     VIEW3D_PT_sculpt_automasking,
     VIEW3D_PT_sculpt_context_menu,
     VIEW3D_PT_curves_sculpt_add_shape,
@@ -6996,7 +6692,6 @@ classes = (
     VIEW3D_AST_brush_sculpt,
     VIEW3D_AST_brush_sculpt_curves,
     VIEW3D_AST_brush_vertex_paint,
-    VIEW3D_AST_brush_weight_paint,
 )
 
 

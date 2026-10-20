@@ -370,9 +370,6 @@ const uchar *get_color_ptr(bTheme *btheme, int spacetype, int colorid)
         case TH_LIGHT:
           cp = ts->lamp;
           break;
-        case TH_SPEAKER:
-          cp = ts->speaker;
-          break;
         case TH_CAMERA:
           cp = ts->camera;
           break;

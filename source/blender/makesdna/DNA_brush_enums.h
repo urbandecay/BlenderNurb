@@ -335,24 +335,12 @@ enum eBrushImagePaintType : char {
   IMAGE_PAINT_BRUSH_TYPE_MASK = 5,
 };
 
-/* The enums here should be kept in sync with the weight paint brush type.
- * This is because #smooth_brush_toggle_on and #smooth_brush_toggle_off
- * assumes that the blur brush has the same enum value. */
 /** #Brush.vertex_brush_type */
 enum eBrushVertexPaintType : char {
   VPAINT_BRUSH_TYPE_DRAW = 0,
   VPAINT_BRUSH_TYPE_BLUR = 1,
   VPAINT_BRUSH_TYPE_AVERAGE = 2,
   VPAINT_BRUSH_TYPE_SMEAR = 3,
-};
-
-/* See #eBrushVertexPaintType when changing this definition. */
-/** #Brush.weight_brush_type */
-enum eBrushWeightPaintType : char {
-  WPAINT_BRUSH_TYPE_DRAW = 0,
-  WPAINT_BRUSH_TYPE_BLUR = 1,
-  WPAINT_BRUSH_TYPE_AVERAGE = 2,
-  WPAINT_BRUSH_TYPE_SMEAR = 3,
 };
 
 /* direction that the brush displaces along */

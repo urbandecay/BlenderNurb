@@ -2009,8 +2009,6 @@ static BIFIconID tree_element_get_icon_from_id(const ID *id)
       }
       break;
     }
-    case ID_MB:
-      return ICON_OUTLINER_DATA_META;
     case ID_LT:
       return ICON_OUTLINER_DATA_LATTICE;
     case ID_LA: {
@@ -2034,9 +2032,8 @@ static BIFIconID tree_element_get_icon_from_id(const ID *id)
       return ICON_TEXTURE_DATA;
     case ID_IM:
       return ICON_IMAGE_DATA;
-    case ID_SPK:
     case ID_SO:
-      return ICON_OUTLINER_DATA_SPEAKER;
+      return ICON_SOUND;
     case ID_CA:
       return ICON_OUTLINER_DATA_CAMERA;
     case ID_KE:

@@ -151,14 +151,12 @@ void BKE_main_clear(Main &bmain)
         CASE_ID_INDEX(INDEX_ID_KE);
         CASE_ID_INDEX(INDEX_ID_ME);
         CASE_ID_INDEX(INDEX_ID_CU_LEGACY);
-        CASE_ID_INDEX(INDEX_ID_MB);
         CASE_ID_INDEX(INDEX_ID_CV);
         CASE_ID_INDEX(INDEX_ID_PT);
         CASE_ID_INDEX(INDEX_ID_VO);
         CASE_ID_INDEX(INDEX_ID_LT);
         CASE_ID_INDEX(INDEX_ID_LA);
         CASE_ID_INDEX(INDEX_ID_CA);
-        CASE_ID_INDEX(INDEX_ID_SPK);
         CASE_ID_INDEX(INDEX_ID_LP);
         CASE_ID_INDEX(INDEX_ID_OB);
         CASE_ID_INDEX(INDEX_ID_GR);
@@ -1011,8 +1009,6 @@ ListBaseT<ID> *which_libbase(Main *bmain, short type)
       return &(bmain->meshes.cast<ID>());
     case ID_CU_LEGACY:
       return &(bmain->curves.cast<ID>());
-    case ID_MB:
-      return &(bmain->metaballs.cast<ID>());
     case ID_MA:
       return &(bmain->materials.cast<ID>());
     case ID_TE:
@@ -1035,8 +1031,6 @@ ListBaseT<ID> *which_libbase(Main *bmain, short type)
       return &(bmain->fonts.cast<ID>());
     case ID_TXT:
       return &(bmain->texts.cast<ID>());
-    case ID_SPK:
-      return &(bmain->speakers.cast<ID>());
     case ID_LP:
       return &(bmain->lightprobes.cast<ID>());
     case ID_SO:
@@ -1102,7 +1096,6 @@ MainListsArray BKE_main_lists_get(Main &bmain)
   lb[INDEX_ID_CF] = &(bmain.cachefiles.cast<ID>());
   lb[INDEX_ID_ME] = &(bmain.meshes.cast<ID>());
   lb[INDEX_ID_CU_LEGACY] = &(bmain.curves.cast<ID>());
-  lb[INDEX_ID_MB] = &(bmain.metaballs.cast<ID>());
   lb[INDEX_ID_CV] = &(bmain.hair_curves.cast<ID>());
   lb[INDEX_ID_PT] = &(bmain.pointclouds.cast<ID>());
   lb[INDEX_ID_VO] = &(bmain.volumes.cast<ID>());
@@ -1118,7 +1111,6 @@ MainListsArray BKE_main_lists_get(Main &bmain)
   lb[INDEX_ID_PC] = &(bmain.paintcurves.cast<ID>());
   lb[INDEX_ID_BR] = &(bmain.brushes.cast<ID>());
   lb[INDEX_ID_PA] = &(bmain.particles.cast<ID>());
-  lb[INDEX_ID_SPK] = &(bmain.speakers.cast<ID>());
   lb[INDEX_ID_LP] = &(bmain.lightprobes.cast<ID>());
 
   lb[INDEX_ID_WO] = &(bmain.worlds.cast<ID>());

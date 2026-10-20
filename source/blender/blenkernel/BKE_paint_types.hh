@@ -22,7 +22,6 @@ enum class PaintMode : int8_t {
   Sculpt = 0,
   /** Vertex color. */
   Vertex = 1,
-  Weight = 2,
   /** Image space (2D painting). */
   Texture2D = 4,
   /** Curves. */

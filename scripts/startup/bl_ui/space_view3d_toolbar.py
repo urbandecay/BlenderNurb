@@ -61,7 +61,7 @@ class View3DPanel:
 
 # **************** standard tool clusters ******************
 
-# Used by vertex & weight paint
+# Used by vertex paint.
 def draw_vpaint_symmetry(layout, obj):
     mesh = obj.data
 
@@ -481,44 +481,6 @@ class VIEW3D_PT_tools_brush_stroke_smooth_stroke(Panel, View3DPaintPanel, Smooth
     bl_options = {'DEFAULT_CLOSED'}
 
 
-class VIEW3D_PT_tools_weight_gradient(Panel, View3DPaintPanel):
-    # Don't give context on purpose to not show this in the generic header tool-settings
-    # this is added only in the gradient tool's ToolDef
-    # `bl_context = ".weightpaint"` # dot on purpose (access from top-bar)
-    bl_label = "Falloff"
-    bl_options = {'DEFAULT_CLOSED'}
-    # Also don't draw as an extra panel in the sidebar (already included in the Brush settings).
-    bl_space_type = 'TOPBAR'
-    bl_region_type = 'HEADER'
-
-    @classmethod
-    def poll(cls, context):
-        # since we don't give context above, check mode here (to not show in other modes like sculpt).
-        if context.mode != 'PAINT_WEIGHT':
-            return False
-        settings = context.tool_settings.weight_paint
-        if settings is None:
-            return False
-        brush = settings.brush
-        return brush is not None
-
-    def draw(self, context):
-        layout = self.layout
-        settings = context.tool_settings.weight_paint
-        brush = settings.brush
-
-        col = layout.column(align=True)
-        col.prop(brush, "curve_distance_falloff_preset", expand=True)
-
-        if brush.curve_distance_falloff_preset == 'CUSTOM':
-            layout.template_curve_mapping(
-                brush, "curve_distance_falloff",
-                brush=True,
-                use_negative_slope=True,
-                show_presets=True,
-            )
-
-
 class VIEW3D_PT_tools_brush_falloff(Panel, View3DPaintPanel, FalloffPanel):
     bl_context = ".paint_common"  # dot on purpose (access from topbar)
     bl_parent_id = "VIEW3D_PT_tools_brush_settings"
@@ -534,7 +496,7 @@ class VIEW3D_PT_tools_brush_falloff_frontface(View3DPaintPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return (context.weight_paint_object or context.vertex_paint_object)
+        return context.vertex_paint_object
 
     def draw_header(self, context):
         settings = self.paint_settings(context)
@@ -778,66 +740,6 @@ class VIEW3D_PT_curves_sculpt_symmetry_for_topbar(Panel):
     draw = VIEW3D_PT_curves_sculpt_symmetry.draw
 
 
-# ********** default tools for weight-paint ****************
-
-
-class VIEW3D_PT_tools_weightpaint_symmetry(Panel, View3DPaintPanel):
-    bl_context = ".weightpaint"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_label = "Symmetry"
-
-    @classmethod
-    def poll(cls, context):
-        # When used in the tool header, this is explicitly included next to the XYZ symmetry buttons.
-        return (context.region.type != 'TOOL_HEADER')
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        ob = context.object
-        mesh = ob.data
-
-        layout.prop(mesh, "use_mirror_vertex_groups")
-
-        draw_vpaint_symmetry(layout, ob)
-
-        row = layout.row()
-        row.active = mesh.use_mirror_vertex_groups
-        row.prop(mesh, "use_mirror_topology")
-
-
-class VIEW3D_PT_tools_weightpaint_symmetry_for_topbar(Panel):
-    bl_space_type = 'TOPBAR'
-    bl_region_type = 'HEADER'
-    bl_label = "Symmetry"
-
-    draw = VIEW3D_PT_tools_weightpaint_symmetry.draw
-
-
-class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
-    bl_context = ".weightpaint"
-    bl_label = "Options"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        tool_settings = context.tool_settings
-        wpaint = tool_settings.weight_paint
-
-        col = layout.column()
-
-        col.prop(tool_settings, "use_auto_normalize", text="Auto Normalize")
-        col.prop(tool_settings, "use_lock_relative", text="Lock-Relative")
-
-        col.prop(wpaint, "use_group_restrict")
-
-
 # ********** default tools for vertex-paint ****************
 
 
@@ -1037,10 +939,6 @@ classes = (
 
     VIEW3D_PT_curves_sculpt_symmetry,
     VIEW3D_PT_curves_sculpt_symmetry_for_topbar,
-
-    VIEW3D_PT_tools_weightpaint_symmetry,
-    VIEW3D_PT_tools_weightpaint_symmetry_for_topbar,
-    VIEW3D_PT_tools_weightpaint_options,
 
     VIEW3D_PT_tools_vertexpaint_symmetry,
     VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar,

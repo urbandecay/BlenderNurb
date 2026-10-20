@@ -447,8 +447,6 @@ enum eNlaStrip_Type : short {
   /* 'meta' - a strip which acts as a container for a few others */
   NLASTRIP_TYPE_META,
 
-  /* 'emit sound' - a strip which is used for timing when speaker emits sounds */
-  NLASTRIP_TYPE_SOUND,
 };
 
 /* NLA Tracks ------------------------------------- */

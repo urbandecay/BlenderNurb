@@ -689,9 +689,6 @@ static void do_version_curvemapping_walker(Main *bmain, void (*callback)(CurveMa
     if (ts->vpaint) {
       callback(ts->vpaint->paint.cavity_curve);
     }
-    if (ts->wpaint) {
-      callback(ts->wpaint->paint.cavity_curve);
-    }
     if (ts->sculpt) {
       callback(ts->sculpt->paint.cavity_curve);
     }
@@ -3770,7 +3767,7 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
 #define PAINT_BLEND_ALPHA_ADD 20
 
       for (Brush &brush : bmain->brushes) {
-        if (brush.ob_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)) {
+        if (brush.ob_mode & OB_MODE_VERTEX_PAINT) {
           const char tool_init = brush.vertex_brush_type;
           bool is_blend = false;
 
@@ -3858,8 +3855,6 @@ void blo_do_versions_280(FileData *fd, Library * /*lib*/, Main *bmain)
             brush.blend = blend;
           }
         }
-        /* For now these match, in the future new items may not. */
-        brush.weight_brush_type = eBrushWeightPaintType(int(brush.vertex_brush_type));
       }
 
 #undef PAINT_BLEND_MIX

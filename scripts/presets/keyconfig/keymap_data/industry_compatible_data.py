@@ -2385,7 +2385,7 @@ def km_animation_channels(params):
 def km_face_mask(params):
     items = []
     keymap = (
-        "Paint Face Mask (Weight, Vertex, Texture)",
+        "Paint Face Mask (Vertex, Texture)",
         {"space_type": 'EMPTY', "region_type": 'WINDOW'},
         {"items": items},
     )
@@ -2418,10 +2418,10 @@ def km_face_mask(params):
     return keymap
 
 
-def km_weight_paint_vertex_selection(params):
+def km_vertex_paint_selection(params):
     items = []
     keymap = (
-        "Paint Vertex Selection (Weight, Vertex)",
+        "Paint Vertex Selection (Vertex)",
         {"space_type": 'EMPTY', "region_type": 'WINDOW'},
         {"items": items},
     )
@@ -2623,7 +2623,6 @@ def _template_paint_radial_control(
         secondary_rotation=False,
         color=False,
         zoom=False,
-        weight=False,
 ):
     items = []
 
@@ -2648,17 +2647,6 @@ def _template_paint_radial_control(
              radial_control_properties(
                  paint, "mask_texture_slot.angle", None, secondary_rotation=secondary_rotation, color=color,
             )),
-        ])
-
-    if weight:
-        items.extend([
-            ("wm.radial_control", {"type": 'F', "value": 'PRESS', "ctrl": True, "alt": True},
-             radial_control_properties(
-                 paint, "mask_texture_slot.angle", None, secondary_rotation=secondary_rotation, color=color,
-            )),
-            ("wm.radial_control", {"type": 'F', "value": 'PRESS', "ctrl": True},
-             radial_control_properties(
-                paint, "weight", "use_unified_weight"))
         ])
 
     return items
@@ -2771,57 +2759,6 @@ def km_vertex_paint(params):
         # Tools
         op_tool_cycle("builtin.select_box", {"type": 'Q', "value": 'PRESS'}),
         op_asset_shelf_popup("VIEW3D_AST_brush_vertex_paint", {"type": 'B', "value": 'PRESS'}),
-    ])
-
-    return keymap
-
-
-def km_weight_paint(params):
-    items = []
-    keymap = (
-        "Weight Paint",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        # Brush Strokes
-        ("paint.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-         {"properties": [("mode", 'NORMAL')]}),
-        ("paint.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-         {"properties": [("mode", 'INVERT')]}),
-        ("paint.weight_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-         {"properties": [("brush_toggle", 'SMOOTH')]}),
-        # Weight
-        ("paint.weight_sample", {"type": 'I', "value": 'PRESS'}, None),
-        ("paint.weight_sample_group", {"type": 'I', "value": 'PRESS', "alt": True}, None),
-        ("paint.weight_set", {"type": 'BACK_SPACE', "value": 'PRESS'}, None),
-        # Vertex Lock Pie
-        op_menu_pie("VIEW3D_MT_wpaint_vgroup_lock_pie", {"type": 'I', "value": 'PRESS', "ctrl": True, "alt": True}),
-        # Brush properties
-        ("brush.scale_size", {"type": 'LEFT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 0.9)]}),
-        ("brush.scale_size", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "repeat": True},
-         {"properties": [("scalar", 1.0 / 0.9)]}),
-        *_template_paint_radial_control("weight_paint", weight=True),
-        # Mask Modes
-        ("wm.context_toggle", {"type": 'ONE', "value": 'PRESS'},
-         {"properties": [("data_path", "weight_paint_object.data.use_paint_mask")]}),
-        ("wm.context_toggle", {"type": 'TWO', "value": 'PRESS'},
-         {"properties": [("data_path", "weight_paint_object.data.use_paint_mask_vertex")]}),
-        # Stabilize Stroke
-        ("wm.context_toggle", {"type": 'L', "value": 'PRESS'},
-         {"properties": [("data_path", "tool_settings.weight_paint.brush.use_smooth_stroke")]}),
-        # Context menu.
-        *_template_items_context_panel("VIEW3D_PT_paint_weight_context_menu", {"type": 'RIGHTMOUSE', "value": 'PRESS'}),
-        op_tool_cycle("builtin.move", {"type": 'W', "value": 'PRESS'}),
-        op_tool_cycle("builtin.rotate", {"type": 'E', "value": 'PRESS'}),
-        op_tool_cycle("builtin.scale", {"type": 'R', "value": 'PRESS'}),
-        op_tool_cycle("builtin.transform", {"type": 'T', "value": 'PRESS'}),
-        # Tools
-        op_tool_cycle("builtin.cursor", {"type": 'C', "value": 'PRESS'}),
-        op_tool_cycle("builtin.select_box", {"type": 'Q', "value": 'PRESS'}),
-        op_asset_shelf_popup("VIEW3D_AST_brush_weight_paint", {"type": 'B', "value": 'PRESS'}),
     ])
 
     return keymap
@@ -3021,38 +2958,6 @@ def km_mesh(params):
         op_tool_cycle("builtin.knife", {"type": 'K', "value": 'PRESS'}),
         op_tool_cycle("builtin.loop_cut", {"type": 'C', "value": 'PRESS', "alt": True}),
 
-    ])
-
-    return keymap
-
-
-def km_metaball(params):
-    items = []
-    keymap = (
-        "Metaball",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": items},
-    )
-
-    items.extend([
-        ("mball.reveal_metaelems", {"type": 'H', "value": 'PRESS', "alt": True}, None),
-        ("mball.hide_metaelems", {"type": 'H', "value": 'PRESS', "ctrl": True},
-         {"properties": [("unselected", False)]}),
-        ("mball.hide_metaelems", {"type": 'H', "value": 'PRESS', "shift": True},
-         {"properties": [("unselected", True)]}),
-        ("mball.delete_metaelems", {"type": 'BACK_SPACE', "value": 'PRESS'}, None),
-        ("mball.delete_metaelems", {"type": 'DEL', "value": 'PRESS'}, None),
-        ("mball.duplicate_move", {"type": 'D', "value": 'PRESS', "ctrl": True}, None),
-        ("mball.select_all", {"type": 'A', "value": 'PRESS', "ctrl": True}, {"properties": [("action", 'SELECT')]}),
-        ("mball.select_all", {"type": 'A', "value": 'PRESS', "ctrl": True,
-         "shift": True}, {"properties": [("action", 'DESELECT')]}),
-        ("mball.select_all", {"type": 'I', "value": 'PRESS', "ctrl": True}, {"properties": [("action", 'INVERT')]}),
-        ("mball.select_similar", {"type": 'G', "value": 'PRESS', "shift": True}, None),
-        *_template_items_context_menu("VIEW3D_MT_edit_metaball_context_menu", {"type": 'RIGHTMOUSE', "value": 'PRESS'}),
-        ("wm.context_toggle", {"type": 'B', "value": 'PRESS'},
-         {"properties": [("data_path", "tool_settings.use_proportional_edit")]}),
-        # Tools
-        *_template_items_basic_tools(),
     ])
 
     return keymap
@@ -3656,16 +3561,14 @@ def generate_keymaps_impl(params=None):
 
         # Modes.
         km_face_mask(params),
-        km_weight_paint_vertex_selection(params),
+        km_vertex_paint_selection(params),
         km_object_mode(params),
         km_paint_curve(params),
         km_curve(params),
         km_image_paint(params),
         km_vertex_paint(params),
-        km_weight_paint(params),
         km_sculpt(params),
         km_mesh(params),
-        km_metaball(params),
         km_lattice(params),
         km_particle(params),
         km_font(params),

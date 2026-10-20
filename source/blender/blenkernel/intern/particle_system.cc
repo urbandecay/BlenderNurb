@@ -3200,8 +3200,7 @@ static void psys_update_path_cache(ParticleSimulationData *sim,
     alloc = 1;
   }
 
-  if (alloc || psys->recalc & ID_RECALC_PSYS_CHILD ||
-      (psys->vgroup[PSYS_VG_DENSITY] && (sim->ob && sim->ob->mode & OB_MODE_WEIGHT_PAINT)))
+  if (alloc || psys->recalc & ID_RECALC_PSYS_CHILD)
   {
     distr = 1;
   }

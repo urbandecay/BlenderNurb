@@ -14,7 +14,6 @@
 #include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
@@ -46,7 +45,6 @@
 #include "BKE_editmesh.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
-#include "BKE_mball.hh"
 #include "BKE_mesh.hh"
 #include "BKE_object.hh"
 #include "BKE_paint.hh"
@@ -64,7 +62,6 @@
 #include "ED_curve.hh"
 #include "ED_curves.hh"
 #include "ED_lattice.hh"
-#include "ED_mball.hh"
 #include "ED_mesh.hh"
 #include "ED_object.hh"
 #include "ED_outliner.hh"
@@ -468,9 +465,6 @@ static bool view3d_selectable_data(bContext *C)
       return ob->type != OB_FONT;
     }
     if (ob->mode & OB_MODE_VERTEX_PAINT) {
-      return BKE_paint_select_elem_test(ob);
-    }
-    if (ob->mode & OB_MODE_WEIGHT_PAINT) {
       return BKE_paint_select_elem_test(ob);
     }
   }
@@ -883,46 +877,6 @@ static bool do_lasso_select_lattice(const ViewContext *vc,
   return data.is_changed;
 }
 
-static void do_lasso_select_mball__doSelectElem(void *user_data,
-                                                MetaElem *ml,
-                                                const float screen_co[2])
-{
-  LassoSelectUserData *data = static_cast<LassoSelectUserData *>(user_data);
-  const bool is_select = ml->flag & SELECT;
-  const bool is_inside = (BLI_rctf_isect_pt_v(data->rect_fl, screen_co) &&
-                          BLI_lasso_is_point_inside(
-                              data->mcoords, screen_co[0], screen_co[1], INT_MAX));
-  const int sel_op_result = ED_select_op_action_deselected(data->sel_op, is_select, is_inside);
-  if (sel_op_result != -1) {
-    SET_FLAG_FROM_TEST(ml->flag, sel_op_result, MB_SELECT);
-    data->is_changed = true;
-  }
-}
-static bool do_lasso_select_meta(const ViewContext *vc,
-                                 const Span<int2> mcoords,
-                                 const eSelectOp sel_op)
-{
-  LassoSelectUserData data;
-  rcti rect;
-
-  MetaBall *mb = id_cast<MetaBall *>(vc->obedit->data);
-
-  BLI_lasso_boundbox(&rect, mcoords);
-
-  view3d_userdata_lassoselect_init(&data, vc, &rect, mcoords, sel_op);
-
-  if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-    data.is_changed |= BKE_mball_deselect_all(mb);
-  }
-
-  ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d);
-
-  mball_foreachScreenElem(
-      vc, do_lasso_select_mball__doSelectElem, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
-
-  return data.is_changed;
-}
-
 static bool curves_select_lasso(const ViewContext &vc,
                                 const Object *object,
                                 const Span<int2> mcoords,
@@ -1105,7 +1059,7 @@ static bool view3d_lasso_select(bContext *C,
                                        mcoords.size(),
                                        sel_op) != OPERATOR_CANCELLED;
     }
-    else if (ob && (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)))
+    else if (ob && (ob->mode & OB_MODE_VERTEX_PAINT))
     {
       /* pass */
     }
@@ -1137,9 +1091,6 @@ static bool view3d_lasso_select(bContext *C,
           break;
         case OB_LATTICE:
           changed = do_lasso_select_lattice(vc, mcoords, sel_op);
-          break;
-        case OB_MBALL:
-          changed = do_lasso_select_meta(vc, mcoords, sel_op);
           break;
         case OB_CURVES: {
           changed = curves_select_lasso(*vc, vc->obedit, mcoords, sel_op);
@@ -2248,12 +2199,12 @@ static bool ed_object_select_pick(bContext *C,
 }
 
 /**
- * Mouse selection in weight paint.
+ * Mouse selection in vertex paint.
  * Called via generic mouse select operator.
  *
  * \return True when pick finds an element or the selection changed.
  */
-static bool ed_wpaint_vertex_select_pick(bContext *C,
+static bool ed_vpaint_vertex_select_pick(bContext *C,
                                          const int mval[2],
                                          const SelectPick_Params &params,
                                          Object *obact)
@@ -2622,9 +2573,6 @@ static wmOperatorStatus view3d_select_exec(bContext *C, wmOperator *op)
     else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
       changed = ED_curve_editnurb_select_pick(C, mval, ED_view3d_select_dist_px(), params);
     }
-    else if (obedit->type == OB_MBALL) {
-      changed = ED_mball_select_pick(C, mval, params);
-    }
     else if (obedit->type == OB_FONT) {
       changed = ED_curve_editfont_select_pick(C, mval, params);
     }
@@ -2642,7 +2590,7 @@ static wmOperatorStatus view3d_select_exec(bContext *C, wmOperator *op)
     changed = paintface_mouse_select(C, mval, params, obact);
   }
   else if (BKE_paint_select_vert_test(obact)) {
-    changed = ed_wpaint_vertex_select_pick(C, mval, params, obact);
+    changed = ed_vpaint_vertex_select_pick(C, mval, params, obact);
   }
   else {
     changed = ed_object_select_pick(C, mval, params, center, enumerate, object_only);
@@ -3186,78 +3134,6 @@ static bool do_mesh_box_select(const ViewContext *vc,
   return data.is_changed;
 }
 
-static bool do_meta_box_select(const ViewContext *vc, const rcti *rect, const eSelectOp sel_op)
-{
-  Object *ob = vc->obedit;
-  MetaBall *mb = id_cast<MetaBall *>(ob->data);
-  MetaElem *ml;
-  int a;
-  bool changed = false;
-
-  GPUSelectBuffer buffer;
-  int hits;
-
-  hits = view3d_gpu_select(
-      vc, &buffer, rect, VIEW3D_SELECT_ALL, VIEW3D_SELECT_FILTER_NOP, eV3DSelectShape::BOX);
-
-  if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-    changed |= BKE_mball_deselect_all(mb);
-  }
-
-  int metaelem_id = 0;
-  for (ml = static_cast<MetaElem *>(mb->editelems->first); ml;
-       ml = ml->next, metaelem_id += 0x10000)
-  {
-    bool is_inside_radius = false;
-    bool is_inside_stiff = false;
-
-    for (a = 0; a < hits; a++) {
-      const int select_id = buffer.storage[a].id;
-
-      if (select_id == -1) {
-        continue;
-      }
-
-      const uint hit_object = select_id & 0xFFFF;
-      if (vc->obedit->runtime->select_id != hit_object) {
-        continue;
-      }
-
-      if (metaelem_id != (select_id & 0xFFFF0000 & ~MBALLSEL_ANY)) {
-        continue;
-      }
-
-      if (select_id & MBALLSEL_RADIUS) {
-        is_inside_radius = true;
-        break;
-      }
-
-      if (select_id & MBALLSEL_STIFF) {
-        is_inside_stiff = true;
-        break;
-      }
-    }
-    const int flag_prev = ml->flag;
-    if (is_inside_radius) {
-      ml->flag |= MB_SCALE_RAD;
-    }
-    if (is_inside_stiff) {
-      ml->flag &= ~MB_SCALE_RAD;
-    }
-
-    const bool is_select = (ml->flag & SELECT);
-    const bool is_inside = is_inside_radius || is_inside_stiff;
-
-    const int sel_op_result = ED_select_op_action_deselected(sel_op, is_select, is_inside);
-    if (sel_op_result != -1) {
-      SET_FLAG_FROM_TEST(ml->flag, sel_op_result, MB_SELECT);
-    }
-    changed |= (flag_prev != ml->flag);
-  }
-
-  return changed;
-}
-
 /**
  * Compare result of 'GPU_select': 'GPUSelectResult',
  * needed for when we need to align with object draw-order.
@@ -3421,13 +3297,6 @@ static wmOperatorStatus view3d_box_select_exec(bContext *C, wmOperator *op)
         case OB_CURVES_LEGACY:
         case OB_SURF:
           changed = do_nurbs_box_select(&vc, &rect, sel_op);
-          if (changed) {
-            DEG_id_tag_update(vc.obedit->data, ID_RECALC_SELECT);
-            WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
-          }
-          break;
-        case OB_MBALL:
-          changed = do_meta_box_select(&vc, &rect, sel_op);
           if (changed) {
             DEG_id_tag_update(vc.obedit->data, ID_RECALC_SELECT);
             WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
@@ -3938,44 +3807,6 @@ static bool lattice_circle_select(const ViewContext *vc,
   return data.is_changed;
 }
 
-static void do_circle_select_mball__doSelectElem(void *user_data,
-                                                 MetaElem *ml,
-                                                 const float screen_co[2])
-{
-  CircleSelectUserData *data = static_cast<CircleSelectUserData *>(user_data);
-
-  if (len_squared_v2v2(data->mval_fl, screen_co) <= data->radius_squared) {
-    if (data->select) {
-      ml->flag |= MB_SELECT;
-    }
-    else {
-      ml->flag &= ~MB_SELECT;
-    }
-    data->is_changed = true;
-  }
-}
-static bool mball_circle_select(const ViewContext *vc,
-                                const eSelectOp sel_op,
-                                const int mval[2],
-                                float rad)
-{
-  CircleSelectUserData data;
-
-  const bool select = (sel_op != SEL_OP_SUB);
-
-  view3d_userdata_circleselect_init(&data, vc, select, mval, rad);
-
-  if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-    data.is_changed |= BKE_mball_deselect_all(id_cast<MetaBall *>(vc->obedit->data));
-  }
-
-  ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d);
-
-  mball_foreachScreenElem(
-      vc, do_circle_select_mball__doSelectElem, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
-  return data.is_changed;
-}
-
 static bool curves_select_circle(const ViewContext &vc,
                                  const Object *object,
                                  const eSelectOp sel_op,
@@ -4033,9 +3864,6 @@ static bool obedit_circle_select(bContext *C,
       break;
     case OB_LATTICE:
       changed = lattice_circle_select(vc, sel_op, mval, rad);
-      break;
-    case OB_MBALL:
-      changed = mball_circle_select(vc, sel_op, mval, rad);
       break;
     case OB_CURVES: {
       changed = curves_select_circle(*vc, vc->obedit, sel_op, mval, rad);

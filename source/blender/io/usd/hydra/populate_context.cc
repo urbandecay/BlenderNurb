@@ -48,10 +48,6 @@ uint64_t EmittedGeometryKey::hash() const
 
 static bool object_disables_geometry_sharing(Scene *scene, eEvaluationMode mode, Object *ob)
 {
-  /* Meta-balls are merged together. */
-  if (ob->type == OB_MBALL) {
-    return true;
-  }
   /* Modifiers can create different geometry per object. */
   const int settings = (mode == DAG_EVAL_VIEWPORT) ? eModifierMode_Realtime : eModifierMode_Render;
   if ((BKE_object_is_modified(scene, ob) & settings) != 0) {

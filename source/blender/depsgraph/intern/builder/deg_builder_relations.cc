@@ -47,7 +47,6 @@
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
 #include "DNA_sound_types.h"
-#include "DNA_speaker_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_volume_types.h"
@@ -66,7 +65,6 @@
 #include "BKE_layer.hh"
 #include "BKE_lib_query.hh"
 #include "BKE_material.hh"
-#include "BKE_mball.hh"
 #include "BKE_modifier.hh"
 #include "BKE_nla.hh"
 #include "BKE_node.hh"
@@ -207,7 +205,7 @@ bool check_id_has_driver_component(ID *id)
 
 bool object_have_geometry_component(const Object *object)
 {
-  return ELEM(object->type, OB_MESH, OB_CURVES_LEGACY, OB_FONT, OB_SURF, OB_MBALL, OB_LATTICE);
+  return ELEM(object->type, OB_MESH, OB_CURVES_LEGACY, OB_FONT, OB_SURF, OB_LATTICE);
 }
 
 }  // namespace
@@ -543,16 +541,12 @@ void DepsgraphRelationBuilder::build_id(ID *id)
       build_movieclip(id_cast<MovieClip *>(id));
       break;
     case ID_ME:
-    case ID_MB:
     case ID_CU_LEGACY:
     case ID_LT:
     case ID_CV:
     case ID_PT:
     case ID_VO:
       build_object_data_geometry_datablock(id);
-      break;
-    case ID_SPK:
-      build_speaker(id_cast<Speaker *>(id));
       break;
     case ID_SO:
       build_sound(id_cast<bSound *>(id));
@@ -937,7 +931,6 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
     case OB_CURVES_LEGACY:
     case OB_FONT:
     case OB_SURF:
-    case OB_MBALL:
     case OB_LATTICE:
     case OB_CURVES:
     case OB_POINTCLOUD:
@@ -965,9 +958,6 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
       break;
     case OB_LIGHTPROBE:
       build_object_data_lightprobe(object);
-      break;
-    case OB_SPEAKER:
-      build_object_data_speaker(object);
       break;
     case OB_NO_DATA:
     case OB_TYPE_MAX:
@@ -1018,15 +1008,6 @@ void DepsgraphRelationBuilder::build_object_data_lightprobe(Object *object)
   add_relation(probe_key, object_key, "LightProbe Update");
   OperationKey object_shading_key(&object->id, NodeType::SHADING, OperationCode::SHADING);
   add_relation(probe_key, object_shading_key, "LightProbe -> Object Shading");
-}
-
-void DepsgraphRelationBuilder::build_object_data_speaker(Object *object)
-{
-  Speaker *speaker = id_cast<Speaker *>(object->data);
-  build_speaker(speaker);
-  ComponentKey speaker_key(&speaker->id, NodeType::AUDIO);
-  ComponentKey object_key(&object->id, NodeType::AUDIO);
-  add_relation(speaker_key, object_key, "Speaker Update");
 }
 
 /* Returns the modifier that is last in the modifier stack. */
@@ -2195,10 +2176,6 @@ void DepsgraphRelationBuilder::build_particle_system_visualization_object(Object
   OperationKey obdata_ubereval_key(&object->id, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
   ComponentKey dup_ob_key(&draw_object->id, NodeType::TRANSFORM);
   add_relation(dup_ob_key, psys_key, "Particle Object Visualization");
-  if (draw_object->type == OB_MBALL) {
-    ComponentKey dup_geometry_key(&draw_object->id, NodeType::GEOMETRY);
-    add_relation(obdata_ubereval_key, dup_geometry_key, "Particle MBall Visualization");
-  }
 }
 
 /* Shapekeys */
@@ -2280,20 +2257,6 @@ void DepsgraphRelationBuilder::build_object_data_geometry(Object *object)
         &object->id, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
     add_relation(geom_init_key, obdata_ubereval_key, "Object Geometry UberEval");
   }
-  if (object->type == OB_MBALL) {
-    Object *mom = BKE_mball_basis_find(*bmain_, scene_, object);
-    ComponentKey mom_geom_key(&mom->id, NodeType::GEOMETRY);
-    /* motherball - mom depends on children! */
-    if (mom == object) {
-      ComponentKey mom_transform_key(&mom->id, NodeType::TRANSFORM);
-      add_relation(mom_transform_key, mom_geom_key, "Metaball Motherball Transform -> Geometry");
-    }
-    else {
-      ComponentKey transform_key(&object->id, NodeType::TRANSFORM);
-      add_relation(geom_key, mom_geom_key, "Metaball Motherball");
-      add_relation(transform_key, mom_geom_key, "Metaball Motherball");
-    }
-  }
   /* NOTE: This is compatibility code to support particle systems
    *
    * for viewport being properly rendered in final render mode.
@@ -2370,8 +2333,6 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
   const ID_Type id_type = GS(obdata->name);
   switch (id_type) {
     case ID_ME:
-      break;
-    case ID_MB:
       break;
     case ID_CU_LEGACY: {
       Curve *cu = id_cast<Curve *>(obdata);
@@ -2948,26 +2909,6 @@ void DepsgraphRelationBuilder::build_lightprobe(LightProbe *probe)
   build_parameters(&probe->id);
 }
 
-void DepsgraphRelationBuilder::build_speaker(Speaker *speaker)
-{
-  if (built_map_.check_is_built_and_tag(speaker)) {
-    return;
-  }
-
-  const BuilderStack::ScopedEntry stack_entry = stack_.trace(speaker->id);
-
-  build_idproperties(speaker->id.properties);
-  build_idproperties(speaker->id.system_properties);
-  build_animdata(&speaker->id);
-  build_parameters(&speaker->id);
-  if (speaker->sound != nullptr) {
-    build_sound(speaker->sound);
-    ComponentKey speaker_key(&speaker->id, NodeType::AUDIO);
-    ComponentKey sound_key(&speaker->sound->id, NodeType::AUDIO);
-    add_relation(sound_key, speaker_key, "Sound -> Speaker");
-  }
-}
-
 void DepsgraphRelationBuilder::build_sound(bSound *sound)
 {
   if (built_map_.check_is_built_and_tag(sound)) {
@@ -3021,8 +2962,6 @@ static bool strip_build_prop_cb(Strip *strip, void *user_data)
       cd->builder->add_relation(
           sequence_scene_key, cd->sequencer_key, "Sequence Scene -> Sequencer");
     }
-    ViewLayer *strip_view_layer = BKE_view_layer_find(strip->scene, strip->scene_view_layer_name);
-    cd->builder->build_scene_speakers(strip->scene, strip_view_layer);
   }
   if (strip->type == STRIP_TYPE_COMPOSITOR && strip->effectdata) {
     const CompositorEffectVars *comp_data = static_cast<CompositorEffectVars *>(strip->effectdata);
@@ -3087,18 +3026,6 @@ void DepsgraphRelationBuilder::build_scene_audio(Scene *scene)
   if (scene->audio.flag & AUDIO_VOLUME_ANIMATED) {
     ComponentKey scene_anim_key(&scene->id, NodeType::ANIMATION);
     add_relation(scene_anim_key, scene_audio_volume_key, "Animation -> Audio Volume");
-  }
-}
-
-void DepsgraphRelationBuilder::build_scene_speakers(Scene *scene, ViewLayer *view_layer)
-{
-  BKE_view_layer_synced_ensure(*bmain_, scene, view_layer);
-  for (Base &base : *BKE_view_layer_object_bases_get(view_layer)) {
-    Object *object = base.object;
-    if (object->type != OB_SPEAKER || !need_pull_base_into_graph(&base)) {
-      continue;
-    }
-    build_object(base.object);
   }
 }
 

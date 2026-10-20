@@ -584,14 +584,6 @@ void ED_operatortypes_paint()
   WM_operatortype_append(PAINT_OT_grab_clone);
   WM_operatortype_append(PAINT_OT_brush_colors_flip);
 
-  /* weight */
-  WM_operatortype_append(PAINT_OT_weight_paint_toggle);
-  WM_operatortype_append(PAINT_OT_weight_paint);
-  WM_operatortype_append(PAINT_OT_weight_set);
-  WM_operatortype_append(PAINT_OT_weight_gradient);
-  WM_operatortype_append(PAINT_OT_weight_sample);
-  WM_operatortype_append(PAINT_OT_weight_sample_group);
-
   /* uv */
   WM_operatortype_append(SCULPT_OT_uv_sculpt_grab);
   WM_operatortype_append(SCULPT_OT_uv_sculpt_relax);
@@ -664,13 +656,9 @@ void ED_keymap_paint(wmKeyConfig *keyconf)
   keymap = WM_keymap_ensure(keyconf, "Vertex Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = vertex_paint_mode_poll;
 
-  /* Weight Paint mode */
-  keymap = WM_keymap_ensure(keyconf, "Weight Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  keymap->poll = weight_paint_mode_poll;
-
-  /* Weight paint's Vertex Selection Mode. */
+  /* Vertex paint selection mode. */
   keymap = WM_keymap_ensure(
-      keyconf, "Paint Vertex Selection (Weight, Vertex)", SPACE_EMPTY, RGN_TYPE_WINDOW);
+      keyconf, "Paint Vertex Selection (Vertex)", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = vert_paint_poll;
 
   /* Image Editor Paint mode */
@@ -678,15 +666,13 @@ void ED_keymap_paint(wmKeyConfig *keyconf)
   keymap->poll = ED_image_tools_paint_poll;
 
   /* face-mask mode */
-  keymap = WM_keymap_ensure(
-      keyconf, "Paint Face Mask (Weight, Vertex)", SPACE_EMPTY, RGN_TYPE_WINDOW);
+  keymap = WM_keymap_ensure(keyconf, "Paint Face Mask (Vertex)", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = facemask_paint_poll;
 
   /* paint stroke */
   keymap = paint_stroke_modal_keymap(keyconf);
   WM_modalkeymap_assign(keymap, "SCULPT_OT_brush_stroke");
   WM_modalkeymap_assign(keymap, "PAINT_OT_vertex_paint");
-  WM_modalkeymap_assign(keymap, "PAINT_OT_weight_paint");
   WM_modalkeymap_assign(keymap, "PAINT_OT_image_paint");
 
   /* Curves Sculpt mode. */

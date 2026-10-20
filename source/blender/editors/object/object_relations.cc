@@ -215,8 +215,8 @@ static wmOperatorStatus track_set_exec(bContext *C, wmOperator *op)
           DEG_id_tag_update(&ob->id,
                             ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
 
-          /* Light, Camera and Speaker track differently by default */
-          if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+          /* Light and Camera track differently by default. */
+          if (ELEM(ob->type, OB_LAMP, OB_CAMERA)) {
             data->trackflag = TRACK_nZ;
           }
         }
@@ -237,8 +237,8 @@ static wmOperatorStatus track_set_exec(bContext *C, wmOperator *op)
           DEG_id_tag_update(&ob->id,
                             ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
 
-          /* Light, Camera and Speaker track differently by default */
-          if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+          /* Light and Camera track differently by default. */
+          if (ELEM(ob->type, OB_LAMP, OB_CAMERA)) {
             data->reserved1 = TRACK_nZ;
             data->reserved2 = UP_Y;
           }
@@ -260,8 +260,8 @@ static wmOperatorStatus track_set_exec(bContext *C, wmOperator *op)
           DEG_id_tag_update(&ob->id,
                             ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
 
-          /* Light, Camera and Speaker track differently by default */
-          if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+          /* Light and Camera track differently by default. */
+          if (ELEM(ob->type, OB_LAMP, OB_CAMERA)) {
             data->trackflag = TRACK_nZ;
             data->lockflag = LOCK_Y;
           }
@@ -388,7 +388,6 @@ static bool has_geometry_visibility(const Object &object)
            OB_CURVES_LEGACY,
            OB_SURF,
            OB_FONT,
-           OB_MBALL,
            OB_LAMP,
            OB_VOLUME,
            OB_POINTCLOUD,
@@ -831,13 +830,6 @@ static void single_obdata_users(
                                                  nullptr,
                                                  LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
             break;
-          case OB_MBALL:
-            ob->data = ID_NEW_SET(ob->data,
-                                  BKE_id_copy_ex(bmain,
-                                                 static_cast<const ID *>(ob->data),
-                                                 nullptr,
-                                                 LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
-            break;
           case OB_CURVES_LEGACY:
           case OB_SURF:
           case OB_FONT: {
@@ -852,13 +844,6 @@ static void single_obdata_users(
             break;
           }
           case OB_LATTICE:
-            ob->data = ID_NEW_SET(ob->data,
-                                  BKE_id_copy_ex(bmain,
-                                                 static_cast<const ID *>(ob->data),
-                                                 nullptr,
-                                                 LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
-            break;
-          case OB_SPEAKER:
             ob->data = ID_NEW_SET(ob->data,
                                   BKE_id_copy_ex(bmain,
                                                  static_cast<const ID *>(ob->data),

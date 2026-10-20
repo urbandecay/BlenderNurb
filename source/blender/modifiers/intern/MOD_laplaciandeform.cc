@@ -536,7 +536,7 @@ static void initSystem(
   int i;
   int defgrp_index;
   int anchors_num;
-  float wpaint;
+  float group_weight;
   const MDeformVert *dvert = nullptr;
   const MDeformVert *dv = nullptr;
   LaplacianSystem *sys;
@@ -554,10 +554,10 @@ static void initSystem(
     BLI_assert(dvert != nullptr);
     dv = dvert;
     for (i = 0; i < verts_num; i++) {
-      wpaint = invert_vgroup ? 1.0f - BKE_defvert_find_weight(dv, defgrp_index) :
+      group_weight = invert_vgroup ? 1.0f - BKE_defvert_find_weight(dv, defgrp_index) :
                                BKE_defvert_find_weight(dv, defgrp_index);
       dv++;
-      if (wpaint > 0.0f) {
+      if (group_weight > 0.0f) {
         STACK_PUSH(index_anchors, i);
       }
     }
@@ -602,7 +602,7 @@ static int isSystemDifferent(LaplacianDeformModifierData *lmd,
   int i;
   int defgrp_index;
   int anchors_num = 0;
-  float wpaint;
+  float group_weight;
   const MDeformVert *dvert = nullptr;
   const MDeformVert *dv = nullptr;
   LaplacianSystem *sys = static_cast<LaplacianSystem *>(lmd->cache_system);
@@ -623,10 +623,10 @@ static int isSystemDifferent(LaplacianDeformModifierData *lmd,
   }
   dv = dvert;
   for (i = 0; i < verts_num; i++) {
-    wpaint = invert_vgroup ? 1.0f - BKE_defvert_find_weight(dv, defgrp_index) :
+    group_weight = invert_vgroup ? 1.0f - BKE_defvert_find_weight(dv, defgrp_index) :
                              BKE_defvert_find_weight(dv, defgrp_index);
     dv++;
-    if (wpaint > 0.0f) {
+    if (group_weight > 0.0f) {
       anchors_num++;
     }
   }

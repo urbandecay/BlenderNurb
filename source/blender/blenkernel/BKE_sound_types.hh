@@ -36,10 +36,3 @@ typedef std::shared_ptr<void> AUD_Sound;
 typedef std::shared_ptr<void> AUD_SequenceEntry;
 #endif
 
-namespace blender::bke {
-
-struct NlaStripRuntime {
-  AUD_SequenceEntry speaker_handle;
-};
-
-}  // namespace blender::bke

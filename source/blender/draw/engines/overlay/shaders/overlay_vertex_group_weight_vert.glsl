@@ -4,7 +4,7 @@
 
 #include "infos/overlay_paint_infos.hh"
 
-VERTEX_SHADER_CREATE_INFO(overlay_paint_weight)
+VERTEX_SHADER_CREATE_INFO(overlay_vertex_group_weight)
 
 #include "draw_model_lib.glsl"
 #include "draw_view_clipping_lib.glsl"

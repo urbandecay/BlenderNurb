@@ -120,7 +120,6 @@ void nla_operatortypes()
 
   WM_operatortype_append(NLA_OT_actionclip_add);
   WM_operatortype_append(NLA_OT_transition_add);
-  WM_operatortype_append(NLA_OT_soundclip_add);
 
   WM_operatortype_append(NLA_OT_meta_add);
   WM_operatortype_append(NLA_OT_meta_remove);

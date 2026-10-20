@@ -40,7 +40,6 @@
 #include "DNA_mask_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_force_types.h"
@@ -51,7 +50,6 @@
 #include "DNA_screen_types.h"
 #include "DNA_sequence_types.h"
 #include "DNA_space_types.h"
-#include "DNA_speaker_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_volume_types.h"
 #include "DNA_world_types.h"
@@ -766,12 +764,6 @@ static bAnimListElem *make_new_animlistelem(
       key_data_from_adt(*ale, lt->adt);
       break;
     }
-    case ANIMTYPE_DSSPK: {
-      Speaker *spk = static_cast<Speaker *>(data);
-      ale->flag = FILTER_SPK_OBJD(spk);
-      key_data_from_adt(*ale, spk->adt);
-      break;
-    }
     case ANIMTYPE_DSHAIR: {
       Curves *curves = static_cast<Curves *>(data);
       ale->flag = FILTER_CURVES_OBJD(curves);
@@ -921,7 +913,6 @@ static bAnimListElem *make_new_animlistelem(
     case ANIMTYPE_NONE:
     case ANIMTYPE_ANIMDATA:
     case ANIMTYPE_SPECIALDATA__UNUSED:
-    case ANIMTYPE_DSMBALL:
     case ANIMTYPE_MASKDATABLOCK:
     case ANIMTYPE_PALETTE:
     case ANIMTYPE_NUM_TYPES:
@@ -2571,18 +2562,6 @@ static size_t animdata_filter_ds_obdata(bAnimContext *ac,
       expanded = FILTER_CUR_OBJD(cu);
       break;
     }
-    case OB_MBALL: /* ------- MetaBall ---------- */
-    {
-      MetaBall *mb = id_cast<MetaBall *>(ob->data);
-
-      if (ads_filterflag & ADS_FILTER_NOMBA) {
-        return 0;
-      }
-
-      type = ANIMTYPE_DSMBALL;
-      expanded = FILTER_MBALL_OBJD(mb);
-      break;
-    }
     case OB_MESH: /* ------- Mesh ---------- */
     {
       Mesh *mesh = id_cast<Mesh *>(ob->data);
@@ -2605,14 +2584,6 @@ static size_t animdata_filter_ds_obdata(bAnimContext *ac,
 
       type = ANIMTYPE_DSLAT;
       expanded = FILTER_LATTICE_OBJD(lt);
-      break;
-    }
-    case OB_SPEAKER: /* ---------- Speaker ----------- */
-    {
-      Speaker *spk = id_cast<Speaker *>(ob->data);
-
-      type = ANIMTYPE_DSSPK;
-      expanded = FILTER_SPK_OBJD(spk);
       break;
     }
     case OB_CURVES: /* ---------- Curves ----------- */

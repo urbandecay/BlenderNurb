@@ -20,7 +20,7 @@
 namespace blender::draw::overlay {
 
 /**
- * Display vertex and weight paint overlays.
+ * Display vertex paint selection overlays.
  */
 class Paints : Overlay {
 
@@ -31,29 +31,20 @@ class Paints : Overlay {
   PassSimple::Sub *paint_region_face_ps_ = nullptr;
   PassSimple::Sub *paint_region_vert_ps_ = nullptr;
 
-  PassSimple weight_ps_ = {"weight_ps_"};
-  /* Used when there's not a valid pre-pass (depth <=). */
-  PassSimple::Sub *weight_opaque_ps_ = nullptr;
-  /* Used when there's a valid pre-pass (depth ==). */
-  PassSimple::Sub *weight_masked_transparency_ps_ = nullptr;
-  bool show_weight_ = false;
   bool show_wires_ = false;
-  bool masked_transparency_support_ = false;
 
  public:
   void begin_sync(Resources &res, const State &state) final
   {
     enabled_ = state.is_space_v3d() && !res.is_selection() &&
-               ELEM(state.ctx_mode, CTX_MODE_PAINT_WEIGHT, CTX_MODE_PAINT_VERTEX);
+               state.ctx_mode == CTX_MODE_PAINT_VERTEX;
 
     /* Init in any case to release the data. */
     paint_region_ps_.init();
-    weight_ps_.init();
     if (!enabled_) {
       return;
     }
 
-    show_weight_ = state.ctx_mode == CTX_MODE_PAINT_WEIGHT;
     show_wires_ = state.overlay.paint_flag & V3D_OVERLAY_PAINT_WIRE;
 
     {
@@ -86,41 +77,6 @@ class Paints : Overlay {
       }
     }
 
-    if (state.ctx_mode == CTX_MODE_PAINT_WEIGHT) {
-      /* Support masked transparency in Workbench.
-       * EEVEE can't be supported since depth won't match. */
-      const eDrawType shading_type = eDrawType(state.v3d->shading.type);
-      masked_transparency_support_ = ((shading_type == OB_SOLID) ||
-                                      (shading_type >= OB_SOLID &&
-                                       BKE_scene_uses_blender_workbench(state.scene))) &&
-                                     !state.xray_enabled;
-      const bool shadeless = shading_type == OB_WIRE;
-      const bool draw_contours = state.overlay.wpaint_flag & V3D_OVERLAY_WPAINT_CONTOURS;
-
-      auto &pass = weight_ps_;
-      pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
-      pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
-      auto weight_subpass = [&](const char *name, DRWState drw_state) {
-        auto &sub = pass.sub(name);
-        sub.state_set(drw_state, state.clipping_plane_count);
-        sub.shader_set(shadeless ? res.shaders->paint_weight.get() :
-                                   res.shaders->paint_weight_fake_shading.get());
-        sub.bind_texture("colorramp", &res.weight_ramp_tx);
-        sub.push_constant("draw_contours", draw_contours);
-        sub.push_constant("opacity", state.overlay.weight_paint_mode_opacity);
-        if (!shadeless) {
-          /* Arbitrary light to give a hint of the geometry behind the weights. */
-          sub.push_constant("light_dir", math::normalize(float3(0.0f, 0.5f, 0.86602f)));
-        }
-        return &sub;
-      };
-      weight_opaque_ps_ = weight_subpass(
-          "Opaque", DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_WRITE_DEPTH);
-      weight_masked_transparency_ps_ = weight_subpass(
-          "Masked Transparency",
-          DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ALPHA);
-    }
-
   }
 
   void object_sync(Manager &manager,
@@ -137,43 +93,13 @@ class Paints : Overlay {
       return;
     }
 
-    switch (state.ctx_mode) {
-      case CTX_MODE_PAINT_WEIGHT:
-        if (ob_ref.object->mode != OB_MODE_WEIGHT_PAINT) {
-          /* Not matching context mode. */
-          return;
-        }
-        break;
-      case CTX_MODE_PAINT_VERTEX:
-        if (ob_ref.object->mode != OB_MODE_VERTEX_PAINT) {
-          /* Not matching context mode. */
-          return;
-        }
-        break;
-      default:
-        /* Not in paint mode. */
+    if (state.ctx_mode != CTX_MODE_PAINT_VERTEX ||
+        ob_ref.object->mode != OB_MODE_VERTEX_PAINT)
+    {
         return;
     }
 
-    switch (state.ctx_mode) {
-      case CTX_MODE_PAINT_WEIGHT: {
-        gpu::Batch *geom = DRW_cache_mesh_surface_weights_get(ob_ref.object);
-        if (masked_transparency_support_ && ob_ref.object->dt >= OB_SOLID) {
-          weight_masked_transparency_ps_->draw(geom, manager.unique_handle(ob_ref));
-        }
-        else {
-          weight_opaque_ps_->draw(geom, manager.unique_handle(ob_ref));
-        }
-        break;
-      }
-      case CTX_MODE_PAINT_VERTEX: {
-        /* Drawing of vertex paint color is done by the render engine (i.e. workbench). */
-        break;
-      }
-      default:
-        BLI_assert_unreachable();
-        return;
-    }
+    /* Drawing of vertex paint color is done by the render engine (i.e. workbench). */
 
     /* Selection Display. */
     {
@@ -204,7 +130,6 @@ class Paints : Overlay {
       return;
     }
     GPU_framebuffer_bind(framebuffer);
-    manager.submit(weight_ps_, view);
     /* TODO(fclem): Draw this onto the line frame-buffer to get wide-line and anti-aliasing.
      * Just need to make sure the shaders output line data. */
     manager.submit(paint_region_ps_, view);

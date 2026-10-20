@@ -1752,23 +1752,6 @@ void blo_do_versions_260(FileData *fd, Library * /*lib*/, Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_FILE_ATLEAST(bmain, 263, 3)) {
-    /* For weight paint, each brush now gets its own weight;
-     * unified paint settings also have weight. Update unified
-     * paint settings and brushes with a default weight value. */
-    for (Scene &scene : bmain->scenes) {
-      ToolSettings *ts = scene.toolsettings;
-      if (ts) {
-        ts->unified_paint_settings.weight = ts->vgroup_weight;
-        ts->unified_paint_settings.flag |= UNIFIED_PAINT_WEIGHT;
-      }
-    }
-
-    for (Brush &brush : bmain->brushes) {
-      brush.weight = 0.5;
-    }
-  }
-
   if (!MAIN_VERSION_FILE_ATLEAST(bmain, 263, 2)) {
     for (bScreen &screen : bmain->screens) {
       for (ScrArea &area : screen.areabase) {

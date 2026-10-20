@@ -1863,10 +1863,6 @@ static Set<StringRef> get_builtin_menus(const ObjectType object_type, const eObj
           menus.add_new("View");
           menus.add_new("Paint");
           break;
-        case OB_MODE_WEIGHT_PAINT:
-          menus.add_new("View");
-          menus.add_new("Weights");
-          break;
         default:
           break;
       }

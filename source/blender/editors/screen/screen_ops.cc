@@ -26,7 +26,6 @@
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -776,15 +775,6 @@ bool ED_operator_editlattice(bContext *C)
   Object *obedit = CTX_data_edit_object(C);
   if (obedit && obedit->type == OB_LATTICE) {
     return nullptr != (id_cast<Lattice *>(obedit->data))->editlatt;
-  }
-  return false;
-}
-
-bool ED_operator_editmball(bContext *C)
-{
-  Object *obedit = CTX_data_edit_object(C);
-  if (obedit && obedit->type == OB_MBALL) {
-    return nullptr != (id_cast<MetaBall *>(obedit->data))->editelems;
   }
   return false;
 }

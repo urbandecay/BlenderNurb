@@ -322,7 +322,7 @@ static void rna_NlaStrip_frame_end_ui_set(PointerRNA *ptr, float value)
 
   /* calculate the lengths the strip and its action : *
    * (Meta and transitions shouldn't be updated, but clip and sound should) */
-  if (data->type == NLASTRIP_TYPE_CLIP || data->type == NLASTRIP_TYPE_SOUND) {
+  if (data->type == NLASTRIP_TYPE_CLIP) {
     const float actlen = BKE_nla_clip_length_get_nonzero(data);
 
     /* Modify the strip's action end frame, or repeat based on :
@@ -790,11 +790,6 @@ static void rna_def_nlastrip(BlenderRNA *brna)
        "Transition",
        "NLA Strip 'transitions' between adjacent strips"},
       {NLASTRIP_TYPE_META, "META", 0, "Meta", "NLA Strip acts as a container for adjacent strips"},
-      {NLASTRIP_TYPE_SOUND,
-       "SOUND",
-       0,
-       "Sound Clip",
-       "NLA Strip representing a sound event for speakers"},
       {0, nullptr, 0, nullptr, nullptr},
   };
 

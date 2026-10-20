@@ -111,9 +111,6 @@ wmKeyMap *WM_keymap_guess_from_context(const bContext *C)
       case CTX_MODE_EDIT_TEXT:
         km_id = "Font";
         break;
-      case CTX_MODE_EDIT_METABALL:
-        km_id = "Metaball";
-        break;
       case CTX_MODE_EDIT_LATTICE:
         km_id = "Lattice";
         break;
@@ -122,9 +119,6 @@ wmKeyMap *WM_keymap_guess_from_context(const bContext *C)
         break;
       case CTX_MODE_SCULPT:
         km_id = "Sculpt";
-        break;
-      case CTX_MODE_PAINT_WEIGHT:
-        km_id = "Weight Paint";
         break;
       case CTX_MODE_PAINT_VERTEX:
         km_id = "Vertex Paint";
@@ -279,14 +273,6 @@ wmKeyMap *WM_keymap_guess_opname(const bContext *C, const char *opname)
   }
   else if (STRPREFIX(opname, "SCULPT_CURVES_OT")) {
     km = WM_keymap_find_all(wm, "Sculpt Curves", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  }
-  else if (STRPREFIX(opname, "MBALL_OT")) {
-    km = WM_keymap_find_all(wm, "Metaball", SPACE_EMPTY, RGN_TYPE_WINDOW);
-
-    /* Some meta-ball operators are active in object mode too, like add-primitive. */
-    if (km && !WM_keymap_poll(const_cast<bContext *>(C), km)) {
-      km = WM_keymap_find_all(wm, "Object Mode", SPACE_EMPTY, RGN_TYPE_WINDOW);
-    }
   }
   else if (STRPREFIX(opname, "LATTICE_OT")) {
     km = WM_keymap_find_all(wm, "Lattice", SPACE_EMPTY, RGN_TYPE_WINDOW);

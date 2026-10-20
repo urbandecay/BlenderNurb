@@ -360,10 +360,6 @@ void paint_cursor_delete_textures();
 
 /* `paint_vertex.cc` */
 
-bool weight_paint_poll(bContext *C);
-bool weight_paint_poll_ignore_tool(bContext *C);
-bool weight_paint_mode_poll(bContext *C);
-bool weight_paint_mode_region_view3d_poll(bContext *C);
 bool vertex_paint_poll(bContext *C);
 bool vertex_paint_poll_ignore_tool(bContext *C);
 /**
@@ -375,58 +371,10 @@ using VPaintTransform_Callback = void (*)(const float col[3],
                                           const void *user_data,
                                           float r_col[3]);
 
-void PAINT_OT_weight_paint_toggle(wmOperatorType *ot);
-void PAINT_OT_weight_paint(wmOperatorType *ot);
-void PAINT_OT_weight_set(wmOperatorType *ot);
-
-enum {
-  WPAINT_GRADIENT_TYPE_LINEAR,
-  WPAINT_GRADIENT_TYPE_RADIAL,
-};
-void PAINT_OT_weight_gradient(wmOperatorType *ot);
-
 void PAINT_OT_vertex_paint_toggle(wmOperatorType *ot);
 void PAINT_OT_vertex_paint(wmOperatorType *ot);
 
-/**
- * \note weight-paint has an equivalent function: #ED_wpaint_blend_tool
- */
 unsigned int ED_vpaint_blend_tool(int tool, uint col, uint paintcol, int alpha_i);
-
-/* `paint_vertex_weight_utils.cc` */
-
-/**
- * \param weight: Typically the current weight: #MDeformWeight.weight
- *
- * \return The final weight, note that this is _not_ clamped from [0-1].
- * Clamping must be done on the final #MDeformWeight.weight
- *
- * \note vertex-paint has an equivalent function: #ED_vpaint_blend_tool
- */
-float ED_wpaint_blend_tool(int tool, float weight, float paintval, float alpha);
-/* Utility for tools to ensure vertex groups exist before they begin. */
-enum eWPaintFlag {
-  WPAINT_ENSURE_MIRROR = (1 << 0),
-};
-struct WPaintVGroupIndex {
-  int active;
-  int mirror;
-};
-/**
- * Ensure we have data on wpaint start, add if needed.
- */
-bool ED_wpaint_ensure_data(bContext *C,
-                           ReportList *reports,
-                           eWPaintFlag flag,
-                           WPaintVGroupIndex *vgroup_index);
-bool ED_wpaint_ensure_data(bContext *C,
-                           Main *bmain,
-                           Object *object,
-                           ReportList *reports,
-                           eWPaintFlag flag,
-                           WPaintVGroupIndex *vgroup_index);
-/** Return -1 when invalid. */
-int ED_wpaint_mirror_vgroup_ensure(Object *ob, int vgroup_active);
 
 /* `paint_vertex_color_ops.cc` */
 
@@ -437,11 +385,6 @@ void PAINT_OT_vertex_color_brightness_contrast(wmOperatorType *ot);
 void PAINT_OT_vertex_color_hsv(wmOperatorType *ot);
 void PAINT_OT_vertex_color_invert(wmOperatorType *ot);
 void PAINT_OT_vertex_color_levels(wmOperatorType *ot);
-
-/* `paint_vertex_weight_ops.cc` */
-
-void PAINT_OT_weight_sample(wmOperatorType *ot);
-void PAINT_OT_weight_sample_group(wmOperatorType *ot);
 
 /* `paint_image.cc` */
 

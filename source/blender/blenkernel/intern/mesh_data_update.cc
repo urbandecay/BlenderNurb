@@ -78,9 +78,8 @@ static void mesh_set_only_copy(Mesh *mesh, const CustomData_MeshMasks *mask)
   CustomData_set_only_copy(&mesh->vert_data, mask->vmask);
   CustomData_set_only_copy(&mesh->edge_data, mask->emask);
   CustomData_set_only_copy(&mesh->fdata_legacy, mask->fmask);
-  /* this wasn't in 2.63 and is disabled for 2.64 because it gives problems with
-   * weight paint mode when there are modifiers applied, needs further investigation,
-   * see replies to r50969, Campbell */
+  /* This was disabled for 2.64 because it caused issues with modifiers.
+   * See the discussion around r50969. */
 #if 0
   CustomData_set_only_copy(&mesh->ldata, mask->lmask);
   CustomData_set_only_copy(&mesh->pdata, mask->pmask);
@@ -1102,9 +1101,9 @@ static void object_get_datamask(const Depsgraph &depsgraph,
   if (DEG_get_original(&ob) == actob) {
     bool editing = BKE_paint_select_face_test(actob);
 
-    /* weight paint and face select need original indices because of selection buffer drawing */
+    /* Paint modes need original indices for selection buffer drawing. */
     if (r_need_mapping) {
-      *r_need_mapping = (editing || (ob.mode & (OB_MODE_WEIGHT_PAINT | OB_MODE_VERTEX_PAINT)));
+      *r_need_mapping = (editing || (ob.mode & OB_MODE_VERTEX_PAINT));
     }
 
     /* Face select needs UV and loop-color data for selection buffer drawing. */
@@ -1113,14 +1112,11 @@ static void object_get_datamask(const Depsgraph &depsgraph,
       r_mask.fmask |= CD_MASK_MTFACE;
     }
 
-    /* Check if we need loop-color due to vertex paint or weight-paint. */
+    /* Check if we need loop-color for vertex paint. */
     if (ob.mode & OB_MODE_VERTEX_PAINT) {
       r_mask.lmask |= CD_MASK_PROP_BYTE_COLOR;
     }
 
-    if (ob.mode & OB_MODE_WEIGHT_PAINT) {
-      r_mask.vmask |= CD_MASK_MDEFORMVERT;
-    }
   }
 
   /* Multiple objects can be in edit-mode at once. */

@@ -205,7 +205,6 @@ static void update_brush_sizes(Main &bmain)
     scene.toolsettings->unified_paint_settings.size *= 2;
     scene.toolsettings->unified_paint_settings.unprojected_size *= 2.0f;
     apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->vpaint));
-    apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->wpaint));
     apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->sculpt));
     apply_to_paint(reinterpret_cast<Paint *>(scene.toolsettings->curves_sculpt));
     apply_to_paint(reinterpret_cast<Paint *>(&scene.toolsettings->imapaint));
@@ -824,7 +823,6 @@ static void for_each_mode_paint_settings(Scene &scene,
                                          FunctionRef<void(Scene &scene, Paint *paint)> func)
 {
   func(scene, reinterpret_cast<Paint *>(scene.toolsettings->vpaint));
-  func(scene, reinterpret_cast<Paint *>(scene.toolsettings->wpaint));
   func(scene, reinterpret_cast<Paint *>(scene.toolsettings->sculpt));
   func(scene, reinterpret_cast<Paint *>(scene.toolsettings->curves_sculpt));
   func(scene, reinterpret_cast<Paint *>(&scene.toolsettings->imapaint));
@@ -842,7 +840,6 @@ static void copy_unified_paint_settings(Scene &scene, Paint *paint)
   ups.size = scene_ups.size;
   ups.unprojected_size = scene_ups.unprojected_size;
   ups.alpha = scene_ups.alpha;
-  ups.weight = scene_ups.weight;
   copy_v3_v3(ups.color, scene_ups.color);
   copy_v3_v3(ups.rgb, scene_ups.rgb);
   copy_v3_v3(ups.secondary_color, scene_ups.secondary_color);

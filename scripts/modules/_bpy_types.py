@@ -138,9 +138,9 @@ class Library(_types.ID):
         attr_links = (
             "actions", "brushes", "cameras",
             "curves", "collections", "images",
-            "lights", "lattices", "materials", "metaballs",
+            "lights", "lattices", "materials",
             "meshes", "node_groups", "objects", "scenes",
-            "sounds", "speakers", "textures", "texts",
+            "sounds", "textures", "texts",
             "fonts", "worlds",
         )
 

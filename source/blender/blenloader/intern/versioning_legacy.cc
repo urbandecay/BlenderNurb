@@ -2098,7 +2098,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     idproperties_fix_group_lengths(bmain->objects);
     idproperties_fix_group_lengths(bmain->meshes);
     idproperties_fix_group_lengths(bmain->curves);
-    idproperties_fix_group_lengths(bmain->metaballs);
     idproperties_fix_group_lengths(bmain->materials);
     idproperties_fix_group_lengths(bmain->textures);
     idproperties_fix_group_lengths(bmain->images);

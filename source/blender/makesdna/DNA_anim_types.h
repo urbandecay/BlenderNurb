@@ -17,14 +17,6 @@
 
 namespace blender {
 
-#ifdef __cplusplus
-namespace bke {
-struct NlaStripRuntime;
-}  // namespace bke
-using NlaStripRuntime = bke::NlaStripRuntime;
-#else
-typedef struct NlaStripRuntime NlaStripRuntime;
-#endif
 
 /* ************************************************ */
 /* F-Curve DataTypes */
@@ -495,11 +487,6 @@ struct NlaStrip {
   /* Pointer to an original NLA strip. */
   struct NlaStrip *orig_strip = nullptr;
 
-  NlaStripRuntime *runtime = nullptr;
-
-#ifdef __cplusplus
-  NlaStripRuntime &runtime_get();
-#endif
 };
 
 #ifdef __cplusplus

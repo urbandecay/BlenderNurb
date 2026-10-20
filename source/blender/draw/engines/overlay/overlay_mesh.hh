@@ -202,13 +202,13 @@ class Meshes : Overlay {
       pass.init();
       pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_WRITE_DEPTH,
                      state.clipping_plane_count);
-      pass.shader_set(shadeless ? res.shaders->paint_weight.get() :
-                                  res.shaders->paint_weight_fake_shading.get());
+      pass.shader_set(shadeless ? res.shaders->vertex_group_weight.get() :
+                                  res.shaders->vertex_group_weight_fake_shading.get());
       pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
       pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
       pass.bind_texture("colorramp", &res.weight_ramp_tx);
       pass.push_constant("draw_contours", false);
-      pass.push_constant("opacity", state.overlay.weight_paint_mode_opacity);
+      pass.push_constant("opacity", state.overlay.vertex_group_weights_opacity);
       if (!shadeless) {
         /* Arbitrary light to give a hint of the geometry behind the weights. */
         pass.push_constant("light_dir", math::normalize(float3(0.0f, 0.5f, 0.86602f)));
@@ -821,8 +821,7 @@ class MeshUVs : Overlay {
     const bool is_edit_object = DRW_object_is_in_edit_mode(&ob);
     const bool is_uv_editable = is_edit_object && space_image->mode == SI_MODE_UV;
     /* Sculpt is left out here because selection does not exist in it. */
-    const bool is_paint_mode = ELEM(
-        state.ctx_mode, CTX_MODE_PAINT_VERTEX, CTX_MODE_PAINT_WEIGHT);
+    const bool is_paint_mode = state.ctx_mode == CTX_MODE_PAINT_VERTEX;
     const bool use_face_selection = (mesh_orig.editflag & ME_EDIT_PAINT_FACE_SEL);
     const bool is_face_selectable = (is_edit_object || (is_paint_mode && use_face_selection));
     const StringRef active_uv_map = mesh.active_or_default_uv_map_name();

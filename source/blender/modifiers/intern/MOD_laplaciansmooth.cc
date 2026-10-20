@@ -359,7 +359,7 @@ static void laplaciansmoothModifier_do(
   LaplacianSystem *sys;
   const MDeformVert *dvert = nullptr;
   const MDeformVert *dv = nullptr;
-  float w, wpaint;
+  float w, group_weight;
   int i, iter;
   int defgrp_index;
   const bool invert_vgroup = (smd->flag & MOD_LAPLACIANSMOOTH_INVERT_VGROUP) != 0;
@@ -405,44 +405,44 @@ static void laplaciansmoothModifier_do(
       EIG_linear_solver_right_hand_side_add(sys->context, 2, i, vertexCos[i][2]);
       if (iter == 0) {
         if (dv) {
-          wpaint = invert_vgroup ? 1.0f - BKE_defvert_find_weight(dv, defgrp_index) :
+          group_weight = invert_vgroup ? 1.0f - BKE_defvert_find_weight(dv, defgrp_index) :
                                    BKE_defvert_find_weight(dv, defgrp_index);
           dv++;
         }
         else {
-          wpaint = 1.0f;
+          group_weight = 1.0f;
         }
 
         if (sys->zerola[i] == false) {
           if (smd->flag & MOD_LAPLACIANSMOOTH_NORMALIZED) {
             w = sys->vweights[i];
-            sys->vweights[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda) * wpaint / w;
+            sys->vweights[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda) * group_weight / w;
             w = sys->vlengths[i];
-            sys->vlengths[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda_border) * wpaint * 2.0f / w;
+            sys->vlengths[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda_border) * group_weight * 2.0f / w;
             if (sys->ne_ed_num[i] == sys->ne_fa_num[i]) {
-              EIG_linear_solver_matrix_add(sys->context, i, i, 1.0f + fabsf(smd->lambda) * wpaint);
+              EIG_linear_solver_matrix_add(sys->context, i, i, 1.0f + fabsf(smd->lambda) * group_weight);
             }
             else {
               EIG_linear_solver_matrix_add(
-                  sys->context, i, i, 1.0f + fabsf(smd->lambda_border) * wpaint * 2.0f);
+                  sys->context, i, i, 1.0f + fabsf(smd->lambda_border) * group_weight * 2.0f);
             }
           }
           else {
             w = sys->vweights[i] * sys->ring_areas[i];
-            sys->vweights[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda) * wpaint / (4.0f * w);
+            sys->vweights[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda) * group_weight / (4.0f * w);
             w = sys->vlengths[i];
-            sys->vlengths[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda_border) * wpaint * 2.0f / w;
+            sys->vlengths[i] = (w == 0.0f) ? 0.0f : -fabsf(smd->lambda_border) * group_weight * 2.0f / w;
 
             if (sys->ne_ed_num[i] == sys->ne_fa_num[i]) {
               EIG_linear_solver_matrix_add(sys->context,
                                            i,
                                            i,
-                                           1.0f + fabsf(smd->lambda) * wpaint /
+                                           1.0f + fabsf(smd->lambda) * group_weight /
                                                       (4.0f * sys->ring_areas[i]));
             }
             else {
               EIG_linear_solver_matrix_add(
-                  sys->context, i, i, 1.0f + fabsf(smd->lambda_border) * wpaint * 2.0f);
+                  sys->context, i, i, 1.0f + fabsf(smd->lambda_border) * group_weight * 2.0f);
             }
           }
         }

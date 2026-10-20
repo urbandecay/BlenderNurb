@@ -544,23 +544,6 @@ bool *BKE_object_defgroup_lock_flags_get(Object *ob, const int defbase_tot)
   return nullptr;
 }
 
-bool *BKE_object_defgroup_validmap_get(Object * /*ob*/, const int defbase_tot)
-{
-  if (defbase_tot == 0) {
-    return nullptr;
-  }
-  bool *defgroup_validmap = MEM_new_array_uninitialized<bool>(size_t(defbase_tot), __func__);
-  memset(defgroup_validmap, true, sizeof(*defgroup_validmap) * defbase_tot);
-  return defgroup_validmap;
-}
-
-bool BKE_object_defgroup_check_lock_relative(const bool *lock_flags,
-                                             const bool *validmap,
-                                             int index)
-{
-  return validmap && validmap[index] && !(lock_flags && lock_flags[index]);
-}
-
 bool BKE_object_defgroup_active_is_locked(const Object *ob)
 {
   bDeformGroup *dg;
@@ -573,28 +556,6 @@ bool BKE_object_defgroup_active_is_locked(const Object *ob)
     }
   }
   return dg->flag & DG_LOCK_WEIGHT;
-}
-
-void BKE_object_defgroup_split_locked_validmap(
-    int defbase_tot, const bool *locked, const bool *deform, bool *r_locked, bool *r_unlocked)
-{
-  if (!locked) {
-    if (r_unlocked != deform) {
-      memcpy(r_unlocked, deform, sizeof(bool) * defbase_tot);
-    }
-    if (r_locked) {
-      memset(r_locked, 0, sizeof(bool) * defbase_tot);
-    }
-    return;
-  }
-
-  for (int i = 0; i < defbase_tot; i++) {
-    bool is_locked = locked[i];
-    bool is_deform = deform[i];
-
-    r_locked[i] = is_deform && is_locked;
-    r_unlocked[i] = is_deform && !is_locked;
-  }
 }
 
 void BKE_object_defgroup_mirror_selection(Object *ob,

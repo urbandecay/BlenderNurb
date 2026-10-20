@@ -20,7 +20,7 @@ enum eObjectMode : int {
   OB_MODE_EDIT = 1 << 0,
   OB_MODE_SCULPT = 1 << 1,
   OB_MODE_VERTEX_PAINT = 1 << 2,
-  OB_MODE_WEIGHT_PAINT = 1 << 3,
+  OB_MODE_UNUSED_3 = 1 << 3,
   /* Brush capability bit for Image Editor painting, not an Object mode. */
   OB_MODE_IMAGE_PAINT = 1 << 4,
   OB_MODE_PARTICLE_EDIT = 1 << 5,
@@ -40,20 +40,16 @@ enum eDrawType : char {
 
 /** Any mode where the brush system is used. */
 #define OB_MODE_ALL_PAINT \
-  (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)
+  (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT)
 
 /** Any mode that uses object.runtime->sculpt_session. */
-#define OB_MODE_ALL_SCULPT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)
-
-/** Any mode that uses weight-paint. */
-#define OB_MODE_ALL_WEIGHT_PAINT OB_MODE_WEIGHT_PAINT
+#define OB_MODE_ALL_SCULPT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT)
 
 /**
  * Any mode that has data that we need to free when switching modes,
  * see: #ed::object::mode_generic_exit
  */
 #define OB_MODE_ALL_MODE_DATA \
-  (OB_MODE_EDIT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_SCULPT | \
-   OB_MODE_SCULPT_CURVES)
+  (OB_MODE_EDIT | OB_MODE_VERTEX_PAINT | OB_MODE_SCULPT | OB_MODE_SCULPT_CURVES)
 
 }  // namespace blender

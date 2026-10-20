@@ -652,14 +652,6 @@ static void scene_foreach_toolsettings(LibraryForeachIDData *data,
         do_undo_restore,
         scene_foreach_paint(data, paint, do_undo_restore, reader, paint_old));
   }
-  if (toolsett_old->wpaint) {
-    paint = toolsett->wpaint ? &toolsett->wpaint->paint : nullptr;
-    paint_old = &toolsett_old->wpaint->paint;
-    BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_FUNCTION_CALL(
-        data,
-        do_undo_restore,
-        scene_foreach_paint(data, paint, do_undo_restore, reader, paint_old));
-  }
   if (toolsett_old->sculpt) {
     paint = toolsett->sculpt ? &toolsett->sculpt->paint : nullptr;
     paint_old = &toolsett_old->sculpt->paint;
@@ -1101,10 +1093,6 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
     writer->write_struct(ts->vpaint);
     BKE_paint_blend_write(writer, &ts->vpaint->paint);
   }
-  if (ts->wpaint) {
-    writer->write_struct(ts->wpaint);
-    BKE_paint_blend_write(writer, &ts->wpaint->paint);
-  }
   if (ts->sculpt) {
     writer->write_struct(ts->sculpt);
     if (ts->sculpt->automasking_cavity_curve) {
@@ -1273,7 +1261,6 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
 
     direct_link_paint_helper(reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->sculpt));
     direct_link_paint_helper(reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->vpaint));
-    direct_link_paint_helper(reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->wpaint));
     direct_link_paint_helper(
         reader, sce, reinterpret_cast<Paint **>(&sce->toolsettings->curves_sculpt));
 
@@ -1584,10 +1571,6 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
     ts->vpaint = MEM_dupalloc(toolsettings->vpaint);
     BKE_paint_copy(&toolsettings->vpaint->paint, &ts->vpaint->paint, flag);
   }
-  if (toolsettings->wpaint) {
-    ts->wpaint = MEM_dupalloc(toolsettings->wpaint);
-    BKE_paint_copy(&toolsettings->wpaint->paint, &ts->wpaint->paint, flag);
-  }
   if (toolsettings->sculpt) {
     ts->sculpt = MEM_dupalloc(toolsettings->sculpt);
     BKE_paint_copy(&toolsettings->sculpt->paint, &ts->sculpt->paint, flag);
@@ -1642,10 +1625,6 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
   if (toolsettings->vpaint) {
     BKE_paint_free(&toolsettings->vpaint->paint);
     MEM_delete(toolsettings->vpaint);
-  }
-  if (toolsettings->wpaint) {
-    BKE_paint_free(&toolsettings->wpaint->paint);
-    MEM_delete(toolsettings->wpaint);
   }
   if (toolsettings->sculpt) {
     if (toolsettings->sculpt->automasking_cavity_curve) {

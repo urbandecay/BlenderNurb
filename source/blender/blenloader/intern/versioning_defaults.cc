@@ -206,7 +206,7 @@ static void blo_update_defaults_screen(bScreen *screen,
       /* Screen space cavity by default for faster performance. */
       v3d->shading.cavity_type = V3D_SHADING_CAVITY_CURVATURE;
       v3d->shading.flag |= V3D_SHADING_SPECULAR_HIGHLIGHT;
-      v3d->overlay.weight_paint_mode_opacity = 1.0f;
+      v3d->overlay.vertex_group_weights_opacity = 1.0f;
       v3d->overlay.vertex_paint_mode_opacity = 1.0f;
       /* Update default Z bias for retopology overlay. */
       v3d->overlay.retopology_offset = 0.01f;
@@ -386,7 +386,6 @@ static void blo_update_defaults_paint(Paint *paint)
   paint->unified_paint_settings.input_samples = default_ups.input_samples;
   paint->unified_paint_settings.unprojected_size = default_ups.unprojected_size;
   paint->unified_paint_settings.alpha = default_ups.alpha;
-  paint->unified_paint_settings.weight = default_ups.weight;
   paint->unified_paint_settings.flag = default_ups.flag;
   copy_v3_v3(paint->unified_paint_settings.color, default_ups.color);
   copy_v3_v3(paint->unified_paint_settings.secondary_color, default_ups.secondary_color);
@@ -522,13 +521,9 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
   }
 
   blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->vpaint));
-  blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->wpaint));
   blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->sculpt));
   blo_update_defaults_paint(reinterpret_cast<Paint *>(ts->curves_sculpt));
   blo_update_defaults_paint(reinterpret_cast<Paint *>(&ts->imapaint));
-
-  /* Weight Paint settings */
-  ts->weightuser = OB_DRAW_GROUPUSER_ACTIVE;
 
   /* Cycles settings. */
   IDProperty *cscene = version_cycles_properties_from_ID(&scene->id);

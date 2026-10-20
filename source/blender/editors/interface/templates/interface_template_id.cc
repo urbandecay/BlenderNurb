@@ -576,11 +576,9 @@ ID *template_id_liboverride_hierarchy_make(
       break;
     case ID_ME:
     case ID_CU_LEGACY:
-    case ID_MB:
     case ID_LT:
     case ID_LA:
     case ID_CA:
-    case ID_SPK:
     case ID_CV:
     case ID_PT:
     case ID_VO:
@@ -836,8 +834,6 @@ static StringRef template_id_browse_tip(const StructRNA *type)
         return N_("Browse Mesh Data to be linked");
       case ID_CU_LEGACY:
         return N_("Browse Curve Data to be linked");
-      case ID_MB:
-        return N_("Browse Metaball Data to be linked");
       case ID_MA:
         return N_("Browse Material to be linked");
       case ID_TE:
@@ -858,8 +854,6 @@ static StringRef template_id_browse_tip(const StructRNA *type)
         return N_("Choose Screen layout");
       case ID_TXT:
         return N_("Browse Text to be linked");
-      case ID_SPK:
-        return N_("Browse Speaker Data to be linked");
       case ID_SO:
         return N_("Browse Sound to be linked");
       case ID_AC:
@@ -970,7 +964,6 @@ static Button *template_id_def_new_but(Block *block,
                             BLT_I18NCONTEXT_ID_MATERIAL,
                             BLT_I18NCONTEXT_ID_MESH, );
   BLT_I18N_MSGID_MULTI_CTXT("New",
-                            BLT_I18NCONTEXT_ID_METABALL,
                             BLT_I18NCONTEXT_ID_NODETREE,
                             BLT_I18NCONTEXT_ID_OBJECT,
                             BLT_I18NCONTEXT_ID_PAINTCURVE,
@@ -980,7 +973,6 @@ static Button *template_id_def_new_but(Block *block,
                             BLT_I18NCONTEXT_ID_SCENE,
                             BLT_I18NCONTEXT_ID_SCREEN,
                             BLT_I18NCONTEXT_ID_SOUND,
-                            BLT_I18NCONTEXT_ID_SPEAKER,
                             BLT_I18NCONTEXT_ID_TEXT,
                             BLT_I18NCONTEXT_ID_TEXTURE,
                             BLT_I18NCONTEXT_ID_VOLUME,

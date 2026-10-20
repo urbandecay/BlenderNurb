@@ -29,7 +29,7 @@ void main()
 
   final_color = (is_select) ? colSel : theme.colors.wire;
 
-  /* Weight paint needs a light color to contrasts with dark weights. */
+  /* Use a light color to remain visible over painted mesh colors. */
   if (!use_select) {
     final_color = float4(1.0f, 1.0f, 1.0f, 0.3f);
   }

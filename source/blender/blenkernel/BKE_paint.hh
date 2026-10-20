@@ -261,11 +261,11 @@ void BKE_paint_palette_set(Paint *paint, Palette *palette);
 void BKE_paint_curve_clamp_endpoint_add_index(PaintCurve *pc, int add_index);
 
 /**
- * Return true when in vertex/weight paint + face-select mode?
+ * Return true when in vertex paint + face-select mode?
  */
 bool BKE_paint_select_face_test(const Object *ob);
 /**
- * Return true when in vertex/weight paint + vertex-select mode?
+ * Return true when in vertex paint + vertex-select mode?
  */
 bool BKE_paint_select_vert_test(const Object *ob);
 /**
@@ -275,7 +275,7 @@ bool BKE_paint_select_vert_test(const Object *ob);
 bool BKE_paint_select_elem_test(const Object *ob);
 /**
  * Checks if face/vertex hiding is always applied in the current mode.
- * Returns true in vertex/weight paint.
+ * Returns true in vertex paint.
  */
 bool BKE_paint_always_hide_test(const Object *ob);
 
@@ -606,7 +606,7 @@ pbvh::Tree &pbvh_ensure(Depsgraph &depsgraph, Object &object);
 /**
  * Access the acceleration structure for ray-casting,
  * nearest queries, and spatially contiguous mesh updates and drawing.
- * The BVH tree is used by sculpt, vertex paint, and weight paint object modes.
+ * The BVH tree is used by sculpt and vertex paint object modes.
  * This just accesses the BVH, to ensure it's built, use #pbvh_ensure.
  */
 pbvh::Tree *pbvh_get(Object &object);

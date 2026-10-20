@@ -259,7 +259,6 @@ extern TransConvertTypeInfo TransConvertType_Lattice;
 
 extern TransConvertTypeInfo TransConvertType_Mask;
 
-/* `transform_convert_mball.cc` */
 
 extern TransConvertTypeInfo TransConvertType_MBall;
 

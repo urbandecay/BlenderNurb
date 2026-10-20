@@ -903,7 +903,7 @@ struct UserDef {
   /** #eDupli_ID_Flags. */
   unsigned int dupflag = USER_DUP_MESH | USER_DUP_CURVE | USER_DUP_SURF | USER_DUP_LATTICE |
                          USER_DUP_FONT | USER_DUP_MBALL | USER_DUP_LAMP |
-                         USER_DUP_CAMERA | USER_DUP_SPEAKER | USER_DUP_ACT | USER_DUP_LIGHTPROBE |
+                         USER_DUP_CAMERA | USER_DUP_ACT | USER_DUP_LIGHTPROBE |
                          USER_DUP_CURVES | USER_DUP_POINTCLOUD;
   /** Preferences for the preferences. */
   eUserPref_PrefFlag pref_flag = USER_PREF_FLAG_SAVE;

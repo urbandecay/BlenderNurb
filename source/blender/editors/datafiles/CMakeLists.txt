@@ -34,9 +34,6 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   brush.paint_vertex.blur
   brush.paint_vertex.replace
   brush.paint_vertex.smear
-  brush.paint_weight.average
-  brush.paint_weight.blur
-  brush.paint_weight.smear
   brush.particle.add
   brush.particle.comb
   brush.particle.cut
@@ -97,10 +94,6 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   ops.node.links_mute
   ops.paint.eyedropper_add
   ops.paint.vertex_color_fill
-  ops.paint.weight_fill
-  ops.paint.weight_gradient
-  ops.paint.weight_sample
-  ops.paint.weight_sample_group
   ops.pose.breakdowner
   ops.pose.push
   ops.pose.relax
@@ -651,9 +644,7 @@ if(WITH_BLENDER)
       outliner_data_light
       outliner_data_lightprobe
       outliner_data_mesh
-      outliner_data_meta
       outliner_data_pointcloud
-      outliner_data_speaker
       outliner_data_surface
       outliner_data_volume
       outliner_ob_camera
@@ -667,9 +658,7 @@ if(WITH_BLENDER)
       outliner_ob_light
       outliner_ob_lightprobe
       outliner_ob_mesh
-      outliner_ob_meta
       outliner_ob_pointcloud
-      outliner_ob_speaker
       outliner_ob_surface
       outliner_ob_volume
       output
@@ -806,7 +795,6 @@ if(WITH_BLENDER)
       sort_asc
       sort_desc
       sound
-      speaker
       sphere
       spherecurve
       split_horizontal
@@ -907,7 +895,6 @@ if(WITH_BLENDER)
       workspace
       world
       world_data
-      wpaint_hlt
       x
       xray
       zoom_all

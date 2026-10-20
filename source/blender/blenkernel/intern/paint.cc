@@ -344,9 +344,6 @@ bool BKE_paint_ensure_from_paintmode(Scene *sce, PaintMode mode)
     case PaintMode::Vertex:
       paint_ptr = reinterpret_cast<Paint **>(&ts->vpaint);
       break;
-    case PaintMode::Weight:
-      paint_ptr = reinterpret_cast<Paint **>(&ts->wpaint);
-      break;
     case PaintMode::Texture2D:
       paint_tmp = reinterpret_cast<Paint *>(&ts->imapaint);
       paint_ptr = &paint_tmp;
@@ -374,8 +371,6 @@ Paint *BKE_paint_get_active_from_paintmode(Scene *sce, PaintMode mode)
         return &ts->sculpt->paint;
       case PaintMode::Vertex:
         return &ts->vpaint->paint;
-      case PaintMode::Weight:
-        return &ts->wpaint->paint;
       case PaintMode::Texture2D:
         return &ts->imapaint.paint;
       case PaintMode::SculptCurves:
@@ -397,8 +392,6 @@ const EnumPropertyItem *BKE_paint_get_tool_enum_from_paintmode(const PaintMode m
       return rna_enum_brush_sculpt_brush_type_items;
     case PaintMode::Vertex:
       return rna_enum_brush_vertex_brush_type_items;
-    case PaintMode::Weight:
-      return rna_enum_brush_weight_brush_type_items;
     case PaintMode::Texture2D:
       return rna_enum_brush_image_brush_type_items;
     case PaintMode::SculptCurves:
@@ -422,8 +415,6 @@ Paint *BKE_paint_get_active(const Main &bmain, Scene *sce, ViewLayer *view_layer
           return &ts->sculpt->paint;
         case OB_MODE_VERTEX_PAINT:
           return &ts->vpaint->paint;
-        case OB_MODE_WEIGHT_PAINT:
-          return &ts->wpaint->paint;
         case OB_MODE_SCULPT_CURVES:
           return &ts->curves_sculpt->paint;
         default:
@@ -495,8 +486,6 @@ PaintMode BKE_paintmode_get_active_from_context(const bContext *C)
           return PaintMode::Sculpt;
         case OB_MODE_VERTEX_PAINT:
           return PaintMode::Vertex;
-        case OB_MODE_WEIGHT_PAINT:
-          return PaintMode::Weight;
         case OB_MODE_SCULPT_CURVES:
           return PaintMode::SculptCurves;
         default:
@@ -520,8 +509,6 @@ PaintMode BKE_paintmode_get_from_tool(const bToolRef *tref)
         return PaintMode::Sculpt;
       case CTX_MODE_PAINT_VERTEX:
         return PaintMode::Vertex;
-      case CTX_MODE_PAINT_WEIGHT:
-        return PaintMode::Weight;
       case CTX_MODE_SCULPT_CURVES:
         return PaintMode::SculptCurves;
     }
@@ -676,8 +663,6 @@ static const char *paint_brush_essentials_asset_file_name_from_paint_mode(
       return "essentials_brushes-mesh_sculpt.blend";
     case PaintMode::Vertex:
       return "essentials_brushes-mesh_vertex.blend";
-    case PaintMode::Weight:
-      return "essentials_brushes-mesh_weight.blend";
     case PaintMode::Texture2D:
       return "essentials_brushes-mesh_texture.blend";
     case PaintMode::SculptCurves:
@@ -797,25 +782,6 @@ static void paint_brush_default_essentials_name_get(const PaintMode paint_mode,
         }
       }
       break;
-    case PaintMode::Weight:
-      name = "Paint";
-      if (brush_type) {
-        switch (eBrushWeightPaintType(*brush_type)) {
-          case WPAINT_BRUSH_TYPE_BLUR:
-            name = "Blur";
-            break;
-          case WPAINT_BRUSH_TYPE_AVERAGE:
-            name = "Average";
-            break;
-          case WPAINT_BRUSH_TYPE_SMEAR:
-            name = "Smear";
-            break;
-          case WPAINT_BRUSH_TYPE_DRAW:
-            /* Use default, don't override. */
-            break;
-        }
-      }
-      break;
     case PaintMode::Texture2D:
       name = "Paint Hard";
       if (brush_type) {
@@ -907,9 +873,6 @@ void BKE_paint_brushes_set_default_references(ToolSettings *ts)
   if (ts->curves_sculpt) {
     paint_brush_set_default_reference(&ts->curves_sculpt->paint);
   }
-  if (ts->wpaint) {
-    paint_brush_set_default_reference(&ts->wpaint->paint);
-  }
   if (ts->vpaint) {
     paint_brush_set_default_reference(&ts->vpaint->paint);
   }
@@ -973,10 +936,6 @@ static void paint_runtime_init(const ToolSettings *ts, Paint *paint)
     paint->runtime->ob_mode = OB_MODE_VERTEX_PAINT;
     paint->runtime->paint_mode = PaintMode::Vertex;
   }
-  else if (ts->wpaint && paint == &ts->wpaint->paint) {
-    paint->runtime->ob_mode = OB_MODE_WEIGHT_PAINT;
-    paint->runtime->paint_mode = PaintMode::Weight;
-  }
   else if (ts->curves_sculpt && paint == &ts->curves_sculpt->paint) {
     paint->runtime->ob_mode = OB_MODE_SCULPT_CURVES;
     paint->runtime->paint_mode = PaintMode::SculptCurves;
@@ -997,8 +956,6 @@ uint BKE_paint_get_brush_type_offset_from_paintmode(const PaintMode mode)
       return offsetof(Brush, sculpt_brush_type);
     case PaintMode::Vertex:
       return offsetof(Brush, vertex_brush_type);
-    case PaintMode::Weight:
-      return offsetof(Brush, weight_brush_type);
     case PaintMode::SculptCurves:
       return offsetof(Brush, curves_sculpt_brush_type);
     case PaintMode::Invalid:
@@ -1018,8 +975,6 @@ std::optional<int> BKE_paint_get_brush_type_from_obmode(const Brush *brush,
       return brush->sculpt_brush_type;
     case OB_MODE_VERTEX_PAINT:
       return brush->vertex_brush_type;
-    case OB_MODE_WEIGHT_PAINT:
-      return brush->weight_brush_type;
     case OB_MODE_SCULPT_CURVES:
       return brush->curves_sculpt_brush_type;
     default:
@@ -1037,8 +992,6 @@ std::optional<int> BKE_paint_get_brush_type_from_paintmode(const Brush *brush,
       return brush->sculpt_brush_type;
     case PaintMode::Vertex:
       return brush->vertex_brush_type;
-    case PaintMode::Weight:
-      return brush->weight_brush_type;
     case PaintMode::SculptCurves:
       return brush->curves_sculpt_brush_type;
     case PaintMode::Invalid:
@@ -1127,14 +1080,14 @@ bool BKE_paint_select_face_test(const Object *ob)
 {
   return ((ob != nullptr) && (ob->type == OB_MESH) && (ob->data != nullptr) &&
           ((id_cast<Mesh *>(ob->data))->editflag & ME_EDIT_PAINT_FACE_SEL) &&
-          (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)));
+          (ob->mode & OB_MODE_VERTEX_PAINT));
 }
 
 bool BKE_paint_select_vert_test(const Object *ob)
 {
   return ((ob != nullptr) && (ob->type == OB_MESH) && (ob->data != nullptr) &&
           ((id_cast<Mesh *>(ob->data))->editflag & ME_EDIT_PAINT_VERT_SEL) &&
-          (ob->mode & OB_MODE_WEIGHT_PAINT || ob->mode & OB_MODE_VERTEX_PAINT));
+          (ob->mode & OB_MODE_VERTEX_PAINT));
 }
 
 bool BKE_paint_select_elem_test(const Object *ob)
@@ -1145,7 +1098,7 @@ bool BKE_paint_select_elem_test(const Object *ob)
 bool BKE_paint_always_hide_test(const Object *ob)
 {
   return ((ob != nullptr) && (ob->type == OB_MESH) && (ob->data != nullptr) &&
-          (ob->mode & OB_MODE_WEIGHT_PAINT || ob->mode & OB_MODE_VERTEX_PAINT));
+          (ob->mode & OB_MODE_VERTEX_PAINT));
 }
 
 void BKE_paint_cavity_curve_preset(Paint *paint, int preset)
@@ -1172,8 +1125,6 @@ eObjectMode BKE_paint_object_mode_from_paintmode(const PaintMode mode)
       return OB_MODE_SCULPT;
     case PaintMode::Vertex:
       return OB_MODE_VERTEX_PAINT;
-    case PaintMode::Weight:
-      return OB_MODE_WEIGHT_PAINT;
     case PaintMode::Texture2D:
       return OB_MODE_IMAGE_PAINT;
     case PaintMode::SculptCurves:
@@ -1191,7 +1142,6 @@ static void paint_init_data(Paint &paint)
   paint.unified_paint_settings.input_samples = default_ups.input_samples;
   paint.unified_paint_settings.unprojected_size = default_ups.unprojected_size;
   paint.unified_paint_settings.alpha = default_ups.alpha;
-  paint.unified_paint_settings.weight = default_ups.weight;
   paint.unified_paint_settings.flag = default_ups.flag;
   if (!paint.unified_paint_settings.curve_rand_hue) {
     paint.unified_paint_settings.curve_rand_hue = BKE_paint_default_curve();
@@ -1222,7 +1172,6 @@ bool BKE_paint_ensure(ToolSettings *ts, Paint **r_paint)
                       /* Cast is annoying, but prevent nullptr-pointer access. */
                       (Paint *)ts->sculpt,
                       (Paint *)ts->vpaint,
-                      (Paint *)ts->wpaint,
                       (Paint *)ts->curves_sculpt,
                       (Paint *)&ts->imapaint));
 #ifndef NDEBUG
@@ -1236,9 +1185,7 @@ bool BKE_paint_ensure(ToolSettings *ts, Paint **r_paint)
     return true;
   }
 
-  if ((reinterpret_cast<VPaint **>(r_paint) == &ts->vpaint) ||
-      (reinterpret_cast<VPaint **>(r_paint) == &ts->wpaint))
-  {
+  if (reinterpret_cast<VPaint **>(r_paint) == &ts->vpaint) {
     VPaint *data = MEM_new<VPaint>(__func__);
     paint = &data->paint;
     paint_init_data(*paint);
@@ -1388,9 +1335,6 @@ void BKE_paint_settings_foreach_mode(ToolSettings *ts, FunctionRef<void(Paint *p
 {
   if (ts->vpaint) {
     fn(reinterpret_cast<Paint *>(ts->vpaint));
-  }
-  if (ts->wpaint) {
-    fn(reinterpret_cast<Paint *>(ts->wpaint));
   }
   if (ts->sculpt) {
     fn(reinterpret_cast<Paint *>(ts->sculpt));
@@ -1628,7 +1572,6 @@ bool supports_scene_size(const PaintMode paint_mode)
     case PaintMode::Sculpt:
       return true;
     case PaintMode::Vertex:
-    case PaintMode::Weight:
       return false;
     case PaintMode::SculptCurves:
       return false;
@@ -1647,7 +1590,6 @@ bool supports_symmetry_tiling(const PaintMode paint_mode)
     case PaintMode::Sculpt:
       return true;
     case PaintMode::Vertex:
-    case PaintMode::Weight:
       return false;
     case PaintMode::SculptCurves:
       return false;
@@ -1971,8 +1913,8 @@ static MultiresModifierData *sculpt_multires_modifier_get(const Scene *scene,
     need_mdisps = true;
   }
 
-  /* Weight paint operates on original vertices, and needs to treat multires as regular modifier
-   * to make it so that pbvh::Tree vertices are at the multires surface. */
+  /* Sculpt mode operates on original vertices, and needs to treat multires as a regular modifier
+   * so that pbvh::Tree vertices are at the multires surface. */
   if ((ob->mode & OB_MODE_SCULPT) == 0) {
     return nullptr;
   }
@@ -2107,7 +2049,7 @@ static void sculpt_update_object(Depsgraph *depsgraph,
     /* Painting doesn't need crazyspace, use already evaluated mesh coordinates if possible. */
     bool used_me_eval = false;
 
-    if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)) {
+    if (ob->mode & OB_MODE_VERTEX_PAINT) {
       const Mesh *me_eval_deform = BKE_object_get_mesh_deform_eval(ob_eval);
 
       /* If the fully evaluated mesh has the same topology as the deform-only version, use it.

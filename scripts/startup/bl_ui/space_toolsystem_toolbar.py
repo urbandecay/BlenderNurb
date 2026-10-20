@@ -21,7 +21,6 @@ from bpy.types import (
     Panel,
 )
 from bpy.app.translations import (
-    pgettext_iface as iface_,
     pgettext_tip as tip_,
     contexts as i18n_contexts,
 )
@@ -1871,126 +1870,6 @@ class _defs_image_paint:
         )
 
 
-class _defs_weight_paint:
-
-    @staticmethod
-    def poll_select_tools(context):
-        if context is None:
-            return VIEW3D_PT_tools_active._tools_select
-        ob = context.active_object
-        if (
-                ob and ob.type == 'MESH' and
-                (ob.data.use_paint_mask or ob.data.use_paint_mask_vertex)
-        ):
-            return VIEW3D_PT_tools_active._tools_select
-        return ()
-
-    @ToolDef.from_fn
-    def blur():
-        return dict(
-            idname="builtin_brush.blur",
-            label="Blur",
-            icon="brush.paint_weight.blur",
-            options={'USE_BRUSHES'},
-            brush_type='BLUR',
-        )
-
-    @ToolDef.from_fn
-    def average():
-        return dict(
-            idname="builtin_brush.average",
-            label="Average",
-            icon="brush.paint_weight.average",
-            options={'USE_BRUSHES'},
-            brush_type='AVERAGE',
-        )
-
-    @ToolDef.from_fn
-    def smear():
-        return dict(
-            idname="builtin_brush.smear",
-            label="Smear",
-            icon="brush.paint_weight.smear",
-            options={'USE_BRUSHES'},
-            brush_type='SMEAR',
-        )
-
-    @ToolDef.from_fn
-    def sample_weight():
-        def draw_settings(context, layout, _tool):
-            ups = context.tool_settings.weight_paint.unified_paint_settings
-            if ups.use_unified_weight:
-                weight = ups.weight
-            elif context.tool_settings.weight_paint.brush:
-                weight = context.tool_settings.weight_paint.brush.weight
-            else:
-                return
-            layout.label(text=iface_("Weight: {:.3f}").format(weight), translate=False)
-        return dict(
-            idname="builtin.sample_weight",
-            label="Sample Weight",
-            icon="ops.paint.weight_sample",
-            cursor='EYEDROPPER',
-            widget=None,
-            keymap=(),
-            draw_settings=draw_settings,
-        )
-
-    @ToolDef.from_fn
-    def sample_weight_group():
-        return dict(
-            idname="builtin.sample_vertex_group",
-            label="Sample Vertex Group",
-            icon="ops.paint.weight_sample_group",
-            cursor='EYEDROPPER',
-            widget=None,
-            keymap=(),
-        )
-
-    @ToolDef.from_fn
-    def gradient():
-        def draw_settings(context, layout, tool):
-            # TODO: Ideally, this should not depend on there being a current brush
-            # See #131061
-            brush = context.tool_settings.weight_paint.brush
-            if brush is not None:
-                from bl_ui.properties_paint_common import UnifiedPaintPanel
-                UnifiedPaintPanel.prop_unified(
-                    layout,
-                    context,
-                    brush,
-                    "weight",
-                    unified_paint_settings_override=context.tool_settings.weight_paint.unified_paint_settings,
-                    unified_name="use_unified_weight",
-                    slider=True,
-                    header=True,
-                )
-                UnifiedPaintPanel.prop_unified(
-                    layout,
-                    context,
-                    brush,
-                    "strength",
-                    unified_paint_settings_override=context.tool_settings.weight_paint.unified_paint_settings,
-                    unified_name="use_unified_strength",
-                    header=True,
-                )
-
-            props = tool.operator_properties("paint.weight_gradient")
-            row = layout.row()
-            row.prop(props, "type", expand=True)
-            row = layout.row()
-            row.popover("VIEW3D_PT_tools_weight_gradient")
-
-        return dict(
-            idname="builtin.gradient",
-            label="Gradient",
-            icon="ops.paint.weight_gradient",
-            widget=None,
-            keymap=(),
-            draw_settings=draw_settings,
-        )
-
-
 class _defs_image_generic:
 
     @staticmethod
@@ -2028,7 +1907,7 @@ class _defs_image_generic:
             description=(
                 "Sample pixel values under the cursor"
             ),
-            icon="ops.paint.weight_sample",  # XXX, needs own icon.
+            icon="ops.paint.eyedropper_add",
             keymap="Image Editor Tool: Sample",
             draw_settings=draw_settings,
         )
@@ -2613,7 +2492,7 @@ class _defs_sequencer_generic:
             description=(
                 "Sample pixel values under the cursor"
             ),
-            icon="ops.paint.weight_sample",  # XXX, needs own icon.
+            icon="ops.paint.eyedropper_add",
             keymap="Preview Tool: Sample",
         )
 
@@ -3154,11 +3033,6 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             None,
             _defs_transform.shear,
         ],
-        'EDIT_METABALL': [
-            *_tools_default,
-            None,
-            _defs_transform.shear,
-        ],
         'EDIT_LATTICE': [
             *_tools_default,
             None,
@@ -3257,19 +3131,6 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
                 if _defs_vertex_paint.poll_select_mask(context)
                 else ()
             ),
-        ],
-        'PAINT_WEIGHT': [
-            _brush_tool,
-            _defs_weight_paint.blur,
-            _defs_weight_paint.average,
-            _defs_weight_paint.smear,
-            _defs_weight_paint.gradient,
-            None,
-            (
-                _defs_weight_paint.sample_weight,
-                _defs_weight_paint.sample_weight_group,
-            ),
-            _defs_weight_paint.poll_select_tools,
         ],
         'SCULPT_CURVES': [
             _sculpt_tool,

@@ -947,51 +947,6 @@ float BKE_defvert_total_selected_weight(const MDeformVert *dv,
   return total;
 }
 
-float BKE_defvert_calc_lock_relative_weight(float weight,
-                                            float locked_weight,
-                                            float unlocked_weight)
-{
-  /* First try normalizing unlocked weights. */
-  if (unlocked_weight > 0.0f) {
-    return weight / unlocked_weight;
-  }
-
-  /* If no unlocked weight exists, take locked into account. */
-  if (locked_weight <= 0.0f) {
-    return weight;
-  }
-
-  /* handle division by zero */
-  if (locked_weight >= 1.0f - VERTEX_WEIGHT_LOCK_EPSILON) {
-    if (weight != 0.0f) {
-      return 1.0f;
-    }
-
-    /* resolve 0/0 to 0 */
-    return 0.0f;
-  }
-
-  /* non-degenerate division */
-  return weight / (1.0f - locked_weight);
-}
-
-float BKE_defvert_lock_relative_weight(const float weight,
-                                       const MDeformVert *dv,
-                                       const int defbase_num,
-                                       const bool *defbase_locked,
-                                       const bool *defbase_unlocked)
-{
-  float unlocked = BKE_defvert_total_selected_weight(dv, defbase_num, defbase_unlocked);
-
-  if (unlocked > 0.0f) {
-    return weight / unlocked;
-  }
-
-  float locked = BKE_defvert_total_selected_weight(dv, defbase_num, defbase_locked);
-
-  return BKE_defvert_calc_lock_relative_weight(weight, locked, unlocked);
-}
-
 /* -------------------------------------------------------------------- */
 /** \name Defvert Array functions
  * \{ */

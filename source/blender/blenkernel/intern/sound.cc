@@ -43,11 +43,9 @@
 #include "DNA_screen_types.h"
 #include "DNA_sequence_types.h"
 #include "DNA_sound_types.h"
-#include "DNA_speaker_types.h"
 #include "DNA_userdef_types.h"
 
 #ifdef WITH_AUDASPACE
-#  include "BLI_set.hh"
 
 #  include <Exception.h>
 #  include <IReader.h>
@@ -811,7 +809,6 @@ void BKE_sound_create_scene(Scene *scene)
   audio.sound_scene->setDistanceModel(aud::DistanceModel(scene->audio.distance_model));
   audio.playback_handle = nullptr;
   audio.sound_scrub_handle = nullptr;
-  audio.speaker_handles.clear();
 }
 
 void BKE_sound_destroy_scene(Scene *scene)
@@ -825,10 +822,6 @@ void BKE_sound_destroy_scene(Scene *scene)
     audio.sound_scrub_handle->stop();
     audio.sound_scrub_handle.reset();
   }
-  for (AUD_SequenceEntry handle : audio.speaker_handles) {
-    audio.sound_scene->remove(handle);
-  }
-  audio.speaker_handles.clear();
   audio.sound_scene.reset();
 }
 
@@ -1359,104 +1352,13 @@ void BKE_sound_read_waveform(Main *bmain, bSound *sound, bool *stop)
   }
 }
 
-static void sound_update_base(Scene *scene, Object *object, Set<AUD_SequenceEntry> &new_set)
-{
-  Speaker *speaker;
-  float quat[4];
-
-  sound_verify_evaluated_id(&scene->id);
-  sound_verify_evaluated_id(&object->id);
-
-  if ((object->type != OB_SPEAKER) || !object->adt) {
-    return;
-  }
-
-  for (NlaTrack &track : object->adt->nla_tracks) {
-    for (NlaStrip &strip : track.strips) {
-      if (strip.type != NLASTRIP_TYPE_SOUND) {
-        continue;
-      }
-      speaker = (Speaker *)object->data;
-
-      bke::NlaStripRuntime &strip_runtime = strip.runtime_get();
-
-      if ((strip_runtime.speaker_handle != nullptr) &&
-          scene->runtime->audio.speaker_handles.remove(strip_runtime.speaker_handle))
-      {
-        if (speaker->sound) {
-          strip_runtime.speaker_handle->move(
-              double(strip.start) / scene->frames_per_second(), FLT_MAX, 0);
-        }
-        else {
-          scene->runtime->audio.sound_scene->remove(strip_runtime.speaker_handle);
-          strip_runtime.speaker_handle = nullptr;
-        }
-      }
-      else {
-        if (speaker->sound) {
-          strip_runtime.speaker_handle = AUD_SequenceEntry(scene->runtime->audio.sound_scene->add(
-              speaker->sound->runtime->playback_handle,
-              double(strip.start) / scene->frames_per_second(),
-              FLT_MAX,
-              0));
-          strip_runtime.speaker_handle->setRelative(false);
-        }
-      }
-
-      if (strip_runtime.speaker_handle) {
-        const bool mute = ((strip.flag & NLASTRIP_FLAG_MUTED) || (speaker->flag & SPK_MUTED));
-        new_set.add(strip_runtime.speaker_handle);
-        strip_runtime.speaker_handle->setVolumeMaximum(speaker->volume_max);
-        strip_runtime.speaker_handle->setVolumeMinimum(speaker->volume_min);
-        strip_runtime.speaker_handle->setDistanceMaximum(speaker->distance_max);
-        strip_runtime.speaker_handle->setDistanceReference(speaker->distance_reference);
-        strip_runtime.speaker_handle->setAttenuation(speaker->attenuation);
-        strip_runtime.speaker_handle->setConeAngleOuter(speaker->cone_angle_outer);
-        strip_runtime.speaker_handle->setConeAngleInner(speaker->cone_angle_inner);
-        strip_runtime.speaker_handle->setConeVolumeOuter(speaker->cone_volume_outer);
-
-        mat4_to_quat(quat, object->object_to_world().ptr());
-        float3 location = object->object_to_world().location();
-        set_audaspace_anim_property(
-            strip_runtime.speaker_handle, aud::AP_LOCATION, scene->r.cfra, location, true);
-        set_audaspace_anim_property(
-            strip_runtime.speaker_handle, aud::AP_ORIENTATION, scene->r.cfra, quat, true);
-        set_audaspace_anim_property(
-            strip_runtime.speaker_handle, aud::AP_VOLUME, scene->r.cfra, &speaker->volume, true);
-        set_audaspace_anim_property(
-            strip_runtime.speaker_handle, aud::AP_PITCH, scene->r.cfra, &speaker->pitch, true);
-        strip_runtime.speaker_handle->setSound(speaker->sound->runtime->playback_handle);
-        strip_runtime.speaker_handle->mute(mute);
-      }
-    }
-  }
-}
-
-void BKE_sound_update_scene(Depsgraph *depsgraph, Scene *scene)
+void BKE_sound_update_scene(Depsgraph * /*depsgraph*/, Scene *scene)
 {
   sound_verify_evaluated_id(&scene->id);
 
-  Set<AUD_SequenceEntry> new_set;
   float quat[4];
-
-  /* cheap test to skip looping over all objects (no speakers is a common case) */
-  if (DEG_id_type_any_exists(depsgraph, ID_SPK)) {
-    DEGObjectIterSettings deg_iter_settings = {nullptr};
-    deg_iter_settings.depsgraph = depsgraph;
-    deg_iter_settings.flags = DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
-                              DEG_ITER_OBJECT_FLAG_LINKED_INDIRECTLY |
-                              DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET;
-    DEG_OBJECT_ITER_BEGIN (&deg_iter_settings, object) {
-      sound_update_base(scene, object, new_set);
-    }
-    DEG_OBJECT_ITER_END;
-  }
 
   bke::SceneAudioRuntime &audio = scene->runtime->audio;
-  for (AUD_SequenceEntry handle : audio.speaker_handles) {
-    audio.sound_scene->remove(handle);
-  }
-  audio.speaker_handles.clear();
 
   if (scene->camera) {
     mat4_to_quat(quat, scene->camera->object_to_world().ptr());
@@ -1466,7 +1368,6 @@ void BKE_sound_update_scene(Depsgraph *depsgraph, Scene *scene)
     set_audaspace_anim_property(audio.sound_scene, aud::AP_ORIENTATION, scene->r.cfra, quat, true);
   }
 
-  audio.speaker_handles = new_set;
 }
 
 AUD_Sound BKE_sound_get_factory(void *sound)

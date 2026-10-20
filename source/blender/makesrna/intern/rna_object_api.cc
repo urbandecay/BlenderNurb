@@ -50,7 +50,6 @@ static const EnumPropertyItem space_items[] = {
 #  include "BKE_key.hh"
 #  include "BKE_layer.hh"
 #  include "BKE_main.hh"
-#  include "BKE_mball.hh"
 #  include "BKE_mesh.hh"
 #  include "BKE_mesh_runtime.hh"
 #  include "BKE_modifier.hh"
@@ -385,7 +384,6 @@ static Mesh *rna_Object_to_mesh(Object *object,
     case OB_FONT:
     case OB_CURVES_LEGACY:
     case OB_SURF:
-    case OB_MBALL:
     case OB_MESH:
       break;
     default:

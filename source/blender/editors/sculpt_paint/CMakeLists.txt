@@ -55,9 +55,6 @@ set(SRC
   mesh/paint_mask.cc
   mesh/paint_vertex.cc
   mesh/paint_vertex_color_ops.cc
-  mesh/paint_vertex_weight_ops.cc
-  mesh/paint_vertex_weight_utils.cc
-  mesh/paint_weight.cc
   mesh/sculpt.cc
   mesh/sculpt_automasking.cc
   mesh/sculpt_boundary.cc
@@ -109,7 +106,7 @@ set(SRC
   mesh/sculpt_pose.hh
   mesh/sculpt_smooth.hh
   mesh/sculpt_undo.hh
-  mesh/vw_paint_intern.hh
+  mesh/v_paint_intern.hh
 
   mesh/brushes/bmesh_topology_rake.cc
   mesh/brushes/clay.cc

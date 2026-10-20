@@ -152,28 +152,6 @@ float BKE_defvert_total_selected_weight(const MDeformVert *dv,
                                         int defbase_num,
                                         const bool *defbase_sel);
 
-/* This much unlocked weight is considered equivalent to none. */
-#define VERTEX_WEIGHT_LOCK_EPSILON 1e-6f
-
-/**
- * Computes the display weight for the lock relative weight paint mode.
- *
- * \return weight divided by 1-locked_weight with division by zero check
- */
-float BKE_defvert_calc_lock_relative_weight(float weight,
-                                            float locked_weight,
-                                            float unlocked_weight);
-/**
- * Computes the display weight for the lock relative weight paint mode, using weight data.
- *
- * \return weight divided by unlocked, or 1-locked_weight with division by zero check.
- */
-float BKE_defvert_lock_relative_weight(float weight,
-                                       const MDeformVert *dv,
-                                       int defbase_num,
-                                       const bool *defbase_locked,
-                                       const bool *defbase_unlocked);
-
 void BKE_defvert_copy(MDeformVert *dvert_dst, const MDeformVert *dvert_src);
 /**
  * Overwrite weights filtered by vgroup_subset.

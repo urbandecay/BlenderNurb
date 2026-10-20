@@ -14,7 +14,6 @@
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_meta_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
@@ -1665,7 +1664,7 @@ static bool view3d_panel_vgroup_poll(const bContext *C, PanelType * /*pt*/)
   ViewLayer *view_layer = CTX_data_view_layer(C);
   BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
   Object *ob = BKE_view_layer_active_object_get(view_layer);
-  if (ob && (BKE_object_is_in_editmode_vgroup(ob) || BKE_object_is_in_wpaint_select_vert(ob))) {
+  if (ob && BKE_object_is_in_editmode_vgroup(ob)) {
     MDeformVert *dvert_act = ED_mesh_active_dvert_get_only(ob);
     if (dvert_act) {
       return (dvert_act->totweight != 0);
@@ -1939,53 +1938,6 @@ static void v3d_transform_butsR(ui::Layout &layout, PointerRNA *ptr)
       ptr, "lock_scale", ui::ITEM_R_TOGGLE | ui::ITEM_R_ICON_ONLY, "", ICON_DECORATE_UNLOCKED);
 }
 
-static void v3d_editmetaball_buts(ui::Layout &layout, Object *ob)
-{
-  MetaBall *mball = id_cast<MetaBall *>(ob->data);
-
-  if (!mball || !(mball->lastelem)) {
-    layout.label(IFACE_("Nothing selected"), ICON_NONE);
-    return;
-  }
-
-  PointerRNA ptr = RNA_pointer_create_discrete(&mball->id, RNA_MetaElement, mball->lastelem);
-
-  ui::Layout *col = &layout.column(false);
-  col->prop(&ptr, "co", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-
-  col->prop(&ptr, "radius", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-  col->prop(&ptr, "stiffness", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-
-  col->prop(&ptr, "type", UI_ITEM_NONE, std::nullopt, ICON_NONE);
-
-  col = &layout.column(true);
-  switch (RNA_enum_get(&ptr, "type")) {
-    case MB_BALL:
-      break;
-    case MB_CUBE:
-      col->label(IFACE_("Size:"), ICON_NONE);
-      col->prop(&ptr, "size_x", UI_ITEM_NONE, IFACE_("X"), ICON_NONE);
-      col->prop(&ptr, "size_y", UI_ITEM_NONE, IFACE_("Y"), ICON_NONE);
-      col->prop(&ptr, "size_z", UI_ITEM_NONE, IFACE_("Z"), ICON_NONE);
-      break;
-    case MB_TUBE:
-      col->label(IFACE_("Size:"), ICON_NONE);
-      col->prop(&ptr, "size_x", UI_ITEM_NONE, IFACE_("X"), ICON_NONE);
-      break;
-    case MB_PLANE:
-      col->label(IFACE_("Size:"), ICON_NONE);
-      col->prop(&ptr, "size_x", UI_ITEM_NONE, IFACE_("X"), ICON_NONE);
-      col->prop(&ptr, "size_y", UI_ITEM_NONE, IFACE_("Y"), ICON_NONE);
-      break;
-    case MB_ELIPSOID:
-      col->label(IFACE_("Size:"), ICON_NONE);
-      col->prop(&ptr, "size_x", UI_ITEM_NONE, IFACE_("X"), ICON_NONE);
-      col->prop(&ptr, "size_y", UI_ITEM_NONE, IFACE_("Y"), ICON_NONE);
-      col->prop(&ptr, "size_z", UI_ITEM_NONE, IFACE_("Z"), ICON_NONE);
-      break;
-  }
-}
-
 static void do_view3d_region_buttons(bContext *C, void * /*index*/, int event)
 {
   const Main *bmain = CTX_data_main(C);
@@ -2043,13 +1995,8 @@ static void view3d_panel_transform(const bContext *C, Panel *panel)
   ui::Layout &col = panel->layout->column(false);
 
   if (ob == obedit) {
-    if (ob->type == OB_MBALL) {
-      v3d_editmetaball_buts(col, ob);
-    }
-    else {
-      View3D *v3d = CTX_wm_view3d(C);
-      v3d_editvertex_buts(C, &col, v3d, ob, FLT_MAX);
-    }
+    View3D *v3d = CTX_wm_view3d(C);
+    v3d_editvertex_buts(C, &col, v3d, ob, FLT_MAX);
   }
   else {
     PointerRNA obptr = RNA_id_pointer_create(&ob->id);

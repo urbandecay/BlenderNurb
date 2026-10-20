@@ -339,18 +339,13 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   keymap = WM_keymap_ensure(wm->runtime->defaultconf,
-                            "Paint Vertex Selection (Weight, Vertex)",
+                            "Paint Vertex Selection (Vertex)",
                             SPACE_EMPTY,
                             RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
-  /* Before 'Weight/Vertex Paint' so adding curve points is not overridden. */
+  /* Before Vertex Paint so adding curve points is not overridden. */
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Paint Curve", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  /* Keep weight paint menus above other paint tools. */
-  keymap = WM_keymap_ensure(
-      wm->runtime->defaultconf, "Weight Paint", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   keymap = WM_keymap_ensure(
@@ -375,9 +370,6 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Mesh", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
-  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
-
-  keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Metaball", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Lattice", SPACE_EMPTY, RGN_TYPE_WINDOW);
@@ -832,7 +824,6 @@ static void view3d_main_region_message_subscribe(const wmRegionMessageSubscribeP
       RNA_AreaLight,
       RNA_Camera,
       RNA_Light,
-      RNA_Speaker,
       RNA_SunLight,
 
       /* General types the 3D view depends on. */
@@ -1094,9 +1085,6 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
     case CTX_MODE_EDIT_TEXT:
       ARRAY_SET_ITEMS(contexts, ".text_edit");
       break;
-    case CTX_MODE_EDIT_METABALL:
-      ARRAY_SET_ITEMS(contexts, ".mball_edit");
-      break;
     case CTX_MODE_EDIT_LATTICE:
       ARRAY_SET_ITEMS(contexts, ".lattice_edit");
       break;
@@ -1105,9 +1093,6 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
       break;
     case CTX_MODE_SCULPT:
       ARRAY_SET_ITEMS(contexts, ".paint_common", ".sculpt_mode");
-      break;
-    case CTX_MODE_PAINT_WEIGHT:
-      ARRAY_SET_ITEMS(contexts, ".paint_common", ".weightpaint");
       break;
     case CTX_MODE_PAINT_VERTEX:
       ARRAY_SET_ITEMS(contexts, ".paint_common", ".vertexpaint");

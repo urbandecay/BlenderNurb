@@ -1080,7 +1080,6 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
       switch (tkey->mode) {
         case CTX_MODE_SCULPT:
         case CTX_MODE_PAINT_VERTEX:
-        case CTX_MODE_PAINT_WEIGHT:
         case CTX_MODE_SCULPT_CURVES:
           return "builtin.brush";
         case CTX_MODE_PARTICLE:

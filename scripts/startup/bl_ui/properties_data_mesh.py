@@ -234,8 +234,7 @@ class DATA_PT_vertex_groups(MeshButtonsPanel, Panel):
 
         if (
                 ob.vertex_groups and
-                (ob.mode == 'EDIT' or
-                 (ob.mode == 'WEIGHT_PAINT' and ob.type == 'MESH' and ob.data.use_paint_mask_vertex))
+                ob.mode == 'EDIT'
         ):
             row = layout.row()
 

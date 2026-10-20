@@ -115,32 +115,10 @@ void BKE_object_defgroup_subset_to_index_array(const bool *defgroup_validmap,
  * in the object data's vertex group list and returns an array containing them
  */
 bool *BKE_object_defgroup_lock_flags_get(struct Object *ob, int defbase_tot);
-bool *BKE_object_defgroup_validmap_get(struct Object *ob, int defbase_tot);
-/**
- * Checks if the lock relative mode is applicable.
- *
- * \return true if an unlocked deform group is active.
- */
-bool BKE_object_defgroup_check_lock_relative(const bool *lock_flags,
-                                             const bool *validmap,
-                                             int index);
-/**
- * Additional check for whether the lock relative mode is applicable in multi-paint mode.
- *
- * \return true if none of the selected groups are locked.
- */
 /**
  * Return lock status of active vertex group.
  */
 bool BKE_object_defgroup_active_is_locked(const struct Object *ob);
-
-/**
- * Takes a pair of boolean masks of all locked and all deform groups, and computes
- * a pair of masks for locked deform and unlocked deform groups. Output buffers may
- * reuse the input ones.
- */
-void BKE_object_defgroup_split_locked_validmap(
-    int defbase_tot, const bool *locked, const bool *deform, bool *r_locked, bool *r_unlocked);
 
 /**
  * Marks mirror vgroups in output and counts them.
