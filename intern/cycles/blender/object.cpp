@@ -40,10 +40,6 @@ CCL_NAMESPACE_BEGIN
 bool BlenderSync::BKE_object_is_modified(blender::Object &b_ob)
 {
   /* test if we can instance or if the object is modified */
-  if (b_ob.type == blender::OB_MBALL) {
-    /* Multi-user and dupli meta-balls are fused, can't instance. */
-    return true;
-  }
   const int settings = preview ? blender::eModifierMode_Realtime : blender::eModifierMode_Render;
   if ((blender::BKE_object_is_modified(b_scene, &b_ob) & settings) != 0) {
     /* modifiers */
@@ -88,7 +84,6 @@ bool BlenderSync::object_can_have_geometry(blender::Object &b_ob)
     case blender::OB_MESH:
     case blender::OB_CURVES_LEGACY:
     case blender::OB_SURF:
-    case blender::OB_MBALL:
     case blender::OB_FONT:
     case blender::OB_CURVES:
     case blender::OB_POINTCLOUD:

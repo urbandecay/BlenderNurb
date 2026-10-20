@@ -378,7 +378,6 @@ const bTheme U_theme_default = {
     .wire_edit = RGBA(0x000000ff),
     .select = RGBA(0xed5700ff),
     .lamp = RGBA(0x00000050),
-    .speaker = RGBA(0x000000ff),
     .no_data_object = RGBA(0x000000ff),
     .camera = RGBA(0x000000ff),
     .active = RGBA(0xffa028ff),

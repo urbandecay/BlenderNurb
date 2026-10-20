@@ -18,7 +18,6 @@ DEF_ENUM(rna_enum_id_type_items)
 
 DEF_ENUM(rna_enum_object_mode_items)
 DEF_ENUM(rna_enum_workspace_object_mode_items)
-DEF_ENUM(rna_enum_metaelem_type_items)
 
 DEF_ENUM(rna_enum_color_space_convert_default_items)
 DEF_ENUM(rna_enum_proportional_falloff_items)

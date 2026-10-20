@@ -455,7 +455,6 @@ static void brush_defaults(Brush *brush)
 
   FROM_DEFAULT(blend);
   FROM_DEFAULT(flag);
-  FROM_DEFAULT(weight);
   FROM_DEFAULT(size);
   FROM_DEFAULT(alpha);
   FROM_DEFAULT(hardness);

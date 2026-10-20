@@ -74,6 +74,8 @@ struct Brush {
   short blend = 0;
   /** #eObjectMode: to see if the brush is compatible, use for display only. */
   short ob_mode = OB_MODE_ALL_PAINT;
+  /** Reserved for the removed brush weight field. */
+  float _pad_weight = 1.0f;
   /** Brush diameter. */
   int size = 70; /* diameter of the brush in pixels */
   /** General purpose flags. */
@@ -175,6 +177,8 @@ struct Brush {
   eBrushSculptType sculpt_brush_type = SCULPT_BRUSH_TYPE_DRAW;
   /** Active vertex paint. */
   eBrushVertexPaintType vertex_brush_type = VPAINT_BRUSH_TYPE_DRAW;
+  /** Reserved for the removed Weight Paint brush type. */
+  char _pad_weight_brush_type = 0;
   /** Active image paint brush type. */
   eBrushImagePaintType image_brush_type = IMAGE_PAINT_BRUSH_TYPE_DRAW;
   /** Enum eBrushMaskTool, only used if sculpt_brush_type is SCULPT_BRUSH_TYPE_MASK. */

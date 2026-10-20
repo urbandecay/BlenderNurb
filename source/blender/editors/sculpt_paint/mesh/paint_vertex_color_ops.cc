@@ -43,7 +43,7 @@ namespace blender {
 /** \name Internal Utility Functions
  * \{ */
 
-static bool vertex_paint_mode_poll(bContext *C)
+static bool vertex_paint_mode_with_deform_verts_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
   Mesh *mesh = BKE_mesh_from_object(ob);
@@ -137,7 +137,7 @@ void PAINT_OT_vertex_color_from_weight(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = vertex_paint_from_weight_exec;
-  ot->poll = vertex_paint_mode_poll;
+  ot->poll = vertex_paint_mode_with_deform_verts_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -231,7 +231,7 @@ void PAINT_OT_vertex_color_smooth(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = vertex_color_smooth_exec;
-  ot->poll = vertex_paint_mode_poll;
+  ot->poll = vertex_paint_mode_with_deform_verts_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -365,7 +365,7 @@ void PAINT_OT_vertex_color_brightness_contrast(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = vertex_color_brightness_contrast_exec;
-  ot->poll = vertex_paint_mode_poll;
+  ot->poll = vertex_paint_mode_with_deform_verts_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -421,7 +421,7 @@ void PAINT_OT_vertex_color_hsv(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = vertex_color_hsv_exec;
-  ot->poll = vertex_paint_mode_poll;
+  ot->poll = vertex_paint_mode_with_deform_verts_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -463,7 +463,7 @@ void PAINT_OT_vertex_color_invert(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = vertex_color_invert_exec;
-  ot->poll = vertex_paint_mode_poll;
+  ot->poll = vertex_paint_mode_with_deform_verts_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -503,7 +503,7 @@ void PAINT_OT_vertex_color_levels(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = vertex_color_levels_exec;
-  ot->poll = vertex_paint_mode_poll;
+  ot->poll = vertex_paint_mode_with_deform_verts_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

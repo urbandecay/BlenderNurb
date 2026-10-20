@@ -68,16 +68,6 @@ static EnumPropertyItem instance_items_font[] = {
 };
 #endif
 
-const EnumPropertyItem rna_enum_metaelem_type_items[] = {
-    {MB_BALL, "BALL", ICON_META_BALL, "Ball", ""},
-    {MB_TUBE, "CAPSULE", ICON_META_CAPSULE, "Capsule", ""},
-    {MB_PLANE, "PLANE", ICON_META_PLANE, "Plane", ""},
-    /* NOTE: typo at original definition! */
-    {MB_ELIPSOID, "ELLIPSOID", ICON_META_ELLIPSOID, "Ellipsoid", ""},
-    {MB_CUBE, "CUBE", ICON_META_CUBE, "Cube", ""},
-    {0, nullptr, 0, nullptr, nullptr},
-};
-
 const EnumPropertyItem rna_enum_lightprobes_type_items[] = {
     {LIGHTPROBE_TYPE_SPHERE, "SPHERE", ICON_LIGHTPROBE_SPHERE, "Sphere", ""},
     {LIGHTPROBE_TYPE_PLANE, "PLANE", ICON_LIGHTPROBE_PLANE, "Plane", ""},

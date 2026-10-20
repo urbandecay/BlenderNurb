@@ -346,7 +346,6 @@ int BKE_idtype_idcode_to_index(const short idcode)
     CASE_IDINDEX(LS);
     CASE_IDINDEX(LT);
     CASE_IDINDEX(MA);
-    CASE_IDINDEX(MB);
     CASE_IDINDEX(MC);
     CASE_IDINDEX(ME);
     CASE_IDINDEX(MSK);
@@ -359,7 +358,6 @@ int BKE_idtype_idcode_to_index(const short idcode)
     CASE_IDINDEX(LP);
     CASE_IDINDEX(SCE);
     CASE_IDINDEX(SCR);
-    CASE_IDINDEX(SPK);
     CASE_IDINDEX(SO);
     CASE_IDINDEX(TE);
     CASE_IDINDEX(TXT);
@@ -401,7 +399,6 @@ int BKE_idtype_idfilter_to_index(const uint64_t id_filter)
     CASE_IDINDEX(LS);
     CASE_IDINDEX(LT);
     CASE_IDINDEX(MA);
-    CASE_IDINDEX(MB);
     CASE_IDINDEX(MC);
     CASE_IDINDEX(ME);
     CASE_IDINDEX(MSK);
@@ -414,7 +411,6 @@ int BKE_idtype_idfilter_to_index(const uint64_t id_filter)
     CASE_IDINDEX(LP);
     CASE_IDINDEX(SCE);
     CASE_IDINDEX(SCR);
-    CASE_IDINDEX(SPK);
     CASE_IDINDEX(SO);
     CASE_IDINDEX(TE);
     CASE_IDINDEX(TXT);

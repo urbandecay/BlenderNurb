@@ -91,8 +91,7 @@ void BKE_nlastrip_free(NlaStrip *strip, const bool do_id_user)
   /* free own F-Modifiers */
   free_fmodifiers(&strip->modifiers);
 
-  /* free the strip runtime and itself */
-  MEM_delete(strip->runtime);
+  /* free the strip itself */
   MEM_delete(strip);
 }
 
@@ -154,7 +153,6 @@ NlaStrip *BKE_nlastrip_copy(Main *bmain,
   /* make a copy */
   strip_d = MEM_dupalloc(strip);
   strip_d->next = strip_d->prev = nullptr;
-  strip_d->runtime = nullptr;
 
   /* handle action */
   if (strip_d->act) {

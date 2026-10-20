@@ -260,8 +260,6 @@ extern TransConvertTypeInfo TransConvertType_Lattice;
 extern TransConvertTypeInfo TransConvertType_Mask;
 
 
-extern TransConvertTypeInfo TransConvertType_MBall;
-
 /* `transform_convert_mesh.cc` */
 
 extern TransConvertTypeInfo TransConvertType_Mesh;
