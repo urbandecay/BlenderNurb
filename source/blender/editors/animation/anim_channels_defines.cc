@@ -3979,12 +3979,10 @@ static void ANIM_init_channel_typeinfo_data()
     animchannelTypeInfo[type++] = &ACF_DSWOR;        /* World Channel */
     animchannelTypeInfo[type++] = &ACF_DSNTREE;      /* NodeTree Channel */
     animchannelTypeInfo[type++] = &ACF_DSPART;       /* Particle Channel */
-    animchannelTypeInfo[type++] = nullptr; /* Removed Channel Slot */
     animchannelTypeInfo[type++] = &ACF_DSMESH;       /* Mesh Channel */
     animchannelTypeInfo[type++] = &ACF_DSTEX;        /* Texture Channel */
     animchannelTypeInfo[type++] = &ACF_DSLAT;        /* Lattice Channel */
     animchannelTypeInfo[type++] = &ACF_DSLINESTYLE;  /* LineStyle Channel */
-    animchannelTypeInfo[type++] = nullptr; /* Reserved channel type slot. */
     animchannelTypeInfo[type++] = &ACF_DSMCLIP;      /* MovieClip Channel */
     animchannelTypeInfo[type++] = &ACF_DSCURVES;     /* Curves Channel */
     animchannelTypeInfo[type++] = &ACF_DSPOINTCLOUD; /* PointCloud Channel */
@@ -3998,6 +3996,10 @@ static void ANIM_init_channel_typeinfo_data()
 
     animchannelTypeInfo[type++] = &ACF_NLATRACK;  /* NLA Track */
     animchannelTypeInfo[type++] = &ACF_NLAACTION; /* NLA Action */
+
+    animchannelTypeInfo[type++] = nullptr; /* Palette */
+
+    BLI_assert(type == ANIMTYPE_NUM_TYPES);
 
     BLI_assert_msg(animchannelTypeInfo[ANIMTYPE_FILLACT_LAYERED] == &ACF_FILLANIM,
                    "ANIMTYPE_FILLACT_LAYERED does not match ACF_FILLANIM");
