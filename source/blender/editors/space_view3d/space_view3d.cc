@@ -358,6 +358,9 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Curve", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
+  keymap = WM_keymap_ensure(wm->runtime->defaultconf, "NURBS", SPACE_EMPTY, RGN_TYPE_WINDOW);
+  WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
+
   keymap = WM_keymap_ensure(wm->runtime->defaultconf, "Curves", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
@@ -1075,6 +1078,9 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
       break;
     case CTX_MODE_EDIT_CURVE:
       ARRAY_SET_ITEMS(contexts, ".curve_edit");
+      break;
+    case CTX_MODE_EDIT_NURBS:
+      ARRAY_SET_ITEMS(contexts, ".nurbs_edit");
       break;
     case CTX_MODE_EDIT_CURVES:
       ARRAY_SET_ITEMS(contexts, ".curves_edit");

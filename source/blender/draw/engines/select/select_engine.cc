@@ -8,10 +8,14 @@
  * Engine for drawing a selection map where the pixels indicate the selection indices.
  */
 
+#include "DNA_nurbs_topology_types.h"
+#include "DNA_nurbs_types.h"
 #include "DNA_userdef_types.h"
 
 #include "BKE_editmesh.hh"
 #include "BKE_mesh_types.hh"
+#include "BKE_nurbs.hh"
+#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 
 #include "BLT_translation.hh"
@@ -337,6 +341,80 @@ struct Instance : public DrawEngine {
     return ranges;
   }
 
+  ElemIndexRanges nurbs_edit_sync(Object *ob,
+                                  ResourceHandleRange res_handle,
+                                  const short select_mode,
+                                  const uint index_start)
+  {
+    NurbsGeometry &geometry = *id_cast<NurbsGeometry *>(ob->data);
+    if (geometry.topology != nullptr) {
+      uint vertex_count = 0;
+      uint edge_count = 0;
+      uint face_count = 0;
+      for (const NurbsTopoVertex &vertex : geometry.topology->vertices) {
+        vertex_count++;
+      }
+      for (const NurbsTopoEdge &edge : geometry.topology->edges) {
+        edge_count++;
+      }
+      for (const NurbsTopoFace &face : geometry.topology->faces) {
+        face_count++;
+      }
+
+      ElemIndexRanges ranges{};
+      ranges.total = IndexRange::from_begin_size(index_start, 0);
+      ranges.vert = alloc_range(ranges.total,
+                                (select_mode & SCE_SELECT_VERTEX) ? vertex_count : 0);
+      ranges.edge = alloc_range(ranges.total, (select_mode & SCE_SELECT_EDGE) ? edge_count : 0);
+      ranges.face = alloc_range(ranges.total, (select_mode & SCE_SELECT_FACE) ? face_count : 0);
+
+      gpu::Batch *geom_faces = DRW_nurbs_batch_cache_get_edit_faces(&geometry);
+      if (geom_faces != nullptr) {
+        if (select_mode & SCE_SELECT_FACE) {
+          select_face_flat->push_constant("offset", int(ranges.face.start()));
+          select_face_flat->draw(geom_faces, res_handle);
+        }
+        else {
+          select_face_uniform->draw(geom_faces, res_handle);
+        }
+      }
+
+      if ((select_mode & SCE_SELECT_EDGE) && select_edge != nullptr) {
+        if (gpu::Batch *geom_edges = DRW_nurbs_batch_cache_get_edit_edges(&geometry)) {
+          select_edge->push_constant("offset", int(ranges.edge.start()));
+          select_edge->draw(geom_edges, res_handle);
+        }
+      }
+      if ((select_mode & SCE_SELECT_VERTEX) && select_vert != nullptr) {
+        if (gpu::Batch *geom_verts = DRW_nurbs_batch_cache_get_edit_verts(&geometry)) {
+          select_vert->push_constant("offset", int(ranges.vert.start()));
+          select_vert->draw(geom_verts, res_handle);
+        }
+      }
+      return ranges;
+    }
+
+    uint control_vertex_count = 0;
+    for (const NurbsCurve &curve : geometry.curves) {
+      if (curve.control_vertices != nullptr && curve.control_vertex_count > 0) {
+        control_vertex_count += uint(curve.control_vertex_count);
+      }
+    }
+
+    ElemIndexRanges ranges{};
+    ranges.total = IndexRange::from_begin_size(index_start, 0);
+    ranges.vert = alloc_range(ranges.total,
+                              (select_mode & SCE_SELECT_VERTEX) ? control_vertex_count : 0);
+    if (select_vert != nullptr) {
+      gpu::Batch *geom = DRW_nurbs_batch_cache_get_edit_verts(&geometry);
+      if (geom != nullptr) {
+        select_vert->push_constant("offset", int(ranges.vert.start()));
+        select_vert->draw(geom, res_handle);
+      }
+    }
+    return ranges;
+  }
+
   ElemIndexRanges object_sync(
       View3D *v3d, Object *ob, ResourceHandleRange res_handle, short select_mode, uint index_start)
   {
@@ -357,6 +435,11 @@ struct Instance : public DrawEngine {
         }
         return mesh_sync(ob, res_handle, select_mode, index_start);
       }
+      case OB_NURBS:
+        if (ob->mode & OB_MODE_EDIT) {
+          return nurbs_edit_sync(ob, res_handle, select_mode, index_start);
+        }
+        return mesh_sync(ob, res_handle, select_mode, index_start);
       case OB_CURVES_LEGACY:
       case OB_SURF:
         break;
@@ -471,7 +554,12 @@ struct Instance : public DrawEngine {
   short get_object_select_mode(Scene *scene, Object *ob)
   {
     short select_mode = 0;
-    if (ob->mode & OB_MODE_VERTEX_PAINT) {
+    if (ob->type == OB_NURBS && (ob->mode & OB_MODE_EDIT)) {
+      const NurbsGeometry *geometry = id_cast<const NurbsGeometry *>(ob->data);
+      select_mode = geometry->topology != nullptr ? scene->toolsettings->selectmode :
+                                                    SCE_SELECT_VERTEX;
+    }
+    else if (ob->mode & OB_MODE_VERTEX_PAINT) {
       /* In order to sample flat colors for vertex weights and vertex paint, we need to be in
        * SCE_SELECT_FACE mode so select_cache_init() correctly sets up a shgroup with
        * select_id_flat.

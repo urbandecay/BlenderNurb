@@ -41,6 +41,7 @@
 #include "BKE_main.hh"
 #include "BKE_mesh.hh"
 #include "BKE_multires.hh"
+#include "BKE_nurbs.hh"
 #include "BKE_object.hh"
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
@@ -578,6 +579,7 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
              OB_SURF,
              OB_FONT,
              OB_CURVES,
+             OB_NURBS,
              OB_POINTCLOUD))
     {
       ID *obdata = ob->data;
@@ -778,6 +780,9 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
       Curves &curves = *id_cast<Curves *>(ob->data);
       curves.geometry.wrap().transform(float4x4(mat));
       curves.geometry.wrap().calculate_bezier_auto_handles();
+    }
+    else if (ob->type == OB_NURBS) {
+      BKE_nurbs_transform(*id_cast<NurbsGeometry *>(ob->data), float4x4(mat));
     }
     else if (ob->type == OB_POINTCLOUD) {
       PointCloud &pointcloud = *id_cast<PointCloud *>(ob->data);

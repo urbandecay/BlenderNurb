@@ -10,6 +10,7 @@
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
+#include "DNA_nurbs_types.h"
 #include "DNA_scene_types.h"
 
 #include "BLI_listbase.h"
@@ -27,6 +28,7 @@
 #include "BKE_layer.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
+#include "BKE_nurbs.hh"
 #include "BKE_object.hh"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
@@ -181,6 +183,9 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
     case OB_VOLUME:
       BKE_volume_data_update(depsgraph, scene, ob);
       break;
+    case OB_NURBS:
+      BKE_nurbs_data_update(ob);
+      break;
     default:
       break;
   }
@@ -300,6 +305,15 @@ void BKE_object_batch_cache_dirty_tag(Object *ob)
     case OB_VOLUME:
       BKE_volume_batch_cache_dirty_tag(id_cast<Volume *>(ob->data), BKE_VOLUME_BATCH_DIRTY_ALL);
       break;
+    case OB_NURBS:
+      BKE_nurbs_batch_cache_dirty_tag(id_cast<NurbsGeometry *>(ob->data),
+                                      BKE_NURBS_BATCH_DIRTY_ALL);
+      if (ob->runtime->geometry_set_eval) {
+        if (const Mesh *mesh = ob->runtime->geometry_set_eval->get_mesh()) {
+          BKE_mesh_batch_cache_dirty_tag(const_cast<Mesh *>(mesh), BKE_MESH_BATCH_DIRTY_ALL);
+        }
+      }
+      break;
     default:
       break;
   }
@@ -344,6 +358,10 @@ void BKE_object_data_select_update(Depsgraph *depsgraph, ID *object_data)
     case ID_LT:
       BKE_lattice_batch_cache_dirty_tag(reinterpret_cast<Lattice *>(object_data),
                                         BKE_LATTICE_BATCH_DIRTY_SELECT);
+      break;
+    case ID_NU:
+      BKE_nurbs_batch_cache_dirty_tag(id_cast<NurbsGeometry *>(object_data),
+                                      BKE_NURBS_BATCH_DIRTY_SELECT);
       break;
     default:
       break;

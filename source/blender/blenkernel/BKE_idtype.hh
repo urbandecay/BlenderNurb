@@ -331,6 +331,7 @@ extern IDTypeInfo IDType_ID_CF;
 extern IDTypeInfo IDType_ID_WS;
 extern IDTypeInfo IDType_ID_LP;
 extern IDTypeInfo IDType_ID_CV;
+extern IDTypeInfo IDType_ID_NU;
 extern IDTypeInfo IDType_ID_PT;
 extern IDTypeInfo IDType_ID_VO;
 

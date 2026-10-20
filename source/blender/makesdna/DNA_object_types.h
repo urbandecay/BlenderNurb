@@ -107,6 +107,9 @@ enum ObjectType : short {
 
   OB_VOLUME = 29,
 
+  /** Exact CAD NURBS geometry. */
+  OB_NURBS = 30,
+
   /* Keep last. */
   OB_TYPE_MAX,
 };
@@ -611,7 +614,8 @@ struct ObHook {
         OB_CURVES_LEGACY, \
         OB_CURVES, \
         OB_POINTCLOUD, \
-        OB_VOLUME))
+        OB_VOLUME, \
+        OB_NURBS))
 
 #define OB_TYPE_SUPPORT_VGROUP(_type) (ELEM(_type, OB_MESH, OB_LATTICE))
 
@@ -623,6 +627,7 @@ struct ObHook {
         OB_SURF, \
         OB_LATTICE, \
         OB_CURVES, \
+        OB_NURBS, \
         OB_POINTCLOUD))
 
 #define OB_TYPE_SUPPORT_PARVERT(_type) \
@@ -630,7 +635,7 @@ struct ObHook {
 
 /** Matches #OB_TYPE_SUPPORT_EDITMODE. */
 #define OB_DATA_SUPPORT_EDITMODE(_type) \
-  (ELEM(_type, ID_ME, ID_CU_LEGACY, ID_LT, ID_CV))
+  (ELEM(_type, ID_ME, ID_CU_LEGACY, ID_LT, ID_CV, ID_NU))
 
 /* is this ID type used as object data */
 #define OB_DATA_SUPPORT_ID(_id_type) \
@@ -643,7 +648,8 @@ struct ObHook {
         ID_LT, \
         ID_CV, \
         ID_PT, \
-        ID_VO))
+        ID_VO, \
+        ID_NU))
 
 #define OB_DATA_SUPPORT_ID_CASE \
   ID_ME: \
@@ -654,6 +660,7 @@ struct ObHook {
   case ID_LT: \
   case ID_CV: \
   case ID_PT: \
-  case ID_VO
+  case ID_VO: \
+  case ID_NU
 
 }  // namespace blender

@@ -413,6 +413,8 @@ class ObjectRef {
           return ctx_mode == CTX_MODE_EDIT_MESH;
         case OB_CURVES_LEGACY:
           return ctx_mode == CTX_MODE_EDIT_CURVE;
+        case OB_NURBS:
+          return ctx_mode == CTX_MODE_EDIT_NURBS;
         case OB_SURF:
           return ctx_mode == CTX_MODE_EDIT_SURFACE;
         case OB_LATTICE:

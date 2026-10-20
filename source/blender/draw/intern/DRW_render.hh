@@ -60,6 +60,7 @@ namespace draw {
 class TextureFromPool;
 class ObjectRef;
 class Manager;
+Mesh &DRW_nurbs_proxy_mesh_for_drawing(const Object &object);
 }  // namespace draw
 
 /* TODO: Put it somewhere else? */
@@ -210,6 +211,9 @@ inline Mesh &DRW_mesh_get_for_drawing(Mesh &mesh)
 
 template<> inline Mesh &DRW_object_get_data_for_drawing(const Object &object)
 {
+  if (object.type == OB_NURBS) {
+    return DRW_mesh_get_for_drawing(draw::DRW_nurbs_proxy_mesh_for_drawing(object));
+  }
   BLI_assert(object.type == OB_MESH);
   return DRW_mesh_get_for_drawing(*id_cast<Mesh *>(object.data));
 }

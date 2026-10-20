@@ -880,6 +880,8 @@ static StringRef template_id_browse_tip(const StructRNA *type)
         return N_("Browse Light Probe to be linked");
       case ID_CV:
         return N_("Browse Curves Data to be linked");
+      case ID_NU:
+        return N_("Browse NURBS Geometry Data to be linked");
       case ID_PT:
         return N_("Browse Point Cloud Data to be linked");
       case ID_VO:

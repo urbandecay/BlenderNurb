@@ -965,6 +965,55 @@ static eSnapMode snap_obj_fn(SnapObjectContext *sctx,
     return SCE_SNAP_TO_NONE;
   }
 
+  /* Native NURBS components have exact authored geometry for point and edge snapping, while the
+   * evaluated mesh remains useful for faces and the other modes. Keep both paths available when
+   * users enable multiple modes. */
+  if (ob_eval->type == OB_NURBS && BKE_object_is_in_editmode(ob_eval) &&
+      sctx->runtime.params.edit_mode_type != SNAP_GEOM_FINAL)
+  {
+    constexpr eSnapMode native_snap_flags = eSnapMode(SCE_SNAP_TO_POINT | SCE_SNAP_TO_EDGE |
+                                                      SCE_SNAP_TO_EDGE_ENDPOINT |
+                                                      SCE_SNAP_TO_EDGE_MIDPOINT);
+    eSnapMode native_result = SCE_SNAP_TO_NONE;
+    if (sctx->runtime.snap_to_flag & native_snap_flags) {
+      native_result = snapNurbs(sctx, ob_eval, obmat);
+    }
+
+    const eSnapMode proxy_snap_flags = eSnapMode(sctx->runtime.snap_to_flag & ~native_snap_flags);
+    if (proxy_snap_flags == SCE_SNAP_TO_NONE) {
+      return native_result;
+    }
+
+    if (const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob_eval)) {
+      const eSnapMode proxy_result = snap_object_mesh(
+          sctx, ob_eval, &mesh_eval->id, obmat, proxy_snap_flags, use_hide);
+      return proxy_result != SCE_SNAP_TO_NONE ? proxy_result : native_result;
+    }
+    return native_result;
+  }
+
+  /* Object-mode NURBS still has a derived mesh for broad surface snapping. Use its authored curve
+   * data for exact point and edge targets, then ask the evaluated mesh only for the remaining
+   * targets. This branch must precede the generic evaluated-mesh path below. */
+  if (ob_eval->type == OB_NURBS) {
+    constexpr eSnapMode native_snap_flags = eSnapMode(SCE_SNAP_TO_POINT | SCE_SNAP_TO_EDGE |
+                                                      SCE_SNAP_TO_EDGE_ENDPOINT |
+                                                      SCE_SNAP_TO_EDGE_MIDPOINT);
+    const eSnapMode native_result = snapNurbs(sctx, ob_eval, obmat);
+    const eSnapMode proxy_snap_flags = eSnapMode(sctx->runtime.snap_to_flag &
+                                                 ~native_snap_flags);
+    if (proxy_snap_flags != SCE_SNAP_TO_NONE) {
+      if (const Mesh *mesh_eval = BKE_object_get_evaluated_mesh(ob_eval)) {
+        const eSnapMode proxy_result = snap_object_mesh(
+            sctx, ob_eval, &mesh_eval->id, obmat, proxy_snap_flags, use_hide);
+        if (proxy_result != SCE_SNAP_TO_NONE) {
+          return proxy_result;
+        }
+      }
+    }
+    return native_result;
+  }
+
   if (GS(ob_data->name) == ID_ME) {
     if (ELEM(ob_eval->type, OB_CURVES_LEGACY, OB_SURF) &&
         (sctx->runtime.params.edit_mode_type != SNAP_GEOM_FINAL) &&

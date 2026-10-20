@@ -4049,6 +4049,7 @@ static RNAProcessItem PROCESS_ITEMS[] = {
     {"rna_fluid.cc", nullptr, RNA_def_fluid},
     {"rna_material.cc", "rna_material_api.cc", RNA_def_material},
     {"rna_mesh.cc", "rna_mesh_api.cc", RNA_def_mesh},
+    {"rna_nurbs.cc", nullptr, RNA_def_nurbs},
     {"rna_modifier.cc", nullptr, RNA_def_modifier},
     {"rna_nla.cc", nullptr, RNA_def_nla},
     {"rna_nodetree.cc", nullptr, RNA_def_nodetree},

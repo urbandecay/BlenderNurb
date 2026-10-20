@@ -1407,6 +1407,8 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
         return CTX_MODE_EDIT_MESH;
       case OB_CURVES_LEGACY:
         return CTX_MODE_EDIT_CURVE;
+      case OB_NURBS:
+        return CTX_MODE_EDIT_NURBS;
       case OB_SURF:
         return CTX_MODE_EDIT_SURFACE;
       case OB_FONT:
@@ -1467,6 +1469,7 @@ static const char *data_mode_strings[] = {
     "particlemode",
     "objectmode",
     "curves_sculpt",
+    "nurbs_edit",
     nullptr,
 };
 BLI_STATIC_ASSERT(ARRAY_SIZE(data_mode_strings) == CTX_MODE_NUM + 1,

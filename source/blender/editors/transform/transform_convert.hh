@@ -235,6 +235,10 @@ extern TransConvertTypeInfo TransConvertType_Cursor3D;
 
 extern TransConvertTypeInfo TransConvertType_Curve;
 
+/* `transform_convert_nurbs.cc` */
+
+extern TransConvertTypeInfo TransConvertType_Nurbs;
+
 /* `transform_convert_curves.cc` */
 
 namespace curves {

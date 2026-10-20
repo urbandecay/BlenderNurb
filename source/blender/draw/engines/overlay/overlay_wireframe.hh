@@ -156,6 +156,13 @@ class Wireframe : Overlay {
       case OB_CURVES:
         /* TODO(fclem): Not yet implemented. */
         break;
+      case OB_NURBS: {
+        if (gpu::Batch *geom = DRW_cache_mesh_loose_edges_get(ob_ref.object)) {
+          coloring.mesh_all_edges_ps_->draw(
+              geom, manager.unique_handle(ob_ref), res.select_id(ob_ref).get());
+        }
+        break;
+      }
       case OB_MESH: {
         /* Force display in edit mode when overlay is off in wireframe mode (see #78484). */
         const bool wireframe_no_overlay = state.hide_overlays && state.is_wireframe_mode;

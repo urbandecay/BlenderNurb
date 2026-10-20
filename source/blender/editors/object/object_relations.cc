@@ -864,6 +864,7 @@ static void single_obdata_users(
                                                  nullptr,
                                                  LIB_ID_COPY_DEFAULT | LIB_ID_COPY_ACTIONS));
             break;
+          case OB_NURBS:
           case OB_POINTCLOUD:
             ob->data = ID_NEW_SET(ob->data,
                                   BKE_id_copy_ex(bmain,

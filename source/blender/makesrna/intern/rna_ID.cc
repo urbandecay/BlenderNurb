@@ -38,6 +38,7 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_GR, "COLLECTION", ICON_OUTLINER_COLLECTION, "Collection", ""},
     {ID_CU_LEGACY, "CURVE", ICON_CURVE_DATA, "Curve", ""},
     {ID_CV, "CURVES", ICON_CURVES_DATA, "Curves", ""},
+    {ID_NU, "NURBS_GEOMETRY", ICON_CURVE_DATA, "NURBS Geometry", ""},
     {ID_VF, "FONT", ICON_FONT_DATA, "Font", ""},
     {ID_IM, "IMAGE", ICON_IMAGE_DATA, "Image", ""},
     {ID_KE, "KEY", ICON_SHAPEKEY_DATA, "Key", ""},
@@ -131,6 +132,11 @@ const IDFilterEnumPropertyItem rna_enum_id_type_filter_items[] = {
      ICON_CURVES_DATA,
      "Hair Curves",
      "Show/hide Curves data-blocks"},
+    {FILTER_ID_NU,
+     "filter_nurbs_geometry",
+     ICON_CURVE_DATA,
+     "NURBS Geometry",
+     "Show NURBS geometry data-blocks"},
     {FILTER_ID_IM, "filter_image", ICON_IMAGE_DATA, "Images", "Show Image data-blocks"},
     {FILTER_ID_LA, "filter_light", ICON_LIGHT_DATA, "Lights", "Show Light data-blocks"},
     {FILTER_ID_LP,
@@ -439,6 +445,9 @@ short RNA_type_to_ID_code(const StructRNA *type)
   if (base_type == RNA_Mesh) {
     return ID_ME;
   }
+  if (base_type == RNA_NurbsGeometry) {
+    return ID_NU;
+  }
   if (base_type == RNA_Mask) {
     return ID_MSK;
   }
@@ -516,6 +525,8 @@ StructRNA *ID_code_to_RNA_type(short idcode)
       return RNA_Collection;
     case ID_CV:
       return RNA_Curves;
+    case ID_NU:
+      return RNA_NurbsGeometry;
     case ID_IM:
       return RNA_Image;
     case ID_KE:

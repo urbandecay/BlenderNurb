@@ -234,6 +234,10 @@ eSnapMode snapCamera(SnapObjectContext *sctx,
 
 eSnapMode snapCurve(SnapObjectContext *sctx, const Object *ob_eval, const float4x4 &obmat);
 
+/* `transform_snap_object_nurbs.cc` */
+
+eSnapMode snapNurbs(SnapObjectContext *sctx, const Object *ob_eval, const float4x4 &obmat);
+
 /* `transform_snap_object_editmesh.cc` */
 
 eSnapMode snap_object_editmesh(SnapObjectContext *sctx,

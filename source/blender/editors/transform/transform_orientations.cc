@@ -13,6 +13,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_curve_types.h"
+#include "DNA_nurbs_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -32,7 +33,9 @@
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
 #include "BKE_editmesh.hh"
+#include "BKE_idtype.hh"
 #include "BKE_layer.hh"
+#include "BKE_nurbs.hh"
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
 
@@ -159,6 +162,40 @@ static TransformOrientation *createCurveSpace(bContext *C,
     name = DATA_("Curve");
   }
 
+  return addMatrixSpace(C, mat, name, overwrite);
+}
+
+static TransformOrientation *createNurbsSpace(bContext *C,
+                                              ReportList *reports,
+                                              const char *name,
+                                              const bool overwrite)
+{
+  Object *obedit = CTX_data_edit_object(C);
+  const NurbsGeometry &geometry = *id_cast<const NurbsGeometry *>(obedit->data);
+  if (geometry.topology != nullptr) {
+    BKE_report(reports,
+               RPT_ERROR,
+               "Custom orientation from NURBS surface topology is not supported yet");
+    return nullptr;
+  }
+
+  float normal[3], plane[3], mat[3][3];
+  const int type = getTransformOrientation(C, normal, plane);
+  bool success = false;
+  if (ORIENTATION_USE_PLANE(type) && !is_zero_v3(plane)) {
+    success = createSpaceNormalTangent(mat, normal, plane);
+  }
+  if (!success && type != ORIENTATION_NONE) {
+    success = createSpaceNormal(mat, normal);
+  }
+  if (!success) {
+    BKE_report(reports, RPT_ERROR, "Select NURBS control points to create an orientation");
+    return nullptr;
+  }
+
+  if (name[0] == 0) {
+    name = DATA_("NURBS Curve");
+  }
   return addMatrixSpace(C, mat, name, overwrite);
 }
 
@@ -404,13 +441,15 @@ bool BIF_createTransformOrientation(bContext *C,
   }
   else {
     Object *obedit = CTX_data_edit_object(C);
-    Object *ob = CTX_data_active_object(C);
     if (obedit) {
       if (obedit->type == OB_MESH) {
         ts = createMeshSpace(C, reports, name, overwrite);
       }
       else if (obedit->type == OB_CURVES_LEGACY) {
         ts = createCurveSpace(C, reports, name, overwrite);
+      }
+      else if (obedit->type == OB_NURBS) {
+        ts = createNurbsSpace(C, reports, name, overwrite);
       }
     }
     else {
@@ -758,6 +797,123 @@ static uint bm_mesh_faces_select_get_n(BMesh *bm, BMVert **elems, const uint n)
       bm, (BMElem **)elems, min_ii(n, bm->totfacesel), BM_FACES_OF_MESH, BM_FACE);
 }
 #endif
+
+static void nurbs_control_vertex_calc_normal_plane(const NurbsCurve &curve,
+                                                   const int index,
+                                                   float r_normal[3],
+                                                   float r_plane[3])
+{
+  zero_v3(r_normal);
+  zero_v3(r_plane);
+  if (curve.control_vertices == nullptr || index < 0 || index >= curve.control_vertex_count) {
+    return;
+  }
+
+  float dir_prev[3] = {0.0f, 0.0f, 0.0f};
+  float dir_next[3] = {0.0f, 0.0f, 0.0f};
+  const NurbsControlVertex &control_vertex = curve.control_vertices[index];
+  if (index > 0) {
+    const NurbsControlVertex &previous = curve.control_vertices[index - 1];
+    const float previous_position[3] = {float(previous.position[0]),
+                                        float(previous.position[1]),
+                                        float(previous.position[2])};
+    const float position[3] = {float(control_vertex.position[0]),
+                               float(control_vertex.position[1]),
+                               float(control_vertex.position[2])};
+    sub_v3_v3v3(dir_prev, previous_position, position);
+    normalize_v3(dir_prev);
+  }
+  if (index + 1 < curve.control_vertex_count) {
+    const NurbsControlVertex &next = curve.control_vertices[index + 1];
+    const float position[3] = {float(control_vertex.position[0]),
+                               float(control_vertex.position[1]),
+                               float(control_vertex.position[2])};
+    const float next_position[3] = {
+        float(next.position[0]), float(next.position[1]), float(next.position[2])};
+    sub_v3_v3v3(dir_next, position, next_position);
+    normalize_v3(dir_next);
+  }
+
+  add_v3_v3v3(r_normal, dir_prev, dir_next);
+  normalize_v3(r_normal);
+
+  cross_v3_v3v3(r_plane, dir_prev, dir_next);
+  float dir_mid[3];
+  add_v3_v3v3(dir_mid, dir_prev, dir_next);
+  float tangent[3];
+  cross_v3_v3v3(tangent, r_plane, dir_mid);
+  copy_v3_v3(r_plane, tangent);
+  normalize_v3(r_plane);
+}
+
+static int get_nurbs_curve_edit_orientation(const NurbsGeometry &geometry,
+                                           const short around,
+                                           float r_normal[3],
+                                           float r_plane[3])
+{
+  if (geometry.topology != nullptr) {
+    return ORIENTATION_NONE;
+  }
+
+  if (around == V3D_AROUND_ACTIVE && geometry.active_control_vertex_id != 0) {
+    for (const NurbsCurve &curve : geometry.curves) {
+      if (curve.control_vertices == nullptr) {
+        continue;
+      }
+      for (int i = 0; i < curve.control_vertex_count; i++) {
+        const NurbsControlVertex &control_vertex = curve.control_vertices[i];
+        if (control_vertex.id == geometry.active_control_vertex_id &&
+            (control_vertex.flag & NURBS_CV_SELECT))
+        {
+          nurbs_control_vertex_calc_normal_plane(curve, i, r_normal, r_plane);
+          return is_zero_v3(r_normal) ? ORIENTATION_NONE : ORIENTATION_FACE;
+        }
+      }
+    }
+    return ORIENTATION_NONE;
+  }
+
+  for (const NurbsCurve &curve : geometry.curves) {
+    if (curve.control_vertices == nullptr || curve.control_vertex_count <= 0) {
+      continue;
+    }
+    for (int i = 0; i < curve.control_vertex_count; i++) {
+      const NurbsControlVertex &control_vertex = curve.control_vertices[i];
+      if (!(control_vertex.flag & NURBS_CV_SELECT)) {
+        continue;
+      }
+
+      const bool previous_selected = i > 0 &&
+                                     (curve.control_vertices[i - 1].flag & NURBS_CV_SELECT);
+      const bool next_selected = i + 1 < curve.control_vertex_count &&
+                                 (curve.control_vertices[i + 1].flag & NURBS_CV_SELECT);
+      if (around == V3D_AROUND_LOCAL_ORIGINS || (!previous_selected && !next_selected)) {
+        float normal[3], plane[3];
+        nurbs_control_vertex_calc_normal_plane(curve, i, normal, plane);
+        add_v3_v3(r_normal, normal);
+        add_v3_v3(r_plane, plane);
+      }
+      else if (next_selected) {
+        const NurbsControlVertex &next = curve.control_vertices[i + 1];
+        const float position[3] = {float(control_vertex.position[0]),
+                                   float(control_vertex.position[1]),
+                                   float(control_vertex.position[2])};
+        const float next_position[3] = {
+            float(next.position[0]), float(next.position[1]), float(next.position[2])};
+        float tangent[3];
+        sub_v3_v3v3(tangent, position, next_position);
+        normalize_v3(tangent);
+        add_v3_v3(r_normal, tangent);
+
+        float normal[3], plane[3];
+        nurbs_control_vertex_calc_normal_plane(curve, i, normal, plane);
+        add_v3_v3(r_plane, plane);
+      }
+    }
+  }
+
+  return is_zero_v3(r_normal) ? ORIENTATION_NONE : ORIENTATION_FACE;
+}
 
 int getTransformOrientation_ex(const Main &bmain,
                                const Scene *scene,
@@ -1155,6 +1311,10 @@ int getTransformOrientation_ex(const Main &bmain,
       if (!is_zero_v3(r_normal)) {
         result = ORIENTATION_FACE;
       }
+    }
+    else if (obedit->type == OB_NURBS) {
+      const NurbsGeometry &geometry = *id_cast<const NurbsGeometry *>(obedit->data);
+      result = get_nurbs_curve_edit_orientation(geometry, around, r_normal, r_plane);
     }
     /* Vectors from edges don't need the special transpose inverse multiplication. */
     if (result == ORIENTATION_EDGE) {

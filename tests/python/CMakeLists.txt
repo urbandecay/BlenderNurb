@@ -215,6 +215,34 @@ add_system_python_test(
 # ------------------------------------------------------------------------------
 
 add_blender_test(
+  script_nurbs
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_nurbs.py
+)
+
+if(WITH_GTESTS AND NOT WITH_TESTS_SINGLE_BINARY)
+  set(NURBS_TOPOLOGY_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/nurbs_topology_fixture.blend")
+  add_test(
+    NAME nurbs_topology_fixture
+    COMMAND ${CMAKE_COMMAND} -E env
+      "BLENDER_NURBS_TEST_ARTIFACT=${NURBS_TOPOLOGY_FIXTURE}"
+      $<TARGET_FILE:blenkernel_nurbs_topology_io_test>
+      --gtest_filter=NurbsTopologyIOTest.BlendfileRoundTripRepairsStaleAllocatorAfterSharedEdgeSplit
+  )
+  set_tests_properties(nurbs_topology_fixture PROPERTIES FIXTURES_SETUP nurbs_topology)
+  add_blender_test(
+    script_nurbs_topology
+    --python ${CMAKE_CURRENT_LIST_DIR}/bl_nurbs_topology.py
+    -- --fixture ${NURBS_TOPOLOGY_FIXTURE}
+  )
+  set_tests_properties(script_nurbs_topology PROPERTIES FIXTURES_REQUIRED nurbs_topology)
+  add_test(
+    NAME nurbs_topology_fixture_cleanup
+    COMMAND ${CMAKE_COMMAND} -E rm -f "${NURBS_TOPOLOGY_FIXTURE}"
+  )
+  set_tests_properties(nurbs_topology_fixture_cleanup PROPERTIES FIXTURES_CLEANUP nurbs_topology)
+endif()
+
+add_blender_test(
   script_load_keymap
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_keymap_completeness.py
 )

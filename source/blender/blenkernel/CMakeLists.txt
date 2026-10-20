@@ -214,6 +214,16 @@ set(SRC
   intern/node_tree_structure_type_inferencing.cc
   intern/node_tree_update.cc
   intern/node_tree_zones.cc
+  intern/nurbs.cc
+  intern/nurbs_curve.cc
+  intern/nurbs_mesh.cc
+  intern/nurbs_surface.cc
+  intern/nurbs_surface_curve.cc
+  intern/nurbs_tessellate.cc
+  intern/nurbs_topology.cc
+  intern/nurbs_topology_edit.cc
+  intern/nurbs_topology_io.cc
+  intern/nurbs_topology_ops.cc
   intern/object.cc
   intern/object_deform.cc
   intern/object_dupli.cc
@@ -444,6 +454,14 @@ set(SRC
   BKE_node_tree_reference_lifetimes.hh
   BKE_node_tree_update.hh
   BKE_node_tree_zones.hh
+  BKE_nurbs.hh
+  BKE_nurbs_curve.hh
+  BKE_nurbs_mesh.hh
+  BKE_nurbs_surface.hh
+  BKE_nurbs_surface_curve.hh
+  BKE_nurbs_tessellate.hh
+  BKE_nurbs_topology.hh
+  BKE_nurbs_topology_edit.hh
   BKE_object.hh
   BKE_object_deform.h
   BKE_object_types.hh
@@ -514,6 +532,7 @@ set(SRC
   intern/multires_inline.hh
   intern/multires_reshape.hh
   intern/multires_unsubdivide.hh
+  intern/nurbs_eval.hh
   intern/ocean_intern.h
   intern/pbvh_intern.hh
   intern/subdiv_converter.hh
@@ -701,6 +720,10 @@ add_dependencies(bf_blenkernel bf_rna)
 
 
 if(WITH_GTESTS)
+  # Standalone ID tests initialize the node system, requiring another pass through
+  # the kernel, node, geometry and compositor static-library dependency cycle.
+  set_property(TARGET bf_blenkernel PROPERTY LINK_INTERFACE_MULTIPLICITY 4)
+
   set(TEST_SRC
     intern/anim_data_test.cc
     intern/asset_metadata_test.cc
@@ -728,6 +751,15 @@ if(WITH_GTESTS)
     intern/main_namemap_test.cc
     intern/nla_test.cc
     intern/node_socket_value_iter_test.cc
+    intern/nurbs_test.cc
+    intern/nurbs_curve_test.cc
+    intern/nurbs_mesh_test.cc
+    intern/nurbs_surface_test.cc
+    intern/nurbs_surface_curve_test.cc
+    intern/nurbs_tessellate_test.cc
+    intern/nurbs_topology_test.cc
+    intern/nurbs_topology_edit_test.cc
+    intern/nurbs_topology_io_test.cc
     intern/path_templates_test.cc
     intern/scene_test.cc
     intern/subdiv_ccg_test.cc

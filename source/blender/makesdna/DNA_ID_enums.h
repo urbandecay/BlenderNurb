@@ -162,6 +162,7 @@ enum ID_Type {
   ID_WS = MAKE_ID2('W', 'S'),        /* WorkSpace */
   ID_LP = MAKE_ID2('L', 'P'),        /* LightProbe */
   ID_CV = MAKE_ID2('C', 'V'),        /* Curves */
+  ID_NU = MAKE_ID2('N', 'U'),        /* NURBS geometry */
   ID_PT = MAKE_ID2('P', 'T'),        /* PointCloud */
   ID_VO = MAKE_ID2('V', 'O'),        /* Volume */
 };

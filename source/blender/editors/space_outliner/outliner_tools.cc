@@ -155,6 +155,7 @@ static void get_element_operation_type(
       case ID_WS:
       case ID_LP:
       case ID_CV:
+      case ID_NU:
       case ID_PT:
       case ID_VO:
         is_standard_id = true;

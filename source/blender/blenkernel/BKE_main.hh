@@ -77,6 +77,7 @@ struct CacheFile;
 struct WorkSpace;
 struct Curves;
 struct PointCloud;
+struct NurbsGeometry;
 struct Volume;
 
 struct Brush;
@@ -391,6 +392,7 @@ struct Main : NonCopyable, NonMovable {
    * but they are generic curve data-blocks, not just for hair.
    */
   ListBaseT<Curves> hair_curves = {};
+  ListBaseT<NurbsGeometry> nurbs_geometries = {};
   ListBaseT<PointCloud> pointclouds = {};
   ListBaseT<Volume> volumes = {};
 

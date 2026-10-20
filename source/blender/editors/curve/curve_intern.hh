@@ -189,6 +189,13 @@ bool ed_editnurb_spin(
 void CURVE_OT_de_select_first(wmOperatorType *ot);
 void CURVE_OT_de_select_last(wmOperatorType *ot);
 void CURVE_OT_select_all(wmOperatorType *ot);
+void NURBS_OT_select_all(wmOperatorType *ot);
+void NURBS_OT_select_mode(wmOperatorType *ot);
+void NURBS_OT_edge_split(wmOperatorType *ot);
+void NURBS_OT_primitive_circle_add(wmOperatorType *ot);
+void NURBS_OT_primitive_line_add(wmOperatorType *ot);
+void NURBS_OT_primitive_arc_add(wmOperatorType *ot);
+void NURBS_OT_primitive_path_add(wmOperatorType *ot);
 void CURVE_OT_select_linked(wmOperatorType *ot);
 void CURVE_OT_select_linked_pick(wmOperatorType *ot);
 void CURVE_OT_select_row(wmOperatorType *ot);

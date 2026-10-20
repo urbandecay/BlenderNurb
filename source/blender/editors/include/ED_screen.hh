@@ -666,6 +666,7 @@ bool ED_operator_editcurve_3d(bContext *C);
 bool ED_operator_editsurf(bContext *C);
 bool ED_operator_editsurfcurve(bContext *C);
 bool ED_operator_editsurfcurve_region_view3d(bContext *C);
+bool ED_operator_editnurbs(bContext *C);
 bool ED_operator_editfont(bContext *C);
 bool ED_operator_editlattice(bContext *C);
 bool ED_operator_editmball(bContext *C);

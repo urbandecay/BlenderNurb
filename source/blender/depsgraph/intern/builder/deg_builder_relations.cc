@@ -544,6 +544,7 @@ void DepsgraphRelationBuilder::build_id(ID *id)
     case ID_CU_LEGACY:
     case ID_LT:
     case ID_CV:
+    case ID_NU:
     case ID_PT:
     case ID_VO:
       build_object_data_geometry_datablock(id);
@@ -935,6 +936,7 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
     case OB_CURVES:
     case OB_POINTCLOUD:
     case OB_VOLUME:
+    case OB_NURBS:
     {
       build_object_data_geometry(object);
       /* TODO(sergey): Only for until we support granular
@@ -2369,6 +2371,7 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
       break;
     }
     case ID_LT:
+    case ID_NU:
       break;
     case ID_CV: {
       Curves *curves_id = reinterpret_cast<Curves *>(obdata);

@@ -152,6 +152,7 @@ void BKE_main_clear(Main &bmain)
         CASE_ID_INDEX(INDEX_ID_ME);
         CASE_ID_INDEX(INDEX_ID_CU_LEGACY);
         CASE_ID_INDEX(INDEX_ID_CV);
+        CASE_ID_INDEX(INDEX_ID_NU);
         CASE_ID_INDEX(INDEX_ID_PT);
         CASE_ID_INDEX(INDEX_ID_VO);
         CASE_ID_INDEX(INDEX_ID_LT);
@@ -1063,6 +1064,8 @@ ListBaseT<ID> *which_libbase(Main *bmain, short type)
       return &(bmain->workspaces.cast<ID>());
     case ID_CV:
       return &(bmain->hair_curves.cast<ID>());
+    case ID_NU:
+      return &(bmain->nurbs_geometries.cast<ID>());
     case ID_PT:
       return &(bmain->pointclouds.cast<ID>());
     case ID_VO:
@@ -1097,6 +1100,7 @@ MainListsArray BKE_main_lists_get(Main &bmain)
   lb[INDEX_ID_ME] = &(bmain.meshes.cast<ID>());
   lb[INDEX_ID_CU_LEGACY] = &(bmain.curves.cast<ID>());
   lb[INDEX_ID_CV] = &(bmain.hair_curves.cast<ID>());
+  lb[INDEX_ID_NU] = &(bmain.nurbs_geometries.cast<ID>());
   lb[INDEX_ID_PT] = &(bmain.pointclouds.cast<ID>());
   lb[INDEX_ID_VO] = &(bmain.volumes.cast<ID>());
 

@@ -544,6 +544,9 @@ void Instance::object_sync(ObjectRef &ob_ref, Manager &manager)
       case OB_CURVES_LEGACY:
         layer.curves.edit_object_sync_legacy(manager, ob_ref, resources);
         break;
+      case OB_NURBS:
+        layer.curves.edit_object_sync_nurbs(manager, ob_ref);
+        break;
       case OB_CURVES:
         layer.curves.edit_object_sync(manager, ob_ref, resources, state);
         break;
@@ -989,6 +992,8 @@ bool Instance::object_is_edit_mode(const Object *object)
         return state.ctx_mode == CTX_MODE_EDIT_MESH;
       case OB_CURVES_LEGACY:
         return state.ctx_mode == CTX_MODE_EDIT_CURVE;
+      case OB_NURBS:
+        return state.ctx_mode == CTX_MODE_EDIT_NURBS;
       case OB_SURF:
         return state.ctx_mode == CTX_MODE_EDIT_SURFACE;
       case OB_LATTICE:

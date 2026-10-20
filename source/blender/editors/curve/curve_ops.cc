@@ -96,6 +96,13 @@ void ED_operatortypes_curve()
   WM_operatortype_append(CURVE_OT_de_select_first);
   WM_operatortype_append(CURVE_OT_de_select_last);
   WM_operatortype_append(CURVE_OT_select_all);
+  WM_operatortype_append(NURBS_OT_select_all);
+  WM_operatortype_append(NURBS_OT_select_mode);
+  WM_operatortype_append(NURBS_OT_edge_split);
+  WM_operatortype_append(NURBS_OT_primitive_line_add);
+  WM_operatortype_append(NURBS_OT_primitive_arc_add);
+  WM_operatortype_append(NURBS_OT_primitive_circle_add);
+  WM_operatortype_append(NURBS_OT_primitive_path_add);
   WM_operatortype_append(CURVE_OT_select_linked);
   WM_operatortype_append(CURVE_OT_select_linked_pick);
   WM_operatortype_append(CURVE_OT_select_row);
@@ -154,6 +161,9 @@ void ED_keymap_curve(wmKeyConfig *keyconf)
   /* only set in editmode curve, by space_view3d listener */
   keymap = WM_keymap_ensure(keyconf, "Curve", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = ED_operator_editsurfcurve;
+
+  keymap = WM_keymap_ensure(keyconf, "NURBS", SPACE_EMPTY, RGN_TYPE_WINDOW);
+  keymap->poll = ED_operator_editnurbs;
 
   curve_pen_modal_keymap(keyconf);
 }

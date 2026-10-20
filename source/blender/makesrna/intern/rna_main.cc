@@ -165,6 +165,7 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(masks)
 RNA_MAIN_LISTBASE_FUNCS_DEF(materials)
 RNA_MAIN_LISTBASE_FUNCS_DEF(meshes)
 RNA_MAIN_LISTBASE_FUNCS_DEF(movieclips)
+RNA_MAIN_LISTBASE_FUNCS_DEF(nurbs_geometries)
 RNA_MAIN_LISTBASE_FUNCS_DEF(nodetrees)
 RNA_MAIN_LISTBASE_FUNCS_DEF(objects)
 RNA_MAIN_LISTBASE_FUNCS_DEF(paintcurves)
@@ -505,6 +506,12 @@ void RNA_def_main(BlenderRNA *brna)
        "Point Clouds",
        "Point cloud data-blocks",
        RNA_def_main_pointclouds},
+      {"nurbs_geometries",
+       "NurbsGeometry",
+       "rna_Main_nurbs_geometries_begin",
+       "NURBS Geometries",
+       "NURBS geometry data-blocks",
+       RNA_def_main_nurbs_geometries},
       {"volumes",
        "Volume",
        "rna_Main_volumes_begin",

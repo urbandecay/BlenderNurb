@@ -660,14 +660,16 @@ static bool editmode_load_free_ex(Main *bmain,
       BKE_editlattice_free(obedit);
     }
   }
-  else if (ELEM(obedit->type, OB_CURVES, OB_POINTCLOUD)) {
+  else if (ELEM(obedit->type, OB_CURVES, OB_POINTCLOUD, OB_NURBS)) {
     /* Object doesn't have specific edit mode data, so pass. */
   }
   else {
     return false;
   }
 
-  if (load_data) {
+  /* NURBS edit mode works directly on its ID data, so there is no transient edit-data flush
+   * flag to clear. */
+  if (load_data && obedit->type != OB_NURBS) {
     char *needs_flush_ptr = BKE_object_data_editmode_flush_ptr_get(obedit->data);
     if (needs_flush_ptr) {
       *needs_flush_ptr = false;
@@ -831,6 +833,11 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
   else if (ob->type == OB_CURVES) {
     ok = true;
     WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_CURVES, scene);
+  }
+  else if (ob->type == OB_NURBS) {
+    /* The authoritative NURBS ID is edited directly; no legacy Curve/EditNurb data is made. */
+    ok = true;
+    WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_CURVE, scene);
   }
   else if (ob->type == OB_POINTCLOUD) {
     ok = true;

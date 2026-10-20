@@ -42,6 +42,7 @@
 #  include "BKE_material.hh"
 #  include "BKE_mesh.hh"
 #  include "BKE_movieclip.hh"
+#  include "BKE_nurbs.hh"
 #  include "BKE_node.hh"
 #  include "BKE_object.hh"
 #  include "BKE_paint.hh"
@@ -71,6 +72,7 @@
 #  include "DNA_material_types.h"
 #  include "DNA_mesh_types.h"
 #  include "DNA_movieclip_types.h"
+#  include "DNA_nurbs_types.h"
 #  include "DNA_node_types.h"
 #  include "DNA_particle_types.h"
 #  include "DNA_pointcloud_types.h"
@@ -344,6 +346,7 @@ static Mesh *rna_Main_meshes_new_from_object(Main *bmain,
     case OB_CURVES_LEGACY:
     case OB_SURF:
     case OB_MESH:
+    case OB_NURBS:
       break;
     default:
       BKE_report(reports, RPT_ERROR, "Object does not have geometry data");
@@ -736,6 +739,19 @@ static PointCloud *rna_Main_pointclouds_new(Main *bmain, const char *name)
   return pointcloud;
 }
 
+static NurbsGeometry *rna_Main_nurbs_geometries_new(Main *bmain, const char *name)
+{
+  char safe_name[MAX_ID_NAME - 2];
+  rna_idname_validate(name, safe_name);
+
+  NurbsGeometry *geometry = BKE_nurbs_add(bmain, safe_name);
+  id_us_min(&geometry->id);
+
+  WM_main_add_notifier(NC_ID | NA_ADDED, nullptr);
+
+  return geometry;
+}
+
 static Volume *rna_Main_volumes_new(Main *bmain, const char *name)
 {
   char safe_name[MAX_ID_NAME - 2];
@@ -789,6 +805,7 @@ RNA_MAIN_ID_TAG_FUNCS_DEF(workspaces, workspaces, ID_WS)
 RNA_MAIN_ID_TAG_FUNCS_DEF(lightprobes, lightprobes, ID_LP)
 RNA_MAIN_ID_TAG_FUNCS_DEF(hair_curves, hair_curves, ID_CV)
 RNA_MAIN_ID_TAG_FUNCS_DEF(pointclouds, pointclouds, ID_PT)
+RNA_MAIN_ID_TAG_FUNCS_DEF(nurbs_geometries, nurbs_geometries, ID_NU)
 RNA_MAIN_ID_TAG_FUNCS_DEF(volumes, volumes, ID_VO)
 
 #  undef RNA_MAIN_ID_TAG_FUNCS_DEF
@@ -2115,6 +2132,49 @@ void RNA_def_main_pointclouds(BlenderRNA *brna, PropertyRNA *cprop)
                   "Make sure interface does not reference this point cloud data");
 
   func = RNA_def_function(srna, "tag", "rna_Main_pointclouds_tag");
+  parm = RNA_def_boolean(func, "value", false, "Value", "");
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+}
+
+void RNA_def_main_nurbs_geometries(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+  FunctionRNA *func;
+  PropertyRNA *parm;
+
+  RNA_def_property_srna(cprop, "BlendDataNurbsGeometries");
+  srna = RNA_def_struct(brna, "BlendDataNurbsGeometries", nullptr);
+  RNA_def_struct_sdna(srna, "Main");
+  RNA_def_struct_ui_text(srna, "Main NURBS Geometries", "Collection of NURBS geometries");
+
+  func = RNA_def_function(srna, "new", "rna_Main_nurbs_geometries_new");
+  RNA_def_function_ui_description(func, "Add a new NURBS geometry data-block");
+  parm = RNA_def_string(func, "name", "NurbsGeometry", 0, "", "New name for the data-block");
+  RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
+  parm = RNA_def_pointer(
+      func, "geometry", "NurbsGeometry", "", "New NURBS geometry data-block");
+  RNA_def_function_return(func, parm);
+
+  func = RNA_def_function(srna, "remove", "rna_Main_ID_remove");
+  RNA_def_function_flag(func, FUNC_USE_REPORTS);
+  RNA_def_function_ui_description(func, "Remove a NURBS geometry from the current blend-file");
+  parm = RNA_def_pointer(func, "geometry", "NurbsGeometry", "", "NURBS geometry to remove");
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+  RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
+  RNA_def_boolean(func,
+                  "do_unlink",
+                  true,
+                  "",
+                  "Unlink all usages of this geometry before deleting it");
+  RNA_def_boolean(func,
+                  "do_id_user",
+                  true,
+                  "",
+                  "Decrement user counter of data-blocks used by this geometry");
+  RNA_def_boolean(
+      func, "do_ui_user", true, "", "Make sure interface does not reference this geometry");
+
+  func = RNA_def_function(srna, "tag", "rna_Main_nurbs_geometries_tag");
   parm = RNA_def_boolean(func, "value", false, "Value", "");
   RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
 }

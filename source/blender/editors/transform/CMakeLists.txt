@@ -29,6 +29,7 @@ set(SRC
   transform_convert_mesh_vert_cdata.cc
   transform_convert_nla.cc
   transform_convert_node.cc
+  transform_convert_nurbs.cc
   transform_convert_object.cc
   transform_convert_object_texspace.cc
   transform_convert_paintcurve.cc
@@ -86,6 +87,7 @@ set(SRC
   transform_snap_object_editmesh.cc
   transform_snap_object_lattice.cc
   transform_snap_object_mesh.cc
+  transform_snap_object_nurbs.cc
   transform_snap_sequencer.cc
 
   transform.hh

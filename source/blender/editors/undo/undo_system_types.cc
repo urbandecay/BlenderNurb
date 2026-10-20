@@ -31,6 +31,7 @@ void ED_undosys_type_init()
   /* Edit Modes */
   using namespace blender::ed;
   BKE_undosys_type_append(ED_curve_undosys_type);
+  BKE_undosys_type_append(ED_nurbs_undosys_type);
   BKE_undosys_type_append(ED_font_undosys_type);
   BKE_undosys_type_append(ED_lattice_undosys_type);
   BKE_undosys_type_append(ED_mesh_undosys_type);

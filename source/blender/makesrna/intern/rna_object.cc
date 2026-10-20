@@ -88,6 +88,7 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     {OB_CURVES, "CURVES", ICON_OUTLINER_OB_CURVES, "Hair Curves", ""},
     {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
     {OB_VOLUME, "VOLUME", ICON_OUTLINER_OB_VOLUME, "Volume", ""},
+    {OB_NURBS, "NURBS", ICON_OUTLINER_OB_CURVE, "NURBS", "Exact NURBS geometry"},
     RNA_ENUM_ITEM_SEPR,
     {OB_LATTICE, "LATTICE", ICON_OUTLINER_OB_LATTICE, "Lattice", ""},
     RNA_ENUM_ITEM_SEPR,
@@ -114,6 +115,7 @@ const EnumPropertyItem rna_enum_object_type_add_items[] = {
     {OB_CURVES, "CURVES", ICON_OUTLINER_OB_CURVES, "Hair Curves", ""},
     {OB_POINTCLOUD, "POINTCLOUD", ICON_OUTLINER_OB_POINTCLOUD, "Point Cloud", ""},
     {OB_VOLUME, "VOLUME", ICON_OUTLINER_OB_VOLUME, "Volume", ""},
+    {OB_NURBS, "NURBS", ICON_OUTLINER_OB_CURVE, "NURBS", "Exact NURBS geometry"},
     RNA_ENUM_ITEM_SEPR,
     {OB_LATTICE, "LATTICE", ICON_OUTLINER_OB_LATTICE, "Lattice", ""},
     RNA_ENUM_ITEM_SEPR,
@@ -457,6 +459,8 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
       return RNA_PointCloud;
     case OB_VOLUME:
       return RNA_Volume;
+    case OB_NURBS:
+      return RNA_NurbsGeometry;
     default:
       return RNA_ID;
   }

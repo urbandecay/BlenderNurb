@@ -8,9 +8,12 @@
 
 #pragma once
 
+#include "BLI_math_color.h"
+
 #include "BKE_attribute.hh"
 
 #include "DNA_curves_types.h"
+#include "DNA_nurbs_types.h"
 
 #include "GPU_capabilities.hh"
 
@@ -45,6 +48,14 @@ class Curves : Overlay {
   PassSimple::Sub *edit_legacy_surface_handles_ = nullptr;
   /* Handles that are below the geometry and are rendered with lower alpha. */
   PassSimple::Sub *edit_legacy_surface_xray_handles_ = nullptr;
+
+  PassSimple edit_nurbs_ps_ = {"NURBS Edit"};
+  PassSimple::Sub *edit_nurbs_selected_faces_ = nullptr;
+  PassSimple::Sub *edit_nurbs_active_face_ = nullptr;
+  PassSimple::Sub *edit_nurbs_edges_ = nullptr;
+  PassSimple::Sub *edit_nurbs_selected_edges_ = nullptr;
+  PassSimple::Sub *edit_nurbs_active_edge_ = nullptr;
+  PassSimple::Sub *edit_nurbs_points_ = nullptr;
 
   /* TODO(fclem): This is quite wasteful and expensive, prefer in shader Z modification like the
    * retopology offset. */
@@ -186,6 +197,73 @@ class Curves : Overlay {
                                    DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA;
       edit_legacy_surface_handles_ = create_sub("SurfaceHandles", state_front, 1.0f);
     }
+
+    {
+      auto &pass = edit_nurbs_ps_;
+      pass.init();
+      pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+      pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
+      {
+        auto &sub = pass.sub("SelectedTopologyFaces");
+        sub.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA,
+                      state.clipping_plane_count);
+        sub.shader_set(res.shaders->uniform_color.get());
+        float4 color;
+        ui::theme::get_color_4fv(TH_FACE_SELECT, color);
+        srgb_to_linearrgb_v4(color, color);
+        sub.push_constant("ucolor", color);
+        edit_nurbs_selected_faces_ = &sub;
+      }
+      {
+        auto &sub = pass.sub("ActiveTopologyFace");
+        sub.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA,
+                      state.clipping_plane_count);
+        sub.shader_set(res.shaders->uniform_color.get());
+        float4 color;
+        ui::theme::get_color_4fv(TH_EDITMESH_ACTIVE, color);
+        color.w *= 0.25f;
+        srgb_to_linearrgb_v4(color, color);
+        sub.push_constant("ucolor", color);
+        edit_nurbs_active_face_ = &sub;
+      }
+      {
+        auto &sub = pass.sub("ControlPolygon");
+        sub.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_WRITE_DEPTH,
+                      state.clipping_plane_count);
+        sub.shader_set(res.shaders->lattice_wire.get());
+        sub.bind_texture("weight_tx", &res.weight_ramp_tx);
+        edit_nurbs_edges_ = &sub;
+      }
+      {
+        auto &sub = pass.sub("SelectedTopologyEdges");
+        sub.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA,
+                      state.clipping_plane_count);
+        sub.shader_set(res.shaders->uniform_color.get());
+        float4 color;
+        ui::theme::get_color_4fv(TH_EDGE_SELECT, color);
+        srgb_to_linearrgb_v4(color, color);
+        sub.push_constant("ucolor", color);
+        edit_nurbs_selected_edges_ = &sub;
+      }
+      {
+        auto &sub = pass.sub("ActiveTopologyEdge");
+        sub.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA,
+                      state.clipping_plane_count);
+        sub.shader_set(res.shaders->uniform_color.get());
+        float4 color;
+        ui::theme::get_color_4fv(TH_EDITMESH_ACTIVE, color);
+        srgb_to_linearrgb_v4(color, color);
+        sub.push_constant("ucolor", color);
+        edit_nurbs_active_edge_ = &sub;
+      }
+      {
+        auto &sub = pass.sub("ControlPoints");
+        sub.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_WRITE_DEPTH,
+                      state.clipping_plane_count);
+        sub.shader_set(res.shaders->lattice_points.get());
+        edit_nurbs_points_ = &sub;
+      }
+    }
   }
 
   void edit_object_sync(Manager &manager,
@@ -251,6 +329,34 @@ class Curves : Overlay {
     }
   }
 
+  void edit_object_sync_nurbs(Manager &manager, const ObjectRef &ob_ref)
+  {
+    if (!enabled_) {
+      return;
+    }
+
+    const ResourceHandleRange res_handle = manager.unique_handle(ob_ref);
+    NurbsGeometry &geometry = DRW_object_get_data_for_drawing<NurbsGeometry>(*ob_ref.object);
+    if (gpu::Batch *geom = DRW_nurbs_batch_cache_get_topology_faces(&geometry, false)) {
+      edit_nurbs_selected_faces_->draw(geom, res_handle);
+    }
+    if (gpu::Batch *geom = DRW_nurbs_batch_cache_get_topology_faces(&geometry, true)) {
+      edit_nurbs_active_face_->draw(geom, res_handle);
+    }
+    if (gpu::Batch *geom = DRW_cache_nurbs_edit_edges_get(ob_ref.object)) {
+      edit_nurbs_edges_->draw(geom, res_handle);
+    }
+    if (gpu::Batch *geom = DRW_nurbs_batch_cache_get_topology_edges(&geometry, false)) {
+      edit_nurbs_selected_edges_->draw(geom, res_handle);
+    }
+    if (gpu::Batch *geom = DRW_nurbs_batch_cache_get_topology_edges(&geometry, true)) {
+      edit_nurbs_active_edge_->draw(geom, res_handle);
+    }
+    if (gpu::Batch *geom = DRW_cache_nurbs_edit_verts_get(ob_ref.object)) {
+      edit_nurbs_points_->draw(geom, res_handle);
+    }
+  }
+
   void draw_line(Framebuffer &framebuffer, Manager &manager, View &view) final
   {
     if (!enabled_) {
@@ -261,6 +367,7 @@ class Curves : Overlay {
 
     GPU_framebuffer_bind(framebuffer);
     manager.submit(edit_legacy_curve_ps_, view);
+    manager.submit(edit_nurbs_ps_, view);
     manager.submit(edit_curves_ps_, view);
     manager.submit(edit_curves_handles_ps_, view_edit_cage);
     manager.submit(edit_legacy_surface_handles_ps, view);

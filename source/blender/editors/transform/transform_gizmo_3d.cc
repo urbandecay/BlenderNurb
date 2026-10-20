@@ -18,6 +18,8 @@
 #include "BLI_math_matrix.h"
 
 #include "DNA_lattice_types.h"
+#include "DNA_nurbs_types.h"
+#include "DNA_nurbs_topology_types.h"
 #include "DNA_pointcloud_types.h"
 
 #include "BKE_action.hh"
@@ -29,6 +31,7 @@
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
 #include "BKE_library.hh"
+#include "BKE_nurbs.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_paint.hh"
@@ -696,6 +699,102 @@ static int gizmo_3d_foreach_selected(const bContext *C,
         if (curves.has_curve_with_type(CURVE_TYPE_BEZIER)) {
           run_points(*curves.handle_positions_left(), ".selection_handle_left");
           run_points(*curves.handle_positions_right(), ".selection_handle_right");
+        }
+      }
+      FOREACH_EDIT_OBJECT_END();
+    }
+    else if (obedit->type == OB_NURBS) {
+      FOREACH_EDIT_OBJECT_BEGIN (ob_iter, use_mat_local) {
+        const NurbsGeometry &geometry = *id_cast<const NurbsGeometry *>(ob_iter->data);
+        float mat_local[4][4];
+        if (use_mat_local) {
+          mul_m4_m4m4(
+              mat_local, obedit->world_to_object().ptr(), ob_iter->object_to_world().ptr());
+        }
+
+        if (geometry.topology != nullptr) {
+          const char select_mode = scene->toolsettings->selectmode;
+          const NurbsTopology &topology = *geometry.topology;
+          if (select_mode & SCE_SELECT_VERTEX) {
+            for (const NurbsTopoVertex &vertex : topology.vertices) {
+              if (vertex.flag & NURBS_TOPO_SELECT) {
+                const float co[3] = {float(vertex.position[0]),
+                                     float(vertex.position[1]),
+                                     float(vertex.position[2])};
+                run_coord_with_matrix(co, use_mat_local, mat_local);
+                totsel++;
+              }
+            }
+          }
+          if (select_mode & SCE_SELECT_EDGE) {
+            for (const NurbsTopoEdge &edge : topology.edges) {
+              if (!(edge.flag & NURBS_TOPO_SELECT)) {
+                continue;
+              }
+              const NurbsCurve *support = nullptr;
+              for (const NurbsCurve &curve : geometry.curves) {
+                if (curve.id == edge.curve_id) {
+                  support = &curve;
+                  break;
+                }
+              }
+              if (support == nullptr) {
+                continue;
+              }
+              for (int sample = 0; sample <= 16; sample++) {
+                const double parameter = edge.domain[0] +
+                                         (edge.domain[1] - edge.domain[0]) * (double(sample) / 16.0);
+                double evaluated[3];
+                if (BKE_nurbs_curve_evaluate(*support, parameter, evaluated)) {
+                  const float co[3] = {float(evaluated[0]),
+                                       float(evaluated[1]),
+                                       float(evaluated[2])};
+                  run_coord_with_matrix(co, use_mat_local, mat_local);
+                  totsel++;
+                }
+              }
+            }
+          }
+          if (select_mode & SCE_SELECT_FACE) {
+            for (const NurbsTopoFace &face : topology.faces) {
+              if (!(face.flag & NURBS_TOPO_SELECT)) {
+                continue;
+              }
+              for (const NurbsSurface &surface : topology.surfaces) {
+                if (surface.id != face.surface_id || surface.control_vertices == nullptr) {
+                  continue;
+                }
+                const int count = surface.control_vertex_count_u *
+                                  surface.control_vertex_count_v;
+                for (int i = 0; i < count; i++) {
+                  const NurbsControlVertex &cv = surface.control_vertices[i];
+                  const float co[3] = {float(cv.position[0]),
+                                       float(cv.position[1]),
+                                       float(cv.position[2])};
+                  run_coord_with_matrix(co, use_mat_local, mat_local);
+                  totsel++;
+                }
+                break;
+              }
+            }
+          }
+          continue;
+        }
+
+        for (const NurbsCurve &curve : geometry.curves) {
+          if (curve.control_vertices == nullptr) {
+            continue;
+          }
+          for (int i = 0; i < curve.control_vertex_count; i++) {
+            const NurbsControlVertex &control_vertex = curve.control_vertices[i];
+            if (control_vertex.flag & NURBS_CV_SELECT) {
+              const float co[3] = {float(control_vertex.position[0]),
+                                   float(control_vertex.position[1]),
+                                   float(control_vertex.position[2])};
+              run_coord_with_matrix(co, use_mat_local, mat_local);
+              totsel++;
+            }
+          }
         }
       }
       FOREACH_EDIT_OBJECT_END();

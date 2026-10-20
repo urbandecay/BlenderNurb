@@ -40,10 +40,7 @@ bool transdata_check_local_center(const TransInfo *t, short around)
   return ((around == V3D_AROUND_LOCAL_ORIGINS) &&
           ((t->options & CTX_OBJECT) ||
            /* Implicit: `(t->flag & T_EDIT)`. */
-           ELEM(t->obedit_type,
-                OB_MESH,
-                OB_CURVES_LEGACY,
-                OB_CURVES) ||
+           ELEM(t->obedit_type, OB_MESH, OB_CURVES_LEGACY, OB_NURBS, OB_CURVES) ||
            (t->spacetype == SPACE_GRAPH) ||
            (t->options & (CTX_MOVIECLIP | CTX_MASK | CTX_PAINT_CURVE | CTX_SEQUENCER_IMAGE))));
 }

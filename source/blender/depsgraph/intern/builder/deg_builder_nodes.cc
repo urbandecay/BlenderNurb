@@ -619,6 +619,7 @@ void DepsgraphNodeBuilder::build_id(ID *id, const bool force_be_visible)
     case ID_CU_LEGACY:
     case ID_LT:
     case ID_CV:
+    case ID_NU:
     case ID_PT:
     case ID_VO:
       build_object_data_geometry_datablock(id);
@@ -942,6 +943,7 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
     case OB_CURVES:
     case OB_POINTCLOUD:
     case OB_VOLUME:
+    case OB_NURBS:
       build_object_data_geometry(object);
       break;
     case OB_LAMP:
@@ -1759,6 +1761,11 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
       if (curves_id->surface != nullptr) {
         build_object(-1, curves_id->surface, DEG_ID_LINKED_INDIRECTLY, false);
       }
+      break;
+    }
+    case ID_NU: {
+      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
+      op_node->set_as_entry();
       break;
     }
     case ID_PT: {

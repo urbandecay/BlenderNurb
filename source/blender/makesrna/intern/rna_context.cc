@@ -30,6 +30,7 @@ const EnumPropertyItem rna_enum_context_mode_items[] = {
     {CTX_MODE_PARTICLE, "PARTICLE", 0, "Particle", ""},
     {CTX_MODE_OBJECT, "OBJECT", 0, "Object", ""},
     {CTX_MODE_SCULPT_CURVES, "SCULPT_CURVES", 0, "Curves Sculpt", ""},
+    {CTX_MODE_EDIT_NURBS, "EDIT_NURBS", 0, "NURBS Edit", ""},
     {0, nullptr, 0, nullptr, nullptr},
 };
 

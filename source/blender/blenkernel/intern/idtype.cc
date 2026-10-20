@@ -168,6 +168,7 @@ static void id_type_init()
   INIT_TYPE(ID_WS);
   INIT_TYPE(ID_LP);
   INIT_TYPE(ID_CV);
+  INIT_TYPE(ID_NU);
   INIT_TYPE(ID_PT);
   INIT_TYPE(ID_VO);
 
@@ -350,6 +351,7 @@ int BKE_idtype_idcode_to_index(const short idcode)
     CASE_IDINDEX(ME);
     CASE_IDINDEX(MSK);
     CASE_IDINDEX(NT);
+    CASE_IDINDEX(NU);
     CASE_IDINDEX(OB);
     CASE_IDINDEX(PA);
     CASE_IDINDEX(PAL);

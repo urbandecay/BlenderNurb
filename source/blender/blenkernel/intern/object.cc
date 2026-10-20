@@ -34,6 +34,7 @@
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_movieclip_types.h"
+#include "DNA_nurbs_types.h"
 #include "DNA_nla_types.h"
 #include "DNA_object_fluidsim_types.h"
 #include "DNA_object_types.h"
@@ -98,6 +99,7 @@
 #include "BKE_mesh.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_modifier.hh"
+#include "BKE_nurbs.hh"
 #include "BKE_multires.hh"
 #include "BKE_node.hh"
 #include "BKE_object.hh"
@@ -1693,6 +1695,7 @@ bool BKE_object_is_in_editmode(const Object *ob)
       return (id_cast<Curve *>(ob->data))->editnurb != nullptr;
     case OB_CURVES:
     case OB_POINTCLOUD:
+    case OB_NURBS:
       return ob->mode == OB_MODE_EDIT;
     default:
       return false;
@@ -1718,6 +1721,7 @@ bool BKE_object_data_is_in_editmode(const Object *ob, const ID *id)
       return (id_cast<const Lattice *>(id))->editlatt != nullptr;
     case ID_CV:
     case ID_PT:
+    case ID_NU:
       if (ob) {
         return BKE_object_is_in_editmode(ob);
       }
@@ -1762,6 +1766,7 @@ char *BKE_object_data_editmode_flush_ptr_get(ID *id)
     }
     case ID_PT:
     case ID_CV:
+    case ID_NU:
       return nullptr;
     default:
       BLI_assert_unreachable();
@@ -1876,6 +1881,8 @@ static const char *get_obdata_defname(ObjectType type)
       return DATA_("PointCloud");
     case OB_VOLUME:
       return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "Volume");
+    case OB_NURBS:
+      return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "NURBS");
     case OB_NO_DATA:
       return CTX_DATA_(BLT_I18NCONTEXT_ID_ID, "No Data");
     case OB_LIGHTPROBE:
@@ -1933,6 +1940,8 @@ void *BKE_object_obdata_add_from_type(Main *bmain, ObjectType type, const char *
       return BKE_pointcloud_add(bmain, name);
     case OB_VOLUME:
       return BKE_volume_add(bmain, name);
+    case OB_NURBS:
+      return BKE_nurbs_add(bmain, name);
     case OB_NO_DATA:
       return nullptr;
     default:
@@ -1963,6 +1972,8 @@ int BKE_object_obdata_to_type(const ID *id)
       return OB_POINTCLOUD;
     case ID_VO:
       return OB_VOLUME;
+    case ID_NU:
+      return OB_NURBS;
     default:
       return -1;
   }
@@ -2254,6 +2265,13 @@ Object *BKE_object_duplicate(Main *bmain,
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
       }
       break;
+    case OB_NURBS:
+      /* NURBS geometry is curve data, so it follows Blender's existing curve-duplication
+       * preference. */
+      if (dupflag & USER_DUP_CURVE) {
+        id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
+      }
+      break;
     case OB_SURF:
       if (dupflag & USER_DUP_SURF) {
         id_new = BKE_id_copy_for_duplicate(bmain, id_old, dupflag, copy_flags);
@@ -2369,6 +2387,17 @@ void BKE_object_obdata_size_init(Object *ob, const float size)
     case OB_FONT: {
       Curve *cu = id_cast<Curve *>(ob->data);
       cu->fsize *= size;
+      break;
+    }
+    case OB_NURBS: {
+      NurbsGeometry &geometry = *id_cast<NurbsGeometry *>(ob->data);
+      for (NurbsCurve &curve : geometry.curves) {
+        for (int i = 0; i < curve.control_vertex_count; i++) {
+          for (int axis = 0; axis < 3; axis++) {
+            curve.control_vertices[i].position[axis] *= double(size);
+          }
+        }
+      }
       break;
     }
     case OB_CAMERA: {
@@ -2764,6 +2793,25 @@ std::optional<Bounds<float3>> BKE_object_boundbox_get(const Object *ob)
       return id_cast<const PointCloud *>(ob->data)->bounds_min_max();
     case OB_VOLUME:
       return BKE_volume_min_max(id_cast<const Volume *>(ob->data));
+    case OB_NURBS: {
+      const NurbsGeometry *geometry = id_cast<const NurbsGeometry *>(ob->data);
+      Bounds<float3> bounds{float3(std::numeric_limits<float>::max()),
+                             float3(std::numeric_limits<float>::lowest())};
+      bool has_control_vertices = false;
+      for (const NurbsCurve &curve : geometry->curves) {
+        for (const NurbsControlVertex &control_vertex :
+             Span(curve.control_vertices, curve.control_vertex_count))
+        {
+          const float3 position(float(control_vertex.position[0]),
+                                float(control_vertex.position[1]),
+                                float(control_vertex.position[2]));
+          bounds.min = math::min(bounds.min, position);
+          bounds.max = math::max(bounds.max, position);
+          has_control_vertices = true;
+        }
+      }
+      return has_control_vertices ? std::optional<Bounds<float3>>(bounds) : std::nullopt;
+    }
     default:
       break;
   }

@@ -563,6 +563,7 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
     case ID_MSK:       /* Mask */
     case ID_LP:        /* LightProbe */
     case ID_CV:        /* Curves */
+    case ID_NU:        /* NURBS Geometry */
     case ID_PT:        /* PointCloud */
     case ID_VO:        /* Volume */
       break;

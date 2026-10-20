@@ -379,6 +379,12 @@ class VIEW3D_HT_header(Header):
         # Mode & Transform Settings
         scene = context.scene
 
+        if context.mode == 'EDIT_NURBS' and obj.data.has_topology:
+            row = layout.row(align=True)
+            for index, (mode, icon) in enumerate((('VERTEX', 'VERTEXSEL'), ('EDGE', 'EDGESEL'), ('FACE', 'FACESEL'))):
+                row.operator("nurbs.select_mode", text="", icon=icon,
+                             depress=tool_settings.mesh_select_mode[index]).type = mode
+
         # Orientation
         if object_mode in {'OBJECT', 'EDIT'}:
             orient_slot = scene.transform_orientation_slots[0]
@@ -607,7 +613,7 @@ class VIEW3D_HT_header(Header):
 
         if mode_string == 'EDIT_MESH':
             sub.popover(panel="VIEW3D_PT_overlay_edit_mesh", text="", icon='EDITMODE_HLT')
-        if mode_string == 'EDIT_CURVE':
+        if mode_string in {'EDIT_CURVE', 'EDIT_NURBS'}:
             sub.popover(panel="VIEW3D_PT_overlay_edit_curve", text="", icon='EDITMODE_HLT')
         elif mode_string == 'EDIT_CURVES':
             sub.popover(panel="VIEW3D_PT_overlay_edit_curves", text="", icon='EDITMODE_HLT')
@@ -1351,6 +1357,42 @@ class VIEW3D_MT_select_edit_curve(Menu):
         layout.operator("curve.select_previous")
 
 
+
+class VIEW3D_MT_select_edit_nurbs(Menu):
+    bl_label = "Select"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("nurbs.select_all", text="All").action = 'SELECT'
+        layout.operator("nurbs.select_all", text="None").action = 'DESELECT'
+        layout.operator("nurbs.select_all", text="Invert").action = 'INVERT'
+        if context.edit_object.data.has_topology:
+            layout.separator()
+            layout.operator_enum("nurbs.select_mode", "type")
+
+
+class VIEW3D_MT_edit_nurbs(Menu):
+    bl_label = "NURBS"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.menu("VIEW3D_MT_select_edit_nurbs")
+        layout.separator()
+        layout.operator("transform.translate", text="Move")
+        if context.edit_object.data.has_topology:
+            layout.operator("nurbs.edge_split")
+        else:
+            layout.operator("transform.rotate", text="Rotate")
+            layout.operator("transform.resize", text="Scale")
+
+
+class VIEW3D_MT_edit_nurbs_context_menu(Menu):
+    bl_label = "NURBS"
+
+    def draw(self, context):
+        VIEW3D_MT_edit_nurbs.draw(self, context)
+
+
 class VIEW3D_MT_select_edit_surface(Menu):
     bl_label = "Select"
 
@@ -1640,6 +1682,20 @@ class VIEW3D_MT_mesh_add(Menu):
         layout.template_node_operator_asset_menu_items(catalog_path="Add")
 
 
+class VIEW3D_MT_nurbs_add(Menu):
+    bl_label = "NURBS"
+    bl_options = {'SEARCH_ON_KEY_PRESS'}
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator_context = 'INVOKE_REGION_WIN'
+        layout.operator("object.add", text="NURBS Curve", icon='CURVE_NCURVE').type = 'NURBS'
+        layout.operator("nurbs.primitive_line_add", text="Line", icon='CURVE_PATH')
+        layout.operator("nurbs.primitive_arc_add", text="Arc", icon='CURVE_NCURVE')
+        layout.operator("nurbs.primitive_circle_add", text="Circle", icon='CURVE_NCIRCLE')
+        layout.operator("nurbs.primitive_path_add", text="Path", icon='CURVE_PATH')
+
+
 class VIEW3D_MT_curve_add(Menu):
     bl_idname = "VIEW3D_MT_curve_add"
     bl_label = "Curve"
@@ -1655,9 +1711,7 @@ class VIEW3D_MT_curve_add(Menu):
 
         layout.separator()
 
-        layout.operator("curve.primitive_nurbs_curve_add", text="Nurbs Curve", icon='CURVE_NCURVE')
-        layout.operator("curve.primitive_nurbs_circle_add", text="Nurbs Circle", icon='CURVE_NCIRCLE')
-        layout.operator("curve.primitive_nurbs_path_add", text="Path", icon='CURVE_PATH')
+        layout.menu("VIEW3D_MT_nurbs_add", text="NURBS", icon='OUTLINER_OB_SURFACE')
 
         layout.separator()
 
@@ -6528,6 +6582,7 @@ classes = (
     VIEW3D_MT_edit_mesh_select_more_less,
     VIEW3D_MT_select_edit_mesh,
     VIEW3D_MT_select_edit_curve,
+    VIEW3D_MT_select_edit_nurbs,
     VIEW3D_MT_select_edit_surface,
     VIEW3D_MT_select_edit_text,
     VIEW3D_MT_edit_lattice_context_menu,
@@ -6540,6 +6595,7 @@ classes = (
     VIEW3D_MT_select_sculpt_curves,
     VIEW3D_MT_mesh_add,
     VIEW3D_MT_curve_add,
+    VIEW3D_MT_nurbs_add,
     VIEW3D_MT_surface_add,
     TOPBAR_MT_edit_curve_add,
     VIEW3D_MT_light_add,
@@ -6608,6 +6664,8 @@ classes = (
     VIEW3D_MT_edit_mesh_split,
     VIEW3D_MT_edit_mesh_showhide,
     VIEW3D_MT_edit_curve,
+    VIEW3D_MT_edit_nurbs,
+    VIEW3D_MT_edit_nurbs_context_menu,
     VIEW3D_MT_edit_curve_ctrlpoints,
     VIEW3D_MT_edit_curve_segments,
     VIEW3D_MT_edit_curve_clean,

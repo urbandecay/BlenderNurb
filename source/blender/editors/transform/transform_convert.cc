@@ -635,6 +635,7 @@ static void init_proportional_edit(TransInfo *t)
              &TransConvertType_MeshUV,
              &TransConvertType_MeshVertCData,
              &TransConvertType_Node,
+             &TransConvertType_Nurbs,
              &TransConvertType_Object,
              &pointcloud::TransConvertType_PointCloud) ||
         ELEM(t->data_type, &TransConvertType_Particle)))
@@ -690,6 +691,14 @@ static void init_proportional_edit(TransInfo *t)
         set_prop_dist(t, false);
       }
     }
+    else if (t->data_type == &TransConvertType_Nurbs) {
+      if (t->flag & T_PROP_CONNECTED) {
+        /* Already calculated from each NURBS curve's control polygon. */
+      }
+      else {
+        set_prop_dist(t, false);
+      }
+    }
     else {
       set_prop_dist(t, true);
     }
@@ -715,7 +724,8 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
             &TransConvertType_MeshEdge,
             &TransConvertType_MeshSkin,
             &TransConvertType_MeshUV,
-            &TransConvertType_MeshVertCData))
+            &TransConvertType_MeshVertCData,
+            &TransConvertType_Nurbs))
   {
     /* Does not support Multi object editing. */
     return;
@@ -865,6 +875,9 @@ static TransConvertTypeInfo *convert_type_get(const TransInfo *t)
     }
     if (ELEM(t->obedit_type, OB_CURVES_LEGACY, OB_SURF)) {
       return &TransConvertType_Curve;
+    }
+    if (t->obedit_type == OB_NURBS) {
+      return &TransConvertType_Nurbs;
     }
     if (t->obedit_type == OB_LATTICE) {
       return &TransConvertType_Lattice;

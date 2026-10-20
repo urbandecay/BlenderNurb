@@ -5189,6 +5189,26 @@ def km_edit_curve_legacy(params):
     return keymap
 
 
+def km_edit_nurbs(params):
+    items = []
+    keymap = (
+        "NURBS",
+        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
+        {"items": items},
+    )
+
+    items.extend([
+        *_template_items_transform_actions(params),
+        *_template_items_select_actions(params, "nurbs.select_all"),
+        ("nurbs.select_mode", {"type": 'ONE', "value": 'PRESS'}, {"properties": [("type", 'VERTEX')]}),
+        ("nurbs.select_mode", {"type": 'TWO', "value": 'PRESS'}, {"properties": [("type", 'EDGE')]}),
+        ("nurbs.select_mode", {"type": 'THREE', "value": 'PRESS'}, {"properties": [("type", 'FACE')]}),
+        *_template_items_context_menu("VIEW3D_MT_edit_nurbs_context_menu", params.context_menu_event),
+    ])
+
+    return keymap
+
+
 # Curves edit mode.
 def km_edit_curves(params):
     items = []
@@ -7831,6 +7851,7 @@ def generate_keymaps(params=None):
         km_edit_particle(params),
         km_edit_font(params),
         km_edit_curve_legacy(params),
+        km_edit_nurbs(params),
         km_edit_curves(params),
         km_edit_pointcloud(params),
 

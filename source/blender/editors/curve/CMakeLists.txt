@@ -21,6 +21,10 @@ set(SRC
   editcurve_query.cc
   editcurve_select.cc
   editcurve_undo.cc
+  editnurbs_add.cc
+  editnurbs_select.cc
+  editnurbs_topology.cc
+  editnurbs_undo.cc
   editfont.cc
   editfont_undo.cc
 
@@ -33,6 +37,7 @@ set(LIB
   PRIVATE bf::blenlib
   PRIVATE bf::blentranslation
   PRIVATE bf::depsgraph
+  PRIVATE bf::draw
   PRIVATE bf::dna
   PRIVATE bf::extern::curve_fit_nd
   PRIVATE bf::gpu

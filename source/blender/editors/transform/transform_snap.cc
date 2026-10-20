@@ -808,8 +808,8 @@ static eSnapTargetOP snap_target_select_from_spacetype_and_tool_settings(TransIn
           target_operation |= SCE_SNAP_TARGET_NOT_SELECTED;
         }
       }
-      else if (ELEM(obedit_type, OB_CURVES_LEGACY, OB_SURF, OB_LATTICE)) {
-        /* Temporary limited to edit mode curves, surfaces, and lattices. */
+      else if (ELEM(obedit_type, OB_CURVES_LEGACY, OB_SURF, OB_LATTICE, OB_NURBS)) {
+        /* Temporary limited to edit mode curves, surfaces, lattices, and NURBS. */
         target_operation |= SCE_SNAP_TARGET_NOT_SELECTED;
       }
     }

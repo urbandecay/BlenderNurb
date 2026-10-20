@@ -852,6 +852,7 @@ static void outliner_set_properties_tab(bContext *C, TreeElement *te, TreeStoreE
       case ID_CA:
       case ID_LP:
       case ID_CV:
+      case ID_NU:
       case ID_PT:
       case ID_VO:
         context = BCONTEXT_DATA;

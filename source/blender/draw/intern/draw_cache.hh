@@ -102,6 +102,8 @@ gpu::Batch *DRW_cache_surf_edge_wire_get(Object *ob);
 gpu::Batch *DRW_cache_lattice_verts_get(Object *ob);
 gpu::Batch *DRW_cache_lattice_wire_get(Object *ob, bool use_weight);
 gpu::Batch *DRW_cache_lattice_vert_overlay_get(Object *ob);
+gpu::Batch *DRW_cache_nurbs_edit_edges_get(Object *ob);
+gpu::Batch *DRW_cache_nurbs_edit_verts_get(Object *ob);
 
 /* Point Cloud */
 

@@ -40,6 +40,7 @@
 #include "BKE_mesh.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_modifier.hh"
+#include "BKE_nurbs.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_paint.hh"
@@ -2111,6 +2112,9 @@ void DRW_module_init()
 
   BKE_lattice_batch_cache_dirty_tag_cb = DRW_lattice_batch_cache_dirty_tag;
   BKE_lattice_batch_cache_free_cb = DRW_lattice_batch_cache_free;
+
+  BKE_nurbs_batch_cache_dirty_tag_cb = DRW_nurbs_batch_cache_dirty_tag;
+  BKE_nurbs_batch_cache_free_cb = DRW_nurbs_batch_cache_free;
 
   BKE_particle_batch_cache_dirty_tag_cb = DRW_particle_batch_cache_dirty_tag;
   BKE_particle_batch_cache_free_cb = DRW_particle_batch_cache_free;

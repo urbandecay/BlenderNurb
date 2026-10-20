@@ -156,6 +156,7 @@ struct TreeElementIcon {
         ID_LS, \
         ID_LP, \
         ID_CV, \
+        ID_NU, \
         ID_PT, \
         ID_VO) || /* Only in blend-file mode ... :/ */ \
    ELEM(GS((_id)->name), \

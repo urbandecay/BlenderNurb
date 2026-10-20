@@ -385,6 +385,7 @@ static Mesh *rna_Object_to_mesh(Object *object,
     case OB_CURVES_LEGACY:
     case OB_SURF:
     case OB_MESH:
+    case OB_NURBS:
       break;
     default:
       BKE_report(reports, RPT_ERROR, "Object does not have geometry data");

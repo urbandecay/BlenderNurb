@@ -13,6 +13,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_key_types.h"
 #include "DNA_material_types.h"
+#include "DNA_nurbs_types.h"
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
@@ -40,6 +41,7 @@
 #include "BKE_mesh_runtime.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_modifier.hh"
+#include "BKE_nurbs_mesh.hh"
 #include "BKE_object_types.hh"
 /* these 2 are only used by conversion functions */
 #include "BKE_curve.hh"
@@ -895,6 +897,18 @@ Mesh *BKE_mesh_new_from_object(Depsgraph *depsgraph,
 {
   Mesh *new_mesh = nullptr;
   switch (object->type) {
+    case OB_NURBS:
+      if (const Mesh *evaluated_mesh = BKE_object_get_evaluated_mesh(object)) {
+        new_mesh = id_cast<Mesh *>(BKE_id_copy_ex(nullptr,
+                                                &evaluated_mesh->id,
+                                                nullptr,
+                                                LIB_ID_CREATE_NO_MAIN |
+                                                    LIB_ID_CREATE_NO_USER_REFCOUNT));
+      }
+      else {
+        new_mesh = BKE_nurbs_mesh_create(*id_cast<NurbsGeometry *>(object->data), 16);
+      }
+      break;
     case OB_FONT:
     case OB_CURVES_LEGACY:
     case OB_SURF:
@@ -965,7 +979,7 @@ Mesh *BKE_mesh_new_from_object_to_bmain(Main *bmain,
                                         Object *object,
                                         bool preserve_all_data_layers)
 {
-  BLI_assert(ELEM(object->type, OB_FONT, OB_CURVES_LEGACY, OB_SURF, OB_MESH));
+  BLI_assert(ELEM(object->type, OB_FONT, OB_CURVES_LEGACY, OB_SURF, OB_MESH, OB_NURBS));
 
   Mesh *mesh = BKE_mesh_new_from_object(depsgraph, object, preserve_all_data_layers, false, true);
   if (mesh == nullptr) {

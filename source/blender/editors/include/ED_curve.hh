@@ -61,6 +61,7 @@ bool ED_curve_editnurb_select_pick(bContext *C,
                                    const int mval[2],
                                    int dist_px,
                                    const SelectPick_Params &params);
+bool ED_nurbs_select_pick(bContext *C, const int mval[2], const SelectPick_Params &params);
 
 Nurb *ED_curve_add_nurbs_primitive(
     bContext *C, Object *obedit, float mat[4][4], int type, int newob);
@@ -90,6 +91,11 @@ int ED_curve_select_count(const View3D *v3d, const EditNurb *editnurb);
 
 /** Export for ED_undo_sys */
 void ED_curve_undosys_type(UndoType *ut);
+
+/* `editnurbs_undo.cc` */
+
+/** Export for ED_undo_sys. */
+void ED_nurbs_undosys_type(UndoType *ut);
 
 /* `editfont.cc` */
 

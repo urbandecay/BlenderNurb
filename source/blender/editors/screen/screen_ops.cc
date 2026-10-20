@@ -729,6 +729,12 @@ bool ED_operator_editsurfcurve_region_view3d(bContext *C)
   return false;
 }
 
+bool ED_operator_editnurbs(bContext *C)
+{
+  Object *obedit = CTX_data_edit_object(C);
+  return obedit && obedit->type == OB_NURBS && (obedit->mode & OB_MODE_EDIT);
+}
+
 bool ED_operator_editcurve(bContext *C)
 {
   Object *obedit = CTX_data_edit_object(C);

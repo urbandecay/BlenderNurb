@@ -2056,6 +2056,8 @@ static BIFIconID tree_element_get_icon_from_id(const ID *id)
       return ICON_OUTLINER_COLLECTION;
     case ID_CV:
       return ICON_OUTLINER_DATA_CURVES;
+    case ID_NU:
+      return ICON_OUTLINER_DATA_CURVE;
     case ID_PT:
       return ICON_OUTLINER_DATA_POINTCLOUD;
     case ID_VO:

@@ -2573,6 +2573,9 @@ static wmOperatorStatus view3d_select_exec(bContext *C, wmOperator *op)
     else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
       changed = ED_curve_editnurb_select_pick(C, mval, ED_view3d_select_dist_px(), params);
     }
+    else if (obedit->type == OB_NURBS) {
+      changed = ED_nurbs_select_pick(C, mval, params);
+    }
     else if (obedit->type == OB_FONT) {
       changed = ED_curve_editfont_select_pick(C, mval, params);
     }

@@ -95,6 +95,7 @@ bool mode_compat_test(const Object *ob, eObjectMode mode)
       }
       break;
     case OB_CURVES_LEGACY:
+    case OB_NURBS:
     case OB_SURF:
     case OB_FONT:
     case OB_POINTCLOUD:

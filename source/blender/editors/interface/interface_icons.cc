@@ -2047,6 +2047,8 @@ int icon_from_idcode(const int idcode)
       return ICON_FONT_DATA;
     case ID_CV:
       return ICON_CURVES_DATA;
+    case ID_NU:
+      return ICON_CURVE_DATA;
     case ID_PT:
       return ICON_POINTCLOUD_DATA;
     case ID_VO:
@@ -2112,6 +2114,8 @@ int icon_from_object_type(const Object *object)
       return ICON_OUTLINER_OB_POINTCLOUD;
     case OB_VOLUME:
       return ICON_OUTLINER_OB_VOLUME;
+    case OB_NURBS:
+      return ICON_OUTLINER_OB_CURVE;
     case OB_NO_DATA:
       if (object->pd && object->pd->forcefield) {
         return ICON_OUTLINER_OB_FORCE_FIELD;

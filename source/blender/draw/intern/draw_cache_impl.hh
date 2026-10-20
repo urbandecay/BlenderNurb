@@ -35,6 +35,7 @@ struct TaskGraph;
 struct Curve;
 struct Curves;
 struct Lattice;
+struct NurbsGeometry;
 struct Mesh;
 struct Object;
 struct Scene;
@@ -62,6 +63,10 @@ void DRW_mesh_batch_cache_free(draw::MeshBatchCache *batch_cache);
 void DRW_lattice_batch_cache_dirty_tag(Lattice *lt, int mode);
 void DRW_lattice_batch_cache_validate(Lattice *lt);
 void DRW_lattice_batch_cache_free(Lattice *lt);
+
+void DRW_nurbs_batch_cache_dirty_tag(NurbsGeometry *geometry, int mode);
+void DRW_nurbs_batch_cache_validate(NurbsGeometry *geometry);
+void DRW_nurbs_batch_cache_free(NurbsGeometry *geometry);
 
 void DRW_particle_batch_cache_dirty_tag(ParticleSystem *psys, int mode);
 void DRW_particle_batch_cache_free(ParticleSystem *psys);
@@ -125,6 +130,12 @@ gpu::Batch *DRW_curve_batch_cache_get_edit_verts(Curve *cu);
 gpu::Batch *DRW_lattice_batch_cache_get_all_edges(Lattice *lt, bool use_weight, int actdef);
 gpu::Batch *DRW_lattice_batch_cache_get_all_verts(Lattice *lt);
 gpu::Batch *DRW_lattice_batch_cache_get_edit_verts(Lattice *lt);
+
+gpu::Batch *DRW_nurbs_batch_cache_get_edit_edges(NurbsGeometry *geometry);
+gpu::Batch *DRW_nurbs_batch_cache_get_topology_edges(NurbsGeometry *geometry, bool active);
+gpu::Batch *DRW_nurbs_batch_cache_get_topology_faces(NurbsGeometry *geometry, bool active);
+gpu::Batch *DRW_nurbs_batch_cache_get_edit_faces(NurbsGeometry *geometry);
+gpu::Batch *DRW_nurbs_batch_cache_get_edit_verts(NurbsGeometry *geometry);
 
 /** \} */
 

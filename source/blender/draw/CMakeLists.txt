@@ -61,6 +61,7 @@ set(SRC
   intern/draw_cache_impl_curve.cc
   intern/draw_cache_impl_curves.cc
   intern/draw_cache_impl_lattice.cc
+  intern/draw_cache_impl_nurbs.cc
   intern/draw_cache_impl_mesh.cc
   intern/draw_cache_impl_particles.cc
   intern/draw_cache_impl_pointcloud.cc
