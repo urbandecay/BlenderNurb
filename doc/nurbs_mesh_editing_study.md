@@ -46,6 +46,14 @@ Their geometric contract needs to be explicit.
   of silently fitting a replacement curve. Knot vectors are essential to this
   preservation, although endpoint/tangent/curvature conditions also determine
   smoothness across a join.
+- NURBS curves use fit points as the normal user-facing curve-editing handles,
+  not directly edited control vertices. Fit points lie on the represented
+  curve; curve construction/editing solves the internal NURBS control vertices
+  from those points and the curve's degree, parameterization, knot, weight,
+  and continuity constraints. Keep exact rational constructions such as
+  circles and arcs exact rather than replacing them with sampled or approximate
+  fits. Control vertices may remain available in a separate advanced control-
+  net view, but they are not the default curve workflow.
 - Ctrl+R should keep Blender's loop-cut interaction and traverse actual face
   topology. On compatible NURBS supports it should create a selectable loop
   and split the face exactly without changing the visible shape. Knot insertion
@@ -194,10 +202,21 @@ not a proposed CAD modeling tool.
 ## The central model distinction
 
 A topological vertex is a shared geometric corner. A NURBS CV is a coefficient
-of the curve/surface; it usually does not lie on the visible geometry. Users
-must be able to select and edit actual corners, edges and faces as requested.
-An additional control-net view can expose CVs without pretending that a CV is
-always a corner.
+of the curve/surface; it usually does not lie on the visible geometry. A curve
+fit point is an editable point constrained to lie on its curve; it is not
+automatically a topological corner. Users must be able to select and edit
+actual corners, edges and faces as requested, and edit curves through fit
+points by default. An optional control-net view can expose CVs without
+pretending that a CV is a fit point or a topological corner.
+
+The fit-point workflow needs an explicit interpolation contract. Its solver
+must define point parameterization, degree, end conditions, knot generation,
+and rational constraints, then regenerate valid NURBS control vertices while
+preserving the requested fit points. Operations that change fit points must
+also define how they preserve or deliberately update the curve's shape,
+parameter domain, and exact analytic constructions. Do not implement fit-point
+editing as moving the nearest existing CV or as fitting sampled display
+vertices.
 
 Each topological edge needs geometry and a parameter interval. Each face
 needs a support surface, oriented boundary loops, and each edge's curve in

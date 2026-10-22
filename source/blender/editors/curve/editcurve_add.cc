@@ -36,6 +36,8 @@
 
 #include "curve_intern.hh"
 
+#include <algorithm>
+
 namespace blender {
 
 static const float nurbcircle[8][2] = {
@@ -501,8 +503,19 @@ static Nurb *nurbs_line_primitive_add(Object *obedit, const float mat[4][4])
   ListBaseT<Nurb> *editnurb = object_editcurve_get(obedit);
   BKE_nurbList_flag_set(editnurb, BEZT_FLAG_SELECT, false);
 
-  /* A single U span in a surface object can be extruded into a tensor-product sheet using
-   * the existing surface edit operators, without converting or replacing the object. */
+  int next_topology_id = 1;
+  for (Nurb &existing : editnurb->items_mutable()) {
+    next_topology_id = std::max(next_topology_id, existing.topology_face_id + 1);
+    for (const int id : existing.topology_vertex_ids) {
+      next_topology_id = std::max(next_topology_id, id + 1);
+    }
+    for (const int id : existing.topology_edge_ids) {
+      next_topology_id = std::max(next_topology_id, id + 1);
+    }
+  }
+
+  /* Keep the new line in a surface object so edge extrusion can replace it with a NURBS face
+   * while preserving the same object and its endpoint topology. */
   Nurb *nu = MEM_new<Nurb>("addNurbsLine");
   nu->type = CU_NURBS;
   nu->pntsu = 2;
@@ -510,6 +523,9 @@ static Nurb *nurbs_line_primitive_add(Object *obedit, const float mat[4][4])
   nu->orderu = nu->orderv = 2;
   nu->flagu = nu->flagv = CU_NURB_ENDPOINT;
   nu->flag = CU_SMOOTH;
+  nu->topology_vertex_ids[0] = next_topology_id++;
+  nu->topology_vertex_ids[1] = next_topology_id++;
+  nu->topology_edge_ids[0] = next_topology_id++;
   nu->resolu = cu->resolu;
   nu->resolv = cu->resolv;
   nu->bp = MEM_new_array_zeroed<BPoint>(nu->pntsu, "addNurbsLinePoints");

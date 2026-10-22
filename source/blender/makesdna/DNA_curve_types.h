@@ -155,6 +155,14 @@ struct Nurb {
   short mat_nr = 0;
   short hide = 0;
   eNurbFlag flag = eNurbFlag{};
+  /** Persistent topology identity for CAD-style NURBS editing. Zero means unassigned. */
+  int topology_face_id = 0;
+  /** Face corners in perimeter order: (u0,v0), (u1,v0), (u1,v1), (u0,v1). */
+  int topology_vertex_ids[4] = {};
+  /** Face boundary edges in perimeter order; a 1D curve uses slot zero. */
+  int topology_edge_ids[4] = {};
+  /** Keep following pointers 8-byte aligned in the DNA representation. */
+  char _pad_topology[4] = {};
   /** Number of points in the U or V directions. */
   int pntsu = 0, pntsv = 0;
   char _pad[4] = {};

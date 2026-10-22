@@ -29,6 +29,9 @@ class NurbsLineTest(unittest.TestCase):
 
     def extrude(self, displacement):
         bpy.ops.object.mode_set(mode='EDIT')
+        self.extrude_selected(displacement)
+
+    def extrude_selected(self, displacement):
         self.assertEqual(bpy.ops.curve.extrude(), {'FINISHED'})
         self.assertEqual(bpy.ops.transform.translate(value=displacement), {'FINISHED'})
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -76,12 +79,28 @@ class NurbsLineTest(unittest.TestCase):
         ob = self.add_line()
         self.extrude((0.0, 2.0, 0.0))
         self.extrude((0.0, 1.0, 0.0))
-        spline = ob.data.splines[0]
-        self.assertEqual((spline.point_count_u, spline.point_count_v), (2, 3))
-        selected = [p for p in spline.points if p.select]
+        self.assertEqual(len(ob.data.splines), 2)
+        self.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 2)
+                            for s in ob.data.splines))
+        shared_edge = set(self.coordinates(ob.data.splines[0])) & set(
+            self.coordinates(ob.data.splines[1]))
+        self.assertEqual(shared_edge,
+                         {(-1.0, 2.0, 0.0, 1.0), (1.0, 2.0, 0.0, 1.0)})
+        selected = [p for s in ob.data.splines for p in s.points if p.select]
         self.assertEqual(len(selected), 2)
         self.assertTrue(all(p.co.y == 3.0 for p in selected))
         self.assert_sheet_area(ob, 6.0)
+
+    def test_face_extrusion_adds_cap_and_boundary_walls(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        self.extrude_selected((0.0, 0.0, 3.0))
+        self.assertEqual(len(ob.data.splines), 6)
+        self.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 2)
+                            for s in ob.data.splines))
+        self.assert_sheet_area(ob, 32.0)
 
     def test_primitive_placement_and_radius(self):
         ob = self.add_line(radius=3.0, location=(1.0, 2.0, 3.0), rotation=(0.0, 0.0, math.pi / 2))
@@ -93,12 +112,16 @@ class NurbsLineTest(unittest.TestCase):
         ob = self.add_line()
         ob.data.splines[0].points[0].select = False
         self.extrude((1.0, 0.0, 0.0))
-        spline = ob.data.splines[0]
-        self.assertEqual((spline.point_count_u, spline.point_count_v), (3, 1))
+        self.assertEqual(len(ob.data.splines), 2)
+        source, segment = ob.data.splines
+        self.assertEqual((source.point_count_u, source.point_count_v), (2, 1))
+        self.assertEqual((segment.point_count_u, segment.point_count_v), (2, 1))
         self.assertEqual(
-            self.coordinates(spline),
-            [(-1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0), (2.0, 0.0, 0.0, 1.0)],
+            self.coordinates(source),
+            [(-1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)],
         )
+        self.assertEqual(self.coordinates(segment),
+                         [(1.0, 0.0, 0.0, 1.0), (2.0, 0.0, 0.0, 1.0)])
 
     def test_new_edge_supports_native_transforms(self):
         ob = self.add_line()
@@ -153,6 +176,26 @@ class NurbsLineTest(unittest.TestCase):
             self.assertEqual((spline.point_count_u, spline.point_count_v), (2, 2))
             self.assertEqual(self.coordinates(spline), coordinates)
             self.assert_sheet_area(ob, 4.0)
+
+    def test_save_reload_preserves_edge_extrusion_topology(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        name = ob.name
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'nurbs_line_topology.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+            ob = bpy.data.objects[name]
+            bpy.ops.object.mode_set(mode='EDIT')
+            for point in ob.data.splines[0].points:
+                point.select = abs(point.co.y - 2.0) < 1e-5
+            self.extrude_selected((0.0, 1.0, 0.0))
+            self.assertEqual(len(ob.data.splines), 2)
+            shared_edge = set(self.coordinates(ob.data.splines[0])) & set(
+                self.coordinates(ob.data.splines[1]))
+            self.assertEqual(shared_edge,
+                             {(-1.0, 2.0, 0.0, 1.0), (1.0, 2.0, 0.0, 1.0)})
+            self.assert_sheet_area(ob, 6.0)
 
     def test_undo_redo_preserves_line_and_sheet(self):
         ob = self.add_line()
