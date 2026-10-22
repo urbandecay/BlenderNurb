@@ -495,7 +495,41 @@ Nurb *ED_curve_add_nurbs_primitive(
   return nu;
 }
 
-static wmOperatorStatus curvesurf_prim_add(bContext *C, wmOperator *op, int type, int isSurf)
+static Nurb *nurbs_line_primitive_add(Object *obedit, const float mat[4][4])
+{
+  Curve *cu = id_cast<Curve *>(obedit->data);
+  ListBaseT<Nurb> *editnurb = object_editcurve_get(obedit);
+  BKE_nurbList_flag_set(editnurb, BEZT_FLAG_SELECT, false);
+
+  /* A single U span in a surface object can be extruded into a tensor-product sheet using
+   * the existing surface edit operators, without converting or replacing the object. */
+  Nurb *nu = MEM_new<Nurb>("addNurbsLine");
+  nu->type = CU_NURBS;
+  nu->pntsu = 2;
+  nu->pntsv = 1;
+  nu->orderu = nu->orderv = 2;
+  nu->flagu = nu->flagv = CU_NURB_ENDPOINT;
+  nu->flag = CU_SMOOTH;
+  nu->resolu = cu->resolu;
+  nu->resolv = cu->resolv;
+  nu->bp = MEM_new_array_zeroed<BPoint>(nu->pntsu, "addNurbsLinePoints");
+  for (int i = 0; i < nu->pntsu; i++) {
+    BPoint &bp = nu->bp[i];
+    bp.vec[0] = 2.0f * i - 1.0f;
+    bp.vec[3] = 1.0f;
+    bp.f1 = SELECT;
+    bp.radius = bp.weight = 1.0f;
+    mul_m4_v3(mat, bp.vec);
+  }
+  BKE_nurb_knot_calc_u(nu);
+
+  cu->actnu = editnurb->count();
+  cu->actvert = CU_ACT_NONE;
+  return nu;
+}
+
+static wmOperatorStatus curvesurf_prim_add(
+    bContext *C, wmOperator *op, int type, int isSurf, const bool use_nurbs_line = false)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -535,7 +569,8 @@ static wmOperatorStatus curvesurf_prim_add(bContext *C, wmOperator *op, int type
   }
   else { /* adding surface */
     if (obedit == nullptr || obedit->type != OB_SURF) {
-      const char *name = get_surf_defname(type);
+      const char *name = use_nurbs_line ? CTX_DATA_(BLT_I18NCONTEXT_ID_CURVE_LEGACY, "NurbsLine") :
+                                          get_surf_defname(type);
       obedit = ed::object::add_type(C, OB_SURF, name, loc, rot, true, local_view_bits);
       newob = true;
     }
@@ -549,7 +584,8 @@ static wmOperatorStatus curvesurf_prim_add(bContext *C, wmOperator *op, int type
   copy_v3_fl(scale, radius);
   ed::object::new_primitive_matrix(C, obedit, loc, rot, scale, mat);
 
-  nu = ED_curve_add_nurbs_primitive(C, obedit, mat, type, newob);
+  nu = use_nurbs_line ? nurbs_line_primitive_add(obedit, mat) :
+                        ED_curve_add_nurbs_primitive(C, obedit, mat, type, newob);
   editnurb = object_editcurve_get(obedit);
   BLI_addtail(editnurb, nu);
 
@@ -623,14 +659,15 @@ void CURVE_OT_primitive_bezier_circle_add(wmOperatorType *ot)
 
 static wmOperatorStatus add_primitive_nurbs_curve_exec(bContext *C, wmOperator *op)
 {
-  return curve_prim_add(C, op, CU_NURBS | CU_PRIM_CURVE);
+  return curvesurf_prim_add(C, op, CU_NURBS | CU_PRIM_CURVE, 1, true);
 }
 
 void CURVE_OT_primitive_nurbs_curve_add(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Add Nurbs Curve";
-  ot->description = "Construct a Nurbs Curve";
+  ot->name = "Add Nurbs Line";
+  ot->description =
+      "Construct a straight degree-one NURBS line that can be extruded into a surface";
   ot->idname = "CURVE_OT_primitive_nurbs_curve_add";
 
   /* API callbacks. */
