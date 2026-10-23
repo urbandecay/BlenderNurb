@@ -15,6 +15,7 @@
 #include "BLI_math_vector.h"
 
 #include "BKE_curve.hh"
+#include "BKE_curve_topology.hh"
 
 #include "ED_object.hh"
 
@@ -95,6 +96,7 @@ static void createTransCurveVerts(bContext * /*C*/, TransInfo *t)
 
     /* Count total of vertices, check identical as in 2nd loop for making transdata! */
     ListBaseT<Nurb> *nurbs = BKE_curve_editNurbs_get(cu);
+    BKE_curve_nurbs_topology_selection_sync(nurbs);
     for (Nurb &nu : *nurbs) {
       if (nu.type == CU_BEZIER) {
         for (a = 0, bezt = nu.bezt; a < nu.pntsu; a++, bezt++) {
@@ -424,6 +426,9 @@ static void recalcData_curve(TransInfo *t)
     else {
       /* Apply clipping after so we never project past the clip plane #25423. */
       transform_convert_clip_mirror_modifier_apply(tc);
+
+      /* Topology-tagged NURBS patches keep shared boundary vertices aligned while transforming. */
+      BKE_curve_nurbs_topology_position_sync(nurbs);
 
       if (t->mode == TFM_TRACKBALL) {
         for (Nurb &nu : *nurbs) {

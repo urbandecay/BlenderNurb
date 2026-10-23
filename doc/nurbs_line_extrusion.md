@@ -20,6 +20,13 @@ the existing curve editor, transform, and surface evaluation paths.
   face remains and the new outer edge is selected. Repeated extrusion
   therefore builds adjacent patches instead of extending one control net
   through the shared edge.
+- Topology-tagged two-point curves and bilinear patches share endpoint
+  selection and positions during Blender edit-mode transforms. Selecting or
+  moving one copy of a shared endpoint selects and moves the matching copies
+  on adjacent patches as well.
+- Clicking a topology-tagged control point applies its select or deselect state
+  to every copy of that shared vertex, so selecting both ends of a shared edge
+  highlights that boundary on all adjoining patches.
 - Extruding a fully selected NURBS face control net makes a translated cap and
   one side patch per boundary edge. Shared edges inside the selected region do
   not get walls. The original face region remains as the base.
@@ -31,24 +38,29 @@ the existing curve editor, transform, and surface evaluation paths.
 
 ## Current limits
 
-Topology IDs describe which boundary elements were shared when the extrusion
-was made. The new path creates coincident boundary control points in separate
-NURBS patches; ordinary curve transforms do not yet synchronize every future
-edit across those patch boundaries. So the extrusion result is connected at
-creation time, while ongoing seam editing still needs a shared-vertex editing
-path. Face selection uses the existing control-point workflow; this change
-does not add a separate face-selection mode. Vertex extrusion is supported for
-the original two-point line; arbitrary surface-vertex extrusion, cyclic
-surfaces, mixed face and edge extrusion, and general BRep operations are not
-covered here. Untagged legacy surfaces keep Blender's previous extrusion
-path.
+Topology IDs identify boundary elements shared by the extrusion patches. The
+control points are still stored in their respective NURBS patches, so the
+topology module synchronizes matching endpoints during Blender edit-mode
+selection and transforms. This slice supports topology-tagged two-point curves
+and bilinear 2-by-2 patches. Higher-order surface boundary control points and
+direct edits outside the standard transform system still need topology-aware
+handling. Select a shared edge by selecting its endpoint control points; this
+does not add a separate edge-selection mode. Face selection uses the existing
+control-point workflow; this change does not add a separate face-selection
+mode. Vertex extrusion is supported for the original two-point line; arbitrary
+surface-vertex extrusion, cyclic surfaces, mixed face and edge extrusion, and
+general BRep operations are not covered here. Untagged legacy surfaces keep
+Blender's previous extrusion path.
 
 ## Code and checks
 
 The line factory is in `source/blender/editors/curve/editcurve_add.cc`. The
 topology-aware edge and face extrusion code is in
-`source/blender/editors/curve/editcurve.cc`. The small topology IDs live on
-each `Nurb` in `source/blender/makesdna/DNA_curve_types.h`.
+`source/blender/editors/curve/editcurve.cc`. Shared endpoint synchronization
+lives in `source/blender/blenkernel/intern/curve_topology.cc`; transform hooks
+are in `source/blender/editors/transform/transform_convert_curve.cc`. The
+topology IDs live on each `Nurb` in
+`source/blender/makesdna/DNA_curve_types.h`.
 
 `tests/python/bl_nurbs_line.py` checks line creation and placement, line edge
 extrusion, endpoint extrusion, face edge extrusion, whole-face extrusion,

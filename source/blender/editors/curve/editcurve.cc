@@ -35,6 +35,7 @@
 #include "BKE_anim_data.hh"
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
+#include "BKE_curve_topology.hh"
 #include "BKE_displist.h"
 #include "BKE_fcurve.hh"
 #include "BKE_global.hh"
@@ -2498,18 +2499,18 @@ static bool nurb_topology_face_region_extrude(EditNurb *editnurb,
       }
       else if (edge == int(NurbTopologyEdge::UMax)) {
         wall->topology_edge_ids[0] = start_connector;
-        wall->topology_edge_ids[1] = cap_edge_id;
+        wall->topology_edge_ids[1] = source_edge_id;
         wall->topology_edge_ids[2] = end_connector;
-        wall->topology_edge_ids[3] = source_edge_id;
+        wall->topology_edge_ids[3] = cap_edge_id;
         wall->topology_vertex_ids[0] = new_start;
         wall->topology_vertex_ids[1] = old_start;
         wall->topology_vertex_ids[2] = old_end;
         wall->topology_vertex_ids[3] = new_end;
       }
       else if (edge == int(NurbTopologyEdge::VMax)) {
-        wall->topology_edge_ids[0] = source_edge_id;
+        wall->topology_edge_ids[0] = cap_edge_id;
         wall->topology_edge_ids[1] = end_connector;
-        wall->topology_edge_ids[2] = cap_edge_id;
+        wall->topology_edge_ids[2] = source_edge_id;
         wall->topology_edge_ids[3] = start_connector;
         wall->topology_vertex_ids[0] = new_start;
         wall->topology_vertex_ids[1] = new_end;
@@ -2603,8 +2604,37 @@ static bool ed_editnurb_topology_extrude(EditNurb *editnurb, Curve *cu)
     return false;
   }
 
-  if (!faces.is_empty() && (!selections.is_empty() || !vertex_selections.is_empty())) {
-    return false;
+  if (!faces.is_empty()) {
+    for (const NurbTopologyExtrudeSelection &selection : selections) {
+      const int selected_edge_id = selection.edge == NurbTopologyEdge::Curve ?
+                                       selection.nurb->topology_edge_ids[0] :
+                                       selection.nurb->topology_edge_ids[int(selection.edge)];
+      const bool is_shared_face_edge = std::any_of(
+          faces.begin(), faces.end(), [&](const Nurb *face) {
+            return std::find(face->topology_edge_ids,
+                             face->topology_edge_ids + 4,
+                             selected_edge_id) != face->topology_edge_ids + 4;
+          });
+      if (!is_shared_face_edge) {
+        return false;
+      }
+    }
+
+    for (const NurbTopologyVertexExtrudeSelection &selection : vertex_selections) {
+      const int selected_vertex_id = selection.nurb->topology_vertex_ids[selection.point_index];
+      const bool is_shared_face_vertex = std::any_of(
+          faces.begin(), faces.end(), [&](const Nurb *face) {
+            return std::find(face->topology_vertex_ids,
+                             face->topology_vertex_ids + 4,
+                             selected_vertex_id) != face->topology_vertex_ids + 4;
+          });
+      if (!is_shared_face_vertex) {
+        return false;
+      }
+    }
+
+    selections.clear();
+    vertex_selections.clear();
   }
 
   for (Nurb &nu : editnurb->nurbs) {
@@ -5511,6 +5541,10 @@ bool ED_curve_editnurb_select_pick(bContext *C,
       }
     }
 
+    if (bp != nullptr) {
+      BKE_curve_nurbs_topology_selection_set(editnurb, *nu, *bp);
+    }
+
     if (nu != BKE_curve_nurb_active_get(cu)) {
       cu->actvert = CU_ACT_NONE;
       BKE_curve_nurb_active_set(cu, nu);
@@ -6283,6 +6317,7 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
   const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = CTX_wm_view3d(C);
+  bool any_changed = false;
 
   Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
@@ -6318,6 +6353,7 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
     }
 
     if (changed) {
+      any_changed = true;
       if (ED_curve_updateAnimPaths(bmain, id_cast<Curve *>(obedit->data))) {
         WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
       }
@@ -6326,7 +6362,7 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
       DEG_id_tag_update(obedit->data, 0);
     }
   }
-  return OPERATOR_FINISHED;
+  return any_changed ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 
 void CURVE_OT_extrude(wmOperatorType *ot)

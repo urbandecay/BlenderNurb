@@ -91,6 +91,277 @@ class NurbsLineTest(unittest.TestCase):
         self.assertTrue(all(p.co.y == 3.0 for p in selected))
         self.assert_sheet_area(ob, 6.0)
 
+    def test_transforming_a_shared_edge_keeps_both_faces_connected(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 1.0, 0.0))
+        self.assertEqual(len(ob.data.splines), 2)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline_index, spline in enumerate(ob.data.splines):
+            for point in spline.points:
+                point.select = spline_index == 0 and abs(point.co.y - 2.0) < 1e-5
+
+        transforms = (
+            (bpy.ops.transform.translate, {'value': (0.0, 0.0, 1.0)}),
+            (bpy.ops.transform.rotate, {'value': 0.25, 'orient_axis': 'Z'}),
+            (bpy.ops.transform.resize, {'value': (1.2, 1.2, 1.2)}),
+        )
+        for transform, kwargs in transforms:
+            self.assertEqual(transform(**kwargs), {'FINISHED'})
+            patch_points = [
+                {tuple(round(value, 5) for value in point.co.xyz) for point in spline.points}
+                for spline in ob.data.splines
+            ]
+            self.assertEqual(len(patch_points[0] & patch_points[1]), 2)
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertEqual(
+            sum(point.select for spline in ob.data.splines for point in spline.points), 4)
+        self.assert_sheet_area(ob)
+
+    def test_shared_vertex_transform_updates_all_three_faces(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 2.0, 0.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline_index, spline in enumerate(ob.data.splines):
+            for point in spline.points:
+                point.select = spline_index == 0 and abs(point.co.x - 1.0) < 1e-5
+        self.extrude_selected((2.0, 0.0, 0.0))
+        self.assertEqual(len(ob.data.splines), 3)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline_index, spline in enumerate(ob.data.splines):
+            for point in spline.points:
+                point.select = (spline_index == 0 and abs(point.co.x - 1.0) < 1e-5 and
+                                abs(point.co.y - 2.0) < 1e-5)
+        self.assertEqual(
+            bpy.ops.transform.translate(value=(0.0, 0.0, 1.0)), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        shared_vertex_points = [
+            point
+            for spline in ob.data.splines
+            for point in spline.points
+            if abs(point.co.x - 1.0) < 1e-5 and abs(point.co.y - 2.0) < 1e-5
+        ]
+        self.assertEqual(len(shared_vertex_points), 3)
+        self.assertTrue(all(abs(point.co.z - 1.0) < 1e-5 for point in shared_vertex_points))
+        self.assert_sheet_area(ob)
+
+    def test_extruded_shared_edge_stays_connected_across_three_faces(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 2.0, 0.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline_index, spline in enumerate(ob.data.splines):
+            for point in spline.points:
+                point.select = (spline_index == 0 and abs(point.co.y - 2.0) < 1e-5)
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 3)
+
+        shared_edge_points = [
+            point
+            for spline in ob.data.splines
+            for point in spline.points
+            if abs(point.co.y - 2.0) < 1e-5 and abs(point.co.z) < 1e-5
+        ]
+        self.assertEqual(len(shared_edge_points), 6)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline_index, spline in enumerate(ob.data.splines):
+            for point in spline.points:
+                point.select = (spline_index == 0 and abs(point.co.y - 2.0) < 1e-5 and
+                                abs(point.co.z) < 1e-5)
+        self.assertEqual(
+            bpy.ops.transform.translate(value=(1.0, 0.0, 0.0)), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        moved_shared_edge_points = [
+            point
+            for spline in ob.data.splines
+            for point in spline.points
+            if (abs(point.co.y - 2.0) < 1e-5 and abs(point.co.z) < 1e-5 and
+                (abs(point.co.x) < 1e-5 or abs(point.co.x - 2.0) < 1e-5))
+        ]
+        self.assertEqual(len(moved_shared_edge_points), 6)
+        self.assert_sheet_area(ob)
+
+    def test_select_linked_expands_across_shared_nurbs_face_edges(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 1.0, 0.0))
+        self.assertEqual(len(ob.data.splines), 2)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = False
+        ob.data.splines[0].points[0].select = True
+
+        self.assertEqual(bpy.ops.curve.select_linked(), {'FINISHED'})
+        self.assertEqual(sum(point.select for spline in ob.data.splines
+                             for point in spline.points), 8)
+        self.assertTrue(all(point.select for spline in ob.data.splines
+                            for point in spline.points))
+
+        self.assertEqual(bpy.ops.curve.extrude(), {'FINISHED'})
+        self.assertGreater(len(ob.data.splines), 2)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assert_sheet_area(ob)
+
+    def test_select_linked_does_not_select_disconnected_nurbs_face_island(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for point in ob.data.splines[0].points:
+            point.select = False
+        bpy.ops.curve.primitive_nurbs_curve_add(enter_editmode=True, location=(10.0, 0.0, 0.0))
+        self.extrude_selected((0.0, 2.0, 0.0))
+        self.assertEqual(len(ob.data.splines), 2)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = False
+        ob.data.splines[0].points[0].select = True
+
+        self.assertEqual(bpy.ops.curve.select_linked(), {'FINISHED'})
+        selected_points = [point.select for spline in ob.data.splines for point in spline.points]
+        self.assertEqual(sum(selected_points), 4)
+        self.assertEqual(sum(selected_points[:4]), 4)
+        self.assertEqual(sum(selected_points[4:]), 0)
+
+    def test_select_linked_does_not_cross_hidden_shared_edge(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 1.0, 0.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        first, second = ob.data.splines
+        shared_points = set(self.coordinates(first)) & set(self.coordinates(second))
+        for point in second.points:
+            if tuple(round(value, 5) for value in point.co) in shared_points:
+                point.hide = True
+            point.select = False
+        for point in first.points:
+            point.select = False
+        first.points[0].select = True
+
+        self.assertEqual(bpy.ops.curve.select_linked(), {'FINISHED'})
+        selected_points = [point.select for spline in ob.data.splines for point in spline.points]
+        self.assertEqual(sum(selected_points), 4)
+        self.assertEqual(sum(selected_points[:4]), 4)
+        self.assertEqual(sum(selected_points[4:]), 0)
+
+    def test_select_linked_does_not_bridge_hidden_face_vertices(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        face = next(spline for spline in ob.data.splines if spline.point_count_v == 2)
+        for point in face.points:
+            point.select = False
+        face.points[1].hide = True
+        face.points[2].hide = True
+        face.points[0].select = True
+
+        self.assertEqual(bpy.ops.curve.select_linked(), {'FINISHED'})
+        selected_points = [point for point in face.points if point.select]
+        self.assertEqual(selected_points, [face.points[0]])
+
+    def test_select_linked_expands_across_shared_nurbs_line_vertices(self):
+        ob = self.add_line()
+        ob.data.splines[0].points[0].select = False
+        self.extrude((1.0, 0.0, 0.0))
+        self.assertEqual(len(ob.data.splines), 2)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = False
+        ob.data.splines[0].points[1].select = True
+
+        self.assertEqual(bpy.ops.curve.select_linked(), {'FINISHED'})
+        self.assertEqual(sum(point.select for spline in ob.data.splines
+                             for point in spline.points), 4)
+        self.assertTrue(all(point.select for spline in ob.data.splines
+                            for point in spline.points))
+
+    def test_select_linked_follows_wire_between_faces_at_shared_vertices(self):
+        ob = self.add_line()
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for point in ob.data.splines[0].points:
+            point.select = point.co.x < 0.0
+        self.extrude_selected((0.0, 2.0, 0.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = (abs(point.co.x - 1.0) < 1e-5 and
+                                abs(point.co.y) < 1e-5)
+        self.extrude_selected((0.0, -2.0, 0.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline in ob.data.splines:
+            is_first_branch = any(abs(point.co.x + 1.0) < 1e-5 for point in spline.points) and any(
+                abs(point.co.y - 2.0) < 1e-5 for point in spline.points)
+            for point in spline.points:
+                point.select = is_first_branch
+        self.extrude_selected((0.0, 0.0, 1.0))
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        for spline in ob.data.splines:
+            is_second_branch = any(abs(point.co.x - 1.0) < 1e-5 for point in spline.points) and any(
+                abs(point.co.y + 2.0) < 1e-5 for point in spline.points)
+            for point in spline.points:
+                point.select = is_second_branch
+        self.extrude_selected((0.0, 0.0, 1.0))
+
+        self.assertEqual(len(ob.data.splines), 3)
+        bpy.ops.object.mode_set(mode='EDIT')
+        faces = [spline for spline in ob.data.splines if spline.point_count_v == 2]
+        self.assertEqual(len(faces), 2)
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = False
+        faces[0].points[0].select = True
+
+        self.assertEqual(bpy.ops.curve.select_linked(), {'FINISHED'})
+        self.assertEqual(
+            sorted(sum(point.select for point in spline.points) for spline in ob.data.splines),
+            [2, 4, 4],
+        )
+
+    def test_face_extrusion_ignores_synced_shared_edge_points(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 1.0, 0.0))
+        self.assertEqual(len(ob.data.splines), 2)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        first, second = ob.data.splines
+        shared_points = set(self.coordinates(first)) & set(self.coordinates(second))
+        self.assertEqual(len(shared_points), 2)
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = False
+        for point in first.points:
+            point.select = True
+        for point in second.points:
+            if tuple(round(value, 5) for value in point.co) in shared_points:
+                point.select = True
+
+        self.assertEqual(bpy.ops.curve.extrude(), {'FINISHED'})
+        self.assertEqual(len(ob.data.splines), 7)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assert_sheet_area(ob)
+
     def test_face_extrusion_adds_cap_and_boundary_walls(self):
         ob = self.add_line()
         self.extrude((0.0, 2.0, 0.0))
@@ -101,6 +372,20 @@ class NurbsLineTest(unittest.TestCase):
         self.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 2)
                             for s in ob.data.splines))
         self.assert_sheet_area(ob, 32.0)
+
+    def test_face_cap_can_be_extruded_again_without_moving_instead(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        self.extrude_selected((0.0, 0.0, 3.0))
+        self.assertEqual(len(ob.data.splines), 6)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.extrude_selected((0.0, 0.0, 1.0))
+
+        self.assertEqual(len(ob.data.splines), 11)
+        self.assert_sheet_area(ob)
 
     def test_primitive_placement_and_radius(self):
         ob = self.add_line(radius=3.0, location=(1.0, 2.0, 3.0), rotation=(0.0, 0.0, math.pi / 2))

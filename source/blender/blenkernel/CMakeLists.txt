@@ -87,6 +87,7 @@ set(SRC
   intern/curve_nurbs.cc
   intern/curve_poly.cc
   intern/curve_to_mesh_convert.cc
+  intern/curve_topology.cc
   intern/curveprofile.cc
   intern/curves.cc
   intern/curves_attributes.cc
@@ -350,6 +351,7 @@ set(SRC
   BKE_curve.hh
   BKE_curve_legacy_convert.hh
   BKE_curve_to_mesh.hh
+  BKE_curve_topology.hh
   BKE_curveprofile.h
   BKE_curves.h
   BKE_curves.hh

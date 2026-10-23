@@ -16,12 +16,15 @@
 #include "BLI_heap_simple.h"
 #include "BLI_kdtree.hh"
 #include "BLI_listbase.h"
+#include "BLI_map.hh"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 #include "BLI_rand.h"
+#include "BLI_vector.hh"
 
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
+#include "BKE_curve_topology.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_layer.hh"
 #include "BKE_report.hh"
@@ -631,6 +634,181 @@ void CURVE_OT_select_all(wmOperatorType *ot)
 /** \name Select Linked Operator
  * \{ */
 
+enum class CurveTopologyElementType : uint8_t { Face, Wire };
+
+struct CurveTopologyElement {
+  Nurb *nurb;
+  CurveTopologyElementType type;
+};
+
+static bool curve_topology_face_is_supported(const Nurb &nurb)
+{
+  return nurb.type == CU_NURBS && nurb.pntsu == 2 && nurb.pntsv == 2 && nurb.bp != nullptr &&
+         nurb.topology_face_id > 0;
+}
+
+static bool curve_topology_wire_is_supported(const Nurb &nurb)
+{
+  return nurb.type == CU_NURBS && nurb.pntsu == 2 && nurb.pntsv == 1 && nurb.bp != nullptr &&
+         nurb.topology_edge_ids[0] > 0 && nurb.topology_vertex_ids[0] > 0 &&
+         nurb.topology_vertex_ids[1] > 0;
+}
+
+static int curve_topology_element_point_indices(const CurveTopologyElement &element,
+                                                int r_indices[4])
+{
+  if (element.type == CurveTopologyElementType::Wire) {
+    r_indices[0] = 0;
+    r_indices[1] = 1;
+    return 2;
+  }
+
+  /* Nurb control points are stored with U varying fastest. The topology corner IDs run around
+   * the face perimeter, so corner three maps to point two in the control-point array. */
+  r_indices[0] = 0;
+  r_indices[1] = 1;
+  r_indices[2] = 3;
+  r_indices[3] = 2;
+  return 4;
+}
+
+static void curve_topology_element_edge_corners(const CurveTopologyElement &element,
+                                                const int edge,
+                                                int &r_corner_a,
+                                                int &r_corner_b)
+{
+  if (element.type == CurveTopologyElementType::Wire) {
+    r_corner_a = 0;
+    r_corner_b = 1;
+    return;
+  }
+
+  static constexpr int face_edge_corners[4][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}};
+  r_corner_a = face_edge_corners[edge][0];
+  r_corner_b = face_edge_corners[edge][1];
+}
+
+/** Select the visible topology vertex shell containing selected or picked vertices. */
+static bool curve_topology_select_linked_component(ListBaseT<Nurb> *nurbs,
+                                                    const BPoint *seed_point,
+                                                    const bool select)
+{
+  if (nurbs == nullptr) {
+    return false;
+  }
+
+  Vector<CurveTopologyElement> elements;
+  Map<int, Vector<int>> adjacent_vertices_by_vertex;
+  Map<int, Vector<BPoint *>> points_by_vertex;
+  int seed_vertex_id = 0;
+  for (Nurb &nurb : *nurbs) {
+    const bool is_face = curve_topology_face_is_supported(nurb);
+    if (!is_face && !curve_topology_wire_is_supported(nurb)) {
+      continue;
+    }
+
+    const CurveTopologyElementType type = is_face ? CurveTopologyElementType::Face :
+                                                    CurveTopologyElementType::Wire;
+    const CurveTopologyElement element{&nurb, type};
+    elements.append(element);
+
+    int point_indices[4];
+    const int point_count = curve_topology_element_point_indices(element, point_indices);
+    for (int corner = 0; corner < point_count; corner++) {
+      const int point_index = point_indices[corner];
+      const int vertex_id = nurb.topology_vertex_ids[corner];
+      if (vertex_id > 0 && nurb.bp[point_index].hide == 0) {
+        points_by_vertex.lookup_or_add_default(vertex_id).append(&nurb.bp[point_index]);
+        if (&nurb.bp[point_index] == seed_point) {
+          seed_vertex_id = vertex_id;
+        }
+      }
+    }
+
+    const int edge_count = is_face ? 4 : 1;
+    for (int edge = 0; edge < edge_count; edge++) {
+      if (nurb.topology_edge_ids[edge] == 0) {
+        continue;
+      }
+      int corner_a, corner_b;
+      curve_topology_element_edge_corners(element, edge, corner_a, corner_b);
+      const int point_a = point_indices[corner_a];
+      const int point_b = point_indices[corner_b];
+      const int vertex_a = nurb.topology_vertex_ids[corner_a];
+      const int vertex_b = nurb.topology_vertex_ids[corner_b];
+      if (vertex_a == 0 || vertex_b == 0 || nurb.bp[point_a].hide != 0 ||
+          nurb.bp[point_b].hide != 0)
+      {
+        continue;
+      }
+      adjacent_vertices_by_vertex.lookup_or_add_default(vertex_a).append(vertex_b);
+      adjacent_vertices_by_vertex.lookup_or_add_default(vertex_b).append(vertex_a);
+    }
+  }
+
+  Map<int, bool> linked_vertex_ids;
+  Vector<int> pending_vertex_ids;
+  if (seed_point != nullptr) {
+    if (seed_vertex_id == 0) {
+      return false;
+    }
+    linked_vertex_ids.add(seed_vertex_id, true);
+    pending_vertex_ids.append(seed_vertex_id);
+  }
+  else {
+    for (const CurveTopologyElement &element : elements) {
+      int point_indices[4];
+      const int point_count = curve_topology_element_point_indices(element, point_indices);
+      for (int corner = 0; corner < point_count; corner++) {
+        const BPoint &point = element.nurb->bp[point_indices[corner]];
+        const int vertex_id = element.nurb->topology_vertex_ids[corner];
+        if (vertex_id > 0 && point.hide == 0 && (point.f1 & SELECT) != 0 &&
+            !linked_vertex_ids.contains(vertex_id))
+        {
+          linked_vertex_ids.add(vertex_id, true);
+          pending_vertex_ids.append(vertex_id);
+        }
+      }
+    }
+  }
+
+  for (int pending_index = 0; pending_index < pending_vertex_ids.size(); pending_index++) {
+    const int vertex_id = pending_vertex_ids[pending_index];
+    const Vector<int> *const adjacent_vertices = adjacent_vertices_by_vertex.lookup_ptr(vertex_id);
+    if (adjacent_vertices == nullptr) {
+      continue;
+    }
+    for (const int adjacent_vertex : *adjacent_vertices) {
+      if (!linked_vertex_ids.contains(adjacent_vertex)) {
+        linked_vertex_ids.add(adjacent_vertex, true);
+        pending_vertex_ids.append(adjacent_vertex);
+      }
+    }
+  }
+
+  bool changed = false;
+  for (const int vertex_id : linked_vertex_ids.keys()) {
+    const Vector<BPoint *> *const points = points_by_vertex.lookup_ptr(vertex_id);
+    if (points == nullptr) {
+      continue;
+    }
+    for (BPoint *point : *points) {
+      const bool was_selected = (point->f1 & SELECT) != 0;
+      if (was_selected == select) {
+        continue;
+      }
+      if (select) {
+        point->f1 |= SELECT;
+      }
+      else {
+        point->f1 &= ~SELECT;
+      }
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 static wmOperatorStatus select_linked_exec(bContext *C, wmOperator * /*op*/)
 {
   const Main *bmain = CTX_data_main(C);
@@ -644,10 +822,12 @@ static wmOperatorStatus select_linked_exec(bContext *C, wmOperator * /*op*/)
     Curve *cu = id_cast<Curve *>(obedit->data);
     EditNurb *editnurb = cu->editnurb;
     ListBaseT<Nurb> *nurbs = &editnurb->nurbs;
-    bool changed = false;
+    bool changed = curve_topology_select_linked_component(nurbs, nullptr, true);
 
     for (Nurb &nu : *nurbs) {
-      if (ED_curve_nurb_select_check(v3d, &nu)) {
+      if (!curve_topology_face_is_supported(nu) && !curve_topology_wire_is_supported(nu) &&
+          ED_curve_nurb_select_check(v3d, &nu))
+      {
         changed |= ED_curve_nurb_select_all(&nu);
       }
     }
@@ -712,11 +892,21 @@ static wmOperatorStatus select_linked_pick_invoke(bContext *C,
     return OPERATOR_CANCELLED;
   }
 
-  if (bezt) {
+  Object *obedit = basact->object;
+  bool changed = false;
+  if (bp != nullptr && curve_topology_face_is_supported(*nu)) {
+    Curve *cu = id_cast<Curve *>(obedit->data);
+    changed = curve_topology_select_linked_component(&cu->editnurb->nurbs, bp, select);
+  }
+  else if (bp != nullptr && curve_topology_wire_is_supported(*nu)) {
+    Curve *cu = id_cast<Curve *>(obedit->data);
+    changed = curve_topology_select_linked_component(&cu->editnurb->nurbs, bp, select);
+  }
+  else if (bezt) {
     a = nu->pntsu;
     bezt = nu->bezt;
     while (a--) {
-      select_beztriple(bezt, select, BEZT_FLAG_SELECT, VISIBLE);
+      changed |= select_beztriple(bezt, select, BEZT_FLAG_SELECT, VISIBLE);
       bezt++;
     }
   }
@@ -724,15 +914,15 @@ static wmOperatorStatus select_linked_pick_invoke(bContext *C,
     a = nu->pntsu * nu->pntsv;
     bp = nu->bp;
     while (a--) {
-      select_bpoint(bp, select, BEZT_FLAG_SELECT, VISIBLE);
+      changed |= select_bpoint(bp, select, BEZT_FLAG_SELECT, VISIBLE);
       bp++;
     }
   }
 
-  Object *obedit = basact->object;
-
-  DEG_id_tag_update(obedit->data, ID_RECALC_SELECT);
-  WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+  if (changed) {
+    DEG_id_tag_update(obedit->data, ID_RECALC_SELECT);
+    WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+  }
 
   if (!select) {
     BKE_curve_nurb_vert_active_validate(id_cast<Curve *>(obedit->data));
