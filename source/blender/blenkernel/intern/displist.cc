@@ -6,8 +6,11 @@
  * \ingroup bke
  */
 
+#include <algorithm>
 #include <cstring>
 #include <numeric>
+
+#include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -39,6 +42,7 @@
 #include "BKE_lib_id.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
+#include "BKE_nurbs_mesh.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_vfont.hh"
@@ -47,6 +51,8 @@
 #include "DEG_depsgraph_query.hh"
 
 namespace blender {
+
+static CLG_LogRef LOG_NURBS = {"geom.nurbs"};
 
 static void displist_elem_free(DispList *dl)
 {
@@ -1676,6 +1682,55 @@ static bke::GeometrySet evaluate_curve_type_object(Depsgraph *depsgraph,
   return curve_calc_modifiers_post(depsgraph, scene, ob, r_dispbase, for_render);
 }
 
+/** Native source dispatch. Keep all source/geometry construction in the shared kernel services. */
+static bke::GeometrySet evaluate_native_nurbs_object(Object &object,
+                                                     const Curve &curve,
+                                                     const bool for_render)
+{
+  auto evaluation = std::shared_ptr<bke::nurbs::ObjectEvaluation>(
+      new bke::nurbs::ObjectEvaluation());
+  auto fail = [&](const std::string &error) {
+    evaluation->error = error;
+    object.runtime->nurbs_evaluation = evaluation;
+    CLOG_ERROR(&LOG_NURBS, "Unable to evaluate '%s': %s", object.id.name + 2, error.c_str());
+    return bke::GeometrySet();
+  };
+  if (curve.nurbs_eval_source == nullptr) {
+    return fail("Native NURBS evaluation has no retained source handoff");
+  }
+  if (!curve.nurbs_eval_source->snapshot) {
+    return fail(curve.nurbs_eval_source->error.empty() ? "Native NURBS source capture failed" :
+                                                         curve.nurbs_eval_source->error);
+  }
+  /* Legacy RNA stores the user-visible offset plus one; 1.0 is neutral. */
+  if (!object.modifiers.is_empty() || curve.bevobj != nullptr || curve.taperobj != nullptr ||
+      curve.offset != 1.0f || curve.extrude != 0.0f || curve.bevel_radius != 0.0f)
+  {
+    return fail(
+        "Native NURBS preview does not yet support modifiers or legacy curve offsets/bevels");
+  }
+  const int resolution_u = for_render && curve.resolu_ren > 0 ? curve.resolu_ren : curve.resolu;
+  const int resolution_v = for_render && curve.resolv_ren > 0 ? curve.resolv_ren : curve.resolv;
+  /* Initial uniform preview uses the maximum configured U/V resolution. No fitting or source
+   * tolerance expansion is performed. Agreement allowance remains explicitly zero. */
+  evaluation->options.boundary.segments_per_span = std::max(resolution_u, resolution_v);
+  evaluation->options.interior_subdivisions = std::max(resolution_u, resolution_v);
+  evaluation->result = bke::nurbs::evaluate_mesh(
+      *curve.nurbs_eval_source->snapshot, evaluation->options, &evaluation->error);
+  if (!evaluation->result) {
+    return fail(evaluation->error);
+  }
+  Mesh *mesh = evaluation->result->mesh.get();
+  mesh->mat = MEM_dupalloc(curve.mat);
+  mesh->totcol = curve.totcol;
+  STRNCPY(mesh->id.name, curve.id.name);
+  *(reinterpret_cast<short *>(mesh->id.name)) = ID_ME;
+  bke::GeometrySet geometry;
+  geometry.replace_mesh(evaluation->result->mesh.release());
+  object.runtime->nurbs_evaluation = std::move(evaluation);
+  return geometry;
+}
+
 void BKE_displist_make_curveTypes(Depsgraph *depsgraph,
                                   const Scene *scene,
                                   Object *ob,
@@ -1691,6 +1746,14 @@ void BKE_displist_make_curveTypes(Depsgraph *depsgraph,
 
   ob->runtime->curve_cache = MEM_new_zeroed<CurveCache>(__func__);
   ListBaseT<DispList> *dispbase = &ob->runtime->curve_cache->disp;
+
+  if (original_curve.nurbs_eval_source != nullptr || original_curve.nurbs_geometry != nullptr ||
+      (original_curve.editnurb != nullptr && original_curve.editnurb->nurbs_edit != nullptr))
+  {
+    bke::GeometrySet geometry = evaluate_native_nurbs_object(*ob, original_curve, for_render);
+    ob->runtime->geometry_set_eval = new bke::GeometrySet(std::move(geometry));
+    return;
+  }
 
   if (ob->type == OB_SURF) {
     bke::GeometrySet geometry = evaluate_surface_object(

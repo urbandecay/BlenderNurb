@@ -4,6 +4,33 @@
 
 ## How to read the map
 
+The current-checkout review adds
+[`operator_workflow_classes.csv`](operator_workflow_classes.csv), keyed by the
+same 358 ordered operator IDs. It uses the handoff's four workflow classes:
+1 = same interaction/topology, 2 = NURBS-specific exact construction,
+3 = restricted or tolerance-managed geometry, 4 = representation-specific or
+explicit conversion/separate alternative. Each row states conditions; these
+are proposed contracts, not implementation or acceptance results. The original
+five geometry categories below answer a different question and are retained as
+research detail. Read both alongside
+[`current_checkout_audit.md`](current_checkout_audit.md).
+
+The new conditions correct several conflicting older recommendations: polygon
+primitive segment counts are topology inputs, unsubdivide is not knot removal,
+region extrusion is not automatic solid creation, varying-normal extrusion is
+not uniform exact translation, and subdivision smoothing is a shape change.
+Texture-map work is classified as data editing and never changes p-curves.
+General partial movement of curved supports is not covered by the exactness of
+a complete-support affine transform. Macro classification follows its geometry
+children; a macro registration is not an additional algorithm.
+
+The user's later clarification is **fit-point editing only**. Older row text
+that mentions selectable CVs or an advanced control-net editing view does not
+define the current product. Control coefficients and weights remain internal;
+topology components and fit handles are distinct source domains. The current
+workflow map also limits exact dissolve to proven common-support partitions;
+cross-support reconstruction and tolerance-based cleanup need different gates.
+
 Each row records the source behavior description where available, a proposed NURBS behavior, Blender interaction code that can be reused, and the main implementation dependencies. These are design recommendations for a Blender-like NURBS editor, not claims that Blender currently supports NURBS or that any existing prototype restriction is required. A mesh macro is assessed as a single UX/action sequence while its children remain separately inventoried. BMesh definitions are kernel items, not standalone user-facing operators; their rows identify whether their geometry work can be replaced or whether only the caller interaction can be reused. Generic transform rows are registered mode operations, and `TRANSFORM_OT_seq_slide` is intentionally identified as sequencer-only, outside spatial geometry.
 
 The five `geometry_category` values mean:

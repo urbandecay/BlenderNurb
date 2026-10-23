@@ -657,11 +657,16 @@ class VIEW3D_MT_editor_menus(Menu):
         mode_string = context.mode
         edit_object = context.edit_object
         tool_settings = context.tool_settings
+        is_native_nurbs = (edit_object is not None and
+                           edit_object.type in {'CURVE', 'SURFACE'} and
+                           getattr(edit_object.data, "is_native_nurbs", False))
 
         layout.menu("VIEW3D_MT_view")
 
         # Select Menu
-        if mode_string == 'PAINT_VERTEX':
+        if is_native_nurbs:
+            layout.menu("VIEW3D_MT_select_edit_nurbs")
+        elif mode_string == 'PAINT_VERTEX':
             mesh = obj.data
             if mesh.use_paint_mask:
                 layout.menu("VIEW3D_MT_select_paint_mask")
@@ -674,15 +679,16 @@ class VIEW3D_MT_editor_menus(Menu):
             layout.menu("VIEW3D_MT_add")
         elif mode_string == 'EDIT_MESH':
             layout.menu("VIEW3D_MT_mesh_add", text="Add", text_ctxt=i18n_contexts.operator_default)
-        elif mode_string == 'EDIT_CURVE':
+        elif mode_string == 'EDIT_CURVE' and not is_native_nurbs:
             layout.menu("VIEW3D_MT_curve_add", text="Add", text_ctxt=i18n_contexts.operator_default)
         elif mode_string == 'EDIT_CURVES':
             layout.menu("VIEW3D_MT_edit_curves_add", text="Add", text_ctxt=i18n_contexts.operator_default)
-        elif mode_string == 'EDIT_SURFACE':
+        elif mode_string == 'EDIT_SURFACE' and not is_native_nurbs:
             layout.menu("VIEW3D_MT_surface_add", text="Add", text_ctxt=i18n_contexts.operator_default)
 
         if edit_object:
-            layout.menu("VIEW3D_MT_edit_" + edit_object.type.lower())
+            if not is_native_nurbs:
+                layout.menu("VIEW3D_MT_edit_" + edit_object.type.lower())
 
             if mode_string == 'EDIT_MESH':
                 layout.menu("VIEW3D_MT_edit_mesh_vertices")
@@ -690,7 +696,7 @@ class VIEW3D_MT_editor_menus(Menu):
                 layout.menu("VIEW3D_MT_edit_mesh_faces")
                 layout.menu("VIEW3D_MT_uv_map", text="UV")
                 layout.template_node_operator_asset_root_items()
-            elif mode_string in {'EDIT_CURVE', 'EDIT_SURFACE'}:
+            elif mode_string in {'EDIT_CURVE', 'EDIT_SURFACE'} and not is_native_nurbs:
                 layout.menu("VIEW3D_MT_edit_curve_ctrlpoints")
                 layout.menu("VIEW3D_MT_edit_curve_segments")
             elif mode_string == 'EDIT_POINTCLOUD':
@@ -720,6 +726,18 @@ class VIEW3D_MT_editor_menus(Menu):
 
 
 # ********** Menu **********
+
+
+class VIEW3D_MT_select_edit_nurbs(Menu):
+    bl_label = "Select"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator("curve.select_all", text="All", icon='SELECT_SET').action = 'SELECT'
+        layout.operator("curve.select_all", text="None", icon='SELECT_SUBTRACT').action = 'DESELECT'
+        layout.operator("curve.select_all", text="Invert", icon='SELECT_EXTEND').action = 'INVERT'
+        layout.separator()
+        layout.operator("view3d.select_box", text="Box Select")
 
 
 # ********** Utilities **********
@@ -3986,10 +4004,14 @@ class VIEW3D_MT_edit_curve_clean(Menu):
 class VIEW3D_MT_edit_curve_context_menu(Menu):
     bl_label = "Curve"
 
-    def draw(self, _context):
+    def draw(self, context):
         # TODO(campbell): match mesh vertex menu.
 
         layout = self.layout
+        edit_object = context.edit_object
+        if edit_object and getattr(edit_object.data, "is_native_nurbs", False):
+            layout.menu_contents("VIEW3D_MT_select_edit_nurbs")
+            return
 
         layout.operator_context = 'INVOKE_DEFAULT'
 
@@ -6507,6 +6529,7 @@ classes = (
     VIEW3D_HT_header,
     VIEW3D_HT_tool_header,
     VIEW3D_MT_editor_menus,
+    VIEW3D_MT_select_edit_nurbs,
     VIEW3D_MT_transform,
     VIEW3D_MT_transform_object,
     VIEW3D_MT_mirror,

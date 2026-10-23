@@ -63,6 +63,7 @@
 #include "ED_curves.hh"
 #include "ED_lattice.hh"
 #include "ED_mesh.hh"
+#include "ED_nurbs.hh"
 #include "ED_object.hh"
 #include "ED_outliner.hh"
 #include "ED_particle.hh"
@@ -81,7 +82,6 @@
 #include "DEG_depsgraph_query.hh"
 
 #include "DRW_select_buffer.hh"
-
 
 #include "view3d_intern.hh" /* own include */
 
@@ -1059,8 +1059,7 @@ static bool view3d_lasso_select(bContext *C,
                                        mcoords.size(),
                                        sel_op) != OPERATOR_CANCELLED;
     }
-    else if (ob && (ob->mode & OB_MODE_VERTEX_PAINT))
-    {
+    else if (ob && (ob->mode & OB_MODE_VERTEX_PAINT)) {
       /* pass */
     }
     else {
@@ -1493,8 +1492,8 @@ static int selectbuffer_ret_hits_5(MutableSpan<GPUSelectResult> hit_results,
 }
 
 /**
- * Populate a select buffer with objects and selectable sub-elements such as camera tracking points.
- * Checks three selection levels and compare.
+ * Populate a select buffer with objects and selectable sub-elements such as camera tracking
+ * points. Checks three selection levels and compare.
  *
  * \param do_nearest_xray: When set, read in hits that don't stop
  * at the nearest surface. The hits must still be ordered by depth.
@@ -2024,18 +2023,13 @@ static bool ed_object_select_pick(bContext *C,
       basact = basact_override;
     }
     else {
-      basact = (gpu->hits > 0) ? mouse_select_eval_buffer(&vc,
-                                                          gpu->buffer,
-                                                          gpu->hits,
-                                                          gpu->do_nearest,
-                                                          nullptr) :
+      basact = (gpu->hits > 0) ? mouse_select_eval_buffer(
+                                     &vc, gpu->buffer, gpu->hits, gpu->do_nearest, nullptr) :
                                  nullptr;
     }
 
     /* Camera tracking points share the GPU selection buffer with objects. */
-    if (gpu->hits > 0 && gpu->has_subelements && basact &&
-        basact->object->type == OB_CAMERA)
-    {
+    if (gpu->hits > 0 && gpu->has_subelements && basact && basact->object->type == OB_CAMERA) {
       MovieClip *clip = BKE_object_movieclip_get(scene, basact->object, false);
       if (clip != nullptr) {
         if (ed_object_select_pick_camera_track(
@@ -2881,6 +2875,10 @@ static void do_nurbs_box_select__doSelect(void *user_data,
 }
 static bool do_nurbs_box_select(const ViewContext *vc, const rcti *rect, const eSelectOp sel_op)
 {
+  const Curve &native_curve = *id_cast<const Curve *>(vc->obedit->data);
+  if (native_curve.editnurb->nurbs_edit != nullptr) {
+    return ed::nurbs::select_box(*vc, *rect, sel_op);
+  }
   const bool deselect_all = (sel_op == SEL_OP_SET);
   BoxSelectUserData data;
 

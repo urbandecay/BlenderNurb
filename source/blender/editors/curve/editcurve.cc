@@ -15,6 +15,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "CLG_log.h"
+
 #include "BLI_array_utils.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase_wrapper.hh"
@@ -44,6 +46,7 @@
 #include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object_types.hh"
 #include "BKE_report.hh"
 
@@ -58,6 +61,7 @@
 #include "WM_types.hh"
 
 #include "ED_curve.hh"
+#include "ED_nurbs.hh"
 #include "ED_object.hh"
 #include "ED_outliner.hh"
 #include "ED_screen.hh"
@@ -81,6 +85,8 @@ extern "C" {
 #include "RNA_enum_types.hh"
 
 namespace blender {
+
+static CLG_LogRef LOG = {"edit.curve"};
 
 void selectend_nurb(Object *obedit, enum eEndPoint_Types selfirst, bool doswap, bool selstatus);
 static void adduplicateflagNurb(Object *obedit,
@@ -1275,16 +1281,34 @@ static void remap_hook_indices(Main *bmain, Object *obedit)
   }
 }
 
-void ED_curve_editnurb_load(Main *bmain, Object *obedit)
+bool ED_curve_editnurb_load(Main *bmain, Object *obedit, ReportList *reports)
 {
-  ListBaseT<Nurb> *editnurb = object_editcurve_get(obedit);
-
-  if (obedit == nullptr) {
-    return;
+  if (obedit == nullptr || !ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF) ||
+      id_cast<Curve *>(obedit->data)->editnurb == nullptr)
+  {
+    return false;
   }
+  ListBaseT<Nurb> *editnurb = object_editcurve_get(obedit);
 
   if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
     Curve *cu = id_cast<Curve *>(obedit->data);
+    if (cu->editnurb != nullptr && cu->editnurb->nurbs_edit != nullptr) {
+      std::string error;
+      if (!bke::nurbs::curve_edit_flush_to_id(*cu, &error)) {
+        CLOG_ERROR(&LOG, "Unable to flush NURBS source: %s", error.c_str());
+        if (reports != nullptr) {
+          BKE_reportf(reports, RPT_ERROR, "Unable to flush NURBS source: %s", error.c_str());
+        }
+        return false;
+      }
+      return true;
+    }
+    if (cu->nurbs_geometry != nullptr) {
+      if (reports != nullptr) {
+        BKE_report(reports, RPT_ERROR, "NURBS source has incompatible legacy edit data");
+      }
+      return false;
+    }
     ListBaseT<Nurb> newnurb = {nullptr, nullptr}, oldnurb = cu->nurb;
 
     remap_hook_indices(bmain, obedit);
@@ -1309,13 +1333,33 @@ void ED_curve_editnurb_load(Main *bmain, Object *obedit)
     ED_curve_updateAnimPaths(bmain, id_cast<Curve *>(obedit->data));
 
     BKE_nurbList_free(&oldnurb);
+    return true;
   }
+  return false;
 }
 
-void ED_curve_editnurb_make(Object *obedit)
+bool ED_curve_editnurb_make(Object *obedit, ReportList *reports)
 {
+  if (obedit == nullptr || !ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF) ||
+      obedit->data == nullptr)
+  {
+    return false;
+  }
   Curve *cu = id_cast<Curve *>(obedit->data);
   EditNurb *editnurb = cu->editnurb;
+  if (cu->nurbs_geometry != nullptr || (editnurb != nullptr && editnurb->nurbs_edit != nullptr)) {
+    std::string error;
+    const bool ok = editnurb != nullptr && editnurb->nurbs_edit != nullptr ?
+                        bke::nurbs::curve_validate_source(*cu, &error) :
+                        bke::nurbs::curve_edit_begin(*cu, &error);
+    if (!ok) {
+      CLOG_ERROR(&LOG, "Unable to enter NURBS Edit Mode: %s", error.c_str());
+      if (reports != nullptr) {
+        BKE_reportf(reports, RPT_ERROR, "Unable to enter NURBS Edit Mode: %s", error.c_str());
+      }
+    }
+    return ok;
+  }
   KeyBlock *actkey;
 
   if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
@@ -1354,6 +1398,7 @@ void ED_curve_editnurb_make(Object *obedit)
       BKE_keyblock_convert_to_curve(actkey, cu, &editnurb->nurbs);
     }
   }
+  return true;
 }
 
 void ED_curve_editnurb_free(Object *obedit)
@@ -2194,7 +2239,7 @@ static bool nurb_boundary_is_selected(const Nurb &nu,
                                       const int selected_count)
 {
   const int edge_count = ELEM(edge, NurbTopologyEdge::VMin, NurbTopologyEdge::VMax) ? nu.pntsu :
-                                                                                     nu.pntsv;
+                                                                                      nu.pntsv;
   if (selected_count != edge_count) {
     return false;
   }
@@ -2249,8 +2294,8 @@ static void nurb_topology_copy_knots_v(Nurb *dst, const Nurb &src)
 }
 
 static Nurb *nurb_topology_extrude_patch_create(Nurb &src,
-                                                 const NurbTopologyEdge edge,
-                                                 int &next_id)
+                                                const NurbTopologyEdge edge,
+                                                int &next_id)
 {
   const bool source_is_curve = edge == NurbTopologyEdge::Curve;
   const bool source_is_v_edge = ELEM(edge, NurbTopologyEdge::VMin, NurbTopologyEdge::VMax);
@@ -2287,7 +2332,7 @@ static Nurb *nurb_topology_extrude_patch_create(Nurb &src,
 
   if (source_is_u_row) {
     const int source_v_in_src = source_is_curve || edge == NurbTopologyEdge::VMin ? 0 :
-                                                                                   src.pntsv - 1;
+                                                                                    src.pntsv - 1;
     for (int v = 0; v < 2; v++) {
       BPoint *dst = patch->bp + v * edge_count;
       BPoint *source = src.bp + source_v_in_src * src.pntsu;
@@ -2382,8 +2427,8 @@ static Nurb *nurb_topology_extrude_patch_create(Nurb &src,
 }
 
 static Nurb *nurb_topology_extrude_line_vertex_create(Nurb &src,
-                                                       const int point_index,
-                                                       int &next_id)
+                                                      const int point_index,
+                                                      int &next_id)
 {
   Nurb *segment = MEM_new<Nurb>("nurbTopologyExtrudeLineVertex");
   segment->type = CU_NURBS;
@@ -2425,8 +2470,8 @@ static int nurb_topology_remap_id(Map<int, int> &id_map, const int source_id, in
 }
 
 static bool nurb_topology_edge_is_selected_region_boundary(const Span<Nurb *> faces,
-                                                            const Nurb &source,
-                                                            const int edge)
+                                                           const Nurb &source,
+                                                           const int edge)
 {
   const int edge_id = source.topology_edge_ids[edge];
   for (Nurb *other : faces) {
@@ -2483,8 +2528,7 @@ static bool nurb_topology_face_region_extrude(EditNurb *editnurb,
       const int old_end = source->topology_vertex_ids[edge_vertex_corners[edge][1]];
       const int new_start = nurb_topology_remap_id(new_vertex_ids, old_start, next_id);
       const int new_end = nurb_topology_remap_id(new_vertex_ids, old_end, next_id);
-      const int start_connector = nurb_topology_remap_id(
-          connector_edge_ids, old_start, next_id);
+      const int start_connector = nurb_topology_remap_id(connector_edge_ids, old_start, next_id);
       const int end_connector = nurb_topology_remap_id(connector_edge_ids, old_end, next_id);
 
       if (edge == int(NurbTopologyEdge::VMin)) {
@@ -2573,9 +2617,7 @@ static bool ed_editnurb_topology_extrude(EditNurb *editnurb, Curve *cu)
       }
       continue;
     }
-    if (nu.topology_face_id == 0 || (nu.flagu & CU_NURB_CYCLIC) ||
-        (nu.flagv & CU_NURB_CYCLIC))
-    {
+    if (nu.topology_face_id == 0 || (nu.flagu & CU_NURB_CYCLIC) || (nu.flagv & CU_NURB_CYCLIC)) {
       continue;
     }
 
@@ -5365,6 +5407,10 @@ bool ED_curve_editnurb_select_pick(bContext *C,
                                    const int dist_px,
                                    const SelectPick_Params &params)
 {
+  const Object *active = CTX_data_edit_object(C);
+  if (active != nullptr && id_cast<const Curve *>(active->data)->editnurb->nurbs_edit != nullptr) {
+    return ed::nurbs::select_pick(C, mval, dist_px, params);
+  }
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Nurb *nu;
   BezTriple *bezt = nullptr;
@@ -6334,15 +6380,13 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
       changed = ed_editcurve_extrude(cu, editnurb, v3d);
     }
     else if (obedit->type == OB_SURF &&
-             std::any_of(editnurb->nurbs.begin(),
-                         editnurb->nurbs.end(),
-                         [](const Nurb &nu) { return nu.topology_face_id != 0 ||
-                                                    nu.topology_edge_ids[0] != 0; }))
+             std::any_of(editnurb->nurbs.begin(), editnurb->nurbs.end(), [](const Nurb &nu) {
+               return nu.topology_face_id != 0 || nu.topology_edge_ids[0] != 0;
+             }))
     {
       if (cu->key != nullptr) {
-        BKE_report(op->reports,
-                   RPT_ERROR,
-                   "NURBS topology extrusion does not support shape keys yet");
+        BKE_report(
+            op->reports, RPT_ERROR, "NURBS topology extrusion does not support shape keys yet");
       }
       else {
         changed = ed_editnurb_topology_extrude(editnurb, cu);
@@ -7498,6 +7542,16 @@ wmOperatorStatus ED_curve_join_objects_exec(bContext *C, wmOperator *op)
   float imat[4][4], cmat[4][4];
   int a;
   bool ok = false;
+
+  CTX_DATA_BEGIN (C, Object *, object, selected_editable_objects) {
+    if (ob_active != nullptr && object->type == ob_active->type &&
+        id_cast<const Curve *>(object->data)->nurbs_geometry != nullptr)
+    {
+      BKE_report(op->reports, RPT_ERROR, "Joining native NURBS objects is not supported yet");
+      return OPERATOR_CANCELLED;
+    }
+  }
+  CTX_DATA_END;
 
   CTX_DATA_BEGIN (C, Object *, ob_iter, selected_editable_objects) {
     if (ob_iter == ob_active) {

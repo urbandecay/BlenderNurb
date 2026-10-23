@@ -10,12 +10,19 @@ classiCAD is a general proof of concept. Its current data structures, bugs,
 tool limitations and shortcuts are not requirements. Existing algorithms are
 reuse candidates, not an architecture to reproduce unchanged.
 
-This is a source study of Blender Fork at e694c2908bb and the current local
+The original study below covers Blender Fork at e694c2908bb and the then-current local
 classiCAD checkout. Three Luna agents inspected operator coverage, geometry
 and topology, and interaction/adjacent systems; the parent reconciled their
 findings. No modeling implementation, build, runtime experiment or benchmark
-was performed. The classifications are engineering assessments, not completed
+was performed for that original study. The classifications are engineering assessments, not completed
 compatibility tests or formal numerical proofs.
+
+For the takeover at `355a9ae11d7e39d75f1341322a70776fb206a6bc`, use the
+[current checkout audit](nurbs_mesh_study/current_checkout_audit.md) and
+[candidate architecture](nurbs_mesh_study/architecture_decision.md). That commit
+already contains a limited working prototype. The new kernel experiment and
+its measured build/test results are recorded separately; they do not establish
+full workflow parity. The user has since clarified **fit-point editing only**.
 
 ## Executive finding
 
@@ -52,8 +59,8 @@ Their geometric contract needs to be explicit.
   from those points and the curve's degree, parameterization, knot, weight,
   and continuity constraints. Keep exact rational constructions such as
   circles and arcs exact rather than replacing them with sampled or approximate
-  fits. Control vertices may remain available in a separate advanced control-
-  net view, but they are not the default curve workflow.
+  fits. Control coefficients and weights remain internal mathematical data;
+  no advanced CV editing mode is planned under the user's clarified requirement.
 - Ctrl+R should keep Blender's loop-cut interaction and traverse actual face
   topology. On compatible NURBS supports it should create a selectable loop
   and split the face exactly without changing the visible shape. Knot insertion
@@ -81,8 +88,12 @@ Their geometric contract needs to be explicit.
   data owner remains an architecture decision, but a parallel Qt/classiCAD
   model or monolithic operator implementation is out of scope.
 
-No NURBS editing implementation has been started. These are the product
-requirements recorded from discussion; continuity level and approximation
+The implementation status above describes the historical `e694c2908bb` study,
+not the current fork. Commit `355a9ae11d7e` contains a limited topology-tagged
+line/bilinear-patch extrusion and selection prototype. See the
+[current checkout audit](nurbs_mesh_study/current_checkout_audit.md) and
+[architecture decision](nurbs_mesh_study/architecture_decision.md) for verified
+scope, executed checks and remaining gates. Continuity level and approximation
 tolerance remain open decisions.
 
 ## Deliverables and coverage

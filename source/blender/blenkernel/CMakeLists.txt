@@ -215,6 +215,17 @@ set(SRC
   intern/node_tree_structure_type_inferencing.cc
   intern/node_tree_update.cc
   intern/node_tree_zones.cc
+  intern/nurbs_construct.cc
+  intern/nurbs_edit.cc
+  intern/nurbs_evaluate.cc
+  intern/nurbs_geometry.cc
+  intern/nurbs_geometry_copy.cc
+  intern/nurbs_geometry_evaluate.cc
+  intern/nurbs_geometry_legacy.cc
+  intern/nurbs_mesh.cc
+  intern/nurbs_selection.cc
+  intern/nurbs_tessellate.cc
+  intern/nurbs_transform.cc
   intern/object.cc
   intern/object_deform.cc
   intern/object_dupli.cc
@@ -446,6 +457,14 @@ set(SRC
   BKE_node_tree_reference_lifetimes.hh
   BKE_node_tree_update.hh
   BKE_node_tree_zones.hh
+  BKE_nurbs_construct.hh
+  BKE_nurbs_edit.hh
+  BKE_nurbs_evaluate.hh
+  BKE_nurbs_geometry.hh
+  BKE_nurbs_mesh.hh
+  BKE_nurbs_selection.hh
+  BKE_nurbs_tessellate.hh
+  BKE_nurbs_transform.hh
   BKE_object.hh
   BKE_object_deform.h
   BKE_object_types.hh
@@ -516,6 +535,7 @@ set(SRC
   intern/multires_inline.hh
   intern/multires_reshape.hh
   intern/multires_unsubdivide.hh
+  intern/nurbs_math.hh
   intern/ocean_intern.h
   intern/pbvh_intern.hh
   intern/subdiv_converter.hh
@@ -703,6 +723,12 @@ add_dependencies(bf_blenkernel bf_rna)
 
 
 if(WITH_GTESTS)
+  # Standalone kernel tests need additional passes through Blender's cyclic
+  # static-library dependencies, including geometry, editors and ID registration.
+  if(NOT WITH_TESTS_SINGLE_BINARY)
+    set_property(TARGET bf_blenkernel PROPERTY LINK_INTERFACE_MULTIPLICITY 5)
+  endif()
+
   set(TEST_SRC
     intern/anim_data_test.cc
     intern/asset_metadata_test.cc
@@ -730,6 +756,14 @@ if(WITH_GTESTS)
     intern/main_namemap_test.cc
     intern/nla_test.cc
     intern/node_socket_value_iter_test.cc
+    intern/nurbs_differential_test.cc
+    intern/nurbs_edit_test.cc
+    intern/nurbs_geometry_legacy_test.cc
+    intern/nurbs_geometry_test.cc
+    intern/nurbs_mesh_test.cc
+    intern/nurbs_object_test.cc
+    intern/nurbs_selection_test.cc
+    intern/nurbs_tessellate_test.cc
     intern/path_templates_test.cc
     intern/scene_test.cc
     intern/subdiv_ccg_test.cc
@@ -745,5 +779,7 @@ if(WITH_GTESTS)
     ${LIB}
     bf_rna  # RNA_prototypes.hh
   )
-  blender_add_test_suite_lib(blenkernel "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${TEST_LIB}")
+  blender_add_test_suite_lib(blenkernel "${TEST_SRC}" "${INC};${TEST_INC}" "${INC_SYS}" "${TEST_LIB}"
+    intern/nurbs_test_geometry.hh
+  )
 endif()

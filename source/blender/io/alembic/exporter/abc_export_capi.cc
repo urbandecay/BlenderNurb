@@ -211,14 +211,18 @@ bool ABC_export(Scene *scene,
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
 
+  if (!ED_editors_flush_edits_with_result(CTX_data_main(C), false, false, CTX_wm_reports(C))
+           .success)
+  {
+    return false;
+  }
+
   ExportJobData *job = MEM_new<ExportJobData>("ExportJobData");
 
   job->bmain = CTX_data_main(C);
   job->wm = CTX_wm_manager(C);
   job->export_ok = false;
   STRNCPY(job->filepath, filepath);
-
-  ED_editors_flush_edits(job->bmain);
 
   job->depsgraph = DEG_graph_new(job->bmain, scene, view_layer, params->evaluation_mode);
   job->params = *params;

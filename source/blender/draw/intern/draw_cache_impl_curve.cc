@@ -24,6 +24,7 @@
 #include "BKE_curve.hh"
 #include "BKE_curves.hh"
 #include "BKE_geometry_set.hh"
+#include "BKE_nurbs_mesh.hh"
 #include "BKE_object_types.hh"
 #include "BKE_vfont.hh"
 
@@ -327,6 +328,8 @@ struct CurveBatchCache {
   /* settings to determine if cache is invalid */
   bool is_dirty;
   bool is_editmode;
+  /** Retain the exact source state used by native overlay buffers. */
+  bke::nurbs::ReadSnapshot *native_source;
 };
 
 /* gpu::Batch cache management. */
@@ -340,6 +343,16 @@ static bool curve_batch_cache_valid(Curve *cu)
   }
 
   if (cache->is_dirty) {
+    return false;
+  }
+
+  const auto *source = cu->nurbs_eval_source;
+  if (source != nullptr && source->snapshot) {
+    if (cache->native_source == nullptr || *cache->native_source != *source->snapshot) {
+      return false;
+    }
+  }
+  else if (cache->native_source != nullptr) {
     return false;
   }
 
@@ -382,6 +395,10 @@ static void curve_batch_cache_init(Curve *cu)
   cache->is_editmode = (cu->editnurb != nullptr) || (cu->editfont != nullptr);
 
   cache->is_dirty = false;
+  if (cu->nurbs_eval_source != nullptr && cu->nurbs_eval_source->snapshot) {
+    cache->native_source = MEM_new<bke::nurbs::ReadSnapshot>(__func__,
+                                                             *cu->nurbs_eval_source->snapshot);
+  }
 }
 
 void DRW_curve_batch_cache_validate(Curve *cu)
@@ -424,6 +441,7 @@ static void curve_batch_cache_clear(Curve *cu)
   if (!cache) {
     return;
   }
+  MEM_SAFE_DELETE(cache->native_source);
 
   for (int i = 0; i < sizeof(cache->ordered) / sizeof(void *); i++) {
     gpu::VertBuf **vbo = reinterpret_cast<gpu::VertBuf **>(&cache->ordered);
@@ -841,6 +859,93 @@ gpu::Batch *DRW_curve_batch_cache_get_edit_verts(Curve *cu)
 /** \name Grouped batch generation
  * \{ */
 
+/** Source boundary samples are display geometry. Only topology vertices become point handles. */
+static void native_curve_create_edit_data(const Object &object, CurveBatchCache &cache)
+{
+  Vector<float3> positions;
+  Vector<uint32_t> flags;
+  Vector<uint32_t> points;
+  Vector<uint2> lines;
+  const auto &evaluation = object.runtime->nurbs_evaluation;
+  if (evaluation != nullptr && evaluation->result && cache.native_source != nullptr &&
+      evaluation->result->source == *cache.native_source)
+  {
+    const auto &boundary = evaluation->result->preview.boundary;
+    const auto &selection = cache.native_source->selection();
+    for (const int i : boundary.positions.index_range()) {
+      positions.append(float3(boundary.positions[i]));
+      const int64_t id = boundary.vertex_ids[i];
+      uint32_t data = selection.vertices.contains(id) ? VFLAG_VERT_SELECTED : 0;
+      if (selection.active == bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Vertex, id}) {
+        data |= VFLAG_VERT_ACTIVE;
+      }
+      flags.append(data);
+      if (id != 0) {
+        points.append(i);
+      }
+    }
+    for (const auto &edge : boundary.edges) {
+      const uint32_t start = positions.size();
+      const uint32_t data = (COLOR_NURB_ULINE_ID << COLOR_SHIFT) |
+                            (selection.edges.contains(edge.edge_id) ? VFLAG_VERT_SELECTED : 0);
+      for (const auto &sample : edge.samples) {
+        positions.append(float3(boundary.positions[sample.point_index]));
+        flags.append(data);
+      }
+      for (const int i : IndexRange(edge.samples.size() - 1)) {
+        lines.append({start + i, start + i + 1});
+      }
+    }
+  }
+  if (DRW_vbo_requested(cache.edit.pos)) {
+    GPUVertFormat format{};
+    const uint attr = GPU_vertformat_attr_add(&format, "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+    GPU_vertbuf_init_with_format(*cache.edit.pos, format);
+    GPU_vertbuf_data_alloc(*cache.edit.pos, positions.size());
+    GPU_vertbuf_attr_fill(cache.edit.pos, attr, positions.data());
+  }
+  if (DRW_vbo_requested(cache.edit.data)) {
+    GPUVertFormat format{};
+    const uint attr = GPU_vertformat_attr_add(&format, "data", gpu::VertAttrType::UINT_32);
+    GPU_vertbuf_init_with_format(*cache.edit.data, format);
+    GPU_vertbuf_data_alloc(*cache.edit.data, flags.size());
+    GPU_vertbuf_attr_fill(cache.edit.data, attr, flags.data());
+  }
+  if (DRW_ibo_requested(cache.ibo.edit_verts)) {
+    GPUIndexBufBuilder builder;
+    GPU_indexbuf_init(&builder, GPU_PRIM_POINTS, points.size(), positions.size());
+    for (const uint32_t point : points) {
+      GPU_indexbuf_add_point_vert(&builder, point);
+    }
+    GPU_indexbuf_build_in_place(&builder, cache.ibo.edit_verts);
+  }
+  if (DRW_ibo_requested(cache.ibo.edit_lines)) {
+    GPUIndexBufBuilder builder;
+    GPU_indexbuf_init(&builder, GPU_PRIM_LINES, lines.size(), positions.size());
+    for (const uint2 line : lines) {
+      GPU_indexbuf_add_line_verts(&builder, line.x, line.y);
+    }
+    GPU_indexbuf_build_in_place(&builder, cache.ibo.edit_lines);
+  }
+  if (DRW_vbo_requested(cache.ordered.curves_pos)) {
+    GPUVertFormat format{};
+    const uint attr = GPU_vertformat_attr_add(&format, "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+    GPU_vertbuf_init_with_format(*cache.ordered.curves_pos, format);
+    GPU_vertbuf_data_alloc(*cache.ordered.curves_pos, positions.size());
+    GPU_vertbuf_attr_fill(cache.ordered.curves_pos, attr, positions.data());
+  }
+  if (DRW_ibo_requested(cache.ibo.curves_lines)) {
+    GPUIndexBufBuilder builder;
+    GPU_indexbuf_init_ex(&builder, GPU_PRIM_LINE_STRIP, lines.size() * 3, positions.size());
+    for (const uint2 line : lines) {
+      GPU_indexbuf_add_generic_vert(&builder, line.x);
+      GPU_indexbuf_add_generic_vert(&builder, line.y);
+      GPU_indexbuf_add_primitive_restart(&builder);
+    }
+    GPU_indexbuf_build_in_place(&builder, cache.ibo.curves_lines);
+  }
+}
+
 void DRW_curve_batch_cache_create_requested(Object *ob, const Scene *scene)
 {
   BLI_assert(ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF, OB_FONT));
@@ -872,6 +977,11 @@ void DRW_curve_batch_cache_create_requested(Object *ob, const Scene *scene)
   }
   if (DRW_batch_requested(cache->batch.edit_normals, GPU_PRIM_LINES)) {
     DRW_vbo_request(cache->batch.edit_normals, &cache->edit.curves_nor);
+  }
+
+  if (cu->nurbs_eval_source != nullptr) {
+    native_curve_create_edit_data(*ob, *cache);
+    return;
   }
 
 #ifdef DRW_DEBUG_MESH_CACHE_REQUEST

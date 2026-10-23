@@ -27,12 +27,14 @@
 #include "BKE_curve_topology.hh"
 #include "BKE_fcurve.hh"
 #include "BKE_layer.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_report.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
 
 #include "ED_curve.hh"
+#include "ED_nurbs.hh"
 #include "ED_object.hh"
 #include "ED_screen.hh"
 #include "ED_select_utils.hh"
@@ -565,7 +567,7 @@ static wmOperatorStatus de_select_all_exec(bContext *C, wmOperator *op)
 {
   int action = RNA_enum_get(op->ptr, "action");
 
-  const Main *bmain = CTX_data_main(C);
+  Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = CTX_wm_view3d(C);
@@ -576,7 +578,11 @@ static wmOperatorStatus de_select_all_exec(bContext *C, wmOperator *op)
     for (Object *obedit : objects) {
       Curve *cu = id_cast<Curve *>(obedit->data);
 
-      if (ED_curve_select_check(v3d, cu->editnurb)) {
+      const auto *edit = cu->editnurb->nurbs_edit;
+      const bool native_selected = edit != nullptr && (!edit->selection().vertices.is_empty() ||
+                                                       !edit->selection().edges.is_empty() ||
+                                                       !edit->selection().faces.is_empty());
+      if (native_selected || ED_curve_select_check(v3d, cu->editnurb)) {
         action = SEL_DESELECT;
         break;
       }
@@ -586,6 +592,32 @@ static wmOperatorStatus de_select_all_exec(bContext *C, wmOperator *op)
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
     bool changed = false;
+
+    if (cu->editnurb->nurbs_edit != nullptr) {
+      using bke::nurbs::SelectionAction;
+      const auto expected = cu->editnurb->nurbs_edit->read_snapshot();
+      Vector<int64_t> hits;
+      if (action != SEL_DESELECT) {
+        for (const NurbsTopologyVertex &vertex : expected.geometry().vertices) {
+          hits.append(vertex.id);
+        }
+      }
+      std::string error;
+      ed::nurbs::select_vertices(*bmain,
+                                 *cu,
+                                 expected,
+                                 hits,
+                                 action == SEL_INVERT ? SelectionAction::Invert :
+                                 action == SEL_SELECT ? SelectionAction::Add :
+                                                        SelectionAction::Set,
+                                 std::nullopt,
+                                 &error);
+      if (!error.empty()) {
+        BKE_report(op->reports, RPT_ERROR, error.c_str());
+        return OPERATOR_CANCELLED;
+      }
+      continue;
+    }
 
     switch (action) {
       case SEL_SELECT:
@@ -615,11 +647,11 @@ void CURVE_OT_select_all(wmOperatorType *ot)
   /* identifiers */
   ot->name = "(De)select All";
   ot->idname = "CURVE_OT_select_all";
-  ot->description = "(De)select all control points";
+  ot->description = "(De)select all editable points";
 
   /* API callbacks. */
   ot->exec = de_select_all_exec;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -690,8 +722,8 @@ static void curve_topology_element_edge_corners(const CurveTopologyElement &elem
 
 /** Select the visible topology vertex shell containing selected or picked vertices. */
 static bool curve_topology_select_linked_component(ListBaseT<Nurb> *nurbs,
-                                                    const BPoint *seed_point,
-                                                    const bool select)
+                                                   const BPoint *seed_point,
+                                                   const bool select)
 {
   if (nurbs == nullptr) {
     return false;

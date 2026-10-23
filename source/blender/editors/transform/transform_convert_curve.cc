@@ -16,6 +16,7 @@
 
 #include "BKE_curve.hh"
 #include "BKE_curve_topology.hh"
+#include "BKE_report.hh"
 
 #include "ED_object.hh"
 
@@ -67,6 +68,18 @@ static void createTransCurveVerts(bContext * /*C*/, TransInfo *t)
 #define SEL_F3 (1 << 2)
 
   t->data_len_all = 0;
+
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
+    const Curve &curve = *id_cast<const Curve *>(tc->obedit->data);
+    if (curve.nurbs_geometry != nullptr ||
+        (curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr))
+    {
+      if (t->mode != TFM_DUMMY) {
+        BKE_report(t->reports, RPT_ERROR, "Native NURBS modal transforms are not supported yet");
+      }
+      return;
+    }
+  }
 
   /* Count control points (one per #BezTriple) if any number of handles are selected.
    * Needed for #transform_around_single_fallback_ex. */

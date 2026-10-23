@@ -78,7 +78,9 @@ static bool memfile_undosys_step_encode(bContext * /*C*/, Main *bmain, UndoStep 
   UndoStack *ustack = ED_undo_stack_get();
 
   if (bmain->is_memfile_undo_flush_needed) {
-    ED_editors_flush_edits_ex(bmain, false, true);
+    if (!ED_editors_flush_edits_with_result(bmain, false, true).success) {
+      return false;
+    }
   }
 
   /* can be null, use when set. */

@@ -1,0 +1,72 @@
+/* SPDX-FileCopyrightText: 2026 Blender Authors
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
+
+#pragma once
+
+/** \file
+ * \ingroup bke
+ */
+
+#include "BKE_nurbs_evaluate.hh"
+
+namespace blender::bke::nurbs {
+
+struct SurfacePreviewPoint {
+  double3 position;
+  int64_t face_id;
+  double2 parameter;
+};
+
+struct SurfacePreviewTriangle {
+  /** Boundary points first, followed by interior points; see SurfacePreview::position. */
+  int3 points;
+  int64_t face_id;
+  /** Face-local UVs, including different UVs for shared seam positions. */
+  double2 parameters[3];
+};
+
+struct SurfacePreview {
+  BoundaryEvaluation boundary;
+  Vector<SurfacePreviewPoint> interior;
+  Vector<SurfacePreviewTriangle> triangles;
+  int skipped_repeated_point_triangles = 0;
+  double max_interior_weight_condition = 1.0;
+
+  int points_num() const;
+  double3 position(int index) const;
+};
+
+struct SurfacePreviewOptions {
+  BoundaryEvaluationOptions boundary;
+  /** Subdivide each support knot span inside the sampled trim bounds. Keep interior knots too. */
+  int interior_subdivisions = 8;
+  int max_points = 1 << 20;
+  int max_triangles = 1 << 21;
+  /**
+   * Positive CDT epsilon after normalizing a face's sampled UV bounds to [-1, 1]. Any actual
+   * merge, coordinate movement, intersection or boundary split is rejected, never written back.
+   * This controls triangulator proximity checks, not model-space approximation or fitting.
+   */
+  double normalized_merge_epsilon = 1.0e-10;
+};
+
+/**
+ * Derived, uniformly sampled surface preview with common edge samples and source provenance.
+ * Each face has one simple outer sampled loop and zero or more disjoint, unnested holes. Uses
+ * Blender's CDT, checking one-to-one input/output boundary correspondence. Rejects unsupported
+ * merges, intersections, constraint splits, non-closed UV charts and exhausted output budgets.
+ * UV normalization and triangulation never modify the source parameterization or geometry.
+ *
+ * Boundary evaluation restrictions also apply. This validates the sampled polygons, not exact
+ * curved trims between samples. Sampling has no certified world-space approximation bound.
+ * No fitting, source topology generation, derivatives/normals, picking or float display
+ * conversion. Zero-area model triangles are permitted editing intermediates; repeated point
+ * indices are omitted and counted. No manifoldness, smoothness or solidness is implied. The caller
+ * retains the immutable source lifetime/token as with evaluate_boundaries.
+ */
+std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
+                                                  const SurfacePreviewOptions &options,
+                                                  std::string *r_error = nullptr);
+
+}  // namespace blender::bke::nurbs

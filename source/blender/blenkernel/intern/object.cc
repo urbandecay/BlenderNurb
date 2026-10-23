@@ -18,8 +18,8 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_anim_types.h"
 #include "DNA_action_types.h"
+#include "DNA_anim_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
@@ -144,7 +144,6 @@ static CLG_LogRef LOG = {"object"};
  * Statically check that there are enough bits to be used. */
 static_assert(sizeof(blender::bke::ObjectRuntime::contained_geometry_types) * 8 >=
               GEO_COMPONENT_TYPE_ENUM_SIZE);
-
 
 static void object_init_data(ID *id)
 {
@@ -1148,6 +1147,7 @@ void BKE_object_free_softbody(Object *ob)
 
 void BKE_object_free_curve_cache(Object *ob)
 {
+  ob->runtime->nurbs_evaluation.reset();
   if (ob->runtime->curve_cache) {
     BKE_displist_free(&ob->runtime->curve_cache->disp);
     BKE_curve_bevelList_free(&ob->runtime->curve_cache->bev);
@@ -1181,8 +1181,7 @@ void BKE_object_modifier_hook_reset(Object *ob, HookModifierData *hmd)
   if (hmd->object) {
     invert_m4_m4(hmd->object->runtime->world_to_object.ptr(),
                  hmd->object->object_to_world().ptr());
-    mul_m4_m4m4(
-        hmd->parentinv, hmd->object->world_to_object().ptr(), ob->object_to_world().ptr());
+    mul_m4_m4m4(hmd->parentinv, hmd->object->world_to_object().ptr(), ob->object_to_world().ptr());
   }
 }
 
@@ -2715,9 +2714,7 @@ void BKE_object_where_is_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
   object_where_is_calc_ex(depsgraph, scene, ob, ctime, nullptr, nullptr);
 }
 
-void BKE_object_apply_mat4(Object *ob,
-                           const float mat[4][4],
-                           const bool use_compat)
+void BKE_object_apply_mat4(Object *ob, const float mat[4][4], const bool use_compat)
 {
   /* see BKE_pchan_apply_mat4() for the equivalent 'pchan' function */
 
@@ -3577,6 +3574,15 @@ KeyBlock *BKE_object_shapekey_insert(Main *bmain,
 {
   KeyBlock *key = nullptr;
 
+  if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF)) {
+    const Curve &curve = *id_cast<const Curve *>(ob->data);
+    if (curve.nurbs_geometry != nullptr || curve.nurbs_eval_source != nullptr ||
+        (curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr))
+    {
+      return nullptr;
+    }
+  }
+
   switch (ob->type) {
     case OB_MESH:
       key = insert_meshkey(bmain, ob, name, from_mix);
@@ -3947,14 +3953,8 @@ MovieClip *BKE_object_movieclip_get(Scene *scene, const Object *ob, bool use_def
 
 bool BKE_object_supports_material_slots(Object *ob)
 {
-  return ELEM(ob->type,
-              OB_MESH,
-              OB_CURVES_LEGACY,
-              OB_SURF,
-              OB_FONT,
-              OB_CURVES,
-              OB_POINTCLOUD,
-              OB_VOLUME);
+  return ELEM(
+      ob->type, OB_MESH, OB_CURVES_LEGACY, OB_SURF, OB_FONT, OB_CURVES, OB_POINTCLOUD, OB_VOLUME);
 }
 
 /** \} */
@@ -3974,6 +3974,7 @@ void BKE_object_runtime_reset_on_copy(Object *object, const int /*flag*/)
   runtime->data_eval = nullptr;
   runtime->mesh_deform_eval = nullptr;
   runtime->curve_cache = nullptr;
+  runtime->nurbs_evaluation.reset();
   runtime->object_as_temp_mesh = nullptr;
   runtime->object_as_temp_curve = nullptr;
   runtime->geometry_set_eval = nullptr;
@@ -4038,7 +4039,6 @@ LinkNode *BKE_object_relational_superset(const Main &bmain,
         if (obrel_list_test(ob)) {
           obrel_list_add(&links, ob);
         }
-
       }
     }
   }

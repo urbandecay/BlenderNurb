@@ -37,6 +37,7 @@
 #include "BKE_main.hh"
 #include "BKE_material.hh"
 #include "BKE_mesh.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_mesh_runtime.hh"
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_modifier.hh"
@@ -655,6 +656,9 @@ static Object *object_for_curve_to_mesh_create(const Object *object)
    * copying it while in edit mode gives invalid data structures. */
   temp_curve->editfont = curve->editfont;
   temp_curve->editnurb = curve->editnurb;
+  if (temp_curve->nurbs_eval_source == nullptr) {
+    temp_curve->nurbs_eval_source = bke::nurbs::curve_eval_source_capture(*curve).release();
+  }
 
   return temp_object;
 }

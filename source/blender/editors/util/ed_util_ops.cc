@@ -559,11 +559,12 @@ static void ED_OT_lib_id_override_editable_toggle(wmOperatorType *ot)
 /** \name General editor utils.
  * \{ */
 
-static wmOperatorStatus ed_flush_edits_exec(bContext *C, wmOperator * /*op*/)
+static wmOperatorStatus ed_flush_edits_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  ED_editors_flush_edits(bmain);
-  return OPERATOR_FINISHED;
+  return ED_editors_flush_edits_with_result(bmain, false, false, op->reports).success ?
+             OPERATOR_FINISHED :
+             OPERATOR_CANCELLED;
 }
 
 static void ED_OT_flush_edits(wmOperatorType *ot)

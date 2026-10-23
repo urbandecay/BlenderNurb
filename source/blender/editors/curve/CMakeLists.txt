@@ -23,8 +23,10 @@ set(SRC
   editcurve_undo.cc
   editfont.cc
   editfont_undo.cc
+  editnurbs.cc
 
   curve_intern.hh
+  ../include/ED_nurbs.hh
 )
 
 set(LIB

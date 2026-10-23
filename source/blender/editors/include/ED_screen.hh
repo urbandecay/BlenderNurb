@@ -665,6 +665,8 @@ bool ED_operator_editcurve(bContext *C);
 bool ED_operator_editcurve_3d(bContext *C);
 bool ED_operator_editsurf(bContext *C);
 bool ED_operator_editsurfcurve(bContext *C);
+/** Curve/Surface edit context, including native NURBS for adapters that support it. */
+bool ED_operator_editsurfcurve_or_nurbs(bContext *C);
 bool ED_operator_editsurfcurve_region_view3d(bContext *C);
 bool ED_operator_editfont(bContext *C);
 bool ED_operator_editlattice(bContext *C);

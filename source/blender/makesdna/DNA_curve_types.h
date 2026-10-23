@@ -34,6 +34,11 @@ namespace draw {
 struct CurveBatchCache;
 }
 
+namespace bke::nurbs {
+class EditData;
+struct EvaluationSource;
+}
+
 /* These two Lines with # tell `makesdna` this struct can be excluded. */
 #
 #
@@ -205,6 +210,9 @@ struct EditNurb {
   /* base of nurbs' list (old Curve->editnurb) */
   ListBaseT<Nurb> nurbs = {nullptr, nullptr};
 
+  /** Experimental owned NURBS edit source; not serialized with legacy edit data. */
+  bke::nurbs::EditData *nurbs_edit = nullptr;
+
   /* index data for shape keys */
   CVKeyIndexMap *keyindex = nullptr;
 
@@ -347,6 +355,12 @@ struct Curve {
   const struct Curves *curve_eval = nullptr;
 
   draw::CurveBatchCache *batch_cache = nullptr;
+
+  /** Experimental owned source payload; production edit/evaluation routing is not enabled yet. */
+  struct NurbsGeometry *nurbs_geometry = nullptr;
+
+  /** Owned runtime source lease for evaluation; never serialized or used as writable source. */
+  bke::nurbs::EvaluationSource *nurbs_eval_source = nullptr;
 
 #ifdef __cplusplus
   /** Get the largest material index used by the curves or `nullopt` if there are none. */

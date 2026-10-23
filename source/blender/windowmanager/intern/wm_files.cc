@@ -2207,10 +2207,13 @@ static bool wm_file_write(bContext *C,
     BKE_packedfile_pack_all(bmain, reports, false);
   }
 
-  ED_editors_flush_edits(bmain);
+  const bool edits_flushed =
+      ED_editors_flush_edits_with_result(bmain, false, false, reports).success;
 
   /* XXX(ton): temp solution to solve bug, real fix coming. */
-  bmain->recovered = false;
+  if (edits_flushed) {
+    bmain->recovered = false;
+  }
 
   BlendFileWriteParams blend_write_params{};
   blend_write_params.remap_mode = remap_mode;
@@ -2218,7 +2221,8 @@ static bool wm_file_write(bContext *C,
   blend_write_params.use_save_as_copy = use_save_as_copy;
   blend_write_params.thumb = thumb;
 
-  const bool success = BLO_write_file(bmain, filepath, fileflags, &blend_write_params, reports);
+  const bool success = edits_flushed &&
+                       BLO_write_file(bmain, filepath, fileflags, &blend_write_params, reports);
 
   if (success) {
     const bool do_history_file_update = (G.background == false) &&
@@ -2331,8 +2335,11 @@ bool WM_autosave_is_scheduled(wmWindowManager *wm)
 
 bool WM_autosave_write(wmWindowManager *wm, Main *bmain, ReportList *reports)
 {
-  ED_editors_flush_edits(bmain);
-  ED_image_internal_autosave_flush(bmain);
+  const bool edits_flushed =
+      ED_editors_flush_edits_with_result(bmain, false, false, reports).success;
+  if (edits_flushed) {
+    ED_image_internal_autosave_flush(bmain);
+  }
 
   char filepath[FILE_MAX];
   wm_autosave_location(filepath);
@@ -2342,7 +2349,8 @@ bool WM_autosave_write(wmWindowManager *wm, Main *bmain, ReportList *reports)
 
   /* Error reporting into console. */
   BlendFileWriteParams params{};
-  const bool success = BLO_write_file(bmain, filepath, fileflags, &params, reports);
+  const bool success = edits_flushed &&
+                       BLO_write_file(bmain, filepath, fileflags, &params, reports);
 
   /* Restart auto-save timer. */
   wm_autosave_timer_end(wm);
@@ -2540,7 +2548,8 @@ static wmOperatorStatus wm_homefile_write_exec(bContext *C, wmOperator *op)
 
   CLOG_INFO_NOCHECK(&LOG, "Writing startup file: \"%s\" ", filepath);
 
-  ED_editors_flush_edits(bmain);
+  const bool edits_flushed =
+      ED_editors_flush_edits_with_result(bmain, false, false, op->reports).success;
 
   /* Force save as regular blend file. */
   fileflags = G.fileflags & ~G_FILE_COMPRESS;
@@ -2553,8 +2562,9 @@ static wmOperatorStatus wm_homefile_write_exec(bContext *C, wmOperator *op)
   /* Don't apply any path changes to the current blend file. */
   blend_write_params.use_save_as_copy = true;
 
-  const bool success = BLO_write_file(
-      bmain, filepath, fileflags, &blend_write_params, op->reports);
+  const bool success = edits_flushed &&
+                       BLO_write_file(
+                           bmain, filepath, fileflags, &blend_write_params, op->reports);
 
   BKE_callback_exec_string(bmain, "", success ? BKE_CB_EVT_SAVE_POST : BKE_CB_EVT_SAVE_POST_FAIL);
 

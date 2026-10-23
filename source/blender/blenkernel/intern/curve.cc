@@ -47,6 +47,8 @@
 #include "BKE_key.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_lib_query.hh"
+#include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_geometry.hh"
 #include "BKE_object_types.hh"
 #include "BKE_vfont.hh"
 
@@ -88,6 +90,10 @@ static void curve_copy_data(Main *bmain,
 
   curve_dst->nurb.clear_no_delete();
   BKE_nurbList_duplicate(&(curve_dst->nurb), &(curve_src->nurb));
+  curve_dst->nurbs_geometry = bke::nurbs::geometry_copy(curve_src->nurbs_geometry);
+  curve_dst->nurbs_eval_source = curve_src->nurbs_eval_source == nullptr ?
+                                     nullptr :
+                                     new bke::nurbs::EvaluationSource(*curve_src->nurbs_eval_source);
 
   curve_dst->mat = MEM_dupalloc(curve_src->mat);
 
@@ -123,6 +129,8 @@ static void curve_free_data(ID *id)
   BKE_curve_batch_cache_free(curve);
 
   BKE_nurbList_free(&curve->nurb);
+  bke::nurbs::geometry_free(curve->nurbs_geometry);
+  delete curve->nurbs_eval_source;
 
   if (!curve->edit_data_from_original) {
     BKE_curve_editfont_free(curve);
@@ -163,6 +171,7 @@ static void curve_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   cu->editnurb = nullptr;
   cu->editfont = nullptr;
   cu->batch_cache = nullptr;
+  cu->nurbs_eval_source = nullptr;
 
   /* write LibData */
   writer->write_id_struct(id_address, cu);
@@ -199,6 +208,9 @@ static void curve_blend_write(BlendWriter *writer, ID *id, const void *id_addres
 
   if (cu->bevel_profile != nullptr) {
     BKE_curveprofile_blend_write(writer, cu->bevel_profile);
+  }
+  if (cu->nurbs_geometry != nullptr) {
+    bke::nurbs::geometry_blend_write(writer, *cu->nurbs_geometry);
   }
 }
 
@@ -264,6 +276,8 @@ static void curve_blend_read_data(BlendDataReader *reader, ID *id)
   cu->editfont = nullptr;
   cu->batch_cache = nullptr;
 
+  cu->nurbs_eval_source = nullptr;
+
   for (Nurb &nu : cu->nurb) {
     /* Only read the arrays that were written, so we don't get errors due
      * to mismatched size. Checking nu.type to find the right arrays to read
@@ -290,6 +304,11 @@ static void curve_blend_read_data(BlendDataReader *reader, ID *id)
     }
   }
   cu->texspace_flag &= ~CU_TEXSPACE_FLAG_AUTO_EVALUATED;
+
+  BLO_read_struct(reader, NurbsGeometry, &cu->nurbs_geometry);
+  if (cu->nurbs_geometry != nullptr) {
+    bke::nurbs::geometry_blend_read(reader, *cu->nurbs_geometry);
+  }
 
   BLO_read_struct(reader, CurveProfile, &cu->bevel_profile);
   if (cu->bevel_profile != nullptr) {
@@ -377,6 +396,7 @@ void BKE_curve_editNurb_keyIndex_free(CVKeyIndexMap **keyindex)
 void BKE_curve_editNurb_free(Curve *cu)
 {
   if (cu->editnurb) {
+    delete cu->editnurb->nurbs_edit;
     BKE_nurbList_free(&cu->editnurb->nurbs);
     BKE_curve_editNurb_keyIndex_free(&cu->editnurb->keyindex);
     MEM_delete(cu->editnurb);

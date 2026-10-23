@@ -54,6 +54,7 @@
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
 #include "BKE_node_runtime.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object.hh"
 #include "BKE_paint.hh"
 #include "BKE_particle.h"
@@ -187,8 +188,7 @@ Vector<Object *> objects_in_mode_or_selected(bContext *C,
      * irrespective of selection. */
     ob = ob_active;
   }
-  else if (ob_active && (ob_active->mode & (OB_MODE_ALL_PAINT | OB_MODE_ALL_SCULPT)))
-  {
+  else if (ob_active && (ob_active->mode & (OB_MODE_ALL_PAINT | OB_MODE_ALL_SCULPT))) {
     /* When painting, limit to active. */
     ob = ob_active;
   }
@@ -572,27 +572,41 @@ static bool mesh_needs_keyindex(Main *bmain, const Mesh *mesh)
   return false;
 }
 
+static bool editmode_source_validate(const Object &object, ReportList *reports)
+{
+  if (!ELEM(object.type, OB_CURVES_LEGACY, OB_SURF)) {
+    return true;
+  }
+  std::string error;
+  if (bke::nurbs::curve_validate_source(*id_cast<const Curve *>(object.data), &error)) {
+    return true;
+  }
+  CLOG_ERROR(&LOG, "Unable to leave Edit Mode: %s", error.c_str());
+  if (reports != nullptr) {
+    BKE_reportf(reports, RPT_ERROR, "Unable to leave Edit Mode: %s", error.c_str());
+  }
+  return false;
+}
+
 /**
  * Load edit-mode data back into the object.
  *
  * \param load_data: Flush the edit-mode data back to the object.
  * \param free_data: Free the edit-mode data.
  */
-static bool editmode_load_free_ex(Main *bmain,
-                                  Object *obedit,
-                                  const bool load_data,
-                                  const bool free_data)
+static EditModeDataResult editmode_load_free_ex(
+    Main *bmain, Object *obedit, const bool load_data, const bool free_data, ReportList *reports)
 {
   BLI_assert(load_data || free_data);
 
   if (obedit == nullptr) {
-    return false;
+    return EditModeDataResult::NoData;
   }
 
   if (obedit->type == OB_MESH) {
     Mesh *mesh = id_cast<Mesh *>(obedit->data);
     if (mesh->runtime->edit_mesh == nullptr) {
-      return false;
+      return EditModeDataResult::NoData;
     }
 
     if (mesh->runtime->edit_mesh->bm->totvert > MESH_MAX_VERTS) {
@@ -601,7 +615,7 @@ static bool editmode_load_free_ex(Main *bmain,
                 "Too many vertices for mesh '%s' (%d)",
                 mesh->id.name + 2,
                 mesh->runtime->edit_mesh->bm->totvert);
-      return false;
+      return EditModeDataResult::NoData;
     }
 
     if (load_data) {
@@ -621,11 +635,13 @@ static bool editmode_load_free_ex(Main *bmain,
   else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
     const Curve *cu = id_cast<const Curve *>(obedit->data);
     if (cu->editnurb == nullptr) {
-      return false;
+      return EditModeDataResult::NoData;
     }
 
     if (load_data) {
-      ED_curve_editnurb_load(bmain, obedit);
+      if (!ED_curve_editnurb_load(bmain, obedit, reports)) {
+        return EditModeDataResult::Failure;
+      }
     }
 
     if (free_data) {
@@ -635,7 +651,7 @@ static bool editmode_load_free_ex(Main *bmain,
   else if (obedit->type == OB_FONT) {
     const Curve *cu = id_cast<const Curve *>(obedit->data);
     if (cu->editfont == nullptr) {
-      return false;
+      return EditModeDataResult::NoData;
     }
 
     if (load_data) {
@@ -649,7 +665,7 @@ static bool editmode_load_free_ex(Main *bmain,
   else if (obedit->type == OB_LATTICE) {
     const Lattice *lt = id_cast<const Lattice *>(obedit->data);
     if (lt->editlatt == nullptr) {
-      return false;
+      return EditModeDataResult::NoData;
     }
 
     if (load_data) {
@@ -664,7 +680,7 @@ static bool editmode_load_free_ex(Main *bmain,
     /* Object doesn't have specific edit mode data, so pass. */
   }
   else {
-    return false;
+    return EditModeDataResult::NoData;
   }
 
   if (load_data) {
@@ -674,19 +690,28 @@ static bool editmode_load_free_ex(Main *bmain,
     }
   }
 
-  return true;
+  return EditModeDataResult::Success;
 }
 
 bool editmode_load(Main *bmain, Object *obedit)
 {
-  return editmode_load_free_ex(bmain, obedit, true, false);
+  return editmode_load_ex(bmain, obedit) == EditModeDataResult::Success;
 }
 
-bool editmode_exit_ex(Main *bmain, Scene *scene, Object *obedit, int flag)
+EditModeDataResult editmode_load_ex(Main *bmain, Object *obedit, ReportList *reports)
+{
+  return editmode_load_free_ex(bmain, obedit, true, false, reports);
+}
+
+bool editmode_exit_ex(Main *bmain, Scene *scene, Object *obedit, int flag, ReportList *reports)
 {
   const bool free_data = (flag & EM_FREEDATA) != 0;
 
-  if (editmode_load_free_ex(bmain, obedit, true, free_data) == false) {
+  const EditModeDataResult result = editmode_load_free_ex(bmain, obedit, true, free_data, reports);
+  if (result == EditModeDataResult::Failure) {
+    return false;
+  }
+  if (result == EditModeDataResult::NoData) {
     /* in rare cases (background mode) its possible active object
      * is flagged for editmode, without 'obedit' being set #35489. */
     if (UNLIKELY(obedit && obedit->mode & OB_MODE_EDIT)) {
@@ -733,12 +758,12 @@ bool editmode_exit(bContext *C, int flag)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   Object *obedit = CTX_data_edit_object(C);
-  return editmode_exit_ex(bmain, scene, obedit, flag);
+  return editmode_exit_ex(bmain, scene, obedit, flag, CTX_wm_reports(C));
 }
 
 bool editmode_free_ex(Main *bmain, Object *obedit)
 {
-  return editmode_load_free_ex(bmain, obedit, false, true);
+  return editmode_load_free_ex(bmain, obedit, false, true, nullptr) == EditModeDataResult::Success;
 }
 
 bool editmode_exit_multi_ex(Main *bmain, Scene *scene, ViewLayer *view_layer, int flag)
@@ -747,6 +772,14 @@ bool editmode_exit_multi_ex(Main *bmain, Scene *scene, ViewLayer *view_layer, in
   Object *obedit = BKE_view_layer_edit_object_get(view_layer);
   if (obedit == nullptr) {
     return false;
+  }
+  for (const Base &base : *BKE_view_layer_object_bases_get(view_layer)) {
+    const Object &ob = *base.object;
+    if (ob.type == obedit->type && (ob.mode & OB_MODE_EDIT) &&
+        !editmode_source_validate(ob, nullptr))
+    {
+      return false;
+    }
   }
   bool changed = false;
   const short obedit_type = obedit->type;
@@ -769,7 +802,7 @@ bool editmode_exit_multi(bContext *C, int flag)
   return editmode_exit_multi_ex(bmain, scene, view_layer, flag);
 }
 
-bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
+bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag, ReportList *reports)
 {
   bool ok = false;
 
@@ -783,6 +816,14 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
    * Currently multiple objects sharing a mesh being in edit-mode at once isn't supported,
    * see: #86767. */
   if (BKE_object_is_in_editmode(ob)) {
+    if (ELEM(ob->type, OB_SURF, OB_CURVES_LEGACY)) {
+      const Curve &curve = *id_cast<const Curve *>(ob->data);
+      if (curve.nurbs_geometry != nullptr ||
+          (curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr))
+      {
+        return ED_curve_editnurb_make(ob, reports);
+      }
+    }
     return true;
   }
 
@@ -790,6 +831,16 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
     /* Ideally the caller should check this. */
     CLOG_WARN(&LOG, "Unable to enter edit-mode on library data for object '%s'", ob->id.name + 2);
     return false;
+  }
+
+  if (ELEM(ob->type, OB_SURF, OB_CURVES_LEGACY)) {
+    const Curve &curve = *id_cast<const Curve *>(ob->data);
+    if ((curve.nurbs_geometry != nullptr ||
+         (curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr)) &&
+        !ED_curve_editnurb_make(ob, reports))
+    {
+      return false;
+    }
   }
 
   ob->restore_mode = ob->mode;
@@ -823,8 +874,7 @@ bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag)
     WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_LATTICE, scene);
   }
   else if (ELEM(ob->type, OB_SURF, OB_CURVES_LEGACY)) {
-    ok = true;
-    ED_curve_editnurb_make(ob);
+    ok = ED_curve_editnurb_make(ob, reports);
 
     WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_CURVE, scene);
   }
@@ -858,7 +908,7 @@ bool editmode_enter(bContext *C, int flag)
   /* Active layer checked here for view3d,
    * callers that don't want view context can call the extended version. */
   Object *ob = CTX_data_active_object(C);
-  return editmode_enter_ex(bmain, scene, ob, flag);
+  return editmode_enter_ex(bmain, scene, ob, flag, CTX_wm_reports(C));
 }
 
 static wmOperatorStatus editmode_toggle_exec(bContext *C, wmOperator *op)
@@ -877,29 +927,59 @@ static wmOperatorStatus editmode_toggle_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
   if (!is_mode_set) {
+    const bool curve_type = ELEM(obact->type, OB_CURVES_LEGACY, OB_SURF);
+    const bool native = curve_type &&
+                        id_cast<const Curve *>(obact->data)->nurbs_geometry != nullptr;
+    if (curve_type) {
+      FOREACH_SELECTED_OBJECT_BEGIN (view_layer, v3d, object) {
+        if (object->type == obact->type &&
+            (id_cast<const Curve *>(object->data)->nurbs_geometry != nullptr) != native)
+        {
+          BKE_report(op->reports,
+                     RPT_ERROR,
+                     "Native and legacy NURBS cannot share an Edit Mode session yet");
+          return OPERATOR_CANCELLED;
+        }
+      }
+      FOREACH_SELECTED_OBJECT_END;
+    }
     if (!mode_compat_set(C, obact, eObjectMode(mode_flag), op->reports)) {
       return OPERATOR_CANCELLED;
     }
   }
 
   if (!is_mode_set) {
-    editmode_enter_ex(bmain, scene, obact, 0);
+    if (!editmode_enter_ex(bmain, scene, obact, 0, op->reports)) {
+      return OPERATOR_CANCELLED;
+    }
     if ((obact->mode & mode_flag) != 0) {
       FOREACH_SELECTED_OBJECT_BEGIN (view_layer, v3d, ob) {
         if ((ob != obact) && (ob->type == obact->type)) {
-          editmode_enter_ex(bmain, scene, ob, EM_NO_CONTEXT);
+          editmode_enter_ex(bmain, scene, ob, EM_NO_CONTEXT, op->reports);
         }
       }
       FOREACH_SELECTED_OBJECT_END;
     }
   }
   else {
-    editmode_exit_ex(bmain, scene, obact, EM_FREEDATA);
+    /* Validate all participating sources before freeing any edit data. */
+    bool sources_valid = editmode_source_validate(*obact, op->reports);
+    FOREACH_OBJECT_BEGIN (bmain, scene, view_layer, ob) {
+      if (ob != obact && ob->type == obact->type && (ob->mode & OB_MODE_EDIT)) {
+        sources_valid &= editmode_source_validate(*ob, op->reports);
+      }
+    }
+    FOREACH_OBJECT_END;
+    if (!sources_valid || !editmode_exit_ex(bmain, scene, obact, EM_FREEDATA, op->reports)) {
+      return OPERATOR_CANCELLED;
+    }
 
     if ((obact->mode & mode_flag) == 0) {
       FOREACH_OBJECT_BEGIN (bmain, scene, view_layer, ob) {
         if ((ob != obact) && (ob->type == obact->type)) {
-          editmode_exit_ex(bmain, scene, ob, EM_FREEDATA);
+          if (!editmode_exit_ex(bmain, scene, ob, EM_FREEDATA, op->reports)) {
+            return OPERATOR_CANCELLED;
+          }
         }
       }
       FOREACH_OBJECT_END;

@@ -710,13 +710,29 @@ bool ED_operator_uvmap(bContext *C)
   return false;
 }
 
-bool ED_operator_editsurfcurve(bContext *C)
+bool ED_operator_editsurfcurve_or_nurbs(bContext *C)
 {
   Object *obedit = CTX_data_edit_object(C);
   if (obedit && ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
     return nullptr != (id_cast<Curve *>(obedit->data))->editnurb;
   }
   return false;
+}
+
+static bool editcurve_legacy_source_poll(bContext *C)
+{
+  const Object *object = CTX_data_edit_object(C);
+  const Curve &curve = *id_cast<const Curve *>(object->data);
+  if (curve.nurbs_geometry != nullptr || curve.editnurb->nurbs_edit != nullptr) {
+    CTX_wm_operator_poll_msg_set(C, "This tool does not support native NURBS editing yet");
+    return false;
+  }
+  return true;
+}
+
+bool ED_operator_editsurfcurve(bContext *C)
+{
+  return ED_operator_editsurfcurve_or_nurbs(C) && editcurve_legacy_source_poll(C);
 }
 
 bool ED_operator_editsurfcurve_region_view3d(bContext *C)
@@ -733,7 +749,8 @@ bool ED_operator_editcurve(bContext *C)
 {
   Object *obedit = CTX_data_edit_object(C);
   if (obedit && obedit->type == OB_CURVES_LEGACY) {
-    return nullptr != (id_cast<Curve *>(obedit->data))->editnurb;
+    return (id_cast<Curve *>(obedit->data))->editnurb != nullptr &&
+           editcurve_legacy_source_poll(C);
   }
   return false;
 }
@@ -744,7 +761,7 @@ bool ED_operator_editcurve_3d(bContext *C)
   if (obedit && obedit->type == OB_CURVES_LEGACY) {
     Curve *cu = id_cast<Curve *>(obedit->data);
 
-    return (cu->flag & CU_3D) && (nullptr != cu->editnurb);
+    return (cu->flag & CU_3D) && cu->editnurb != nullptr && editcurve_legacy_source_poll(C);
   }
   return false;
 }
@@ -753,7 +770,8 @@ bool ED_operator_editsurf(bContext *C)
 {
   Object *obedit = CTX_data_edit_object(C);
   if (obedit && obedit->type == OB_SURF) {
-    return nullptr != (id_cast<Curve *>(obedit->data))->editnurb;
+    return (id_cast<Curve *>(obedit->data))->editnurb != nullptr &&
+           editcurve_legacy_source_poll(C);
   }
   return false;
 }
@@ -4011,7 +4029,6 @@ static void keylist_fallback_for_keyframe_jump(bContext &C, Scene *scene, AnimKe
   Object *ob = CTX_data_active_object(&C);
   if (ob) {
     ob_to_keylist(&ads, ob, &keylist, 0, {-FLT_MAX, FLT_MAX});
-
   }
 
   {

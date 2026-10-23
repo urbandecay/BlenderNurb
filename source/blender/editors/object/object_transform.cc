@@ -571,6 +571,13 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
 
   /* first check if we can execute */
   CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects) {
+    if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF) &&
+        id_cast<const Curve *>(ob->data)->nurbs_geometry != nullptr)
+    {
+      BKE_report(
+          reports, RPT_ERROR, "Applying object transforms to native NURBS is not supported yet");
+      return OPERATOR_CANCELLED;
+    }
     if (ELEM(ob->type,
              OB_MESH,
              OB_LATTICE,
@@ -1087,6 +1094,17 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
   const float *cursor = scene->cursor.location;
   int centermode = RNA_enum_get(op->ptr, "type");
 
+  CTX_DATA_BEGIN (C, Object *, object, selected_editable_objects) {
+    if (ELEM(object->type, OB_CURVES_LEGACY, OB_SURF) &&
+        id_cast<const Curve *>(object->data)->nurbs_geometry != nullptr)
+    {
+      BKE_report(
+          op->reports, RPT_ERROR, "Changing the origin of native NURBS is not supported yet");
+      return OPERATOR_CANCELLED;
+    }
+  }
+  CTX_DATA_END;
+
   /* keep track of what is changed */
   int tot_change = 0, tot_lib_error = 0;
 
@@ -1416,9 +1434,7 @@ static wmOperatorStatus object_origin_set_exec(bContext *C, wmOperator *op)
 
       /* use existing context looper */
       for (Object *ob_other : objects) {
-        if ((ob_other->flag & OB_DONE) == 0 &&
-            (ob->data && (ob->data == ob_other->data)))
-        {
+        if ((ob_other->flag & OB_DONE) == 0 && (ob->data && (ob->data == ob_other->data))) {
           ob_other->flag |= OB_DONE;
           DEG_id_tag_update(&ob_other->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 

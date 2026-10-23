@@ -1,5 +1,13 @@
 # Mesh Edit menu crosswalk
 
+Current-checkout note: this is a historical source/UI crosswalk and proposal,
+not implemented NURBS parity. References below to a planar-only `NurbsSolid`
+contract came from earlier prototype research and do not constrain the Blender
+kernel or choose its owner. Open sheets and curved translated caps remain in
+scope. See the [current audit](current_checkout_audit.md),
+[architecture decision](architecture_decision.md), and the per-row conditions in
+[workflow classes](operator_workflow_classes.csv).
+
 This checks the fixed built-in entries shown by `VIEW3D_MT_edit_mesh` in
 `scripts/startup/bl_ui/space_view3d.py` against the NURBS operator map. It
 includes its fixed submenus and the edit-mode context used by the screenshot.

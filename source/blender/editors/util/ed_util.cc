@@ -16,6 +16,8 @@
 
 #include "BLT_translation.hh"
 
+#include "DNA_curve_types.h"
+
 #include "BKE_collection.hh"
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
@@ -24,13 +26,17 @@
 #include "BKE_main.hh"
 #include "BKE_material.hh"
 #include "BKE_multires.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_packedFile.hh"
 #include "BKE_paint.hh"
+#include "BKE_report.hh"
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
 #include "BKE_undo_system.hh"
+
+#include "CLG_log.h"
 
 #include "DEG_depsgraph.hh"
 
@@ -246,26 +252,45 @@ void ED_editors_exit(Main *bmain, bool do_undo_system)
   ED_mesh_mirror_topo_table_end(nullptr);
 }
 
-bool ED_editors_flush_edits_for_object_ex(Main *bmain,
-                                          Object *ob,
-                                          bool for_render,
-                                          bool check_needs_flush)
+static bool curve_source_validate(const Curve &curve, ReportList *reports)
+{
+  std::string error;
+  if (bke::nurbs::curve_validate_source(curve, &error)) {
+    return true;
+  }
+  static CLG_LogRef LOG = {"edit.flush"};
+  CLOG_ERROR(&LOG, "Unable to flush '%s': %s", curve.id.name + 2, error.c_str());
+  if (reports != nullptr) {
+    BKE_reportf(reports, RPT_ERROR, "Unable to flush '%s': %s", curve.id.name + 2, error.c_str());
+  }
+  return false;
+}
+
+EditDataFlushResult ED_editors_flush_edits_for_object_with_result(
+    Main *bmain, Object *ob, bool for_render, bool check_needs_flush, ReportList *reports)
 {
   using namespace blender::ed;
-  bool has_edited = false;
+  EditDataFlushResult result;
+  if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF, OB_FONT) &&
+      !curve_source_validate(*id_cast<Curve *>(ob->data), reports))
+  {
+    bmain->is_memfile_undo_flush_needed = true;
+    result.success = false;
+    return result;
+  }
   if (ob->mode & OB_MODE_SCULPT) {
     /* Don't allow flushing while in the middle of a stroke (frees data in use).
      * Auto-save prevents this from happening but scripts
      * may cause a flush on saving: #53986. */
     if (ob->runtime->sculpt_session != nullptr && ob->runtime->sculpt_session->cache == nullptr) {
       if (check_needs_flush && !ob->runtime->sculpt_session->needs_flush_to_id) {
-        return false;
+        return result;
       }
       ob->runtime->sculpt_session->needs_flush_to_id = false;
 
       /* flush multires changes (for sculpt) */
       multires_flush_sculpt_updates(ob);
-      has_edited = true;
+      result.has_edits = true;
 
       if (for_render) {
         /* flush changes from dynamic topology sculpt */
@@ -283,16 +308,28 @@ bool ED_editors_flush_edits_for_object_ex(Main *bmain,
     char *needs_flush_ptr = BKE_object_data_editmode_flush_ptr_get(ob->data);
     if (needs_flush_ptr != nullptr) {
       if (check_needs_flush && (*needs_flush_ptr == 0)) {
-        return false;
+        return result;
       }
-      *needs_flush_ptr = 0;
     }
 
     /* get editmode results */
-    has_edited = true;
-    object::editmode_load(bmain, ob);
+    result.has_edits = true;
+    result.success = object::editmode_load_ex(bmain, ob, reports) !=
+                     object::EditModeDataResult::Failure;
+    if (result.success && needs_flush_ptr != nullptr) {
+      *needs_flush_ptr = 0;
+    }
   }
-  return has_edited;
+  return result;
+}
+
+bool ED_editors_flush_edits_for_object_ex(Main *bmain,
+                                          Object *ob,
+                                          bool for_render,
+                                          bool check_needs_flush)
+{
+  return ED_editors_flush_edits_for_object_with_result(bmain, ob, for_render, check_needs_flush)
+      .has_edits;
 }
 
 bool ED_editors_flush_edits_for_object(Main *bmain, Object *ob)
@@ -300,20 +337,35 @@ bool ED_editors_flush_edits_for_object(Main *bmain, Object *ob)
   return ED_editors_flush_edits_for_object_ex(bmain, ob, false, false);
 }
 
-bool ED_editors_flush_edits_ex(Main *bmain, bool for_render, bool check_needs_flush)
+EditDataFlushResult ED_editors_flush_edits_with_result(Main *bmain,
+                                                       bool for_render,
+                                                       bool check_needs_flush,
+                                                       ReportList *reports)
 {
-  bool has_edited = false;
-
-  /* loop through all data to find edit mode or object mode, because during
-   * exiting we might not have a context for edit object and multiple sculpt
-   * objects can exist at the same time */
-  for (Object &ob : bmain->objects) {
-    has_edited |= ED_editors_flush_edits_for_object_ex(bmain, &ob, for_render, check_needs_flush);
+  EditDataFlushResult result;
+  /* Check native sources before flushing any objects, including owners without an Object user. */
+  for (const Curve &curve : bmain->curves) {
+    if (!curve_source_validate(curve, reports)) {
+      bmain->is_memfile_undo_flush_needed = true;
+      result.success = false;
+      return result;
+    }
   }
 
-  bmain->is_memfile_undo_flush_needed = false;
+  /* A context cannot identify all objects with edit data (e.g. multiple sculpt objects). */
+  for (Object &ob : bmain->objects) {
+    const EditDataFlushResult object_result = ED_editors_flush_edits_for_object_with_result(
+        bmain, &ob, for_render, check_needs_flush, reports);
+    result.has_edits |= object_result.has_edits;
+    result.success &= object_result.success;
+  }
+  bmain->is_memfile_undo_flush_needed = !result.success;
+  return result;
+}
 
-  return has_edited;
+bool ED_editors_flush_edits_ex(Main *bmain, bool for_render, bool check_needs_flush)
+{
+  return ED_editors_flush_edits_with_result(bmain, for_render, check_needs_flush).has_edits;
 }
 
 bool ED_editors_flush_edits(Main *bmain)

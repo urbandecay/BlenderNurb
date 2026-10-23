@@ -169,7 +169,9 @@ void exporter_main(const bContext *C, const STLExportParams &export_params)
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
 
-  ED_editors_flush_edits(bmain);
+  if (!ED_editors_flush_edits_with_result(bmain, false, false, export_params.reports).success) {
+    return;
+  }
 
   Depsgraph *depsgraph = DEG_graph_new(bmain, scene, view_layer, export_params.evaluation_mode);
 

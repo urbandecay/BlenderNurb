@@ -564,14 +564,15 @@ eUndoPushReturn BKE_undosys_step_push_with_type(UndoStack *ustack,
       const bool ok = undosys_stack_push_main(ustack, name_internal, G_MAIN);
       /* Restore 'step_init'. */
       ustack->step_init = static_cast<UndoStep *>(step_init);
-      if (ok) {
-        UndoStep *us = static_cast<UndoStep *>(ustack->steps.last);
-        BLI_assert(STREQ(us->name, name_internal));
-        us->skip = true;
-#  ifdef WITH_GLOBAL_UNDO_CORRECT_ORDER
-        ustack->step_active_memfile = us;
-#  endif
+      if (!ok) {
+        return retval;
       }
+      UndoStep *us = static_cast<UndoStep *>(ustack->steps.last);
+      BLI_assert(STREQ(us->name, name_internal));
+      us->skip = true;
+#  ifdef WITH_GLOBAL_UNDO_CORRECT_ORDER
+      ustack->step_active_memfile = us;
+#  endif
     }
   }
 #endif
@@ -594,7 +595,7 @@ eUndoPushReturn BKE_undosys_step_push_with_type(UndoStack *ustack,
 
     if (!undosys_step_encode(C, G_MAIN, ustack, us)) {
       MEM_delete(us);
-      undosys_stack_validate(ustack, true);
+      undosys_stack_validate(ustack, is_not_empty);
       return retval;
     }
     ustack->step_active = us;

@@ -552,6 +552,15 @@ static wmOperatorStatus curvesurf_prim_add(
   ViewLayer *view_layer = CTX_data_view_layer(C);
   BKE_view_layer_synced_ensure(*bmain, scene, view_layer);
   Object *obedit = BKE_view_layer_edit_object_get(view_layer);
+  if (obedit != nullptr && ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
+    const Curve &curve = *id_cast<const Curve *>(obedit->data);
+    if (curve.nurbs_geometry != nullptr ||
+        (curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr))
+    {
+      BKE_report(op->reports, RPT_ERROR, "Adding primitives to native NURBS is not supported yet");
+      return OPERATOR_CANCELLED;
+    }
+  }
   ListBaseT<Nurb> *editnurb;
   Nurb *nu;
   bool newob = false;

@@ -24,6 +24,7 @@
 #include "BKE_fcurve.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object.hh"
 #include "BKE_undo_system.hh"
 
@@ -50,6 +51,7 @@ namespace {
 
 struct UndoCurve {
   ListBaseT<Nurb> nubase;
+  bke::nurbs::EditSnapshot *nurbs_snapshot;
   int actvert;
   CVKeyIndexMap *undoIndex;
 
@@ -82,6 +84,33 @@ static void undocurve_to_editcurve(Main *bmain, UndoCurve *ucu, Curve *cu, short
   ListBaseT<Nurb> *editbase = BKE_curve_editNurbs_get(cu);
   EditNurb *editnurb = cu->editnurb;
   AnimData *ad = BKE_animdata_from_id(&cu->id);
+
+  if (ucu->nurbs_snapshot != nullptr) {
+    if (cu->nurbs_geometry == nullptr || !cu->nurb.is_empty() || !editbase->is_empty()) {
+      CLOG_ERROR(&LOG, "NURBS undo source conflicts with legacy curve data");
+      return;
+    }
+    std::string error;
+    if (editnurb->nurbs_edit != nullptr) {
+      if (!editnurb->nurbs_edit->restore(*ucu->nurbs_snapshot, &error)) {
+        CLOG_ERROR(&LOG, "Unable to restore NURBS undo source: %s", error.c_str());
+        return;
+      }
+    }
+    else {
+      const bke::nurbs::EditSnapshot &snapshot = *ucu->nurbs_snapshot;
+      auto edit = bke::nurbs::EditData::create(*snapshot.geometry, snapshot.selection, &error);
+      if (!edit) {
+        CLOG_ERROR(&LOG, "Unable to create NURBS undo source: %s", error.c_str());
+        return;
+      }
+      editnurb->nurbs_edit = edit.release();
+    }
+  }
+  else if (editnurb->nurbs_edit != nullptr) {
+    CLOG_ERROR(&LOG, "Legacy curve undo snapshot cannot replace an active NURBS source");
+    return;
+  }
 
   BKE_nurbList_free(editbase);
 
@@ -120,6 +149,12 @@ static void undocurve_from_editcurve(UndoCurve *ucu, Curve *cu, const short shap
   EditNurb *editnurb = cu->editnurb, tmpEditnurb;
   AnimData *ad = BKE_animdata_from_id(&cu->id);
 
+  if (editnurb->nurbs_edit != nullptr) {
+    ucu->nurbs_snapshot = MEM_new<bke::nurbs::EditSnapshot>(__func__,
+                                                            editnurb->nurbs_edit->snapshot());
+    ucu->undo_size += bke::nurbs::snapshot_memory_size(*ucu->nurbs_snapshot);
+  }
+
   /* TODO: include size of drivers & undoIndex */
   // ucu->undo_size = 0;
 
@@ -157,6 +192,7 @@ static void undocurve_from_editcurve(UndoCurve *ucu, Curve *cu, const short shap
 
 static void undocurve_free_data(UndoCurve *uc)
 {
+  MEM_SAFE_DELETE(uc->nurbs_snapshot);
   BKE_nurbList_free(&uc->nubase);
 
   BKE_curve_editNurb_keyIndex_free(&uc->undoIndex);

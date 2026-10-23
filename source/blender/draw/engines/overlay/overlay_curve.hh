@@ -227,11 +227,12 @@ class Curves : Overlay {
     Object *ob = ob_ref.object;
     blender::Curve &curve = DRW_object_get_data_for_drawing<blender::Curve>(*ob);
 
-    if (ob->type == OB_CURVES_LEGACY) {
+    const bool native = curve.nurbs_eval_source != nullptr;
+    if (!native && ob->type == OB_CURVES_LEGACY) {
       gpu::Batch *geom = DRW_cache_curve_edge_wire_get(ob);
       edit_legacy_curve_wires_->draw(geom, res_handle);
     }
-    if (edit_legacy_curve_normals_ && (curve.flag & CU_3D)) {
+    if (!native && edit_legacy_curve_normals_ && (curve.flag & CU_3D)) {
       gpu::Batch *geom = DRW_cache_curve_edge_normal_get(ob);
       edit_legacy_curve_normals_->draw_expand(geom, GPU_PRIM_LINES, 2, 1, res_handle);
     }

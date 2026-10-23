@@ -13,6 +13,7 @@
 namespace blender {
 
 struct Main;
+struct ReportList;
 struct bContext;
 class WorkspaceStatus;
 
@@ -29,6 +30,23 @@ void ED_editors_init(bContext *C);
  */
 void ED_editors_exit(Main *bmain, bool do_undo_system);
 
+struct EditDataFlushResult {
+  bool has_edits = false;
+  bool success = true;
+};
+
+/** Flush with an explicit failure result. Failure keeps live edit data and dirty flags intact. */
+EditDataFlushResult ED_editors_flush_edits_for_object_with_result(Main *bmain,
+                                                                  Object *ob,
+                                                                  bool for_render,
+                                                                  bool check_needs_flush,
+                                                                  ReportList *reports = nullptr);
+EditDataFlushResult ED_editors_flush_edits_with_result(Main *bmain,
+                                                       bool for_render,
+                                                       bool check_needs_flush,
+                                                       ReportList *reports = nullptr);
+
+/** Compatibility wrappers: return whether there were edits, not whether flushing succeeded. */
 bool ED_editors_flush_edits_for_object_ex(Main *bmain,
                                           Object *ob,
                                           bool for_render,

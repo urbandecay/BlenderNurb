@@ -42,6 +42,7 @@
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
 #include "BKE_mesh.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object.hh"
 #include "BKE_paint.hh"
 #include "BKE_paint_bvh.hh"
@@ -197,6 +198,15 @@ static void stats_object(Object *ob,
   }
 }
 
+static bool is_native_nurbs_edit(const Object &object)
+{
+  if (!ELEM(object.type, OB_CURVES_LEGACY, OB_SURF)) {
+    return false;
+  }
+  const Curve &curve = *id_cast<const Curve *>(object.data);
+  return curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr;
+}
+
 static void stats_object_edit(Object *obedit, SceneStats *stats)
 {
   if (obedit->type == OB_MESH) {
@@ -216,6 +226,16 @@ static void stats_object_edit(Object *obedit, SceneStats *stats)
   else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) { /* OB_FONT has no cu->editnurb */
     /* Curve Edit */
     Curve *cu = id_cast<Curve *>(obedit->data);
+    if (cu->editnurb->nurbs_edit != nullptr) {
+      const auto source = cu->editnurb->nurbs_edit->read_snapshot();
+      stats->totvert += source.geometry().vertices.count();
+      stats->totvertsel += source.selection().vertices.size();
+      stats->totedge += source.geometry().edges.count();
+      stats->totedgesel += source.selection().edges.size();
+      stats->totface += source.geometry().faces.count();
+      stats->totfacesel += source.selection().faces.size();
+      return;
+    }
     BezTriple *bezt;
     BPoint *bp;
     int a;
@@ -545,6 +565,17 @@ static void get_stats_string(char *info,
                                      stats_fmt->totface,
                                      stats_fmt->tottri);
     }
+    else if (is_native_nurbs_edit(*ob)) {
+      *ofs += BLI_snprintf_utf8_rlen(info + *ofs,
+                                     len - *ofs,
+                                     IFACE_("Verts:%s/%s | Edges:%s/%s | Faces:%s/%s"),
+                                     stats_fmt->totvertsel,
+                                     stats_fmt->totvert,
+                                     stats_fmt->totedgesel,
+                                     stats_fmt->totedge,
+                                     stats_fmt->totfacesel,
+                                     stats_fmt->totface);
+    }
     else if (ob->type == OB_CURVES) {
       *ofs += BLI_snprintf_utf8_rlen(info + *ofs,
                                      len - *ofs,
@@ -804,11 +835,13 @@ void ED_info_draw_stats(
   }
 
   if (ob && ob->mode == OB_MODE_EDIT) {
-    if (ob->type == OB_MESH) {
+    if (ob->type == OB_MESH || is_native_nurbs_edit(*ob)) {
       stats_row(col1, labels[VERTS], col2, stats_fmt.totvertsel, stats_fmt.totvert, y, height);
       stats_row(col1, labels[EDGES], col2, stats_fmt.totedgesel, stats_fmt.totedge, y, height);
       stats_row(col1, labels[FACES], col2, stats_fmt.totfacesel, stats_fmt.totface, y, height);
-      stats_row(col1, labels[TRIS], col2, stats_fmt.tottri, nullptr, y, height);
+      if (ob->type == OB_MESH) {
+        stats_row(col1, labels[TRIS], col2, stats_fmt.tottri, nullptr, y, height);
+      }
     }
     else if (ob->type == OB_POINTCLOUD) {
       stats_row(col1, labels[POINTS], col2, stats_fmt.totvertsel, stats_fmt.totpoints, y, height);

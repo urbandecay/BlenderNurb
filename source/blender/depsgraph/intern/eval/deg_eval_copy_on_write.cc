@@ -27,6 +27,7 @@
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
 #include "BKE_lib_id.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_scene.hh"
 
 #include "DEG_depsgraph.hh"
@@ -496,6 +497,11 @@ void update_curve_edit_mode_pointers(const Depsgraph * /*depsgraph*/,
   Curve *curve_cow = id_cast<Curve *>(id_cow);
   curve_cow->editnurb = curve_orig->editnurb;
   curve_cow->editfont = curve_orig->editfont;
+  /* Capture while original ownership is valid, including the edit-mode update fast path.
+   * Native evaluation must read this lease, never the borrowed mutable edit pointers above. */
+  auto source = bke::nurbs::curve_eval_source_capture(*curve_orig);
+  delete curve_cow->nurbs_eval_source;
+  curve_cow->nurbs_eval_source = source.release();
 }
 
 void update_lattice_edit_mode_pointers(const Depsgraph * /*depsgraph*/,

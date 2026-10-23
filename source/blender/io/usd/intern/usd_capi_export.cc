@@ -817,6 +817,10 @@ bool USD_export(const bContext *C,
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Scene *scene = CTX_data_scene(C);
 
+  if (!ED_editors_flush_edits_with_result(CTX_data_main(C), false, false, reports).success) {
+    return false;
+  }
+
   io::usd::ExportJobData *job = MEM_new<io::usd::ExportJobData>("ExportJobData");
 
   job->bmain = CTX_data_main(C);
@@ -824,8 +828,6 @@ bool USD_export(const bContext *C,
   job->scene = scene;
   job->export_ok = false;
   set_job_filepath(job, filepath);
-
-  ED_editors_flush_edits(job->bmain);
 
   job->depsgraph = DEG_graph_new(job->bmain, scene, view_layer, params->evaluation_mode);
   job->params = *params;

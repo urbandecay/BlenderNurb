@@ -49,7 +49,10 @@ namespace blender {
 /** \name Scene Utilities
  * \{ */
 
-static Scene *scene_add(Main *bmain, Scene *scene_old, eSceneCopyMethod method)
+static Scene *scene_add(Main *bmain,
+                        Scene *scene_old,
+                        eSceneCopyMethod method,
+                        ReportList *reports)
 {
   Scene *scene_new = nullptr;
   if (method == SCE_COPY_NEW) {
@@ -60,7 +63,9 @@ static Scene *scene_add(Main *bmain, Scene *scene_old, eSceneCopyMethod method)
      * up-to-date obdata for that. */
     BLI_assert(scene_old != nullptr);
     if (method == SCE_COPY_FULL) {
-      ED_editors_flush_edits(bmain);
+      if (!ED_editors_flush_edits_with_result(bmain, false, false, reports).success) {
+        return nullptr;
+      }
     }
 
     scene_new = BKE_scene_duplicate(bmain,
@@ -76,7 +81,7 @@ static Scene *scene_add(Main *bmain, Scene *scene_old, eSceneCopyMethod method)
 Scene *ED_scene_sequencer_add(Main *bmain, bContext *C, eSceneCopyMethod method)
 {
   Scene *active_scene = CTX_data_scene(C);
-  Scene *scene_new = scene_add(bmain, active_scene, method);
+  Scene *scene_new = scene_add(bmain, active_scene, method, CTX_wm_reports(C));
 
   return scene_new;
 }
@@ -84,8 +89,11 @@ Scene *ED_scene_sequencer_add(Main *bmain, bContext *C, eSceneCopyMethod method)
 Scene *ED_scene_add(Main *bmain, bContext *C, wmWindow *win, eSceneCopyMethod method)
 {
   Scene *scene_old = WM_window_get_active_scene(win);
-  Scene *scene_new = scene_add(bmain, scene_old, method);
+  Scene *scene_new = scene_add(bmain, scene_old, method, CTX_wm_reports(C));
 
+  if (scene_new == nullptr) {
+    return nullptr;
+  }
   WM_window_set_active_scene(bmain, C, win, scene_new);
 
   WM_event_add_notifier(C, NC_SCENE | ND_SCENEBROWSE, scene_new);
@@ -288,9 +296,8 @@ static wmOperatorStatus scene_new_exec(bContext *C, wmOperator *op)
   wmWindow *win = CTX_wm_window(C);
   int type = RNA_enum_get(op->ptr, "type");
 
-  ED_scene_add(bmain, C, win, eSceneCopyMethod(type));
-
-  return OPERATOR_FINISHED;
+  return ED_scene_add(bmain, C, win, eSceneCopyMethod(type)) != nullptr ? OPERATOR_FINISHED :
+                                                                          OPERATOR_CANCELLED;
 }
 
 static EnumPropertyItem scene_new_items[] = {
@@ -348,7 +355,7 @@ static wmOperatorStatus scene_new_sequencer_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  Scene *scene_new = scene_add(bmain, strip->scene, eSceneCopyMethod(type));
+  Scene *scene_new = scene_add(bmain, strip->scene, eSceneCopyMethod(type), op->reports);
   if (!scene_new) {
     return OPERATOR_CANCELLED;
   }
@@ -444,7 +451,10 @@ static wmOperatorStatus new_sequencer_scene_exec(bContext *C, wmOperator *op)
   if (scene_old == nullptr) {
     type = SCE_COPY_NEW;
   }
-  Scene *new_scene = scene_add(bmain, scene_old, eSceneCopyMethod(type));
+  Scene *new_scene = scene_add(bmain, scene_old, eSceneCopyMethod(type), op->reports);
+  if (new_scene == nullptr) {
+    return OPERATOR_CANCELLED;
+  }
   seq::editing_ensure(new_scene);
 
   /* Unlikely but not impossible as poll doesn't check for this. */

@@ -24,6 +24,7 @@ struct KeyBlock;
 struct Main;
 struct Nurb;
 struct Object;
+struct ReportList;
 struct SelectPick_Params;
 struct Text;
 struct UndoType;
@@ -45,13 +46,13 @@ ListBaseT<Nurb> *object_editcurve_get(Object *ob);
 KeyBlock *ED_curve_get_edit_shape_key(const Curve *cu);
 
 /**
- * Load editNurb in object.
+ * Load editNurb in object. Failure preserves the current edit source and owner.
  */
-void ED_curve_editnurb_load(Main *bmain, Object *obedit);
+bool ED_curve_editnurb_load(Main *bmain, Object *obedit, ReportList *reports = nullptr);
 /**
- * Make copy in `cu->editnurb`.
+ * Create the appropriate owned edit source. Native NURBS failure leaves the owner unchanged.
  */
-void ED_curve_editnurb_make(Object *obedit);
+bool ED_curve_editnurb_make(Object *obedit, ReportList *reports = nullptr);
 void ED_curve_editnurb_free(Object *obedit);
 
 /**

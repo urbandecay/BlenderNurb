@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "BLI_array.hh"
@@ -26,6 +27,10 @@ struct Mesh;
 struct SculptSession;
 
 namespace bke {
+
+namespace nurbs {
+struct ObjectEvaluation;
+}
 
 struct GeometrySet;
 
@@ -120,6 +125,9 @@ struct ObjectRuntime {
 
   /** Runtime evaluated curve-specific data, not stored in the file. */
   CurveCache *curve_cache = nullptr;
+
+  /** Native NURBS display provenance and retained source state; never an editable Mesh source. */
+  std::shared_ptr<const nurbs::ObjectEvaluation> nurbs_evaluation;
 
   unsigned short local_collections_bits = 0;
 

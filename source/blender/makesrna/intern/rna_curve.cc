@@ -715,8 +715,22 @@ static void rna_Curve_spline_bezpoints_add(ID *id, Nurb *nu, ReportList *reports
   }
 }
 
-static Nurb *rna_Curve_spline_new(Curve *cu, int type_i)
+static bool rna_Curve_legacy_splines_editable(const Curve *cu, ReportList *reports)
 {
+  if (cu->nurbs_geometry != nullptr || cu->nurbs_eval_source != nullptr ||
+      (cu->editnurb != nullptr && cu->editnurb->nurbs_edit != nullptr))
+  {
+    BKE_report(reports, RPT_ERROR, "Native NURBS source cannot be edited through legacy splines");
+    return false;
+  }
+  return true;
+}
+
+static Nurb *rna_Curve_spline_new(Curve *cu, ReportList *reports, int type_i)
+{
+  if (!rna_Curve_legacy_splines_editable(cu, reports)) {
+    return nullptr;
+  }
   Nurb *nu = MEM_new<Nurb>("spline.new");
   const eNurbType type = eNurbType(type_i);
 
@@ -747,6 +761,9 @@ static Nurb *rna_Curve_spline_new(Curve *cu, int type_i)
 
 static void rna_Curve_spline_remove(Curve *cu, ReportList *reports, PointerRNA *nu_ptr)
 {
+  if (!rna_Curve_legacy_splines_editable(cu, reports)) {
+    return;
+  }
   Nurb *nu = static_cast<Nurb *>(nu_ptr->data);
   ListBaseT<Nurb> *nurbs = BKE_curve_nurbs_get(cu);
 
@@ -762,8 +779,11 @@ static void rna_Curve_spline_remove(Curve *cu, ReportList *reports, PointerRNA *
   WM_main_add_notifier(NC_GEOM | ND_DATA, nullptr);
 }
 
-static void rna_Curve_spline_clear(Curve *cu)
+static void rna_Curve_spline_clear(Curve *cu, ReportList *reports)
 {
+  if (!rna_Curve_legacy_splines_editable(cu, reports)) {
+    return;
+  }
   ListBaseT<Nurb> *nurbs = BKE_curve_nurbs_get(cu);
 
   BKE_nurbList_free(nurbs);
@@ -865,6 +885,13 @@ static bool rna_Curve_is_editmode_get(PointerRNA *ptr)
   else {
     return (cu->editnurb != nullptr);
   }
+}
+
+static bool rna_Curve_is_native_nurbs_get(PointerRNA *ptr)
+{
+  const Curve *curve = reinterpret_cast<const Curve *>(ptr->owner_id);
+  return curve->nurbs_geometry != nullptr || curve->nurbs_eval_source != nullptr ||
+         (curve->editnurb != nullptr && curve->editnurb->nurbs_edit != nullptr);
 }
 
 static bool rna_TextCurve_is_select_bold_get(PointerRNA *ptr)
@@ -1569,6 +1596,7 @@ static void rna_def_curve_splines(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_struct_ui_text(srna, "Curve Splines", "Collection of curve splines");
 
   func = RNA_def_function(srna, "new", "rna_Curve_spline_new");
+  RNA_def_function_flag(func, FUNC_USE_REPORTS);
   RNA_def_function_ui_description(func, "Add a new spline to the curve");
   parm = RNA_def_enum(func, "type", curve_type_items, CU_POLY, "", "type for the new spline");
   RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
@@ -1583,6 +1611,7 @@ static void rna_def_curve_splines(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, ParameterFlag(0));
 
   func = RNA_def_function(srna, "clear", "rna_Curve_spline_clear");
+  RNA_def_function_flag(func, FUNC_USE_REPORTS);
   RNA_def_function_ui_description(func, "Remove all splines from a curve");
 
   prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
@@ -1976,6 +2005,11 @@ static void rna_def_curve(BlenderRNA *brna)
   RNA_def_property_boolean_funcs(prop, "rna_Curve_is_editmode_get", nullptr);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Is Editmode", "True when used in editmode");
+
+  prop = RNA_def_property(srna, "is_native_nurbs", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_Curve_is_native_nurbs_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Native NURBS", "Uses native NURBS source topology and geometry");
 
   rna_def_animdata_common(srna);
 

@@ -207,7 +207,8 @@ enum {
  * \param flag:
  * - If #EM_FREEDATA isn't in the flag, use #editmode_load directly.
  */
-bool editmode_exit_ex(Main *bmain, Scene *scene, Object *obedit, int flag);
+bool editmode_exit_ex(
+    Main *bmain, Scene *scene, Object *obedit, int flag, ReportList *reports = nullptr);
 bool editmode_exit(bContext *C, int flag);
 
 /**
@@ -220,9 +221,12 @@ bool editmode_free_ex(Main *bmain, Object *obedit);
 bool editmode_exit_multi_ex(Main *bmain, Scene *scene, ViewLayer *view_layer, int flag);
 bool editmode_exit_multi(bContext *C, int flag);
 
-bool editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag);
+bool editmode_enter_ex(
+    Main *bmain, Scene *scene, Object *ob, int flag, ReportList *reports = nullptr);
 bool editmode_enter(bContext *C, int flag);
 bool editmode_load(Main *bmain, Object *obedit);
+enum class EditModeDataResult { NoData, Success, Failure };
+EditModeDataResult editmode_load_ex(Main *bmain, Object *obedit, ReportList *reports = nullptr);
 
 void location_from_view(bContext *C, float loc[3]);
 void rotation_from_quat(float rot[3], const float quat[4], char align_axis);

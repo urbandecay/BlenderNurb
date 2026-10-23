@@ -153,7 +153,7 @@ void ED_keymap_curve(wmKeyConfig *keyconf)
 
   /* only set in editmode curve, by space_view3d listener */
   keymap = WM_keymap_ensure(keyconf, "Curve", SPACE_EMPTY, RGN_TYPE_WINDOW);
-  keymap->poll = ED_operator_editsurfcurve;
+  keymap->poll = ED_operator_editsurfcurve_or_nurbs;
 
   curve_pen_modal_keymap(keyconf);
 }
