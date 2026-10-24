@@ -188,9 +188,9 @@ def vertex_selection_and_lifecycle():
     with bpy.context.temp_override(window=window):
         bpy.ops.screen.screenshot(filepath=str(output / "native-edit.png"))
 
-    # Legacy tools must report unsupported native edits instead of creating another source.
+    # Native E is available; legacy factories must reject creating another source.
     with bpy.context.temp_override(window=window, area=area, region=region):
-        t.assertFalse(bpy.ops.curve.extrude.poll())
+        t.assertTrue(bpy.ops.curve.extrude.poll())
         try:
             curve.splines.new('NURBS')
         except RuntimeError as error:
@@ -569,6 +569,29 @@ def linked_selection_across_objects():
         else:
             t.assertEqual(result, {'CANCELLED'})
     t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        try:
+            result = bpy.ops.curve.extrude()
+        except RuntimeError as error:
+            t.assertIn('single edit object', str(error))
+        else:
+            t.assertEqual(result, {'CANCELLED'})
+    yield
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    # Deletion has no modal Move restriction; both owners are preflighted and committed.
+    # Python calls default to no undo; explicitly request it for this undo/redo check.
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete('EXEC_DEFAULT', True, type='ONLY_FACE'), {'FINISHED'})
+    yield
+    t.assertEqual(counts(), (8, 8, 8, 8, 0, 0))
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (8, 8, 8, 8, 0, 0))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete(type='EDGE'), {'FINISHED'})
+    yield
+    t.assertEqual(counts(), (0, 0, 0, 0, 0, 0))
 
 
 def linked_selection_rejects_ambiguous_holes_without_partial_changes():
@@ -787,3 +810,240 @@ def duplicate_and_move_source_components():
     with bpy.context.temp_override(window=window):
         bpy.ops.screen.screenshot(filepath=str(output / 'native-duplicate.png'))
     print('NATIVE_NURBS_DUPLICATE_UI_ARTIFACTS', output)
+
+
+def extrude_delete_and_continue_source_components():
+    """Exercise the existing E/G macro and Delete menu on authoritative native sources."""
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_EXTRUSION_OUTPUT', '/tmp/blender-nurbs-native-extrusion-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    space.overlay.show_stats = True
+
+    def reset(name='Native preview sheet'):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            if window.view_layer.objects.active is not None and window.view_layer.objects.active.mode == 'EDIT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        for curve in tuple(bpy.data.curves):
+            if curve.users == 0:
+                bpy.data.curves.remove(curve)
+        with bpy.data.libraries.load(os.environ['BLENDER_NURBS_EXTRUSION_FIXTURE'], link=False) as (_, data):
+            data.curves = [name]
+        obj = bpy.data.objects.new('Native extrusion fixture', data.curves[0])
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.curve.select_all(action='DESELECT')
+        space.shading.show_xray = True
+        space.region_3d.view_location = (0, 0, 0)
+        space.region_3d.view_distance = 7
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    def screen(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def save(name):
+        curve = window.view_layer.objects.active.data
+        t.assertTrue(curve.is_native_nurbs)
+        t.assertEqual(len(curve.splines), 0)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / name), check_existing=False)
+
+    reset()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.numpad_7()
+    # The same source face must yield identical topology from click, box, or linked selection.
+    for gesture in ('click', 'box', 'linked'):
+        reset()
+        yield
+        corners = [screen(point) for point in ((-1, -1, 0), (1, -1, 0), (-1, 1, 0), (1, 1, 0))]
+        if gesture == 'box':
+            lower = min(p[0] for p in corners) - 8, min(p[1] for p in corners) - 8
+            upper = max(p[0] for p in corners) + 8, max(p[1] for p in corners) + 8
+            yield e.b()
+            yield from e.leftmouse.cursor_motion((lower, upper))
+        else:
+            yield e.cursor_position_set(*corners[0], move=True)
+            yield e.leftmouse()
+            if gesture == 'linked':
+                yield e.ctrl.l()
+            else:
+                for corner in corners[1:]:
+                    yield e.cursor_position_set(*corner, move=True)
+                    yield e.shift.leftmouse()
+        t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+        yield e.e().z().text('1').ret()
+        t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+        save(f'extrude-{gesture}.blend')
+
+    # Reproduce the reported sequence: two face extrusions, delete the selected top vertices,
+    # then select and extrude the remaining open rim. X opens Blender's existing Delete menu.
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 12, 4, 20, 1, 10))
+    save('extrude-repeat.blend')
+    yield e.x().ret()
+    t.assertEqual(counts(), (0, 8, 0, 12, 0, 5))
+    save('extrude-delete.blend')
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 12, 4, 20, 1, 10))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (0, 8, 0, 12, 0, 5))
+    yield e.numpad_1()
+    yield
+    ends = [screen((-1, -1, 1)), screen((1, -1, 1))]
+    lower = min(p[0] for p in ends) - 8, min(p[1] for p in ends) - 8
+    upper = max(p[0] for p in ends) + 8, max(p[1] for p in ends) + 8
+    yield e.b()
+    yield from e.leftmouse.cursor_motion((lower, upper))
+    t.assertEqual(counts(), (4, 8, 4, 12, 0, 5))
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 12, 4, 20, 0, 9))
+    save('extrude-delete-continue.blend')
+    yield e.numpad_6().numpad_8().home()
+    save('try-native-extrude-delete.blend')
+    yield
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'native-extrude-delete-continue.png'))
+
+    reset()
+    yield e.numpad_7()
+    yield e.a()
+    yield e.shift.d().z().text('0.5').ret()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 12, 4, 16, 1, 7))
+    save('duplicate-then-extrude.blend')
+
+    reset()
+    yield e.a()
+    yield e.e().z().text('2').esc()
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    save('extrude-cancel.blend')
+    yield e.g().z().text('1').ret()
+    save('extrude-cancel-then-move.blend')
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    save('extrude-undo.blend')
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    save('extrude-redo.blend')
+
+    reset('Native preview line')
+    yield e.a()
+    yield e.e().y().text('2').ret()
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    save('extrude-line.blend')
+    yield e.e().y().text('1').ret()
+    t.assertEqual(counts(), (2, 6, 1, 7, 0, 2))
+    save('extrude-line-repeat.blend')
+    yield e.a()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (6, 12, 7, 20, 2, 10))
+    save('extrude-two-face-region.blend')
+
+    reset('Native preview trimmed arc')
+    yield e.a()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    save('extrude-trimmed-arc.blend')
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (2, 6, 1, 7, 0, 2))
+    save('extrude-trimmed-arc-repeat.blend')
+
+    for name, selected, total in [('Native preview circle', (2, 3, 1), (4, 8, 4)),
+                                   ('Native preview hole', (8, 8, 1), (16, 24, 10))]:
+        reset(name)
+        yield e.a()
+        yield e.e().z().text('1').ret()
+        t.assertEqual(counts(), (selected[0], total[0], selected[1], total[1], selected[2], total[2]))
+        save('extrude-circle.blend' if name.endswith('circle') else 'extrude-hole.blend')
+
+    # Use the native context enum via the existing Python operator, with the same kernel backend.
+    reset()
+    yield e.a()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete(type='ONLY_FACE'), {'FINISHED'})
+    yield
+    t.assertEqual(counts(), (4, 4, 4, 4, 0, 0))
+    save('delete-only-face.blend')
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete(type='EDGE'), {'FINISHED'})
+    yield
+    t.assertEqual(counts(), (0, 0, 0, 0, 0, 0))
+    save('delete-edges.blend')
+    reset()
+    yield e.a()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete(type='FACE'), {'FINISHED'})
+    yield
+    t.assertEqual(counts(), (0, 0, 0, 0, 0, 0))
+    save('delete-faces.blend')
+    print('NATIVE_NURBS_EXTRUSION_UI_ARTIFACTS', output)
+
+
+def mixed_component_edits_reject_before_mutation():
+    import os
+
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+        data.curves = ['Native preview sheet']
+    native = bpy.data.objects.new('Native mixed edit fixture', data.curves[0])
+    legacy_curve = bpy.data.curves.new('Legacy mixed edit fixture', 'SURFACE')
+    spline = legacy_curve.splines.new('NURBS')
+    spline.points.add(1)
+    spline.points[0].co = (-1, 0, 0, 1)
+    spline.points[1].co = (1, 0, 0, 1)
+    spline.order_u = 2
+    spline.use_endpoint_u = True
+    legacy = bpy.data.objects.new('Legacy mixed edit fixture', legacy_curve)
+    for obj in (native, legacy):
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    # The existing mode-entry gate rejects the mixed session before component operators run.
+    # Keep that gate; the operator-side checks also defend against unsupported context callers.
+    for active in (legacy, native):
+        window.view_layer.objects.active = active
+        window.view_layer.update()
+        yield e.tab()
+        t.assertEqual(native.mode, 'OBJECT')
+        t.assertEqual(legacy.mode, 'OBJECT')
+        t.assertTrue(native.data.is_native_nurbs)
+        t.assertEqual(len(native.data.splines), 0)
+        t.assertEqual(len(legacy.data.splines), 1)
+        t.assertEqual(len(legacy.data.splines[0].points), 2)
+        t.assertEqual(tuple(legacy.data.splines[0].points[0].co), (-1, 0, 0, 1))
+        t.assertEqual(tuple(legacy.data.splines[0].points[1].co), (1, 0, 0, 1))
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            t.assertFalse(bpy.ops.curve.extrude.poll())
+            t.assertFalse(bpy.ops.curve.duplicate.poll())
+            t.assertFalse(bpy.ops.curve.delete.poll())

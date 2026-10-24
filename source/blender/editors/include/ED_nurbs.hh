@@ -26,6 +26,7 @@ namespace bke::nurbs {
 struct EditSnapshot;
 class ReadSnapshot;
 enum class SelectionAction;
+enum class DeleteMode;
 }  // namespace bke::nurbs
 }  // namespace blender
 
@@ -76,5 +77,21 @@ bool select_linked_pick(bContext *C, const int mval[2], int distance, bool desel
 bool duplicate(Main &bmain, Curve &curve, std::string *r_error = nullptr);
 /** Match the current native Move adapter's single edit-owner scope before changing topology. */
 bool duplicate(bContext *C);
+
+/** Straight region sweep; the existing E macro moves the selected cap after this zero sweep.
+ * Report measured pre-existing endpoint disagreement separately from translation roundoff.
+ */
+bool extrude(Main &bmain,
+             Curve &curve,
+             std::string *r_error = nullptr,
+             double *r_source_endpoint_deviation = nullptr);
+bool extrude(bContext *C);
+
+/** Shared component deletion and selection pruning. Context form preflights all edit owners. */
+bool delete_components(Main &bmain,
+                       Curve &curve,
+                       bke::nurbs::DeleteMode mode,
+                       std::string *r_error = nullptr);
+bool delete_components(bContext *C, bke::nurbs::DeleteMode mode);
 
 }  // namespace blender::ed::nurbs

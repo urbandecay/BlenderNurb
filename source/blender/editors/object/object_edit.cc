@@ -931,17 +931,22 @@ static wmOperatorStatus editmode_toggle_exec(bContext *C, wmOperator *op)
     const bool native = curve_type &&
                         id_cast<const Curve *>(obact->data)->nurbs_geometry != nullptr;
     if (curve_type) {
+      bool mixed_sources = false;
       FOREACH_SELECTED_OBJECT_BEGIN (view_layer, v3d, object) {
         if (object->type == obact->type &&
             (id_cast<const Curve *>(object->data)->nurbs_geometry != nullptr) != native)
         {
-          BKE_report(op->reports,
-                     RPT_ERROR,
-                     "Native and legacy NURBS cannot share an Edit Mode session yet");
-          return OPERATOR_CANCELLED;
+          mixed_sources = true;
+          break;
         }
       }
       FOREACH_SELECTED_OBJECT_END;
+      if (mixed_sources) {
+        BKE_report(op->reports,
+                   RPT_ERROR,
+                   "Native and legacy NURBS cannot share an Edit Mode session yet");
+        return OPERATOR_CANCELLED;
+      }
     }
     if (!mode_compat_set(C, obact, eObjectMode(mode_flag), op->reports)) {
       return OPERATOR_CANCELLED;

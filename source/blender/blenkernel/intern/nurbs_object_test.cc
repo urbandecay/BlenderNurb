@@ -65,6 +65,27 @@ static void write_preview_fixture_if_requested()
   add_source("Native preview hole", std::move(hole));
   Curve *circle = add_source("Native preview circle", make_arc_sheet(true));
   ASSERT_NE(circle->nurbs_geometry, nullptr);
+  auto sheet_source = make_planar_sheet();
+  const auto &source_edge = *static_cast<const NurbsTopologyEdge *>(sheet_source->edges.first);
+  const int64_t edge_id = source_edge.id;
+  auto line = copy_component_closure(*sheet_source, {{}, {&edge_id, 1}, {}});
+  ASSERT_TRUE(line.has_value());
+  add_source("Native preview line", std::move(line->geometry));
+  auto arc_source = make_arc_sheet(false);
+  const int64_t arc_edge = static_cast<const NurbsTopologyEdge *>(arc_source->edges.first)->id;
+  auto arc = copy_component_closure(*arc_source, {{}, {&arc_edge, 1}, {}});
+  ASSERT_TRUE(arc.has_value());
+  auto &trim_edge = *static_cast<NurbsTopologyEdge *>(arc->geometry->edges.first);
+  trim_edge.parameter_range[0] = 0.25;
+  trim_edge.parameter_range[1] = 0.75;
+  const auto &trim_curve = *static_cast<const NurbsCurveGeometry *>(arc->geometry->curves.first);
+  int end = 0;
+  for (NurbsTopologyVertex &vertex : arc->geometry->vertices) {
+    const auto evaluated = evaluate_curve(trim_curve, trim_edge.parameter_range[end++]);
+    ASSERT_TRUE(evaluated.has_value());
+    std::copy_n(&evaluated->position.x, 3, vertex.position);
+  }
+  add_source("Native preview trimmed arc", std::move(arc->geometry));
   ReportList reports;
   BKE_reports_init(&reports, RPT_STORE);
   BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });

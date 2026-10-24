@@ -24,6 +24,7 @@
 #include "BKE_context.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
+#include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_topology.hh"
 #include "BKE_object.hh"
@@ -384,8 +385,111 @@ bool select_linked(bContext *C)
   return changed;
 }
 
-bool duplicate(Main &bmain, Curve &curve, std::string *r_error)
+enum class ComponentEdit { Duplicate, Extrude, Delete };
+
+/** Resolve a complete kernel candidate before any owner mutation or notification. */
+static std::optional<bke::nurbs::EditSnapshot> component_edit_candidate(
+    const bke::nurbs::ReadSnapshot &expected,
+    const ComponentEdit operation,
+    const bke::nurbs::DeleteMode delete_mode,
+    double &r_endpoint_deviation,
+    std::string *r_error)
 {
+  if (r_error != nullptr) {
+    r_error->clear();
+  }
+  r_endpoint_deviation = 0;
+  const auto &selection = expected.selection();
+  if (selection.vertices.is_empty() && selection.edges.is_empty() && selection.faces.is_empty()) {
+    return std::nullopt;
+  }
+  const auto normalized = bke::nurbs::selection_flush(
+      expected.geometry(), selection, bke::nurbs::SelectionMode::Vertex, r_error);
+  if (!normalized) {
+    return std::nullopt;
+  }
+  if (normalized->vertices != selection.vertices || normalized->edges != selection.edges ||
+      normalized->faces != selection.faces)
+  {
+    if (r_error != nullptr) {
+      *r_error = "Native NURBS component editing requires a normalized vertex-mode selection";
+    }
+    return std::nullopt;
+  }
+  const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+  const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+  const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
+  const bke::nurbs::ComponentSelection components{vertices, edges, faces};
+  bke::nurbs::OwnedGeometry geometry;
+  Map<int64_t, int64_t> id_map;
+  if (operation == ComponentEdit::Delete) {
+    auto deleted = bke::nurbs::delete_components(
+        expected.geometry(), components, delete_mode, r_error);
+    if (!deleted || (deleted->removed.vertices.is_empty() && deleted->removed.edges.is_empty() &&
+                     deleted->removed.faces.is_empty()))
+    {
+      return std::nullopt;
+    }
+    Set<int64_t> removed = std::move(deleted->removed.vertices);
+    for (const int64_t id : deleted->removed.edges) {
+      removed.add(id);
+    }
+    for (const int64_t id : deleted->removed.faces) {
+      removed.add(id);
+    }
+    auto selected = bke::nurbs::selection_flush(
+        *deleted->geometry,
+        bke::nurbs::selection_remove_ids(selection, removed),
+        bke::nurbs::SelectionMode::Vertex,
+        r_error);
+    if (!selected) {
+      return std::nullopt;
+    }
+    return bke::nurbs::EditSnapshot{std::move(deleted->geometry), std::move(*selected)};
+  }
+  if (operation == ComponentEdit::Duplicate) {
+    auto copy = bke::nurbs::duplicate_components(expected.geometry(), components, r_error);
+    if (!copy) {
+      return std::nullopt;
+    }
+    geometry = std::move(copy->geometry);
+    id_map = std::move(copy->source_to_copy);
+  }
+  else {
+    auto swept = bke::nurbs::extrude_components(
+        expected.geometry(), components, {0, 0, 0}, 0, r_error);
+    if (!swept) {
+      return std::nullopt;
+    }
+    r_endpoint_deviation = swept->max_source_endpoint_deviation;
+    geometry = std::move(swept->geometry);
+    id_map = std::move(swept->source_to_cap);
+  }
+  auto selected = bke::nurbs::selection_remap(expected.geometry(),
+                                              *geometry,
+                                              selection,
+                                              id_map,
+                                              bke::nurbs::SelectionMode::Vertex,
+                                              r_error);
+  if (!selected) {
+    return std::nullopt;
+  }
+  return bke::nurbs::EditSnapshot{std::move(geometry), std::move(*selected)};
+}
+
+static bool component_edit(Main &bmain,
+                           Curve &curve,
+                           const ComponentEdit operation,
+                           const bke::nurbs::DeleteMode mode,
+                           std::string *r_error,
+                           double *r_endpoint_deviation = nullptr)
+{
+  if (r_error != nullptr) {
+    r_error->clear();
+  }
+  if (r_endpoint_deviation != nullptr) {
+    *r_endpoint_deviation = 0;
+  }
   if (!bke::nurbs::curve_validate_source(curve, r_error)) {
     return false;
   }
@@ -396,61 +500,120 @@ bool duplicate(Main &bmain, Curve &curve, std::string *r_error)
     return false;
   }
   const auto expected = curve.editnurb->nurbs_edit->read_snapshot();
-  const auto &selection = expected.selection();
-  if (selection.vertices.is_empty() && selection.edges.is_empty() && selection.faces.is_empty()) {
+  double deviation;
+  auto candidate = component_edit_candidate(expected, operation, mode, deviation, r_error);
+  if (!candidate || !edit_commit(bmain, curve, std::move(*candidate), expected, r_error)) {
     return false;
   }
-  const auto normalized = bke::nurbs::selection_flush(
-      expected.geometry(), selection, bke::nurbs::SelectionMode::Vertex, r_error);
-  if (!normalized) {
-    return false;
+  if (r_endpoint_deviation != nullptr) {
+    *r_endpoint_deviation = deviation;
   }
-  if (normalized->vertices != selection.vertices || normalized->edges != selection.edges ||
-      normalized->faces != selection.faces)
-  {
-    if (r_error != nullptr) {
-      *r_error = "Native NURBS duplication requires a normalized vertex-mode selection";
-    }
-    return false;
-  }
-  const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
-  const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
-  const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
-  auto copy = bke::nurbs::duplicate_components(
-      expected.geometry(), {vertices, edges, faces}, r_error);
-  if (!copy) {
-    return false;
-  }
-  auto selected = bke::nurbs::selection_remap(expected.geometry(),
-                                              *copy->geometry,
-                                              selection,
-                                              copy->source_to_copy,
-                                              bke::nurbs::SelectionMode::Vertex,
-                                              r_error);
-  if (!selected) {
-    return false;
-  }
-  return edit_commit(
-      bmain, curve, {std::move(copy->geometry), std::move(*selected)}, expected, r_error);
+  return true;
 }
 
-bool duplicate(bContext *C)
+bool duplicate(Main &bmain, Curve &curve, std::string *r_error)
+{
+  return component_edit(
+      bmain, curve, ComponentEdit::Duplicate, bke::nurbs::DeleteMode::Vertices, r_error);
+}
+
+bool extrude(Main &bmain, Curve &curve, std::string *r_error, double *r_source_endpoint_deviation)
+{
+  return component_edit(bmain,
+                        curve,
+                        ComponentEdit::Extrude,
+                        bke::nurbs::DeleteMode::Vertices,
+                        r_error,
+                        r_source_endpoint_deviation);
+}
+
+bool delete_components(Main &bmain,
+                       Curve &curve,
+                       const bke::nurbs::DeleteMode mode,
+                       std::string *r_error)
+{
+  return component_edit(bmain, curve, ComponentEdit::Delete, mode, r_error);
+}
+
+static bool component_edit(bContext *C,
+                           const ComponentEdit operation,
+                           const bke::nurbs::DeleteMode mode)
 {
   Main &bmain = *CTX_data_main(C);
   const Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C));
-  if (objects.size() != 1) {
-    BKE_report(CTX_wm_reports(C),
-               RPT_ERROR,
-               "Native NURBS duplication and movement currently require a single edit object");
+  if (operation != ComponentEdit::Delete && objects.size() != 1) {
+    BKE_report(
+        CTX_wm_reports(C),
+        RPT_ERROR,
+        "Native NURBS duplication, extrusion and movement currently require a single edit object");
     return false;
   }
+  Vector<SelectionTarget> targets;
+  Vector<std::optional<bke::nurbs::EditSnapshot>> candidates;
+  double max_endpoint_deviation = 0;
   std::string error;
-  const bool changed = duplicate(bmain, *id_cast<Curve *>(objects.first()->data), &error);
-  if (!error.empty()) {
-    BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+  // Resolve every owner before changing any of them, including mixed native/legacy rejection.
+  for (Object *object : objects) {
+    Curve &curve = *id_cast<Curve *>(object->data);
+    if (curve.editnurb->nurbs_edit == nullptr) {
+      BKE_report(CTX_wm_reports(C),
+                 RPT_ERROR,
+                 "Mixed native and legacy NURBS component editing is unsupported");
+      return false;
+    }
+    if (!bke::nurbs::curve_validate_source(curve, &error)) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    targets.append({object, curve.editnurb->nurbs_edit->read_snapshot()});
+    double deviation;
+    candidates.append(
+        component_edit_candidate(targets.last().source, operation, mode, deviation, &error));
+    if (!error.empty()) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    max_endpoint_deviation = std::max(max_endpoint_deviation, deviation);
+  }
+  bool changed = false;
+  for (const int i : targets.index_range()) {
+    if (!candidates[i]) {
+      continue;
+    }
+    if (!edit_commit(bmain,
+                     *id_cast<Curve *>(targets[i].object->data),
+                     std::move(*candidates[i]),
+                     targets[i].source,
+                     &error))
+    {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    changed = true;
+  }
+  if (changed && max_endpoint_deviation != 0) {
+    BKE_reportf(CTX_wm_reports(C),
+                RPT_INFO,
+                "NURBS source endpoint deviation %.17g is within its declared source tolerance",
+                max_endpoint_deviation);
   }
   return changed;
+}
+
+bool duplicate(bContext *C)
+{
+  return component_edit(C, ComponentEdit::Duplicate, bke::nurbs::DeleteMode::Vertices);
+}
+
+bool extrude(bContext *C)
+{
+  return component_edit(C, ComponentEdit::Extrude, bke::nurbs::DeleteMode::Vertices);
+}
+
+bool delete_components(bContext *C, const bke::nurbs::DeleteMode mode)
+{
+  return component_edit(C, ComponentEdit::Delete, mode);
 }
 
 bool select_linked_pick(bContext *C, const int mval[2], const int distance, const bool deselect)

@@ -6,13 +6,17 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and twelve targeted test executables build;
-**199 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
-formatting/conversion regression, autosave and global-undo targets pass. Eight
-updated isolated viewport event tests passed in the native-duplication checkpoint;
-nine now pass after the shared region-construction change. The kernel can extrude
-shared V/E/F closures with boundary-only walls and incidence-based cleanup.
-The ruled-row transform rule now handles supported rectangular interior trims.
-The native E shortcut remains gated pending editor/undo integration.
+**204 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+formatting/conversion regression, autosave and global-undo targets pass. Eleven
+isolated viewport event regressions pass after the documented test corrections.
+Native **E** and **Delete** now use shared kernel candidates and the common owner
+commit. The reported extrude/delete/continue sequence passes on native source,
+alongside the repaired tagged prototype. Twenty-two new saved states are checked
+against full expected source records. Line extrusion, multi-face boundary walls,
+trimmed rational sweeps, cancellation, undo/redo and fresh-file continuation are
+verified. A mixed-session entry rejection leak found by the new test is fixed.
+Automatic face-normal constraint remains a gate; use supported axis constraints
+or Global/Local Move. Native primitive creation/migration remains gated.
 Native Shift+D uses exact closure copying, fresh shared identities, remapped
 selection/history and the existing Move adapter. Eleven saved duplication states
 are checked against actual source geometry, alongside six selection and twenty
@@ -30,7 +34,7 @@ repeats the delete/continue viewport regression; the frozen input is unchanged.
 Native L / Shift+L / Ctrl+L now share source connectivity and selection
 services, with multi-owner preflight, retained active/history data and explicit
 hole-policy handling. The ambiguous hole rule still awaits user input; L picking
-requires a source vertex and X-Ray. Native extrusion, fit-point editing,
+requires a source vertex and X-Ray. Fit-point editing,
 edge/face picking, R/S, snapping, proportional editing and multi-owner movement remain later gates.
 Normal/Gimbal movement is explicitly rejected because its source orientation
 adapter is absent. Native active-vertex centers now read the live source ID rather than legacy curve
@@ -42,6 +46,7 @@ See the checkpoints at the end for exact commands, failures and limits,
 [the movement tryout](native_movement_tryout.md),
 [selection tryout](native_selection_tryout.md),
 [native duplication tryout](native_duplication_tryout.md),
+[native extrusion/deletion tryout](native_extrusion_tryout.md),
 [duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md), and
 [delete/continue tryout](prototype_deletion_tryout.md).
 The user's deletion sequence is reproduced; their exact working file was not supplied.
@@ -2855,3 +2860,260 @@ curve fit-point deformation, native creation/migration, edge/face picking and th
 pending hole-linked selection choice retain their explicit gates. This rule
 resolves the complete ruled-row construction dependency; it does not resolve
 those separate contracts or complete Stage 1.
+
+## Native E and Delete through shared component candidates
+
+Implemented and built on top of `86358bde802` (complete ruled-row trim movement).
+This checkpoint activates native-source editor extrusion and deletion; earlier
+statements that these two editor paths are gated describe earlier checkpoints.
+It does not activate general fit-point deformation, automatic face-normal E,
+edge/face-interior picking or native primitive creation/migration.
+
+`editnurbs.cc` now assembles Duplicate, Extrude and Delete candidates through a
+shared editor helper. Geometry construction remains in BKE. The helper validates
+normalized source selection and gathers component IDs, then calls the existing
+kernel services. Copy/extrude remaps cap selection/history; delete prunes removed
+identities and flushes surviving selection. All use the existing retained-token
+owner commit, dirty/depsgraph/notifier path. No new operator or display-mesh edit
+path was added. Existing legacy branches remain active.
+
+- Native `CURVE_OT_extrude` dispatches to the shared adapter before legacy CV
+  selection checks. Its existing `curve.extrude_move` macro supplies E followed by
+  G. Topology is created at zero displacement; G uses that post-extrusion source
+  snapshot. Esc retains the extrusion and cancels only movement, matching mesh
+  interaction. Non-translation modes reject before mutation.
+- Native `CURVE_OT_delete` offers Vertices, Edges, Faces and Only Faces via a
+  contextual enum. Legacy Vertices/Segments values and identifiers remain stable;
+  native-only modes cannot enter a legacy deletion branch. The enum callback also
+  checks the context object's type before interpreting its data as a Curve.
+- Delete preflights all native edit owners. E/Shift+D reject multiple edit owners
+  before changing topology because the current native Move adapter supports one.
+  The existing mode-entry rule still rejects mixed native/legacy sessions with
+  either owner active. Component operators also check mixed sources defensively.
+- Extrusion reports any measured pre-existing source endpoint discrepancy that is
+  within declared tolerance. It does not fit, weld or silently change that input.
+  The initial sweep has zero translation roundoff; modal Move retains its own
+  explicit numerical bounds. Source beyond declared endpoint tolerance rejects.
+- Removed topology does not trigger coefficient-resource garbage collection.
+  Orphan resources remain valid source records with stable IDs/counters.
+
+### Source and viewport evidence
+
+The original reported sequence now also runs on the native payload:
+
+| Step | Shared source V/E/F | Selected V/E/F |
+|---|---|---|
+| Initial face | 4 / 4 / 1 | 4 / 4 / 1 |
+| E Z 1 | 8 / 12 / 6 | 4 / 4 / 1 |
+| E Z 1 again | 12 / 20 / 10 | 4 / 4 / 1 |
+| X, Enter (top vertices) | 8 / 12 / 5 | 0 / 0 / 0 |
+| Box-select surviving rim | 8 / 12 / 5 | 4 / 4 / 0 |
+| E Z 1 | 12 / 20 / 9 | 4 / 4 / 0 |
+
+The result has an open top, as mesh vertex deletion would produce. Its last four
+faces are connected walls; no detached cap or invalid legacy patch declaration
+is created. Native source contains no legacy splines throughout.
+
+The same test checks click/box/linked face selection, line-to-sheet and repeated
+line sweep, a two-face region with six boundary walls and no internal selected
+wall/rail, a hole, a periodic rational cylinder, an interior-trimmed rational arc,
+Shift+D then E, E/Esc then G, undo/redo and all four deletion modes. Twenty-two
+saved states are read by the C++ integration test and compared against complete
+kernel-composed expected source: identities and sharing, control coefficients,
+knots, weights, trim ranges, p-curves, face/loop/use orientation, material/tolerance
+fields and stored selection/history/active data. This is stronger than comparing
+display polygons or only topology counts.
+
+A fresh Blender process reopened `try-native-extrude-delete.blend` directly in
+Edit Mode and executed Python `curve.extrude_move` with precise Z = "1". Its
+source statistics changed from 12/20/9 to 16/28/13, with the new four-vertex rim
+selected. Source stayed native, with zero legacy splines. The input was not
+saved over. Both its original viewport result and the reopened process's result
+were visually inspected; the reopened extended top is partly outside that
+camera's framing. Source/identity claims come from automated checks, not images.
+
+See [native extrusion/deletion tryout](native_extrusion_tryout.md) for prepared
+files and current interaction limits. These files are native fixtures; the
+ordinary Add NURBS path still creates the restricted tagged prototype.
+
+### Reproduced test failures and correction
+
+The first expanded eleven-case viewport wrapper passed nine cases and failed two
+new checks. The multi-owner Delete undo test had used a Python operator call
+without requesting undo (the Python wrapper defaults to `false`). It therefore
+undid the preceding selection operation. The test now calls
+`curve.delete('EXEC_DEFAULT', True, type='ONLY_FACE')`; multi-owner delete,
+undo/redo and edge cleanup pass without product undo changes.
+
+The mixed-source test initially tried to enter an Edit Mode session that existing
+code explicitly prohibits. It now tests that entry rejection through actual Tab
+events with each owner active, checking that both remain in Object Mode and
+both sources remain unchanged. It does not claim mixed-session editing support.
+
+That rejection test also revealed a genuine 16-byte leak in the earlier native
+mode-entry guard (`2fd4dfd9a15`). A guarded-allocation run identified
+`object_bases_iterator_begin`. The early return inside
+`FOREACH_SELECTED_OBJECT_BEGIN` skipped its iterator-end cleanup. The guard now
+records the mismatch, breaks, executes `FOREACH_SELECTED_OBJECT_END`, and only
+then reports/cancels. The guarded rejection regression passes without the
+allocation warning. This fixes the earlier guard; it does not relax the source
+ownership rule. Failed logs are retained rather than overwritten.
+
+### Exact build and verification commands
+
+All build commands used the same canonical build tree (the other build name is
+only a symlink), `nice -n 10`, and `--parallel 4`. Product code was built before
+running its viewport checks. Test-only edits did not require another application
+build. The final mode-entry cleanup did require and receive a product rebuild.
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blender blenkernel_nurbs_edit_test blenkernel_nurbs_object_test --parallel 4
+
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_geometry_legacy_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_differential_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_mesh_test blenkernel_nurbs_object_test \
+  blenkernel_nurbs_transform_test blenkernel_unit_test \
+  editor_util_numinput_test editor_transform_transform_translate_precision_test \
+  --parallel 4
+```
+
+Product build logs: `/tmp/blender-nurbs-native-component-build.log`,
+`-build-final.log`, and `-mixed-cleanup-build.log` with the same prefix.
+Twelve-target relink logs: `/tmp/blender-nurbs-native-component-regression-build.log`
+and `-regression-build-final.log`. Each completed with exit 0. No compiler errors
+were left unresolved.
+
+The new fixture was explicitly exported to a new path, without overwriting the
+frozen earlier fixture:
+
+```sh
+env BLENDER_NURBS_PREVIEW_EXPORT=/tmp/blender-nurbs-native-extrusion-fixture.blend \
+  /home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_object_test \
+  --gtest_filter='*DependencyGraphDisplaysLiveSheetAndRetainsPreviousFrameSource'
+```
+
+Result: exit 0, one test passed. Export is unset in ordinary test runs. The fixture
+adds a native wire and a trimmed rational arc to the existing sheet/hole/cylinder
+samples. Its SHA-256 is
+`1085cb447a543093900335f92cee77739fd839db5ae61e30cfde8d42ccc48538`.
+The read-only earlier preview and original broken-file reproduction retain
+`329f75e097dbcf7b580b7bdba5d8e619ac26ca812b9cd3ab38098907059f2e5a` and
+`ea596ec1bfb326190b98fc54557cded623681d6269c3504f68ba06167b81362d`.
+
+The C++ wrapper command was:
+
+```sh
+python3 /tmp/blender-nurbs-run-native-component-kernel-checks.py
+```
+
+It invokes each listed executable with `--gtest_color=no`; `nurbs_geometry` also
+receives `--test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files'`.
+The edit suite receives these read-only inputs/output directories:
+
+```text
+BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend
+BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-linked-ui
+BLENDER_NURBS_MOVE_OUTPUT=/tmp/blender-nurbs-move-ui
+BLENDER_NURBS_DUPLICATE_OUTPUT=/tmp/blender-nurbs-duplicate-ui
+BLENDER_NURBS_EXTRUSION_FIXTURE=/tmp/blender-nurbs-native-extrusion-fixture.blend
+BLENDER_NURBS_EXTRUSION_OUTPUT=/tmp/blender-nurbs-native-extrusion-ui
+```
+
+| Executable suffix | Passed |
+|---|---|
+| `blenkernel_nurbs_geometry_legacy_test` | 20 |
+| `blenkernel_nurbs_selection_test` | 30 |
+| `blenkernel_nurbs_geometry_test` | 54 |
+| `blenkernel_nurbs_edit_test` | 43 |
+| `blenkernel_nurbs_differential_test` | 9 |
+| `blenkernel_nurbs_tessellate_test` | 10 |
+| `blenkernel_nurbs_mesh_test` | 7 |
+| `blenkernel_nurbs_object_test` | 4 |
+| `blenkernel_nurbs_transform_test` | 16 |
+| `blenkernel_unit_test` | 3 |
+| `editor_util_numinput_test` | 4 |
+| `editor_transform_transform_translate_precision_test` | 4 |
+
+Total: **204 passed, no skips**, exit 0. Per-suite logs are
+`/tmp/blender-nurbs-native-component-<suite>-tests-final.log`; summary is
+`/tmp/blender-nurbs-native-component-kernel-summary.log`.
+
+The viewport wrapper command was
+`python3 /tmp/blender-nurbs-run-native-component-ui-final.py`. It launches each
+case below in its own factory-startup Blender process on an isolated Weston
+server, using this exact argument/environment pattern:
+
+```sh
+nice -n 10 env -u DISPLAY \
+  BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender \
+  WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston \
+  WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland \
+  WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston \
+  BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-linked-ui \
+  BLENDER_NURBS_MOVE_OUTPUT=/tmp/blender-nurbs-move-ui \
+  BLENDER_NURBS_DUPLICATE_OUTPUT=/tmp/blender-nurbs-duplicate-ui \
+  BLENDER_NURBS_EXTRUSION_FIXTURE=/tmp/blender-nurbs-native-extrusion-fixture.blend \
+  BLENDER_NURBS_EXTRUSION_OUTPUT=/tmp/blender-nurbs-native-extrusion-ui \
+  python3 tests/utils/blender_headless.py --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py -- --tests TEST_ID
+```
+
+| Label | TEST_ID | Result |
+|---|---|---|
+| line | `test_nurbs_line.line_to_sheet` | exit 0 |
+| duplicate | `test_nurbs_native.duplicate_and_move_source_components` | exit 0 |
+| holes | `test_nurbs_native.linked_selection_rejects_ambiguous_holes_without_partial_changes` | exit 0 |
+| native | `test_nurbs_native.vertex_selection_and_lifecycle` | exit 0 |
+| linked-multiobject | `test_nurbs_native.linked_selection_across_objects` | corrected test rerun exit 0 |
+| move | `test_nurbs_native.vertex_move_and_lifecycle` | exit 0 |
+| legacy-region | `test_nurbs_line.face_region_selection_gestures` | exit 0 |
+| legacy-delete | `test_nurbs_line.extrude_delete_top_and_continue` | exit 0 |
+| legacy-duplicate | `test_nurbs_line.duplicate_and_repeat_face_extrusion` | exit 0 |
+| extrusion | `test_nurbs_native.extrude_delete_and_continue_source_components` | exit 0 |
+| mixed | `test_nurbs_native.mixed_component_edits_reject_before_mutation` | corrected entry test and final guarded cleanup rerun exit 0 |
+
+Eleven cases pass after corrections. Original wrapper failure logs remain in
+`/tmp/blender-nurbs-native-component-ui-<label>-final.log`. Successful reruns are
+`-ui-linked-multiobject-fixed.log` and `-ui-mixed-cleanup-final.log` with the same
+prefix. The latter uses `--debug-memory` before `--enable-event-simulate`, and
+exits without a leaked-allocation report.
+
+Fresh reopen command used the same isolated server environment:
+
+```sh
+python3 tests/utils/blender_headless.py --enable-event-simulate --factory-startup \
+  /tmp/blender-nurbs-native-extrusion-ui/try-native-extrude-delete.blend \
+  --python /tmp/blender-nurbs-reopen-extrusion.py
+```
+
+Result: exit 0; assertions above pass. Log:
+`/tmp/blender-nurbs-native-component-reopen.log`.
+The timer script checks native ownership, empty legacy splines and source V/E/F
+counts before/after `curve.extrude_move(TRANSFORM_OT_translate={'value_precise_z': '1'})`.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux \
+  --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+Result: **5/5 passed**, exit 0; includes the unchanged **37 NURBS Python cases**.
+Final log: `/tmp/blender-nurbs-native-component-ctest-final.log`
+(after the guarded iterator cleanup rebuild); the earlier run also passed in
+`/tmp/blender-nurbs-native-component-ctest.log`.
+`git diff --check` and Python byte compilation also pass.
+
+**Implemented:** native E/Delete routing through shared services and owner commit.
+**Built:** application plus twelve relevant C++ test executables.
+**Tested:** source readback, selection gestures, shared regions, repeat/delete/
+continue, rational/trimmed geometry, modal cancel, undo/redo, multi-owner deletion,
+rejection paths, original prototype compatibility, autosave and global undo.
+**Visually confirmed:** original native delete/continue result and fresh reopened
+continuation. Other cases have automated evidence, not individual visual signoff.
+**Still gated:** fit-point data/constraints, broad transforms, source normal frames,
+edge/face picking, native creation/migration, full component Python bindings,
+general geometric/solid validity and resource collection. Stage 1 is incomplete.

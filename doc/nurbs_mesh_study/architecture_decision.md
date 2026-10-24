@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 199 C++ kernel/editor/integration tests, a complete Blender build and
+Current verified foundation: 204 C++ kernel/editor/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -31,7 +31,12 @@ and extrusion now use kernel candidates, native closure-ID remapping and shared
 region planning, with shortcut/undo regressions. A shared native V/E/F extrusion
 constructor is now implemented, built and tested against BMesh counts and
 orientations. Complete ruled-row movement on rectangular interior trims is also
-built and tested; native editor E remains gated on operator/undo integration.
+built and tested. Native editor E now reuses the existing extrude/Move macro,
+with source cap remapping, cancellation, undo/redo and complete saved-source checks.
+Native Delete now dispatches Vertices/Edges/Faces/Only Faces to the shared deletion
+candidate and selection-pruning services. Eleven isolated viewport regressions
+pass, including multi-owner deletion and the native extrude/delete/continue sequence.
+Automatic face-normal constraint and general native creation/migration remain gates.
 Native Move translates supported source vertex identities through shared BKE services, retaining original snapshots and committing
 with current-state tokens. Every frame starts from original double geometry.
 The movement checkpoint records twenty saved states and eight isolated viewport
@@ -48,7 +53,9 @@ surviving faces, wires and loose points. It does not collapse control-net rows
 while retaining face IDs. Known redundant patch remnants from the older deletion
 path have a checked recovery candidate and an explicit report; ambiguous
 declarations or differing geometry are not welded or fitted. This is a
-compatibility repair, not activation of native-owner deletion or general fitting.
+compatibility repair, distinct from the new native-owner deletion adapter. The
+native path uses the shared full-source candidate and selection-pruning services;
+neither path implements general fitting.
 
 ## Decision
 
@@ -533,3 +540,39 @@ Existing tensor-corner movement stays separate. No old CV endpoint assumption,
 fitting or new editor-only geometry path is used. Full verification is now
 199 C++ tests, nine existing viewport regressions and five CTest targets.
 Native E/Delete editor activation and native normal frames remain separate work.
+
+
+## Native extrusion and deletion editor checkpoint
+
+The common editor component-candidate path now orchestrates duplication,
+extrusion and deletion. It never constructs NURBS geometry in ED. It validates
+source selection, passes V/E/F identities to BKE, remaps cap selection/history or
+prunes removed IDs, and commits through the retained source token. Existing
+Curve/Surface E and Delete operators dispatch to that adapter; the normal E/G
+macro owns modal movement and its undo behavior. Zero displacement remains a
+legal singular editing intermediate. Esc cancels Move while retaining extrusion.
+
+Deletion preflights all native edit owners before commits. E and duplication
+retain the single-owner scope required by native Move. Legacy source branches
+retain their old enum identifiers and operator behavior. Mixed sources remain
+blocked at Edit Mode entry and checked defensively by component operators. The
+new guarded rejection test found and fixed an iterator leak in the earlier
+entry guard; it now cleans up before returning cancellation.
+
+The exact reported repeat-extrude/delete/continue sequence now passes on native
+source as well as on the tagged compatibility path. Twenty-two saved states are
+compared against full kernel-composed source records; the fresh-file application
+probe continues editing successfully after reopening. Two adjacent native faces
+extrude as a shared region with six boundary walls and no selected interior
+wall/rail. Rational cylinders, holes and interior-trimmed arcs use authoritative
+source supports, knots, weights and p-curves. Existing endpoint disagreement
+within declared tolerance is reported explicitly; no fitting is hidden.
+
+This is straight region extrusion through the supported native Move contract.
+It does not establish a source normal frame or constant-thickness curved offset.
+Fit-point data/constraints, edge/face-interior picking, broader transforms,
+native creation/migration, general trim/solid validation and full component
+Python bindings remain gates. Stage 1 is incomplete. See the
+[native extrusion/deletion tryout](native_extrusion_tryout.md) and the
+[current audit](current_checkout_audit.md) for exact commands, corrected test
+failures, source checks and visual evidence.

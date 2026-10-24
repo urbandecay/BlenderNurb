@@ -112,6 +112,20 @@ ListBaseT<Nurb> *object_editcurve_get(Object *ob)
   return nullptr;
 }
 
+/** Legacy branches must not partially edit a mixed native/legacy multi-object selection. */
+static bool legacy_component_edit_sources_check(const Span<Object *> objects, ReportList *reports)
+{
+  for (const Object *object : objects) {
+    const Curve &curve = *id_cast<const Curve *>(object->data);
+    if (curve.editnurb->nurbs_edit != nullptr) {
+      BKE_report(
+          reports, RPT_ERROR, "Mixed native and legacy NURBS component editing is unsupported");
+      return false;
+    }
+  }
+  return true;
+}
+
 KeyBlock *ED_curve_get_edit_shape_key(const Curve *cu)
 {
   BLI_assert(cu->editnurb);
@@ -5888,6 +5902,16 @@ void CURVE_OT_vertex_add(wmOperatorType *ot)
 
 static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
 {
+  const Curve &active_curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  if (active_curve.editnurb->nurbs_edit != nullptr) {
+    if (RNA_enum_get(op->ptr, "mode") != ed::transform::TFM_TRANSLATION) {
+      BKE_report(op->reports,
+                 RPT_ERROR,
+                 "Native NURBS extrusion currently supports straight translation");
+      return OPERATOR_CANCELLED;
+    }
+    return ed::nurbs::extrude(C) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  }
   Main *bmain = CTX_data_main(C);
   const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -5896,6 +5920,9 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
 
   Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
+  if (!legacy_component_edit_sources_check(objects, op->reports)) {
+    return OPERATOR_CANCELLED;
+  }
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
     EditNurb *editnurb = cu->editnurb;
@@ -5948,12 +5975,12 @@ void CURVE_OT_extrude(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Extrude";
-  ot->description = "Extrude selected curve edge or control point(s)";
+  ot->description = "Extrude selected components";
   ot->idname = "CURVE_OT_extrude";
 
   /* API callbacks. */
   ot->exec = curve_extrude_exec;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -6156,6 +6183,9 @@ static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
 
   Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
+  if (!legacy_component_edit_sources_check(objects, op->reports)) {
+    return OPERATOR_CANCELLED;
+  }
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
 
@@ -6668,17 +6698,52 @@ static bool curve_delete_segments(Object *obedit, View3D *v3d, const bool split)
   return true;
 }
 
+enum {
+  NURBS_DELETE_EDGE = 100,
+  NURBS_DELETE_FACE,
+  NURBS_DELETE_ONLY_FACE,
+};
+
 static wmOperatorStatus curve_delete_exec(bContext *C, wmOperator *op)
 {
+  const int type = RNA_enum_get(op->ptr, "type");
+  const Curve &active_curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  if (active_curve.editnurb->nurbs_edit != nullptr) {
+    bke::nurbs::DeleteMode mode;
+    switch (type) {
+      case CURVE_VERTEX:
+        mode = bke::nurbs::DeleteMode::Vertices;
+        break;
+      case NURBS_DELETE_EDGE:
+        mode = bke::nurbs::DeleteMode::Edges;
+        break;
+      case NURBS_DELETE_FACE:
+        mode = bke::nurbs::DeleteMode::Faces;
+        break;
+      case NURBS_DELETE_ONLY_FACE:
+        mode = bke::nurbs::DeleteMode::FacesOnly;
+        break;
+      default:
+        BKE_report(op->reports, RPT_ERROR, "Unsupported native NURBS deletion mode");
+        return OPERATOR_CANCELLED;
+    }
+    return ed::nurbs::delete_components(C, mode) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  }
+  if (!ELEM(type, CURVE_VERTEX, CURVE_SEGMENT)) {
+    BKE_report(op->reports, RPT_ERROR, "Unsupported legacy curve deletion mode");
+    return OPERATOR_CANCELLED;
+  }
   Main *bmain = CTX_data_main(C);
   View3D *v3d = CTX_wm_view3d(C);
-  eCurveElem_Types type = eCurveElem_Types(RNA_enum_get(op->ptr, "type"));
   const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
   bool changed_multi = false;
 
+  if (!legacy_component_edit_sources_check(objects, op->reports)) {
+    return OPERATOR_CANCELLED;
+  }
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
     bool changed = false;
@@ -6740,6 +6805,9 @@ static wmOperatorStatus curve_delete_exec(bContext *C, wmOperator *op)
 static const EnumPropertyItem curve_delete_type_items[] = {
     {CURVE_VERTEX, "VERT", 0, "Vertices", ""},
     {CURVE_SEGMENT, "SEGMENT", 0, "Segments", ""},
+    {NURBS_DELETE_EDGE, "EDGE", 0, "Edges", ""},
+    {NURBS_DELETE_FACE, "FACE", 0, "Faces", ""},
+    {NURBS_DELETE_ONLY_FACE, "ONLY_FACE", 0, "Only Faces", "Keep boundary edges and vertices"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -6756,7 +6824,18 @@ static const EnumPropertyItem *rna_curve_delete_type_itemf(bContext *C,
   }
 
   RNA_enum_items_add_value(&item, &totitem, curve_delete_type_items, CURVE_VERTEX);
-  RNA_enum_items_add_value(&item, &totitem, curve_delete_type_items, CURVE_SEGMENT);
+  const Object *obedit = CTX_data_edit_object(C);
+  const Curve *curve = obedit != nullptr && ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF) ?
+                           id_cast<Curve *>(obedit->data) :
+                           nullptr;
+  if (curve != nullptr && curve->editnurb != nullptr && curve->editnurb->nurbs_edit != nullptr) {
+    RNA_enum_items_add_value(&item, &totitem, curve_delete_type_items, NURBS_DELETE_EDGE);
+    RNA_enum_items_add_value(&item, &totitem, curve_delete_type_items, NURBS_DELETE_FACE);
+    RNA_enum_items_add_value(&item, &totitem, curve_delete_type_items, NURBS_DELETE_ONLY_FACE);
+  }
+  else {
+    RNA_enum_items_add_value(&item, &totitem, curve_delete_type_items, CURVE_SEGMENT);
+  }
   RNA_enum_item_end(&item, &totitem);
   *r_free = true;
 
@@ -6769,13 +6848,13 @@ void CURVE_OT_delete(wmOperatorType *ot)
 
   /* identifiers */
   ot->name = "Delete";
-  ot->description = "Delete selected control points or segments";
+  ot->description = "Delete selected components";
   ot->idname = "CURVE_OT_delete";
 
   /* API callbacks. */
   ot->exec = curve_delete_exec;
   ot->invoke = WM_menu_invoke;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
