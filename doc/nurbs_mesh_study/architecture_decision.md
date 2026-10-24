@@ -489,3 +489,14 @@ partial curved deformation and fit constraints require their own tested contract
 See [the movement tryout](native_movement_tryout.md) and the last checkpoint in
 [the checkout audit](current_checkout_audit.md) for exact commands, failures,
 fixture provenance, evidence labels and current limits. Stage 1 is still incomplete.
+
+### Construction cleanup prerequisite
+
+The shared topology kernel now applies its deletion plans to full candidates,
+including safe removal of stored-selection/history references. The new service
+is built with Blender and its actual deletion candidates are tested against
+BMesh across 228 selected subsets. Remaining coefficient resources and IDs are
+preserved; no fitting, support shrinking or orphan-resource collection occurs.
+Native Delete/Extrude are not activated by this backend checkpoint. This service
+will let region extrusion remove the original selected faces after walls exist,
+so surviving boundary incidence determines which old edges/vertices remain.

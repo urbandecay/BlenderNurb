@@ -10,6 +10,7 @@
 
 #include "BLI_listbase.h"
 
+#include "BKE_nurbs_selection.hh"
 #include "BKE_nurbs_topology.hh"
 
 namespace blender::bke::nurbs {
@@ -217,6 +218,57 @@ std::optional<TopologyDeletionPlan> plan_component_deletion(const NurbsGeometry 
     }
   }
   return result;
+}
+
+std::optional<TopologyDeletionResult> delete_components(const NurbsGeometry &source,
+                                                        const ComponentSelection &selection,
+                                                        const DeleteMode mode,
+                                                        std::string *r_error)
+{
+  auto plan = plan_component_deletion(source, selection, mode, r_error);
+  if (!plan) {
+    return std::nullopt;
+  }
+  OwnedGeometry candidate(geometry_copy(&source));
+  for (NurbsTopologyFace &face : candidate->faces.items_mutable()) {
+    if (plan->faces.contains(face.id)) {
+      for (NurbsTopologyLoop &loop : face.loops) {
+        BLI_freelistN(&loop.edge_uses);
+      }
+      BLI_freelistN(&face.loops);
+      BLI_freelinkN(&candidate->faces, &face);
+    }
+  }
+  for (NurbsTopologyEdge &edge : candidate->edges.items_mutable()) {
+    if (plan->edges.contains(edge.id)) {
+      BLI_freelinkN(&candidate->edges, &edge);
+    }
+  }
+  for (NurbsTopologyVertex &vertex : candidate->vertices.items_mutable()) {
+    if (plan->vertices.contains(vertex.id)) {
+      BLI_freelinkN(&candidate->vertices, &vertex);
+    }
+  }
+  if (source.stored_selection != nullptr) {
+    const auto stored = selection_from_storage(source.stored_selection, r_error);
+    if (!stored) {
+      return std::nullopt;
+    }
+    Set<int64_t> removed = plan->vertices;
+    for (const int64_t id : plan->edges) {
+      removed.add(id);
+    }
+    for (const int64_t id : plan->faces) {
+      removed.add(id);
+    }
+    const SelectionState surviving = selection_remove_ids(*stored, removed);
+    selection_storage_free(candidate->stored_selection);
+    candidate->stored_selection = selection_to_storage(surviving);
+  }
+  if (!geometry_validate_structure(*candidate, r_error)) {
+    return std::nullopt;
+  }
+  return TopologyDeletionResult{std::move(candidate), std::move(*plan)};
 }
 
 }  // namespace blender::bke::nurbs

@@ -2640,3 +2640,44 @@ Stage 1 remains incomplete: the next construction slice needs a shared native
 region/extrusion service, not an ED-only face workaround. Fit-point deformation,
 normal native creation/migration, edge/face picking, other transforms and the
 pending hole-connectivity choice retain their existing gates.
+
+## Shared deletion-candidate service — 2026-10-24
+
+This is an additional kernel prerequisite for native extrusion, not activation of
+native Delete or Extrude. `delete_components` applies the existing incidence plan
+to an independent full candidate. It frees removed face loops/uses and topology
+records, keeps remaining identities and the counter, and leaves coefficient
+resources intact. It prunes deleted stored-selection/history references through
+`selection_remove_ids`; mode-dependent selection flushing remains a caller's
+explicit responsibility. A removed active element can fall back to surviving
+history. A pre-existing absent active element stays absent on a no-op request.
+
+The existing BMesh deletion comparison now checks actual candidate counts and
+surviving vertex/edge/face IDs, not only the plan. It covers all 228 nonempty
+component subsets across the quad and two-face fixtures and four deletion modes.
+Two additional tests cover retained rational resources and stored selection,
+wrong-domain/invalid-mode failures, empty requests and an exhausted ID counter
+(which deletion does not advance). Source remains unchanged on rejection.
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_selection_test blender --parallel 4
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_selection_test --gtest_color=no
+```
+
+Final build exit 0 and **28/28 selection tests passed**, no skips. Logs:
+`/tmp/blender-nurbs-native-deletion-kernel-build-fixed.log` and
+`/tmp/blender-nurbs-native-deletion-kernel-tests.log`. The first build used a removed
+`LISTBASE_FOREACH_MUTABLE` macro and failed; it was corrected to this checkout's
+`ListBaseT::items_mutable()` iterator before the successful build. Initial log:
+`/tmp/blender-nurbs-native-deletion-kernel-build.log`.
+The native-duplication checkpoint's full 182-test/eight-viewport/five-CTest results
+remain separately recorded above. This additive service has no editor caller yet;
+those unchanged application suites were not repeated or relabeled as new results.
+
+The extrusion review also identified two requirements before its activation:
+retained original region faces must reverse orientation as BMesh does, and cap
+movement along walls made from interior curve trims needs a complete ruled-row
+translation rule. Current partial-tensor G correctly rejects those trimmed
+walls; interior trim endpoints must not be treated as CV indices. Neither a
+special ED transform fallback nor a general curved deformation rule is implied.

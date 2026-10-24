@@ -62,4 +62,20 @@ std::optional<TopologyDeletionPlan> plan_component_deletion(const NurbsGeometry 
                                                             DeleteMode mode,
                                                             std::string *r_error = nullptr);
 
+struct TopologyDeletionResult {
+  OwnedGeometry geometry;
+  TopologyDeletionPlan removed;
+};
+
+/**
+ * Apply the shared deletion plan to a full independent source candidate. Keep remaining records,
+ * coefficient resources, tolerances and the identity counter unchanged. Remove invalid stored
+ * selection/history references without inferring a component mode. No fitting, support shrinking,
+ * geometry-resource collection, owner mutation or notification occurs.
+ */
+std::optional<TopologyDeletionResult> delete_components(const NurbsGeometry &source,
+                                                        const ComponentSelection &selection,
+                                                        DeleteMode mode,
+                                                        std::string *r_error = nullptr);
+
 }  // namespace blender::bke::nurbs

@@ -2,6 +2,9 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <cstring>
+#include <limits>
+
 #include "BKE_gtest_base.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_topology.hh"
@@ -597,6 +600,25 @@ TEST_F(NurbsSelectionTest, ComponentDeletionPlansMatchActualBMeshDeletion)
         std::string error;
         const auto plan = plan_component_deletion(*source, selection, mode, &error);
         ASSERT_TRUE(plan.has_value()) << error;
+        const auto deleted = delete_components(*source, selection, mode, &error);
+        ASSERT_TRUE(deleted.has_value()) << error;
+        EXPECT_EQ(deleted->removed.vertices, plan->vertices);
+        EXPECT_EQ(deleted->removed.edges, plan->edges);
+        EXPECT_EQ(deleted->removed.faces, plan->faces);
+        const auto index = TopologyIndex::build(*deleted->geometry, &error);
+        ASSERT_TRUE(index.has_value()) << error;
+        for (const NurbsTopologyVertex &vertex : source->vertices) {
+          EXPECT_EQ(index->vertex(vertex.id) == nullptr, plan->vertices.contains(vertex.id));
+        }
+        for (const NurbsTopologyEdge &edge : source->edges) {
+          EXPECT_EQ(index->edge(edge.id) == nullptr, plan->edges.contains(edge.id));
+        }
+        for (const NurbsTopologyFace &face : source->faces) {
+          EXPECT_EQ(index->face(face.id) == nullptr, plan->faces.contains(face.id));
+        }
+        EXPECT_EQ(deleted->geometry->next_id, source->next_id);
+        EXPECT_EQ(deleted->geometry->curves.count(), source->curves.count());
+        EXPECT_EQ(deleted->geometry->surfaces.count(), source->surfaces.count());
         BMOperator operation;
         BMO_op_init(reference.mesh.get(), &operation, BMO_FLAG_DEFAULTS, "delete");
         BMO_slot_int_set(operation.slots_in, "context", context);
@@ -610,6 +632,9 @@ TEST_F(NurbsSelectionTest, ComponentDeletionPlansMatchActualBMeshDeletion)
         EXPECT_EQ(reference.mesh->totvert, source->vertices.count() - plan->vertices.size());
         EXPECT_EQ(reference.mesh->totedge, source->edges.count() - plan->edges.size());
         EXPECT_EQ(reference.mesh->totface, source->faces.count() - plan->faces.size());
+        EXPECT_EQ(reference.mesh->totvert, deleted->geometry->vertices.count());
+        EXPECT_EQ(reference.mesh->totedge, deleted->geometry->edges.count());
+        EXPECT_EQ(reference.mesh->totface, deleted->geometry->faces.count());
         BMO_op_finish(reference.mesh.get(), &operation);
       }
     }
@@ -1017,6 +1042,97 @@ TEST_F(NurbsSelectionTest, SelectionRemappingHandlesPartialAndMergedMapsAndRejec
   EXPECT_TRUE(empty->vertices.is_empty());
   EXPECT_TRUE(empty->history.is_empty());
   EXPECT_FALSE(empty->active.has_value());
+}
+
+TEST_F(NurbsSelectionTest, DeletionCandidatesPruneStoredSelectionAndPreserveRationalResources)
+{
+  const auto sheet = make_planar_sheet();
+  const auto circle = make_arc_sheet(true);
+  ASSERT_NE(sheet, nullptr);
+  ASSERT_NE(circle, nullptr);
+  for (NurbsGeometry *source : {sheet.get(), circle.get()}) {
+    SelectionState input;
+    const int64_t face_id = first_item(source->faces).id;
+    const int64_t vertex_id = first_item(source->vertices).id;
+    input.faces.add(face_id);
+    input.history.append({ElementDomain::Face, face_id});
+    auto selected = selection_flush(*source, input, SelectionMode::Face);
+    ASSERT_TRUE(selected.has_value());
+    selected->history.prepend({ElementDomain::Vertex, vertex_id});
+    selected->active = ElementRef{ElementDomain::Face, face_id};
+    source->stored_selection = selection_to_storage(*selected);
+    const int64_t counter = source->next_id;
+    std::string error;
+    const auto deleted = delete_components(
+        *source, {{}, {}, {&face_id, 1}}, DeleteMode::FacesOnly, &error);
+    ASSERT_TRUE(deleted.has_value()) << error;
+    EXPECT_TRUE(deleted->geometry->faces.is_empty());
+    EXPECT_EQ(deleted->geometry->vertices.count(), source->vertices.count());
+    EXPECT_EQ(deleted->geometry->edges.count(), source->edges.count());
+    EXPECT_EQ(deleted->geometry->next_id, counter);
+    const auto surviving = selection_from_storage(deleted->geometry->stored_selection);
+    ASSERT_TRUE(surviving.has_value());
+    EXPECT_EQ(surviving->vertices, selected->vertices);
+    EXPECT_EQ(surviving->edges, selected->edges);
+    EXPECT_TRUE(surviving->faces.is_empty());
+    EXPECT_EQ(surviving->active, (ElementRef{ElementDomain::Vertex, vertex_id}));
+    ASSERT_EQ(surviving->history.size(), 1);
+    EXPECT_EQ(surviving->history.first(), (ElementRef{ElementDomain::Vertex, vertex_id}));
+    const auto unchanged = selection_from_storage(source->stored_selection);
+    ASSERT_TRUE(unchanged.has_value());
+    EXPECT_EQ(unchanged->active, selected->active);
+    EXPECT_EQ(unchanged->history.size(), 2);
+    EXPECT_EQ(source->faces.count(), 1);
+    const auto *saved = static_cast<const NurbsCurveGeometry *>(deleted->geometry->curves.first);
+    for (const NurbsCurveGeometry &curve : source->curves) {
+      ASSERT_NE(saved, nullptr);
+      EXPECT_EQ(saved->id, curve.id);
+      EXPECT_NE(saved->points, curve.points);
+      ASSERT_EQ(saved->points_num, curve.points_num);
+      ASSERT_EQ(saved->knots_num, curve.knots_num);
+      EXPECT_EQ(
+          std::memcmp(saved->points, curve.points, sizeof(NurbsControlPoint) * curve.points_num),
+          0);
+      EXPECT_EQ(std::memcmp(saved->knots, curve.knots, sizeof(double) * curve.knots_num), 0);
+      saved = saved->next;
+    }
+  }
+}
+
+TEST_F(NurbsSelectionTest, DeletionRejectionsAndEmptyRequestsPreserveIdentityAndSelection)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  source->next_id = std::numeric_limits<int64_t>::max();
+  SelectionState selected;
+  const int64_t id = first_item(source->vertices).id;
+  selected.vertices.add(id);
+  selected.history.append({ElementDomain::Vertex, id});
+  source->stored_selection = selection_to_storage(selected);
+  const auto empty = delete_components(*source, {}, DeleteMode::Vertices);
+  ASSERT_TRUE(empty.has_value());
+  EXPECT_EQ(empty->geometry->next_id, source->next_id);
+  EXPECT_EQ(empty->geometry->vertices.count(), source->vertices.count());
+  const auto kept = selection_from_storage(empty->geometry->stored_selection);
+  ASSERT_TRUE(kept.has_value());
+  EXPECT_FALSE(kept->active.has_value());
+  EXPECT_EQ(kept->history.as_span(), selected.history.as_span());
+  std::string error;
+  EXPECT_FALSE(delete_components(*source, {{}, {}, {&id, 1}}, DeleteMode::Faces, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_FALSE(delete_components(*source, {}, DeleteMode(99), &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source->vertices.count(), 4);
+  EXPECT_EQ(source->next_id, std::numeric_limits<int64_t>::max());
+  const auto deleted = delete_components(
+      *source, {{&id, 1}, {}, {}}, DeleteMode::Vertices, &error);
+  ASSERT_TRUE(deleted.has_value()) << error;
+  EXPECT_EQ(deleted->geometry->next_id, source->next_id);
+  const auto pruned = selection_from_storage(deleted->geometry->stored_selection);
+  ASSERT_TRUE(pruned.has_value());
+  EXPECT_TRUE(pruned->vertices.is_empty());
+  EXPECT_TRUE(pruned->history.is_empty());
+  EXPECT_FALSE(pruned->active.has_value());
 }
 
 }  // namespace blender::bke::nurbs::tests

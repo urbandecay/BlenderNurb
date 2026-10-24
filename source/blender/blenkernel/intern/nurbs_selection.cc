@@ -327,6 +327,19 @@ std::optional<SelectionState> selection_remap(const NurbsGeometry &source,
   return normalized;
 }
 
+SelectionState selection_remove_ids(const SelectionState &selection, const Set<int64_t> &ids)
+{
+  SelectionState result = selection;
+  for (Set<int64_t> *domain : {&result.vertices, &result.edges, &result.faces}) {
+    domain->remove_if([&](const int64_t id) { return ids.contains(id); });
+  }
+  selection_history_prune(result);
+  if (selection.active && !result.active && !result.history.is_empty()) {
+    result.active = result.history.last();
+  }
+  return result;
+}
+
 template<typename T> static bool storage_array_is_valid(const T *data, const int size)
 {
   return size >= 0 &&

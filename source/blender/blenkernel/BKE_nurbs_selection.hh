@@ -96,6 +96,13 @@ std::optional<SelectionState> selection_remap(const NurbsGeometry &source,
                                               SelectionMode mode,
                                               std::string *r_error = nullptr);
 
+/**
+ * Drop deleted component identities from an already valid selection and its history. IDs are
+ * unique across source domains. Preserve other flags without inferring a selection mode; the
+ * caller can flush afterward. Resolve a removed active element from surviving history.
+ */
+SelectionState selection_remove_ids(const SelectionState &selection, const Set<int64_t> &ids);
+
 /** Decode owned DNA arrays. Validate the resulting references against the source separately. */
 std::optional<SelectionState> selection_from_storage(const NurbsStoredSelection *storage,
                                                      std::string *r_error = nullptr);
