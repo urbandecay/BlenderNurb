@@ -106,6 +106,9 @@ inline bool translate_position(double position[3], const double3 &offset, double
 {
   double bound = 0.0;
   for (int axis = 0; axis < 3; axis++) {
+    if (offset[axis] == 0.0) {
+      continue;
+    }
     double sum, residual;
     if (!sum_with_error(position[axis], offset[axis], sum, residual)) {
       return false;

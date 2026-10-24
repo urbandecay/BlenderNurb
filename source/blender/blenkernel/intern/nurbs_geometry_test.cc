@@ -1420,6 +1420,286 @@ TEST(nurbs_geometry, CurvedSharedEdgeMatchesBothSurfaceParameterizationsAtSample
   EXPECT_EQ(shared_edges, 1);
 }
 
+static OwnedGeometry make_extrusion_sheet()
+{
+  OwnedGeometry wire(MEM_new<NurbsGeometry>(__func__));
+  const auto *a = add_vertex(*wire, -1, -1);
+  const auto *b = add_vertex(*wire, 1, -1);
+  const auto *edge = add_wire_edge(*wire, *a, *b);
+  auto sheet = extrude_edges(*wire, {edge->id}, {0, 2, 0}, 0);
+  return sheet ? std::move(sheet->geometry) : nullptr;
+}
+
+static void expect_closed_oriented_incidence(const NurbsGeometry &geometry)
+{
+  const auto index = TopologyIndex::build(geometry);
+  ASSERT_TRUE(index.has_value());
+  for (const NurbsTopologyEdge &edge : geometry.edges) {
+    SCOPED_TRACE(edge.id);
+    const auto uses = index->uses_for_edge(edge.id);
+    ASSERT_EQ(uses.size(), 2);
+    const auto sense = [&](const EdgeUseReference &use) {
+      return index->face(use.face_id)->orientation * (use.use->reversed ? -1 : 1);
+    };
+    EXPECT_EQ(sense(uses[0]), -sense(uses[1]));
+  }
+}
+
+TEST(nurbs_geometry, RegionConstructionSharesWallsAndContinuesAfterExtrusionAndVertexDeletion)
+{
+  const auto sheet = make_extrusion_sheet();
+  ASSERT_NE(sheet, nullptr);
+  const int64_t face_id = first(sheet->faces)->id;
+  const int64_t counter = sheet->next_id;
+  std::string error;
+  auto first_sweep = extrude_components(*sheet, {{}, {}, {&face_id, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(first_sweep.has_value()) << error;
+  EXPECT_EQ(first_sweep->geometry->vertices.count(), 8);
+  EXPECT_EQ(first_sweep->geometry->edges.count(), 12);
+  EXPECT_EQ(first_sweep->geometry->faces.count(), 6);
+  EXPECT_EQ(first_sweep->vertex_to_rail.size(), 4);
+  EXPECT_EQ(first_sweep->edge_to_face.size(), 4);
+  const int64_t cap = first_sweep->source_to_cap.lookup(face_id);
+  const auto index = TopologyIndex::build(*first_sweep->geometry);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(index->face(face_id)->orientation, -first(sheet->faces)->orientation);
+  EXPECT_EQ(index->face(cap)->orientation, first(sheet->faces)->orientation);
+  EXPECT_EQ(first(sheet->faces)->orientation, 1);
+  EXPECT_EQ(sheet->next_id, counter);
+  expect_closed_oriented_incidence(*first_sweep->geometry);
+  Vector<int64_t> first_faces;
+  for (const NurbsTopologyFace &face : first_sweep->geometry->faces) {
+    first_faces.append(face.id);
+  }
+  check_constructed_boundaries(*first_sweep->geometry, first_faces);
+  auto second = extrude_components(
+      *first_sweep->geometry, {{}, {}, {&cap, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(second.has_value()) << error;
+  EXPECT_EQ(second->geometry->vertices.count(), 12);
+  EXPECT_EQ(second->geometry->edges.count(), 20);
+  EXPECT_EQ(second->geometry->faces.count(), 10);
+  EXPECT_TRUE(second->removed.faces.contains(cap));
+  const auto second_index = TopologyIndex::build(*second->geometry);
+  ASSERT_TRUE(second_index.has_value());
+  EXPECT_EQ(second_index->face(cap), nullptr);
+  expect_closed_oriented_incidence(*second->geometry);
+  Vector<int64_t> top_vertices, opening_edges;
+  for (const NurbsTopologyVertex &vertex : first_sweep->geometry->vertices) {
+    if (const int64_t *mapped = second->source_to_cap.lookup_ptr(vertex.id)) {
+      top_vertices.append(*mapped);
+    }
+  }
+  for (const NurbsTopologyEdge &edge : first_sweep->geometry->edges) {
+    if (second->source_to_cap.contains(edge.id)) {
+      opening_edges.append(edge.id);
+    }
+  }
+  ASSERT_EQ(top_vertices.size(), 4);
+  auto deleted = delete_components(
+      *second->geometry, {top_vertices, {}, {}}, DeleteMode::Vertices, &error);
+  ASSERT_TRUE(deleted.has_value()) << error;
+  EXPECT_EQ(deleted->geometry->vertices.count(), 8);
+  EXPECT_EQ(deleted->geometry->edges.count(), 12);
+  EXPECT_EQ(deleted->geometry->faces.count(), 5);
+  auto continued = extrude_components(
+      *deleted->geometry, {{}, opening_edges, {}}, {0, 0, 1}, 0, &error);
+  ASSERT_TRUE(continued.has_value()) << error;
+  EXPECT_EQ(continued->geometry->vertices.count(), 12);
+  EXPECT_EQ(continued->geometry->edges.count(), 20);
+  EXPECT_EQ(continued->geometry->faces.count(), 9);
+}
+
+TEST(nurbs_geometry, MultiFaceRegionCreatesOnlyOuterWallsAndKeepsSharedCapResources)
+{
+  const auto source = make_fixture(false);
+  const int64_t faces[] = {first(source->faces)->id, last(source->faces)->id};
+  const int64_t reversed[] = {faces[1], faces[0], faces[1]};
+  auto result = extrude_components(*source, {{}, {}, {faces, 2}}, {0, 0, 2}, 0);
+  auto repeated = extrude_components(*source, {{}, {}, {reversed, 3}}, {0, 0, 2}, 0);
+  ASSERT_TRUE(result.has_value());
+  ASSERT_TRUE(repeated.has_value());
+  EXPECT_EQ(result->geometry->vertices.count(), 12);
+  EXPECT_EQ(result->geometry->edges.count(), 20);
+  EXPECT_EQ(result->geometry->faces.count(), 10);
+  EXPECT_EQ(result->geometry->surfaces.count(), 8);
+  EXPECT_EQ(result->vertex_to_rail.size(), 6);
+  EXPECT_EQ(result->edge_to_face.size(), 6);
+  const auto source_index = TopologyIndex::build(*source);
+  const auto index = TopologyIndex::build(*result->geometry);
+  ASSERT_TRUE(source_index.has_value());
+  ASSERT_TRUE(index.has_value());
+  for (const NurbsTopologyEdge &edge : source->edges) {
+    if (source_index->uses_for_edge(edge.id).size() == 2) {
+      EXPECT_FALSE(result->edge_to_face.contains(edge.id));
+      EXPECT_EQ(index->uses_for_edge(result->source_to_cap.lookup(edge.id)).size(), 2);
+    }
+  }
+  EXPECT_EQ(index->face(result->source_to_cap.lookup(faces[0]))->surface_id,
+            index->face(result->source_to_cap.lookup(faces[1]))->surface_id);
+  EXPECT_EQ(result->geometry->next_id, repeated->geometry->next_id);
+  for (const auto item : result->source_to_cap.items()) {
+    EXPECT_EQ(item.value, repeated->source_to_cap.lookup(item.key));
+  }
+  expect_closed_oriented_incidence(*result->geometry);
+}
+
+TEST(nurbs_geometry, ReplacingFiveCubeFacesPrunesOnlyUnusedOriginalInteriorComponents)
+{
+  const auto sheet = make_extrusion_sheet();
+  ASSERT_NE(sheet, nullptr);
+  const int64_t floor = first(sheet->faces)->id;
+  const auto cube = extrude_components(*sheet, {{}, {}, {&floor, 1}}, {0, 0, 2}, 0);
+  ASSERT_TRUE(cube.has_value());
+  Vector<int64_t> selected;
+  for (const NurbsTopologyFace &face : cube->geometry->faces) {
+    if (face.id != floor) {
+      selected.append(face.id);
+    }
+  }
+  std::string error;
+  const auto result = extrude_components(
+      *cube->geometry, {{}, {}, selected}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_EQ(result->geometry->vertices.count(), 12);
+  EXPECT_EQ(result->geometry->edges.count(), 20);
+  EXPECT_EQ(result->geometry->faces.count(), 10);
+  EXPECT_EQ(result->removed.faces.size(), 5);
+  EXPECT_EQ(result->removed.edges.size(), 8);
+  EXPECT_EQ(result->removed.vertices.size(), 4);
+  EXPECT_EQ(result->vertex_to_rail.size(), 4);
+  EXPECT_EQ(result->edge_to_face.size(), 4);
+  EXPECT_FALSE(result->removed.faces.contains(floor));
+  expect_closed_oriented_incidence(*result->geometry);
+}
+
+TEST(nurbs_geometry, RegionHoleUsesRealBoundariesWithoutInteriorWalls)
+{
+  const auto source = make_fixture();
+  const int64_t faces[] = {first(source->faces)->id, last(source->faces)->id};
+  std::string error;
+  const auto result = extrude_components(*source, {{}, {}, {faces, 2}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_EQ(result->geometry->vertices.count(), 20);
+  EXPECT_EQ(result->geometry->edges.count(), 32);
+  EXPECT_EQ(result->geometry->faces.count(), 14);
+  EXPECT_EQ(result->edge_to_face.size(), 10);
+  EXPECT_EQ(result->vertex_to_rail.size(), 10);
+  const auto index = TopologyIndex::build(*result->geometry);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(index->face(result->source_to_cap.lookup(faces[0]))->loops.count(), 2);
+  expect_closed_oriented_incidence(*result->geometry);
+  /* The source faces share one interior edge, which must not become a wall. */
+  const auto original = TopologyIndex::build(*source);
+  ASSERT_TRUE(original.has_value());
+  for (const NurbsTopologyEdge &edge : source->edges) {
+    if (original->uses_for_edge(edge.id).size() == 2) {
+      EXPECT_FALSE(result->edge_to_face.contains(edge.id));
+    }
+  }
+}
+
+TEST(nurbs_geometry, CurvedRegionPreservesCapBasisAndParameterCurves)
+{
+  const auto source = make_curved_fixture();
+  const int64_t faces[] = {first(source->faces)->id, last(source->faces)->id};
+  const double3 delta(1, 2, 3);
+  std::string error;
+  const auto result = extrude_components(
+      *source, {{}, {}, {faces, 2}}, delta, std::numeric_limits<double>::max(), &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+  for (const NurbsCurveGeometry &curve : result->geometry->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (const NurbsSurfaceGeometry &surface : result->geometry->surfaces) {
+    surfaces.add_new(surface.id, &surface);
+  }
+  for (const NurbsCurveGeometry &curve : source->curves) {
+    const auto &cap = *curves.lookup(result->source_to_cap.lookup(curve.id));
+    EXPECT_EQ(cap.order, curve.order);
+    EXPECT_EQ(std::memcmp(cap.knots, curve.knots, sizeof(double) * curve.knots_num), 0);
+    for (int i = 0; i < curve.points_num; i++) {
+      EXPECT_EQ(cap.points[i].weight, curve.points[i].weight);
+      EXPECT_EQ(double3(cap.points[i].position),
+                double3(curve.points[i].position) + (curve.dimension == 3 ? delta : double3(0)));
+    }
+  }
+  for (const NurbsSurfaceGeometry &surface : source->surfaces) {
+    const auto &cap = *surfaces.lookup(result->source_to_cap.lookup(surface.id));
+    EXPECT_EQ(cap.order_u, surface.order_u);
+    EXPECT_EQ(cap.order_v, surface.order_v);
+    EXPECT_EQ(std::memcmp(cap.knots_u, surface.knots_u, sizeof(double) * surface.knots_u_num), 0);
+    EXPECT_EQ(std::memcmp(cap.knots_v, surface.knots_v, sizeof(double) * surface.knots_v_num), 0);
+    for (int i = 0; i < surface.points_num; i++) {
+      EXPECT_EQ(cap.points[i].weight, surface.points[i].weight);
+      EXPECT_EQ(double3(cap.points[i].position), double3(surface.points[i].position) + delta);
+    }
+  }
+  Vector<int64_t> created;
+  for (const auto item : result->edge_to_face.items()) {
+    created.append(item.value);
+  }
+  check_constructed_boundaries(*result->geometry, created);
+}
+
+TEST(nurbs_geometry, MixedRegionWireAndPointExtrusionSharesOneCandidateAndSupportsZeroSweep)
+{
+  auto source = make_extrusion_sheet();
+  ASSERT_NE(source, nullptr);
+  const int64_t face_id = first(source->faces)->id;
+  const auto *a = add_vertex(*source, 10, 0);
+  const auto *b = add_vertex(*source, 11, 0);
+  const auto *edge = add_wire_edge(*source, *a, *b);
+  const auto *point = add_vertex(*source, 20, 0);
+  std::string error;
+  const auto result = extrude_components(
+      *source, {{&point->id, 1}, {&edge->id, 1}, {&face_id, 1}}, {0, 0, 0}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_EQ(result->geometry->vertices.count(), 14);
+  EXPECT_EQ(result->geometry->edges.count(), 17);
+  EXPECT_EQ(result->geometry->faces.count(), 7);
+  EXPECT_EQ(result->vertex_to_rail.size(), 7);
+  EXPECT_EQ(result->edge_to_face.size(), 5);
+  EXPECT_EQ(result->translation_error_bound, 0);
+  const auto index = TopologyIndex::build(*result->geometry);
+  ASSERT_TRUE(index.has_value());
+  for (const NurbsTopologyVertex &vertex : source->vertices) {
+    const auto *copy = index->vertex(result->source_to_cap.lookup(vertex.id));
+    ASSERT_NE(copy, nullptr);
+    EXPECT_NE(copy->id, vertex.id);
+    EXPECT_EQ(std::memcmp(copy->position, vertex.position, sizeof(vertex.position)), 0);
+  }
+}
+
+TEST(nurbs_geometry, ExtrusionPreservesUntouchedSignedZeroAndRejectsUnsupportedCapWeights)
+{
+  auto source = make_extrusion_sheet();
+  ASSERT_NE(source, nullptr);
+  auto *vertex = first(source->vertices);
+  vertex->position[2] = -0.0;
+  const int64_t face_id = first(source->faces)->id;
+  const int64_t counter = source->next_id;
+  const auto zero = extrude_components(*source, {{}, {}, {&face_id, 1}}, {0, 0, 0}, 0);
+  ASSERT_TRUE(zero.has_value());
+  const auto index = TopologyIndex::build(*zero->geometry);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_TRUE(std::signbit(index->vertex(zero->source_to_cap.lookup(vertex->id))->position[2]));
+  const auto shifted = extrude_components(*source, {{}, {}, {&face_id, 1}}, {2, 0, 0}, 0);
+  ASSERT_TRUE(shifted.has_value());
+  const auto shifted_index = TopologyIndex::build(*shifted->geometry);
+  ASSERT_TRUE(shifted_index.has_value());
+  EXPECT_TRUE(
+      std::signbit(shifted_index->vertex(shifted->source_to_cap.lookup(vertex->id))->position[2]));
+  first(source->surfaces)->points[0].weight = -1;
+  std::string error;
+  EXPECT_FALSE(extrude_components(*source, {{}, {}, {&face_id, 1}}, {0, 0, 1}, 0, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source->next_id, counter);
+  EXPECT_EQ(source->faces.count(), 1);
+  EXPECT_EQ(first(source->surfaces)->points[0].weight, -1);
+}
+
 TEST(nurbs_geometry, ComponentCopyPreservesSharedClosureAndHolesWithFreshIDs)
 {
   GeometryPtr source = make_fixture();

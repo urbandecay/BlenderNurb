@@ -9,6 +9,7 @@
  */
 
 #include "BKE_nurbs_geometry.hh"
+#include "BKE_nurbs_topology.hh"
 
 namespace blender::bke::nurbs {
 
@@ -33,17 +34,39 @@ std::optional<FaceRegionExtrusionPlan> plan_face_region_extrusion(const NurbsGeo
                                                                   Span<int64_t> face_ids,
                                                                   std::string *r_error = nullptr);
 
-struct EdgeExtrusionResult {
+struct ExtrusionResult {
   OwnedGeometry geometry;
   /** Fresh cap identities, including shared curve resources and endpoints. */
   Map<int64_t, int64_t> source_to_cap;
   Map<int64_t, int64_t> vertex_to_rail;
   Map<int64_t, int64_t> edge_to_face;
+  /** Original components removed when replacing a face region. */
+  TopologyDeletionPlan removed;
   /** Conservative coefficient translation roundoff bound, not an evaluation error certificate. */
   double translation_error_bound = 0.0;
   /** Measured input endpoint discrepancy already covered by source vertex/edge tolerance. */
   double max_source_endpoint_deviation = 0.0;
 };
+
+/** Existing edge-only callers share the same construction result. */
+using EdgeExtrusionResult = ExtrusionResult;
+
+/**
+ * Extrude a source component closure using one shared cap and one rail per boundary vertex.
+ * Selected faces contribute walls only at region boundaries (including holes, excluding seams).
+ * Independent selected wires/vertices are swept in the same candidate and share cap identities.
+ * Match the region plan's original-face replacement rule; retained originals reverse face sense
+ * while copied cap parameterizations stay unchanged. Walls follow declared oriented source uses;
+ * no trim-winding or solid-validity certificate is implied. Deleted stored selection references
+ * are pruned, but selection of the new cap and owner commits remain the caller's responsibility.
+ * The arithmetic, positive-weight, endpoint agreement and explicit error-budget requirements of
+ * extrude_edges apply. Input order/repetition have no effect. No fitting or coordinate welding.
+ */
+std::optional<ExtrusionResult> extrude_components(const NurbsGeometry &source,
+                                                  const ComponentSelection &selection,
+                                                  const double3 &offset,
+                                                  double max_translation_error,
+                                                  std::string *r_error = nullptr);
 
 /**
  * Construct a full candidate by translating selected edges and connecting them with exact ruled

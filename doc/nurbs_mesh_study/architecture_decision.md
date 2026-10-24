@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 182 C++ kernel/editor/integration tests, a complete Blender build and
+Current verified foundation: 193 C++ kernel/editor/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -28,7 +28,9 @@ gate broader editing. Native Move now has a tested
 source adapter, precise numeric input/units and editable decimal F9 values. This
 is not completion of Stage 1 or completion of the prototype's replacement. Its tagged line/patch duplication
 and extrusion now use kernel candidates, native closure-ID remapping and shared
-region planning, with shortcut/undo regressions. Native extrusion remains blocked.
+region planning, with shortcut/undo regressions. A shared native V/E/F extrusion
+constructor is now implemented, built and tested against BMesh counts and
+orientations; native editor E remains gated on ruled-row transform integration.
 Native Move translates supported source vertex identities through shared BKE services, retaining original snapshots and committing
 with current-state tokens. Every frame starts from original double geometry.
 The movement checkpoint records twenty saved states and eight isolated viewport
@@ -500,3 +502,20 @@ preserved; no fitting, support shrinking or orphan-resource collection occurs.
 Native Delete/Extrude are not activated by this backend checkpoint. This service
 will let region extrusion remove the original selected faces after walls exist,
 so surviving boundary incidence determines which old edges/vertices remain.
+
+### Shared region construction
+
+The construction kernel now accepts explicit V/E/F closures through one cap and
+wall builder. Edge-only callers reuse it. Shared incidence selects region boundary
+walls and rails; the existing deletion-candidate service cleans replaced originals.
+Retained originals reverse orientation and cap sense stays unchanged, as verified
+against BMesh across 67 face subsets. NURBS supports, rational weights, parameter
+curves and periodic seam identity remain source geometry. No mesh surrogate or
+fitting is introduced. The full checkpoint has 193 C++ tests, nine application
+viewport regressions and five CTest targets passing.
+
+Native E remains an editor gate. Complete ruled-row movement on walls whose U
+boundary is an interior trim needs a source-basis correspondence rule. Existing
+partial tensor-corner movement does not justify moving a trim endpoint as if it
+were a CV. General fit-point deformation and native normal frames remain separate
+contracts; this constructor does not decide them or certify solid validity.

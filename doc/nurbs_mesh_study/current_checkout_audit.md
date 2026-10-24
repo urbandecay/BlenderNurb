@@ -6,9 +6,12 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and twelve targeted test executables build;
-**182 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+**193 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
 formatting/conversion regression, autosave and global-undo targets pass. Eight
-updated isolated viewport event tests pass in the native-duplication checkpoint.
+updated isolated viewport event tests passed in the native-duplication checkpoint;
+nine now pass after the shared region-construction change. The kernel can extrude
+shared V/E/F closures with boundary-only walls and incidence-based cleanup.
+The native E shortcut remains gated pending ruled-row transform integration.
 Native Shift+D uses exact closure copying, fresh shared identities, remapped
 selection/history and the existing Move adapter. Eleven saved duplication states
 are checked against actual source geometry, alongside six selection and twenty
@@ -2681,3 +2684,94 @@ movement along walls made from interior curve trims needs a complete ruled-row
 translation rule. Current partial-tensor G correctly rejects those trimmed
 walls; interior trim endpoints must not be treated as CV indices. Neither a
 special ED transform fallback nor a general curved deformation rule is implied.
+
+## Shared region-construction checkpoint — 2026-10-24
+
+`extrude_components` now constructs one full candidate for faces, edges and
+isolated vertices. It copies the component closure once, translates 3D cap
+resources without changing their bases/weights or 2D p-curves, creates one rail
+per required boundary vertex, and builds ruled walls only on selected region
+boundaries and independent selected wires. Shared interior edges and periodic
+seams do not produce walls. The existing `extrude_edges` entry point is a thin
+wrapper; `EdgeExtrusionResult` aliases the common `ExtrusionResult`.
+
+Retained original selected faces reverse face sense, matching actual BMesh.
+The cap keeps its original parameterization/sense. Region walls oppose their
+cap uses; edge-only walls oppose existing source uses. When replacing a region,
+the common deletion-candidate service removes old faces and unused interior
+edges/vertices after walls establish surviving boundary incidence. The result
+includes its removed-component plan and shared cap/rail/wall ID maps.
+No coordinate welding, fitting, display-mesh construction or inferred solid
+outside is involved. Declared oriented source uses drive face sense; general
+trim-winding and geometric/solid validity are not certified by this operation.
+
+The same positive-weight, supported-arithmetic, endpoint-agreement and explicit
+translation-roundoff budget gates apply to cap supports and curves. P-curves
+remain in parameter space. The shared addition helper now skips zero axes so
+untouched signed-zero coordinates retain their bits. Zero displacement remains
+an allowed singular editing intermediate with distinct source identities.
+
+New geometry checks cover connected cube construction and repeat extrusion,
+vertex deletion followed by continued boundary extrusion, multi-face outer walls,
+five-face cube-region interior cleanup, holes, curved cap bases/parameter curves,
+mixed V/E/F zero sweeps, signed zero and rejected cap weights. Actual BMesh
+comparison covers all **67 nonempty face subsets** across a sheet, adjacent faces
+and a cube, including retained-face/wall normals and degenerate wall frames.
+A separate periodic NURBS case checks the shared seam, closed-boundary rails,
+weights and knot vectors; it is not represented as a BMesh face with self-loops.
+The BMesh reference fixture now applies declared NURBS face sense when importing.
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_geometry_test blenkernel_nurbs_selection_test blender --parallel 4
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_geometry_test \
+  --test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files' --gtest_color=no
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_selection_test --gtest_color=no
+```
+
+Final build exit 0; **54 geometry + 30 selection tests pass**. Logs:
+`/tmp/blender-nurbs-native-region-kernel-build-fixed.log`,
+`...-geometry-full.log` and `...-selection-full.log`.
+The initial build's wrapper reported exit 143 after its log reached the completed
+application; the build was repeated successfully. A later test-adapter compile
+failed because this checkout's `BM_face_normal_flip` also needs its BMesh argument;
+that call was fixed before the successful build. Earlier logs are retained as
+`...-kernel-build.log` and `...-kernel-build-final.log`. No compile error was
+accepted as a completed build.
+
+All twelve test targets were relinked using the complete target list recorded
+in the linked-selection checkpoint. Log:
+`/tmp/blender-nurbs-native-region-regression-build-final.log`, exit 0.
+
+```sh
+python3 /tmp/blender-nurbs-run-native-region-kernel-checks.py
+```
+
+**193 passed, no skips**: counts 20/30/54/38/9/10/7/4/10/3/4/4 in the same target
+order. Summary: `/tmp/blender-nurbs-native-region-kernel-summary.log`; suite logs:
+`/tmp/blender-nurbs-native-region-{suite}-tests-final.log`. The same read-only
+preview/selection/movement/duplication inputs and geometry asset argument from
+the preceding checkpoint are used, with export unset.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+python3 /tmp/blender-nurbs-run-native-region-ui-final.py
+```
+
+**5/5 CTest targets** and **9/9 isolated viewport tests** pass. CTest log:
+`/tmp/blender-nurbs-native-region-ctest-final.log` (8.85 seconds).
+The viewport driver repeats the native-duplication checkpoint's eight exact test
+IDs/environment and adds `test_nurbs_line.line_to_sheet`. Logs:
+`/tmp/blender-nurbs-native-region-ui-{line,duplicate,holes,native,linked-multiobject,move,legacy-region,legacy-delete,legacy-duplicate}-final.log`.
+All 37 NURBS Python cases and the saved-source validators remain passing.
+Both frozen input hashes remain unchanged.
+
+These application checks establish that existing native and tagged-prototype
+workflows still pass. They do **not** test a native E shortcut: it is still polled
+out. No new visual claim is made for native region extrusion. The next geometry
+adapter must admit complete ruled-boundary row movement along rectangular
+interior curve trims through exact basis/parameter correspondence. Individual
+trim-endpoint deformation, general curve fit-point changes and Normal/Gimbal
+orientation remain their existing explicit gates. No ED-only CV approximation
+will stand in for that shared geometry rule. Stage 1 remains incomplete.

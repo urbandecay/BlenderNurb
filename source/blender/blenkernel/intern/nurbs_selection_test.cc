@@ -56,13 +56,16 @@ struct MeshReference {
         face_vertices.append(vertices.lookup(edge.vertex_ids[use.reversed ? 1 : 0]));
         face_edges.append(edges.lookup(edge.id));
       }
-      faces.add_new(face.id,
-                    BM_face_create(mesh.get(),
-                                   face_vertices.data(),
-                                   face_edges.data(),
-                                   face_vertices.size(),
-                                   nullptr,
-                                   BM_CREATE_NOP));
+      BMFace *created = BM_face_create(mesh.get(),
+                                       face_vertices.data(),
+                                       face_edges.data(),
+                                       face_vertices.size(),
+                                       nullptr,
+                                       BM_CREATE_NOP);
+      if (face.orientation < 0) {
+        BM_face_normal_flip(mesh.get(), created);
+      }
+      faces.add_new(face.id, created);
     }
   }
 
@@ -1133,6 +1136,143 @@ TEST_F(NurbsSelectionTest, DeletionRejectionsAndEmptyRequestsPreserveIdentityAnd
   EXPECT_TRUE(pruned->vertices.is_empty());
   EXPECT_TRUE(pruned->history.is_empty());
   EXPECT_FALSE(pruned->active.has_value());
+}
+
+TEST_F(NurbsSelectionTest, RegionConstructionCountsAndOrientedNormalsMatchBMeshAcrossFaceSubsets)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto adjacent = extrude_edges(*sheet, {first_item(sheet->edges).id}, {0, -2, 0}, 0);
+  ASSERT_TRUE(adjacent.has_value());
+  const int64_t face_id = first_item(sheet->faces).id;
+  auto cube = extrude_components(*sheet, {{}, {}, {&face_id, 1}}, {0, 0, 2}, 0);
+  ASSERT_TRUE(cube.has_value());
+  for (const NurbsGeometry *source : {sheet.get(), adjacent->geometry.get(), cube->geometry.get()})
+  {
+    Vector<int64_t> all_faces;
+    for (const NurbsTopologyFace &face : source->faces) {
+      all_faces.append(face.id);
+    }
+    for (uint64_t mask = 1; mask < (uint64_t(1) << all_faces.size()); mask++) {
+      SCOPED_TRACE(all_faces.size());
+      SCOPED_TRACE(mask);
+      SelectionState input;
+      for (const int i : all_faces.index_range()) {
+        if (mask & (uint64_t(1) << i)) {
+          input.faces.add(all_faces[i]);
+        }
+      }
+      const auto selected = selection_flush(*source, input, SelectionMode::Face);
+      ASSERT_TRUE(selected.has_value());
+      const Vector<int64_t> vertices(selected->vertices.begin(), selected->vertices.end());
+      const Vector<int64_t> edges(selected->edges.begin(), selected->edges.end());
+      const Vector<int64_t> faces(selected->faces.begin(), selected->faces.end());
+      std::string error;
+      const auto result = extrude_components(
+          *source, {vertices, edges, faces}, {0, 0, 2}, 0, &error);
+      ASSERT_TRUE(result.has_value()) << error;
+      MeshReference reference(*source);
+      reference.flush(*selected, SelectionMode::Face);
+      BMesh *bm = reference.mesh.get();
+      BMOperator operation;
+      BMO_op_init(bm, &operation, BMO_FLAG_DEFAULTS, "extrude_face_region");
+      BMO_slot_buffer_from_enabled_hflag(
+          bm, &operation, operation.slots_in, "geom", BM_VERT | BM_EDGE | BM_FACE, BM_ELEM_SELECT);
+      BMO_op_exec(bm, &operation);
+      BMOIter iterator;
+      BMVert *vertex;
+      BMO_ITER (vertex, &iterator, operation.slots_out, "geom.out", BM_VERT) {
+        vertex->co[2] += 2;
+      }
+      BM_mesh_normals_update(bm);
+      EXPECT_EQ(bm->totvert, result->geometry->vertices.count());
+      EXPECT_EQ(bm->totedge, result->geometry->edges.count());
+      EXPECT_EQ(bm->totface, result->geometry->faces.count());
+      const auto index = TopologyIndex::build(*result->geometry);
+      ASSERT_TRUE(index.has_value());
+      Map<int64_t, const NurbsSurfaceGeometry *> supports;
+      for (const NurbsSurfaceGeometry &surface : result->geometry->surfaces) {
+        supports.add_new(surface.id, &surface);
+      }
+      auto compare_normal = [&](const NurbsTopologyFace &face, const BMFace &mesh_face) {
+        const auto &surface = *supports.lookup(face.surface_id);
+        const double2 uv(
+            (surface.knots_u[surface.order_u - 1] + surface.knots_u[surface.points_u]) * 0.5,
+            (surface.knots_v[surface.order_v - 1] + surface.knots_v[surface.points_v]) * 0.5);
+        const auto frame = evaluate_surface_differential(surface, uv);
+        ASSERT_TRUE(frame.has_value());
+        for (int axis = 0; axis < 3; axis++) {
+          EXPECT_NEAR(frame->normal ? (*frame->normal)[axis] * face.orientation : 0,
+                      mesh_face.no[axis],
+                      1e-6);
+        }
+      };
+      Set<BMFace *> original_faces;
+      for (const NurbsTopologyFace &face : source->faces) {
+        if (!result->removed.faces.contains(face.id)) {
+          BMFace *mesh_face = reference.faces.lookup(face.id);
+          original_faces.add(mesh_face);
+          compare_normal(*index->face(face.id), *mesh_face);
+        }
+      }
+      for (const auto wall : result->edge_to_face.items()) {
+        BMIter faces_iterator;
+        BMFace *candidate, *wall_face = nullptr;
+        BM_ITER_ELEM (
+            candidate, &faces_iterator, reference.edges.lookup(wall.key), BM_FACES_OF_EDGE)
+        {
+          if (!original_faces.contains(candidate)) {
+            ASSERT_EQ(wall_face, nullptr);
+            wall_face = candidate;
+          }
+        }
+        ASSERT_NE(wall_face, nullptr);
+        compare_normal(*index->face(wall.value), *wall_face);
+      }
+      BMO_op_finish(bm, &operation);
+    }
+  }
+}
+
+TEST_F(NurbsSelectionTest, PeriodicRegionConstructionSharesSeamAndClosedBoundaryRails)
+{
+  const auto source = make_arc_sheet(true);
+  ASSERT_NE(source, nullptr);
+  const int64_t id = first_item(source->faces).id;
+  std::string error;
+  const auto result = extrude_components(*source, {{}, {}, {&id, 1}}, {3, 0, 0}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_EQ(result->geometry->vertices.count(), 4);
+  EXPECT_EQ(result->geometry->edges.count(), 8);
+  EXPECT_EQ(result->geometry->faces.count(), 4);
+  EXPECT_EQ(result->edge_to_face.size(), 2);
+  EXPECT_EQ(result->vertex_to_rail.size(), 2);
+  const auto original = TopologyIndex::build(*source);
+  const auto index = TopologyIndex::build(*result->geometry);
+  ASSERT_TRUE(original.has_value());
+  ASSERT_TRUE(index.has_value());
+  for (const NurbsTopologyEdge &edge : source->edges) {
+    if (original->uses_for_edge(edge.id).size() == 2) {
+      EXPECT_FALSE(result->edge_to_face.contains(edge.id));
+      EXPECT_EQ(index->uses_for_edge(result->source_to_cap.lookup(edge.id)).size(), 2);
+    }
+  }
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  for (const NurbsCurveGeometry &curve : result->geometry->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (const NurbsCurveGeometry &curve : source->curves) {
+    const auto &cap = *curves.lookup(result->source_to_cap.lookup(curve.id));
+    ASSERT_EQ(cap.points_num, curve.points_num);
+    ASSERT_EQ(cap.knots_num, curve.knots_num);
+    EXPECT_EQ(std::memcmp(cap.knots, curve.knots, sizeof(double) * curve.knots_num), 0);
+    for (int i = 0; i < curve.points_num; i++) {
+      EXPECT_EQ(cap.points[i].weight, curve.points[i].weight);
+      EXPECT_EQ(double3(cap.points[i].position),
+                double3(curve.points[i].position) +
+                    (curve.dimension == 3 ? double3(3, 0, 0) : double3(0)));
+    }
+  }
 }
 
 }  // namespace blender::bke::nurbs::tests
