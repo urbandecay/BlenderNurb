@@ -5,29 +5,34 @@ Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`,
 Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
-Latest completed checkpoint: Blender and eight targeted native test executables
-build; **143 kernel/integration tests**, **37 NURBS Python tests**, and the
-existing autosave and global-undo CTest targets pass. Seven isolated viewport event
-tests pass: native selection, prototype line/region/duplicate-extrude/delete,
-mesh undo and font undo. Final results are recorded in the deletion checkpoint below.
-Native surface topology-vertex selection now works through standard Edit Mode,
-click, box, Select All, viewport Ctrl-Z/redo and save/re-entry. Saved-file checks
-verify identical click/box component IDs and unchanged NURBS geometry. The actual
-native selection screenshot has been visually inspected, as have earlier
-sheet/hole/cylinder captures. Tagged prototype duplication now gets fresh IDs;
-shared-edge extrusion is deduplicated and attached face extrusion removes old
-caps. Those changes use kernel preparation, selection and region services.
-Deletion now follows shared component incidence instead of shrinking patch rows;
-loose edges/points survive. The reported delete-then-extrude failure is reproduced
-and has a tested prevention/recovery path.
-Native extrusion and Edit Mode geometry
-transforms are blocked until their adapters exist. Stage 1 remains incomplete.
-Exact commands, earlier failed attempts and limits follow; historical checkpoint
-sections describe the state at that time. See the final checkpoint below and
-[selection tryout](native_selection_tryout.md) and
-[duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md) for the current
-supported paths. See also the [delete/continue tryout](prototype_deletion_tryout.md).
+Latest completed checkpoint: Blender and twelve targeted test executables build;
+**165 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+formatting/conversion regression, autosave and global-undo targets pass. Eight
+isolated viewport event tests pass. Native source-vertex **G** now uses original
+double source snapshots, shared incident geometry and atomic owner commits.
+Click and box selection produce identical stored geometry. Cancellation, undo,
+redo, actual F9 field editing, multi-axis input, unit conversion and sub-float
+source coordinates have saved-file checks. Twenty saved movement states are
+validated against actual NURBS source, including weights, knots, IDs and untouched
+coordinates. The F9 fields and the warped native sheet have been visually inspected.
+
+The tagged prototype's duplicate/extrude/delete repairs remain active and tested.
+The original broken-file reproduction still recovers four verified redundant
+remnants and extrudes successfully in the current application. Its input file is
+unchanged. Native extrusion, fit-point editing, linked selection, edge/face picking,
+R/S, snapping, proportional editing and multiple edit owners remain later gates.
+Normal/Gimbal movement is explicitly rejected because its source orientation
+adapter is absent. Active-element pivots still use the legacy curve helper and
+are the next integration task; the tested movement path uses the default pivot.
+Stage 1 remains incomplete.
+
+See the movement checkpoint at the end for exact commands, failures and limits,
+[the movement tryout](native_movement_tryout.md),
+[selection tryout](native_selection_tryout.md),
+[duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md), and
+[delete/continue tryout](prototype_deletion_tryout.md).
 The user's deletion sequence is reproduced; their exact working file was not supplied.
+Historical checkpoint sections retain the results at their original source state.
 
 `/home/molotovgirl/Desktop/build_blender_5.2.2` is a symlink to `build_linux`;
 these are two names for the same build, not independent comparison binaries.
@@ -2050,3 +2055,261 @@ planning for the native system. It does not activate native-owner G/D/E/deletion
 general curved fit-point editing or arbitrary legacy-source repair. Native
 movement work is preserved separately while this blocking user reproduction is
 handled, and resumes after this checkpoint.
+
+
+## Native movement checkpoint — 2026-10-24
+
+Implemented, built and tested:
+
+* `BKE_nurbs_transform.hh` / `nurbs_transform.cc`: translate topology vertex IDs
+  and all incident geometry from an immutable source. A shared curve or support
+  must receive the same coefficient request from every owner. Translate complete
+  edges/supports, partial clamped linear edges, bilinear corners and complete
+  rows in supported ruled tensor faces. Preserve rational weights, knot domains,
+  p-curves, IDs and unreferenced resources. Reject unsupported partial curved or
+  trimmed deformation and conflicting shared-resource requests atomically.
+* `transform_convert_nurbs.cc`: dedicated native source conversion type, original
+  and current retained-state tokens, source-aware cancellation, double offsets,
+  owner commits through `ED_nurbs.hh`, and single-owner mode/feature guards.
+  Float `TransData` proxies never become source coordinates. Every modal update
+  starts from the original source, avoiding accumulated frame-by-frame rounding.
+* `NUM_USE_DOUBLE`: unit-converted double values, original defaults, expression
+  retention across axis changes, double increment/reset/negation/inversion and a
+  double `applyNumInput` channel. Existing tools retain their float channel.
+* `UnitConversionPrecision`: explicit double unit input without changing the
+  default unit catalogue arithmetic or display formatting. The catalogue retains
+  the old float results and declared double scales, including squared/cubed and
+  velocity expressions. Native double input requests the precise channel.
+* Translation replay retains double space/world deltas and the declared float
+  orientation. An unchanged replay preserves its original world delta. Native
+  F9 uses decimal X/Y/Z text fields; changing a value that has the same float
+  representation still changes the source. Normal mesh F9 controls are unchanged.
+* Numeric input rejects control characters as text so Return reaches modal
+  confirmation in advanced-expression mode. Automatic transform confirmation
+  respects a rejected/cancelled geometry update.
+
+The numerical policy accepts finite coefficient-addition rounding and reports
+its calculated bound when nonzero. It performs no fitting. A move wholly lost
+at source coordinate precision is rejected. This bound is relative to the supplied
+local offset; it does not certify real-number decimal parsing, physical units,
+float object/orientation/pivot construction or matrix inversion. Mouse input and
+orientation matrices still originate in Blender's existing float interaction
+system. The project unit scale is also an existing float property. Untouched
+coordinate axes retain their original bits.
+
+Unsupported cases are not promoted to a display-mesh editing path. Partial
+curved endpoint changes still require the user's fit-point/shape policy. Source
+normals exist for evaluation, but a component orientation rule and an owner
+adapter are still needed for Normal/Gimbal editing. Active-element center lookup
+still needs native source identity integration; default-pivot G is the tested path.
+Native E/D/delete and general fit-point editing are not activated by this change.
+
+### Build and C++ checks
+
+The build directory is `/home/molotovgirl/Desktop/build_linux`; the other desktop
+build name is its symlink. The final source build completed with:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_edit_test blender --parallel 4
+```
+
+Log: `/tmp/blender-nurbs-native-move-orientation-build.log`, exit 0. This builds the
+application last, after its final native orientation guard and the source-file
+validator. The final test relink completed, exit 0, with:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target \
+  blenkernel_unit_test blenkernel_nurbs_transform_test \
+  blenkernel_nurbs_geometry_legacy_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_differential_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_mesh_test blenkernel_nurbs_object_test \
+  editor_util_numinput_test editor_transform_transform_translate_precision_test \
+  --parallel 4
+```
+
+Log: `/tmp/blender-nurbs-native-move-regression-build-final.log`.
+Earlier broad builds recompiled untouched orientation/ruler/window-manager files
+with unused-variable/function/parameter warnings. The final two logs have no
+compiler errors. No extra system packages were installed.
+
+Every executable ran with `--gtest_color=no`. Counts, all passed without skips:
+
+| Executable suffix | Passed |
+|---|---:|
+| `blenkernel_nurbs_geometry_legacy_test` | 20 |
+| `blenkernel_nurbs_selection_test` | 17 |
+| `blenkernel_nurbs_geometry_test` | 44 |
+| `blenkernel_nurbs_edit_test` | 33 |
+| `blenkernel_nurbs_differential_test` | 9 |
+| `blenkernel_nurbs_tessellate_test` | 10 |
+| `blenkernel_nurbs_mesh_test` | 7 |
+| `blenkernel_nurbs_object_test` | 4 |
+| `blenkernel_nurbs_transform_test` | 10 |
+| `blenkernel_unit_test` | 3 |
+| `editor_util_numinput_test` | 4 |
+| `editor_transform_transform_translate_precision_test` | 4 |
+| **Total** | **165** |
+
+Executables are in `build_linux/bin/tests`. Geometry passed
+`--test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files'`.
+Only the edit suite received these fixture variables:
+
+```sh
+env -u BLENDER_NURBS_PREVIEW_EXPORT \
+  BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-move-native-selection-ui \
+  BLENDER_NURBS_MOVE_OUTPUT=/tmp/blender-nurbs-move-ui \
+  /home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test \
+  --gtest_color=no
+```
+
+The other eleven suites ran without export/input fixture variables. Logs:
+`/tmp/blender-nurbs-native-move-{suite}-tests-final.log`; suite names are
+`nurbs_geometry_legacy`, `nurbs_selection`, `nurbs_geometry`, `nurbs_edit`,
+`nurbs_differential`, `nurbs_tessellate`, `nurbs_mesh`, `nurbs_object`,
+`nurbs_transform`, `unit`, `editor_util_numinput`, and
+`editor_transform_transform_translate_precision`.
+
+The transform tests include shared vertices, weighted bilinear corners, rational
+arc/closed-circle row movement, source immutability, conflicting resource owners,
+negative weights, explicit addition budgets, zero-offset no-ops and signed zero.
+Weight-agreement checks reject a one-bit difference and handle products that
+would overflow/underflow if evaluated directly. Shared-sheet and rational-row
+preview checks use zero evaluation allowance, including 13 samples per span.
+
+### Application checks
+
+```sh
+ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+**5/5 targets passed**, 9.28 seconds; 37 NURBS Python cases plus the existing
+unit/autosave/global-undo regressions. Log:
+`/tmp/blender-nurbs-native-move-ctest-final.log`.
+
+Eight viewport tests ran, each in its own application/display-server process:
+
+```sh
+nice -n 10 env -u DISPLAY \
+  BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender \
+  WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston \
+  WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland \
+  WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston \
+  BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-move-native-selection-ui \
+  BLENDER_NURBS_MOVE_OUTPUT=/tmp/blender-nurbs-move-ui \
+  python3 tests/utils/blender_headless.py --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py -- --tests TEST_ID
+```
+
+All exit 0:
+
+| Log label | TEST_ID |
+|---|---|
+| `move` | `test_nurbs_native.vertex_move_and_lifecycle` |
+| `native` | `test_nurbs_native.vertex_selection_and_lifecycle` |
+| `line` | `test_nurbs_line.line_to_sheet` |
+| `region` | `test_nurbs_line.face_region_selection_gestures` |
+| `duplicate` | `test_nurbs_line.duplicate_and_repeat_face_extrusion` |
+| `delete` | `test_nurbs_line.extrude_delete_top_and_continue` |
+| `mesh-undo` | `test_undo.view3d_mesh_edit_separate` |
+| `font-undo` | `test_undo.view3d_font_edit_mode_simple` |
+
+Logs: `/tmp/blender-nurbs-native-move-ui-{label}-final.log`. The batch driver is
+`/tmp/blender-nurbs-run-move-ui-regressions.py`; it runs the commands sequentially,
+never multiplexing event generators in one application. DISPLAY is removed so
+tests use their own Wayland display. No existing user Blender process was closed.
+The movement test types 17-digit values, changes axes with Tab, cancels G, uses
+undo/redo, opens F9 and actually edits its Z field by mouse/keyboard. It also checks
+reset, negation, inversion, explicit units, a scaled owner/local axis, rejected
+Normal movement, invalid exact fields, float aliases and a `1e-200` source offset.
+Transient invalid prefixes while typing full expressions produce Blender's existing
+numeric-input reports; intentional rejection cases also produce error reports.
+These reports are distinct from a failed test or fitting a source geometry.
+
+Twenty saved movement files are checked by
+`ViewportMovementFilesPreservePreciseSourceAndCancellation`, including exact
+source coordinates and unchanged IDs/bases/weights. Its latest isolated repeat
+passes: `/tmp/blender-nurbs-native-move-saved-source-20-final.log`.
+The F9 popup and the oblique sheet capture in `/tmp/blender-nurbs-move-ui` have been
+visually inspected. Rendered appearance is not used as a source-precision test.
+
+The original pre-fix broken file was reopened with the current application:
+
+```sh
+nice -n 10 /home/molotovgirl/Desktop/build_linux/bin/blender \
+  --background --factory-startup \
+  --python /tmp/blender-nurbs-recover-after-native-move.py
+```
+
+The script opens `/tmp/blender-nurbs-delete-broken.blend`, enters Edit Mode,
+executes `curve.extrude_move(TRANSFORM_OT_translate={'value': (0, 0, 1)})`, and
+asserts FINISHED, nine 2x2 splines and maximum Z=3. It reports recovery of four
+verified remnants and saves separately as
+`/tmp/blender-nurbs-delete-recovered-after-native-move.blend`. Log:
+`/tmp/blender-nurbs-native-move-old-broken-recovery-final.log`, all assertions pass.
+The input hash remains
+`ea596ec1bfb326190b98fc54557cded623681d6269c3504f68ba06167b81362d`.
+
+### Failures found and corrected
+
+* Early test target invocation preceded CMake regeneration and had no make rule;
+  regeneration registered the new executable. C++ builds then caught missing
+  includes, explicit matrix conversion requirements and non-iterable vector
+  range-for usage. Corrected before the successful source/test builds above.
+* An expanded viewport test passed its float preview check, but the saved-source
+  check found centimetres storing `0.12345678629629631` instead of
+  `0.12345678901234568`. The old unit constants and nine-digit conversion factors
+  were the cause. A global double-constant correction made source input correct
+  but changed legacy mixed-unit output (`0.123 mm` to `0.12 mm`). That approach
+  was replaced with explicit precise conversion and unchanged legacy defaults.
+  Failed logs: `...-saved-source-expanded.log`, `...-unit-python.log` under the
+  `/tmp/blender-nurbs-native-move` prefix. Current unit and source tests pass.
+* Float F9 fields cannot distinguish edits that alias the same float. Native
+  decimal fields solve this at the current adapter boundary, retaining existing
+  mesh controls. Both explicit replay and actual popup editing have source tests.
+* Advanced-expression input could insert Return's control character and keep G
+  running. The shared handler now lets confirmation through; the new control-
+  character test and complete viewport sequence pass. One earlier viewport run
+  also used an application linked before a newer adapter library; the application
+  was explicitly relinked before repeating the checks. Failed runs are retained
+  as `...-ui-precise-fields.log` and `...-ui-current.log`.
+* CMake initially disabled Wayland because xkbcommon development headers were
+  absent. `apt-get download libxkbcommon-dev` fetched `1.6.0-1build1`; it was
+  extracted under `/tmp/blender-nurbs-xkbcommon/root` without system installation.
+  A local pkg-config wrapper supplies its corrected prefix; its library symlink
+  references the existing system `libxkbcommon.so.0`. CMake caches
+  `/tmp/blender-nurbs-xkbcommon/pkg-config`. Clearing the failed xkbcommon cache
+  and reconfiguring fixed linking. Final GHOST includes both Wayland and X11.
+
+### Fixture provenance
+
+An early regression command inherited `BLENDER_NURBS_PREVIEW_FIXTURE` for every
+suite. The object test used that name as an optional export setting and regenerated
+our temporary fixture. Its old raw hash must not be claimed unchanged in this
+checkpoint. Input and export now use different variables: `PREVIEW_FIXTURE` reads;
+`BLENDER_NURBS_PREVIEW_EXPORT` explicitly requests creation in the object test.
+The latter is unset during ordinary regression runs.
+
+The regenerated baseline's hash, unchanged throughout final verification, is
+`329f75e097dbcf7b580b7bdba5d8e619ac26ca812b9cd3ab38098907059f2e5a`.
+A source comparison against three selection files saved before regeneration
+(`/tmp/blender-nurbs-delete-native-ui-strict`) passes, verifying unchanged sheet
+positions, weights, knots, incidence and IDs. Log:
+`/tmp/blender-nurbs-native-move-baseline-vs-earlier-files.log`. This establishes
+source equivalence for the sheet; it is not a byte-for-byte identity claim for the
+old fixture or a separate comparison of its hole/cylinder payloads. No user's
+working file was supplied or overwritten.
+
+
+The saved movement tryout was also opened in a fresh isolated display process.
+It restores **Edit Mode**, 1/4 source vertices selected, 0/4 edges and 0/1 faces
+selected, with 128 derived display triangles. The source spline collection is
+empty and `is_native_nurbs` is true. Probe:
+`/tmp/blender-nurbs-capture-move-tryout.py`; log:
+`/tmp/blender-nurbs-native-move-reopen-tryout.log`. Its measured float display
+maximum Z is `1.1234568357467651`; this is not presented as a source-coordinate
+measurement. The separate source-file checks establish precision.

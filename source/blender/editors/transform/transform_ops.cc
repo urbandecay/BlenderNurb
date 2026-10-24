@@ -42,6 +42,7 @@
 
 #include "transform.hh"
 #include "transform_convert.hh"
+#include "transform_translate_precision.hh"
 
 namespace blender {
 
@@ -558,6 +559,18 @@ static wmOperatorStatus transform_invoke(bContext *C, wmOperator *op, const wmEv
 static bool transform_poll_property(const bContext *C, wmOperator *op, const PropertyRNA *prop)
 {
   const char *prop_id = RNA_property_identifier(prop);
+  if (STREQ(prop_id, "value") || STRPREFIX(prop_id, "value_precise_")) {
+    const Object *edit_object = CTX_data_edit_object(C);
+    const bool native_move = transformops_mode(op) == TFM_TRANSLATION && edit_object &&
+                             ELEM(edit_object->type, OB_CURVES_LEGACY, OB_SURF) &&
+                             id_cast<const Curve *>(edit_object->data)->nurbs_geometry;
+    if (STRPREFIX(prop_id, "value_precise_")) {
+      return native_move;
+    }
+    if (native_move) {
+      return false;
+    }
+  }
 
   /* Orientation/Constraints. */
   if (STRPREFIX(prop_id, "constraint")) {
@@ -830,6 +843,21 @@ void properties_register(wmOperatorType *ot, int flags)
   }
 }
 
+static void translation_precision_properties(wmOperatorType *ot)
+{
+  const char *labels[3] = {"X", "Y", "Z"};
+  for (int axis = 0; axis < 3; axis++) {
+    PropertyRNA *property = RNA_def_string(
+        ot->srna,
+        TRANSLATION_PRECISE_PROPERTIES[axis],
+        nullptr,
+        NUM_STR_REP_LEN,
+        labels[axis],
+        "Exact movement in Blender units; accepts arithmetic and explicit length units");
+    RNA_def_property_flag(property, PROP_SKIP_SAVE);
+  }
+}
+
 static void TRANSFORM_OT_translate(wmOperatorType *ot)
 {
   /* Identifiers. */
@@ -848,13 +876,22 @@ static void TRANSFORM_OT_translate(wmOperatorType *ot)
 
   RNA_def_float_translation(
       ot->srna, "value", 3, nullptr, -FLT_MAX, FLT_MAX, "Move", "", -FLT_MAX, FLT_MAX);
+  PropertyRNA *precision = RNA_def_string(
+      ot->srna,
+      "value_precision",
+      nullptr,
+      1024,
+      "Precise Value",
+      "Retained double translation for native geometry replay");
+  RNA_def_property_flag(precision, PROP_HIDDEN | PROP_SKIP_SAVE);
+  translation_precision_properties(ot);
 
   WM_operatortype_props_advanced_begin(ot);
 
   properties_register(ot,
                       P_ORIENT_MATRIX | P_CONSTRAINT | P_PROPORTIONAL | P_MIRROR | P_ALIGN_SNAP |
-                      P_OPTIONS | P_CURSOR_EDIT | P_VIEW2D_EDGE_PAN |
-                          P_POST_TRANSFORM | P_TRANSLATE_ORIGIN);
+                          P_OPTIONS | P_CURSOR_EDIT | P_VIEW2D_EDGE_PAN | P_POST_TRANSFORM |
+                          P_TRANSLATE_ORIGIN);
 }
 
 static void TRANSFORM_OT_resize(wmOperatorType *ot)
@@ -1407,6 +1444,14 @@ static void TRANSFORM_OT_transform(wmOperatorType *ot)
 
   RNA_def_float_vector(
       ot->srna, "value", 4, nullptr, -FLT_MAX, FLT_MAX, "Values", "", -FLT_MAX, FLT_MAX);
+  prop = RNA_def_string(ot->srna,
+                        "value_precision",
+                        nullptr,
+                        1024,
+                        "Precise Value",
+                        "Retained double translation for native geometry replay");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  translation_precision_properties(ot);
 
   WM_operatortype_props_advanced_begin(ot);
 

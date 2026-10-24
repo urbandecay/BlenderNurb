@@ -43,7 +43,7 @@ namespace blender::bke::nurbs::tests {
  */
 static void write_preview_fixture_if_requested()
 {
-  const char *path = std::getenv("BLENDER_NURBS_PREVIEW_FIXTURE");
+  const char *path = std::getenv("BLENDER_NURBS_PREVIEW_EXPORT");
   if (path == nullptr || path[0] == '\0') {
     return;
   }

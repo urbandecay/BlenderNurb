@@ -6,7 +6,9 @@
  * \ingroup edtransform
  */
 
+#include <cmath>
 #include <cstdlib>
+#include <limits>
 
 #include "MEM_guardedalloc.h"
 
@@ -471,12 +473,39 @@ static void applyTranslation(TransInfo *t)
 {
   char str[UI_MAX_DRAW_STR] = "";
   float global_dir[3] = {0.0f};
+  const bool native = t->data_type == &TransConvertType_Nurbs;
+  double3 precise_space(0), precise_world(0), numeric_value(0);
+  const bool precise_numeric = native && !(t->flag & T_INPUT_IS_VALUES_FINAL) &&
+                               applyNumInput(&t->num, &numeric_value.x);
 
   if (t->flag & T_INPUT_IS_VALUES_FINAL) {
-    mul_v3_m3v3(global_dir, t->spacemtx, t->values);
+    if (native) {
+      if (!nurbs_translation_replay(t, precise_space, precise_world)) {
+        precise_space = double3(t->values);
+        precise_world = double3x3(float3x3(t->spacemtx)) * precise_space;
+      }
+      copy_v3_v3(global_dir, float3(precise_world));
+    }
+    else {
+      mul_v3_m3v3(global_dir, t->spacemtx, t->values);
+    }
   }
-  else if (applyNumInput(&t->num, global_dir)) {
-    if (t->con.mode & CON_APPLY) {
+  else if (native ? precise_numeric : applyNumInput(&t->num, global_dir)) {
+    if (native) {
+      precise_space = numeric_value;
+      if (t->con.mode & CON_APPLY) {
+        precise_space = double3(0);
+        for (int axis = 0; axis < 3; axis++) {
+          if (t->con.mode & (CON_AXIS0 << axis)) {
+            precise_space[axis] = numeric_value.x;
+            break;
+          }
+        }
+      }
+      precise_world = double3x3(float3x3(t->spacemtx)) * precise_space;
+      copy_v3_v3(global_dir, float3(precise_world));
+    }
+    else if (t->con.mode & CON_APPLY) {
       if (t->con.mode & CON_AXIS0) {
         mul_v3_v3fl(global_dir, t->spacemtx[0], global_dir[0]);
       }
@@ -490,7 +519,7 @@ static void applyTranslation(TransInfo *t)
     else {
       mul_v3_m3v3(global_dir, t->spacemtx, global_dir);
     }
-    if (t->flag & T_2D_EDIT) {
+    if (!native && (t->flag & T_2D_EDIT)) {
       removeAspectRatio(t, global_dir);
     }
   }
@@ -525,6 +554,40 @@ static void applyTranslation(TransInfo *t)
     }
   }
 
+  if (native) {
+    if (!(t->flag & T_INPUT_IS_VALUES_FINAL) && !precise_numeric) {
+      precise_world = double3(global_dir);
+      bool invertible;
+      const double3x3 inverse = math::invert(double3x3(float3x3(t->spacemtx)), invertible);
+      if (!invertible) {
+        BKE_report(t->reports, RPT_ERROR, "Native NURBS move orientation is not invertible");
+        t->state = TRANS_CANCEL;
+      }
+      precise_space = inverse * precise_world;
+    }
+    for (int axis = 0; axis < 3; axis++) {
+      if (!std::isfinite(precise_space[axis]) || !std::isfinite(precise_world[axis]) ||
+          std::abs(precise_space[axis]) > std::numeric_limits<float>::max() ||
+          std::abs(precise_world[axis]) > std::numeric_limits<float>::max())
+      {
+        BKE_report(
+            t->reports, RPT_ERROR, "Native NURBS movement exceeds the transform display range");
+        t->state = TRANS_CANCEL;
+        break;
+      }
+    }
+    if (t->state == TRANS_CANCEL) {
+      recalc_data(t);
+      return;
+    }
+    nurbs_translation_update(t, precise_space, precise_world);
+    copy_v3_v3(t->values_final, float3(precise_space));
+    headerTranslation(t, (t->con.mode & CON_APPLY) ? t->values_final : global_dir, str);
+    recalc_data(t);
+    ED_area_status_text(t->area, (str[0] == '\0') ? nullptr : str);
+    return;
+  }
+
   applyTranslationValue(t, global_dir);
 
   /* Evil hack - redo translation if clipping needed. */
@@ -552,7 +615,7 @@ static void applyTranslationMatrix(TransInfo *t, float mat_xform[4][4])
   add_v3_v3(mat_xform[3], delta);
 }
 
-static void initTranslation(TransInfo *t, wmOperator * /*op*/)
+static void initTranslation(TransInfo *t, wmOperator *op)
 {
   if (t->spacetype == SPACE_ACTION) {
     /* This space uses time translate. */
@@ -568,6 +631,10 @@ static void initTranslation(TransInfo *t, wmOperator * /*op*/)
 
   t->idx_max = (t->flag & T_2D_EDIT) ? 1 : 2;
   t->num.flag = 0;
+  if (t->data_type == &TransConvertType_Nurbs) {
+    t->num.flag |= NUM_USE_DOUBLE;
+    nurbs_translation_init(t, op);
+  }
   t->num.idx_max = t->idx_max;
 
   float3 aspect = t->aspect;

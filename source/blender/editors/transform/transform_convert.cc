@@ -8,6 +8,7 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_constraint_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 
 #include "MEM_guardedalloc.h"
@@ -20,8 +21,8 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 
-#include "BKE_anim_data.hh"
 #include "BKE_action.hh"
+#include "BKE_anim_data.hh"
 #include "BKE_context.hh"
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
@@ -680,8 +681,7 @@ static void init_proportional_edit(TransInfo *t)
         set_prop_dist(t, false);
       }
     }
-    else if (t->data_type == &curves::TransConvertType_Curves)
-    {
+    else if (t->data_type == &curves::TransConvertType_Curves) {
       BLI_assert(t->obedit_type == OB_CURVES);
       if (t->flag & T_PROP_CONNECTED) {
         /* Already calculated by #calculate_curve_point_distances_for_proportional_editing. */
@@ -708,6 +708,7 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
 {
   if (!ELEM(t->data_type,
             &TransConvertType_Curve,
+            &TransConvertType_Nurbs,
             &curves::TransConvertType_Curves,
             &pointcloud::TransConvertType_PointCloud,
             &TransConvertType_Lattice,
@@ -864,6 +865,9 @@ static TransConvertTypeInfo *convert_type_get(const TransInfo *t)
       return &TransConvertType_Mesh;
     }
     if (ELEM(t->obedit_type, OB_CURVES_LEGACY, OB_SURF)) {
+      if (ob && id_cast<const Curve *>(ob->data)->nurbs_geometry != nullptr) {
+        return &TransConvertType_Nurbs;
+      }
       return &TransConvertType_Curve;
     }
     if (t->obedit_type == OB_LATTICE) {

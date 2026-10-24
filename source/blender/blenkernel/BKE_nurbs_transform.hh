@@ -38,4 +38,23 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
                                                           double max_position_error,
                                                           std::string *r_error = nullptr);
 
+/**
+ * Translate source vertex identities and their incident geometry, preserving shared ownership.
+ * Whole edges/supports translate exactly in the NURBS representation. Partial linear edges and
+ * complete, clamped tensor faces support corner edits in linear directions and translations of
+ * complete boundary rows in ruled directions. Other partial curved/trimmed edits are rejected;
+ * no endpoint-only control-coefficient rule or fitting fallback is inferred.
+ *
+ * P-curves, rational weights, bases, identities and unreferenced geometry remain unchanged.
+ * Shared geometry resources must receive identical coefficient requests from all their owners.
+ * The explicit roundoff budget and arithmetic requirements of transform_geometry apply; source
+ * tolerances on affected components expand for the reported coefficient/vertex addition bound.
+ * Input order and repeated IDs have no effect. The input is never modified, including on failure.
+ */
+std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &source,
+                                                          Span<int64_t> vertex_ids,
+                                                          const double3 &offset,
+                                                          double max_position_error,
+                                                          std::string *r_error = nullptr);
+
 }  // namespace blender::bke::nurbs

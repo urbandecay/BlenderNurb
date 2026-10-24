@@ -14,6 +14,9 @@ namespace blender {
 
 struct UnitSettings;
 
+/** Preserve existing unit/display behavior unless the client requests double conversion. */
+enum class UnitConversionPrecision { Legacy, Double };
+
 /* In all cases the value is assumed to be scaled by the user-preference. */
 
 /**
@@ -84,8 +87,13 @@ size_t BKE_unit_value_as_string_scaled(char *str,
  *
  * \return True of a change was made.
  */
-bool BKE_unit_replace_string(
-    char *str, int str_maxncpy, const char *str_prev, double scale_pref, int system, int type);
+bool BKE_unit_replace_string(char *str,
+                             int str_maxncpy,
+                             const char *str_prev,
+                             double scale_pref,
+                             int system,
+                             int type,
+                             UnitConversionPrecision precision = UnitConversionPrecision::Legacy);
 
 /**
  * \return true if the string contains any valid unit for the given type.
@@ -95,7 +103,11 @@ bool BKE_unit_string_contains_unit(const char *str, int type);
 /**
  * If user does not specify a unit, this converts it to the unit from the settings.
  */
-double BKE_unit_apply_preferred_unit(const UnitSettings &settings, int type, double value);
+double BKE_unit_apply_preferred_unit(
+    const UnitSettings &settings,
+    int type,
+    double value,
+    UnitConversionPrecision precision = UnitConversionPrecision::Legacy);
 
 /**
  * Make string keyboard-friendly, e.g: `10µm -> 10um`.
@@ -110,7 +122,9 @@ double BKE_unit_closest_scalar(double value, int system, int type);
 /**
  * Base scale for these units.
  */
-double BKE_unit_base_scalar(int system, int type);
+double BKE_unit_base_scalar(int system,
+                            int type,
+                            UnitConversionPrecision precision = UnitConversionPrecision::Legacy);
 
 /**
  * \return true is the unit system exists.

@@ -38,6 +38,12 @@ struct NumInput {
   double val_no_units[NUM_MAX_ELEMENTS];
   /** Original value of the input, for reset */
   float val_org[NUM_MAX_ELEMENTS];
+  /** Opt-in double channel, after unit conversion. The float channel remains display-only. */
+  double val_double[NUM_MAX_ELEMENTS];
+  double val_org_double[NUM_MAX_ELEMENTS];
+  /** Preserve expressions when changing axes in the double channel. */
+  char axis_str[NUM_MAX_ELEMENTS][NUM_STR_REP_LEN];
+  int axis_str_cur[NUM_MAX_ELEMENTS];
   /** Increment steps */
   float val_inc[NUM_MAX_ELEMENTS];
 
@@ -53,6 +59,8 @@ struct NumInput {
 /** #NumInput.flag */
 enum {
   NUM_AFFECT_ALL = (1 << 0),
+  /** Preserve parsed values and axis expressions without a float round-trip. */
+  NUM_USE_DOUBLE = (1 << 1),
   /* (1 << 9) and above are reserved for internal flags! */
 };
 
@@ -99,6 +107,8 @@ bool hasNumInput(const NumInput *n);
  * \warning \a vec must be set beforehand otherwise we risk uninitialized vars.
  */
 bool applyNumInput(NumInput *n, float *vec);
+/** Requires NUM_USE_DOUBLE. Includes unit conversion and the usual numeric input modifiers. */
+bool applyNumInput(NumInput *n, double *vec);
 bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event);
 
 /** Share with `TFM_MODAL_CANCEL` in `transform.h`. */
@@ -117,7 +127,8 @@ bool user_string_to_number(bContext *C,
                            double *r_value,
                            double *r_value_no_units,
                            bool use_single_line_error,
-                           char **r_error);
+                           char **r_error,
+                           bool use_double_units = false);
 
 /** \} */
 

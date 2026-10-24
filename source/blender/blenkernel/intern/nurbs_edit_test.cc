@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cstdlib>
+#include <limits>
 #include <thread>
 
 #include "BLI_listbase.h"
@@ -654,6 +655,170 @@ TEST_F(NurbsNativeEditTest, ViewportFixtureFilesPreserveSelectedSourceIDsAndGeom
         EXPECT_EQ(double3(saved->points[i].position), double3(resource.points[i].position));
         EXPECT_EQ(saved->points[i].weight, resource.points[i].weight);
       }
+    }
+  }
+}
+
+TEST_F(NurbsNativeEditTest, ViewportMovementFilesPreservePreciseSourceAndCancellation)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_MOVE_OUTPUT");
+  const char *baseline_path = std::getenv("BLENDER_NURBS_PREVIEW_FIXTURE");
+  if (directory == nullptr || baseline_path == nullptr) {
+    GTEST_SKIP() << "Run after the native NURBS movement viewport test";
+  }
+  BKE_blender_globals_main_replace(BKE_main_new());
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  ReportList reports;
+  BKE_reports_init(&reports, RPT_STORE);
+  BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+  BlendFileReadReport read_reports{};
+  read_reports.reports = &reports;
+  using LoadedFile = std::unique_ptr<BlendFileData, decltype(&BLO_blendfiledata_free)>;
+  auto load = [&](const char *path) {
+    return LoadedFile(BLO_read_from_file(path, BLO_READ_SKIP_USERDEF, &read_reports),
+                      BLO_blendfiledata_free);
+  };
+  auto find_source = [](const BlendFileData &file) -> const NurbsGeometry * {
+    for (const Curve &curve : file.main->curves) {
+      if (STREQ(curve.id.name + 2, "Native preview sheet") && curve.nurb.is_empty() &&
+          curve.editnurb == nullptr && curve.nurbs_eval_source == nullptr)
+      {
+        return curve.nurbs_geometry;
+      }
+    }
+    return nullptr;
+  };
+  const auto baseline = load(baseline_path);
+  ASSERT_NE(baseline, nullptr);
+  const NurbsGeometry *reference = find_source(*baseline);
+  ASSERT_NE(reference, nullptr);
+  const int64_t selected =
+      static_cast<const NurbsTopologyEdge *>(reference->edges.first)->vertex_ids[0];
+  constexpr double delta = 0.12345678901234567;
+  for (const char *name : {"move-click.blend",
+                           "move-cancel.blend",
+                           "move-undo.blend",
+                           "move-redo.blend",
+                           "move-f9.blend",
+                           "move-box.blend",
+                           "move-replay.blend",
+                           "move-multi-axis.blend",
+                           "move-reset.blend",
+                           "move-unrepresentable.blend",
+                           "move-unsupported-orientation.blend",
+                           "move-negative.blend",
+                           "move-inverse.blend",
+                           "move-scaled-object.blend",
+                           "move-unit.blend",
+                           "move-f9-invalid.blend",
+                           "move-f9-alias-edit.blend",
+                           "move-sub-float.blend",
+                           "move-f9-zero-alias.blend",
+                           "move-f9-ui-edit.blend"})
+  {
+    SCOPED_TRACE(name);
+    char path[FILE_MAX];
+    BLI_path_join(path, sizeof(path), directory, name);
+    const auto loaded = load(path);
+    ASSERT_NE(loaded, nullptr);
+    const NurbsGeometry *geometry = find_source(*loaded);
+    ASSERT_NE(geometry, nullptr);
+    double3 offset(0, 0, delta);
+    if (STREQ(name, "move-undo.blend") || STREQ(name, "move-reset.blend") ||
+        STREQ(name, "move-unrepresentable.blend") || STREQ(name, "move-f9-invalid.blend") ||
+        STREQ(name, "move-f9-zero-alias.blend") ||
+        STREQ(name, "move-unsupported-orientation.blend"))
+    {
+      offset = double3(0);
+    }
+    else if (STREQ(name, "move-multi-axis.blend")) {
+      offset = double3(delta, 0.23456789012345678, 0.34567890123456789);
+    }
+    else if (STREQ(name, "move-negative.blend")) {
+      offset.z = -delta;
+    }
+    else if (STREQ(name, "move-inverse.blend")) {
+      offset.z = 1 / delta;
+    }
+    else if (STREQ(name, "move-scaled-object.blend")) {
+      offset.z = delta / 4;
+    }
+    else if (STREQ(name, "move-unit.blend")) {
+      offset.z = 12.345678901234567 * 0.01;
+    }
+    else if (STREQ(name, "move-f9-alias-edit.blend")) {
+      offset.z = double(float(delta));
+    }
+    else if (STREQ(name, "move-sub-float.blend")) {
+      offset.z = 1e-200;
+    }
+    else if (STREQ(name, "move-f9-ui-edit.blend")) {
+      offset.z = 0.12345679;
+    }
+    std::string error;
+    const auto expected = translate_vertices(
+        *reference, {selected}, offset, std::numeric_limits<double>::max(), &error);
+    ASSERT_TRUE(expected.has_value()) << error;
+    const auto index = TopologyIndex::build(*geometry, &error);
+    ASSERT_TRUE(index.has_value()) << error;
+    EXPECT_EQ(geometry->next_id, reference->next_id);
+    EXPECT_EQ(geometry->vertices.count(), reference->vertices.count());
+    EXPECT_EQ(geometry->edges.count(), reference->edges.count());
+    EXPECT_EQ(geometry->faces.count(), reference->faces.count());
+    EXPECT_EQ(index->vertex(selected)->position[2], offset.z);
+    if (offset.z != double(float(offset.z))) {
+      EXPECT_NE(index->vertex(selected)->position[2], double(float(offset.z)));
+    }
+    for (const NurbsTopologyVertex &vertex : expected->geometry->vertices) {
+      const auto *saved = index->vertex(vertex.id);
+      ASSERT_NE(saved, nullptr);
+      EXPECT_EQ(double3(saved->position), double3(vertex.position));
+      EXPECT_EQ(saved->tolerance, vertex.tolerance);
+    }
+    for (const NurbsTopologyEdge &edge : reference->edges) {
+      const auto *saved = index->edge(edge.id);
+      ASSERT_NE(saved, nullptr);
+      EXPECT_EQ(saved->curve_id, edge.curve_id);
+      EXPECT_EQ(saved->vertex_ids[0], edge.vertex_ids[0]);
+      EXPECT_EQ(saved->vertex_ids[1], edge.vertex_ids[1]);
+      EXPECT_EQ(saved->parameter_range[0], edge.parameter_range[0]);
+      EXPECT_EQ(saved->parameter_range[1], edge.parameter_range[1]);
+    }
+    const auto selection = selection_from_storage(geometry->stored_selection);
+    ASSERT_TRUE(selection.has_value());
+    EXPECT_EQ(selection->vertices.size(), 1);
+    EXPECT_TRUE(selection->vertices.contains(selected));
+    EXPECT_TRUE(selection->edges.is_empty());
+    EXPECT_TRUE(selection->faces.is_empty());
+    const auto *curve = static_cast<const NurbsCurveGeometry *>(geometry->curves.first);
+    ASSERT_EQ(geometry->curves.count(), expected->geometry->curves.count());
+    for (const NurbsCurveGeometry &resource : expected->geometry->curves) {
+      ASSERT_NE(curve, nullptr);
+      EXPECT_EQ(curve->id, resource.id);
+      EXPECT_EQ(curve->order, resource.order);
+      EXPECT_EQ(curve->dimension, resource.dimension);
+      ASSERT_EQ(curve->knots_num, resource.knots_num);
+      EXPECT_TRUE(std::equal(curve->knots, curve->knots + curve->knots_num, resource.knots));
+      ASSERT_EQ(curve->points_num, resource.points_num);
+      for (int i = 0; i < curve->points_num; i++) {
+        EXPECT_EQ(double3(curve->points[i].position), double3(resource.points[i].position));
+        EXPECT_EQ(curve->points[i].weight, resource.points[i].weight);
+      }
+      curve = curve->next;
+    }
+    const auto *surface = static_cast<const NurbsSurfaceGeometry *>(geometry->surfaces.first);
+    ASSERT_EQ(geometry->surfaces.count(), expected->geometry->surfaces.count());
+    for (const NurbsSurfaceGeometry &resource : expected->geometry->surfaces) {
+      ASSERT_NE(surface, nullptr);
+      EXPECT_EQ(surface->id, resource.id);
+      EXPECT_EQ(surface->order_u, resource.order_u);
+      EXPECT_EQ(surface->order_v, resource.order_v);
+      ASSERT_EQ(surface->points_num, resource.points_num);
+      for (int i = 0; i < surface->points_num; i++) {
+        EXPECT_EQ(double3(surface->points[i].position), double3(resource.points[i].position));
+        EXPECT_EQ(surface->points[i].weight, resource.points[i].weight);
+      }
+      surface = surface->next;
     }
   }
 }

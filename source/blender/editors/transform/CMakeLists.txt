@@ -28,6 +28,7 @@ set(SRC
   transform_convert_mesh_uv.cc
   transform_convert_mesh_vert_cdata.cc
   transform_convert_nla.cc
+  transform_convert_nurbs.cc
   transform_convert_node.cc
   transform_convert_object.cc
   transform_convert_object_texspace.cc
@@ -87,6 +88,7 @@ set(SRC
   transform_snap_object_lattice.cc
   transform_snap_object_mesh.cc
   transform_snap_sequencer.cc
+  transform_translate_precision.cc
 
   transform.hh
   transform_constraints.hh
@@ -97,6 +99,7 @@ set(SRC
   transform_orientations.hh
   transform_snap.hh
   transform_snap_object.hh
+  transform_translate_precision.hh
 )
 
 set(LIB
@@ -122,3 +125,10 @@ blender_add_lib(bf_editor_transform "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 # RNA_prototypes.hh
 add_dependencies(bf_editor_transform bf_rna)
+
+if(WITH_GTESTS)
+  set(TEST_SRC
+    transform_translate_precision_test.cc
+  )
+  blender_add_test_suite_lib(editor_transform "${TEST_SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+endif()

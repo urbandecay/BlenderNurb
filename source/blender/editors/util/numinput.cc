@@ -94,11 +94,28 @@ void initNumInput(NumInput *n)
   zero_v3(n->val);
   std::fill_n(n->val_no_units, NUM_MAX_ELEMENTS, 0.0);
   std::fill_n(n->val_org, NUM_MAX_ELEMENTS, 0.0f);
+  std::fill_n(n->val_double, NUM_MAX_ELEMENTS, 0.0);
+  std::fill_n(n->val_org_double, NUM_MAX_ELEMENTS, 0.0);
+  for (int i = 0; i < NUM_MAX_ELEMENTS; i++) {
+    n->axis_str[i][0] = '\0';
+    n->axis_str_cur[i] = 0;
+  }
   std::fill_n(n->val_inc, NUM_MAX_ELEMENTS, 1.0f);
 
   n->idx = 0;
   n->str[0] = '\0';
   n->str_cur = 0;
+}
+
+static double input_value(const NumInput &n, const int index)
+{
+  return n.flag & NUM_USE_DOUBLE ? n.val_double[index] : n.val[index];
+}
+
+static void input_value_set(NumInput &n, const int index, const double value)
+{
+  n.val_double[index] = value;
+  n.val[index] = float(value);
 }
 
 void outputNumInput(NumInput *n, char *str, const UnitSettings &unit_settings)
@@ -115,10 +132,11 @@ void outputNumInput(NumInput *n, char *str, const UnitSettings &unit_settings)
 
     /* Use scale_length if needed! */
     const float fac = float(BKE_unit_value_scale(unit_settings, n->unit_type[j], 1.0));
+    const double value = input_value(*n, i);
 
     if (n->val_flag[i] & NUM_EDITED) {
       /* Get the best precision, allows us to draw '10.0001' as '10' instead! */
-      prec = ui::calc_float_precision(prec, double(n->val[i]));
+      prec = ui::calc_float_precision(prec, value);
       if (i == n->idx) {
         const char *heading_exp = "", *trailing_exp = "";
         char before_cursor[NUM_STR_REP_LEN];
@@ -139,15 +157,18 @@ void outputNumInput(NumInput *n, char *str, const UnitSettings &unit_settings)
           STRNCPY_UTF8(val, RPT_("Invalid"));
         }
         else {
-          BKE_unit_value_as_string_adaptive(val,
-                                            sizeof(val),
-                                            double(n->val[i] * fac),
-                                            prec,
-                                            n->unit_sys,
-                                            n->unit_type[i],
-                                            true,
-                                            false,
-                                            true);
+          BKE_unit_value_as_string_adaptive(
+              val,
+              sizeof(val),
+              (n->flag & NUM_USE_DOUBLE) ?
+                  BKE_unit_value_scale(unit_settings, n->unit_type[j], value) :
+                  double(n->val[i] * fac),
+              prec,
+              n->unit_sys,
+              n->unit_type[i],
+              true,
+              false,
+              true);
         }
 
         /* +1 because of trailing '\0' */
@@ -165,12 +186,12 @@ void outputNumInput(NumInput *n, char *str, const UnitSettings &unit_settings)
         const char *cur = (i == n->idx) ? "|" : "";
         if (n->unit_use_radians && n->unit_type[i] == B_UNIT_ROTATION) {
           /* Radian exception... */
-          BLI_snprintf_utf8(&str[j * ln], ln, "%s%.6gr%s", cur, n->val[i], cur);
+          BLI_snprintf_utf8(&str[j * ln], ln, "%s%.6gr%s", cur, value, cur);
         }
         else {
           char tstr[NUM_STR_REP_LEN];
           BKE_unit_value_as_string_adaptive(
-              tstr, ln, double(n->val[i]), prec, n->unit_sys, n->unit_type[i], true, false, true);
+              tstr, ln, value, prec, n->unit_sys, n->unit_type[i], true, false, true);
           BLI_snprintf_utf8(&str[j * ln], ln, "%s%s%s", cur, tstr, cur);
         }
       }
@@ -204,35 +225,38 @@ bool hasNumInput(const NumInput *n)
   return false;
 }
 
-bool applyNumInput(NumInput *n, float *vec)
+template<typename Float> static bool apply_num_input(NumInput *n, Float *vec)
 {
   short i, j;
-  float val;
+  Float val;
+  const bool use_double = n->flag & NUM_USE_DOUBLE;
 
   if (hasNumInput(n)) {
     for (j = 0; j <= n->idx_max; j++) {
 #ifdef USE_FAKE_EDIT
       if (n->flag & NUM_FAKE_EDITED) {
-        val = n->val[j];
+        val = Float(use_double ? n->val_double[j] : n->val[j]);
       }
       else
 #endif
       {
         /* if AFFECTALL and no number typed and cursor not on number, use first number */
         i = (n->flag & NUM_AFFECT_ALL && n->idx != j && !(n->val_flag[j] & NUM_EDITED)) ? 0 : j;
-        val = (!(n->val_flag[i] & NUM_EDITED) && n->val_flag[i] & NUM_NULL_ONE) ? 1.0f : n->val[i];
+        val = (!(n->val_flag[i] & NUM_EDITED) && n->val_flag[i] & NUM_NULL_ONE) ?
+                  Float(1) :
+                  Float(use_double ? n->val_double[i] : n->val[i]);
 
         if (n->val_flag[i] & NUM_NO_NEGATIVE && val < 0.0f) {
           val = 0.0f;
         }
-        if (n->val_flag[i] & NUM_NO_FRACTION && val != floorf(val)) {
-          val = floorf(val + 0.5f);
+        if (n->val_flag[i] & NUM_NO_FRACTION && val != std::floor(val)) {
+          val = std::floor(val + Float(0.5));
           if (n->val_flag[i] & NUM_NO_ZERO && val == 0.0f) {
             val = 1.0f;
           }
         }
         else if (n->val_flag[i] & NUM_NO_ZERO && val == 0.0f) {
-          val = 0.0001f;
+          val = Float(0.0001);
         }
       }
       vec[j] = val;
@@ -246,8 +270,20 @@ bool applyNumInput(NumInput *n, float *vec)
   /* Else, we set the 'org' values for numinput! */
   for (j = 0; j <= n->idx_max; j++) {
     n->val[j] = n->val_org[j] = vec[j];
+    n->val_double[j] = n->val_org_double[j] = vec[j];
   }
   return false;
+}
+
+bool applyNumInput(NumInput *n, float *vec)
+{
+  return apply_num_input(n, vec);
+}
+
+bool applyNumInput(NumInput *n, double *vec)
+{
+  BLI_assert(n->flag & NUM_USE_DOUBLE);
+  return apply_num_input(n, vec);
 }
 
 static void value_to_editstr(NumInput *n, int idx)
@@ -288,7 +324,8 @@ bool user_string_to_number(bContext *C,
                            double *r_value,
                            double *r_value_no_units,
                            const bool use_single_line_error,
-                           char **r_error)
+                           char **r_error,
+                           const bool use_double_units)
 {
 #ifdef WITH_PYTHON
   BPy_RunErrInfo err_info{};
@@ -296,11 +333,14 @@ bool user_string_to_number(bContext *C,
   err_info.r_string = r_error;
 
   const double unit_scale = BKE_unit_value_scale(unit, type, 1.0);
+  const UnitConversionPrecision precision = use_double_units ? UnitConversionPrecision::Double :
+                                                               UnitConversionPrecision::Legacy;
   if (BKE_unit_string_contains_unit(str, type)) {
-    char str_unit_convert[256];
+    /* Expanded double conversion factors can be longer than the original unit tokens. */
+    char str_unit_convert[NUM_STR_REP_LEN * 16];
     STRNCPY_UTF8(str_unit_convert, str);
     BKE_unit_replace_string(
-        str_unit_convert, sizeof(str_unit_convert), str, unit_scale, unit.system, type);
+        str_unit_convert, sizeof(str_unit_convert), str, unit_scale, unit.system, type, precision);
 
     bool success = BPY_run_string_as_number(C, nullptr, str_unit_convert, &err_info, r_value);
     if (r_value_no_units) {
@@ -316,12 +356,12 @@ bool user_string_to_number(bContext *C,
   if (r_value_no_units) {
     *r_value_no_units = *r_value;
   }
-  *r_value = BKE_unit_apply_preferred_unit(unit, type, *r_value);
+  *r_value = BKE_unit_apply_preferred_unit(unit, type, *r_value, precision);
   *r_value /= unit_scale;
   return success;
 
 #else
-  UNUSED_VARS(C, unit, type, use_single_line_error, r_error);
+  UNUSED_VARS(C, unit, type, use_single_line_error, r_error, use_double_units);
   *r_value = atof(str);
   if (r_value_no_units) {
     *r_value_no_units = *r_value;
@@ -384,6 +424,29 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
   switch (event->type) {
     case EVT_MODAL_MAP:
       if (ELEM(event->val, NUM_MODAL_INCREMENT_UP, NUM_MODAL_INCREMENT_DOWN)) {
+        if (n->flag & NUM_USE_DOUBLE) {
+          const double increment = event->val == NUM_MODAL_INCREMENT_UP ? n->val_inc[idx] :
+                                                                          -n->val_inc[idx];
+          const double value = n->val_double[idx] + increment;
+          if (!std::isfinite(value)) {
+            n->val_flag[idx] |= NUM_INVALID;
+            return true;
+          }
+          input_value_set(*n, idx, value);
+          const UnitSettings &unit = CTX_data_scene(C)->unit;
+          const double scale = BKE_unit_value_scale(unit, n->unit_type[idx], 1.0);
+          const double preferred = BKE_unit_apply_preferred_unit(
+              unit, n->unit_type[idx], 1.0, UnitConversionPrecision::Double);
+          n->val_no_units[idx] = value * scale / preferred;
+          n->str_cur = BLI_snprintf_rlen(n->str, sizeof(n->str), "%.17g", n->val_no_units[idx]);
+          n->val_flag[idx] = (n->val_flag[idx] &
+                              ~(NUM_INVALID | NUM_NEGATE | NUM_INVERSE | NUM_INT_INPUT_VALUE)) |
+                             NUM_EDITED;
+          if (ED_numinput_double_is_int(n->val_no_units[idx])) {
+            n->val_flag[idx] |= NUM_INT_INPUT_VALUE;
+          }
+          return true;
+        }
         n->val[idx] += (event->val == NUM_MODAL_INCREMENT_UP) ? n->val_inc[idx] : -n->val_inc[idx];
         value_to_editstr(n, idx);
         n->val_flag[idx] |= NUM_EDITED;
@@ -399,6 +462,13 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
       /* Part specific to backspace... */
       if (!(n->val_flag[idx] & NUM_EDITED)) {
         copy_v3_v3(n->val, n->val_org);
+        std::copy_n(n->val_org_double, NUM_MAX_ELEMENTS, n->val_double);
+        if (n->flag & NUM_USE_DOUBLE) {
+          for (int i = 0; i < NUM_MAX_ELEMENTS; i++) {
+            n->axis_str[i][0] = '\0';
+            n->axis_str_cur[i] = 0;
+          }
+        }
         n->val_flag[0] &= ~NUM_EDITED;
         n->val_flag[1] &= ~NUM_EDITED;
         n->val_flag[2] &= ~NUM_EDITED;
@@ -412,6 +482,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
       }
       else if ((event->modifier & KM_SHIFT) || !n->str[0]) {
         n->val[idx] = n->val_org[idx];
+        n->val_double[idx] = n->val_org_double[idx];
         n->val_flag[idx] &= ~NUM_EDITED;
         n->str[0] = '\0';
         n->str_cur = 0;
@@ -445,6 +516,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
         }
         if (!n->str[0]) {
           n->val[idx] = n->val_org[idx];
+          n->val_double[idx] = n->val_org_double[idx];
         }
       }
       else {
@@ -483,6 +555,15 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
       }
       return false;
     case EVT_TABKEY:
+      if (n->flag & NUM_USE_DOUBLE) {
+        STRNCPY(n->axis_str[idx], n->str);
+        n->axis_str_cur[idx] = n->str_cur;
+        idx = (idx + idx_max + ((event->modifier & KM_CTRL) ? 0 : 2)) % (idx_max + 1);
+        n->idx = idx;
+        STRNCPY(n->str, n->axis_str[idx]);
+        n->str_cur = n->axis_str_cur[idx];
+        return true;
+      }
 #ifdef USE_FAKE_EDIT
       n->val_flag[idx] &= ~(NUM_NEGATE | NUM_INVERSE);
 #endif
@@ -585,6 +666,12 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
   }
 
   if (utf8_buf && utf8_buf[0]) {
+    /* Numeric input is a single line. Return must reach the operator's confirm handler,
+     * including when event simulation or a platform supplies its control character. */
+    const unsigned char first = static_cast<unsigned char>(utf8_buf[0]);
+    if (first < 0x20 || first == 0x7f) {
+      return false;
+    }
     if (!(n->flag & NUM_EDIT_FULL)) {
       /* In simple edit mode, we only keep a few chars as valid! */
       /* no need to decode unicode, ASCII is first char only. */
@@ -608,14 +695,21 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
   /* At this point, our value has changed, try to interpret it with python
    * (if str is not empty!). */
   if (n->str[0]) {
-    const float val_prev = n->val[idx];
+    const double val_prev = input_value(*n, idx);
     Scene *sce = CTX_data_scene(C);
     char *error = nullptr;
 
     double val = 0.0;
     double val_no_units = 0.0;
-    int success = user_string_to_number(
-        C, n->str, sce->unit, n->unit_type[idx], &val, &val_no_units, false, &error);
+    int success = user_string_to_number(C,
+                                        n->str,
+                                        sce->unit,
+                                        n->unit_type[idx],
+                                        &val,
+                                        &val_no_units,
+                                        false,
+                                        &error,
+                                        (n->flag & NUM_USE_DOUBLE) != 0);
 
     if (error) {
       ReportList *reports = CTX_wm_reports(C);
@@ -626,7 +720,7 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
     }
 
     if (success) {
-      n->val[idx] = float(val);
+      input_value_set(*n, idx, val);
       n->val_flag[idx] &= ~NUM_INVALID;
 
       /* Store the pre-unit-scale value and check if it's an integer. */
@@ -645,11 +739,11 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
 
 #ifdef USE_FAKE_EDIT
     if (n->val_flag[idx] & NUM_NEGATE) {
-      n->val[idx] = -n->val[idx];
+      input_value_set(*n, idx, -input_value(*n, idx));
       n->val_no_units[idx] = -n->val_no_units[idx];
     }
     if (n->val_flag[idx] & NUM_INVERSE) {
-      val = n->val[idx];
+      val = input_value(*n, idx);
       /* If we invert on radians when user is in degrees,
        * you get unexpected results... See #53463. */
       if (!n->unit_use_radians && n->unit_type[idx] == B_UNIT_ROTATION) {
@@ -659,15 +753,15 @@ bool handleNumInput(bContext *C, NumInput *n, const wmEvent *event)
       if (!n->unit_use_radians && n->unit_type[idx] == B_UNIT_ROTATION) {
         val = DEG2RAD(val);
       }
-      n->val[idx] = float(val);
+      input_value_set(*n, idx, val);
       n->val_no_units[idx] = 1.0 / n->val_no_units[idx];
       /* Inverse transforms the value to 1/x, invalidating the integer property. */
       n->val_flag[idx] &= ~NUM_INT_INPUT_VALUE;
     }
 #endif
 
-    if (UNLIKELY(!isfinite(n->val[idx]))) {
-      n->val[idx] = val_prev;
+    if (UNLIKELY(!isfinite(input_value(*n, idx)))) {
+      input_value_set(*n, idx, val_prev);
       n->val_flag[idx] |= NUM_INVALID;
     }
   }

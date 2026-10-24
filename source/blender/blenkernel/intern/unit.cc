@@ -30,6 +30,39 @@ namespace blender {
 
 /* No BKE or DNA includes! */
 
+/** Retain existing float catalogue arithmetic alongside the declared double scale. */
+struct UnitScale {
+  double legacy;
+  double precise;
+  bool legacy_float = false;
+
+  constexpr UnitScale(const double value) : legacy(value), precise(value) {}
+  constexpr UnitScale(const double legacy, const double precise, const bool legacy_float)
+      : legacy(legacy), precise(precise), legacy_float(legacy_float)
+  {
+  }
+
+  static constexpr UnitScale from_float(const double value)
+  {
+    return {double(float(value)), value, true};
+  }
+
+  friend constexpr UnitScale operator*(const UnitScale &a, const UnitScale &b)
+  {
+    const bool as_float = a.legacy_float && b.legacy_float;
+    return {as_float ? double(float(a.legacy) * float(b.legacy)) : a.legacy * b.legacy,
+            a.precise * b.precise,
+            as_float};
+  }
+
+  friend constexpr UnitScale operator/(const UnitScale &a, const float b)
+  {
+    return {a.legacy_float ? double(float(a.legacy) / b) : a.legacy / b,
+            a.precise / double(b),
+            a.legacy_float};
+  }
+};
+
 /* Keep alignment. */
 /* clang-format off */
 
@@ -44,42 +77,42 @@ namespace blender {
 #define EPS 0.001
 
 
-#define UN_SC_KM    1000.0f
-#define UN_SC_HM    100.0f
-#define UN_SC_DAM   10.0f
-#define UN_SC_M     1.0f
-#define UN_SC_DM    0.1f
-#define UN_SC_CM    0.01f
-#define UN_SC_MM    0.001f
-#define UN_SC_UM    0.000001f
+#define UN_SC_KM    UnitScale::from_float(1000.0)
+#define UN_SC_HM    UnitScale::from_float(100.0)
+#define UN_SC_DAM   UnitScale::from_float(10.0)
+#define UN_SC_M     UnitScale::from_float(1.0)
+#define UN_SC_DM    UnitScale::from_float(0.1)
+#define UN_SC_CM    UnitScale::from_float(0.01)
+#define UN_SC_MM    UnitScale::from_float(0.001)
+#define UN_SC_UM    UnitScale::from_float(0.000001)
 
 
-#define UN_SC_MI    1609.344f
-#define UN_SC_FUR   201.168f
-#define UN_SC_CH    20.1168f
-#define UN_SC_YD    0.9144f
-#define UN_SC_FT    0.3048f
-#define UN_SC_IN    0.0254f
-#define UN_SC_MIL   0.0000254f
+#define UN_SC_MI    UnitScale::from_float(1609.344)
+#define UN_SC_FUR   UnitScale::from_float(201.168)
+#define UN_SC_CH    UnitScale::from_float(20.1168)
+#define UN_SC_YD    UnitScale::from_float(0.9144)
+#define UN_SC_FT    UnitScale::from_float(0.3048)
+#define UN_SC_IN    UnitScale::from_float(0.0254)
+#define UN_SC_MIL   UnitScale::from_float(0.0000254)
 
 
-#define UN_SC_MTON  1000.0f /* Metric ton. */
-#define UN_SC_QL    100.0f
-#define UN_SC_KG    1.0f
-#define UN_SC_HG    0.1f
-#define UN_SC_DAG   0.01f
-#define UN_SC_G     0.001f
-#define UN_SC_MG    0.000001f
+#define UN_SC_MTON  UnitScale::from_float(1000.0) /* Metric ton. */
+#define UN_SC_QL    UnitScale::from_float(100.0)
+#define UN_SC_KG    UnitScale::from_float(1.0)
+#define UN_SC_HG    UnitScale::from_float(0.1)
+#define UN_SC_DAG   UnitScale::from_float(0.01)
+#define UN_SC_G     UnitScale::from_float(0.001)
+#define UN_SC_MG    UnitScale::from_float(0.000001)
 
 
-#define UN_SC_ITON  907.18474f /* Imperial ton. */
-#define UN_SC_CWT   45.359237f
-#define UN_SC_ST    6.35029318f
-#define UN_SC_LB    0.45359237f
-#define UN_SC_OZ    0.028349523125f
+#define UN_SC_ITON  UnitScale::from_float(907.18474) /* Imperial ton. */
+#define UN_SC_CWT   UnitScale::from_float(45.359237)
+#define UN_SC_ST    UnitScale::from_float(6.35029318)
+#define UN_SC_LB    UnitScale::from_float(0.45359237)
+#define UN_SC_OZ    UnitScale::from_float(0.028349523125)
 
 
-#define UN_SC_FAH   0.555555555555f
+#define UN_SC_FAH   UnitScale::from_float(0.555555555555)
 
 /* clang-format on */
 
@@ -104,7 +137,7 @@ struct bUnitDef {
   /** When nullptr, a transformed version of the name will be taken in some cases. */
   const char *identifier;
 
-  double scalar;
+  UnitScale scalar;
   /** Needed for converting temperatures. */
   double bias;
   int flag;
@@ -1607,12 +1640,12 @@ static const bUnitDef *unit_best_fit(double value,
 
     /* Scale down scalar so 1cm doesn't convert to 10mm because of float error. */
     if (UNLIKELY(unit->flag & B_UNIT_DEF_TENTH)) {
-      if (value_abs >= unit->scalar * (0.1 - EPS)) {
+      if (value_abs >= unit->scalar.legacy * (0.1 - EPS)) {
         return unit;
       }
     }
     else {
-      if (value_abs >= unit->scalar * (1.0 - EPS)) {
+      if (value_abs >= unit->scalar.legacy * (1.0 - EPS)) {
         return unit;
       }
     }
@@ -1632,8 +1665,8 @@ static void unit_dual_convert(double value,
 {
   const bUnitDef *unit = (main_unit) ? main_unit : unit_best_fit(value, usys, nullptr, 1);
 
-  const double scaled_value = value / unit->scalar;
-  *r_value_a = std::trunc(scaled_value) * unit->scalar;
+  const double scaled_value = value / unit->scalar.legacy;
+  *r_value_a = std::trunc(scaled_value) * unit->scalar.legacy;
   *r_value_b = value - (*r_value_a);
 
   *r_unit_a = unit;
@@ -1662,7 +1695,7 @@ static size_t unit_as_string(char *str,
     }
   }
 
-  double value_conv = (value / unit->scalar) - unit->bias;
+  double value_conv = (value / unit->scalar.legacy) - unit->bias;
 
   /* Adjust precision to expected number of significant digits.
    * Note that here, we shall not have to worry about very big/small numbers, units are expected
@@ -1768,8 +1801,8 @@ static size_t unit_as_string_split_pair(char *str,
 
     /* Fixed width mode skips this to preserve the exact decimal place count. */
     if (variable_width) {
-      prec -= integer_digits_d(value_a / unit_b->scalar) -
-              integer_digits_d(value_b / unit_b->scalar);
+      prec -= integer_digits_d(value_a / unit_b->scalar.legacy) -
+              integer_digits_d(value_b / unit_b->scalar.legacy);
       prec = max_ii(prec, 0);
     }
 
@@ -2233,8 +2266,11 @@ static int unit_scale_str(char *str,
                           double scale_pref,
                           const bUnitDef *unit,
                           const char *replace_str,
-                          bool case_sensitive)
+                          bool case_sensitive,
+                          const UnitConversionPrecision precision)
 {
+  const bool use_double = precision == UnitConversionPrecision::Double;
+  const double scalar = use_double ? unit->scalar.precise : unit->scalar.legacy;
   if (str_maxncpy < 0) {
     return 0;
   }
@@ -2269,7 +2305,8 @@ static int unit_scale_str(char *str,
     /* Add the addition sign, the bias, and the close parenthesis after the value. */
     int value_end_ofs = find_end_of_value_chars(str, str_maxncpy, prev_op_ofs + 2);
     value_end_ofs = std::min(value_end_ofs, found_ofs);
-    int len_bias_num = BLI_snprintf_rlen(str_tmp, TEMP_STR_SIZE, "+%.9g)", unit->bias);
+    int len_bias_num = BLI_snprintf_rlen(
+        str_tmp, TEMP_STR_SIZE, "+%.*g)", use_double ? 17 : 9, unit->bias);
     if (value_end_ofs + len_bias_num < str_maxncpy) {
       memmove(str + value_end_ofs + len_bias_num, str + value_end_ofs, len - value_end_ofs + 1);
       memcpy(str + value_end_ofs, str_tmp, len_bias_num);
@@ -2284,7 +2321,7 @@ static int unit_scale_str(char *str,
 
   /* "#" Removed later */
   int len_num = BLI_snprintf_rlen(
-      str_tmp, TEMP_STR_SIZE, "*%.9g" SEP_STR, unit->scalar / scale_pref);
+      str_tmp, TEMP_STR_SIZE, "*%.*g" SEP_STR, use_double ? 17 : 9, scalar / scale_pref);
 
   len_num = std::min(len_num, str_maxncpy);
 
@@ -2315,19 +2352,41 @@ static int unit_scale_str(char *str,
   return found_ofs + len_num;
 }
 
-static int unit_replace(
-    char *str, int str_maxncpy, char *str_tmp, double scale_pref, const bUnitDef *unit)
+static int unit_replace(char *str,
+                        int str_maxncpy,
+                        char *str_tmp,
+                        double scale_pref,
+                        const bUnitDef *unit,
+                        const UnitConversionPrecision precision)
 {
   const bool case_sensitive = (unit->flag & B_UNIT_DEF_CASE_SENSITIVE) != 0;
   int ofs = 0;
+  ofs += unit_scale_str(str + ofs,
+                        str_maxncpy - ofs,
+                        str_tmp,
+                        scale_pref,
+                        unit,
+                        unit->name_short,
+                        case_sensitive,
+                        precision);
+  ofs += unit_scale_str(str + ofs,
+                        str_maxncpy - ofs,
+                        str_tmp,
+                        scale_pref,
+                        unit,
+                        unit->name_plural,
+                        false,
+                        precision);
+  ofs += unit_scale_str(str + ofs,
+                        str_maxncpy - ofs,
+                        str_tmp,
+                        scale_pref,
+                        unit,
+                        unit->name_alt,
+                        case_sensitive,
+                        precision);
   ofs += unit_scale_str(
-      str + ofs, str_maxncpy - ofs, str_tmp, scale_pref, unit, unit->name_short, case_sensitive);
-  ofs += unit_scale_str(
-      str + ofs, str_maxncpy - ofs, str_tmp, scale_pref, unit, unit->name_plural, false);
-  ofs += unit_scale_str(
-      str + ofs, str_maxncpy - ofs, str_tmp, scale_pref, unit, unit->name_alt, case_sensitive);
-  ofs += unit_scale_str(
-      str + ofs, str_maxncpy - ofs, str_tmp, scale_pref, unit, unit->name, false);
+      str + ofs, str_maxncpy - ofs, str_tmp, scale_pref, unit, unit->name, false, precision);
   return ofs;
 }
 
@@ -2399,20 +2458,30 @@ bool BKE_unit_string_contains_unit(const char *str, int type)
   return false;
 }
 
-double BKE_unit_apply_preferred_unit(const UnitSettings &settings, int type, double value)
+double BKE_unit_apply_preferred_unit(const UnitSettings &settings,
+                                     int type,
+                                     double value,
+                                     const UnitConversionPrecision precision)
 {
   PreferredUnits units = preferred_units_from_UnitSettings(settings);
   const bUnitDef *unit = get_preferred_display_unit_if_used(type, units);
 
-  const double scalar = (unit == nullptr) ? BKE_unit_base_scalar(units.system, type) :
-                                            unit->scalar;
+  const double scalar = (unit == nullptr) ?
+                            BKE_unit_base_scalar(units.system, type, precision) :
+                            (precision == UnitConversionPrecision::Double ? unit->scalar.precise :
+                                                                            unit->scalar.legacy);
   const double bias = (unit == nullptr) ? 0.0 : unit->bias; /* Base unit shouldn't have a bias. */
 
   return value * scalar + bias;
 }
 
-bool BKE_unit_replace_string(
-    char *str, int str_maxncpy, const char *str_prev, double scale_pref, int system, int type)
+bool BKE_unit_replace_string(char *str,
+                             int str_maxncpy,
+                             const char *str_prev,
+                             double scale_pref,
+                             int system,
+                             int type,
+                             const UnitConversionPrecision precision)
 {
   const bUnitCollection *usys = unit_get_system(system, type);
   if (!is_valid_unit_collection(usys)) {
@@ -2431,11 +2500,14 @@ bool BKE_unit_replace_string(
 
   /* We apply the default unit to the whole expression (default unit is now the reference
    * '1.0' one). */
-  scale_pref_base *= default_unit->scalar;
+  const bool use_double = precision == UnitConversionPrecision::Double;
+  const double default_scalar = use_double ? default_unit->scalar.precise :
+                                             default_unit->scalar.legacy;
+  scale_pref_base *= default_scalar;
 
   /* Apply the default unit on the whole expression, this allows to handle nasty cases like
    * '2+2in'. */
-  if (SNPRINTF(str_tmp, "(%s)*%.9g", str, default_unit->scalar) < sizeof(str_tmp)) {
+  if (SNPRINTF(str_tmp, "(%s)*%.*g", str, use_double ? 17 : 9, default_scalar) < sizeof(str_tmp)) {
     BLI_strncpy(str, str_tmp, str_maxncpy);
   }
   else {
@@ -2446,7 +2518,7 @@ bool BKE_unit_replace_string(
 
   for (const bUnitDef *unit = usys->units; unit->name; unit++) {
     /* In case there are multiple instances. */
-    while (unit_replace(str, str_maxncpy, str_tmp, scale_pref_base, unit)) {
+    while (unit_replace(str, str_maxncpy, str_tmp, scale_pref_base, unit, precision)) {
       changed = true;
     }
   }
@@ -2468,7 +2540,9 @@ bool BKE_unit_replace_string(
     for (const bUnitDef *unit = usys_iter->units; unit->name; unit++) {
       int ofs = 0;
       /* In case there are multiple instances. */
-      while ((ofs = unit_replace(str + ofs, str_maxncpy - ofs, str_tmp, scale_pref_base, unit))) {
+      while ((ofs = unit_replace(
+                  str + ofs, str_maxncpy - ofs, str_tmp, scale_pref_base, unit, precision)))
+      {
         changed = true;
       }
     }
@@ -2555,14 +2629,15 @@ double BKE_unit_closest_scalar(double value, int system, int type)
     return -1;
   }
 
-  return unit->scalar;
+  return unit->scalar.legacy;
 }
 
-double BKE_unit_base_scalar(int system, int type)
+double BKE_unit_base_scalar(int system, int type, const UnitConversionPrecision precision)
 {
   const bUnitCollection *usys = unit_get_system(system, type);
   if (usys) {
-    return unit_default(usys)->scalar;
+    const UnitScale &scale = unit_default(usys)->scalar;
+    return precision == UnitConversionPrecision::Double ? scale.precise : scale.legacy;
   }
 
   return 1.0;
@@ -2639,7 +2714,7 @@ double BKE_unit_scalar_get(const void *usys_pt, int index)
 {
   const bUnitCollection *usys = static_cast<const bUnitCollection *>(usys_pt);
   BLI_assert(uint(index) < uint(usys->length));
-  return usys->units[index].scalar;
+  return usys->units[index].scalar.legacy;
 }
 
 bool BKE_unit_is_suppressed(const void *usys_pt, int index)

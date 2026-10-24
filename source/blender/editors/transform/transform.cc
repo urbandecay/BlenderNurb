@@ -78,8 +78,7 @@ bool transdata_check_local_islands(TransInfo *t, short around)
   if (t->options & (CTX_CURSOR | CTX_TEXTURE_SPACE)) {
     return false;
   }
-  return ((around == V3D_AROUND_LOCAL_ORIGINS) &&
-          ELEM(t->obedit_type, OB_MESH, OB_CURVES));
+  return ((around == V3D_AROUND_LOCAL_ORIGINS) && ELEM(t->obedit_type, OB_MESH, OB_CURVES));
 }
 
 /** \} */
@@ -1089,6 +1088,12 @@ wmOperatorStatus transformEvent(TransInfo *t, wmOperator *op, const wmEvent *eve
       case TFM_MODAL_VERT_EDGE_SLIDE:
         /* Only switch when supported. */
         if (!transform_mode_is_changeable(t->mode)) {
+          break;
+        }
+        if (t->data_type == &TransConvertType_Nurbs && event->val != TFM_MODAL_TRANSLATE) {
+          BKE_report(t->reports,
+                     RPT_WARNING,
+                     "Native NURBS rotation and scale adapters are not available yet");
           break;
         }
 
@@ -2200,7 +2205,7 @@ void transformApply(bContext *C, TransInfo *t)
   t->redraw = TREDRAW_NOTHING;
 
   /* If auto confirm is on, break after one pass. */
-  if (t->options & CTX_AUTOCONFIRM) {
+  if ((t->options & CTX_AUTOCONFIRM) && t->state != TRANS_CANCEL) {
     t->state = TRANS_CONFIRM;
   }
 
@@ -2252,8 +2257,7 @@ bool checkUseAxisMatrix(TransInfo *t)
 {
   /* Currently only checks for editmode. */
   if (t->flag & T_EDIT) {
-    if ((t->around == V3D_AROUND_LOCAL_ORIGINS) &&
-        ELEM(t->obedit_type, OB_MESH, OB_CURVES_LEGACY))
+    if ((t->around == V3D_AROUND_LOCAL_ORIGINS) && ELEM(t->obedit_type, OB_MESH, OB_CURVES_LEGACY))
     {
       /* Not all editmode supports axis-matrix. */
       return true;

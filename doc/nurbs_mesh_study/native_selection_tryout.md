@@ -24,9 +24,10 @@ The viewport statistics show source vertices, edges and faces. Display triangles
 are separate. Changing the preview density from 8 to 13 is included in the
 automated click/box test, followed by a saved-file check of actual source IDs.
 
-This tryout covers surface-corner selection in X-Ray. Native geometry transforms,
-extrusion, curve fit-point editing, linked selection and edge/face picking modes
-are still being implemented. Use the supplied file for this native path; the
+This tryout covers surface-corner selection in X-Ray. A limited native G adapter
+is now available; see [the movement tryout](native_movement_tryout.md). Native
+extrusion, curve fit-point editing, linked selection, edge/face picking and broader
+transforms are still being implemented. Use the supplied file for this native path; the
 ordinary Add NURBS commands currently create the existing prototype.
 
 For a Python check that the prepared object uses the new source, inspect

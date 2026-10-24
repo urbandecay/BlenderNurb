@@ -768,10 +768,12 @@ if(WITH_GTESTS)
     intern/nurbs_object_test.cc
     intern/nurbs_selection_test.cc
     intern/nurbs_tessellate_test.cc
+    intern/nurbs_transform_test.cc
     intern/path_templates_test.cc
     intern/scene_test.cc
     intern/subdiv_ccg_test.cc
     intern/tracking_test.cc
+    intern/unit_test.cc
     intern/volume_test.cc
   )
   set(TEST_INC

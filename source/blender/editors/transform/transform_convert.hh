@@ -235,6 +235,13 @@ extern TransConvertTypeInfo TransConvertType_Cursor3D;
 
 extern TransConvertTypeInfo TransConvertType_Curve;
 
+/* `transform_convert_nurbs.cc` */
+
+extern TransConvertTypeInfo TransConvertType_Nurbs;
+void nurbs_translation_init(TransInfo *t, wmOperator *op);
+bool nurbs_translation_replay(TransInfo *t, double3 &r_space, double3 &r_world);
+void nurbs_translation_update(TransInfo *t, const double3 &space, const double3 &world);
+
 /* `transform_convert_curves.cc` */
 
 namespace curves {
@@ -258,7 +265,6 @@ extern TransConvertTypeInfo TransConvertType_Lattice;
 /* `transform_convert_mask.cc` */
 
 extern TransConvertTypeInfo TransConvertType_Mask;
-
 
 /* `transform_convert_mesh.cc` */
 
