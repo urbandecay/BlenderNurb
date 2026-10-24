@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
 #include <cstring>
 #include <limits>
 
@@ -317,6 +318,297 @@ TEST(nurbs_vertex_transform, LooseVertexMovesWithoutTouchingUnownedGeometry)
   std::string error;
   EXPECT_FALSE(translate_vertices(*source, {source->next_id}, {1, 0, 0}, 0, &error).has_value());
   EXPECT_FALSE(error.empty());
+}
+
+static OwnedGeometry trimmed_ruled_fixture(Vector<int64_t> &cap_vertices,
+                                           const bool nonclamped,
+                                           const bool transpose,
+                                           std::string &error)
+{
+  const auto full = make_arc_sheet(false);
+  if (!full) {
+    return nullptr;
+  }
+  const int64_t source_edge = first_transform_item(full->edges).id;
+  auto wire = copy_component_closure(*full, {{}, {&source_edge, 1}, {}}, &error);
+  if (!wire) {
+    return nullptr;
+  }
+  auto &edge = first_transform_item(wire->geometry->edges);
+  auto &curve = first_transform_item(wire->geometry->curves);
+  if (nonclamped) {
+    const double knots[6] = {-2, -1, 0, 1, 2, 3};
+    std::copy_n(knots, 6, curve.knots);
+  }
+  edge.parameter_range[0] = 0.25;
+  edge.parameter_range[1] = 0.75;
+  int end = 0;
+  for (NurbsTopologyVertex &vertex : wire->geometry->vertices) {
+    const auto point = evaluate_curve(curve, edge.parameter_range[end++], &error);
+    if (!point) {
+      return nullptr;
+    }
+    std::copy_n(&point->position.x, 3, vertex.position);
+  }
+  auto sweep = extrude_edges(*wire->geometry, {edge.id}, {0, 0, 1}, 0, &error);
+  if (!sweep) {
+    return nullptr;
+  }
+  for (const NurbsTopologyVertex &vertex : wire->geometry->vertices) {
+    cap_vertices.append(sweep->source_to_cap.lookup(vertex.id));
+  }
+  if (transpose) {
+    auto &surface = first_transform_item(sweep->geometry->surfaces);
+    auto *points = MEM_new_array<NurbsControlPoint>(surface.points_num, __func__);
+    for (int v = 0; v < surface.points_v; v++) {
+      for (int u = 0; u < surface.points_u; u++) {
+        points[v + u * surface.points_v] = surface.points[u + v * surface.points_u];
+      }
+    }
+    MEM_delete(surface.points);
+    surface.points = points;
+    std::swap(surface.points_u, surface.points_v);
+    std::swap(surface.order_u, surface.order_v);
+    std::swap(surface.knots_u, surface.knots_v);
+    std::swap(surface.knots_u_num, surface.knots_v_num);
+    for (NurbsCurveGeometry &pcurve : sweep->geometry->curves) {
+      if (pcurve.dimension == 2) {
+        for (int i = 0; i < pcurve.points_num; i++) {
+          std::swap(pcurve.points[i].position[0], pcurve.points[i].position[1]);
+        }
+      }
+    }
+    for (NurbsTopologyFace &face : sweep->geometry->faces) {
+      face.orientation = -face.orientation;
+      for (NurbsTopologyLoop &loop : face.loops) {
+        BLI_listbase_reverse(&loop.edge_uses);
+        for (NurbsTopologyEdgeUse &use : loop.edge_uses) {
+          use.reversed = !use.reversed;
+        }
+      }
+    }
+  }
+  return std::move(sweep->geometry);
+}
+
+TEST(nurbs_vertex_transform, CompleteTrimmedRuledRowsTranslateInBothAxesAndNonclampedBases)
+{
+  for (const bool nonclamped : {false, true}) {
+    for (const bool transpose : {false, true}) {
+      SCOPED_TRACE(nonclamped);
+      SCOPED_TRACE(transpose);
+      Vector<int64_t> cap;
+      std::string error;
+      const auto source = trimmed_ruled_fixture(cap, nonclamped, transpose, error);
+      ASSERT_NE(source, nullptr) << error;
+      ASSERT_TRUE(geometry_validate_structure(*source, &error)) << error;
+      const auto moved = translate_vertices(*source, cap, {0, 0, 0.125}, 0, &error);
+      ASSERT_TRUE(moved.has_value()) << error;
+      expect_bases_and_ids_unchanged(*source, *moved->geometry);
+      const auto index = TopologyIndex::build(*moved->geometry);
+      ASSERT_TRUE(index.has_value());
+      for (const int64_t id : cap) {
+        EXPECT_EQ(index->vertex(id)->position[2], 1.125);
+      }
+      const auto &before = first_transform_item(source->surfaces);
+      const auto &after = first_transform_item(moved->geometry->surfaces);
+      for (int i = 0; i < before.points_num; i++) {
+        const bool selected_row = transpose ? i % before.points_u == 1 : i / before.points_u == 1;
+        EXPECT_EQ(double3(after.points[i].position),
+                  double3(before.points[i].position) + double3(0, 0, selected_row ? 0.125 : 0));
+      }
+      auto options = preview_options();
+      options.boundary.evaluation_allowance = 1e-12;
+      EXPECT_TRUE(tessellate_surfaces(*moved->geometry, options, &error)) << error;
+    }
+  }
+}
+
+TEST(nurbs_vertex_transform, TrimmedRuledRowsUseExactProjectiveProfilesAndRailComposition)
+{
+  for (const bool extreme : {false, true}) {
+    Vector<int64_t> cap;
+    std::string error;
+    const auto source = trimmed_ruled_fixture(cap, false, false, error);
+    ASSERT_NE(source, nullptr) << error;
+    auto &surface = first_transform_item(source->surfaces);
+    for (int i = 0; i < surface.points_num; i++) {
+      const bool top = i >= surface.points_u;
+      surface.points[i].weight = extreme ? std::ldexp(surface.points[i].weight, top ? 602 : 600) :
+                                           surface.points[i].weight * (top ? 2 : 1);
+    }
+    Map<int64_t, NurbsCurveGeometry *> curves;
+    for (NurbsCurveGeometry &curve : source->curves) {
+      curves.add_new(curve.id, &curve);
+      if (curve.dimension == 3 && curve.order == 2) {
+        curve.points[0].weight = extreme ? std::ldexp(1.0, -600) : 1;
+        curve.points[1].weight = extreme ? std::ldexp(1.0, -598) : 6;
+      }
+    }
+    if (!extreme) {
+      const auto index = TopologyIndex::build(*source);
+      ASSERT_TRUE(index.has_value());
+      for (NurbsTopologyLoop &loop : first_transform_item(source->faces).loops) {
+        for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+          if (curves.lookup(index->edge(use.edge_id)->curve_id)->order == 2) {
+            curves.lookup(use.pcurve_id)->points[1].weight = 3;
+          }
+        }
+      }
+    }
+    const auto moved = translate_vertices(*source, cap, {0, 0, 0.125}, 0, &error);
+    ASSERT_TRUE(moved.has_value()) << error;
+    expect_bases_and_ids_unchanged(*source, *moved->geometry);
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 1e-12;
+    EXPECT_TRUE(tessellate_surfaces(*moved->geometry, options, &error)) << error;
+  }
+}
+
+TEST(nurbs_vertex_transform, TrimmedEndpointAndOneBitRailMismatchAreNotFitted)
+{
+  Vector<int64_t> cap;
+  std::string error;
+  const auto source = trimmed_ruled_fixture(cap, false, false, error);
+  ASSERT_NE(source, nullptr) << error;
+  EXPECT_FALSE(translate_vertices(*source, cap.as_span().take_front(1), {0, 0, 0.125}, 0, &error));
+  EXPECT_FALSE(error.empty());
+  auto *rail = static_cast<NurbsCurveGeometry *>(source->curves.first);
+  while (rail && (rail->dimension != 3 || rail->order != 2)) {
+    rail = rail->next;
+  }
+  ASSERT_NE(rail, nullptr);
+  rail->points[1].weight = std::nextafter(1.0, 2.0);
+  const double stored = rail->points[1].weight;
+  EXPECT_FALSE(translate_vertices(*source, cap, {0, 0, 0.125}, 0, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(rail->points[1].weight, stored);
+  EXPECT_EQ(first_transform_item(source->surfaces).points[3].position[2], 1);
+}
+
+TEST(nurbs_vertex_transform, NonproportionalTrimmedRowsRejectWithoutChangingOwnership)
+{
+  Vector<int64_t> cap;
+  std::string error;
+  const auto source = trimmed_ruled_fixture(cap, false, false, error);
+  ASSERT_NE(source, nullptr) << error;
+  auto &surface = first_transform_item(source->surfaces);
+  const int64_t counter = source->next_id;
+  surface.points[surface.points_u + 1].weight = std::nextafter(
+      surface.points[surface.points_u + 1].weight, 1.0);
+  /* Keep each horizontal curve exactly matched to its own support row. The rejected
+   * correspondence is the non-constant ratio between the two rows' weight profiles. */
+  Map<int64_t, NurbsCurveGeometry *> curves;
+  Map<int64_t, NurbsTopologyVertex *> vertices;
+  for (NurbsCurveGeometry &curve : source->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (NurbsTopologyVertex &vertex : source->vertices) {
+    vertices.add_new(vertex.id, &vertex);
+  }
+  for (NurbsTopologyEdge &edge : source->edges) {
+    auto &curve = *curves.lookup(edge.curve_id);
+    if (curve.order == 3 && curve.points[0].position[2] == 1) {
+      for (int i = 0; i < curve.points_num; i++) {
+        curve.points[i].weight = surface.points[surface.points_u + i].weight;
+      }
+      for (int end = 0; end < 2; end++) {
+        const auto point = evaluate_curve(curve, edge.parameter_range[end], &error);
+        ASSERT_TRUE(point.has_value()) << error;
+        std::copy_n(&point->position.x, 3, vertices.lookup(edge.vertex_ids[end])->position);
+      }
+    }
+  }
+  for (NurbsTopologyEdge &edge : source->edges) {
+    auto &curve = *curves.lookup(edge.curve_id);
+    if (curve.order == 2) {
+      for (int end = 0; end < 2; end++) {
+        std::copy_n(
+            vertices.lookup(edge.vertex_ids[end])->position, 3, curve.points[end].position);
+      }
+    }
+  }
+  EXPECT_FALSE(translate_vertices(*source, cap, {0, 0, 0.125}, 0, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source->next_id, counter);
+  EXPECT_EQ(source->surfaces.count(), 1);
+}
+
+TEST(nurbs_vertex_transform, TrimmedRowSupportOwnersMustRequestTheSameTranslation)
+{
+  Vector<int64_t> cap;
+  std::string error;
+  const auto source = trimmed_ruled_fixture(cap, false, false, error);
+  ASSERT_NE(source, nullptr) << error;
+  const auto &face = first_transform_item(source->faces);
+  const int64_t face_id = face.id;
+  auto copy = copy_component_closure(*source, {{}, {}, {&face_id, 1}}, &error);
+  ASSERT_TRUE(copy.has_value()) << error;
+  first_transform_item(copy->geometry->faces).surface_id = face.surface_id;
+  source->next_id = copy->geometry->next_id;
+  BLI_movelisttolist(&source->curves, &copy->geometry->curves);
+  BLI_movelisttolist(&source->surfaces, &copy->geometry->surfaces);
+  BLI_movelisttolist(&source->vertices, &copy->geometry->vertices);
+  BLI_movelisttolist(&source->edges, &copy->geometry->edges);
+  BLI_movelisttolist(&source->faces, &copy->geometry->faces);
+  EXPECT_FALSE(translate_vertices(*source, cap, {0, 0, 0.125}, 0, &error));
+  EXPECT_NE(error.find("conflicting"), std::string::npos);
+  Vector<int64_t> both = cap;
+  for (const int64_t id : cap) {
+    both.append(copy->source_to_copy.lookup(id));
+  }
+  const auto moved = translate_vertices(*source, both, {0, 0, 0.125}, 0, &error);
+  ASSERT_TRUE(moved.has_value()) << error;
+  const auto &surface = first_transform_item(moved->geometry->surfaces);
+  EXPECT_EQ(surface.points[3].position[2], 1.125);
+  EXPECT_EQ(surface.points[4].position[2], 1.125);
+  EXPECT_EQ(surface.points[5].position[2], 1.125);
+  const auto &unused = *static_cast<const NurbsSurfaceGeometry *>(moved->geometry->surfaces.last);
+  EXPECT_EQ(unused.points[3].position[2], 1);
+}
+
+TEST(nurbs_vertex_transform, RuledBoundaryGapBeyondDeclaredToleranceRejects)
+{
+  Vector<int64_t> cap;
+  std::string error;
+  const auto source = trimmed_ruled_fixture(cap, false, false, error);
+  ASSERT_NE(source, nullptr) << error;
+  auto &surface = first_transform_item(source->surfaces);
+  constexpr double shift = 1.0 / 1024;
+  const double tolerance = shift + 1e-12;
+  for (int i = surface.points_u; i < surface.points_num; i++) {
+    surface.points[i].position[0] += shift;
+  }
+  for (NurbsCurveGeometry &curve : source->curves) {
+    if (curve.dimension != 3) {
+      continue;
+    }
+    if (curve.order == 3 && curve.points[0].position[2] == 1) {
+      for (int i = 0; i < curve.points_num; i++) {
+        curve.points[i].position[0] += shift;
+      }
+    }
+    else if (curve.order == 2) {
+      curve.points[1].position[0] -= shift;
+    }
+  }
+  for (NurbsTopologyVertex &vertex : source->vertices) {
+    vertex.tolerance = tolerance;
+  }
+  for (NurbsTopologyEdge &edge : source->edges) {
+    edge.tolerance = tolerance;
+  }
+  for (NurbsTopologyFace &face : source->faces) {
+    face.tolerance = tolerance;
+    for (NurbsTopologyLoop &loop : face.loops) {
+      for (NurbsTopologyEdgeUse &use : loop.edge_uses) {
+        use.tolerance = tolerance;
+      }
+    }
+  }
+  EXPECT_FALSE(translate_vertices(*source, cap, {0, 0, 0.125}, 0, &error));
+  EXPECT_NE(error.find("support tolerance"), std::string::npos);
+  EXPECT_EQ(surface.points[3].position[2], 1);
 }
 
 }  // namespace blender::bke::nurbs::tests

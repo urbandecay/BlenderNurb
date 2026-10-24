@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 193 C++ kernel/editor/integration tests, a complete Blender build and
+Current verified foundation: 199 C++ kernel/editor/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -30,7 +30,8 @@ is not completion of Stage 1 or completion of the prototype's replacement. Its t
 and extrusion now use kernel candidates, native closure-ID remapping and shared
 region planning, with shortcut/undo regressions. A shared native V/E/F extrusion
 constructor is now implemented, built and tested against BMesh counts and
-orientations; native editor E remains gated on ruled-row transform integration.
+orientations. Complete ruled-row movement on rectangular interior trims is also
+built and tested; native editor E remains gated on operator/undo integration.
 Native Move translates supported source vertex identities through shared BKE services, retaining original snapshots and committing
 with current-state tokens. Every frame starts from original double geometry.
 The movement checkpoint records twenty saved states and eight isolated viewport
@@ -519,3 +520,16 @@ boundary is an interior trim needs a source-basis correspondence rule. Existing
 partial tensor-corner movement does not justify moving a trim endpoint as if it
 were a CV. General fit-point deformation and native normal frames remain separate
 contracts; this constructor does not decide them or certify solid validity.
+
+### Complete ruled rows on interior trims
+
+The source translation kernel now handles the rectangular ruled-row dependency
+identified above. Exact basis/coordinate/projective correspondence binds each
+complete row to its source boundary curves. It supports either linear direction
+and nonclamped/interior trims in the other, proportional row weight profiles,
+and compatible rational rail parameterizations. It rejects partial curved
+endpoints, unproven mappings, shared-owner conflicts and excessive measured gaps.
+Existing tensor-corner movement stays separate. No old CV endpoint assumption,
+fitting or new editor-only geometry path is used. Full verification is now
+199 C++ tests, nine existing viewport regressions and five CTest targets.
+Native E/Delete editor activation and native normal frames remain separate work.

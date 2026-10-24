@@ -6,12 +6,13 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and twelve targeted test executables build;
-**193 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+**199 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
 formatting/conversion regression, autosave and global-undo targets pass. Eight
 updated isolated viewport event tests passed in the native-duplication checkpoint;
 nine now pass after the shared region-construction change. The kernel can extrude
 shared V/E/F closures with boundary-only walls and incidence-based cleanup.
-The native E shortcut remains gated pending ruled-row transform integration.
+The ruled-row transform rule now handles supported rectangular interior trims.
+The native E shortcut remains gated pending editor/undo integration.
 Native Shift+D uses exact closure copying, fresh shared identities, remapped
 selection/history and the existing Move adapter. Eleven saved duplication states
 are checked against actual source geometry, alongside six selection and twenty
@@ -2775,3 +2776,82 @@ interior curve trims through exact basis/parameter correspondence. Individual
 trim-endpoint deformation, general curve fit-point changes and Normal/Gimbal
 orientation remain their existing explicit gates. No ED-only CV approximation
 will stand in for that shared geometry rule. Stage 1 remains incomplete.
+
+## Complete ruled-row translation on rectangular trims — 2026-10-24
+
+The shared vertex-translation service now proves a complete ruled-boundary row
+request from its NURBS parameterization before using the existing coefficient
+request/ownership/budget pipeline. It works in either parameter direction and
+with interior trims or nonclamped bases in the other direction. It does not
+interpret a trim endpoint as the first/last control coefficient.
+
+Admissible faces have one rectangular four-use boundary, a complete clamped
+linear direction with two rows, and exact boundary correspondence. Horizontal
+p-curves preserve the curve parameter; their 3D curves match the support row's
+basis, coefficients and projective weights. Support-row weight profiles must be
+proportional. Rail p-curve weights may compose a rational linear mapping when
+the exact projective products match. The existing exponent/GCD matcher avoids
+intermediate product overflow/underflow and rejects one-bit differences.
+Shared source corners bind rows to topology. All endpoints across each selected
+row must agree on selection, and all owners of a shared resource must request
+the same change. A measured boundary gap above declared tolerance rejects the
+operation. General curved endpoint changes and other trimmed deformations
+remain unsupported; no fitting or basis change is substituted. The prior
+complete-tensor corner rule remains available for its existing cases.
+
+These are exact source-basis correspondence checks plus the existing measured
+endpoint tolerance and coefficient-addition budget. This does not introduce a
+real-number evaluation-error certificate or a general surface/trim validator.
+Weights, knots, p-curves, component IDs and unreferenced resources stay unchanged.
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_transform_test blender --parallel 4
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_transform_test --parallel 4
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_transform_test --gtest_color=no
+```
+
+All builds exit 0; **16/16 transform tests pass**, including six added tests.
+Logs: `/tmp/blender-nurbs-trimmed-row-build.log`, `...-test-build-final.log`,
+`...-build-final.log`, `...-tests-final.log`. The second command refines a test
+fixture so each horizontal curve still matches its row while the two row weight
+profiles differ; rejection cannot pass merely because a horizontal boundary was
+left inconsistent. A cosmetic blank-line change was followed by the final
+application build. No product change followed that build.
+
+Coverage includes both axes, nonclamped bases, interior quarter-arc trims,
+large/small power-of-two weight scales whose naive profile products overflow,
+composed rational rail mappings, single-endpoint rejection, one-bit mismatch,
+nonproportional rows, shared-owner conflict/compatible requests, untouched
+orphan supports, and a gap beyond declared tolerance. Preview checks use an
+explicit evaluation allowance; preview samples do not become editable source.
+
+The twelve-test-target relink repeats the complete list above; log:
+`/tmp/blender-nurbs-trimmed-row-regression-build-final.log`, exit 0.
+
+```sh
+python3 /tmp/blender-nurbs-run-trimmed-row-kernel-checks.py
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+python3 /tmp/blender-nurbs-run-trimmed-row-ui-final.py
+```
+
+**199 C++ tests passed, no skips**; suite counts
+20/30/54/38/9/10/7/4/16/3/4/4 in the same target order. Summary:
+`/tmp/blender-nurbs-trimmed-row-kernel-summary.log`; suite logs:
+`/tmp/blender-nurbs-trimmed-row-{suite}-tests-final.log`.
+Read-only preview/selection/movement/duplication inputs and the geometry asset
+argument are unchanged. Both frozen input hashes remain unchanged.
+**5/5 CTest** targets pass, including 37 NURBS Python cases; log:
+`/tmp/blender-nurbs-trimmed-row-ctest-final.log` (8.90 seconds).
+**9/9 isolated viewport tests** pass with the same IDs/environment as the region
+checkpoint; logs: `/tmp/blender-nurbs-trimmed-row-ui-{label}-final.log`.
+The saved-source validators pass again. No new visual claim is made for the
+new trimmed-row cases; those cases are tested directly through the kernel.
+
+The native E/Delete editor adapters are next. Normal/Gimbal frames, general
+curve fit-point deformation, native creation/migration, edge/face picking and the
+pending hole-linked selection choice retain their explicit gates. This rule
+resolves the complete ruled-row construction dependency; it does not resolve
+those separate contracts or complete Stage 1.

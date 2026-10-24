@@ -42,8 +42,10 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
  * Translate source vertex identities and their incident geometry, preserving shared ownership.
  * Whole edges/supports translate exactly in the NURBS representation. Partial linear edges and
  * complete, clamped tensor faces support corner edits in linear directions and translations of
- * complete boundary rows in ruled directions. Other partial curved/trimmed edits are rejected;
- * no endpoint-only control-coefficient rule or fitting fallback is inferred.
+ * complete boundary rows in ruled directions. Rectangular interior trims admit complete ruled
+ * rows when boundary bases, coefficients and projective parameterization match exactly and the
+ * two support rows have proportional weight profiles. Other partial curved/trimmed edits are
+ * rejected; no endpoint-only control-coefficient rule or fitting fallback is inferred.
  *
  * P-curves, rational weights, bases, identities and unreferenced geometry remain unchanged.
  * Shared geometry resources must receive identical coefficient requests from all their owners.

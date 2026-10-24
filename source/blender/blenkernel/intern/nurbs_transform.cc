@@ -262,6 +262,210 @@ static bool add_request(CoefficientRequests &requests, const int64_t id, Vector<
   return true;
 }
 
+/**
+ * Prove a complete ruled-boundary translation from source parameterization, including rectangular
+ * interior trims. Topology corners identify rows, not control coefficients at trim endpoints.
+ * An unrecognized correspondence leaves the existing tensor-corner rule to the caller.
+ */
+static std::optional<Vector<uint8_t>> ruled_row_request(
+    const NurbsTopologyFace &face,
+    const NurbsSurfaceGeometry &surface,
+    const TopologyIndex &index,
+    const Map<int64_t, const NurbsCurveGeometry *> &curves,
+    const Set<int64_t> &selected,
+    std::string &r_error)
+{
+  if (!face.loops.is_single()) {
+    return std::nullopt;
+  }
+  const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
+  if (loop.is_inner || loop.edge_uses.count() != 4) {
+    return std::nullopt;
+  }
+  const int orders[2] = {surface.order_u, surface.order_v};
+  const int counts[2] = {surface.points_u, surface.points_v};
+  const int knot_counts[2] = {surface.knots_u_num, surface.knots_v_num};
+  const double *knots[2] = {surface.knots_u, surface.knots_v};
+  const int strides[2] = {1, surface.points_u};
+  for (int linear_axis = 0; linear_axis < 2; linear_axis++) {
+    if (orders[linear_axis] != 2 || counts[linear_axis] != 2 ||
+        !clamped_direction(orders[linear_axis], counts[linear_axis], knots[linear_axis]))
+    {
+      continue;
+    }
+    const int curve_axis = 1 - linear_axis;
+    const double low = knots[linear_axis][1], high = knots[linear_axis][2];
+    const NurbsTopologyEdgeUse *rows[2] = {};
+    Vector<const NurbsTopologyEdgeUse *> rails;
+    bool valid = true;
+    for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+      const auto &edge = *index.edge(use.edge_id);
+      const auto &pcurve = *curves.lookup(use.pcurve_id);
+      if (!linear_curve(pcurve, edge.parameter_range[0], edge.parameter_range[1])) {
+        valid = false;
+        break;
+      }
+      const auto &a = pcurve.points[0], &b = pcurve.points[1];
+      if (a.position[linear_axis] == b.position[linear_axis] &&
+          (a.position[linear_axis] == low || a.position[linear_axis] == high))
+      {
+        const int row = a.position[linear_axis] == high;
+        if (rows[row] || a.position[curve_axis] != edge.parameter_range[0] ||
+            b.position[curve_axis] != edge.parameter_range[1] || !(a.weight > 0) ||
+            a.weight != b.weight)
+        {
+          valid = false;
+          break;
+        }
+        rows[row] = &use;
+      }
+      else if (a.position[curve_axis] == b.position[curve_axis] &&
+               ((a.position[linear_axis] == low && b.position[linear_axis] == high) ||
+                (a.position[linear_axis] == high && b.position[linear_axis] == low)))
+      {
+        rails.append(&use);
+      }
+      else {
+        valid = false;
+        break;
+      }
+    }
+    if (!valid || !rows[0] || !rows[1] || rails.size() != 2) {
+      continue;
+    }
+    const auto &first_edge = *index.edge(rows[0]->edge_id);
+    const double curve_low = first_edge.parameter_range[0];
+    const double curve_high = first_edge.parameter_range[1];
+    const auto coefficient = [&](const int row, const int i) -> const NurbsControlPoint & {
+      return surface.points[row * strides[linear_axis] + i * strides[curve_axis]];
+    };
+    const NurbsCurveGeometry *row_curves[2];
+    for (int row = 0; row < 2 && valid; row++) {
+      const auto &edge = *index.edge(rows[row]->edge_id);
+      const auto &curve = *curves.lookup(edge.curve_id);
+      row_curves[row] = &curve;
+      if (edge.parameter_range[0] != curve_low || edge.parameter_range[1] != curve_high ||
+          curve.order != orders[curve_axis] || curve.points_num != counts[curve_axis] ||
+          curve.knots_num != knot_counts[curve_axis] ||
+          !std::equal(curve.knots, curve.knots + curve.knots_num, knots[curve_axis]))
+      {
+        valid = false;
+        break;
+      }
+      for (int i = 0; i < counts[curve_axis]; i++) {
+        if (double3(curve.points[i].position) != double3(coefficient(row, i).position) ||
+            !equal_weight_products({curve.points[i].weight, coefficient(row, 0).weight, 1},
+                                   {coefficient(row, i).weight, curve.points[0].weight, 1}))
+        {
+          valid = false;
+          break;
+        }
+      }
+    }
+    for (int i = 0; i < counts[curve_axis] && valid; i++) {
+      valid = equal_weight_products({coefficient(0, i).weight, coefficient(1, 0).weight, 1},
+                                    {coefficient(1, i).weight, coefficient(0, 0).weight, 1});
+    }
+    if (!valid) {
+      continue;
+    }
+    int64_t corners[4] = {};
+    for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+      const auto &edge = *index.edge(use.edge_id);
+      const auto &pcurve = *curves.lookup(use.pcurve_id);
+      for (int end = 0; end < 2; end++) {
+        const auto &point = pcurve.points[end];
+        if ((point.position[curve_axis] != curve_low &&
+             point.position[curve_axis] != curve_high) ||
+            (point.position[linear_axis] != low && point.position[linear_axis] != high))
+        {
+          valid = false;
+          break;
+        }
+        const int slot = int(point.position[curve_axis] == curve_high) +
+                         2 * int(point.position[linear_axis] == high);
+        if (corners[slot] != 0 && corners[slot] != edge.vertex_ids[end]) {
+          valid = false;
+          break;
+        }
+        corners[slot] = edge.vertex_ids[end];
+      }
+      if (!valid) {
+        break;
+      }
+    }
+    if (!valid || std::any_of(corners, corners + 4, [](int64_t id) { return id == 0; }) ||
+        selected.contains(corners[0]) != selected.contains(corners[1]) ||
+        selected.contains(corners[2]) != selected.contains(corners[3]))
+    {
+      continue;
+    }
+    bool sides[2] = {};
+    for (const NurbsTopologyEdgeUse *use : rails) {
+      const auto &edge = *index.edge(use->edge_id);
+      const auto &curve = *curves.lookup(edge.curve_id);
+      const auto &pcurve = *curves.lookup(use->pcurve_id);
+      if (!linear_curve(curve, edge.parameter_range[0], edge.parameter_range[1])) {
+        valid = false;
+        break;
+      }
+      const int side = pcurve.points[0].position[curve_axis] == curve_high;
+      if (sides[side]) {
+        valid = false;
+        break;
+      }
+      sides[side] = true;
+      const int start_row = pcurve.points[0].position[linear_axis] == high;
+      const int end_row = pcurve.points[1].position[linear_axis] == high;
+      if (!equal_weight_products(
+              {pcurve.points[0].weight, coefficient(start_row, 0).weight, curve.points[1].weight},
+              {pcurve.points[1].weight, coefficient(end_row, 0).weight, curve.points[0].weight}))
+      {
+        valid = false;
+        break;
+      }
+    }
+    if (!valid || !sides[0] || !sides[1]) {
+      continue;
+    }
+    for (const NurbsTopologyEdgeUse *use : rails) {
+      const auto &edge = *index.edge(use->edge_id);
+      const auto &curve = *curves.lookup(edge.curve_id);
+      const auto &pcurve = *curves.lookup(use->pcurve_id);
+      for (int end = 0; end < 2; end++) {
+        const int row = pcurve.points[end].position[linear_axis] == high;
+        const double parameter = pcurve.points[end].position[curve_axis];
+        const auto point = evaluate_curve(*row_curves[row], parameter, &r_error);
+        if (!point) {
+          return std::nullopt;
+        }
+        const auto &horizontal = *index.edge(rows[row]->edge_id);
+        const auto &vertex = *index.vertex(edge.vertex_ids[end]);
+        const double tolerance = std::max({face.tolerance,
+                                           rows[row]->tolerance,
+                                           use->tolerance,
+                                           horizontal.tolerance,
+                                           edge.tolerance,
+                                           vertex.tolerance});
+        const double3 difference = point->position - double3(curve.points[end].position);
+        if (std::hypot(difference.x, difference.y, difference.z) > tolerance) {
+          r_error = "NURBS ruled boundary endpoint disagrees with its support tolerance";
+          return std::nullopt;
+        }
+      }
+    }
+    Vector<uint8_t> request(surface.points_num);
+    for (int row = 0; row < 2; row++) {
+      for (int i = 0; i < counts[curve_axis]; i++) {
+        request[row * strides[linear_axis] + i * strides[curve_axis]] = selected.contains(
+            corners[row * 2]);
+      }
+    }
+    return request;
+  }
+  return std::nullopt;
+}
+
 std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &source,
                                                           const Span<int64_t> vertex_ids,
                                                           const double3 &offset,
@@ -364,89 +568,99 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
       moved_faces.add(face.id);
     }
     if (any && !all) {
-      if (!face.loops.is_single() ||
-          static_cast<const NurbsTopologyLoop *>(face.loops.first)->is_inner ||
-          static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses.count() != 4 ||
-          !clamped_direction(surface.order_u, surface.points_u, surface.knots_u) ||
-          !clamped_direction(surface.order_v, surface.points_v, surface.knots_v))
-      {
-        return fail("Partial NURBS movement currently requires a complete clamped tensor face");
+      std::string row_error;
+      auto ruled = ruled_row_request(face, surface, *index, curves, selected, row_error);
+      if (!row_error.empty()) {
+        return fail(row_error.c_str());
       }
-      const bool linear_u = surface.order_u == 2 && surface.points_u == 2;
-      const bool linear_v = surface.order_v == 2 && surface.points_v == 2;
-      if (!linear_u && !linear_v) {
-        return fail("Partial curved NURBS surface movement requires a deformation rule");
+      if (ruled) {
+        request = std::move(*ruled);
       }
-      const double low[2] = {surface.knots_u[surface.order_u - 1],
-                             surface.knots_v[surface.order_v - 1]};
-      const double high[2] = {surface.knots_u[surface.points_u],
-                              surface.knots_v[surface.points_v]};
-      int64_t corners[4] = {};
-      const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
-      for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
-        const auto &edge = *index->edge(use.edge_id);
-        const auto &pcurve = *curves.lookup(use.pcurve_id);
-        if (!linear_curve(pcurve, edge.parameter_range[0], edge.parameter_range[1])) {
-          return fail("Partial NURBS movement requires complete linear boundary p-curves");
+      else {
+        if (!face.loops.is_single() ||
+            static_cast<const NurbsTopologyLoop *>(face.loops.first)->is_inner ||
+            static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses.count() != 4 ||
+            !clamped_direction(surface.order_u, surface.points_u, surface.knots_u) ||
+            !clamped_direction(surface.order_v, surface.points_v, surface.knots_v))
+        {
+          return fail("Partial NURBS movement currently requires a complete clamped tensor face");
         }
-        int slots[2];
-        for (int end = 0; end < 2; end++) {
-          int slot = 0;
-          for (int axis = 0; axis < 2; axis++) {
-            const double coordinate = pcurve.points[end].position[axis];
-            if (coordinate != low[axis] && coordinate != high[axis]) {
-              return fail("Partial trimmed NURBS face movement requires a deformation rule");
+        const bool linear_u = surface.order_u == 2 && surface.points_u == 2;
+        const bool linear_v = surface.order_v == 2 && surface.points_v == 2;
+        if (!linear_u && !linear_v) {
+          return fail("Partial curved NURBS surface movement requires a deformation rule");
+        }
+        const double low[2] = {surface.knots_u[surface.order_u - 1],
+                               surface.knots_v[surface.order_v - 1]};
+        const double high[2] = {surface.knots_u[surface.points_u],
+                                surface.knots_v[surface.points_v]};
+        int64_t corners[4] = {};
+        const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
+        for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+          const auto &edge = *index->edge(use.edge_id);
+          const auto &pcurve = *curves.lookup(use.pcurve_id);
+          if (!linear_curve(pcurve, edge.parameter_range[0], edge.parameter_range[1])) {
+            return fail("Partial NURBS movement requires complete linear boundary p-curves");
+          }
+          int slots[2];
+          for (int end = 0; end < 2; end++) {
+            int slot = 0;
+            for (int axis = 0; axis < 2; axis++) {
+              const double coordinate = pcurve.points[end].position[axis];
+              if (coordinate != low[axis] && coordinate != high[axis]) {
+                return fail("Partial trimmed NURBS face movement requires a deformation rule");
+              }
+              slot += (coordinate == high[axis]) ? (1 << axis) : 0;
             }
-            slot += (coordinate == high[axis]) ? (1 << axis) : 0;
-          }
-          slots[end] = slot;
-          const auto &vertex = *index->vertex(edge.vertex_ids[end]);
-          if (corners[slot] != 0 && corners[slot] != vertex.id) {
-            return fail("NURBS tensor corner has inconsistent source vertex identity");
-          }
-          corners[slot] = vertex.id;
-          const int coefficient = (slot & 1 ? surface.points_u - 1 : 0) +
-                                  (slot & 2 ? surface.points_u * (surface.points_v - 1) : 0);
-          const double3 difference = double3(surface.points[coefficient].position) -
-                                     double3(vertex.position);
-          const double tolerance = std::max(
-              {face.tolerance, use.tolerance, edge.tolerance, vertex.tolerance});
-          if (std::hypot(difference.x, difference.y, difference.z) > tolerance) {
-            return fail("NURBS support corner disagrees with its source vertex tolerance");
-          }
-        }
-        if ((slots[0] ^ slots[1]) != 1 && (slots[0] ^ slots[1]) != 2) {
-          return fail("NURBS boundary p-curve is not a complete tensor boundary");
-        }
-        if (selected.contains(edge.vertex_ids[0]) != selected.contains(edge.vertex_ids[1])) {
-          const auto &curve = *curves.lookup(edge.curve_id);
-          const auto corner_weight = [&](const int slot) {
+            slots[end] = slot;
+            const auto &vertex = *index->vertex(edge.vertex_ids[end]);
+            if (corners[slot] != 0 && corners[slot] != vertex.id) {
+              return fail("NURBS tensor corner has inconsistent source vertex identity");
+            }
+            corners[slot] = vertex.id;
             const int coefficient = (slot & 1 ? surface.points_u - 1 : 0) +
                                     (slot & 2 ? surface.points_u * (surface.points_v - 1) : 0);
-            return surface.points[coefficient].weight;
-          };
-          if (!equal_weight_products(
-                  {pcurve.points[0].weight, corner_weight(slots[0]), curve.points[1].weight},
-                  {pcurve.points[1].weight, corner_weight(slots[1]), curve.points[0].weight}))
-          {
-            return fail("NURBS boundary rational parameterization does not match its support");
+            const double3 difference = double3(surface.points[coefficient].position) -
+                                       double3(vertex.position);
+            const double tolerance = std::max(
+                {face.tolerance, use.tolerance, edge.tolerance, vertex.tolerance});
+            if (std::hypot(difference.x, difference.y, difference.z) > tolerance) {
+              return fail("NURBS support corner disagrees with its source vertex tolerance");
+            }
+          }
+          if ((slots[0] ^ slots[1]) != 1 && (slots[0] ^ slots[1]) != 2) {
+            return fail("NURBS boundary p-curve is not a complete tensor boundary");
+          }
+          if (selected.contains(edge.vertex_ids[0]) != selected.contains(edge.vertex_ids[1])) {
+            const auto &curve = *curves.lookup(edge.curve_id);
+            const auto corner_weight = [&](const int slot) {
+              const int coefficient = (slot & 1 ? surface.points_u - 1 : 0) +
+                                      (slot & 2 ? surface.points_u * (surface.points_v - 1) : 0);
+              return surface.points[coefficient].weight;
+            };
+            if (!equal_weight_products(
+                    {pcurve.points[0].weight, corner_weight(slots[0]), curve.points[1].weight},
+                    {pcurve.points[1].weight, corner_weight(slots[1]), curve.points[0].weight}))
+            {
+              return fail("NURBS boundary rational parameterization does not match its support");
+            }
           }
         }
-      }
-      if (std::any_of(corners, corners + 4, [](const int64_t id) { return id == 0; })) {
-        return fail("NURBS partial movement needs all four tensor corner associations");
-      }
-      if ((!linear_u && (selected.contains(corners[0]) != selected.contains(corners[1]) ||
-                         selected.contains(corners[2]) != selected.contains(corners[3]))) ||
-          (!linear_v && (selected.contains(corners[0]) != selected.contains(corners[2]) ||
-                         selected.contains(corners[1]) != selected.contains(corners[3]))))
-      {
-        return fail("Move a complete ruled NURBS boundary or define a curved deformation rule");
-      }
-      for (int v = 0; v < surface.points_v; v++) {
-        for (int u = 0; u < surface.points_u; u++) {
-          const int slot = (linear_u ? u : 0) + (linear_v ? 2 * v : 0);
-          request[v * surface.points_u + u] = selected.contains(corners[slot]);
+        if (std::any_of(corners, corners + 4, [](const int64_t id) { return id == 0; })) {
+          return fail("NURBS partial movement needs all four tensor corner associations");
+        }
+        if ((!linear_u && (selected.contains(corners[0]) != selected.contains(corners[1]) ||
+                           selected.contains(corners[2]) != selected.contains(corners[3]))) ||
+            (!linear_v && (selected.contains(corners[0]) != selected.contains(corners[2]) ||
+                           selected.contains(corners[1]) != selected.contains(corners[3]))))
+        {
+          return fail("Move a complete ruled NURBS boundary or define a curved deformation rule");
+        }
+        for (int v = 0; v < surface.points_v; v++) {
+          for (int u = 0; u < surface.points_u; u++) {
+            const int slot = (linear_u ? u : 0) + (linear_v ? 2 * v : 0);
+            request[v * surface.points_u + u] = selected.contains(corners[slot]);
+          }
         }
       }
     }
