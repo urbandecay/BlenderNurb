@@ -1645,6 +1645,7 @@ if(WITH_UI_TESTS)
     test_nurbs_line.line_to_sheet
     test_nurbs_line.face_region_selection_gestures
     test_nurbs_line.duplicate_and_repeat_face_extrusion
+    test_nurbs_line.extrude_delete_top_and_continue
     test_sculpt.asset_shelf_brush_selection
     test_sculpt.face_set_expand
     test_sculpt.face_set_gestures

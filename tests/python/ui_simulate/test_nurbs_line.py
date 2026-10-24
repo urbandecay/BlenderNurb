@@ -197,3 +197,101 @@ def duplicate_and_repeat_face_extrusion():
         bpy.ops.wm.save_as_mainfile(filepath=str(output / 'try-duplicate-extrude.blend'), check_existing=False)
         bpy.ops.screen.screenshot(filepath=str(output / 'duplicate-extrude.png'))
     print('NURBS_DUPLICATE_REGION_UI_ARTIFACTS', output)
+
+
+def extrude_delete_top_and_continue():
+    """Delete the second extrusion's top vertices, then extrude the surviving cube's rim."""
+    from pathlib import Path
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield e.a().x().ret()
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.e().y().text('2').ret()
+    yield e.a()
+    yield e.e().z().text('2').ret()
+    yield e.e().z().text('1').ret()
+
+    def splines():
+        obj = window.view_layer.objects.active
+        obj.update_from_editmode()
+        return obj.data.splines
+
+    t.assertEqual(len(splines()), 10)
+    yield e.x().ret()
+    t.assertEqual(len(splines()), 5)
+    t.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 2) for s in splines()))
+    t.assertEqual(max(point.co.z for s in splines() for point in s.points), 2.0)
+    yield e.ctrl.z()
+    t.assertEqual(len(splines()), 10)
+    yield e.ctrl.shift.z()
+    t.assertEqual(len(splines()), 5)
+    yield e.numpad_1().home()
+    area.spaces.active.shading.show_xray = True
+    yield
+    obj = window.view_layer.objects.active
+    rim = []
+    for position in ((-1, 0, 2), (1, 0, 2)):
+        co = location_3d_to_region_2d(region, area.spaces.active.region_3d,
+                                     obj.matrix_world @ Vector(position))
+        t.assertIsNotNone(co)
+        rim.append((round(co.x) + region.x, round(co.y) + region.y))
+    lower = min(p[0] for p in rim) - 12, min(p[1] for p in rim) - 12
+    upper = max(p[0] for p in rim) + 12, max(p[1] for p in rim) + 12
+    yield e.b()
+    yield from e.leftmouse.cursor_motion((lower, upper))
+    t.assertEqual(sum(point.select for s in splines() for point in s.points), 8)
+    original = [tuple(tuple(point.co) for point in s.points) for s in splines()]
+    yield e.e().z().text('1').ret()
+    t.assertEqual(len(splines()), 9)
+    t.assertEqual([tuple(tuple(point.co) for point in s.points) for s in splines()[:5]], original)
+    t.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 2) for s in splines()))
+    t.assertEqual(max(point.co.z for s in splines() for point in s.points), 3.0)
+    yield e.tab()
+    yield e.numpad_6().numpad_8().home()
+    yield
+    output = Path('/tmp/blender-nurbs-delete-ui')
+    output.mkdir(exist_ok=True)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'try-delete-and-extrude.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / 'delete-and-extrude.png'))
+    print('NURBS_DELETE_UI_ARTIFACTS', output)
+
+    # Deleting opposite corners must retain the other two source vertices, just as mesh deletion.
+    # Exercise their drawing, G, extrusion and undo through actual events as well.
+    yield e.a().x().ret()
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.e().y().text('2').ret()
+    yield e.numpad_7().home()
+    yield e.alt.a()
+    obj = window.view_layer.objects.active
+    for index, position in enumerate(((-1, 0, 0), (1, 2, 0))):
+        co = location_3d_to_region_2d(region, area.spaces.active.region_3d,
+                                     obj.matrix_world @ Vector(position))
+        t.assertIsNotNone(co)
+        yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+        if index == 0:
+            yield e.leftmouse()
+        else:
+            yield e.shift.leftmouse()
+    yield e.x().ret()
+    t.assertEqual(len(splines()), 2)
+    t.assertTrue(all(len(spline.points) == 1 for spline in splines()))
+    yield e.a()
+    yield e.g().x().text('1').ret()
+    t.assertEqual({tuple(spline.points[0].co.xyz) for spline in splines()}, {(2, 0, 0), (0, 2, 0)})
+    yield e.e().z().text('1').ret()
+    t.assertTrue(all(len(spline.points) == 2 for spline in splines()))
+    yield e.ctrl.z()
+    t.assertTrue(all(len(spline.points) == 1 for spline in splines()))
+    yield e.ctrl.shift.z()
+    t.assertTrue(all(len(spline.points) == 2 for spline in splines()))

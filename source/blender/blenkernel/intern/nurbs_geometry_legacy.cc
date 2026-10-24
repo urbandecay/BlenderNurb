@@ -76,7 +76,7 @@ NurbsGeometry *geometry_from_tagged_legacy(const ListBaseT<Nurb> &nurbs,
   Map<int64_t, NurbsTopologyVertex *> vertices;
   Map<int64_t, NurbsTopologyEdge *> edges;
   Map<int64_t, NurbsCurveGeometry *> edge_curves;
-  Set<int64_t> wire_ids, face_edge_ids;
+  Set<int64_t> wire_ids, face_edge_ids, loose_point_ids;
   auto claim_id = [&](const int64_t id, const LegacyIDKind kind) {
     if (id <= 0) {
       return false;
@@ -91,6 +91,36 @@ NurbsGeometry *geometry_from_tagged_legacy(const ListBaseT<Nurb> &nurbs,
 
   /* Reserve every legacy identity before allocating geometry resources or edge uses. */
   for (const Nurb &nurb : nurbs) {
+    if (nurb.type == CU_NURBS && nurb.bp != nullptr && nurb.pntsu == 1 && nurb.pntsv == 1) {
+      if (nurb.topology_face_id != 0 ||
+          std::any_of(nurb.topology_edge_ids,
+                      nurb.topology_edge_ids + 4,
+                      [](const int id) { return id != 0; }) ||
+          nurb.topology_vertex_ids[1] != 0 || nurb.topology_vertex_ids[2] != 0 ||
+          nurb.topology_vertex_ids[3] != 0 ||
+          !claim_id(nurb.topology_vertex_ids[0], LegacyIDKind::Vertex))
+      {
+        return fail("A legacy loose point has unexpected topology identities");
+      }
+      for (const float value : nurb.bp[0].vec) {
+        if (!std::isfinite(value)) {
+          return fail("Legacy loose NURBS point coordinates and weight must be finite");
+        }
+      }
+      const int64_t id = nurb.topology_vertex_ids[0];
+      if (vertices.contains(id)) {
+        return fail("A legacy loose point identity is already owned by another source record");
+      }
+      auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+      vertex->id = id;
+      for (int axis = 0; axis < 3; axis++) {
+        vertex->position[axis] = nurb.bp[0].vec[axis];
+      }
+      vertices.add_new(id, vertex);
+      loose_point_ids.add(id);
+      BLI_addtail(&geometry->vertices, vertex);
+      continue;
+    }
     const bool wire = nurb.pntsv == 1;
     if (nurb.type != CU_NURBS || nurb.bp == nullptr || nurb.pntsu != 2 || nurb.orderu != 2 ||
         !ELEM(nurb.pntsv, 1, 2) || (nurb.flagu & CU_NURB_CYCLIC) ||
@@ -125,7 +155,7 @@ NurbsGeometry *geometry_from_tagged_legacy(const ListBaseT<Nurb> &nurbs,
     const int point_indices[4] = {0, 1, 3, 2};
     for (int corner = 0; corner < (wire ? 2 : 4); corner++) {
       const int64_t id = nurb.topology_vertex_ids[corner];
-      if (!claim_id(id, LegacyIDKind::Vertex)) {
+      if (loose_point_ids.contains(id) || !claim_id(id, LegacyIDKind::Vertex)) {
         return fail("Missing or conflicting legacy vertex identity");
       }
       const BPoint &point = nurb.bp[point_indices[corner]];
@@ -199,6 +229,9 @@ NurbsGeometry *geometry_from_tagged_legacy(const ListBaseT<Nurb> &nurbs,
   };
 
   for (const Nurb &nurb : nurbs) {
+    if (nurb.pntsu == 1 && nurb.pntsv == 1) {
+      continue;
+    }
     if (nurb.pntsv == 1) {
       NurbsTopologyEdge *edge = ensure_edge(nurb.topology_edge_ids[0],
                                             nurb.topology_vertex_ids[0],

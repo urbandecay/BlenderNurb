@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 136 kernel/integration tests, a complete Blender build and
+Current verified foundation: 143 kernel/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -20,6 +20,15 @@ or completion of the prototype's replacement. Its tagged line/patch duplication
 and extrusion now use kernel candidates, native closure-ID remapping and shared
 region planning, with shortcut/undo regressions. Native geometry transforms and
 extrusion remain blocked until their own owner adapters exist.
+
+Component deletion now has a kernel plan with Vertices, Edges, Faces and FacesOnly
+semantics, compared directly with BMesh. The compatibility client applies the
+existing Vertices/Segments commands to shared source incidence, retaining valid
+surviving faces, wires and loose points. It does not collapse control-net rows
+while retaining face IDs. Known redundant patch remnants from the older deletion
+path have a checked recovery candidate and an explicit report; ambiguous
+declarations or differing geometry are not welded or fitted. This is a
+compatibility repair, not activation of native-owner deletion or general fitting.
 
 ## Decision
 

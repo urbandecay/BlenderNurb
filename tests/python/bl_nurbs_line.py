@@ -476,17 +476,93 @@ class NurbsLineTest(unittest.TestCase):
         self.assertFalse(any(all(point.co.z == 3.0 for point in spline.points)
                              for spline in ob.data.splines))
 
-    def test_unsupported_duplicate_reports_and_preserves_selection(self):
+    def test_single_vertex_duplicate_is_independent_and_can_extend(self):
         ob = self.add_line()
         bpy.ops.object.mode_set(mode='EDIT')
         ob.data.splines[0].points[1].select = False
         before = self.coordinates(ob.data.splines[0])
-        selected = [point.select for point in ob.data.splines[0].points]
-        with self.assertRaisesRegex(RuntimeError, 'isolated NURBS topology vertices'):
-            bpy.ops.curve.duplicate()
-        self.assertEqual(len(ob.data.splines), 1)
+        bpy.ops.curve.duplicate_move(TRANSFORM_OT_translate={'value': (0.0, 1.0, 0.0)})
+        self.assertEqual(len(ob.data.splines), 2)
         self.assertEqual(self.coordinates(ob.data.splines[0]), before)
-        self.assertEqual([point.select for point in ob.data.splines[0].points], selected)
+        self.assertEqual(ob.data.splines[1].point_count_u, 1)
+        self.assertEqual(tuple(ob.data.splines[1].points[0].co), (-1.0, 1.0, 0.0, 1.0))
+        self.extrude_selected((0.0, 1.0, 0.0))
+        self.assertEqual(len(ob.data.splines), 2)
+        self.assertEqual(self.coordinates(ob.data.splines[0]), before)
+        self.assertEqual({point.co.y for point in ob.data.splines[1].points}, {1.0, 2.0})
+
+    def make_twice_extruded_cube(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        self.extrude_selected((0.0, 0.0, 2.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 10)
+        bpy.ops.object.mode_set(mode='EDIT')
+        return ob
+
+    def test_delete_top_vertices_then_extrude_surviving_cube_rim(self):
+        ob = self.make_twice_extruded_cube()
+        self.assertEqual(bpy.ops.curve.delete(type='VERT'), {'FINISHED'})
+        ob.update_from_editmode()
+        self.assertEqual(len(ob.data.splines), 5)
+        self.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 2) for s in ob.data.splines))
+        self.assertEqual(max(point.co.z for s in ob.data.splines for point in s.points), 2.0)
+        original = [self.coordinates(spline) for spline in ob.data.splines]
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = point.co.z == 2.0
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 9)
+        self.assertEqual([self.coordinates(spline) for spline in ob.data.splines[:5]], original)
+        self.assert_sheet_area(ob)
+
+    def test_delete_top_segments_keeps_valid_source_wires(self):
+        ob = self.make_twice_extruded_cube()
+        self.assertEqual(bpy.ops.curve.delete(type='SEGMENT'), {'FINISHED'})
+        ob.update_from_editmode()
+        self.assertEqual(sum(s.point_count_v == 2 for s in ob.data.splines), 5)
+        self.assertEqual(sum(s.point_count_v == 1 for s in ob.data.splines), 4)
+        bpy.ops.curve.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.curve.duplicate(), {'FINISHED'})
+        bpy.ops.transform.translate(value=(4.0, 0.0, 0.0))
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertEqual(len(ob.data.splines), 18)
+
+    def test_delete_opposite_corners_keeps_two_editable_source_points(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        for i, point in enumerate(ob.data.splines[0].points):
+            point.select = i in {0, 3}
+        self.assertEqual(bpy.ops.curve.delete(type='VERT'), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertEqual(len(ob.data.splines), 2)
+        self.assertTrue(all(len(spline.points) == 1 for spline in ob.data.splines))
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 2)
+        self.assertTrue(all(len(spline.points) == 2 for spline in ob.data.splines))
+
+    def test_delete_reload_then_continue_extrusion(self):
+        ob = self.make_twice_extruded_cube()
+        name = ob.name
+        bpy.ops.curve.delete(type='VERT')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'nurbs_after_top_delete.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+            ob = bpy.data.objects[name]
+            bpy.ops.object.mode_set(mode='EDIT')
+            for spline in ob.data.splines:
+                for point in spline.points:
+                    point.select = point.co.z == 2.0
+            self.extrude_selected((0.0, 0.0, 1.0))
+            self.assertEqual(len(ob.data.splines), 9)
 
     def test_duplicate_save_reload_keeps_copy_independent_for_extrusion(self):
         ob = self.add_line()

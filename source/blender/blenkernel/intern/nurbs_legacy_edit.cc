@@ -7,6 +7,7 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <utility>
 
@@ -19,13 +20,16 @@
 #include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_nurbs_selection.hh"
+#include "BKE_nurbs_topology.hh"
 
 namespace blender::bke::nurbs {
 
 LegacyTopologyEdit::LegacyTopologyEdit(LegacyTopologyEdit &&other) noexcept
     : added(std::exchange(other.added, {nullptr, nullptr})),
       removed_faces(std::move(other.removed_faces)),
-      removed_wires(std::move(other.removed_wires))
+      removed_wires(std::move(other.removed_wires)),
+      removed_points(std::move(other.removed_points)),
+      recovered_patch_remnants(std::exchange(other.recovered_patch_remnants, 0))
 {
 }
 
@@ -36,7 +40,8 @@ LegacyTopologyEdit::~LegacyTopologyEdit()
 
 static bool is_tagged(const Nurb &nurb)
 {
-  return nurb.topology_face_id != 0 || nurb.topology_edge_ids[0] != 0;
+  return nurb.topology_face_id != 0 || nurb.topology_edge_ids[0] != 0 ||
+         nurb.topology_vertex_ids[0] != 0;
 }
 
 static bool has_selected_points(const Nurb &nurb)
@@ -84,6 +89,95 @@ struct LegacyEdgeSource {
   const float *knots;
 };
 
+/**
+ * Older surface deletion collapsed a patch to two points without changing its patch IDs. Only
+ * discard such an invalid record when ONE of its declared edge IDs is already owned by an intact
+ * face and its exact line geometry/attributes match that edge. Coordinates validate an existing
+ * identity; they never create a connection, choose an undeclared edge or weld separate sources.
+ */
+static Map<const Nurb *, std::array<int, 2>> recover_redundant_patch_aliases(
+    const ListBaseT<Nurb> &source)
+{
+  Map<const Nurb *, std::array<int, 2>> result;
+  constexpr int starts[4] = {0, 1, 2, 0};
+  constexpr int ends[4] = {1, 3, 3, 2};
+  constexpr int vertex_starts[4] = {0, 1, 3, 0};
+  constexpr int vertex_ends[4] = {1, 2, 2, 3};
+  auto same_point = [](const BPoint &a, const BPoint &b) {
+    return std::equal(a.vec, a.vec + 4, b.vec) && a.radius == b.radius && a.tilt == b.tilt &&
+           a.weight == b.weight && a.hide == b.hide && (a.f1 & ~SELECT) == (b.f1 & ~SELECT);
+  };
+  for (const Nurb &remnant : source) {
+    if (remnant.type != CU_NURBS || remnant.bp == nullptr || remnant.pntsu != 2 ||
+        remnant.pntsv != 1 || remnant.orderu != 2 || remnant.knotsu == nullptr ||
+        (remnant.flagu & CU_NURB_CYCLIC) || remnant.topology_face_id <= 0 ||
+        std::any_of(remnant.topology_vertex_ids,
+                    remnant.topology_vertex_ids + 4,
+                    [](const int id) { return id <= 0; }) ||
+        std::any_of(remnant.topology_edge_ids,
+                    remnant.topology_edge_ids + 4,
+                    [](const int id) { return id <= 0; }) ||
+        Set<int>(Span(remnant.topology_vertex_ids, 4)).size() != 4 ||
+        Set<int>(Span(remnant.topology_edge_ids, 4)).size() != 4)
+    {
+      continue;
+    }
+    int surviving_slot = -1;
+    bool ambiguous = false, geometry_verified = false;
+    for (const Nurb &face : source) {
+      if (face.type != CU_NURBS || face.bp == nullptr || face.pntsu != 2 || face.pntsv != 2 ||
+          face.orderu != 2 || face.orderv != 2 || face.knotsu == nullptr ||
+          face.knotsv == nullptr || face.topology_face_id <= 0)
+      {
+        continue;
+      }
+      if (face.topology_face_id == remnant.topology_face_id) {
+        ambiguous = true;
+      }
+      for (int edge = 0; edge < 4; edge++) {
+        const int id = face.topology_edge_ids[edge];
+        const int *declared = std::find(
+            remnant.topology_edge_ids, remnant.topology_edge_ids + 4, id);
+        if (id <= 0 || declared == remnant.topology_edge_ids + 4) {
+          continue;
+        }
+        const int slot = int(declared - remnant.topology_edge_ids);
+        const int expected_a = remnant.topology_vertex_ids[vertex_starts[slot]];
+        const int expected_b = remnant.topology_vertex_ids[vertex_ends[slot]];
+        const int a = face.topology_vertex_ids[vertex_starts[edge]];
+        const int b = face.topology_vertex_ids[vertex_ends[edge]];
+        const bool forward = expected_a == a && expected_b == b;
+        if ((!forward && !(expected_a == b && expected_b == a)) ||
+            (surviving_slot != -1 && surviving_slot != slot))
+        {
+          ambiguous = true;
+        }
+        surviving_slot = slot;
+        /* IDs choose the surviving edge, its old row/column and endpoint order. Exact geometry
+         * only validates that choice; it cannot select between multiple surviving declarations. */
+        if (face.hide != remnant.hide || face.mat_nr != remnant.mat_nr ||
+            face.flag != remnant.flag)
+        {
+          continue;
+        }
+        const float *knots = edge % 2 == 0 ? face.knotsu : face.knotsv;
+        if (std::equal(knots, knots + 4, remnant.knotsu) &&
+            same_point(remnant.bp[0], face.bp[forward ? starts[edge] : ends[edge]]) &&
+            same_point(remnant.bp[1], face.bp[forward ? ends[edge] : starts[edge]]))
+        {
+          geometry_verified = true;
+        }
+      }
+    }
+    if (!ambiguous && geometry_verified && surviving_slot != -1) {
+      result.add_new(&remnant,
+                     {remnant.topology_vertex_ids[vertex_starts[surviving_slot]],
+                      remnant.topology_vertex_ids[vertex_ends[surviving_slot]]});
+    }
+  }
+  return result;
+}
+
 /** Temporary source correspondence; never becomes an editable geometry authority. */
 struct LegacyTopologySource {
   OwnedGeometry geometry;
@@ -92,6 +186,7 @@ struct LegacyTopologySource {
   Map<int64_t, LegacyEdgeSource> edges;
   Map<int64_t, const BPoint *> vertices;
   Map<int64_t, const Nurb *> vertex_splines;
+  Vector<int> recovered_faces;
 
   static std::optional<LegacyTopologySource> create(const ListBaseT<Nurb> &source,
                                                     std::string *r_error)
@@ -106,7 +201,11 @@ struct LegacyTopologySource {
       return std::nullopt;
     };
     LegacyTopologyEdit tagged;
+    const auto recovered = recover_redundant_patch_aliases(source);
     for (const Nurb &nurb : source) {
+      if (recovered.contains(&nurb)) {
+        continue;
+      }
       if (is_tagged(nurb)) {
         BLI_addtail(&tagged.added, BKE_nurb_duplicate(&nurb));
       }
@@ -119,9 +218,23 @@ struct LegacyTopologySource {
     if (!result.geometry) {
       return std::nullopt;
     }
+    for (const Nurb &nurb : source) {
+      int64_t highest = nurb.topology_face_id;
+      for (int i = 0; i < 4; i++) {
+        highest = std::max(highest, int64_t(nurb.topology_vertex_ids[i]));
+        highest = std::max(highest, int64_t(nurb.topology_edge_ids[i]));
+      }
+      result.geometry->next_id = std::max(result.geometry->next_id, highest + 1);
+      if (recovered.contains(&nurb)) {
+        result.recovered_faces.append(nurb.topology_face_id);
+      }
+    }
     /* Import supports a wider knot domain than this compatibility constructor. End interpolation
      * is necessary to create walls directly from endpoint coefficients without fitting. */
     for (const Nurb &nurb : tagged.added) {
+      if (nurb.pntsu == 1 && nurb.pntsv == 1) {
+        continue;
+      }
       if (nurb.knotsu[0] != nurb.knotsu[1] || nurb.knotsu[2] != nurb.knotsu[3] ||
           (nurb.pntsv == 2 &&
            (nurb.knotsv[0] != nurb.knotsv[1] || nurb.knotsv[2] != nurb.knotsv[3])))
@@ -135,11 +248,19 @@ struct LegacyTopologySource {
     constexpr int starts[4] = {0, 1, 2, 0};
     constexpr int ends[4] = {1, 3, 3, 2};
     for (const Nurb &nurb : source) {
+      if (const std::array<int, 2> *vertices = recovered.lookup_ptr(&nurb)) {
+        for (int i = 0; i < 2; i++) {
+          if (!nurb.hide && !nurb.bp[i].hide && (nurb.bp[i].f1 & SELECT)) {
+            hits.append((*vertices)[i]);
+          }
+        }
+        continue;
+      }
       if (!is_tagged(nurb)) {
         continue;
       }
       bool visible_face = !nurb.hide;
-      for (int corner = 0; corner < (nurb.pntsv == 1 ? 2 : 4); corner++) {
+      for (int corner = 0; corner < (nurb.pntsv == 1 ? nurb.pntsu : 4); corner++) {
         const BPoint &point = nurb.bp[corners[corner]];
         const int64_t id = nurb.topology_vertex_ids[corner];
         result.vertices.add(id, &point);
@@ -155,7 +276,7 @@ struct LegacyTopologySource {
           visible_faces.add(nurb.topology_face_id);
         }
       }
-      for (int edge = 0; edge < (nurb.pntsv == 1 ? 1 : 4); edge++) {
+      for (int edge = 0; edge < (nurb.pntsv == 1 ? nurb.pntsu - 1 : 4); edge++) {
         const int64_t id = nurb.topology_edge_ids[edge];
         result.edges.add(
             id, {&nurb, starts[edge], ends[edge], edge % 2 == 0 ? nurb.knotsu : nurb.knotsv});
@@ -205,7 +326,13 @@ static Nurb *make_line(const LegacyEdgeSource &source)
   line->orderv = 2;
   line->flagu = line->flagv = CU_NURB_ENDPOINT;
   line->knotsu = MEM_new_array_uninitialized<float>(4, __func__);
-  std::copy_n(source.knots, 4, line->knotsu);
+  if (source.knots != nullptr) {
+    std::copy_n(source.knots, 4, line->knotsu);
+  }
+  else {
+    line->knotsu[0] = line->knotsu[1] = 0;
+    line->knotsu[2] = line->knotsu[3] = 1;
+  }
   line->bp[0] = source.nurb->bp[source.start];
   line->bp[1] = source.nurb->bp[source.end];
   line->bp[0].hide = line->bp[1].hide = 0;
@@ -214,6 +341,23 @@ static Nurb *make_line(const LegacyEdgeSource &source)
   std::fill_n(line->topology_edge_ids, 4, 0);
   select_all_points(*line, true);
   return line;
+}
+
+static Nurb *make_point(const Nurb &parent, const BPoint &point, const int id)
+{
+  Nurb *result = BKE_nurb_duplicate(&parent);
+  MEM_delete(result->bp);
+  MEM_SAFE_DELETE(result->knotsu);
+  MEM_SAFE_DELETE(result->knotsv);
+  result->bp = MEM_new<BPoint>(__func__, point);
+  result->pntsu = result->pntsv = 1;
+  result->orderu = result->orderv = 1;
+  result->hide = result->bp[0].hide = 0;
+  result->topology_face_id = 0;
+  std::fill_n(result->topology_edge_ids, 4, 0);
+  std::fill_n(result->topology_vertex_ids, 4, 0);
+  result->topology_vertex_ids[0] = id;
+  return result;
 }
 
 static ComponentSelection component_selection(const SelectionState &source,
@@ -248,6 +392,8 @@ std::optional<LegacyTopologyEdit> legacy_topology_duplicate(const ListBaseT<Nurb
   }
   Set<int64_t> face_edges, edge_vertices;
   LegacyTopologyEdit result;
+  result.removed_faces = input->recovered_faces;
+  result.recovered_patch_remnants = input->recovered_faces.size();
   for (const NurbsTopologyFace &face : input->geometry->faces) {
     if (!input->selection.faces.contains(face.id)) {
       continue;
@@ -276,10 +422,11 @@ std::optional<LegacyTopologyEdit> legacy_topology_duplicate(const ListBaseT<Nurb
   }
   for (const int64_t id : vertices) {
     if (!edge_vertices.contains(id)) {
-      if (r_error != nullptr) {
-        *r_error = "Duplicating isolated NURBS topology vertices is not supported yet";
-      }
-      return std::nullopt;
+      Nurb *point = make_point(*input->vertex_splines.lookup(id),
+                               *input->vertices.lookup(id),
+                               int(copy->source_to_copy.lookup(id)));
+      point->bp[0].f1 |= SELECT;
+      BLI_addtail(&result.added, point);
     }
   }
   return result;
@@ -312,6 +459,8 @@ std::optional<LegacyTopologyEdit> legacy_topology_extrude(const ListBaseT<Nurb> 
   }
   int next_id = int(cap->geometry->next_id);
   LegacyTopologyEdit result;
+  result.removed_faces = input->recovered_faces;
+  result.recovered_patch_remnants = input->recovered_faces.size();
   Set<int64_t> boundary_edges, covered_vertices;
   if (!faces.is_empty()) {
     const auto plan = plan_face_region_extrusion(*input->geometry, faces, r_error);
@@ -420,9 +569,13 @@ std::optional<LegacyTopologyEdit> legacy_topology_extrude(const ListBaseT<Nurb> 
     }
     /* A selected endpoint extends to a line, with one new source vertex and edge identity. */
     const BPoint &point = *input->vertices.lookup(id);
+    if (point.vec[3] == 0) {
+      return fail("Extending a loose NURBS point requires a nonzero curve weight");
+    }
     const Nurb &parent = *input->vertex_splines.lookup(id);
     const int point_index = int(&point - parent.bp);
-    const LegacyEdgeSource source_point = {&parent, point_index, point_index, parent.knotsu};
+    const LegacyEdgeSource source_point = {
+        &parent, point_index, point_index, parent.pntsu == 1 ? nullptr : parent.knotsu};
     Nurb *line = make_line(source_point);
     line->bp[0] = line->bp[1] = point;
     line->bp[0].hide = line->bp[1].hide = 0;
@@ -432,8 +585,83 @@ std::optional<LegacyTopologyEdit> legacy_topology_extrude(const ListBaseT<Nurb> 
     line->topology_vertex_ids[1] = int(cap->source_to_copy.lookup(id));
     line->topology_edge_ids[0] = next_id++;
     BLI_addtail(&result.added, line);
+    if (parent.pntsu == 1 && parent.pntsv == 1) {
+      result.removed_points.append(int(id));
+    }
   }
   /* A wire becomes the source boundary of a wall; don't retain a second stored edge owner. */
+  return result;
+}
+
+std::optional<LegacyTopologyEdit> legacy_topology_delete(const ListBaseT<Nurb> &source,
+                                                         const DeleteMode mode,
+                                                         std::string *r_error)
+{
+  auto input = LegacyTopologySource::create(source, r_error);
+  if (!input) {
+    return std::nullopt;
+  }
+  Vector<int64_t> vertices, edges, faces;
+  const auto plan = plan_component_deletion(
+      *input->geometry,
+      component_selection(input->selection, vertices, edges, faces),
+      mode,
+      r_error);
+  if (!plan) {
+    return std::nullopt;
+  }
+  const auto index = TopologyIndex::build(*input->geometry);
+  LegacyTopologyEdit result;
+  result.removed_faces = input->recovered_faces;
+  result.recovered_patch_remnants = input->recovered_faces.size();
+  for (const int64_t id : plan->faces) {
+    result.removed_faces.append(int(id));
+  }
+  for (const Nurb &nurb : source) {
+    if (nurb.pntsv != 1 || !is_tagged(nurb)) {
+      continue;
+    }
+    if (nurb.pntsu == 2 && plan->edges.contains(nurb.topology_edge_ids[0])) {
+      result.removed_wires.append(nurb.topology_edge_ids[0]);
+    }
+    else if (nurb.pntsu == 1 && plan->vertices.contains(nurb.topology_vertex_ids[0])) {
+      result.removed_points.append(nurb.topology_vertex_ids[0]);
+    }
+  }
+  for (const NurbsTopologyEdge &edge : input->geometry->edges) {
+    const Span<EdgeUseReference> uses = index->uses_for_edge(edge.id);
+    if (plan->edges.contains(edge.id) || uses.is_empty() ||
+        std::any_of(uses.begin(), uses.end(), [&](const EdgeUseReference &use) {
+          return !plan->faces.contains(use.face_id);
+        }))
+    {
+      continue;
+    }
+    Nurb *wire = make_line(input->edges.lookup(edge.id));
+    wire->topology_edge_ids[0] = int(edge.id);
+    wire->topology_vertex_ids[0] = int(edge.vertex_ids[0]);
+    wire->topology_vertex_ids[1] = int(edge.vertex_ids[1]);
+    select_all_points(*wire, false);
+    BLI_addtail(&result.added, wire);
+  }
+  for (const NurbsTopologyVertex &vertex : input->geometry->vertices) {
+    if (plan->vertices.contains(vertex.id)) {
+      continue;
+    }
+    const Span<int64_t> incident_edges = index->edges_for_vertex(vertex.id);
+    if (incident_edges.is_empty() ||
+        std::any_of(incident_edges.begin(), incident_edges.end(), [&](const int64_t id) {
+          return !plan->edges.contains(id);
+        }))
+    {
+      continue;
+    }
+    Nurb *point = make_point(*input->vertex_splines.lookup(vertex.id),
+                             *input->vertices.lookup(vertex.id),
+                             int(vertex.id));
+    select_all_points(*point, false);
+    BLI_addtail(&result.added, point);
+  }
   return result;
 }
 

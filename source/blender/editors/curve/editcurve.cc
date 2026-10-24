@@ -48,6 +48,7 @@
 #include "BKE_modifier.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_legacy_edit.hh"
+#include "BKE_nurbs_topology.hh"
 #include "BKE_object_types.hh"
 #include "BKE_report.hh"
 
@@ -2202,14 +2203,18 @@ bool ed_editnurb_extrude_flag(EditNurb *editnurb, const eBezTriple_Flag flag)
 }
 
 /** Apply a fully prepared kernel compatibility edit, retaining untouched source pointers. */
-static void nurbs_topology_edit_apply(Curve &curve, bke::nurbs::LegacyTopologyEdit &edit)
+static void nurbs_topology_edit_apply(Curve &curve,
+                                      bke::nurbs::LegacyTopologyEdit &edit,
+                                      ReportList *reports)
 {
   EditNurb &editnurb = *curve.editnurb;
   for (Nurb *nurb = static_cast<Nurb *>(editnurb.nurbs.first); nurb != nullptr;) {
     Nurb *next = nurb->next;
     const bool remove = edit.removed_faces.contains(nurb->topology_face_id) ||
                         (nurb->pntsv == 1 &&
-                         edit.removed_wires.contains(nurb->topology_edge_ids[0]));
+                         edit.removed_wires.contains(nurb->topology_edge_ids[0])) ||
+                        (nurb->pntsu == 1 && nurb->pntsv == 1 &&
+                         edit.removed_points.contains(nurb->topology_vertex_ids[0]));
     if (remove) {
       keyIndex_delNurb(&editnurb, nurb);
       BLI_remlink(&editnurb.nurbs, nurb);
@@ -2224,9 +2229,15 @@ static void nurbs_topology_edit_apply(Curve &curve, bke::nurbs::LegacyTopologyEd
     }
     nurb = next;
   }
-  curve.actnu = editnurb.nurbs.count();
+  curve.actnu = edit.added.is_empty() ? CU_ACT_NONE : editnurb.nurbs.count();
   curve.actvert = CU_ACT_NONE;
   BLI_movelisttolist(&editnurb.nurbs, &edit.added);
+  if (edit.recovered_patch_remnants != 0) {
+    BKE_reportf(reports,
+                RPT_INFO,
+                "Recovered %d redundant patch remnants left by legacy NURBS deletion",
+                edit.recovered_patch_remnants);
+  }
 }
 
 static void calc_duplicate_actnurb(const ListBaseT<Nurb> *editnurb,
@@ -5908,7 +5919,7 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
         std::string error;
         auto edit = bke::nurbs::legacy_topology_extrude(editnurb->nurbs, &error);
         if (edit) {
-          nurbs_topology_edit_apply(*cu, *edit);
+          nurbs_topology_edit_apply(*cu, *edit, op->reports);
           changed = true;
         }
         else if (!error.empty()) {
@@ -6160,7 +6171,7 @@ static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
         BKE_report(op->reports, RPT_ERROR, error.c_str());
         continue;
       }
-      nurbs_topology_edit_apply(*cu, *edit);
+      nurbs_topology_edit_apply(*cu, *edit, op->reports);
       changed = true;
       DEG_id_tag_update(&cu->id, ID_RECALC_GEOMETRY | ID_RECALC_SELECT);
       WM_event_add_notifier(C, NC_GEOM | ND_DATA, &cu->id);
@@ -6672,7 +6683,27 @@ static wmOperatorStatus curve_delete_exec(bContext *C, wmOperator *op)
       continue;
     }
 
-    if (type == CURVE_VERTEX) {
+    if (bke::nurbs::legacy_topology_selection_check(cu->editnurb->nurbs)) {
+      if (cu->key != nullptr) {
+        BKE_report(
+            op->reports, RPT_ERROR, "NURBS topology deletion does not support shape keys yet");
+        continue;
+      }
+      const bke::nurbs::DeleteMode mode = type == CURVE_VERTEX ? bke::nurbs::DeleteMode::Vertices :
+                                                                 bke::nurbs::DeleteMode::Edges;
+      std::string error;
+      auto edit = bke::nurbs::legacy_topology_delete(cu->editnurb->nurbs, mode, &error);
+      if (!edit) {
+        BKE_report(op->reports, RPT_ERROR, error.c_str());
+        continue;
+      }
+      changed = !edit->removed_faces.is_empty() || !edit->removed_wires.is_empty() ||
+                !edit->removed_points.is_empty();
+      if (changed) {
+        nurbs_topology_edit_apply(*cu, *edit, op->reports);
+      }
+    }
+    else if (type == CURVE_VERTEX) {
       changed = curve_delete_vertices(obedit, v3d);
     }
     else if (type == CURVE_SEGMENT) {

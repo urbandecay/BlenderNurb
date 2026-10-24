@@ -19,6 +19,7 @@
 #include "BKE_curve_topology.hh"
 #include "BKE_nurbs_geometry.hh"
 #include "BKE_nurbs_legacy_edit.hh"
+#include "BKE_nurbs_topology.hh"
 
 #include "testing/testing.h"
 
@@ -480,15 +481,21 @@ TEST(nurbs_legacy_edit, SharedEdgeSelectionUsesOneIdentityRegardlessOfSelectedCo
   EXPECT_EQ(std::memcmp(first.bp, second.bp, 4 * sizeof(BPoint)), 0);
 }
 
-TEST(nurbs_legacy_edit, InvalidIdentityAndUnsupportedSelectionFailWithoutSourceMutation)
+TEST(nurbs_legacy_edit, LooseVertexDuplicationAndInvalidIdentityAreAtomic)
 {
   LegacyFixture source;
   Nurb &wire = source.add_wire();
   wire.bp[1].f1 = 0;
   const std::array<BPoint, 2> original = {wire.bp[0], wire.bp[1]};
   std::string error;
-  EXPECT_FALSE(legacy_topology_duplicate(source.nurbs, &error).has_value());
-  EXPECT_FALSE(error.empty());
+  auto copy = legacy_topology_duplicate(source.nurbs, &error);
+  ASSERT_TRUE(copy.has_value()) << error;
+  ASSERT_EQ(copy->added.count(), 1);
+  const auto &point = *static_cast<const Nurb *>(copy->added.first);
+  EXPECT_EQ(point.pntsu, 1);
+  EXPECT_EQ(point.pntsv, 1);
+  EXPECT_EQ(point.topology_edge_ids[0], 0);
+  EXPECT_NE(point.topology_vertex_ids[0], wire.topology_vertex_ids[0]);
   EXPECT_EQ(std::memcmp(original.data(), wire.bp, 2 * sizeof(BPoint)), 0);
   wire.topology_vertex_ids[0] = 0;
   EXPECT_FALSE(legacy_topology_extrude(source.nurbs, &error).has_value());
@@ -513,6 +520,165 @@ TEST(nurbs_legacy_edit, SharedCornerPositionSyncPreservesEachSupportsRationalWei
   for (int i = 0; i < 4; i++) {
     EXPECT_EQ(b.bp[i].vec[3], weights[i]);
   }
+}
+
+TEST(nurbs_legacy_edit, VertexDeletionKeepsSurvivingEdgeAsOneValidWire)
+{
+  LegacyFixture source;
+  Nurb &face = source.add_patch(false);
+  face.bp[0].f1 = face.bp[1].f1 = 0;
+  std::string error;
+  auto edit = legacy_topology_delete(source.nurbs, DeleteMode::Vertices, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  ASSERT_EQ(edit->removed_faces.size(), 1);
+  EXPECT_EQ(edit->removed_faces[0], face.topology_face_id);
+  ASSERT_EQ(edit->added.count(), 1);
+  const auto &wire = *static_cast<const Nurb *>(edit->added.first);
+  EXPECT_EQ(wire.pntsv, 1);
+  EXPECT_EQ(wire.topology_face_id, 0);
+  EXPECT_EQ(wire.topology_edge_ids[0], face.topology_edge_ids[0]);
+  EXPECT_EQ(wire.topology_edge_ids[1], 0);
+  EXPECT_EQ(wire.topology_vertex_ids[2], 0);
+  OwnedGeometry geometry(geometry_from_tagged_legacy(edit->added, nullptr, &error));
+  ASSERT_NE(geometry, nullptr) << error;
+  EXPECT_EQ(geometry->vertices.count(), 2);
+  EXPECT_EQ(geometry->edges.count(), 1);
+  EXPECT_TRUE(geometry->faces.is_empty());
+  EXPECT_EQ(source.nurbs.count(), 1);
+  EXPECT_EQ(face.pntsv, 2);
+}
+
+TEST(nurbs_legacy_edit, VertexDeletionPreservesDisconnectedLoosePoints)
+{
+  LegacyFixture source;
+  Nurb &face = source.add_patch(false);
+  face.bp[1].f1 = face.bp[2].f1 = 0;
+  std::string error;
+  auto edit = legacy_topology_delete(source.nurbs, DeleteMode::Vertices, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  ASSERT_EQ(edit->added.count(), 2);
+  for (const Nurb &point : edit->added) {
+    EXPECT_EQ(point.pntsu, 1);
+    EXPECT_EQ(point.pntsv, 1);
+    EXPECT_EQ(point.topology_edge_ids[0], 0);
+    EXPECT_EQ(point.topology_face_id, 0);
+  }
+  OwnedGeometry geometry(geometry_from_tagged_legacy(edit->added, nullptr, &error));
+  ASSERT_NE(geometry, nullptr) << error;
+  EXPECT_EQ(geometry->vertices.count(), 2);
+  EXPECT_TRUE(geometry->edges.is_empty());
+  EXPECT_TRUE(geometry->faces.is_empty());
+  auto *point = static_cast<Nurb *>(edit->added.first);
+  point->bp[0].f1 |= SELECT;
+  auto extend = legacy_topology_extrude(edit->added, &error);
+  ASSERT_TRUE(extend.has_value()) << error;
+  EXPECT_EQ(extend->added.count(), 1);
+  ASSERT_EQ(extend->removed_points.size(), 1);
+  EXPECT_EQ(extend->removed_points[0], point->topology_vertex_ids[0]);
+  point->bp[0].vec[3] = 0;
+  EXPECT_FALSE(legacy_topology_extrude(edit->added, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(point->bp[0].vec[3], 0);
+}
+
+TEST(nurbs_legacy_edit, FacesOnlyDeletionRetainsTheSharedBoundarySource)
+{
+  LegacyFixture source;
+  Nurb &face = source.add_patch(false);
+  std::string error;
+  auto edit = legacy_topology_delete(source.nurbs, DeleteMode::FacesOnly, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  ASSERT_EQ(edit->removed_faces.size(), 1);
+  EXPECT_EQ(edit->removed_faces[0], face.topology_face_id);
+  EXPECT_EQ(edit->added.count(), 4);
+  OwnedGeometry geometry(geometry_from_tagged_legacy(edit->added, nullptr, &error));
+  ASSERT_NE(geometry, nullptr) << error;
+  EXPECT_EQ(geometry->vertices.count(), 4);
+  EXPECT_EQ(geometry->edges.count(), 4);
+  EXPECT_TRUE(geometry->faces.is_empty());
+}
+
+static Nurb &add_collapsed_patch_alias(LegacyFixture &source, const Nurb &face)
+{
+  Nurb &alias = source.add_wire();
+  alias.topology_face_id = 200;
+  const int vertices[4] = {face.topology_vertex_ids[0], face.topology_vertex_ids[1], 501, 502};
+  const int edges[4] = {face.topology_edge_ids[0], 503, 504, 505};
+  std::copy_n(vertices, 4, alias.topology_vertex_ids);
+  std::copy_n(edges, 4, alias.topology_edge_ids);
+  alias.bp[0] = face.bp[0];
+  alias.bp[1] = face.bp[1];
+  std::copy_n(face.knotsu, 4, alias.knotsu);
+  alias.mat_nr = face.mat_nr;
+  alias.flag = face.flag;
+  return alias;
+}
+
+TEST(nurbs_legacy_edit, KnownCollapsedPatchAliasRecoversOnlyItsDeclaredExistingEdge)
+{
+  LegacyFixture source;
+  Nurb &face = source.add_patch(false);
+  Nurb &alias = add_collapsed_patch_alias(source, face);
+  std::string error;
+  /* Keep the low-level importer strict; recovery belongs to the checked compatibility adapter. */
+  OwnedGeometry invalid(geometry_from_tagged_legacy(source.nurbs, nullptr, &error));
+  EXPECT_EQ(invalid, nullptr);
+  auto edit = legacy_topology_extrude(source.nurbs, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  EXPECT_EQ(edit->recovered_patch_remnants, 1);
+  EXPECT_TRUE(edit->removed_faces.contains(alias.topology_face_id));
+  EXPECT_EQ(edit->added.count(), 5);
+  const auto &cap = *static_cast<const Nurb *>(edit->added.first);
+  EXPECT_GT(cap.topology_face_id, 505);
+  EXPECT_EQ(source.nurbs.count(), 2);
+  EXPECT_EQ(alias.pntsv, 1);
+  EXPECT_EQ(alias.topology_face_id, 200);
+}
+
+TEST(nurbs_legacy_edit, CoincidenceWithoutDeclaredIdentityDoesNotRecoverMalformedPatch)
+{
+  LegacyFixture source;
+  Nurb &face = source.add_patch(false);
+  Nurb &alias = add_collapsed_patch_alias(source, face);
+  alias.topology_edge_ids[0] = 999;
+  std::string error;
+  EXPECT_FALSE(legacy_topology_extrude(source.nurbs, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source.nurbs.count(), 2);
+  EXPECT_EQ(alias.topology_face_id, 200);
+  EXPECT_EQ(alias.topology_edge_ids[0], 999);
+  alias.topology_edge_ids[0] = face.topology_edge_ids[0];
+  alias.topology_vertex_ids[0] = 1234;
+  EXPECT_FALSE(legacy_topology_extrude(source.nurbs, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  alias.topology_vertex_ids[0] = face.topology_vertex_ids[0];
+  /* Periodic source geometry must not be discarded as a collapsed open patch alias. */
+  alias.topology_edge_ids[0] = face.topology_edge_ids[0];
+  alias.flagu |= CU_NURB_CYCLIC;
+  MEM_delete(alias.knotsu);
+  alias.knotsu = MEM_new_array_uninitialized<float>(5, __func__);
+  std::copy_n(face.knotsu, 4, alias.knotsu);
+  alias.knotsu[4] = face.knotsu[3] + 1;
+  EXPECT_FALSE(legacy_topology_extrude(source.nurbs, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source.nurbs.count(), 2);
+}
+
+TEST(nurbs_legacy_edit, AmbiguousCollapsedPatchDoesNotGuessACanonicalIdentity)
+{
+  LegacyFixture source;
+  Nurb &face = source.add_patch(false);
+  for (int i = 0; i < 4; i++) {
+    std::fill_n(face.bp[i].vec, 3, 0);
+    face.bp[i].vec[3] = 1;
+  }
+  Nurb &alias = add_collapsed_patch_alias(source, face);
+  alias.topology_edge_ids[1] = face.topology_edge_ids[1];
+  alias.topology_vertex_ids[2] = face.topology_vertex_ids[2];
+  std::string error;
+  EXPECT_FALSE(legacy_topology_extrude(source.nurbs, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source.nurbs.count(), 2);
 }
 
 }  // namespace blender::bke::nurbs::tests

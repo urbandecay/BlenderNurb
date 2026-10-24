@@ -4,6 +4,7 @@
 
 #include "BKE_gtest_base.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_topology.hh"
 
 #include "bmesh.hh"
 
@@ -532,6 +533,87 @@ TEST_F(NurbsSelectionTest, RegionPlanRejectsUnknownIDsAndAmbiguousSelectedNonMan
   EXPECT_FALSE(error.empty());
   EXPECT_EQ(third->geometry->next_id, counter);
   EXPECT_EQ(third->geometry->faces.count(), 3);
+}
+
+TEST_F(NurbsSelectionTest, ComponentDeletionPlansMatchActualBMeshDeletion)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto adjacent = extrude_edges(*sheet, {first_item(sheet->edges).id}, {0, 0, 2}, 0);
+  ASSERT_TRUE(adjacent.has_value());
+  for (const NurbsGeometry *source : {sheet.get(), adjacent->geometry.get()}) {
+    for (const DeleteMode mode :
+         {DeleteMode::Vertices, DeleteMode::Edges, DeleteMode::Faces, DeleteMode::FacesOnly})
+    {
+      Vector<int64_t> domain;
+      if (mode == DeleteMode::Vertices) {
+        for (const NurbsTopologyVertex &vertex : source->vertices) {
+          domain.append(vertex.id);
+        }
+      }
+      else if (mode == DeleteMode::Edges) {
+        for (const NurbsTopologyEdge &edge : source->edges) {
+          domain.append(edge.id);
+        }
+      }
+      else {
+        for (const NurbsTopologyFace &face : source->faces) {
+          domain.append(face.id);
+        }
+      }
+      for (uint64_t mask = 1; mask < (uint64_t(1) << domain.size()); mask++) {
+        SCOPED_TRACE(mask);
+        SCOPED_TRACE(int(mode));
+        Vector<int64_t> ids;
+        for (const int i : domain.index_range()) {
+          if (mask & (uint64_t(1) << i)) {
+            ids.append(domain[i]);
+          }
+        }
+        ComponentSelection selection;
+        const int context = mode == DeleteMode::Vertices ? DEL_VERTS :
+                            mode == DeleteMode::Edges    ? DEL_EDGES :
+                            mode == DeleteMode::Faces    ? DEL_FACES :
+                                                           DEL_ONLYFACES;
+        MeshReference reference(*source);
+        if (mode == DeleteMode::Vertices) {
+          selection.vertices = ids;
+          for (const int64_t id : ids) {
+            BM_elem_flag_enable(reference.vertices.lookup(id), BM_ELEM_TAG);
+          }
+        }
+        else if (mode == DeleteMode::Edges) {
+          selection.edges = ids;
+          for (const int64_t id : ids) {
+            BM_elem_flag_enable(reference.edges.lookup(id), BM_ELEM_TAG);
+          }
+        }
+        else {
+          selection.faces = ids;
+          for (const int64_t id : ids) {
+            BM_elem_flag_enable(reference.faces.lookup(id), BM_ELEM_TAG);
+          }
+        }
+        std::string error;
+        const auto plan = plan_component_deletion(*source, selection, mode, &error);
+        ASSERT_TRUE(plan.has_value()) << error;
+        BMOperator operation;
+        BMO_op_init(reference.mesh.get(), &operation, BMO_FLAG_DEFAULTS, "delete");
+        BMO_slot_int_set(operation.slots_in, "context", context);
+        BMO_slot_buffer_from_enabled_hflag(reference.mesh.get(),
+                                           &operation,
+                                           operation.slots_in,
+                                           "geom",
+                                           BM_VERT | BM_EDGE | BM_FACE,
+                                           BM_ELEM_TAG);
+        BMO_op_exec(reference.mesh.get(), &operation);
+        EXPECT_EQ(reference.mesh->totvert, source->vertices.count() - plan->vertices.size());
+        EXPECT_EQ(reference.mesh->totedge, source->edges.count() - plan->edges.size());
+        EXPECT_EQ(reference.mesh->totface, source->faces.count() - plan->faces.size());
+        BMO_op_finish(reference.mesh.get(), &operation);
+      }
+    }
+  }
 }
 
 }  // namespace blender::bke::nurbs::tests

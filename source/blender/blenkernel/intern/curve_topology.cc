@@ -20,6 +20,10 @@ static int nurb_topology_vertex_point_indices_get(const Nurb &nurb, int r_indice
     return 0;
   }
 
+  if (nurb.pntsu == 1 && nurb.pntsv == 1 && nurb.topology_vertex_ids[0] > 0) {
+    r_indices[0] = 0;
+    return 1;
+  }
   if (nurb.pntsu == 2 && nurb.pntsv == 1) {
     r_indices[0] = 0;
     r_indices[1] = 1;

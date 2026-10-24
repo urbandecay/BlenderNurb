@@ -6,10 +6,10 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and eight targeted native test executables
-build; **136 kernel/integration tests**, **33 NURBS Python tests**, and the
-existing autosave and global-undo CTest targets pass. Six isolated viewport event
-tests pass: native selection, prototype line/region/duplicate-extrude, mesh undo
-and font undo.
+build; **143 kernel/integration tests**, **37 NURBS Python tests**, and the
+existing autosave and global-undo CTest targets pass. Seven isolated viewport event
+tests pass: native selection, prototype line/region/duplicate-extrude/delete,
+mesh undo and font undo. Final results are recorded in the deletion checkpoint below.
 Native surface topology-vertex selection now works through standard Edit Mode,
 click, box, Select All, viewport Ctrl-Z/redo and save/re-entry. Saved-file checks
 verify identical click/box component IDs and unchanged NURBS geometry. The actual
@@ -17,13 +17,17 @@ native selection screenshot has been visually inspected, as have earlier
 sheet/hole/cylinder captures. Tagged prototype duplication now gets fresh IDs;
 shared-edge extrusion is deduplicated and attached face extrusion removes old
 caps. Those changes use kernel preparation, selection and region services.
+Deletion now follows shared component incidence instead of shrinking patch rows;
+loose edges/points survive. The reported delete-then-extrude failure is reproduced
+and has a tested prevention/recovery path.
 Native extrusion and Edit Mode geometry
 transforms are blocked until their adapters exist. Stage 1 remains incomplete.
 Exact commands, earlier failed attempts and limits follow; historical checkpoint
 sections describe the state at that time. See the final checkpoint below and
 [selection tryout](native_selection_tryout.md) and
-[duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md) for the two
-current supported paths. The user's exact failing file/sequence is still unknown.
+[duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md) for the current
+supported paths. See also the [delete/continue tryout](prototype_deletion_tryout.md).
+The user's deletion sequence is reproduced; their exact working file was not supplied.
 
 `/home/molotovgirl/Desktop/build_blender_5.2.2` is a symlink to `build_linux`;
 these are two names for the same build, not independent comparison binaries.
@@ -1841,3 +1845,208 @@ picking and source-orientation/solid validation remain separate work. Existing
 files already damaged by reused prototype IDs may be rejected as inconsistent;
 this change does not silently weld or repair them. These results do not promote
 the complete native editing system or establish Stage 1 completion.
+
+## Delete, then continue editing: reported failure and repair
+
+The user supplied the exact error **"A legacy line has unexpected patch identities"**
+after making a cube, extruding its top again, deleting the new top and attempting
+further extrusion. Reproduced before rebuilding with this command, **exit 1**:
+
+```sh
+/home/molotovgirl/Desktop/build_linux/bin/blender --background --factory-startup \
+  --python-exit-code 1 --python-expr '
+import bpy
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.curve.primitive_nurbs_curve_add(enter_editmode=True)
+bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={"value": (0, 2, 0)})
+bpy.ops.curve.select_all(action="SELECT")
+bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={"value": (0, 0, 2)})
+bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={"value": (0, 0, 1)})
+obj = bpy.context.object
+obj.update_from_editmode()
+print("BEFORE_DELETE", len(obj.data.splines))
+bpy.ops.curve.delete(type="VERT")
+obj.update_from_editmode()
+print("AFTER_DELETE", [(s.point_count_u, s.point_count_v) for s in obj.data.splines])
+bpy.ops.curve.select_all(action="SELECT")
+print("EXTRUDE_AFTER_DELETE", bpy.ops.curve.extrude())'
+```
+
+Log: `/tmp/blender-nurbs-delete-baseline.log`. Source inspection confirmed the
+cause: `ed_surf_delete_selected` shrank four upper wall patches to two-point
+lines but retained their face, four edge and four corner IDs. After deletion
+there were five intact lower faces and four invalid collapsed records. The
+strict importer correctly rejected them; disabling validation would hide the
+inconsistent source.
+
+### Shared topology and compatibility implementation
+
+Added `BKE_nurbs_topology.hh` / `intern/nurbs_topology.cc` with
+`plan_component_deletion`, using `TopologyIndex`. Vertices remove incident edges
+and faces; Edges remove incident faces and newly loose edge endpoints; Faces
+remove dependencies unused by surviving geometry; FacesOnly retains boundaries.
+Existing unrelated loose geometry survives. These rules were checked against
+`bmesh/intern/bmesh_delete.cc`, then actual BMesh deletion in the tests.
+
+The compatibility client prepares removals and surviving loose edge/point source
+records. It preserves IDs and NURBS coefficients instead of shrinking tensor
+supports into invalid records. ED applies the candidate through the existing
+shared adapter, clears removed animation indices and notifies Blender. Existing
+Vertices/Segments commands use the corresponding kernel modes; the additional
+face modes are kernel capabilities, not a claim that native face selection or
+native deletion UI is activated.
+
+Added standalone point support to the tagged importer and source selection/
+position helpers. This is needed to preserve the unselected vertices when, for
+example, deleting opposite corners of a quad. Those source points can be copied,
+moved and extended into valid lines. Their IDs remain independent. Extending a
+point with a zero curve weight reports an error without changing the source.
+Mixed selected tagged/untagged geometry and tagged shape-key mutations retain
+their explicit limitations.
+
+The compatibility adapter also handles one narrow existing-file failure case.
+A malformed two-point former patch must name exactly **one surviving declared
+edge**, with endpoint IDs matching its original quad edge slot. Those IDs and
+the old row/column layout determine endpoint order. Exact coefficients, rational
+weights, knots and point/material/visibility attributes then validate that
+existing identity. Geometry cannot choose between multiple surviving declarations
+or introduce a new connection. Periodic, conflicting or differing records are
+not recovered. The strict importer still rejects the malformed input on its own.
+Successful ED application reports the number of redundant remnants removed.
+
+An actual broken `.blend` was saved with the pre-fix executable:
+`/tmp/blender-nurbs-delete-broken.blend`, SHA-256
+`ea596ec1bfb326190b98fc54557cded623681d6269c3504f68ba06167b81362d`.
+Log: `/tmp/blender-nurbs-delete-export-broken.log`. Its rim at Z=2 was selected.
+The repaired build reopened it in a fresh process, reported **4 recovered
+remnants**, completed E+Z1 and produced **9 valid two-by-two patches**, with
+maximum Z=3. It saved to `/tmp/blender-nurbs-delete-recovered.blend`; the broken
+input file's hash remained unchanged. Final log:
+`/tmp/blender-nurbs-delete-recover-strict-final.log`.
+
+```sh
+/home/molotovgirl/Desktop/build_linux/bin/blender --background --factory-startup \
+  /tmp/blender-nurbs-delete-broken.blend --python-exit-code 1 --python-expr '
+import bpy
+obj = bpy.context.object
+assert len(obj.data.splines) == 9
+bpy.ops.object.mode_set(mode="EDIT")
+print("RECOVER_EXTRUDE", bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={"value": (0, 0, 1)}))
+bpy.ops.object.mode_set(mode="OBJECT")
+assert len(obj.data.splines) == 9
+assert all(s.point_count_u == 2 and s.point_count_v == 2 for s in obj.data.splines)
+assert max(p.co.z for s in obj.data.splines for p in s.points) == 3
+bpy.ops.wm.save_as_mainfile(filepath="/tmp/blender-nurbs-delete-recovered.blend")
+print("RECOVERED_SAVED_OLD_DELETE_SOURCE", len(obj.data.splines))'
+```
+
+### Build and verification
+
+Initial compile-only checking found a missing list iterator include in the new
+topology source; added `BLI_listbase.h` before the build. The other changed
+implementation files passed syntax checking. Initial and intermediate complete
+builds passed. Later review made alias recovery stricter: surviving declarations
+must choose one edge before any geometry comparison, and IDs choose endpoint
+order. Added tests for contradictory IDs, multiple surviving edges and periodic
+records. No runtime regression failed during this checkpoint.
+
+Final build, **exit 0**:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_geometry_legacy_test blender blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_differential_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_mesh_test blenkernel_nurbs_object_test --parallel 4
+```
+
+Log: `/tmp/blender-nurbs-delete-build-strict-recovery.log`, no compiler warnings/
+errors. Earlier successful build logs: `/tmp/blender-nurbs-delete-build.log`,
+`/tmp/blender-nurbs-delete-build-final.log`, `/tmp/blender-nurbs-delete-build-reviewed.log`.
+The binary reports base commit `5bcbce446488`; these are subsequent source edits.
+
+Final eight kernel/integration suites, **all exit 0**, using the same executable
+commands and geometry asset argument as the preceding checkpoint:
+
+```sh
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_geometry_legacy_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_selection_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_geometry_test \
+  --test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files'
+env BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-edit-ui \
+  /home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_differential_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_tessellate_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_mesh_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_object_test
+```
+
+**20 + 17 + 44 + 32 + 9 + 10 + 7 + 4 = 143 passed**, no skips. The seven new
+tests cover deletion boundary/loose-point ownership, FacesOnly wire retention,
+checked existing-file recovery and rejection of undeclared/ambiguous recovery.
+The planner test performs **228 direct BMesh deletion comparisons**, covering
+every nonempty vertex, edge and face subset of single/shared quads in four modes.
+Logs: `/tmp/blender-nurbs-delete-strict-{geometry_legacy,selection,geometry,edit,differential,tessellate,mesh,object}-tests.log`.
+
+```sh
+ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|blendfile_autosave|global_undo)$'
+```
+
+**4/4 targets passed**, including **35 editing + 2 old-file cases = 37 NURBS
+Python tests**, 6.41 seconds. Log: `/tmp/blender-nurbs-delete-strict-ctest.log`.
+Cases include the exact repeated-extrusion/delete/rim-extrusion sequence,
+segment deletion, loose point retention/extension and delete/save/reload/edit.
+
+Seven isolated viewport processes passed, using the existing headless runner
+and portable Weston paths. Exact new case command:
+
+```sh
+nice -n 10 env BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender \
+  WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston \
+  WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland \
+  WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston \
+  python3 tests/utils/blender_headless.py --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py -- \
+  --tests test_nurbs_line.extrude_delete_top_and_continue
+```
+
+Other test IDs: `test_nurbs_line.duplicate_and_repeat_face_extrusion`,
+`test_nurbs_line.line_to_sheet`, `test_nurbs_line.face_region_selection_gestures`,
+`test_nurbs_native.vertex_selection_and_lifecycle`,
+`test_undo.view3d_mesh_edit_separate`, `test_undo.view3d_font_edit_mode_simple`.
+Native case environment adds the unchanged baseline preview fixture and
+`BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-delete-native-ui-strict`.
+Logs: `/tmp/blender-nurbs-delete-strict-ui-{delete,duplicate,line,region,native,mesh-undo,font-undo}.log`.
+The new case uses actual X, undo/redo, box selection and E, and then draws/moves/
+extrudes loose points in a second scene. Earlier complete pre-review reruns are
+retained in `/tmp/blender-nurbs-delete-*-tests-final.log` and
+`/tmp/blender-nurbs-delete-ui-*-final.log`.
+
+The fresh native viewport files were also read by the C++ source-ID/geometry
+validator, **1/1 passed, exit 0** (a repeat of an existing test, not test 144):
+
+```sh
+env BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-delete-native-ui-strict \
+  /home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test \
+  --gtest_filter='*ViewportFixtureFilesPreserveSelectedSourceIDsAndGeometry'
+```
+
+Log: `/tmp/blender-nurbs-delete-strict-saved-native-source.log`.
+`git diff --check` passes. The original broken fixture and native preview fixture
+hashes remain unchanged.
+
+**Visually confirmed:** inspected the actual screenshot at
+`/tmp/blender-nurbs-delete-ui/delete-and-extrude.png`. It shows the surviving
+lower body and the new open-rim extrusion. The complete kernel/application
+assertions establish its source identity and validity separately from the image.
+The supplied file is `/tmp/blender-nurbs-delete-ui/try-delete-and-extrude.blend`;
+see [the deletion tryout](prototype_deletion_tryout.md).
+
+This fixes the reported tagged-prototype failure and supplies reusable deletion
+planning for the native system. It does not activate native-owner G/D/E/deletion,
+general curved fit-point editing or arbitrary legacy-source repair. Native
+movement work is preserved separately while this blocking user reproduction is
+handled, and resumes after this checkpoint.

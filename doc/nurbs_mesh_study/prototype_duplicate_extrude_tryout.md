@@ -31,8 +31,9 @@ coefficients remain the source. Kernel services now supply fresh copy identities
 selection normalization and face-region boundary/replacement planning. Native
 source geometry movement/extrusion and general curved fit-point editing remain
 separate integration work; the native selection tryout still has those commands
-blocked. Unsupported mixed selections or isolated-point duplication report an
-error without changing the source. This does not add general face editing to
+blocked. Unsupported mixed selections report an error without changing the source.
+Loose point duplication and extension are now supported by the deletion checkpoint;
+see the [delete/continue tryout](prototype_deletion_tryout.md). This does not add general face editing to
 older untagged higher-order NURBS surfaces.
 
 Exact commands and results are in [the checkout audit](current_checkout_audit.md).

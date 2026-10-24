@@ -74,11 +74,11 @@ struct LegacyGeometryMap {
 };
 
 /**
- * Build a geometry-only candidate from the tagged two-point/two-by-two prototype. Preserve
- * explicit component IDs and source coefficients/knots; never infer identity from coordinates.
- * Unsupported or inconsistent input fails atomically, leaving the input and output map unchanged.
- * The caller owns the result. This does not activate a new owner, migrate attributes/selection,
- * or create fit-point editing constraints.
+ * Build a geometry-only candidate from tagged loose points, two-point lines and two-by-two
+ * patches. Preserve explicit component IDs and source coefficients/knots; never infer identity
+ * from coordinates. Unsupported or inconsistent input fails atomically, leaving the input and
+ * output map unchanged. The caller owns the result. This does not activate a new owner, migrate
+ * attributes/selection, or create fit-point editing constraints.
  */
 NurbsGeometry *geometry_from_tagged_legacy(const ListBaseT<Nurb> &nurbs,
                                            LegacyGeometryMap *r_map = nullptr,

@@ -226,6 +226,7 @@ set(SRC
   intern/nurbs_mesh.cc
   intern/nurbs_selection.cc
   intern/nurbs_tessellate.cc
+  intern/nurbs_topology.cc
   intern/nurbs_transform.cc
   intern/object.cc
   intern/object_deform.cc
@@ -466,6 +467,7 @@ set(SRC
   BKE_nurbs_mesh.hh
   BKE_nurbs_selection.hh
   BKE_nurbs_tessellate.hh
+  BKE_nurbs_topology.hh
   BKE_nurbs_transform.hh
   BKE_object.hh
   BKE_object_deform.h
