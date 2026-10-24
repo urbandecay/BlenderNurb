@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 165 C++ kernel/editor/integration tests, a complete Blender build and
+Current verified foundation: 166 C++ kernel/editor/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -17,17 +17,17 @@ topology-vertex overlays, X-Ray click/box selection, Select All and viewport
 selection undo/redo are now built and tested; an actual screenshot has been
 inspected. Fit-point editing, linked selection, edge/face picking and broader modal
 geometry transforms still gate broader editing. Native Move now has a tested
-source adapter, precise numeric input/units and editable decimal F9 values. This is not completion of Stage 1
-or completion of the prototype's replacement. Its tagged line/patch duplication
+source adapter, precise numeric input/units and editable decimal F9 values. This
+is not completion of Stage 1 or completion of the prototype's replacement. Its tagged line/patch duplication
 and extrusion now use kernel candidates, native closure-ID remapping and shared
-region planning, with shortcut/undo regressions. Native extrusion remains blocked. Native Move translates supported source vertex
-identities through shared BKE services, retaining original snapshots and committing
+region planning, with shortcut/undo regressions. Native extrusion remains blocked.
+Native Move translates supported source vertex identities through shared BKE services, retaining original snapshots and committing
 with current-state tokens. Every frame starts from original double geometry.
 Twenty saved movement states, eight isolated viewport regressions and the
-unit/autosave/undo application checks pass. Native Normal/Gimbal orientation and
-active-element pivot integration remain explicit gates; default-pivot movement is
-the tested path. General curved deformation, snapping, proportional editing,
-multiple owners and R/S are not activated.
+unit/autosave/undo application checks pass. Native Normal/Gimbal orientation
+remains an explicit gate. Active-vertex center lookup is now source-aware and tested through cursor-to-active and Active Element
+G/cancel, with the existing float UI boundary retained. General curved deformation,
+snapping, proportional editing, multiple owners and R/S are not activated.
 
 Component deletion now has a kernel plan with Vertices, Edges, Faces and FacesOnly
 semantics, compared directly with BMesh. The compatibility client applies the
@@ -468,10 +468,10 @@ The user was also asked about F9 precision controls; exact decimal fields were
 the stated interim choice while a broader numeric-control change remains open.
 
 Source orientation rules need their own integration. The old Normal/Gimbal path
-reads legacy curve points, so native movement rejects those choices. Active-center
-lookup still goes through the legacy curve helper and is the next source-identity
-integration task. Neither limitation is evidence that native geometry should be
-replaced by mesh geometry. Complete affine services already exist; R/S interaction,
+reads legacy curve points, so native movement rejects those choices. Active-vertex
+center lookup now uses the live native read lease and topology ID through the shared Curve editor query; cursor-to-active and Active Element G/cancel
+are tested. Edge/face centers remain part of their future mode/picking gates.
+Complete affine services already exist; R/S interaction,
 partial curved deformation and fit constraints require their own tested contracts.
 
 See [the movement tryout](native_movement_tryout.md) and the last checkpoint in

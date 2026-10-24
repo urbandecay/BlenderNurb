@@ -6,6 +6,9 @@
  * \ingroup edcurve
  */
 
+#include <cmath>
+#include <limits>
+
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 
@@ -14,6 +17,7 @@
 
 #include "BKE_curve.hh"
 #include "BKE_layer.hh"
+#include "BKE_nurbs_edit.hh"
 
 #include "ED_curve.hh"
 #include "ED_view3d.hh"
@@ -216,6 +220,41 @@ void ED_curve_nurb_vert_selected_find(
 
 bool ED_curve_active_center(Curve *cu, float center[3])
 {
+  if (cu->nurbs_geometry != nullptr ||
+      (cu->editnurb != nullptr && cu->editnurb->nurbs_edit != nullptr))
+  {
+    if (cu->editnurb == nullptr || cu->editnurb->nurbs_edit == nullptr) {
+      return false;
+    }
+    const auto source = cu->editnurb->nurbs_edit->read_snapshot();
+    const auto &selection = source.selection();
+    if (!selection.active || selection.active->domain != bke::nurbs::ElementDomain::Vertex ||
+        !selection.vertices.contains(selection.active->id))
+    {
+      return false;
+    }
+    const auto index = bke::nurbs::TopologyIndex::build(source.geometry());
+    if (!index) {
+      return false;
+    }
+    const auto *vertex = index->vertex(selection.active->id);
+    if (vertex == nullptr) {
+      return false;
+    }
+    float position[3];
+    for (int axis = 0; axis < 3; axis++) {
+      if (!std::isfinite(vertex->position[axis]) ||
+          std::abs(vertex->position[axis]) > std::numeric_limits<float>::max())
+      {
+        return false;
+      }
+      position[axis] = float(vertex->position[axis]);
+    }
+    /* This is a float UI center query, never a write-back to authoritative source geometry. */
+    copy_v3_v3(center, position);
+    return true;
+  }
+
   Nurb *nu = nullptr;
   void *vert = nullptr;
 

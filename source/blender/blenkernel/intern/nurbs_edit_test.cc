@@ -425,6 +425,65 @@ TEST(nurbs_edit_state, ConcurrentReadSnapshotsKeepGeometryCounterSelectionAndRev
 
 class NurbsNativeEditTest : public BlenderGTestBase {};
 
+TEST_F(NurbsNativeEditTest, ActiveVertexCenterReadsLiveSourceIdentityWithoutMutation)
+{
+  Main *bmain = BKE_main_new();
+  BKE_blender_globals_main_replace(bmain);
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  Curve *curve = BKE_curve_add(bmain, "NURBS active center", OB_SURF);
+  curve->nurbs_geometry = make_line().release();
+  curve->nurbs_geometry->stored_selection = selection_to_storage(make_selection());
+  ASSERT_TRUE(curve_edit_begin(*curve));
+  EditData &edit = *curve->editnurb->nurbs_edit;
+  const auto original = edit.read_snapshot();
+  std::string error;
+  auto moved = translate_vertices(original.geometry(), {2}, {0, 0.125, 0.25}, 0, &error);
+  ASSERT_TRUE(moved.has_value()) << error;
+  ASSERT_TRUE(ed::nurbs::edit_commit(
+      *bmain, *curve, {std::move(moved->geometry), original.selection()}, original, &error))
+      << error;
+  const auto live = edit.read_snapshot();
+  float center[3] = {99, 98, 97};
+  ASSERT_TRUE(ED_curve_active_center(curve, center));
+  EXPECT_EQ(float3(center), float3(1, 0.125, 0.25));
+  EXPECT_EQ(edit.read_snapshot(), live);
+  {
+    const auto persistent = TopologyIndex::build(*curve->nurbs_geometry);
+    ASSERT_TRUE(persistent.has_value());
+    EXPECT_EQ(persistent->vertex(2)->position[1], 0);
+    EXPECT_EQ(persistent->vertex(2)->position[2], 0);
+  }
+  ASSERT_TRUE(curve_edit_flush_to_id(*curve));
+  bmain->is_memfile_undo_flush_needed = false;
+  ASSERT_TRUE(ED_curve_active_center(curve, center));
+  EXPECT_FALSE(curve->editnurb->needs_flush_to_id);
+  EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
+  EXPECT_EQ(edit.read_snapshot(), live);
+
+  auto no_active = live.copy_for_edit();
+  no_active.selection.active.reset();
+  no_active.selection.history.clear();
+  ASSERT_TRUE(edit.commit(std::move(no_active), live));
+  center[0] = 99;
+  center[1] = 98;
+  center[2] = 97;
+  EXPECT_FALSE(ED_curve_active_center(curve, center));
+  EXPECT_EQ(float3(center), float3(99, 98, 97));
+
+  const auto before_large = edit.read_snapshot();
+  auto large = translate_vertices(
+      before_large.geometry(), {2}, {1e100, 0, 0}, std::numeric_limits<double>::max(), &error);
+  ASSERT_TRUE(large.has_value()) << error;
+  auto candidate = before_large.copy_for_edit();
+  candidate.geometry = std::move(large->geometry);
+  candidate.selection = original.selection();
+  ASSERT_TRUE(edit.commit(std::move(candidate), before_large));
+  const auto large_source = edit.read_snapshot();
+  EXPECT_FALSE(ED_curve_active_center(curve, center));
+  EXPECT_EQ(float3(center), float3(99, 98, 97));
+  EXPECT_EQ(edit.read_snapshot(), large_source);
+}
+
 TEST_F(NurbsNativeEditTest, NormalEditorEntryExitAndReentryPreserveNativeSourceAndSelection)
 {
   Main *bmain = BKE_main_new();

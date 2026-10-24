@@ -6,7 +6,7 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and twelve targeted test executables build;
-**165 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+**166 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
 formatting/conversion regression, autosave and global-undo targets pass. Eight
 isolated viewport event tests pass. Native source-vertex **G** now uses original
 double source snapshots, shared incident geometry and atomic owner commits.
@@ -22,8 +22,9 @@ remnants and extrudes successfully in the current application. Its input file is
 unchanged. Native extrusion, fit-point editing, linked selection, edge/face picking,
 R/S, snapping, proportional editing and multiple edit owners remain later gates.
 Normal/Gimbal movement is explicitly rejected because its source orientation
-adapter is absent. Active-element pivots still use the legacy curve helper and
-are the next integration task; the tested movement path uses the default pivot.
+adapter is absent. Native active-vertex centers now read the live source ID rather than legacy curve
+points. Cursor-to-active, Active Element G/cancel and unchanged saved source are
+tested. Edge/face active centers remain part of their future picking/mode gates.
 Stage 1 remains incomplete.
 
 See the movement checkpoint at the end for exact commands, failures and limits,
@@ -2313,3 +2314,54 @@ empty and `is_native_nurbs` is true. Probe:
 `/tmp/blender-nurbs-native-move-reopen-tryout.log`. Its measured float display
 maximum Z is `1.1234568357467651`; this is not presented as a source-coordinate
 measurement. The separate source-file checks establish precision.
+
+
+## Native active-vertex center checkpoint — 2026-10-24
+
+`ED_curve_active_center` now dispatches native owners through their live source
+read lease and kernel topology index. The active vertex must exist and be selected.
+The shared helper serves both transform active-element pivots and cursor-to-active;
+there is no separate operator-specific coordinate copy. Legacy curves retain their
+existing branch. Missing/non-vertex active state or a position outside float UI
+range returns false without changing the output or source. The query remains a
+float UI boundary; it never writes a rounded point into geometry.
+
+`ActiveVertexCenterReadsLiveSourceIdentityWithoutMutation` checks a changed live
+point while the persistent ID still contains its older coordinates, retained-state
+identity, clean dirty flags, no active point and out-of-range coordinates. The
+viewport test selects two corners with the right corner active after undo/redo,
+asserts cursor-to-active is `(1, -1, 0)` rather than their median, then exercises
+G/cancel with Active Element pivot and validates unchanged selection/source files.
+
+Builds, all exit 0:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_edit_test blender --parallel 4
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_edit_test --parallel 4
+```
+
+Logs: `/tmp/blender-nurbs-active-center-build.log` and
+`/tmp/blender-nurbs-active-center-test-build.log`. The full twelve-executable test
+relink uses the same target list as the movement checkpoint; log:
+`/tmp/blender-nurbs-active-center-regression-build.log`, exit 0. All twelve suites
+ran again with no skips: **166 passed**, with the edit suite now 34. Driver:
+`python3 /tmp/blender-nurbs-run-active-center-kernel-checks.py`. It uses the same
+geometry asset argument and read-only fixture policy as the preceding checkpoint,
+with selection files in `/tmp/blender-nurbs-active-center-ui`. Per-suite logs:
+`/tmp/blender-nurbs-active-center-{suite}-tests-final.log`.
+
+Two relevant viewport runs repeat the preceding isolated Wayland command, each
+in its own process: `test_nurbs_native.vertex_selection_and_lifecycle` with
+`BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-active-center-ui`, and
+`test_nurbs_line.line_to_sheet`. Both pass; logs:
+`/tmp/blender-nurbs-active-center-pivot-ui.log` and
+`/tmp/blender-nurbs-active-center-legacy-line-ui.log`.
+The saved-source validator was repeated after the new UI run, 1/1 passed:
+`/tmp/blender-nurbs-active-center-saved-source-final.log`.
+The frozen baseline hash remains `329f75e097dbcf7b580b7bdba5d8e619ac26ca812b9cd3ab38098907059f2e5a`.
+The preceding five CTest targets and other six viewport regressions are unchanged
+checks from the full movement checkpoint; they were not unnecessarily rerun for
+this read-only editor query. General fit-point editing, Normal/Gimbal orientation,
+edge/face picking and the remaining native editing gates remain incomplete.

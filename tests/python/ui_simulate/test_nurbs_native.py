@@ -103,6 +103,15 @@ def vertex_selection_and_lifecycle():
     # Undo can replace IDs. Reacquire the original owner rather than retaining RNA pointers.
     obj = window.view_layer.objects.active
     curve = obj.data
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+    t.assertEqual(tuple(window.scene.cursor.location), (1, -1, 0))
+    window.scene.cursor.location = (0, 0, 0)
+    pivot = window.scene.tool_settings.transform_pivot_point
+    window.scene.tool_settings.transform_pivot_point = 'ACTIVE_ELEMENT'
+    yield e.g().z().text('0.125').esc()
+    window.scene.tool_settings.transform_pivot_point = pivot
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
     yield e.tab()
     save("click.blend")
     yield e.tab()

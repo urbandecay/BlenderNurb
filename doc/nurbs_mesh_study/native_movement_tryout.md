@@ -9,7 +9,8 @@ Use this fork's current executable and the generated native source file:
 
 The file reopens in Edit Mode with four source vertices and one NURBS face,
 with one corner selected and raised. It contains no legacy splines.
-Keep the default pivot and Global or Local orientation for this checkpoint.
+Use Global or Local orientation for this checkpoint. Both the default pivot and
+Active Element source-vertex center lookup are connected.
 
 Try G, an axis and a number, then Enter. Escape cancels; Ctrl+Z and Ctrl+Shift+Z
 undo/redo. Click or B-box selection of the same corners uses the same source IDs
@@ -41,9 +42,9 @@ a move completely lost at source coordinate precision rejects. No fitting occurs
 
 Native E, Shift+D and deletion are not activated here. R/S, Normal/Gimbal movement,
 snapping, proportional editing, multiple edit owners, fit-point editing, linked
-selection and edge/face picking remain later work. Active-element pivots still need
-native identity integration; use the default pivot. Mouse, orientation, project-unit
-scale and pivot construction still have Blender float boundaries; the reported
+selection and edge/face picking remain later work. Active source vertices now
+support cursor-to-active and Active Element G/cancel; edge/face centers are not
+implemented. Mouse, orientation, project-unit scale and pivot construction still have Blender float boundaries; the reported
 coefficient-addition bound does not certify those inputs.
 
 The ordinary Add NURBS commands still create the tagged prototype. For the
@@ -51,7 +52,7 @@ reported duplicate/extrude/delete repair, use
 [the deletion tryout](prototype_deletion_tryout.md) and
 [the duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md).
 
-The movement checkpoint is built and tested: 165 C++ tests, five application
+The movement foundation is built and tested: 166 C++ tests, five application
 CTest targets and eight isolated viewport runs pass. Twenty saved movement states
 are checked against actual NURBS source. Actual F9 field editing, units, cancellation,
 undo/redo and float-alias edits are covered. Screenshots are in
