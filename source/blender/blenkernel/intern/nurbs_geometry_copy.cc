@@ -17,21 +17,26 @@
 
 namespace blender::bke::nurbs {
 
-std::optional<GeometryCopyResult> copy_component_closure(const NurbsGeometry &source,
-                                                         const ComponentSelection &selection,
-                                                         std::string *r_error)
+std::optional<ComponentClosure> component_closure(const NurbsGeometry &source,
+                                                  const ComponentSelection &selection,
+                                                  std::string *r_error)
 {
   const auto index = TopologyIndex::build(source, r_error);
   if (!index) {
     return std::nullopt;
   }
-  auto fail = [&](const char *message) -> std::optional<GeometryCopyResult> {
+  auto fail = [&](const char *message) -> std::optional<ComponentClosure> {
     if (r_error != nullptr) {
       *r_error = message;
     }
     return std::nullopt;
   };
-  Set<int64_t> vertices, edges, faces, curves, surfaces;
+  ComponentClosure result;
+  auto &vertices = result.vertices;
+  auto &edges = result.edges;
+  auto &faces = result.faces;
+  auto &curves = result.curves;
+  auto &surfaces = result.surfaces;
   for (const int64_t id : selection.vertices) {
     if (index->vertex(id) == nullptr) {
       return fail("Selected NURBS vertex identity does not exist");
@@ -50,7 +55,7 @@ std::optional<GeometryCopyResult> copy_component_closure(const NurbsGeometry &so
     }
     faces.add(id);
   }
-  uint64_t boundary_records = 0;
+  auto &boundary_records = result.boundary_records;
   for (const NurbsTopologyFace &face : source.faces) {
     if (!faces.contains(face.id)) {
       continue;
@@ -72,6 +77,29 @@ std::optional<GeometryCopyResult> copy_component_closure(const NurbsGeometry &so
       curves.add(edge.curve_id);
     }
   }
+  return result;
+}
+
+std::optional<GeometryCopyResult> copy_component_closure(const NurbsGeometry &source,
+                                                         const ComponentSelection &selection,
+                                                         std::string *r_error)
+{
+  const auto closure = component_closure(source, selection, r_error);
+  if (!closure) {
+    return std::nullopt;
+  }
+  const auto &vertices = closure->vertices;
+  const auto &edges = closure->edges;
+  const auto &faces = closure->faces;
+  const auto &curves = closure->curves;
+  const auto &surfaces = closure->surfaces;
+  const uint64_t boundary_records = closure->boundary_records;
+  auto fail = [&](const char *message) -> std::optional<GeometryCopyResult> {
+    if (r_error != nullptr) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
   const uint64_t records = uint64_t(vertices.size()) + edges.size() + faces.size() +
                            curves.size() + surfaces.size() + boundary_records;
   if (records > uint64_t(std::numeric_limits<int64_t>::max() - source.next_id)) {

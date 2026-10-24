@@ -54,6 +54,7 @@
 
 #include "WM_api.hh"
 
+#include "nurbs_test_geometry.hh"
 #include "testing/testing.h"
 
 namespace blender::bke::nurbs::tests {
@@ -483,6 +484,89 @@ TEST_F(NurbsNativeEditTest, ActiveVertexCenterReadsLiveSourceIdentityWithoutMuta
   EXPECT_FALSE(ED_curve_active_center(curve, center));
   EXPECT_EQ(float3(center), float3(99, 98, 97));
   EXPECT_EQ(edit.read_snapshot(), large_source);
+}
+
+TEST_F(NurbsNativeEditTest, FillCommitsSharedSourceAndSelectionOnceAndContinuesExtrusion)
+{
+  Main *bmain = BKE_main_new();
+  BKE_blender_globals_main_replace(bmain);
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  for (const SelectionMode mode : {SelectionMode::Vertex, SelectionMode::Edge}) {
+    Curve *curve = BKE_curve_add(bmain, "NURBS fill editing", OB_SURF);
+    curve->nurbs_geometry = make_planar_sheet().release();
+    ASSERT_NE(curve->nurbs_geometry, nullptr);
+    const int64_t face = static_cast<NurbsTopologyFace *>(curve->nurbs_geometry->faces.first)->id;
+    const auto wire = delete_components(
+        *curve->nurbs_geometry, {{}, {}, {&face, 1}}, DeleteMode::FacesOnly);
+    ASSERT_TRUE(wire.has_value());
+    geometry_free(curve->nurbs_geometry);
+    curve->nurbs_geometry = geometry_copy(wire->geometry.get());
+    SelectionState selected;
+    selected.mode = mode;
+    for (const NurbsTopologyVertex &vertex : curve->nurbs_geometry->vertices) {
+      selected.vertices.add(vertex.id);
+    }
+    for (const NurbsTopologyEdge &edge : curve->nurbs_geometry->edges) {
+      selected.edges.add(edge.id);
+    }
+    curve->nurbs_geometry->stored_selection = selection_to_storage(selected);
+    ASSERT_TRUE(curve_edit_begin(*curve));
+    EditData &edit = *curve->editnurb->nurbs_edit;
+    const auto before = edit.read_snapshot();
+    std::string error;
+    ASSERT_TRUE(ed::nurbs::fill(*bmain, *curve, &error)) << error;
+    EXPECT_EQ(edit.revision(), before.revision() + 1);
+    EXPECT_TRUE(before.geometry().faces.is_empty());
+    EXPECT_EQ(edit.geometry().vertices.count(), 4);
+    EXPECT_EQ(edit.geometry().edges.count(), 4);
+    EXPECT_EQ(edit.geometry().faces.count(), 1);
+    EXPECT_EQ(edit.selection().vertices, selected.vertices);
+    EXPECT_EQ(edit.selection().edges, selected.edges);
+    EXPECT_EQ(edit.selection().faces.size(), 1);
+    EXPECT_EQ(edit.selection().mode, mode);
+    EXPECT_TRUE(curve->editnurb->needs_flush_to_id);
+    EXPECT_TRUE(bmain->is_memfile_undo_flush_needed);
+    const auto filled = edit.read_snapshot();
+    EXPECT_FALSE(ed::nurbs::fill(*bmain, *curve, &error));
+    EXPECT_TRUE(error.empty());
+    EXPECT_EQ(edit.read_snapshot(), filled);
+    ASSERT_TRUE(ed::nurbs::extrude(*bmain, *curve, &error)) << error;
+    EXPECT_EQ(edit.geometry().vertices.count(), 8);
+    EXPECT_EQ(edit.geometry().edges.count(), 12);
+    EXPECT_EQ(edit.geometry().faces.count(), 6);
+    EXPECT_EQ(edit.selection().mode, mode);
+    EXPECT_TRUE(curve->nurb.is_empty());
+    EXPECT_TRUE(curve->editnurb->nurbs.is_empty());
+  }
+}
+
+TEST_F(NurbsNativeEditTest, FailedFillLeavesSourceSelectionRevisionAndDirtyFlagsUnchanged)
+{
+  Main *bmain = BKE_main_new();
+  BKE_blender_globals_main_replace(bmain);
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  Curve *curve = BKE_curve_add(bmain, "NURBS exhausted fill", OB_SURF);
+  // Two independent vertices require a new curve and edge identity.
+  OwnedGeometry wire(MEM_new<NurbsGeometry>(__func__));
+  add_vertex(*wire, {0, 0, 0});
+  add_vertex(*wire, {1, 0, 0});
+  wire->next_id = std::numeric_limits<int64_t>::max();
+  SelectionState selected;
+  selected.vertices.add(1);
+  selected.vertices.add(2);
+  wire->stored_selection = selection_to_storage(selected);
+  curve->nurbs_geometry = wire.release();
+  ASSERT_TRUE(curve_edit_begin(*curve));
+  EditData &edit = *curve->editnurb->nurbs_edit;
+  const auto before = edit.read_snapshot();
+  curve->editnurb->needs_flush_to_id = false;
+  bmain->is_memfile_undo_flush_needed = false;
+  std::string error;
+  EXPECT_FALSE(ed::nurbs::fill(*bmain, *curve, &error));
+  EXPECT_NE(error.find("exhausted"), std::string::npos);
+  EXPECT_EQ(edit.read_snapshot(), before);
+  EXPECT_FALSE(curve->editnurb->needs_flush_to_id);
+  EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
 }
 
 TEST_F(NurbsNativeEditTest, NormalEditorEntryExitAndReentryPreserveNativeSourceAndSelection)
@@ -1266,6 +1350,196 @@ static void expect_source_geometry_equal(const NurbsGeometry &actual,
           });
     });
   });
+}
+
+TEST_F(NurbsNativeEditTest, ViewportFillFilesPreserveAuthoritativeSourceAndBoundaryIdentities)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_FILL_OUTPUT");
+  const char *baseline_path = std::getenv("BLENDER_NURBS_PREVIEW_FIXTURE");
+  if (directory == nullptr || baseline_path == nullptr) {
+    GTEST_SKIP() << "Run after the native Fill viewport test";
+  }
+  BKE_blender_globals_main_replace(BKE_main_new());
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  ReportList reports;
+  BKE_reports_init(&reports, RPT_STORE);
+  BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+  BlendFileReadReport read_reports{};
+  read_reports.reports = &reports;
+  using LoadedFile = std::unique_ptr<BlendFileData, decltype(&BLO_blendfiledata_free)>;
+  auto load = [&](const char *path) {
+    return LoadedFile(BLO_read_from_file(path, BLO_READ_SKIP_USERDEF, &read_reports),
+                      BLO_blendfiledata_free);
+  };
+  auto find = [](const BlendFileData &file) -> const NurbsGeometry * {
+    for (const Curve &curve : file.main->curves) {
+      if (STREQ(curve.id.name + 2, "Native preview sheet") && curve.nurb.is_empty() &&
+          curve.editnurb == nullptr && curve.nurbs_eval_source == nullptr)
+      {
+        return curve.nurbs_geometry;
+      }
+    }
+    return nullptr;
+  };
+  const auto baseline = load(baseline_path);
+  ASSERT_NE(baseline, nullptr);
+  const auto *reference = find(*baseline);
+  ASSERT_NE(reference, nullptr);
+  for (const char *name : {"fill-planar-edge.blend",
+                           "fill-planar-extrude.blend",
+                           "fill-bent-edge.blend",
+                           "fill-bent-extrude.blend",
+                           "fill-connect.blend",
+                           "fill-connect-extrude.blend",
+                           "fill-triangle.blend",
+                           "fill-triangle-extrude.blend",
+                           "fill-merge.blend",
+                           "fill-merge-extrude.blend"})
+  {
+    SCOPED_TRACE(name);
+    const bool bent = STRPREFIX(name, "fill-bent");
+    const bool connect = STRPREFIX(name, "fill-connect");
+    const bool triangle = STRPREFIX(name, "fill-triangle");
+    const bool merge = STRPREFIX(name, "fill-merge");
+    const bool extrude = std::strstr(name, "extrude") != nullptr;
+    OwnedGeometry expected(geometry_copy(reference));
+    std::string error;
+    SelectionState expected_selection;
+    auto sweep = [&](const ComponentSelection &components, const double3 offset) {
+      auto result = extrude_components(*expected, components, {0, 0, 0}, 0, &error);
+      if (!result) {
+        return false;
+      }
+      expected_selection = {};
+      const auto closure = component_closure(*expected, components, &error);
+      if (!closure) {
+        return false;
+      }
+      for (const int64_t id : closure->vertices) {
+        expected_selection.vertices.add(result->source_to_cap.lookup(id));
+      }
+      for (const int64_t id : closure->edges) {
+        expected_selection.edges.add(result->source_to_cap.lookup(id));
+      }
+      for (const int64_t id : closure->faces) {
+        expected_selection.faces.add(result->source_to_cap.lookup(id));
+      }
+      Vector<int64_t> cap;
+      for (const NurbsTopologyVertex &vertex : expected->vertices) {
+        if (const int64_t *id = result->source_to_cap.lookup_ptr(vertex.id)) {
+          cap.append(*id);
+        }
+      }
+      auto moved = translate_vertices(*result->geometry, cap, offset, 0, &error);
+      if (!moved) {
+        return false;
+      }
+      expected = std::move(moved->geometry);
+      return true;
+    };
+    Vector<int64_t> corner_ids;
+    for (const NurbsTopologyVertex &vertex : expected->vertices) {
+      if ((vertex.position[0] == 1 && vertex.position[1] == 1) ||
+          (connect && vertex.position[0] == -1 && vertex.position[1] == -1))
+      {
+        corner_ids.append(vertex.id);
+      }
+    }
+    if (bent) {
+      auto moved = translate_vertices(*expected, corner_ids, {0, 0, 1}, 0, &error);
+      ASSERT_TRUE(moved.has_value()) << error;
+      expected = std::move(moved->geometry);
+    }
+    if (merge) {
+      const auto index = TopologyIndex::build(*expected);
+      int64_t right = 0;
+      for (const auto &edge : expected->edges) {
+        if (index->vertex(edge.vertex_ids[0])->position[0] == 1 &&
+            index->vertex(edge.vertex_ids[1])->position[0] == 1)
+        {
+          right = edge.id;
+        }
+      }
+      ASSERT_NE(right, 0);
+      ASSERT_TRUE(sweep({{}, {&right, 1}, {}}, {2, 0, 0})) << error;
+    }
+    else if (connect || triangle) {
+      auto deleted = delete_components(
+          *expected, {corner_ids, {}, {}}, DeleteMode::Vertices, &error);
+      ASSERT_TRUE(deleted.has_value()) << error;
+      expected = std::move(deleted->geometry);
+    }
+    else {
+      const int64_t face = static_cast<NurbsTopologyFace *>(expected->faces.first)->id;
+      auto deleted = delete_components(
+          *expected, {{}, {}, {&face, 1}}, DeleteMode::FacesOnly, &error);
+      ASSERT_TRUE(deleted.has_value()) << error;
+      expected = std::move(deleted->geometry);
+    }
+    Vector<int64_t> vertices, edges, faces;
+    for (const auto &vertex : expected->vertices) {
+      vertices.append(vertex.id);
+    }
+    for (const auto &edge : expected->edges) {
+      edges.append(edge.id);
+    }
+    for (const auto &face : expected->faces) {
+      faces.append(face.id);
+    }
+    auto filled = fill_components(*expected, {vertices, edges, faces}, &error);
+    ASSERT_TRUE(filled.has_value()) << error;
+    expected = std::move(filled->geometry);
+    expected_selection = {};
+    for (const auto &vertex : expected->vertices) {
+      expected_selection.vertices.add(vertex.id);
+    }
+    for (const auto &edge : expected->edges) {
+      expected_selection.edges.add(edge.id);
+    }
+    for (const auto &face : expected->faces) {
+      expected_selection.faces.add(face.id);
+    }
+    if (extrude) {
+      vertices.clear();
+      edges.clear();
+      faces.clear();
+      for (const auto &vertex : expected->vertices) {
+        vertices.append(vertex.id);
+      }
+      for (const auto &edge : expected->edges) {
+        edges.append(edge.id);
+      }
+      for (const auto &face : expected->faces) {
+        faces.append(face.id);
+      }
+      ASSERT_TRUE(sweep({vertices, edges, faces}, {0, 0, 1})) << error;
+    }
+    char path[FILE_MAX];
+    BLI_path_join(path, sizeof(path), directory, name);
+    const auto loaded = load(path);
+    ASSERT_NE(loaded, nullptr);
+    const auto *actual = find(*loaded);
+    ASSERT_NE(actual, nullptr);
+    expect_source_geometry_equal(*actual, *expected);
+    const auto selected = selection_from_storage(actual->stored_selection);
+    ASSERT_TRUE(selected.has_value());
+    const auto normalized = selection_flush(*actual, *selected, selected->mode, &error);
+    ASSERT_TRUE(normalized.has_value()) << error;
+    EXPECT_EQ(selected->vertices, expected_selection.vertices);
+    EXPECT_EQ(selected->vertices, normalized->vertices);
+    EXPECT_EQ(selected->edges, expected_selection.edges);
+    EXPECT_EQ(selected->edges, normalized->edges);
+    EXPECT_EQ(selected->faces, expected_selection.faces);
+    EXPECT_EQ(selected->faces, normalized->faces);
+    EXPECT_EQ(selected->mode,
+              connect || triangle ? SelectionMode::Vertex :
+              merge || extrude    ? SelectionMode::Face :
+                                    SelectionMode::Edge);
+    if (merge) {
+      ASSERT_TRUE(selected->active.has_value());
+      EXPECT_EQ(selected->active->domain, ElementDomain::Face);
+    }
+  }
 }
 
 TEST_F(NurbsNativeEditTest, ViewportDuplicationFilesPreserveCopiedSourceGeometryAndSelection)

@@ -4639,6 +4639,10 @@ static int merge_nurb(View3D *v3d, Object *obedit)
 
 static wmOperatorStatus make_segment_exec(bContext *C, wmOperator *op)
 {
+  const Curve &active_curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  if (active_curve.editnurb->nurbs_edit != nullptr) {
+    return ed::nurbs::fill(C) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  }
   Main *bmain = CTX_data_main(C);
   const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -4654,6 +4658,9 @@ static wmOperatorStatus make_segment_exec(bContext *C, wmOperator *op)
 
   Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
+  if (!legacy_component_edit_sources_check(objects, op->reports)) {
+    return OPERATOR_CANCELLED;
+  }
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
 
@@ -4929,11 +4936,11 @@ void CURVE_OT_make_segment(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Make Segment";
   ot->idname = "CURVE_OT_make_segment";
-  ot->description = "Join two curves by their selected ends";
+  ot->description = "Join curve ends or create an edge or face from native NURBS components";
 
   /* API callbacks. */
   ot->exec = make_segment_exec;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

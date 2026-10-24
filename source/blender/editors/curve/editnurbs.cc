@@ -798,7 +798,7 @@ bool select_linked(bContext *C)
   return changed;
 }
 
-enum class ComponentEdit { Duplicate, Extrude, Delete };
+enum class ComponentEdit { Duplicate, Extrude, Delete, Fill };
 
 /** Resolve a complete kernel candidate before any owner mutation or notification. */
 static std::optional<bke::nurbs::EditSnapshot> component_edit_candidate(
@@ -859,6 +859,52 @@ static std::optional<bke::nurbs::EditSnapshot> component_edit_candidate(
       return std::nullopt;
     }
     return bke::nurbs::EditSnapshot{std::move(deleted->geometry), std::move(*selected)};
+  }
+  if (operation == ComponentEdit::Fill) {
+    auto filled = bke::nurbs::fill_components(expected.geometry(), components, r_error);
+    if (!filled || (filled->created_edges.is_empty() && filled->created_faces.is_empty())) {
+      return std::nullopt;
+    }
+    Set<int64_t> removed = std::move(filled->removed.vertices);
+    for (const int64_t id : filled->removed.edges) {
+      removed.add(id);
+    }
+    for (const int64_t id : filled->removed.faces) {
+      removed.add(id);
+    }
+    auto selected = bke::nurbs::selection_remove_ids(selection, removed);
+    const auto created = bke::nurbs::component_closure(
+        *filled->geometry, {{}, filled->created_edges, filled->created_faces}, r_error);
+    if (!created) {
+      return std::nullopt;
+    }
+    for (const int64_t id : created->vertices) {
+      selected.vertices.add(id);
+    }
+    for (const int64_t id : created->edges) {
+      selected.edges.add(id);
+    }
+    for (const int64_t id : created->faces) {
+      selected.faces.add(id);
+    }
+    if (selection.mode == bke::nurbs::SelectionMode::Face && !filled->created_faces.is_empty()) {
+      selected.active = bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Face,
+                                               filled->created_faces.last()};
+      selected.history.append(*selected.active);
+    }
+    else if (selection.mode == bke::nurbs::SelectionMode::Edge &&
+             !filled->created_edges.is_empty())
+    {
+      selected.active = bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Edge,
+                                               filled->created_edges.last()};
+      selected.history.append(*selected.active);
+    }
+    auto normalized_fill = bke::nurbs::selection_flush(
+        *filled->geometry, selected, selection.mode, r_error);
+    if (!normalized_fill) {
+      return std::nullopt;
+    }
+    return bke::nurbs::EditSnapshot{std::move(filled->geometry), std::move(*normalized_fill)};
   }
   if (operation == ComponentEdit::Duplicate) {
     auto copy = bke::nurbs::duplicate_components(expected.geometry(), components, r_error);
@@ -926,6 +972,12 @@ bool duplicate(Main &bmain, Curve &curve, std::string *r_error)
       bmain, curve, ComponentEdit::Duplicate, bke::nurbs::DeleteMode::Vertices, r_error);
 }
 
+bool fill(Main &bmain, Curve &curve, std::string *r_error)
+{
+  return component_edit(
+      bmain, curve, ComponentEdit::Fill, bke::nurbs::DeleteMode::Vertices, r_error);
+}
+
 bool extrude(Main &bmain, Curve &curve, std::string *r_error, double *r_source_endpoint_deviation)
 {
   return component_edit(bmain,
@@ -951,7 +1003,7 @@ static bool component_edit(bContext *C,
   Main &bmain = *CTX_data_main(C);
   const Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C));
-  if (operation != ComponentEdit::Delete && objects.size() != 1) {
+  if (ELEM(operation, ComponentEdit::Duplicate, ComponentEdit::Extrude) && objects.size() != 1) {
     BKE_report(
         CTX_wm_reports(C),
         RPT_ERROR,
@@ -1013,6 +1065,11 @@ static bool component_edit(bContext *C,
 bool duplicate(bContext *C)
 {
   return component_edit(C, ComponentEdit::Duplicate, bke::nurbs::DeleteMode::Vertices);
+}
+
+bool fill(bContext *C)
+{
+  return component_edit(C, ComponentEdit::Fill, bke::nurbs::DeleteMode::Vertices);
 }
 
 bool extrude(bContext *C)

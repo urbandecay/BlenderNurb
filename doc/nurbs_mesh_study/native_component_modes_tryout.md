@@ -1,8 +1,8 @@
 # Native Vertex, Edge and Face mode checkpoint
 
 This checkpoint adds native component selection to the shared NURBS editing path.
-It precedes the requested F/connect/planar-fill work; F is not implemented by this
-checkpoint. Fit-point editing is later work. Ordinary Add NURBS still creates the
+Its mode-only checkpoint preceded F/connect/planar-fill. The subsequent
+[Fill checkpoint](native_fill_tryout.md) implements that initial construction subset. Fit-point editing is later work. Ordinary Add NURBS still creates the
 restricted tagged prototype, so use a prepared native file to test these modes.
 
 ```sh

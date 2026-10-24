@@ -1430,3 +1430,170 @@ def component_modes_across_objects():
     yield e.ctrl.z()
     t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
     modes((False, False, True))
+
+
+def component_fill():
+    """F constructs native source; UI events, undo and save keep the same topology."""
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_FILL_OUTPUT', '/tmp/blender-nurbs-fill-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+
+    def reset():
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            active = window.view_layer.objects.active
+            if active is not None and active.mode == 'EDIT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        for curve in tuple(bpy.data.curves):
+            if curve.users == 0:
+                bpy.data.curves.remove(curve)
+        with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+            data.curves = ['Native preview sheet']
+        obj = bpy.data.objects.new('Native Fill fixture', data.curves[0])
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.curve.select_mode(type='VERT')
+            bpy.ops.curve.select_all(action='DESELECT')
+        space.shading.show_xray = True
+        space.overlay.show_stats = True
+        space.region_3d.view_location = (0, 0, 0)
+        space.region_3d.view_distance = 7
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    def screen(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def save(name):
+        obj = window.view_layer.objects.active
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(mesh, 'Native source preview failed')
+                t.assertGreater(len(mesh.edges), 0)
+            finally:
+                evaluated.to_mesh_clear()
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / name), check_existing=False)
+
+    def delete(kind):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            t.assertEqual(bpy.ops.curve.delete(type=kind), {'FINISHED'})
+
+    reset()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.numpad_7()
+    yield e.three()
+    yield e.a()
+    delete('ONLY_FACE')
+    yield e.two()
+    yield e.a()
+    t.assertEqual(counts(), (4, 4, 4, 4, 0, 0))
+    yield e.f()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    save('fill-planar-edge.blend')
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 4, 4, 4, 0, 0))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.three()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    save('fill-planar-extrude.blend')
+
+    reset()
+    yield e.cursor_position_set(*screen((1, 1, 0)), move=True)
+    yield e.leftmouse()
+    yield e.g().z().text('1').ret()
+    yield e.three()
+    yield e.a()
+    delete('ONLY_FACE')
+    yield e.two()
+    yield e.a()
+    yield e.f()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    save('fill-bent-edge.blend')
+    yield e.three()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    save('fill-bent-extrude.blend')
+    yield e.numpad_1()
+    yield e.numpad_6()
+    yield e.numpad_8()
+    space.shading.show_xray = False
+    yield
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.screen.screenshot(filepath=str(output / 'fill-bent-extrude.png'))
+
+    reset()
+    yield e.numpad_7()
+    yield e.cursor_position_set(*screen((-1, -1, 0)), move=True)
+    yield e.leftmouse()
+    yield e.cursor_position_set(*screen((1, 1, 0)), move=True)
+    yield e.shift.leftmouse()
+    delete('VERT')
+    yield e.a()
+    t.assertEqual(counts(), (2, 2, 0, 0, 0, 0))
+    yield e.f()
+    t.assertEqual(counts(), (2, 2, 1, 1, 0, 0))
+    save('fill-connect.blend')
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    save('fill-connect-extrude.blend')
+
+    reset()
+    yield e.cursor_position_set(*screen((1, 1, 0)), move=True)
+    yield e.leftmouse()
+    delete('VERT')
+    yield e.a()
+    t.assertEqual(counts(), (3, 3, 2, 2, 0, 0))
+    yield e.f()
+    t.assertEqual(counts(), (3, 3, 3, 3, 1, 1))
+    save('fill-triangle.blend')
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (3, 6, 3, 9, 1, 5))
+    save('fill-triangle-extrude.blend')
+
+    reset()
+    yield e.two()
+    yield e.cursor_position_set(*screen((1, 0, 0)), move=True)
+    yield e.leftmouse()
+    yield e.e().x().text('2').ret()
+    t.assertEqual(counts(), (2, 6, 1, 7, 0, 2))
+    yield e.three()
+    yield e.a()
+    yield e.f()
+    t.assertEqual(counts(), (6, 6, 6, 6, 1, 1))
+    save('fill-merge.blend')
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (6, 6, 7, 7, 2, 2))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (6, 6, 6, 6, 1, 1))
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (6, 12, 6, 18, 1, 8))
+    save('fill-merge-extrude.blend')
+    yield e.tab()

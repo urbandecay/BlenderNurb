@@ -216,6 +216,7 @@ set(SRC
   intern/node_tree_update.cc
   intern/node_tree_zones.cc
   intern/nurbs_construct.cc
+  intern/nurbs_construct_fill.cc
   intern/nurbs_edit.cc
   intern/nurbs_evaluate.cc
   intern/nurbs_geometry.cc
@@ -762,6 +763,7 @@ if(WITH_GTESTS)
     intern/node_socket_value_iter_test.cc
     intern/nurbs_differential_test.cc
     intern/nurbs_edit_test.cc
+    intern/nurbs_fill_test.cc
     intern/nurbs_geometry_legacy_test.cc
     intern/nurbs_geometry_test.cc
     intern/nurbs_mesh_test.cc

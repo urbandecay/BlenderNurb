@@ -41,6 +41,22 @@ std::optional<LinkedComponents> find_linked_components(const NurbsGeometry &sour
                                                        LinkedConnectivity connectivity,
                                                        std::string *r_error = nullptr);
 
+struct EdgeChain {
+  /** One more vertex than edge; the first and last identity agree for a closed chain. */
+  Vector<int64_t> vertices;
+  Vector<int64_t> edges;
+  Vector<bool> reversed;
+  bool closed = false;
+};
+
+/** Trace selected source incidence in deterministic source order. Repeated edge IDs have no
+ * effect. Self loops and parallel curved edges retain their identities. Reject branches instead
+ * of guessing a boundary pairing. Empty input returns no chains. No geometry or ID allocation.
+ */
+std::optional<Vector<EdgeChain>> trace_edge_chains(const NurbsGeometry &source,
+                                                   Span<int64_t> edges,
+                                                   std::string *r_error = nullptr);
+
 enum class DeleteMode { Vertices, Edges, Faces, FacesOnly };
 
 struct TopologyDeletionPlan {

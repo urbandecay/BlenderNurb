@@ -91,4 +91,24 @@ std::optional<EdgeExtrusionResult> extrude_edges(const NurbsGeometry &source,
                                                  double max_translation_error,
                                                  std::string *r_error = nullptr);
 
+struct FillResult {
+  OwnedGeometry geometry;
+  Vector<int64_t> created_edges;
+  Vector<int64_t> created_faces;
+  TopologyDeletionPlan removed;
+};
+
+/** Connect two selected vertices, fill one simple boundary, or merge one planar face region.
+ * Reuse source vertices/edges; report created identities and removed region interiors. An existing
+ * edge/face is an unchanged full candidate. Four straight sides use an interpolating bilinear
+ * NURBS support, including nonplanar corners. Other supported boundaries use an exact planar
+ * chart; unavailable exact correspondence rejects rather than fitting or flattening. Initial
+ * curved-plane support requires full clamped positive piecewise-Bezier curves and a simple
+ * convex control polygon. No arbitrary trim validity, continuity or solid certificate is implied.
+ * Source, selection and its identity counter remain unchanged. No display geometry is used.
+ */
+std::optional<FillResult> fill_components(const NurbsGeometry &source,
+                                          const ComponentSelection &selection,
+                                          std::string *r_error = nullptr);
+
 }  // namespace blender::bke::nurbs

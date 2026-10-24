@@ -14,6 +14,7 @@
 
 #include "BLI_map.hh"
 #include "BLI_math_vector_types.hh"
+#include "BLI_set.hh"
 #include "BLI_span.hh"
 #include "BLI_vector.hh"
 
@@ -45,6 +46,21 @@ struct ComponentSelection {
   Span<int64_t> edges;
   Span<int64_t> faces;
 };
+
+/** Read-only dependency closure, shared by copying and component construction. No ID allocation.
+ */
+struct ComponentClosure {
+  Set<int64_t> vertices;
+  Set<int64_t> edges;
+  Set<int64_t> faces;
+  Set<int64_t> curves;
+  Set<int64_t> surfaces;
+  uint64_t boundary_records = 0;
+};
+
+std::optional<ComponentClosure> component_closure(const NurbsGeometry &source,
+                                                  const ComponentSelection &selection,
+                                                  std::string *r_error = nullptr);
 
 struct GeometryCopyResult {
   OwnedGeometry geometry;

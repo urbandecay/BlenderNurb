@@ -624,3 +624,30 @@ concave/larger loops use a planar trimmed support. General curved/nonplanar
 boundaries require a separate compatible-boundary construction; no silent fit
 or flattening is authorized. This is the implementation target following the
 component-mode checkpoint.
+
+## Shared Fill construction checkpoint
+
+The approved four-corner bending rule is implemented by `fill_components` in BKE.
+It creates bilinear NURBS supports for noncoplanar straight quads, with existing
+3D edge geometry and shared topology retained. Supported planar larger/concave
+boundaries instead receive a planar support and real p-curves/trims. Compatible
+coplanar face-region merging reuses the region boundary classification already
+used by extrusion, prunes interior topology through the shared deletion service,
+and preserves outer identities. No source is reconstructed from display data.
+
+Dependency closure is now a read-only query reused by copy and Fill, rather than
+allocating a temporary copy to discover the selected component dependencies.
+Deterministic edge-chain tracing is another shared topology query. Geometry and
+selection candidates remain independent until the existing owner commit. The
+existing F/Make Segment operator and native context menu orchestrate this service;
+legacy operation dispatch remains intact, including mixed-session preflight.
+
+Positive weights, full clamped curve domains, exact source endpoint agreement,
+restricted planar correspondence and boundary simplicity checks are explicit
+construction requirements. The initial curved-plane certificate covers supported
+composite-Bezier profiles with simple convex control polygons, including the
+unchanged rational circle fixture. It does not certify arbitrary trim layouts,
+smooth joins, general nonplanar filling or solid validity. Larger nonplanar loops
+remain an open user geometry-policy decision. See the [Fill tryout](native_fill_tryout.md)
+for supported behaviors and limits. Fit-point curve work follows these component
+editing stages; Stage 1 is still incomplete.

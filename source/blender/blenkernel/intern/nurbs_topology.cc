@@ -271,4 +271,86 @@ std::optional<TopologyDeletionResult> delete_components(const NurbsGeometry &sou
   return TopologyDeletionResult{std::move(candidate), std::move(*plan)};
 }
 
+std::optional<Vector<EdgeChain>> trace_edge_chains(const NurbsGeometry &source,
+                                                   const Span<int64_t> edge_ids,
+                                                   std::string *r_error)
+{
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  Set<int64_t> selected;
+  for (const int64_t id : edge_ids) {
+    if (index->edge(id) == nullptr) {
+      if (r_error != nullptr) {
+        *r_error = "Boundary tracing references an unknown NURBS edge";
+      }
+      return std::nullopt;
+    }
+    selected.add(id);
+  }
+  Map<int64_t, Vector<int64_t>> incidence;
+  for (const NurbsTopologyEdge &edge : source.edges) {
+    if (selected.contains(edge.id)) {
+      // A closed edge contributes both incidences at the same vertex.
+      incidence.lookup_or_add_default(edge.vertex_ids[0]).append(edge.id);
+      incidence.lookup_or_add_default(edge.vertex_ids[1]).append(edge.id);
+    }
+  }
+  for (const auto &entry : incidence.items()) {
+    if (entry.value.size() > 2) {
+      if (r_error != nullptr) {
+        *r_error = "Selected NURBS edges branch; a boundary pairing is required";
+      }
+      return std::nullopt;
+    }
+  }
+  Vector<EdgeChain> result;
+  Set<int64_t> visited;
+  auto trace = [&](const int64_t start) {
+    EdgeChain chain;
+    chain.vertices.append(start);
+    int64_t current = start;
+    while (true) {
+      int64_t next_edge = 0;
+      for (const int64_t id : incidence.lookup(current)) {
+        if (!visited.contains(id)) {
+          next_edge = id;
+          break;
+        }
+      }
+      if (next_edge == 0) {
+        break;
+      }
+      const auto &edge = *index->edge(next_edge);
+      const bool reversed = edge.vertex_ids[0] != current;
+      current = edge.vertex_ids[reversed ? 0 : 1];
+      visited.add(next_edge);
+      chain.edges.append(next_edge);
+      chain.reversed.append(reversed);
+      chain.vertices.append(current);
+      if (current == start) {
+        chain.closed = true;
+        break;
+      }
+    }
+    if (!chain.edges.is_empty()) {
+      result.append(std::move(chain));
+    }
+  };
+  for (const NurbsTopologyVertex &vertex : source.vertices) {
+    if (const auto *edges = incidence.lookup_ptr(vertex.id)) {
+      if (edges->size() == 1 && !visited.contains(edges->first())) {
+        trace(vertex.id);
+      }
+    }
+  }
+  for (const NurbsTopologyEdge &edge : source.edges) {
+    if (selected.contains(edge.id) && !visited.contains(edge.id)) {
+      trace(edge.vertex_ids[0]);
+    }
+  }
+  return result;
+}
+
 }  // namespace blender::bke::nurbs

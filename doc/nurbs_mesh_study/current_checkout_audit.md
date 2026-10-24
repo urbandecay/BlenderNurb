@@ -5,15 +5,20 @@ Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`,
 Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
-Latest completed checkpoint: Blender and twelve targeted test executables build;
-**211 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
-formatting/conversion regression, autosave and global-undo targets pass. Fourteen
-isolated viewport regressions pass. Native **1/2/3 Vertex/Edge/Face modes**, header
-buttons, click/box/linked selection and source-mode consumers are implemented.
-Mode/history survives undo and saving; sixteen new saved states are checked
-against full source, and fresh-file Face-mode extrusion passes. Ordinary picking
-uses scene depth; X-Ray selects through. The viewport was visually inspected.
-The requested F/connect/planar-fill stage follows this checkpoint.
+Latest completed checkpoint: Blender and thirteen targeted test executables build;
+**228 C++ kernel/editor/integration tests with no skips**, **37 NURBS Python cases**,
+the unit formatting/conversion regression, autosave and global-undo targets pass.
+Fifteen isolated viewport regressions pass. Native **1/2/3 Vertex/Edge/Face modes**
+and **F / Make Edge-Face** are implemented for the supported construction subset.
+Four straight noncoplanar sides produce a connected bilinear NURBS face through
+their corners. Planar polygon Fill, exact rational-profile caps and compatible
+coplanar face merging share kernel services. Ten saved Fill states are checked
+against full expected source records, and a fresh process continues the bent
+extrusion. Its viewport was visually inspected. See the [Fill tryout](native_fill_tryout.md)
+for explicit construction limits. Larger nonplanar loops remain a user policy
+decision. Stage 1 and the full NURBS editing pipeline remain incomplete.
+Native component modes retain the sixteen earlier saved-state source/history
+checks, source-provenance click/box/linked selection and depth-aware picking.
 Native **E** and **Delete** now use shared kernel candidates and the common owner
 commit. The reported extrude/delete/continue sequence passes on native source,
 alongside the repaired tagged prototype. Twenty-two new saved states are checked
@@ -3295,3 +3300,176 @@ and test relink for this check exited 0 in
 `/tmp/blender-nurbs-component-modes-scope-build-final.log`. Other product changes
 since the full 211-case run were comment corrections; the scope extension adds
 a stricter case within the existing readback test.
+
+
+## Native F / shared boundary construction checkpoint (2026-10-24)
+
+The user confirmed that four noncoplanar corners should form a bending NURBS
+face. `BKE_nurbs_construct.hh` / `nurbs_construct_fill.cc` now construct this as
+an interpolating bilinear support when the four sides are straight. Canonical
+edge curves, rational parameterization and shared endpoint/edge identities are
+retained; each face gets its own p-curves. No mesh becomes editable source.
+
+The same service connects two vertices, closes supported open chains, fills
+simple planar polygons and supported closed rational profiles, and merges a
+compatible coplanar face region. Region merging reuses extrusion's boundary
+classification and shared component deletion, retaining outer identities. A
+circle-cap test keeps the cylinder's original rational edge, knots and weights.
+BMesh `contextual_create` is used only in tests to compare supported planar
+boundary topology. Nonplanar quads intentionally use NURBS surface geometry
+rather than a mesh quad's triangulation. Joins do not imply tangent continuity.
+
+Read-only `component_closure` replaces the duplicated dependency discovery in
+copy and construction. `trace_edge_chains` provides deterministic incidence
+traversal, including self loops and parallel curved edges. Neither consumes
+source IDs. Fill returns a complete candidate plus created/removed topology;
+editors orchestrate selection and the existing revision-checked owner commit.
+The existing `curve.make_segment` operator handles F, with a native context-menu
+entry and native-inclusive poll. Both active-native dispatch and active-legacy
+mixed-session rejection preflight before mutation. Context Fill preflights all
+participating owners. Original legacy Make Segment behavior is retained.
+
+Explicit restrictions and open policies are in [the Fill tryout](native_fill_tryout.md):
+no branching/multiple-loop layout inference; no general curved or larger
+nonplanar construction; full clamped positive continuous curves and exact shared
+endpoints; conservative exact planar correspondence; restricted curved-profile
+simplicity checks and a 1,400-control-point simplicity budget. Face merging
+requires matching materials and planar selected supports. Fresh faces currently
+use material index zero. Fitting, tolerance expansion, resource collection,
+arbitrary trimmed-face deformation, broad transforms, native creation, fit-point
+curve editing and full component Python bindings are not implemented here.
+
+### Build and test evidence
+
+Commands ran from `/home/molotovgirl/Desktop/Blender Fork` against the canonical
+`/home/molotovgirl/Desktop/build_linux` directory. The other build path remains
+a symlink to that same directory. No user's Blender process was closed.
+
+```sh
+cmake -S . -B /home/molotovgirl/Desktop/build_linux
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target \
+  blender blenkernel_nurbs_fill_test blenkernel_nurbs_geometry_legacy_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_edit_test blenkernel_nurbs_differential_test \
+  blenkernel_nurbs_tessellate_test blenkernel_nurbs_mesh_test \
+  blenkernel_nurbs_object_test blenkernel_nurbs_transform_test \
+  blenkernel_unit_test editor_util_numinput_test \
+  editor_transform_transform_translate_precision_test --parallel 4
+cmake --install /home/molotovgirl/Desktop/build_linux \
+  --prefix /home/molotovgirl/Desktop/build_linux/bin
+python3 /tmp/blender-nurbs-run-fill-kernel-checks.py
+python3 /tmp/blender-nurbs-run-fill-regression-ui.py
+python3 /tmp/blender-nurbs-run-fill-modes-ui.py
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux \
+  --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+All above final commands exited **0**. CMake regenerated the new test target.
+The final full build log is `/tmp/blender-nurbs-fill-regression-build.log`;
+installation used `/tmp/blender-nurbs-fill-install.log`. Initial failures were
+corrected: requesting the new target before CMake regeneration; C-array-to-Span
+arguments in tests; and passing Sets to `Set::add_multiple`, which requires a
+Span. Those builds are retained as `...-kernel-build.log` and
+`...-build-fixed.log`; the corrected application/test build is
+`...-build-final.log`, followed by the full regression build above.
+
+The kernel runner invokes each of the thirteen test executables with
+`--gtest_color=no`; geometry additionally receives
+`--test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files'`.
+It supplies the frozen fixture paths and existing linked/move/duplicate/
+extrusion/component output directories to the edit executable, plus
+`BLENDER_NURBS_FILL_OUTPUT=/tmp/blender-nurbs-fill-ui`. Results:
+
+| Suite | Passed | Skipped |
+| --- | ---: | ---: |
+| geometry legacy | 20 | 0 |
+| selection | 35 | 0 |
+| geometry | 54 | 0 |
+| edit / persistence / integration | 47 | 0 |
+| Fill | 14 | 0 |
+| differential | 9 | 0 |
+| tessellation | 11 | 0 |
+| display Mesh | 7 | 0 |
+| object evaluation | 4 | 0 |
+| transform | 16 | 0 |
+| units | 3 | 0 |
+| numeric input | 4 | 0 |
+| precise translation | 4 | 0 |
+| **Total** | **228** | **0** |
+
+Summary: `/tmp/blender-nurbs-fill-kernel-summary.log`; individual logs:
+`/tmp/blender-nurbs-fill-<suite>-tests-final.log`. The separate focused Fill
+editor run also passed all three cases (`...-editor-tests-final.log`). An attempt
+to execute that binary during linking returned permission denied; it was rerun
+successfully after linking, with no permission or source workaround.
+
+The viewport wrappers run each prior test in its own isolated Weston process.
+All eleven existing edit/legacy regressions and all three mode/visibility/
+multi-owner regressions exit **0**, with summaries in
+`/tmp/blender-nurbs-fill-regression-ui-summary.log` and
+`/tmp/blender-nurbs-fill-modes-ui-summary.log`. The new Fill viewport test also
+exits **0**. Its final command was:
+
+```sh
+nice -n 10 env -u DISPLAY \
+  BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender \
+  WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston \
+  WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland \
+  WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston \
+  BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_FILL_OUTPUT=/tmp/blender-nurbs-fill-ui \
+  python3 tests/utils/blender_headless.py --enable-event-simulate \
+  --factory-startup --python tests/python/ui_simulate/run_blender_setup.py \
+  -- --tests test_nurbs_native.component_fill
+```
+
+Log: `/tmp/blender-nurbs-fill-ui-release.log`. It exercises F from real keyboard
+events, selection modes, precise G/E, undo/redo, planar/bent quads, two-point
+connection, triangular trim, coplanar merging and subsequent extrusion. The ten
+saved files are reopened by C++ and compared against full expected NURBS records:
+IDs/counters, positions, weights, knots, curve domains, p-curves, oriented uses,
+faces, materials and tolerances. Stored selected component IDs and modes are
+checked separately; legacy splines remain empty. The earlier mode/duplicate/
+extrusion/movement saved-file checks remain enabled.
+
+CTest: **5/5**, exit **0**, 9.35 seconds, log
+`/tmp/blender-nurbs-fill-ctest.log`. This includes the unchanged **37 NURBS Python
+cases**, units, autosave and global undo.
+
+A fresh isolated process opened `fill-bent-extrude.blend`, retained Edit/Face
+mode, and ran the existing extrusion/move macro with `value_precise_z='1'`.
+Counts progressed from **8V/12E/6F** to **12V/20E/10F**, with the cap selected.
+It saved `fill-bent-reopen.blend`. Exact command:
+
+```sh
+nice -n 10 env -u DISPLAY \
+  BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender \
+  WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston \
+  WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland \
+  WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston \
+  python3 tests/utils/blender_headless.py --enable-event-simulate \
+  --factory-startup /tmp/blender-nurbs-fill-ui/fill-bent-extrude.blend \
+  --python /tmp/blender-nurbs-fill-reopen-ui.py
+```
+
+Exit **0**, `/tmp/blender-nurbs-fill-reopen-ui.log`. Timer callbacks make failures
+exit the isolated child rather than leaving it running. Two initial background
+checks read cached `Scene.statistics` after operators; even `view_layer.update()`
+does not invalidate that UI cache. `info_stats.cc::format_stats` only recomputes
+when its cache is cleared. The final viewport test waits for the normal event/
+notifier cycle before reading counts. No source edit was changed to satisfy the
+statistics check. Original failed harness logs are `...-reopen.log` and
+`...-reopen-final.log`.
+
+**Visually confirmed:** inspected `/tmp/blender-nurbs-fill-ui/fill-bent-extrude.png`,
+showing the bending top face, connected walls, Face mode, selection and expected
+8V/12E/6F statistics. Other Fill shapes and the reopened screenshot were tested
+programmatically; no separate visual inspection claim is made for them.
+
+The three original input fixture SHA-256 values remain unchanged:
+`329f75e097dbcf7b580b7bdba5d8e619ac26ca812b9cd3ab38098907059f2e5a`,
+`ea596ec1bfb326190b98fc54557cded623681d6269c3504f68ba06167b81362d`,
+`1085cb447a543093900335f92cee77739fd839db5ae61e30cfde8d42ccc48538`.
+The original untracked handoff remains untouched and unstaged. This checkpoint
+adds no new CV editing workflow and does not complete the full editing pipeline.

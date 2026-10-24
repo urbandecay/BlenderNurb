@@ -4019,6 +4019,11 @@ class VIEW3D_MT_edit_curve_context_menu(Menu):
         layout = self.layout
         edit_object = context.edit_object
         if edit_object and getattr(edit_object.data, "is_native_nurbs", False):
+            layout.operator_context = 'INVOKE_DEFAULT'
+            layout.operator("curve.make_segment", text="Make Edge/Face")
+            layout.operator("curve.extrude_move")
+            layout.operator("curve.duplicate_move")
+            layout.separator()
             layout.menu_contents("VIEW3D_MT_select_edit_nurbs")
             return
 

@@ -107,6 +107,12 @@ bool extrude(Main &bmain,
              double *r_source_endpoint_deviation = nullptr);
 bool extrude(bContext *C);
 
+/** Connect or fill source components using the shared construction service. Context form
+ * preflights all edit owners before committing any of them.
+ */
+bool fill(Main &bmain, Curve &curve, std::string *r_error = nullptr);
+bool fill(bContext *C);
+
 /** Shared component deletion and selection pruning. Context form preflights all edit owners. */
 bool delete_components(Main &bmain,
                        Curve &curve,
