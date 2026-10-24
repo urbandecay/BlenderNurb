@@ -1047,3 +1047,386 @@ def mixed_component_edits_reject_before_mutation():
             t.assertFalse(bpy.ops.curve.extrude.poll())
             t.assertFalse(bpy.ops.curve.duplicate.poll())
             t.assertFalse(bpy.ops.curve.delete.poll())
+
+
+def component_selection_modes():
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_COMPONENT_OUTPUT', '/tmp/blender-nurbs-component-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    mesh_mode = tuple(window.scene.tool_settings.mesh_select_mode)
+
+    def reset(name='Native preview sheet'):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            if window.view_layer.objects.active is not None and window.view_layer.objects.active.mode == 'EDIT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        for curve in tuple(bpy.data.curves):
+            if curve.users == 0:
+                bpy.data.curves.remove(curve)
+        with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+            data.curves = [name]
+        obj = bpy.data.objects.new('Native component fixture', data.curves[0])
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.curve.select_all(action='DESELECT')
+        space.shading.show_xray = True
+        space.overlay.show_stats = True
+        space.region_3d.view_location = (0, 0, 0)
+        space.region_3d.view_distance = 6
+
+    def mode():
+        return tuple(window.view_layer.objects.active.data.nurbs_selection_mode)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    def screen(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def save(name):
+        curve = window.view_layer.objects.active.data
+        t.assertTrue(curve.is_native_nurbs)
+        t.assertEqual(len(curve.splines), 0)
+        t.assertEqual(tuple(window.scene.tool_settings.mesh_select_mode), mesh_mode)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / name), check_existing=False)
+
+    reset()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.numpad_7()
+    t.assertEqual(mode(), (True, False, False))
+    yield e.two()
+    t.assertEqual(mode(), (False, True, False))
+    yield e.a()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.alt.a()
+    yield e.cursor_position_set(*screen((0, -1, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+    t.assertEqual(tuple(window.scene.cursor.location), (0, -1, 0))
+    window.scene.cursor.location = (0, 0, 0)
+    save('edge-click.blend')
+    yield e.e().z().text('1').ret()
+    t.assertEqual(mode(), (False, True, False))
+    t.assertEqual(counts(), (2, 6, 1, 7, 0, 2))
+    save('edge-extrude.blend')
+    yield e.ctrl.z()
+    t.assertEqual(mode(), (False, True, False))
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (2, 6, 1, 7, 0, 2))
+
+    reset()
+    yield e.three()
+    t.assertEqual(mode(), (False, False, True))
+    yield e.cursor_position_set(*screen((0, 0, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+    t.assertEqual(tuple(window.scene.cursor.location), (0, 0, 0))
+    save('face-click.blend')
+    yield e.e().z().text('1').ret()
+    t.assertEqual(mode(), (False, False, True))
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    save('face-extrude.blend')
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 12, 4, 20, 1, 10))
+    save('face-extrude-repeat.blend')
+    yield e.one()
+    t.assertEqual(mode(), (True, False, False))
+    t.assertEqual(counts(), (4, 12, 4, 20, 1, 10))
+    yield e.ctrl.z()
+    t.assertEqual(mode(), (False, False, True))
+    yield e.ctrl.shift.z()
+    t.assertEqual(mode(), (True, False, False))
+    yield e.three()
+    yield e.shift.d().x().text('3').ret()
+    t.assertEqual(mode(), (False, False, True))
+    t.assertEqual(counts(), (4, 16, 4, 24, 1, 11))
+    save('face-duplicate.blend')
+
+    reset()
+    yield e.two()
+    lower = screen((-1.1, -1.1, 0))
+    upper = screen((1.1, -0.9, 0))
+    yield e.b()
+    yield from e.leftmouse.cursor_motion((lower, upper))
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    save('edge-box.blend')
+    yield e.e().z().text('1').ret()
+    save('edge-box-extrude.blend')
+
+    reset()
+    yield e.three()
+    center = screen((0, 0, 0))
+    yield e.b()
+    yield from e.leftmouse.cursor_motion(((center[0] - 8, center[1] - 8), (center[0] + 8, center[1] + 8)))
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    save('face-box.blend')
+    yield e.e().z().text('1').ret()
+    save('face-box-extrude.blend')
+
+    reset()
+    yield e.three()
+    yield e.cursor_position_set(*screen((0.4, 0.2, 0)), move=True)
+    yield e.l()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    save('face-linked.blend')
+    yield e.e().z().text('1').ret()
+    save('face-linked-extrude.blend')
+    yield e.shift.three()
+    # Toggling the last enabled domain keeps a valid mode.
+    t.assertEqual(mode(), (False, False, True))
+    yield e.shift.two()
+    t.assertEqual(mode(), (False, True, True))
+    yield e.shift.one()
+    t.assertEqual(mode(), (True, True, True))
+    yield e.three()
+    t.assertEqual(mode(), (False, False, True))
+    yield e.numpad_6().numpad_8().home()
+    save('try-native-component-modes.blend')
+    yield
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'native-component-modes.png'))
+
+    # Face mode must not expand two opposite cube faces merely because their closure
+    # includes every vertex. Vertex-mode flushing here would incorrectly select all six faces.
+    reset()
+    yield e.numpad_7()
+    yield e.a()
+    yield e.e().z().text('1').ret()
+    yield e.three()
+    yield e.ctrl.numpad_7()
+    yield e.cursor_position_set(*screen((0, 0, 0)), move=True)
+    yield e.shift.leftmouse()
+    t.assertEqual(counts(), (8, 8, 8, 12, 2, 6))
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (8, 16, 8, 28, 2, 14))
+    save('face-opposite-region.blend')
+
+    reset('Native preview hole')
+    yield e.numpad_7()
+    yield e.three()
+    yield e.cursor_position_set(*screen((0, 0, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (0, 8, 0, 8, 0, 1))
+    yield e.cursor_position_set(*screen((0, -0.75, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (8, 8, 8, 8, 1, 1))
+    yield e.ctrl.l()
+    t.assertEqual(counts(), (8, 8, 8, 8, 1, 1))
+    save('face-hole.blend')
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (8, 16, 8, 24, 1, 10))
+    save('face-hole-extrude.blend')
+    print('NATIVE_NURBS_COMPONENT_MODE_UI_ARTIFACTS', output)
+
+
+def component_selection_visibility():
+    import os
+    import re
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    space = area.spaces.active
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+        data.curves = ['Native preview sheet']
+    obj = bpy.data.objects.new('Native visibility fixture', data.curves[0])
+    window.scene.collection.objects.link(obj)
+    obj.select_set(True)
+    window.view_layer.objects.active = obj
+    window.view_layer.update()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 6
+    space.shading.show_xray = False
+    yield
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    def screen(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    yield e.cursor_position_set(*screen((-1, -1, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (1, 4, 0, 4, 0, 1))
+    yield e.alt.a()
+    yield e.two()
+    yield e.cursor_position_set(*screen((0, -1, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    yield e.alt.a()
+    yield e.three()
+    center = screen((0, 0, 0))
+    yield e.cursor_position_set(*center, move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.alt.a()
+    # Without X-Ray, face box selection uses visible face coverage, as mesh depth selection does.
+    corner = screen((-0.9, -0.9, 0))
+    yield e.b()
+    yield from e.leftmouse.cursor_motion(((corner[0] - 6, corner[1] - 6), (corner[0] + 6, corner[1] + 6)))
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.alt.a()
+
+    # This ordinary mesh is only a foreign scene occluder, never a NURBS source substitute.
+    mesh = bpy.data.meshes.new('Visibility occluder')
+    mesh.from_pydata([(-2, -2, 0.5), (2, -2, 0.5), (2, 2, 0.5), (-2, 2, 0.5)], [], [(0, 1, 2, 3)])
+    occluder = bpy.data.objects.new('Visibility occluder', mesh)
+    window.scene.collection.objects.link(occluder)
+    window.view_layer.update()
+    yield
+    yield e.cursor_position_set(*center, move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    yield e.b()
+    yield from e.leftmouse.cursor_motion(((center[0] - 8, center[1] - 8), (center[0] + 8, center[1] + 8)))
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    yield e.two()
+    yield e.cursor_position_set(*screen((0, -1, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    yield e.one()
+    yield e.cursor_position_set(*screen((-1, -1, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    space.shading.show_xray = True
+    yield e.leftmouse()
+    t.assertEqual(counts(), (1, 4, 0, 4, 0, 1))
+    yield e.alt.a()
+    yield e.three()
+    yield e.cursor_position_set(*center, move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
+
+
+def component_modes_across_objects():
+    import os
+    import re
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+        data.curves = ['Native preview sheet']
+    objects = []
+    for index, x in enumerate((-2, 2)):
+        curve = data.curves[0] if index == 0 else data.curves[0].copy()
+        obj = bpy.data.objects.new(f'Native mode owner {index}', curve)
+        window.scene.collection.objects.link(obj)
+        obj.location.x = x
+        objects.append(obj)
+    first, second = objects
+    second.select_set(True)
+    window.view_layer.objects.active = second
+    window.view_layer.update()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    yield e.three()
+    yield e.tab()
+    t.assertEqual(tuple(second.data.nurbs_selection_mode), (False, False, True))
+    t.assertEqual(tuple(first.data.nurbs_selection_mode), (True, False, False))
+    first.select_set(True)
+    window.view_layer.objects.active = first
+    window.view_layer.update()
+    yield e.tab()
+
+    def modes(expected):
+        for obj in window.view_layer.objects:
+            t.assertEqual(obj.mode, 'EDIT')
+            t.assertEqual(tuple(obj.data.nurbs_selection_mode), expected)
+            t.assertEqual(len(obj.data.splines), 0)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    # Stored owner modes may differ in Object Mode; entering a shared session uses the active one.
+    modes((True, False, False))
+    yield e.two()
+    modes((False, True, False))
+    yield e.three()
+    modes((False, False, True))
+    space = area.spaces.active
+    space.shading.show_xray = True
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 10
+    yield
+    left = location_3d_to_region_2d(region, space.region_3d, Vector((-2, 0, 0)))
+    right = location_3d_to_region_2d(region, space.region_3d, Vector((2, 0, 0)))
+    yield e.cursor_position_set(round(left.x) + region.x, round(left.y) + region.y, move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    active_name = window.view_layer.objects.active.name
+    yield e.cursor_position_set(round(right.x) + region.x, round(right.y) + region.y, move=True)
+    yield e.l()
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    t.assertEqual(window.view_layer.objects.active.name, active_name)
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    modes((False, False, True))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    modes((False, False, True))
+    yield e.shift.two()
+    modes((False, True, True))
+    yield e.three()
+    modes((False, False, True))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete('EXEC_DEFAULT', True, type='FACE'), {'FINISHED'})
+    yield
+    t.assertEqual(counts(), (0, 0, 0, 0, 0, 0))
+    modes((False, False, True))
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    modes((False, False, True))

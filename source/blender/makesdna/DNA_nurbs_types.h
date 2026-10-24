@@ -115,6 +115,9 @@ struct NurbsStoredSelection {
   NurbsSelectionElement active;
   int elements_num = 0;
   int history_num = 0;
+  /** Component-mode flags; zero in older native files means vertex mode. */
+  int mode = 1;
+  int _pad = 0;
 };
 
 /**

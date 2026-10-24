@@ -685,7 +685,7 @@ TEST_F(NurbsNativeEditTest, EditorDuplicateRejectsInvalidSelectionsAndExhaustion
   ASSERT_TRUE(curve_edit_flush_to_id(*curve));
   const auto inconsistent = edit.read_snapshot();
   EXPECT_FALSE(ed::nurbs::duplicate(*bmain, *curve, &error));
-  EXPECT_NE(error.find("normalized vertex-mode"), std::string::npos);
+  EXPECT_NE(error.find("normalized component-mode"), std::string::npos);
   EXPECT_EQ(edit.read_snapshot(), inconsistent);
   EXPECT_FALSE(curve->editnurb->needs_flush_to_id);
   EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
@@ -1645,6 +1645,188 @@ TEST_F(NurbsNativeEditTest, ViewportExtrusionAndDeletionFilesPreserveAuthoritati
     EXPECT_EQ(selected->faces, expected.selection.faces);
     EXPECT_EQ(selected->active, expected.selection.active);
     EXPECT_EQ(selected->history.as_span(), expected.selection.history.as_span());
+  }
+}
+
+TEST_F(NurbsNativeEditTest, ViewportComponentModesPreserveSourceAndPersistentSelection)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_COMPONENT_OUTPUT");
+  const char *baseline_path = std::getenv("BLENDER_NURBS_PREVIEW_FIXTURE");
+  if (directory == nullptr || baseline_path == nullptr) {
+    GTEST_SKIP() << "Run after the native component-mode viewport test";
+  }
+  BKE_blender_globals_main_replace(BKE_main_new());
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  ReportList reports;
+  BKE_reports_init(&reports, RPT_STORE);
+  BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+  BlendFileReadReport read_reports{};
+  read_reports.reports = &reports;
+  using LoadedFile = std::unique_ptr<BlendFileData, decltype(&BLO_blendfiledata_free)>;
+  auto load = [&](const char *path) {
+    return LoadedFile(BLO_read_from_file(path, BLO_READ_SKIP_USERDEF, &read_reports),
+                      BLO_blendfiledata_free);
+  };
+  auto find = [](const BlendFileData &file, const char *name) -> const NurbsGeometry * {
+    for (const Curve &curve : file.main->curves) {
+      if (STREQ(curve.id.name + 2, name) && curve.nurb.is_empty() && curve.editnurb == nullptr &&
+          curve.nurbs_eval_source == nullptr)
+      {
+        return curve.nurbs_geometry;
+      }
+    }
+    return nullptr;
+  };
+  const auto baseline = load(baseline_path);
+  ASSERT_NE(baseline, nullptr);
+  for (const char *name : {"edge-click.blend",
+                           "edge-box.blend",
+                           "edge-extrude.blend",
+                           "edge-box-extrude.blend",
+                           "face-click.blend",
+                           "face-box.blend",
+                           "face-linked.blend",
+                           "face-extrude.blend",
+                           "face-box-extrude.blend",
+                           "face-linked-extrude.blend",
+                           "face-extrude-repeat.blend",
+                           "face-duplicate.blend",
+                           "try-native-component-modes.blend",
+                           "face-hole.blend",
+                           "face-hole-extrude.blend",
+                           "face-opposite-region.blend"})
+  {
+    SCOPED_TRACE(name);
+    const bool opposite = STREQ(name, "face-opposite-region.blend");
+    const bool edge = STRPREFIX(name, "edge-");
+    const bool hole = STRPREFIX(name, "face-hole");
+    const char *source_name = hole ? "Native preview hole" : "Native preview sheet";
+    const NurbsGeometry *reference = find(*baseline, source_name);
+    ASSERT_NE(reference, nullptr);
+    EditSnapshot expected{OwnedGeometry(geometry_copy(reference)), {}};
+    expected.selection.mode = opposite ? SelectionMode::Vertex :
+                              edge     ? SelectionMode::Edge :
+                                         SelectionMode::Face;
+    const ElementRef hit =
+        edge ? ElementRef{ElementDomain::Edge,
+                          static_cast<const NurbsTopologyEdge *>(reference->edges.first)->id} :
+               ElementRef{ElementDomain::Face,
+                          static_cast<const NurbsTopologyFace *>(reference->faces.first)->id};
+    const bool explicit_history = !STREQ(name, "edge-box.blend") &&
+                                  !STREQ(name, "edge-box-extrude.blend") &&
+                                  !STREQ(name, "face-box.blend") &&
+                                  !STREQ(name, "face-box-extrude.blend") &&
+                                  !STREQ(name, "face-linked.blend") &&
+                                  !STREQ(name, "face-linked-extrude.blend") &&
+                                  !STREQ(name, "try-native-component-modes.blend");
+    std::string error;
+    if (opposite) {
+      Vector<int64_t> vertices;
+      for (const NurbsTopologyVertex &vertex : reference->vertices) {
+        vertices.append(vertex.id);
+      }
+      auto selected = selection_apply_vertices(
+          *expected.geometry, expected.selection, vertices, SelectionAction::Set);
+      ASSERT_TRUE(selected.has_value());
+      expected.selection = std::move(*selected);
+    }
+    else {
+      auto selected = selection_apply(*expected.geometry,
+                                      expected.selection,
+                                      {&hit, 1},
+                                      SelectionAction::Set,
+                                      explicit_history ? std::optional(hit) : std::nullopt,
+                                      &error);
+      ASSERT_TRUE(selected.has_value()) << error;
+      expected.selection = std::move(*selected);
+    }
+    auto construct = [&](const bool duplicate, const double3 &offset) -> bool {
+      const Vector<int64_t> vertices(expected.selection.vertices.begin(),
+                                     expected.selection.vertices.end());
+      const Vector<int64_t> edges(expected.selection.edges.begin(),
+                                  expected.selection.edges.end());
+      const Vector<int64_t> faces(expected.selection.faces.begin(),
+                                  expected.selection.faces.end());
+      OwnedGeometry geometry;
+      Map<int64_t, int64_t> ids;
+      if (duplicate) {
+        auto result = duplicate_components(*expected.geometry, {vertices, edges, faces}, &error);
+        if (!result) {
+          return false;
+        }
+        geometry = std::move(result->geometry);
+        ids = std::move(result->source_to_copy);
+      }
+      else {
+        auto result = extrude_components(
+            *expected.geometry, {vertices, edges, faces}, {0, 0, 0}, 0, &error);
+        if (!result) {
+          return false;
+        }
+        geometry = std::move(result->geometry);
+        ids = std::move(result->source_to_cap);
+      }
+      auto selection = selection_remap(
+          *expected.geometry, *geometry, expected.selection, ids, expected.selection.mode, &error);
+      if (!selection) {
+        return false;
+      }
+      const Vector<int64_t> cap(selection->vertices.begin(), selection->vertices.end());
+      auto moved = translate_vertices(
+          *geometry, cap, offset, std::numeric_limits<double>::max(), &error);
+      if (!moved) {
+        return false;
+      }
+      expected = {std::move(moved->geometry), std::move(*selection)};
+      return true;
+    };
+    const bool repeated = STREQ(name, "face-extrude-repeat.blend") ||
+                          STREQ(name, "face-duplicate.blend");
+    if (opposite) {
+      ASSERT_TRUE(construct(false, {0, 0, 1})) << error;
+      auto faces = selection_change_mode(
+          *expected.geometry, expected.selection, SelectionMode::Face, &error);
+      ASSERT_TRUE(faces.has_value()) << error;
+      auto selected = selection_apply(
+          *expected.geometry, *faces, {&hit, 1}, SelectionAction::Add, hit, &error);
+      ASSERT_TRUE(selected.has_value()) << error;
+      expected.selection = std::move(*selected);
+      ASSERT_TRUE(construct(false, {0, 0, 1})) << error;
+    }
+    else if (strstr(name, "extrude") != nullptr || repeated ||
+             STREQ(name, "try-native-component-modes.blend"))
+    {
+      ASSERT_TRUE(construct(false, {0, 0, 1})) << error;
+    }
+    if (repeated) {
+      ASSERT_TRUE(construct(false, {0, 0, 1})) << error;
+    }
+    if (STREQ(name, "face-duplicate.blend")) {
+      auto vertices = selection_change_mode(
+          *expected.geometry, expected.selection, SelectionMode::Vertex, &error);
+      ASSERT_TRUE(vertices.has_value()) << error;
+      auto faces = selection_change_mode(
+          *expected.geometry, *vertices, SelectionMode::Face, &error);
+      ASSERT_TRUE(faces.has_value()) << error;
+      expected.selection = std::move(*faces);
+      ASSERT_TRUE(construct(true, {3, 0, 0})) << error;
+    }
+    char path[FILE_MAX];
+    BLI_path_join(path, sizeof(path), directory, name);
+    const auto loaded = load(path);
+    ASSERT_NE(loaded, nullptr);
+    const NurbsGeometry *actual = find(*loaded, source_name);
+    ASSERT_NE(actual, nullptr);
+    ASSERT_TRUE(geometry_validate_structure(*actual, &error)) << error;
+    expect_source_geometry_equal(*actual, *expected.geometry);
+    const auto selection = selection_from_storage(actual->stored_selection, &error);
+    ASSERT_TRUE(selection.has_value()) << error;
+    EXPECT_EQ(selection->mode, expected.selection.mode);
+    EXPECT_EQ(selection->vertices, expected.selection.vertices);
+    EXPECT_EQ(selection->edges, expected.selection.edges);
+    EXPECT_EQ(selection->faces, expected.selection.faces);
+    EXPECT_EQ(selection->active, expected.selection.active);
+    EXPECT_EQ(selection->history.as_span(), expected.selection.history.as_span());
   }
 }
 

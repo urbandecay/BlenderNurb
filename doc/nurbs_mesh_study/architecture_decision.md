@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 204 C++ kernel/editor/integration tests, a complete Blender build and
+Current verified foundation: 211 C++ kernel/editor/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -23,7 +23,7 @@ rules differ until the user's hole policy is chosen. Native Shift+D now calls a
 full-candidate kernel duplication service, remaps source selection/history, and
 reuses the current owner commit and native Move adapter. Eight updated viewport
 tests, eleven saved duplication states and six selection-source files pass.
-Fit-point editing, edge/face picking and broader modal geometry transforms still
+Fit-point editing and broader modal geometry transforms still
 gate broader editing. Native Move now has a tested
 source adapter, precise numeric input/units and editable decimal F9 values. This
 is not completion of Stage 1 or completion of the prototype's replacement. Its tagged line/patch duplication
@@ -576,3 +576,51 @@ Python bindings remain gates. Stage 1 is incomplete. See the
 [native extrusion/deletion tryout](native_extrusion_tryout.md) and the
 [current audit](current_checkout_audit.md) for exact commands, corrected test
 failures, source checks and visual evidence.
+
+## Component modes and source-provenance selection checkpoint
+
+`SelectionState` now owns its component-mode flags. `NurbsStoredSelection` stores
+those flags beside persistent selection/history; old files with a missing/zero
+field decode as Vertex mode. Invalid flags reject. The retained source snapshot
+therefore includes mode, undo restores it, and ordinary Curve copy/save/read
+preserves it. Mesh ToolSettings are independent. A native edit session adopts its
+active owner's mode across participating owners; mode changes preflight all
+candidates before commits, retaining the existing per-owner transaction boundary.
+
+The kernel now applies arbitrary V/E/F hits with one generic selection service,
+and reconciles mode changes and surviving history. The old vertex-hit API is a
+wrapper. All seven mode combinations and all five actions have additional actual
+BMesh comparisons. Native All, click, box and linked selection share that service.
+Extrusion, duplication and deletion normalize/remap in the stored mode rather
+than forcing Vertex mode. Geometry construction remains in the same BKE services.
+
+The viewport resolves edge samples and face triangles to IDs in a retained source
+snapshot. A stale preview rejects rather than selecting against another state.
+Ordinary selection reads scene depth, including unrelated occluders. X-Ray uses
+through-selection. The same hit finder serves click and L; the same mode-aware
+commit serves box and bulk gestures. Face holes remain unpickable as interiors.
+These are sampled viewport proxies, not an exact curved-ray/trim certificate.
+Complete near-plane clipping and native lasso/circle selection remain gates.
+
+Source center queries cover vertices, curve interval midpoints, and face-boundary
+means. Display face anchors additionally stay within the sampled trim, and are
+shared by overlays and X-Ray box selection. Selected face tint, current-mode
+markers, ordinary depth visibility and header icons reuse Blender's rendering
+architecture. They create no source vertices, CV handles or editable display mesh.
+
+The application, source readback, 211 C++ cases, fourteen isolated viewport
+regressions and five CTest targets pass. Sixteen new saved source states verify
+mode, full geometry and history. The Face-mode UI was visually inspected. The
+requested F/connect/planar-fill service remains the next stage, ahead of fit-point
+curve work. See [component-mode tryout](native_component_modes_tryout.md) and the
+[current audit](current_checkout_audit.md) for evidence and limits. Stage 1 is
+still incomplete.
+
+
+The user confirmed the next F rule: four noncoplanar corners should receive a
+smooth NURBS face that bends through them. The exact straight-edge case is a
+bilinear four-corner support with shared existing boundary identities. Planar
+concave/larger loops use a planar trimmed support. General curved/nonplanar
+boundaries require a separate compatible-boundary construction; no silent fit
+or flattening is authorized. This is the implementation target following the
+component-mode checkpoint.

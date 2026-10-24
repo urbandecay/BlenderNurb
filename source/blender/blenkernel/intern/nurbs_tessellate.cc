@@ -19,6 +19,7 @@
 #include "BLI_math_boolean.hh"
 #include "BLI_math_vector.hh"
 
+#include "BKE_nurbs_selection.hh"
 #include "BKE_nurbs_tessellate.hh"
 
 namespace blender::bke::nurbs {
@@ -398,6 +399,64 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
         std::swap(evaluated.parameters[1], evaluated.parameters[2]);
       }
       result.triangles.append(evaluated);
+    }
+  }
+  return result;
+}
+
+Map<int64_t, double3> face_display_centers(const NurbsGeometry &source,
+                                           const SurfacePreview &preview)
+{
+  Vector<ElementRef> faces;
+  for (const NurbsTopologyFace &face : source.faces) {
+    faces.append({ElementDomain::Face, face.id});
+  }
+  const auto centers = element_centers(source, faces);
+  Map<int64_t, double3> result;
+  if (!centers) {
+    return result;
+  }
+  Map<int64_t, int> face_indices;
+  Vector<double> closest;
+  Vector<bool> on_face;
+  for (const int i : faces.index_range()) {
+    face_indices.add_new(faces[i].id, i);
+    closest.append(std::numeric_limits<double>::infinity());
+    on_face.append(false);
+  }
+  for (const auto &triangle : preview.triangles) {
+    const int i = face_indices.lookup(triangle.face_id);
+    if (on_face[i]) {
+      continue;
+    }
+    const double3 a = preview.position(triangle.points.x);
+    const double3 b = preview.position(triangle.points.y);
+    const double3 c = preview.position(triangle.points.z);
+    const double3 center = (*centers)[i];
+    const double3 ab = b - a, ac = c - a, ap = center - a;
+    const double3 normal = math::cross(ab, ac);
+    const double normal_squared = math::length_squared(normal);
+    const double scale = std::max(
+        {math::length_squared(ab), math::length_squared(ac), math::length_squared(ap)});
+    const double plane_distance = math::dot(ap, normal);
+    // This is a display-anchor classification slack, never a source tolerance or fit budget.
+    constexpr double slack = 64 * std::numeric_limits<double>::epsilon();
+    if (normal_squared > 0 &&
+        plane_distance * plane_distance <= slack * slack * scale * normal_squared)
+    {
+      const double u = math::dot(math::cross(ap, ac), normal) / normal_squared;
+      const double v = math::dot(math::cross(ab, ap), normal) / normal_squared;
+      if (u >= -slack && v >= -slack && u + v <= 1 + slack) {
+        result.add_overwrite(triangle.face_id, center);
+        on_face[i] = true;
+        continue;
+      }
+    }
+    const double3 candidate = a / 3 + b / 3 + c / 3;
+    const double distance = math::length_squared(candidate - center);
+    if (distance < closest[i]) {
+      closest[i] = distance;
+      result.add_overwrite(triangle.face_id, candidate);
     }
   }
   return result;

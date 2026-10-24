@@ -44,6 +44,7 @@
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
+#include "UI_resources.hh"
 
 #include "DEG_depsgraph.hh"
 
@@ -596,22 +597,35 @@ static wmOperatorStatus de_select_all_exec(bContext *C, wmOperator *op)
     if (cu->editnurb->nurbs_edit != nullptr) {
       using bke::nurbs::SelectionAction;
       const auto expected = cu->editnurb->nurbs_edit->read_snapshot();
-      Vector<int64_t> hits;
+      using namespace bke::nurbs;
+      Vector<ElementRef> hits;
       if (action != SEL_DESELECT) {
-        for (const NurbsTopologyVertex &vertex : expected.geometry().vertices) {
-          hits.append(vertex.id);
+        if (flag_is_set(expected.selection().mode, SelectionMode::Vertex)) {
+          for (const NurbsTopologyVertex &vertex : expected.geometry().vertices) {
+            hits.append({ElementDomain::Vertex, vertex.id});
+          }
+        }
+        if (flag_is_set(expected.selection().mode, SelectionMode::Edge)) {
+          for (const NurbsTopologyEdge &edge : expected.geometry().edges) {
+            hits.append({ElementDomain::Edge, edge.id});
+          }
+        }
+        if (flag_is_set(expected.selection().mode, SelectionMode::Face)) {
+          for (const NurbsTopologyFace &face : expected.geometry().faces) {
+            hits.append({ElementDomain::Face, face.id});
+          }
         }
       }
       std::string error;
-      ed::nurbs::select_vertices(*bmain,
-                                 *cu,
-                                 expected,
-                                 hits,
-                                 action == SEL_INVERT ? SelectionAction::Invert :
-                                 action == SEL_SELECT ? SelectionAction::Add :
-                                                        SelectionAction::Set,
-                                 std::nullopt,
-                                 &error);
+      ed::nurbs::select_components(*bmain,
+                                   *cu,
+                                   expected,
+                                   hits,
+                                   action == SEL_INVERT ? SelectionAction::Invert :
+                                   action == SEL_SELECT ? SelectionAction::Add :
+                                                          SelectionAction::Set,
+                                   std::nullopt,
+                                   &error);
       if (!error.empty()) {
         BKE_report(op->reports, RPT_ERROR, error.c_str());
         return OPERATOR_CANCELLED;
@@ -661,6 +675,45 @@ void CURVE_OT_select_all(wmOperatorType *ot)
 }
 
 /** \} */
+
+static bool native_select_mode_poll(bContext *C)
+{
+  if (!ED_operator_editsurfcurve_or_nurbs(C)) {
+    return false;
+  }
+  const Curve &curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  return curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr;
+}
+
+static wmOperatorStatus select_mode_exec(bContext *C, wmOperator *op)
+{
+  bool changed = false;
+  const bool success = ed::nurbs::select_mode(
+      C,
+      bke::nurbs::SelectionMode(RNA_enum_get(op->ptr, "type")),
+      RNA_boolean_get(op->ptr, "use_extend"),
+      &changed);
+  return success && changed ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+}
+
+void CURVE_OT_select_mode(wmOperatorType *ot)
+{
+  static const EnumPropertyItem mode_items[] = {
+      {1, "VERT", ICON_VERTEXSEL, "Vertex", "Select NURBS vertices"},
+      {2, "EDGE", ICON_EDGESEL, "Edge", "Select shared NURBS edges"},
+      {4, "FACE", ICON_FACESEL, "Face", "Select NURBS faces"},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+  ot->name = "Select Mode";
+  ot->idname = "CURVE_OT_select_mode";
+  ot->description = "Change native NURBS component selection mode";
+  ot->exec = select_mode_exec;
+  ot->poll = native_select_mode_poll;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+  RNA_def_enum(ot->srna, "type", mode_items, 1, "Type", "Component selection mode");
+  RNA_def_boolean(
+      ot->srna, "use_extend", false, "Extend", "Toggle this mode alongside the current modes");
+}
 
 /* -------------------------------------------------------------------- */
 /** \name Select Linked Operator

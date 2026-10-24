@@ -14,6 +14,7 @@
 #include "BLI_enum_flags.hh"
 #include "BLI_function_ref.hh"
 #include "BLI_map.hh"
+#include "BLI_math_vector_types.hh"
 #include "BLI_set.hh"
 #include "BLI_span.hh"
 #include "BLI_vector.hh"
@@ -25,7 +26,7 @@ namespace blender::bke::nurbs {
 /** Values are part of the persistent selection format. */
 enum class ElementDomain { Vertex = 0, Edge = 1, Face = 2 };
 
-/** Component modes may be combined, as in Blender mesh editing. Not a persistent DNA value. */
+/** Persistent component-mode flags; combinations follow Blender mesh selection precedence. */
 enum class SelectionMode : uint8_t { Vertex = 1, Edge = 2, Face = 4 };
 ENUM_OPERATORS(SelectionMode)
 
@@ -42,6 +43,7 @@ struct SelectionState {
   Set<int64_t> faces;
   std::optional<ElementRef> active;
   Vector<ElementRef> history;
+  SelectionMode mode = SelectionMode::Vertex;
 };
 
 /** Check source references, active state and history; does not flush mesh-style V/E/F selection.
@@ -60,7 +62,8 @@ bool selection_validate(const SelectionState &selection,
  * Geometry and input selection remain unchanged; failures return no candidate. Retain surviving
  * history order and active identity, without inventing history for inferred selections.
  * No hidden/selectability state is stored yet: all source components participate. Visibility,
- * mode switching and gesture adapters require their own integration before public activation.
+ * gesture adapters provide their own viewport visibility; mode conversion uses
+ * selection_change_mode.
  */
 std::optional<SelectionState> selection_flush(const NurbsGeometry &geometry,
                                               const SelectionState &selection,
@@ -69,9 +72,35 @@ std::optional<SelectionState> selection_flush(const NurbsGeometry &geometry,
 
 enum class SelectionAction { Set, Add, Subtract, Invert, Intersect };
 
+/** Change the source component mode, reconciling its closure and active/history identities. */
+std::optional<SelectionState> selection_change_mode(const NurbsGeometry &geometry,
+                                                    const SelectionState &selection,
+                                                    SelectionMode mode,
+                                                    std::string *r_error = nullptr);
+
+/** Apply source V/E/F hits in the current mode. Geometry and inputs remain unchanged.
+ * Lower-domain selection follows source incidence; inferred elements do not acquire history.
+ */
+std::optional<SelectionState> selection_apply(const NurbsGeometry &geometry,
+                                              const SelectionState &selection,
+                                              Span<ElementRef> hits,
+                                              SelectionAction action,
+                                              std::optional<ElementRef> active = std::nullopt,
+                                              std::string *r_error = nullptr);
+
+bool selection_contains(const SelectionState &selection, ElementRef element);
+
+/** Source representatives for UI centers: vertex position, curve interval midpoint, and
+ * the mean of unique face-boundary vertices. A face center need not lie on its support or trim.
+ * No source mutation, fitting, normal frame or geometric approximation certificate.
+ */
+std::optional<Vector<double3>> element_centers(const NurbsGeometry &geometry,
+                                               Span<ElementRef> elements,
+                                               std::string *r_error = nullptr);
+
 /**
- * Apply source vertex hits from any gesture, then flush in vertex mode. Click adapters may
- * explicitly nominate an active vertex; bulk gestures do not invent history. IDs are topology
+ * Vertex-hit wrapper for the generic current-mode service; Vertex must be enabled. Click adapters
+ * may explicitly nominate an active vertex; bulk gestures do not invent history. IDs are topology
  * vertices, never control coefficients, display indices or fit handles. Invalid input/hits fail
  * atomically. All source components participate until visibility storage is introduced.
  */

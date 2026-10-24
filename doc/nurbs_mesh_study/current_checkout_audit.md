@@ -6,9 +6,14 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and twelve targeted test executables build;
-**204 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
-formatting/conversion regression, autosave and global-undo targets pass. Eleven
-isolated viewport event regressions pass after the documented test corrections.
+**211 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+formatting/conversion regression, autosave and global-undo targets pass. Fourteen
+isolated viewport regressions pass. Native **1/2/3 Vertex/Edge/Face modes**, header
+buttons, click/box/linked selection and source-mode consumers are implemented.
+Mode/history survives undo and saving; sixteen new saved states are checked
+against full source, and fresh-file Face-mode extrusion passes. Ordinary picking
+uses scene depth; X-Ray selects through. The viewport was visually inspected.
+The requested F/connect/planar-fill stage follows this checkpoint.
 Native **E** and **Delete** now use shared kernel candidates and the common owner
 commit. The reported extrude/delete/continue sequence passes on native source,
 alongside the repaired tagged prototype. Twenty-two new saved states are checked
@@ -34,12 +39,13 @@ repeats the delete/continue viewport regression; the frozen input is unchanged.
 Native L / Shift+L / Ctrl+L now share source connectivity and selection
 services, with multi-owner preflight, retained active/history data and explicit
 hole-policy handling. The ambiguous hole rule still awaits user input; L picking
-requires a source vertex and X-Ray. Fit-point editing,
-edge/face picking, R/S, snapping, proportional editing and multi-owner movement remain later gates.
+now picks source components in the current mode and observes scene depth unless
+X-Ray is enabled. Fit-point editing, complete near-plane clipping, lasso/circle,
+R/S, snapping, proportional editing and multi-owner movement remain later gates.
 Normal/Gimbal movement is explicitly rejected because its source orientation
 adapter is absent. Native active-vertex centers now read the live source ID rather than legacy curve
 points. Cursor-to-active, Active Element G/cancel and unchanged saved source are
-tested. Edge/face active centers remain part of their future picking/mode gates.
+tested. Edge/face active centers now use the shared source representative query; general normal frames remain gated.
 Stage 1 remains incomplete.
 
 See the checkpoints at the end for exact commands, failures and limits,
@@ -47,6 +53,7 @@ See the checkpoints at the end for exact commands, failures and limits,
 [selection tryout](native_selection_tryout.md),
 [native duplication tryout](native_duplication_tryout.md),
 [native extrusion/deletion tryout](native_extrusion_tryout.md),
+[component-mode tryout](native_component_modes_tryout.md),
 [duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md), and
 [delete/continue tryout](prototype_deletion_tryout.md).
 The user's deletion sequence is reproduced; their exact working file was not supplied.
@@ -3117,3 +3124,174 @@ continuation. Other cases have automated evidence, not individual visual signoff
 **Still gated:** fit-point data/constraints, broad transforms, source normal frames,
 edge/face picking, native creation/migration, full component Python bindings,
 general geometric/solid validity and resource collection. Stage 1 is incomplete.
+
+## Native component-mode checkpoint: 1/2/3, picking and selection consumers
+
+Implemented before the requested F stage. Native Vertex, Edge and Face interaction
+is no longer limited to selecting source vertices as a proxy for every operation.
+This checkpoint does not implement Fill, fit-point editing or general native creation.
+
+`SelectionState.mode` and the persistent `NurbsStoredSelection.mode` retain mode
+through snapshots, Curve copy, undo and file I/O. Missing/zero stored fields from
+older native files decode as Vertex mode; invalid flags reject. `selection_apply`
+handles V/E/F hits in one service; the old vertex API wraps it. Mode changes
+reconcile the selected closure and active/history data without inventing history.
+Native All, click, box, L/Ctrl+L, E, Shift+D and Delete now consume that mode. The
+mode operator preflights all owners; entering a multi-owner session reconciles
+their stored modes to the active owner. Mesh ToolSettings stay unchanged.
+
+Viewport edge and face hits resolve to source IDs through the evaluated preview's
+retained source token. Stale/mismatched previews reject. Ordinary selection reads
+scene depth, including foreign occluders. X-Ray selects through geometry. Edge
+box selection tries fully enclosed edges before intersecting edges. X-Ray face
+boxes use the displayed markers; ordinary face boxes use visible face coverage.
+Holes are excluded from face-interior picking. Display markers remain inside the
+sampled trim, with a shared helper used by overlays and X-Ray box selection. The
+active-element center service separately uses a source vertex position, curve
+interval midpoint, or unique face-boundary-vertex mean. These are UI queries,
+not source edits or a general face-normal frame.
+
+Native overlays add selected-face tint, Face-mode markers and current-mode point
+visibility, with source IDs independent of derived triangle/edge subdivisions.
+The three header icons and keys 1/2/3 use `curve.select_mode`; Shift combinations
+are supported, and the last enabled mode cannot be disabled. Read-only Python
+metadata is available as `Curve.nurbs_selection_mode` (three booleans). The same
+context operator changes it; no mutable component/CV API is introduced.
+
+### Build and corrected failures
+
+The isolated kernel stage built and passed 34 selection tests. The additional
+center query test later brings the selection executable to 35. The first editor
+build failed because the new projection code tried a range-for over Blender's
+vector type; explicit axis indexing fixed it (and the analogous triangle-index
+loop). The second command built the application but failed when a new test passed
+a C array to `Span` without its explicit length. Correcting the test to pass
+`{elements, 3}` resolved it. Failed logs remain preserved:
+
+- `/tmp/blender-nurbs-component-modes-editor-build.log`: exit 2, vector iteration.
+- `/tmp/blender-nurbs-component-modes-editor-build-fixed.log`: application built;
+  command exit 2 in the new center test's C-array/Span conversion.
+- `/tmp/blender-nurbs-component-modes-editor-build-final.log`: exit 0, current
+  application and all three directly changed test executables built.
+
+The final product build and runtime installation commands were:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blender blenkernel_nurbs_selection_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_edit_test --parallel 4
+cmake --install /home/molotovgirl/Desktop/build_linux \
+  --prefix /home/molotovgirl/Desktop/build_linux/bin
+```
+
+Both exited 0. Installation log:
+`/tmp/blender-nurbs-component-modes-install.log`. Startup scripts and the keymap
+must be installed for the new header and shortcuts, not just the binary.
+
+The twelve-suite relink used:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_geometry_legacy_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_differential_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_mesh_test blenkernel_nurbs_object_test \
+  blenkernel_nurbs_transform_test blenkernel_unit_test \
+  editor_util_numinput_test editor_transform_transform_translate_precision_test \
+  --parallel 4
+python3 /tmp/blender-nurbs-run-component-modes-kernel-checks.py
+```
+
+Build exit 0: `/tmp/blender-nurbs-component-modes-regression-build.log`.
+Suite wrapper exit 0: **211 passed, no skips**. Executable counts are geometry
+legacy 20, selection 35, geometry 54, edit/integration 44, differential 9,
+tessellation 11, mesh 7, object 4, transform 16, units 3, numeric input 4, precise
+translation 4. Summary: `/tmp/blender-nurbs-component-modes-kernel-summary.log`;
+per-suite logs: `/tmp/blender-nurbs-component-modes-<suite>-tests-final.log`.
+Each executable receives `--gtest_color=no`; geometry also receives
+`--test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files'`.
+The edit suite uses the six retained inputs/directories from the preceding
+checkpoint, plus `BLENDER_NURBS_COMPONENT_OUTPUT=/tmp/blender-nurbs-component-ui`.
+
+New kernel checks include more than 2,000 additional comparisons with actual
+BMesh component gestures, all seven mode combinations, all five actions,
+mode/old-file roundtrips, active/history behavior, source centers, and display
+markers for holed faces. Sixteen saved component states compare against complete
+kernel-composed expected source, including mode, history and every geometry
+record. Edge/face click and box, face linked selection, extrusion, repeat,
+duplication and hole-region extrusion are represented. No display mesh is used
+as the geometry oracle.
+
+### Viewport and file checks
+
+```sh
+python3 /tmp/blender-nurbs-run-component-modes-ui.py
+python3 /tmp/blender-nurbs-run-component-modes-regression-ui.py
+```
+
+Both wrappers exited 0. They launch the same isolated Weston/factory-startup
+command/environment pattern documented in the preceding checkpoint; the new
+wrapper additionally sets
+`BLENDER_NURBS_COMPONENT_OUTPUT=/tmp/blender-nurbs-component-ui`. Its exact new
+TEST_ID values are:
+
+| Test | Evidence |
+|---|---|
+| `test_nurbs_native.component_selection_modes` | 1/2/3, Shift combinations, edge/face click/box/linked, source-mode E/Shift+D, active centers, undo/redo, hole picking and extrusion; sixteen saved states. |
+| `test_nurbs_native.component_selection_visibility` | Ordinary V/E/F selection, visible face box coverage, a separate mesh occluder blocking click/box, and X-Ray selecting through it. That mesh is only a test occluder. |
+| `test_nurbs_native.component_modes_across_objects` | Different stored owner modes reconcile on entry, modes apply across owners, Face L preserves active owner, undo/redo and multi-owner deletion preserve mode. |
+
+All three exited 0: `/tmp/blender-nurbs-component-modes-ui-summary.log` and
+`-ui-modes.log`, `-ui-visibility.log`, `-ui-multiowner.log` with the same prefix.
+The preceding eleven viewport regressions also passed, including the legacy
+prototype, native precise G/F9, duplication, E/delete/continue, ambiguous-hole
+rejection and mixed-session rejection. Their summary is
+`/tmp/blender-nurbs-component-modes-regression-ui-summary.log` and logs are
+`/tmp/blender-nurbs-component-modes-regression-ui-<label>-final.log`.
+Total: **14 successful isolated viewport regressions**.
+
+A fresh process opened `try-native-component-modes.blend` directly in Edit Mode,
+asserted the stored Face mode and empty legacy splines, and executed precise
+Python E Z = "1". Statistics changed from 8/12/6 to 12/20/10, with the new cap
+selected. This uses the earlier isolated-server environment and:
+
+```sh
+python3 tests/utils/blender_headless.py --enable-event-simulate --factory-startup \
+  /tmp/blender-nurbs-component-ui/try-native-component-modes.blend \
+  --python /tmp/blender-nurbs-reopen-component-modes.py
+```
+
+Exit 0; `/tmp/blender-nurbs-component-modes-reopen.log`. The Face-mode header,
+tint and markers were visually inspected in
+`/tmp/blender-nurbs-component-ui/native-component-modes.png`. The fresh reopen
+is automated evidence; it is not a separate visual signoff.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux \
+  --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+Exit 0, **5/5 passed** in 10.30 seconds, including the unchanged 37 NURBS Python
+cases: `/tmp/blender-nurbs-component-modes-ctest.log`. Python byte compilation,
+clang-format dry-run and `git diff --check` also passed. Frozen preview, broken
+reproduction and extrusion-input SHA-256 values remain unchanged.
+
+**Implemented/built/tested:** native component modes and their selection/editing
+consumers. **Visually confirmed:** one Face-mode viewport. **Next:** the requested
+shared F/connect/planar-fill services. Still gated: native creation/migration,
+fit points, native lasso/circle selection, complete near-plane picking clipping,
+certified curved-trim intersection, normal frames, broader transforms, full
+component bindings and complete Stage 1 promotion.
+
+A final component-mode regression selects opposite cube faces: all eight source
+vertices belong to their closure, while only two faces remain selected. E
+produces 16/28/14 V/E/F, preserving the two-face region instead of expanding to
+all six faces through vertex flushing. The expanded viewport case exits 0 in
+`/tmp/blender-nurbs-component-modes-ui-scope-final.log`. The updated source
+readback covers sixteen files; all 44 edit/integration tests pass in
+`/tmp/blender-nurbs-component-modes-edit-scope-tests-final.log`. The application
+and test relink for this check exited 0 in
+`/tmp/blender-nurbs-component-modes-scope-build-final.log`. Other product changes
+since the full 211-case run were comment corrections; the scope extension adds
+a stricter case within the existing readback test.

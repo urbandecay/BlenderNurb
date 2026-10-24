@@ -307,6 +307,7 @@ struct CurveBatchCache {
     /* Edit points (beztriples and bpoints) */
     gpu::VertBuf *pos;
     gpu::VertBuf *data;
+    gpu::VertBuf *face_pos;
   } edit;
 
   struct {
@@ -323,6 +324,7 @@ struct CurveBatchCache {
     gpu::Batch *edit_edges;
     gpu::Batch *edit_verts;
     gpu::Batch *edit_normals;
+    gpu::Batch *edit_faces;
   } batch;
 
   /* settings to determine if cache is invalid */
@@ -429,6 +431,8 @@ void DRW_curve_batch_cache_dirty_tag(Curve *cu, int mode)
 
       GPU_BATCH_DISCARD_SAFE(cache->batch.edit_edges);
       GPU_BATCH_DISCARD_SAFE(cache->batch.edit_verts);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edit_faces);
+      GPU_VERTBUF_DISCARD_SAFE(cache->edit.face_pos);
       break;
     default:
       BLI_assert(0);
@@ -859,6 +863,12 @@ gpu::Batch *DRW_curve_batch_cache_get_edit_verts(Curve *cu)
 /** \name Grouped batch generation
  * \{ */
 
+gpu::Batch *DRW_curve_batch_cache_get_edit_faces(Curve *cu)
+{
+  CurveBatchCache *cache = curve_batch_cache_get(cu);
+  return DRW_batch_request(&cache->batch.edit_faces);
+}
+
 /** Source boundary samples are display geometry. Only topology vertices become point handles. */
 static void native_curve_create_edit_data(const Object &object, CurveBatchCache &cache)
 {
@@ -880,10 +890,28 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
         data |= VFLAG_VERT_ACTIVE;
       }
       flags.append(data);
-      if (id != 0) {
+      if (id != 0 && flag_is_set(selection.mode, bke::nurbs::SelectionMode::Vertex)) {
         points.append(i);
       }
     }
+    if (flag_is_set(selection.mode, bke::nurbs::SelectionMode::Face)) {
+      const auto centers = bke::nurbs::face_display_centers(cache.native_source->geometry(),
+                                                            evaluation->result->preview);
+      for (const NurbsTopologyFace &face : cache.native_source->geometry().faces) {
+        const auto *center = centers.lookup_ptr(face.id);
+        if (center == nullptr) {
+          continue;
+        }
+        points.append(positions.size());
+        positions.append(float3(*center));
+        uint32_t data = selection.faces.contains(face.id) ? VFLAG_VERT_SELECTED : 0;
+        if (selection.active == bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Face, face.id}) {
+          data |= VFLAG_VERT_ACTIVE;
+        }
+        flags.append(data);
+      }
+    }
+
     for (const auto &edge : boundary.edges) {
       const uint32_t start = positions.size();
       const uint32_t data = (COLOR_NURB_ULINE_ID << COLOR_SHIFT) |
@@ -895,6 +923,28 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
       for (const int i : IndexRange(edge.samples.size() - 1)) {
         lines.append({start + i, start + i + 1});
       }
+    }
+  }
+  if (DRW_vbo_requested(cache.edit.face_pos)) {
+    Vector<float3> triangles;
+    if (evaluation != nullptr && evaluation->result && cache.native_source != nullptr &&
+        evaluation->result->source == *cache.native_source)
+    {
+      const auto &preview = evaluation->result->preview;
+      for (const auto &triangle : preview.triangles) {
+        if (cache.native_source->selection().faces.contains(triangle.face_id)) {
+          for (int corner = 0; corner < 3; corner++) {
+            triangles.append(float3(preview.position(triangle.points[corner])));
+          }
+        }
+      }
+    }
+    GPUVertFormat format{};
+    const uint attr = GPU_vertformat_attr_add(&format, "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+    GPU_vertbuf_init_with_format(*cache.edit.face_pos, format);
+    GPU_vertbuf_data_alloc(*cache.edit.face_pos, triangles.size());
+    if (!triangles.is_empty()) {
+      GPU_vertbuf_attr_fill(cache.edit.face_pos, attr, triangles.data());
     }
   }
   if (DRW_vbo_requested(cache.edit.pos)) {
@@ -980,6 +1030,9 @@ void DRW_curve_batch_cache_create_requested(Object *ob, const Scene *scene)
   }
 
   if (cu->nurbs_eval_source != nullptr) {
+    if (DRW_batch_requested(cache->batch.edit_faces, GPU_PRIM_TRIS)) {
+      DRW_vbo_request(cache->batch.edit_faces, &cache->edit.face_pos);
+    }
     native_curve_create_edit_data(*ob, *cache);
     return;
   }

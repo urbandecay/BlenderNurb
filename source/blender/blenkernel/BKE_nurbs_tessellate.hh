@@ -37,6 +37,14 @@ struct SurfacePreview {
   double3 position(int index) const;
 };
 
+/** Display-only face anchors shared by overlays and X-Ray box selection. Keep the source
+ * boundary-vertex mean when it lies in a preview triangle; otherwise use the nearest triangle
+ * centroid. A holed/curved face's dot must not be placed in an empty trim region. No source
+ * modification, exact trim-validity claim or geometric center certificate.
+ */
+Map<int64_t, double3> face_display_centers(const NurbsGeometry &source,
+                                           const SurfacePreview &preview);
+
 struct SurfacePreviewOptions {
   BoundaryEvaluationOptions boundary;
   /** Subdivide each support knot span inside the sampled trim bounds. Keep interior knots too. */

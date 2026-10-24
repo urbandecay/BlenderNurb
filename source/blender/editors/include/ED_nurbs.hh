@@ -12,6 +12,7 @@
 #include <optional>
 #include <string>
 
+#include "BKE_nurbs_selection.hh"
 #include "BLI_span.hh"
 
 namespace blender {
@@ -27,6 +28,8 @@ struct EditSnapshot;
 class ReadSnapshot;
 enum class SelectionAction;
 enum class DeleteMode;
+enum class SelectionMode : uint8_t;
+struct ElementRef;
 }  // namespace bke::nurbs
 }  // namespace blender
 
@@ -54,6 +57,23 @@ bool edit_commit(Main &bmain,
                  const bke::nurbs::ReadSnapshot &expected_state,
                  std::string *r_error = nullptr);
 
+/** Apply V/E/F hits in the stored source mode, retaining the common commit contract. */
+bool select_components(Main &bmain,
+                       Curve &curve,
+                       const bke::nurbs::ReadSnapshot &expected,
+                       Span<bke::nurbs::ElementRef> hits,
+                       bke::nurbs::SelectionAction action,
+                       std::optional<bke::nurbs::ElementRef> active,
+                       std::string *r_error = nullptr);
+
+/** Change all native edit owners to the same source mode. Returns success; r_changed reports
+ * whether any owner changed, including a valid no-op when the last enabled mode is toggled.
+ */
+bool select_mode(bContext *C,
+                 bke::nurbs::SelectionMode mode,
+                 bool extend,
+                 bool *r_changed = nullptr);
+
 /** Apply source vertex hits through the kernel and shared owner commit. False also means no-op. */
 bool select_vertices(Main &bmain,
                      Curve &curve,
@@ -63,7 +83,7 @@ bool select_vertices(Main &bmain,
                      std::optional<int64_t> active_vertex = std::nullopt,
                      std::string *r_error = nullptr);
 
-/** Initial topology-vertex adapters require X-Ray; surface occlusion picking is a later gate. */
+/** Source-provenance component picking; ordinary selection checks viewport scene depth. */
 bool select_pick(bContext *C, const int mval[2], int distance, const SelectPick_Params &params);
 bool select_box(const ViewContext &vc, const rcti &rect, eSelectOp operation);
 

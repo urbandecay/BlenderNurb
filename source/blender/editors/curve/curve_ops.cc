@@ -96,6 +96,7 @@ void ED_operatortypes_curve()
   WM_operatortype_append(CURVE_OT_de_select_first);
   WM_operatortype_append(CURVE_OT_de_select_last);
   WM_operatortype_append(CURVE_OT_select_all);
+  WM_operatortype_append(CURVE_OT_select_mode);
   WM_operatortype_append(CURVE_OT_select_linked);
   WM_operatortype_append(CURVE_OT_select_linked_pick);
   WM_operatortype_append(CURVE_OT_select_row);

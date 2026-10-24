@@ -317,4 +317,28 @@ TEST(nurbs_surface_preview, CollapsedModelKeepsSourceAndRejectsAnOpenUVChart)
   EXPECT_NE(error.find("UV"), std::string::npos);
 }
 
+TEST(nurbs_surface_preview, FaceDisplayCentersStayInsideTrimAndKeepPlanarCenters)
+{
+  auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  std::string error;
+  auto preview = tessellate_surfaces(*sheet, preview_options(), &error);
+  ASSERT_TRUE(preview.has_value()) << error;
+  const int64_t face_id = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
+  const auto planar = face_display_centers(*sheet, *preview);
+  ASSERT_TRUE(planar.contains(face_id));
+  EXPECT_EQ(planar.lookup(face_id), double3(0));
+  const double2 hole[] = {{0.25, 0.25}, {0.25, 0.75}, {0.75, 0.75}, {0.75, 0.25}};
+  add_planar_loop(*sheet, *static_cast<NurbsTopologyFace *>(sheet->faces.first), {hole, 4}, true);
+  preview = tessellate_surfaces(*sheet, preview_options(), &error);
+  ASSERT_TRUE(preview.has_value()) << error;
+  const auto holed = face_display_centers(*sheet, *preview);
+  ASSERT_TRUE(holed.contains(face_id));
+  const double3 anchor = holed.lookup(face_id);
+  EXPECT_EQ(anchor.z, 0);
+  EXPECT_LE(std::abs(anchor.x), 1);
+  EXPECT_LE(std::abs(anchor.y), 1);
+  EXPECT_TRUE(std::abs(anchor.x) >= 0.5 || std::abs(anchor.y) >= 0.5);
+}
+
 }  // namespace blender::bke::nurbs::tests

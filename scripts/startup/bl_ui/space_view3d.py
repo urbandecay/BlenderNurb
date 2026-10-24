@@ -508,6 +508,11 @@ class VIEW3D_HT_header(Header):
 
         # Contains buttons like Mode, Pivot, Layer, Mesh Select Mode...
         if obj:
+            if object_mode == 'EDIT' and obj.type in {'CURVE', 'SURFACE'} and obj.data.is_native_nurbs:
+                modes = obj.data.nurbs_selection_mode
+                sub = row.row(align=True)
+                for index, mode, icon in ((0, 'VERT', 'VERTEXSEL'), (1, 'EDGE', 'EDGESEL'), (2, 'FACE', 'FACESEL')):
+                    sub.operator("curve.select_mode", text="", icon=icon, depress=modes[index]).type = mode
             # Particle edit
             if object_mode == 'PARTICLE_EDIT':
                 row = layout.row()
@@ -733,6 +738,8 @@ class VIEW3D_MT_select_edit_nurbs(Menu):
 
     def draw(self, _context):
         layout = self.layout
+        layout.operator_enum("curve.select_mode", "type")
+        layout.separator()
         layout.operator("curve.select_all", text="All", icon='SELECT_SET').action = 'SELECT'
         layout.operator("curve.select_all", text="None", icon='SELECT_SUBTRACT').action = 'DESELECT'
         layout.operator("curve.select_all", text="Invert", icon='SELECT_EXTEND').action = 'INVERT'

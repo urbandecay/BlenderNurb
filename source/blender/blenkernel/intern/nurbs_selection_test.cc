@@ -2,8 +2,11 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
+
+#include "BLI_memory_utils.hh"
 
 #include "BKE_gtest_base.hh"
 #include "BKE_nurbs_edit.hh"
@@ -1273,6 +1276,231 @@ TEST_F(NurbsSelectionTest, PeriodicRegionConstructionSharesSeamAndClosedBoundary
                     (curve.dimension == 3 ? double3(3, 0, 0) : double3(0)));
     }
   }
+}
+
+TEST_F(NurbsSelectionTest, ComponentModeStorageRoundTripAndOlderFileDefault)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  SelectionState selection;
+  selection.mode = SelectionMode::Edge;
+  const int64_t id = first_item(source->edges).id;
+  const ElementRef hit{ElementDomain::Edge, id};
+  std::string error;
+  auto selected = selection_apply(
+      *source, selection, {&hit, 1}, SelectionAction::Set, hit, &error);
+  ASSERT_TRUE(selected.has_value()) << error;
+  auto *storage = selection_to_storage(*selected);
+  ASSERT_NE(storage, nullptr);
+  BLI_SCOPED_DEFER([&]() { selection_storage_free(storage); });
+  EXPECT_EQ(storage->mode, int(SelectionMode::Edge));
+  const auto restored = selection_from_storage(storage, &error);
+  ASSERT_TRUE(restored.has_value()) << error;
+  EXPECT_EQ(restored->mode, SelectionMode::Edge);
+  EXPECT_EQ(restored->active, hit);
+  expect_selection_equal(*restored, *selected);
+  storage->mode = 0;
+  EXPECT_EQ(selection_from_storage(storage)->mode, SelectionMode::Vertex);
+  storage->mode = 8;
+  EXPECT_FALSE(selection_from_storage(storage, &error));
+  selection.mode = SelectionMode(8);
+  EXPECT_EQ(selection_to_storage(selection, &error), nullptr);
+  EXPECT_FALSE(error.empty());
+}
+
+TEST_F(NurbsSelectionTest, ComponentGesturesMatchBMeshAcrossAllModesAndActions)
+{
+  auto sheet = make_planar_sheet();
+  auto adjacent = extrude_edges(*sheet, {first_item(sheet->edges).id}, {0, 0, 2}, 0);
+  ASSERT_TRUE(adjacent.has_value());
+  int comparisons = 0;
+  for (const NurbsGeometry *source : {sheet.get(), adjacent->geometry.get()}) {
+    MeshReference reference(*source);
+    for (int mode = 1; mode <= 7; mode++) {
+      SCOPED_TRACE(mode);
+      Vector<ElementRef> elements;
+      for (const NurbsTopologyVertex &vertex : source->vertices) {
+        if (mode & 1) {
+          elements.append({ElementDomain::Vertex, vertex.id});
+        }
+      }
+      for (const NurbsTopologyEdge &edge : source->edges) {
+        if (mode & 2) {
+          elements.append({ElementDomain::Edge, edge.id});
+        }
+      }
+      for (const NurbsTopologyFace &face : source->faces) {
+        if (mode & 4) {
+          elements.append({ElementDomain::Face, face.id});
+        }
+      }
+      for (const uint64_t mask :
+           {uint64_t(0), uint64_t(1), uint64_t(17), uint64_t(85), ~uint64_t(0)})
+      {
+        const auto initial = selection_flush(
+            *source, mask_selection(*source, mask), SelectionMode(mode));
+        ASSERT_TRUE(initial.has_value());
+        for (const SelectionAction action : {SelectionAction::Set,
+                                             SelectionAction::Add,
+                                             SelectionAction::Subtract,
+                                             SelectionAction::Invert,
+                                             SelectionAction::Intersect})
+        {
+          SCOPED_TRACE(int(action));
+          for (const int hit_index : IndexRange(elements.size() + 2)) {
+            Vector<ElementRef> hits;
+            if (hit_index < elements.size()) {
+              hits.append(elements[hit_index]);
+              hits.append(elements[hit_index]);
+            }
+            else if (hit_index == elements.size()) {
+              hits = elements;
+            }
+            std::string error;
+            const auto actual = selection_apply(
+                *source, *initial, hits, action, std::nullopt, &error);
+            ASSERT_TRUE(actual.has_value()) << error;
+            reference.flush(action == SelectionAction::Set ? SelectionState{} : *initial,
+                            SelectionMode(mode));
+            reference.mesh->selectmode = mode;
+            for (const ElementRef element : elements) {
+              const bool hit = std::any_of(
+                  hits.begin(), hits.end(), [&](const auto other) { return other == element; });
+              if (!hit && action != SelectionAction::Intersect) {
+                continue;
+              }
+              const bool selected = selection_contains(*initial, element);
+              const bool value = action == SelectionAction::Intersect ? selected && hit :
+                                 action == SelectionAction::Subtract  ? false :
+                                 action == SelectionAction::Invert    ? !selected :
+                                                                        true;
+              switch (element.domain) {
+                case ElementDomain::Vertex:
+                  BM_vert_select_set(
+                      reference.mesh.get(), reference.vertices.lookup(element.id), value);
+                  break;
+                case ElementDomain::Edge:
+                  BM_edge_select_set(
+                      reference.mesh.get(), reference.edges.lookup(element.id), value);
+                  break;
+                case ElementDomain::Face:
+                  BM_face_select_set(
+                      reference.mesh.get(), reference.faces.lookup(element.id), value);
+                  break;
+              }
+            }
+            SelectionState flags;
+            for (const auto item : reference.vertices.items()) {
+              if (BM_elem_flag_test(item.value, BM_ELEM_SELECT)) {
+                flags.vertices.add(item.key);
+              }
+            }
+            for (const auto item : reference.edges.items()) {
+              if (BM_elem_flag_test(item.value, BM_ELEM_SELECT)) {
+                flags.edges.add(item.key);
+              }
+            }
+            for (const auto item : reference.faces.items()) {
+              if (BM_elem_flag_test(item.value, BM_ELEM_SELECT)) {
+                flags.faces.add(item.key);
+              }
+            }
+            expect_selection_equal(*actual, reference.flush(flags, SelectionMode(mode)));
+            EXPECT_EQ(actual->mode, SelectionMode(mode));
+            comparisons++;
+          }
+        }
+      }
+    }
+  }
+  EXPECT_GT(comparisons, 2000);
+}
+
+TEST_F(NurbsSelectionTest, ModeChangesKeepOnlyTheSelectedComponentClosureAndHistory)
+{
+  auto source = make_planar_sheet();
+  const auto *loose = add_vertex(*source, {5, 5, 5});
+  SelectionState selected;
+  for (const NurbsTopologyVertex &vertex : source->vertices) {
+    selected.vertices.add(vertex.id);
+  }
+  selected.active = ElementRef{ElementDomain::Vertex, loose->id};
+  selected.history.append(*selected.active);
+  auto edges = selection_change_mode(*source, selected, SelectionMode::Edge);
+  ASSERT_TRUE(edges.has_value());
+  EXPECT_EQ(edges->vertices.size(), 4);
+  EXPECT_EQ(edges->edges.size(), 4);
+  EXPECT_EQ(edges->faces.size(), 1);
+  EXPECT_FALSE(edges->vertices.contains(loose->id));
+  EXPECT_TRUE(edges->history.is_empty());
+  EXPECT_FALSE(edges->active.has_value());
+  const auto faces = selection_change_mode(*source, *edges, SelectionMode::Face);
+  ASSERT_TRUE(faces.has_value());
+  EXPECT_EQ(faces->mode, SelectionMode::Face);
+  expect_selection_equal(*faces, *edges);
+  const auto vertices = selection_change_mode(*source, *faces, SelectionMode::Vertex);
+  ASSERT_TRUE(vertices.has_value());
+  EXPECT_EQ(vertices->vertices.size(), 4);
+  EXPECT_FALSE(selection_change_mode(*source, *vertices, SelectionMode(0)));
+}
+
+TEST_F(NurbsSelectionTest, ComponentHitsRejectWrongDomainsAndRetainExplicitHistory)
+{
+  const auto source = make_planar_sheet();
+  SelectionState selection;
+  selection.mode = SelectionMode::Face;
+  const ElementRef face{ElementDomain::Face, first_item(source->faces).id};
+  const ElementRef edge{ElementDomain::Edge, first_item(source->edges).id};
+  std::string error;
+  EXPECT_FALSE(
+      selection_apply(*source, selection, {&edge, 1}, SelectionAction::Set, edge, &error));
+  EXPECT_FALSE(error.empty());
+  const auto selected = selection_apply(
+      *source, selection, {&face, 1}, SelectionAction::Set, face, &error);
+  ASSERT_TRUE(selected.has_value()) << error;
+  EXPECT_EQ(selected->vertices.size(), 4);
+  EXPECT_EQ(selected->edges.size(), 4);
+  EXPECT_EQ(selected->faces.size(), 1);
+  ASSERT_EQ(selected->history.size(), 1);
+  EXPECT_EQ(selected->history.first(), face);
+  EXPECT_EQ(selected->active, face);
+  const auto deselected = selection_apply(
+      *source, *selected, {&face, 1}, SelectionAction::Subtract);
+  ASSERT_TRUE(deselected.has_value());
+  EXPECT_TRUE(deselected->vertices.is_empty());
+  EXPECT_TRUE(deselected->edges.is_empty());
+  EXPECT_TRUE(deselected->faces.is_empty());
+  EXPECT_TRUE(deselected->history.is_empty());
+  EXPECT_FALSE(deselected->active.has_value());
+}
+
+TEST_F(NurbsSelectionTest, SourceCentersCoverVerticesEdgesFacesAndCurvedParameterMidpoints)
+{
+  const auto sheet = make_planar_sheet();
+  const ElementRef elements[] = {
+      {ElementDomain::Vertex, first_item(sheet->vertices).id},
+      {ElementDomain::Edge, first_item(sheet->edges).id},
+      {ElementDomain::Face, first_item(sheet->faces).id},
+  };
+  std::string error;
+  const auto centers = element_centers(*sheet, {elements, 3}, &error);
+  ASSERT_TRUE(centers.has_value()) << error;
+  EXPECT_EQ((*centers)[0], double3(-1, -1, 0));
+  EXPECT_EQ((*centers)[1], double3(0, -1, 0));
+  EXPECT_EQ((*centers)[2], double3(0, 0, 0));
+  const auto arc = make_arc_sheet(false);
+  const auto &edge = first_item(arc->edges);
+  const auto &curve = first_item(arc->curves);
+  const ElementRef curved{ElementDomain::Edge, edge.id};
+  const auto actual = element_centers(*arc, {&curved, 1}, &error);
+  ASSERT_TRUE(actual.has_value()) << error;
+  const auto expected = evaluate_curve(curve, 0.5, &error);
+  ASSERT_TRUE(expected.has_value()) << error;
+  EXPECT_EQ(actual->first(), expected->position);
+  EXPECT_NE(actual->first(), double3(0.5, 0.5, 0));
+  const ElementRef unknown{ElementDomain::Face, sheet->next_id};
+  EXPECT_FALSE(element_centers(*sheet, {&unknown, 1}, &error));
+  EXPECT_FALSE(error.empty());
 }
 
 }  // namespace blender::bke::nurbs::tests

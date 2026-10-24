@@ -188,6 +188,7 @@ static const EnumPropertyItem curve2d_fill_mode_items[] = {
 #  include "BKE_curveprofile.h"
 #  include "BKE_lib_id.hh"
 #  include "BKE_main.hh"
+#  include "BKE_nurbs_edit.hh"
 #  include "BKE_vfont.hh"
 
 #  include "DEG_depsgraph.hh"
@@ -892,6 +893,25 @@ static bool rna_Curve_is_native_nurbs_get(PointerRNA *ptr)
   const Curve *curve = reinterpret_cast<const Curve *>(ptr->owner_id);
   return curve->nurbs_geometry != nullptr || curve->nurbs_eval_source != nullptr ||
          (curve->editnurb != nullptr && curve->editnurb->nurbs_edit != nullptr);
+}
+
+static void rna_Curve_nurbs_selection_mode_get(PointerRNA *ptr, bool *values)
+{
+  const Curve &curve = *reinterpret_cast<const Curve *>(ptr->owner_id);
+  int mode = 1;
+  if (curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr) {
+    mode = int(curve.editnurb->nurbs_edit->selection().mode);
+  }
+  else if (curve.nurbs_eval_source != nullptr && curve.nurbs_eval_source->snapshot) {
+    mode = int(curve.nurbs_eval_source->snapshot->selection().mode);
+  }
+  else if (curve.nurbs_geometry != nullptr && curve.nurbs_geometry->stored_selection != nullptr) {
+    const int stored = curve.nurbs_geometry->stored_selection->mode;
+    mode = stored == 0 ? 1 : stored;
+  }
+  for (int i = 0; i < 3; i++) {
+    values[i] = (mode & (1 << i)) != 0;
+  }
 }
 
 static bool rna_TextCurve_is_select_bold_get(PointerRNA *ptr)
@@ -2010,6 +2030,13 @@ static void rna_def_curve(BlenderRNA *brna)
   RNA_def_property_boolean_funcs(prop, "rna_Curve_is_native_nurbs_get", nullptr);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Native NURBS", "Uses native NURBS source topology and geometry");
+
+  prop = RNA_def_property(srna, "nurbs_selection_mode", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_boolean_funcs(prop, "rna_Curve_nurbs_selection_mode_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(
+      prop, "NURBS Selection Mode", "Enabled NURBS vertex, edge and face selection modes");
 
   rna_def_animdata_common(srna);
 

@@ -76,6 +76,7 @@
 #include "ED_keyframes_keylist.hh"
 #include "ED_lattice.hh"
 #include "ED_mesh.hh"
+#include "ED_nurbs.hh"
 #include "ED_object.hh"
 #include "ED_outliner.hh"
 #include "ED_screen.hh"
@@ -964,6 +965,22 @@ static wmOperatorStatus editmode_toggle_exec(bContext *C, wmOperator *op)
         }
       }
       FOREACH_SELECTED_OBJECT_END;
+    }
+    if (ELEM(obact->type, OB_SURF, OB_CURVES_LEGACY)) {
+      const Curve &curve = *id_cast<const Curve *>(obact->data);
+      if (curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr &&
+          !ed::nurbs::select_mode(C, curve.editnurb->nurbs_edit->selection().mode, false))
+      {
+        // Source modes are per owner for persistence; an edit session uses the active owner's
+        // mode across all participants, as mesh editing does. Do not leave a failed entry active.
+        FOREACH_SELECTED_OBJECT_BEGIN (view_layer, v3d, object) {
+          if (object->type == obact->type && (object->mode & mode_flag)) {
+            editmode_exit_ex(bmain, scene, object, EM_FREEDATA, op->reports);
+          }
+        }
+        FOREACH_SELECTED_OBJECT_END;
+        return OPERATOR_CANCELLED;
+      }
     }
   }
   else {

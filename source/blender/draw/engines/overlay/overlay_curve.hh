@@ -14,6 +14,8 @@
 
 #include "GPU_capabilities.hh"
 
+#include "UI_resources.hh"
+
 #include "draw_cache.hh"
 #include "draw_cache_impl.hh"
 
@@ -48,6 +50,10 @@ class Curves : Overlay {
 
   /* TODO(fclem): This is quite wasteful and expensive, prefer in shader Z modification like the
    * retopology offset. */
+  PassSimple native_faces_ps_ = {"NURBS Selected Faces"};
+  PassSimple native_points_ps_ = {"NURBS Component Points"};
+  bool native_xray_ = false;
+
   View view_edit_cage = {"view_edit_cage"};
   View::OffsetData offset_data_;
 
@@ -61,6 +67,28 @@ class Curves : Overlay {
     }
 
     offset_data_ = state.offset_data_get();
+    native_xray_ = state.xray_flag_enabled;
+    const DRWState native_depth = native_xray_ ? DRW_STATE_DEPTH_ALWAYS :
+                                                 DRW_STATE_DEPTH_LESS_EQUAL;
+    native_faces_ps_.init();
+    native_faces_ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    native_faces_ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
+    native_faces_ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA | native_depth,
+                               state.clipping_plane_count);
+    native_faces_ps_.shader_set(res.shaders->uniform_color.get());
+    float4 face_color;
+    ui::theme::get_color_4fv(TH_FACE_SELECT, face_color);
+    srgb_to_linearrgb_v4(face_color, face_color);
+    native_faces_ps_.push_constant("ucolor", face_color);
+
+    native_points_ps_.init();
+    native_points_ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    native_points_ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
+    native_points_ps_.state_set(DRW_STATE_WRITE_COLOR | native_depth, state.clipping_plane_count);
+    native_points_ps_.shader_set(res.shaders->legacy_curve_edit_points.get());
+    native_points_ps_.push_constant("show_curve_handles", true);
+    native_points_ps_.push_constant("curve_handle_display", int(state.overlay.handle_display));
+    native_points_ps_.push_constant("do_stroke_endpoints", false);
 
     {
       auto &pass = edit_curves_ps_;
@@ -238,17 +266,25 @@ class Curves : Overlay {
     }
     {
       gpu::Batch *geom = DRW_cache_curve_edge_overlay_get(ob);
-      if (ob->type == OB_CURVES_LEGACY) {
+      if ((native && native_xray_) || (!native && ob->type == OB_CURVES_LEGACY)) {
         edit_legacy_curve_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
       }
       else {
-        edit_legacy_surface_xray_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
+        if (!native) {
+          edit_legacy_surface_xray_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
+        }
         edit_legacy_surface_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
       }
     }
     {
       gpu::Batch *geom = DRW_cache_curve_vert_overlay_get(ob);
-      edit_legacy_curve_points_->draw(geom, res_handle);
+      if (native) {
+        native_points_ps_.draw(geom, res_handle);
+        native_faces_ps_.draw(DRW_curve_batch_cache_get_edit_faces(&curve), res_handle);
+      }
+      else {
+        edit_legacy_curve_points_->draw(geom, res_handle);
+      }
     }
   }
 
@@ -276,7 +312,9 @@ class Curves : Overlay {
     view_edit_cage.sync(view.viewmat(), offset_data_.winmat_polygon_offset(view.winmat(), 0.5f));
 
     GPU_framebuffer_bind(framebuffer);
+    manager.submit(native_faces_ps_, view_edit_cage);
     manager.submit(edit_legacy_curve_handles_ps_, view);
+    manager.submit(native_points_ps_, view_edit_cage);
   }
 };
 

@@ -115,6 +115,7 @@ gpu::Batch *DRW_curve_batch_cache_get_wire_edge_viewer_attribute(Curve *cu);
 gpu::Batch *DRW_curve_batch_cache_get_normal_edge(Curve *cu);
 gpu::Batch *DRW_curve_batch_cache_get_edit_edges(Curve *cu);
 gpu::Batch *DRW_curve_batch_cache_get_edit_verts(Curve *cu);
+gpu::Batch *DRW_curve_batch_cache_get_edit_faces(Curve *cu);
 
 /** \} */
 

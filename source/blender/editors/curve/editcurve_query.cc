@@ -228,27 +228,22 @@ bool ED_curve_active_center(Curve *cu, float center[3])
     }
     const auto source = cu->editnurb->nurbs_edit->read_snapshot();
     const auto &selection = source.selection();
-    if (!selection.active || selection.active->domain != bke::nurbs::ElementDomain::Vertex ||
-        !selection.vertices.contains(selection.active->id))
-    {
+    if (!selection.active || !bke::nurbs::selection_contains(selection, *selection.active)) {
       return false;
     }
-    const auto index = bke::nurbs::TopologyIndex::build(source.geometry());
-    if (!index) {
+    const auto centers = bke::nurbs::element_centers(source.geometry(), {&*selection.active, 1});
+    if (!centers) {
       return false;
     }
-    const auto *vertex = index->vertex(selection.active->id);
-    if (vertex == nullptr) {
-      return false;
-    }
+    const double3 source_center = centers->first();
     float position[3];
     for (int axis = 0; axis < 3; axis++) {
-      if (!std::isfinite(vertex->position[axis]) ||
-          std::abs(vertex->position[axis]) > std::numeric_limits<float>::max())
+      if (!std::isfinite(source_center[axis]) ||
+          std::abs(source_center[axis]) > std::numeric_limits<float>::max())
       {
         return false;
       }
-      position[axis] = float(vertex->position[axis]);
+      position[axis] = float(source_center[axis]);
     }
     /* This is a float UI center query, never a write-back to authoritative source geometry. */
     copy_v3_v3(center, position);

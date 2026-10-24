@@ -7,7 +7,9 @@
  */
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
+#include <numeric>
 
 #include "MEM_guardedalloc.h"
 
@@ -18,7 +20,7 @@
 
 namespace blender::bke::nurbs {
 
-static bool is_selected(const SelectionState &selection, const ElementRef element)
+bool selection_contains(const SelectionState &selection, const ElementRef element)
 {
   switch (element.domain) {
     case ElementDomain::Vertex:
@@ -47,8 +49,8 @@ static bool element_exists(const TopologyIndex &index, const ElementRef element)
 static void selection_history_prune(SelectionState &selection)
 {
   selection.history.remove_if(
-      [&](const ElementRef element) { return !is_selected(selection, element); });
-  if (selection.active && !is_selected(selection, *selection.active)) {
+      [&](const ElementRef element) { return !selection_contains(selection, element); });
+  if (selection.active && !selection_contains(selection, *selection.active)) {
     selection.active.reset();
   }
 }
@@ -66,6 +68,9 @@ bool selection_validate(const SelectionState &selection,
     }
     return false;
   };
+  if (int(selection.mode) == 0 || (int(selection.mode) & ~7) != 0) {
+    return fail("Invalid NURBS component selection mode");
+  }
   for (const int64_t id : selection.vertices) {
     if (!exists({ElementDomain::Vertex, id})) {
       return fail("NURBS selection references an unknown vertex");
@@ -81,12 +86,12 @@ bool selection_validate(const SelectionState &selection,
       return fail("NURBS selection references an unknown face");
     }
   }
-  if (selection.active && !is_selected(selection, *selection.active)) {
+  if (selection.active && !selection_contains(selection, *selection.active)) {
     return fail("The active NURBS element is not selected in its source domain");
   }
   Set<int64_t> history_ids;
   for (const ElementRef element : selection.history) {
-    if (!is_selected(selection, element) || !history_ids.add(element.id)) {
+    if (!selection_contains(selection, element) || !history_ids.add(element.id)) {
       return fail("NURBS selection history has an unselected or repeated element");
     }
   }
@@ -126,6 +131,7 @@ std::optional<SelectionState> selection_flush(const NurbsGeometry &geometry,
     return std::nullopt;
   }
   SelectionState result = selection;
+  result.mode = mode;
   auto set_vertex = [&](const int64_t id, const bool select) {
     if (select) {
       result.vertices.add(id);
@@ -207,14 +213,122 @@ std::optional<SelectionState> selection_flush(const NurbsGeometry &geometry,
   return result;
 }
 
-std::optional<SelectionState> selection_apply_vertices(const NurbsGeometry &geometry,
-                                                       const SelectionState &selection,
-                                                       const Span<int64_t> hits,
-                                                       const SelectionAction action,
-                                                       const std::optional<int64_t> active_vertex,
-                                                       std::string *r_error)
+std::optional<Vector<double3>> element_centers(const NurbsGeometry &geometry,
+                                               const Span<ElementRef> elements,
+                                               std::string *r_error)
 {
   const auto index = TopologyIndex::build(geometry, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  for (const NurbsCurveGeometry &curve : geometry.curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  Vector<double3> result;
+  for (const ElementRef element : elements) {
+    if (!element_exists(*index, element)) {
+      if (r_error != nullptr) {
+        *r_error = "NURBS center references an unknown component";
+      }
+      return std::nullopt;
+    }
+    double3 center(0);
+    switch (element.domain) {
+      case ElementDomain::Vertex:
+        center = double3(index->vertex(element.id)->position);
+        break;
+      case ElementDomain::Edge: {
+        const auto &edge = *index->edge(element.id);
+        const auto evaluated = evaluate_curve(
+            *curves.lookup(edge.curve_id),
+            std::midpoint(edge.parameter_range[0], edge.parameter_range[1]),
+            r_error);
+        if (!evaluated) {
+          return std::nullopt;
+        }
+        center = evaluated->position;
+        break;
+      }
+      case ElementDomain::Face: {
+        Set<int64_t> vertices;
+        for (const NurbsTopologyLoop &loop : index->face(element.id)->loops) {
+          for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+            const auto &edge = *index->edge(use.edge_id);
+            vertices.add(edge.vertex_ids[0]);
+            vertices.add(edge.vertex_ids[1]);
+          }
+        }
+        // Source order makes UI rounding deterministic, independent of hash traversal order.
+        for (const NurbsTopologyVertex &vertex : geometry.vertices) {
+          if (vertices.contains(vertex.id)) {
+            center += double3(vertex.position) / double(vertices.size());
+          }
+        }
+        break;
+      }
+    }
+    if (!std::isfinite(center.x) || !std::isfinite(center.y) || !std::isfinite(center.z)) {
+      if (r_error != nullptr) {
+        *r_error = "NURBS component center exceeds finite viewport arithmetic";
+      }
+      return std::nullopt;
+    }
+    result.append(center);
+  }
+  return result;
+}
+
+static SelectionMode domain_mode(const ElementDomain domain)
+{
+  return SelectionMode(1 << int(domain));
+}
+
+std::optional<SelectionState> selection_change_mode(const NurbsGeometry &geometry,
+                                                    const SelectionState &selection,
+                                                    const SelectionMode mode,
+                                                    std::string *r_error)
+{
+  auto normalized = selection_flush(geometry, selection, selection.mode, r_error);
+  if (!normalized) {
+    return std::nullopt;
+  }
+  SelectionState result = std::move(*normalized);
+  if (!flag_is_set(mode, SelectionMode::Vertex)) {
+    result.vertices.clear();
+    if (!flag_is_set(mode, SelectionMode::Edge)) {
+      result.edges.clear();
+    }
+  }
+  result.history.remove_if(
+      [&](const ElementRef element) { return !flag_is_set(mode, domain_mode(element.domain)); });
+  if (result.active && !flag_is_set(mode, domain_mode(result.active->domain))) {
+    result.active.reset();
+  }
+  // Flush validates references before rebuilding lower domains. Preserve selected primary
+  // history until afterward, but remove references to deliberately cleared lower domains.
+  selection_history_prune(result);
+  auto changed = selection_flush(geometry, result, mode, r_error);
+  if (changed && !changed->active && !changed->history.is_empty()) {
+    changed->active = changed->history.last();
+  }
+  return changed;
+}
+
+std::optional<SelectionState> selection_apply(const NurbsGeometry &geometry,
+                                              const SelectionState &selection,
+                                              const Span<ElementRef> hits,
+                                              const SelectionAction action,
+                                              const std::optional<ElementRef> active,
+                                              std::string *r_error)
+{
+  const auto index = TopologyIndex::build(geometry, r_error);
+  auto fail = [&](const char *message) -> std::optional<SelectionState> {
+    if (r_error != nullptr) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
   if (!index || !selection_validate(
                     selection,
                     [&](const ElementRef element) { return element_exists(*index, element); },
@@ -223,63 +337,142 @@ std::optional<SelectionState> selection_apply_vertices(const NurbsGeometry &geom
     return std::nullopt;
   }
   Set<int64_t> unique_hits;
-  for (const int64_t id : hits) {
-    if (index->vertex(id) == nullptr) {
-      if (r_error != nullptr) {
-        *r_error = "NURBS selection hit references an unknown source vertex";
-      }
-      return std::nullopt;
+  for (const ElementRef element : hits) {
+    if (!element_exists(*index, element) ||
+        !flag_is_set(selection.mode, domain_mode(element.domain)))
+    {
+      return fail("NURBS selection hit has an unknown identity or inactive component domain");
     }
-    unique_hits.add(id);
+    unique_hits.add(element.id);
   }
-  if (active_vertex && index->vertex(*active_vertex) == nullptr) {
-    if (r_error != nullptr) {
-      *r_error = "NURBS active selection hit references an unknown source vertex";
-    }
-    return std::nullopt;
+  if (active && (!element_exists(*index, *active) ||
+                 !flag_is_set(selection.mode, domain_mode(active->domain))))
+  {
+    return fail("NURBS active selection hit has an unknown identity or inactive component domain");
   }
   SelectionState result = action == SelectionAction::Set ? SelectionState{} : selection;
-  switch (action) {
-    case SelectionAction::Set:
-    case SelectionAction::Add:
-      for (const int64_t id : unique_hits) {
-        result.vertices.add(id);
-      }
-      break;
-    case SelectionAction::Subtract:
-      for (const int64_t id : unique_hits) {
-        result.vertices.remove(id);
-      }
-      break;
-    case SelectionAction::Invert:
-      for (const int64_t id : unique_hits) {
-        if (!result.vertices.remove(id)) {
-          result.vertices.add(id);
+  result.mode = selection.mode;
+  auto set_vertex = [&](const int64_t id, const bool select) {
+    if (select) {
+      result.vertices.add(id);
+    }
+    else {
+      result.vertices.remove(id);
+    }
+  };
+  auto set_edge = [&](const NurbsTopologyEdge &edge, const bool select) {
+    if (select) {
+      result.edges.add(edge.id);
+    }
+    else {
+      result.edges.remove(edge.id);
+    }
+    // Edge-only flushing reconciles endpoints using all remaining selected incident edges.
+    if (select || flag_is_set(result.mode, SelectionMode::Vertex)) {
+      set_vertex(edge.vertex_ids[0], select);
+      set_vertex(edge.vertex_ids[1], select);
+    }
+  };
+  auto apply = [&](const ElementRef element) {
+    const bool hit = unique_hits.contains(element.id);
+    const bool selected = selection_contains(selection, element);
+    bool value;
+    switch (action) {
+      case SelectionAction::Set:
+      case SelectionAction::Add:
+        value = true;
+        break;
+      case SelectionAction::Subtract:
+        value = false;
+        break;
+      case SelectionAction::Invert:
+        value = !selected;
+        break;
+      case SelectionAction::Intersect:
+        value = selected && hit;
+        break;
+      default:
+        return;
+    }
+    if (!hit && action != SelectionAction::Intersect) {
+      return;
+    }
+    switch (element.domain) {
+      case ElementDomain::Vertex:
+        set_vertex(element.id, value);
+        break;
+      case ElementDomain::Edge:
+        set_edge(*index->edge(element.id), value);
+        break;
+      case ElementDomain::Face:
+        if (value) {
+          result.faces.add(element.id);
         }
-      }
-      break;
-    case SelectionAction::Intersect:
-      result.vertices.remove_if([&](const int64_t id) { return !unique_hits.contains(id); });
-      break;
-    default:
-      if (r_error != nullptr) {
-        *r_error = "Invalid NURBS vertex selection action";
-      }
-      return std::nullopt;
+        else {
+          result.faces.remove(element.id);
+        }
+        if (value || flag_is_set(result.mode, SelectionMode::Vertex) ||
+            flag_is_set(result.mode, SelectionMode::Edge))
+        {
+          for (const NurbsTopologyLoop &loop : index->face(element.id)->loops) {
+            for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+              set_edge(*index->edge(use.edge_id), value);
+            }
+          }
+        }
+        break;
+    }
+  };
+  if (int(action) < int(SelectionAction::Set) || int(action) > int(SelectionAction::Intersect)) {
+    return fail("Invalid NURBS component selection action");
+  }
+  if (flag_is_set(selection.mode, SelectionMode::Vertex)) {
+    for (const NurbsTopologyVertex &vertex : geometry.vertices) {
+      apply({ElementDomain::Vertex, vertex.id});
+    }
+  }
+  if (flag_is_set(selection.mode, SelectionMode::Edge)) {
+    for (const NurbsTopologyEdge &edge : geometry.edges) {
+      apply({ElementDomain::Edge, edge.id});
+    }
+  }
+  if (flag_is_set(selection.mode, SelectionMode::Face)) {
+    for (const NurbsTopologyFace &face : geometry.faces) {
+      apply({ElementDomain::Face, face.id});
+    }
   }
   selection_history_prune(result);
-  if (active_vertex && result.vertices.contains(*active_vertex)) {
-    const ElementRef active{ElementDomain::Vertex, *active_vertex};
-    result.history.remove_if([&](const ElementRef element) { return element == active; });
-    result.history.append(active);
+  if (active && selection_contains(result, *active)) {
+    result.history.remove_if([&](const ElementRef element) { return element == *active; });
+    result.history.append(*active);
     result.active = active;
   }
-  auto normalized = selection_flush(geometry, result, SelectionMode::Vertex, r_error);
+  auto normalized = selection_flush(geometry, result, selection.mode, r_error);
   if (normalized && !normalized->active && !normalized->history.is_empty()) {
-    /* Mesh vertex editing resolves the active element from the surviving selection history. */
     normalized->active = normalized->history.last();
   }
   return normalized;
+}
+
+std::optional<SelectionState> selection_apply_vertices(const NurbsGeometry &geometry,
+                                                       const SelectionState &selection,
+                                                       const Span<int64_t> hits,
+                                                       const SelectionAction action,
+                                                       const std::optional<int64_t> active_vertex,
+                                                       std::string *r_error)
+{
+  Vector<ElementRef> elements;
+  for (const int64_t id : hits) {
+    elements.append({ElementDomain::Vertex, id});
+  }
+  return selection_apply(geometry,
+                         selection,
+                         elements,
+                         action,
+                         active_vertex ?
+                             std::optional(ElementRef{ElementDomain::Vertex, *active_vertex}) :
+                             std::nullopt,
+                         r_error);
 }
 
 std::optional<SelectionState> selection_remap(const NurbsGeometry &source,
@@ -362,6 +555,10 @@ std::optional<SelectionState> selection_from_storage(const NurbsStoredSelection 
   if (storage == nullptr) {
     return selection;
   }
+  selection.mode = storage->mode == 0 ? SelectionMode::Vertex : SelectionMode(storage->mode);
+  if (int(selection.mode) == 0 || (int(selection.mode) & ~7) != 0) {
+    return fail("Invalid NURBS stored component selection mode");
+  }
   if (!storage_array_is_valid(storage->elements, storage->elements_num) ||
       !storage_array_is_valid(storage->history, storage->history_num))
   {
@@ -404,6 +601,12 @@ NurbsStoredSelection *selection_to_storage(const SelectionState &selection, std:
   if (r_error != nullptr) {
     r_error->clear();
   }
+  if (int(selection.mode) == 0 || (int(selection.mode) & ~7) != 0) {
+    if (r_error != nullptr) {
+      *r_error = "Invalid NURBS component selection mode";
+    }
+    return nullptr;
+  }
   const int64_t elements_num = selection.vertices.size() + selection.edges.size() +
                                selection.faces.size();
   if (elements_num > std::numeric_limits<int>::max() ||
@@ -415,6 +618,7 @@ NurbsStoredSelection *selection_to_storage(const SelectionState &selection, std:
     return nullptr;
   }
   NurbsStoredSelection *storage = MEM_new<NurbsStoredSelection>(__func__);
+  storage->mode = int(selection.mode);
   storage->elements_num = int(elements_num);
   storage->history_num = int(selection.history.size());
   if (elements_num != 0) {

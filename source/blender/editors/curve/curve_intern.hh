@@ -189,6 +189,7 @@ bool ed_editnurb_spin(
 void CURVE_OT_de_select_first(wmOperatorType *ot);
 void CURVE_OT_de_select_last(wmOperatorType *ot);
 void CURVE_OT_select_all(wmOperatorType *ot);
+void CURVE_OT_select_mode(wmOperatorType *ot);
 void CURVE_OT_select_linked(wmOperatorType *ot);
 void CURVE_OT_select_linked_pick(wmOperatorType *ot);
 void CURVE_OT_select_row(wmOperatorType *ot);

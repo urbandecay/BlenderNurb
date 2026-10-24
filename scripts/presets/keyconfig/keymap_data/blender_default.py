@@ -5141,6 +5141,11 @@ def km_edit_curve_legacy(params):
     )
 
     items.extend([
+        # Native source component modes. The operator poll leaves legacy curve behavior intact.
+        *[("curve.select_mode", {"type": key, "value": 'PRESS', **({'shift': True} if extend else {})},
+           {"properties": [("type", mode), ("use_extend", extend)]})
+          for key, mode in [('ONE', 'VERT'), ('TWO', 'EDGE'), ('THREE', 'FACE')]
+          for extend in (False, True)],
         # Transform Actions.
         *_template_items_transform_actions(params, use_bend=True, use_mirror=True),
 
