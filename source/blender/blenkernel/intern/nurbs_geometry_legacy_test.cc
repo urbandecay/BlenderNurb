@@ -7,14 +7,18 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <utility>
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
 #include "BLI_math_vector.hh"
+#include "BLI_set.hh"
 
 #include "BKE_curve.hh"
+#include "BKE_curve_topology.hh"
 #include "BKE_nurbs_geometry.hh"
+#include "BKE_nurbs_legacy_edit.hh"
 
 #include "testing/testing.h"
 
@@ -348,6 +352,167 @@ TEST(nurbs_legacy_import, DuplicateWireIdentityDoesNotSilentlyMerge)
   EXPECT_FALSE(error.empty());
   EXPECT_EQ(source.nurbs.count(), 2);
   EXPECT_EQ(wire.topology_edge_ids[0], copy->topology_edge_ids[0]);
+}
+
+TEST(nurbs_legacy_edit, DuplicateWireOwnsFreshIDsAndPreservesSourceAndKnots)
+{
+  LegacyFixture source;
+  Nurb &wire = source.add_wire();
+  const std::array<BPoint, 2> original = {wire.bp[0], wire.bp[1]};
+  std::string error;
+  auto edit = legacy_topology_duplicate(source.nurbs, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  ASSERT_EQ(edit->added.count(), 1);
+  const auto &copy = *static_cast<const Nurb *>(edit->added.first);
+  EXPECT_NE(copy.topology_vertex_ids[0], wire.topology_vertex_ids[0]);
+  EXPECT_NE(copy.topology_edge_ids[0], wire.topology_edge_ids[0]);
+  EXPECT_EQ(std::memcmp(copy.bp, wire.bp, 2 * sizeof(BPoint)), 0);
+  EXPECT_EQ(std::memcmp(copy.knotsu, wire.knotsu, 4 * sizeof(float)), 0);
+  EXPECT_EQ(std::memcmp(original.data(), wire.bp, 2 * sizeof(BPoint)), 0);
+  EXPECT_TRUE(edit->removed_faces.is_empty());
+  EXPECT_TRUE(edit->removed_wires.is_empty());
+}
+
+TEST(nurbs_legacy_edit, DuplicateSharedFacesPreservesInternalSharingAndIndependentSource)
+{
+  LegacyFixture source;
+  Nurb &a = source.add_patch(false);
+  Nurb &b = source.add_patch(true);
+  std::string error;
+  auto edit = legacy_topology_duplicate(source.nurbs, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  ASSERT_EQ(edit->added.count(), 2);
+  const auto &copy_a = *static_cast<const Nurb *>(edit->added.first);
+  const auto &copy_b = *static_cast<const Nurb *>(edit->added.last);
+  EXPECT_EQ(copy_a.topology_edge_ids[1], copy_b.topology_edge_ids[3]);
+  EXPECT_EQ(copy_a.topology_vertex_ids[1], copy_b.topology_vertex_ids[0]);
+  EXPECT_NE(copy_a.topology_vertex_ids[1], a.topology_vertex_ids[1]);
+  EXPECT_NE(copy_a.topology_face_id, a.topology_face_id);
+  EXPECT_NE(copy_b.topology_face_id, b.topology_face_id);
+  for (const auto &pair : {std::pair(&a, &copy_a), std::pair(&b, &copy_b)}) {
+    EXPECT_EQ(std::memcmp(pair.first->bp, pair.second->bp, 4 * sizeof(BPoint)), 0);
+    EXPECT_EQ(std::memcmp(pair.first->knotsu, pair.second->knotsu, 4 * sizeof(float)), 0);
+    EXPECT_EQ(std::memcmp(pair.first->knotsv, pair.second->knotsv, 4 * sizeof(float)), 0);
+    EXPECT_EQ(pair.first->mat_nr, pair.second->mat_nr);
+  }
+}
+
+TEST(nurbs_legacy_edit, RegionExtrusionMakesOnlyOuterWallsAndKeepsSourceUntouched)
+{
+  LegacyFixture source;
+  source.add_patch(false);
+  source.add_patch(true);
+  std::string error;
+  auto edit = legacy_topology_extrude(source.nurbs, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  EXPECT_EQ(edit->added.count(), 8); /* Two caps, six boundary walls. */
+  EXPECT_TRUE(edit->removed_faces.is_empty());
+  EXPECT_EQ(source.nurbs.count(), 2);
+  Set<int> original_vertices;
+  for (const Nurb &nurb : source.nurbs) {
+    for (int i = 0; i < 4; i++) {
+      EXPECT_TRUE(nurb.bp[i].f1 & SELECT);
+      original_vertices.add(nurb.topology_vertex_ids[i]);
+    }
+  }
+  constexpr int corners[4] = {0, 1, 3, 2};
+  int walls = 0;
+  for (Nurb &nurb : edit->added) {
+    if (nurb.bp[0].f1 & SELECT) {
+      continue; /* Cap. */
+    }
+    for (int i = 0; i < 4; i++) {
+      if (!original_vertices.contains(nurb.topology_vertex_ids[i])) {
+        nurb.bp[corners[i]].vec[2] += 1;
+      }
+    }
+    const float3 normal = math::cross(float3(nurb.bp[1].vec) - float3(nurb.bp[0].vec),
+                                      float3(nurb.bp[2].vec) - float3(nurb.bp[0].vec));
+    const float2 middle = (float2(nurb.bp[0].vec) + float2(nurb.bp[1].vec) +
+                           float2(nurb.bp[2].vec) + float2(nurb.bp[3].vec)) *
+                          0.25f;
+    EXPECT_GT(math::dot(float2(normal.x, normal.y), middle - float2(1, 0.5f)), 0);
+    walls++;
+  }
+  EXPECT_EQ(walls, 6);
+}
+
+TEST(nurbs_legacy_edit, AttachedFaceRegionReplacesInputCap)
+{
+  LegacyFixture source;
+  Nurb &a = source.add_patch(false);
+  Nurb &b = source.add_patch(true);
+  for (int i = 0; i < 4; i++) {
+    b.bp[i].f1 = 0;
+  }
+  std::string error;
+  auto edit = legacy_topology_extrude(source.nurbs, &error);
+  ASSERT_TRUE(edit.has_value()) << error;
+  ASSERT_EQ(edit->removed_faces.size(), 1);
+  EXPECT_EQ(edit->removed_faces[0], a.topology_face_id);
+  EXPECT_EQ(edit->added.count(), 5); /* One cap and four walls. */
+  EXPECT_EQ(source.nurbs.count(), 2);
+}
+
+TEST(nurbs_legacy_edit, SharedEdgeSelectionUsesOneIdentityRegardlessOfSelectedCopies)
+{
+  LegacyFixture source;
+  Nurb &a = source.add_patch(false);
+  Nurb &b = source.add_patch(true);
+  for (Nurb &nurb : source.nurbs) {
+    for (int i = 0; i < 4; i++) {
+      nurb.bp[i].f1 = 0;
+    }
+  }
+  a.bp[1].f1 = a.bp[3].f1 = SELECT;
+  auto single = legacy_topology_extrude(source.nurbs);
+  ASSERT_TRUE(single.has_value());
+  EXPECT_EQ(single->added.count(), 1);
+  b.bp[0].f1 = b.bp[2].f1 = SELECT;
+  auto both = legacy_topology_extrude(source.nurbs);
+  ASSERT_TRUE(both.has_value());
+  EXPECT_EQ(both->added.count(), 1);
+  const auto &first = *static_cast<const Nurb *>(single->added.first);
+  const auto &second = *static_cast<const Nurb *>(both->added.first);
+  EXPECT_EQ(std::memcmp(first.topology_vertex_ids, second.topology_vertex_ids, 4 * sizeof(int)),
+            0);
+  EXPECT_EQ(std::memcmp(first.topology_edge_ids, second.topology_edge_ids, 4 * sizeof(int)), 0);
+  EXPECT_EQ(std::memcmp(first.bp, second.bp, 4 * sizeof(BPoint)), 0);
+}
+
+TEST(nurbs_legacy_edit, InvalidIdentityAndUnsupportedSelectionFailWithoutSourceMutation)
+{
+  LegacyFixture source;
+  Nurb &wire = source.add_wire();
+  wire.bp[1].f1 = 0;
+  const std::array<BPoint, 2> original = {wire.bp[0], wire.bp[1]};
+  std::string error;
+  EXPECT_FALSE(legacy_topology_duplicate(source.nurbs, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(std::memcmp(original.data(), wire.bp, 2 * sizeof(BPoint)), 0);
+  wire.topology_vertex_ids[0] = 0;
+  EXPECT_FALSE(legacy_topology_extrude(source.nurbs, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(std::memcmp(original.data(), wire.bp, 2 * sizeof(BPoint)), 0);
+  EXPECT_EQ(source.nurbs.count(), 1);
+}
+
+TEST(nurbs_legacy_edit, SharedCornerPositionSyncPreservesEachSupportsRationalWeights)
+{
+  LegacyFixture source;
+  Nurb &a = source.add_patch(false);
+  Nurb &b = source.add_patch(true);
+  for (int i = 0; i < 4; i++) {
+    b.bp[i].f1 = 0;
+  }
+  const std::array<float, 4> weights = {
+      b.bp[0].vec[3], b.bp[1].vec[3], b.bp[2].vec[3], b.bp[3].vec[3]};
+  a.bp[1].vec[2] = 4;
+  BKE_curve_nurbs_topology_position_sync(&source.nurbs);
+  EXPECT_EQ(b.bp[0].vec[2], 4);
+  for (int i = 0; i < 4; i++) {
+    EXPECT_EQ(b.bp[i].vec[3], weights[i]);
+  }
 }
 
 }  // namespace blender::bke::nurbs::tests

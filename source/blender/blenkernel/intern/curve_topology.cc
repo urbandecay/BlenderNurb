@@ -87,8 +87,8 @@ void BKE_curve_nurbs_topology_selection_sync(ListBaseT<Nurb> *nurbs)
 }
 
 void BKE_curve_nurbs_topology_selection_set(ListBaseT<Nurb> *nurbs,
-                                           const Nurb &source_nurb,
-                                           const BPoint &source_point)
+                                            const Nurb &source_nurb,
+                                            const BPoint &source_point)
 {
   if (nurbs == nullptr) {
     return;
@@ -152,7 +152,8 @@ void BKE_curve_nurbs_topology_position_sync(ListBaseT<Nurb> *nurbs)
       const int vertex_id = nurb.topology_vertex_ids[corner];
       BPoint &point = nurb.bp[point_indices[corner]];
       if (const BPoint *const *source = selected_vertex_points.lookup_ptr(vertex_id)) {
-        copy_v4_v4(point.vec, (*source)->vec);
+        /* Rational weights belong to each support's basis, not to shared topology vertices. */
+        copy_v3_v3(point.vec, (*source)->vec);
       }
     }
   }

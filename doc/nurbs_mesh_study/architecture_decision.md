@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 126 kernel/integration tests, a complete Blender build and
+Current verified foundation: 136 kernel/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -16,7 +16,10 @@ topology-vertex overlays, X-Ray click/box selection, Select All and viewport
 selection undo/redo are now built and tested; an actual screenshot has been
 inspected. Fit-point editing, linked selection, edge/face picking and modal
 geometry transforms still gate broader editing. This is not completion of Stage 1
-or replacement of the production prototype's operators.
+or completion of the prototype's replacement. Its tagged line/patch duplication
+and extrusion now use kernel candidates, native closure-ID remapping and shared
+region planning, with shortcut/undo regressions. Native geometry transforms and
+extrusion remain blocked until their own owner adapters exist.
 
 ## Decision
 
@@ -44,7 +47,7 @@ adding a pointer to DNA does not meet Stage 1.
 
 | Candidate | Evidence | Decision |
 |---|---|---|
-| Extend `Nurb` as the shared model | `DNA_curve_types.h`: independent float control nets and knots; four corner/edge IDs. `curve_topology.cc` synchronizes copies. `editcurve.cc` owns extrusion construction. | Keep the prototype as migration input. Independent patch corners cannot own a single shared edge curve, per-face p-curves, arbitrary loops, and fit handles. Expanding this layout would spread geometric reconciliation across its callers. |
+| Extend `Nurb` as the shared model | `DNA_curve_types.h`: independent float control nets and knots; four corner/edge IDs. `curve_topology.cc` synchronizes positions. Tagged compatibility construction now lives in BKE; ED applies candidates. | Keep the prototype as migration input and a restricted compatibility client of shared services. Independent patch corners cannot own a single shared edge curve, per-face p-curves, arbitrary loops, and fit handles. Expanding this layout would spread geometric reconciliation across its callers. |
 | Use `CurvesGeometry` as the owner | `DNA_curves_types.h`, `BKE_curves.hh`, `curves.cc`: modern attributes, custom knots, caches, serialization; one dimensional curve offsets and float positions/evaluation. | Reuse patterns and suitable evaluation utilities. Adding tensor surfaces, trims, topology domains, and model precision would still be a new geometry system. Hair curves must preserve their existing contract. The old comment saying custom knots are unsupported is stale even in this source tree. |
 | Dedicated payload on `Curve` | `curve.cc` registers native copy/free/read/write; Surface objects already use this ID. `displist.cc` isolates Surface evaluation. `editcurve_undo.cc` isolates edit snapshots. | Preferred storage experiment. Reuses object/collection/material/library ownership without forcing authoritative geometry into `Nurb`. Requires deliberate routing and protection against legacy mutations; those are gates, not assumed benefits. |
 | New ID and object type immediately | `BKE_idtype.hh`, object evaluation dispatch, mode dispatch, selection, draw, RNA and native file registration all require extension. | Possible later. Adds host integration before proving the geometry boundary and does not solve geometry or numerical robustness. Reconsider if Curve ownership requires pervasive special cases. |
@@ -191,6 +194,23 @@ the input region. When originals are kept, their orientation can be flipped.
 The new service must reproduce these topology/selection rules on matching
 fixtures; always retaining an old cap is the diagnosed prototype error.
 This is a behavior reference, not permission to reuse polygon geometry code.
+
+`plan_face_region_extrusion` now implements the shared topology classification:
+unique boundary edges, interior edges/vertices, and the attached-region removal
+rule. Direct BMesh extrusion count comparisons pass for all three nonempty face
+subsets of a two-face fixture; separate tests cover hole boundaries, a periodic
+seam and explicit rejection of more than two selected edge uses. This is not a
+general region geometry constructor or a full orientation/solidness claim.
+
+The tagged prototype compatibility client uses that plan and the existing native
+closure-copy map for fresh cap/duplicate IDs. It prepares owned new NURBS splines
+and source removal IDs without mutating the input. ED applies the result, cleans
+animation indices for removed splines, sets selection/active state and notifies
+the owner. Existing legacy coefficients remain authoritative; there is no mesh
+conversion, fitting, tolerance increase or automatic native-owner migration.
+Full support copies preserve their custom knots and attributes. Shared-position
+updates preserve each support's rational weights. This repairs specific reported
+workflow defects while retaining the larger native storage/transform gates.
 
 After extrusion is committed, moving a cap again is a separate deformation
 operation. Shared edge identity alone does not solve the incident support

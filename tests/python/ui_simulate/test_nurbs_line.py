@@ -133,3 +133,67 @@ def face_region_selection_gestures():
                 t.assertEqual(result, expected_result)
             yield e.tab()
             yield e.a().x().ret()
+
+
+def duplicate_and_repeat_face_extrusion():
+    """Actual Shift+D/E macros preserve independent copies and replace attached caps."""
+    from pathlib import Path
+
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield e.a().x().ret()
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.e().y().text('2').ret()
+    yield e.a()
+
+    def splines():
+        obj = window.view_layer.objects.active
+        obj.update_from_editmode()
+        return obj.data.splines
+
+    def coordinates():
+        return sorted(tuple(sorted(tuple(point.co) for point in spline.points))
+                      for spline in splines())
+
+    original = coordinates()[0]
+    yield e.shift.d().z().text('2').ret()
+    t.assertEqual(len(splines()), 2)
+    t.assertEqual(tuple(sorted(tuple(point.co) for point in splines()[0].points)), original)
+    t.assertTrue(all(point.co.z == 2.0 for point in splines()[1].points))
+    yield e.ctrl.z()
+    t.assertEqual(len(splines()), 1)
+    yield e.ctrl.shift.z()
+    t.assertEqual(len(splines()), 2)
+
+    yield e.e().z().text('1').ret()
+    t.assertEqual(len(splines()), 7)
+    yield e.e().z().text('1').ret()
+    t.assertEqual(len(splines()), 11)  # Separate original sheet plus ten extrusion faces.
+    t.assertFalse(any(all(point.co.z == 3.0 for point in spline.points) for spline in splines()))
+    t.assertEqual(tuple(sorted(tuple(point.co) for point in splines()[0].points)), original)
+    t.assertEqual(sum(point.select for spline in splines() for point in spline.points), 12)
+    before_cancel = coordinates()
+    # Blender's E commits topology first; Escape cancels its move. Undo removes that extrusion.
+    yield e.e().z().text('3').esc()
+    t.assertEqual(len(splines()), 15)
+    yield e.ctrl.z()
+    t.assertEqual(coordinates(), before_cancel)
+    yield e.ctrl.shift.z()
+    t.assertEqual(len(splines()), 15)
+    yield e.ctrl.z()
+    t.assertEqual(coordinates(), before_cancel)
+    yield e.tab()
+    yield e.numpad_1().numpad_6().numpad_8().home()
+    yield
+    output = Path('/tmp/blender-nurbs-duplicate-region-ui')
+    output.mkdir(exist_ok=True)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'try-duplicate-extrude.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / 'duplicate-extrude.png'))
+    print('NURBS_DUPLICATE_REGION_UI_ARTIFACTS', output)

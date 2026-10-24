@@ -12,6 +12,27 @@
 
 namespace blender::bke::nurbs {
 
+struct FaceRegionExtrusionPlan {
+  /** Unique source identities, in source order. */
+  Vector<int64_t> faces;
+  Vector<int64_t> boundary_edges;
+  Vector<int64_t> interior_edges;
+  Vector<int64_t> interior_vertices;
+  /** Match Blender's region rule: replace input faces when they border an unselected face. */
+  bool remove_original_faces = false;
+};
+
+/**
+ * Classify a face region using shared edge uses, independently of geometry or selection gesture.
+ * A single selected use is a wall boundary; two selected uses are internal, including a seam.
+ * Reject more than two selected uses per edge rather than guess a non-manifold sweep.
+ * Holes contribute their own boundary walls. This is topology planning, not support construction
+ * or a geometric/solid validity certificate. Input order and repeated IDs have no effect.
+ */
+std::optional<FaceRegionExtrusionPlan> plan_face_region_extrusion(const NurbsGeometry &source,
+                                                                  Span<int64_t> face_ids,
+                                                                  std::string *r_error = nullptr);
+
 struct EdgeExtrusionResult {
   OwnedGeometry geometry;
   /** Fresh cap identities, including shared curve resources and endpoints. */

@@ -358,7 +358,7 @@ class NurbsLineTest(unittest.TestCase):
                 point.select = True
 
         self.assertEqual(bpy.ops.curve.extrude(), {'FINISHED'})
-        self.assertEqual(len(ob.data.splines), 7)
+        self.assertEqual(len(ob.data.splines), 6)
         bpy.ops.object.mode_set(mode='OBJECT')
         self.assert_sheet_area(ob)
 
@@ -384,8 +384,129 @@ class NurbsLineTest(unittest.TestCase):
         bpy.ops.object.mode_set(mode='EDIT')
         self.extrude_selected((0.0, 0.0, 1.0))
 
-        self.assertEqual(len(ob.data.splines), 11)
+        self.assertEqual(len(ob.data.splines), 10)
         self.assert_sheet_area(ob)
+
+    def test_duplicate_move_line_leaves_original_in_place(self):
+        ob = self.add_line()
+        original = self.coordinates(ob.data.splines[0])
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.assertEqual(bpy.ops.curve.duplicate_move(
+            TRANSFORM_OT_translate={'value': (0.0, 2.0, 0.0)}), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertEqual(len(ob.data.splines), 2)
+        self.assertEqual(self.coordinates(ob.data.splines[0]), original)
+        self.assertTrue(all(point.co.y == 2.0 for point in ob.data.splines[1].points))
+
+    def test_duplicate_move_face_is_disconnected_and_can_extrude(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        original = self.coordinates(ob.data.splines[0])
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.curve.duplicate_move(
+            TRANSFORM_OT_translate={'value': (0.0, 0.0, 2.0)}), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertEqual(len(ob.data.splines), 2)
+        self.assertEqual(self.coordinates(ob.data.splines[0]), original)
+        self.assertTrue(all(point.co.z == 2.0 for point in ob.data.splines[1].points))
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 7)
+        self.assertEqual(self.coordinates(ob.data.splines[0]), original)
+        self.assertEqual(sum(all(point.co.z == 3.0 for point in spline.points)
+                             for spline in ob.data.splines), 1)
+
+    def test_duplicated_face_region_keeps_its_shared_edge(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 2.0, 0.0))
+        originals = [self.coordinates(spline) for spline in ob.data.splines]
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        bpy.ops.curve.duplicate_move(TRANSFORM_OT_translate={'value': (4.0, 0.0, 0.0)})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertEqual(len(ob.data.splines), 4)
+        self.assertEqual([self.coordinates(spline) for spline in ob.data.splines[:2]], originals)
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 12)  # Two original sheets, ten faces on the copy.
+        self.assertEqual([self.coordinates(spline) for spline in ob.data.splines[:2]], originals)
+
+    def test_shared_edge_extrusion_is_independent_of_selected_patch_copies(self):
+        results = []
+        for copies in (1, 2):
+            bpy.ops.wm.read_factory_settings(use_empty=True)
+            ob = self.add_line()
+            self.extrude((0.0, 2.0, 0.0))
+            self.extrude((0.0, 2.0, 0.0))
+            bpy.ops.object.mode_set(mode='EDIT')
+            for index, spline in enumerate(ob.data.splines):
+                for point in spline.points:
+                    point.select = index < copies and point.co.y == 2.0
+            self.extrude_selected((0.0, 0.0, 1.0))
+            self.assertEqual(len(ob.data.splines), 3)
+            results.append(sorted(self.coordinates(spline) for spline in ob.data.splines))
+        self.assertEqual(results[0], results[1])
+
+    def test_attached_face_extrusion_replaces_source_face(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        self.extrude((0.0, 2.0, 0.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        for index, spline in enumerate(ob.data.splines):
+            for point in spline.points:
+                point.select = index == 0
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 6)
+        self.assertEqual(sum(all(point.co.z == 0.0 for point in spline.points)
+                             for spline in ob.data.splines), 1)
+        self.assertEqual(sum(all(point.co.z == 1.0 for point in spline.points)
+                             for spline in ob.data.splines), 1)
+
+    def test_repeated_face_extrusion_does_not_leave_internal_cap(self):
+        ob = self.add_line()
+        self.extrude((0.0, 2.0, 0.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        self.extrude_selected((0.0, 0.0, 3.0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.extrude_selected((0.0, 0.0, 1.0))
+        self.assertEqual(len(ob.data.splines), 10)
+        self.assertFalse(any(all(point.co.z == 3.0 for point in spline.points)
+                             for spline in ob.data.splines))
+
+    def test_unsupported_duplicate_reports_and_preserves_selection(self):
+        ob = self.add_line()
+        bpy.ops.object.mode_set(mode='EDIT')
+        ob.data.splines[0].points[1].select = False
+        before = self.coordinates(ob.data.splines[0])
+        selected = [point.select for point in ob.data.splines[0].points]
+        with self.assertRaisesRegex(RuntimeError, 'isolated NURBS topology vertices'):
+            bpy.ops.curve.duplicate()
+        self.assertEqual(len(ob.data.splines), 1)
+        self.assertEqual(self.coordinates(ob.data.splines[0]), before)
+        self.assertEqual([point.select for point in ob.data.splines[0].points], selected)
+
+    def test_duplicate_save_reload_keeps_copy_independent_for_extrusion(self):
+        ob = self.add_line()
+        original = self.coordinates(ob.data.splines[0])
+        name = ob.name
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.duplicate_move(TRANSFORM_OT_translate={'value': (0.0, 2.0, 0.0)})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'independent_nurbs_duplicate.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+            ob = bpy.data.objects[name]
+            self.assertEqual(self.coordinates(ob.data.splines[0]), original)
+            bpy.ops.object.mode_set(mode='EDIT')
+            self.extrude_selected((0.0, 1.0, 0.0))
+            self.assertEqual(len(ob.data.splines), 2)
+            self.assertEqual(self.coordinates(ob.data.splines[0]), original)
+            self.assertEqual((ob.data.splines[1].point_count_u, ob.data.splines[1].point_count_v), (2, 2))
+            self.assertEqual({point.co.y for point in ob.data.splines[1].points}, {2.0, 3.0})
 
     def test_primitive_placement_and_radius(self):
         ob = self.add_line(radius=3.0, location=(1.0, 2.0, 3.0), rotation=(0.0, 0.0, math.pi / 2))

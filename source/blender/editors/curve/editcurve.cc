@@ -47,6 +47,7 @@
 #include "BKE_main.hh"
 #include "BKE_modifier.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_object_types.hh"
 #include "BKE_report.hh"
 
@@ -2200,515 +2201,32 @@ bool ed_editnurb_extrude_flag(EditNurb *editnurb, const eBezTriple_Flag flag)
   return ok;
 }
 
-enum class NurbTopologyEdge : int8_t {
-  VMin = 0,
-  UMax = 1,
-  VMax = 2,
-  UMin = 3,
-  Curve = 4,
-  Face = 5,
-};
-
-struct NurbTopologyExtrudeSelection {
-  Nurb *nurb;
-  NurbTopologyEdge edge;
-};
-
-struct NurbTopologyVertexExtrudeSelection {
-  Nurb *nurb;
-  int point_index;
-};
-
-static int nurb_topology_next_id(const ListBaseT<Nurb> &nurbs)
+/** Apply a fully prepared kernel compatibility edit, retaining untouched source pointers. */
+static void nurbs_topology_edit_apply(Curve &curve, bke::nurbs::LegacyTopologyEdit &edit)
 {
-  int next_id = 1;
-  for (const Nurb &nu : nurbs) {
-    next_id = std::max(next_id, nu.topology_face_id + 1);
-    for (const int id : nu.topology_vertex_ids) {
-      next_id = std::max(next_id, id + 1);
+  EditNurb &editnurb = *curve.editnurb;
+  for (Nurb *nurb = static_cast<Nurb *>(editnurb.nurbs.first); nurb != nullptr;) {
+    Nurb *next = nurb->next;
+    const bool remove = edit.removed_faces.contains(nurb->topology_face_id) ||
+                        (nurb->pntsv == 1 &&
+                         edit.removed_wires.contains(nurb->topology_edge_ids[0]));
+    if (remove) {
+      keyIndex_delNurb(&editnurb, nurb);
+      BLI_remlink(&editnurb.nurbs, nurb);
+      BKE_nurb_free(nurb);
     }
-    for (const int id : nu.topology_edge_ids) {
-      next_id = std::max(next_id, id + 1);
-    }
-  }
-  return next_id;
-}
-
-static bool nurb_boundary_is_selected(const Nurb &nu,
-                                      const NurbTopologyEdge edge,
-                                      const int selected_count)
-{
-  const int edge_count = ELEM(edge, NurbTopologyEdge::VMin, NurbTopologyEdge::VMax) ? nu.pntsu :
-                                                                                      nu.pntsv;
-  if (selected_count != edge_count) {
-    return false;
-  }
-
-  for (int i = 0; i < nu.pntsu; i++) {
-    for (int j = 0; j < nu.pntsv; j++) {
-      bool is_edge_point = false;
-      switch (edge) {
-        case NurbTopologyEdge::VMin:
-          is_edge_point = j == 0;
-          break;
-        case NurbTopologyEdge::UMax:
-          is_edge_point = i == nu.pntsu - 1;
-          break;
-        case NurbTopologyEdge::VMax:
-          is_edge_point = j == nu.pntsv - 1;
-          break;
-        case NurbTopologyEdge::UMin:
-          is_edge_point = i == 0;
-          break;
-        case NurbTopologyEdge::Curve:
-        case NurbTopologyEdge::Face:
-          break;
-      }
-      const bool is_selected = (nu.bp[j * nu.pntsu + i].f1 & SELECT) != 0;
-      if (is_selected != is_edge_point) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-static void nurb_topology_copy_knots_u(Nurb *dst, const Nurb &src)
-{
-  if (src.knotsu == nullptr) {
-    BKE_nurb_knot_calc_u(dst);
-    return;
-  }
-  dst->knotsu = MEM_new_array_uninitialized<float>(KNOTSU(dst), "nurbTopologyExtrudeKnotsU");
-  memcpy(dst->knotsu, src.knotsu, sizeof(float) * KNOTSU(dst));
-}
-
-static void nurb_topology_copy_knots_v(Nurb *dst, const Nurb &src)
-{
-  if (src.knotsv == nullptr) {
-    BKE_nurb_knot_calc_v(dst);
-    return;
-  }
-  dst->knotsv = MEM_new_array_uninitialized<float>(KNOTSV(dst), "nurbTopologyExtrudeKnotsV");
-  memcpy(dst->knotsv, src.knotsv, sizeof(float) * KNOTSV(dst));
-}
-
-static Nurb *nurb_topology_extrude_patch_create(Nurb &src,
-                                                const NurbTopologyEdge edge,
-                                                int &next_id)
-{
-  const bool source_is_curve = edge == NurbTopologyEdge::Curve;
-  const bool source_is_v_edge = ELEM(edge, NurbTopologyEdge::VMin, NurbTopologyEdge::VMax);
-  const bool source_is_u_row = source_is_curve || source_is_v_edge;
-  const int edge_count = source_is_u_row ? src.pntsu : src.pntsv;
-  Nurb *patch = MEM_new<Nurb>("nurbTopologyExtrudePatch");
-  patch->type = CU_NURBS;
-  patch->mat_nr = src.mat_nr;
-  patch->flag = src.flag;
-  patch->resolu = src.resolu;
-  patch->resolv = src.resolv;
-  patch->flagu = CU_NURB_ENDPOINT;
-  patch->flagv = CU_NURB_ENDPOINT;
-
-  if (source_is_u_row) {
-    patch->pntsu = src.pntsu;
-    patch->pntsv = 2;
-    patch->orderu = src.orderu;
-    patch->orderv = 2;
-    patch->flagu = src.flagu;
-  }
-  else {
-    patch->pntsu = 2;
-    patch->pntsv = edge_count;
-    patch->orderu = 2;
-    patch->orderv = source_is_curve ? 2 : src.orderv;
-    if (!source_is_curve) {
-      patch->flagv = src.flagv;
-    }
-  }
-
-  patch->bp = MEM_new_array_zeroed<BPoint>(size_t(patch->pntsu) * size_t(patch->pntsv),
-                                           "nurbTopologyExtrudePoints");
-
-  if (source_is_u_row) {
-    const int source_v_in_src = source_is_curve || edge == NurbTopologyEdge::VMin ? 0 :
-                                                                                    src.pntsv - 1;
-    for (int v = 0; v < 2; v++) {
-      BPoint *dst = patch->bp + v * edge_count;
-      BPoint *source = src.bp + source_v_in_src * src.pntsu;
-      memcpy(dst, source, sizeof(BPoint) * edge_count);
-    }
-    nurb_topology_copy_knots_u(patch, src);
-    BKE_nurb_knot_calc_v(patch);
-  }
-  else {
-    const int source_u_in_src = edge == NurbTopologyEdge::UMin ? 0 : src.pntsu - 1;
-    for (int j = 0; j < edge_count; j++) {
-      const BPoint *source = &src.bp[j * src.pntsu + source_u_in_src];
-      for (int u = 0; u < 2; u++) {
-        BPoint *dst = &patch->bp[j * patch->pntsu + u];
-        memcpy(dst, source, sizeof(BPoint));
-      }
-    }
-    BKE_nurb_knot_calc_u(patch);
-    nurb_topology_copy_knots_v(patch, src);
-  }
-
-  for (int i = 0; i < patch->pntsu * patch->pntsv; i++) {
-    patch->bp[i].f1 &= ~SELECT;
-  }
-
-  const int shared_edge_id = source_is_curve ? src.topology_edge_ids[0] :
-                                               src.topology_edge_ids[int(edge)];
-  patch->topology_face_id = next_id++;
-  if (source_is_curve) {
-    patch->topology_edge_ids[0] = shared_edge_id;
-    patch->topology_edge_ids[1] = next_id++;
-    patch->topology_edge_ids[2] = next_id++;
-    patch->topology_edge_ids[3] = next_id++;
-    patch->topology_vertex_ids[0] = src.topology_vertex_ids[0];
-    patch->topology_vertex_ids[1] = src.topology_vertex_ids[1];
-    patch->topology_vertex_ids[2] = next_id++;
-    patch->topology_vertex_ids[3] = next_id++;
-    select_bpoints(patch->bp + edge_count, 1, edge_count, true, BEZT_FLAG_SELECT, HIDDEN);
-  }
-  else if (source_is_v_edge) {
-    const bool is_v_min = edge == NurbTopologyEdge::VMin;
-    if (is_v_min) {
-      patch->topology_edge_ids[0] = shared_edge_id;
-      patch->topology_edge_ids[1] = next_id++;
-      patch->topology_edge_ids[2] = next_id++;
-      patch->topology_edge_ids[3] = next_id++;
-      patch->topology_vertex_ids[0] = src.topology_vertex_ids[0];
-      patch->topology_vertex_ids[1] = src.topology_vertex_ids[1];
-      patch->topology_vertex_ids[2] = next_id++;
-      patch->topology_vertex_ids[3] = next_id++;
-      select_bpoints(patch->bp + edge_count, 1, edge_count, true, BEZT_FLAG_SELECT, HIDDEN);
-    }
-    else {
-      patch->topology_edge_ids[0] = next_id++;
-      patch->topology_edge_ids[1] = next_id++;
-      patch->topology_edge_ids[2] = shared_edge_id;
-      patch->topology_edge_ids[3] = next_id++;
-      patch->topology_vertex_ids[0] = next_id++;
-      patch->topology_vertex_ids[1] = next_id++;
-      patch->topology_vertex_ids[2] = src.topology_vertex_ids[2];
-      patch->topology_vertex_ids[3] = src.topology_vertex_ids[3];
-      select_bpoints(patch->bp, 1, edge_count, true, BEZT_FLAG_SELECT, HIDDEN);
-    }
-  }
-  else {
-    const bool is_u_min = edge == NurbTopologyEdge::UMin;
-    if (is_u_min) {
-      patch->topology_edge_ids[0] = next_id++;
-      patch->topology_edge_ids[1] = next_id++;
-      patch->topology_edge_ids[2] = next_id++;
-      patch->topology_edge_ids[3] = shared_edge_id;
-      patch->topology_vertex_ids[0] = src.topology_vertex_ids[0];
-      patch->topology_vertex_ids[1] = next_id++;
-      patch->topology_vertex_ids[2] = next_id++;
-      patch->topology_vertex_ids[3] = src.topology_vertex_ids[3];
-      select_bpoints(patch->bp + 1, 2, edge_count, true, BEZT_FLAG_SELECT, HIDDEN);
-    }
-    else {
-      patch->topology_edge_ids[0] = next_id++;
-      patch->topology_edge_ids[1] = shared_edge_id;
-      patch->topology_edge_ids[2] = next_id++;
-      patch->topology_edge_ids[3] = next_id++;
-      patch->topology_vertex_ids[0] = next_id++;
-      patch->topology_vertex_ids[1] = src.topology_vertex_ids[1];
-      patch->topology_vertex_ids[2] = src.topology_vertex_ids[2];
-      patch->topology_vertex_ids[3] = next_id++;
-      select_bpoints(patch->bp, 2, edge_count, true, BEZT_FLAG_SELECT, HIDDEN);
-    }
-  }
-
-  return patch;
-}
-
-static Nurb *nurb_topology_extrude_line_vertex_create(Nurb &src,
-                                                      const int point_index,
-                                                      int &next_id)
-{
-  Nurb *segment = MEM_new<Nurb>("nurbTopologyExtrudeLineVertex");
-  segment->type = CU_NURBS;
-  segment->pntsu = 2;
-  segment->pntsv = 1;
-  segment->orderu = 2;
-  segment->orderv = 2;
-  segment->flagu = src.flagu;
-  segment->flagv = CU_NURB_ENDPOINT;
-  segment->flag = src.flag;
-  segment->mat_nr = src.mat_nr;
-  segment->resolu = src.resolu;
-  segment->resolv = src.resolv;
-  segment->bp = MEM_new_array_uninitialized<BPoint>(2, "nurbTopologyExtrudeLineVertexPoints");
-  memcpy(segment->bp, src.bp + point_index, sizeof(BPoint));
-  memcpy(segment->bp + 1, src.bp + point_index, sizeof(BPoint));
-  segment->bp[0].f1 &= ~SELECT;
-  segment->bp[1].f1 &= ~SELECT;
-  select_bpoints(segment->bp + 1, 1, 1, true, BEZT_FLAG_SELECT, HIDDEN);
-  BKE_nurb_knot_calc_u(segment);
-
-  segment->topology_vertex_ids[0] = src.topology_vertex_ids[point_index];
-  segment->topology_vertex_ids[1] = next_id++;
-  segment->topology_edge_ids[0] = next_id++;
-  return segment;
-}
-
-static int nurb_topology_remap_id(Map<int, int> &id_map, const int source_id, int &next_id)
-{
-  if (source_id == 0) {
-    return 0;
-  }
-  if (const int *existing_id = id_map.lookup_ptr(source_id)) {
-    return *existing_id;
-  }
-  const int new_id = next_id++;
-  id_map.add(source_id, new_id);
-  return new_id;
-}
-
-static bool nurb_topology_edge_is_selected_region_boundary(const Span<Nurb *> faces,
-                                                           const Nurb &source,
-                                                           const int edge)
-{
-  const int edge_id = source.topology_edge_ids[edge];
-  for (Nurb *other : faces) {
-    if (other == &source) {
-      continue;
-    }
-    for (const int other_edge_id : other->topology_edge_ids) {
-      if (other_edge_id == edge_id) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-static bool nurb_topology_face_region_extrude(EditNurb *editnurb,
-                                              Curve *cu,
-                                              const Span<Nurb *> faces)
-{
-  int next_id = nurb_topology_next_id(editnurb->nurbs);
-  Map<int, int> new_vertex_ids;
-  Map<int, int> new_edge_ids;
-  Map<int, int> connector_edge_ids;
-  Vector<Nurb *> caps;
-  Vector<Nurb *> walls;
-
-  for (Nurb *source : faces) {
-    Nurb *cap = BKE_nurb_duplicate(source);
-    cap->topology_face_id = next_id++;
-    for (int i = 0; i < 4; i++) {
-      cap->topology_vertex_ids[i] = nurb_topology_remap_id(
-          new_vertex_ids, source->topology_vertex_ids[i], next_id);
-      cap->topology_edge_ids[i] = nurb_topology_remap_id(
-          new_edge_ids, source->topology_edge_ids[i], next_id);
-    }
-    for (int i = 0; i < cap->pntsu * cap->pntsv; i++) {
-      cap->bp[i].f1 &= ~SELECT;
-    }
-    select_bpoints(cap->bp, 1, cap->pntsu * cap->pntsv, true, BEZT_FLAG_SELECT, HIDDEN);
-    caps.append(cap);
-  }
-
-  for (Nurb *source : faces) {
-    for (int edge = 0; edge < 4; edge++) {
-      const int source_edge_id = source->topology_edge_ids[edge];
-      if (!nurb_topology_edge_is_selected_region_boundary(faces, *source, edge)) {
-        continue;
-      }
-
-      Nurb *wall = nurb_topology_extrude_patch_create(*source, NurbTopologyEdge(edge), next_id);
-      const int cap_edge_id = nurb_topology_remap_id(new_edge_ids, source_edge_id, next_id);
-      static constexpr int edge_vertex_corners[4][2] = {{0, 1}, {1, 2}, {3, 2}, {0, 3}};
-      const int old_start = source->topology_vertex_ids[edge_vertex_corners[edge][0]];
-      const int old_end = source->topology_vertex_ids[edge_vertex_corners[edge][1]];
-      const int new_start = nurb_topology_remap_id(new_vertex_ids, old_start, next_id);
-      const int new_end = nurb_topology_remap_id(new_vertex_ids, old_end, next_id);
-      const int start_connector = nurb_topology_remap_id(connector_edge_ids, old_start, next_id);
-      const int end_connector = nurb_topology_remap_id(connector_edge_ids, old_end, next_id);
-
-      if (edge == int(NurbTopologyEdge::VMin)) {
-        wall->topology_edge_ids[0] = source_edge_id;
-        wall->topology_edge_ids[1] = end_connector;
-        wall->topology_edge_ids[2] = cap_edge_id;
-        wall->topology_edge_ids[3] = start_connector;
-        wall->topology_vertex_ids[0] = old_start;
-        wall->topology_vertex_ids[1] = old_end;
-        wall->topology_vertex_ids[2] = new_end;
-        wall->topology_vertex_ids[3] = new_start;
-      }
-      else if (edge == int(NurbTopologyEdge::UMax)) {
-        wall->topology_edge_ids[0] = start_connector;
-        wall->topology_edge_ids[1] = source_edge_id;
-        wall->topology_edge_ids[2] = end_connector;
-        wall->topology_edge_ids[3] = cap_edge_id;
-        wall->topology_vertex_ids[0] = new_start;
-        wall->topology_vertex_ids[1] = old_start;
-        wall->topology_vertex_ids[2] = old_end;
-        wall->topology_vertex_ids[3] = new_end;
-      }
-      else if (edge == int(NurbTopologyEdge::VMax)) {
-        wall->topology_edge_ids[0] = cap_edge_id;
-        wall->topology_edge_ids[1] = end_connector;
-        wall->topology_edge_ids[2] = source_edge_id;
-        wall->topology_edge_ids[3] = start_connector;
-        wall->topology_vertex_ids[0] = new_start;
-        wall->topology_vertex_ids[1] = new_end;
-        wall->topology_vertex_ids[2] = old_end;
-        wall->topology_vertex_ids[3] = old_start;
-      }
-      else {
-        wall->topology_edge_ids[0] = start_connector;
-        wall->topology_edge_ids[1] = cap_edge_id;
-        wall->topology_edge_ids[2] = end_connector;
-        wall->topology_edge_ids[3] = source_edge_id;
-        wall->topology_vertex_ids[0] = old_start;
-        wall->topology_vertex_ids[1] = new_start;
-        wall->topology_vertex_ids[2] = new_end;
-        wall->topology_vertex_ids[3] = old_end;
-      }
-      walls.append(wall);
-    }
-  }
-
-  const int active_nurb = editnurb->nurbs.count();
-  for (Nurb *cap : caps) {
-    BLI_addtail(&editnurb->nurbs, cap);
-  }
-  for (Nurb *wall : walls) {
-    BLI_addtail(&editnurb->nurbs, wall);
-  }
-
-  cu->actnu = active_nurb;
-  cu->actvert = CU_ACT_NONE;
-  return true;
-}
-
-static bool ed_editnurb_topology_extrude(EditNurb *editnurb, Curve *cu)
-{
-  Vector<NurbTopologyExtrudeSelection> selections;
-  Vector<NurbTopologyVertexExtrudeSelection> vertex_selections;
-  Vector<Nurb *> faces;
-
-  for (Nurb &nu : editnurb->nurbs) {
-    if (nu.bp == nullptr || nu.topology_edge_ids[0] == 0) {
-      continue;
-    }
-
-    int selected_count = 0;
-    for (int i = 0; i < nu.pntsu * nu.pntsv; i++) {
-      selected_count += (nu.bp[i].f1 & SELECT) != 0;
-    }
-    if (selected_count == 0) {
-      continue;
-    }
-
-    if (nu.pntsv == 1) {
-      if (selected_count == nu.pntsu && nu.topology_edge_ids[0] != 0) {
-        selections.append({&nu, NurbTopologyEdge::Curve});
-      }
-      else if (nu.pntsu == 2 && selected_count == 1) {
-        const int point_index = (nu.bp[0].f1 & SELECT) != 0 ? 0 : 1;
-        vertex_selections.append({&nu, point_index});
-      }
-      continue;
-    }
-    if (nu.topology_face_id == 0 || (nu.flagu & CU_NURB_CYCLIC) || (nu.flagv & CU_NURB_CYCLIC)) {
-      continue;
-    }
-
-    if (selected_count == nu.pntsu * nu.pntsv) {
-      faces.append(&nu);
-      continue;
-    }
-
-    int matched_edge = -1;
-    for (int edge = 0; edge < 4; edge++) {
-      if (nu.topology_edge_ids[edge] != 0 &&
-          nurb_boundary_is_selected(nu, NurbTopologyEdge(edge), selected_count))
-      {
-        if (matched_edge != -1) {
-          return false;
+    else if (nurb->bp != nullptr) {
+      for (int i = 0; i < nurb->pntsu * nurb->pntsv; i++) {
+        if (!nurb->bp[i].hide) {
+          nurb->bp[i].f1 &= ~SELECT;
         }
-        matched_edge = edge;
       }
     }
-    if (matched_edge != -1) {
-      selections.append({&nu, NurbTopologyEdge(matched_edge)});
-    }
+    nurb = next;
   }
-
-  if (faces.is_empty() && selections.is_empty() && vertex_selections.is_empty()) {
-    return false;
-  }
-
-  if (!faces.is_empty()) {
-    for (const NurbTopologyExtrudeSelection &selection : selections) {
-      const int selected_edge_id = selection.edge == NurbTopologyEdge::Curve ?
-                                       selection.nurb->topology_edge_ids[0] :
-                                       selection.nurb->topology_edge_ids[int(selection.edge)];
-      const bool is_shared_face_edge = std::any_of(
-          faces.begin(), faces.end(), [&](const Nurb *face) {
-            return std::find(face->topology_edge_ids,
-                             face->topology_edge_ids + 4,
-                             selected_edge_id) != face->topology_edge_ids + 4;
-          });
-      if (!is_shared_face_edge) {
-        return false;
-      }
-    }
-
-    for (const NurbTopologyVertexExtrudeSelection &selection : vertex_selections) {
-      const int selected_vertex_id = selection.nurb->topology_vertex_ids[selection.point_index];
-      const bool is_shared_face_vertex = std::any_of(
-          faces.begin(), faces.end(), [&](const Nurb *face) {
-            return std::find(face->topology_vertex_ids,
-                             face->topology_vertex_ids + 4,
-                             selected_vertex_id) != face->topology_vertex_ids + 4;
-          });
-      if (!is_shared_face_vertex) {
-        return false;
-      }
-    }
-
-    selections.clear();
-    vertex_selections.clear();
-  }
-
-  for (Nurb &nu : editnurb->nurbs) {
-    if (nu.bp) {
-      for (int i = 0; i < nu.pntsu * nu.pntsv; i++) {
-        nu.bp[i].f1 &= ~SELECT;
-      }
-    }
-  }
-
-  if (!faces.is_empty()) {
-    return nurb_topology_face_region_extrude(editnurb, cu, faces);
-  }
-
-  int next_id = nurb_topology_next_id(editnurb->nurbs);
-  for (const NurbTopologyExtrudeSelection &selection : selections) {
-    Nurb *patch = nurb_topology_extrude_patch_create(*selection.nurb, selection.edge, next_id);
-    BLI_addtail(&editnurb->nurbs, patch);
-    if (selection.edge == NurbTopologyEdge::Curve) {
-      BLI_remlink(&editnurb->nurbs, selection.nurb);
-      BKE_nurb_free(selection.nurb);
-    }
-  }
-  for (const NurbTopologyVertexExtrudeSelection &selection : vertex_selections) {
-    Nurb *segment = nurb_topology_extrude_line_vertex_create(
-        *selection.nurb, selection.point_index, next_id);
-    BLI_addtail(&editnurb->nurbs, segment);
-  }
-
-  cu->actnu = editnurb->nurbs.count() - 1;
-  cu->actvert = CU_ACT_NONE;
-  return true;
+  curve.actnu = editnurb.nurbs.count();
+  curve.actvert = CU_ACT_NONE;
+  BLI_movelisttolist(&editnurb.nurbs, &edit.added);
 }
 
 static void calc_duplicate_actnurb(const ListBaseT<Nurb> *editnurb,
@@ -6380,16 +5898,22 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
       changed = ed_editcurve_extrude(cu, editnurb, v3d);
     }
     else if (obedit->type == OB_SURF &&
-             std::any_of(editnurb->nurbs.begin(), editnurb->nurbs.end(), [](const Nurb &nu) {
-               return nu.topology_face_id != 0 || nu.topology_edge_ids[0] != 0;
-             }))
+             bke::nurbs::legacy_topology_selection_check(editnurb->nurbs))
     {
       if (cu->key != nullptr) {
         BKE_report(
             op->reports, RPT_ERROR, "NURBS topology extrusion does not support shape keys yet");
       }
       else {
-        changed = ed_editnurb_topology_extrude(editnurb, cu);
+        std::string error;
+        auto edit = bke::nurbs::legacy_topology_extrude(editnurb->nurbs, &error);
+        if (edit) {
+          nurbs_topology_edit_apply(*cu, *edit);
+          changed = true;
+        }
+        else if (!error.empty()) {
+          BKE_report(op->reports, RPT_ERROR, error.c_str());
+        }
       }
     }
     else {
@@ -6621,6 +6145,25 @@ static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
     Curve *cu = id_cast<Curve *>(obedit->data);
 
     if (!ED_curve_select_check(v3d, cu->editnurb)) {
+      continue;
+    }
+
+    if (bke::nurbs::legacy_topology_selection_check(cu->editnurb->nurbs)) {
+      if (cu->key != nullptr) {
+        BKE_report(
+            op->reports, RPT_ERROR, "NURBS topology duplication does not support shape keys yet");
+        continue;
+      }
+      std::string error;
+      auto edit = bke::nurbs::legacy_topology_duplicate(cu->editnurb->nurbs, &error);
+      if (!edit) {
+        BKE_report(op->reports, RPT_ERROR, error.c_str());
+        continue;
+      }
+      nurbs_topology_edit_apply(*cu, *edit);
+      changed = true;
+      DEG_id_tag_update(&cu->id, ID_RECALC_GEOMETRY | ID_RECALC_SELECT);
+      WM_event_add_notifier(C, NC_GEOM | ND_DATA, &cu->id);
       continue;
     }
 

@@ -222,6 +222,7 @@ set(SRC
   intern/nurbs_geometry_copy.cc
   intern/nurbs_geometry_evaluate.cc
   intern/nurbs_geometry_legacy.cc
+  intern/nurbs_legacy_edit.cc
   intern/nurbs_mesh.cc
   intern/nurbs_selection.cc
   intern/nurbs_tessellate.cc
@@ -461,6 +462,7 @@ set(SRC
   BKE_nurbs_edit.hh
   BKE_nurbs_evaluate.hh
   BKE_nurbs_geometry.hh
+  BKE_nurbs_legacy_edit.hh
   BKE_nurbs_mesh.hh
   BKE_nurbs_selection.hh
   BKE_nurbs_tessellate.hh

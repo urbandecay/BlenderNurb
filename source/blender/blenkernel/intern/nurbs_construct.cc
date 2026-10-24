@@ -11,12 +11,84 @@
 #include <limits>
 
 #include "BLI_listbase.h"
+#include "BLI_set.hh"
 
 #include "BKE_nurbs_construct.hh"
 
 #include "nurbs_math.hh"
 
 namespace blender::bke::nurbs {
+
+std::optional<FaceRegionExtrusionPlan> plan_face_region_extrusion(const NurbsGeometry &source,
+                                                                  const Span<int64_t> face_ids,
+                                                                  std::string *r_error)
+{
+  if (r_error != nullptr) {
+    r_error->clear();
+  }
+  auto fail = [&](const char *message) -> std::optional<FaceRegionExtrusionPlan> {
+    if (r_error != nullptr) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  if (face_ids.is_empty()) {
+    return fail("NURBS region extrusion requires selected faces");
+  }
+  Set<int64_t> selected, interior;
+  for (const int64_t id : face_ids) {
+    if (index->face(id) == nullptr) {
+      return fail("Selected NURBS face identity does not exist");
+    }
+    selected.add(id);
+  }
+  FaceRegionExtrusionPlan result;
+  for (const NurbsTopologyFace &face : source.faces) {
+    if (selected.contains(face.id)) {
+      result.faces.append(face.id);
+    }
+  }
+  for (const NurbsTopologyEdge &edge : source.edges) {
+    int selected_uses = 0;
+    bool unselected_use = false;
+    for (const EdgeUseReference &reference : index->uses_for_edge(edge.id)) {
+      if (selected.contains(reference.face_id)) {
+        selected_uses++;
+      }
+      else {
+        unselected_use = true;
+      }
+    }
+    if (selected_uses > 2) {
+      return fail("NURBS region extrusion does not support more than two selected edge uses");
+    }
+    if (selected_uses == 0) {
+      continue;
+    }
+    result.remove_original_faces |= unselected_use;
+    if (selected_uses == 1) {
+      result.boundary_edges.append(edge.id);
+    }
+    else if (!unselected_use) {
+      result.interior_edges.append(edge.id);
+      interior.add(edge.id);
+    }
+  }
+  for (const NurbsTopologyVertex &vertex : source.vertices) {
+    const Span<int64_t> edges = index->edges_for_vertex(vertex.id);
+    if (!edges.is_empty() && std::all_of(edges.begin(), edges.end(), [&](const int64_t id) {
+          return interior.contains(id);
+        }))
+    {
+      result.interior_vertices.append(vertex.id);
+    }
+  }
+  return result;
+}
 
 static double distance(const double3 &a, const double3 &b)
 {

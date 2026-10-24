@@ -25,8 +25,8 @@ void BKE_curve_nurbs_topology_selection_set(ListBaseT<Nurb> *nurbs,
                                            const BPoint &source_point);
 
 /**
- * Copy the transformed position and weight of selected topology vertices to all matching NURBS
- * patch corners.
+ * Copy the transformed position of selected topology vertices to all matching NURBS patch
+ * corners. Preserve each support's rational weights.
  */
 void BKE_curve_nurbs_topology_position_sync(ListBaseT<Nurb> *nurbs);
 

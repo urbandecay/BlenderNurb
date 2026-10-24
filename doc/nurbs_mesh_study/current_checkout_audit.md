@@ -6,19 +6,24 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and eight targeted native test executables
-build; **126 kernel/integration tests**, **25 NURBS Python tests**, and the
-existing autosave and global-undo CTest targets pass. Five isolated viewport event
-tests pass: native selection, prototype line/region, mesh undo and font undo.
+build; **136 kernel/integration tests**, **33 NURBS Python tests**, and the
+existing autosave and global-undo CTest targets pass. Six isolated viewport event
+tests pass: native selection, prototype line/region/duplicate-extrude, mesh undo
+and font undo.
 Native surface topology-vertex selection now works through standard Edit Mode,
 click, box, Select All, viewport Ctrl-Z/redo and save/re-entry. Saved-file checks
 verify identical click/box component IDs and unchanged NURBS geometry. The actual
 native selection screenshot has been visually inspected, as have earlier
-sheet/hole/cylinder captures. The original prototype's diagnosed duplicate and
-extrusion failures remain unfixed. Native extrusion and Edit Mode geometry
+sheet/hole/cylinder captures. Tagged prototype duplication now gets fresh IDs;
+shared-edge extrusion is deduplicated and attached face extrusion removes old
+caps. Those changes use kernel preparation, selection and region services.
+Native extrusion and Edit Mode geometry
 transforms are blocked until their adapters exist. Stage 1 remains incomplete.
 Exact commands, earlier failed attempts and limits follow; historical checkpoint
 sections describe the state at that time. See the final checkpoint below and
-[selection tryout](native_selection_tryout.md) for the current supported subset.
+[selection tryout](native_selection_tryout.md) and
+[duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md) for the two
+current supported paths. The user's exact failing file/sequence is still unknown.
 
 `/home/molotovgirl/Desktop/build_blender_5.2.2` is a symlink to `build_linux`;
 these are two names for the same build, not independent comparison binaries.
@@ -32,6 +37,10 @@ these are two names for the same build, not independent comparison binaries.
 * **Unknown**: not established by this audit.
 
 ## Baseline capabilities
+
+This table records the original baseline commit. Later checkpoint fixes below
+supersede its duplicate-ID, shared-edge extrusion, retained-cap and weight-sync
+failures; the table is retained as the original evidence, not current status.
 
 | Capability | Evidence and limit |
 |---|---|
@@ -1610,3 +1619,225 @@ X-Ray. Ordinary Add NURBS still creates the existing prototype. Unsupported
 native operations report/refuse entry rather than mutate empty legacy arrays;
 this does not establish every remaining operator/attribute contract. The old
 prototype's duplicate-wall and retained-cap failures remain open.
+
+## Duplicate and region-extrusion repair checkpoint
+
+The user's new report was Shift+D appearing to move the original face, followed
+by E appearing to duplicate that face. They clarified that sequence after the
+initial asynchronous question. The exact file/source owner was not identified.
+The shortcut regression below follows duplicate-move and then repeated extrusion;
+these are reproduced defects and bounded fixes, not a claim to have reproduced
+every variant of the report.
+
+Before changes, reran:
+
+```sh
+/home/molotovgirl/Desktop/build_linux/bin/blender --background --factory-startup \
+  --python-exit-code 1 --python doc/nurbs_mesh_study/baseline_diagnostics.py
+```
+
+Observed the same baseline failures: both original and duplicate lines moved
+to Y=1; selecting one versus two stored copies of a shared edge produced 2→3
+versus 2→4 patches; repeated face extrusion produced 6→11 patches instead of
+the mesh reference's 6→10. The untagged four-by-four full-surface extrusion also
+returned FINISHED without changing its source; that separate legacy limitation
+is still present.
+
+### Implemented
+
+* Added native `plan_face_region_extrusion`, based on the shared `TopologyIndex`.
+  It reports unique wall boundaries, interior edges/vertices and whether attached
+  original faces must be removed. Hole loops contribute boundaries; two seam uses
+  are internal. More than two selected uses per edge are explicitly unsupported.
+* Added `BKE_nurbs_legacy_edit.hh` / `intern/nurbs_legacy_edit.cc` as a restricted
+  compatibility client. It imports the tagged two-point/two-by-two graph to
+  normalize selected source IDs and obtain native closure-copy maps and region
+  plans. It prepares owned new NURBS splines and source-removal IDs. Input geometry
+  and selection remain untouched on failure. No new operator or display-mesh
+  editing source is introduced.
+* Duplication allocates fresh component IDs while preserving shared identity
+  inside the copied region. Complete support copies retain their coefficients,
+  rational weights, custom knots, materials and point attributes. Shared edges
+  are copied once. Unsupported isolated-point duplication reports an error.
+* Extrusion creates one wall per region boundary edge, with shared cap vertices
+  and connector edges. An attached region replaces its old caps; an isolated
+  sheet retains its base. Selected copies of one shared edge give the same
+  construction. A wire becomes one connected surface source rather than retaining
+  a second stored edge owner. Endpoint extrusion remains supported.
+* Removed approximately 500 lines of construction/classification from
+  `editcurve.cc`. ED now applies a prepared kernel candidate, cleans animation
+  indices of removed splines, sets active/selection state and notifies Blender.
+  Unrelated legacy tools retain their normal route. Mixed selected tagged and
+  untagged geometry and tagged shape-key mutations report their limits.
+* Fixed shared-position propagation to copy XYZ only. A rational weight belongs
+  to the individual curve/surface basis and is preserved on incident supports.
+
+This is a repair of the existing usable prototype using shared services, not
+promotion of its corner arrays into the general native geometry kernel. Native
+Edit Mode D/E/geometry transforms remain blocked until their adapters pass the
+separate gates. Neither general curved deformation nor curve fit-point solving
+is implemented here.
+
+### Built and tested
+
+Initial syntax checking found two array-to-Span conversions in the new client;
+fixed them before the complete build. The initial three-target build passed.
+Its test compile reported one range-loop copy warning, corrected in the final
+build. Initial new kernel tests passed (14 legacy/import, 16 selection/region).
+The first shortcut run passed its editing/undo assertions, then failed at saving
+the screenshot due to a missing `bpy` import in the new test. Fixed the harness
+and reran it successfully. Logs:
+`/tmp/blender-nurbs-duplicate-region-syntax-*.log`,
+`/tmp/blender-nurbs-duplicate-region-build.log`,
+`/tmp/blender-nurbs-duplicate-region-ui.log` (initial failure),
+`/tmp/blender-nurbs-duplicate-region-ui-fixed.log` (exit 0).
+
+Subsequent source review found a wall-direction regression in the compatibility
+builder: always using the canonical edge direction reversed two of a sheet's
+walls. Corrected it using incident edge-use orientation, reversing V exactly
+where needed while preserving the U basis, weights and boundary identities.
+Added outward-normal assertions for all six walls in the existing two-face
+region regression. For conflicting edge-only incident orientations the explicit
+sweep orientation is retained; no outside/solid orientation is inferred.
+The first rebuild of that assertion lacked a `BLI_set.hh` test include and
+failed compilation; added the include and reran the complete target set. Logs:
+`/tmp/blender-nurbs-duplicate-region-build-oriented.log` (exit 2),
+`/tmp/blender-nurbs-duplicate-region-build-oriented-fixed.log` (final build).
+
+Final build command, **exit 0**, with no compiler warnings/errors in its log:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_geometry_legacy_test blender blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_differential_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_mesh_test blenkernel_nurbs_object_test --parallel 4
+```
+
+Final log: `/tmp/blender-nurbs-duplicate-region-build-oriented-fixed.log`;
+`/tmp/blender-nurbs-duplicate-region-build-final.log` records the earlier
+successful build before the direction correction. This rebuild's binary
+reports commit `2fd4dfd9a156`; these repairs are subsequent working-tree changes.
+
+Final kernel/integration commands (each **exit 0**):
+
+```sh
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_geometry_legacy_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_selection_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_geometry_test \
+  --test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files'
+env BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-edit-ui \
+  /home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_differential_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_tessellate_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_mesh_test
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_object_test
+```
+
+**14 + 16 + 44 + 32 + 9 + 10 + 7 + 4 = 136 passed**, no skips. The ten new
+tests include fresh duplicate ownership/internal sharing, custom knot/attribute
+preservation, source atomicity, boundary-only walls, attached-region removal,
+shared-use selection equivalence and support-weight preservation. Three region
+subset cases compare resulting V/E/F counts with actual BMesh extrusion. Hole,
+periodic seam and ambiguous non-manifold planning have separate coverage;
+the compatibility constructor does not claim those general geometries.
+Final post-direction-correction logs:
+`/tmp/blender-nurbs-duplicate-region-{geometry_legacy,selection,geometry,edit,differential,tessellate,mesh,object}-tests-oriented.log`.
+
+```sh
+ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|blendfile_autosave|global_undo)$'
+```
+
+**4/4 targets passed**, including **31 line/edit cases + 2 old-file cases = 33
+NURBS Python tests**, in 6.73 seconds. Added eight application regressions,
+including duplicate-move, copied multi-face sharing, independent stored-edge
+selection, repeated/attached cap removal and copy/save/reload/extrude. Corrected
+two old expected counts that encoded retained internal caps. Log:
+`/tmp/blender-nurbs-duplicate-region-ctest-oriented.log`.
+The preceding save/reload checkpoint also passed, recorded in
+`/tmp/blender-nurbs-duplicate-region-ctest-serialized.log`.
+
+New shortcut regression command, **exit 0**:
+
+```sh
+nice -n 10 env BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender \
+  WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston \
+  WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland \
+  WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston \
+  python3 tests/utils/blender_headless.py --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py -- \
+  --tests test_nurbs_line.duplicate_and_repeat_face_extrusion
+```
+
+It exercises actual Shift+D and E, axis/numeric input, undo/redo, Escape and
+saved source geometry. As with mesh E, Escape cancels movement after topology
+creation; undo removes the whole extrusion macro. Five additional isolated
+processes using that runner passed, for **six viewport regressions total**:
+
+* `test_nurbs_line.line_to_sheet`
+* `test_nurbs_line.face_region_selection_gestures` (box/click/linked)
+* `test_nurbs_native.vertex_selection_and_lifecycle`, with
+  `BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend` and
+  `BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-edit-ui`
+* `test_undo.view3d_mesh_edit_separate`
+* `test_undo.view3d_font_edit_mode_simple`
+
+Final post-direction-correction logs:
+`/tmp/blender-nurbs-duplicate-region-ui-oriented-{duplicate,line,region,native,mesh-undo,font-undo}.log`.
+The existing baseline empty-keymap/unknown-operator notices are still emitted.
+They did not fail these tests.
+
+Reran the diagnostic command above, **exit 0**. The duplicate's original now
+stays at Y=0 while the copy moves to Y=1; both shared-edge selections produce
+2→3 patches; repeated NURBS and mesh region extrusion both produce 6→10.
+Log: `/tmp/blender-nurbs-duplicate-region-diagnostics-after.log`.
+
+**Visually confirmed:** inspected
+`/tmp/blender-nurbs-duplicate-region-ui/duplicate-extrude.png`. It shows the
+original sheet and a separate filled extruded copy. Internal-cap absence is
+established by source assertions, not by this exterior screenshot. The saved
+file is `/tmp/blender-nurbs-duplicate-region-ui/try-duplicate-extrude.blend`.
+A fresh background process reopened it, verified 11 source splines, extruded
+the selected top to 15 without retaining its previous cap, then duplicated and
+moved that cap to make 16. The original sheet stayed unchanged. It exited 0;
+log: `/tmp/blender-nurbs-duplicate-region-saved-file.log`. It did not overwrite
+the supplied tryout file. See the [tryout instructions](prototype_duplicate_extrude_tryout.md).
+
+Fresh-process command, **exit 0** (the line breaks in the expression are for readability):
+
+```sh
+/home/molotovgirl/Desktop/build_linux/bin/blender --background --factory-startup \
+  /tmp/blender-nurbs-duplicate-region-ui/try-duplicate-extrude.blend \
+  --python-exit-code 1 --python-expr '
+import bpy
+obj = bpy.context.object
+assert not obj.data.is_native_nurbs
+assert obj.type == "SURFACE"
+assert len(obj.data.splines) == 11
+original = [tuple(p.co) for p in obj.data.splines[0].points]
+bpy.ops.object.mode_set(mode="EDIT")
+bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={"value": (0, 0, 1)})
+bpy.ops.object.mode_set(mode="OBJECT")
+assert len(obj.data.splines) == 15
+assert [tuple(p.co) for p in obj.data.splines[0].points] == original
+assert not any(all(p.co.z == 4 for p in s.points) for s in obj.data.splines)
+bpy.ops.object.mode_set(mode="EDIT")
+bpy.ops.curve.duplicate_move(TRANSFORM_OT_translate={"value": (4, 0, 0)})
+bpy.ops.object.mode_set(mode="OBJECT")
+assert len(obj.data.splines) == 16
+assert [tuple(p.co) for p in obj.data.splines[0].points] == original
+print("SAVED_DUPLICATE_REGION_REOPEN_OK", len(obj.data.splines))'
+```
+
+`git diff --check` passes. The original native preview fixture SHA-256 remains
+`7ce0ec39f1c60e4234ba2795efd4650115d658018ef4d57b6bba2b1abf69efbe`.
+
+**Remaining limits:** the exact reported file/gesture is unconfirmed; arbitrary
+untagged higher-order face extrusion still has its old limitations. Native-owner
+geometry transforms/extrusion, fit-point editing, linked selection, edge/face
+picking and source-orientation/solid validation remain separate work. Existing
+files already damaged by reused prototype IDs may be rejected as inconsistent;
+this change does not silently weld or repair them. These results do not promote
+the complete native editing system or establish Stage 1 completion.

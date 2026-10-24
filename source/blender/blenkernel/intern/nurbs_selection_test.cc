@@ -28,7 +28,7 @@ struct MeshReference {
 
   explicit MeshReference(const NurbsGeometry &source)
   {
-    const BMeshCreateParams params{};
+    const BMeshCreateParams params{.use_toolflags = true};
     mesh.reset(BM_mesh_create(&bm_mesh_allocsize_default, &params));
     for (const NurbsTopologyVertex &vertex : source.vertices) {
       const float3 position(double3(vertex.position));
@@ -432,6 +432,106 @@ TEST_F(NurbsSelectionTest, RemovingActiveVertexRestoresTheLastSurvivingHistoryEl
     EXPECT_EQ(removed->history.first(), (ElementRef{ElementDomain::Vertex, a}));
     EXPECT_TRUE(removed->edges.is_empty());
   }
+}
+
+TEST_F(NurbsSelectionTest, FaceRegionPlanMatchesActualBMeshExtrusionCounts)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto adjacent = extrude_edges(*sheet, {first_item(sheet->edges).id}, {0, 0, 2}, 0);
+  ASSERT_TRUE(adjacent.has_value());
+  const auto &source = *adjacent->geometry;
+  for (int mask = 1; mask < 4; mask++) {
+    SCOPED_TRACE(mask);
+    Vector<int64_t> selected;
+    int bit = 0;
+    for (const NurbsTopologyFace &face : source.faces) {
+      if (mask & (1 << bit++)) {
+        selected.append(face.id);
+      }
+    }
+    std::string error;
+    const auto plan = plan_face_region_extrusion(source, selected, &error);
+    ASSERT_TRUE(plan.has_value()) << error;
+    SelectionState face_selection;
+    face_selection.faces.add_multiple(selected);
+    const auto closure = selection_flush(source, face_selection, SelectionMode::Face);
+    ASSERT_TRUE(closure.has_value());
+    MeshReference reference(source);
+    reference.flush(face_selection, SelectionMode::Face);
+    BMOperator operation;
+    BMO_op_init(reference.mesh.get(), &operation, BMO_FLAG_DEFAULTS, "extrude_face_region");
+    BMO_slot_buffer_from_enabled_hflag(reference.mesh.get(),
+                                       &operation,
+                                       operation.slots_in,
+                                       "geom",
+                                       BM_VERT | BM_EDGE | BM_FACE,
+                                       BM_ELEM_SELECT);
+    BMO_op_exec(reference.mesh.get(), &operation);
+    const int removed_faces = plan->remove_original_faces ? plan->faces.size() : 0;
+    const int removed_edges = plan->remove_original_faces ? plan->interior_edges.size() : 0;
+    const int removed_vertices = plan->remove_original_faces ? plan->interior_vertices.size() : 0;
+    EXPECT_EQ(reference.mesh->totface,
+              source.faces.count() + selected.size() + plan->boundary_edges.size() -
+                  removed_faces);
+    Set<int64_t> boundary_vertices;
+    const auto index = TopologyIndex::build(source);
+    for (const int64_t id : plan->boundary_edges) {
+      const auto &edge = *index->edge(id);
+      boundary_vertices.add_multiple(Span(edge.vertex_ids, 2));
+    }
+    EXPECT_EQ(reference.mesh->totedge,
+              source.edges.count() + closure->edges.size() + boundary_vertices.size() -
+                  removed_edges);
+    EXPECT_EQ(reference.mesh->totvert,
+              source.vertices.count() + closure->vertices.size() - removed_vertices);
+    BMO_op_finish(reference.mesh.get(), &operation);
+  }
+}
+
+TEST_F(NurbsSelectionTest, RegionPlanIncludesHoleWallsAndExcludesPeriodicSeam)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto &face = first_item(sheet->faces);
+  const double2 hole[] = {{0.25, 0.25}, {0.75, 0.25}, {0.75, 0.75}, {0.25, 0.75}};
+  add_planar_loop(*sheet, face, {hole, 4}, true);
+  const auto plan = plan_face_region_extrusion(*sheet, {face.id, face.id});
+  ASSERT_TRUE(plan.has_value());
+  EXPECT_EQ(plan->faces.size(), 1);
+  EXPECT_EQ(plan->boundary_edges.size(), 8);
+  EXPECT_FALSE(plan->remove_original_faces);
+  const auto cylinder = make_arc_sheet(true);
+  ASSERT_NE(cylinder, nullptr);
+  const auto periodic = plan_face_region_extrusion(*cylinder, {first_item(cylinder->faces).id});
+  ASSERT_TRUE(periodic.has_value());
+  EXPECT_EQ(periodic->boundary_edges.size(), 2);
+  EXPECT_EQ(periodic->interior_edges.size(), 1);
+}
+
+TEST_F(NurbsSelectionTest, RegionPlanRejectsUnknownIDsAndAmbiguousSelectedNonManifoldUses)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  const int64_t shared = first_item(sheet->edges).id;
+  auto second = extrude_edges(*sheet, {shared}, {0, 0, 2}, 0);
+  ASSERT_TRUE(second.has_value());
+  auto third = extrude_edges(*second->geometry, {shared}, {0, 0, -2}, 0);
+  ASSERT_TRUE(third.has_value());
+  Vector<int64_t> faces;
+  for (const NurbsTopologyFace &face : third->geometry->faces) {
+    faces.append(face.id);
+  }
+  const int64_t counter = third->geometry->next_id;
+  std::string error;
+  EXPECT_FALSE(plan_face_region_extrusion(*third->geometry, {}, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_FALSE(plan_face_region_extrusion(*third->geometry, {counter}, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_FALSE(plan_face_region_extrusion(*third->geometry, faces, &error).has_value());
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(third->geometry->next_id, counter);
+  EXPECT_EQ(third->geometry->faces.count(), 3);
 }
 
 }  // namespace blender::bke::nurbs::tests
