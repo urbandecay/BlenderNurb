@@ -1556,6 +1556,110 @@ TEST(nurbs_geometry, ComponentCopyRetainsRationalCoefficientsAndParameterMapping
   }
 }
 
+TEST(nurbs_geometry, DuplicateCandidatePreservesSharedClosureAndOriginalIdentity)
+{
+  const GeometryPtr source = make_fixture();
+  const int64_t counter = source->next_id;
+  const int64_t faces[] = {first(source->faces)->id, last(source->faces)->id};
+  std::string error;
+  const auto duplicate = duplicate_components(*source, {{}, {}, {faces, 2}}, &error);
+  ASSERT_TRUE(duplicate.has_value()) << error;
+  const auto &geometry = *duplicate->geometry;
+  EXPECT_EQ(geometry.vertices.count(), 20);
+  EXPECT_EQ(geometry.edges.count(), 22);
+  EXPECT_EQ(geometry.faces.count(), 4);
+  EXPECT_EQ(geometry.surfaces.count(), 2);
+  const auto index = TopologyIndex::build(geometry);
+  const auto original = TopologyIndex::build(*source);
+  ASSERT_TRUE(index.has_value());
+  ASSERT_TRUE(original.has_value());
+  for (const NurbsTopologyVertex &vertex : source->vertices) {
+    const auto *unchanged = index->vertex(vertex.id);
+    const auto *copied = index->vertex(duplicate->source_to_copy.lookup(vertex.id));
+    ASSERT_NE(unchanged, nullptr);
+    ASSERT_NE(copied, nullptr);
+    EXPECT_NE(unchanged, &vertex);
+    EXPECT_NE(unchanged, copied);
+    EXPECT_EQ(std::memcmp(unchanged->position, vertex.position, sizeof(vertex.position)), 0);
+    EXPECT_EQ(std::memcmp(copied->position, vertex.position, sizeof(vertex.position)), 0);
+    EXPECT_EQ(copied->tolerance, vertex.tolerance);
+  }
+  for (const NurbsTopologyEdge &edge : source->edges) {
+    const auto *copied = index->edge(duplicate->source_to_copy.lookup(edge.id));
+    ASSERT_NE(copied, nullptr);
+    EXPECT_EQ(copied->vertex_ids[0], duplicate->source_to_copy.lookup(edge.vertex_ids[0]));
+    EXPECT_EQ(copied->vertex_ids[1], duplicate->source_to_copy.lookup(edge.vertex_ids[1]));
+    EXPECT_EQ(index->uses_for_edge(copied->id).size(), original->uses_for_edge(edge.id).size());
+    EXPECT_EQ(index->uses_for_edge(edge.id).size(), original->uses_for_edge(edge.id).size());
+  }
+  EXPECT_EQ(index->face(duplicate->source_to_copy.lookup(faces[0]))->loops.count(), 2);
+  EXPECT_EQ(source->next_id, counter);
+  EXPECT_EQ(geometry.next_id, counter + duplicate->source_to_copy.size());
+}
+
+TEST(nurbs_geometry, DuplicateRetainsOriginalAndCopiedRationalResourcesBitForBit)
+{
+  const GeometryPtr source = make_curved_fixture();
+  const int64_t faces[] = {first(source->faces)->id, last(source->faces)->id};
+  const auto duplicate = duplicate_components(*source, {{}, {}, {faces, 2}});
+  ASSERT_TRUE(duplicate.has_value());
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+  for (const NurbsCurveGeometry &curve : duplicate->geometry->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (const NurbsSurfaceGeometry &surface : duplicate->geometry->surfaces) {
+    surfaces.add_new(surface.id, &surface);
+  }
+  for (const NurbsCurveGeometry &curve : source->curves) {
+    for (const int64_t id : {curve.id, duplicate->source_to_copy.lookup(curve.id)}) {
+      const auto &mapped = *curves.lookup(id);
+      EXPECT_NE(mapped.points, curve.points);
+      EXPECT_EQ(mapped.order, curve.order);
+      EXPECT_EQ(mapped.dimension, curve.dimension);
+      EXPECT_EQ(
+          std::memcmp(mapped.points, curve.points, sizeof(NurbsControlPoint) * curve.points_num),
+          0);
+      EXPECT_EQ(std::memcmp(mapped.knots, curve.knots, sizeof(double) * curve.knots_num), 0);
+    }
+  }
+  for (const NurbsSurfaceGeometry &surface : source->surfaces) {
+    for (const int64_t id : {surface.id, duplicate->source_to_copy.lookup(surface.id)}) {
+      const auto &mapped = *surfaces.lookup(id);
+      EXPECT_NE(mapped.points, surface.points);
+      EXPECT_EQ(std::memcmp(
+                    mapped.points, surface.points, sizeof(NurbsControlPoint) * surface.points_num),
+                0);
+      EXPECT_EQ(std::memcmp(mapped.knots_u, surface.knots_u, sizeof(double) * surface.knots_u_num),
+                0);
+      EXPECT_EQ(std::memcmp(mapped.knots_v, surface.knots_v, sizeof(double) * surface.knots_v_num),
+                0);
+    }
+  }
+}
+
+TEST(nurbs_geometry, DuplicateEmptyAndRejectedRequestsLeaveSourceAndCounterUnchanged)
+{
+  const GeometryPtr source = make_fixture();
+  const int64_t counter = source->next_id;
+  const auto empty = duplicate_components(*source, {});
+  ASSERT_TRUE(empty.has_value());
+  EXPECT_TRUE(empty->source_to_copy.is_empty());
+  EXPECT_EQ(empty->geometry->next_id, counter);
+  EXPECT_EQ(empty->geometry->vertices.count(), source->vertices.count());
+  EXPECT_EQ(empty->geometry->faces.count(), source->faces.count());
+  std::string error;
+  EXPECT_FALSE(duplicate_components(*source, {{&counter, 1}, {}, {}}, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source->next_id, counter);
+  source->next_id = std::numeric_limits<int64_t>::max();
+  const int64_t id = first(source->faces)->id;
+  EXPECT_FALSE(duplicate_components(*source, {{}, {}, {&id, 1}}, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source->next_id, std::numeric_limits<int64_t>::max());
+  EXPECT_EQ(source->faces.count(), 2);
+}
+
 TEST(nurbs_geometry, SharedEdgeAndHoleStructure)
 {
   GeometryPtr geometry = make_fixture();

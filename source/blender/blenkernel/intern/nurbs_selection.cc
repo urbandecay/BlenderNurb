@@ -282,6 +282,51 @@ std::optional<SelectionState> selection_apply_vertices(const NurbsGeometry &geom
   return normalized;
 }
 
+std::optional<SelectionState> selection_remap(const NurbsGeometry &source,
+                                              const NurbsGeometry &target,
+                                              const SelectionState &selection,
+                                              const Map<int64_t, int64_t> &id_map,
+                                              const SelectionMode mode,
+                                              std::string *r_error)
+{
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index || !selection_validate(
+                    selection,
+                    [&](const ElementRef element) { return element_exists(*index, element); },
+                    r_error))
+  {
+    return std::nullopt;
+  }
+  SelectionState result;
+  auto remap_domain = [&](const Set<int64_t> &input, Set<int64_t> &output) {
+    for (const int64_t id : input) {
+      if (const int64_t *mapped = id_map.lookup_ptr(id)) {
+        output.add(*mapped);
+      }
+    }
+  };
+  remap_domain(selection.vertices, result.vertices);
+  remap_domain(selection.edges, result.edges);
+  remap_domain(selection.faces, result.faces);
+  if (selection.active) {
+    if (const int64_t *mapped = id_map.lookup_ptr(selection.active->id)) {
+      result.active = ElementRef{selection.active->domain, *mapped};
+    }
+  }
+  for (const ElementRef element : selection.history) {
+    if (const int64_t *mapped = id_map.lookup_ptr(element.id)) {
+      const ElementRef remapped{element.domain, *mapped};
+      result.history.remove_if([&](const ElementRef other) { return other == remapped; });
+      result.history.append(remapped);
+    }
+  }
+  auto normalized = selection_flush(target, result, mode, r_error);
+  if (normalized && !normalized->active && !normalized->history.is_empty()) {
+    normalized->active = normalized->history.last();
+  }
+  return normalized;
+}
+
 template<typename T> static bool storage_array_is_valid(const T *data, const int size)
 {
   return size >= 0 &&

@@ -872,4 +872,151 @@ TEST_F(NurbsSelectionTest, LinkedConnectivityRequiresAnExplicitRuleWhenHoleLoops
   EXPECT_FALSE(find_linked_components(*source, {}, LinkedConnectivity(99)));
 }
 
+TEST_F(NurbsSelectionTest, DuplicateSelectionAndHistoryMatchActualBMeshDuplication)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto adjacent = extrude_edges(*sheet, {first_item(sheet->edges).id}, {0, 0, 2}, 0);
+  ASSERT_TRUE(adjacent.has_value());
+  auto &source = *adjacent->geometry;
+  add_vertex(source, {10, 0, 0});
+  for (const uint64_t mask : {1, 3, 5, 15, 127}) {
+    SCOPED_TRACE(mask);
+    auto input = selection_flush(source, mask_selection(source, mask), SelectionMode::Vertex);
+    ASSERT_TRUE(input.has_value());
+    for (const NurbsTopologyVertex &vertex : source.vertices) {
+      if (input->vertices.contains(vertex.id)) {
+        input->history.append({ElementDomain::Vertex, vertex.id});
+        input->active = input->history.last();
+      }
+    }
+    const Vector<int64_t> vertices(input->vertices.begin(), input->vertices.end());
+    const Vector<int64_t> edges(input->edges.begin(), input->edges.end());
+    const Vector<int64_t> faces(input->faces.begin(), input->faces.end());
+    const auto duplicate = duplicate_components(source, {vertices, edges, faces});
+    ASSERT_TRUE(duplicate.has_value());
+    std::string error;
+    const auto selection = selection_remap(source,
+                                           *duplicate->geometry,
+                                           *input,
+                                           duplicate->source_to_copy,
+                                           SelectionMode::Vertex,
+                                           &error);
+    ASSERT_TRUE(selection.has_value()) << error;
+    MeshReference reference(source);
+    reference.flush(*input, SelectionMode::Vertex);
+    for (const ElementRef item : input->history) {
+      BM_select_history_store(reference.mesh.get(), reference.vertices.lookup(item.id));
+    }
+    BMOperator operation;
+    BMO_op_init(reference.mesh.get(), &operation, BMO_FLAG_DEFAULTS, "duplicate");
+    BMO_slot_bool_set(operation.slots_in, "use_select_history", true);
+    BMO_slot_bool_set(operation.slots_in, "use_edge_flip_from_face", true);
+    BMO_slot_buffer_from_enabled_hflag(reference.mesh.get(),
+                                       &operation,
+                                       operation.slots_in,
+                                       "geom",
+                                       BM_VERT | BM_EDGE | BM_FACE,
+                                       BM_ELEM_SELECT);
+    BMO_op_exec(reference.mesh.get(), &operation);
+    BM_SELECT_HISTORY_BACKUP(reference.mesh.get());
+    BM_mesh_elem_hflag_disable_all(reference.mesh.get(), BM_ALL_NOLOOP, BM_ELEM_SELECT, false);
+    BMO_slot_buffer_hflag_enable(reference.mesh.get(),
+                                 operation.slots_out,
+                                 "geom.out",
+                                 BM_ALL_NOLOOP,
+                                 BM_ELEM_SELECT,
+                                 true);
+    BM_SELECT_HISTORY_RESTORE(reference.mesh.get());
+    EXPECT_EQ(reference.mesh->totvert, duplicate->geometry->vertices.count());
+    EXPECT_EQ(reference.mesh->totedge, duplicate->geometry->edges.count());
+    EXPECT_EQ(reference.mesh->totface, duplicate->geometry->faces.count());
+    EXPECT_EQ(reference.mesh->totvertsel, selection->vertices.size());
+    EXPECT_EQ(reference.mesh->totedgesel, selection->edges.size());
+    EXPECT_EQ(reference.mesh->totfacesel, selection->faces.size());
+    BMEditSelection *history = static_cast<BMEditSelection *>(reference.mesh->selected.first);
+    ASSERT_EQ(selection->history.size(), input->history.size());
+    for (const int i : input->history.index_range()) {
+      ASSERT_NE(history, nullptr);
+      EXPECT_EQ(history->ele,
+                BMO_slot_map_elem_get(BMO_slot_get(operation.slots_out, "vert_map.out"),
+                                      reference.vertices.lookup(input->history[i].id)));
+      EXPECT_EQ(selection->history[i].id, duplicate->source_to_copy.lookup(input->history[i].id));
+      history = history->next;
+    }
+    EXPECT_EQ(history, nullptr);
+    EXPECT_EQ(selection->active->id, duplicate->source_to_copy.lookup(input->active->id));
+    for (const int64_t id : input->vertices) {
+      EXPECT_FALSE(selection->vertices.contains(id));
+    }
+    BMO_op_finish(reference.mesh.get(), &operation);
+  }
+}
+
+TEST_F(NurbsSelectionTest, SelectionRemappingFlushesAllSevenModesWithoutInventingHistory)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  SelectionState face;
+  face.faces.add(first_item(source->faces).id);
+  const auto input = selection_flush(*source, face, SelectionMode::Face);
+  ASSERT_TRUE(input.has_value());
+  const int64_t face_id = first_item(source->faces).id;
+  const auto duplicate = duplicate_components(*source, {{}, {}, {&face_id, 1}});
+  ASSERT_TRUE(duplicate.has_value());
+  for (int mode = 1; mode <= 7; mode++) {
+    const auto result = selection_remap(
+        *source, *duplicate->geometry, *input, duplicate->source_to_copy, SelectionMode(mode));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->vertices.size(), 4);
+    EXPECT_EQ(result->edges.size(), 4);
+    EXPECT_EQ(result->faces.size(), 1);
+    EXPECT_TRUE(result->faces.contains(duplicate->source_to_copy.lookup(face_id)));
+    EXPECT_TRUE(result->history.is_empty());
+    EXPECT_FALSE(result->active.has_value());
+  }
+}
+
+TEST_F(NurbsSelectionTest, SelectionRemappingHandlesPartialAndMergedMapsAndRejectsWrongDomains)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  const auto &edge = first_item(source->edges);
+  const int64_t a = edge.vertex_ids[0], b = edge.vertex_ids[1];
+  const auto first = selection_apply_vertices(*source, {}, {&a, 1}, SelectionAction::Set, a);
+  ASSERT_TRUE(first.has_value());
+  const auto both = selection_apply_vertices(*source, *first, {&b, 1}, SelectionAction::Add, b);
+  ASSERT_TRUE(both.has_value());
+  Map<int64_t, int64_t> merged;
+  merged.add(a, b);
+  merged.add(b, b);
+  const auto result = selection_remap(*source, *source, *both, merged, SelectionMode::Vertex);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->vertices.size(), 1);
+  EXPECT_EQ(result->active, (ElementRef{ElementDomain::Vertex, b}));
+  ASSERT_EQ(result->history.size(), 1);
+  EXPECT_EQ(result->history.first(), (ElementRef{ElementDomain::Vertex, b}));
+  Map<int64_t, int64_t> partial;
+  partial.add(a, a);
+  const auto surviving = selection_remap(*source, *source, *both, partial, SelectionMode::Vertex);
+  ASSERT_TRUE(surviving.has_value());
+  EXPECT_EQ(surviving->active, (ElementRef{ElementDomain::Vertex, a}));
+  EXPECT_EQ(surviving->history.size(), 1);
+  partial.add(b, edge.id);
+  std::string error;
+  EXPECT_FALSE(selection_remap(*source, *source, *both, partial, SelectionMode::Vertex, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(both->vertices.size(), 2);
+  EXPECT_EQ(both->history.size(), 2);
+  SelectionState invalid = *both;
+  invalid.vertices.add(source->next_id);
+  EXPECT_FALSE(selection_remap(*source, *source, invalid, {}, SelectionMode::Vertex, &error));
+  EXPECT_FALSE(error.empty());
+  const auto empty = selection_remap(*source, *source, *both, {}, SelectionMode::Vertex);
+  ASSERT_TRUE(empty.has_value());
+  EXPECT_TRUE(empty->vertices.is_empty());
+  EXPECT_TRUE(empty->history.is_empty());
+  EXPECT_FALSE(empty->active.has_value());
+}
+
 }  // namespace blender::bke::nurbs::tests

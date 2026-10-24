@@ -13,6 +13,7 @@
 
 #include "BLI_enum_flags.hh"
 #include "BLI_function_ref.hh"
+#include "BLI_map.hh"
 #include "BLI_set.hh"
 #include "BLI_span.hh"
 #include "BLI_vector.hh"
@@ -81,6 +82,19 @@ std::optional<SelectionState> selection_apply_vertices(
     SelectionAction action,
     std::optional<int64_t> active_vertex = std::nullopt,
     std::string *r_error = nullptr);
+
+/**
+ * Remap a validated source selection to target component identities, then flush in the explicit
+ * target mode. Unmapped elements are dropped. History follows its surviving identities; repeated
+ * targets keep their last history occurrence. Invalid mapped domains/IDs fail without mutation.
+ * No history is invented for inferred selection. Geometry/resource IDs not selected are ignored.
+ */
+std::optional<SelectionState> selection_remap(const NurbsGeometry &source,
+                                              const NurbsGeometry &target,
+                                              const SelectionState &selection,
+                                              const Map<int64_t, int64_t> &id_map,
+                                              SelectionMode mode,
+                                              std::string *r_error = nullptr);
 
 /** Decode owned DNA arrays. Validate the resulting references against the source separately. */
 std::optional<SelectionState> selection_from_storage(const NurbsStoredSelection *storage,

@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 173 C++ kernel/editor/integration tests, a complete Blender build and
+Current verified foundation: 182 C++ kernel/editor/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -19,9 +19,12 @@ inspected. Native L / Shift+L / Ctrl+L now use a shared kernel connectivity serv
 retained source picking and the common selection commit. All edit owners are checked
 before Ctrl+L changes selection. The kernel distinguishes endpoint-graph connectivity
 from whole-face boundary connectivity; the viewport rejects requests where those
-rules differ until the user's hole policy is chosen. Seven updated viewport tests
-and six saved selection-source files pass. Fit-point editing, edge/face picking and
-broader modal geometry transforms still gate broader editing. Native Move now has a tested
+rules differ until the user's hole policy is chosen. Native Shift+D now calls a
+full-candidate kernel duplication service, remaps source selection/history, and
+reuses the current owner commit and native Move adapter. Eight updated viewport
+tests, eleven saved duplication states and six selection-source files pass.
+Fit-point editing, edge/face picking and broader modal geometry transforms still
+gate broader editing. Native Move now has a tested
 source adapter, precise numeric input/units and editable decimal F9 values. This
 is not completion of Stage 1 or completion of the prototype's replacement. Its tagged line/patch duplication
 and extrusion now use kernel candidates, native closure-ID remapping and shared
@@ -29,7 +32,7 @@ region planning, with shortcut/undo regressions. Native extrusion remains blocke
 Native Move translates supported source vertex identities through shared BKE services, retaining original snapshots and committing
 with current-state tokens. Every frame starts from original double geometry.
 The movement checkpoint records twenty saved states and eight isolated viewport
-regressions. This linked-selection checkpoint repeats seven relevant viewport
+regressions. The native-duplication checkpoint repeats eight relevant viewport
 tests and the unit/autosave/undo application checks. Native Normal/Gimbal orientation
 remains an explicit gate. Active-vertex center lookup is now source-aware and tested through cursor-to-active and Active Element
 G/cancel, with the existing float UI boundary retained. General curved deformation,

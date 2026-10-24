@@ -76,8 +76,9 @@ std::unique_ptr<EvaluationSource> curve_eval_source_capture(const Curve &curve);
 size_t snapshot_memory_size(const EditSnapshot &snapshot);
 
 /**
- * Internal owner experiment, not a production mode-entry path. Requires an existing payload,
- * no writable legacy Nurb source and no shape keys. Failure leaves owner and edit state unchanged.
+ * Begin editing an existing native payload. Normal native creation/migration remain gated.
+ * Requires no writable legacy Nurb source and no shape keys. Failure leaves owner and edit state
+ * unchanged.
  */
 bool curve_edit_begin(Curve &curve, std::string *r_error = nullptr);
 bool curve_edit_flush_to_id(Curve &curve, std::string *r_error = nullptr);

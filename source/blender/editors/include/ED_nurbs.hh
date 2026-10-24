@@ -72,4 +72,9 @@ bool select_linked(Main &bmain, Curve &curve, std::string *r_error = nullptr);
 bool select_linked(bContext *C);
 bool select_linked_pick(bContext *C, const int mval[2], int distance, bool deselect);
 
+/** Exact native component duplication, remapped selection/history and one owner commit. */
+bool duplicate(Main &bmain, Curve &curve, std::string *r_error = nullptr);
+/** Match the current native Move adapter's single edit-owner scope before changing topology. */
+bool duplicate(bContext *C);
+
 }  // namespace blender::ed::nurbs

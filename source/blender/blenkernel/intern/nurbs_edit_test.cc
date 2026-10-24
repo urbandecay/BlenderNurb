@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <thread>
 
@@ -612,6 +613,95 @@ TEST_F(NurbsNativeEditTest, EditorLinkedSelectionPreservesHistoryAndKeepsNoOpsCl
   EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
 }
 
+TEST_F(NurbsNativeEditTest, EditorDuplicateCommitsFreshIdentitiesAndMovesOnlyTheCopy)
+{
+  Main *bmain = BKE_main_new();
+  BLI_SCOPED_DEFER([&]() { BKE_main_free(bmain); });
+  Curve *curve = BKE_curve_add(bmain, "NURBS duplicate source", OB_SURF);
+  curve->nurbs_geometry = make_line().release();
+  curve->nurbs_geometry->stored_selection = selection_to_storage(make_selection());
+  ASSERT_TRUE(curve_edit_begin(*curve));
+  const auto original = curve->editnurb->nurbs_edit->read_snapshot();
+  std::string error;
+  ASSERT_TRUE(ed::nurbs::duplicate(*bmain, *curve, &error)) << error;
+  const auto copied = curve->editnurb->nurbs_edit->read_snapshot();
+  EXPECT_NE(copied, original);
+  EXPECT_EQ(copied.geometry().vertices.count(), 4);
+  EXPECT_EQ(copied.geometry().edges.count(), 2);
+  EXPECT_EQ(copied.selection().vertices.size(), 2);
+  EXPECT_EQ(copied.selection().edges.size(), 1);
+  EXPECT_FALSE(copied.selection().vertices.contains(1));
+  EXPECT_FALSE(copied.selection().vertices.contains(2));
+  EXPECT_FALSE(copied.selection().edges.contains(3));
+  ASSERT_EQ(copied.selection().history.size(), 3);
+  EXPECT_EQ(copied.selection().history[1].domain, ElementDomain::Edge);
+  EXPECT_EQ(copied.selection().active, copied.selection().history.last());
+  EXPECT_TRUE(curve->editnurb->needs_flush_to_id);
+  EXPECT_TRUE(bmain->is_memfile_undo_flush_needed);
+  EXPECT_EQ(curve->nurbs_geometry->vertices.count(), 2);
+  EXPECT_EQ(original.geometry().vertices.count(), 2);
+  const Vector<int64_t> selected(copied.selection().vertices.begin(),
+                                 copied.selection().vertices.end());
+  auto moved = translate_vertices(copied.geometry(), selected, {0, 0, 0.125}, 0, &error);
+  ASSERT_TRUE(moved.has_value()) << error;
+  auto candidate = copied.copy_for_edit();
+  candidate.geometry = std::move(moved->geometry);
+  ASSERT_TRUE(ed::nurbs::edit_commit(*bmain, *curve, std::move(candidate), copied, &error))
+      << error;
+  const auto current = curve->editnurb->nurbs_edit->read_snapshot();
+  const auto index = TopologyIndex::build(current.geometry());
+  ASSERT_TRUE(index.has_value());
+  EXPECT_EQ(index->vertex(1)->position[2], 0);
+  EXPECT_EQ(index->vertex(2)->position[2], 0);
+  for (const int64_t id : selected) {
+    EXPECT_EQ(index->vertex(id)->position[2], 0.125);
+  }
+  EXPECT_EQ(first_curve(original.geometry()).points[0].position[2], 0);
+  ASSERT_TRUE(curve_edit_flush_to_id(*curve));
+  EXPECT_EQ(curve->nurbs_geometry->vertices.count(), 4);
+  EXPECT_TRUE(curve->nurb.is_empty());
+}
+
+TEST_F(NurbsNativeEditTest, EditorDuplicateRejectsInvalidSelectionsAndExhaustionWithoutDirtying)
+{
+  Main *bmain = BKE_main_new();
+  BLI_SCOPED_DEFER([&]() { BKE_main_free(bmain); });
+  Curve *curve = BKE_curve_add(bmain, "NURBS duplicate rejection", OB_SURF);
+  std::string error;
+  EXPECT_FALSE(ed::nurbs::duplicate(*bmain, *curve, &error));
+  EXPECT_FALSE(error.empty());
+  curve->nurbs_geometry = make_line().release();
+  ASSERT_TRUE(curve_edit_begin(*curve));
+  auto &edit = *curve->editnurb->nurbs_edit;
+  const auto empty = edit.read_snapshot();
+  ASSERT_TRUE(curve_edit_flush_to_id(*curve));
+  bmain->is_memfile_undo_flush_needed = false;
+  EXPECT_FALSE(ed::nurbs::duplicate(*bmain, *curve, &error));
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(edit.read_snapshot(), empty);
+  auto candidate = empty.copy_for_edit();
+  candidate.selection.edges.add(3);
+  ASSERT_TRUE(edit.commit(std::move(candidate), empty));
+  ASSERT_TRUE(curve_edit_flush_to_id(*curve));
+  const auto inconsistent = edit.read_snapshot();
+  EXPECT_FALSE(ed::nurbs::duplicate(*bmain, *curve, &error));
+  EXPECT_NE(error.find("normalized vertex-mode"), std::string::npos);
+  EXPECT_EQ(edit.read_snapshot(), inconsistent);
+  EXPECT_FALSE(curve->editnurb->needs_flush_to_id);
+  EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
+  candidate = inconsistent.copy_for_edit();
+  candidate.selection = make_selection();
+  candidate.geometry->next_id = std::numeric_limits<int64_t>::max();
+  ASSERT_TRUE(edit.commit(std::move(candidate), inconsistent));
+  ASSERT_TRUE(curve_edit_flush_to_id(*curve));
+  const auto exhausted = edit.read_snapshot();
+  EXPECT_FALSE(ed::nurbs::duplicate(*bmain, *curve, &error));
+  EXPECT_NE(error.find("identity space"), std::string::npos);
+  EXPECT_EQ(edit.read_snapshot(), exhausted);
+  EXPECT_FALSE(curve->editnurb->needs_flush_to_id);
+  EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
+}
+
 TEST_F(NurbsNativeEditTest, ViewportFixtureFilesPreserveSelectedSourceIDsAndGeometry)
 {
   const char *directory = std::getenv("BLENDER_NURBS_EDIT_OUTPUT");
@@ -928,6 +1018,207 @@ TEST_F(NurbsNativeEditTest, ViewportMovementFilesPreservePreciseSourceAndCancell
       }
       surface = surface->next;
     }
+  }
+}
+
+template<typename T, typename Fn>
+static void expect_records_equal(const ListBaseT<T> &actual,
+                                 const ListBaseT<T> &expected,
+                                 Fn compare)
+{
+  ASSERT_EQ(actual.count(), expected.count());
+  const T *saved = static_cast<const T *>(actual.first);
+  for (const T &record : expected) {
+    ASSERT_NE(saved, nullptr);
+    SCOPED_TRACE(record.id);
+    EXPECT_EQ(saved->id, record.id);
+    compare(*saved, record);
+    saved = saved->next;
+  }
+}
+
+static void expect_source_geometry_equal(const NurbsGeometry &actual,
+                                         const NurbsGeometry &expected)
+{
+  EXPECT_EQ(actual.next_id, expected.next_id);
+  expect_records_equal(actual.vertices, expected.vertices, [](const auto &a, const auto &b) {
+    EXPECT_EQ(std::memcmp(a.position, b.position, sizeof(a.position)), 0);
+    EXPECT_EQ(a.tolerance, b.tolerance);
+  });
+  expect_records_equal(actual.edges, expected.edges, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.vertex_ids[0], b.vertex_ids[0]);
+    EXPECT_EQ(a.vertex_ids[1], b.vertex_ids[1]);
+    EXPECT_EQ(a.curve_id, b.curve_id);
+    EXPECT_EQ(std::memcmp(a.parameter_range, b.parameter_range, sizeof(a.parameter_range)), 0);
+    EXPECT_EQ(a.tolerance, b.tolerance);
+  });
+  expect_records_equal(actual.curves, expected.curves, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.order, b.order);
+    EXPECT_EQ(a.dimension, b.dimension);
+    ASSERT_EQ(a.points_num, b.points_num);
+    ASSERT_EQ(a.knots_num, b.knots_num);
+    EXPECT_EQ(std::memcmp(a.points, b.points, sizeof(NurbsControlPoint) * b.points_num), 0);
+    EXPECT_EQ(std::memcmp(a.knots, b.knots, sizeof(double) * b.knots_num), 0);
+  });
+  expect_records_equal(actual.surfaces, expected.surfaces, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.order_u, b.order_u);
+    EXPECT_EQ(a.order_v, b.order_v);
+    EXPECT_EQ(a.points_u, b.points_u);
+    EXPECT_EQ(a.points_v, b.points_v);
+    ASSERT_EQ(a.points_num, b.points_num);
+    ASSERT_EQ(a.knots_u_num, b.knots_u_num);
+    ASSERT_EQ(a.knots_v_num, b.knots_v_num);
+    EXPECT_EQ(std::memcmp(a.points, b.points, sizeof(NurbsControlPoint) * b.points_num), 0);
+    EXPECT_EQ(std::memcmp(a.knots_u, b.knots_u, sizeof(double) * b.knots_u_num), 0);
+    EXPECT_EQ(std::memcmp(a.knots_v, b.knots_v, sizeof(double) * b.knots_v_num), 0);
+  });
+  expect_records_equal(actual.faces, expected.faces, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.surface_id, b.surface_id);
+    EXPECT_EQ(a.tolerance, b.tolerance);
+    EXPECT_EQ(a.orientation, b.orientation);
+    EXPECT_EQ(a.material_index, b.material_index);
+    expect_records_equal(a.loops, b.loops, [](const auto &a_loop, const auto &b_loop) {
+      EXPECT_EQ(a_loop.is_inner, b_loop.is_inner);
+      expect_records_equal(
+          a_loop.edge_uses, b_loop.edge_uses, [](const auto &a_use, const auto &b_use) {
+            EXPECT_EQ(a_use.edge_id, b_use.edge_id);
+            EXPECT_EQ(a_use.pcurve_id, b_use.pcurve_id);
+            EXPECT_EQ(a_use.tolerance, b_use.tolerance);
+            EXPECT_EQ(a_use.reversed, b_use.reversed);
+          });
+    });
+  });
+}
+
+TEST_F(NurbsNativeEditTest, ViewportDuplicationFilesPreserveCopiedSourceGeometryAndSelection)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_DUPLICATE_OUTPUT");
+  const char *baseline_path = std::getenv("BLENDER_NURBS_PREVIEW_FIXTURE");
+  if (directory == nullptr || baseline_path == nullptr) {
+    GTEST_SKIP() << "Run after the native NURBS duplication viewport test";
+  }
+  BKE_blender_globals_main_replace(BKE_main_new());
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  ReportList reports;
+  BKE_reports_init(&reports, RPT_STORE);
+  BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+  BlendFileReadReport read_reports{};
+  read_reports.reports = &reports;
+  using LoadedFile = std::unique_ptr<BlendFileData, decltype(&BLO_blendfiledata_free)>;
+  auto load = [&](const char *path) {
+    return LoadedFile(BLO_read_from_file(path, BLO_READ_SKIP_USERDEF, &read_reports),
+                      BLO_blendfiledata_free);
+  };
+  auto find = [](const BlendFileData &file, const char *name) -> const NurbsGeometry * {
+    for (const Curve &curve : file.main->curves) {
+      if (STREQ(curve.id.name + 2, name) && curve.nurb.is_empty() && curve.editnurb == nullptr &&
+          curve.nurbs_eval_source == nullptr)
+      {
+        return curve.nurbs_geometry;
+      }
+    }
+    return nullptr;
+  };
+  const auto baseline = load(baseline_path);
+  ASSERT_NE(baseline, nullptr);
+  for (const char *name : {"duplicate-click.blend",
+                           "duplicate-undo.blend",
+                           "duplicate-redo.blend",
+                           "duplicate-cancel.blend",
+                           "duplicate-box.blend",
+                           "duplicate-point.blend",
+                           "duplicate-edge.blend",
+                           "duplicate-circle.blend",
+                           "duplicate-hole.blend",
+                           "duplicate-python.blend",
+                           "try-native-duplicate.blend"})
+  {
+    SCOPED_TRACE(name);
+    const bool circle = STREQ(name, "duplicate-circle.blend");
+    const bool hole = STREQ(name, "duplicate-hole.blend") ||
+                      STREQ(name, "try-native-duplicate.blend");
+    const char *source_name = circle ? "Native preview circle" :
+                              hole   ? "Native preview hole" :
+                                       "Native preview sheet";
+    const NurbsGeometry *reference = find(*baseline, source_name);
+    ASSERT_NE(reference, nullptr);
+    auto state = EditData::create(*reference);
+    ASSERT_NE(state, nullptr);
+    auto expected = state->snapshot();
+    const auto &edge = *static_cast<const NurbsTopologyEdge *>(reference->edges.first);
+    const int64_t a = edge.vertex_ids[0], b = edge.vertex_ids[1];
+    const bool point = STREQ(name, "duplicate-point.blend");
+    const bool wire = STREQ(name, "duplicate-edge.blend");
+    for (const NurbsTopologyVertex &vertex : reference->vertices) {
+      if ((!point && !wire) || vertex.id == a || (wire && vertex.id == b)) {
+        expected.selection.vertices.add(vertex.id);
+      }
+    }
+    if (!circle && !hole && !STREQ(name, "duplicate-box.blend")) {
+      expected.selection.history.append({ElementDomain::Vertex, a});
+      if (wire) {
+        expected.selection.history.append({ElementDomain::Vertex, b});
+      }
+      expected.selection.active = expected.selection.history.last();
+    }
+    auto normalized = selection_flush(
+        *expected.geometry, expected.selection, SelectionMode::Vertex);
+    ASSERT_TRUE(normalized.has_value());
+    expected.selection = std::move(*normalized);
+    std::string error;
+    auto duplicate = [&]() -> bool {
+      const Vector<int64_t> vertices(expected.selection.vertices.begin(),
+                                     expected.selection.vertices.end());
+      const Vector<int64_t> edges(expected.selection.edges.begin(),
+                                  expected.selection.edges.end());
+      const Vector<int64_t> faces(expected.selection.faces.begin(),
+                                  expected.selection.faces.end());
+      auto copied = duplicate_components(*expected.geometry, {vertices, edges, faces}, &error);
+      if (!copied) {
+        return false;
+      }
+      auto selected = selection_remap(*expected.geometry,
+                                      *copied->geometry,
+                                      expected.selection,
+                                      copied->source_to_copy,
+                                      SelectionMode::Vertex,
+                                      &error);
+      if (!selected) {
+        return false;
+      }
+      expected = {std::move(copied->geometry), std::move(*selected)};
+      return true;
+    };
+    if (!STREQ(name, "duplicate-undo.blend")) {
+      ASSERT_TRUE(duplicate()) << error;
+      const double3 offset = circle || hole ? double3(3, 0, 0) :
+                             point || wire  ? double3(0, 0, 0.125) :
+                                              double3(0, 0, 0.12345678901234567);
+      const Vector<int64_t> vertices(expected.selection.vertices.begin(),
+                                     expected.selection.vertices.end());
+      auto moved = translate_vertices(
+          *expected.geometry, vertices, offset, std::numeric_limits<double>::max(), &error);
+      ASSERT_TRUE(moved.has_value()) << error;
+      expected.geometry = std::move(moved->geometry);
+      if (STREQ(name, "duplicate-cancel.blend")) {
+        ASSERT_TRUE(duplicate()) << error;
+      }
+    }
+    char path[FILE_MAX];
+    BLI_path_join(path, sizeof(path), directory, name);
+    const auto loaded = load(path);
+    ASSERT_NE(loaded, nullptr);
+    const NurbsGeometry *actual = find(*loaded, source_name);
+    ASSERT_NE(actual, nullptr);
+    ASSERT_TRUE(geometry_validate_structure(*actual, &error)) << error;
+    expect_source_geometry_equal(*actual, *expected.geometry);
+    const auto selected = selection_from_storage(actual->stored_selection);
+    ASSERT_TRUE(selected.has_value());
+    EXPECT_EQ(selected->vertices, expected.selection.vertices);
+    EXPECT_EQ(selected->edges, expected.selection.edges);
+    EXPECT_EQ(selected->faces, expected.selection.faces);
+    EXPECT_EQ(selected->active, expected.selection.active);
+    EXPECT_EQ(selected->history.as_span(), expected.selection.history.as_span());
   }
 }
 

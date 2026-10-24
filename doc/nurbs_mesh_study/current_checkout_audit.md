@@ -6,11 +6,13 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and twelve targeted test executables build;
-**173 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
-formatting/conversion regression, autosave and global-undo targets pass. Seven
-updated isolated viewport event tests pass in the linked-selection checkpoint; the
-movement checkpoint records its earlier eight runs. Native source-vertex **G** now uses original
-double source snapshots, shared incident geometry and atomic owner commits.
+**182 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+formatting/conversion regression, autosave and global-undo targets pass. Eight
+updated isolated viewport event tests pass in the native-duplication checkpoint.
+Native Shift+D uses exact closure copying, fresh shared identities, remapped
+selection/history and the existing Move adapter. Eleven saved duplication states
+are checked against actual source geometry, alongside six selection and twenty
+movement files. Native source-vertex **G** uses original double source snapshots, shared incident geometry and atomic owner commits.
 Click and box selection produce identical stored geometry. Cancellation, undo,
 redo, actual F9 field editing, multi-axis input, unit conversion and sub-float
 source coordinates have saved-file checks. Twenty saved movement states are
@@ -20,10 +22,11 @@ coordinates. The F9 fields and the warped native sheet have been visually inspec
 The tagged prototype's duplicate/extrude/delete repairs remain active and tested.
 The movement checkpoint verified recovery of four redundant remnants from the
 original broken-file reproduction and successful extrusion. This checkpoint
-repeats the delete/continue viewport regression; the frozen input is unchanged. Native L / Shift+L / Ctrl+L now share source connectivity and selection
+repeats the delete/continue viewport regression; the frozen input is unchanged.
+Native L / Shift+L / Ctrl+L now share source connectivity and selection
 services, with multi-owner preflight, retained active/history data and explicit
 hole-policy handling. The ambiguous hole rule still awaits user input; L picking
-requires a source vertex and X-Ray. Native duplication/extrusion, fit-point editing,
+requires a source vertex and X-Ray. Native extrusion, fit-point editing,
 edge/face picking, R/S, snapping, proportional editing and multi-owner movement remain later gates.
 Normal/Gimbal movement is explicitly rejected because its source orientation
 adapter is absent. Native active-vertex centers now read the live source ID rather than legacy curve
@@ -34,6 +37,7 @@ Stage 1 remains incomplete.
 See the checkpoints at the end for exact commands, failures and limits,
 [the movement tryout](native_movement_tryout.md),
 [selection tryout](native_selection_tryout.md),
+[native duplication tryout](native_duplication_tryout.md),
 [duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md), and
 [delete/continue tryout](prototype_deletion_tryout.md).
 The user's deletion sequence is reproduced; their exact working file was not supplied.
@@ -2506,3 +2510,133 @@ and reuse the current owner commit and native Move adapter. Native Shift+D is
 not implemented by this checkpoint. Curve fit-point deformation and hole-link
 policy still require the user's design input; duplication of an unchanged
 rational source does not require choosing its deformation behavior.
+
+## Native duplication checkpoint — 2026-10-24
+
+`duplicate_components` creates a full independent candidate using the existing
+exact `copy_component_closure`. Each copied record gets a fresh identity;
+sharing inside the copied group is retained, and original records stay intact.
+No coordinates, weights, knots, parameter ranges, p-curves or orientations are
+refitted. Stored selection is not silently redirected by this geometry service.
+
+`selection_remap` is a separate reusable kernel service. It validates the source,
+maps component sets and history to target identities, drops unmapped elements,
+and flushes in an explicit selection mode. Repeated mapped history targets keep
+the last occurrence. Wrong target domains/IDs reject the candidate. Duplication
+uses its one-to-one ID map; more general map support is not a claim of mesh weld
+or subdivision behavior.
+
+ED orchestrates these services and one common source-token commit. The existing
+Curve Duplicate operator dispatches native owners; the existing Duplicate/Move
+macro supplies Shift+D and native G. The native adapter rejects non-normalized
+vertex-mode selection and multiple edit owners before mutation. Legacy branches
+remain intact. Empty selection and rejected requests preserve the state token,
+ID counter and dirty flags. No new one-off operator or public component binding
+was introduced. The existing Python duplicate/move macro accepts precise movement
+strings. Native extrusion is still blocked.
+
+Kernel-only build and checks, all exit 0:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_geometry_test blenkernel_nurbs_selection_test blender --parallel 4
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_geometry_test \
+  --test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files' --gtest_color=no
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_selection_test --gtest_color=no
+```
+
+**47 geometry + 26 selection tests passed** before editor activation. Logs:
+`/tmp/blender-nurbs-native-duplicate-kernel-build.log`,
+`...-geometry-kernel-stage.log`, `...-selection-kernel-stage.log`.
+New checks include shared multi-face/hole closure identity, original and copied
+rational resource bytes, exhaustion/empty requests, selection/history compared
+with actual BMesh Duplicate, all seven selection modes, and partial/merged maps.
+This comparison covers duplicate counts and selection/history, not every BMesh
+edge-winding, attribute or mode interaction.
+
+Editor/application build, exit 0:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_edit_test blender --parallel 4
+```
+
+Log: `/tmp/blender-nurbs-native-duplicate-app-build.log`. Two focused editor tests
+pass (`...-editor-focused.log`): copied geometry moves independently and retains
+old snapshots/persistent data until flush; empty, inconsistent-mode and exhausted
+requests leave source and dirty flags unchanged. Source comments describing the
+payload as unused by editing operators were corrected; no DNA layout changed.
+Only test/artifact changes followed the final product build.
+
+All twelve test targets were relinked with the same complete target list as the
+linked-selection checkpoint; log:
+`/tmp/blender-nurbs-native-duplicate-regression-build-final.log`, exit 0.
+
+```sh
+python3 /tmp/blender-nurbs-run-native-duplicate-kernel-checks.py
+```
+
+**182 passed, no skips**: suite counts 20/26/47/38/9/10/7/4/10/3/4/4 in that
+same target order. Summary:
+`/tmp/blender-nurbs-native-duplicate-kernel-summary.log`; per-suite logs:
+`/tmp/blender-nurbs-native-duplicate-{suite}-tests-final.log`. The edit suite has
+all four read-only inputs: `BLENDER_NURBS_PREVIEW_FIXTURE`,
+`BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-linked-ui`,
+`BLENDER_NURBS_MOVE_OUTPUT=/tmp/blender-nurbs-move-ui`, and
+`BLENDER_NURBS_DUPLICATE_OUTPUT=/tmp/blender-nurbs-duplicate-ui`. The preview input
+remains `/tmp/blender-nurbs-native-preview.blend`; export is unset.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+**5/5 passed**, including the existing 37 NURBS Python cases. Log:
+`/tmp/blender-nurbs-native-duplicate-ctest-final.log`, 8.85 seconds.
+
+Eight isolated viewport runs pass. Driver:
+`python3 /tmp/blender-nurbs-run-native-duplicate-ui-final.py`. It uses the exact
+isolated Wayland command from the linked-selection checkpoint, adds
+`BLENDER_NURBS_DUPLICATE_OUTPUT=/tmp/blender-nurbs-duplicate-ui`, and runs its
+seven listed test IDs plus `test_nurbs_native.duplicate_and_move_source_components`.
+Logs: `/tmp/blender-nurbs-native-duplicate-ui-{duplicate,holes,native,linked-multiobject,move,legacy-region,legacy-delete,legacy-duplicate}-final.log`.
+The multiple-object test now also verifies rejection before duplicate mutation.
+
+The new source-file validator compares eleven actual saved files: click/linked
+and box copies, undo, redo, cancelled Move, loose point, wire edge, precise Python
+macro, rational circle, holed face and the prepared tryout. It checks coefficients
+and knots byte-for-byte against the expected kernel candidate, plus all topology
+IDs/references, tolerances, loops, edge uses, orientation, material index and
+selection/history. Originals remain independent. Focused log:
+`/tmp/blender-nurbs-native-duplicate-saved-source-11.log`, 1/1 passed. The full
+38-test edit run includes this validator again.
+
+An expanded UI test initially read `Scene.statistics` immediately after a Python
+macro call and saw the previous 4/4 count. A diagnostic saved and reopened the
+actual source, showing 4/8 vertices and 1/2 faces selected. `info_stats.cc` caches
+statistics; `wm_event_system.cc` clears that cache when queued notifiers run.
+The test now yields to that event cycle before asserting. Product code and
+expected counts were unchanged. Reproduction:
+`/tmp/blender-nurbs-native-duplicate-macro-repro.py`; logs:
+`...-macro-repro.log` and `...-macro-reopen-factory.log`. The final viewport run
+and independent saved-source check both pass.
+
+Images actually inspected: `native-duplicate.png` (two independent holed faces,
+copy selected) and `native-duplicate-f9.png` (Add Duplicate popup with precise Z),
+both under `/tmp/blender-nurbs-duplicate-ui`. The tryout was also reopened in a
+fresh isolated application; it restores Edit Mode, 8/16 source vertices, 8/16
+edges and 1/2 faces selected, one owner, no legacy splines. Probe:
+`/tmp/blender-nurbs-capture-duplicate-tryout.py`; log:
+`/tmp/blender-nurbs-native-duplicate-reopen-final.log`; inspected image:
+`/tmp/blender-nurbs-duplicate-ui/native-duplicate-reopened.png`.
+These images are separate evidence from automated keyboard and source checks.
+
+Frozen input hashes remain unchanged:
+`329f75e097dbcf7b580b7bdba5d8e619ac26ca812b9cd3ab38098907059f2e5a`
+(native preview) and
+`ea596ec1bfb326190b98fc54557cded623681d6269c3504f68ba06167b81362d`
+(original broken deletion file). No user's working file was overwritten.
+Stage 1 remains incomplete: the next construction slice needs a shared native
+region/extrusion service, not an ED-only face workaround. Fit-point deformation,
+normal native creation/migration, edge/face picking, other transforms and the
+pending hole-connectivity choice retain their existing gates.

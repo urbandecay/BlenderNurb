@@ -5,7 +5,7 @@
 /** \file
  * \ingroup DNA
  *
- * Experimental NURBS source storage. Not exposed to editing operators yet.
+ * Experimental NURBS source storage used by native kernel/editor adapters.
  */
 
 #pragma once

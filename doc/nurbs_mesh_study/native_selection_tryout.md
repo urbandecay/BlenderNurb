@@ -28,6 +28,7 @@ automated click/box test, followed by a saved-file check of actual source IDs.
 
 This tryout covers surface-corner selection in X-Ray. A limited native G adapter
 is now available; see [the movement tryout](native_movement_tryout.md). Native
+Shift+D is also available in [the duplication tryout](native_duplication_tryout.md). Native
 extrusion, curve fit-point editing, edge/face picking and broader transforms are
 still being implemented. L/Shift+L currently hit source corners in X-Ray; Ctrl+L
 does not need X-Ray. Faces with separate hole boundaries require a connectivity

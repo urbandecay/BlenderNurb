@@ -384,6 +384,75 @@ bool select_linked(bContext *C)
   return changed;
 }
 
+bool duplicate(Main &bmain, Curve &curve, std::string *r_error)
+{
+  if (!bke::nurbs::curve_validate_source(curve, r_error)) {
+    return false;
+  }
+  if (curve.editnurb == nullptr || curve.editnurb->nurbs_edit == nullptr) {
+    if (r_error != nullptr) {
+      *r_error = "Curve has no native NURBS edit source";
+    }
+    return false;
+  }
+  const auto expected = curve.editnurb->nurbs_edit->read_snapshot();
+  const auto &selection = expected.selection();
+  if (selection.vertices.is_empty() && selection.edges.is_empty() && selection.faces.is_empty()) {
+    return false;
+  }
+  const auto normalized = bke::nurbs::selection_flush(
+      expected.geometry(), selection, bke::nurbs::SelectionMode::Vertex, r_error);
+  if (!normalized) {
+    return false;
+  }
+  if (normalized->vertices != selection.vertices || normalized->edges != selection.edges ||
+      normalized->faces != selection.faces)
+  {
+    if (r_error != nullptr) {
+      *r_error = "Native NURBS duplication requires a normalized vertex-mode selection";
+    }
+    return false;
+  }
+  const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+  const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+  const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
+  auto copy = bke::nurbs::duplicate_components(
+      expected.geometry(), {vertices, edges, faces}, r_error);
+  if (!copy) {
+    return false;
+  }
+  auto selected = bke::nurbs::selection_remap(expected.geometry(),
+                                              *copy->geometry,
+                                              selection,
+                                              copy->source_to_copy,
+                                              bke::nurbs::SelectionMode::Vertex,
+                                              r_error);
+  if (!selected) {
+    return false;
+  }
+  return edit_commit(
+      bmain, curve, {std::move(copy->geometry), std::move(*selected)}, expected, r_error);
+}
+
+bool duplicate(bContext *C)
+{
+  Main &bmain = *CTX_data_main(C);
+  const Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+      bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C));
+  if (objects.size() != 1) {
+    BKE_report(CTX_wm_reports(C),
+               RPT_ERROR,
+               "Native NURBS duplication and movement currently require a single edit object");
+    return false;
+  }
+  std::string error;
+  const bool changed = duplicate(bmain, *id_cast<Curve *>(objects.first()->data), &error);
+  if (!error.empty()) {
+    BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+  }
+  return changed;
+}
+
 bool select_linked_pick(bContext *C, const int mval[2], const int distance, const bool deselect)
 {
   ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));

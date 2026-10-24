@@ -64,6 +64,16 @@ std::optional<GeometryCopyResult> copy_component_closure(const NurbsGeometry &so
                                                          const ComponentSelection &selection,
                                                          std::string *r_error = nullptr);
 
+/**
+ * Duplicate a component closure inside a full independent source candidate. Reuse the exact
+ * closure copy above, preserving sharing inside each copy but giving every copied record a fresh
+ * identity. Original records, coefficients, trims and stored selection remain unchanged. Returns
+ * the complete candidate and original-to-copy map; does not select or commit the new components.
+ */
+std::optional<GeometryCopyResult> duplicate_components(const NurbsGeometry &source,
+                                                       const ComponentSelection &selection,
+                                                       std::string *r_error = nullptr);
+
 void geometry_blend_write(BlendWriter *writer, const NurbsGeometry &geometry);
 void geometry_blend_read(BlendDataReader *reader, NurbsGeometry &geometry);
 

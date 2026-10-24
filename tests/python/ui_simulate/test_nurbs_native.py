@@ -561,6 +561,15 @@ def linked_selection_across_objects():
         t.assertTrue(obj.data.is_native_nurbs)
         t.assertEqual(len(obj.data.splines), 0)
 
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        try:
+            result = bpy.ops.curve.duplicate()
+        except RuntimeError as error:
+            t.assertIn('single edit object', str(error))
+        else:
+            t.assertEqual(result, {'CANCELLED'})
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+
 
 def linked_selection_rejects_ambiguous_holes_without_partial_changes():
     import os
@@ -624,3 +633,157 @@ def linked_selection_rejects_ambiguous_holes_without_partial_changes():
     for obj in window.view_layer.objects:
         t.assertTrue(obj.data.is_native_nurbs)
         t.assertEqual(len(obj.data.splines), 0)
+
+
+def duplicate_and_move_source_components():
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    output = Path(os.environ.get('BLENDER_NURBS_DUPLICATE_OUTPUT', '/tmp/blender-nurbs-duplicate-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    space = area.spaces.active
+    space.overlay.show_stats = True
+
+    def reset(name='Native preview sheet'):
+        if window.view_layer.objects.active is not None and window.view_layer.objects.active.mode == 'EDIT':
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.object.mode_set(mode='OBJECT')
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        for curve in tuple(bpy.data.curves):
+            if curve.users == 0:
+                bpy.data.curves.remove(curve)
+        with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+            data.curves = [name]
+        obj = bpy.data.objects.new('Native duplication fixture', data.curves[0])
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.curve.select_all(action='DESELECT')
+        space.shading.show_xray = True
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    def save(name):
+        obj = window.view_layer.objects.active
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / name), check_existing=False)
+
+    reset()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 5
+    yield
+    yield e.shift.d()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    bottom = [screen((-1, -1, 0)), screen((1, -1, 0))]
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.leftmouse()
+    yield e.ctrl.l()
+    decimal = '0.12345678901234567'
+    yield e.shift.d().z().text(decimal).ret()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertTrue(bpy.ops.screen.redo_last.poll())
+    yield e.f9()
+    yield
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'native-duplicate-f9.png'))
+    yield e.ret()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    save('duplicate-click.blend')
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    save('duplicate-undo.blend')
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    save('duplicate-redo.blend')
+    # Esc cancels Move while keeping Duplicate, as in Blender mesh editing.
+    yield e.shift.d().z().text('2').esc()
+    t.assertEqual(counts(), (4, 12, 4, 12, 1, 3))
+    save('duplicate-cancel.blend')
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+
+    reset()
+    yield
+    lower, upper = screen((-1, -1, 0)), screen((1, 1, 0))
+    lower = lower[0] - 8, lower[1] - 8
+    upper = upper[0] + 8, upper[1] + 8
+    yield e.b()
+    yield from e.leftmouse.cursor_motion((lower, upper))
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.shift.d().z().text(decimal).ret()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    save('duplicate-box.blend')
+
+    reset()
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.leftmouse()
+    yield e.shift.d().z().text('0.125').ret()
+    t.assertEqual(counts(), (1, 5, 0, 4, 0, 1))
+    save('duplicate-point.blend')
+
+    reset()
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.leftmouse()
+    yield e.cursor_position_set(*bottom[1], move=True)
+    yield e.shift.leftmouse()
+    yield e.shift.d().z().text('0.125').ret()
+    t.assertEqual(counts(), (2, 6, 1, 5, 0, 1))
+    save('duplicate-edge.blend')
+
+    reset()
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.leftmouse()
+    yield e.ctrl.l()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        result = bpy.ops.curve.duplicate_move(TRANSFORM_OT_translate={'value_precise_z': decimal})
+    t.assertEqual(result, {'FINISHED'})
+    # Scene.statistics is cached until Blender processes its queued change notifier.
+    yield
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    save('duplicate-python.blend')
+
+    reset('Native preview circle')
+    yield e.a()
+    yield e.shift.d().x().text('3').ret()
+    t.assertEqual(counts(), (2, 4, 3, 6, 1, 2))
+    save('duplicate-circle.blend')
+
+    reset('Native preview hole')
+    yield e.a()
+    yield e.shift.d().x().text('3').ret()
+    t.assertEqual(counts(), (8, 16, 8, 16, 1, 2))
+    save('duplicate-hole.blend')
+    space.region_3d.view_location = (1.5, 0, 0)
+    space.region_3d.view_distance = 9
+    yield e.numpad_7().numpad_2().numpad_2().numpad_6()
+    save('try-native-duplicate.blend')
+    yield
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'native-duplicate.png'))
+    print('NATIVE_NURBS_DUPLICATE_UI_ARTIFACTS', output)

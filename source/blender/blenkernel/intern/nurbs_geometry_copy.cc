@@ -156,4 +156,26 @@ std::optional<GeometryCopyResult> copy_component_closure(const NurbsGeometry &so
   return result;
 }
 
+std::optional<GeometryCopyResult> duplicate_components(const NurbsGeometry &source,
+                                                       const ComponentSelection &selection,
+                                                       std::string *r_error)
+{
+  auto copy = copy_component_closure(source, selection, r_error);
+  if (!copy) {
+    return std::nullopt;
+  }
+  OwnedGeometry candidate(geometry_copy(&source));
+  candidate->next_id = copy->geometry->next_id;
+  BLI_movelisttolist(&candidate->curves, &copy->geometry->curves);
+  BLI_movelisttolist(&candidate->surfaces, &copy->geometry->surfaces);
+  BLI_movelisttolist(&candidate->vertices, &copy->geometry->vertices);
+  BLI_movelisttolist(&candidate->edges, &copy->geometry->edges);
+  BLI_movelisttolist(&candidate->faces, &copy->geometry->faces);
+  if (!geometry_validate_structure(*candidate, r_error)) {
+    return std::nullopt;
+  }
+  copy->geometry = std::move(candidate);
+  return copy;
+}
+
 }  // namespace blender::bke::nurbs

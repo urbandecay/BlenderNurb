@@ -6142,6 +6142,10 @@ void CURVE_OT_cyclic_toggle(wmOperatorType *ot)
 
 static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
 {
+  const Curve &active_curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  if (active_curve.editnurb->nurbs_edit != nullptr) {
+    return ed::nurbs::duplicate(C) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  }
   const Main *bmain = CTX_data_main(C);
   const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -6205,12 +6209,12 @@ void CURVE_OT_duplicate(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Duplicate Curve";
-  ot->description = "Duplicate selected control points";
+  ot->description = "Duplicate selected components";
   ot->idname = "CURVE_OT_duplicate";
 
   /* API callbacks. */
   ot->exec = duplicate_exec;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
