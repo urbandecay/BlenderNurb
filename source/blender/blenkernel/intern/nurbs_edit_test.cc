@@ -575,6 +575,43 @@ TEST_F(NurbsNativeEditTest, EditorVertexHitsRejectStaleSourcesAndKeepNoOpsClean)
   EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
 }
 
+TEST_F(NurbsNativeEditTest, EditorLinkedSelectionPreservesHistoryAndKeepsNoOpsClean)
+{
+  Main *bmain = BKE_main_new();
+  BLI_SCOPED_DEFER([&]() { BKE_main_free(bmain); });
+  Curve *curve = BKE_curve_add(bmain, "NURBS linked selection source", OB_SURF);
+  curve->nurbs_geometry = make_line().release();
+  std::string error;
+  EXPECT_FALSE(ed::nurbs::select_linked(*bmain, *curve, &error));
+  EXPECT_FALSE(error.empty());
+  ASSERT_TRUE(curve_edit_begin(*curve));
+  const auto empty = curve->editnurb->nurbs_edit->read_snapshot();
+  EXPECT_FALSE(ed::nurbs::select_linked(*bmain, *curve, &error));
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(curve->editnurb->nurbs_edit->read_snapshot(), empty);
+  const int64_t id = 2;
+  ASSERT_TRUE(ed::nurbs::select_vertices(
+      *bmain, *curve, empty, {&id, 1}, SelectionAction::Set, id, &error))
+      << error;
+  const auto clicked = curve->editnurb->nurbs_edit->read_snapshot();
+  ASSERT_TRUE(ed::nurbs::select_linked(*bmain, *curve, &error)) << error;
+  const auto linked = curve->editnurb->nurbs_edit->read_snapshot();
+  EXPECT_EQ(linked.selection().vertices.size(), 2);
+  EXPECT_EQ(linked.selection().edges.size(), 1);
+  EXPECT_EQ(linked.selection().active, clicked.selection().active);
+  EXPECT_EQ(linked.selection().history.as_span(), clicked.selection().history.as_span());
+  EXPECT_EQ(linked.geometry().next_id, empty.geometry().next_id);
+  EXPECT_EQ(first_curve(linked.geometry()).points[0].position[0],
+            first_curve(empty.geometry()).points[0].position[0]);
+  ASSERT_TRUE(curve_edit_flush_to_id(*curve));
+  bmain->is_memfile_undo_flush_needed = false;
+  EXPECT_FALSE(ed::nurbs::select_linked(*bmain, *curve, &error));
+  EXPECT_TRUE(error.empty());
+  EXPECT_EQ(curve->editnurb->nurbs_edit->read_snapshot(), linked);
+  EXPECT_FALSE(curve->editnurb->needs_flush_to_id);
+  EXPECT_FALSE(bmain->is_memfile_undo_flush_needed);
+}
+
 TEST_F(NurbsNativeEditTest, ViewportFixtureFilesPreserveSelectedSourceIDsAndGeometry)
 {
   const char *directory = std::getenv("BLENDER_NURBS_EDIT_OUTPUT");
@@ -610,7 +647,13 @@ TEST_F(NurbsNativeEditTest, ViewportFixtureFilesPreserveSelectedSourceIDsAndGeom
   const NurbsGeometry &reference = *reference_curve->nurbs_geometry;
   const auto *selected_edge = static_cast<const NurbsTopologyEdge *>(reference.edges.first);
   ASSERT_NE(selected_edge, nullptr);
-  for (const char *name : {"click.blend", "box.blend", "try-native-selection.blend"}) {
+  for (const char *name : {"click.blend",
+                           "box.blend",
+                           "try-native-selection.blend",
+                           "linked-click.blend",
+                           "linked-hover.blend",
+                           "linked-box.blend"})
+  {
     SCOPED_TRACE(name);
     char path[FILE_MAX];
     BLI_path_join(path, sizeof(path), directory, name);
@@ -633,16 +676,22 @@ TEST_F(NurbsNativeEditTest, ViewportFixtureFilesPreserveSelectedSourceIDsAndGeom
     EXPECT_EQ(geometry.faces.count(), reference.faces.count());
     const auto selection = selection_from_storage(geometry.stored_selection);
     ASSERT_TRUE(selection.has_value());
-    EXPECT_EQ(selection->vertices.size(), 2);
+    const bool linked = STRPREFIX(name, "linked-");
+    EXPECT_EQ(selection->vertices.size(), linked ? 4 : 2);
     EXPECT_TRUE(selection->vertices.contains(selected_edge->vertex_ids[0]));
     EXPECT_TRUE(selection->vertices.contains(selected_edge->vertex_ids[1]));
-    EXPECT_EQ(selection->edges.size(), 1);
+    EXPECT_EQ(selection->edges.size(), linked ? 4 : 1);
     EXPECT_TRUE(selection->edges.contains(selected_edge->id));
-    EXPECT_TRUE(selection->faces.is_empty());
+    EXPECT_EQ(selection->faces.size(), linked ? 1 : 0);
     if (STREQ(name, "click.blend")) {
       EXPECT_EQ(selection->active,
                 (ElementRef{ElementDomain::Vertex, selected_edge->vertex_ids[1]}));
       EXPECT_EQ(selection->history.size(), 2);
+    }
+    else if (STREQ(name, "linked-click.blend")) {
+      EXPECT_EQ(selection->active,
+                (ElementRef{ElementDomain::Vertex, selected_edge->vertex_ids[0]}));
+      EXPECT_EQ(selection->history.size(), 1);
     }
     else {
       EXPECT_FALSE(selection->active.has_value());

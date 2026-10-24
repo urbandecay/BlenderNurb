@@ -14,6 +14,33 @@
 
 namespace blender::bke::nurbs {
 
+struct LinkedComponents {
+  Vector<int64_t> vertices;
+  Vector<int64_t> edges;
+  Vector<int64_t> faces;
+};
+
+enum class LinkedConnectivity {
+  /** Follow only shared endpoint/edge incidence; separate loops remain separate. */
+  VertexGraph,
+  /** Every boundary of an incident face belongs to the same surface component. */
+  FaceBoundaries,
+  /** Reject when the two rules would return different components. */
+  RequireAgreement,
+};
+
+/**
+ * Find the connected source component containing each seed using an explicit connectivity rule.
+ * Face seeds always include all their boundaries. Coincident positions and shared geometry
+ * resources do not connect topology. Returned faces have all their boundary edges in the result.
+ * Includes loose vertices, wire edges and non-manifold incidence. Results follow source order,
+ * independent of seed order or repetition. No geometry evaluation, mutation or ID allocation.
+ */
+std::optional<LinkedComponents> find_linked_components(const NurbsGeometry &source,
+                                                       const ComponentSelection &seeds,
+                                                       LinkedConnectivity connectivity,
+                                                       std::string *r_error = nullptr);
+
 enum class DeleteMode { Vertices, Edges, Faces, FacesOnly };
 
 struct TopologyDeletionPlan {

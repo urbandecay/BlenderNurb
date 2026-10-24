@@ -738,6 +738,8 @@ class VIEW3D_MT_select_edit_nurbs(Menu):
         layout.operator("curve.select_all", text="Invert", icon='SELECT_EXTEND').action = 'INVERT'
         layout.separator()
         layout.operator("view3d.select_box", text="Box Select")
+        layout.separator()
+        layout.operator("curve.select_linked", text="Linked")
 
 
 # ********** Utilities **********

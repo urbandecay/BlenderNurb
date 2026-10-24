@@ -66,4 +66,10 @@ bool select_vertices(Main &bmain,
 bool select_pick(bContext *C, const int mval[2], int distance, const SelectPick_Params &params);
 bool select_box(const ViewContext &vc, const rcti &rect, eSelectOp operation);
 
+/** Grow selection through source incidence, preserving active identity/history. */
+bool select_linked(Main &bmain, Curve &curve, std::string *r_error = nullptr);
+/** Preflight all native edit owners before applying linked selection. No X-Ray requirement. */
+bool select_linked(bContext *C);
+bool select_linked_pick(bContext *C, const int mval[2], int distance, bool deselect);
+
 }  // namespace blender::ed::nurbs

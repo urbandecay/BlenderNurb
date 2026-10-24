@@ -843,6 +843,10 @@ static bool curve_topology_select_linked_component(ListBaseT<Nurb> *nurbs,
 
 static wmOperatorStatus select_linked_exec(bContext *C, wmOperator * /*op*/)
 {
+  const Curve &active_curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  if (active_curve.editnurb->nurbs_edit != nullptr) {
+    return ed::nurbs::select_linked(C) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  }
   const Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -885,12 +889,12 @@ void CURVE_OT_select_linked(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Select Linked All";
   ot->idname = "CURVE_OT_select_linked";
-  ot->description = "Select all control points linked to the current selection";
+  ot->description = "Select all components linked to the current selection";
 
   /* API callbacks. */
   ot->exec = select_linked_exec;
   ot->invoke = select_linked_invoke;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -908,6 +912,13 @@ static wmOperatorStatus select_linked_pick_invoke(bContext *C,
                                                   wmOperator *op,
                                                   const wmEvent *event)
 {
+  const Curve &curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  if (curve.editnurb->nurbs_edit != nullptr) {
+    return ed::nurbs::select_linked_pick(
+               C, event->mval, ED_view3d_select_dist_px(), RNA_boolean_get(op->ptr, "deselect")) ?
+               OPERATOR_FINISHED :
+               OPERATOR_CANCELLED;
+  }
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Nurb *nu;
   BezTriple *bezt;
@@ -963,16 +974,21 @@ static wmOperatorStatus select_linked_pick_invoke(bContext *C,
   return OPERATOR_FINISHED;
 }
 
+static bool select_linked_pick_poll(bContext *C)
+{
+  return ED_operator_editsurfcurve_or_nurbs(C) && ED_operator_region_view3d_active(C);
+}
+
 void CURVE_OT_select_linked_pick(wmOperatorType *ot)
 {
   /* identifiers */
   ot->name = "Select Linked";
   ot->idname = "CURVE_OT_select_linked_pick";
-  ot->description = "Select all control points linked to already selected ones";
+  ot->description = "Select all components linked to the component under the mouse";
 
   /* API callbacks. */
   ot->invoke = select_linked_pick_invoke;
-  ot->poll = ED_operator_editsurfcurve_region_view3d;
+  ot->poll = select_linked_pick_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -982,7 +998,7 @@ void CURVE_OT_select_linked_pick(wmOperatorType *ot)
                   "deselect",
                   false,
                   "Deselect",
-                  "Deselect linked control points rather than selecting them");
+                  "Deselect linked components rather than selecting them");
 }
 
 /** \} */

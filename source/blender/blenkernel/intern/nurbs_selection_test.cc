@@ -616,4 +616,260 @@ TEST_F(NurbsSelectionTest, ComponentDeletionPlansMatchActualBMeshDeletion)
   }
 }
 
+TEST_F(NurbsSelectionTest, LinkedComponentsMatchBMeshVertexShellIncludingNonManifoldAndWire)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  const int64_t shared = first_item(sheet->edges).id;
+  auto second = extrude_edges(*sheet, {shared}, {0, 0, 2}, 0);
+  ASSERT_TRUE(second.has_value());
+  auto third = extrude_edges(*second->geometry, {shared}, {0, 0, -2}, 0);
+  ASSERT_TRUE(third.has_value());
+  auto &source = *third->geometry;
+  const auto *a = add_vertex(source, {10, 0, 0});
+  const auto *b = add_vertex(source, {11, 0, 0});
+  const auto *c = add_vertex(source, {12, 1, 0});
+  const auto *d = add_vertex(source, {12, -1, 0});
+  for (const auto *other : {a, c, d}) {
+    add_edge(source,
+             *b,
+             *other,
+             *add_linear_curve(source, double3(b->position), double3(other->position), 3));
+  }
+  add_vertex(source, {20, 0, 0});
+  MeshReference reference(source);
+  for (const NurbsTopologyVertex &vertex : source.vertices) {
+    SCOPED_TRACE(vertex.id);
+    std::string error;
+    const auto linked = find_linked_components(
+        source, {{&vertex.id, 1}, {}, {}}, LinkedConnectivity::RequireAgreement, &error);
+    ASSERT_TRUE(linked.has_value()) << error;
+    reference.flush({}, SelectionMode::Vertex);
+    BMVert *start = reference.vertices.lookup(vertex.id);
+    BM_vert_select_set(reference.mesh.get(), start, true);
+    BMWalker walker;
+    BMW_init(&walker,
+             reference.mesh.get(),
+             BMW_VERT_SHELL,
+             BMW_MASK_NOP,
+             BMW_MASK_NOP,
+             BMW_MASK_NOP,
+             BMW_FLAG_TEST_HIDDEN,
+             BMW_NIL_LAY,
+             BMW_DELIMIT_NONE);
+    BMEdge *edge;
+    BMW_ITER (edge, &walker, start) {
+      BM_edge_select_set(reference.mesh.get(), edge, true);
+    }
+    BMW_end(&walker);
+    SelectionState walked;
+    for (const auto item : reference.vertices.items()) {
+      if (BM_elem_flag_test(item.value, BM_ELEM_SELECT)) {
+        walked.vertices.add(item.key);
+      }
+    }
+    const auto mesh_selection = reference.flush(walked, SelectionMode::Vertex);
+    SelectionState native;
+    native.vertices.add_multiple(linked->vertices);
+    native.edges.add_multiple(linked->edges);
+    native.faces.add_multiple(linked->faces);
+    expect_selection_equal(native, mesh_selection);
+  }
+}
+
+TEST_F(NurbsSelectionTest, LinkedComponentsUseIdentityRatherThanCoincidenceOrSharedSupports)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  const int64_t face_id = first_item(source->faces).id;
+  auto copy = copy_component_closure(*source, {{}, {}, {&face_id, 1}});
+  ASSERT_TRUE(copy.has_value());
+  const int64_t copied_face = copy->source_to_copy.lookup(face_id);
+  const int64_t original_vertex = first_item(source->vertices).id;
+  const int64_t copied_vertex = copy->source_to_copy.lookup(original_vertex);
+  first_item(copy->geometry->faces).surface_id = first_item(source->faces).surface_id;
+  for (NurbsTopologyEdge &edge : copy->geometry->edges) {
+    for (const NurbsTopologyEdge &original : source->edges) {
+      if (copy->source_to_copy.lookup(original.id) == edge.id) {
+        edge.curve_id = original.curve_id;
+      }
+    }
+  }
+  source->next_id = copy->geometry->next_id;
+  BLI_movelisttolist(&source->vertices, &copy->geometry->vertices);
+  BLI_movelisttolist(&source->edges, &copy->geometry->edges);
+  BLI_movelisttolist(&source->faces, &copy->geometry->faces);
+  BLI_movelisttolist(&source->curves, &copy->geometry->curves);
+  BLI_movelisttolist(&source->surfaces, &copy->geometry->surfaces);
+  const int64_t counter = source->next_id;
+  const auto original = find_linked_components(
+      *source, {{&original_vertex, 1}, {}, {}}, LinkedConnectivity::RequireAgreement);
+  const auto duplicate = find_linked_components(
+      *source, {{&copied_vertex, 1}, {}, {}}, LinkedConnectivity::RequireAgreement);
+  ASSERT_TRUE(original.has_value());
+  ASSERT_TRUE(duplicate.has_value());
+  EXPECT_EQ(original->vertices.size(), 4);
+  EXPECT_EQ(duplicate->vertices.size(), 4);
+  EXPECT_EQ(original->faces.as_span(), Span<int64_t>(&face_id, 1));
+  EXPECT_EQ(duplicate->faces.as_span(), Span<int64_t>(&copied_face, 1));
+  const int64_t unordered[] = {copied_vertex, original_vertex, copied_vertex};
+  const int64_t ordered[] = {original_vertex, copied_vertex};
+  const auto both = find_linked_components(
+      *source, {{unordered, 3}, {}, {}}, LinkedConnectivity::RequireAgreement);
+  const auto again = find_linked_components(
+      *source, {{ordered, 2}, {}, {}}, LinkedConnectivity::RequireAgreement);
+  ASSERT_TRUE(both.has_value());
+  ASSERT_TRUE(again.has_value());
+  EXPECT_EQ(both->vertices.as_span(), again->vertices.as_span());
+  EXPECT_EQ(both->edges.as_span(), again->edges.as_span());
+  EXPECT_EQ(both->faces.as_span(), again->faces.as_span());
+  EXPECT_EQ(both->vertices.size(), 8);
+  EXPECT_EQ(source->next_id, counter);
+}
+
+TEST_F(NurbsSelectionTest, LinkedComponentsJoinAllFaceLoopsAndHandleClosedRationalSeams)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto &face = first_item(sheet->faces);
+  const double2 hole[] = {{0.25, 0.25}, {0.75, 0.25}, {0.75, 0.75}, {0.25, 0.75}};
+  add_planar_loop(*sheet, face, {hole, 4}, true);
+  const auto circle = make_arc_sheet(true);
+  ASSERT_NE(circle, nullptr);
+  for (const NurbsGeometry *source : {sheet.get(), circle.get()}) {
+    for (const NurbsTopologyVertex &vertex : source->vertices) {
+      const auto linked = find_linked_components(
+          *source, {{&vertex.id, 1}, {}, {}}, LinkedConnectivity::FaceBoundaries);
+      ASSERT_TRUE(linked.has_value());
+      EXPECT_EQ(linked->vertices.size(), source->vertices.count());
+      EXPECT_EQ(linked->edges.size(), source->edges.count());
+      EXPECT_EQ(linked->faces.size(), 1);
+    }
+    for (const NurbsTopologyEdge &edge : source->edges) {
+      const auto linked = find_linked_components(
+          *source, {{}, {&edge.id, 1}, {}}, LinkedConnectivity::FaceBoundaries);
+      ASSERT_TRUE(linked.has_value());
+      EXPECT_EQ(linked->vertices.size(), source->vertices.count());
+      EXPECT_EQ(linked->edges.size(), source->edges.count());
+      EXPECT_EQ(linked->faces.size(), 1);
+    }
+    const int64_t id = first_item(source->faces).id;
+    const auto linked = find_linked_components(
+        *source, {{}, {}, {&id, 1}}, LinkedConnectivity::FaceBoundaries);
+    ASSERT_TRUE(linked.has_value());
+    EXPECT_EQ(linked->vertices.size(), source->vertices.count());
+    EXPECT_EQ(linked->edges.size(), source->edges.count());
+  }
+}
+
+TEST_F(NurbsSelectionTest, LinkedSelectionPreservesClickHistoryAndMatchesBulkVertexSelection)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  const int64_t id = first_item(source->vertices).id;
+  const auto click = selection_apply_vertices(*source, {}, {&id, 1}, SelectionAction::Set, id);
+  ASSERT_TRUE(click.has_value());
+  const auto linked = find_linked_components(
+      *source, {{&id, 1}, {}, {}}, LinkedConnectivity::RequireAgreement);
+  ASSERT_TRUE(linked.has_value());
+  const auto selected = selection_apply_vertices(
+      *source, *click, linked->vertices, SelectionAction::Add);
+  ASSERT_TRUE(selected.has_value());
+  EXPECT_EQ(selected->active, click->active);
+  EXPECT_EQ(selected->history.as_span(), click->history.as_span());
+  Vector<int64_t> all;
+  for (const NurbsTopologyVertex &vertex : source->vertices) {
+    all.append(vertex.id);
+  }
+  const auto bulk = selection_apply_vertices(*source, {}, all, SelectionAction::Set);
+  ASSERT_TRUE(bulk.has_value());
+  expect_selection_equal(*selected, *bulk);
+  const auto hover = selection_apply_vertices(*source, {}, linked->vertices, SelectionAction::Add);
+  ASSERT_TRUE(hover.has_value());
+  EXPECT_FALSE(hover->active.has_value());
+  EXPECT_TRUE(hover->history.is_empty());
+  const auto deselected = selection_apply_vertices(
+      *source, *selected, linked->vertices, SelectionAction::Subtract);
+  ASSERT_TRUE(deselected.has_value());
+  EXPECT_TRUE(deselected->vertices.is_empty());
+  EXPECT_TRUE(deselected->edges.is_empty());
+  EXPECT_TRUE(deselected->faces.is_empty());
+  EXPECT_TRUE(deselected->history.is_empty());
+  EXPECT_FALSE(deselected->active.has_value());
+}
+
+TEST_F(NurbsSelectionTest, LinkedComponentsRejectUnknownDomainsAndLeaveEmptySeedsEmpty)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  const int64_t counter = source->next_id;
+  std::string error = "old error";
+  const auto empty = find_linked_components(
+      *source, {}, LinkedConnectivity::RequireAgreement, &error);
+  ASSERT_TRUE(empty.has_value());
+  EXPECT_TRUE(empty->vertices.is_empty());
+  EXPECT_TRUE(empty->edges.is_empty());
+  EXPECT_TRUE(empty->faces.is_empty());
+  EXPECT_TRUE(error.empty());
+  const int64_t vertex_id = first_item(source->vertices).id;
+  for (const ComponentSelection seeds : {ComponentSelection{{&counter, 1}, {}, {}},
+                                         ComponentSelection{{}, {&vertex_id, 1}, {}},
+                                         ComponentSelection{{}, {}, {&vertex_id, 1}}})
+  {
+    EXPECT_FALSE(
+        find_linked_components(*source, seeds, LinkedConnectivity::RequireAgreement, &error));
+    EXPECT_FALSE(error.empty());
+  }
+  EXPECT_EQ(source->next_id, counter);
+  EXPECT_EQ(first_item(source->vertices).position[0], -1);
+}
+
+TEST_F(NurbsSelectionTest, LinkedConnectivityRequiresAnExplicitRuleWhenHoleLoopsDiffer)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  auto &face = first_item(source->faces);
+  const double2 hole[] = {{0.25, 0.25}, {0.75, 0.25}, {0.75, 0.75}, {0.25, 0.75}};
+  add_planar_loop(*source, face, {hole, 4}, true);
+  const int64_t outer = first_item(source->vertices).id;
+  const int64_t inner = static_cast<NurbsTopologyVertex *>(source->vertices.last)->id;
+  const int64_t counter = source->next_id;
+  for (const int64_t id : {outer, inner}) {
+    const ComponentSelection seeds{{&id, 1}, {}, {}};
+    const auto graph = find_linked_components(*source, seeds, LinkedConnectivity::VertexGraph);
+    const auto surface = find_linked_components(
+        *source, seeds, LinkedConnectivity::FaceBoundaries);
+    ASSERT_TRUE(graph.has_value());
+    ASSERT_TRUE(surface.has_value());
+    EXPECT_EQ(graph->vertices.size(), 4);
+    EXPECT_EQ(graph->edges.size(), 4);
+    EXPECT_TRUE(graph->faces.is_empty());
+    EXPECT_EQ(surface->vertices.size(), 8);
+    EXPECT_EQ(surface->edges.size(), 8);
+    EXPECT_EQ(surface->faces.size(), 1);
+    std::string error;
+    EXPECT_FALSE(
+        find_linked_components(*source, seeds, LinkedConnectivity::RequireAgreement, &error));
+    EXPECT_FALSE(error.empty());
+  }
+  const int64_t both[] = {outer, inner};
+  const auto agreement = find_linked_components(
+      *source, {{both, 2}, {}, {}}, LinkedConnectivity::RequireAgreement);
+  ASSERT_TRUE(agreement.has_value());
+  EXPECT_EQ(agreement->vertices.size(), 8);
+  EXPECT_EQ(agreement->faces.size(), 1);
+  // A face seed explicitly includes every boundary, so its result is unambiguous.
+  const auto face_seed = find_linked_components(
+      *source, {{}, {}, {&face.id, 1}}, LinkedConnectivity::RequireAgreement);
+  ASSERT_TRUE(face_seed.has_value());
+  EXPECT_EQ(face_seed->vertices.as_span(), agreement->vertices.as_span());
+  const auto *loose = add_vertex(*source, {20, 0, 0});
+  const auto unrelated = find_linked_components(
+      *source, {{&loose->id, 1}, {}, {}}, LinkedConnectivity::RequireAgreement);
+  ASSERT_TRUE(unrelated.has_value());
+  EXPECT_EQ(unrelated->vertices.size(), 1);
+  EXPECT_EQ(source->next_id, counter + 1);
+  EXPECT_FALSE(find_linked_components(*source, {}, LinkedConnectivity(99)));
+}
+
 }  // namespace blender::bke::nurbs::tests

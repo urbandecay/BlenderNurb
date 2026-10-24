@@ -14,6 +14,115 @@
 
 namespace blender::bke::nurbs {
 
+std::optional<LinkedComponents> find_linked_components(const NurbsGeometry &source,
+                                                       const ComponentSelection &seeds,
+                                                       const LinkedConnectivity connectivity,
+                                                       std::string *r_error)
+{
+  if (r_error != nullptr) {
+    r_error->clear();
+  }
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  Set<int64_t> vertices, edges, faces;
+  Vector<int64_t> pending_vertices;
+  auto add_vertex = [&](const int64_t id) {
+    if (vertices.add(id)) {
+      pending_vertices.append(id);
+    }
+  };
+  auto add_edge_vertices = [&](const NurbsTopologyEdge &edge) {
+    add_vertex(edge.vertex_ids[0]);
+    add_vertex(edge.vertex_ids[1]);
+  };
+  auto add_face = [&](const NurbsTopologyFace &face) {
+    if (faces.add(face.id)) {
+      for (const NurbsTopologyLoop &loop : face.loops) {
+        for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+          add_edge_vertices(*index->edge(use.edge_id));
+        }
+      }
+    }
+  };
+  auto fail = [&](const char *message) -> std::optional<LinkedComponents> {
+    if (r_error != nullptr) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  if (!ELEM(connectivity,
+            LinkedConnectivity::VertexGraph,
+            LinkedConnectivity::FaceBoundaries,
+            LinkedConnectivity::RequireAgreement))
+  {
+    return fail("Unknown NURBS linked connectivity rule");
+  }
+  for (const int64_t id : seeds.vertices) {
+    if (index->vertex(id) == nullptr) {
+      return fail("Linked NURBS vertex identity does not exist");
+    }
+    add_vertex(id);
+  }
+  for (const int64_t id : seeds.edges) {
+    const auto *edge = index->edge(id);
+    if (edge == nullptr) {
+      return fail("Linked NURBS edge identity does not exist");
+    }
+    add_edge_vertices(*edge);
+  }
+  for (const int64_t id : seeds.faces) {
+    const auto *face = index->face(id);
+    if (face == nullptr) {
+      return fail("Linked NURBS face identity does not exist");
+    }
+    add_face(*face);
+  }
+  while (!pending_vertices.is_empty()) {
+    const int64_t vertex_id = pending_vertices.pop_last();
+    for (const int64_t edge_id : index->edges_for_vertex(vertex_id)) {
+      if (edges.add(edge_id)) {
+        add_edge_vertices(*index->edge(edge_id));
+        if (connectivity == LinkedConnectivity::FaceBoundaries) {
+          for (const EdgeUseReference &use : index->uses_for_edge(edge_id)) {
+            add_face(*index->face(use.face_id));
+          }
+        }
+      }
+    }
+  }
+  LinkedComponents result;
+  for (const NurbsTopologyVertex &vertex : source.vertices) {
+    if (vertices.contains(vertex.id)) {
+      result.vertices.append(vertex.id);
+    }
+  }
+  for (const NurbsTopologyEdge &edge : source.edges) {
+    if (edges.contains(edge.id)) {
+      result.edges.append(edge.id);
+    }
+  }
+  for (const NurbsTopologyFace &face : source.faces) {
+    bool all_edges = true, any_edge = false;
+    for (const NurbsTopologyLoop &loop : face.loops) {
+      for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+        const bool included = edges.contains(use.edge_id);
+        all_edges &= included;
+        any_edge |= included;
+      }
+    }
+    if (connectivity == LinkedConnectivity::RequireAgreement && any_edge && !all_edges) {
+      return fail(
+          "Linked selection on this NURBS face needs an explicit boundary or surface rule");
+    }
+    if (all_edges) {
+      result.faces.append(face.id);
+    }
+  }
+  return result;
+}
+
 std::optional<TopologyDeletionPlan> plan_component_deletion(const NurbsGeometry &source,
                                                             const ComponentSelection &selection,
                                                             const DeleteMode mode,

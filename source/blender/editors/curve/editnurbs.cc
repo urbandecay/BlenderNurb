@@ -25,6 +25,7 @@
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_topology.hh"
 #include "BKE_object.hh"
 #include "BKE_report.hh"
 
@@ -208,33 +209,31 @@ bool select_box(const ViewContext &vc, const rcti &rect, const eSelectOp operati
   return changed;
 }
 
-bool select_pick(bContext *C,
-                 const int mval[2],
-                 const int distance,
-                 const SelectPick_Params &params)
+struct SelectionTarget {
+  Object *object;
+  bke::nurbs::ReadSnapshot source;
+};
+
+/** Retain source leases so both click and linked-pick commit against the identities projected. */
+static bool find_vertex(const ViewContext &vc,
+                        const int mval[2],
+                        const int distance,
+                        Vector<SelectionTarget> &targets,
+                        Object *&hit_object,
+                        int64_t &hit_id,
+                        std::string &error)
 {
-  ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));
   if (!XRAY_FLAG_ENABLED(vc.v3d)) {
-    BKE_report(
-        CTX_wm_reports(C), RPT_ERROR, "Native NURBS point selection currently requires X-Ray");
+    error = "Native NURBS point selection currently requires X-Ray";
     return false;
   }
-  struct Target {
-    Object *object;
-    bke::nurbs::ReadSnapshot source;
-  };
-  Vector<Target> targets;
-  Object *hit_object = nullptr;
-  int64_t hit_id = 0;
   double closest = double(distance) * distance;
-  std::string error;
   for (Object *object : BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
            *vc.bmain, vc.scene, vc.view_layer, vc.v3d))
   {
     Curve &curve = *id_cast<Curve *>(object->data);
     if (curve.editnurb->nurbs_edit == nullptr) {
-      BKE_report(
-          CTX_wm_reports(C), RPT_ERROR, "Mixed native and legacy NURBS selection is unsupported");
+      error = "Mixed native and legacy NURBS selection is unsupported";
       return false;
     }
     targets.append({object, curve.editnurb->nurbs_edit->read_snapshot()});
@@ -253,22 +252,38 @@ bool select_pick(bContext *C,
             },
             error))
     {
-      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
       return false;
     }
+  }
+  return true;
+}
+
+bool select_pick(bContext *C,
+                 const int mval[2],
+                 const int distance,
+                 const SelectPick_Params &params)
+{
+  ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));
+  Vector<SelectionTarget> targets;
+  Object *hit_object = nullptr;
+  int64_t hit_id = 0;
+  std::string error;
+  if (!find_vertex(vc, mval, distance, targets, hit_object, hit_id, error)) {
+    BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+    return false;
   }
   if (hit_object == nullptr && !(params.sel_op == SEL_OP_SET && params.deselect_all)) {
     return false;
   }
   if (hit_object != nullptr && params.sel_op == SEL_OP_SET && params.select_passthrough) {
-    for (const Target &target : targets) {
+    for (const SelectionTarget &target : targets) {
       if (target.object == hit_object && target.source.selection().vertices.contains(hit_id)) {
         return false;
       }
     }
   }
   bool changed = false;
-  for (const Target &target : targets) {
+  for (const SelectionTarget &target : targets) {
     const bool hit = target.object == hit_object;
     if (params.sel_op != SEL_OP_SET && !hit) {
       continue;
@@ -289,6 +304,121 @@ bool select_pick(bContext *C,
     ed::object::base_activate(C, BKE_view_layer_base_find(vc.view_layer, hit_object));
   }
   return changed;
+}
+
+static std::optional<bke::nurbs::LinkedComponents> linked_from_selection(
+    const bke::nurbs::ReadSnapshot &expected, std::string *r_error)
+{
+  const auto &selection = expected.selection();
+  const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+  const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+  const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
+  return bke::nurbs::find_linked_components(expected.geometry(),
+                                            {vertices, edges, faces},
+                                            bke::nurbs::LinkedConnectivity::RequireAgreement,
+                                            r_error);
+}
+
+bool select_linked(Main &bmain, Curve &curve, std::string *r_error)
+{
+  if (curve.editnurb == nullptr || curve.editnurb->nurbs_edit == nullptr) {
+    if (r_error != nullptr) {
+      *r_error = "Curve has no native NURBS edit source";
+    }
+    return false;
+  }
+  const auto expected = curve.editnurb->nurbs_edit->read_snapshot();
+  const auto linked = linked_from_selection(expected, r_error);
+  return linked && select_vertices(bmain,
+                                   curve,
+                                   expected,
+                                   linked->vertices,
+                                   bke::nurbs::SelectionAction::Add,
+                                   std::nullopt,
+                                   r_error);
+}
+
+bool select_linked(bContext *C)
+{
+  Main &bmain = *CTX_data_main(C);
+  Vector<SelectionTarget> targets;
+  Vector<bke::nurbs::LinkedComponents> components;
+  std::string error;
+  // Resolve every owner's request before making any selection changes. A rejected connectivity
+  // policy in one owner must not leave another owner changed without a finished undo operation.
+  for (Object *object : BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+           bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C)))
+  {
+    Curve &curve = *id_cast<Curve *>(object->data);
+    if (curve.editnurb->nurbs_edit == nullptr) {
+      BKE_report(
+          CTX_wm_reports(C), RPT_ERROR, "Mixed native and legacy NURBS selection is unsupported");
+      return false;
+    }
+    if (!bke::nurbs::curve_validate_source(curve, &error)) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    targets.append({object, curve.editnurb->nurbs_edit->read_snapshot()});
+    auto linked = linked_from_selection(targets.last().source, &error);
+    if (!linked) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    components.append(std::move(*linked));
+  }
+  bool changed = false;
+  for (const int i : targets.index_range()) {
+    changed |= select_vertices(bmain,
+                               *id_cast<Curve *>(targets[i].object->data),
+                               targets[i].source,
+                               components[i].vertices,
+                               bke::nurbs::SelectionAction::Add,
+                               std::nullopt,
+                               &error);
+    if (!error.empty()) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+  }
+  return changed;
+}
+
+bool select_linked_pick(bContext *C, const int mval[2], const int distance, const bool deselect)
+{
+  ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));
+  Vector<SelectionTarget> targets;
+  Object *hit_object = nullptr;
+  int64_t hit_id = 0;
+  std::string error;
+  if (!find_vertex(vc, mval, distance, targets, hit_object, hit_id, error)) {
+    BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+    return false;
+  }
+  for (const SelectionTarget &target : targets) {
+    if (target.object != hit_object) {
+      continue;
+    }
+    const auto linked = bke::nurbs::find_linked_components(
+        target.source.geometry(),
+        {{&hit_id, 1}, {}, {}},
+        bke::nurbs::LinkedConnectivity::RequireAgreement,
+        &error);
+    const bool changed = linked &&
+                         select_vertices(*vc.bmain,
+                                         *id_cast<Curve *>(target.object->data),
+                                         target.source,
+                                         linked->vertices,
+                                         deselect ? bke::nurbs::SelectionAction::Subtract :
+                                                    bke::nurbs::SelectionAction::Add,
+                                         std::nullopt,
+                                         &error);
+    if (!error.empty()) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+    }
+    return changed;
+  }
+  return false;
 }
 
 }  // namespace blender::ed::nurbs

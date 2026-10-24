@@ -4,7 +4,7 @@ Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
-Current verified foundation: 166 C++ kernel/editor/integration tests, a complete Blender build and
+Current verified foundation: 173 C++ kernel/editor/integration tests, a complete Blender build and
 the documented application regressions pass. Native object evaluation retains
 source snapshots and produces a derived display Mesh with stable source
 provenance. Actual saved-source sheet/hole/cylinder viewport captures have been
@@ -15,19 +15,25 @@ Shared component selection normalization is implemented, built and tested,
 including 5,390 comparisons with actual BMesh selection flushing. Native
 topology-vertex overlays, X-Ray click/box selection, Select All and viewport
 selection undo/redo are now built and tested; an actual screenshot has been
-inspected. Fit-point editing, linked selection, edge/face picking and broader modal
-geometry transforms still gate broader editing. Native Move now has a tested
+inspected. Native L / Shift+L / Ctrl+L now use a shared kernel connectivity service,
+retained source picking and the common selection commit. All edit owners are checked
+before Ctrl+L changes selection. The kernel distinguishes endpoint-graph connectivity
+from whole-face boundary connectivity; the viewport rejects requests where those
+rules differ until the user's hole policy is chosen. Seven updated viewport tests
+and six saved selection-source files pass. Fit-point editing, edge/face picking and
+broader modal geometry transforms still gate broader editing. Native Move now has a tested
 source adapter, precise numeric input/units and editable decimal F9 values. This
 is not completion of Stage 1 or completion of the prototype's replacement. Its tagged line/patch duplication
 and extrusion now use kernel candidates, native closure-ID remapping and shared
 region planning, with shortcut/undo regressions. Native extrusion remains blocked.
 Native Move translates supported source vertex identities through shared BKE services, retaining original snapshots and committing
 with current-state tokens. Every frame starts from original double geometry.
-Twenty saved movement states, eight isolated viewport regressions and the
-unit/autosave/undo application checks pass. Native Normal/Gimbal orientation
+The movement checkpoint records twenty saved states and eight isolated viewport
+regressions. This linked-selection checkpoint repeats seven relevant viewport
+tests and the unit/autosave/undo application checks. Native Normal/Gimbal orientation
 remains an explicit gate. Active-vertex center lookup is now source-aware and tested through cursor-to-active and Active Element
 G/cancel, with the existing float UI boundary retained. General curved deformation,
-snapping, proportional editing, multiple owners and R/S are not activated.
+snapping, proportional editing, multi-owner movement and R/S are not activated.
 
 Component deletion now has a kernel plan with Vertices, Edges, Faces and FacesOnly
 semantics, compared directly with BMesh. The compatibility client applies the
@@ -118,8 +124,11 @@ means legacy Nurb arrays cannot also be writable source. Migration must commit
 once with undo and identity maps. Unsupported legacy operators/RNA mutations
 must report their limitation rather than mutate an empty/stale alternate model.
 Do not fall back to a display mesh or legacy approximation when payload
-validation fails. These activation rules are not yet enforced by the storage
-experiment, which has no production creation path.
+validation fails. Native mode entry and covered operator/RNA routes now enforce
+source authority through `curve_validate_source` and explicit native guards.
+Ordinary Add NURBS commands still create the tagged legacy prototype. General
+migration and normal native creation remain gates; a prepared fixture is used
+for the native source tests and tryouts.
 
 ## Shared editing pipeline
 

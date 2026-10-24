@@ -6,9 +6,10 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and twelve targeted test executables build;
-**166 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
-formatting/conversion regression, autosave and global-undo targets pass. Eight
-isolated viewport event tests pass. Native source-vertex **G** now uses original
+**173 C++ kernel/editor/integration tests**, **37 NURBS Python cases**, the unit
+formatting/conversion regression, autosave and global-undo targets pass. Seven
+updated isolated viewport event tests pass in the linked-selection checkpoint; the
+movement checkpoint records its earlier eight runs. Native source-vertex **G** now uses original
 double source snapshots, shared incident geometry and atomic owner commits.
 Click and box selection produce identical stored geometry. Cancellation, undo,
 redo, actual F9 field editing, multi-axis input, unit conversion and sub-float
@@ -17,17 +18,20 @@ validated against actual NURBS source, including weights, knots, IDs and untouch
 coordinates. The F9 fields and the warped native sheet have been visually inspected.
 
 The tagged prototype's duplicate/extrude/delete repairs remain active and tested.
-The original broken-file reproduction still recovers four verified redundant
-remnants and extrudes successfully in the current application. Its input file is
-unchanged. Native extrusion, fit-point editing, linked selection, edge/face picking,
-R/S, snapping, proportional editing and multiple edit owners remain later gates.
+The movement checkpoint verified recovery of four redundant remnants from the
+original broken-file reproduction and successful extrusion. This checkpoint
+repeats the delete/continue viewport regression; the frozen input is unchanged. Native L / Shift+L / Ctrl+L now share source connectivity and selection
+services, with multi-owner preflight, retained active/history data and explicit
+hole-policy handling. The ambiguous hole rule still awaits user input; L picking
+requires a source vertex and X-Ray. Native duplication/extrusion, fit-point editing,
+edge/face picking, R/S, snapping, proportional editing and multi-owner movement remain later gates.
 Normal/Gimbal movement is explicitly rejected because its source orientation
 adapter is absent. Native active-vertex centers now read the live source ID rather than legacy curve
 points. Cursor-to-active, Active Element G/cancel and unchanged saved source are
 tested. Edge/face active centers remain part of their future picking/mode gates.
 Stage 1 remains incomplete.
 
-See the movement checkpoint at the end for exact commands, failures and limits,
+See the checkpoints at the end for exact commands, failures and limits,
 [the movement tryout](native_movement_tryout.md),
 [selection tryout](native_selection_tryout.md),
 [duplicate/extrude tryout](prototype_duplicate_extrude_tryout.md), and
@@ -2365,3 +2369,140 @@ The preceding five CTest targets and other six viewport regressions are unchange
 checks from the full movement checkpoint; they were not unnecessarily rerun for
 this read-only editor query. General fit-point editing, Normal/Gimbal orientation,
 edge/face picking and the remaining native editing gates remain incomplete.
+
+## Native linked-selection checkpoint — 2026-10-24
+
+`find_linked_components` in BKE walks the shared `TopologyIndex`; it does not
+infer adjacency from positions, shared support resources, display samples or
+legacy control nets. Requests accept vertex, edge and face IDs. Results follow
+source order, include loose vertices/wires and non-manifold incidence, and do
+not allocate identities or change geometry. An explicit face seed includes all
+of its boundaries. Closed rational seam edges occur once in the result.
+
+The connectivity rule is explicit: `VertexGraph` follows shared endpoints;
+`FaceBoundaries` also connects every loop of an incident face. `RequireAgreement`
+rejects a request when those alternatives differ. The viewport currently uses
+`RequireAgreement` because the user's hole-boundary choice remains unanswered.
+An initial implementation joined every face boundary; review against the earlier
+open question caught that implicit policy before commit. Both alternatives now
+have kernel tests, without choosing a user-facing default for ambiguous holes.
+This graph closure matches mesh vertex-mode shell connectivity on ordinary
+faces; it is not a claim of mesh face-mode/delimiter parity.
+
+Native L, Shift+L and Ctrl+L reuse existing Curve operators/key bindings, with
+source-inclusive polls only for those operators. Click and linked-pick share one
+source-vertex projection/nearest-hit service and retained read leases. All routes
+use the same kernel selection normalization and owner commit as click/box/A.
+Linked selection preserves surviving active/history data and does not invent a
+hover-active vertex or change the active object. Ctrl+L preflights all native edit
+owners before applying selection; a rejected hole request cannot partly change
+another owner. No-op requests retain the source token and clean dirty flags.
+Legacy Curve/Surface branches retain their existing behavior.
+
+Built with exit 0:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_selection_test blenkernel_nurbs_edit_test blender --parallel 4
+cmake --install /home/molotovgirl/Desktop/build_linux \
+  --prefix /home/molotovgirl/Desktop/build_linux/bin
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blenkernel_nurbs_geometry_legacy_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_differential_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_mesh_test blenkernel_nurbs_object_test blenkernel_nurbs_transform_test \
+  blenkernel_unit_test editor_util_numinput_test \
+  editor_transform_transform_translate_precision_test --parallel 4
+```
+
+The application was built last after the final C++ edits. Startup menus were
+installed after their change; later changes were C++ adapters and repository UI
+tests. Logs: `/tmp/blender-nurbs-linked-policy-build.log`,
+`/tmp/blender-nurbs-linked-install.log` and `...-install-final.log`,
+`/tmp/blender-nurbs-linked-regression-build-final.log`. Earlier intermediate
+builds are retained as `...-test-build.log`, `...-app-build.log` and
+`...-regression-build.log` under the same prefix.
+
+Final kernel/editor/integration run:
+
+```sh
+python3 /tmp/blender-nurbs-run-linked-kernel-checks.py
+```
+
+**173 tests passed, no skips**, with per-suite counts
+20/23/44/35/9/10/7/4/10/3/4/4 in the target order above. Summary:
+`/tmp/blender-nurbs-linked-kernel-summary.log`; per-suite logs:
+`/tmp/blender-nurbs-linked-{suite}-tests-final.log`. The edit suite reads the frozen
+fixture and latest six selection/twenty movement files; the geometry suite uses
+`--test-assets-dir '/home/molotovgirl/Desktop/Blender Fork/tests/files'`.
+`BLENDER_NURBS_PREVIEW_EXPORT` is unset throughout ordinary tests.
+
+Application checks:
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+**5/5 passed**, including the 37 existing NURBS Python cases. Log:
+`/tmp/blender-nurbs-linked-ctest-final.log` (8.93 seconds).
+
+Seven independent real-window event tests pass. Driver:
+`python3 /tmp/blender-nurbs-run-linked-ui-final.py`. Every subprocess uses:
+
+```sh
+nice -n 10 env -u DISPLAY \
+  BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender \
+  WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston \
+  WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland \
+  WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston \
+  BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend \
+  BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-linked-ui \
+  BLENDER_NURBS_MOVE_OUTPUT=/tmp/blender-nurbs-move-ui \
+  python3 tests/utils/blender_headless.py --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py -- --tests TEST_ID
+```
+
+The exact `TEST_ID` values are:
+
+* `test_nurbs_native.linked_selection_rejects_ambiguous_holes_without_partial_changes`
+* `test_nurbs_native.vertex_selection_and_lifecycle`
+* `test_nurbs_native.linked_selection_across_objects`
+* `test_nurbs_native.vertex_move_and_lifecycle`
+* `test_nurbs_line.face_region_selection_gestures`
+* `test_nurbs_line.extrude_delete_top_and_continue`
+* `test_nurbs_line.duplicate_and_repeat_face_extrusion`
+
+Logs: `/tmp/blender-nurbs-linked-ui-{holes,native,linked-multiobject,move,legacy-region,legacy-delete,legacy-duplicate}-final.log`.
+Click/box/hover linked selection, subtraction, undo/redo, retained active center,
+changed display density, G/cancel and multi-owner behavior are exercised. Ctrl+L
+works with X-Ray off. L/Shift+L still require X-Ray and a source-vertex hit; edge
+and face-interior picking are not activated. Mesh face-mode shells, delimiters,
+visibility storage, fit handles and public native component bindings remain gates.
+Linked-pick still follows the existing Curve invoke-only lifecycle; no stable-ID
+redo API is claimed.
+
+The source-file validator now checks six selection files, including
+`linked-click.blend`, `linked-hover.blend` and `linked-box.blend`, for actual
+source geometry, weights, knots, identities, selection/history and incidence.
+Movement still validates twenty files against the source. No display mesh is
+used as a geometry or precision oracle. The native fixture and original broken
+file hashes remain the frozen values recorded above; input/export variables
+remain separate.
+
+Visual evidence: a fresh isolated process reopened
+`/tmp/blender-nurbs-linked-ui/linked-hover.blend`, entered Edit Mode and captured
+`/tmp/blender-nurbs-linked-ui/native-linked-reopened.png`. That image was inspected:
+four selected source corners, four edges, one NURBS face. Probe:
+`/tmp/blender-nurbs-capture-linked-tryout.py`; successful log:
+`/tmp/blender-nurbs-linked-reopen-final.log`. The first probe captured immediately
+after changing mode, before the next UI redraw; it was corrected to defer capture
+and the successful log shows 4/4 vertices, 4/4 edges, 1/1 faces and one owner.
+Event tests establish keyboard behavior; the image alone does not.
+
+Native duplication is the next proposed slice: preserve the existing exact closure
+copy and identity maps, assemble a full candidate in BKE, remap selection/history,
+and reuse the current owner commit and native Move adapter. Native Shift+D is
+not implemented by this checkpoint. Curve fit-point deformation and hole-link
+policy still require the user's design input; duplication of an unchanged
+rational source does not require choosing its deformation behavior.

@@ -125,8 +125,57 @@ def vertex_selection_and_lifecycle():
     t.assertGreater(updated_display_faces, initial_display_faces)
     print("NATIVE_NURBS_EDIT_DISPLAY_COUNTS", initial_display_faces, updated_display_faces)
 
+    # Ctrl+L grows the selected source component; L/Shift+L use the same source picker
+    # as click selection. Neither invents an active vertex for a bulk/hover selection.
+    yield e.ctrl.l()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.leftmouse()
+    yield e.ctrl.l()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (1, 4, 0, 4, 0, 1))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    obj = window.view_layer.objects.active
+    curve = obj.data
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+    t.assertEqual(tuple(window.scene.cursor.location), (-1, -1, 0))
+    window.scene.cursor.location = (0, 0, 0)
+    yield e.tab()
+    save("linked-click.blend")
+    yield e.tab()
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.shift.l()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
+    obj = window.view_layer.objects.active
+    curve = obj.data
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.l()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.g().z().text('0.5').esc()
+    yield e.tab()
+    save("linked-hover.blend")
+    yield e.tab()
+    yield e.alt.a()
     lower = min(point[0] for point in bottom) - 10, min(point[1] for point in bottom) - 10
     upper = max(point[0] for point in bottom) + 10, max(point[1] for point in bottom) + 10
+    yield e.b()
+    yield from e.leftmouse.cursor_motion((lower, upper))
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    yield e.ctrl.l()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.tab()
+    save("linked-box.blend")
+    yield e.tab()
+    yield e.cursor_position_set(*bottom[0], move=True)
+    yield e.shift.l()
+    t.assertEqual(counts(), (0, 4, 0, 4, 0, 1))
     yield e.b()
     yield from e.leftmouse.cursor_motion((lower, upper))
     t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
@@ -425,3 +474,153 @@ def vertex_move_and_lifecycle():
     with bpy.context.temp_override(window=window):
         bpy.ops.screen.screenshot(filepath=str(output / "native-move.png"))
     print("NATIVE_NURBS_MOVE_UI_ARTIFACTS", output)
+
+
+def linked_selection_across_objects():
+    import os
+    import re
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+        data.curves = ['Native preview sheet']
+    objects = []
+    for index, x in enumerate((-2, 2)):
+        curve = data.curves[0] if index == 0 else data.curves[0].copy()
+        obj = bpy.data.objects.new('Native linked selection %d' % index, curve)
+        window.scene.collection.objects.link(obj)
+        obj.location.x = x
+        obj.select_set(True)
+        objects.append(obj)
+    window.view_layer.objects.active = objects[1]
+    window.view_layer.update()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    space = area.spaces.active
+    space.shading.show_xray = True
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 9
+    yield
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    left, right = screen((-3, -1, 0)), screen((1, -1, 0))
+    t.assertEqual(counts(), (0, 8, 0, 8, 0, 2))
+    active_name = window.view_layer.objects.active.name
+    yield e.cursor_position_set(*left, move=True)
+    yield e.l()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    t.assertEqual(window.view_layer.objects.active.name, active_name)
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (0, 8, 0, 8, 0, 2))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    yield e.cursor_position_set(*right, move=True)
+    yield e.shift.l()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    yield e.l()
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    yield e.cursor_position_set(*left, move=True)
+    yield e.shift.l()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    yield e.ctrl.l()
+    t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+    yield e.alt.a()
+    yield e.cursor_position_set(*left, move=True)
+    yield e.leftmouse()
+    yield e.cursor_position_set(*right, move=True)
+    yield e.shift.leftmouse()
+    t.assertEqual(counts(), (2, 8, 0, 8, 0, 2))
+    # A seed in each owner grows both components without joining their identities.
+    space.shading.show_xray = False
+    yield e.ctrl.l()
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (2, 8, 0, 8, 0, 2))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (8, 8, 8, 8, 2, 2))
+    for obj in window.view_layer.objects:
+        t.assertEqual(obj.mode, 'EDIT')
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+
+
+def linked_selection_rejects_ambiguous_holes_without_partial_changes():
+    import os
+    import re
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+        data.curves = ['Native preview sheet', 'Native preview hole']
+    for curve, x in zip(data.curves, (-2, 2)):
+        obj = bpy.data.objects.new(curve.name, curve)
+        window.scene.collection.objects.link(obj)
+        obj.location.x = x
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+    window.view_layer.update()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    space = area.spaces.active
+    space.shading.show_xray = True
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 9
+    yield
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(int(value) for value in match.groups())
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    yield e.cursor_position_set(*screen((-3, -1, 0)), move=True)
+    yield e.leftmouse()
+    yield e.cursor_position_set(*screen((1, -1, 0)), move=True)
+    yield e.shift.leftmouse()
+    expected = (2, 12, 0, 12, 0, 2)
+    t.assertEqual(counts(), expected)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        try:
+            result = bpy.ops.curve.select_linked()
+        except RuntimeError as error:
+            t.assertIn('boundary or surface rule', str(error))
+        else:
+            t.assertEqual(result, {'CANCELLED'})
+    # The other owner's ordinary sheet must remain a single selected point.
+    t.assertEqual(counts(), expected)
+    yield e.l()
+    t.assertEqual(counts(), expected)
+    for obj in window.view_layer.objects:
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)

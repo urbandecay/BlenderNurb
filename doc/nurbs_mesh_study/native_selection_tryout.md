@@ -4,7 +4,7 @@ Open the prepared sheet with this fork's executable:
 
 ```sh
 /home/molotovgirl/Desktop/build_linux/bin/blender --factory-startup \
-  /tmp/blender-nurbs-edit-ui/try-native-selection.blend
+  /tmp/blender-nurbs-linked-ui/try-native-selection.blend
 ```
 
 The file opens in Object Mode. Press **Tab** to enter Edit Mode. X-Ray is already
@@ -17,6 +17,8 @@ Try these normal Blender controls:
 * **Click**, then **Shift-click**: select individual corners.
 * **B**, then drag: box select corners.
 * **A**: select all corners.
+* **Ctrl+L**: grow selected corners to their connected component.
+* **L** near a corner: select its component; **Shift+L**: deselect it.
 * **Ctrl+Z / Ctrl+Shift+Z**: undo/redo selection.
 * **Tab**: leave and re-enter Edit Mode with selection preserved.
 
@@ -26,8 +28,10 @@ automated click/box test, followed by a saved-file check of actual source IDs.
 
 This tryout covers surface-corner selection in X-Ray. A limited native G adapter
 is now available; see [the movement tryout](native_movement_tryout.md). Native
-extrusion, curve fit-point editing, linked selection, edge/face picking and broader
-transforms are still being implemented. Use the supplied file for this native path; the
+extrusion, curve fit-point editing, edge/face picking and broader transforms are
+still being implemented. L/Shift+L currently hit source corners in X-Ray; Ctrl+L
+does not need X-Ray. Faces with separate hole boundaries require a connectivity
+choice that is still awaiting your design input. Use the supplied file for this native path; the
 ordinary Add NURBS commands currently create the existing prototype.
 
 For a Python check that the prepared object uses the new source, inspect
