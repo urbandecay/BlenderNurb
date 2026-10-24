@@ -295,3 +295,197 @@ def extrude_delete_top_and_continue():
     t.assertTrue(all(len(spline.points) == 1 for spline in splines()))
     yield e.ctrl.shift.z()
     t.assertTrue(all(len(spline.points) == 2 for spline in splines()))
+
+
+def fill_two_lines_duplicate_and_extrude():
+    """Normal Add workflow must use shared Fill rather than mutate a tagged control net."""
+    from pathlib import Path
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.numpad_7()
+    area.spaces.active.region_3d.view_location = (0, 1, 0)
+    area.spaces.active.region_3d.view_distance = 6
+    yield e.shift.d().y().text('2').ret()
+    yield e.a()
+    yield e.f()
+
+    def assert_face():
+        obj = window.view_layer.objects.active
+        obj.update_from_editmode()
+        t.assertEqual(len(obj.data.splines), 1)
+        spline = obj.data.splines[0]
+        t.assertEqual((spline.point_count_u, spline.point_count_v, spline.order_u, spline.order_v),
+                      (2, 2, 2, 2))
+        t.assertFalse(spline.use_cyclic_u or spline.use_cyclic_v)
+        t.assertTrue(spline.use_endpoint_u and spline.use_endpoint_v)
+        return spline
+
+    assert_face()
+    yield e.ctrl.z()
+    obj = window.view_layer.objects.active
+    obj.update_from_editmode()
+    t.assertEqual(len(obj.data.splines), 2)
+    t.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 1) for s in obj.data.splines))
+    yield e.ctrl.shift.z()
+    assert_face()
+    output = Path('/tmp/blender-nurbs-two-edge-fill-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'sharp-fill.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / 'sharp-fill.png'))
+    yield e.shift.d().z().text('2').ret()
+    yield e.e().z().text('1').ret()
+    obj = window.view_layer.objects.active
+    obj.update_from_editmode()
+    t.assertEqual(len(obj.data.splines), 7)
+    t.assertTrue(all((s.point_count_u, s.point_count_v, s.order_u, s.order_v) == (2, 2, 2, 2)
+                    for s in obj.data.splines))
+    # Legacy storage repeats shared corners in neighboring patches; verify the four
+    # selected cap positions rather than counting their storage aliases as vertices.
+    selected = {tuple(p.co) for s in obj.data.splines for p in s.points if p.select}
+    t.assertEqual(len(selected), 4)
+    t.assertTrue(all(co[2] == 3 for co in selected))
+    yield e.ctrl.z()
+    obj = window.view_layer.objects.active
+    obj.update_from_editmode()
+    t.assertEqual(len(obj.data.splines), 2)
+    yield e.ctrl.shift.z()
+    obj = window.view_layer.objects.active
+    obj.update_from_editmode()
+    t.assertEqual(len(obj.data.splines), 7)
+    yield e.tab()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'fill-duplicate-extrude.blend'), check_existing=False)
+    window.view_layer.update()
+    evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    mesh = evaluated.to_mesh()
+    try:
+        t.assertGreater(len(mesh.polygons), 0)
+    finally:
+        evaluated.to_mesh_clear()
+
+
+
+def _cube_vertex_extensions_fill(native):
+    """Both owners use the same constructor when a cube edge gains a third face."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    space = area.spaces.active
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    if native:
+        with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+            data.curves = ['Native preview sheet']
+        obj = bpy.data.objects.new('Native cube Fill', data.curves[0])
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.view_layer.update()
+        yield e.tab()
+        base_y = -1
+    else:
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        yield e.tab()
+        yield e.e().y().text('2').ret()
+        base_y = 0
+    yield e.a()
+    yield e.e().z().text('1').ret()
+    if native:
+        yield e.one()
+    space.shading.show_xray = True
+    space.overlay.show_stats = True
+    yield e.numpad_1()
+    yield e.numpad_6()
+    yield e.numpad_8()
+    space.region_3d.view_location = (0, base_y + 1, 1)
+    space.region_3d.view_distance = 8
+    yield
+
+    def counts(verts, edges, faces, wires=0):
+        obj = window.view_layer.objects.active
+        if native:
+            t.assertTrue(obj.data.is_native_nurbs)
+            t.assertEqual(len(obj.data.splines), 0)
+            stats = window.scene.statistics(window.view_layer)
+            match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+            t.assertIsNotNone(match, stats)
+            result = tuple(map(int, match.groups()))
+            t.assertEqual((result[1], result[3], result[5]), (verts, edges, faces))
+        else:
+            obj.update_from_editmode()
+            t.assertEqual(sum(s.point_count_v == 2 for s in obj.data.splines), faces)
+            t.assertEqual(sum(s.point_count_v == 1 for s in obj.data.splines), wires)
+            positions = {tuple(p.co) for s in obj.data.splines for p in s.points}
+            t.assertEqual(len(positions), verts)
+
+    def screen(position):
+        obj = window.view_layer.objects.active
+        co = location_3d_to_region_2d(region, space.region_3d, obj.matrix_world @ Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    counts(8, 12, 6)
+    for i, x in enumerate((-1, 1)):
+        yield e.alt.a()
+        yield e.cursor_position_set(*screen((x, base_y, 1)), move=True)
+        yield e.leftmouse()
+        yield e.e().z().text('1').ret()
+        counts(9 + i, 13 + i, 6, 1 + i)
+    yield e.cursor_position_set(*screen((-1, base_y, 2)), move=True)
+    yield e.shift.leftmouse()
+    yield e.f()
+    counts(10, 15, 6, 3)
+    yield e.alt.a()
+    for point in ((-1, base_y, 1), (1, base_y, 1), (-1, base_y, 2), (1, base_y, 2)):
+        yield e.cursor_position_set(*screen(point), move=True)
+        yield e.shift.leftmouse()
+    yield e.f()
+    counts(10, 15, 7)
+    output = Path('/tmp/blender-nurbs-nonmanifold-fill-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    label = 'native' if native else 'tagged'
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / (label + '-filled.blend')), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / (label + '-filled.png')))
+    yield e.ctrl.z()
+    counts(10, 15, 6, 3)
+    yield e.ctrl.shift.z()
+    counts(10, 15, 7)
+    if native:
+        yield e.three()
+    yield e.e().y().text('-1').ret()
+    counts(14, 23, 11)
+    yield e.ctrl.z()
+    counts(10, 15, 7)
+    yield e.ctrl.shift.z()
+    counts(14, 23, 11)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / (label + '-continued.blend')), check_existing=False)
+    yield e.tab()
+
+
+def fill_from_cube_vertex_extensions():
+    yield from _cube_vertex_extensions_fill(False)
+
+
+def native_fill_from_cube_vertex_extensions():
+    yield from _cube_vertex_extensions_fill(True)

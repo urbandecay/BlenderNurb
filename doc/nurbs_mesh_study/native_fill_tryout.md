@@ -3,7 +3,10 @@
 Native component modes now feed the shared Fill constructor. **F** and
 `bpy.ops.curve.make_segment()` use the same kernel service. Right-click also
 provides **Make Edge/Face** for native sources. Ordinary Add NURBS still creates
-the restricted tagged prototype; use these prepared native files for this stage.
+the restricted tagged prototype. Its F path now also uses the shared constructor
+for exact line connections and representable bilinear quads; larger trimmed-face
+results still require native storage. The prepared native files exercise the
+broader native subset.
 
 ```sh
 /home/molotovgirl/Desktop/build_linux/bin/blender --factory-startup \
@@ -27,6 +30,9 @@ Other saved examples in `/tmp/blender-nurbs-fill-ui/`:
 
 - Two selected vertices connect with a new NURBS line and shared endpoint IDs.
   An existing unique edge is reused. An existing single face is unchanged.
+- Two separate open edges receive two connecting sides and a four-corner face,
+  retaining the selected edges. Endpoint pairing uses Blender's triangle-normal comparison to avoid a bow tie,
+  checked against BMesh in planar and bent test cases.
 - One closed boundary fills; an open chain with at least three vertices closes.
   A chain and one independent vertex can form one boundary. Loose vertices can
   be ordered around a supported projection, without coordinate welding.
@@ -83,9 +89,54 @@ Unsupported cases return a diagnostic before source mutation:
   A planar filled triangle/polygon can be swept with E; arbitrary subsequent
   corner bending is still subject to the current transform kernel's limits.
 
-The application and thirteen targeted test executables build. **228 C++ tests
-pass with no skips**, along with **15 isolated viewport regressions** and **five
+The application and thirteen targeted test executables build. **232 C++ tests
+pass with no skips**, along with **19 isolated viewport regressions** and **five
 CTest targets**. Ten saved Fill states match expected authoritative source data;
 fresh-process continuation passes. The bent extrusion viewport was visually
 inspected. Build/test commands, results and corrected test-harness failures are recorded in
 [current checkout audit](current_checkout_audit.md). Stage 1 remains incomplete.
+
+
+## Ordinary Add workflow regression
+
+The previous checkpoint left tagged F on the old spline-merge route. That route
+can change point counts/order/cyclicity without maintaining the tagged topology,
+and later duplication/extrusion then rejects it. Native prepared-file tests did
+not cover that source path. The compatibility adapter now calls the same Fill
+constructor and validates a complete replacement before ED changes source records.
+The old merge remains available for unrelated untagged legacy curves.
+
+Try **Add → Curve → Nurbs Line**, Edit Mode, **Shift+D, Y, 2, Enter**, **A**, **F**.
+The result is one clamped 2-by-2, order-2 NURBS patch, with straight boundaries and
+sharp corners. **Shift+D, Z, 2, Enter**, then **E, Z, 1, Enter** works; undo/redo
+and save also pass. Separately adding the second line is covered too. A prepared
+result is `/tmp/blender-nurbs-two-edge-fill-ui/sharp-fill.blend`.
+
+The restricted compatibility storage accepts only unit-weight original boundaries
+and matching opposite-edge knot domains for this quad export. A concave trimmed
+quad cannot be exported as a folded bilinear patch. Unsupported results reject
+before mutation. This does not automatically migrate an owner or reconstruct an
+already damaged old spline; Undo to the original two edges preserves the input.
+The original nonplanar/trim/fit-point policy limits above remain in effect.
+
+
+## Filling above a cube edge
+
+A cube edge can already have two faces. Extrude each endpoint separately, select
+and connect the two new endpoints with F, then select the four boundary corners
+and press F again. The new face is allowed to share that original edge as its
+third face use, as mesh editing permits. The original cube remains connected.
+Neighboring orientations guide new-face orientation when they agree; ambiguous
+non-manifold incidence uses the deterministic boundary parameter direction.
+Existing faces are not reversed. No solid/outside-normal claim is made.
+
+This exact workflow is tested with both source owners, including undo/redo and
+subsequent extrusion of the added face. Prepared results:
+
+- `/tmp/blender-nurbs-nonmanifold-fill-ui/native-filled.blend`
+- `/tmp/blender-nurbs-nonmanifold-fill-ui/tagged-filled.blend`
+
+The old orientation-error operation leaves source geometry unchanged. Save that
+pre-F state, reopen it using the updated binary, and retry F. This differs from
+an already malformed spline created by the earlier old-merger path, which needs
+Undo to the original edges or recovery from its source file.

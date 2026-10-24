@@ -191,6 +191,70 @@ TEST_F(NurbsFillTest, NonplanarQuadBendsThroughFourCornersAndKeepsBoundaryParame
   expect_fill_preview(*filled->geometry);
 }
 
+TEST_F(NurbsFillTest, TwoDisconnectedEdgesFillSharpQuadWithMeshBoundaryPairing)
+{
+  for (const bool reversed : {false, true}) {
+    for (const double height : {0.0, 1.0}) {
+      OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+      const double3 points[] = {{0, 0, 0}, {2, 0, 0}, {0, 2, 0}, {2, 2, height}};
+      Vector<NurbsTopologyVertex *> vertices;
+      const BMeshCreateParams params{.use_toolflags = true};
+      std::unique_ptr<BMesh, decltype(&BM_mesh_free)> mesh(
+          BM_mesh_create(&bm_mesh_allocsize_default, &params), BM_mesh_free);
+      Vector<BMVert *> reference;
+      for (const auto &point : points) {
+        vertices.append(add_vertex(*source, point));
+        const float3 co(point);
+        reference.append(BM_vert_create(mesh.get(), co, nullptr, BM_CREATE_NOP));
+      }
+      const int pairs[2][2] = {{0, 1}, {reversed ? 3 : 2, reversed ? 2 : 3}};
+      for (const auto &pair : pairs) {
+        const auto *curve = add_linear_curve(*source, points[pair[0]], points[pair[1]], 3);
+        add_edge(*source, *vertices[pair[0]], *vertices[pair[1]], *curve);
+        BM_edge_create(mesh.get(), reference[pair[0]], reference[pair[1]], nullptr, BM_CREATE_NOP);
+      }
+      BMOperator op;
+      BMO_op_initf(mesh.get(),
+                   &op,
+                   BMO_FLAG_DEFAULTS,
+                   "contextual_create geom=%avef mat_nr=%i use_smooth=%b",
+                   0,
+                   false);
+      BMO_op_exec(mesh.get(), &op);
+      BMO_op_finish(mesh.get(), &op);
+      const auto edges = fill_edges(*source);
+      std::string error;
+      auto filled = fill_components(*source, {{}, edges, {}}, &error);
+      ASSERT_TRUE(filled.has_value()) << error;
+      EXPECT_EQ(filled->geometry->vertices.count(), mesh->totvert);
+      EXPECT_EQ(filled->geometry->edges.count(), mesh->totedge);
+      EXPECT_EQ(filled->geometry->faces.count(), mesh->totface);
+      ASSERT_EQ(filled->created_edges.size(), 2);
+      ASSERT_EQ(filled->created_faces.size(), 1);
+      const auto index = TopologyIndex::build(*filled->geometry);
+      for (const int64_t id : filled->created_edges) {
+        const auto &edge = *index->edge(id);
+        EXPECT_NE(
+            BM_edge_exists(reference[edge.vertex_ids[0] - 1], reference[edge.vertex_ids[1] - 1]),
+            nullptr);
+      }
+      expect_fill_preview(*filled->geometry);
+      const auto &surface = *static_cast<NurbsSurfaceGeometry *>(filled->geometry->surfaces.last);
+      EXPECT_EQ(surface.order_u, 2);
+      EXPECT_EQ(surface.order_v, 2);
+      const int64_t shuffled[] = {edges[1], edges[0], edges[1]};
+      const auto again = fill_components(*source, {{}, {shuffled, 3}, {}}, &error);
+      ASSERT_TRUE(again.has_value()) << error;
+      EXPECT_EQ(again->created_edges.as_span(), filled->created_edges.as_span());
+      EXPECT_EQ(again->created_faces.as_span(), filled->created_faces.as_span());
+      EXPECT_EQ(again->geometry->next_id, filled->geometry->next_id);
+      EXPECT_EQ(source->vertices.count(), 4);
+      EXPECT_EQ(source->edges.count(), 2);
+      EXPECT_TRUE(source->faces.is_empty());
+    }
+  }
+}
+
 TEST_F(NurbsFillTest, OpenChainClosesAndThreeLooseVerticesMakePlanarTrim)
 {
   const double3 points[] = {{0, 0, 0}, {2, 0, 0}, {0, 2, 0}};
@@ -414,6 +478,131 @@ TEST_F(NurbsFillTest, MultipleBoundariesAreTracedSeparatelyAndNeverJoinedByPosit
   EXPECT_FALSE(fill_components(*copy->geometry, {{}, edges, {}}, &error).has_value());
   EXPECT_NE(error.find("one boundary"), std::string::npos);
   EXPECT_EQ(copy->geometry->vertices.count(), 8);
+}
+
+TEST_F(NurbsFillTest, CubeVertexExtensionsConnectAndFillAcrossAnAlreadyTwoFaceEdge)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  const int64_t sheet_face = static_cast<NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  auto cube = extrude_components(*sheet, {{}, {}, {&sheet_face, 1}}, {0, 0, 1}, 0, &error);
+  ASSERT_TRUE(cube.has_value()) << error;
+  Vector<int64_t> base_vertices;
+  for (const auto &vertex : cube->geometry->vertices) {
+    if (vertex.position[1] == -1 && vertex.position[2] == 1) {
+      base_vertices.append(vertex.id);
+    }
+  }
+  ASSERT_EQ(base_vertices.size(), 2);
+  int64_t base_edge = 0;
+  for (const auto &edge : cube->geometry->edges) {
+    if ((edge.vertex_ids[0] == base_vertices[0] && edge.vertex_ids[1] == base_vertices[1]) ||
+        (edge.vertex_ids[1] == base_vertices[0] && edge.vertex_ids[0] == base_vertices[1]))
+    {
+      base_edge = edge.id;
+    }
+  }
+  ASSERT_NE(base_edge, 0);
+  // Extrude individually: selecting both adjacent cube vertices would also select their edge.
+  auto left = extrude_components(
+      *cube->geometry, {{&base_vertices[0], 1}, {}, {}}, {0, 0, 1}, 0, &error);
+  ASSERT_TRUE(left.has_value()) << error;
+  const int64_t cap_left = left->source_to_cap.lookup(base_vertices[0]);
+  const int64_t rail_left = left->vertex_to_rail.lookup(base_vertices[0]);
+  auto right = extrude_components(
+      *left->geometry, {{&base_vertices[1], 1}, {}, {}}, {0, 0, 1}, 0, &error);
+  ASSERT_TRUE(right.has_value()) << error;
+  const int64_t cap_right = right->source_to_cap.lookup(base_vertices[1]);
+  const int64_t rail_right = right->vertex_to_rail.lookup(base_vertices[1]);
+  const int64_t cap_vertices[] = {cap_left, cap_right};
+  auto connected = fill_components(*right->geometry, {{cap_vertices, 2}, {}, {}}, &error);
+  ASSERT_TRUE(connected.has_value()) << error;
+  ASSERT_EQ(connected->created_edges.size(), 1);
+  const int64_t boundary[] = {base_edge, rail_left, rail_right, connected->created_edges.first()};
+  const auto before = TopologyIndex::build(*connected->geometry);
+  ASSERT_EQ(before->uses_for_edge(base_edge).size(), 2);
+
+  // BMesh reference: F is allowed to add a third use to this edge.
+  const BMeshCreateParams params{.use_toolflags = true};
+  std::unique_ptr<BMesh, decltype(&BM_mesh_free)> mesh(
+      BM_mesh_create(&bm_mesh_allocsize_default, &params), BM_mesh_free);
+  Map<int64_t, BMVert *> vertices;
+  Map<int64_t, BMEdge *> edges;
+  const Set<int64_t> selected_edges(Span<int64_t>(boundary, 4));
+  Set<int64_t> selected_vertices;
+  for (const int64_t id : selected_edges) {
+    selected_vertices.add_multiple({before->edge(id)->vertex_ids, 2});
+  }
+  for (const auto &vertex : connected->geometry->vertices) {
+    const float3 co(double3(vertex.position));
+    auto *created = BM_vert_create(mesh.get(), co, nullptr, BM_CREATE_NOP);
+    vertices.add_new(vertex.id, created);
+    BM_elem_flag_set(created, BM_ELEM_SELECT, selected_vertices.contains(vertex.id));
+  }
+  for (const auto &edge : connected->geometry->edges) {
+    auto *created = BM_edge_create(mesh.get(),
+                                   vertices.lookup(edge.vertex_ids[0]),
+                                   vertices.lookup(edge.vertex_ids[1]),
+                                   nullptr,
+                                   BM_CREATE_NOP);
+    edges.add_new(edge.id, created);
+    BM_elem_flag_set(created, BM_ELEM_SELECT, selected_edges.contains(edge.id));
+  }
+  for (const auto &face : connected->geometry->faces) {
+    Vector<BMVert *> face_vertices;
+    Vector<BMEdge *> face_edges;
+    for (const auto &use : static_cast<NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+      const auto &edge = *before->edge(use.edge_id);
+      face_vertices.append(vertices.lookup(edge.vertex_ids[use.reversed ? 1 : 0]));
+      face_edges.append(edges.lookup(edge.id));
+    }
+    auto *created = BM_face_create(mesh.get(),
+                                   face_vertices.data(),
+                                   face_edges.data(),
+                                   face_vertices.size(),
+                                   nullptr,
+                                   BM_CREATE_NOP);
+    ASSERT_NE(created, nullptr);
+    if (face.orientation < 0) {
+      BM_face_normal_flip(mesh.get(), created);
+    }
+  }
+  BMOperator op;
+  BMO_op_initf(mesh.get(),
+               &op,
+               BMO_FLAG_DEFAULTS,
+               "contextual_create geom=%hvef mat_nr=%i use_smooth=%b",
+               BM_ELEM_SELECT,
+               0,
+               false);
+  BMO_op_exec(mesh.get(), &op);
+  BMO_op_finish(mesh.get(), &op);
+  ASSERT_EQ(mesh->totface, 7);
+  EXPECT_EQ(BM_edge_face_count(edges.lookup(base_edge)), 3);
+
+  auto filled = fill_components(*connected->geometry, {{}, {boundary, 4}, {}}, &error);
+  ASSERT_TRUE(filled.has_value()) << error;
+  EXPECT_EQ(filled->geometry->vertices.count(), mesh->totvert);
+  EXPECT_EQ(filled->geometry->edges.count(), mesh->totedge);
+  EXPECT_EQ(filled->geometry->faces.count(), mesh->totface);
+  EXPECT_EQ(filled->geometry->vertices.count(), 10);
+  EXPECT_EQ(filled->geometry->edges.count(), 15);
+  EXPECT_EQ(filled->geometry->faces.count(), 7);
+  EXPECT_TRUE(filled->created_edges.is_empty());
+  const auto after = TopologyIndex::build(*filled->geometry);
+  EXPECT_EQ(after->uses_for_edge(base_edge).size(), 3);
+  EXPECT_EQ(before->uses_for_edge(base_edge).size(), 2);
+  for (const auto &face : connected->geometry->faces) {
+    EXPECT_EQ(after->face(face.id)->orientation, face.orientation);
+    EXPECT_EQ(after->face(face.id)->surface_id, face.surface_id);
+  }
+  expect_fill_preview(*filled->geometry);
+  auto continued = extrude_components(
+      *filled->geometry, {{}, {}, filled->created_faces}, {0, -1, 0}, 0, &error);
+  ASSERT_TRUE(continued.has_value()) << error;
+  EXPECT_EQ(continued->geometry->faces.count(), 11);
+  expect_fill_preview(*continued->geometry);
 }
 
 TEST_F(NurbsFillTest, UnsupportedBoundariesFailWithoutSourceOrCounterMutation)

@@ -6,19 +6,20 @@ Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
 Latest completed checkpoint: Blender and thirteen targeted test executables build;
-**228 C++ kernel/editor/integration tests with no skips**, **37 NURBS Python cases**,
+**232 C++ kernel/editor/integration tests with no skips**, **39 NURBS Python cases**,
 the unit formatting/conversion regression, autosave and global-undo targets pass.
-Fifteen isolated viewport regressions pass. Native **1/2/3 Vertex/Edge/Face modes**
-and **F / Make Edge-Face** are implemented for the supported construction subset.
-Four straight noncoplanar sides produce a connected bilinear NURBS face through
-their corners. Planar polygon Fill, exact rational-profile caps and compatible
-coplanar face merging share kernel services. Ten saved Fill states are checked
-against full expected source records, and a fresh process continues the bent
-extrusion. Its viewport was visually inspected. See the [Fill tryout](native_fill_tryout.md)
-for explicit construction limits. Larger nonplanar loops remain a user policy
-decision. Stage 1 and the full NURBS editing pipeline remain incomplete.
-Native component modes retain the sixteen earlier saved-state source/history
-checks, source-provenance click/box/linked selection and depth-aware picking.
+Nineteen isolated viewport regressions pass, including two-edge Fill and the
+reported cube → individual vertex extrusions → connect → Fill → continue sequence.
+The normal Add/tagged path now calls the same Fill constructor for representable
+lines/quads, rather than the old control-net merger. Native F can add a third
+face use to an existing edge; normal-orientation hints do not reject useful
+non-manifold creation. Compatible planar region merging remains stricter.
+Native **1/2/3 Vertex/Edge/Face modes** and the broader exact native Fill subset
+remain implemented. New four-corner supports are real NURBS; no display Mesh is
+editable source. The newest viewport results were visually inspected. See the
+[Fill tryout](native_fill_tryout.md) for reproduction and remaining limits.
+Larger nonplanar loops, fit-point editing, ordinary native creation/migration,
+and full Stage 1 promotion remain gates.
 Native **E** and **Delete** now use shared kernel candidates and the common owner
 commit. The reported extrude/delete/continue sequence passes on native source,
 alongside the repaired tagged prototype. Twenty-two new saved states are checked
@@ -3473,3 +3474,177 @@ The three original input fixture SHA-256 values remain unchanged:
 `1085cb447a543093900335f92cee77739fd839db5ae61e30cfde8d42ccc48538`.
 The original untracked handoff remains untouched and unstaged. This checkpoint
 adds no new CV editing workflow and does not complete the full editing pipeline.
+
+
+## Two-edge Fill dispatch and non-manifold creation corrections (2026-10-24)
+
+The user reported that F on two edges produced chamfered-looking corners and
+then duplication failed with the tagged legacy import diagnostic. The previous
+checkpoint tested native prepared files, but left the normal Add/tagged F path
+on `make_segment_exec`'s old spline merger. That merger can alter counts, order
+and cyclicity without maintaining prototype topology IDs. A scripted old-build
+Add/duplicate/F probe returned FINISHED while leaving two lines, confirming a
+missing functional path. It did not reproduce the exact chamfered image without
+the source file; no repair of the user's already-damaged file is claimed.
+
+`legacy_topology_fill` now calls `fill_components`, prepares an exact compatible
+line or bilinear quad, retains source component IDs, absorbs standalone boundary
+records, and validates the complete tagged candidate before any ED mutation.
+Selected tagged input cannot reach the old control-net merger. All participating
+owners are preflighted; mixed selected untagged sources and shape keys reject.
+Unrelated untagged legacy curves retain their behavior. The initial quad export
+requires unit original boundary weights and matching opposite-edge knot domains.
+It verifies the support coefficients against all four actual boundary corners;
+a concave trimmed quad must not be exported as a folded bilinear surface.
+Unsupported exports fail atomically. This is a restricted compatibility client
+of the kernel, not automatic native-owner migration.
+
+The kernel also fills two separate open edges. Code verification against
+`bmo_edgenet_prepare_exec` corrected the preliminary shortest-connector policy:
+BMesh compares the two triangle-normal pairings to avoid bow ties. The constructor
+now uses that same heuristic with double source coordinates, followed by the
+existing geometry checks. BMesh comparisons cover planar and bent inputs and
+both source edge directions; shuffled/repeated hits retain deterministic IDs.
+
+The user then supplied the exact cube case: extrude two cube vertices individually,
+F on their new endpoints to connect them, select the four boundary corners, F
+again. The new kernel regression reproduced **"Fill boundary has conflicting
+face orientations"** before the fix. Its actual BMesh reference succeeds with
+**10V / 15E / 7F** and **three face uses on the existing cube edge**. That failed
+run is `/tmp/blender-nurbs-nonmanifold-fill-repro-test.log` (exit 1); its preceding
+build is `...-repro-build.log` (exit 0). This is a direct reproduction of the
+reported orientation failure, not an inference from the screenshot.
+
+New-face construction now treats neighboring orientation as a hint. Opposing
+uses on one existing edge supply no unique hint; a new face is still allowed.
+Compatible unambiguous hints are retained, otherwise the deterministic boundary
+parameter orientation is used. This matches the existing edge-extrusion policy
+and preserves the orientations of old faces. It does not infer a closed solid
+or claim an outside normal. Face-region merging still rejects incompatible
+selected orientations because it must preserve that region's existing senses.
+
+The fixed kernel regression passes (`...-fixed-test.log`, exit 0): it verifies
+the same original edge ID has three uses, no boundary vertices/edges are copied,
+all old face supports/orientations remain, sampled curve/support correspondence
+and tessellation succeed, and the new face extrudes afterward. Viewport tests
+perform the literal two individual E operations and both F operations, with
+click selection, undo/redo and saving. **10V/15E/7F** becomes **14V/23E/11F**
+after the attached new face is extruded. Both native and normal Add/tagged paths
+pass. The background Python normal-Add regression additionally verifies the
+expected filled surface area, so a FINISHED status or an unfilled wire is not
+accepted as success.
+
+### Commands and results
+
+All commands ran from `/home/molotovgirl/Desktop/Blender Fork`. The final source
+build (including thirteen test executables) used:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target \
+  blender blenkernel_nurbs_fill_test blenkernel_nurbs_geometry_legacy_test \
+  blenkernel_nurbs_edit_test blenkernel_nurbs_geometry_test \
+  blenkernel_nurbs_selection_test blenkernel_nurbs_differential_test \
+  blenkernel_nurbs_tessellate_test blenkernel_nurbs_mesh_test \
+  blenkernel_nurbs_object_test blenkernel_nurbs_transform_test \
+  blenkernel_unit_test editor_util_numinput_test \
+  editor_transform_transform_translate_precision_test --parallel 4
+```
+
+Exit **0**, `/tmp/blender-nurbs-nonmanifold-fill-build.log`. The prior two-edge
+build and regression logs are `/tmp/blender-nurbs-two-edge-fill-build-final.log`
+and `...-kernel-summary.log` (231 cases before the added cube case).
+
+Final kernel command:
+
+```sh
+python3 /tmp/blender-nurbs-run-nonmanifold-fill-kernel-checks.py
+```
+
+Exit **0**, `/tmp/blender-nurbs-nonmanifold-fill-kernel-summary.log`:
+**232 passed, zero skipped**. Per suite: legacy 22, selection 35, geometry 54,
+edit/persistence 47, Fill 16, differential 9, tessellation 11, display Mesh 7,
+object 4, transform 16, units 3, numeric input 4, precise translation 4.
+The runner retains the same fixture environments and source readback checks as
+the preceding stage; individual logs use the `blender-nurbs-nonmanifold-fill-`
+prefix. All UI output producers finish before saved-file readback runs.
+
+Viewport environment for each command below:
+
+```sh
+export BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender
+export WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston
+export WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland
+export WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston
+export BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend
+```
+
+Each isolated command uses `env -u DISPLAY`, factory startup and a private
+Weston socket. The two new cube tests ran as follows, both exit **0**:
+
+```sh
+nice -n 10 env -u DISPLAY python3 tests/utils/blender_headless.py \
+  --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py \
+  -- --tests test_nurbs_line.fill_from_cube_vertex_extensions
+nice -n 10 env -u DISPLAY python3 tests/utils/blender_headless.py \
+  --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py \
+  -- --tests test_nurbs_line.native_fill_from_cube_vertex_extensions
+```
+
+Logs: `/tmp/blender-nurbs-nonmanifold-fill-tagged-ui.log` and `...-native-ui.log`.
+Normal Add two-edge F/Shift+D/E also passes in
+`/tmp/blender-nurbs-nonmanifold-fill-two-edge-ui.log` (the same headless invocation,
+`--tests test_nurbs_line.fill_two_lines_duplicate_and_extrude`). The earlier
+successful two-edge-only run remains in `...-two-edge-fill-ui-release.log`. The Python
+regression covers both duplicating and separately adding the second line.
+One initial UI assertion incorrectly counted repeated legacy point-storage
+aliases as independent selected vertices (12 instead of four cap positions).
+It was corrected to check the four actual cap positions; no product change was
+made to satisfy that assertion. The corrected run passed.
+
+The remaining sixteen viewport cases were rerun using:
+
+```sh
+python3 /tmp/blender-nurbs-run-two-edge-fill-regression-ui.py
+python3 /tmp/blender-nurbs-run-two-edge-fill-modes-ui.py
+```
+
+Both exit **0**; eleven prior edit/legacy cases and five native mode/visibility/
+Fill cases pass. Final summaries are
+`/tmp/blender-nurbs-nonmanifold-fill-regression-ui-summary.log` and
+`...-modes-ui-summary.log`. Together with the three cases above this is
+**19 successful isolated viewport regressions**. An earlier pre-final-build
+launcher overlapped Blender relinking and stalled before launching its Blender
+child. Its private Weston server was stopped and the run was repeated after
+linking; no user's Blender instance was stopped. The successful replacement
+before the final orientation change is retained as
+`/tmp/blender-nurbs-two-edge-fill-regression-ui-final-summary.log`.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux \
+  --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+Exit **0**, **5/5 targets**, 11.30 seconds,
+`/tmp/blender-nurbs-nonmanifold-fill-ctest.log`. This includes **39 NURBS Python
+cases** (37 line/workflow cases and two legacy-compatibility cases), units,
+autosave and global undo. Formatting and Python syntax checks also pass.
+
+**Visually inspected:** the sharp two-edge Fill screenshot and both new cube-Fill
+screenshots. Artifacts are `/tmp/blender-nurbs-two-edge-fill-ui/sharp-fill.png`
+and `/tmp/blender-nurbs-nonmanifold-fill-ui/{native,tagged}-filled.png`.
+The cube test saves `native-filled.blend`, `tagged-filled.blend` and corresponding
+`*-continued.blend` files. Native statistics show 10 source vertices, 15 source
+edges and seven source faces at the Fill checkpoint. Native face tint clearly
+shows the added upper face. Legacy preview area is independently verified by
+Python; it is not inferred from control-point outlines.
+
+The orientation-error operation fails before source mutation, so that valid
+pre-F state can be saved and reopened in the updated binary, then filled.
+The earlier malformed-control-net failure instead needs Undo to the original
+edges or recovery from the actual source file; the fix does not guess lost IDs.
+The three frozen original input files and the original untracked handoff remain
+unchanged. Native creation/migration, fit-point editing, general trim/solid
+certification and the rest of the full editing pipeline remain unfinished.

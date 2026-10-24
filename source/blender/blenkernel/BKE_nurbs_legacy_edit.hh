@@ -62,6 +62,13 @@ std::optional<LegacyTopologyEdit> legacy_topology_duplicate(const ListBaseT<Nurb
 std::optional<LegacyTopologyEdit> legacy_topology_extrude(const ListBaseT<Nurb> &source,
                                                           std::string *r_error = nullptr);
 
+/** Use the shared Fill constructor for tagged topology. Only exactly representable line and
+ * bilinear-quad results are exported to the restricted compatibility storage; unsupported
+ * results fail before mutation. Never invoke the old control-net merge on tagged input.
+ */
+std::optional<LegacyTopologyEdit> legacy_topology_fill(const ListBaseT<Nurb> &source,
+                                                       std::string *r_error = nullptr);
+
 /** Delete topology components and preserve surviving faces, wires and loose source points. */
 std::optional<LegacyTopologyEdit> legacy_topology_delete(const ListBaseT<Nurb> &source,
                                                          DeleteMode mode,

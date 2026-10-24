@@ -398,6 +398,80 @@ TEST(nurbs_legacy_edit, DuplicateSharedFacesPreservesInternalSharingAndIndepende
   }
 }
 
+TEST(nurbs_legacy_edit, TwoWireFillPreservesSharpCornersDomainsAndEditingTopology)
+{
+  LegacyFixture source;
+  Nurb &a = source.add_wire(1);
+  Nurb &b = source.add_wire(4);
+  b.bp[0].vec[1] = b.bp[1].vec[1] = 2;
+  const auto a_before = std::array<BPoint, 2>{a.bp[0], a.bp[1]};
+  std::string error;
+  auto filled = legacy_topology_fill(source.nurbs, &error);
+  ASSERT_TRUE(filled.has_value()) << error;
+  ASSERT_EQ(filled->added.count(), 1);
+  EXPECT_TRUE(filled->removed_wires.contains(3));
+  EXPECT_TRUE(filled->removed_wires.contains(6));
+  EXPECT_EQ(source.nurbs.count(), 2);
+  EXPECT_EQ(std::memcmp(a.bp, a_before.data(), sizeof(BPoint) * 2), 0);
+  auto &patch = *static_cast<Nurb *>(filled->added.first);
+  EXPECT_EQ(patch.pntsu, 2);
+  EXPECT_EQ(patch.pntsv, 2);
+  EXPECT_EQ(patch.orderu, 2);
+  EXPECT_EQ(patch.orderv, 2);
+  EXPECT_EQ(patch.flagu, CU_NURB_ENDPOINT);
+  EXPECT_EQ(patch.flagv, CU_NURB_ENDPOINT);
+  EXPECT_EQ(Span(patch.knotsu, 4), Span(a.knotsu, 4));
+  EXPECT_EQ(Set<int>(Span(patch.topology_vertex_ids, 4)), Set<int>({1, 2, 4, 5}));
+  ImportedGeometry geometry(geometry_from_tagged_legacy(filled->added, nullptr, &error),
+                            geometry_free);
+  ASSERT_NE(geometry, nullptr) << error;
+  EXPECT_EQ(geometry->vertices.count(), 4);
+  EXPECT_EQ(geometry->edges.count(), 4);
+  EXPECT_EQ(geometry->faces.count(), 1);
+  EXPECT_TRUE(legacy_topology_duplicate(filled->added, &error).has_value()) << error;
+  auto swept = legacy_topology_extrude(filled->added, &error);
+  ASSERT_TRUE(swept.has_value()) << error;
+  EXPECT_EQ(swept->added.count(), 5);
+  EXPECT_EQ(patch.pntsu, 2);
+  EXPECT_EQ(patch.pntsv, 2);
+  auto noop = legacy_topology_fill(filled->added, &error);
+  ASSERT_TRUE(noop.has_value()) << error;
+  EXPECT_TRUE(noop->added.is_empty());
+}
+
+TEST(nurbs_legacy_edit, FillRejectsUnrepresentableWeightsDomainsAndMalformedTagsAtomically)
+{
+  LegacyFixture source;
+  Nurb &a = source.add_wire(1);
+  Nurb &b = source.add_wire(4);
+  b.bp[0].vec[1] = b.bp[1].vec[1] = 2;
+  std::string error;
+  b.bp[1].vec[3] = 2;
+  EXPECT_FALSE(legacy_topology_fill(source.nurbs, &error).has_value());
+  EXPECT_NE(error.find("weights"), std::string::npos);
+  EXPECT_EQ(b.bp[1].vec[3], 2);
+  b.bp[1].vec[3] = 1;
+  b.knotsu[2] = b.knotsu[3] = 6;
+  EXPECT_FALSE(legacy_topology_fill(source.nurbs, &error).has_value());
+  EXPECT_NE(error.find("domains"), std::string::npos);
+  EXPECT_EQ(b.knotsu[2], 6);
+  b.knotsu[2] = b.knotsu[3] = 5;
+  a.flagu |= CU_NURB_CYCLIC;
+  EXPECT_FALSE(legacy_topology_fill(source.nurbs, &error).has_value());
+  EXPECT_TRUE(a.flagu & CU_NURB_CYCLIC);
+  EXPECT_EQ(source.nurbs.count(), 2);
+  a.flagu &= ~CU_NURB_CYCLIC;
+  a.bp[0].vec[0] = a.bp[0].vec[1] = 0;
+  a.bp[1].vec[0] = 1;
+  a.bp[1].vec[1] = 0;
+  b.bp[0].vec[0] = 0;
+  b.bp[0].vec[1] = 1;
+  b.bp[1].vec[0] = b.bp[1].vec[1] = 0.25f;
+  EXPECT_FALSE(legacy_topology_fill(source.nurbs, &error).has_value());
+  EXPECT_NE(error.find("trimmed-face"), std::string::npos);
+  EXPECT_EQ(source.nurbs.count(), 2);
+}
+
 TEST(nurbs_legacy_edit, RegionExtrusionMakesOnlyOuterWallsAndKeepsSourceUntouched)
 {
   LegacyFixture source;

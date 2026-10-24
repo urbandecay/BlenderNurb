@@ -651,3 +651,41 @@ smooth joins, general nonplanar filling or solid validity. Larger nonplanar loop
 remain an open user geometry-policy decision. See the [Fill tryout](native_fill_tryout.md)
 for supported behaviors and limits. Fit-point curve work follows these component
 editing stages; Stage 1 is still incomplete.
+
+
+## Tagged Fill dispatch correction
+
+A user reported chamfered-looking corners and a subsequent legacy-import error
+after F on two edges. The previous native Fill checkpoint did not route tagged
+prototype sources through the shared constructor. `legacy_topology_fill` now
+prepares exact, representable line/quad output from `fill_components`, checking
+source endpoint/weight/domain correspondence and validating the full tagged
+candidate before ED transfers ownership. The old spline-merge code must not run
+on tagged topology. Unrelated untagged legacy curves retain their route.
+
+The shared constructor now connects two independent open edges with two sides;
+it retains input IDs and follows BMesh's triangle-normal endpoint pairing before
+the existing surface checks, using double source coordinates. Native and compatibility editors use this same geometry policy.
+The compatibility exporter checks that all four support corners match the actual
+boundary vertices; a planar trimmed concave quad must not become a folded legacy
+bilinear patch. Incompatible weights, domains and trim layouts fail atomically.
+
+This follows the existing architecture's restricted compatibility-client policy.
+It does not add owner migration: the current undo contract deliberately rejects
+legacy/native owner replacement without a separately verified migration design.
+The normal Add → duplicate/add another line → F → duplicate → E workflow now has
+Python and viewport coverage, beside native two-edge coverage and BMesh topology
+comparisons. The already-damaged source still needs Undo or source-file recovery.
+
+
+The next user reproduction establishes a required non-manifold Fill case: cube,
+individual endpoint extrusions, connect their new endpoints, then F on the four
+boundary corners. BMesh creates the seventh face and third use of the cube edge;
+the old Fill orientation requirement incorrectly rejected it. New-face creation
+now uses unambiguous neighboring orientations as hints, with deterministic
+parameter direction as fallback, matching the edge-extrusion policy. Existing
+face senses remain untouched. Strict compatible-orientation checks still apply
+to replacing a selected face region. The regression proves the existing edge ID
+has three uses and that the added NURBS face can be extruded, in kernel, native
+viewport and normal Add/tagged workflows. Useful non-manifold editing is not a
+closed-solid validity claim.

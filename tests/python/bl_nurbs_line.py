@@ -75,6 +75,71 @@ class NurbsLineTest(unittest.TestCase):
         self.assertTrue(all(p.co.y == 2.0 for p in selected))
         self.assert_sheet_area(ob, 4.0)
 
+    def test_fill_two_duplicated_lines_keeps_sharp_corners_and_allows_duplicate_extrude(self):
+        for separate_add in (False, True):
+            bpy.ops.wm.read_factory_settings(use_empty=True)
+            ob = self.add_line()
+            bpy.ops.object.mode_set(mode='EDIT')
+            if separate_add:
+                self.assertEqual(bpy.ops.curve.primitive_nurbs_curve_add(
+                    enter_editmode=True, location=(0, 2, 0)), {'FINISHED'})
+            else:
+                self.assertEqual(bpy.ops.curve.duplicate_move(
+                    TRANSFORM_OT_translate={'value': (0, 2, 0)}), {'FINISHED'})
+            bpy.ops.curve.select_all(action='SELECT')
+            self.assertEqual(bpy.ops.curve.make_segment(), {'FINISHED'})
+            bpy.ops.object.mode_set(mode='OBJECT')
+            self.assertEqual(len(ob.data.splines), 1)
+            patch = ob.data.splines[0]
+            self.assertEqual((patch.point_count_u, patch.point_count_v, patch.order_u, patch.order_v),
+                             (2, 2, 2, 2))
+            self.assertFalse(patch.use_cyclic_u or patch.use_cyclic_v)
+            self.assertTrue(patch.use_endpoint_u and patch.use_endpoint_v)
+            self.assertEqual(self.coordinates(patch),
+                             [(-1, 0, 0, 1), (-1, 2, 0, 1), (1, 0, 0, 1), (1, 2, 0, 1)])
+            self.assert_sheet_area(ob, 4)
+            bpy.ops.object.mode_set(mode='EDIT')
+            self.assertEqual(bpy.ops.curve.make_segment(), {'CANCELLED'})
+            self.assertEqual(bpy.ops.curve.duplicate_move(
+                TRANSFORM_OT_translate={'value': (0, 0, 2)}), {'FINISHED'})
+            self.extrude_selected((0, 0, 1))
+            self.assertEqual(len(ob.data.splines), 7)
+            self.assertTrue(all((s.point_count_u, s.point_count_v, s.order_u, s.order_v) == (2, 2, 2, 2)
+                                for s in ob.data.splines))
+            self.assert_sheet_area(ob, 20)
+
+    def test_fill_after_individual_cube_vertex_extrusions_allows_third_face_use(self):
+        ob = self.add_line()
+        self.extrude((0, 2, 0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_all(action='SELECT')
+        self.extrude_selected((0, 0, 1))
+        self.assertEqual(len(ob.data.splines), 6)
+
+        def select(positions):
+            for spline in ob.data.splines:
+                for point in spline.points:
+                    point.select = tuple(point.co.xyz) in positions
+
+        for x in (-1, 1):
+            bpy.ops.object.mode_set(mode='EDIT')
+            select({(x, 0, 1)})
+            self.extrude_selected((0, 0, 1))
+        bpy.ops.object.mode_set(mode='EDIT')
+        select({(-1, 0, 2), (1, 0, 2)})
+        self.assertEqual(bpy.ops.curve.make_segment(), {'FINISHED'})
+        select({(-1, 0, 1), (1, 0, 1), (-1, 0, 2), (1, 0, 2)})
+        self.assertEqual(bpy.ops.curve.make_segment(), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertEqual(len(ob.data.splines), 7)
+        self.assertTrue(all((s.point_count_u, s.point_count_v) == (2, 2)
+                            for s in ob.data.splines))
+        self.assert_sheet_area(ob, 18)
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.extrude_selected((0, -1, 0))
+        self.assertEqual(len(ob.data.splines), 11)
+        self.assert_sheet_area(ob)
+
     def test_repeat_extrusion_keeps_existing_sheet(self):
         ob = self.add_line()
         self.extrude((0.0, 2.0, 0.0))

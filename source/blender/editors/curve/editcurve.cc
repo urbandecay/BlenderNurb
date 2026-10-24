@@ -4661,6 +4661,49 @@ static wmOperatorStatus make_segment_exec(bContext *C, wmOperator *op)
   if (!legacy_component_edit_sources_check(objects, op->reports)) {
     return OPERATOR_CANCELLED;
   }
+  const bool tagged = std::any_of(objects.begin(), objects.end(), [](const Object *object) {
+    const auto &curve = *id_cast<const Curve *>(object->data);
+    return bke::nurbs::legacy_topology_selection_check(curve.editnurb->nurbs);
+  });
+  if (tagged) {
+    Vector<std::optional<bke::nurbs::LegacyTopologyEdit>> candidates;
+    for (Object *object : objects) {
+      auto &curve = *id_cast<Curve *>(object->data);
+      if (!ED_curve_select_check(v3d, curve.editnurb)) {
+        candidates.append(std::nullopt);
+        continue;
+      }
+      if (curve.key != nullptr ||
+          !bke::nurbs::legacy_topology_selection_check(curve.editnurb->nurbs))
+      {
+        BKE_report(op->reports,
+                   RPT_ERROR,
+                   "Fill tagged NURBS topology separately from shape keys or other legacy curves");
+        return OPERATOR_CANCELLED;
+      }
+      std::string error;
+      candidates.append(bke::nurbs::legacy_topology_fill(curve.editnurb->nurbs, &error));
+      if (!candidates.last()) {
+        BKE_report(op->reports, RPT_ERROR, error.c_str());
+        return OPERATOR_CANCELLED;
+      }
+    }
+    bool changed = false;
+    for (const int i : objects.index_range()) {
+      if (!candidates[i] || candidates[i]->added.is_empty()) {
+        continue;
+      }
+      auto &curve = *id_cast<Curve *>(objects[i]->data);
+      nurbs_topology_edit_apply(curve, *candidates[i], op->reports);
+      if (ED_curve_updateAnimPaths(bmain, &curve)) {
+        WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, objects[i]);
+      }
+      DEG_id_tag_update(&curve.id, ID_RECALC_GEOMETRY);
+      WM_event_add_notifier(C, NC_GEOM | ND_DATA, &curve.id);
+      changed = true;
+    }
+    return changed ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  }
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
 

@@ -14,6 +14,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
+#include "BLI_math_vector_types.hh"
 #include "BLI_set.hh"
 
 #include "BKE_curve.hh"
@@ -590,6 +591,173 @@ std::optional<LegacyTopologyEdit> legacy_topology_extrude(const ListBaseT<Nurb> 
     }
   }
   /* A wire becomes the source boundary of a wall; don't retain a second stored edge owner. */
+  return result;
+}
+
+std::optional<LegacyTopologyEdit> legacy_topology_fill(const ListBaseT<Nurb> &source,
+                                                       std::string *r_error)
+{
+  auto input = LegacyTopologySource::create(source, r_error);
+  if (!input) {
+    return std::nullopt;
+  }
+  auto fail = [&](const char *message) -> std::optional<LegacyTopologyEdit> {
+    if (r_error != nullptr) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  Vector<int64_t> vertices, edges, faces;
+  auto filled = fill_components(
+      *input->geometry, component_selection(input->selection, vertices, edges, faces), r_error);
+  if (!filled) {
+    return std::nullopt;
+  }
+  LegacyTopologyEdit result;
+  if (filled->created_edges.is_empty() && filled->created_faces.is_empty()) {
+    return result;
+  }
+  if (filled->geometry->next_id > std::numeric_limits<int>::max()) {
+    return fail("Legacy NURBS topology identity space is exhausted");
+  }
+  result.removed_faces = input->recovered_faces;
+  result.recovered_patch_remnants = input->recovered_faces.size();
+  for (const int64_t id : filled->removed.faces) {
+    result.removed_faces.append(int(id));
+  }
+  const auto index = TopologyIndex::build(*filled->geometry, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  Set<int64_t> absorbed_vertices;
+  if (filled->created_faces.is_empty()) {
+    for (const int64_t id : filled->created_edges) {
+      const auto &edge = *index->edge(id);
+      const auto &parent = *input->vertex_splines.lookup(edge.vertex_ids[0]);
+      const auto &a = *input->vertices.lookup(edge.vertex_ids[0]);
+      const auto &b = *input->vertices.lookup(edge.vertex_ids[1]);
+      Nurb *line = make_line({&parent, int(&a - parent.bp), int(&a - parent.bp), nullptr});
+      line->bp[0] = a;
+      line->bp[1] = b;
+      line->bp[0].vec[3] = line->bp[1].vec[3] = 1;
+      line->topology_edge_ids[0] = int(id);
+      for (int i = 0; i < 2; i++) {
+        line->topology_vertex_ids[i] = int(edge.vertex_ids[i]);
+        absorbed_vertices.add(edge.vertex_ids[i]);
+      }
+      select_all_points(*line, true);
+      BLI_addtail(&result.added, line);
+    }
+  }
+  for (const int64_t id : filled->created_faces) {
+    const auto &face = *index->face(id);
+    const auto *loop = static_cast<const NurbsTopologyLoop *>(face.loops.first);
+    const NurbsSurfaceGeometry *surface = nullptr;
+    for (const auto &item : filled->geometry->surfaces) {
+      if (item.id == face.surface_id) {
+        surface = &item;
+        break;
+      }
+    }
+    if (!face.loops.is_single() || loop->is_inner || loop->edge_uses.count() != 4 ||
+        surface == nullptr || surface->order_u != 2 || surface->order_v != 2 ||
+        surface->points_num != 4 || surface->knots_u[1] != 0 || surface->knots_u[2] != 1 ||
+        surface->knots_v[1] != 0 || surface->knots_v[2] != 1)
+    {
+      return fail("This fill requires native trimmed-face storage; legacy topology is unchanged");
+    }
+    int64_t corner_ids[4], edge_ids[4];
+    float domains[2][4] = {{0, 0, 1, 1}, {0, 0, 1, 1}};
+    bool has_domain[2] = {false, false};
+    int slot = 0;
+    for (const auto &use : loop->edge_uses) {
+      const auto &edge = *index->edge(use.edge_id);
+      corner_ids[slot] = edge.vertex_ids[use.reversed ? 1 : 0];
+      edge_ids[slot] = edge.id;
+      absorbed_vertices.add(corner_ids[slot]);
+      if (const LegacyEdgeSource *original = input->edges.lookup_ptr(edge.id)) {
+        if (original->nurb->bp[original->start].vec[3] != 1 ||
+            original->nurb->bp[original->end].vec[3] != 1)
+        {
+          return fail("Legacy quad fill cannot preserve these rational boundary weights");
+        }
+        const int axis = slot % 2;
+        if (has_domain[axis] && !std::equal(original->knots, original->knots + 4, domains[axis])) {
+          return fail("Legacy quad fill requires matching opposite-edge parameter domains");
+        }
+        std::copy_n(original->knots, 4, domains[axis]);
+        has_domain[axis] = true;
+        if (original->nurb->pntsv == 1) {
+          result.removed_wires.append(int(edge.id));
+        }
+      }
+      slot++;
+    }
+    constexpr int point_slots[4] = {0, 1, 3, 2};
+    for (int i = 0; i < 4; i++) {
+      if (double3(surface->points[point_slots[i]].position) !=
+              double3(index->vertex(corner_ids[i])->position) ||
+          surface->points[point_slots[i]].weight != 1)
+      {
+        return fail(
+            "This fill requires native trimmed-face storage; legacy topology is unchanged");
+      }
+    }
+    const auto &parent = *input->vertex_splines.lookup(corner_ids[0]);
+    Nurb *patch = BKE_nurb_duplicate(&parent);
+    MEM_delete(patch->bp);
+    MEM_SAFE_DELETE(patch->knotsu);
+    MEM_SAFE_DELETE(patch->knotsv);
+    patch->pntsu = patch->pntsv = patch->orderu = patch->orderv = 2;
+    patch->flagu = patch->flagv = CU_NURB_ENDPOINT;
+    patch->hide = 0;
+    patch->bp = MEM_new_array<BPoint>(4, __func__);
+    patch->knotsu = MEM_new_array_uninitialized<float>(4, __func__);
+    patch->knotsv = MEM_new_array_uninitialized<float>(4, __func__);
+    std::copy_n(domains[0], 4, patch->knotsu);
+    std::copy_n(domains[1], 4, patch->knotsv);
+    for (int i = 0; i < 4; i++) {
+      patch->bp[point_slots[i]] = *input->vertices.lookup(corner_ids[i]);
+      patch->bp[point_slots[i]].vec[3] = 1;
+      patch->bp[point_slots[i]].hide = 0;
+      patch->topology_vertex_ids[i] = int(corner_ids[i]);
+      patch->topology_edge_ids[i] = int(edge_ids[i]);
+    }
+    if (face.orientation < 0) {
+      std::swap(patch->bp[0], patch->bp[2]);
+      std::swap(patch->bp[1], patch->bp[3]);
+      std::swap(patch->topology_vertex_ids[0], patch->topology_vertex_ids[3]);
+      std::swap(patch->topology_vertex_ids[1], patch->topology_vertex_ids[2]);
+      std::swap(patch->topology_edge_ids[0], patch->topology_edge_ids[2]);
+    }
+    patch->topology_face_id = int(id);
+    patch->mat_nr = face.material_index;
+    select_all_points(*patch, true);
+    BLI_addtail(&result.added, patch);
+  }
+  for (const int64_t id : absorbed_vertices) {
+    const Nurb &parent = *input->vertex_splines.lookup(id);
+    if (parent.pntsu == 1 && parent.pntsv == 1) {
+      result.removed_points.append(int(id));
+    }
+  }
+  // Check the complete tagged candidate before ED transfers any source ownership.
+  LegacyTopologyEdit candidate;
+  for (const Nurb &nurb : source) {
+    if (is_tagged(nurb) && !result.removed_faces.contains(nurb.topology_face_id) &&
+        !(nurb.pntsv == 1 && result.removed_wires.contains(nurb.topology_edge_ids[0])) &&
+        !(nurb.pntsu == 1 && result.removed_points.contains(nurb.topology_vertex_ids[0])))
+    {
+      BLI_addtail(&candidate.added, BKE_nurb_duplicate(&nurb));
+    }
+  }
+  for (const Nurb &nurb : result.added) {
+    BLI_addtail(&candidate.added, BKE_nurb_duplicate(&nurb));
+  }
+  OwnedGeometry checked(geometry_from_tagged_legacy(candidate.added, nullptr, r_error));
+  if (!checked) {
+    return std::nullopt;
+  }
   return result;
 }
 

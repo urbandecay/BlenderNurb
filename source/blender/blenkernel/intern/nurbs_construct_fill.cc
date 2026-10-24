@@ -333,11 +333,59 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     if (!chains) {
       return std::nullopt;
     }
-    if (chains->size() != 1) {
-      return fail(
-          "NURBS fill requires one boundary; separate or nested loops need an explicit layout");
+    EdgeChain chain;
+    if (chains->size() == 2 && closure->faces.is_empty() && (*chains)[0].edges.size() == 1 &&
+        (*chains)[1].edges.size() == 1 && !(*chains)[0].closed && !(*chains)[1].closed)
+    {
+      // Match BMesh edgenet_prepare: compare the two triangle-normal pairings to
+      // avoid a bow tie. This chooses layout; construction checks follow below.
+      const auto &a = (*chains)[0];
+      const auto &b = (*chains)[1];
+      double largest = 0;
+      for (const auto &part : *chains) {
+        for (const int64_t id : part.vertices) {
+          for (const double coordinate : index->vertex(id)->position) {
+            largest = std::max(largest, std::abs(coordinate));
+          }
+        }
+      }
+      const int exponent = largest == 0 ? 0 : std::ilogb(largest);
+      auto point = [&](const int64_t id) {
+        const double *position = index->vertex(id)->position;
+        return double3(std::scalbn(position[0], -exponent),
+                       std::scalbn(position[1], -exponent),
+                       std::scalbn(position[2], -exponent));
+      };
+      auto normal = [](const double3 a, const double3 b, const double3 c) {
+        const double3 value = math::cross(b - a, c - a);
+        const double length = std::hypot(value.x, value.y, value.z);
+        return length == 0 ? double3(0) : value / length;
+      };
+      const double3 v1 = point(a.vertices.first()), v2 = point(a.vertices.last());
+      const double3 v3 = point(b.vertices.first()), v4 = point(b.vertices.last());
+      const double dot_24 = math::dot(normal(v1, v2, v4), normal(v1, v4, v3));
+      const double dot_13 = math::dot(normal(v1, v2, v3), normal(v1, v3, v4));
+      const bool reverse = dot_24 >= dot_13;
+      chain = a;
+      chain.vertices.append(b.vertices[reverse ? 1 : 0]);
+      chain.vertices.append(b.vertices[reverse ? 0 : 1]);
+      chain.vertices.append(a.vertices.first());
+      chain.edges.append(0);
+      chain.edges.append(b.edges.first());
+      chain.edges.append(0);
+      chain.reversed.append(false);
+      chain.reversed.append(b.reversed.first() != reverse);
+      chain.reversed.append(false);
+      chain.closed = true;
     }
-    const auto &chain = chains->first();
+    else if (chains->size() == 1) {
+      chain = chains->first();
+    }
+    else {
+      return fail(
+          "NURBS fill requires one boundary or two open edges; separate or nested loops need "
+          "an explicit layout");
+    }
     Set<int64_t> boundary_vertices;
     for (const int64_t id : chain.vertices) {
       boundary_vertices.add(id);
@@ -590,6 +638,7 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
   }
   int orientation = 1;
   std::optional<int> incidence_orientation;
+  bool conflicting_hints = false;
   int material = 0;
   std::optional<int> selected_material;
   for (const NurbsTopologyFace &face : source.faces) {
@@ -605,6 +654,8 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     if (side.edge == 0) {
       continue;
     }
+    std::optional<int> edge_orientation;
+    bool conflicting_uses = false;
     for (const auto &reference : index->uses_for_edge(side.edge)) {
       const bool selected = closure->faces.contains(reference.face_id);
       if (!closure->faces.is_empty() && !selected) {
@@ -613,13 +664,26 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
       const int sense = index->face(reference.face_id)->orientation *
                         (reference.use->reversed ? -1 : 1);
       const int requested = (selected ? sense : -sense) * (side.reversed ? -1 : 1);
-      if (incidence_orientation && *incidence_orientation != requested) {
-        return fail("Fill boundary has conflicting face orientations");
+      conflicting_uses |= edge_orientation && *edge_orientation != requested;
+      edge_orientation = requested;
+    }
+    if (conflicting_uses) {
+      if (!closure->faces.is_empty()) {
+        return fail("Selected faces have conflicting merge orientations");
       }
-      incidence_orientation = requested;
+      // An existing manifold edge already has opposing uses. A third use cannot
+      // oppose both, but remains a valid editing state, as with edge extrusion.
+      continue;
+    }
+    if (edge_orientation) {
+      conflicting_hints |= incidence_orientation && *incidence_orientation != *edge_orientation;
+      incidence_orientation = edge_orientation;
     }
   }
-  if (incidence_orientation) {
+  if (conflicting_hints && !closure->faces.is_empty()) {
+    return fail("Selected faces have conflicting merge orientations");
+  }
+  if (incidence_orientation && !conflicting_hints) {
     orientation = *incidence_orientation;
   }
   double2 minimum(std::numeric_limits<double>::infinity()),

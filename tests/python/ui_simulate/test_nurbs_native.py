@@ -1597,3 +1597,59 @@ def component_fill():
     t.assertEqual(counts(), (6, 12, 6, 18, 1, 8))
     save('fill-merge-extrude.blend')
     yield e.tab()
+
+
+def two_edge_fill_duplicate_and_extrude():
+    """The native editor shares the same two-edge Fill geometry as the compatibility adapter."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    fixture = os.environ['BLENDER_NURBS_EXTRUSION_FIXTURE']
+    with bpy.data.libraries.load(fixture, link=False) as (_, data):
+        data.curves = ['Native preview line']
+    obj = bpy.data.objects.new('Native two-edge Fill', data.curves[0])
+    window.scene.collection.objects.link(obj)
+    obj.select_set(True)
+    window.view_layer.objects.active = obj
+    window.view_layer.update()
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield e.tab()
+    yield e.a()
+    yield e.shift.d().y().text('2').ret()
+    yield e.a()
+    yield e.two()
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    t.assertEqual(counts(), (4, 4, 2, 2, 0, 0))
+    yield e.f()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.ctrl.z()
+    t.assertEqual(counts(), (4, 4, 2, 2, 0, 0))
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    yield e.three()
+    yield e.shift.d().z().text('2').ret()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 12, 4, 16, 1, 7))
+    obj = window.view_layer.objects.active
+    t.assertTrue(obj.data.is_native_nurbs)
+    t.assertEqual(len(obj.data.splines), 0)
+    output = Path('/tmp/blender-nurbs-two-edge-fill-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'native-fill-duplicate-extrude.blend'),
+                                  check_existing=False)
+    yield e.tab()
