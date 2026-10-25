@@ -86,19 +86,27 @@ static void undocurve_to_editcurve(Main *bmain, UndoCurve *ucu, Curve *cu, short
   AnimData *ad = BKE_animdata_from_id(&cu->id);
 
   if (ucu->nurbs_snapshot != nullptr) {
-    if (cu->nurbs_geometry == nullptr || !cu->nurb.is_empty() || !editbase->is_empty()) {
-      CLOG_ERROR(&LOG, "NURBS undo source conflicts with legacy curve data");
-      return;
-    }
     std::string error;
     if (editnurb->nurbs_edit != nullptr) {
-      if (!editnurb->nurbs_edit->restore(*ucu->nurbs_snapshot, &error)) {
+      if (!bke::nurbs::curve_validate_source(*cu, &error) ||
+          !editnurb->nurbs_edit->restore(*ucu->nurbs_snapshot, &error))
+      {
         CLOG_ERROR(&LOG, "Unable to restore NURBS undo source: %s", error.c_str());
         return;
       }
     }
+    else if (!editbase->is_empty()) {
+      if (!bke::nurbs::curve_edit_restore_native(*cu, *ucu->nurbs_snapshot, &error)) {
+        CLOG_ERROR(&LOG, "Unable to restore NURBS source transition: %s", error.c_str());
+        return;
+      }
+    }
     else {
-      const bke::nurbs::EditSnapshot &snapshot = *ucu->nurbs_snapshot;
+      if (cu->nurbs_geometry == nullptr || !cu->nurb.is_empty()) {
+        CLOG_ERROR(&LOG, "NURBS undo source conflicts with legacy curve data");
+        return;
+      }
+      const auto &snapshot = *ucu->nurbs_snapshot;
       auto edit = bke::nurbs::EditData::create(*snapshot.geometry, snapshot.selection, &error);
       if (!edit) {
         CLOG_ERROR(&LOG, "Unable to create NURBS undo source: %s", error.c_str());
@@ -108,8 +116,11 @@ static void undocurve_to_editcurve(Main *bmain, UndoCurve *ucu, Curve *cu, short
     }
   }
   else if (editnurb->nurbs_edit != nullptr) {
-    CLOG_ERROR(&LOG, "Legacy curve undo snapshot cannot replace an active NURBS source");
-    return;
+    std::string error;
+    if (!bke::nurbs::curve_edit_restore_tagged(*cu, *undobase, &error)) {
+      CLOG_ERROR(&LOG, "Unable to restore tagged NURBS source transition: %s", error.c_str());
+      return;
+    }
   }
 
   BKE_nurbList_free(editbase);
@@ -299,9 +310,12 @@ static void curve_undosys_step_decode(
                  obedit->id.name);
       continue;
     }
+    const bool was_native = cu->editnurb->nurbs_edit != nullptr;
     undocurve_to_editcurve(bmain, &elem->data, id_cast<Curve *>(obedit->data), &obedit->shapenr);
     cu->editnurb->needs_flush_to_id = 1;
-    DEG_id_tag_update(&cu->id, ID_RECALC_GEOMETRY);
+    /* Source-kind transitions change the persistent payload as well as the edit data. */
+    const bool source_changed = was_native != (cu->editnurb->nurbs_edit != nullptr);
+    DEG_id_tag_update(&cu->id, ID_RECALC_GEOMETRY | (source_changed ? ID_RECALC_SYNC_TO_EVAL : 0));
   }
 
   /* The first element is always active */

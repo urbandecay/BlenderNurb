@@ -18,7 +18,8 @@
 
 namespace blender {
 struct Curve;
-}
+struct EditNurb;
+}  // namespace blender
 
 namespace blender::bke::nurbs {
 
@@ -126,5 +127,36 @@ class EditData {
   mutable std::mutex mutex_;
   std::shared_ptr<const detail::EditStateStorage> current_;
 };
+
+/** Prepared exact transition from the tagged prototype to the existing native edit pipeline.
+ * Keep source stamps to reject edits made between preparation and commit. No owner is mutated
+ * by preparation. Geometry/selection and persistent cache are installed together by commit.
+ */
+struct PreparedCurveSource {
+  const Curve *owner = nullptr;
+  const EditNurb *legacy_edit = nullptr;
+  Vector<uint8_t> legacy_stamp;
+  int active_spline = 0, active_point = 0;
+  std::unique_ptr<EditData> edit;
+  OwnedGeometry persistent;
+};
+
+std::optional<PreparedCurveSource> curve_edit_prepare_tagged(const Curve &curve,
+                                                             SelectionMode mode,
+                                                             std::string *r_error = nullptr);
+bool curve_edit_commit_tagged(Curve &curve,
+                              PreparedCurveSource candidate,
+                              std::string *r_error = nullptr);
+
+/** Restore the native side of an explicit tagged/native edit-undo transition. */
+bool curve_edit_restore_native(Curve &curve,
+                               const EditSnapshot &snapshot,
+                               std::string *r_error = nullptr);
+/** Release a native source for a validated tagged edit-undo snapshot. The caller owns restoring
+ * the legacy edit list and key-index mapping through Blender's existing undo services.
+ */
+bool curve_edit_restore_tagged(Curve &curve,
+                               const ListBaseT<Nurb> &snapshot,
+                               std::string *r_error = nullptr);
 
 }  // namespace blender::bke::nurbs

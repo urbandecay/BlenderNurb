@@ -28,6 +28,7 @@
 #include "BKE_main.hh"
 #include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_nurbs_topology.hh"
 #include "BKE_object.hh"
@@ -643,53 +644,80 @@ bool select_mode(bContext *C,
   if (r_changed != nullptr) {
     *r_changed = false;
   }
-  const auto current =
-      id_cast<Curve *>(CTX_data_edit_object(C)->data)->editnurb->nurbs_edit->selection().mode;
+  const Curve &active = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  const auto current = active.editnurb->nurbs_edit ?
+                           active.editnurb->nurbs_edit->selection().mode :
+                           SelectionMode::Vertex;
   const SelectionMode requested = extend ? SelectionMode(int(current) ^ int(mode)) : mode;
   if (int(requested) == 0) {
     return true;
   }
   Main &bmain = *CTX_data_main(C);
-  Vector<SelectionTarget> targets;
-  Vector<EditSnapshot> candidates;
+  const auto objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+      bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C));
+  Vector<std::optional<ReadSnapshot>> expected;
+  Vector<std::optional<EditSnapshot>> candidates;
+  Vector<std::optional<PreparedCurveSource>> promotions;
   std::string error;
-  for (Object *object : BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-           bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C)))
-  {
+  // Preflight every owner, including source-kind transitions, before any mutation.
+  for (Object *object : objects) {
     Curve &curve = *id_cast<Curve *>(object->data);
-    if (curve.editnurb->nurbs_edit == nullptr || !curve_validate_source(curve, &error)) {
-      if (error.empty()) {
-        error = "Mixed native and legacy NURBS selection modes are unsupported";
+    expected.append(std::nullopt);
+    candidates.append(std::nullopt);
+    promotions.append(std::nullopt);
+    if (curve.editnurb->nurbs_edit == nullptr) {
+      // Shared Curve data affects every object user, not just the active edit owner.
+      for (const Object &user : bmain.objects) {
+        if (user.data == &curve.id && !user.modifiers.is_empty()) {
+          BKE_report(CTX_wm_reports(C),
+                     RPT_ERROR,
+                     "NURBS component modes cannot yet preserve modifiers on this source");
+          return false;
+        }
       }
+      promotions.last() = curve_edit_prepare_tagged(curve, requested, &error);
+      if (!promotions.last()) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      continue;
+    }
+    if (!curve_validate_source(curve, &error)) {
       BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
       return false;
     }
-    targets.append({object, curve.editnurb->nurbs_edit->read_snapshot()});
+    expected.last() = curve.editnurb->nurbs_edit->read_snapshot();
     const auto selected = selection_change_mode(
-        targets.last().source.geometry(), targets.last().source.selection(), requested, &error);
+        expected.last()->geometry(), expected.last()->selection(), requested, &error);
     if (!selected) {
       BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
       return false;
     }
-    auto candidate = targets.last().source.copy_for_edit();
-    candidate.selection = *selected;
-    candidates.append(std::move(candidate));
+    candidates.last() = expected.last()->copy_for_edit();
+    candidates.last()->selection = *selected;
   }
   bool changed = false;
-  for (const int i : targets.index_range()) {
-    if (targets[i].source.selection().mode == requested) {
-      continue;
+  for (const int i : objects.index_range()) {
+    Curve &curve = *id_cast<Curve *>(objects[i]->data);
+    if (promotions[i]) {
+      if (!curve_edit_commit_tagged(curve, std::move(*promotions[i]), &error)) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      curve.editnurb->needs_flush_to_id = true;
+      bmain.is_memfile_undo_flush_needed = true;
+      DEG_id_tag_update_ex(
+          &bmain, &curve.id, ID_RECALC_GEOMETRY | ID_RECALC_SELECT | ID_RECALC_SYNC_TO_EVAL);
+      WM_event_add_notifier(C, NC_GEOM | ND_DATA, &curve.id);
+      changed = true;
     }
-    if (!edit_commit(bmain,
-                     *id_cast<Curve *>(targets[i].object->data),
-                     std::move(candidates[i]),
-                     targets[i].source,
-                     &error))
-    {
-      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
-      return false;
+    else if (expected[i]->selection().mode != requested) {
+      if (!edit_commit(bmain, curve, std::move(*candidates[i]), *expected[i], &error)) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      changed = true;
     }
-    changed = true;
   }
   if (r_changed != nullptr) {
     *r_changed = changed;

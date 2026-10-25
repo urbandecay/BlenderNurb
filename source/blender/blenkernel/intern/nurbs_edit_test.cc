@@ -1352,6 +1352,203 @@ static void expect_source_geometry_equal(const NurbsGeometry &actual,
   });
 }
 
+static Curve *make_tagged_edit_line(Main &bmain)
+{
+  Curve *curve = BKE_curve_add(&bmain, "Tagged component modes", OB_SURF);
+  auto *line = MEM_new<Nurb>(__func__);
+  line->type = CU_NURBS;
+  line->flag = CU_SMOOTH;
+  line->pntsu = line->orderu = line->orderv = 2;
+  line->pntsv = 1;
+  line->flagu = line->flagv = CU_NURB_ENDPOINT;
+  line->resolu = curve->resolu;
+  line->resolv = curve->resolv;
+  line->topology_vertex_ids[0] = 1;
+  line->topology_vertex_ids[1] = 2;
+  line->topology_edge_ids[0] = 3;
+  line->bp = MEM_new_array_zeroed<BPoint>(2, __func__);
+  for (int i = 0; i < 2; i++) {
+    line->bp[i].vec[0] = i == 0 ? -1 : 1;
+    line->bp[i].vec[3] = 1;
+    line->bp[i].radius = line->bp[i].weight = 1;
+    line->bp[i].f1 = SELECT;
+  }
+  BKE_nurb_knot_calc_u(line);
+  BLI_addtail(&curve->nurb, line);
+  curve->editnurb = MEM_new<EditNurb>(__func__);
+  BKE_nurbList_duplicate(&curve->editnurb->nurbs, &curve->nurb);
+  curve->actnu = curve->actvert = 0;
+  return curve;
+}
+
+TEST_F(NurbsNativeEditTest, TaggedModeEntryPreservesSourceAndInstallsOneAuthority)
+{
+  Main *bmain = BKE_main_new();
+  BLI_SCOPED_DEFER([&]() { BKE_main_free(bmain); });
+  Curve *curve = make_tagged_edit_line(*bmain);
+  // Unequal rational weights must survive source entry, not just endpoint positions.
+  Nurb &line = *static_cast<Nurb *>(curve->editnurb->nurbs.first);
+  line.bp[0].vec[3] = 2;
+  line.bp[1].vec[3] = 3;
+  std::string error;
+  OwnedGeometry original(geometry_from_tagged_legacy(curve->editnurb->nurbs, nullptr, &error));
+  ASSERT_NE(original, nullptr) << error;
+  const auto *old_source = curve->editnurb->nurbs.first;
+  auto prepared = curve_edit_prepare_tagged(*curve, SelectionMode::Edge, &error);
+  ASSERT_TRUE(prepared.has_value()) << error;
+  EXPECT_EQ(curve->editnurb->nurbs.first, old_source);
+  EXPECT_EQ(curve->nurbs_geometry, nullptr);
+  expect_source_geometry_equal(prepared->edit->geometry(), *original);
+  ASSERT_TRUE(curve_edit_commit_tagged(*curve, std::move(*prepared), &error)) << error;
+  ASSERT_NE(curve->editnurb->nurbs_edit, nullptr);
+  EXPECT_TRUE(curve->nurb.is_empty());
+  EXPECT_TRUE(curve->editnurb->nurbs.is_empty());
+  EXPECT_EQ(curve->editnurb->keyindex, nullptr);
+  EXPECT_TRUE(curve_validate_source(*curve, &error)) << error;
+  const auto &edit = *curve->editnurb->nurbs_edit;
+  expect_source_geometry_equal(edit.geometry(), *original);
+  EXPECT_EQ(edit.selection().mode, SelectionMode::Edge);
+  EXPECT_TRUE(edit.selection().edges.contains(3));
+  EXPECT_EQ(edit.selection().vertices.size(), 2);
+  const auto stored = selection_from_storage(curve->nurbs_geometry->stored_selection);
+  ASSERT_TRUE(stored.has_value());
+  EXPECT_EQ(stored->mode, SelectionMode::Edge);
+}
+
+TEST_F(NurbsNativeEditTest, TaggedModeEntryAllowsEmptySelectionAndRejectsUnmappedAttributes)
+{
+  Main *bmain = BKE_main_new();
+  BLI_SCOPED_DEFER([&]() { BKE_main_free(bmain); });
+  Curve *curve = make_tagged_edit_line(*bmain);
+  auto &line = *static_cast<Nurb *>(curve->editnurb->nurbs.first);
+  line.bp[0].f1 = line.bp[1].f1 = 0;
+  std::string error;
+  auto prepared = curve_edit_prepare_tagged(*curve, SelectionMode::Face, &error);
+  ASSERT_TRUE(prepared.has_value()) << error;
+  EXPECT_TRUE(prepared->edit->selection().vertices.is_empty());
+  EXPECT_EQ(prepared->edit->selection().mode, SelectionMode::Face);
+  for (int i = 0; i < 3; i++) {
+    line.bp[0].radius = i == 0 ? 2 : 1;
+    line.bp[0].tilt = i == 1 ? 0.25f : 0;
+    line.bp[0].hide = i == 2;
+    EXPECT_FALSE(curve_edit_prepare_tagged(*curve, SelectionMode::Edge, &error).has_value());
+    EXPECT_FALSE(error.empty());
+    EXPECT_EQ(curve->nurbs_geometry, nullptr);
+    EXPECT_EQ(curve->editnurb->nurbs_edit, nullptr);
+  }
+  line.bp[0].hide = 0;
+  line.bp[0].radius = 1;
+  line.bp[0].tilt = 0;
+  curve->extrude = 1;
+  EXPECT_FALSE(curve_edit_prepare_tagged(*curve, SelectionMode::Edge, &error).has_value());
+  curve->extrude = 0;
+  EXPECT_EQ(curve->editnurb->nurbs.count(), 1);
+}
+
+TEST_F(NurbsNativeEditTest, TaggedModeEntryRejectsStaleAndForeignCandidates)
+{
+  Main *bmain = BKE_main_new();
+  BLI_SCOPED_DEFER([&]() { BKE_main_free(bmain); });
+  Curve *curve = make_tagged_edit_line(*bmain);
+  Curve *other = make_tagged_edit_line(*bmain);
+  std::string error;
+  auto prepared = curve_edit_prepare_tagged(*curve, SelectionMode::Edge, &error);
+  ASSERT_TRUE(prepared.has_value()) << error;
+  auto &line = *static_cast<Nurb *>(curve->editnurb->nurbs.first);
+  line.bp[0].vec[0] = -2;
+  EXPECT_FALSE(curve_edit_commit_tagged(*curve, std::move(*prepared), &error));
+  EXPECT_EQ(line.bp[0].vec[0], -2);
+  EXPECT_EQ(curve->nurbs_geometry, nullptr);
+  prepared = curve_edit_prepare_tagged(*curve, SelectionMode::Edge, &error);
+  ASSERT_TRUE(prepared.has_value()) << error;
+  EXPECT_FALSE(curve_edit_commit_tagged(*other, std::move(*prepared), &error));
+  EXPECT_EQ(other->nurbs_geometry, nullptr);
+  EXPECT_EQ(curve->editnurb->nurbs_edit, nullptr);
+}
+
+TEST_F(NurbsNativeEditTest, TaggedNativeUndoTransitionsKeepSnapshotsAndEndpointsIndependent)
+{
+  Main *bmain = BKE_main_new();
+  BLI_SCOPED_DEFER([&]() { BKE_main_free(bmain); });
+  Curve *curve = make_tagged_edit_line(*bmain);
+  ListBaseT<Nurb> legacy = {nullptr, nullptr};
+  BKE_nurbList_duplicate(&legacy, &curve->editnurb->nurbs);
+  BLI_SCOPED_DEFER([&]() { BKE_nurbList_free(&legacy); });
+  std::string error;
+  auto prepared = curve_edit_prepare_tagged(*curve, SelectionMode::Edge, &error);
+  ASSERT_TRUE(prepared.has_value()) << error;
+  ASSERT_TRUE(curve_edit_commit_tagged(*curve, std::move(*prepared), &error)) << error;
+  const auto held = curve->editnurb->nurbs_edit->read_snapshot();
+  const auto native = held.copy_for_edit();
+  ASSERT_TRUE(curve_edit_restore_tagged(*curve, legacy, &error)) << error;
+  BKE_nurbList_duplicate(&curve->editnurb->nurbs, &legacy);
+  EXPECT_EQ(curve->nurbs_geometry, nullptr);
+  EXPECT_EQ(curve->editnurb->nurbs_edit, nullptr);
+  EXPECT_EQ(held.geometry().vertices.count(), 2);
+  ASSERT_TRUE(curve_edit_restore_native(*curve, native, &error)) << error;
+  EXPECT_TRUE(curve->nurb.is_empty());
+  EXPECT_TRUE(curve->editnurb->nurbs.is_empty());
+  EXPECT_EQ(curve->editnurb->nurbs_edit->selection().mode, SelectionMode::Edge);
+  expect_source_geometry_equal(curve->editnurb->nurbs_edit->geometry(), held.geometry());
+  EXPECT_FALSE(curve->editnurb->nurbs_edit->read_snapshot() == held);
+}
+
+TEST_F(NurbsNativeEditTest, NormalModeEntryFilesRetainCompleteSurfaceSourceAndSelection)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_MODE_ENTRY_OUTPUT");
+  if (!directory) {
+    GTEST_SKIP() << "Run after ordinary Add component-mode viewport tests";
+  }
+  BKE_blender_globals_main_replace(BKE_main_new());
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  ReportList reports;
+  BKE_reports_init(&reports, RPT_STORE);
+  BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+  BlendFileReadReport read_reports{};
+  read_reports.reports = &reports;
+  using LoadedFile = std::unique_ptr<BlendFileData, decltype(&BLO_blendfiledata_free)>;
+  auto load = [&](const char *name) {
+    char path[FILE_MAX];
+    BLI_path_join(path, sizeof(path), directory, name);
+    return LoadedFile(BLO_read_from_file(path, BLO_READ_SKIP_USERDEF, &read_reports),
+                      BLO_blendfiledata_free);
+  };
+  auto only_curve = [](const BlendFileData &file) -> const Curve * {
+    const Curve *found = nullptr;
+    for (const Curve &curve : file.main->curves) {
+      if (curve.id.us > 0) {
+        if (found) {
+          return nullptr;
+        }
+        found = &curve;
+      }
+    }
+    return found;
+  };
+  const auto before_file = load("existing-before.blend");
+  const auto after_file = load("existing-after.blend");
+  ASSERT_NE(before_file, nullptr);
+  ASSERT_NE(after_file, nullptr);
+  const auto *before = only_curve(*before_file);
+  const auto *after = only_curve(*after_file);
+  ASSERT_NE(before, nullptr);
+  ASSERT_NE(after, nullptr);
+  EXPECT_EQ(before->nurbs_geometry, nullptr);
+  EXPECT_EQ(before->nurb.count(), 6);
+  EXPECT_TRUE(after->nurb.is_empty());
+  ASSERT_NE(after->nurbs_geometry, nullptr);
+  std::string error;
+  OwnedGeometry expected(geometry_from_tagged_legacy(before->nurb, nullptr, &error));
+  ASSERT_NE(expected, nullptr) << error;
+  expect_source_geometry_equal(*after->nurbs_geometry, *expected);
+  const auto selected = selection_from_storage(after->nurbs_geometry->stored_selection);
+  ASSERT_TRUE(selected.has_value());
+  EXPECT_EQ(selected->mode, SelectionMode::Face);
+  EXPECT_EQ(selected->vertices.size(), 8);
+  EXPECT_EQ(selected->edges.size(), 12);
+  EXPECT_EQ(selected->faces.size(), 6);
+}
+
 TEST_F(NurbsNativeEditTest, ViewportFillFilesPreserveAuthoritativeSourceAndBoundaryIdentities)
 {
   const char *directory = std::getenv("BLENDER_NURBS_FILL_OUTPUT");

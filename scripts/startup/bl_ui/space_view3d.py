@@ -508,9 +508,11 @@ class VIEW3D_HT_header(Header):
 
         # Contains buttons like Mode, Pivot, Layer, Mesh Select Mode...
         if obj:
-            if object_mode == 'EDIT' and obj.type in {'CURVE', 'SURFACE'} and obj.data.is_native_nurbs:
+            if (object_mode == 'EDIT' and obj.type in {'CURVE', 'SURFACE'} and
+                    (obj.data.is_native_nurbs or obj.data.has_tagged_nurbs)):
                 modes = obj.data.nurbs_selection_mode
                 sub = row.row(align=True)
+                sub.operator_context = 'INVOKE_REGION_WIN'
                 for index, mode, icon in ((0, 'VERT', 'VERTEXSEL'), (1, 'EDGE', 'EDGESEL'), (2, 'FACE', 'FACESEL')):
                     sub.operator("curve.select_mode", text="", icon=icon, depress=modes[index]).type = mode
             # Particle edit

@@ -5,21 +5,27 @@ Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`,
 Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
-Latest completed checkpoint: Blender and thirteen targeted test executables build;
-**232 C++ kernel/editor/integration tests with no skips**, **39 NURBS Python cases**,
-the unit formatting/conversion regression, autosave and global-undo targets pass.
-Nineteen isolated viewport regressions pass, including two-edge Fill and the
-reported cube → individual vertex extrusions → connect → Fill → continue sequence.
-The normal Add/tagged path now calls the same Fill constructor for representable
-lines/quads, rather than the old control-net merger. Native F can add a third
-face use to an existing edge; normal-orientation hints do not reject useful
-non-manifold creation. Compatible planar region merging remains stricter.
-Native **1/2/3 Vertex/Edge/Face modes** and the broader exact native Fill subset
-remain implemented. New four-corner supports are real NURBS; no display Mesh is
-editable source. The newest viewport results were visually inspected. See the
-[Fill tryout](native_fill_tryout.md) for reproduction and remaining limits.
-Larger nonplanar loops, fit-point editing, ordinary native creation/migration,
-and full Stage 1 promotion remain gates.
+Latest completed checkpoint: ordinary Add/tagged prototype objects can enter the
+shared native NURBS path through real Vertex/Edge/Face header buttons and 1/2/3.
+Vertices are line/curve endpoints; edges are whole NURBS curves; faces are surface
+patches. Picking and drawing follow the active domain. Source entry preserves
+geometry/identities and has explicit legacy/native undo, redo and evaluated
+source synchronization. Existing rotated/scaled prototype models are covered.
+See [source-entry details and tryout](component_mode_entry.md).
+
+Blender and thirteen targeted test executables build. **237 C++ tests pass with
+no skips**, **39 NURBS Python cases** and five CTest targets pass. **22 isolated
+viewport regressions** passed during this stage; the three new source-entry cases
+were rerun after the final undo correction. The ordinary Add header and all three
+mode screenshots were visually inspected. Counts and exact commands are below.
+
+The preceding Fill checkpoint remains active: normal Add/tagged F uses the
+shared constructor for representable lines/quads, and native F supports broader
+trimmed planar results and the user's bending four-corner patch. Useful
+non-manifold new-face creation is allowed. Native editable source remains real
+NURBS. General untagged curve import, native primitive creation, fit-point curve
+editing and full Stage 1 promotion remain gates; source entry here is restricted
+to the complete tagged endpoint/line/patch prototype.
 Native **E** and **Delete** now use shared kernel candidates and the common owner
 commit. The reported extrude/delete/continue sequence passes on native source,
 alongside the repaired tagged prototype. Twenty-two new saved states are checked
@@ -3648,3 +3654,166 @@ edges or recovery from the actual source file; the fix does not guess lost IDs.
 The three frozen original input files and the original untracked handoff remain
 unchanged. Native creation/migration, fit-point editing, general trim/solid
 certification and the rest of the full editing pipeline remain unfinished.
+
+## Component-mode entry from ordinary Add and existing prototype objects
+
+The user clarified that vertices are endpoints of NURBS lines/curves. The prior
+native component modes worked only after opening a prepared native source.
+Ordinary Add still created tagged legacy records, so its header did not show the
+three controls and its drawing/picking remained on the legacy path. The missing
+piece was verified source entry, not another set of legacy selection flags.
+
+The header now exposes Vertex/Edge/Face buttons on complete tagged prototype
+sources. A click or 1/2/3 prepares an exact import through kernel services and
+installs native edit and persistent source ownership together. Coefficients,
+weights, knots and shared identities are retained; old editable spline storage
+is released in that same commit. The existing native selection, drawing,
+picking, Move, Duplicate, Extrude, Fill and Delete services handle the result.
+No geometry is reconstructed from preview triangles. Vertex picks endpoints,
+Edge picks whole curves without endpoint dots, and Face picks/highlights surfaces.
+Shift-click and Shift+1/2/3 combine modes. Mesh selection settings stay unchanged.
+
+Entry preflights all edit owners and modifier users of linked Curve data. Hidden
+source components, shape keys/animation, offsets/bevels, unmapped coefficient
+attributes and differing per-spline resolution reject with a diagnostic before
+mutation. General untagged CV curves/primitives are not silently promoted.
+See [source-entry architecture and scope](component_mode_entry.md).
+
+Undo restores either the complete original tagged source or native geometry,
+selection and mode. Source-kind changes explicitly synchronize the evaluated
+owner; otherwise a previously legacy evaluated copy can lack the immutable
+native source handoff. The corrected surface regression checks nonempty previews
+at every legacy/native and edit/object undo boundary. Saved native source is
+also compared against the complete imported rotated/scaled six-patch source,
+including every identity, coefficient, weight, knot, incidence and tolerance.
+
+The first build failed on a missing runtime BKE import header in `rna_curve.cc`;
+the include was corrected and the full build rerun. A Shift-click harness test
+initially released Shift in the same simulated event batch, before the deferred
+button action read window state. Holding Shift across dispatch exercises the
+actual behavior and passes. A temporary invoke diagnostic confirmed the event
+modifiers; it was removed before the final build. The modifier-preflight harness
+initially expected a Python exception, although context reports return CANCELLED;
+it now checks cancellation and verifies unchanged source, modifiers and radius.
+These harness corrections did not weaken source or geometry checks.
+
+Final build commands (application and thirteen targeted test executables):
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blender --parallel 4
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --parallel 4 \
+  --target blenkernel_nurbs_geometry_legacy_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_fill_test blenkernel_nurbs_differential_test \
+  blenkernel_nurbs_tessellate_test blenkernel_nurbs_mesh_test \
+  blenkernel_nurbs_object_test blenkernel_nurbs_transform_test blenkernel_unit_test \
+  editor_util_numinput_test editor_transform_transform_translate_precision_test
+```
+
+Application log: `/tmp/blender-nurbs-mode-entry-undo-sync-build.log`.
+Test build log: `/tmp/blender-nurbs-mode-entry-tests-build-final.log`.
+The new RNA property initially required a broader rebuild; earlier corrected
+builds are retained in `...-build-fixed.log`, `...-build-final.log` and
+`...-buttons-build.log`. Runtime scripts are installed in the same build's bin
+prefix, including the updated header row.
+
+New viewport tests use this exact environment and invocation (each case ran in
+its own process/socket; the shell loop is a repeatable equivalent):
+
+```sh
+export BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender
+export WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston
+export WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland
+export WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston
+for case in component_modes_from_normal_add component_modes_on_existing_surface \
+            component_mode_entry_preflight; do
+  nice -n 10 env -u DISPLAY python3 tests/utils/blender_headless.py \
+    --enable-event-simulate --factory-startup \
+    --python tests/python/ui_simulate/run_blender_setup.py \
+    -- --tests "test_nurbs_native.$case" || break
+done
+```
+
+All three exit **0**. Final logs are `/tmp/blender-nurbs-mode-entry-normal-add-ui-final.log`,
+`...-existing-ui-final.log` and `...-preflight-ui-final.log`. They cover actual Add
+menu/header interaction, shortcuts, exclusive component picking/drawing, combined
+header modes, continued E, source-kind undo/redo, generic memfile undo and linked
+owner/attribute rejection. The corrected new runs have no missing-source-handoff
+errors. Existing native R/S, automatic face-normal extrusion constraint and full
+fit-point editing remain unfinished; this source transition does not implement
+them.
+
+The previous nineteen viewport regressions also passed during this stage:
+eleven edit/legacy cases, five component/visibility/Fill cases, and three normal
+Add/native Fill continuations. Commands and per-case names match the preceding
+checkpoint, with runners `/tmp/blender-nurbs-run-mode-entry-regression-ui.py`,
+`...-modes-ui.py` and `...-extra-ui.py`. All summaries contain `FAILED []`;
+logs use `/tmp/blender-nurbs-mode-entry-{regression,modes,extra}-ui-summary.log`.
+The final undo synchronization affects source-kind changes exercised by the
+three new cases; those nineteen unchanged paths were not repeated again after
+that correction. Total stage coverage: **22 successful isolated viewport cases**.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux \
+  --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+Exit **0**, **5/5 targets**, 7.49 seconds,
+`/tmp/blender-nurbs-mode-entry-undo-sync-ctest.log`. This includes the unchanged
+**39 NURBS Python cases** (37 line/workflow and two legacy compatibility), plus
+units, autosave and global undo. All three frozen original reproduction files
+retain their previously recorded SHA-256 values.
+
+**Visually inspected:** `/tmp/blender-nurbs-normal-mode-ui/buttons-before-entry.png`
+shows the three header controls on the ordinary Add object before source entry.
+`vertex-mode.png`, `edge-mode.png` and `face-mode.png` show endpoint-only dots,
+edge selection without endpoint dots, and the selected surface/face marker.
+The final three mode screenshots were inspected again after the corrected undo
+build. Saved files are `normal-add-modes.blend`, `existing-before.blend` and
+`existing-after.blend` in that directory. These are new test artifacts; original
+user inputs were not overwritten. No user Blender instance was stopped.
+
+
+Application and all thirteen test executables built successfully, exit **0**.
+The preservation test was strengthened with unequal rational weights (2 and 3).
+Its test-only list access initially missed the required cast from the legacy
+void pointer; that compile error was fixed. The final test-only rebuild command
+was `nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target
+blenkernel_nurbs_edit_test --parallel 4`, exit **0**, in
+`/tmp/blender-nurbs-mode-entry-weight-test-build-fixed.log`.
+
+```sh
+python3 /tmp/blender-nurbs-run-mode-entry-kernel-checks.py
+```
+
+Exit **0**, `/tmp/blender-nurbs-mode-entry-kernel-summary-final.log`:
+**237 passed, zero skipped**. Suite counts: legacy 22, selection 35, geometry 54,
+edit/persistence 52, Fill 16, differential 9, tessellation 11, display Mesh 7,
+object 4, transform 16, units 3, numeric input 4, precise translation 4. Individual
+logs use `/tmp/blender-nurbs-mode-entry-<suite>-tests-final.log`.
+The runner invokes `build_linux/bin/tests/blenkernel_<suite>_test
+--gtest_color=no` for kernel suites and the two `editor_*_test` executables for
+editor suites; geometry also receives `--test-assets-dir tests/files` with the
+absolute checkout path. Edit/persistence runs with the following exact inputs
+and all UI producers already finished:
+
+```sh
+export BLENDER_NURBS_PREVIEW_FIXTURE=/tmp/blender-nurbs-native-preview.blend
+export BLENDER_NURBS_EDIT_OUTPUT=/tmp/blender-nurbs-linked-ui
+export BLENDER_NURBS_MOVE_OUTPUT=/tmp/blender-nurbs-move-ui
+export BLENDER_NURBS_DUPLICATE_OUTPUT=/tmp/blender-nurbs-duplicate-ui
+export BLENDER_NURBS_EXTRUSION_FIXTURE=/tmp/blender-nurbs-native-extrusion-fixture.blend
+export BLENDER_NURBS_EXTRUSION_OUTPUT=/tmp/blender-nurbs-native-extrusion-ui
+export BLENDER_NURBS_COMPONENT_OUTPUT=/tmp/blender-nurbs-component-ui
+export BLENDER_NURBS_FILL_OUTPUT=/tmp/blender-nurbs-fill-ui
+export BLENDER_NURBS_MODE_ENTRY_OUTPUT=/tmp/blender-nurbs-normal-mode-ui
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test --gtest_color=no
+```
+
+The five new C++ cases cover exact source entry with unequal weights, empty
+selection, unmapped attribute rejection, stale/foreign candidates, retained
+snapshots across source-kind undo, independent edit lifetimes, and full saved
+surface-source comparison. Python syntax, changed-C++ clang-format checks and
+`git diff --check` also pass. The original untracked handoff remains unstaged.

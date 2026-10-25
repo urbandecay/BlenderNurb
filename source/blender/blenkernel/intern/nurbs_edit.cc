@@ -6,12 +6,16 @@
  * \ingroup bke
  */
 
+#include <algorithm>
+#include <cstring>
 #include <limits>
 
 #include "BLI_listbase.h"
 
 #include "BKE_curve.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_legacy_edit.hh"
+#include "BKE_nurbs_mesh.hh"
 
 namespace blender::bke::nurbs {
 
@@ -383,6 +387,234 @@ bool curve_edit_flush_to_id(Curve &curve, std::string *r_error)
   geometry_free(curve.nurbs_geometry);
   curve.nurbs_geometry = copy.release();
   curve.editnurb->needs_flush_to_id = 0;
+  return true;
+}
+
+namespace {
+
+static bool tagged_owner_check(const Curve &curve, std::string *r_error)
+{
+  if (curve.nurbs_eval_source != nullptr || curve.key != nullptr || curve.adt != nullptr ||
+      !ELEM(curve.ob_type, OB_SURF, OB_CURVES_LEGACY) || curve.bevobj || curve.taperobj ||
+      curve.offset != 1.0f || curve.extrude != 0 || curve.bevel_radius != 0)
+  {
+    if (r_error) {
+      *r_error =
+          "Component modes cannot yet preserve this source's shape keys, animation, "
+          "offsets or bevels";
+    }
+    return false;
+  }
+  return true;
+}
+
+static std::optional<Vector<uint8_t>> tagged_source_stamp(const Curve &curve)
+{
+  Vector<uint8_t> bytes;
+  auto append = [&](const void *data, const size_t size) {
+    const int64_t start = bytes.size();
+    bytes.resize(start + size);
+    if (size) {
+      std::memcpy(bytes.data() + start, data, size);
+    }
+  };
+  append(&curve.id.session_uid, sizeof(curve.id.session_uid));
+  append(&curve.ob_type, sizeof(curve.ob_type));
+  append(&curve.flag, sizeof(curve.flag));
+  for (const Nurb &nurb : curve.editnurb->nurbs) {
+    const bool point = nurb.pntsu == 1 && nurb.pntsv == 1;
+    if (!nurb.bp ||
+        (!point && (nurb.pntsu != 2 || nurb.orderu != 2 || !ELEM(nurb.pntsv, 1, 2) ||
+                    !nurb.knotsu || (nurb.pntsv == 2 && (nurb.orderv != 2 || !nurb.knotsv)))))
+    {
+      return std::nullopt;
+    }
+    append(&nurb, sizeof(nurb));
+    append(nurb.bp, sizeof(BPoint) * nurb.pntsu * nurb.pntsv);
+    if (!point) {
+      append(nurb.knotsu, sizeof(float) * 4);
+      if (nurb.pntsv == 2) {
+        append(nurb.knotsv, sizeof(float) * 4);
+      }
+    }
+  }
+  return bytes;
+}
+
+static OwnedGeometry persistent_source(const EditSnapshot &snapshot, std::string *r_error)
+{
+  if (!snapshot.geometry) {
+    if (r_error) {
+      *r_error = "NURBS source snapshot has no geometry";
+    }
+    return nullptr;
+  }
+  OwnedGeometry geometry(geometry_copy(snapshot.geometry.get()));
+  selection_storage_free(geometry->stored_selection);
+  geometry->stored_selection = selection_to_storage(snapshot.selection, r_error);
+  if (!geometry->stored_selection) {
+    return nullptr;
+  }
+  return geometry;
+}
+
+}  // namespace
+
+std::optional<PreparedCurveSource> curve_edit_prepare_tagged(const Curve &curve,
+                                                             const SelectionMode mode,
+                                                             std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  if (!tagged_owner_check(curve, r_error)) {
+    return std::nullopt;
+  }
+  if (curve.nurbs_geometry || !curve.editnurb || curve.editnurb->nurbs_edit) {
+    if (r_error) {
+      *r_error = "Source is not an editable tagged NURBS prototype";
+    }
+    return std::nullopt;
+  }
+  for (const Nurb &nurb : curve.editnurb->nurbs) {
+    if ((nurb.resolu && nurb.resolu != curve.resolu) ||
+        (nurb.resolv && nurb.resolv != curve.resolv))
+    {
+      if (r_error) {
+        *r_error = "Component modes cannot yet preserve per-spline preview resolutions";
+      }
+      return std::nullopt;
+    }
+  }
+  auto snapshot = legacy_topology_import_edit(curve.editnurb->nurbs, r_error);
+  if (!snapshot) {
+    return std::nullopt;
+  }
+  if (curve.actnu >= 0 && curve.actvert >= 0) {
+    if (const auto *active = static_cast<const Nurb *>(
+            BLI_findlink(&curve.editnurb->nurbs, curve.actnu)))
+    {
+      if (curve.actvert < active->pntsu * active->pntsv) {
+        constexpr int point_to_corner[4] = {0, 1, 3, 2};
+        const int corner = active->pntsv == 2 ? point_to_corner[curve.actvert] : curve.actvert;
+        const int64_t id = active->topology_vertex_ids[corner];
+        if (snapshot->selection.vertices.contains(id)) {
+          snapshot->selection.active = ElementRef{ElementDomain::Vertex, id};
+          snapshot->selection.history.append(*snapshot->selection.active);
+        }
+      }
+    }
+  }
+  auto selected = selection_change_mode(*snapshot->geometry, snapshot->selection, mode, r_error);
+  if (!selected) {
+    return std::nullopt;
+  }
+  snapshot->selection = std::move(*selected);
+  auto stamp = tagged_source_stamp(curve);
+  if (!stamp) {
+    return std::nullopt;
+  }
+  PreparedCurveSource result;
+  result.owner = &curve;
+  result.legacy_edit = curve.editnurb;
+  result.legacy_stamp = std::move(*stamp);
+  result.active_spline = curve.actnu;
+  result.active_point = curve.actvert;
+  result.persistent = persistent_source(*snapshot, r_error);
+  result.edit = EditData::create(*snapshot->geometry, snapshot->selection, r_error);
+  if (!result.persistent || !result.edit) {
+    return std::nullopt;
+  }
+  SurfacePreviewOptions options;
+  options.boundary.segments_per_span = std::max(curve.resolu, curve.resolv);
+  options.interior_subdivisions = std::max(curve.resolu, curve.resolv);
+  if (!evaluate_mesh(result.edit->read_snapshot(), options, r_error)) {
+    return std::nullopt;
+  }
+  return result;
+}
+
+bool curve_edit_commit_tagged(Curve &curve, PreparedCurveSource candidate, std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  if (!tagged_owner_check(curve, r_error)) {
+    return false;
+  }
+  if (candidate.owner != &curve || candidate.legacy_edit != curve.editnurb || !curve.editnurb ||
+      curve.editnurb->nurbs_edit || curve.nurbs_geometry ||
+      candidate.active_spline != curve.actnu || candidate.active_point != curve.actvert ||
+      !candidate.edit || !candidate.persistent)
+  {
+    if (r_error) {
+      *r_error = "NURBS source changed since component-mode entry was prepared";
+    }
+    return false;
+  }
+  const auto stamp = tagged_source_stamp(curve);
+  if (!stamp || stamp->as_span() != candidate.legacy_stamp.as_span()) {
+    if (r_error) {
+      *r_error = "NURBS source changed since component-mode entry was prepared";
+    }
+    return false;
+  }
+  BKE_curve_editNurb_keyIndex_free(&curve.editnurb->keyindex);
+  BKE_nurbList_free(&curve.editnurb->nurbs);
+  BKE_nurbList_free(&curve.nurb);
+  curve.nurbs_geometry = candidate.persistent.release();
+  curve.editnurb->nurbs_edit = candidate.edit.release();
+  curve.actnu = curve.actvert = CU_ACT_NONE;
+  return true;
+}
+
+bool curve_edit_restore_native(Curve &curve, const EditSnapshot &snapshot, std::string *r_error)
+{
+  if (!snapshot.geometry || !curve.editnurb || curve.nurbs_eval_source || curve.key ||
+      !legacy_topology_source_check(curve.editnurb->nurbs))
+  {
+    if (r_error) {
+      *r_error = "Native undo transition requires the original tagged NURBS owner";
+    }
+    return false;
+  }
+  auto edit = EditData::create(*snapshot.geometry, snapshot.selection, r_error);
+  auto persistent = persistent_source(snapshot, r_error);
+  if (!edit || !persistent) {
+    return false;
+  }
+  BKE_curve_editNurb_keyIndex_free(&curve.editnurb->keyindex);
+  BKE_nurbList_free(&curve.editnurb->nurbs);
+  BKE_nurbList_free(&curve.nurb);
+  geometry_free(curve.nurbs_geometry);
+  curve.nurbs_geometry = persistent.release();
+  curve.editnurb->nurbs_edit = edit.release();
+  return true;
+}
+
+bool curve_edit_restore_tagged(Curve &curve, const ListBaseT<Nurb> &snapshot, std::string *r_error)
+{
+  if (!curve.editnurb || !curve.editnurb->nurbs_edit || curve.nurbs_eval_source || curve.key ||
+      !legacy_topology_source_check(snapshot))
+  {
+    if (r_error) {
+      *r_error = "Legacy undo transition requires a tagged NURBS snapshot";
+    }
+    return false;
+  }
+  // Import validates the geometry/IDs, while the undo list retains all original attributes.
+  OwnedGeometry checked(geometry_from_tagged_legacy(snapshot, nullptr, r_error));
+  if (!checked) {
+    return false;
+  }
+  ListBaseT<Nurb> persistent = {nullptr, nullptr};
+  BKE_nurbList_duplicate(&persistent, &snapshot);
+  MEM_delete(curve.editnurb->nurbs_edit);
+  curve.editnurb->nurbs_edit = nullptr;
+  geometry_free(curve.nurbs_geometry);
+  curve.nurbs_geometry = nullptr;
+  BKE_nurbList_free(&curve.nurb);
+  curve.nurb = persistent;
   return true;
 }
 

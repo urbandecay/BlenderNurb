@@ -45,6 +45,13 @@ static bool is_tagged(const Nurb &nurb)
          nurb.topology_vertex_ids[0] != 0;
 }
 
+bool legacy_topology_source_check(const ListBaseT<Nurb> &source)
+{
+  return !source.is_empty() && std::all_of(source.begin(), source.end(), [](const Nurb &nurb) {
+    return nurb.type == CU_NURBS && is_tagged(nurb);
+  });
+}
+
 static bool has_selected_points(const Nurb &nurb)
 {
   if (nurb.hide) {
@@ -190,7 +197,8 @@ struct LegacyTopologySource {
   Vector<int> recovered_faces;
 
   static std::optional<LegacyTopologySource> create(const ListBaseT<Nurb> &source,
-                                                    std::string *r_error)
+                                                    std::string *r_error,
+                                                    const bool allow_empty_selection = false)
   {
     if (r_error != nullptr) {
       r_error->clear();
@@ -293,13 +301,53 @@ struct LegacyTopologySource {
     }
     selection->faces.remove_if([&](const int64_t id) { return !visible_faces.contains(id); });
     selection->edges.remove_if([&](const int64_t id) { return !visible_edges.contains(id); });
-    if (selection->vertices.is_empty()) {
+    if (!allow_empty_selection && selection->vertices.is_empty()) {
       return fail("No visible NURBS topology vertices are selected");
     }
     result.selection = std::move(*selection);
     return result;
   }
 };
+
+std::optional<EditSnapshot> legacy_topology_import_edit(const ListBaseT<Nurb> &source,
+                                                        std::string *r_error)
+{
+  auto fail = [&](const char *message) -> std::optional<EditSnapshot> {
+    if (r_error != nullptr) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  if (!legacy_topology_source_check(source)) {
+    return fail("Component modes require a complete tagged NURBS endpoint, line or patch source");
+  }
+  // Native visibility and coefficient attributes need explicit mappings before they can migrate.
+  for (const Nurb &nurb : source) {
+    if (nurb.hide || nurb.bp == nullptr || nurb.flag != CU_SMOOTH ||
+        !((nurb.pntsu == 1 && nurb.pntsv == 1) || (nurb.pntsu == 2 && ELEM(nurb.pntsv, 1, 2))))
+    {
+      return fail("This legacy NURBS source has unsupported visibility or spline attributes");
+    }
+    for (int i = 0; i < nurb.pntsu * nurb.pntsv; i++) {
+      const BPoint &point = nurb.bp[i];
+      if (point.hide || point.radius != 1 || point.tilt != 0 || point.weight != 1 ||
+          !(point.vec[3] > 0))
+      {
+        return fail(
+            "Component-mode entry cannot yet preserve hidden points, radii, tilt or "
+            "non-positive rational weights");
+      }
+    }
+  }
+  auto input = LegacyTopologySource::create(source, r_error, true);
+  if (!input) {
+    return std::nullopt;
+  }
+  if (!input->recovered_faces.is_empty()) {
+    return fail("Repair legacy patch remnants before entering shared NURBS component modes");
+  }
+  return EditSnapshot{std::move(input->geometry), std::move(input->selection)};
+}
 
 static Nurb *copy_face(const Nurb &source, const Map<int64_t, int64_t> &ids)
 {

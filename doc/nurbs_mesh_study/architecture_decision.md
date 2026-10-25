@@ -671,8 +671,9 @@ boundary vertices; a planar trimmed concave quad must not become a folded legacy
 bilinear patch. Incompatible weights, domains and trim layouts fail atomically.
 
 This follows the existing architecture's restricted compatibility-client policy.
-It does not add owner migration: the current undo contract deliberately rejects
-legacy/native owner replacement without a separately verified migration design.
+That checkpoint did not add owner migration: its undo contract rejected
+legacy/native owner replacement. The later source-entry design below introduces
+an explicit, verified transition for the complete tagged prototype.
 The normal Add → duplicate/add another line → F → duplicate → E workflow now has
 Python and viewport coverage, beside native two-edge coverage and BMesh topology
 comparisons. The already-damaged source still needs Undo or source-file recovery.
@@ -689,3 +690,36 @@ to replacing a selected face region. The regression proves the existing edge ID
 has three uses and that the added NURBS face can be extruded, in kernel, native
 viewport and normal Add/tagged workflows. Useful non-manifold editing is not a
 closed-solid validity claim.
+
+
+## Component-mode source entry
+
+Ordinary Add and legacy-mode modelling still produce tagged prototype records.
+The existing native V/E/F picker and drawer therefore could not handle those
+objects. Component-mode selection now prepares an exact source import in BKE,
+validates supported attributes and preview evaluation, and installs native edit
+and persistent ownership together. The old editable list is released in that
+same commit. Neither coordinate welding nor display-Mesh reconstruction is used.
+Editors preflight every participating data owner, including modifier users of
+linked Curve data, before committing. Unsupported attributes reject explicitly.
+
+The normal editing definition follows the user: a vertex is a shared endpoint,
+an edge is its NURBS line/curve, and a face is a NURBS surface patch. Selection
+flags, hit filtering and drawing stay in the existing native pipeline rather
+than gaining another legacy implementation. Header controls and 1/2/3 use the
+same selection-mode service; Shift combinations follow mesh interaction.
+
+Undo snapshots retain either the full original tagged list or native source and
+selection. Explicit kernel restore services change owner kind; other legacy
+undo behavior remains unchanged. Kind changes request evaluation synchronization
+so the viewport gets a fresh immutable native source lease. Held read snapshots
+survive undo, and new edit lifetimes have distinct state tokens. Generic
+object-mode/memfile undo and full saved-source comparisons are covered as well.
+
+This is restricted entry for complete tagged endpoints, two-point lines and
+2-by-2 patches. It is not arbitrary old-curve conversion, general native primitive
+creation or fit-point editing. Exact rational circles/arcs are still source
+geometry, not fit approximations; their ordinary editing workflow requires its
+own fit/seam policy. Native R/S and the remaining transform, visibility, snapping
+and Python component APIs remain unfinished. See
+[component-mode source entry](component_mode_entry.md) and the latest checkout audit.

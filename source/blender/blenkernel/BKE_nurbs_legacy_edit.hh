@@ -15,6 +15,8 @@
 
 #include "DNA_curve_types.h"
 
+#include "BKE_nurbs_edit.hh"
+
 namespace blender::bke::nurbs {
 
 enum class DeleteMode;
@@ -41,6 +43,15 @@ struct LegacyTopologyEdit {
   LegacyTopologyEdit(LegacyTopologyEdit &&other) noexcept;
   ~LegacyTopologyEdit();
 };
+
+/** Whether the complete list belongs to the tagged endpoint/line/patch prototype. */
+bool legacy_topology_source_check(const ListBaseT<Nurb> &source);
+
+/** Exact source/selection import for component-mode entry. Reject unsupported attributes and
+ * mixed source types before dropping any legacy storage. Empty selections are valid.
+ */
+std::optional<EditSnapshot> legacy_topology_import_edit(const ListBaseT<Nurb> &source,
+                                                        std::string *r_error = nullptr);
 
 /** Whether any visible selected point belongs to a topology-tagged source spline. */
 bool legacy_topology_selection_check(const ListBaseT<Nurb> &source);

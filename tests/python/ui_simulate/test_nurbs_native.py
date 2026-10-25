@@ -1653,3 +1653,262 @@ def two_edge_fill_duplicate_and_extrude():
         bpy.ops.wm.save_as_mainfile(filepath=str(output / 'native-fill-duplicate-extrude.blend'),
                                   check_existing=False)
     yield e.tab()
+
+
+def component_modes_from_normal_add():
+    """Normal Add exposes real modes, including undo across exact source migration."""
+    import re
+    from pathlib import Path
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    header = next(r for r in area.regions if r.type == 'HEADER')
+    space = area.spaces.active
+    output = Path('/tmp/blender-nurbs-normal-mode-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    mesh_mode = tuple(window.scene.tool_settings.mesh_select_mode)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 1, 0)
+    space.region_3d.view_distance = 6
+    space.shading.show_xray = True
+    space.overlay.show_stats = True
+    yield
+
+    def curve():
+        return window.view_layer.objects.active.data
+
+    def mode():
+        return tuple(curve().nurbs_selection_mode)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def screen(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def capture(label):
+        t.assertEqual(tuple(window.scene.tool_settings.mesh_select_mode), mesh_mode)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / (label + '.png')))
+
+    t.assertTrue(curve().has_tagged_nurbs)
+    t.assertFalse(curve().is_native_nurbs)
+    capture('buttons-before-entry')
+    yield e.cursor_position_set(header.x + 177, header.y + header.height // 2, move=True)
+    yield e.leftmouse()
+    t.assertTrue(curve().is_native_nurbs)
+    t.assertEqual(mode(), (False, True, False))
+    t.assertEqual(len(curve().splines), 0)
+    t.assertEqual(counts(), (2, 2, 1, 1, 0, 0))
+    capture('line-edge-mode')
+    yield e.ctrl.z()
+    t.assertFalse(curve().is_native_nurbs)
+    t.assertTrue(curve().has_tagged_nurbs)
+    t.assertEqual(len(curve().splines), 1)
+    yield e.ctrl.shift.z()
+    t.assertTrue(curve().is_native_nurbs)
+    t.assertEqual(mode(), (False, True, False))
+    t.assertEqual(counts(), (2, 2, 1, 1, 0, 0))
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.e().y().text('2').ret()
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    yield e.three()
+    yield e.alt.a()
+    yield e.cursor_position_set(*screen((0, 1, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+    capture('face-mode')
+    yield e.two()
+    yield e.alt.a()
+    yield e.cursor_position_set(*screen((0, 0, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+    capture('edge-mode')
+    yield e.one()
+    yield e.alt.a()
+    yield e.cursor_position_set(*screen((-1, 0, 0)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts(), (1, 4, 0, 4, 0, 1))
+    capture('vertex-mode')
+    # Click the same header button positions used by the native mode controls.
+    for x, expected in ((177, (False, True, False)), (197, (False, False, True)),
+                        (155, (True, False, False))):
+        yield e.cursor_position_set(header.x + x, header.y + header.height // 2, move=True)
+        yield e.leftmouse()
+        t.assertEqual(mode(), expected)
+    yield e.cursor_position_set(header.x + 177, header.y + header.height // 2, move=True)
+    # Keep Shift held while the deferred UI button action reads the window event state.
+    e.shift.press()
+    yield
+    yield e.leftmouse()
+    e.shift.release()
+    yield
+    t.assertEqual(mode(), (True, True, False))
+    yield e.cursor_position_set(header.x + 197, header.y + header.height // 2, move=True)
+    e.shift.press()
+    yield
+    yield e.leftmouse()
+    e.shift.release()
+    yield
+    t.assertEqual(mode(), (True, True, True))
+    yield e.cursor_position_set(header.x + 155, header.y + header.height // 2, move=True)
+    yield e.leftmouse()
+    t.assertEqual(mode(), (True, False, False))
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.three()
+    yield e.a()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'normal-add-modes.blend'), check_existing=False)
+    yield e.tab()
+    yield e.tab()
+    t.assertEqual(mode(), (False, False, True))
+    t.assertEqual(counts(), (4, 8, 4, 12, 1, 6))
+    yield e.tab()
+
+
+def component_modes_on_existing_surface():
+    """A model made with the ordinary legacy tools enters the same source mode pipeline."""
+    import re
+    from pathlib import Path
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path('/tmp/blender-nurbs-normal-mode-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.e().y().text('2').ret()
+    yield e.a()
+    yield e.e().z().text('1').ret()
+    yield e.a()
+    yield e.r().z().text('23').ret()
+    yield e.s().text('1.25').ret()
+    obj = window.view_layer.objects.active
+    obj.update_from_editmode()
+    t.assertFalse(obj.data.is_native_nurbs)
+    t.assertEqual(len(obj.data.splines), 6)
+    before = [tuple(tuple(point.co) for point in spline.points) for spline in obj.data.splines]
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'existing-before.blend'), check_existing=False)
+    def display_faces():
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            obj = window.view_layer.objects.active
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(mesh, "Source transition lost the NURBS preview")
+                return len(mesh.polygons)
+            finally:
+                evaluated.to_mesh_clear()
+
+    t.assertGreater(display_faces(), 0)
+    yield e.three()
+    obj = window.view_layer.objects.active
+    t.assertTrue(obj.data.is_native_nurbs)
+    t.assertEqual(tuple(obj.data.nurbs_selection_mode), (False, False, True))
+    stats = window.scene.statistics(window.view_layer)
+    match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+    t.assertIsNotNone(match, stats)
+    t.assertEqual(tuple(map(int, match.groups())), (8, 8, 12, 12, 6, 6))
+    t.assertGreater(display_faces(), 0)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'existing-after.blend'), check_existing=False)
+    yield e.ctrl.z()
+    obj = window.view_layer.objects.active
+    obj.update_from_editmode()
+    t.assertFalse(obj.data.is_native_nurbs)
+    t.assertEqual([tuple(tuple(point.co) for point in spline.points) for spline in obj.data.splines], before)
+    t.assertGreater(display_faces(), 0)
+    yield e.ctrl.shift.z()
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertGreater(display_faces(), 0)
+    yield e.tab()
+    yield e.ctrl.z()
+    t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertGreater(display_faces(), 0)
+    yield e.ctrl.z()
+    t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertGreater(display_faces(), 0)
+    yield e.ctrl.shift.z()
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertGreater(display_faces(), 0)
+    yield e.ctrl.shift.z()
+    t.assertEqual(window.view_layer.objects.active.mode, 'OBJECT')
+
+
+def component_mode_entry_preflight():
+    """A failed entry preserves source, including modifiers on another user of its data."""
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    obj = window.view_layer.objects.active
+    linked = bpy.data.objects.new('Other source user', obj.data)
+    window.scene.collection.objects.link(linked)
+    modifier = linked.modifiers.new('Preserved hook', 'HOOK')
+    yield e.tab()
+    curve = obj.data
+    before = [tuple(p.co) for s in curve.splines for p in s.points]
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        try:
+            result = bpy.ops.curve.select_mode(type='EDGE')
+        except RuntimeError as error:
+            t.assertIn('modifiers', str(error))
+        else:
+            t.assertEqual(result, {'CANCELLED'})
+    t.assertFalse(curve.is_native_nurbs)
+    t.assertEqual([tuple(p.co) for s in curve.splines for p in s.points], before)
+    t.assertEqual(len(linked.modifiers), 1)
+    linked.modifiers.remove(modifier)
+    point = curve.splines[0].points[0]
+    point.radius = 2
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        try:
+            result = bpy.ops.curve.select_mode(type='FACE')
+        except RuntimeError as error:
+            t.assertIn('radii', str(error))
+        else:
+            t.assertEqual(result, {'CANCELLED'})
+    t.assertFalse(curve.is_native_nurbs)
+    t.assertEqual(point.radius, 2)
+    point.radius = 1
+    yield e.two()
+    t.assertTrue(curve.is_native_nurbs)
+    t.assertTrue(linked.data.is_native_nurbs)
+    t.assertEqual(tuple(curve.nurbs_selection_mode), (False, True, False))
+    yield e.ctrl.z()
+    t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+    yield e.ctrl.shift.z()
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    yield e.tab()

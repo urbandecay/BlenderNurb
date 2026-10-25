@@ -28,6 +28,7 @@
 #include "BKE_fcurve.hh"
 #include "BKE_layer.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_report.hh"
 
 #include "WM_api.hh"
@@ -682,7 +683,9 @@ static bool native_select_mode_poll(bContext *C)
     return false;
   }
   const Curve &curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
-  return curve.editnurb != nullptr && curve.editnurb->nurbs_edit != nullptr;
+  return curve.editnurb != nullptr &&
+         (curve.editnurb->nurbs_edit != nullptr ||
+          bke::nurbs::legacy_topology_source_check(curve.editnurb->nurbs));
 }
 
 static wmOperatorStatus select_mode_exec(bContext *C, wmOperator *op)
@@ -696,23 +699,36 @@ static wmOperatorStatus select_mode_exec(bContext *C, wmOperator *op)
   return success && changed ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 
+static wmOperatorStatus select_mode_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  // Match mesh header buttons: Shift-click toggles a mode alongside the current modes.
+  if (!RNA_struct_property_is_set(op->ptr, "use_extend")) {
+    RNA_boolean_set(op->ptr, "use_extend", event->modifier & KM_SHIFT);
+  }
+  return select_mode_exec(C, op);
+}
+
 void CURVE_OT_select_mode(wmOperatorType *ot)
 {
   static const EnumPropertyItem mode_items[] = {
-      {1, "VERT", ICON_VERTEXSEL, "Vertex", "Select NURBS vertices"},
-      {2, "EDGE", ICON_EDGESEL, "Edge", "Select shared NURBS edges"},
-      {4, "FACE", ICON_FACESEL, "Face", "Select NURBS faces"},
+      {1, "VERT", ICON_VERTEXSEL, "Vertex", "Select line and curve endpoints"},
+      {2, "EDGE", ICON_EDGESEL, "Edge", "Select NURBS curves"},
+      {4, "FACE", ICON_FACESEL, "Face", "Select NURBS surface patches"},
       {0, nullptr, 0, nullptr, nullptr},
   };
   ot->name = "Select Mode";
   ot->idname = "CURVE_OT_select_mode";
   ot->description = "Change native NURBS component selection mode";
   ot->exec = select_mode_exec;
+  ot->invoke = select_mode_invoke;
   ot->poll = native_select_mode_poll;
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-  RNA_def_enum(ot->srna, "type", mode_items, 1, "Type", "Component selection mode");
-  RNA_def_boolean(
+  PropertyRNA *prop = RNA_def_enum(
+      ot->srna, "type", mode_items, 1, "Type", "Component selection mode");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  prop = RNA_def_boolean(
       ot->srna, "use_extend", false, "Extend", "Toggle this mode alongside the current modes");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
 /* -------------------------------------------------------------------- */

@@ -189,6 +189,7 @@ static const EnumPropertyItem curve2d_fill_mode_items[] = {
 #  include "BKE_lib_id.hh"
 #  include "BKE_main.hh"
 #  include "BKE_nurbs_edit.hh"
+#  include "BKE_nurbs_legacy_edit.hh"
 #  include "BKE_vfont.hh"
 
 #  include "DEG_depsgraph.hh"
@@ -893,6 +894,13 @@ static bool rna_Curve_is_native_nurbs_get(PointerRNA *ptr)
   const Curve *curve = reinterpret_cast<const Curve *>(ptr->owner_id);
   return curve->nurbs_geometry != nullptr || curve->nurbs_eval_source != nullptr ||
          (curve->editnurb != nullptr && curve->editnurb->nurbs_edit != nullptr);
+}
+
+static bool rna_Curve_has_tagged_nurbs_get(PointerRNA *ptr)
+{
+  const Curve &curve = *reinterpret_cast<const Curve *>(ptr->owner_id);
+  return bke::nurbs::legacy_topology_source_check(
+      curve.editnurb != nullptr ? curve.editnurb->nurbs : curve.nurb);
 }
 
 static void rna_Curve_nurbs_selection_mode_get(PointerRNA *ptr, bool *values)
@@ -2030,6 +2038,11 @@ static void rna_def_curve(BlenderRNA *brna)
   RNA_def_property_boolean_funcs(prop, "rna_Curve_is_native_nurbs_get", nullptr);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Native NURBS", "Uses native NURBS source topology and geometry");
+
+  prop = RNA_def_property(srna, "has_tagged_nurbs", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_Curve_has_tagged_nurbs_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Tagged NURBS", "Contains the tagged NURBS editing prototype");
 
   prop = RNA_def_property(srna, "nurbs_selection_mode", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_array(prop, 3);

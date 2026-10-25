@@ -2,8 +2,10 @@
 
 This checkpoint adds native component selection to the shared NURBS editing path.
 Its mode-only checkpoint preceded F/connect/planar-fill. The subsequent
-[Fill checkpoint](native_fill_tryout.md) implements that initial construction subset. Fit-point editing is later work. Ordinary Add NURBS still creates the
-restricted tagged prototype, so use a prepared native file to test these modes.
+[Fill checkpoint](native_fill_tryout.md) implements that initial construction subset. Fit-point editing is later work. Ordinary Add NURBS creates the
+restricted tagged prototype; the subsequent [source-entry checkpoint](component_mode_entry.md)
+now makes these modes available on complete compatible tagged sources through the
+header buttons and 1/2/3. Prepared files remain examples of broader native geometry.
 
 ```sh
 /home/molotovgirl/Desktop/build_linux/bin/blender --factory-startup \
@@ -55,8 +57,15 @@ against full expected source geometry, modes, selection and history. The Face
 mode header, tint and markers were visually inspected. Exact commands and the
 corrected build errors are in [the checkout audit](current_checkout_audit.md).
 
-Still gated: F at this checkpoint, native creation/migration, fit-point storage
+Still gated at this historical checkpoint: F, native creation/migration, fit-point storage
 and deformation, lasso/circle selection, complete near-plane clipping for picking,
 certified curved-trim intersections, source normal frames, R/S, snapping,
 proportional editing, multi-owner movement and full component bindings. Stage 1
 remains incomplete. The user chose a smooth NURBS patch for four noncoplanar corners. General curved/nonplanar loops still need their own construction rule.
+
+
+The source-entry checkpoint supersedes the prepared-file-only limitation. It
+checks normal Add → header Edge → E → Face/Edge/Vertex picking and drawing,
+Shift-click combined modes, source-kind undo/redo, and an existing rotated/scaled
+six-face prototype. General untagged source migration and fit-point deformation
+remain separate work. See the latest checkout audit for current test totals.
