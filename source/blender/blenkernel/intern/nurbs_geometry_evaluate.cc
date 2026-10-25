@@ -207,6 +207,56 @@ static std::optional<WeightedEvaluation> evaluate_weighted_points(const Span<Wei
   return result;
 }
 
+std::optional<CurveBasis> evaluate_curve_basis(const NurbsCurveGeometry &curve,
+                                               const double parameter,
+                                               std::string *r_error)
+{
+  if (!detail::supported_arithmetic()) {
+    return evaluation_error(r_error,
+                            "NURBS basis evaluation needs round-to-nearest/subnormal arithmetic");
+  }
+  if (!curve_validate_structure(curve, r_error)) {
+    return std::nullopt;
+  }
+  const auto basis = calculate_basis(
+      curve.knots, curve.points_num, curve.order, parameter, r_error);
+  if (!basis) {
+    return std::nullopt;
+  }
+  double scale = 0;
+  for (int i = 0; i < curve.order; i++) {
+    if (basis->values[i] != 0) {
+      scale = std::max(scale, std::abs(curve.points[basis->start + i].weight));
+    }
+  }
+  if (scale == 0) {
+    return evaluation_error(r_error, "NURBS rational denominator is zero");
+  }
+  CurveBasis result;
+  result.first_coefficient = basis->start;
+  CompensatedSum denominator, absolute;
+  for (int i = 0; i < curve.order; i++) {
+    const double value = basis->values[i] * (curve.points[basis->start + i].weight / scale);
+    result.values.append(value);
+    denominator.add(value);
+    absolute.add(std::abs(value));
+  }
+  if (denominator.value == 0) {
+    return evaluation_error(r_error, "NURBS rational denominator is zero");
+  }
+  result.weight_condition = absolute.value / std::abs(denominator.value);
+  if (!std::isfinite(result.weight_condition)) {
+    return evaluation_error(r_error, "NURBS rational basis conditioning is not finite");
+  }
+  for (double &value : result.values) {
+    value /= denominator.value;
+    if (!std::isfinite(value)) {
+      return evaluation_error(r_error, "NURBS rational basis exceeds double precision range");
+    }
+  }
+  return result;
+}
+
 std::optional<PointEvaluation> evaluate_curve(const NurbsCurveGeometry &curve,
                                               const double parameter,
                                               std::string *r_error)

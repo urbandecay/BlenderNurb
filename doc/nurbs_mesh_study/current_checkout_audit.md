@@ -5,7 +5,17 @@ Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`,
 Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
-Latest completed checkpoint: native Edit Mode **G/R/S** use the shared source
+Latest numerical checkpoint: [curve fit-point foundation](fit_point_foundation.md).
+Blender and fifteen targeted test executables build. **269 C++ checks pass with
+no skips**, five CTest targets pass (including **39 NURBS Python cases**), and
+one existing complete R/S viewport workflow was repeated successfully. This
+adds numerical services, not an activated fit-handle UI or analytic dragging.
+
+The latest activated editing workflow is the R/S checkpoint below. Its 25
+viewport cases belong to that checkpoint; they were not all rerun for the
+additive numerical services. Exact commands and results for both are at the end.
+
+Latest activated checkpoint: native Edit Mode **G/R/S** use the shared source
 transform path in Vertex, Edge and Face modes. Rotate/Scale support axis and
 numeric input, mouse previews, standard F9 fields, cancel, undo/redo, G/R/S modal
 switches, source pivots and Individual Origins. Shared incident geometry updates
@@ -20,8 +30,9 @@ are whole NURBS curves; faces are surface patches. Source entry preserves
 geometry/identities and has explicit legacy/native undo/redo and evaluated source
 synchronization. See [source-entry details](component_mode_entry.md).
 
-Blender and thirteen targeted test executables build. **246 C++ checks pass with
-no skips**, **25 isolated viewport cases** pass, and **five CTest targets** pass,
+At that R/S checkpoint, Blender and thirteen targeted test executables built.
+**246 C++ checks passed with no skips**, **25 isolated viewport cases** passed,
+and **five CTest targets** passed,
 including the unchanged **39 NURBS Python cases**. Twenty saved transform states
 are compared against complete expected source records, and six more against
 actual mesh operations within their float boundary. Mode, transformed geometry,
@@ -66,6 +77,9 @@ adapter is absent. Native active-vertex centers now read the live source ID rath
 points. Cursor-to-active, Active Element G/cancel and unchanged saved source are
 tested. Edge/face active centers now use the shared source representative query; general normal frames remain gated.
 Stage 1 remains incomplete.
+
+The [workflow backlog](workflow_backlog.md) records active priorities and user
+reports, including vertex-to-vertex Edit Mode snapping.
 
 See the checkpoints at the end for exact commands, failures and limits,
 [the movement tryout](native_movement_tryout.md),
@@ -4000,3 +4014,108 @@ context-menu and fresh continuation runs also passed. No geometry test assertion
 was weakened to make an unsupported operation pass. Syntax/format checks and
 `git diff --check` pass. The three frozen original reproduction files retain their
 recorded SHA-256 values; the original untracked handoff remains untouched/unstaged.
+
+
+## Fit-point curve numerical foundation
+
+This stage adds `evaluate_curve_basis`, `fit_freeform_curve` and
+`interpolate_freeform_curve`, with standalone owned-curve results. Existing source
+NURBS geometry remains authoritative. No persistent fit-handle records, new
+editor handles, default curve behavior, source-creation operator or Python
+component binding was activated. The shape-policy questions are pending, and
+analytic circle/arc dragging must have its own constraint path before activation.
+See [the implementation contract](fit_point_foundation.md).
+
+The free-form solve retains source knots/weights/order/domain/identity and all
+coefficients outside an explicit internal edit range. It minimizes computed
+coefficient displacement, diagnoses conditioning, and checks every supplied
+parameter against an explicit absolute residual budget. New interpolation
+requires degree/parameters rather than silently rebuilding an old curve.
+Measured point residuals are not certified global curve deviation bounds. The
+addition bound excludes solving/basis/evaluation rounding. The generic double
+rectangular SVD was added to the existing Eigen C API, without importing Eigen
+into BKE public headers or adding a new external dependency.
+
+The first app build failed because a non-trivial control-point type used the
+uninitialized array allocator. It was corrected to `MEM_new_array`. The next
+new-test build failed on implicit C-array-to-Span conversions; explicit spans
+fixed those calls. Both failures and the successful replacement logs are kept:
+`/tmp/blender-nurbs-fit-foundation-build.log`, `...-build-fixed.log` and
+`...-build-tests-fixed.log`. The app and targeted fit/math solver builds then
+completed successfully. No failing geometry assertions were weakened.
+
+Exact app and focused build command:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blender blenkernel_nurbs_fit_test BLI_math_solvers_test --parallel 4
+```
+
+Exit **0**, `/tmp/blender-nurbs-fit-foundation-build-tests-fixed.log`.
+The focused tests are:
+
+```sh
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_fit_test --gtest_color=no
+/home/molotovgirl/Desktop/build_linux/bin/tests/BLI_math_solvers_test --gtest_color=no
+```
+
+Both exit **0**: **14 fit tests** and **nine math-solver tests** (five existing,
+four new). Logs: `/tmp/blender-nurbs-fit-foundation-tests-final.log` and
+`/tmp/blender-nurbs-fit-math-solver-tests.log`. Fit tests include rational basis
+agreement, nonclamped/repeated knots, anchored and local span edits, minimum
+coefficient displacement, unchanged rational arc/circle no-ops, constraint
+ordering/duplicates, unreachable/ill-conditioned/residual failures, nonuniform
+spatial interpolation, large origins, sub-float coordinates and malformed inputs.
+The rational no-op checks do not claim analytic circle dragging is implemented.
+
+All fifteen executable targets were rebuilt with:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --parallel 4 \
+  --target blenkernel_nurbs_geometry_legacy_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_fill_test blenkernel_nurbs_fit_test \
+  blenkernel_nurbs_differential_test blenkernel_nurbs_tessellate_test \
+  blenkernel_nurbs_mesh_test blenkernel_nurbs_object_test \
+  blenkernel_nurbs_transform_test blenkernel_unit_test \
+  editor_util_numinput_test editor_transform_transform_translate_precision_test \
+  BLI_math_solvers_test
+python3 /tmp/blender-nurbs-run-fit-foundation-kernel-checks.py
+```
+
+Both exit **0**. Build: `/tmp/blender-nurbs-fit-foundation-regression-build.log`.
+Summary: `/tmp/blender-nurbs-fit-foundation-kernel-summary.log`: **269 passed,
+zero skipped**. Per-suite counts are the preceding checkpoint's 246 plus 14 fit
+checks and nine BLI solver checks. The runner retains the previous checkpoint's
+fixture environments and exact per-suite commands; it adds
+`blenkernel_nurbs_fit_test` and `BLI_math_solvers_test`. Per-suite logs use
+`/tmp/blender-nurbs-fit-foundation-<suite>-tests-final.log`. Saved-source readback
+still checks the existing movement, duplication, extrusion, Fill, mode entry
+and R/S artifacts; no new fit-handle persistence is claimed.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux \
+  --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+Exit **0**, **5/5**, 10.33 seconds,
+`/tmp/blender-nurbs-fit-foundation-ctest.log`: the unchanged 39 NURBS Python cases,
+units, autosave and global undo. With the same BLENDER_BIN/WESTON_BIN and Wayland
+prefixes recorded above, this existing viewport command was repeated:
+
+```sh
+nice -n 10 env -u DISPLAY python3 tests/utils/blender_headless.py \
+  --enable-event-simulate --factory-startup \
+  --python tests/python/ui_simulate/run_blender_setup.py \
+  -- --tests test_nurbs_native.rotate_scale_and_lifecycle
+```
+
+Exit **0**, `/tmp/blender-nurbs-fit-foundation-existing-transform-ui.log`.
+It checks the already activated native G/R/S workflow, F9, mouse previews/cancel,
+singular/reflected scales, modes, undo, saving and menu display. It is not a
+fit-handle viewport test. No new fit-handle visualization or visual confirmation
+is claimed. The three frozen original input hashes remain unchanged and no user
+Blender was closed. The user reported vertex-to-vertex snapping's explicit gate;
+that reproduction and acceptance requirements are now in
+[the workflow backlog](workflow_backlog.md), pending implementation.

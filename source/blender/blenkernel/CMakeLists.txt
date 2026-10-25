@@ -219,6 +219,7 @@ set(SRC
   intern/nurbs_construct_fill.cc
   intern/nurbs_edit.cc
   intern/nurbs_evaluate.cc
+  intern/nurbs_fit.cc
   intern/nurbs_geometry.cc
   intern/nurbs_geometry_copy.cc
   intern/nurbs_geometry_evaluate.cc
@@ -463,6 +464,7 @@ set(SRC
   BKE_nurbs_construct.hh
   BKE_nurbs_edit.hh
   BKE_nurbs_evaluate.hh
+  BKE_nurbs_fit.hh
   BKE_nurbs_geometry.hh
   BKE_nurbs_legacy_edit.hh
   BKE_nurbs_mesh.hh
@@ -764,6 +766,7 @@ if(WITH_GTESTS)
     intern/nurbs_differential_test.cc
     intern/nurbs_edit_test.cc
     intern/nurbs_fill_test.cc
+    intern/nurbs_fit_test.cc
     intern/nurbs_geometry_legacy_test.cc
     intern/nurbs_geometry_test.cc
     intern/nurbs_mesh_test.cc

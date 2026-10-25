@@ -2,6 +2,10 @@
 
 Status: **candidate architecture; promotion depends on the gates below**.
 Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`.
+Latest numerical checkpoint: [fit-point curve foundation](fit_point_foundation.md).
+The opening progress counts below describe earlier checkpoints; the current
+[checkout audit](current_checkout_audit.md) records newer R/S and numerical results.
+Fit-handle storage/editor activation and analytic dragging remain separate gates.
 This is Blender work. The older study's classiCAD contracts are not requirements.
 
 Current verified foundation: 211 C++ kernel/editor/integration tests, a complete Blender build and
@@ -754,3 +758,28 @@ explicit precision boundaries. Native Normal/Gimbal frames, snapping, proportion
 editing, Trackball and general fit-point deformation are still separate gates.
 See [the transform checkpoint](native_rotate_scale_tryout.md) and the checkout
 audit for tested behaviors and limits.
+
+
+## Fit-point numerical services before handle activation
+
+The source evaluator now exposes its rational span basis for constraint solving.
+A free-form curve fit keeps the existing basis/weights/domains and solves only
+an explicit internal coefficient range. New interpolation is a separate
+construction with caller-specified parameters/degree. Both return owned standalone
+curves and measured point residuals without mutating a source owner. They do not
+allocate topology/handle identities or create a second persistent geometry model.
+
+Double rectangular SVD lives in Blender's existing Eigen C API. BKE owns curve
+semantics, fixed-range constraints and residual acceptance. Numerical conditioning
+is checked explicitly; failing systems are rejected without singular-value
+truncation, regularization or a tolerance increase. The measured point residual
+is not a global curve deviation/evaluation certificate.
+
+Persistent fit-handle identity, selection/history, analytic family intent,
+end/tangent constraints, periodic seams and source-boundary propagation still
+need a verified owner/edit integration. A generic free-form solve must not be
+used as an implicit exact-circle/arc edit. The two user questions about keeping
+other fit points fixed versus a falloff, and keeping other circle points fixed
+versus its center, remain pending. No UI default has been activated from elapsed
+time. The [workflow backlog](workflow_backlog.md) also records the new explicit
+vertex-to-vertex snapping report; the snapping gate remains implemented.

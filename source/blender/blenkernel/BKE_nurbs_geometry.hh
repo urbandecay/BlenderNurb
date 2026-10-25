@@ -145,6 +145,20 @@ std::optional<PointEvaluation> evaluate_surface(const NurbsSurfaceGeometry &surf
                                                 double2 parameter,
                                                 std::string *r_error = nullptr);
 
+struct CurveBasis {
+  int first_coefficient = 0;
+  /** Rational basis values for the nonzero span; weights are already included. */
+  Vector<double> values;
+  double weight_condition = 1.0;
+};
+
+/** Evaluate the same rational basis used by the authoritative curve evaluator. No source edits.
+ * The result is a numerical basis evaluation, not a certified point/fit error bound.
+ */
+std::optional<CurveBasis> evaluate_curve_basis(const NurbsCurveGeometry &curve,
+                                               double parameter,
+                                               std::string *r_error = nullptr);
+
 enum class KnotSide { Right, Left };
 
 struct SurfaceLimits {
