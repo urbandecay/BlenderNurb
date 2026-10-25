@@ -13,6 +13,7 @@
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 
+#include "DNA_curve_types.h"
 #include "DNA_screen_types.h"
 
 #include "BKE_bvhutils.hh"
@@ -318,6 +319,8 @@ void SnapData::register_result(SnapObjectContext *sctx,
 
   /* Global space. */
   sctx->ret.loc = math::transform_point(obmat, sctx->ret.loc);
+  sctx->ret.point_location = math::transform_point(double4x4(obmat), double3(r_nearest->co));
+  sctx->ret.nurbs_vertex_id = 0;
   const float3x3 normal_transform = math::transpose(math::invert(float3x3(obmat)));
   sctx->ret.no = math::normalize(math::transform_direction(normal_transform, sctx->ret.no));
 
@@ -346,6 +349,8 @@ void SnapData::register_result_raycast(SnapObjectContext *sctx,
     float3 no = math::normalize(math::transform_direction(normal_transform, float3(hit->no)));
 
     sctx->ret.loc = co;
+    sctx->ret.point_location.reset();
+    sctx->ret.nurbs_vertex_id = 0;
     sctx->ret.no = no;
     sctx->ret.index = hit->index;
     sctx->ret.obmat = obmat;
@@ -899,6 +904,15 @@ static eSnapMode snap_polygon(SnapObjectContext *sctx, eSnapMode snap_to_flag)
     return SCE_SNAP_TO_NONE;
   }
 
+  /* A native surface's tessellation has no editable endpoint identity. Let snapCurve query
+   * its source topology rather than accepting sampled mesh vertices from this fast path. */
+  if (sctx->ret.ob && ELEM(sctx->ret.ob->type, OB_CURVES_LEGACY, OB_SURF)) {
+    const Curve &curve = *id_cast<Curve *>(sctx->ret.ob->data);
+    if (curve.nurbs_geometry || curve.nurbs_eval_source) {
+      return SCE_SNAP_TO_NONE;
+    }
+  }
+
   return snap_polygon_mesh(
       sctx, sctx->ret.ob, sctx->ret.data, sctx->ret.obmat, snap_to_flag, sctx->ret.index);
 }
@@ -948,7 +962,7 @@ static eSnapMode snap_obj_fn(SnapObjectContext *sctx,
                              const Object *ob_eval,
                              const ID *ob_data,
                              const float4x4 &obmat,
-                             bool is_object_active,
+                             bool /*is_object_active*/,
                              bool use_hide)
 {
   if (ob_data == nullptr && (ob_eval->type == OB_MESH)) {
@@ -963,6 +977,13 @@ static eSnapMode snap_obj_fn(SnapObjectContext *sctx,
   if (ob_eval->dt == OB_BOUNDBOX) {
     /* Do not snap to objects that are in bounding box display mode. */
     return SCE_SNAP_TO_NONE;
+  }
+
+  if (ELEM(ob_eval->type, OB_CURVES_LEGACY, OB_SURF)) {
+    const Curve &curve = *id_cast<Curve *>(ob_eval->data);
+    if (curve.nurbs_geometry || curve.nurbs_eval_source) {
+      return snapCurve(sctx, ob_eval, obmat);
+    }
   }
 
   if (GS(ob_data->name) == ID_ME) {
@@ -1230,6 +1251,8 @@ static bool snap_object_context_runtime_init(SnapObjectContext *sctx,
 
   sctx->ret.ray_depth_max = sctx->ret.ray_depth_max_in_front = ray_depth;
   sctx->ret.index = -1;
+  sctx->ret.point_location.reset();
+  sctx->ret.nurbs_vertex_id = 0;
   sctx->ret.ob = nullptr;
   sctx->ret.data = nullptr;
   sctx->ret.dist_px_sq = dist_px_sq;

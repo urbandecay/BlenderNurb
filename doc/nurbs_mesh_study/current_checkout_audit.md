@@ -11,11 +11,19 @@ no skips**, five CTest targets pass (including **39 NURBS Python cases**), and
 one existing complete R/S viewport workflow was repeated successfully. This
 adds numerical services, not an activated fit-handle UI or analytic dragging.
 
-The latest activated editing workflow is the R/S checkpoint below. Its 25
-viewport cases belong to that checkpoint; they were not all rerun for the
-additive numerical services. Exact commands and results for both are at the end.
+Latest activated editing checkpoint: **vertex snapping and E with snapping
+left enabled**. Actual viewport events reproduced the user's failure: E created
+its initial topology, then the native transform cancelled because the snapping
+toggle was on. The Move adapter now handles source endpoint snapping and permits
+ordinary motion/numeric input with that toggle enabled. See
+[vertex snapping, validation and limits](vertex_snapping.md).
 
-Latest activated checkpoint: native Edit Mode **G/R/S** use the shared source
+The R/S checkpoint's 25 viewport cases below belong to that historical
+checkpoint; they were not all repeated for either the numerical services or
+this snapping fix. Exact commands and current results are in the latest entry
+at the end.
+
+The R/S checkpoint: native Edit Mode **G/R/S** use the shared source
 transform path in Vertex, Edge and Face modes. Rotate/Scale support axis and
 numeric input, mouse previews, standard F9 fields, cancel, undo/redo, G/R/S modal
 switches, source pivots and Individual Origins. Shared incident geometry updates
@@ -40,7 +48,7 @@ F9, Individual Origins and context-menu screenshots were visually inspected.
 
 The preceding Fill/extrusion checkpoints remain active. General untagged curve
 import, native curved-primitive creation, fit-point curve editing, Normal/Gimbal
-frames, snapping, proportional editing, lasso/circle selection, multiple edit
+frames, general surface snapping, proportional editing, lasso/circle selection, multiple edit
 owners for movement, and full Stage 1 promotion remain gates. Source entry is
 restricted to the complete tagged endpoint/line/patch prototype.
 
@@ -71,7 +79,7 @@ services, with multi-owner preflight, retained active/history data and explicit
 hole-policy handling. The ambiguous hole rule still awaits user input; L picking
 now picks source components in the current mode and observes scene depth unless
 X-Ray is enabled. Fit-point editing, complete near-plane clipping, lasso/circle,
-snapping, proportional editing and multi-owner movement remain later gates.
+general surface snapping, proportional editing and multi-owner movement remain later gates.
 Normal/Gimbal movement is explicitly rejected because its source orientation
 adapter is absent. Native active-vertex centers now read the live source ID rather than legacy curve
 points. Cursor-to-active, Active Element G/cancel and unchanged saved source are
@@ -79,7 +87,7 @@ tested. Edge/face active centers now use the shared source representative query;
 Stage 1 remains incomplete.
 
 The [workflow backlog](workflow_backlog.md) records active priorities and user
-reports, including vertex-to-vertex Edit Mode snapping.
+reports, including the repaired vertex-to-vertex Edit Mode snapping workflow.
 
 See the checkpoints at the end for exact commands, failures and limits,
 [the movement tryout](native_movement_tryout.md),
@@ -4119,3 +4127,60 @@ is claimed. The three frozen original input hashes remain unchanged and no user
 Blender was closed. The user reported vertex-to-vertex snapping's explicit gate;
 that reproduction and acceptance requirements are now in
 [the workflow backlog](workflow_backlog.md), pending implementation.
+
+## Vertex snapping and E with snapping enabled — 2026-10-25
+
+The user's viewport report was reproduced with event simulation before changing
+production code. With two NURBS faces and vertex snapping/Active enabled, E
+followed by Z/1 left the result at Z=0 while increasing the face count from 2
+to 7. The previous geometry-only regression did not reproduce this editor bug.
+The native transform's blanket snapping guard cancelled the movement after the
+extrusion operator created coincident cap/wall topology.
+
+The fix connects native endpoint source picking and source-precision snap bases
+to the existing kernel translation/common owner commit. It removes the blanket
+rejection of translation merely because snapping is enabled. Actual unsupported
+snap applications retain explicit gates. Source topology is not welded, source
+curves/supports remain NURBS, and display samples are not committed as targets.
+See [implementation and exact commands](vertex_snapping.md).
+
+Implemented and built: `blender` and `blenkernel_nurbs_geometry_test` targets,
+`--parallel 4`, exit 0. Final production build log:
+`/tmp/blender-nurbs-snap-adapter-build-reviewed.log` (no compiler warnings/errors).
+The preceding combined build/test-target log is
+`/tmp/blender-nurbs-snap-adapter-build-final.log`, also exit 0.
+
+Tested on that production build:
+
+| Test/function | Cases | Result / log |
+| --- | ---: | --- |
+| Geometry C++ executable with `--test-assets-dir` | 55 | All pass, no skips; `/tmp/blender-nurbs-snap-geometry-tests.log` |
+| Five selected CTest targets, including 39 NURBS Python cases | 5 targets | All pass, 7.63 seconds; `/tmp/blender-nurbs-snap-ctest-final.log` |
+| `snapping_and_extrusion` | 1 | Previously fails Z=0/1, now passes; `/tmp/blender-nurbs-snap-after-fix-final.log` |
+| `vertex_snap_then_extrude` | 2 | Real Mesh and NURBS events, Active corner snap, face E, cancel and undo/redo; `/tmp/blender-nurbs-snap-workflow-ui-final.log` |
+| `native_vertex_snap_sources` | 11 | Snap bases, cursor, axis/plane constraints, precision, transformed Active/Closest, external mesh vertex; `/tmp/blender-nurbs-snap-sources-ui-final.log` |
+| `native_single_vertex_snap` | 1 | One corner moves while incident surface still evaluates; `/tmp/blender-nurbs-snap-single-ui-final.log` |
+| `snapped_face_fresh_continuation` | 1 | Saved native source reopened in a fresh process, E/move cancel, then successful E with snapping on; `/tmp/blender-nurbs-snap-fresh-ui-final.log` |
+| Existing `rotate_scale_and_lifecycle` | 1 existing workflow | Pass; `/tmp/blender-nurbs-snap-existing-transform-ui-final.log` |
+
+All six viewport processes exited 0: 16 new cases plus one existing R/S workflow.
+The historical 269-test numerical suite and all 25 historical R/S viewport cases
+were not repeated for this editor change. The geometry-only regression was
+renamed to `DuplicateFaceCanTouchAdjacentCornersAndStillExtrude` to distinguish
+its coordinate/topology scope from the actual viewport snapping tests.
+
+Visually inspected: the saved before-fix viewport and the Mesh/NURBS final
+solid oblique screenshots, `/tmp/blender-nurbs-snapping-ui/mesh-snap-extrude.png`
+and `nurbs-snap-extrude.png`. The NURBS result has the raised cap and walls,
+matching the mesh reference's geometric result. The source active-face center
+is checked at `(2, 3, 1)`, not inferred from the screenshot. The fresh continued
+source is checked at `(2, 3, 2)` after another cancelled-move extrusion and E.
+No user's running Blender instance was closed. The user's original .blend was
+not supplied; the reproduced workflow and saved source are our isolated inputs.
+
+Validation corrections: the initial mesh reference expected an active face after
+vertex-to-face mode conversion without clicking one, then assumed the sign of
+its wire-built face normal. The test now explicitly selects the face and uses
+its actual -Z mesh normal; native curve E uses explicit global Z. These were
+reference-test corrections. The before-fix NURBS E failure remained distinct and
+was fixed in production. Clang-format and `git diff --check` pass.

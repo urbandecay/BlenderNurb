@@ -475,6 +475,7 @@ static void applyTranslation(TransInfo *t)
   float global_dir[3] = {0.0f};
   const bool native = t->data_type == &TransConvertType_Nurbs;
   double3 precise_space(0), precise_world(0), numeric_value(0);
+  bool precise_snap = false;
   const bool precise_numeric = native && !(t->flag & T_INPUT_IS_VALUES_FINAL) &&
                                applyNumInput(&t->num, &numeric_value.x);
 
@@ -524,6 +525,14 @@ static void applyTranslation(TransInfo *t)
     }
   }
   else {
+    if (native && transform_snap_is_active(t) &&
+        (t->tsnap.mode & (SCE_SNAP_INDIVIDUAL_PROJECT | SCE_SNAP_INDIVIDUAL_NEAREST)))
+    {
+      BKE_report(t->reports, RPT_ERROR, "Native NURBS surface projection needs a source adapter");
+      t->state = TRANS_CANCEL;
+      recalc_data(t);
+      return;
+    }
     copy_v3_v3(global_dir, t->values);
     if (!is_zero_v3(t->values_modal_offset)) {
       float values_ofs[3];
@@ -532,6 +541,17 @@ static void applyTranslation(TransInfo *t)
     }
 
     transform_snap_mixed_apply(t, global_dir);
+
+    if (native && transform_snap_is_active(t) && validSnap(t)) {
+      std::string error;
+      if (!nurbs_translation_snap(t, precise_world, error)) {
+        BKE_report(t->reports, RPT_ERROR, error.c_str());
+        t->state = TRANS_CANCEL;
+        recalc_data(t);
+        return;
+      }
+      precise_snap = true;
+    }
 
     if (t->con.mode & CON_APPLY) {
       float in[3];
@@ -556,7 +576,9 @@ static void applyTranslation(TransInfo *t)
 
   if (native) {
     if (!(t->flag & T_INPUT_IS_VALUES_FINAL) && !precise_numeric) {
-      precise_world = double3(global_dir);
+      if (!precise_snap) {
+        precise_world = double3(global_dir);
+      }
       bool invertible;
       const double3x3 inverse = math::invert(double3x3(float3x3(t->spacemtx)), invertible);
       if (!invertible) {

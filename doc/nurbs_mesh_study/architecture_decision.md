@@ -783,3 +783,22 @@ other fit points fixed versus a falloff, and keeping other circle points fixed
 versus its center, remain pending. No UI default has been activated from elapsed
 time. The [workflow backlog](workflow_backlog.md) also records the new explicit
 vertex-to-vertex snapping report; the snapping gate remains implemented.
+
+## Source endpoint snapping checkpoint
+
+The newer [vertex-snapping checkpoint](vertex_snapping.md) supersedes the earlier
+blanket native snapping gate for translation. The user-visible E failure was in
+the editor transform adapter: an enabled snapping toggle cancelled the move
+after the extrusion operator created topology. A geometry-only duplicate/move/E
+test could not validate that interaction. Real viewport reproduction and a mesh
+reference now cover the complete corner-snap/E sequence.
+
+Snap picking consumes the existing evaluated NURBS source snapshot. The snap
+context carries a double source point and native vertex identity alongside its
+float picking proxy. Translation resolves the source snap base with existing
+kernel selection-origin services and applies the displacement through
+`translate_vertices` and the common owner commit. No second extrusion or
+coordinate-welding implementation is introduced. Native display tessellation
+vertices are excluded as point targets. General surface/edge projection,
+custom snap bases and geometric R/S snapping remain later adapters; the limits
+and tested scope are recorded in the checkpoint document.

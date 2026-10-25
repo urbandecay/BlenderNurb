@@ -16,6 +16,7 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
+#include "BLI_math_vector.hh"
 #include "BLI_string.h"
 
 #include "BKE_curve.hh"
@@ -32,6 +33,7 @@
 
 #include "transform_convert.hh"
 #include "transform_snap.hh"
+#include "transform_snap_object.hh"
 #include "transform_translate_precision.hh"
 
 namespace blender::ed::transform {
@@ -43,6 +45,7 @@ struct NurbsTransformData {
   nurbs::ReadSnapshot current;
   Vector<int64_t> vertices;
   Array<float3> proxies;
+  Array<double3> centers;
   double3x3 world_to_local, local_to_world;
   double3x3 linear = double3x3::identity();
   int applied_mode = TFM_DUMMY;
@@ -127,6 +130,7 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
   data->world_to_local = inverse;
   data->local_to_world = double3x3(float3x3(tc.obedit->object_to_world()));
   data->proxies.reinitialize(data->vertices.size());
+  data->centers.reinitialize(data->vertices.size());
   std::optional<Vector<nurbs::SelectionTransformGroup>> islands;
   if (t->around == V3D_AROUND_LOCAL_ORIGINS) {
     std::string error;
@@ -148,6 +152,7 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
     td.flag = TD_SELECTED;
     td.factor = 1;
     const auto &vertex = *index->vertex(data->vertices[i]);
+    data->centers[i] = double3(vertex.position);
     for (int axis = 0; axis < 3; axis++) {
       td.center[axis] = float(vertex.position[axis]);
     }
@@ -155,6 +160,7 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
       for (const auto &island : *islands) {
         if (island.vertices.contains(data->vertices[i])) {
           copy_v3_v3(td.center, float3(island.center));
+          data->centers[i] = island.center;
           break;
         }
       }
@@ -208,7 +214,7 @@ static void recalc_trans_nurbs(TransInfo *t)
       fail("Native NURBS Normal and Gimbal transforms need a source orientation adapter");
       return;
     }
-    if (transform_snap_is_active(t)) {
+    if (transform_snap_is_active(t) && t->mode != TFM_TRANSLATION && validSnap(t)) {
       fail("Native NURBS snapping requires a source-precision snapping adapter");
       return;
     }
@@ -403,6 +409,95 @@ bool nurbs_translation_replay(TransInfo *t, double3 &r_space, double3 &r_world)
   const auto value = data.replay->replay(float3(t->values), float3x3(t->spacemtx));
   r_space = value.space;
   r_world = value.world;
+  return true;
+}
+
+bool nurbs_translation_snap(TransInfo *t, double3 &r_world, std::string &r_error)
+{
+  if ((!ELEM(t->tsnap.target_type, SCE_SNAP_TO_POINT, SCE_SNAP_TO_EDGE_ENDPOINT) &&
+       !(t->modifiers & MOD_SNAP_FORCED)) ||
+      (t->tsnap.status & SNAP_MULTI_POINTS) || (t->tsnap.flag & SCE_SNAP_ROTATE) ||
+      t->tsnap.snap_source_fn == nullptr)
+  {
+    r_error = "Native NURBS move currently supports vertex snapping with the standard snap base";
+    return false;
+  }
+  const TransDataContainer &tc = t->data_container[0];
+  const auto &data = *static_cast<const NurbsTransformData *>(tc.custom.type.data);
+  const double4x4 matrix(tc.obedit->object_to_world());
+  double3 target(t->tsnap.snap_target);
+  if (!(t->modifiers & MOD_SNAP_FORCED) && t->tsnap.object_context &&
+      t->tsnap.object_context->ret.point_location)
+  {
+    target = *t->tsnap.object_context->ret.point_location;
+  }
+  double3 source(0);
+  auto median = [&]() {
+    double3 center(0);
+    for (const double3 &position : data.centers) {
+      center += position / double(data.centers.size());
+    }
+    return math::transform_point(matrix, center);
+  };
+  if (t->tsnap.source_operation == SCE_SNAP_SOURCE_CLOSEST) {
+    /* Follow Blender's chosen float picking proxy back to its double source representative.
+     * If several sources share one proxy, prefer the closest authoritative point. */
+    std::optional<double> distance;
+    for (const int i : data.centers.index_range()) {
+      float3 proxy(tc.data[i].center);
+      mul_m4_v3(tc.mat, proxy);
+      if (proxy != float3(t->tsnap.snap_source)) {
+        continue;
+      }
+      const double3 position = math::transform_point(matrix, data.centers[i]);
+      const double value = math::distance_squared(position, target);
+      if (!distance || value < *distance) {
+        source = position;
+        distance = value;
+      }
+    }
+    if (!distance) {
+      r_error = "NURBS snap base no longer identifies a selected source endpoint";
+      return false;
+    }
+  }
+  else if (t->tsnap.source_operation == SCE_SNAP_SOURCE_ACTIVE ||
+           (t->tsnap.source_operation == SCE_SNAP_SOURCE_CENTER &&
+            t->around == V3D_AROUND_ACTIVE && !(t->flag & T_OVERRIDE_CENTER)))
+  {
+    const auto groups = nurbs::selection_transform_groups(data.original.geometry(),
+                                                          data.original.selection(),
+                                                          nurbs::SelectionPivot::Active,
+                                                          &r_error);
+    if (!groups || groups->is_empty()) {
+      return false;
+    }
+    source = math::transform_point(matrix, (*groups)[0].center);
+  }
+  else if (t->tsnap.source_operation == SCE_SNAP_SOURCE_CENTER &&
+           ((t->flag & T_OVERRIDE_CENTER) || t->around == V3D_AROUND_CURSOR))
+  {
+    source = double3(t->center_global);
+  }
+  else if (t->tsnap.source_operation == SCE_SNAP_SOURCE_CENTER &&
+           t->around == V3D_AROUND_CENTER_BOUNDS)
+  {
+    double3 low = math::transform_point(matrix, data.centers[0]), high = low;
+    for (const double3 &position : data.centers) {
+      const double3 world = math::transform_point(matrix, position);
+      low = math::min(low, world);
+      high = math::max(high, world);
+    }
+    source = low * 0.5 + high * 0.5;
+  }
+  else {
+    source = median();
+  }
+  r_world = target - source;
+  if (t->con.mode & CON_APPLY) {
+    /* Point snapping uses the same axis/plane projection as Blender's mesh transforms. */
+    r_world = double3x3(float3x3(t->con.pmtx)) * r_world;
+  }
   return true;
 }
 

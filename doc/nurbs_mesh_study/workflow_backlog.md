@@ -17,42 +17,29 @@ user and remain open until answered. Preserve exact rational circles/arcs. The
 queries, fixed-basis constraints and explicit new interpolation. Persistent
 handles, analytic dragging and viewport integration remain to implement.
 
-## Reported: vertex-to-vertex snapping in Edit Mode
+## Repaired: vertex snapping and extrusion with snapping enabled
 
-The user tried to snap a NURBS vertex to another vertex and received:
-“Native NURBS snapping requires a source-precision snapping adapter.”
-Screenshot supplied in the conversation on 2026-10-25. This confirms the existing
-explicit snapping gate; the original .blend, exact gesture and target object are
-not supplied. Do not call it a repaired or fully reproduced interaction yet.
+The user's line → face → duplicate → corner snap → E report is now exercised
+through actual viewport events. The failure did not require welding or even a
+successful corner snap: the native transform cancelled merely because snapping
+was enabled, leaving E's initial cap and walls coincident. The earlier
+geometry-only test was insufficient to diagnose this editor failure.
 
-Additional reproduction detail supplied on 2026-10-25: extrude a line into a
-face, duplicate that face, then use vertex snapping with the snap source set to
-Active to align one corner with another face's corner. After the corners meet,
-face extrusion stops working. The source confirms that native G/R/S currently
-cancels as soon as snapping is active (`transform_convert_nurbs.cc`), so this
-interaction is not supported by the current native transform adapter. The
-separate post-snap extrusion failure still needs a saved reproduction: snapping
-must move geometry, component IDs and selection must survive, and the later
-extrusion failure must be captured independently. Coincident coordinates alone
-must not silently weld separate vertices; topology merge needs an explicit
-operation or a deliberate snapping policy.
+Vertex snapping now resolves native topology endpoint IDs and double source
+positions, reuses Blender's snap controls, and applies movement through the
+shared kernel transform and common commit. Active, Closest, Median and Center
+bases, axis/plane constraints, the cursor pivot, transformed owners and an
+external mesh vertex target have viewport checks. The complete corner-snap/E
+sequence is compared with an actual mesh, with cancellation, undo/redo and saved
+source continuation. Separate coincident vertices are not implicitly welded.
+See [implementation, reproduction and limits](vertex_snapping.md).
 
-Required behavior:
-
-- Resolve the snap target to source identity and its authoritative position.
-  A display triangle/float vertex is a picking proxy, not the committed target.
-- Use the selected source endpoint/active anchor and Blender's snapping controls.
-  Distinguish snapping a single endpoint from moving a selected region as a unit.
-- Update every incident edge/support through the common geometry request and
-  owner commit. Unsupported curved deformation must report and preserve source.
-- Handle same-object, other-object, transformed-owner and linked-data targets;
-  define source precision and reporting for an external mesh target explicitly.
-- Verify modal preview, constraints, confirm/cancel, undo/redo, save/reopen,
-  source identity, and endpoint/edge/support agreement. Include the user's
-  vertex-to-vertex example and comparison with Blender mesh snapping.
-
-This is pending implementation. The existing G/R/S geometry adapter deliberately
-rejects active snapping instead of committing a quantized display-mesh target.
+Remaining snapping work includes general native edge/face queries, surface
+projection/normal alignment, a custom modal snap base, accumulated points,
+geometric Rotate/Scale snapping, multiple moving owners, visibility and caching.
+Other native owners and linked-data targets need dedicated interaction coverage.
+Partial curved deformation remains governed by the kernel's explicit geometry
+support; this point adapter does not add arbitrary curve/surface fitting.
 
 ## Remaining planned families
 

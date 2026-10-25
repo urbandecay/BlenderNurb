@@ -2260,3 +2260,347 @@ def rotate_scale_fresh_continuation():
     save('fresh-extruded')
     yield e.s().x().text('0.5').ret()
     save('fresh-scaled')
+
+
+def snapping_and_extrusion():
+    """Exercise E with the same vertex snapping settings as the duplicate-face report."""
+    from pathlib import Path
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path('/tmp/blender-nurbs-snapping-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.numpad_7()
+    space.region_3d.view_location = (1, 1, 0)
+    space.region_3d.view_distance = 9
+    space.shading.show_xray = True
+    space.overlay.show_stats = True
+    yield e.two()
+    yield e.e().y().text('2').ret()
+    yield e.three()
+    yield e.a()
+    yield e.shift.d().x().text('3').ret()
+    settings = window.scene.tool_settings
+    settings.snap_elements = {'VERTEX'}
+    settings.snap_target = 'ACTIVE'
+    settings.use_snap = True
+    print('NURBS_SNAP_REPRO_BEFORE_E', window.scene.statistics(window.view_layer))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'before-extrude.blend'), check_existing=False)
+    yield e.e().z().text('1').ret()
+    print('NURBS_SNAP_REPRO_AFTER_E', window.scene.statistics(window.view_layer))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'after-extrude.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / 'after-extrude.png'))
+        obj = window.view_layer.objects.active
+        window.view_layer.update()
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            t.assertIsNotNone(mesh)
+            t.assertAlmostEqual(max(v.co.z for v in mesh.vertices), 1.0, places=6,
+                                msg='E must move the face even with vertex snapping enabled')
+        finally:
+            evaluated.to_mesh_clear()
+
+
+def vertex_snap_then_extrude():
+    """Run the reported workflow with real viewport events for both mesh and NURBS."""
+    import re
+    from pathlib import Path
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path('/tmp/blender-nurbs-snapping-ui')
+    output.mkdir(parents=True, exist_ok=True)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def screen(position):
+        obj = window.view_layer.objects.active
+        co = location_3d_to_region_2d(region, space.region_3d, obj.matrix_world @ Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def active_center(expected):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+        for actual, value in zip(window.scene.cursor.location, expected):
+            t.assertAlmostEqual(actual, value, places=5)
+
+    for kind in ('mesh', 'nurbs'):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        settings = window.scene.tool_settings
+        settings.use_snap = False
+        window.scene.cursor.location = (0, 0, 0)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        if kind == 'nurbs':
+            yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        else:
+            data = bpy.data.meshes.new('Mesh snapping reference')
+            data.from_pydata([(-1, 0, 0), (1, 0, 0)], [(0, 1)], [])
+            obj = bpy.data.objects.new('Mesh snapping reference', data)
+            window.scene.collection.objects.link(obj)
+            obj.select_set(True)
+            window.view_layer.objects.active = obj
+        yield e.tab()
+        yield e.numpad_7()
+        space.region_3d.view_location = (1, 2, 0)
+        space.region_3d.view_distance = 9
+        space.shading.show_xray = True
+        space.overlay.show_stats = True
+        yield e.two()
+        yield e.a()
+        yield e.e().y().text('2').ret()
+        t.assertEqual(counts(), (2, 4, 1, 4, 0, 1))
+        yield e.one()
+        yield e.alt.a()
+        yield e.cursor_position_set(*screen((-1, 0, 0)), move=True)
+        yield e.leftmouse()
+        yield e.ctrl.l()
+        t.assertEqual(counts(), (4, 4, 4, 4, 1, 1))
+        yield e.shift.d().x().text('3').ret()
+        t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+        active_center((2, 0, 0))
+        settings.snap_elements = {'VERTEX'}
+        settings.snap_target = 'ACTIVE'
+        settings.use_snap = True
+        yield e.cursor_position_set(*screen((2, 0, 0)), move=True)
+        yield e.g()
+        yield e.cursor_position_set(*screen((1, 2, 0)), move=True)
+        yield
+        yield e.leftmouse()
+        active_center((1, 2, 0))
+        t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+        yield e.ctrl.z()
+        active_center((2, 0, 0))
+        yield e.ctrl.shift.z()
+        active_center((1, 2, 0))
+        yield e.g()
+        yield e.cursor_position_set(*screen((-1, 0, 0)), move=True)
+        yield
+        yield e.esc()
+        active_center((1, 2, 0))
+        yield e.three()
+        yield e.alt.a()
+        yield e.cursor_position_set(*screen((2, 3, 0)), move=True)
+        yield e.leftmouse()
+        t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+        # Mesh E follows this wire-built face's -Z normal; curve E starts as a free move.
+        if kind == 'mesh':
+            yield e.e().text('-1').ret()
+        else:
+            yield e.e().z().text('1').ret()
+        t.assertEqual(counts(), (4, 12, 4, 16, 1, 7))
+        # Read the active source face, rather than relying on a tessellated display vertex.
+        active_center((2, 3, 1))
+        yield e.ctrl.z()
+        t.assertEqual(counts(), (4, 8, 4, 8, 1, 2))
+        yield e.ctrl.shift.z()
+        active_center((2, 3, 1))
+        space.shading.show_xray = False
+        yield e.numpad_6().numpad_8().numpad_8().numpad_8()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / (kind + '-snap-extrude.blend')),
+                                       check_existing=False)
+            bpy.ops.screen.screenshot(filepath=str(output / (kind + '-snap-extrude.png')))
+        print('SNAP_DUPLICATE_EXTRUDE_VIEWPORT_PASS', kind, counts())
+
+
+def native_vertex_snap_sources(cases=('ACTIVE', 'CLOSEST', 'MEDIAN', 'CENTER', 'CURSOR',
+                                     'axis', 'plane', 'precision', 'transformed',
+                                     'transformed-closest', 'mesh-target')):
+    """Source anchors, transformed owners and double coordinates must survive viewport snapping."""
+    from pathlib import Path
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path('/tmp/blender-nurbs-snapping-ui')
+    output.mkdir(parents=True, exist_ok=True)
+
+    def screen_world(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    for case in cases:
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        settings = window.scene.tool_settings
+        settings.use_snap = False
+        settings.transform_pivot_point = 'MEDIAN_POINT'
+        window.scene.cursor.location = (0, 0, 0)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        obj = window.view_layer.objects.active
+        yield e.tab()
+        yield e.numpad_7()
+        space.region_3d.view_location = (2, 1, 0)
+        space.region_3d.view_distance = 12
+        space.shading.show_xray = True
+        yield e.two()
+        yield e.e().y().text('2').ret()
+        if case in {'transformed', 'transformed-closest'}:
+            obj.rotation_euler.z = 0.5
+            obj.scale = (1.5, 0.75, 2)
+            obj.location = (3, -2, 0.25)
+            window.view_layer.update()
+        seed = 2 ** -35 if case == 'precision' else 0
+        if seed:
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.curve.select_all(action='SELECT')
+                bpy.ops.transform.translate(value_precise_z='0.00000000002910383045673370361328125')
+        corner_base = case in {'axis', 'plane', 'precision', 'transformed', 'mesh-target', 'single-vertex'}
+        yield e.one() if corner_base else e.three()
+        yield e.alt.a()
+        local = (-1, 0, seed) if corner_base else (0, 1, seed)
+        yield e.cursor_position_set(*screen_world(obj.matrix_world @ Vector(local)), move=True)
+        yield e.leftmouse()
+        if corner_base:
+            yield e.ctrl.l()
+        yield e.shift.d().x().text('3').ret()
+        if seed:
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.transform.translate(value_precise_z='1.0000000000009094947017729282379150390625')
+        elif case == 'plane':
+            yield e.g().z().text('1').ret()
+        target = obj.matrix_world @ Vector((1, 2, seed))
+        if case == 'single-vertex':
+            yield e.alt.a()
+            yield e.cursor_position_set(*screen_world((2, 0, 0)), move=True)
+            yield e.leftmouse()
+            target = Vector((-1, 0, 0))
+        if case == 'mesh-target':
+            data = bpy.data.meshes.new('External vertex snap target')
+            data.from_pydata([(0.5, 0.25, 0.125)], [], [])
+            other = bpy.data.objects.new('External vertex snap target', data)
+            window.scene.collection.objects.link(other)
+            other.location = (2, 1, 1)
+            other.scale = (2, 3, 4)
+            window.view_layer.update()
+            target = other.matrix_world @ Vector((0.5, 0.25, 0.125))
+        settings.snap_elements = {'VERTEX'}
+        settings.snap_target = case if case in {'ACTIVE', 'CLOSEST', 'MEDIAN', 'CENTER'} else 'ACTIVE'
+        if case == 'transformed-closest':
+            settings.snap_target = 'CLOSEST'
+        if case == 'CENTER':
+            settings.transform_pivot_point = 'BOUNDING_BOX_CENTER'
+        elif case == 'CURSOR':
+            settings.snap_target = 'CENTER'
+            settings.transform_pivot_point = 'CURSOR'
+            window.scene.cursor.location = (4, 5, 0)
+        settings.use_snap = True
+        yield e.cursor_position_set(*screen_world(obj.matrix_world @ Vector((3, 1, seed))), move=True)
+        yield e.g()
+        if case == 'axis':
+            yield e.x()
+        elif case == 'plane':
+            yield e.shift.z()
+        yield e.cursor_position_set(*screen_world(target), move=True)
+        yield
+        yield e.leftmouse()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+        if case == 'axis':
+            expected = Vector((1, 0, 0))
+        elif case == 'plane':
+            expected = Vector((1, 2, 1))
+        elif corner_base:
+            expected = target
+        elif case in {'CLOSEST', 'transformed-closest'}:
+            expected = obj.matrix_world @ Vector((2, 1, 0))
+        elif case == 'CURSOR':
+            expected = Vector((0, -2, 0))
+        else:
+            expected = Vector((1, 2, 0))
+        for actual, value in zip(window.scene.cursor.location, expected):
+            t.assertAlmostEqual(actual, value, places=5, msg=case)
+        if seed:
+            # A float translation loses 2^-40 near 1 and leaves the corner off the target.
+            t.assertEqual(window.scene.cursor.location.z, seed)
+        if case == 'single-vertex':
+            t.assertIn('Verts:1/8', window.scene.statistics(window.view_layer))
+            window.view_layer.update()
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                mesh = evaluated.to_mesh()
+                try:
+                    t.assertIsNotNone(mesh)
+                    t.assertGreater(len(mesh.polygons), 0)
+                finally:
+                    evaluated.to_mesh_clear()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / (case + '-snapped.blend')),
+                                       check_existing=False)
+        print('NATIVE_VERTEX_SNAP_SOURCE_PASS', case, tuple(window.scene.cursor.location))
+
+
+def native_single_vertex_snap():
+    yield from native_vertex_snap_sources(('single-vertex',))
+
+
+def snapped_face_fresh_continuation():
+    """Reopen the saved source, cancel one extrusion's movement, then extrude again."""
+    from pathlib import Path
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path('/tmp/blender-nurbs-snapping-ui')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(str(output / 'nurbs-snap-extrude.blend'), link=False) as (source, target):
+        target.curves = list(source.curves)
+    curve = next(c for c in target.curves if c.is_native_nurbs)
+    t.assertEqual(len(curve.splines), 0)
+    obj = bpy.data.objects.new('Saved snapping source', curve)
+    window.scene.collection.objects.link(obj)
+    obj.select_set(True)
+    window.view_layer.objects.active = obj
+    settings = window.scene.tool_settings
+    settings.snap_elements = {'VERTEX'}
+    settings.snap_target = 'ACTIVE'
+    settings.use_snap = True
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    t.assertEqual(tuple(curve.nurbs_selection_mode), (False, False, True))
+    yield e.e().esc()
+    yield e.e().z().text('1').ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+    t.assertEqual(tuple(window.scene.cursor.location), (2, 3, 2))
+    t.assertEqual(len(curve.splines), 0)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'fresh-continued.blend'), check_existing=False)
+    print('NATIVE_SNAPPED_FACE_FRESH_CONTINUATION_PASS', window.scene.statistics(window.view_layer))

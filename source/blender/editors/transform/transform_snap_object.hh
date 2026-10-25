@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "DNA_listBase.h"
 #include "DNA_scene_types.h"
 
@@ -99,6 +101,10 @@ struct SnapObjectContext {
   struct Output {
     /* Location of snapped point on target surface. */
     float3 loc;
+    /** Source point transformed in double precision; float coordinates are picking proxies. */
+    std::optional<double3> point_location;
+    /** Persistent source identity for a native NURBS endpoint hit, otherwise zero. */
+    int64_t nurbs_vertex_id = 0;
     /* Normal of snapped point on target surface. */
     float3 no;
     /* Index of snapped element on target object (-1 when no valid index is found). */

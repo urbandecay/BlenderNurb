@@ -1509,7 +1509,7 @@ TEST(nurbs_geometry, RegionConstructionSharesWallsAndContinuesAfterExtrusionAndV
   EXPECT_EQ(continued->geometry->faces.count(), 9);
 }
 
-TEST(nurbs_geometry, DuplicateFaceCanBeSnappedToAdjacentCornerAndStillExtruded)
+TEST(nurbs_geometry, DuplicateFaceCanTouchAdjacentCornersAndStillExtrude)
 {
   const auto source = make_extrusion_sheet();
   ASSERT_NE(source, nullptr);

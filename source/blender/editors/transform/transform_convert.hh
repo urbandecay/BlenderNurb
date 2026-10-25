@@ -243,6 +243,7 @@ void nurbs_affine_update(TransInfo *t, const float matrix[3][3]);
 void nurbs_transform_reset(TransInfo *t);
 bool nurbs_translation_replay(TransInfo *t, double3 &r_space, double3 &r_world);
 void nurbs_translation_update(TransInfo *t, const double3 &space, const double3 &world);
+bool nurbs_translation_snap(TransInfo *t, double3 &r_world, std::string &r_error);
 
 /* `transform_convert_curves.cc` */
 

@@ -6,11 +6,16 @@
  * \ingroup edtransform
  */
 
+#include <cmath>
+#include <limits>
+
 #include "DNA_curve_types.h"
 
 #include "BLI_listbase.h"
+#include "BLI_math_matrix.hh"
 
 #include "BKE_curve.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object.hh"
 
 #include "ED_transform_snap_object_context.hh"
@@ -29,6 +34,39 @@ eSnapMode snapCurve(SnapObjectContext *sctx, const Object *ob_eval, const float4
   }
 
   Curve *cu = id_cast<Curve *>(ob_eval->data);
+
+  if (const auto source = bke::nurbs::curve_eval_source_capture(*cu)) {
+    if (!source->snapshot) {
+      return SCE_SNAP_TO_NONE;
+    }
+    const auto &snapshot = *source->snapshot;
+    SnapData nearest(sctx, obmat);
+    nearest.clip_planes_enable(sctx, ob_eval, true);
+    const bool skip_selected = BKE_object_is_in_editmode(ob_eval) &&
+                               (sctx->runtime.params.snap_target_select &
+                                SCE_SNAP_TARGET_NOT_SELECTED);
+    const NurbsTopologyVertex *hit = nullptr;
+    for (const NurbsTopologyVertex &vertex : snapshot.geometry().vertices) {
+      if (skip_selected && snapshot.selection().vertices.contains(vertex.id)) {
+        continue;
+      }
+      bool representable = true;
+      for (const double value : vertex.position) {
+        representable &= std::isfinite(value) &&
+                         std::abs(value) <= std::numeric_limits<float>::max();
+      }
+      if (representable && nearest.snap_point(float3(double3(vertex.position)))) {
+        hit = &vertex;
+      }
+    }
+    if (hit == nullptr) {
+      return SCE_SNAP_TO_NONE;
+    }
+    nearest.register_result(sctx, ob_eval, &cu->id);
+    sctx->ret.point_location = math::transform_point(double4x4(obmat), double3(hit->position));
+    sctx->ret.nurbs_vertex_id = hit->id;
+    return SCE_SNAP_TO_POINT;
+  }
 
   SnapData nearest2d(sctx, obmat);
 
