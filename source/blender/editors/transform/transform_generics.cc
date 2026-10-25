@@ -154,9 +154,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 
   t->flag = eTFlag(0);
 
-  if (obact && !(t->options & (CTX_CURSOR | CTX_TEXTURE_SPACE)) &&
-      (object_mode & OB_MODE_EDIT))
-  {
+  if (obact && !(t->options & (CTX_CURSOR | CTX_TEXTURE_SPACE)) && (object_mode & OB_MODE_EDIT)) {
     t->obedit_type = obact->type;
   }
   else {
@@ -854,6 +852,9 @@ static void restoreElement(TransData *td)
 
 void restoreTransObjects(TransInfo *t)
 {
+  if (t->data_type == &TransConvertType_Nurbs) {
+    nurbs_transform_reset(t);
+  }
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
 
     TransData *td;

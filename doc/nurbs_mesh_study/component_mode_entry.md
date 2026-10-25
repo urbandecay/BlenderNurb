@@ -72,7 +72,8 @@ coefficients are not fitted, rounded back to floats or assigned a larger model
 tolerance to make entry succeed.
 
 Native movement, E, Shift+D, F and component deletion are the existing covered
-subset. Broader transforms (including native R/S), snapping, lasso/circle
+subset. The subsequent [Rotate/Scale checkpoint](native_rotate_scale_tryout.md)
+adds R/S through the same transform path. Snapping, lasso/circle
 selection, per-component visibility and full component-data Python bindings
 remain unfinished. Choosing a component mode activates that native subset; it
 does not claim the rest of the editing pipeline is complete.
@@ -90,7 +91,7 @@ For a surface: select the line in Edge mode, **E, Y, 2, Enter**. Choose Face mod
 select the sheet, then **E, Z, 1, Enter**. Continue using the covered Move,
 Duplicate, Fill and Delete operations. Face extrusion currently needs an explicit
 axis or supported Global/Local movement; automatic normal constraint is later
-work. Native Rotate/Scale are still gated. Undo the source-entry step to return
+work. Native Rotate/Scale are available in the subsequent checkpoint. Undo the source-entry step to return
 to the original tagged source; redo restores native geometry and selection.
 
 An existing valid tagged line/patch model can enter the same way. Untagged old

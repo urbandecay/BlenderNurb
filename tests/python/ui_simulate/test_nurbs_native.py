@@ -204,7 +204,7 @@ def vertex_selection_and_lifecycle():
         else:
             t.fail("Legacy primitive addition accepted a native edit source")
         try:
-            result = bpy.ops.transform.rotate(value=1.0, orient_axis='Z')
+            result = bpy.ops.transform.rotate(value=1.0, orient_axis='Z', orient_type='NORMAL')
         except RuntimeError as error:
             t.assertIn("Native NURBS", str(error))
         else:
@@ -1912,3 +1912,351 @@ def component_mode_entry_preflight():
     yield e.ctrl.shift.z()
     t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
     yield e.tab()
+
+
+def rotate_scale_and_lifecycle():
+    """Normal Add reaches shared R/S, numeric constraints, modes and source undo."""
+    import re
+    from pathlib import Path
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path('/tmp/blender-nurbs-rotate-scale-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.two()
+    yield e.e().y().text('2').ret()
+    yield e.one()
+    yield e.a()
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 1, 0)
+    space.region_3d.view_distance = 12
+    space.shading.show_xray = True
+    space.overlay.show_stats = True
+    window.scene.tool_settings.transform_pivot_point = 'MEDIAN_POINT'
+    window.scene.transform_orientation_slots[0].type = 'GLOBAL'
+    yield
+
+    def save(label):
+        obj = window.view_layer.objects.active
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        t.assertEqual(tuple(map(int, match.groups()))[1::2], (4, 4, 1))
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(mesh, 'NURBS transform preview failed')
+                t.assertGreater(len(mesh.polygons), 0)
+            finally:
+                evaluated.to_mesh_clear()
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / (label + '.blend')), check_existing=False)
+
+    def preview_bounds():
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            obj = window.view_layer.objects.active
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(mesh)
+                return tuple((min(v.co[axis] for v in mesh.vertices),
+                              max(v.co[axis] for v in mesh.vertices)) for axis in range(3))
+            finally:
+                evaluated.to_mesh_clear()
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    save('start')
+    yield e.s().text('0').ret()
+    save('scale-zero')
+    yield e.ctrl.z()
+    save('scale-zero-undo')
+    yield e.s().x().text('-1').ret()
+    save('scale-reflection')
+    yield e.ctrl.z()
+    yield e.r().z().text('90').ret()
+    save('rotate-90')
+    yield e.s().x().text('2').ret()
+    # Open the standard F9 Scale controls while Scale is still the active operation.
+    t.assertEqual(bpy.context.active_operator.bl_idname, 'TRANSFORM_OT_resize')
+    yield e.f9()
+    yield
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'scale-f9.png'))
+    yield e.cursor_position_set(540, 270, move=True)
+    yield e.leftmouse().ctrl.a().text('3').ret()
+    yield e.esc()
+    yield
+    t.assertEqual(tuple(bpy.context.active_operator.value), (3, 1, 1))
+    save('scale-f9-3')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.f9()
+    yield
+    yield e.cursor_position_set(540, 270, move=True)
+    yield e.leftmouse().ctrl.a().text('2').ret()
+    yield e.esc()
+    yield
+    t.assertEqual(tuple(bpy.context.active_operator.value), (2, 1, 1))
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    save('scale-2')
+    yield e.ctrl.z()
+    save('scale-undo')
+    yield e.ctrl.shift.z()
+    save('scale-redo')
+    yield e.r().y().text('45').esc()
+    yield e.s().z().text('0.25').esc()
+    bounds = preview_bounds()
+    for transform in ('r', 's'):
+        yield e.cursor_position_set(500, 350, move=True)
+        yield getattr(e, transform)()
+        yield e.cursor_position_set(550, 430, move=True)
+        yield
+        t.assertNotEqual(preview_bounds(), bounds, 'Mouse transform did not update source preview')
+        yield e.esc()
+        t.assertEqual(preview_bounds(), bounds)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    save('cancel')
+    yield e.g().r().z().text('90').ret()
+    save('switch-gr')
+    yield e.r().s().x().text('0.5').ret()
+    save('switch-rs')
+    yield e.three()
+    yield e.a()
+    window.scene.tool_settings.transform_pivot_point = 'CURSOR'
+    window.scene.cursor.location = (0, 0, 0)
+    yield e.r().x().text('90').ret()
+    yield e.s().z().text('2').ret()
+    yield e.numpad_1()
+    save('face-rs')
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'face-transformed.png'))
+    yield e.one()
+    yield e.alt.a()
+    corner = screen((-0.5, 0, -2))
+    yield e.cursor_position_set(*corner, move=True)
+    yield e.leftmouse()
+    yield e.r().y().text('90').ret()
+    save('vertex-rotate')
+    yield e.s().x().text('2').ret()
+    save('vertex-scale')
+    yield e.ctrl.z()
+    yield e.ctrl.z()
+    yield e.alt.a()
+    yield e.b()
+    yield from e.leftmouse.cursor_motion(((corner[0] - 7, corner[1] - 7),
+                                         (corner[0] + 7, corner[1] + 7)))
+    yield e.r().y().text('90').ret()
+    save('vertex-box-rotate')
+    yield e.two()
+    yield e.alt.a()
+    yield e.cursor_position_set(*screen((0.5, 0, 2)), move=True)
+    yield e.leftmouse()
+    window.scene.tool_settings.transform_pivot_point = 'MEDIAN_POINT'
+    yield e.s().z().text('0.5').ret()
+    save('edge-scale')
+    yield e.r().y().text('30').ret()
+    save('edge-rotate')
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'edge-transformed.png'))
+    yield e.tab()
+    yield e.tab()
+    save('final')
+    yield e.rightmouse()
+    yield
+    with bpy.context.temp_override(window=window):
+        bpy.ops.screen.screenshot(filepath=str(output / 'transform-context-menu.png'))
+    yield e.esc()
+
+
+def rotate_scale_mesh_parity():
+    """Run the same constrained transforms on native NURBS and actual Blender meshes."""
+    import json
+    from pathlib import Path
+    import bpy
+    import bmesh
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Matrix, Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path('/tmp/blender-nurbs-rotate-scale-parity-ui')
+    output.mkdir(parents=True, exist_ok=True)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.two()
+    yield e.e().y().text('2').ret()
+    yield e.three()
+    yield e.a()
+    yield e.shift.d().x().text('4').ret()
+    yield e.a()
+    yield e.tab()
+    base = window.view_layer.objects.active
+    base_curve = base.data
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'start.blend'), check_existing=False)
+    bpy.data.objects.remove(base, do_unlink=True)
+    coords = [(-1, 0, 0), (1, 0, 0), (1, 2, 0), (-1, 2, 0),
+              (3, 0, 0), (5, 0, 0), (5, 2, 0), (3, 2, 0)]
+    owner_matrix = (Matrix.Translation((2, -1, 3)) @ Matrix.Rotation(0.4, 4, 'Z') @
+                    Matrix.Diagonal((1.5, 0.75, 2, 1)))
+    space.shading.show_xray = True
+    space.overlay.show_stats = True
+    space.region_3d.view_location = owner_matrix @ Vector((2, 1, 0))
+    space.region_3d.view_distance = 20
+    window.scene.cursor.location = (1.25, 2.5, 0.25)
+    yield e.numpad_7()
+    results = {'initial': coords, 'cases': []}
+    cases = [('individual-vertex', 1, 'INDIVIDUAL_ORIGINS', False),
+             ('individual-edge', 2, 'INDIVIDUAL_ORIGINS', False),
+             ('individual-face', 3, 'INDIVIDUAL_ORIGINS', False),
+             ('bounds', 1, 'BOUNDING_BOX_CENTER', True),
+             ('active', 1, 'ACTIVE_ELEMENT', True),
+             ('cursor', 1, 'CURSOR', True)]
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, space.region_3d, owner_matrix @ Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    for label, mode, pivot, partial in cases:
+        window.scene.tool_settings.transform_pivot_point = pivot
+        window.scene.transform_orientation_slots[0].type = 'GLOBAL'
+        native = bpy.data.objects.new('Native ' + label, base_curve.copy())
+        window.scene.collection.objects.link(native)
+        native.matrix_world = owner_matrix
+        native.select_set(True)
+        window.view_layer.objects.active = native
+        window.view_layer.update()
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        yield getattr(e, ('one', 'two', 'three')[mode - 1])()
+        if partial:
+            yield e.alt.a()
+            for index in range(3):
+                yield e.cursor_position_set(*screen(coords[index]), move=True)
+                yield e.shift.leftmouse() if index else e.leftmouse()
+        else:
+            yield e.a()
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.r().z().text('90').ret()
+        yield e.s().x().text('2').ret()
+        yield e.s().y().y().text('0.5').ret()
+        t.assertTrue(native.data.is_native_nurbs)
+        t.assertEqual(len(native.data.splines), 0)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            evaluated = native.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            display = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(display)
+                t.assertGreater(len(display.polygons), 0)
+            finally:
+                evaluated.to_mesh_clear()
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / (label + '.blend')), check_existing=False)
+            if label == 'individual-face':
+                bpy.ops.screen.screenshot(filepath=str(output / 'individual-faces.png'))
+        yield e.tab()
+        native.select_set(False)
+        mesh = bpy.data.meshes.new('Mesh reference')
+        mesh.from_pydata(coords, [], [(0, 1, 2, 3), (4, 5, 6, 7)])
+        reference = bpy.data.objects.new('Actual mesh ' + label, mesh)
+        reference.matrix_world = owner_matrix
+        window.scene.collection.objects.link(reference)
+        reference.select_set(True)
+        window.view_layer.objects.active = reference
+        window.scene.tool_settings.mesh_select_mode = tuple(mode == i for i in (1, 2, 3))
+        yield e.tab()
+        if partial:
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.mesh.select_all(action='DESELECT')
+            bm = bmesh.from_edit_mesh(mesh)
+            bm.verts.ensure_lookup_table()
+            for index in range(3):
+                bm.verts[index].select_set(True)
+            bm.select_history.clear()
+            bm.select_history.add(bm.verts[2])
+            bm.select_flush_mode()
+            bmesh.update_edit_mesh(mesh)
+        else:
+            yield e.a()
+        yield e.r().z().text('90').ret()
+        yield e.s().x().text('2').ret()
+        yield e.s().y().y().text('0.5').ret()
+        reference.update_from_editmode()
+        results['cases'].append({'label': label, 'mode': mode,
+                                  'positions': [list(v.co) for v in mesh.vertices]})
+        yield e.tab()
+        bpy.data.objects.remove(reference, do_unlink=True)
+        bpy.data.objects.remove(native, do_unlink=True)
+    (output / 'mesh-reference.json').write_text(json.dumps(results, indent=2))
+    with (output / 'mesh-reference.txt').open('w') as stream:
+        for case in results['cases']:
+            stream.write(f"{case['label']} {case['mode']} {len(coords)}\n")
+            for initial, final in zip(coords, case['positions']):
+                stream.write(' '.join(map(repr, (*initial, *final))) + '\n')
+
+
+def rotate_scale_fresh_continuation():
+    """Reopen the transformed authoritative source in a fresh process and continue extrusion."""
+    from pathlib import Path
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path('/tmp/blender-nurbs-rotate-scale-ui')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(str(output / 'final.blend'), link=False) as (source, target):
+        t.assertEqual(len(source.curves), 1)
+        target.curves = source.curves[:]
+    obj = bpy.data.objects.new('Reopened transformed NURBS', target.curves[0])
+    window.scene.collection.objects.link(obj)
+    obj.select_set(True)
+    window.view_layer.objects.active = obj
+    window.view_layer.update()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    t.assertTrue(obj.data.is_native_nurbs)
+    t.assertEqual(tuple(obj.data.nurbs_selection_mode), (False, True, False))
+    yield e.e().y().text('1').ret()
+    stats = window.scene.statistics(window.view_layer)
+    t.assertIn('Verts:2/6 | Edges:1/7 | Faces:0/2', stats)
+    def save(label):
+        window.view_layer.update()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(mesh)
+                t.assertGreater(len(mesh.polygons), 0)
+            finally:
+                evaluated.to_mesh_clear()
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / (label + '.blend')), check_existing=False)
+
+    save('fresh-extruded')
+    yield e.s().x().text('0.5').ret()
+    save('fresh-scaled')

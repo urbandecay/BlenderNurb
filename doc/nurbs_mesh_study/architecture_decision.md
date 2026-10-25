@@ -723,3 +723,34 @@ geometry, not fit approximations; their ordinary editing workflow requires its
 own fit/seam policy. Native R/S and the remaining transform, visibility, snapping
 and Python component APIs remain unfinished. See
 [component-mode source entry](component_mode_entry.md) and the latest checkout audit.
+
+
+## Shared affine component transforms
+
+The Move correspondence checks now form a reusable kernel request planner.
+`transform_vertices` groups per-vertex affine matrices and combines coefficient
+requests before creating a candidate. Whole rational curves/supports, partial
+linear corners and proven ruled rows use this same source contract. Shared
+geometry owners must request consistent coefficient assignments. The service
+retains unselected resources, weights, bases, domains, p-curves and topology;
+unsupported partial deformation rejects without fitting.
+
+Selection transform origins are another shared kernel query. Individual groups
+follow actual BMesh edge/face grouping precedence and average the established
+NURBS source representatives. Common source median/active centers retain double
+positions. Blender's world-axis bounding center, cursor and explicit overrides
+remain host UI inputs. The editor conjugates the host linear transform into
+object space and delegates source mutation to the kernel and common owner commit.
+It never derives source coordinates from TransData's float proxy results.
+
+Rotate/Scale now participate in Blender's existing modal operators and F9 fields.
+The operator supplies its constrained matrix before source recalc. Each preview
+uses the immutable starting source; cancel and modal G/R/S switches restore it.
+The generic reset hook is conditional on the native NURBS converter. Other
+converters keep their existing behavior. Zero and reflected scales retain source
+identity and orientation flags. Arithmetic bounds concern application of the
+supplied matrix; host float parameter/matrix construction and evaluation remain
+explicit precision boundaries. Native Normal/Gimbal frames, snapping, proportional
+editing, Trackball and general fit-point deformation are still separate gates.
+See [the transform checkpoint](native_rotate_scale_tryout.md) and the checkout
+audit for tested behaviors and limits.

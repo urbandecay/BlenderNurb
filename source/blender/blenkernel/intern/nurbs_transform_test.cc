@@ -611,4 +611,198 @@ TEST(nurbs_vertex_transform, RuledBoundaryGapBeyondDeclaredToleranceRejects)
   EXPECT_EQ(surface.points[3].position[2], 1);
 }
 
+TEST(nurbs_vertex_transform, AffineWeightedCornersKeepSharedGeometryAndRationalBasis)
+{
+  const auto source = weighted_patch();
+  ASSERT_NE(source, nullptr);
+  const auto *unowned = add_linear_curve(*source, {10, 0, 0}, {11, 0, 0}, 3);
+  const int64_t unowned_id = unowned->id;
+  double4x4 matrix = double4x4::identity();
+  matrix[0][0] = -1;
+  matrix[1][1] = 2;
+  matrix[2][2] = 0.5;
+  matrix.location() = double3(2, 1, 3);
+  std::string error;
+  const auto result = transform_vertices(
+      *source, {{1, matrix}, {2, matrix}, {1, matrix}}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  expect_bases_and_ids_unchanged(*source, *result->geometry);
+  EXPECT_EQ(result->position_error_bound, 0);
+  EXPECT_EQ(result->tolerance_scale_bound, 2);
+  const auto &before = first_transform_item(source->surfaces);
+  const auto &after = first_transform_item(result->geometry->surfaces);
+  for (int i = 0; i < 4; i++) {
+    const double3 expected = i < 2 ? double3(2 - before.points[i].position[0], 1, 3) :
+                                     double3(before.points[i].position);
+    EXPECT_EQ(double3(after.points[i].position), expected);
+  }
+  auto options = preview_options();
+  options.boundary.evaluation_allowance = 1e-12;
+  EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+  EXPECT_EQ(before.points[0].position[2], 0);
+  for (const auto &curve : result->geometry->curves) {
+    if (curve.id == unowned_id) {
+      EXPECT_EQ(double3(curve.points[0].position), double3(10, 0, 0));
+      EXPECT_EQ(double3(curve.points[1].position), double3(11, 0, 0));
+    }
+  }
+  matrix = double4x4::identity();
+  matrix[0][0] = 0;
+  const auto flattened = transform_vertices(
+      *source, {{1, matrix}, {2, matrix}, {3, matrix}, {4, matrix}}, 0, &error);
+  ASSERT_TRUE(flattened.has_value()) << error;
+  EXPECT_TRUE(geometry_validate_structure(*flattened->geometry, &error)) << error;
+  expect_bases_and_ids_unchanged(*source, *flattened->geometry);
+}
+
+TEST(nurbs_vertex_transform, AffineRuledArcAndCircleRowsRetainExactRationalConstruction)
+{
+  for (const bool closed : {false, true}) {
+    const auto source = make_arc_sheet(closed);
+    ASSERT_NE(source, nullptr);
+    double4x4 matrix = double4x4::identity();
+    matrix[0][0] = matrix[1][1] = 0;
+    matrix[0][1] = 2;
+    matrix[1][0] = -2;
+    matrix.location() = double3(1, -1, 0);
+    Vector<VertexTransform> transforms;
+    for (const NurbsTopologyVertex &vertex : source->vertices) {
+      if (vertex.position[2] == 2) {
+        transforms.append({vertex.id, matrix});
+      }
+    }
+    std::string error;
+    const auto result = transform_vertices(*source, transforms, 0, &error);
+    ASSERT_TRUE(result.has_value()) << error;
+    expect_bases_and_ids_unchanged(*source, *result->geometry);
+    const auto &before = first_transform_item(source->surfaces);
+    const auto &after = first_transform_item(result->geometry->surfaces);
+    for (int i = 0; i < before.points_num; i++) {
+      const double3 point(before.points[i].position);
+      EXPECT_EQ(double3(after.points[i].position),
+                i < before.points_u ? point : double3(1 - 2 * point.y, -1 + 2 * point.x, point.z));
+    }
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 1e-12;
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+  }
+}
+
+TEST(nurbs_vertex_transform, DifferentAffineOriginsApplyOnceAndRejectConflictingRequests)
+{
+  const auto source = weighted_patch();
+  double4x4 a = double4x4::identity(), b = a;
+  a.location().z = 1;
+  b.location().z = -2;
+  std::string error;
+  const auto result = transform_vertices(*source, {{1, a}, {2, b}}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  expect_bases_and_ids_unchanged(*source, *result->geometry);
+  const auto index = TopologyIndex::build(*result->geometry);
+  EXPECT_EQ(index->vertex(1)->position[2], 1);
+  EXPECT_EQ(index->vertex(2)->position[2], -2);
+  EXPECT_EQ(first_transform_item(result->geometry->surfaces).points[0].position[2], 1);
+  EXPECT_EQ(first_transform_item(result->geometry->surfaces).points[1].position[2], -2);
+  EXPECT_FALSE(transform_vertices(*source, {{1, a}, {1, b}}, 0, &error));
+  EXPECT_NE(error.find("conflicting"), std::string::npos);
+  EXPECT_EQ(first_transform_item(source->surfaces).points[0].position[2], 0);
+}
+
+TEST(nurbs_vertex_transform, AffineFailuresRetainSourceAndNoopAllowsCurvedSelection)
+{
+  const auto source = make_arc_sheet(false);
+  const int64_t id = first_transform_item(source->vertices).id;
+  const auto identity = double4x4::identity();
+  std::string error;
+  EXPECT_TRUE(transform_vertices(*source, {{id, identity}}, 0, &error)) << error;
+  double4x4 matrix = identity;
+  matrix[0][0] = 2;
+  EXPECT_FALSE(transform_vertices(*source, {{id, matrix}}, 0, &error));
+  EXPECT_NE(error.find("fit-point"), std::string::npos);
+  matrix[0][3] = 1;
+  EXPECT_FALSE(transform_vertices(*source, {{id, matrix}}, 0, &error));
+  matrix = identity;
+  matrix.location().x = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(transform_vertices(*source, {{id, matrix}}, 0, &error));
+  const auto patch = weighted_patch();
+  matrix = identity;
+  matrix.location().x = 0.1;
+  EXPECT_FALSE(transform_vertices(*patch, {{2, matrix}}, 0, &error));
+  EXPECT_NE(error.find("roundoff"), std::string::npos);
+  const auto result = transform_vertices(*patch, {{2, matrix}}, 1e-14, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_GT(result->position_error_bound, 0);
+  EXPECT_EQ(first_transform_item(patch->surfaces).points[1].position[0], 1);
+}
+
+TEST(nurbs_vertex_transform, AffineTrimmedRuledRowsUseTheSameCorrespondenceProof)
+{
+  Vector<int64_t> cap;
+  std::string error;
+  const auto source = trimmed_ruled_fixture(cap, false, false, error);
+  ASSERT_NE(source, nullptr) << error;
+  double4x4 matrix = double4x4::identity();
+  matrix[0][0] = -1;
+  matrix[1][1] = 2;
+  Vector<VertexTransform> transforms;
+  for (const int64_t id : cap) {
+    transforms.append({id, matrix});
+  }
+  const auto result = transform_vertices(*source, transforms, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  expect_bases_and_ids_unchanged(*source, *result->geometry);
+  auto options = preview_options();
+  options.boundary.evaluation_allowance = 1e-12;
+  EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+}
+
+TEST(nurbs_vertex_transform, SharedAffineVertexAndRegionUpdateEachIncidentResourceOnce)
+{
+  const auto sheet = make_planar_sheet();
+  const auto &edge = first_transform_item(sheet->edges);
+  auto source = extrude_edges(*sheet, {edge.id}, {0, 0, 2}, 0);
+  ASSERT_TRUE(source.has_value());
+  double4x4 matrix = double4x4::identity();
+  matrix[0][0] = 2;
+  matrix[1][1] = 3;
+  matrix[2][2] = 4;
+  matrix.location().z = 1;
+  for (const bool whole : {false, true}) {
+    Vector<VertexTransform> transforms;
+    Set<int64_t> selected;
+    for (const auto &vertex : source->geometry->vertices) {
+      if (whole || vertex.id == edge.vertex_ids[0]) {
+        transforms.append({vertex.id, matrix});
+        selected.add(vertex.id);
+      }
+    }
+    std::string error;
+    const auto result = transform_vertices(*source->geometry, transforms, 0, &error);
+    ASSERT_TRUE(result.has_value()) << error;
+    expect_bases_and_ids_unchanged(*source->geometry, *result->geometry);
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index.has_value());
+    for (const auto &vertex : source->geometry->vertices) {
+      const double3 p(vertex.position);
+      EXPECT_EQ(double3(index->vertex(vertex.id)->position),
+                selected.contains(vertex.id) ? double3(2 * p.x, 3 * p.y, 4 * p.z + 1) : p);
+    }
+    Map<int64_t, const NurbsCurveGeometry *> curves;
+    for (const auto &curve : result->geometry->curves) {
+      curves.add_new(curve.id, &curve);
+    }
+    for (const auto &item : result->geometry->edges) {
+      for (int end = 0; end < 2; end++) {
+        const auto point = evaluate_curve(
+            *curves.lookup(item.curve_id), item.parameter_range[end], &error);
+        ASSERT_TRUE(point.has_value()) << error;
+        EXPECT_EQ(point->position, double3(index->vertex(item.vertex_ids[end])->position));
+      }
+    }
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 1e-12;
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+  }
+}
+
 }  // namespace blender::bke::nurbs::tests

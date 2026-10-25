@@ -5,10 +5,12 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <limits>
 #include <thread>
 
 #include "BLI_listbase.h"
+#include "BLI_math_rotation.h"
 #include "BLI_memory_utils.hh"
 #include "BLI_path_utils.hh"
 #include "BLI_string.h"
@@ -1350,6 +1352,294 @@ static void expect_source_geometry_equal(const NurbsGeometry &actual,
           });
     });
   });
+}
+
+TEST_F(NurbsNativeEditTest, ViewportAffineFilesMatchKernelAndActualMesh)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_AFFINE_OUTPUT");
+  const char *parity_directory = std::getenv("BLENDER_NURBS_AFFINE_PARITY_OUTPUT");
+  if (!directory || !parity_directory) {
+    GTEST_SKIP() << "Run after native Rotate/Scale viewport tests";
+  }
+  BKE_blender_globals_main_replace(BKE_main_new());
+  BLI_SCOPED_DEFER([]() { BKE_blender_globals_clear(); });
+  ReportList reports;
+  BKE_reports_init(&reports, RPT_STORE);
+  BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+  BlendFileReadReport read_reports{};
+  read_reports.reports = &reports;
+  using LoadedFile = std::unique_ptr<BlendFileData, decltype(&BLO_blendfiledata_free)>;
+  auto load = [&](const char *root, const char *name) {
+    char path[FILE_MAX];
+    BLI_path_join(path, sizeof(path), root, name);
+    return LoadedFile(BLO_read_from_file(path, BLO_READ_SKIP_USERDEF, &read_reports),
+                      BLO_blendfiledata_free);
+  };
+  auto source_of = [](const BlendFileData &file) -> const NurbsGeometry * {
+    const NurbsGeometry *found = nullptr;
+    for (const Curve &curve : file.main->curves) {
+      if (curve.id.us > 0 && curve.nurbs_geometry) {
+        EXPECT_TRUE(curve.nurb.is_empty());
+        EXPECT_EQ(found, nullptr);
+        found = curve.nurbs_geometry;
+      }
+    }
+    return found;
+  };
+  const auto start_file = load(directory, "start.blend");
+  ASSERT_NE(start_file, nullptr);
+  const NurbsGeometry *start = source_of(*start_file);
+  ASSERT_NE(start, nullptr);
+  ASSERT_EQ(start->vertices.count(), 4);
+  Vector<int64_t> all;
+  for (const auto &vertex : start->vertices) {
+    all.append(vertex.id);
+  }
+  auto affine = [&](const NurbsGeometry &source,
+                    const Span<int64_t> vertices,
+                    const double3x3 &linear,
+                    const double3 &center) -> OwnedGeometry {
+    double4x4 matrix = double4x4::identity();
+    for (int column = 0; column < 3; column++) {
+      for (int row = 0; row < 3; row++) {
+        matrix[column][row] = linear[column][row];
+      }
+    }
+    matrix.location() = center - linear * center;
+    Vector<VertexTransform> transforms;
+    for (const int64_t id : vertices) {
+      transforms.append({id, matrix});
+    }
+    std::string error;
+    auto result = transform_vertices(
+        source, transforms, std::numeric_limits<double>::max(), &error);
+    EXPECT_TRUE(result.has_value()) << error;
+    return result ? std::move(result->geometry) : nullptr;
+  };
+  auto compare = [&](const char *name, const NurbsGeometry &expected) {
+    SCOPED_TRACE(name);
+    const auto file = load(directory, name);
+    ASSERT_NE(file, nullptr);
+    const NurbsGeometry *actual = source_of(*file);
+    ASSERT_NE(actual, nullptr);
+    expect_source_geometry_equal(*actual, expected);
+  };
+  double3x3 rz = double3x3::identity(), rx = rz, ry = rz;
+  rz[0][0] = rz[1][1] = 0;
+  rz[0][1] = 1;
+  rz[1][0] = -1;
+  rx[1][1] = rx[2][2] = 0;
+  rx[1][2] = 1;
+  rx[2][1] = -1;
+  ry[0][0] = ry[2][2] = 0;
+  ry[0][2] = -1;
+  ry[2][0] = 1;
+  double3x3 sx = double3x3::identity();
+  sx[0][0] = 2;
+  const double3 median(0, 1, 0);
+  double3x3 collapse = double3x3::identity();
+  collapse[0][0] = collapse[1][1] = collapse[2][2] = 0;
+  const auto zero = affine(*start, all, collapse, median);
+  ASSERT_NE(zero, nullptr);
+  compare("scale-zero.blend", *zero);
+  compare("scale-zero-undo.blend", *start);
+  double3x3 reflection = double3x3::identity();
+  reflection[0][0] = -1;
+  const auto reflected = affine(*start, all, reflection, median);
+  ASSERT_NE(reflected, nullptr);
+  compare("scale-reflection.blend", *reflected);
+  const auto rotated = affine(*start, all, rz, median);
+  ASSERT_NE(rotated, nullptr);
+  compare("rotate-90.blend", *rotated);
+  compare("scale-undo.blend", *rotated);
+  double3x3 sx3 = sx;
+  sx3[0][0] = 3;
+  const auto f9 = affine(*rotated, all, sx3, median);
+  ASSERT_NE(f9, nullptr);
+  compare("scale-f9-3.blend", *f9);
+  const auto scaled = affine(*rotated, all, sx, median);
+  ASSERT_NE(scaled, nullptr);
+  for (const char *name : {"scale-2.blend", "scale-redo.blend", "cancel.blend"}) {
+    compare(name, *scaled);
+  }
+  const auto gr = affine(*scaled, all, rz, median);
+  ASSERT_NE(gr, nullptr);
+  compare("switch-gr.blend", *gr);
+  sx[0][0] = 0.5;
+  const auto rs = affine(*gr, all, sx, median);
+  ASSERT_NE(rs, nullptr);
+  compare("switch-rs.blend", *rs);
+  auto face = affine(*rs, all, rx, double3(0));
+  ASSERT_NE(face, nullptr);
+  double3x3 sz = double3x3::identity();
+  sz[2][2] = 2;
+  face = affine(*face, all, sz, double3(0));
+  ASSERT_NE(face, nullptr);
+  compare("face-rs.blend", *face);
+  int64_t corner = 0;
+  Vector<int64_t> edge;
+  for (const auto &vertex : face->vertices) {
+    const double3 position(vertex.position);
+    if (position == double3(-0.5, 0, -2)) {
+      corner = vertex.id;
+    }
+    if (position.x == 0.5) {
+      edge.append(vertex.id);
+    }
+  }
+  ASSERT_NE(corner, 0);
+  ASSERT_EQ(edge.size(), 2);
+  const auto vertex_rotate = affine(*face, {corner}, ry, double3(0));
+  ASSERT_NE(vertex_rotate, nullptr);
+  compare("vertex-rotate.blend", *vertex_rotate);
+  compare("vertex-box-rotate.blend", *vertex_rotate);
+  sx[0][0] = 2;
+  const auto vertex_scale = affine(*vertex_rotate, {corner}, sx, double3(0));
+  ASSERT_NE(vertex_scale, nullptr);
+  compare("vertex-scale.blend", *vertex_scale);
+  sz[2][2] = 0.5;
+  const double3 edge_center(0.5, 0, 2);
+  const auto edge_scale = affine(*vertex_rotate, edge, sz, edge_center);
+  ASSERT_NE(edge_scale, nullptr);
+  compare("edge-scale.blend", *edge_scale);
+  float float_ry[3][3];
+  const float axis[3] = {0, 1, 0};
+  axis_angle_normalized_to_mat3(float_ry, axis, float(30 * M_PI / 180));
+  const auto edge_rotate = affine(*edge_scale, edge, double3x3(float3x3(float_ry)), edge_center);
+  ASSERT_NE(edge_rotate, nullptr);
+  compare("edge-rotate.blend", *edge_rotate);
+  compare("final.blend", *edge_rotate);
+  const auto final_selection_file = load(directory, "final.blend");
+  ASSERT_NE(final_selection_file, nullptr);
+  const auto selected_final = selection_from_storage(
+      source_of(*final_selection_file)->stored_selection);
+  ASSERT_TRUE(selected_final.has_value());
+  ASSERT_EQ(selected_final->edges.size(), 1);
+  Vector<int64_t> selected_edges;
+  for (const int64_t id : selected_final->edges) {
+    selected_edges.append(id);
+  }
+  std::string extrusion_error;
+  auto new_wall = extrude_components(
+      *edge_rotate, {{}, selected_edges, {}}, {0, 0, 0}, 0, &extrusion_error);
+  ASSERT_TRUE(new_wall.has_value()) << extrusion_error;
+  Vector<int64_t> cap_vertices;
+  for (const int64_t id : selected_final->vertices) {
+    cap_vertices.append(new_wall->source_to_cap.lookup(id));
+  }
+  const auto continued = translate_vertices(*new_wall->geometry,
+                                            cap_vertices,
+                                            {0, 1, 0},
+                                            std::numeric_limits<double>::max(),
+                                            &extrusion_error);
+  ASSERT_TRUE(continued.has_value()) << extrusion_error;
+  compare("fresh-extruded.blend", *continued->geometry);
+  sx[0][0] = 0.5;
+  const auto continued_scale = affine(*continued->geometry, cap_vertices, sx, double3(0.5, 1, 2));
+  ASSERT_NE(continued_scale, nullptr);
+  compare("fresh-scaled.blend", *continued_scale);
+
+  const auto parity_start_file = load(parity_directory, "start.blend");
+  ASSERT_NE(parity_start_file, nullptr);
+  const NurbsGeometry *before = source_of(*parity_start_file);
+  ASSERT_NE(before, nullptr);
+  char reference_path[FILE_MAX];
+  BLI_path_join(reference_path, sizeof(reference_path), parity_directory, "mesh-reference.txt");
+  std::ifstream reference(reference_path);
+  ASSERT_TRUE(reference.good());
+  std::string label;
+  int mode, count, cases = 0;
+  while (reference >> label >> mode >> count) {
+    SCOPED_TRACE(label);
+    ASSERT_EQ(count, 8);
+    const std::string name = label + ".blend";
+    const auto file = load(parity_directory, name.c_str());
+    ASSERT_NE(file, nullptr);
+    const auto *actual = source_of(*file);
+    ASSERT_NE(actual, nullptr);
+    const auto index = TopologyIndex::build(*actual);
+    ASSERT_TRUE(index.has_value());
+    EXPECT_EQ(actual->next_id, before->next_id);
+    EXPECT_EQ(actual->vertices.count(), before->vertices.count());
+    EXPECT_EQ(actual->faces.count(), before->faces.count());
+    Map<int64_t, double3> mesh_positions;
+    for (int row = 0; row < count; row++) {
+      double3 initial, expected;
+      ASSERT_TRUE(bool(reference >> initial.x >> initial.y >> initial.z >> expected.x >>
+                       expected.y >> expected.z));
+      int64_t id = 0;
+      for (const auto &vertex : before->vertices) {
+        if (double3(vertex.position) == initial) {
+          id = vertex.id;
+        }
+      }
+      ASSERT_NE(id, 0);
+      mesh_positions.add_new(id, expected);
+      const auto *vertex = index->vertex(id);
+      ASSERT_NE(vertex, nullptr);
+      for (int axis = 0; axis < 3; axis++) {
+        EXPECT_NEAR(vertex->position[axis], expected[axis], 2e-5);
+      }
+    }
+    auto expected_point = [&](const double position[3]) -> double3 {
+      for (const auto &vertex : before->vertices) {
+        if (double3(vertex.position) == double3(position)) {
+          return mesh_positions.lookup(vertex.id);
+        }
+      }
+      ADD_FAILURE() << "Unexpected non-corner coefficient in linear parity fixture";
+      return double3(0);
+    };
+    auto compare_points = [&](const NurbsControlPoint *actual,
+                              const NurbsControlPoint *original,
+                              const int points_num,
+                              const bool parameter_space) {
+      for (int i = 0; i < points_num; i++) {
+        EXPECT_EQ(actual[i].weight, original[i].weight);
+        const double3 expected = parameter_space ? double3(original[i].position) :
+                                                   expected_point(original[i].position);
+        for (int axis = 0; axis < 3; axis++) {
+          if (parameter_space) {
+            EXPECT_EQ(actual[i].position[axis], expected[axis]);
+          }
+          else {
+            EXPECT_NEAR(actual[i].position[axis], expected[axis], 2e-5);
+          }
+        }
+      }
+    };
+    expect_records_equal(actual->edges, before->edges, [](const auto &a, const auto &b) {
+      EXPECT_EQ(a.curve_id, b.curve_id);
+      EXPECT_EQ(a.vertex_ids[0], b.vertex_ids[0]);
+      EXPECT_EQ(a.vertex_ids[1], b.vertex_ids[1]);
+      EXPECT_EQ(std::memcmp(a.parameter_range, b.parameter_range, sizeof(a.parameter_range)), 0);
+    });
+    expect_records_equal(actual->curves, before->curves, [&](const auto &a, const auto &b) {
+      EXPECT_EQ(a.order, b.order);
+      EXPECT_EQ(a.dimension, b.dimension);
+      ASSERT_EQ(a.points_num, b.points_num);
+      ASSERT_EQ(a.knots_num, b.knots_num);
+      EXPECT_EQ(std::memcmp(a.knots, b.knots, sizeof(double) * a.knots_num), 0);
+      compare_points(a.points, b.points, a.points_num, a.dimension == 2);
+    });
+    expect_records_equal(actual->surfaces, before->surfaces, [&](const auto &a, const auto &b) {
+      EXPECT_EQ(a.order_u, b.order_u);
+      EXPECT_EQ(a.order_v, b.order_v);
+      EXPECT_EQ(a.points_u, b.points_u);
+      EXPECT_EQ(a.points_v, b.points_v);
+      ASSERT_EQ(a.points_num, b.points_num);
+      ASSERT_EQ(a.knots_u_num, b.knots_u_num);
+      ASSERT_EQ(a.knots_v_num, b.knots_v_num);
+      EXPECT_EQ(std::memcmp(a.knots_u, b.knots_u, sizeof(double) * a.knots_u_num), 0);
+      EXPECT_EQ(std::memcmp(a.knots_v, b.knots_v, sizeof(double) * a.knots_v_num), 0);
+      compare_points(a.points, b.points, a.points_num, false);
+    });
+    const auto selected = selection_from_storage(actual->stored_selection);
+    ASSERT_TRUE(selected.has_value());
+    EXPECT_EQ(int(selected->mode), 1 << (mode - 1));
+    cases++;
+  }
+  EXPECT_EQ(cases, 6);
 }
 
 static Curve *make_tagged_edit_line(Main &bmain)

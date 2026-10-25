@@ -5,27 +5,34 @@ Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`,
 Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
-Latest completed checkpoint: ordinary Add/tagged prototype objects can enter the
-shared native NURBS path through real Vertex/Edge/Face header buttons and 1/2/3.
-Vertices are line/curve endpoints; edges are whole NURBS curves; faces are surface
-patches. Picking and drawing follow the active domain. Source entry preserves
-geometry/identities and has explicit legacy/native undo, redo and evaluated
-source synchronization. Existing rotated/scaled prototype models are covered.
-See [source-entry details and tryout](component_mode_entry.md).
+Latest completed checkpoint: native Edit Mode **G/R/S** use the shared source
+transform path in Vertex, Edge and Face modes. Rotate/Scale support axis and
+numeric input, mouse previews, standard F9 fields, cancel, undo/redo, G/R/S modal
+switches, source pivots and Individual Origins. Shared incident geometry updates
+through kernel correspondence/ownership services; weights, knots, trims and IDs
+remain authoritative NURBS. Source matrix application is double precision, while
+R/S parameters/orientation and some host centers retain Blender float boundaries.
+See [Rotate/Scale details and tryout](native_rotate_scale_tryout.md).
 
-Blender and thirteen targeted test executables build. **237 C++ tests pass with
-no skips**, **39 NURBS Python cases** and five CTest targets pass. **22 isolated
-viewport regressions** passed during this stage; the three new source-entry cases
-were rerun after the final undo correction. The ordinary Add header and all three
-mode screenshots were visually inspected. Counts and exact commands are below.
+Ordinary Add/tagged lines and compatible existing patches enter this native path
+through the component buttons or 1/2/3. Vertices are line/curve endpoints; edges
+are whole NURBS curves; faces are surface patches. Source entry preserves
+geometry/identities and has explicit legacy/native undo/redo and evaluated source
+synchronization. See [source-entry details](component_mode_entry.md).
 
-The preceding Fill checkpoint remains active: normal Add/tagged F uses the
-shared constructor for representable lines/quads, and native F supports broader
-trimmed planar results and the user's bending four-corner patch. Useful
-non-manifold new-face creation is allowed. Native editable source remains real
-NURBS. General untagged curve import, native primitive creation, fit-point curve
-editing and full Stage 1 promotion remain gates; source entry here is restricted
-to the complete tagged endpoint/line/patch prototype.
+Blender and thirteen targeted test executables build. **246 C++ checks pass with
+no skips**, **25 isolated viewport cases** pass, and **five CTest targets** pass,
+including the unchanged **39 NURBS Python cases**. Twenty saved transform states
+are compared against complete expected source records, and six more against
+actual mesh operations within their float boundary. Mode, transformed geometry,
+F9, Individual Origins and context-menu screenshots were visually inspected.
+
+The preceding Fill/extrusion checkpoints remain active. General untagged curve
+import, native curved-primitive creation, fit-point curve editing, Normal/Gimbal
+frames, snapping, proportional editing, lasso/circle selection, multiple edit
+owners for movement, and full Stage 1 promotion remain gates. Source entry is
+restricted to the complete tagged endpoint/line/patch prototype.
+
 Native **E** and **Delete** now use shared kernel candidates and the common owner
 commit. The reported extrude/delete/continue sequence passes on native source,
 alongside the repaired tagged prototype. Twenty-two new saved states are checked
@@ -53,7 +60,7 @@ services, with multi-owner preflight, retained active/history data and explicit
 hole-policy handling. The ambiguous hole rule still awaits user input; L picking
 now picks source components in the current mode and observes scene depth unless
 X-Ray is enabled. Fit-point editing, complete near-plane clipping, lasso/circle,
-R/S, snapping, proportional editing and multi-owner movement remain later gates.
+snapping, proportional editing and multi-owner movement remain later gates.
 Normal/Gimbal movement is explicitly rejected because its source orientation
 adapter is absent. Native active-vertex centers now read the live source ID rather than legacy curve
 points. Cursor-to-active, Active Element G/cancel and unchanged saved source are
@@ -3817,3 +3824,179 @@ selection, unmapped attribute rejection, stale/foreign candidates, retained
 snapshots across source-kind undo, independent edit lifetimes, and full saved
 surface-source comparison. Python syntax, changed-C++ clang-format checks and
 `git diff --check` also pass. The original untracked handoff remains unstaged.
+
+## Shared Rotate/Scale and transform-origin checkpoint
+
+Requested next slice: finish native R/S through the shared transform system,
+following the new ordinary Add/component-mode entry. Source references were
+`transform_convert_nurbs.cc`, the existing kernel whole-geometry/vertex Move
+services, `transform_mode_rotate.cc`, `transform_mode_resize.cc`,
+`ElementRotation`/`ElementResize`, generic center/reset handling, and
+`transform_convert_mesh_islands_calc` with its actual BMesh grouping/center calls.
+No external geometry kernel or agent was used.
+
+Implemented: a shared coefficient-request planner extracted from Move;
+`transform_vertices` accepting affine requests by source vertex identity; and
+`selection_transform_groups` for source median, bounds, active and individual
+origins. Whole rational curves/supports, linear corner edits and proven ruled
+rows share the same correspondence/ownership checks. R/S retain weights, knots,
+domains, p-curves, component identities and untouched resources. Conflicting
+shared geometry owners and unsupported partial curved/trimmed deformation reject
+without fitting or source mutation.
+
+The editor reuses Blender's Rotate/Scale operators, numeric fields, constraints,
+pivots and modal controls, passing their constrained matrix into the native
+adapter before recalc. It applies the matrix to double source coefficients rather
+than using float TransData proxy positions. Individual groups use actual selected
+incidence and existing NURBS representatives. Bounding Box uses Blender's world
+bounds, including rotated owners; Cursor and explicit centers use the host world
+center. Cancel and G/R/S switches restore the immutable original source before
+applying another transform. The conditional generic reset hook leaves other
+converters on their existing path. The native context menu now lists G/R/S.
+
+Rotate/Scale retain Blender's float angle/scale fields, orientation matrices and
+mouse calculations. World box/cursor/override centers are also host float inputs.
+Object inversion/composition use doubles. Kernel bounds concern application of
+the supplied matrices; they do not certify those construction/input boundaries or
+NURBS evaluation. Move's decimal interface remains available. Normal/Gimbal source
+frames, snapping, proportional editing, Trackball, multiple edit owners, general
+partial curved/trimmed deformation, full fit-point editing and complete Python
+component bindings remain gates. See [the transform tryout](native_rotate_scale_tryout.md)
+for construction scope and performance limits. This is not full Stage 1 promotion.
+
+Build commands, all exit **0**:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target bf_blenkernel --parallel 4
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blender blenkernel_nurbs_transform_test blenkernel_nurbs_selection_test \
+  --parallel 4
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux \
+  --target blender blenkernel_nurbs_transform_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_edit_test --parallel 4
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --parallel 4 \
+  --target blenkernel_nurbs_geometry_legacy_test blenkernel_nurbs_selection_test \
+  blenkernel_nurbs_geometry_test blenkernel_nurbs_edit_test \
+  blenkernel_nurbs_fill_test blenkernel_nurbs_differential_test \
+  blenkernel_nurbs_tessellate_test blenkernel_nurbs_mesh_test \
+  blenkernel_nurbs_object_test blenkernel_nurbs_transform_test blenkernel_unit_test \
+  editor_util_numinput_test editor_transform_transform_translate_precision_test
+```
+
+Logs are `/tmp/blender-nurbs-rotate-scale-kernel-build.log`, `...-build.log`,
+`...-final-build.log` and `...-regression-build.log`. An intervening app-only
+rebuild for world Bounding Box handling is in `...-pivot-build.log`.
+Saved-source tests were extended with singular/reflected scales and extrusion
+continuation; final test-only rebuild logs are
+`...-singular-readback-build.log` and `...-continuation-readback-build.log`.
+There were no stage compilation errors. Existing unrelated view3d unused-variable
+warnings remain in the broader build log.
+
+The original native lifecycle test expected R to reject. It now checks the still
+unsupported Normal orientation explicitly, preserving its unchanged-source
+assertions. Supported rotation/scale are covered by the new complete workflows.
+
+New viewport commands use the same private Weston setup as the previous stage:
+
+```sh
+export BLENDER_BIN=/home/molotovgirl/Desktop/build_linux/bin/blender
+export WESTON_BIN=/tmp/blender-nurbs-deps-storage/wayland_weston/bin/weston
+export WAYLAND_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland
+export WESTON_ROOT_DIR=/tmp/blender-nurbs-deps-storage/wayland_weston
+for case in rotate_scale_and_lifecycle rotate_scale_mesh_parity \
+            rotate_scale_fresh_continuation; do
+  nice -n 10 env -u DISPLAY python3 tests/utils/blender_headless.py \
+    --enable-event-simulate --factory-startup \
+    --python tests/python/ui_simulate/run_blender_setup.py \
+    -- --tests "test_nurbs_native.$case" || break
+done
+```
+
+All three pass in isolated processes. Final logs:
+`/tmp/blender-nurbs-rotate-scale-lifecycle-mouse-ui.log`,
+`...-parity-complete-ui.log` and `...-fresh-final-ui.log`.
+The lifecycle test exercises normal Add, all three modes, actual mouse previews,
+axis/numeric input, actual F9 Scale field changes (2→3→2), singular and negative
+scales, cancel, undo/redo, click/box equivalence, G/R/S modal switches, saving,
+edit-mode reentry and context-menu display. The parity test runs the same
+transforms on actual mesh data with a rotated, translated and nonuniformly scaled
+owner: Individual Origins in V/E/F, plus world bounding box, active and cursor
+centers, Global rotation/scale and a Local axis constraint. The fresh process
+reopens the final NURBS source, extrudes its selected edge and scales the new cap.
+
+The preceding twenty-two viewport cases were rerun with:
+
+```sh
+python3 /tmp/blender-nurbs-run-rotate-scale-regression-ui.py
+python3 /tmp/blender-nurbs-run-rotate-scale-modes-ui.py
+python3 /tmp/blender-nurbs-run-rotate-scale-extra-ui.py
+```
+
+All exit **0**, all summaries contain `FAILED []`. Summary logs are
+`/tmp/blender-nurbs-rotate-scale-{regression,modes,extra}-ui-summary.log`.
+They contain eleven prior source-edit/legacy cases, five component/visibility/Fill
+cases, and six tagged Fill/source-entry cases. Stage total: **25 passing isolated
+viewport cases**, counting the six mesh parity scenarios as one viewport case.
+No user Blender process was closed.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux \
+  --output-on-failure \
+  -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+Exit **0**, **5/5 targets**, 9.53 seconds,
+`/tmp/blender-nurbs-rotate-scale-ctest.log`: the unchanged **39 NURBS Python cases**
+(37 line/workflow and two legacy compatibility), units, autosave and global undo.
+
+**Visually inspected:** transformed face/edge, standard Scale F9 controls,
+Individual Origins on two faces, and the native context menu with G/R/S entries.
+Images are `/tmp/blender-nurbs-rotate-scale-ui/{face-transformed,edge-transformed,
+scale-f9,transform-context-menu}.png` and
+`/tmp/blender-nurbs-rotate-scale-parity-ui/individual-faces.png`.
+Event-simulation and source checks are separate evidence from these inspections.
+
+
+Final C++ regression command:
+
+```sh
+python3 /tmp/blender-nurbs-run-rotate-scale-kernel-checks.py
+```
+
+Exit **0**, `/tmp/blender-nurbs-rotate-scale-kernel-summary-final.log`:
+**246 passed, zero skipped**. Counts: legacy 22, selection 37, geometry 54,
+edit/persistence 53, Fill 16, differential 9, tessellation 11, display Mesh 7,
+object 4, transform 22, units 3, numeric input 4, precise translation 4.
+Per-suite logs use `/tmp/blender-nurbs-rotate-scale-<suite>-tests-final.log`.
+All viewport producers completed before source readback. The runner uses the
+previous stage's exact fixture environments and binary invocations, plus:
+
+```sh
+export BLENDER_NURBS_AFFINE_OUTPUT=/tmp/blender-nurbs-rotate-scale-ui
+export BLENDER_NURBS_AFFINE_PARITY_OUTPUT=/tmp/blender-nurbs-rotate-scale-parity-ui
+# Alongside PREVIEW_FIXTURE, EDIT/MOVE/DUPLICATE/EXTRUSION/COMPONENT/FILL/MODE_ENTRY
+# environments recorded in the preceding checkpoint:
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test --gtest_color=no
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_transform_test --gtest_color=no
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_selection_test --gtest_color=no
+```
+
+New kernel checks cover weighted corner edits, shared vertex and complete-region
+updates across incident supports, rational arc/circle rows, multiple affine
+origins, unowned resource preservation, singular/reflected transforms, malformed
+matrices, roundoff rejection, exact ruled-trim correspondence, double active
+origins and actual BMesh grouping in every mode. The saved-file test reads 28
+`.blend` files including two baselines: twenty lifecycle/continuation states
+match full expected geometry, and six parity states match actual mesh vertices
+and coefficients within 2e-5 local units while retaining native bases and IDs.
+Parameter-space coefficients are compared exactly. No test imports mesh results
+into the production NURBS source.
+
+The parity exporter originally emitted JSON only; its first readback used the
+same recorded coordinates reformatted as text. It now emits both formats and the
+complete parity viewport case was rerun successfully. Final F9, mouse, singular,
+context-menu and fresh continuation runs also passed. No geometry test assertion
+was weakened to make an unsupported operation pass. Syntax/format checks and
+`git diff --check` pass. The three frozen original reproduction files retain their
+recorded SHA-256 values; the original untracked handoff remains untouched/unstaged.

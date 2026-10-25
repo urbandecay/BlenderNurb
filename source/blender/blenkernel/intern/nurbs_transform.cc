@@ -466,46 +466,29 @@ static std::optional<Vector<uint8_t>> ruled_row_request(
   return std::nullopt;
 }
 
-std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &source,
-                                                          const Span<int64_t> vertex_ids,
-                                                          const double3 &offset,
-                                                          const double max_position_error,
-                                                          std::string *r_error)
+struct VertexTransformRequests {
+  CoefficientRequests curves, surfaces;
+  Set<int64_t> edges, faces;
+};
+
+/** Shared correspondence proof for translation and affine component edits. */
+static std::optional<VertexTransformRequests> vertex_transform_requests(
+    const NurbsGeometry &source,
+    const TopologyIndex &index,
+    const Set<int64_t> &selected,
+    std::string *r_error)
 {
-  if (r_error != nullptr) {
-    r_error->clear();
-  }
-  auto fail = [&](const char *message) -> std::optional<GeometryTransformResult> {
-    if (r_error != nullptr) {
+  auto fail = [&](const char *message) -> std::optional<VertexTransformRequests> {
+    if (r_error) {
       *r_error = message;
     }
     return std::nullopt;
   };
-  if (vertex_ids.is_empty() || !std::isfinite(offset.x) || !std::isfinite(offset.y) ||
-      !std::isfinite(offset.z) || !std::isfinite(max_position_error) || max_position_error < 0)
-  {
-    return fail("NURBS vertex translation needs vertices, a finite offset and an error budget");
-  }
-  if (!detail::supported_arithmetic()) {
-    return fail(
-        "NURBS vertex translation requires round-to-nearest arithmetic and subnormal support");
-  }
-  const auto index = TopologyIndex::build(source, r_error);
-  if (!index) {
-    return std::nullopt;
-  }
-  Set<int64_t> selected, moved_edges, moved_faces;
-  for (const int64_t id : vertex_ids) {
-    if (index->vertex(id) == nullptr) {
-      return fail("Selected NURBS vertex identity does not exist");
-    }
-    selected.add(id);
-  }
-  if (offset == double3(0)) {
-    GeometryTransformResult result;
-    result.geometry.reset(geometry_copy(&source));
-    return result;
-  }
+  VertexTransformRequests result;
+  auto &curve_requests = result.curves;
+  auto &surface_requests = result.surfaces;
+  auto &moved_edges = result.edges;
+  auto &moved_faces = result.faces;
   Map<int64_t, const NurbsCurveGeometry *> curves;
   Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
   for (const NurbsCurveGeometry &curve : source.curves) {
@@ -514,7 +497,6 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
   for (const NurbsSurfaceGeometry &surface : source.surfaces) {
     surfaces.add_new(surface.id, &surface);
   }
-  CoefficientRequests curve_requests, surface_requests;
   for (const NurbsTopologyEdge &edge : source.edges) {
     const NurbsCurveGeometry &curve = *curves.lookup(edge.curve_id);
     const bool a = selected.contains(edge.vertex_ids[0]);
@@ -524,7 +506,8 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
     std::fill(request.begin(), request.end(), uint8_t(a && b));
     if (a != b) {
       if (!linear_curve(curve, edge.parameter_range[0], edge.parameter_range[1])) {
-        return fail("Moving part of a curved NURBS edge requires a fit-point deformation rule");
+        return fail(
+            "Transforming part of a curved NURBS edge requires a fit-point deformation rule");
       }
       request[0] = a;
       request[1] = b;
@@ -536,7 +519,7 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
         if (!point) {
           return std::nullopt;
         }
-        const auto &vertex = *index->vertex(edge.vertex_ids[end]);
+        const auto &vertex = *index.vertex(edge.vertex_ids[end]);
         const double3 difference = point->position - double3(vertex.position);
         if (std::hypot(difference.x, difference.y, difference.z) >
             std::max(vertex.tolerance, edge.tolerance))
@@ -546,7 +529,7 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
       }
     }
     if (!add_request(curve_requests, curve.id, std::move(request))) {
-      return fail("Shared NURBS curve owners request conflicting geometry translations");
+      return fail("Shared NURBS curve owners request conflicting coefficient transforms");
     }
   }
   for (const NurbsTopologyFace &face : source.faces) {
@@ -554,7 +537,7 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
     bool any = false, all = true;
     for (const NurbsTopologyLoop &loop : face.loops) {
       for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
-        const auto &edge = *index->edge(use.edge_id);
+        const auto &edge = *index.edge(use.edge_id);
         for (const int64_t id : edge.vertex_ids) {
           any |= selected.contains(id);
           all &= selected.contains(id);
@@ -569,7 +552,7 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
     }
     if (any && !all) {
       std::string row_error;
-      auto ruled = ruled_row_request(face, surface, *index, curves, selected, row_error);
+      auto ruled = ruled_row_request(face, surface, index, curves, selected, row_error);
       if (!row_error.empty()) {
         return fail(row_error.c_str());
       }
@@ -583,12 +566,12 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
             !clamped_direction(surface.order_u, surface.points_u, surface.knots_u) ||
             !clamped_direction(surface.order_v, surface.points_v, surface.knots_v))
         {
-          return fail("Partial NURBS movement currently requires a complete clamped tensor face");
+          return fail("Partial NURBS editing currently requires a complete clamped tensor face");
         }
         const bool linear_u = surface.order_u == 2 && surface.points_u == 2;
         const bool linear_v = surface.order_v == 2 && surface.points_v == 2;
         if (!linear_u && !linear_v) {
-          return fail("Partial curved NURBS surface movement requires a deformation rule");
+          return fail("Partial curved NURBS surface editing requires a deformation rule");
         }
         const double low[2] = {surface.knots_u[surface.order_u - 1],
                                surface.knots_v[surface.order_v - 1]};
@@ -597,10 +580,10 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
         int64_t corners[4] = {};
         const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
         for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
-          const auto &edge = *index->edge(use.edge_id);
+          const auto &edge = *index.edge(use.edge_id);
           const auto &pcurve = *curves.lookup(use.pcurve_id);
           if (!linear_curve(pcurve, edge.parameter_range[0], edge.parameter_range[1])) {
-            return fail("Partial NURBS movement requires complete linear boundary p-curves");
+            return fail("Partial NURBS editing requires complete linear boundary p-curves");
           }
           int slots[2];
           for (int end = 0; end < 2; end++) {
@@ -608,12 +591,12 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
             for (int axis = 0; axis < 2; axis++) {
               const double coordinate = pcurve.points[end].position[axis];
               if (coordinate != low[axis] && coordinate != high[axis]) {
-                return fail("Partial trimmed NURBS face movement requires a deformation rule");
+                return fail("Partial trimmed NURBS face editing requires a deformation rule");
               }
               slot += (coordinate == high[axis]) ? (1 << axis) : 0;
             }
             slots[end] = slot;
-            const auto &vertex = *index->vertex(edge.vertex_ids[end]);
+            const auto &vertex = *index.vertex(edge.vertex_ids[end]);
             if (corners[slot] != 0 && corners[slot] != vertex.id) {
               return fail("NURBS tensor corner has inconsistent source vertex identity");
             }
@@ -647,14 +630,15 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
           }
         }
         if (std::any_of(corners, corners + 4, [](const int64_t id) { return id == 0; })) {
-          return fail("NURBS partial movement needs all four tensor corner associations");
+          return fail("NURBS partial editing needs all four tensor corner associations");
         }
         if ((!linear_u && (selected.contains(corners[0]) != selected.contains(corners[1]) ||
                            selected.contains(corners[2]) != selected.contains(corners[3]))) ||
             (!linear_v && (selected.contains(corners[0]) != selected.contains(corners[2]) ||
                            selected.contains(corners[1]) != selected.contains(corners[3]))))
         {
-          return fail("Move a complete ruled NURBS boundary or define a curved deformation rule");
+          return fail(
+              "Transform a complete ruled NURBS boundary or define a curved deformation rule");
         }
         for (int v = 0; v < surface.points_v; v++) {
           for (int u = 0; u < surface.points_u; u++) {
@@ -665,9 +649,60 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
       }
     }
     if (!add_request(surface_requests, surface.id, std::move(request))) {
-      return fail("Shared NURBS support owners request conflicting geometry translations");
+      return fail("Shared NURBS support owners request conflicting coefficient transforms");
     }
   }
+  return result;
+}
+
+std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &source,
+                                                          const Span<int64_t> vertex_ids,
+                                                          const double3 &offset,
+                                                          const double max_position_error,
+                                                          std::string *r_error)
+{
+  if (r_error != nullptr) {
+    r_error->clear();
+  }
+  auto fail = [&](const char *message) -> std::optional<GeometryTransformResult> {
+    if (r_error != nullptr) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  if (vertex_ids.is_empty() || !std::isfinite(offset.x) || !std::isfinite(offset.y) ||
+      !std::isfinite(offset.z) || !std::isfinite(max_position_error) || max_position_error < 0)
+  {
+    return fail("NURBS vertex translation needs vertices, a finite offset and an error budget");
+  }
+  if (!detail::supported_arithmetic()) {
+    return fail(
+        "NURBS vertex translation requires round-to-nearest arithmetic and subnormal support");
+  }
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  Set<int64_t> selected;
+  for (const int64_t id : vertex_ids) {
+    if (index->vertex(id) == nullptr) {
+      return fail("Selected NURBS vertex identity does not exist");
+    }
+    selected.add(id);
+  }
+  if (offset == double3(0)) {
+    GeometryTransformResult result;
+    result.geometry.reset(geometry_copy(&source));
+    return result;
+  }
+  auto requests = vertex_transform_requests(source, *index, selected, r_error);
+  if (!requests) {
+    return std::nullopt;
+  }
+  const auto &curve_requests = requests->curves;
+  const auto &surface_requests = requests->surfaces;
+  const auto &moved_edges = requests->edges;
+  const auto &moved_faces = requests->faces;
   GeometryTransformResult result;
   result.geometry.reset(geometry_copy(&source));
   auto translate = [&](double position[3]) {
@@ -742,6 +777,190 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
       for (NurbsTopologyEdgeUse &use : loop.edge_uses) {
         if (moved_edges.contains(use.edge_id)) {
           use.tolerance = detail::expand_tolerance(use.tolerance, extra);
+        }
+      }
+    }
+  }
+  if (!geometry_validate_structure(*result.geometry, r_error)) {
+    return std::nullopt;
+  }
+  return result;
+}
+
+std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &source,
+                                                          const Span<VertexTransform> transforms,
+                                                          const double max_position_error,
+                                                          std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  auto fail = [&](const char *message) -> std::optional<GeometryTransformResult> {
+    if (r_error) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  if (transforms.is_empty() || !std::isfinite(max_position_error) || max_position_error < 0 ||
+      !detail::supported_arithmetic())
+  {
+    return fail(
+        "NURBS affine editing requires transforms, a finite error budget and "
+        "round-to-nearest/subnormal arithmetic");
+  }
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  Vector<double4x4> matrices;
+  Vector<Set<int64_t>> groups;
+  Map<int64_t, int> assignments;
+  GeometryTransformResult result;
+  for (const VertexTransform &transform : transforms) {
+    if (!index->vertex(transform.vertex_id)) {
+      return fail("NURBS affine editing references an unavailable vertex");
+    }
+    const double4x4 &matrix = transform.matrix;
+    for (int column = 0; column < 4; column++) {
+      for (int row = 0; row < 4; row++) {
+        if (!std::isfinite(matrix[column][row])) {
+          return fail("NURBS component transform matrix is not finite");
+        }
+      }
+    }
+    if (matrix[0][3] != 0 || matrix[1][3] != 0 || matrix[2][3] != 0 || matrix[3][3] != 1) {
+      return fail("NURBS component editing requires an affine matrix");
+    }
+    int group = 0;
+    while (group < matrices.size() && matrices[group] != matrix) {
+      group++;
+    }
+    if (group == matrices.size()) {
+      matrices.append(matrix);
+      groups.append({});
+      result.tolerance_scale_bound = std::max(result.tolerance_scale_bound,
+                                              linear_norm_bound(matrix));
+    }
+    if (const int *previous = assignments.lookup_ptr(transform.vertex_id)) {
+      if (*previous != group) {
+        return fail("One NURBS vertex requests conflicting affine transforms");
+      }
+    }
+    else {
+      assignments.add_new(transform.vertex_id, group);
+      groups[group].add(transform.vertex_id);
+    }
+  }
+  if (!std::isfinite(result.tolerance_scale_bound)) {
+    return fail("NURBS affine tolerance scale is not representable");
+  }
+  Map<int64_t, Vector<int>> curve_assignments, surface_assignments;
+  Set<int64_t> moved_vertices, moved_edges, moved_faces;
+  auto merge = [&](Map<int64_t, Vector<int>> &destination,
+                   const CoefficientRequests &requests,
+                   const int group) {
+    for (const auto item : requests.items()) {
+      Vector<int> &slots = destination.lookup_or_add(item.key, Vector<int>(item.value.size(), -1));
+      for (const int i : item.value.index_range()) {
+        if (item.value[i]) {
+          if (slots[i] != -1 && slots[i] != group) {
+            return false;
+          }
+          slots[i] = group;
+        }
+      }
+    }
+    return true;
+  };
+  for (const int group : matrices.index_range()) {
+    if (matrices[group] == double4x4::identity()) {
+      continue;
+    }
+    const auto requests = vertex_transform_requests(source, *index, groups[group], r_error);
+    if (!requests) {
+      return std::nullopt;
+    }
+    if (!merge(curve_assignments, requests->curves, group) ||
+        !merge(surface_assignments, requests->surfaces, group))
+    {
+      return fail("Shared NURBS coefficients request incompatible affine transforms");
+    }
+    for (const int64_t id : groups[group]) {
+      moved_vertices.add(id);
+    }
+    for (const int64_t id : requests->edges) {
+      moved_edges.add(id);
+    }
+    for (const int64_t id : requests->faces) {
+      moved_faces.add(id);
+    }
+  }
+  result.geometry.reset(geometry_copy(&source));
+  auto apply = [&](NurbsControlPoint *points, const Vector<int> &slots) {
+    if (std::any_of(slots.begin(), slots.end(), [](const int slot) { return slot >= 0; })) {
+      for (const int i : slots.index_range()) {
+        if (!(points[i].weight > 0)) {
+          return false;
+        }
+      }
+    }
+    for (const int i : slots.index_range()) {
+      if (slots[i] >= 0 &&
+          !transform_position(points[i].position, matrices[slots[i]], result.position_error_bound))
+      {
+        return false;
+      }
+    }
+    return true;
+  };
+  for (NurbsCurveGeometry &curve : result.geometry->curves) {
+    if (const auto *slots = curve_assignments.lookup_ptr(curve.id)) {
+      if (!apply(curve.points, *slots)) {
+        return fail("NURBS affine curve edit needs positive weights and finite arithmetic");
+      }
+    }
+  }
+  for (NurbsSurfaceGeometry &surface : result.geometry->surfaces) {
+    if (const auto *slots = surface_assignments.lookup_ptr(surface.id)) {
+      if (!apply(surface.points, *slots)) {
+        return fail("NURBS affine support edit needs positive weights and finite arithmetic");
+      }
+    }
+  }
+  for (NurbsTopologyVertex &vertex : result.geometry->vertices) {
+    if (moved_vertices.contains(vertex.id) &&
+        !transform_position(
+            vertex.position, matrices[assignments.lookup(vertex.id)], result.position_error_bound))
+    {
+      return fail("NURBS affine vertex edit overflowed");
+    }
+  }
+  if (result.position_error_bound > max_position_error) {
+    return fail("NURBS affine edit roundoff exceeds the requested error budget");
+  }
+  const double extra = detail::multiply_upper(2, result.position_error_bound);
+  auto expand = [&](const double tolerance) {
+    return detail::add_upper(detail::multiply_upper(tolerance, result.tolerance_scale_bound),
+                             extra);
+  };
+  for (NurbsTopologyVertex &vertex : result.geometry->vertices) {
+    if (moved_vertices.contains(vertex.id)) {
+      vertex.tolerance = expand(vertex.tolerance);
+    }
+  }
+  for (NurbsTopologyEdge &edge : result.geometry->edges) {
+    if (moved_edges.contains(edge.id)) {
+      edge.tolerance = expand(edge.tolerance);
+    }
+  }
+  for (NurbsTopologyFace &face : result.geometry->faces) {
+    if (moved_faces.contains(face.id)) {
+      face.tolerance = expand(face.tolerance);
+    }
+    for (NurbsTopologyLoop &loop : face.loops) {
+      for (NurbsTopologyEdgeUse &use : loop.edge_uses) {
+        if (moved_faces.contains(face.id) || moved_edges.contains(use.edge_id)) {
+          use.tolerance = expand(use.tolerance);
         }
       }
     }

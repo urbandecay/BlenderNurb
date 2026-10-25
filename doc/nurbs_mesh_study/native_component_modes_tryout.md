@@ -69,3 +69,6 @@ checks normal Add → header Edge → E → Face/Edge/Vertex picking and drawing
 Shift-click combined modes, source-kind undo/redo, and an existing rotated/scaled
 six-face prototype. General untagged source migration and fit-point deformation
 remain separate work. See the latest checkout audit for current test totals.
+
+The later [Rotate/Scale checkpoint](native_rotate_scale_tryout.md) adds native
+R/S in all three modes through the shared source transform services.

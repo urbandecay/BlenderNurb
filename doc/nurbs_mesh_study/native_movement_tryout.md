@@ -1,5 +1,10 @@
 # Native NURBS movement tryout
 
+This records the original Move checkpoint. Later checkpoints add ordinary
+[source entry](component_mode_entry.md), component modes, E/Shift+D/Delete/Fill,
+and [Rotate/Scale](native_rotate_scale_tryout.md). Historical gate and test-count
+statements below describe that earlier checkpoint.
+
 Use this fork's current executable and the generated native source file:
 
 ```sh

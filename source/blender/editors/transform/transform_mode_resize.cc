@@ -245,6 +245,10 @@ static void applyResize(TransInfo *t)
     }
   }
 
+  if (t->data_type == &TransConvertType_Nurbs) {
+    nurbs_affine_update(t, mat);
+  }
+
   recalc_data(t);
 
   ED_area_status_text(t->area, str);

@@ -98,6 +98,26 @@ std::optional<Vector<double3>> element_centers(const NurbsGeometry &geometry,
                                                Span<ElementRef> elements,
                                                std::string *r_error = nullptr);
 
+enum class SelectionPivot { Median, Bounds, Active, Individual };
+
+struct SelectionTransformGroup {
+  Vector<int64_t> vertices;
+  double3 center;
+};
+
+/**
+ * Source-precision transform origins. Median/bounds use selected endpoints; Active uses the
+ * existing source representative with median fallback. Individual groups follow mesh selection
+ * precedence: connected selected edges in Vertex/Edge modes, or faces connected by vertices in
+ * exclusive Face mode. Each group's center is the mean of its edge/face representatives;
+ * remaining loose selected vertices use their own positions. No display geometry or ID allocation.
+ */
+std::optional<Vector<SelectionTransformGroup>> selection_transform_groups(
+    const NurbsGeometry &geometry,
+    const SelectionState &selection,
+    SelectionPivot pivot,
+    std::string *r_error = nullptr);
+
 /**
  * Vertex-hit wrapper for the generic current-mode service; Vertex must be enabled. Click adapters
  * may explicitly nominate an active vertex; bulk gestures do not invent history. IDs are topology

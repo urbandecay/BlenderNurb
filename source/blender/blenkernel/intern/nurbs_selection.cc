@@ -13,12 +13,127 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_disjoint_set.hh"
 #include "BLI_listbase.h"
 
 #include "BKE_nurbs_geometry.hh"
 #include "BKE_nurbs_selection.hh"
 
 namespace blender::bke::nurbs {
+
+std::optional<Vector<SelectionTransformGroup>> selection_transform_groups(
+    const NurbsGeometry &geometry,
+    const SelectionState &selection,
+    const SelectionPivot pivot,
+    std::string *r_error)
+{
+  const auto selected = selection_flush(geometry, selection, selection.mode, r_error);
+  const auto index = TopologyIndex::build(geometry, r_error);
+  if (!selected || !index) {
+    return std::nullopt;
+  }
+  Vector<int64_t> vertices;
+  for (const NurbsTopologyVertex &vertex : geometry.vertices) {
+    if (selected->vertices.contains(vertex.id)) {
+      vertices.append(vertex.id);
+    }
+  }
+  Vector<SelectionTransformGroup> groups;
+  if (vertices.is_empty()) {
+    return groups;
+  }
+  if (pivot != SelectionPivot::Individual) {
+    double3 center(0), low(index->vertex(vertices[0])->position), high = low;
+    for (const int64_t id : vertices) {
+      const double3 position(index->vertex(id)->position);
+      center += position / double(vertices.size());
+      for (int axis = 0; axis < 3; axis++) {
+        low[axis] = std::min(low[axis], position[axis]);
+        high[axis] = std::max(high[axis], position[axis]);
+      }
+    }
+    if (pivot == SelectionPivot::Bounds) {
+      center = low * 0.5 + high * 0.5;
+    }
+    else if (pivot == SelectionPivot::Active && selected->active) {
+      const auto active = element_centers(geometry, {*selected->active}, r_error);
+      if (!active) {
+        return std::nullopt;
+      }
+      center = (*active)[0];
+    }
+    groups.append({std::move(vertices), center});
+    return groups;
+  }
+  Map<int64_t, int> slots;
+  for (const int i : vertices.index_range()) {
+    slots.add_new(vertices[i], i);
+  }
+  DisjointSet<int> islands(vertices.size());
+  Vector<ElementRef> elements;
+  Vector<int> seeds;
+  const bool use_edges = bool(selection.mode & (SelectionMode::Vertex | SelectionMode::Edge));
+  if (use_edges) {
+    for (const NurbsTopologyEdge &edge : geometry.edges) {
+      if (selected->edges.contains(edge.id)) {
+        const int a = slots.lookup(edge.vertex_ids[0]), b = slots.lookup(edge.vertex_ids[1]);
+        islands.join(a, b);
+        elements.append({ElementDomain::Edge, edge.id});
+        seeds.append(a);
+      }
+    }
+  }
+  else {
+    for (const NurbsTopologyFace &face : geometry.faces) {
+      if (!selected->faces.contains(face.id)) {
+        continue;
+      }
+      int first = -1;
+      for (const NurbsTopologyLoop &loop : face.loops) {
+        for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+          for (const int64_t id : index->edge(use.edge_id)->vertex_ids) {
+            const int slot = slots.lookup(id);
+            if (first == -1) {
+              first = slot;
+            }
+            islands.join(first, slot);
+          }
+        }
+      }
+      if (first != -1) {
+        elements.append({ElementDomain::Face, face.id});
+        seeds.append(first);
+      }
+    }
+  }
+  const auto centers = element_centers(geometry, elements, r_error);
+  if (!centers) {
+    return std::nullopt;
+  }
+  Map<int, int> group_indices;
+  Vector<int> counts;
+  for (const int i : vertices.index_range()) {
+    const int root = islands.find_root(i);
+    int *group = group_indices.lookup_ptr(root);
+    if (!group) {
+      group_indices.add_new(root, groups.size());
+      groups.append({{}, double3(0)});
+      counts.append(0);
+      group = group_indices.lookup_ptr(root);
+    }
+    groups[*group].vertices.append(vertices[i]);
+  }
+  for (const int i : elements.index_range()) {
+    const int group = group_indices.lookup(islands.find_root(seeds[i]));
+    groups[group].center += (*centers)[i];
+    counts[group]++;
+  }
+  for (const int i : groups.index_range()) {
+    groups[i].center = counts[i] ? groups[i].center / double(counts[i]) :
+                                   double3(index->vertex(groups[i].vertices[0])->position);
+  }
+  return groups;
+}
 
 bool selection_contains(const SelectionState &selection, const ElementRef element)
 {

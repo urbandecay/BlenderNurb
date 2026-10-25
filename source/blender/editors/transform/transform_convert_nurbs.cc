@@ -43,7 +43,10 @@ struct NurbsTransformData {
   nurbs::ReadSnapshot current;
   Vector<int64_t> vertices;
   Array<float3> proxies;
-  double3x3 world_to_local;
+  double3x3 world_to_local, local_to_world;
+  double3x3 linear = double3x3::identity();
+  int applied_mode = TFM_DUMMY;
+  bool reset_requested = false;
   double3 offset = double3(0);
   double3 applied_offset = double3(0);
   double position_error_bound = 0;
@@ -66,16 +69,16 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
       BKE_report(t->reports, RPT_ERROR, message);
     }
   };
-  if (!ELEM(t->mode, TFM_TRANSLATION, TFM_DUMMY)) {
-    fail("Native NURBS currently supports Move; other modal transforms need geometry adapters");
+  if (!ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE, TFM_DUMMY)) {
+    fail("This native NURBS transform needs a geometry adapter");
     return;
   }
   if (t->data_container_len != 1) {
-    fail("Native NURBS movement currently requires a single edit object");
+    fail("Native NURBS transforms currently require a single edit object");
     return;
   }
   if (t->flag & T_PROP_EDIT_ALL) {
-    fail("Native NURBS proportional movement requires a fit-point deformation rule");
+    fail("Native NURBS proportional editing requires a fit-point deformation rule");
     return;
   }
   TransDataContainer &tc = t->data_container[0];
@@ -95,7 +98,7 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
                                 math::invert(double3x3(float3x3(tc.obedit->object_to_world())),
                                              invertible);
   if (!invertible) {
-    fail("Native NURBS movement cannot invert this object's scale");
+    fail("Native NURBS transforms cannot invert this object's scale");
     return;
   }
   for (const int64_t id : source.selection().vertices) {
@@ -122,7 +125,20 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
   }
   std::sort(data->vertices.begin(), data->vertices.end());
   data->world_to_local = inverse;
+  data->local_to_world = double3x3(float3x3(tc.obedit->object_to_world()));
   data->proxies.reinitialize(data->vertices.size());
+  std::optional<Vector<nurbs::SelectionTransformGroup>> islands;
+  if (t->around == V3D_AROUND_LOCAL_ORIGINS) {
+    std::string error;
+    islands = nurbs::selection_transform_groups(data->original.geometry(),
+                                                data->original.selection(),
+                                                nurbs::SelectionPivot::Individual,
+                                                &error);
+    if (!islands) {
+      fail(error.c_str());
+      return;
+    }
+  }
   tc.data_len = data->vertices.size();
   tc.data = MEM_new_array_zeroed<TransData>(tc.data_len, __func__);
   for (int i = 0; i < tc.data_len; i++) {
@@ -134,6 +150,14 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
     const auto &vertex = *index->vertex(data->vertices[i]);
     for (int axis = 0; axis < 3; axis++) {
       td.center[axis] = float(vertex.position[axis]);
+    }
+    if (islands) {
+      for (const auto &island : *islands) {
+        if (island.vertices.contains(data->vertices[i])) {
+          copy_v3_v3(td.center, float3(island.center));
+          break;
+        }
+      }
     }
     copy_m3_m3(td.mtx, tc.mat3);
     copy_m3_m3(td.smtx, tc.imat3);
@@ -152,12 +176,13 @@ static bool restore_nurbs(TransInfo *t, TransDataContainer &tc, NurbsTransformDa
           *t->bmain, curve, data.original.copy_for_edit(), data.current, &error))
   {
     BKE_reportf(
-        t->reports, RPT_ERROR, "NURBS movement could not restore its source: %s", error.c_str());
+        t->reports, RPT_ERROR, "NURBS transform could not restore its source: %s", error.c_str());
     return false;
   }
   data.current = curve.editnurb->nurbs_edit->read_snapshot();
   data.changed = false;
   data.applied_offset = double3(0);
+  data.applied_mode = TFM_DUMMY;
   return true;
 }
 
@@ -165,7 +190,8 @@ static void recalc_trans_nurbs(TransInfo *t)
 {
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     auto &data = *static_cast<NurbsTransformData *>(tc->custom.type.data);
-    if (t->state == TRANS_CANCEL) {
+    if (t->state == TRANS_CANCEL || data.reset_requested) {
+      data.reset_requested = false;
       restore_nurbs(t, *tc, data);
       continue;
     }
@@ -174,37 +200,95 @@ static void recalc_trans_nurbs(TransInfo *t)
       t->state = TRANS_CANCEL;
       restore_nurbs(t, *tc, data);
     };
-    if (t->mode != TFM_TRANSLATION) {
-      fail("Native NURBS supports Move only in this transform adapter");
+    if (!ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE)) {
+      fail("This native NURBS transform needs a geometry adapter");
       return;
     }
     if (ELEM(t->orient[t->orient_curr].type, V3D_ORIENT_NORMAL, V3D_ORIENT_GIMBAL)) {
-      fail("Native NURBS Normal and Gimbal movement need a source orientation adapter");
+      fail("Native NURBS Normal and Gimbal transforms need a source orientation adapter");
       return;
     }
     if (transform_snap_is_active(t)) {
       fail("Native NURBS snapping requires a source-precision snapping adapter");
       return;
     }
-    if (data.offset == data.applied_offset) {
+    const bool translation = t->mode == TFM_TRANSLATION;
+    if (translation && data.applied_mode == t->mode && data.offset == data.applied_offset) {
       continue;
     }
-    const double3 local_offset = data.world_to_local * data.offset;
-    if (data.offset != double3(0) && local_offset == double3(0)) {
-      fail("Requested NURBS movement underflows in object space");
-      return;
+    if (!translation && data.linear == double3x3::identity()) {
+      restore_nurbs(t, *tc, data);
+      data.applied_mode = t->mode;
+      continue;
     }
     std::string error;
-    auto result = nurbs::translate_vertices(data.original.geometry(),
-                                            data.vertices,
-                                            local_offset,
-                                            std::numeric_limits<double>::max(),
-                                            &error);
+    std::optional<nurbs::GeometryTransformResult> result;
+    double3 local_offset(0);
+    if (translation) {
+      local_offset = data.world_to_local * data.offset;
+      if (data.offset != double3(0) && local_offset == double3(0)) {
+        fail("Requested NURBS movement underflows in object space");
+        return;
+      }
+      result = nurbs::translate_vertices(data.original.geometry(),
+                                         data.vertices,
+                                         local_offset,
+                                         std::numeric_limits<double>::max(),
+                                         &error);
+    }
+    else {
+      auto pivot = nurbs::SelectionPivot::Median;
+      switch (t->around) {
+        case V3D_AROUND_CENTER_BOUNDS:
+          pivot = nurbs::SelectionPivot::Bounds;
+          break;
+        case V3D_AROUND_ACTIVE:
+          pivot = nurbs::SelectionPivot::Active;
+          break;
+        case V3D_AROUND_LOCAL_ORIGINS:
+          pivot = nurbs::SelectionPivot::Individual;
+          break;
+      }
+      auto groups = nurbs::selection_transform_groups(
+          data.original.geometry(), data.original.selection(), pivot, &error);
+      if (!groups) {
+        fail(error);
+        return;
+      }
+      /* Blender's bounding box is measured in world axes, including for rotated owners.
+       * Its center, cursor and explicit override are existing float UI inputs. */
+      if ((t->flag & T_OVERRIDE_CENTER) ||
+          ELEM(t->around, V3D_AROUND_CURSOR, V3D_AROUND_CENTER_BOUNDS))
+      {
+        const double3 center = data.world_to_local *
+                               (double3(t->center_global) -
+                                double3(tc->obedit->object_to_world().location()));
+        for (auto &group : *groups) {
+          group.center = center;
+        }
+      }
+      Vector<nurbs::VertexTransform> transforms;
+      const double3x3 linear = data.world_to_local * data.linear * data.local_to_world;
+      for (const auto &group : *groups) {
+        double4x4 matrix = double4x4::identity();
+        for (int column = 0; column < 3; column++) {
+          for (int row = 0; row < 3; row++) {
+            matrix[column][row] = linear[column][row];
+          }
+        }
+        matrix.location() = group.center - linear * group.center;
+        for (const int64_t id : group.vertices) {
+          transforms.append({id, matrix});
+        }
+      }
+      result = nurbs::transform_vertices(
+          data.original.geometry(), transforms, std::numeric_limits<double>::max(), &error);
+    }
     if (!result) {
       fail(error);
       return;
     }
-    if (local_offset != double3(0)) {
+    if (translation && local_offset != double3(0)) {
       const auto original_index = nurbs::TopologyIndex::build(data.original.geometry());
       const auto moved_index = nurbs::TopologyIndex::build(*result->geometry);
       bool changed_position = false;
@@ -224,9 +308,27 @@ static void recalc_trans_nurbs(TransInfo *t)
       return;
     }
     data.current = curve.editnurb->nurbs_edit->read_snapshot();
+    data.applied_mode = t->mode;
     data.applied_offset = data.offset;
     data.position_error_bound = result->position_error_bound;
     data.changed = true;
+  }
+}
+
+void nurbs_affine_update(TransInfo *t, const float matrix[3][3])
+{
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
+    auto &data = *static_cast<NurbsTransformData *>(tc->custom.type.data);
+    data.linear = double3x3(float3x3(matrix));
+  }
+}
+
+void nurbs_transform_reset(TransInfo *t)
+{
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
+    if (auto *data = static_cast<NurbsTransformData *>(tc->custom.type.data)) {
+      data->reset_requested = true;
+    }
   }
 }
 
@@ -318,7 +420,7 @@ static void after_trans_nurbs(bContext * /*C*/, TransInfo *t)
   }
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     const auto &data = *static_cast<const NurbsTransformData *>(tc->custom.type.data);
-    if (data.op && data.final_value) {
+    if (t->mode == TFM_TRANSLATION && data.op && data.final_value) {
       if (PropertyRNA *property = RNA_struct_find_property(data.op->ptr, "value_precision")) {
         RNA_property_string_set(data.op->ptr, property, data.final_value->serialize().c_str());
       }
@@ -335,7 +437,7 @@ static void after_trans_nurbs(bContext * /*C*/, TransInfo *t)
     if (data.changed && data.position_error_bound > 0) {
       BKE_reportf(t->reports,
                   RPT_INFO,
-                  "NURBS move coefficient rounding bound: %.17g local units",
+                  "NURBS transform coefficient rounding bound: %.17g local units",
                   data.position_error_bound);
     }
   }

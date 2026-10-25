@@ -1503,4 +1503,113 @@ TEST_F(NurbsSelectionTest, SourceCentersCoverVerticesEdgesFacesAndCurvedParamete
   EXPECT_FALSE(error.empty());
 }
 
+TEST_F(NurbsSelectionTest, TransformPivotsRetainDoubleSourceAndActiveCenters)
+{
+  OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+  const auto *a = add_vertex(*source, {0, 0, 0});
+  const auto *b = add_vertex(*source, {2 + 0x1p-40, 0, 0});
+  const auto *c = add_vertex(*source, {6, 2, 0});
+  add_edge(
+      *source, *a, *b, *add_linear_curve(*source, double3(a->position), double3(b->position), 3));
+  add_edge(
+      *source, *b, *c, *add_linear_curve(*source, double3(b->position), double3(c->position), 3));
+  SelectionState selection;
+  selection.vertices.add_multiple({a->id, b->id, c->id});
+  selection.active = ElementRef{ElementDomain::Vertex, b->id};
+  std::string error;
+  const auto active = selection_transform_groups(
+      *source, selection, SelectionPivot::Active, &error);
+  ASSERT_TRUE(active.has_value()) << error;
+  ASSERT_EQ(active->size(), 1);
+  EXPECT_EQ((*active)[0].center.x, 2 + 0x1p-40);
+  const auto bounds = selection_transform_groups(
+      *source, selection, SelectionPivot::Bounds, &error);
+  ASSERT_TRUE(bounds.has_value()) << error;
+  EXPECT_EQ((*bounds)[0].center, double3(3, 1, 0));
+  const auto individual = selection_transform_groups(
+      *source, selection, SelectionPivot::Individual, &error);
+  ASSERT_TRUE(individual.has_value()) << error;
+  ASSERT_EQ(individual->size(), 1);
+  EXPECT_NEAR((*individual)[0].center.x, 2.5 + 0x1p-41, 1e-15);
+  EXPECT_EQ((*individual)[0].center.y, 0.5);
+  const auto median = selection_transform_groups(
+      *source, selection, SelectionPivot::Median, &error);
+  ASSERT_TRUE(median.has_value()) << error;
+  EXPECT_NEAR((*median)[0].center.x, (8 + 0x1p-40) / 3, 1e-15);
+  EXPECT_EQ((*median)[0].center.y, 2.0 / 3);
+}
+
+TEST_F(NurbsSelectionTest, IndividualTransformGroupsMatchActualBMeshInEveryMode)
+{
+  const auto sheet = make_planar_sheet();
+  const int64_t edge = first_item(sheet->edges).id;
+  auto source = extrude_edges(*sheet, {edge}, {0, 0, 2}, 0);
+  ASSERT_TRUE(source.has_value());
+  add_vertex(*source->geometry, {10, 3, 2});
+  for (int bits = 1; bits <= 7; bits++) {
+    SelectionState selection;
+    selection.mode = SelectionMode(bits);
+    for (const auto &vertex : source->geometry->vertices) {
+      selection.vertices.add(vertex.id);
+    }
+    for (const auto &item : source->geometry->edges) {
+      selection.edges.add(item.id);
+    }
+    for (const auto &face : source->geometry->faces) {
+      selection.faces.add(face.id);
+    }
+    MeshReference reference(*source->geometry);
+    reference.flush(selection, selection.mode);
+    BMesh *bm = reference.mesh.get();
+    BM_mesh_elem_table_ensure(bm, BM_EDGE | BM_FACE);
+    int (*ranges)[2] = nullptr;
+    const bool edges = bits & 3;
+    int *elements = MEM_new_array_uninitialized<int>(edges ? bm->totedgesel : bm->totfacesel,
+                                                     __func__);
+    const int count =
+        edges ? BM_mesh_calc_edge_groups(bm, elements, &ranges, nullptr, nullptr, BM_ELEM_SELECT) :
+                BM_mesh_calc_face_groups(
+                    bm, elements, &ranges, nullptr, nullptr, nullptr, BM_ELEM_SELECT, BM_VERT);
+    Map<BMVert *, float3> expected;
+    for (int group = 0; group < count; group++) {
+      float3 center(0);
+      Set<BMVert *> vertices;
+      for (int i = 0; i < ranges[group][1]; i++) {
+        const int slot = elements[ranges[group][0] + i];
+        BMEditSelection element{};
+        element.htype = edges ? BM_EDGE : BM_FACE;
+        element.ele = edges ? reinterpret_cast<BMElem *>(bm->etable[slot]) :
+                              reinterpret_cast<BMElem *>(bm->ftable[slot]);
+        float3 point;
+        BM_editselection_center(&element, point);
+        center += point;
+        BMIter iter;
+        BMVert *vertex;
+        BM_ITER_ELEM (vertex, &iter, element.ele, edges ? BM_VERTS_OF_EDGE : BM_VERTS_OF_FACE) {
+          vertices.add(vertex);
+        }
+      }
+      center /= ranges[group][1];
+      for (BMVert *vertex : vertices) {
+        expected.add(vertex, center);
+      }
+    }
+    MEM_SAFE_DELETE(elements);
+    MEM_SAFE_DELETE(ranges);
+    std::string error;
+    const auto groups = selection_transform_groups(
+        *source->geometry, selection, SelectionPivot::Individual, &error);
+    ASSERT_TRUE(groups.has_value()) << error;
+    for (const auto &group : *groups) {
+      for (const int64_t id : group.vertices) {
+        BMVert *vertex = reference.vertices.lookup(id);
+        const float3 center = expected.lookup_default(vertex, float3(vertex->co));
+        for (int axis = 0; axis < 3; axis++) {
+          EXPECT_NEAR(group.center[axis], center[axis], 1e-6) << bits << " vertex " << id;
+        }
+      }
+    }
+  }
+}
+
 }  // namespace blender::bke::nurbs::tests

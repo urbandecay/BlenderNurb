@@ -38,6 +38,30 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
                                                           double max_position_error,
                                                           std::string *r_error = nullptr);
 
+struct VertexTransform {
+  int64_t vertex_id;
+  double4x4 matrix;
+};
+
+/**
+ * Apply affine transforms to selected source identities and their incident geometry. Equal
+ * transforms form one request group: whole curves/supports keep their rational representation,
+ * linear corners and proven ruled rows admit partial edits. Different groups support individual
+ * selection origins. Shared geometry owners must request identical coefficient assignments.
+ * Unselected coefficients, p-curves, weights, knots, topology and selection are retained.
+ *
+ * The input is never modified. Unsupported partial curved/trimmed deformation, inconsistent
+ * ownership, non-affine/non-finite matrices and exceeded arithmetic budgets reject atomically.
+ * Tolerances of affected components scale conservatively by the largest supplied linear norm
+ * (at least one, including the unchanged part) plus twice the reported coefficient roundoff.
+ * The error bound covers application of the supplied matrices, not their construction or NURBS
+ * evaluation. Singular scales and reflections are legal editing states; face senses are retained.
+ */
+std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &source,
+                                                          Span<VertexTransform> transforms,
+                                                          double max_position_error,
+                                                          std::string *r_error = nullptr);
+
 /**
  * Translate source vertex identities and their incident geometry, preserving shared ownership.
  * Whole edges/supports translate exactly in the NURBS representation. Partial linear edges and

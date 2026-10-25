@@ -1090,10 +1090,11 @@ wmOperatorStatus transformEvent(TransInfo *t, wmOperator *op, const wmEvent *eve
         if (!transform_mode_is_changeable(t->mode)) {
           break;
         }
-        if (t->data_type == &TransConvertType_Nurbs && event->val != TFM_MODAL_TRANSLATE) {
-          BKE_report(t->reports,
-                     RPT_WARNING,
-                     "Native NURBS rotation and scale adapters are not available yet");
+        if (t->data_type == &TransConvertType_Nurbs &&
+            !ELEM(event->val, TFM_MODAL_TRANSLATE, TFM_MODAL_ROTATE, TFM_MODAL_RESIZE))
+        {
+          BKE_report(
+              t->reports, RPT_WARNING, "This native NURBS transform needs a geometry adapter");
           break;
         }
 

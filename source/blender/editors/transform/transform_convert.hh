@@ -239,6 +239,8 @@ extern TransConvertTypeInfo TransConvertType_Curve;
 
 extern TransConvertTypeInfo TransConvertType_Nurbs;
 void nurbs_translation_init(TransInfo *t, wmOperator *op);
+void nurbs_affine_update(TransInfo *t, const float matrix[3][3]);
+void nurbs_transform_reset(TransInfo *t);
 bool nurbs_translation_replay(TransInfo *t, double3 &r_space, double3 &r_world);
 void nurbs_translation_update(TransInfo *t, const double3 &space, const double3 &world);
 

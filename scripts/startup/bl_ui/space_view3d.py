@@ -4026,6 +4026,10 @@ class VIEW3D_MT_edit_curve_context_menu(Menu):
             layout.operator("curve.extrude_move")
             layout.operator("curve.duplicate_move")
             layout.separator()
+            layout.operator("transform.translate")
+            layout.operator("transform.rotate")
+            layout.operator("transform.resize", text="Scale")
+            layout.separator()
             layout.menu_contents("VIEW3D_MT_select_edit_nurbs")
             return
 
