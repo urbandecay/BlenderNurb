@@ -14,6 +14,7 @@
 #include "WM_types.hh"
 
 #include "ED_curve.hh"
+#include "ED_nurbs.hh"
 #include "ED_screen.hh"
 
 #include "curve_intern.hh"
@@ -61,6 +62,10 @@ void ED_operatortypes_curve()
 
   WM_operatortype_append(CURVE_OT_separate);
   WM_operatortype_append(CURVE_OT_split);
+  WM_operatortype_append(CURVE_OT_rip);
+  WM_operatortype_append(CURVE_OT_merge);
+  WM_operatortype_append(CURVE_OT_remove_doubles);
+  WM_operatortype_append(CURVE_OT_loopcut_slide);
   WM_operatortype_append(CURVE_OT_duplicate);
   WM_operatortype_append(CURVE_OT_delete);
   WM_operatortype_append(CURVE_OT_dissolve_verts);
@@ -132,6 +137,16 @@ void ED_operatormacros_curve()
                                     "Duplicate curve and move",
                                     OPTYPE_UNDO | OPTYPE_REGISTER);
   WM_operatortype_macro_define(ot, "CURVE_OT_duplicate");
+  otmacro = WM_operatortype_macro_define(ot, "TRANSFORM_OT_translate");
+  RNA_boolean_set(otmacro->ptr, "use_proportional_edit", false);
+  RNA_boolean_set(otmacro->ptr, "mirror", false);
+
+  ot = WM_operatortype_append_macro("CURVE_OT_rip_move",
+                                    "Rip NURBS and Move",
+                                    "Rip selected NURBS topology and move the cursor side",
+                                    OPTYPE_UNDO | OPTYPE_REGISTER);
+  ot->poll = ed::nurbs::topology_edit_poll;
+  WM_operatortype_macro_define(ot, "CURVE_OT_rip");
   otmacro = WM_operatortype_macro_define(ot, "TRANSFORM_OT_translate");
   RNA_boolean_set(otmacro->ptr, "use_proportional_edit", false);
   RNA_boolean_set(otmacro->ptr, "mirror", false);

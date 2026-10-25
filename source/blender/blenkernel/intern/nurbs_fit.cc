@@ -23,15 +23,6 @@
 
 namespace blender::bke::nurbs {
 
-void CurveDeleter::operator()(NurbsCurveGeometry *curve) const
-{
-  if (curve) {
-    MEM_SAFE_DELETE(curve->points);
-    MEM_SAFE_DELETE(curve->knots);
-    MEM_delete(curve);
-  }
-}
-
 static OwnedCurve copy_curve(const NurbsCurveGeometry &source)
 {
   OwnedCurve curve(MEM_new<NurbsCurveGeometry>(__func__, source));

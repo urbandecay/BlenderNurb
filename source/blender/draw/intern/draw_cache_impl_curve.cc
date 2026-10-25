@@ -10,9 +10,12 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "CLG_log.h"
+
 #include "BLI_color_types.hh"
 #include "BLI_listbase.h"
 #include "BLI_math_rotation.h"
+#include "BLI_math_vector.hh"
 #include "BLI_math_vector_types.hh"
 #include "BLI_span.hh"
 #include "BLI_utildefines.h"
@@ -24,6 +27,7 @@
 #include "BKE_curve.hh"
 #include "BKE_curves.hh"
 #include "BKE_geometry_set.hh"
+#include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_object_types.hh"
 #include "BKE_vfont.hh"
@@ -42,6 +46,8 @@
 #include "draw_cache_impl.hh" /* own include */
 
 namespace blender::draw {
+
+static CLG_LogRef LOG_NURBS = {"draw.nurbs"};
 
 /* See: edit_curve_point_vert.glsl for duplicate includes. */
 #define SELECT 1
@@ -308,6 +314,8 @@ struct CurveBatchCache {
     gpu::VertBuf *pos;
     gpu::VertBuf *data;
     gpu::VertBuf *face_pos;
+    gpu::VertBuf *face_data;
+    gpu::VertBuf *native_normals;
   } edit;
 
   struct {
@@ -315,6 +323,7 @@ struct CurveBatchCache {
     /* Edit mode */
     gpu::IndexBuf *edit_verts;
     gpu::IndexBuf *edit_lines;
+    gpu::IndexBuf *edit_facedots;
   } ibo;
 
   struct {
@@ -325,6 +334,7 @@ struct CurveBatchCache {
     gpu::Batch *edit_verts;
     gpu::Batch *edit_normals;
     gpu::Batch *edit_faces;
+    gpu::Batch *edit_facedots;
   } batch;
 
   /* settings to determine if cache is invalid */
@@ -332,6 +342,9 @@ struct CurveBatchCache {
   bool is_editmode;
   /** Retain the exact source state used by native overlay buffers. */
   bke::nurbs::ReadSnapshot *native_source;
+  /** Display adapter only; the compatibility splines remain the editable source. */
+  bke::nurbs::MeshEvaluation *tagged_evaluation;
+  bool tagged_source_checked;
 };
 
 /* gpu::Batch cache management. */
@@ -354,7 +367,7 @@ static bool curve_batch_cache_valid(Curve *cu)
       return false;
     }
   }
-  else if (cache->native_source != nullptr) {
+  else if (cache->native_source != nullptr && cache->tagged_evaluation == nullptr) {
     return false;
   }
 
@@ -427,12 +440,20 @@ void DRW_curve_batch_cache_dirty_tag(Curve *cu, int mode)
       cache->is_dirty = true;
       break;
     case BKE_CURVE_BATCH_DIRTY_SELECT:
+      if (cache->tagged_source_checked) {
+        /* Legacy selection is stored on BPoints, rather than a versioned native snapshot. */
+        cache->is_dirty = true;
+        break;
+      }
       GPU_VERTBUF_DISCARD_SAFE(cache->edit.data);
 
       GPU_BATCH_DISCARD_SAFE(cache->batch.edit_edges);
       GPU_BATCH_DISCARD_SAFE(cache->batch.edit_verts);
       GPU_BATCH_DISCARD_SAFE(cache->batch.edit_faces);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edit_facedots);
       GPU_VERTBUF_DISCARD_SAFE(cache->edit.face_pos);
+      GPU_VERTBUF_DISCARD_SAFE(cache->edit.face_data);
+      GPU_VERTBUF_DISCARD_SAFE(cache->edit.native_normals);
       break;
     default:
       BLI_assert(0);
@@ -446,6 +467,7 @@ static void curve_batch_cache_clear(Curve *cu)
     return;
   }
   MEM_SAFE_DELETE(cache->native_source);
+  MEM_SAFE_DELETE(cache->tagged_evaluation);
 
   for (int i = 0; i < sizeof(cache->ordered) / sizeof(void *); i++) {
     gpu::VertBuf **vbo = reinterpret_cast<gpu::VertBuf **>(&cache->ordered);
@@ -869,76 +891,173 @@ gpu::Batch *DRW_curve_batch_cache_get_edit_faces(Curve *cu)
   return DRW_batch_request(&cache->batch.edit_faces);
 }
 
+gpu::Batch *DRW_curve_batch_cache_get_edit_facedots(Curve *cu)
+{
+  return DRW_batch_request(&curve_batch_cache_get(cu)->batch.edit_facedots);
+}
+
+const bke::nurbs::ReadSnapshot *DRW_curve_batch_cache_get_edit_source(Curve *cu)
+{
+  CurveBatchCache &cache = *curve_batch_cache_get(cu);
+  if (cu->nurbs_eval_source || cache.tagged_source_checked) {
+    return cache.native_source;
+  }
+  if (!cu->editnurb || !bke::nurbs::legacy_topology_source_check(cu->editnurb->nurbs)) {
+    return nullptr;
+  }
+  cache.tagged_source_checked = true;
+  std::string error;
+  /* Reuse the exact source-entry preflight without committing it. The original splines, undo
+   * ownership and legacy editing API are untouched. Only display buffers use this snapshot. */
+  auto prepared = bke::nurbs::curve_edit_prepare_tagged(
+      *cu, bke::nurbs::SelectionMode::Vertex, &error);
+  if (!prepared) {
+    CLOG_WARN(&LOG_NURBS, "Compatibility overlay for '%s': %s", cu->id.name + 2, error.c_str());
+    return nullptr;
+  }
+  const auto source = prepared->edit->read_snapshot();
+  bke::nurbs::SurfacePreviewOptions options;
+  options.boundary.segments_per_span = std::max(cu->resolu, cu->resolv);
+  options.interior_subdivisions = std::max(cu->resolu, cu->resolv);
+  auto evaluation = bke::nurbs::evaluate_mesh(source, options, &error);
+  if (!evaluation) {
+    CLOG_ERROR(&LOG_NURBS, "Compatibility overlay for '%s': %s", cu->id.name + 2, error.c_str());
+    return nullptr;
+  }
+  cache.native_source = MEM_new<bke::nurbs::ReadSnapshot>(__func__, source);
+  cache.tagged_evaluation = MEM_new<bke::nurbs::MeshEvaluation>(__func__, std::move(*evaluation));
+  return cache.native_source;
+}
+
 /** Source boundary samples are display geometry. Only topology vertices become point handles. */
 static void native_curve_create_edit_data(const Object &object, CurveBatchCache &cache)
 {
   Vector<float3> positions;
-  Vector<uint32_t> flags;
+  Vector<uchar4> flags;
+  Vector<float4> normals;
   Vector<uint32_t> points;
+  Vector<uint32_t> face_points;
   Vector<uint2> lines;
-  const auto &evaluation = object.runtime->nurbs_evaluation;
-  if (evaluation != nullptr && evaluation->result && cache.native_source != nullptr &&
-      evaluation->result->source == *cache.native_source)
+  Vector<float3> triangles;
+  Vector<uchar4> triangle_flags;
+  const auto &object_evaluation = object.runtime->nurbs_evaluation;
+  const bke::nurbs::MeshEvaluation *evaluation = cache.tagged_evaluation;
+  if (!evaluation && object_evaluation && object_evaluation->result) {
+    evaluation = &*object_evaluation->result;
+  }
+  if (evaluation != nullptr && cache.native_source != nullptr &&
+      evaluation->source == *cache.native_source)
   {
-    const auto &boundary = evaluation->result->preview.boundary;
+    const auto &boundary = evaluation->preview.boundary;
+    const auto &preview = evaluation->preview;
     const auto &selection = cache.native_source->selection();
+    Vector<double3> boundary_normals(boundary.positions.size(), double3(0));
+    Map<int64_t, double3> face_normals;
+    for (const auto &triangle : preview.triangles) {
+      const double3 normal = math::cross(
+          preview.position(triangle.points.y) - preview.position(triangle.points.x),
+          preview.position(triangle.points.z) - preview.position(triangle.points.x));
+      face_normals.lookup_or_add(triangle.face_id, double3(0)) += normal;
+      const uchar face_flag = (selection.faces.contains(triangle.face_id) ? VFLAG_FACE_SELECTED :
+                                                                            0) |
+                              (selection.active ==
+                                       bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Face,
+                                                              triangle.face_id} ?
+                                   VFLAG_FACE_ACTIVE :
+                                   0);
+      for (int corner = 0; corner < 3; corner++) {
+        const int index = triangle.points[corner];
+        if (index < boundary_normals.size()) {
+          boundary_normals[index] += normal;
+        }
+        triangles.append(float3(preview.position(index)));
+        triangle_flags.append(uchar4(face_flag, 0, 0, 0));
+      }
+    }
+    for (double3 &normal : boundary_normals) {
+      normal = math::normalize(normal);
+    }
+    auto vertex_flag = [&](const int64_t id) -> uchar {
+      return (selection.vertices.contains(id) ? VFLAG_VERT_SELECTED : 0) |
+             (selection.active == bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Vertex, id} ?
+                  VFLAG_VERT_ACTIVE :
+                  0);
+    };
     for (const int i : boundary.positions.index_range()) {
       positions.append(float3(boundary.positions[i]));
       const int64_t id = boundary.vertex_ids[i];
-      uint32_t data = selection.vertices.contains(id) ? VFLAG_VERT_SELECTED : 0;
-      if (selection.active == bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Vertex, id}) {
-        data |= VFLAG_VERT_ACTIVE;
-      }
-      flags.append(data);
+      flags.append(uchar4(0, vertex_flag(id), 0, 0));
+      normals.append(float4(float3(boundary_normals[i]), 0));
       if (id != 0 && flag_is_set(selection.mode, bke::nurbs::SelectionMode::Vertex)) {
         points.append(i);
       }
     }
     if (flag_is_set(selection.mode, bke::nurbs::SelectionMode::Face)) {
       const auto centers = bke::nurbs::face_display_centers(cache.native_source->geometry(),
-                                                            evaluation->result->preview);
+                                                            evaluation->preview);
       for (const NurbsTopologyFace &face : cache.native_source->geometry().faces) {
         const auto *center = centers.lookup_ptr(face.id);
         if (center == nullptr) {
           continue;
         }
-        points.append(positions.size());
+        face_points.append(positions.size());
         positions.append(float3(*center));
-        uint32_t data = selection.faces.contains(face.id) ? VFLAG_VERT_SELECTED : 0;
-        if (selection.active == bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Face, face.id}) {
-          data |= VFLAG_VERT_ACTIVE;
-        }
-        flags.append(data);
+        const bool active = selection.active ==
+                            bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Face, face.id};
+        flags.append(uchar4(0));
+        normals.append(
+            float4(float3(math::normalize(face_normals.lookup_default(face.id, double3(0)))),
+                   active                            ? -1 :
+                   selection.faces.contains(face.id) ? 1 :
+                                                       0));
       }
     }
 
+    const auto source_index = bke::nurbs::TopologyIndex::build(cache.native_source->geometry());
+    Map<int64_t, const NurbsCurveGeometry *> source_curves;
+    for (const auto &curve : cache.native_source->geometry().curves) {
+      source_curves.add_new(curve.id, &curve);
+    }
+    Set<int64_t> active_face_edges;
+    if (selection.mode == bke::nurbs::SelectionMode::Face && selection.active &&
+        selection.active->domain == bke::nurbs::ElementDomain::Face)
+    {
+      for (const auto &loop : source_index->face(selection.active->id)->loops) {
+        for (const auto &use : loop.edge_uses) {
+          active_face_edges.add(use.edge_id);
+        }
+      }
+    }
     for (const auto &edge : boundary.edges) {
       const uint32_t start = positions.size();
-      const uint32_t data = (COLOR_NURB_ULINE_ID << COLOR_SHIFT) |
-                            (selection.edges.contains(edge.edge_id) ? VFLAG_VERT_SELECTED : 0);
-      for (const auto &sample : edge.samples) {
+      const uchar data = (selection.edges.contains(edge.edge_id) ? VFLAG_EDGE_SELECTED : 0) |
+                         (active_face_edges.contains(edge.edge_id) ||
+                                  selection.active ==
+                                      bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Edge,
+                                                             edge.edge_id} ?
+                              VFLAG_EDGE_ACTIVE :
+                              0);
+      const auto *source_edge = source_index->edge(edge.edge_id);
+      const NurbsCurveGeometry *curve = source_curves.lookup(source_edge->curve_id);
+      const bool straight = curve && curve->order == 2 && curve->points_num == 2;
+      int segments = 0;
+      for (const int i : edge.samples.index_range()) {
+        if (straight && i != 0 && i != edge.samples.size() - 1) {
+          continue;
+        }
+        const auto &sample = edge.samples[i];
         positions.append(float3(boundary.positions[sample.point_index]));
-        flags.append(data);
+        const int64_t endpoint = source_edge->vertex_ids[i * 2 < edge.samples.size() ? 0 : 1];
+        flags.append(uchar4(0, data | vertex_flag(endpoint), 0, 0));
+        normals.append(float4(float3(boundary_normals[sample.point_index]), 0));
+        segments++;
       }
-      for (const int i : IndexRange(edge.samples.size() - 1)) {
+      for (const int i : IndexRange(segments - 1)) {
         lines.append({start + i, start + i + 1});
       }
     }
   }
   if (DRW_vbo_requested(cache.edit.face_pos)) {
-    Vector<float3> triangles;
-    if (evaluation != nullptr && evaluation->result && cache.native_source != nullptr &&
-        evaluation->result->source == *cache.native_source)
-    {
-      const auto &preview = evaluation->result->preview;
-      for (const auto &triangle : preview.triangles) {
-        if (cache.native_source->selection().faces.contains(triangle.face_id)) {
-          for (int corner = 0; corner < 3; corner++) {
-            triangles.append(float3(preview.position(triangle.points[corner])));
-          }
-        }
-      }
-    }
     GPUVertFormat format{};
     const uint attr = GPU_vertformat_attr_add(&format, "pos", gpu::VertAttrType::SFLOAT_32_32_32);
     GPU_vertbuf_init_with_format(*cache.edit.face_pos, format);
@@ -946,6 +1065,22 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
     if (!triangles.is_empty()) {
       GPU_vertbuf_attr_fill(cache.edit.face_pos, attr, triangles.data());
     }
+  }
+  if (DRW_vbo_requested(cache.edit.face_data)) {
+    GPUVertFormat format{};
+    const uint attr = GPU_vertformat_attr_add(&format, "data", gpu::VertAttrType::UINT_8_8_8_8);
+    GPU_vertbuf_init_with_format(*cache.edit.face_data, format);
+    GPU_vertbuf_data_alloc(*cache.edit.face_data, triangle_flags.size());
+    GPU_vertbuf_attr_fill(cache.edit.face_data, attr, triangle_flags.data());
+  }
+  if (DRW_vbo_requested(cache.edit.native_normals)) {
+    GPUVertFormat format{};
+    const uint attr = GPU_vertformat_attr_add(
+        &format, "vnor", gpu::VertAttrType::SFLOAT_32_32_32_32);
+    GPU_vertformat_alias_add(&format, "norAndFlag");
+    GPU_vertbuf_init_with_format(*cache.edit.native_normals, format);
+    GPU_vertbuf_data_alloc(*cache.edit.native_normals, normals.size());
+    GPU_vertbuf_attr_fill(cache.edit.native_normals, attr, normals.data());
   }
   if (DRW_vbo_requested(cache.edit.pos)) {
     GPUVertFormat format{};
@@ -956,10 +1091,18 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
   }
   if (DRW_vbo_requested(cache.edit.data)) {
     GPUVertFormat format{};
-    const uint attr = GPU_vertformat_attr_add(&format, "data", gpu::VertAttrType::UINT_32);
+    const uint attr = GPU_vertformat_attr_add(&format, "data", gpu::VertAttrType::UINT_8_8_8_8);
     GPU_vertbuf_init_with_format(*cache.edit.data, format);
     GPU_vertbuf_data_alloc(*cache.edit.data, flags.size());
     GPU_vertbuf_attr_fill(cache.edit.data, attr, flags.data());
+  }
+  if (DRW_ibo_requested(cache.ibo.edit_facedots)) {
+    GPUIndexBufBuilder builder;
+    GPU_indexbuf_init(&builder, GPU_PRIM_POINTS, face_points.size(), positions.size());
+    for (const uint32_t point : face_points) {
+      GPU_indexbuf_add_point_vert(&builder, point);
+    }
+    GPU_indexbuf_build_in_place(&builder, cache.ibo.edit_facedots);
   }
   if (DRW_ibo_requested(cache.ibo.edit_verts)) {
     GPUIndexBufBuilder builder;
@@ -1002,6 +1145,7 @@ void DRW_curve_batch_cache_create_requested(Object *ob, const Scene *scene)
 
   Curve *cu = id_cast<Curve *>(ob->data);
   CurveBatchCache *cache = curve_batch_cache_get(cu);
+  const bool component_overlay = cu->nurbs_eval_source || cache->tagged_evaluation;
 
   /* Init batches and request VBOs & IBOs */
   if (DRW_batch_requested(cache->batch.curves, GPU_PRIM_LINE_STRIP)) {
@@ -1019,22 +1163,38 @@ void DRW_curve_batch_cache_create_requested(Object *ob, const Scene *scene)
     DRW_ibo_request(cache->batch.edit_edges, &cache->ibo.edit_lines);
     DRW_vbo_request(cache->batch.edit_edges, &cache->edit.pos);
     DRW_vbo_request(cache->batch.edit_edges, &cache->edit.data);
+    if (component_overlay) {
+      DRW_vbo_request(cache->batch.edit_edges, &cache->edit.native_normals);
+    }
   }
   if (DRW_batch_requested(cache->batch.edit_verts, GPU_PRIM_POINTS)) {
     DRW_ibo_request(cache->batch.edit_verts, &cache->ibo.edit_verts);
     DRW_vbo_request(cache->batch.edit_verts, &cache->edit.pos);
     DRW_vbo_request(cache->batch.edit_verts, &cache->edit.data);
+    if (component_overlay) {
+      DRW_vbo_request(cache->batch.edit_verts, &cache->edit.native_normals);
+    }
   }
   if (DRW_batch_requested(cache->batch.edit_normals, GPU_PRIM_LINES)) {
     DRW_vbo_request(cache->batch.edit_normals, &cache->edit.curves_nor);
   }
 
-  if (cu->nurbs_eval_source != nullptr) {
+  if (component_overlay) {
     if (DRW_batch_requested(cache->batch.edit_faces, GPU_PRIM_TRIS)) {
       DRW_vbo_request(cache->batch.edit_faces, &cache->edit.face_pos);
+      DRW_vbo_request(cache->batch.edit_faces, &cache->edit.face_data);
+    }
+    if (DRW_batch_requested(cache->batch.edit_facedots, GPU_PRIM_POINTS)) {
+      DRW_ibo_request(cache->batch.edit_facedots, &cache->ibo.edit_facedots);
+      DRW_vbo_request(cache->batch.edit_facedots, &cache->edit.pos);
+      DRW_vbo_request(cache->batch.edit_facedots, &cache->edit.data);
+      DRW_vbo_request(cache->batch.edit_facedots, &cache->edit.native_normals);
     }
     native_curve_create_edit_data(*ob, *cache);
-    return;
+    if (!cache->tagged_evaluation) {
+      return;
+    }
+    /* Compatibility objects still need their regular evaluated wire batches below. */
   }
 
 #ifdef DRW_DEBUG_MESH_CACHE_REQUEST

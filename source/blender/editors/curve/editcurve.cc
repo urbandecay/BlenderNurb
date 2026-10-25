@@ -1448,6 +1448,15 @@ static wmOperatorStatus separate_exec(bContext *C, wmOperator *op)
 
   Vector<Base *> bases = BKE_view_layer_array_from_bases_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
+  for (const Base *base : bases) {
+    const Curve &curve = *id_cast<Curve *>(base->object->data);
+    if (curve.editnurb->nurbs_edit != nullptr ||
+        bke::nurbs::legacy_topology_selection_check(curve.editnurb->nurbs))
+    {
+      WM_cursor_wait(false);
+      return ed::nurbs::separate(C) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+    }
+  }
   for (Base *oldbase : bases) {
     Base *newbase;
     Object *oldob, *newob;
@@ -1550,11 +1559,11 @@ void CURVE_OT_separate(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Separate";
   ot->idname = "CURVE_OT_separate";
-  ot->description = "Separate selected points from connected unselected points into a new object";
+  ot->description = "Separate selected curve points or native NURBS components into a new object";
 
   /* API callbacks. */
   ot->exec = separate_exec;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -1577,6 +1586,14 @@ static wmOperatorStatus curve_split_exec(bContext *C, wmOperator *op)
 
   Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
+  for (const Object *object : objects) {
+    const Curve &curve = *id_cast<Curve *>(object->data);
+    if (curve.editnurb->nurbs_edit != nullptr ||
+        bke::nurbs::legacy_topology_selection_check(curve.editnurb->nurbs))
+    {
+      return ed::nurbs::split(C) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+    }
+  }
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
 
@@ -1623,11 +1640,12 @@ void CURVE_OT_split(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Split";
   ot->idname = "CURVE_OT_split";
-  ot->description = "Split off selected points from connected unselected points";
+  ot->description =
+      "Split selected curve points or native NURBS components from unselected geometry";
 
   /* API callbacks. */
   ot->exec = curve_split_exec;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -3985,6 +4003,16 @@ static wmOperatorStatus subdivide_exec(bContext *C, wmOperator *op)
 
   Vector<Object *> objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
       *bmain, scene, view_layer, CTX_wm_view3d(C));
+  for (const Object *object : objects) {
+    const Curve &curve = *id_cast<const Curve *>(object->data);
+    if (curve.editnurb->nurbs_edit ||
+        bke::nurbs::legacy_topology_selection_check(curve.editnurb->nurbs))
+    {
+      return ed::nurbs::subdivide(C, number_cuts, RNA_float_get(op->ptr, "max_error")) ?
+                 OPERATOR_FINISHED :
+                 OPERATOR_CANCELLED;
+    }
+  }
   for (Object *obedit : objects) {
     Curve *cu = id_cast<Curve *>(obedit->data);
 
@@ -4016,7 +4044,7 @@ void CURVE_OT_subdivide(wmOperatorType *ot)
 
   /* API callbacks. */
   ot->exec = subdivide_exec;
-  ot->poll = ED_operator_editsurfcurve;
+  ot->poll = ED_operator_editsurfcurve_or_nurbs;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -4025,6 +4053,16 @@ void CURVE_OT_subdivide(wmOperatorType *ot)
   /* Avoid re-using last var because it can cause _very_ high poly meshes
    * and annoy users (or worse crash). */
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  WM_operatortype_props_advanced_begin(ot);
+  RNA_def_float(ot->srna,
+                "max_error",
+                1e-9f,
+                0,
+                FLT_MAX,
+                "Maximum Error",
+                "Maximum allowed native NURBS construction roundoff, in object units",
+                0,
+                0.001f);
 }
 
 /** \} */

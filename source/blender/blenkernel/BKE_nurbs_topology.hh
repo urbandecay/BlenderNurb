@@ -94,4 +94,36 @@ std::optional<TopologyDeletionResult> delete_components(const NurbsGeometry &sou
                                                         DeleteMode mode,
                                                         std::string *r_error = nullptr);
 
+struct ComponentExtractionResult {
+  OwnedGeometry remainder;
+  GeometryCopyResult extracted;
+  TopologyDeletionPlan removed;
+};
+
+/**
+ * Extract a component closure into an independent fragment with fresh identities. Remove its
+ * original faces, and selected original edges/vertices only when unselected incidence no longer
+ * needs them. Dependencies of selected faces participate in deletion; an unselected endpoint
+ * copied only for a wire remains in the remainder. Preserve sharing within both results, including
+ * holes, seam uses, wires and non-manifold boundaries. Coincident components are never welded.
+ *
+ * Shared foundation for Split and Separate: no owner changes, fitting or geometry evaluation.
+ * Retain exact coefficient resources, domains, tolerances and face-use data. Unused resources
+ * remain in the remainder; its stored selection is pruned, while the fragment has no selection.
+ * The source and its identity counter remain unchanged on success and failure.
+ */
+std::optional<ComponentExtractionResult> extract_components(const NurbsGeometry &source,
+                                                            const ComponentSelection &selection,
+                                                            std::string *r_error = nullptr);
+
+/**
+ * Reunite an extraction's remainder and fragment in one independent source candidate, matching
+ * Blender's Y (Split Selection). Return original-to-copy identities for selection/history
+ * remapping; do not select the extracted components or commit an owner. Unselected incident
+ * components retain their original identities and exact geometry.
+ */
+std::optional<GeometryCopyResult> split_components(const NurbsGeometry &source,
+                                                   const ComponentSelection &selection,
+                                                   std::string *r_error = nullptr);
+
 }  // namespace blender::bke::nurbs

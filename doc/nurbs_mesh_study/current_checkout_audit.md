@@ -5,6 +5,15 @@ Baseline: `355a9ae11d7e39d75f1341322a70776fb206a6bc`,
 Working branch: `nurbs/shared-topology-foundation`.
 The handoff was the only untracked file on arrival. No other local edits existed.
 
+Latest topology checkpoint: **Y / Split Selection**, implemented through a
+shared exact extraction service that also returns a remainder and independent
+fragment for future Separate. The app and both affected C++ test targets build;
+96 checks in the full selection/edit suites pass without skips, alongside five
+CTest targets. Native V/E/F, box selection, multi-face regions, tagged entry,
+multiple owners, atomic rejection, save/reopen and continued editing have
+viewport/source checks. See [Split details](native_split_tryout.md). P/Separate,
+V/Rip and Ctrl+R are still later operations.
+
 Latest numerical checkpoint: [curve fit-point foundation](fit_point_foundation.md).
 Blender and fifteen targeted test executables build. **269 C++ checks pass with
 no skips**, five CTest targets pass (including **39 NURBS Python cases**), and
@@ -4184,3 +4193,264 @@ its wire-built face normal. The test now explicitly selects the face and uses
 its actual -Z mesh normal; native curve E uses explicit global Z. These were
 reference-test corrections. The before-fix NURBS E failure remained distinct and
 was fixed in production. Clang-format and `git diff --check` pass.
+
+## Exact Split Selection and shared extraction — 2026-10-25
+
+Working tree based on `2ca23a578647`. Y now follows the actual BMesh Split
+topology semantics through `extract_components` / `split_components` in BKE.
+The shared extraction retains dependencies used by unselected faces/edges and
+returns a remainder, independent fragment and fresh identity map. The editor
+reuses source-entry preparation, selection remapping, commit and undo. Tagged
+source entry and splitting are one undoable operation. P/Separate and V/Rip
+remain future clients of this topology foundation.
+
+The app and both affected test executables build/install, exit 0:
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target blender blenkernel_nurbs_selection_test blenkernel_nurbs_edit_test --parallel 4
+cmake --install /home/molotovgirl/Desktop/build_linux --prefix /home/molotovgirl/Desktop/build_linux/bin
+/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_selection_test --gtest_color=no
+```
+
+The selection executable passes **40/40** tests, including **861** cases that
+compare the source split's topology, surviving/copy provenance and selection
+with actual BMesh in all seven selection-mode combinations. Rational circles,
+periodic seam references, holes, independent storage and atomic failures have
+additional checks. No source fitting or coefficient modification occurs.
+
+The full edit executable passes **56/56**, no skips, including the five newly
+saved split-source files compared against complete expected source records.
+The exact environment/command used was:
+
+```sh
+python3 - <<'PY'
+import os, subprocess
+from pathlib import Path
+env = os.environ.copy()
+env.update(
+    BLENDER_NURBS_PREVIEW_FIXTURE='/tmp/blender-nurbs-native-preview.blend',
+    BLENDER_NURBS_EDIT_OUTPUT='/tmp/blender-nurbs-linked-ui',
+    BLENDER_NURBS_MOVE_OUTPUT='/tmp/blender-nurbs-move-ui',
+    BLENDER_NURBS_DUPLICATE_OUTPUT='/tmp/blender-nurbs-duplicate-ui',
+    BLENDER_NURBS_EXTRUSION_FIXTURE='/tmp/blender-nurbs-native-extrusion-fixture.blend',
+    BLENDER_NURBS_EXTRUSION_OUTPUT='/tmp/blender-nurbs-native-extrusion-ui',
+    BLENDER_NURBS_COMPONENT_OUTPUT='/tmp/blender-nurbs-component-ui',
+    BLENDER_NURBS_FILL_OUTPUT='/tmp/blender-nurbs-fill-ui',
+    BLENDER_NURBS_MODE_ENTRY_OUTPUT='/tmp/blender-nurbs-normal-mode-ui',
+    BLENDER_NURBS_AFFINE_OUTPUT='/tmp/blender-nurbs-rotate-scale-ui',
+    BLENDER_NURBS_AFFINE_PARITY_OUTPUT='/tmp/blender-nurbs-rotate-scale-parity-ui',
+    BLENDER_NURBS_SPLIT_OUTPUT='/tmp/blender-nurbs-split-ui',
+)
+with Path('/tmp/blender-nurbs-split-edit-full.log').open('w') as output:
+    result = subprocess.run(['/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test', '--gtest_color=no'], env=env, stdout=output, stderr=subprocess.STDOUT)
+print('Full native edit suite exit:', result.returncode)
+raise SystemExit(result.returncode)
+PY
+```
+
+Nine new viewport cases pass through the five functions listed with complete
+commands in [the Split tryout](native_split_tryout.md). They cover V/E/F, box
+selection, a connected two-face region, split/move cancel, undo/redo, linked
+selection, save/reopen, continued E/Shift+D, exact tagged entry, multiple owners
+and atomic unsupported-modifier rejection. Each function runs in an isolated
+Blender/Weston process. Existing `vertex_snap_then_extrude` (actual Mesh and
+NURBS) and `rotate_scale_and_lifecycle` also pass, using that documented command
+with their test IDs. These are three existing cases, not the entire historical
+transform/snapping matrix.
+
+```sh
+nice -n 10 ctest --test-dir /home/molotovgirl/Desktop/build_linux --output-on-failure -R '^(script_nurbs_(line|legacy_compat)|script_pyapi_bpy_utils_units|blendfile_autosave|global_undo)$'
+```
+
+**5/5 pass**, exit 0, 7.23 seconds; this includes 37 line and two legacy NURBS
+Python cases. A direct background `bpy.ops.curve.split()` check on an ordinary
+Bezier retains its two exact endpoints and legacy owner, exit 0.
+
+Visually inspected the face and edge post-split/continued-extrusion screenshots;
+the source stays NURBS and the selected component has separated from the
+remaining sheet. Rational seam/hole checks are automated kernel evidence.
+No user's Blender process was closed. Test source files are generated under
+`/tmp/blender-nurbs-split-ui`; no original user .blend was supplied or modified.
+
+Final logs are listed in the tryout. The initial explicit-span test compilation
+error, BMesh wire-endpoint mismatch and preflight-test return-value assumption
+were corrected before the passing results. Final build retains two unused-variable
+warnings in unchanged `view3d_select.cc`; no compiler error remains. Python byte
+compilation, clang-format and `git diff --check` pass.
+The initial reference-test assertion also skipped manual BMesh cleanup and
+aborted in the leak checker (exit 134). Scope cleanup now protects that operation.
+The final cleanup-only test rebuild uses
+`nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target blenkernel_nurbs_selection_test --parallel 4`,
+exit 0; the full selection suite is repeated afterward, 40/40 without skips.
+Logs: `/tmp/blender-nurbs-split-selection-build-final.log` and
+`/tmp/blender-nurbs-split-selection-full-final.log`.
+
+Remaining limits: automatic import is still the tagged prototype subset;
+movement follows the existing source-transform geometry restrictions. Unused
+geometry resources remain stored after extraction/deletion until resource
+collection is implemented. This checkpoint adds Y and shared extraction, not
+P/Separate, V/Rip, Ctrl+R, fit handles or full Python component bindings.
+
+## 2026-10-25 — Separate Selection (P) checkpoint
+
+Implemented locally on top of the Y Split slice: native Separate Selection.
+`extract_edit_selection` in BKE reuses the shared `extract_components` topology
+service to prepare independent exact remainder/fragment snapshots and selection
+mapping. `geometry_from_edit_snapshot` supplies validated persistent ownership
+and is also used by tagged entry/undo transitions. ED reuses Blender object/data
+duplication, the common owner preparation adapter and common edit commits.
+Native/eligible tagged `curve.separate`, P and the context menu use this path.
+The original stays active in Edit Mode and is deselected; the new object is
+selected in Object Mode. No fitting, display-mesh source or coordinate welding.
+
+**Built:**
+
+```sh
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target blender blenkernel_nurbs_edit_test blenkernel_nurbs_selection_test --parallel 4
+cmake --install /home/molotovgirl/Desktop/build_linux --prefix /home/molotovgirl/Desktop/build_linux/bin
+nice -n 10 cmake --build /home/molotovgirl/Desktop/build_linux --target blenkernel_nurbs_edit_test --parallel 4
+```
+
+All final commands exited 0. The last command rebuilt added saved-source/mesh
+comparison tests after the application build. Production source did not change
+after the successful application build. Logs:
+`/tmp/blender-nurbs-separate-build.log`, `install.log` and
+`test-build-fixed.log` under the same `/tmp/blender-nurbs-separate-` prefix.
+Two existing unused-variable warnings in unchanged `view3d_select.cc`; no
+remaining build error. The initial saved-mesh comparison test used an unsupported
+offset-index range iteration and was corrected before the passing test rebuild.
+
+**Automated results:**
+
+- **60/60** full native edit C++ tests, zero skipped, exit 0. Four new tests
+  cover V/E/F selection/ownership, rational circle/seam and trim holes, failure
+  without mutation, and both saved sources versus complete exact extraction and
+  actual mesh Separate on six layouts.
+- **40/40** selection C++ tests, exit 0, including the existing 861 BMesh Split
+  topology/selection comparisons used by the shared extraction foundation.
+- **5/5** selected CTest targets, exit 0 (6.97 seconds), including 39 NURBS
+  Python cases across line and legacy-compatibility suites.
+- Three new viewport functions, all exit 0: six selection layouts and six actual
+  mesh references; multiple/linked-data owners and object/data material slots,
+  location and nonuniform/negative scale; rejected modifier preflight retaining
+  both source owners and creating no IDs; fresh continuation on both saved
+  owners. Real P, undo/redo, continued G/E/Shift+D and save/reopen are exercised.
+- Existing tagged Y and multi-owner Y viewport workflows, both exit 0 after
+  shared owner-preparation refactoring.
+- Ordinary Bezier Separate application check, exit 0,
+  `LEGACY_BEZIER_SEPARATE_PASS`.
+- Python compile, touched C++ Clang Format `--dry-run --Werror`, and
+  `git diff --check`, all exit 0.
+
+The exact full edit-suite command/environment:
+
+```sh
+python3 - <<'PY'
+import os, subprocess
+from pathlib import Path
+env = os.environ.copy()
+env.update(
+    BLENDER_NURBS_PREVIEW_FIXTURE='/tmp/blender-nurbs-native-preview.blend',
+    BLENDER_NURBS_EDIT_OUTPUT='/tmp/blender-nurbs-linked-ui',
+    BLENDER_NURBS_MOVE_OUTPUT='/tmp/blender-nurbs-move-ui',
+    BLENDER_NURBS_DUPLICATE_OUTPUT='/tmp/blender-nurbs-duplicate-ui',
+    BLENDER_NURBS_EXTRUSION_FIXTURE='/tmp/blender-nurbs-native-extrusion-fixture.blend',
+    BLENDER_NURBS_EXTRUSION_OUTPUT='/tmp/blender-nurbs-native-extrusion-ui',
+    BLENDER_NURBS_COMPONENT_OUTPUT='/tmp/blender-nurbs-component-ui',
+    BLENDER_NURBS_FILL_OUTPUT='/tmp/blender-nurbs-fill-ui',
+    BLENDER_NURBS_MODE_ENTRY_OUTPUT='/tmp/blender-nurbs-normal-mode-ui',
+    BLENDER_NURBS_AFFINE_OUTPUT='/tmp/blender-nurbs-rotate-scale-ui',
+    BLENDER_NURBS_AFFINE_PARITY_OUTPUT='/tmp/blender-nurbs-rotate-scale-parity-ui',
+    BLENDER_NURBS_SPLIT_OUTPUT='/tmp/blender-nurbs-split-ui',
+    BLENDER_NURBS_SEPARATE_OUTPUT='/tmp/blender-nurbs-separate-ui',
+)
+with Path('/tmp/blender-nurbs-separate-edit-full.log').open('w') as output:
+    result = subprocess.run(['/home/molotovgirl/Desktop/build_linux/bin/tests/blenkernel_nurbs_edit_test', '--gtest_color=no'], env=env, stdout=output, stderr=subprocess.STDOUT)
+print('Full native edit suite exit:', result.returncode)
+raise SystemExit(result.returncode)
+PY
+```
+
+The remaining exact build/test commands, individual viewport IDs and log paths
+are in [the Separate tryout](native_separate_tryout.md).
+
+**Visually confirmed:** face and edge continuation captures
+`/tmp/blender-nurbs-separate-ui/separate-FACE.png` and `separate-EDGE.png`.
+The original stays in place while separated source geometry moves, extrudes and
+duplicates independently. This visual claim applies to those captures only;
+other geometry contracts are verified by tests. No user's running instance was
+closed.
+
+**Scope:** Separate Selection only. By Material/By Loose Parts and mesh popup
+parity remain planned. Untagged Curve/Bezier routes retain their existing
+behavior; supported tagged sources enter the common native route. Partial curved
+transforms retain their explicit existing geometry restrictions. Unused resources
+remain in the remainder under the shared extraction/deletion contract. A planned
+parenting test was not applicable because this fork's existing RNA does not
+expose parenting; no parenting verification is claimed and no unrelated RNA was
+changed. Y and P implementation remains local/uncommitted/unpushed at this
+checkpoint. V Rip, M Merge/weld/dissolve and real Ctrl+R topology cuts remain in
+the next core-topology work.
+
+## Subsequent checkpoint: Rip, Merge, real cuts and subdivision
+
+The preceding Separate checkpoint is historical. V Rip, the M merge menu,
+Ctrl+R loop cut/slide and supported Subdivide are now implemented locally through
+shared kernel topology results, bounded NURBS refinement and shared edge/face
+partition services. Exact command lines, actual BMesh references, stage gates,
+failure corrections and limitations are in
+[the topology-tools record](mesh_topology_tools_progress.md).
+
+Build and install pass. Current automated results: **152 C++ tests pass, zero
+skips** (16 topology, 60 edit, 40 selection, 14 fit, 22 transform), **5/5** selected
+compatibility/undo/autosave CTest targets pass, and a standalone background
+Python operator workflow passes cut/subdivide, rejected edits, save/reopen and
+continued subdivision. Actual viewport events pass four loop-cut and four
+Subdivide layouts; reopened native incidence matches five actual mesh references.
+Rip and Merge stage results are recorded separately in the linked record.
+
+Visually inspected the final two-cut preview, continued cut/extrusion and
+Subdivide/extrusion captures. No user process was closed. The build remains at
+`/home/molotovgirl/Desktop/build_linux/bin/blender`. All Y/P/V/M/cut changes are
+local/uncommitted/unpushed. The user-owned handoff remains untouched.
+
+This is a limited geometric contract: rectangular affine parameter boundaries,
+manifold ring/fan cases and supported partial deformation. General trim/diagonal
+cuts, corner subdivision patterns, offset/even-distance slide, degenerate cut
+endpoints, arbitrary curved fitting, distance welding, fit-point interaction and
+direct Python component bindings remain planned. Editing operators are exposed
+through `bpy.ops`; that does not imply a completed `bmesh`-style Python data API.
+
+## Subsequent checkpoint: native selection navigation
+
+Orbit Around Selection and Frame Selected now read native V/E/F selection through
+the kernel's unique endpoint query and checked viewport adapter. The user chose
+mesh behavior: orbit averages selected editing points; framing uses their bounds.
+The existing navigation preference controls the native path. Geometry is neither
+changed nor inferred from display tessellation.
+
+Build/install pass. **42/42 selection C++ tests** and **5/5 selected CTest targets**
+pass; three viewport workflows pass actual mesh/native V/E/F orbit/framing,
+both orbit methods, preference off, transformed owners, empty input, multiple
+edit owners/shared-data instances and ordinary Bezier navigation. Visually
+inspected the native Face-mode framed capture. Exact commands, logs, geometry
+semantics and limits are in [the navigation record](native_navigation.md).
+Work remains local/uncommitted/unpushed; the user-owned handoff is untouched.
+
+## Subsequent checkpoint: endpoint merge and component overlays
+
+The fresh line → extruded face → side-endpoint merge report has dedicated
+click/box and tagged/native viewport regressions. A repeat-Collapse failure
+was reproduced and fixed in the common BKE weld planner by removing doomed
+linear faces before deformation. By Distance now shares the weld services and
+BMesh's KD-tree clustering policy, retaining source doubles and rational edges.
+The M menu and `bpy.ops.curve.remove_doubles` expose it.
+
+Native overlays use the actual mesh edit shaders, theme globals, component
+flags and depth/X-Ray routing. Fresh exact tagged sources have a read-only
+overlay adapter; legacy source ownership and APIs remain unchanged. Solid-view
+occlusion is checked against meshes; legacy body rendering still differs in
+X-Ray opacity. [The merge/overlay record](merge_overlay_fixes.md) distinguishes
+the reproduced bug, passing sequences, exact commands, build and test results,
+visual checks and remaining geometric/display limits. Earlier statements that
+distance welding is entirely planned describe older checkpoints.

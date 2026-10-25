@@ -29,6 +29,7 @@
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
 #include "BKE_library.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_paint.hh"
@@ -42,6 +43,7 @@
 #include "ED_curves.hh"
 #include "ED_gizmo_library.hh"
 #include "ED_gizmo_utils.hh"
+#include "ED_nurbs.hh"
 #include "ED_object.hh"
 #include "ED_particle.hh"
 #include "ED_screen.hh"
@@ -50,7 +52,6 @@
 
 #include "RNA_access.hh"
 #include "RNA_define.hh"
-
 
 /* Local module include. */
 #include "transform.hh"
@@ -582,15 +583,30 @@ static int gizmo_3d_foreach_selected(const bContext *C,
     else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
       FOREACH_EDIT_OBJECT_BEGIN (ob_iter, use_mat_local) {
         Curve *cu = id_cast<Curve *>(ob_iter->data);
-        BezTriple *bezt;
-        BPoint *bp;
-        ListBaseT<Nurb> *nurbs = BKE_curve_editNurbs_get(cu);
 
         float mat_local[4][4];
         if (use_mat_local) {
           mul_m4_m4m4(
               mat_local, obedit->world_to_object().ptr(), ob_iter->object_to_world().ptr());
         }
+
+        if (const auto source = bke::nurbs::curve_eval_source_capture(*cu)) {
+          if (source->snapshot) {
+            const auto positions = ed::nurbs::view_selection_positions(
+                *source->snapshot, use_mat_local ? float4x4(mat_local) : float4x4::identity());
+            if (positions) {
+              for (const float3 &position : *positions) {
+                user_fn(position);
+              }
+              totsel += positions->size();
+            }
+          }
+          continue;
+        }
+
+        BezTriple *bezt;
+        BPoint *bp;
+        ListBaseT<Nurb> *nurbs = BKE_curve_editNurbs_get(cu);
 
         Nurb *nu = static_cast<Nurb *>(nurbs->first);
         while (nu) {

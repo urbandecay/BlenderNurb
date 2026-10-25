@@ -7,6 +7,9 @@
  */
 
 #include "DNA_curve_types.h"
+#include "DNA_layer_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_userdef_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include <algorithm>
@@ -16,6 +19,7 @@
 #include "BLI_function_ref.hh"
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
+#include "BLI_math_matrix.hh"
 #include "BLI_math_vector.hh"
 #include "BLI_math_vector_types.hh"
 #include "BLI_rect.h"
@@ -24,22 +28,28 @@
 #include "DNA_view3d_types.h"
 
 #include "BKE_context.hh"
+#include "BKE_curve.hh"
 #include "BKE_layer.hh"
+#include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_nurbs_topology.hh"
+#include "BKE_nurbs_transform.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
 #include "BKE_report.hh"
 
 #include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_build.hh"
 #include "DEG_depsgraph_query.hh"
 
 #include "ED_nurbs.hh"
 #include "ED_object.hh"
+#include "ED_outliner.hh"
+#include "ED_screen.hh"
 #include "ED_select_utils.hh"
 #include "ED_view3d.hh"
 
@@ -47,6 +57,44 @@
 #include "WM_types.hh"
 
 namespace blender::ed::nurbs {
+
+std::optional<Vector<float3>> view_selection_positions(const bke::nurbs::ReadSnapshot &source,
+                                                       const float4x4 &transform,
+                                                       std::string *r_error)
+{
+  const auto positions = bke::nurbs::selection_positions(
+      source.geometry(), source.selection(), r_error);
+  if (!positions) {
+    return std::nullopt;
+  }
+  Vector<float3> proxies;
+  proxies.reserve(positions->size());
+  const double4x4 matrix(transform);
+  for (const double3 &position : *positions) {
+    const double3 point = math::transform_point(matrix, position);
+    for (int axis = 0; axis < 3; axis++) {
+      const double value = point[axis];
+      if (!std::isfinite(value) || std::abs(value) > std::numeric_limits<float>::max()) {
+        if (r_error) {
+          *r_error = "NURBS selection exceeds the viewport coordinate range";
+        }
+        return std::nullopt;
+      }
+    }
+    proxies.append(float3(point));
+  }
+  return proxies;
+}
+
+static void edit_notify(Main &bmain, Curve &curve)
+{
+  curve.editnurb->needs_flush_to_id = true;
+  bmain.is_memfile_undo_flush_needed = true;
+  DEG_id_tag_update_ex(
+      &bmain, &curve.id, ID_RECALC_GEOMETRY | ID_RECALC_SELECT | ID_RECALC_SYNC_TO_EVAL);
+  WM_event_add_notifier_ex(
+      static_cast<wmWindowManager *>(bmain.wm.first), nullptr, NC_GEOM | ND_DATA, &curve.id);
+}
 
 template<typename ExpectedState>
 static bool edit_commit_impl(Main &bmain,
@@ -70,12 +118,7 @@ static bool edit_commit_impl(Main &bmain,
     return false;
   }
 
-  curve.editnurb->needs_flush_to_id = true;
-  bmain.is_memfile_undo_flush_needed = true;
-  DEG_id_tag_update_ex(
-      &bmain, &curve.id, ID_RECALC_GEOMETRY | ID_RECALC_SELECT | ID_RECALC_SYNC_TO_EVAL);
-  WM_event_add_notifier_ex(
-      static_cast<wmWindowManager *>(bmain.wm.first), nullptr, NC_GEOM | ND_DATA, &curve.id);
+  edit_notify(bmain, curve);
   return true;
 }
 
@@ -184,6 +227,41 @@ struct SelectionTarget {
   Object *object;
   bke::nurbs::ReadSnapshot source;
 };
+
+/** Prepare a source lease without changing a live owner. Split and Separate can also enter the
+ * exact tagged prototype; other component edits require an already native owner.
+ */
+static std::optional<SelectionTarget> component_edit_target(
+    Main &bmain,
+    Object &object,
+    const bool allow_tagged,
+    std::optional<bke::nurbs::PreparedCurveSource> &r_promotion,
+    std::string &r_error)
+{
+  Curve &curve = *id_cast<Curve *>(object.data);
+  if (curve.editnurb->nurbs_edit != nullptr) {
+    if (!bke::nurbs::curve_validate_source(curve, &r_error)) {
+      return std::nullopt;
+    }
+    return SelectionTarget{&object, curve.editnurb->nurbs_edit->read_snapshot()};
+  }
+  if (!allow_tagged) {
+    r_error = "Mixed native and legacy NURBS component editing is unsupported";
+    return std::nullopt;
+  }
+  for (const Object &user : bmain.objects) {
+    if (user.data == &curve.id && !user.modifiers.is_empty()) {
+      r_error = "NURBS component editing cannot yet preserve modifiers on this source";
+      return std::nullopt;
+    }
+  }
+  r_promotion = bke::nurbs::curve_edit_prepare_tagged(
+      curve, bke::nurbs::SelectionMode::Vertex, &r_error);
+  if (!r_promotion) {
+    return std::nullopt;
+  }
+  return SelectionTarget{&object, r_promotion->edit->read_snapshot()};
+}
 
 /** Pixel/depth proxies only. Source positions and coefficients are never written from these. */
 static std::optional<float3> project_position(const ViewContext &vc,
@@ -826,7 +904,7 @@ bool select_linked(bContext *C)
   return changed;
 }
 
-enum class ComponentEdit { Duplicate, Extrude, Delete, Fill };
+enum class ComponentEdit { Duplicate, Split, Extrude, Delete, Fill };
 
 /** Resolve a complete kernel candidate before any owner mutation or notification. */
 static std::optional<bke::nurbs::EditSnapshot> component_edit_candidate(
@@ -934,8 +1012,10 @@ static std::optional<bke::nurbs::EditSnapshot> component_edit_candidate(
     }
     return bke::nurbs::EditSnapshot{std::move(filled->geometry), std::move(*normalized_fill)};
   }
-  if (operation == ComponentEdit::Duplicate) {
-    auto copy = bke::nurbs::duplicate_components(expected.geometry(), components, r_error);
+  if (ELEM(operation, ComponentEdit::Duplicate, ComponentEdit::Split)) {
+    auto copy = operation == ComponentEdit::Split ?
+                    bke::nurbs::split_components(expected.geometry(), components, r_error) :
+                    bke::nurbs::duplicate_components(expected.geometry(), components, r_error);
     if (!copy) {
       return std::nullopt;
     }
@@ -952,8 +1032,12 @@ static std::optional<bke::nurbs::EditSnapshot> component_edit_candidate(
     geometry = std::move(swept->geometry);
     id_map = std::move(swept->source_to_cap);
   }
-  auto selected = bke::nurbs::selection_remap(
-      expected.geometry(), *geometry, selection, id_map, selection.mode, r_error);
+  auto selected =
+      ELEM(operation, ComponentEdit::Duplicate, ComponentEdit::Split) ?
+          bke::nurbs::selection_remap_closure(
+              expected.geometry(), *geometry, selection, id_map, selection.mode, r_error) :
+          bke::nurbs::selection_remap(
+              expected.geometry(), *geometry, selection, id_map, selection.mode, r_error);
   if (!selected) {
     return std::nullopt;
   }
@@ -1000,6 +1084,12 @@ bool duplicate(Main &bmain, Curve &curve, std::string *r_error)
       bmain, curve, ComponentEdit::Duplicate, bke::nurbs::DeleteMode::Vertices, r_error);
 }
 
+bool split(Main &bmain, Curve &curve, std::string *r_error)
+{
+  return component_edit(
+      bmain, curve, ComponentEdit::Split, bke::nurbs::DeleteMode::Vertices, r_error);
+}
+
 bool fill(Main &bmain, Curve &curve, std::string *r_error)
 {
   return component_edit(
@@ -1040,22 +1130,19 @@ static bool component_edit(bContext *C,
   }
   Vector<SelectionTarget> targets;
   Vector<std::optional<bke::nurbs::EditSnapshot>> candidates;
+  Vector<std::optional<bke::nurbs::PreparedCurveSource>> promotions;
   double max_endpoint_deviation = 0;
   std::string error;
   // Resolve every owner before changing any of them, including mixed native/legacy rejection.
   for (Object *object : objects) {
-    Curve &curve = *id_cast<Curve *>(object->data);
-    if (curve.editnurb->nurbs_edit == nullptr) {
-      BKE_report(CTX_wm_reports(C),
-                 RPT_ERROR,
-                 "Mixed native and legacy NURBS component editing is unsupported");
-      return false;
-    }
-    if (!bke::nurbs::curve_validate_source(curve, &error)) {
+    promotions.append(std::nullopt);
+    auto target = component_edit_target(
+        bmain, *object, operation == ComponentEdit::Split, promotions.last(), error);
+    if (!target) {
       BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
       return false;
     }
-    targets.append({object, curve.editnurb->nurbs_edit->read_snapshot()});
+    targets.append(std::move(*target));
     double deviation;
     candidates.append(
         component_edit_candidate(targets.last().source, operation, mode, deviation, &error));
@@ -1063,10 +1150,35 @@ static bool component_edit(bContext *C,
       BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
       return false;
     }
+    if (promotions.last()) {
+      if (!candidates.last()) {
+        promotions.last().reset();
+      }
+      else {
+        // Finish the edit on the temporary source before replacing any live owner.
+        if (!promotions.last()->edit->commit(
+                std::move(*candidates.last()), targets.last().source, &error))
+        {
+          BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+          return false;
+        }
+        candidates.last().reset();
+      }
+    }
     max_endpoint_deviation = std::max(max_endpoint_deviation, deviation);
   }
   bool changed = false;
   for (const int i : targets.index_range()) {
+    if (promotions[i]) {
+      Curve &curve = *id_cast<Curve *>(targets[i].object->data);
+      if (!bke::nurbs::curve_edit_commit_tagged(curve, std::move(*promotions[i]), &error)) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      edit_notify(bmain, curve);
+      changed = true;
+      continue;
+    }
     if (!candidates[i]) {
       continue;
     }
@@ -1095,6 +1207,117 @@ bool duplicate(bContext *C)
   return component_edit(C, ComponentEdit::Duplicate, bke::nurbs::DeleteMode::Vertices);
 }
 
+bool split(bContext *C)
+{
+  return component_edit(C, ComponentEdit::Split, bke::nurbs::DeleteMode::Vertices);
+}
+
+bool separate(bContext *C)
+{
+  Main &bmain = *CTX_data_main(C);
+  Scene *scene = CTX_data_scene(C);
+  ViewLayer *view_layer = CTX_data_view_layer(C);
+  const Vector<Base *> bases = BKE_view_layer_array_from_bases_in_edit_mode_unique_data(
+      bmain, scene, view_layer, CTX_wm_view3d(C));
+  struct SeparateTarget {
+    Base *base;
+    bke::nurbs::ReadSnapshot expected;
+    std::optional<bke::nurbs::PreparedCurveSource> promotion;
+    bke::nurbs::EditSnapshot remainder;
+    bke::nurbs::OwnedGeometry extracted;
+  };
+  Vector<SeparateTarget> targets;
+  std::string error;
+  for (Base *base : bases) {
+    std::optional<bke::nurbs::PreparedCurveSource> promotion;
+    auto target = component_edit_target(bmain, *base->object, true, promotion, error);
+    if (!target) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    auto extraction = bke::nurbs::extract_edit_selection(target->source, &error);
+    if (!extraction) {
+      if (!error.empty()) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      continue;
+    }
+    auto persistent = bke::nurbs::geometry_from_edit_snapshot(extraction->extracted, &error);
+    if (!persistent) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    if (promotion &&
+        !promotion->edit->commit(std::move(extraction->remainder), target->source, &error))
+    {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    targets.append({base,
+                    std::move(target->source),
+                    std::move(promotion),
+                    std::move(extraction->remainder),
+                    std::move(persistent)});
+  }
+  if (targets.is_empty()) {
+    BKE_report(CTX_wm_reports(C), RPT_ERROR, "Nothing selected");
+    return false;
+  }
+
+  /* Use Blender's object/data duplication path, as mesh Separate does, retaining collections,
+   * transforms, parenting and material slots. Always make the separated source independent.
+   * All geometry/selection validation has completed before allocating scene IDs.
+   */
+  Vector<Base *> new_bases;
+  const eDupli_ID_Flags dupflag = eDupli_ID_Flags(USER_DUP_CURVE | USER_DUP_SURF |
+                                                  (U.dupflag & USER_DUP_ACT));
+  for (SeparateTarget &target : targets) {
+    Base *new_base = ed::object::add_duplicate(&bmain, scene, view_layer, target.base, dupflag);
+    if (new_base == nullptr) {
+      for (Base *created : new_bases) {
+        ID *data = created->object->data;
+        BKE_id_delete(&bmain, created->object);
+        BKE_id_delete(&bmain, data);
+      }
+      DEG_relations_tag_update(&bmain);
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, "Unable to create separated NURBS object");
+      return false;
+    }
+    Curve &new_curve = *id_cast<Curve *>(new_base->object->data);
+    BLI_assert(new_curve.editnurb == nullptr);
+    BKE_nurbList_free(&new_curve.nurb);
+    bke::nurbs::geometry_free(new_curve.nurbs_geometry);
+    new_curve.nurbs_geometry = target.extracted.release();
+    new_curve.actnu = new_curve.actvert = CU_ACT_NONE;
+    new_bases.append(new_base);
+  }
+  for (const int i : targets.index_range()) {
+    SeparateTarget &target = targets[i];
+    Curve &curve = *id_cast<Curve *>(target.base->object->data);
+    if (target.promotion) {
+      if (!bke::nurbs::curve_edit_commit_tagged(curve, std::move(*target.promotion), &error)) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      edit_notify(bmain, curve);
+    }
+    else if (!edit_commit(bmain, curve, std::move(target.remainder), target.expected, &error)) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    Base *new_base = new_bases[i];
+    ed::object::base_select(new_base, ed::object::BA_SELECT);
+    DEG_id_tag_update(new_base->object->data, ID_RECALC_GEOMETRY);
+    DEG_id_tag_update(&new_base->object->id, ID_RECALC_GEOMETRY | ID_RECALC_TRANSFORM);
+    WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, new_base->object);
+  }
+  DEG_relations_tag_update(&bmain);
+  WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+  ED_outliner_select_sync_from_object_tag(C);
+  return true;
+}
+
 bool fill(bContext *C)
 {
   return component_edit(C, ComponentEdit::Fill, bke::nurbs::DeleteMode::Vertices);
@@ -1108,6 +1331,513 @@ bool extrude(bContext *C)
 bool delete_components(bContext *C, const bke::nurbs::DeleteMode mode)
 {
   return component_edit(C, ComponentEdit::Delete, mode);
+}
+
+bool topology_edit_poll(bContext *C)
+{
+  if (!ED_operator_editsurfcurve_or_nurbs(C)) {
+    return false;
+  }
+  const Curve &curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
+  return curve.editnurb && (curve.editnurb->nurbs_edit ||
+                            bke::nurbs::legacy_topology_source_check(curve.editnurb->nurbs));
+}
+
+/** Shared preflight, source entry, result selection and commit for topology mutation tools. */
+static bool topology_edit(bContext *C,
+                          const bool single_owner,
+                          const std::optional<bke::nurbs::SelectionMode> mode,
+                          FunctionRef<std::optional<bke::nurbs::TopologyEditResult>(
+                              const SelectionTarget &, std::string &)> operation)
+{
+  using namespace bke::nurbs;
+  Main &bmain = *CTX_data_main(C);
+  const auto objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+      bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C));
+  if (single_owner && objects.size() != 1) {
+    BKE_report(CTX_wm_reports(C), RPT_ERROR, "This NURBS modal tool requires one edit object");
+    return false;
+  }
+  Vector<SelectionTarget> targets;
+  Vector<std::optional<PreparedCurveSource>> promotions;
+  Vector<std::optional<EditSnapshot>> candidates;
+  std::string error;
+  double error_bound = 0;
+  for (Object *object : objects) {
+    promotions.append(std::nullopt);
+    auto target = component_edit_target(bmain, *object, true, promotions.last(), error);
+    if (!target) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    targets.append(std::move(*target));
+    auto result = operation(targets.last(), error);
+    candidates.append(std::nullopt);
+    if (!result) {
+      if (!error.empty()) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      promotions.last().reset();
+      continue;
+    }
+    error_bound = std::max(error_bound, result->geometry_error_bound);
+    candidates.last() = edit_snapshot_from_topology_result(
+        std::move(*result),
+        targets.last().source.selection(),
+        mode.value_or(targets.last().source.selection().mode),
+        &error);
+    if (!candidates.last()) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    if (promotions.last()) {
+      if (!promotions.last()->edit->commit(
+              std::move(*candidates.last()), targets.last().source, &error))
+      {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      candidates.last().reset();
+    }
+  }
+  bool changed = false;
+  for (const int i : targets.index_range()) {
+    Curve &curve = *id_cast<Curve *>(targets[i].object->data);
+    if (promotions[i]) {
+      if (!curve_edit_commit_tagged(curve, std::move(*promotions[i]), &error)) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      edit_notify(bmain, curve);
+      changed = true;
+    }
+    else if (candidates[i]) {
+      if (!edit_commit(bmain, curve, std::move(*candidates[i]), targets[i].source, &error)) {
+        BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+        return false;
+      }
+      changed = true;
+    }
+  }
+  if (changed && error_bound != 0) {
+    BKE_reportf(CTX_wm_reports(C),
+                RPT_INFO,
+                "NURBS construction roundoff bound %.17g; source tolerances include this bound",
+                error_bound);
+  }
+  return changed;
+}
+
+/** Source sampling is only a cursor proxy. The returned IDs always name original topology. */
+static std::pair<int64_t, int64_t> rip_side(ViewContext &vc,
+                                            const SelectionTarget &target,
+                                            const int mval[2],
+                                            std::string &error)
+{
+  using namespace bke::nurbs;
+  const auto &source = target.source.geometry();
+  const auto &selection = target.source.selection();
+  const auto index = TopologyIndex::build(source, &error);
+  ED_view3d_init_mats_rv3d(target.object, vc.rv3d);
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  for (const auto &curve : source.curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  Set<int64_t> eligible;
+  if (!selection.edges.is_empty()) {
+    eligible = selection.edges;
+  }
+  else if (selection.vertices.size() == 1) {
+    bool has_faces = false;
+    for (const int64_t id : index->edges_for_vertex(*selection.vertices.begin())) {
+      has_faces |= !index->uses_for_edge(id).is_empty();
+    }
+    for (const int64_t id : index->edges_for_vertex(*selection.vertices.begin())) {
+      if (!has_faces || index->uses_for_edge(id).size() == 2) {
+        eligible.add(id);
+      }
+    }
+  }
+  int64_t edge_id = 0, face_id = 0;
+  float best = std::numeric_limits<float>::infinity();
+  for (const auto &edge : source.edges) {
+    if (!eligible.contains(edge.id)) {
+      continue;
+    }
+    std::optional<float3> previous;
+    for (int sample = 0; sample <= 32; sample++) {
+      const double parameter = edge.parameter_range[0] +
+                               (edge.parameter_range[1] - edge.parameter_range[0]) *
+                                   (sample / 32.0);
+      const auto point = evaluate_curve(*curves.lookup(edge.curve_id), parameter, &error);
+      if (!point) {
+        return {};
+      }
+      const auto screen = project_position(vc, point->position, error);
+      if (screen && previous) {
+        const float2 a(previous->x, previous->y), b(screen->x, screen->y);
+        const float2 delta = b - a, mouse(mval[0], mval[1]);
+        const float length = math::length_squared(delta);
+        const float factor = length ?
+                                 std::clamp(math::dot(mouse - a, delta) / length, 0.0f, 1.0f) :
+                                 0;
+        const float distance = math::length_squared(mouse - (a + factor * delta));
+        if (distance <= best) {
+          edge_id = edge.id;
+          best = distance;
+        }
+      }
+      previous = screen;
+    }
+  }
+  best = std::numeric_limits<float>::infinity();
+  if (edge_id) {
+    for (const auto &use : index->uses_for_edge(edge_id)) {
+      const ElementRef element{ElementDomain::Face, use.face_id};
+      const auto centers = element_centers(source, {&element, 1}, &error);
+      if (!centers) {
+        return {};
+      }
+      if (const auto screen = project_position(vc, (*centers)[0], error)) {
+        const float distance = math::length_squared(
+            float2(screen->x - mval[0], screen->y - mval[1]));
+        if (distance < best) {
+          face_id = use.face_id;
+          best = distance;
+        }
+      }
+    }
+  }
+  return {face_id, edge_id};
+}
+
+bool rip(bContext *C, const int mval[2])
+{
+  ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));
+  return topology_edit(
+      C, true, std::nullopt, [&](const SelectionTarget &target, std::string &error) {
+        const auto [face, edge] = rip_side(vc, target, mval, error);
+        if (!error.empty()) {
+          return std::optional<bke::nurbs::TopologyEditResult>();
+        }
+        const auto &selection = target.source.selection();
+        const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+        const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+        const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
+        auto result = bke::nurbs::rip_components(
+            target.source.geometry(), {vertices, edges, faces}, face, edge, &error);
+        // The V macro immediately enters Move. Reject unsupported partial deformation before
+        // committing a coincident tear that the current transform adapter cannot move.
+        if (result && !bke::nurbs::translate_vertices(*result->geometry,
+                                                      result->vertices,
+                                                      {1, 0, 0},
+                                                      std::numeric_limits<double>::max(),
+                                                      &error))
+        {
+          return std::optional<bke::nurbs::TopologyEditResult>();
+        }
+        return result;
+      });
+}
+
+bool merge(bContext *C, const bke::nurbs::VertexMergeMode mode, const double max_position_error)
+{
+  using namespace bke::nurbs;
+  Object *active = CTX_data_edit_object(C);
+  return topology_edit(
+      C,
+      false,
+      std::nullopt,
+      [&](const SelectionTarget &target, std::string &error) -> std::optional<TopologyEditResult> {
+        if (ELEM(mode, VertexMergeMode::First, VertexMergeMode::Last) && target.object != active) {
+          return std::nullopt;
+        }
+        double3 cursor(0);
+        if (mode == VertexMergeMode::Cursor) {
+          bool invertible;
+          const auto inverse = math::invert(double4x4(target.object->object_to_world()),
+                                            invertible);
+          if (!invertible) {
+            error = "NURBS Merge cannot invert this object's scale for the cursor target";
+            return std::nullopt;
+          }
+          cursor = math::transform_point(inverse, double3(CTX_data_scene(C)->cursor.location));
+        }
+        return merge_selected_vertices(target.source.geometry(),
+                                       target.source.selection(),
+                                       mode,
+                                       cursor,
+                                       max_position_error,
+                                       &error);
+      });
+}
+
+bool subdivide(bContext *C, const int cuts, const double max_error)
+{
+  return topology_edit(
+      C,
+      false,
+      std::nullopt,
+      [&](const SelectionTarget &target,
+          std::string &error) -> std::optional<bke::nurbs::TopologyEditResult> {
+        const auto &selection = target.source.selection();
+        if (selection.vertices.is_empty() && selection.edges.is_empty() &&
+            selection.faces.is_empty()) {
+          return std::nullopt;
+        }
+        const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+        const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+        const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
+        return bke::nurbs::subdivide_components(
+            target.source.geometry(), {vertices, edges, faces}, cuts, max_error, &error);
+      });
+}
+
+bool merge_by_distance(bContext *C,
+                       const double distance,
+                       const bool use_centroid,
+                       const bool use_unselected,
+                       const double max_position_error)
+{
+  int removed = 0;
+  const bool changed = topology_edit(
+      C,
+      false,
+      std::nullopt,
+      [&](const SelectionTarget &target,
+          std::string &error) -> std::optional<bke::nurbs::TopologyEditResult> {
+        auto result = bke::nurbs::merge_by_distance(target.source.geometry(),
+                                                    target.source.selection(),
+                                                    distance,
+                                                    use_centroid,
+                                                    use_unselected,
+                                                    max_position_error,
+                                                    &error);
+        if (result) {
+          removed += target.source.geometry().vertices.count() -
+                     result->geometry->vertices.count();
+        }
+        return result;
+      });
+  if (changed) {
+    BKE_reportf(CTX_wm_reports(C), RPT_INFO, "Removed %d vertices", removed);
+  }
+  return changed;
+}
+
+struct TopologyPreview::State {
+  SelectionTarget target;
+  std::optional<bke::nurbs::PreparedCurveSource> promotion;
+};
+
+TopologyPreview::TopologyPreview(std::unique_ptr<State> state) : state_(std::move(state)) {}
+TopologyPreview::~TopologyPreview() = default;
+
+std::unique_ptr<TopologyPreview> TopologyPreview::begin(bContext *C, std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  Main &bmain = *CTX_data_main(C);
+  const auto objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+      bmain, CTX_data_scene(C), CTX_data_view_layer(C), CTX_wm_view3d(C));
+  if (objects.size() != 1) {
+    if (r_error) {
+      *r_error = "This NURBS preview tool requires one edit object";
+    }
+    return nullptr;
+  }
+  std::string error;
+  std::optional<bke::nurbs::PreparedCurveSource> promotion;
+  Object *object = objects[0];
+  if (Object *active = CTX_data_edit_object(C)) {
+    if (active->data == object->data) {
+      object = active;
+    }
+  }
+  auto target = component_edit_target(bmain, *object, true, promotion, error);
+  if (!target) {
+    if (r_error) {
+      *r_error = error;
+    }
+    return nullptr;
+  }
+  auto state = std::make_unique<State>(State{std::move(*target), std::move(promotion)});
+  return std::unique_ptr<TopologyPreview>(new TopologyPreview(std::move(state)));
+}
+
+const bke::nurbs::ReadSnapshot &TopologyPreview::source() const
+{
+  return state_->target.source;
+}
+Object &TopologyPreview::object() const
+{
+  return *state_->target.object;
+}
+
+bool TopologyPreview::commit(bContext *C,
+                             bke::nurbs::TopologyEditResult result,
+                             const bke::nurbs::SelectionMode mode,
+                             std::string *r_error)
+{
+  if (CTX_data_edit_object(C) != state_->target.object) {
+    if (r_error) {
+      *r_error = "NURBS preview source owner changed before confirmation";
+    }
+    return false;
+  }
+  const double bound = result.geometry_error_bound;
+  auto candidate = bke::nurbs::edit_snapshot_from_topology_result(
+      std::move(result), source().selection(), mode, r_error);
+  if (!candidate) {
+    return false;
+  }
+  Curve &curve = *id_cast<Curve *>(object().data);
+  Main &bmain = *CTX_data_main(C);
+  if (state_->promotion) {
+    if (!state_->promotion->edit->commit(std::move(*candidate), source(), r_error) ||
+        !bke::nurbs::curve_edit_commit_tagged(curve, std::move(*state_->promotion), r_error))
+    {
+      return false;
+    }
+    edit_notify(bmain, curve);
+  }
+  else if (!edit_commit(bmain, curve, std::move(*candidate), source(), r_error)) {
+    return false;
+  }
+  if (bound != 0) {
+    BKE_reportf(CTX_wm_reports(C),
+                RPT_INFO,
+                "NURBS construction roundoff bound %.17g; source tolerances include this bound",
+                bound);
+  }
+  return true;
+}
+
+static bool source_edge_screen_samples(const ViewContext &vc,
+                                       const NurbsTopologyEdge &edge,
+                                       const NurbsCurveGeometry &curve,
+                                       FunctionRef<void(float3, float3)> segment,
+                                       std::string &error)
+{
+  Vector<double> parameters{edge.parameter_range[0]};
+  for (int i = 0; i < curve.knots_num; i++) {
+    const double t = curve.knots[i];
+    if (t > parameters.last() && t < edge.parameter_range[1]) {
+      parameters.append(t);
+    }
+  }
+  parameters.append(edge.parameter_range[1]);
+  std::optional<float3> previous;
+  for (int span = 0; span < parameters.size() - 1; span++) {
+    for (int i = span == 0 ? 0 : 1; i <= 16; i++) {
+      const double t = parameters[span] + (parameters[span + 1] - parameters[span]) * (i / 16.0);
+      const auto point = bke::nurbs::evaluate_curve(curve, t, &error);
+      if (!point) {
+        return false;
+      }
+      const auto screen = project_position(vc, point->position, error);
+      if (previous && screen) {
+        segment(*previous, *screen);
+      }
+      previous = screen;
+    }
+  }
+  return error.empty();
+}
+
+std::optional<int64_t> topology_edge_under_cursor(bContext *C,
+                                                  const TopologyPreview &preview,
+                                                  const int mval[2],
+                                                  std::string *r_error)
+{
+  ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));
+  ED_view3d_init_mats_rv3d(&preview.object(), vc.rv3d);
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  for (const auto &curve : preview.source().geometry().curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  std::optional<int64_t> hit;
+  float best = 48 * 48;
+  std::string error;
+  for (const auto &edge : preview.source().geometry().edges) {
+    if (!source_edge_screen_samples(
+            vc,
+            edge,
+            *curves.lookup(edge.curve_id),
+            [&](const float3 a, const float3 b) {
+              const float2 delta(b.x - a.x, b.y - a.y), mouse(mval[0], mval[1]);
+              const float length = math::length_squared(delta);
+              const float factor =
+                  length ?
+                      std::clamp(math::dot(mouse - float2(a.x, a.y), delta) / length, 0.0f, 1.0f) :
+                      0;
+              const float2 point(a.x + factor * delta.x, a.y + factor * delta.y);
+              const float distance = math::length_squared(mouse - point);
+              if (distance < best) {
+                best = distance;
+                hit = edge.id;
+              }
+            },
+            error))
+    {
+      if (r_error) {
+        *r_error = error;
+      }
+      return std::nullopt;
+    }
+  }
+  if (r_error) {
+    r_error->clear();
+  }
+  return hit;
+}
+
+std::optional<std::array<float2, 2>> topology_edge_screen(bContext *C,
+                                                          const TopologyPreview &preview,
+                                                          const int64_t edge_id,
+                                                          std::string *r_error)
+{
+  ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));
+  ED_view3d_init_mats_rv3d(&preview.object(), vc.rv3d);
+  const auto index = bke::nurbs::TopologyIndex::build(preview.source().geometry(), r_error);
+  const auto *edge = index ? index->edge(edge_id) : nullptr;
+  if (!edge) {
+    return std::nullopt;
+  }
+  for (const auto &curve : preview.source().geometry().curves) {
+    if (curve.id != edge->curve_id) {
+      continue;
+    }
+    std::array<float2, 2> result;
+    std::string error;
+    const bool closed = edge->vertex_ids[0] == edge->vertex_ids[1];
+    for (int end = 0; end < 2; end++) {
+      const double fraction = closed ? (end ? 0.625 : 0.375) : end;
+      const auto point = bke::nurbs::evaluate_curve(
+          curve,
+          edge->parameter_range[0] +
+              (edge->parameter_range[1] - edge->parameter_range[0]) * fraction,
+          &error);
+      if (!point) {
+        if (r_error) {
+          *r_error = error;
+        }
+        return std::nullopt;
+      }
+      const auto screen = project_position(vc, point->position, error);
+      if (!screen) {
+        if (r_error) {
+          *r_error = error;
+        }
+        return std::nullopt;
+      }
+      result[end] = float2(screen->x, screen->y);
+    }
+    return result;
+  }
+  return std::nullopt;
 }
 
 bool select_linked_pick(bContext *C, const int mval[2], const int distance, const bool deselect)

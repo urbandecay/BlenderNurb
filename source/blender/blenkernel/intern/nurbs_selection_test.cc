@@ -903,6 +903,251 @@ TEST_F(NurbsSelectionTest, LinkedConnectivityRequiresAnExplicitRuleWhenHoleLoops
   EXPECT_FALSE(find_linked_components(*source, {}, LinkedConnectivity(99)));
 }
 
+TEST_F(NurbsSelectionTest, SplitTopologyAndSelectionMatchActualBMesh)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto adjacent = extrude_edges(*sheet, {first_item(sheet->edges).id}, {0, 0, 2}, 0);
+  ASSERT_TRUE(adjacent.has_value());
+  auto non_manifold = extrude_edges(
+      *adjacent->geometry, {first_item(sheet->edges).id}, {0, 0, -2}, 0);
+  ASSERT_TRUE(non_manifold.has_value());
+  auto &complex = *non_manifold->geometry;
+  auto *loose = add_vertex(complex, {5, 5, 5});
+  const auto &junction = first_item(complex.vertices);
+  const auto *curve = add_linear_curve(
+      complex, double3(junction.position), double3(loose->position), 3);
+  add_edge(complex, junction, *loose, *curve);
+  add_vertex(complex, {9, 9, 9});
+
+  for (const NurbsGeometry *source : {sheet.get(), adjacent->geometry.get(), &complex}) {
+    const int bits = source->vertices.count() + source->edges.count() + source->faces.count();
+    const uint64_t full_mask = (uint64_t(1) << bits) - 1;
+    Vector<uint64_t> masks = {0, 1, 3, 7, 15, 31, 63, 127, full_mask};
+    for (int bit = 0; bit < bits; bit++) {
+      masks.append(uint64_t(1) << bit);
+      masks.append(full_mask ^ (uint64_t(1) << bit));
+    }
+    for (int mode = 1; mode <= 7; mode++) {
+      for (const uint64_t mask : masks) {
+        SCOPED_TRACE(source->faces.count());
+        SCOPED_TRACE(mode);
+        SCOPED_TRACE(mask);
+        const auto selection = selection_flush(
+            *source, mask_selection(*source, mask), SelectionMode(mode));
+        ASSERT_TRUE(selection.has_value());
+        const Vector<int64_t> vertices(selection->vertices.begin(), selection->vertices.end());
+        const Vector<int64_t> edges(selection->edges.begin(), selection->edges.end());
+        const Vector<int64_t> faces(selection->faces.begin(), selection->faces.end());
+        std::string error;
+        const auto split = split_components(*source, {vertices, edges, faces}, &error);
+        ASSERT_TRUE(split.has_value()) << error;
+        const auto selected = selection_remap_closure(*source,
+                                                      *split->geometry,
+                                                      *selection,
+                                                      split->source_to_copy,
+                                                      SelectionMode(mode),
+                                                      &error);
+        ASSERT_TRUE(selected.has_value()) << error;
+        const auto index = TopologyIndex::build(*split->geometry, &error);
+        ASSERT_TRUE(index.has_value()) << error;
+
+        MeshReference reference(*source);
+        BMesh *bm = reference.mesh.get();
+        reference.flush(*selection, SelectionMode(mode));
+        BM_data_layer_add_named(bm, &bm->vdata, CD_PROP_INT32, "source_id");
+        BM_data_layer_add_named(bm, &bm->edata, CD_PROP_INT32, "source_id");
+        BM_data_layer_add_named(bm, &bm->pdata, CD_PROP_INT32, "source_id");
+        const int vertex_offset = CustomData_get_offset_named(
+            &bm->vdata, CD_PROP_INT32, "source_id");
+        const int edge_offset = CustomData_get_offset_named(
+            &bm->edata, CD_PROP_INT32, "source_id");
+        const int face_offset = CustomData_get_offset_named(
+            &bm->pdata, CD_PROP_INT32, "source_id");
+        for (const auto item : reference.vertices.items()) {
+          BM_ELEM_CD_SET_INT(item.value, vertex_offset, int(item.key));
+        }
+        for (const auto item : reference.edges.items()) {
+          BM_ELEM_CD_SET_INT(item.value, edge_offset, int(item.key));
+        }
+        for (const auto item : reference.faces.items()) {
+          BM_ELEM_CD_SET_INT(item.value, face_offset, int(item.key));
+        }
+        BMOperator operation;
+        BMO_op_init(bm, &operation, BMO_FLAG_DEFAULTS, "split");
+        BLI_SCOPED_DEFER([&]() { BMO_op_finish(bm, &operation); });
+        BMO_slot_bool_set(operation.slots_in, "use_only_faces", false);
+        BMO_slot_buffer_from_enabled_hflag(bm,
+                                           &operation,
+                                           operation.slots_in,
+                                           "geom",
+                                           BM_VERT | BM_EDGE | BM_FACE,
+                                           BM_ELEM_SELECT);
+        BMO_op_exec(bm, &operation);
+        BM_mesh_elem_hflag_disable_all(bm, BM_ALL_NOLOOP, BM_ELEM_SELECT, false);
+        BMO_slot_buffer_hflag_enable(
+            bm, operation.slots_out, "geom.out", BM_ALL_NOLOOP, BM_ELEM_SELECT, true);
+        EXPECT_EQ(bm->totvert, split->geometry->vertices.count());
+        EXPECT_EQ(bm->totedge, split->geometry->edges.count());
+        EXPECT_EQ(bm->totface, split->geometry->faces.count());
+        EXPECT_EQ(bm->totvertsel, selected->vertices.size());
+        EXPECT_EQ(bm->totedgesel, selected->edges.size());
+        EXPECT_EQ(bm->totfacesel, selected->faces.size());
+        auto vertex_id = [&](BMVert *vertex) {
+          const int64_t original = BM_ELEM_CD_GET_INT(vertex, vertex_offset);
+          return vertex == reference.vertices.lookup(original) ?
+                     original :
+                     split->source_to_copy.lookup(original);
+        };
+        Set<int64_t> surviving_vertices, surviving_edges, surviving_faces;
+        BMIter iterator;
+        BMVert *vertex;
+        BM_ITER_MESH (vertex, &iterator, bm, BM_VERTS_OF_MESH) {
+          const int64_t id = vertex_id(vertex);
+          surviving_vertices.add(id);
+          ASSERT_NE(index->vertex(id), nullptr);
+          EXPECT_EQ(float3(double3(index->vertex(id)->position)), float3(vertex->co));
+        }
+        BMEdge *edge;
+        BM_ITER_MESH (edge, &iterator, bm, BM_EDGES_OF_MESH) {
+          const int64_t original = BM_ELEM_CD_GET_INT(edge, edge_offset);
+          const int64_t id = edge == reference.edges.lookup(original) ?
+                                 original :
+                                 split->source_to_copy.lookup(original);
+          surviving_edges.add(id);
+          const auto *native_edge = index->edge(id);
+          ASSERT_NE(native_edge, nullptr);
+          EXPECT_EQ(Set<int64_t>({native_edge->vertex_ids[0], native_edge->vertex_ids[1]}),
+                    Set<int64_t>({vertex_id(edge->v1), vertex_id(edge->v2)}));
+        }
+        BMFace *face;
+        BM_ITER_MESH (face, &iterator, bm, BM_FACES_OF_MESH) {
+          const int64_t original = BM_ELEM_CD_GET_INT(face, face_offset);
+          const int64_t id = face == reference.faces.lookup(original) ?
+                                 original :
+                                 split->source_to_copy.lookup(original);
+          surviving_faces.add(id);
+          ASSERT_NE(index->face(id), nullptr);
+          Set<int64_t> native_vertices, mesh_vertices;
+          for (const NurbsTopologyEdgeUse &use : first_item(index->face(id)->loops).edge_uses) {
+            const auto *native_edge = index->edge(use.edge_id);
+            native_vertices.add_multiple(Span(native_edge->vertex_ids, 2));
+          }
+          BMIter face_iterator;
+          BM_ITER_ELEM (vertex, &face_iterator, face, BM_VERTS_OF_FACE) {
+            mesh_vertices.add(vertex_id(vertex));
+          }
+          EXPECT_EQ(native_vertices, mesh_vertices);
+        }
+        EXPECT_EQ(surviving_vertices.size(), split->geometry->vertices.count());
+        EXPECT_EQ(surviving_edges.size(), split->geometry->edges.count());
+        EXPECT_EQ(surviving_faces.size(), split->geometry->faces.count());
+      }
+    }
+  }
+}
+
+TEST_F(NurbsSelectionTest, ExtractionPreservesExactRationalSeamsHolesAndIndependentStorage)
+{
+  auto hole = make_planar_sheet();
+  ASSERT_NE(hole, nullptr);
+  const double2 boundary[] = {{0.2, 0.2}, {0.2, 0.8}, {0.8, 0.8}, {0.8, 0.2}};
+  add_planar_loop(*hole, first_item(hole->faces), {boundary, 4}, true);
+  const auto circle = make_arc_sheet(true);
+  ASSERT_NE(circle, nullptr);
+  for (const NurbsGeometry *source : {hole.get(), circle.get()}) {
+    const auto &face = first_item(source->faces);
+    const int64_t face_id = face.id;
+    std::string error;
+    const auto extraction = extract_components(*source, {{}, {}, {&face_id, 1}}, &error);
+    ASSERT_TRUE(extraction.has_value()) << error;
+    EXPECT_TRUE(extraction->remainder->vertices.is_empty());
+    EXPECT_TRUE(extraction->remainder->edges.is_empty());
+    EXPECT_TRUE(extraction->remainder->faces.is_empty());
+    const auto &fragment = *extraction->extracted.geometry;
+    const auto &map = extraction->extracted.source_to_copy;
+    EXPECT_EQ(fragment.vertices.count(), source->vertices.count());
+    EXPECT_EQ(fragment.edges.count(), source->edges.count());
+    const auto index = TopologyIndex::build(fragment);
+    ASSERT_TRUE(index.has_value());
+    const auto *copied_face = index->face(map.lookup(face_id));
+    ASSERT_NE(copied_face, nullptr);
+    EXPECT_EQ(copied_face->loops.count(), face.loops.count());
+    for (const NurbsCurveGeometry &curve : source->curves) {
+      const auto *copy = static_cast<const NurbsCurveGeometry *>(fragment.curves.first);
+      while (copy && copy->id != map.lookup(curve.id)) {
+        copy = copy->next;
+      }
+      ASSERT_NE(copy, nullptr);
+      EXPECT_NE(copy->points, curve.points);
+      EXPECT_NE(copy->knots, curve.knots);
+      EXPECT_EQ(copy->dimension, curve.dimension);
+      EXPECT_EQ(copy->order, curve.order);
+      EXPECT_EQ(std::memcmp(copy->points, curve.points, sizeof(*curve.points) * curve.points_num),
+                0);
+      EXPECT_EQ(std::memcmp(copy->knots, curve.knots, sizeof(double) * curve.knots_num), 0);
+    }
+    const auto &surface = first_item(source->surfaces);
+    const auto &copy = first_item(fragment.surfaces);
+    EXPECT_NE(copy.points, surface.points);
+    EXPECT_EQ(
+        std::memcmp(copy.points, surface.points, sizeof(*surface.points) * surface.points_num), 0);
+    EXPECT_EQ(std::memcmp(copy.knots_u, surface.knots_u, sizeof(double) * surface.knots_u_num), 0);
+    EXPECT_EQ(std::memcmp(copy.knots_v, surface.knots_v, sizeof(double) * surface.knots_v_num), 0);
+    const auto *loop_copy = static_cast<const NurbsTopologyLoop *>(copied_face->loops.first);
+    for (const NurbsTopologyLoop &loop : face.loops) {
+      ASSERT_NE(loop_copy, nullptr);
+      EXPECT_EQ(loop_copy->is_inner, loop.is_inner);
+      EXPECT_EQ(loop_copy->id, map.lookup(loop.id));
+      const auto *use_copy = static_cast<const NurbsTopologyEdgeUse *>(loop_copy->edge_uses.first);
+      for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+        ASSERT_NE(use_copy, nullptr);
+        EXPECT_EQ(use_copy->edge_id, map.lookup(use.edge_id));
+        EXPECT_EQ(use_copy->pcurve_id, map.lookup(use.pcurve_id));
+        EXPECT_EQ(use_copy->reversed, use.reversed);
+        EXPECT_EQ(use_copy->tolerance, use.tolerance);
+        use_copy = use_copy->next;
+      }
+      EXPECT_EQ(use_copy, nullptr);
+      loop_copy = loop_copy->next;
+    }
+    EXPECT_EQ(loop_copy, nullptr);
+  }
+}
+
+TEST_F(NurbsSelectionTest, ExtractionRejectsUnknownIDsAndOverflowWithoutSourceMutation)
+{
+  const auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  const int64_t face = first_item(source->faces).id;
+  SelectionState selected;
+  selected.mode = SelectionMode::Face;
+  selected.faces.add(face);
+  source->stored_selection = selection_to_storage(selected);
+  const int64_t counter = source->next_id;
+  std::string error;
+  EXPECT_FALSE(extract_components(*source, {{&counter, 1}, {}, {}}, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source->next_id, counter);
+  const auto extracted = extract_components(*source, {{}, {}, {&face, 1}}, &error);
+  ASSERT_TRUE(extracted.has_value()) << error;
+  const auto remainder_selection = selection_from_storage(extracted->remainder->stored_selection);
+  ASSERT_TRUE(remainder_selection.has_value());
+  EXPECT_TRUE(remainder_selection->faces.is_empty());
+  EXPECT_EQ(extracted->extracted.geometry->stored_selection, nullptr);
+  EXPECT_EQ(source->stored_selection->elements_num, 1);
+  const auto empty = split_components(*source, {}, &error);
+  ASSERT_TRUE(empty.has_value()) << error;
+  EXPECT_TRUE(empty->source_to_copy.is_empty());
+  EXPECT_EQ(empty->geometry->next_id, counter);
+  source->next_id = std::numeric_limits<int64_t>::max();
+  EXPECT_FALSE(split_components(*source, {{}, {}, {&face, 1}}, &error));
+  EXPECT_FALSE(error.empty());
+  EXPECT_EQ(source->next_id, std::numeric_limits<int64_t>::max());
+  EXPECT_EQ(source->faces.count(), 1);
+  EXPECT_EQ(source->stored_selection->elements_num, 1);
+}
+
 TEST_F(NurbsSelectionTest, DuplicateSelectionAndHistoryMatchActualBMeshDuplication)
 {
   const auto sheet = make_planar_sheet();
@@ -1500,6 +1745,67 @@ TEST_F(NurbsSelectionTest, SourceCentersCoverVerticesEdgesFacesAndCurvedParamete
   EXPECT_NE(actual->first(), double3(0.5, 0.5, 0));
   const ElementRef unknown{ElementDomain::Face, sheet->next_id};
   EXPECT_FALSE(element_centers(*sheet, {&unknown, 1}, &error));
+  EXPECT_FALSE(error.empty());
+}
+
+TEST_F(NurbsSelectionTest, NavigationPositionsMatchMeshSelectionAcrossAllComponentModes)
+{
+  const auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  const auto adjacent = extrude_edges(*sheet, {first_item(sheet->edges).id}, {0, 0, 2}, 0);
+  ASSERT_TRUE(adjacent.has_value());
+  for (const NurbsGeometry *source : {sheet.get(), adjacent->geometry.get()}) {
+    MeshReference mesh(*source);
+    const int64_t counter = source->next_id;
+    for (int mode = 1; mode <= 7; mode++) {
+      SCOPED_TRACE(mode);
+      for (const uint64_t mask : {uint64_t(0), uint64_t(1), uint64_t(17), ~uint64_t(0)}) {
+        SCOPED_TRACE(mask);
+        SelectionState selection = mask_selection(*source, mask);
+        selection.mode = SelectionMode(mode);
+        const SelectionState expected = mesh.flush(selection, selection.mode);
+        std::string error;
+        const auto positions = selection_positions(*source, selection, &error);
+        ASSERT_TRUE(positions.has_value()) << error;
+        ASSERT_EQ(positions->size(), expected.vertices.size());
+        int i = 0;
+        for (const NurbsTopologyVertex &vertex : source->vertices) {
+          if (expected.vertices.contains(vertex.id)) {
+            EXPECT_EQ((*positions)[i++], double3(mesh.vertices.lookup(vertex.id)->co));
+          }
+        }
+      }
+    }
+    EXPECT_EQ(source->next_id, counter);
+  }
+}
+
+TEST_F(NurbsSelectionTest, NavigationPositionsRetainSourcePrecisionAndPeriodicIdentity)
+{
+  OwnedGeometry points(MEM_new<NurbsGeometry>(__func__));
+  const auto *point = add_vertex(*points, {1 + 0x1p-40, -2, 3});
+  SelectionState selection;
+  selection.vertices.add(point->id);
+  std::string error;
+  const auto result = selection_positions(*points, selection, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  ASSERT_EQ(result->size(), 1);
+  EXPECT_EQ(result->first(), double3(1 + 0x1p-40, -2, 3));
+  const auto cylinder = make_arc_sheet(true);
+  ASSERT_NE(cylinder, nullptr);
+  SelectionState face;
+  face.mode = SelectionMode::Face;
+  face.faces.add(first_item(cylinder->faces).id);
+  const auto periodic = selection_positions(*cylinder, face, &error);
+  ASSERT_TRUE(periodic.has_value()) << error;
+  EXPECT_EQ(periodic->size(), cylinder->vertices.count());
+  EXPECT_EQ(periodic->size(), 2);
+  selection.vertices.add(points->next_id);
+  EXPECT_FALSE(selection_positions(*points, selection, &error));
+  EXPECT_FALSE(error.empty());
+  selection.vertices.remove(points->next_id);
+  first_item(points->vertices).position[0] = NAN;
+  EXPECT_FALSE(selection_positions(*points, selection, &error));
   EXPECT_FALSE(error.empty());
 }
 

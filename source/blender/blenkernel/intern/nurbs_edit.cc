@@ -16,6 +16,7 @@
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_nurbs_mesh.hh"
+#include "BKE_nurbs_topology.hh"
 
 namespace blender::bke::nurbs {
 
@@ -86,6 +87,136 @@ static EditSnapshot snapshot_copy(const EditSnapshot &snapshot)
   copy.geometry.reset(geometry_copy(snapshot.geometry.get()));
   copy.selection = snapshot.selection;
   return copy;
+}
+
+std::optional<ExtractedEditSelection> extract_edit_selection(const ReadSnapshot &source,
+                                                             std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  const SelectionState &selection = source.selection();
+  if (selection.vertices.is_empty() && selection.edges.is_empty() && selection.faces.is_empty()) {
+    return std::nullopt;
+  }
+  const auto normalized = selection_flush(source.geometry(), selection, selection.mode, r_error);
+  if (!normalized) {
+    return std::nullopt;
+  }
+  if (normalized->vertices != selection.vertices || normalized->edges != selection.edges ||
+      normalized->faces != selection.faces)
+  {
+    if (r_error) {
+      *r_error = "NURBS extraction requires a normalized component-mode selection";
+    }
+    return std::nullopt;
+  }
+  const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+  const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+  const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
+  auto extraction = extract_components(source.geometry(), {vertices, edges, faces}, r_error);
+  if (!extraction) {
+    return std::nullopt;
+  }
+  auto extracted_selection = selection_remap_closure(source.geometry(),
+                                                     *extraction->extracted.geometry,
+                                                     selection,
+                                                     extraction->extracted.source_to_copy,
+                                                     selection.mode,
+                                                     r_error);
+  if (!extracted_selection) {
+    return std::nullopt;
+  }
+  ExtractedEditSelection result;
+  result.remainder = {std::move(extraction->remainder), {}};
+  result.remainder.selection.mode = selection.mode;
+  result.extracted = {std::move(extraction->extracted.geometry), std::move(*extracted_selection)};
+  result.source_to_copy = std::move(extraction->extracted.source_to_copy);
+  if (!snapshot_validate(result.remainder, r_error) ||
+      !snapshot_validate(result.extracted, r_error))
+  {
+    return std::nullopt;
+  }
+  return result;
+}
+
+OwnedGeometry geometry_from_edit_snapshot(const EditSnapshot &snapshot, std::string *r_error)
+{
+  if (!snapshot_validate(snapshot, r_error)) {
+    return nullptr;
+  }
+  OwnedGeometry geometry(geometry_copy(snapshot.geometry.get()));
+  geometry->stored_selection = selection_to_storage(snapshot.selection, r_error);
+  if (!geometry->stored_selection || !geometry_validate_structure(*geometry, r_error)) {
+    return nullptr;
+  }
+  return geometry;
+}
+
+std::optional<EditSnapshot> edit_snapshot_from_topology_result(TopologyEditResult result,
+                                                               const SelectionState &previous,
+                                                               const SelectionMode mode,
+                                                               std::string *r_error)
+{
+  if (!result.geometry) {
+    if (r_error) {
+      *r_error = "NURBS topology operation returned no source geometry";
+    }
+    return std::nullopt;
+  }
+  SelectionState selected;
+  selected.mode = mode;
+  if (flag_is_set(mode, SelectionMode::Vertex)) {
+    selected.vertices.add_multiple(result.vertices);
+  }
+  if (flag_is_set(mode, SelectionMode::Edge)) {
+    selected.edges.add_multiple(result.edges);
+  }
+  if (flag_is_set(mode, SelectionMode::Face)) {
+    selected.faces.add_multiple(result.faces);
+  }
+  auto normalized = selection_flush(*result.geometry, selected, mode, r_error);
+  if (!normalized) {
+    return std::nullopt;
+  }
+  auto mapped = [&](ElementRef element) -> std::optional<ElementRef> {
+    element.id = result.source_to_result.lookup_default(element.id, element.id);
+    if (element.id && flag_is_set(mode, SelectionMode(1 << int(element.domain))) &&
+        selection_contains(*normalized, element))
+    {
+      return element;
+    }
+    return std::nullopt;
+  };
+  for (const ElementRef element : previous.history) {
+    if (auto replacement = mapped(element)) {
+      if (!normalized->history.contains(*replacement)) {
+        normalized->history.append(*replacement);
+      }
+    }
+  }
+  if (previous.active) {
+    normalized->active = mapped(*previous.active);
+  }
+  if (!normalized->active) {
+    if (flag_is_set(mode, SelectionMode::Face) && !result.faces.is_empty()) {
+      normalized->active = ElementRef{ElementDomain::Face, result.faces.last()};
+    }
+    else if (flag_is_set(mode, SelectionMode::Edge) && !result.edges.is_empty()) {
+      normalized->active = ElementRef{ElementDomain::Edge, result.edges.last()};
+    }
+    else if (flag_is_set(mode, SelectionMode::Vertex) && !result.vertices.is_empty()) {
+      normalized->active = ElementRef{ElementDomain::Vertex, result.vertices.last()};
+    }
+  }
+  if (normalized->active && !normalized->history.contains(*normalized->active)) {
+    normalized->history.append(*normalized->active);
+  }
+  EditSnapshot snapshot{std::move(result.geometry), std::move(*normalized)};
+  if (!snapshot_validate(snapshot, r_error)) {
+    return std::nullopt;
+  }
+  return snapshot;
 }
 
 ReadSnapshot::ReadSnapshot(std::shared_ptr<const detail::EditStateStorage> state)
@@ -441,23 +572,6 @@ static std::optional<Vector<uint8_t>> tagged_source_stamp(const Curve &curve)
   return bytes;
 }
 
-static OwnedGeometry persistent_source(const EditSnapshot &snapshot, std::string *r_error)
-{
-  if (!snapshot.geometry) {
-    if (r_error) {
-      *r_error = "NURBS source snapshot has no geometry";
-    }
-    return nullptr;
-  }
-  OwnedGeometry geometry(geometry_copy(snapshot.geometry.get()));
-  selection_storage_free(geometry->stored_selection);
-  geometry->stored_selection = selection_to_storage(snapshot.selection, r_error);
-  if (!geometry->stored_selection) {
-    return nullptr;
-  }
-  return geometry;
-}
-
 }  // namespace
 
 std::optional<PreparedCurveSource> curve_edit_prepare_tagged(const Curve &curve,
@@ -520,7 +634,7 @@ std::optional<PreparedCurveSource> curve_edit_prepare_tagged(const Curve &curve,
   result.legacy_stamp = std::move(*stamp);
   result.active_spline = curve.actnu;
   result.active_point = curve.actvert;
-  result.persistent = persistent_source(*snapshot, r_error);
+  result.persistent = geometry_from_edit_snapshot(*snapshot, r_error);
   result.edit = EditData::create(*snapshot->geometry, snapshot->selection, r_error);
   if (!result.persistent || !result.edit) {
     return std::nullopt;
@@ -579,7 +693,7 @@ bool curve_edit_restore_native(Curve &curve, const EditSnapshot &snapshot, std::
     return false;
   }
   auto edit = EditData::create(*snapshot.geometry, snapshot.selection, r_error);
-  auto persistent = persistent_source(snapshot, r_error);
+  auto persistent = geometry_from_edit_snapshot(snapshot, r_error);
   if (!edit || !persistent) {
     return false;
   }

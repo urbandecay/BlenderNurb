@@ -15,6 +15,7 @@
 
 #include "BKE_nurbs_geometry.hh"
 #include "BKE_nurbs_selection.hh"
+#include "BKE_nurbs_topology_edit.hh"
 
 namespace blender {
 struct Curve;
@@ -52,6 +53,32 @@ class ReadSnapshot {
   explicit ReadSnapshot(std::shared_ptr<const detail::EditStateStorage> state);
   std::shared_ptr<const detail::EditStateStorage> state_;
 };
+
+struct ExtractedEditSelection {
+  EditSnapshot remainder;
+  EditSnapshot extracted;
+  Map<int64_t, int64_t> source_to_copy;
+};
+
+/** Prepare Separate's two independent sources through the common topology extraction service.
+ * Require a normalized component selection. Deselect the remainder, retain the extracted
+ * selection's mode/active/history, and copy its entire dependency closure. No owner mutation,
+ * fitting or geometry evaluation. An empty selection returns no result and no error.
+ */
+std::optional<ExtractedEditSelection> extract_edit_selection(const ReadSnapshot &source,
+                                                             std::string *r_error = nullptr);
+
+/** Validate and copy a live edit snapshot into independent persistent geometry with selection. */
+OwnedGeometry geometry_from_edit_snapshot(const EditSnapshot &snapshot,
+                                          std::string *r_error = nullptr);
+
+/** Select a topology service's semantic result in the requested mode, remapping surviving
+ * active/history identities and validating the complete candidate. No live source mutation.
+ */
+std::optional<EditSnapshot> edit_snapshot_from_topology_result(TopologyEditResult result,
+                                                               const SelectionState &previous,
+                                                               SelectionMode mode,
+                                                               std::string *r_error = nullptr);
 
 /**
  * Evaluated Curve's owned source handoff. A failed capture retains its diagnostic and no source;

@@ -79,14 +79,6 @@ class Meshes : Overlay {
   bool select_face_ = false;
   bool select_face_dots_ = false;
 
-  /**
-   * Depth offsets applied in screen space to different edit overlay components.
-   * This is multiplied by a factor based on zoom level computed by `GPU_polygon_offset_calc`.
-   */
-  static constexpr float cage_ndc_offset_ = 0.5f;
-  static constexpr float edge_ndc_offset_ = 1.0f;
-  static constexpr float vert_ndc_offset_ = 1.5f;
-
   /* TODO(fclem): This is quite wasteful and expensive, prefer in shader Z modification like the
    * retopology offset. */
   View view_edit_cage_ = {"view_edit_cage"};
@@ -248,7 +240,7 @@ class Meshes : Overlay {
       pass.shader_set(res.shaders->mesh_edit_edge.get());
       pass.push_constant("do_smooth_wire", do_smooth_wire);
       pass.push_constant("use_vertex_selection", select_vert_);
-      mesh_edit_common_resource_bind(pass, backwire_opacity, edge_ndc_offset_);
+      mesh_edit_common_resource_bind(pass, backwire_opacity, EditMeshDepthOffset::edge);
     }
     {
       auto &pass = edit_mesh_faces_ps_;
@@ -257,7 +249,7 @@ class Meshes : Overlay {
                          face_culling,
                      state.clipping_plane_count);
       pass.shader_set(res.shaders->mesh_edit_face.get());
-      mesh_edit_common_resource_bind(pass, face_alpha, 0.0f);
+      mesh_edit_common_resource_bind(pass, face_alpha, EditMeshDepthOffset::face(false));
     }
     {
       auto &pass = edit_mesh_cages_ps_;
@@ -265,7 +257,7 @@ class Meshes : Overlay {
       pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA,
                      state.clipping_plane_count);
       pass.shader_set(res.shaders->mesh_edit_face.get());
-      mesh_edit_common_resource_bind(pass, face_alpha, cage_ndc_offset_);
+      mesh_edit_common_resource_bind(pass, face_alpha, EditMeshDepthOffset::face(true));
     }
     {
       auto &pass = edit_mesh_verts_ps_;
@@ -274,7 +266,7 @@ class Meshes : Overlay {
                          DRW_STATE_WRITE_DEPTH,
                      state.clipping_plane_count);
       pass.shader_set(res.shaders->mesh_edit_vert.get());
-      mesh_edit_common_resource_bind(pass, backwire_opacity, vert_ndc_offset_);
+      mesh_edit_common_resource_bind(pass, backwire_opacity, EditMeshDepthOffset::vertex);
     }
     {
       auto &pass = edit_mesh_facedots_ps_;
@@ -283,7 +275,7 @@ class Meshes : Overlay {
                          DRW_STATE_WRITE_DEPTH,
                      state.clipping_plane_count);
       pass.shader_set(res.shaders->mesh_edit_facedot.get());
-      mesh_edit_common_resource_bind(pass, backwire_opacity, vert_ndc_offset_);
+      mesh_edit_common_resource_bind(pass, backwire_opacity, EditMeshDepthOffset::vertex);
     }
     {
       auto &pass = edit_mesh_skin_roots_ps_;

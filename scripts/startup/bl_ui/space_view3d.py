@@ -4012,6 +4012,22 @@ class VIEW3D_MT_edit_curve_clean(Menu):
         layout.operator("curve.decimate")
 
 
+class VIEW3D_MT_edit_nurbs_merge(Menu):
+    bl_label = "Merge"
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.edit_object
+        return (obj is not None and obj.type in {'CURVE', 'SURFACE'} and
+                (obj.data.is_native_nurbs or obj.data.has_tagged_nurbs))
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator_enum("curve.merge", "type")
+        layout.separator()
+        layout.operator("curve.remove_doubles", text="By Distance")
+
+
 class VIEW3D_MT_edit_curve_context_menu(Menu):
     bl_label = "Curve"
 
@@ -4025,6 +4041,12 @@ class VIEW3D_MT_edit_curve_context_menu(Menu):
             layout.operator("curve.make_segment", text="Make Edge/Face")
             layout.operator("curve.extrude_move")
             layout.operator("curve.duplicate_move")
+            layout.operator("curve.split", text="Split Selection")
+            layout.operator("curve.separate", text="Separate Selection")
+            layout.operator("curve.rip_move", text="Rip")
+            layout.menu("VIEW3D_MT_edit_nurbs_merge", text="Merge")
+            layout.operator("curve.subdivide")
+            layout.operator("curve.loopcut_slide", text="Loop Cut and Slide")
             layout.separator()
             layout.operator("transform.translate")
             layout.operator("transform.rotate")
@@ -6655,6 +6677,7 @@ classes = (
     VIEW3D_MT_edit_curve_segments,
     VIEW3D_MT_edit_curve_clean,
     VIEW3D_MT_edit_curve_context_menu,
+    VIEW3D_MT_edit_nurbs_merge,
     VIEW3D_MT_edit_curve_delete,
     VIEW3D_MT_edit_curve_showhide,
     VIEW3D_MT_edit_surface,

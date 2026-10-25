@@ -220,6 +220,7 @@ set(SRC
   intern/nurbs_edit.cc
   intern/nurbs_evaluate.cc
   intern/nurbs_fit.cc
+  intern/nurbs_refine.cc
   intern/nurbs_geometry.cc
   intern/nurbs_geometry_copy.cc
   intern/nurbs_geometry_evaluate.cc
@@ -229,6 +230,9 @@ set(SRC
   intern/nurbs_selection.cc
   intern/nurbs_tessellate.cc
   intern/nurbs_topology.cc
+  intern/nurbs_topology_rip.cc
+  intern/nurbs_topology_merge.cc
+  intern/nurbs_topology_cut.cc
   intern/nurbs_transform.cc
   intern/object.cc
   intern/object_deform.cc
@@ -465,12 +469,14 @@ set(SRC
   BKE_nurbs_edit.hh
   BKE_nurbs_evaluate.hh
   BKE_nurbs_fit.hh
+  BKE_nurbs_refine.hh
   BKE_nurbs_geometry.hh
   BKE_nurbs_legacy_edit.hh
   BKE_nurbs_mesh.hh
   BKE_nurbs_selection.hh
   BKE_nurbs_tessellate.hh
   BKE_nurbs_topology.hh
+  BKE_nurbs_topology_edit.hh
   BKE_nurbs_transform.hh
   BKE_object.hh
   BKE_object_deform.h
@@ -543,6 +549,7 @@ set(SRC
   intern/multires_reshape.hh
   intern/multires_unsubdivide.hh
   intern/nurbs_math.hh
+  intern/nurbs_topology_edit.hh
   intern/ocean_intern.h
   intern/pbvh_intern.hh
   intern/subdiv_converter.hh
@@ -774,6 +781,7 @@ if(WITH_GTESTS)
     intern/nurbs_selection_test.cc
     intern/nurbs_tessellate_test.cc
     intern/nurbs_transform_test.cc
+    intern/nurbs_topology_edit_test.cc
     intern/path_templates_test.cc
     intern/scene_test.cc
     intern/subdiv_ccg_test.cc

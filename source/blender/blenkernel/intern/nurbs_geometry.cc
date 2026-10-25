@@ -25,6 +25,25 @@
 
 namespace blender::bke::nurbs {
 
+void CurveDeleter::operator()(NurbsCurveGeometry *curve) const
+{
+  if (curve) {
+    MEM_SAFE_DELETE(curve->points);
+    MEM_SAFE_DELETE(curve->knots);
+    MEM_delete(curve);
+  }
+}
+
+void SurfaceDeleter::operator()(NurbsSurfaceGeometry *surface) const
+{
+  if (surface) {
+    MEM_SAFE_DELETE(surface->points);
+    MEM_SAFE_DELETE(surface->knots_u);
+    MEM_SAFE_DELETE(surface->knots_v);
+    MEM_delete(surface);
+  }
+}
+
 template<typename T, typename Fn>
 static void copy_list(ListBaseT<T> &dst, const ListBaseT<T> &src, Fn copy_data)
 {

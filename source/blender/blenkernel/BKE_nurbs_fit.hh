@@ -14,12 +14,6 @@
 
 namespace blender::bke::nurbs {
 
-struct CurveDeleter {
-  void operator()(NurbsCurveGeometry *curve) const;
-};
-/** Standalone curve ownership; release before inserting the record into an owning geometry. */
-using OwnedCurve = std::unique_ptr<NurbsCurveGeometry, CurveDeleter>;
-
 /** A position constraint on the actual curve, independent of its internal coefficients. */
 struct CurveFitPoint {
   double parameter;

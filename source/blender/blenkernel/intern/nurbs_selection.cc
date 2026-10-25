@@ -21,6 +21,24 @@
 
 namespace blender::bke::nurbs {
 
+std::optional<Vector<double3>> selection_positions(const NurbsGeometry &geometry,
+                                                   const SelectionState &selection,
+                                                   std::string *r_error)
+{
+  const auto selected = selection_flush(geometry, selection, selection.mode, r_error);
+  if (!selected) {
+    return std::nullopt;
+  }
+  Vector<double3> positions;
+  positions.reserve(selected->vertices.size());
+  for (const NurbsTopologyVertex &vertex : geometry.vertices) {
+    if (selected->vertices.contains(vertex.id)) {
+      positions.append(double3(vertex.position));
+    }
+  }
+  return positions;
+}
+
 std::optional<Vector<SelectionTransformGroup>> selection_transform_groups(
     const NurbsGeometry &geometry,
     const SelectionState &selection,
@@ -633,6 +651,35 @@ std::optional<SelectionState> selection_remap(const NurbsGeometry &source,
     normalized->active = normalized->history.last();
   }
   return normalized;
+}
+
+std::optional<SelectionState> selection_remap_closure(const NurbsGeometry &source,
+                                                      const NurbsGeometry &target,
+                                                      const SelectionState &selection,
+                                                      const Map<int64_t, int64_t> &id_map,
+                                                      const SelectionMode mode,
+                                                      std::string *r_error)
+{
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index || !selection_validate(
+                    selection,
+                    [&](const ElementRef element) { return element_exists(*index, element); },
+                    r_error))
+  {
+    return std::nullopt;
+  }
+  const Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+  const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+  const Vector<int64_t> faces(selection.faces.begin(), selection.faces.end());
+  const auto closure = component_closure(source, {vertices, edges, faces}, r_error);
+  if (!closure) {
+    return std::nullopt;
+  }
+  SelectionState expanded = selection;
+  expanded.vertices = closure->vertices;
+  expanded.edges = closure->edges;
+  expanded.faces = closure->faces;
+  return selection_remap(source, target, expanded, id_map, mode, r_error);
 }
 
 SelectionState selection_remove_ids(const SelectionState &selection, const Set<int64_t> &ids)

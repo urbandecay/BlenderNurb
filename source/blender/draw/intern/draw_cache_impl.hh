@@ -18,6 +18,10 @@
 
 namespace blender {
 
+namespace bke::nurbs {
+class ReadSnapshot;
+}
+
 struct GPUMaterial;
 namespace draw {
 struct MeshBatchCache;
@@ -116,6 +120,9 @@ gpu::Batch *DRW_curve_batch_cache_get_normal_edge(Curve *cu);
 gpu::Batch *DRW_curve_batch_cache_get_edit_edges(Curve *cu);
 gpu::Batch *DRW_curve_batch_cache_get_edit_verts(Curve *cu);
 gpu::Batch *DRW_curve_batch_cache_get_edit_faces(Curve *cu);
+gpu::Batch *DRW_curve_batch_cache_get_edit_facedots(Curve *cu);
+/** Read-only component overlay source, including the exact tagged compatibility source. */
+const bke::nurbs::ReadSnapshot *DRW_curve_batch_cache_get_edit_source(Curve *cu);
 
 /** \} */
 

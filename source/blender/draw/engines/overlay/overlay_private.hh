@@ -88,6 +88,18 @@ using draw::Texture;
 using draw::TextureFromPool;
 using draw::TextureRef;
 
+/** Screen-space edit offsets, scaled by State::ndc_offset_factor. Separate edit cages can have
+ * different tessellations from the rendered surface and need the same face bias across types.
+ */
+struct EditMeshDepthOffset {
+  static constexpr float face(const bool is_edit_cage)
+  {
+    return is_edit_cage ? 0.5f : 0.0f;
+  }
+  static constexpr float edge = 1.0f;
+  static constexpr float vertex = 1.5f;
+};
+
 struct State {
   Depsgraph *depsgraph = nullptr;
   const ViewLayer *view_layer = nullptr;
@@ -415,7 +427,8 @@ class ShaderModule {
   StaticShader paint_region_vert = shader_clippable("overlay_paint_point");
   StaticShader vertex_group_weight = shader_clippable("overlay_vertex_group_weight");
   /* TODO(fclem): Specialization constant. */
-  StaticShader vertex_group_weight_fake_shading = shader_clippable("overlay_vertex_group_weight_fake_shading");
+  StaticShader vertex_group_weight_fake_shading = shader_clippable(
+      "overlay_vertex_group_weight_fake_shading");
   StaticShader particle_edit_vert = shader_clippable("overlay_edit_particle_point");
   StaticShader particle_edit_edge = shader_clippable("overlay_edit_particle_strand");
   StaticShader pointcloud_points = shader_clippable("overlay_edit_pointcloud");

@@ -24,6 +24,8 @@ set(SRC
   editfont.cc
   editfont_undo.cc
   editnurbs.cc
+  editnurbs_ops.cc
+  editnurbs_cut.cc
 
   curve_intern.hh
   ../include/ED_nurbs.hh

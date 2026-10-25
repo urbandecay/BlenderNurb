@@ -220,6 +220,55 @@ std::optional<TopologyDeletionPlan> plan_component_deletion(const NurbsGeometry 
   return result;
 }
 
+static OwnedGeometry apply_deletion_plan(const NurbsGeometry &source,
+                                         const TopologyDeletionPlan &plan,
+                                         std::string *r_error)
+{
+  OwnedGeometry candidate(geometry_copy(&source));
+  for (NurbsTopologyFace &face : candidate->faces.items_mutable()) {
+    if (plan.faces.contains(face.id)) {
+      for (NurbsTopologyLoop &loop : face.loops) {
+        BLI_freelistN(&loop.edge_uses);
+      }
+      BLI_freelistN(&face.loops);
+      BLI_freelinkN(&candidate->faces, &face);
+    }
+  }
+  for (NurbsTopologyEdge &edge : candidate->edges.items_mutable()) {
+    if (plan.edges.contains(edge.id)) {
+      BLI_freelinkN(&candidate->edges, &edge);
+    }
+  }
+  for (NurbsTopologyVertex &vertex : candidate->vertices.items_mutable()) {
+    if (plan.vertices.contains(vertex.id)) {
+      BLI_freelinkN(&candidate->vertices, &vertex);
+    }
+  }
+  if (source.stored_selection != nullptr) {
+    const auto stored = selection_from_storage(source.stored_selection, r_error);
+    if (!stored) {
+      return nullptr;
+    }
+    Set<int64_t> removed = plan.vertices;
+    for (const int64_t id : plan.edges) {
+      removed.add(id);
+    }
+    for (const int64_t id : plan.faces) {
+      removed.add(id);
+    }
+    const SelectionState surviving = selection_remove_ids(*stored, removed);
+    selection_storage_free(candidate->stored_selection);
+    candidate->stored_selection = selection_to_storage(surviving, r_error);
+    if (candidate->stored_selection == nullptr) {
+      return nullptr;
+    }
+  }
+  if (!geometry_validate_structure(*candidate, r_error)) {
+    return nullptr;
+  }
+  return candidate;
+}
+
 std::optional<TopologyDeletionResult> delete_components(const NurbsGeometry &source,
                                                         const ComponentSelection &selection,
                                                         const DeleteMode mode,
@@ -229,46 +278,89 @@ std::optional<TopologyDeletionResult> delete_components(const NurbsGeometry &sou
   if (!plan) {
     return std::nullopt;
   }
-  OwnedGeometry candidate(geometry_copy(&source));
-  for (NurbsTopologyFace &face : candidate->faces.items_mutable()) {
-    if (plan->faces.contains(face.id)) {
-      for (NurbsTopologyLoop &loop : face.loops) {
-        BLI_freelistN(&loop.edge_uses);
-      }
-      BLI_freelistN(&face.loops);
-      BLI_freelinkN(&candidate->faces, &face);
-    }
-  }
-  for (NurbsTopologyEdge &edge : candidate->edges.items_mutable()) {
-    if (plan->edges.contains(edge.id)) {
-      BLI_freelinkN(&candidate->edges, &edge);
-    }
-  }
-  for (NurbsTopologyVertex &vertex : candidate->vertices.items_mutable()) {
-    if (plan->vertices.contains(vertex.id)) {
-      BLI_freelinkN(&candidate->vertices, &vertex);
-    }
-  }
-  if (source.stored_selection != nullptr) {
-    const auto stored = selection_from_storage(source.stored_selection, r_error);
-    if (!stored) {
-      return std::nullopt;
-    }
-    Set<int64_t> removed = plan->vertices;
-    for (const int64_t id : plan->edges) {
-      removed.add(id);
-    }
-    for (const int64_t id : plan->faces) {
-      removed.add(id);
-    }
-    const SelectionState surviving = selection_remove_ids(*stored, removed);
-    selection_storage_free(candidate->stored_selection);
-    candidate->stored_selection = selection_to_storage(surviving);
-  }
-  if (!geometry_validate_structure(*candidate, r_error)) {
+  auto candidate = apply_deletion_plan(source, *plan, r_error);
+  if (!candidate) {
     return std::nullopt;
   }
   return TopologyDeletionResult{std::move(candidate), std::move(*plan)};
+}
+
+std::optional<ComponentExtractionResult> extract_components(const NurbsGeometry &source,
+                                                            const ComponentSelection &selection,
+                                                            std::string *r_error)
+{
+  if (r_error != nullptr) {
+    r_error->clear();
+  }
+  auto extracted = copy_component_closure(source, selection, r_error);
+  if (!extracted) {
+    return std::nullopt;
+  }
+  const auto closure = component_closure(source, selection, r_error);
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!closure || !index) {
+    return std::nullopt;
+  }
+  TopologyDeletionPlan removed;
+  removed.vertices.add_multiple(selection.vertices);
+  removed.edges = closure->edges;
+  removed.faces = closure->faces;
+  for (const int64_t face_id : closure->faces) {
+    for (const NurbsTopologyLoop &loop : index->face(face_id)->loops) {
+      for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+        removed.vertices.add_multiple(Span(index->edge(use.edge_id)->vertex_ids, 2));
+      }
+    }
+  }
+  /* Like BMesh Split's DEL_FACES context, retain every original dependency needed by an
+   * unselected face or surviving edge. A copied wire endpoint not in the input vertex selection
+   * remains as an original loose point: copying dependencies does not select them for deletion. */
+  for (const int64_t id : closure->edges) {
+    for (const EdgeUseReference &use : index->uses_for_edge(id)) {
+      if (!removed.faces.contains(use.face_id)) {
+        removed.edges.remove(id);
+        break;
+      }
+    }
+  }
+  for (const int64_t id : closure->vertices) {
+    for (const int64_t edge_id : index->edges_for_vertex(id)) {
+      if (!removed.edges.contains(edge_id)) {
+        removed.vertices.remove(id);
+        break;
+      }
+    }
+  }
+  auto remainder = apply_deletion_plan(source, removed, r_error);
+  if (!remainder) {
+    return std::nullopt;
+  }
+  /* Both results allocate from one source identity space. Only the fragment uses new IDs,
+   * but reserving its counter on the remainder also makes a later reunion safe. */
+  remainder->next_id = extracted->geometry->next_id;
+  return ComponentExtractionResult{
+      std::move(remainder), std::move(*extracted), std::move(removed)};
+}
+
+std::optional<GeometryCopyResult> split_components(const NurbsGeometry &source,
+                                                   const ComponentSelection &selection,
+                                                   std::string *r_error)
+{
+  auto extraction = extract_components(source, selection, r_error);
+  if (!extraction) {
+    return std::nullopt;
+  }
+  auto &candidate = extraction->remainder;
+  auto &fragment = extraction->extracted.geometry;
+  BLI_movelisttolist(&candidate->curves, &fragment->curves);
+  BLI_movelisttolist(&candidate->surfaces, &fragment->surfaces);
+  BLI_movelisttolist(&candidate->vertices, &fragment->vertices);
+  BLI_movelisttolist(&candidate->edges, &fragment->edges);
+  BLI_movelisttolist(&candidate->faces, &fragment->faces);
+  if (!geometry_validate_structure(*candidate, r_error)) {
+    return std::nullopt;
+  }
+  return GeometryCopyResult{std::move(candidate), std::move(extraction->extracted.source_to_copy)};
 }
 
 std::optional<Vector<EdgeChain>> trace_edge_chains(const NurbsGeometry &source,

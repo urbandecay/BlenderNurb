@@ -90,6 +90,15 @@ std::optional<SelectionState> selection_apply(const NurbsGeometry &geometry,
 
 bool selection_contains(const SelectionState &selection, ElementRef element);
 
+/** Unique selected topology endpoint positions, in source order and source precision.
+ * Normalize V/E/F selection first so edge and face selections include their endpoint closure.
+ * Empty selection returns an empty vector. No coefficient/fit-point/display samples, mutation,
+ * owner transition or ID allocation. Failed source/selection validation returns no result.
+ */
+std::optional<Vector<double3>> selection_positions(const NurbsGeometry &geometry,
+                                                   const SelectionState &selection,
+                                                   std::string *r_error = nullptr);
+
 /** Source representatives for UI centers: vertex position, curve interval midpoint, and
  * the mean of unique face-boundary vertices. A face center need not lie on its support or trim.
  * No source mutation, fitting, normal frame or geometric approximation certificate.
@@ -144,6 +153,18 @@ std::optional<SelectionState> selection_remap(const NurbsGeometry &source,
                                               const Map<int64_t, int64_t> &id_map,
                                               SelectionMode mode,
                                               std::string *r_error = nullptr);
+
+/**
+ * Remap a selected copy's complete component closure, including dependencies not selected in
+ * the input (for example a wire endpoint in Face mode). Match Blender's selection of all copied
+ * output components. Preserve only existing active/history entries through the identity map.
+ */
+std::optional<SelectionState> selection_remap_closure(const NurbsGeometry &source,
+                                                      const NurbsGeometry &target,
+                                                      const SelectionState &selection,
+                                                      const Map<int64_t, int64_t> &id_map,
+                                                      SelectionMode mode,
+                                                      std::string *r_error = nullptr);
 
 /**
  * Drop deleted component identities from an already valid selection and its history. IDs are

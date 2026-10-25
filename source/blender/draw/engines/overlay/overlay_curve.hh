@@ -9,6 +9,7 @@
 #pragma once
 
 #include "BKE_attribute.hh"
+#include "BKE_nurbs_edit.hh"
 
 #include "DNA_curves_types.h"
 
@@ -48,11 +49,15 @@ class Curves : Overlay {
   /* Handles that are below the geometry and are rendered with lower alpha. */
   PassSimple::Sub *edit_legacy_surface_xray_handles_ = nullptr;
 
-  /* TODO(fclem): This is quite wasteful and expensive, prefer in shader Z modification like the
-   * retopology offset. */
   PassSimple native_faces_ps_ = {"NURBS Selected Faces"};
   PassSimple native_points_ps_ = {"NURBS Component Points"};
+  PassSimple native_edges_ps_ = {"NURBS Edges"};
+  PassSimple native_facedots_ps_ = {"NURBS Face Dots"};
+  PassSimple native_depth_ps_ = {"NURBS Edit Depth"};
   bool native_xray_ = false;
+  bool native_xray_enabled_ = false;
+  bool native_show_facedots_ = false;
+  bool native_needs_depth_ = false;
 
   View view_edit_cage = {"view_edit_cage"};
   View::OffsetData offset_data_;
@@ -68,27 +73,63 @@ class Curves : Overlay {
 
     offset_data_ = state.offset_data_get();
     native_xray_ = state.xray_flag_enabled;
-    const DRWState native_depth = native_xray_ ? DRW_STATE_DEPTH_ALWAYS :
-                                                 DRW_STATE_DEPTH_LESS_EQUAL;
-    native_faces_ps_.init();
-    native_faces_ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
-    native_faces_ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
-    native_faces_ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA | native_depth,
+    native_xray_enabled_ = state.xray_enabled;
+    native_needs_depth_ = !state.is_render_depth_available;
+    native_show_facedots_ = (state.overlay.edit_flag & V3D_OVERLAY_EDIT_FACE_DOT) || native_xray_;
+    gpu::Texture **depth_texture = native_xray_ ? &res.depth_tx : &res.dummy_depth_tx;
+    auto native_pass_init = [&](PassSimple &pass, gpu::Shader *shader, float alpha, float offset) {
+      pass.init();
+      pass.shader_set(shader);
+      pass.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA,
+                     state.clipping_plane_count);
+      pass.bind_texture("depth_tx", depth_texture);
+      pass.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+      pass.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
+      pass.push_constant("wire_shading", state.v3d->shading.type == OB_WIRE);
+      pass.push_constant("select_face", false);
+      pass.push_constant("select_edge", false);
+      pass.push_constant("alpha", alpha);
+      pass.push_constant("retopology_offset", 0.0f);
+      pass.push_constant("ndc_offset_factor", &state.ndc_offset_factor);
+      pass.push_constant("ndc_offset", offset);
+      pass.push_constant("data_mask", int4(0xff));
+    };
+    const float back_alpha = native_xray_ ? 0.5f : 1.0f;
+    native_pass_init(native_faces_ps_,
+                     res.shaders->mesh_edit_face.get(),
+                     (state.overlay.edit_flag & V3D_OVERLAY_EDIT_FACES) ? 1.0f : 0.0f,
+                     EditMeshDepthOffset::face(false));
+    native_pass_init(native_edges_ps_,
+                     res.shaders->mesh_edit_edge.get(),
+                     back_alpha,
+                     EditMeshDepthOffset::edge);
+    native_edges_ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL |
+                                   DRW_STATE_BLEND_ALPHA | DRW_STATE_FIRST_VERTEX_CONVENTION,
                                state.clipping_plane_count);
-    native_faces_ps_.shader_set(res.shaders->uniform_color.get());
-    float4 face_color;
-    ui::theme::get_color_4fv(TH_FACE_SELECT, face_color);
-    srgb_to_linearrgb_v4(face_color, face_color);
-    native_faces_ps_.push_constant("ucolor", face_color);
-
-    native_points_ps_.init();
-    native_points_ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
-    native_points_ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
-    native_points_ps_.state_set(DRW_STATE_WRITE_COLOR | native_depth, state.clipping_plane_count);
-    native_points_ps_.shader_set(res.shaders->legacy_curve_edit_points.get());
-    native_points_ps_.push_constant("show_curve_handles", true);
-    native_points_ps_.push_constant("curve_handle_display", int(state.overlay.handle_display));
-    native_points_ps_.push_constant("do_stroke_endpoints", false);
+    native_edges_ps_.push_constant("do_smooth_wire",
+                                   (U.gpu_flag & USER_GPU_FLAG_NO_EDIT_MODE_SMOOTH_WIRE) == 0);
+    native_edges_ps_.push_constant("use_vertex_selection", false);
+    native_pass_init(native_points_ps_,
+                     res.shaders->mesh_edit_vert.get(),
+                     back_alpha,
+                     EditMeshDepthOffset::vertex);
+    native_points_ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL |
+                                    DRW_STATE_BLEND_ALPHA | DRW_STATE_WRITE_DEPTH,
+                                state.clipping_plane_count);
+    native_pass_init(native_facedots_ps_,
+                     res.shaders->mesh_edit_facedot.get(),
+                     back_alpha,
+                     EditMeshDepthOffset::vertex);
+    native_facedots_ps_.state_set(DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL |
+                                      DRW_STATE_BLEND_ALPHA | DRW_STATE_WRITE_DEPTH,
+                                  state.clipping_plane_count);
+    native_depth_ps_.init();
+    native_depth_ps_.state_set(DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL,
+                               state.clipping_plane_count);
+    native_depth_ps_.shader_set(res.shaders->mesh_edit_depth.get());
+    native_depth_ps_.push_constant("retopology_offset", 0.0f);
+    native_depth_ps_.bind_ubo(OVERLAY_GLOBALS_SLOT, &res.globals_buf);
+    native_depth_ps_.bind_ubo(DRW_CLIPPING_UBO_SLOT, &res.clip_planes_buf);
 
     {
       auto &pass = edit_curves_ps_;
@@ -255,36 +296,62 @@ class Curves : Overlay {
     Object *ob = ob_ref.object;
     blender::Curve &curve = DRW_object_get_data_for_drawing<blender::Curve>(*ob);
 
-    const bool native = curve.nurbs_eval_source != nullptr;
-    if (!native && ob->type == OB_CURVES_LEGACY) {
+    const auto *source = DRW_curve_batch_cache_get_edit_source(&curve);
+    if (source || curve.nurbs_eval_source) {
+      if (!source) {
+        return;
+      }
+      const auto mode = source->selection().mode;
+      const bool vertex_mode = flag_is_set(mode, bke::nurbs::SelectionMode::Vertex);
+      const bool edge_mode = flag_is_set(mode, bke::nurbs::SelectionMode::Edge);
+      const bool face_mode = flag_is_set(mode, bke::nurbs::SelectionMode::Face);
+      auto &edges = native_edges_ps_.sub("Source Edges");
+      edges.push_constant("select_face", face_mode);
+      edges.push_constant("select_edge", edge_mode);
+      edges.push_constant("use_vertex_selection", vertex_mode);
+      edges.draw_expand(DRW_cache_curve_edge_overlay_get(ob), GPU_PRIM_TRIS, 2, 1, res_handle);
+      auto &faces = native_faces_ps_.sub("Source Faces");
+      faces.push_constant("select_face", face_mode);
+      faces.push_constant("select_edge", edge_mode);
+      /* Tagged compatibility surfaces still use the legacy body tessellator. Their source
+       * overlay is a separate edit cage, like a mesh cage distinct from its evaluated surface.
+       * Native body and overlay share a tessellation and use the regular mesh face pass bias. */
+      faces.push_constant("ndc_offset",
+                          EditMeshDepthOffset::face(curve.nurbs_eval_source == nullptr));
+      gpu::Batch *triangles = DRW_curve_batch_cache_get_edit_faces(&curve);
+      faces.draw(triangles, res_handle);
+      if (native_needs_depth_ && ob->dt > OB_WIRE && !native_xray_enabled_) {
+        native_depth_ps_.draw(triangles, res_handle);
+      }
+      if (vertex_mode) {
+        native_points_ps_.draw(DRW_cache_curve_vert_overlay_get(ob), res_handle);
+      }
+      if (face_mode && native_show_facedots_) {
+        native_facedots_ps_.draw(DRW_curve_batch_cache_get_edit_facedots(&curve), res_handle);
+      }
+      return;
+    }
+    if (ob->type == OB_CURVES_LEGACY) {
       gpu::Batch *geom = DRW_cache_curve_edge_wire_get(ob);
       edit_legacy_curve_wires_->draw(geom, res_handle);
     }
-    if (!native && edit_legacy_curve_normals_ && (curve.flag & CU_3D)) {
+    if (edit_legacy_curve_normals_ && (curve.flag & CU_3D)) {
       gpu::Batch *geom = DRW_cache_curve_edge_normal_get(ob);
       edit_legacy_curve_normals_->draw_expand(geom, GPU_PRIM_LINES, 2, 1, res_handle);
     }
     {
       gpu::Batch *geom = DRW_cache_curve_edge_overlay_get(ob);
-      if ((native && native_xray_) || (!native && ob->type == OB_CURVES_LEGACY)) {
+      if (ob->type == OB_CURVES_LEGACY) {
         edit_legacy_curve_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
       }
       else {
-        if (!native) {
-          edit_legacy_surface_xray_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
-        }
+        edit_legacy_surface_xray_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
         edit_legacy_surface_handles_->draw_expand(geom, GPU_PRIM_TRIS, 8, 1, res_handle);
       }
     }
     {
       gpu::Batch *geom = DRW_cache_curve_vert_overlay_get(ob);
-      if (native) {
-        native_points_ps_.draw(geom, res_handle);
-        native_faces_ps_.draw(DRW_curve_batch_cache_get_edit_faces(&curve), res_handle);
-      }
-      else {
-        edit_legacy_curve_points_->draw(geom, res_handle);
-      }
+      edit_legacy_curve_points_->draw(geom, res_handle);
     }
   }
 
@@ -301,6 +368,15 @@ class Curves : Overlay {
     manager.submit(edit_curves_ps_, view);
     manager.submit(edit_curves_handles_ps_, view_edit_cage);
     manager.submit(edit_legacy_surface_handles_ps, view);
+    manager.submit(native_depth_ps_, view);
+    if (!native_xray_enabled_) {
+      manager.submit(native_faces_ps_, view);
+    }
+    if (!native_xray_) {
+      manager.submit(native_edges_ps_, view);
+      manager.submit(native_points_ps_, view);
+      manager.submit(native_facedots_ps_, view);
+    }
   }
 
   void draw_color_only(Framebuffer &framebuffer, Manager &manager, View &view) final
@@ -312,9 +388,15 @@ class Curves : Overlay {
     view_edit_cage.sync(view.viewmat(), offset_data_.winmat_polygon_offset(view.winmat(), 0.5f));
 
     GPU_framebuffer_bind(framebuffer);
-    manager.submit(native_faces_ps_, view_edit_cage);
     manager.submit(edit_legacy_curve_handles_ps_, view);
-    manager.submit(native_points_ps_, view_edit_cage);
+    if (native_xray_enabled_) {
+      manager.submit(native_faces_ps_, view);
+    }
+    if (native_xray_) {
+      manager.submit(native_edges_ps_, view);
+      manager.submit(native_points_ps_, view);
+      manager.submit(native_facedots_ps_, view);
+    }
   }
 };
 

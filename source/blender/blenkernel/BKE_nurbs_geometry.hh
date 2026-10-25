@@ -40,6 +40,16 @@ struct GeometryDeleter {
 };
 using OwnedGeometry = std::unique_ptr<NurbsGeometry, GeometryDeleter>;
 
+/** Standalone coefficient resources; release before transferring to an owning geometry. */
+struct CurveDeleter {
+  void operator()(NurbsCurveGeometry *curve) const;
+};
+using OwnedCurve = std::unique_ptr<NurbsCurveGeometry, CurveDeleter>;
+struct SurfaceDeleter {
+  void operator()(NurbsSurfaceGeometry *surface) const;
+};
+using OwnedSurface = std::unique_ptr<NurbsSurfaceGeometry, SurfaceDeleter>;
+
 /** Source topology IDs, independent of selection gesture, coefficient storage or display data. */
 struct ComponentSelection {
   Span<int64_t> vertices;

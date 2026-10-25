@@ -6,6 +6,7 @@
  * \ingroup spview3d
  */
 
+#include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
 
@@ -25,6 +26,7 @@
 #include "BKE_editmesh.hh"
 #include "BKE_layer.hh"
 #include "BKE_main.hh"
+#include "BKE_nurbs_edit.hh"
 #include "BKE_object.hh"
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
@@ -42,6 +44,7 @@
 #include "ED_anim_api.hh"
 #include "ED_curves.hh"
 #include "ED_keyframing.hh"
+#include "ED_nurbs.hh"
 #include "ED_object.hh"
 #include "ED_pointcloud.hh"
 #include "ED_screen.hh"
@@ -379,8 +382,8 @@ static bool snap_selected_to_location_rotation(bContext *C,
       }
 
       if (use_rotation) {
-        const bool assign_rotation_directly =
-            (ob->rotmode == target_orientation_global->rotation_mode);
+        const bool assign_rotation_directly = (ob->rotmode ==
+                                               target_orientation_global->rotation_mode);
 
         if (ob->rotmode == ROT_MODE_QUAT) {
           float quat[4];
@@ -887,6 +890,24 @@ bool ED_view3d_minmax_verts(const Scene * /*scene*/,
   TransVertStore tvs = {nullptr};
   TransVert *tv;
   float centroid[3], vec[3], bmat[3][3];
+
+  if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
+    const Curve &curve = *id_cast<const Curve *>(obedit->data);
+    if (const auto source = bke::nurbs::curve_eval_source_capture(curve)) {
+      if (!source->snapshot) {
+        return false;
+      }
+      const auto positions = nurbs::view_selection_positions(*source->snapshot,
+                                                             obedit->object_to_world());
+      if (!positions || positions->is_empty()) {
+        return false;
+      }
+      for (const float3 &position : *positions) {
+        minmax_v3v3_v3(r_min, r_max, position);
+      }
+      return true;
+    }
+  }
 
   if (obedit->type == OB_POINTCLOUD) {
     const Object &ob_orig = *DEG_get_original(obedit);

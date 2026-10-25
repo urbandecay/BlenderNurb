@@ -12,6 +12,557 @@ or public native component API is used to make this test pass.
 import modules.ui_test_utils as ui
 
 
+def separate_selection_workflow(cases=('VERT', 'EDGE', 'FACE', 'BOX', 'REGION', 'TAGGED')):
+    """P makes independent source objects; undo restores both ownership and source selection."""
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_SEPARATE_OUTPUT', '/tmp/blender-nurbs-separate-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def screen(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def save(label, suffix):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'separate-{label}-{suffix}.blend'),
+                                      check_existing=False)
+
+    for label in cases:
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        window.scene.cursor.location = (0, 0, 0)
+        window.scene.tool_settings.use_snap = False
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        original_name = window.view_layer.objects.active.name
+        yield e.tab()
+        yield e.numpad_7()
+        space.shading.show_xray = True
+        space.region_3d.view_location = (0, 2, 0)
+        space.region_3d.view_distance = 9
+        if label == 'TAGGED':
+            yield e.e().y().text('2').ret()
+            t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+        else:
+            yield e.two()
+            yield e.e().y().text('2').ret()
+            yield e.e().y().text('2').ret()
+            if label in {'FACE', 'REGION'}:
+                yield e.three()
+            elif label in {'VERT', 'BOX'}:
+                yield e.one()
+            yield e.alt.a()
+            if label == 'REGION':
+                yield e.a()
+            elif label == 'BOX':
+                yield e.b()
+                yield from e.leftmouse.cursor_motion((screen((-1.2, -0.2, 0)), screen((1.2, 2.2, 0))))
+            else:
+                position = (-1, 2, 0) if label == 'VERT' else (0, 2, 0) if label == 'EDGE' else (0, 1, 0)
+                yield e.cursor_position_set(*screen(position), move=True)
+                yield e.leftmouse()
+        before_counts = counts() if label != 'TAGGED' else None
+        yield e.tab()
+        save(label, 'before')
+        yield e.tab()
+        yield e.p()
+        t.assertEqual(len(window.scene.objects), 2, label)
+        original = window.scene.objects[original_name]
+        detached = next(obj for obj in window.scene.objects if obj != original)
+        detached_name = detached.name
+        t.assertEqual(original.mode, 'EDIT')
+        t.assertEqual(detached.mode, 'OBJECT')
+        t.assertEqual(window.view_layer.objects.active, original)
+        t.assertTrue(detached.select_get())
+        t.assertNotEqual(original.data, detached.data)
+        for obj in (original, detached):
+            t.assertTrue(obj.data.is_native_nurbs)
+            t.assertEqual(len(obj.data.splines), 0)
+        expected_remainder = {
+            'VERT': (0, 6, 0, 7, 0, 2), 'EDGE': (0, 6, 0, 7, 0, 2),
+            'FACE': (0, 4, 0, 4, 0, 1), 'BOX': (0, 4, 0, 4, 0, 1),
+            'REGION': (0, 0, 0, 0, 0, 0), 'TAGGED': (0, 4, 0, 4, 0, 1),
+        }[label]
+        t.assertEqual(counts(), expected_remainder, label)
+        yield e.ctrl.z()
+        t.assertEqual(len(window.scene.objects), 1, 'Undo must remove the new object')
+        if label == 'TAGGED':
+            t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+            t.assertTrue(window.view_layer.objects.active.data.has_tagged_nurbs)
+        else:
+            t.assertEqual(counts(), before_counts)
+        yield e.ctrl.shift.z()
+        t.assertEqual(len(window.scene.objects), 2)
+        t.assertEqual(counts(), expected_remainder)
+        yield e.tab()
+        save(label, 'after')
+        original = window.scene.objects[original_name]
+        detached = window.scene.objects[detached_name]
+        for obj in window.scene.objects:
+            obj.select_set(False)
+        detached.select_set(True)
+        window.view_layer.objects.active = detached
+        yield e.tab()
+        expected_detached = {
+            'VERT': (1, 1, 0, 0, 0, 0), 'EDGE': (2, 2, 1, 1, 0, 0),
+            'FACE': (4, 4, 4, 4, 1, 1), 'BOX': (4, 4, 4, 4, 1, 1),
+            'REGION': (6, 6, 7, 7, 2, 2), 'TAGGED': (2, 2, 1, 1, 0, 0),
+        }[label]
+        t.assertEqual(counts(), expected_detached, label)
+        yield e.ctrl.l()
+        t.assertEqual(counts(), expected_detached)
+        yield e.g().z().text('0.75').esc()
+        yield e.g().z().text('1').ret()
+        yield e.e().z().text('0.5').ret()
+        t.assertGreater(counts()[1] + counts()[3] + counts()[5], sum(expected_detached[1::2]))
+        yield e.shift.d().x().text('3').ret()
+        yield e.tab()
+        save(label, 'continued')
+        yield e.numpad_1()
+        yield e.numpad_6()
+        yield e.numpad_8()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'separate-{label}.png'))
+        print('NATIVE_SEPARATE_WORKFLOW_PASS', label)
+
+        # Run actual mesh Separate on the matching source, for persisted topology comparison.
+        import bmesh
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        mesh = bpy.data.meshes.new('Separate mesh reference')
+        vertices = [(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0)]
+        faces = [(0, 1, 3, 2)]
+        if label != 'TAGGED':
+            vertices.extend([(-1, 4, 0), (1, 4, 0)])
+            faces.append((2, 3, 5, 4))
+        mesh.from_pydata(vertices, [], faces)
+        obj = bpy.data.objects.new('Separate mesh reference', mesh)
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        yield e.tab()
+        mode = 'FACE' if label in {'FACE', 'REGION'} else 'EDGE' if label == 'EDGE' else 'VERT'
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.select_mode(type=mode)
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        for face in bm.faces:
+            face.select_set(False)
+        for edge in bm.edges:
+            edge.select_set(False)
+        for vertex in bm.verts:
+            vertex.select_set(False)
+        if label in {'BOX', 'TAGGED', 'VERT'}:
+            selected = {0, 1, 2, 3} if label == 'BOX' else {2, 3} if label == 'TAGGED' else {2}
+            for index in selected:
+                bm.verts[index].select_set(True)
+        elif label == 'EDGE':
+            next(edge for edge in bm.edges if {v.index for v in edge.verts} == {2, 3}).select_set(True)
+        else:
+            for face in bm.faces if label == 'REGION' else [bm.faces[0]]:
+                face.select_set(True)
+        bm.select_flush_mode()
+        bmesh.update_edit_mesh(mesh)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            t.assertEqual(bpy.ops.mesh.separate(type='SELECTED'), {'FINISHED'})
+        t.assertEqual(counts(), expected_remainder, 'Native remainder must match real mesh Separate')
+        yield e.tab()
+        save('MESH-' + label, 'after')
+        print('MESH_SEPARATE_REFERENCE_PASS', label)
+
+
+def separate_owners_and_preflight():
+    """Separate unique data once, preserve Blender owner properties, and reject before mutation."""
+    import os
+    from pathlib import Path
+
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+        data.curves = ['Native preview sheet']
+    material = bpy.data.materials.new('Separate data material')
+    override = bpy.data.materials.new('Separate object material')
+    originals = []
+    for index in range(3):
+        curve = data.curves[0] if index < 2 else data.curves[0].copy()
+        if not curve.materials:
+            curve.materials.append(material)
+        obj = bpy.data.objects.new(f'Separate owner {index}', curve)
+        window.scene.collection.objects.link(obj)
+        obj['source_group'] = 'shared' if index < 2 else 'independent'
+        obj.location = (3 * index, 0, 1)
+        obj.scale = (-2, 1.5, 0.5)
+        obj.material_slots[0].link = 'OBJECT'
+        obj.material_slots[0].material = override
+        obj.select_set(True)
+        originals.append(obj)
+    window.view_layer.objects.active = originals[0]
+    original_names = {obj.name for obj in originals}
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    yield e.three()
+    yield e.a()
+    yield e.p()
+    detached = [obj for obj in window.scene.objects if obj.type in {'CURVE', 'SURFACE'} and obj.name not in original_names]
+    t.assertEqual(len(detached), 2, 'One fragment per unique edited data owner')
+    t.assertEqual({obj['source_group'] for obj in detached}, {'shared', 'independent'})
+    for obj in detached:
+        t.assertEqual(obj.mode, 'OBJECT')
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(tuple(obj.scale), (-2, 1.5, 0.5))
+        t.assertEqual(obj.material_slots[0].link, 'OBJECT')
+        t.assertEqual(obj.material_slots[0].material, override)
+        t.assertEqual(obj.data.materials[0], material)
+        t.assertIn(tuple(obj.location), {(0, 0, 1), (3, 0, 1), (6, 0, 1)})
+        t.assertNotIn(obj.data, [source.data for source in originals])
+    t.assertNotEqual(detached[0].data, detached[1].data)
+    t.assertEqual(originals[0].data, originals[1].data)
+    yield e.ctrl.z()
+    t.assertEqual(len(window.scene.objects), 3)
+    yield e.ctrl.shift.z()
+    t.assertEqual(len(window.scene.objects), 5)
+    yield e.tab()
+    output = Path(os.environ.get('BLENDER_NURBS_SEPARATE_OUTPUT', '/tmp/blender-nurbs-separate-ui'))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'separate-owners.blend'), check_existing=False)
+    print('NATIVE_SEPARATE_MULTI_OWNER_MATERIAL_TRANSFORM_PASS')
+
+    # A valid first owner and unsupported second owner must leave both tagged and create no IDs.
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    first = window.view_layer.objects.active
+    second = first.copy()
+    second.data = first.data.copy()
+    window.scene.collection.objects.link(second)
+    second.modifiers.new('Unsupported native source modifier', 'SOLIDIFY')
+    second.select_set(True)
+    window.view_layer.objects.active = first
+    yield e.tab()
+    before_ids = (len(bpy.data.objects), len(bpy.data.curves))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertTrue(bpy.ops.curve.separate.poll())
+        t.assertEqual(bpy.ops.curve.separate(), {'CANCELLED'})
+    t.assertEqual((len(bpy.data.objects), len(bpy.data.curves)), before_ids)
+    for obj in (first, second):
+        t.assertFalse(obj.data.is_native_nurbs)
+        t.assertTrue(obj.data.has_tagged_nurbs)
+        t.assertEqual(obj.mode, 'EDIT')
+    yield e.tab()
+    for obj in (first, second):
+        t.assertEqual(len(obj.data.splines), 1)
+        t.assertEqual(tuple(obj.data.splines[0].points[0].co), (-1, 0, 0, 1))
+        t.assertEqual(tuple(obj.data.splines[0].points[1].co), (1, 0, 0, 1))
+    print('NATIVE_SEPARATE_ATOMIC_PREFLIGHT_PASS')
+
+
+def separate_fresh_continuation():
+    """Both saved objects remain exact native owners editable in a fresh Blender process."""
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    output = Path(os.environ.get('BLENDER_NURBS_SEPARATE_OUTPUT', '/tmp/blender-nurbs-separate-ui'))
+    with bpy.data.libraries.load(str(output / 'separate-FACE-after.blend'), link=False) as (source, data):
+        data.objects = list(source.objects)
+    t.assertEqual(len(data.objects), 2, 'Both separate source objects must persist')
+    for obj in data.objects:
+        window.scene.collection.objects.link(obj)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    for obj in data.objects:
+        for other in window.scene.objects:
+            other.select_set(False)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+        yield e.tab()
+        yield e.three()
+        yield e.a()
+        yield e.e().z().text('1').ret()
+        stats = window.scene.statistics(window.view_layer)
+        t.assertIsNotNone(re.search(r'Verts:4/8 \| Edges:4/12 \| Faces:1/6', stats), stats)
+        yield e.ctrl.z()
+        yield e.ctrl.shift.z()
+        yield e.tab()
+    print('NATIVE_SEPARATE_BOTH_OWNERS_FRESH_CONTINUATION_PASS')
+
+
+def split_selection_workflow(cases=('VERT', 'EDGE', 'FACE', 'BOX', 'REGION')):
+    """Y detaches source topology; moving it leaves the unselected sheet intact."""
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_SPLIT_OUTPUT', '/tmp/blender-nurbs-split-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def screen(position):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def save(label, suffix):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'split-{label}-{suffix}.blend'),
+                                      check_existing=False)
+
+    for label in cases:
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        window.scene.cursor.location = (0, 0, 0)
+        window.scene.tool_settings.use_snap = False
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        yield e.tab()
+        yield e.numpad_7()
+        space.shading.show_xray = True
+        space.overlay.show_stats = True
+        space.region_3d.view_location = (0, 2, 0)
+        space.region_3d.view_distance = 9
+        if label == 'TAGGED':
+            # Exercise Y directly after ordinary Add/E, before explicit component-mode entry.
+            yield e.e().y().text('2').ret()
+            t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+            yield e.y()
+            t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+            t.assertEqual(counts(), (2, 6, 1, 5, 0, 1))
+            yield e.ctrl.z()
+            t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+            t.assertTrue(window.view_layer.objects.active.data.has_tagged_nurbs)
+            yield e.ctrl.shift.z()
+            t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+            t.assertEqual(counts(), (2, 6, 1, 5, 0, 1))
+            yield e.g().z().text('0.5').ret()
+            yield e.e().y().text('1').ret()
+            t.assertEqual(counts()[5], 2)
+            print('NATIVE_SPLIT_TAGGED_UNDO_AND_CONTINUE_PASS')
+            continue
+
+        yield e.two()
+        yield e.e().y().text('2').ret()
+        yield e.e().y().text('2').ret()
+        if label in {'FACE', 'REGION'}:
+            yield e.three()
+        elif label in {'VERT', 'BOX'}:
+            yield e.one()
+        yield e.alt.a()
+        if label == 'REGION':
+            yield e.a()
+        elif label == 'BOX':
+            yield e.b()
+            yield from e.leftmouse.cursor_motion((screen((-1.2, -0.2, 0)), screen((1.2, 2.2, 0))))
+        else:
+            position = (-1, 2, 0) if label == 'VERT' else (0, 2, 0) if label == 'EDGE' else (0, 1, 0)
+            yield e.cursor_position_set(*screen(position), move=True)
+            yield e.leftmouse()
+        before_counts = counts()
+        yield e.tab()
+        save(label, 'before')
+        yield e.tab()
+        yield e.y()
+        expected = {
+            'VERT': (1, 7, 0, 7, 0, 2),
+            'EDGE': (2, 8, 1, 8, 0, 2),
+            'FACE': (4, 8, 4, 8, 1, 2),
+            'BOX': (4, 8, 4, 8, 1, 2),
+            'REGION': (6, 6, 7, 7, 2, 2),
+        }[label]
+        t.assertEqual(counts(), expected, label)
+        yield e.ctrl.z()
+        t.assertEqual(counts(), before_counts)
+        yield e.ctrl.shift.z()
+        t.assertEqual(counts(), expected)
+        yield e.g().z().text('0.75').esc()
+        yield e.g().z().text('0.5').ret()
+        yield e.tab()
+        save(label, 'after')
+        yield e.tab()
+        yield e.ctrl.l()
+        t.assertEqual(counts(), expected, 'Linked selection must stay in the detached component')
+        yield e.e().z().text('0.5').ret()
+        t.assertGreater(counts()[3] + counts()[5], expected[3] + expected[5])
+        obj = window.view_layer.objects.active
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+        window.view_layer.update()
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            t.assertIsNotNone(mesh)
+        finally:
+            evaluated.to_mesh_clear()
+        yield e.numpad_1()
+        yield e.numpad_6()
+        yield e.numpad_8()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'split-{label}.png'))
+        print('NATIVE_SPLIT_WORKFLOW_PASS', label, counts())
+
+
+def split_tagged_workflow():
+    yield from split_selection_workflow(cases=('TAGGED',))
+
+
+def split_across_objects():
+    import os
+    import re
+
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE'], link=False) as (_, data):
+        data.curves = ['Native preview sheet']
+    for index in range(2):
+        obj = bpy.data.objects.new(f'Split owner {index}', data.curves[0] if index == 0 else data.curves[0].copy())
+        window.scene.collection.objects.link(obj)
+        obj.location.x = 3 * index
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    yield e.one()
+    yield e.a()
+    yield e.y()
+    for obj in window.view_layer.objects:
+        t.assertEqual(obj.mode, 'EDIT')
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+    stats = window.scene.statistics(window.view_layer)
+    t.assertIsNotNone(re.search(r'Verts:8/8 \| Edges:8/8 \| Faces:2/2', stats), stats)
+    yield e.ctrl.z()
+    yield e.ctrl.shift.z()
+    yield e.tab()
+    for obj in window.view_layer.objects:
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+    print('NATIVE_SPLIT_MULTI_OWNER_PASS')
+
+
+def split_fresh_continuation():
+    import os
+    import re
+    from pathlib import Path
+
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    output = Path(os.environ.get('BLENDER_NURBS_SPLIT_OUTPUT', '/tmp/blender-nurbs-split-ui'))
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(str(output / 'split-FACE-after.blend'), link=False) as (source, target):
+        target.curves = list(source.curves)
+    t.assertEqual(len(target.curves), 1)
+    curve = target.curves[0]
+    t.assertTrue(curve.is_native_nurbs)
+    t.assertEqual(len(curve.splines), 0)
+    obj = bpy.data.objects.new('Reopened split source', curve)
+    window.scene.collection.objects.link(obj)
+    obj.select_set(True)
+    window.view_layer.objects.active = obj
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    t.assertEqual(tuple(curve.nurbs_selection_mode), (False, False, True))
+    yield e.e().z().text('0.5').ret()
+    stats = window.scene.statistics(window.view_layer)
+    t.assertIsNotNone(re.search(r'Verts:4/12 \| Edges:4/16 \| Faces:1/7', stats), stats)
+    yield e.ctrl.z()
+    yield e.ctrl.shift.z()
+    yield e.shift.d().x().text('3').ret()
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
+    print('NATIVE_SPLIT_FRESH_CONTINUATION_PASS', window.scene.statistics(window.view_layer))
+
+
+def split_preflight_rejects_without_partial_promotion():
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    first = window.view_layer.objects.active
+    second = first.copy()
+    second.data = first.data.copy()
+    window.scene.collection.objects.link(second)
+    second.modifiers.new('Unsupported native source modifier', 'SOLIDIFY')
+    second.select_set(True)
+    window.view_layer.objects.active = first
+    yield e.tab()
+    for obj in (first, second):
+        t.assertEqual(obj.mode, 'EDIT')
+        t.assertFalse(obj.data.is_native_nurbs)
+        t.assertTrue(obj.data.has_tagged_nurbs)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertTrue(bpy.ops.curve.split.poll())
+        t.assertEqual(bpy.ops.curve.split(), {'CANCELLED'})
+    for obj in (first, second):
+        t.assertFalse(obj.data.is_native_nurbs)
+        t.assertTrue(obj.data.has_tagged_nurbs)
+        t.assertEqual(len(obj.data.splines), 1)
+    yield e.tab()
+    for obj in (first, second):
+        t.assertEqual(len(obj.data.splines[0].points), 2)
+        t.assertEqual(tuple(obj.data.splines[0].points[0].co), (-1, 0, 0, 1))
+        t.assertEqual(tuple(obj.data.splines[0].points[1].co), (1, 0, 0, 1))
+    print('NATIVE_SPLIT_ATOMIC_PREFLIGHT_PASS')
+
+
 def vertex_selection_and_lifecycle():
     import os
     import re
@@ -2604,3 +3155,1284 @@ def snapped_face_fresh_continuation():
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.wm.save_as_mainfile(filepath=str(output / 'fresh-continued.blend'), check_existing=False)
     print('NATIVE_SNAPPED_FACE_FRESH_CONTINUATION_PASS', window.scene.statistics(window.view_layer))
+
+
+def rip_mesh_reference():
+    import os
+    from pathlib import Path
+    import bpy
+    import bmesh
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_TOPOLOGY_OUTPUT', '/tmp/blender-nurbs-topology-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    layouts = {
+        'CORNER': ([(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0)], [], [(0, 1, 3, 2)], [0], None, (-0.8, 0.2, 0)),
+        'VERT': ([(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0), (-1, 4, 0), (1, 4, 0)], [], [(0, 1, 3, 2), (2, 3, 5, 4)], [2], None, (-0.8, 2.2, 0)),
+        'EDGE': ([(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0), (-1, 4, 0), (1, 4, 0)], [], [(0, 1, 3, 2), (2, 3, 5, 4)], [], (2, 3), (0, 2.2, 0)),
+        'WIRE': ([(-1, 0, 0), (0, 0, 0), (1, 0, 0)], [(0, 1), (1, 2)], [], [1], None, (0.2, 0, 0)),
+        'GRID_VERT': ([(x, y, 0) for y in range(3) for x in range(3)], [], [(0, 1, 4, 3), (1, 2, 5, 4), (3, 4, 7, 6), (4, 5, 8, 7)], [4], None, (1.15, 1.3, 0)),
+        'GRID_EDGE': ([(x, y, 0) for y in range(3) for x in range(3)], [], [(0, 1, 4, 3), (1, 2, 5, 4), (3, 4, 7, 6), (4, 5, 8, 7)], [], (1, 4), (1.2, 0.5, 0)),
+    }
+    for label, (positions, edges, faces, selected, selected_edge, pointer) in layouts.items():
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        mesh = bpy.data.meshes.new('Mesh rip reference ' + label)
+        mesh.from_pydata(positions, edges, faces)
+        obj = bpy.data.objects.new(mesh.name, mesh)
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        yield e.numpad_7()
+        space.region_3d.view_location = (0, 2, 0)
+        space.region_3d.view_distance = 9
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.select_mode(type='EDGE' if selected_edge else 'VERT')
+            bpy.ops.mesh.select_all(action='DESELECT')
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        for index in selected:
+            bm.verts[index].select_set(True)
+        if selected_edge:
+            next(edge for edge in bm.edges if {v.index for v in edge.verts} == set(selected_edge)).select_set(True)
+        bm.select_flush_mode()
+        bmesh.update_edit_mesh(mesh)
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(pointer))
+        yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+        yield e.v().z().text('1').ret()
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'rip-mesh-{label}.blend'), check_existing=False)
+        print('RIP_MESH_REFERENCE', label, len(mesh.vertices), len(mesh.edges), len(mesh.polygons),
+              [tuple(v.co) for v in mesh.vertices], [tuple(f.vertices) for f in mesh.polygons])
+
+
+def rip_native_workflow():
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_TOPOLOGY_OUTPUT', '/tmp/blender-nurbs-topology-ui'))
+    pointers = {'VERT': (-0.8, 2.2, 0), 'EDGE': (0, 2.2, 0), 'WIRE': (0.2, 0, 0),
+                'GRID_VERT': (1.15, 1.3, 0), 'GRID_EDGE': (1.2, 0.5, 0)}
+    totals = {'VERT': (7, 8, 2), 'EDGE': (8, 8, 2), 'WIRE': (4, 2, 0),
+              'GRID_VERT': (10, 14, 4), 'GRID_EDGE': (11, 14, 4)}
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    for label, pointer in pointers.items():
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        with bpy.data.libraries.load(str(output / f'rip-source-{label}.blend'), link=False) as (_, data):
+            data.curves = ['Topology source']
+        obj = bpy.data.objects.new('Native Rip ' + label, data.curves[0])
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.scene.tool_settings.use_snap = False
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        yield e.numpad_7()
+        space.region_3d.view_location = (0, 2, 0)
+        space.region_3d.view_distance = 9
+        before = counts()
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(pointer))
+        yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+        yield e.v().esc()
+        t.assertEqual(counts()[1::2], totals[label], label)
+        yield e.ctrl.z()
+        t.assertEqual(counts(), before)
+        yield e.v().z().text('1').ret()
+        t.assertEqual(counts()[1::2], totals[label], label)
+        after = counts()
+        yield e.ctrl.z()
+        t.assertEqual(counts(), before)
+        yield e.ctrl.shift.z()
+        t.assertEqual(counts(), after)
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'rip-native-{label}.blend'), check_existing=False)
+        yield e.tab()
+        yield e.e().z().text('0.5').ret()
+        t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+        t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
+        yield e.numpad_1()
+        yield e.numpad_6()
+        yield e.numpad_8()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'rip-native-{label}.png'))
+        print('NATIVE_RIP_WORKFLOW_PASS', label, counts())
+
+
+def merge_mesh_reference():
+    import os
+    from pathlib import Path
+    import bpy
+    import bmesh
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path(os.environ.get('BLENDER_NURBS_TOPOLOGY_OUTPUT', '/tmp/blender-nurbs-topology-ui'))
+    for label in ('CENTER', 'CURSOR', 'FIRST', 'LAST', 'COLLAPSE', 'ALL', 'OPPOSITE'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        nx = 2 if label == 'COLLAPSE' else 1
+        positions = [(-1 + 2 * x, 2 * y, 0) for y in range(2) for x in range(nx + 1)]
+        faces = [(x, x + 1, x + nx + 2, x + nx + 1) for x in range(nx)]
+        mesh = bpy.data.meshes.new('Merge mesh ' + label)
+        mesh.from_pydata(positions, [], faces)
+        obj = bpy.data.objects.new(mesh.name, mesh)
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.scene.cursor.location = (0, 0, 1)
+        if label == 'CURSOR':
+            obj.location = (2, 1, 0)
+            obj.scale = (-2, 3, 1)
+            window.scene.cursor.location = (2, 1, 1)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.select_mode(type='VERT')
+            bpy.ops.mesh.select_all(action='DESELECT')
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        selected = (0, 1, 2, 3) if label == 'ALL' else (0, 3) if label == 'OPPOSITE' else (0, 1, 2) if label == 'COLLAPSE' else (1, 0) if label in {'FIRST', 'LAST'} else (0, 1)
+        bm.select_history.clear()
+        for index in selected:
+            bm.verts[index].select_set(True)
+            bm.select_history.add(bm.verts[index])
+        bm.select_flush_mode()
+        bmesh.update_edit_mesh(mesh)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            result = bpy.ops.mesh.merge(type=label if label not in {'ALL', 'OPPOSITE'} else 'CENTER')
+            t.assertEqual(result, {'FINISHED'})
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'merge-mesh-{label}.blend'), check_existing=False)
+        print('MERGE_MESH_REFERENCE_PASS', label, len(mesh.vertices), len(mesh.edges), len(mesh.polygons))
+
+
+def merge_native_workflow():
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path(os.environ.get('BLENDER_NURBS_TOPOLOGY_OUTPUT', '/tmp/blender-nurbs-topology-ui'))
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    last_menu_index = 0
+    for label in ('CENTER', 'CURSOR', 'FIRST', 'LAST', 'COLLAPSE', 'ALL', 'OPPOSITE'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        with bpy.data.libraries.load(str(output / f'merge-source-{label}.blend'), link=False) as (_, data):
+            data.curves = ['Topology source']
+        obj = bpy.data.objects.new('Native Merge ' + label, data.curves[0])
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        window.scene.tool_settings.use_snap = False
+        window.scene.cursor.location = (0, 0, 1)
+        if label == 'CURSOR':
+            obj.location = (2, 1, 0)
+            obj.scale = (-2, 3, 1)
+            window.scene.cursor.location = (2, 1, 1)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        before = counts()
+        # Exercise the real M popup for every mode so Blender owns the undo step.
+        # Direct bpy operator execution in this event generator does not push that step.
+        yield e.m()
+        menu_index = {'CENTER': 0, 'CURSOR': 1, 'COLLAPSE': 2, 'FIRST': 3, 'LAST': 4}.get(label, 0)
+        # Popup memory aligns the last clicked entry with the cursor. Move onto
+        # the requested row explicitly, just as a user chooses it with the mouse.
+        center = ui.get_area_center(area)
+        row_height = 20 * bpy.context.preferences.system.ui_scale
+        yield e.cursor_position_set(center[0] - 60,
+                                    round(center[1] + (last_menu_index - menu_index) * row_height),
+                                    move=True)
+        yield e.leftmouse()
+        last_menu_index = menu_index
+        expected = (1, 0, 0) if label == 'ALL' else (3, 2, 0) if label == 'OPPOSITE' else (4, 5, 2) if label == 'COLLAPSE' else (3, 3, 1)
+        t.assertEqual(counts()[1::2], expected, label)
+        t.assertEqual(counts()[0], 1)
+        after = counts()
+        yield e.ctrl.z()
+        t.assertEqual(counts(), before, label)
+        yield e.ctrl.shift.z()
+        t.assertEqual(counts(), after, label)
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'merge-native-{label}.blend'), check_existing=False)
+        obj = window.view_layer.objects.active
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+        yield e.tab()
+        yield e.e().z().text('0.5').ret()
+        t.assertEqual(counts()[1], expected[0] + 1)
+        yield e.numpad_1()
+        yield e.numpad_6()
+        yield e.numpad_8()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'merge-native-{label}.png'))
+        print('NATIVE_MERGE_WORKFLOW_PASS', label, counts())
+
+
+def merge_tagged_and_preflight():
+    import bpy
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.e().y().text('2').ret()
+    t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+    yield e.m()
+    center = ui.get_area_center(area)
+    yield e.cursor_position_set(center[0] - 60, center[1], move=True)
+    yield e.leftmouse()
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertIn('Verts:1/3 | Edges:0/3 | Faces:0/1', window.scene.statistics(window.view_layer))
+    yield e.ctrl.z()
+    t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertTrue(window.view_layer.objects.active.data.has_tagged_nurbs)
+    yield e.ctrl.shift.z()
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    yield e.e().z().text('1').ret()
+    yield e.tab()
+    print('NATIVE_MERGE_TAGGED_UNDO_CONTINUE_PASS')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    first = window.view_layer.objects.active
+    second = first.copy()
+    second.data = first.data.copy()
+    window.scene.collection.objects.link(second)
+    second.modifiers.new('Unsupported native source modifier', 'SOLIDIFY')
+    second.select_set(True)
+    window.view_layer.objects.active = first
+    yield e.tab()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.merge(type='CENTER'), {'CANCELLED'})
+    for obj in (first, second):
+        t.assertFalse(obj.data.is_native_nurbs)
+        t.assertTrue(obj.data.has_tagged_nurbs)
+    print('NATIVE_MERGE_ATOMIC_PREFLIGHT_PASS')
+
+
+def loopcut_native_workflow():
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_TOPOLOGY_OUTPUT', '/tmp/blender-nurbs-topology-ui'))
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def screen(point):
+        xy = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+        t.assertIsNotNone(xy)
+        return round(xy.x) + region.x, round(xy.y) + region.y
+
+    for label in ('CENTER', 'SLIDE', 'MULTI', 'FACE', 'TAGGED'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        window.scene.cursor.location = (0, 0, 0)
+        window.scene.tool_settings.use_snap = False
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        yield e.tab()
+        if label in {'CENTER', 'SLIDE'}:
+            yield e.two()
+        yield e.e().y().text('2').ret()
+        yield e.e().y().text('2').ret()
+        yield e.numpad_7()
+        space.region_3d.view_location = (0, 2, 0)
+        space.region_3d.view_distance = 9
+        if label == 'FACE':
+            yield e.three()
+            yield e.alt.a()
+            yield e.cursor_position_set(*screen((0, 1, 0)), move=True)
+            yield e.leftmouse()
+        before_native = window.view_layer.objects.active.data.is_native_nurbs
+        before_mode = tuple(window.view_layer.objects.active.data.nurbs_selection_mode)
+        t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+        before_stats = window.scene.statistics(window.view_layer).split(' | Duration:')[0]
+        yield e.cursor_position_set(*screen((0, 0, 0)), move=True)
+        yield e.ctrl.r()
+        # Hover and first-stage cancellation must not change source ownership or topology.
+        t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, before_native)
+        t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+        t.assertEqual(window.scene.statistics(window.view_layer).split(' | Duration:')[0], before_stats)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'loopcut-{label}-preview.png'))
+        yield e.esc()
+        t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, before_native)
+        t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+        yield e.ctrl.r()
+        if label == 'MULTI':
+            yield e.text('2')
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.screen.screenshot(filepath=str(output / 'loopcut-MULTI-two-cuts-preview.png'))
+        yield e.ret()
+        t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, before_native)
+        if label == 'SLIDE':
+            yield e.text('0.25').ret()
+        else:
+            yield e.esc()
+        expected = (12, 17, 6) if label == 'MULTI' else (9, 12, 4)
+        t.assertEqual(counts()[1::2], expected, label)
+        t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+        t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+        t.assertEqual(tuple(window.view_layer.objects.active.data.nurbs_selection_mode), before_mode)
+        if label == 'MULTI':
+            t.assertEqual(before_mode, (True, False, False))
+        if label == 'FACE':
+            t.assertEqual(before_mode, (False, False, True))
+        after = counts()
+        yield e.ctrl.z()
+        t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+        t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, before_native)
+        if before_native:
+            t.assertEqual(counts()[1::2], (6, 7, 2))
+        yield e.ctrl.shift.z()
+        t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+        t.assertEqual(counts(), after)
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'loopcut-native-{label}.blend'), check_existing=False)
+        yield e.tab()
+        yield e.g().z().text('0.25').esc()
+        yield e.g().x().text('0.25').ret()
+        yield e.three()
+        yield e.alt.a()
+        yield e.cursor_position_set(*screen((-0.5, 1, 0)), move=True)
+        yield e.leftmouse()
+        yield e.e().z().text('1').ret()
+        t.assertGreater(counts()[5], expected[2])
+        t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
+        yield e.numpad_1()
+        yield e.numpad_6()
+        yield e.numpad_8()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'loopcut-{label}-continued.png'))
+        print('NATIVE_LOOPCUT_WORKFLOW_PASS', label, counts())
+
+
+def cuts_mesh_reference():
+    import os
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_TOPOLOGY_OUTPUT', '/tmp/blender-nurbs-topology-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    for label in ('CENTER', 'SLIDE', 'MULTI', 'TAGGED', 'SUBDIVIDE'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        mesh = bpy.data.meshes.new('Mesh cut reference ' + label)
+        positions = [(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0)]
+        faces = [(0, 1, 3, 2)]
+        if label != 'SUBDIVIDE':
+            positions.extend([(-1, 4, 0), (1, 4, 0)])
+            faces.append((2, 3, 5, 4))
+        mesh.from_pydata(positions, [], faces)
+        obj = bpy.data.objects.new(mesh.name, mesh)
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        yield e.numpad_7()
+        space.region_3d.view_location = (0, 2, 0)
+        space.region_3d.view_distance = 9
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.select_mode(type='FACE' if label == 'SUBDIVIDE' else 'EDGE')
+            bpy.ops.mesh.select_all(action='SELECT' if label == 'SUBDIVIDE' else 'DESELECT')
+        if label == 'SUBDIVIDE':
+            yield from ui.call_operator(e, 'Subdivide')
+        else:
+            xy = location_3d_to_region_2d(region, space.region_3d, Vector((0, 0, 0)))
+            yield e.cursor_position_set(round(xy.x) + region.x, round(xy.y) + region.y, move=True)
+            yield e.ctrl.r()
+            if label == 'MULTI':
+                yield e.text('2')
+            yield e.ret()
+            if label == 'SLIDE':
+                yield e.text('0.25').ret()
+            else:
+                yield e.esc()
+        yield e.tab()
+        expected = (9, 12, 4) if label == 'SUBDIVIDE' else (12, 17, 6) if label == 'MULTI' else (9, 12, 4)
+        t.assertEqual((len(mesh.vertices), len(mesh.edges), len(mesh.polygons)), expected)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'cut-mesh-{label}.blend'), check_existing=False)
+        print('CUT_MESH_REFERENCE_PASS', label, [tuple(v.co) for v in mesh.vertices])
+
+
+def subdivide_native_workflow():
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_TOPOLOGY_OUTPUT', '/tmp/blender-nurbs-topology-ui'))
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def screen(point):
+        xy = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+        t.assertIsNotNone(xy)
+        return round(xy.x) + region.x, round(xy.y) + region.y
+
+    for label in ('FULL', 'OPPOSITE', 'WIRE', 'TAGGED'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        window.scene.cursor.location = (0, 0, 0)
+        window.scene.tool_settings.use_snap = False
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        yield e.tab()
+        if label != 'TAGGED':
+            yield e.two()
+        if label != 'WIRE':
+            yield e.e().y().text('2').ret()
+        yield e.numpad_7()
+        space.region_3d.view_location = (0, 1, 0)
+        space.region_3d.view_distance = 7
+        if label == 'OPPOSITE':
+            yield e.alt.a()
+            yield e.cursor_position_set(*screen((0, 0, 0)), move=True)
+            yield e.leftmouse()
+            yield e.cursor_position_set(*screen((0, 2, 0)), move=True)
+            yield e.shift.leftmouse()
+        elif label == 'FULL':
+            yield e.three()
+            yield e.a()
+        else:
+            yield e.a()
+        before_native = window.view_layer.objects.active.data.is_native_nurbs
+        yield from ui.call_operator(e, 'Subdivide')
+        expected = (3, 2, 0) if label == 'WIRE' else (6, 7, 2) if label == 'OPPOSITE' else (9, 12, 4)
+        t.assertEqual(counts()[1::2], expected, label)
+        after = counts()
+        yield e.ctrl.z()
+        t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, before_native)
+        if before_native:
+            t.assertEqual(counts()[1::2], (2, 1, 0) if label == 'WIRE' else (4, 4, 1))
+        yield e.ctrl.shift.z()
+        t.assertEqual(counts(), after)
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'subdivide-native-{label}.blend'), check_existing=False)
+        yield e.tab()
+        yield e.g().z().text('0.25').ret()
+        yield e.e().z().text('1').ret()
+        t.assertGreater(counts()[1], expected[0])
+        t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
+        yield e.numpad_1()
+        yield e.numpad_6()
+        yield e.numpad_8()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'subdivide-{label}-continued.png'))
+        print('NATIVE_SUBDIVIDE_WORKFLOW_PASS', label, counts())
+
+
+def navigation_selection_workflow():
+    """Compare native V/E/F navigation with actual mesh, including preference-off and empty input."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Quaternion, Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    view = space.region_3d
+    prefs = bpy.context.preferences
+    prefs.view.smooth_view = 0
+    prefs.inputs.use_auto_perspective = False
+    prefs.inputs.use_mouse_depth_navigate = False
+    prefs.inputs.use_zoom_to_mouse = False
+    space.shading.show_xray = True
+    output = Path(os.environ.get('BLENDER_NURBS_NAVIGATION_OUTPUT', '/tmp/blender-nurbs-navigation-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    references = {}
+    positions = [(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0), (-1, 4, 0), (1, 4, 0)]
+    faces = [(0, 1, 3, 2), (2, 3, 5, 4)]
+
+    def near(a, b, label):
+        t.assertLess((Vector(a) - Vector(b)).length, 2e-4, label)
+
+    def screen(world):
+        point = location_3d_to_region_2d(region, view, world)
+        t.assertIsNotNone(point)
+        return point
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    for kind in ('MESH', 'NATIVE'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        window.scene.cursor.location = (0, 0, 0)
+        window.scene.tool_settings.use_snap = False
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        if kind == 'MESH':
+            mesh = bpy.data.meshes.new('Navigation mesh reference')
+            mesh.from_pydata(positions, [], faces)
+            obj = bpy.data.objects.new(mesh.name, mesh)
+            window.scene.collection.objects.link(obj)
+            obj.select_set(True)
+            window.view_layer.objects.active = obj
+            yield e.tab()
+        else:
+            yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+            yield e.tab()
+            yield e.two()
+            yield e.e().y().text('2').ret()
+            yield e.e().y().text('2').ret()
+            obj = window.view_layer.objects.active
+            t.assertTrue(obj.data.is_native_nurbs)
+        obj.location = (5, -3, 2)
+        obj.rotation_euler = (0.2, -0.1, 0.3)
+        obj.scale = (-2, 3, 1.5)
+        window.view_layer.update()
+        owner = obj.matrix_world.copy()
+        # Orbit uses median even when the transform pivot is the far-away cursor.
+        window.scene.cursor.location = (30, 40, 50)
+        window.scene.tool_settings.transform_pivot_point = 'CURSOR'
+        for mode, point, selected_ids in (
+                ('VERT', (-1, 2, 0), (2,)),
+                ('EDGE', (0, 2, 0), (2, 3)),
+                ('FACE', (0, 1, 0), (0, 1, 2, 3))):
+            yield e.numpad_7()
+            view.view_location = owner @ Vector((0, 2, 0))
+            view.view_distance = 23
+            if mode == 'VERT':
+                yield e.one()
+            elif mode == 'EDGE':
+                yield e.two()
+            else:
+                yield e.three()
+            yield e.alt.a()
+            yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+            xy = screen(owner @ Vector(point))
+            yield e.cursor_position_set(round(xy.x) + region.x, round(xy.y) + region.y, move=True)
+            yield e.leftmouse()
+            before = counts()
+            t.assertEqual(before[0], len(selected_ids), (kind, mode, before))
+            selected_points = [owner @ Vector(positions[i]) for i in selected_ids]
+            center = sum(selected_points, Vector()) / len(selected_points)
+            low = Vector(tuple(min(p[i] for p in selected_points) for i in range(3)))
+            high = Vector(tuple(max(p[i] for p in selected_points) for i in range(3)))
+            for method in ('TURNTABLE', 'TRACKBALL'):
+                prefs.inputs.view_rotate_method = method
+                for use_selection in (False, True):
+                    prefs.inputs.use_rotate_around_active = use_selection
+                    initial = center + Vector((2, -1, 0.5))
+                    view.view_rotation = Quaternion((1, 0, 0, 0))
+                    view.view_perspective = 'ORTHO'
+                    view.view_location = initial
+                    view.view_distance = 23
+                    start = (region.x + region.width // 2 - 40, region.y + region.height // 2)
+                    yield e.cursor_position_set(*start, move=True)
+                    anchor = screen(center)
+                    yield from e.middlemouse.cursor_motion((start, (start[0] + 40, start[1] + 25),
+                                                            (start[0] + 80, start[1] + 50)))
+                    t.assertGreater(view.view_rotation.rotation_difference(Quaternion((1, 0, 0, 0))).angle,
+                                    0.01)
+                    if use_selection:
+                        t.assertLess((screen(center) - anchor).length, 0.05, (kind, mode, method))
+                        t.assertGreater((view.view_location - initial).length, 0.01)
+                    else:
+                        near(view.view_location, initial, (kind, mode, method))
+                    key = (mode, method, use_selection)
+                    if kind == 'MESH':
+                        references[key] = (view.view_location.copy(), view.view_rotation.copy())
+                    else:
+                        location, rotation = references[key]
+                        near(view.view_location, location, key)
+                        t.assertLess(view.view_rotation.rotation_difference(rotation).angle, 1e-3, key)
+                    t.assertEqual(obj.mode, 'EDIT')
+                    t.assertEqual(counts(), before)
+            # Frame Selected centers selected bounds and preserves point-only zoom behavior.
+            view.view_location = (20, 20, 20)
+            view.view_distance = 70
+            yield e.numpad_period()
+            near(view.view_location, (low + high) * 0.5, (kind, mode, 'FRAME'))
+            if kind == 'MESH':
+                references[(mode, 'FRAME')] = (view.view_location.copy(), view.view_distance)
+            else:
+                frame_location, frame_distance = references[(mode, 'FRAME')]
+                near(view.view_location, frame_location, (mode, 'FRAME'))
+                t.assertAlmostEqual(view.view_distance, frame_distance, places=4)
+                t.assertEqual(len(obj.data.splines), 0)
+            t.assertEqual(obj.mode, 'EDIT')
+            t.assertEqual(counts(), before)
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.screen.screenshot(filepath=str(output / f'navigation-{kind}-{mode}.png'))
+            # No selection: Blender keeps its last orbit pivot, and framing is a no-op.
+            yield e.alt.a()
+            view.view_rotation = Quaternion((1, 0, 0, 0))
+            view.view_location = center + Vector((2, -1, 0.5))
+            view.view_distance = 23
+            yield e.cursor_position_set(*start, move=True)
+            anchor = screen(center)
+            yield from e.middlemouse.cursor_motion((start, (start[0] + 80, start[1] + 50)))
+            t.assertLess((screen(center) - anchor).length, 0.05, (kind, mode, 'EMPTY_ORBIT'))
+            empty_location, empty_distance = view.view_location.copy(), view.view_distance
+            yield e.numpad_period()
+            near(view.view_location, empty_location, (kind, mode, 'EMPTY_FRAME'))
+            t.assertEqual(view.view_distance, empty_distance)
+            print('NATIVE_NAVIGATION_SELECTION_PASS', kind, mode)
+
+
+def navigation_multi_owner_workflow():
+    """Edited owners contribute in world space, including Blender's linked-data mode rules."""
+    import bpy
+    from mathutils import Quaternion, Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    view = space.region_3d
+    prefs = bpy.context.preferences
+    prefs.view.smooth_view = 0
+    prefs.inputs.use_auto_perspective = False
+    prefs.inputs.use_mouse_depth_navigate = False
+    prefs.inputs.use_rotate_around_active = True
+    positions = [(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0), (-1, 4, 0), (1, 4, 0)]
+    references = {}
+    for kind in ('MESH', 'NATIVE'):
+        for linked in (False, True):
+            if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+                yield e.tab()
+            for obj in tuple(bpy.data.objects):
+                bpy.data.objects.remove(obj, do_unlink=True)
+            window.scene.cursor.location = (0, 0, 0)
+            yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+            if kind == 'MESH':
+                mesh = bpy.data.meshes.new('Multi-owner navigation reference')
+                mesh.from_pydata(positions, [], [(0, 1, 3, 2), (2, 3, 5, 4)])
+                first = bpy.data.objects.new(mesh.name, mesh)
+                window.scene.collection.objects.link(first)
+                first.select_set(True)
+                window.view_layer.objects.active = first
+            else:
+                yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+                yield e.tab()
+                yield e.two()
+                yield e.e().y().text('2').ret()
+                yield e.e().y().text('2').ret()
+                yield e.tab()
+                first = window.view_layer.objects.active
+                t.assertTrue(first.data.is_native_nurbs)
+            first.location = (-4, 0, 0)
+            second = first.copy()
+            if not linked:
+                second.data = first.data.copy()
+            window.scene.collection.objects.link(second)
+            second.location = (4, 3, 2)
+            second.scale = (-2, 0.5, 2)
+            second.select_set(True)
+            window.view_layer.objects.active = first
+            yield e.tab()
+            yield e.one()
+            yield e.a()
+            yield e.numpad_7()
+            mode_flags = (first.mode, second.mode)
+            if kind == 'NATIVE':
+                t.assertEqual(mode_flags, references[(linked, 'MODES')])
+            else:
+                references[(linked, 'MODES')] = mode_flags
+            edited = [obj for obj in (first, second) if obj.mode == 'EDIT']
+            points = [obj.matrix_world @ Vector(point) for obj in edited for point in positions]
+            orbit_center = sum(points, Vector()) / len(points)
+            low = Vector(tuple(min(p[i] for p in points) for i in range(3)))
+            high = Vector(tuple(max(p[i] for p in points) for i in range(3)))
+            frame_center = (low + high) * 0.5
+            view.view_location = (2, 1, 0)
+            view.view_distance = 25
+            view.view_rotation = Quaternion((1, 0, 0, 0))
+            start = (region.x + region.width // 2, region.y + region.height // 2)
+            yield e.cursor_position_set(*start, move=True)
+            anchor = location_3d_to_region_2d(region, view, orbit_center)
+            yield from e.middlemouse.cursor_motion((start, (start[0] + 80, start[1] + 50)))
+            after = location_3d_to_region_2d(region, view, orbit_center)
+            t.assertLess((after - anchor).length, 0.05, (kind, linked))
+            if kind == 'MESH':
+                references[linked] = (view.view_location.copy(), view.view_rotation.copy())
+            else:
+                location, rotation = references[linked]
+                t.assertLess((view.view_location - location).length, 2e-4)
+                t.assertLess(view.view_rotation.rotation_difference(rotation).angle, 1e-3)
+            yield e.numpad_period()
+            t.assertLess((view.view_location - frame_center).length, 2e-4, (kind, linked))
+            t.assertEqual(first.mode, 'EDIT')
+            print('NATIVE_NAVIGATION_MULTI_OWNER_PASS', kind, linked, mode_flags)
+
+
+def navigation_legacy_curve_workflow():
+    """The shared Curve selection reader must preserve ordinary Bezier navigation."""
+    import bpy
+    from mathutils import Quaternion, Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    view = area.spaces.active.region_3d
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    curve = bpy.data.curves.new('Legacy Bezier navigation', 'CURVE')
+    curve.dimensions = '3D'
+    spline = curve.splines.new('BEZIER')
+    spline.bezier_points.add(1)
+    for i, point in enumerate(spline.bezier_points):
+        point.co = (2 + 4 * i, 3, 1)
+        point.handle_left = (1 + 4 * i, 3, 1)
+        point.handle_right = (3 + 4 * i, 3, 1)
+        point.select_control_point = i == 0
+        point.select_left_handle = point.select_right_handle = False
+    obj = bpy.data.objects.new(curve.name, curve)
+    window.scene.collection.objects.link(obj)
+    obj.select_set(True)
+    window.view_layer.objects.active = obj
+    prefs = bpy.context.preferences
+    prefs.view.smooth_view = 0
+    prefs.inputs.use_auto_perspective = False
+    prefs.inputs.use_mouse_depth_navigate = False
+    prefs.inputs.use_rotate_around_active = True
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab()
+    yield e.numpad_7()
+    view.view_rotation = Quaternion((1, 0, 0, 0))
+    view.view_location = (4, 2, 0)
+    view.view_distance = 15
+    start = (region.x + region.width // 2, region.y + region.height // 2)
+    yield e.cursor_position_set(*start, move=True)
+    center = Vector((2, 3, 1))
+    before = location_3d_to_region_2d(region, view, center)
+    yield from e.middlemouse.cursor_motion((start, (start[0] + 80, start[1] + 50)))
+    after = location_3d_to_region_2d(region, view, center)
+    t.assertLess((after - before).length, 0.05)
+    yield e.numpad_period()
+    t.assertLess((view.view_location - center).length, 2e-4)
+    t.assertEqual(obj.mode, 'EDIT')
+    t.assertFalse(curve.is_native_nurbs)
+    t.assertEqual(len(curve.splines), 1)
+    print('NATIVE_NAVIGATION_LEGACY_BEZIER_PASS')
+
+
+def merge_reported_workflow(native_entry=True, first_mode='CENTER', box_selection=False):
+    """Normal Add/E source, followed by two successive endpoint merges."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    window.scene.cursor.location = (0, 0, 0)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    if native_entry:
+        yield e.two()
+    yield e.e().y().text('2').ret()
+    if native_entry:
+        yield e.one()
+    yield e.numpad_7()
+    space.region_3d.view_location = (0, 1, 0)
+    space.region_3d.view_distance = 7
+    space.shading.show_xray = False
+
+    def screen(point):
+        xy = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+        return round(xy.x) + region.x, round(xy.y) + region.y
+
+    def totals():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+) \| Faces:\d+/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    yield e.alt.a()
+    if box_selection:
+        yield e.b()
+        yield from e.leftmouse.cursor_motion((screen((0.9, -0.1, 0)), screen((1.1, 2.1, 0))))
+    else:
+        yield e.cursor_position_set(*screen((1, 0, 0)), move=True)
+        yield e.leftmouse()
+        yield e.cursor_position_set(*screen((1, 2, 0)), move=True)
+        yield e.shift.leftmouse()
+    print('REPORTED_MERGE_FIRST_SELECTION', window.scene.statistics(window.view_layer))
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.m()
+    center = ui.get_area_center(area)
+    row = 2 if first_mode == 'COLLAPSE' else 0
+    yield e.cursor_position_set(center[0] - 60, round(center[1] - row * 20 * bpy.context.preferences.system.ui_scale), move=True)
+    yield e.leftmouse()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    t.assertEqual(totals(), (3, 3, 1))
+    output = Path(os.environ.get('BLENDER_NURBS_OVERLAY_OUTPUT', '/tmp/blender-nurbs-overlay-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    label = f'merge-side-{native_entry}-{first_mode}-{box_selection}'
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / f'{label}.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / f'{label}.png'))
+    print('REPORTED_MERGE_FIRST_CENTER_PASS')
+    yield e.alt.a()
+    yield e.cursor_position_set(*screen((-1, 0, 0)), move=True)
+    yield e.leftmouse()
+    yield e.cursor_position_set(*screen((-1, 2, 0)), move=True)
+    yield e.shift.leftmouse()
+    print('REPORTED_MERGE_SECOND_SELECTION', window.scene.statistics(window.view_layer))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.merge(type='COLLAPSE'), {'FINISHED'})
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    t.assertEqual(totals(), (2, 1, 0))
+    t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+    print('REPORTED_MERGE_SECOND_COLLAPSE_PASS')
+
+
+def merge_reported_tagged_workflow():
+    yield from merge_reported_workflow(native_entry=False)
+
+
+def merge_reported_collapse_workflow():
+    yield from merge_reported_workflow(first_mode='COLLAPSE')
+
+
+def merge_reported_box_workflow():
+    yield from merge_reported_workflow(box_selection=True)
+
+
+def mesh_overlay_parity_workflow(custom_theme=False, tagged_entry=False):
+    """Compare mesh shader colors and hidden-point depth behavior with the native source overlay."""
+    import os
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    view = space.region_3d
+    output = Path(os.environ.get('BLENDER_NURBS_OVERLAY_OUTPUT', '/tmp/blender-nurbs-overlay-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    if custom_theme:
+        theme = bpy.context.preferences.themes[0].view_3d
+        theme.wire_edit = (0.1, 0.8, 0.2)
+        theme.edge_select = (0.9, 0.2, 0.3)
+        theme.edge_mode_select = (0.1, 0.5, 0.95)
+        theme.vertex_select = (0.8, 0.8, 0.1)
+        theme.editmesh_active = (0.7, 0.2, 0.8, 1)
+        theme.face_select = (0.2, 0.6, 0.8, 0.25)
+        theme.face_mode_select = (0.8, 0.3, 0.2, 0.35)
+    bpy.context.preferences.view.smooth_view = 0
+    bpy.context.preferences.inputs.use_rotate_around_active = False
+    space.overlay.show_text = False
+    space.overlay.show_floor = False
+    space.overlay.show_axis_x = False
+    space.overlay.show_axis_y = False
+    space.overlay.show_cursor = False
+    space.show_gizmo = False
+    points = [(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0),
+              (-1, 0, 2), (1, 0, 2), (-1, 2, 2), (1, 2, 2)]
+    faces = [(0, 2, 3, 1), (4, 5, 7, 6), (0, 1, 5, 4),
+             (1, 3, 7, 5), (3, 2, 6, 7), (2, 0, 4, 6)]
+    references = {}
+    probes = {'HIDDEN_VERTEX': (-1, 2, 0), 'VISIBLE_VERTEX': (1, 0, 2),
+              'FRONT_EDGE': (1, 0, 1), 'BACK_EDGE': (-1, 2, 1),
+              'FACE': (0, 0, 1), 'UNSELECTED_EDGE': (-1, 1, 2)}
+
+    def pixel(point):
+        xy = location_3d_to_region_2d(region, view, Vector(point))
+        t.assertIsNotNone(xy)
+        return round(xy.x) + region.x, round(xy.y) + region.y
+
+    def read_patches(path):
+        image = bpy.data.images.load(str(path), check_existing=False)
+        try:
+            width, height = image.size
+            pixels = tuple(image.pixels)
+            result = {}
+            for name, point in probes.items():
+                x, y = pixel(point)
+                patch = []
+                for yy in range(y - 3, y + 4):
+                    for xx in range(x - 3, x + 4):
+                        t.assertTrue(0 <= xx < width and 0 <= yy < height)
+                        index = (yy * width + xx) * 4
+                        patch.extend(pixels[index:index + 3])
+                result[name] = patch
+            return result
+        finally:
+            bpy.data.images.remove(image)
+
+    for kind in ('MESH', 'TAGGED' if tagged_entry else 'NATIVE'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        window.scene.cursor.location = (0, 0, 0)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        if kind == 'MESH':
+            mesh = bpy.data.meshes.new('Overlay mesh reference')
+            mesh.from_pydata(points, [], faces)
+            obj = bpy.data.objects.new(mesh.name, mesh)
+            window.scene.collection.objects.link(obj)
+            obj.select_set(True)
+            window.view_layer.objects.active = obj
+            yield e.tab()
+        else:
+            yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+            yield e.tab()
+            if not tagged_entry:
+                yield e.two()
+            yield e.e().y().text('2').ret()
+            if not tagged_entry:
+                yield e.three()
+            yield e.a()
+            yield e.e().z().text('2').ret()
+            t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, not tagged_entry)
+        for mode in (('VERT',) if tagged_entry else ('VERT', 'EDGE', 'FACE')):
+            yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+            view.view_rotation = Vector((4, -6, 3)).to_track_quat('Z', 'Y')
+            view.view_perspective = 'ORTHO'
+            view.view_location = (0, 1, 1)
+            view.view_distance = 8
+            if mode == 'VERT' and kind != 'TAGGED':
+                yield e.one()
+            elif mode == 'EDGE':
+                yield e.two()
+            elif mode == 'FACE':
+                yield e.three()
+            expected_mode = tuple(name == mode for name in ('VERT', 'EDGE', 'FACE'))
+            if kind == 'MESH':
+                t.assertEqual(tuple(window.scene.tool_settings.mesh_select_mode), expected_mode)
+            else:
+                t.assertEqual(tuple(window.view_layer.objects.active.data.nurbs_selection_mode), expected_mode)
+            space.shading.show_xray = True
+            space.shading.xray_alpha = 0.5
+            yield e.alt.a()
+            if mode == 'VERT':
+                yield e.cursor_position_set(*pixel((1, 0, 2)), move=True)
+                yield e.leftmouse()
+                yield e.cursor_position_set(*pixel((-1, 2, 0)), move=True)
+                yield e.shift.leftmouse()
+            elif mode == 'EDGE':
+                yield e.cursor_position_set(*pixel((1, 0, 1)), move=True)
+                yield e.leftmouse()
+            else:
+                space.shading.show_xray = False
+                yield e.cursor_position_set(*pixel((0, 0, 1)), move=True)
+                yield e.leftmouse()
+            # Compatibility geometry retains the legacy body renderer. Its X-Ray face opacity
+            # differs; compare that renderer separately from the native overlay's full matrix.
+            for xray in ((False,) if tagged_entry else (False, True)):
+                space.shading.show_xray = xray
+                yield e.cursor_position_set(region.x + region.width // 2, region.y + 30, move=True)
+                prefix = 'custom-' if custom_theme else ''
+                path = output / f'overlay-{prefix}{kind}-{mode}-{xray}.png'
+                with bpy.context.temp_override(window=window, area=area, region=region):
+                    bpy.ops.screen.screenshot(filepath=str(path))
+                patches = read_patches(path)
+                if kind == 'MESH':
+                    references[(mode, xray)] = patches
+                else:
+                    for name, patch in patches.items():
+                        expected = references[(mode, xray)][name]
+                        error = sum(abs(a - b) for a, b in zip(patch, expected)) / len(patch)
+                        print('NATIVE_OVERLAY_PIXEL_ERROR', mode, xray, name, error)
+                        t.assertLess(error, 0.06, (mode, xray, name))
+                t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+                if kind == 'TAGGED':
+                    t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+                    t.assertTrue(window.view_layer.objects.active.data.has_tagged_nurbs)
+                print('NATIVE_OVERLAY_PARITY_PASS', kind, mode, xray)
+
+
+def mesh_overlay_custom_theme_workflow():
+    yield from mesh_overlay_parity_workflow(custom_theme=True)
+
+
+def mesh_overlay_tagged_workflow():
+    """Untouched Add/E/E source uses the component overlay without changing source storage."""
+    yield from mesh_overlay_parity_workflow(tagged_entry=True)
+
+
+def selected_face_depth_workflow():
+    """Every interior pixel of a selected face must receive the mesh selection tint."""
+    import os
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    view = space.region_3d
+    output = Path(os.environ.get('BLENDER_NURBS_OVERLAY_OUTPUT', '/tmp/blender-nurbs-overlay-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    bpy.context.preferences.view.smooth_view = 0
+    bpy.context.preferences.inputs.use_rotate_around_active = False
+    space.overlay.show_text = False
+    space.overlay.show_floor = False
+    space.overlay.show_axis_x = False
+    space.overlay.show_axis_y = False
+    space.overlay.show_cursor = False
+    space.show_gizmo = False
+    space.shading.show_xray = False
+    points = [(-1, 0, 0), (1, 0, 0), (-1, 2, 0), (1, 2, 0),
+              (-1, 0, 2), (1, 0, 2), (-1, 2, 2), (1, 2, 2)]
+    faces = [(0, 2, 3, 1), (4, 5, 7, 6), (0, 1, 5, 4),
+             (1, 3, 7, 5), (3, 2, 6, 7), (2, 0, 4, 6)]
+    references = {}
+
+    def pixel(point):
+        xy = location_3d_to_region_2d(region, view, Vector(point))
+        t.assertIsNotNone(xy)
+        return round(xy.x) + region.x, round(xy.y) + region.y
+
+    def capture(path):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(path))
+        image = bpy.data.images.load(str(path), check_existing=False)
+        try:
+            return image.size[0], tuple(image.pixels)
+        finally:
+            bpy.data.images.remove(image)
+
+    for kind in ('MESH_VERT', 'NATIVE_VERT', 'TAGGED_VERT', 'MESH_FACE', 'NATIVE_FACE'):
+        if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+            yield e.tab()
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        window.scene.cursor.location = (0, 0, 0)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        mesh_source = kind.startswith('MESH')
+        face_mode = kind.endswith('FACE')
+        if mesh_source:
+            mesh = bpy.data.meshes.new('Selected face depth reference')
+            mesh.from_pydata(points, [], faces)
+            obj = bpy.data.objects.new(mesh.name, mesh)
+            window.scene.collection.objects.link(obj)
+            obj.select_set(True)
+            window.view_layer.objects.active = obj
+            yield e.tab()
+        else:
+            yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+            yield e.tab()
+            if kind != 'TAGGED_VERT':
+                yield e.two()
+            yield e.e().y().text('2').ret()
+            yield e.a()
+            yield e.e().z().text('2').ret()
+        if kind != 'TAGGED_VERT':
+            if face_mode:
+                yield e.three()
+            else:
+                yield e.one()
+        expected_mode = (False, False, True) if face_mode else (True, False, False)
+        actual_mode = (window.scene.tool_settings.mesh_select_mode if mesh_source else
+                       window.view_layer.objects.active.data.nurbs_selection_mode)
+        t.assertEqual(tuple(actual_mode), expected_mode)
+        view.view_rotation = Vector((4, -6, 6)).to_track_quat('Z', 'Y')
+        view.view_perspective = 'ORTHO'
+        view.view_location = (0, 1, 1)
+        view.view_distance = 5
+        yield e.alt.a()
+        for point in ([(0, 1, 2)] if face_mode else points[4:]):
+            yield e.cursor_position_set(*pixel(point), move=True)
+            yield e.shift.leftmouse()
+        if not mesh_source:
+            t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs,
+                          kind != 'TAGGED_VERT')
+
+        views = [(direction, distance)
+                 for direction in ((4, -6, 3), (1.3, -1.8, 4.5), (-5, -3, 2))
+                 for distance in (5, 3)]
+        for angle, (direction, distance) in enumerate(views):
+            for projection in ('PERSP', 'ORTHO'):
+                view.view_rotation = Vector(direction).to_track_quat('Z', 'Y')
+                view.view_perspective = projection
+                # Aim at the selected face so close perspective views stay above its plane.
+                view.view_location = (0, 1, 2)
+                view.view_distance = distance
+                images = []
+                for selected_tint in (False, True):
+                    space.overlay.show_faces = selected_tint
+                    yield e.cursor_position_set(region.x + region.width // 2, region.y + 20, move=True)
+                    width, pixels = capture(output / f'face-depth-{kind}-{angle}-{projection}-{selected_tint}.png')
+                    images.append(pixels)
+                key = (face_mode, angle, projection)
+                if mesh_source:
+                    polygon = [pixel(p) for p in ((-.85, .15, 2), (.85, .15, 2),
+                                                 (.85, 1.85, 2), (-.85, 1.85, 2))]
+                    reference = []
+                    for y in range(max(region.y + 10, min(p[1] for p in polygon)),
+                                   min(region.y + region.height - 10, max(p[1] for p in polygon)) + 1):
+                        for x in range(max(region.x + 10, min(p[0] for p in polygon)),
+                                       min(region.x + region.width - 10, max(p[0] for p in polygon)) + 1):
+                            crosses = [(b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])
+                                       for a, b in zip(polygon, polygon[1:] + polygon[:1])]
+                            if not (all(c >= 0 for c in crosses) or all(c <= 0 for c in crosses)):
+                                continue
+                            i = (y * width + x) * 4
+                            delta = tuple(images[1][i + c] - images[0][i + c] for c in range(3))
+                            length_squared = sum(d * d for d in delta)
+                            if length_squared > 0.0004:
+                                reference.append((i, delta, length_squared))
+                    t.assertGreater(len(reference), 1000, (kind, angle, projection))
+                    references[key] = reference
+                else:
+                    reference = references[key]
+                    missed = 0
+                    for i, expected, length_squared in reference:
+                        delta = tuple(images[1][i + c] - images[0][i + c] for c in range(3))
+                        strength = sum(a * b for a, b in zip(delta, expected)) / length_squared
+                        missed += strength < 0.8
+                    coverage = 1 - missed / len(reference)
+                    print('SELECTED_FACE_DEPTH_COVERAGE', kind, angle, projection,
+                          coverage, missed, len(reference), flush=True)
+                    t.assertGreaterEqual(coverage, 0.995, (kind, angle, projection, missed))
+    print('SELECTED_FACE_DEPTH_WORKFLOW_PASS')
+
+
+def distance_merge_native_workflow():
+    """M / By Distance welds duplicated source faces, retains editing mode and supports undo/E."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path(os.environ.get('BLENDER_NURBS_OVERLAY_OUTPUT', '/tmp/blender-nurbs-overlay-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    window.scene.cursor.location = (0, 0, 0)
+    window.scene.tool_settings.use_snap = False
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.two()
+    yield e.e().y().text('2').ret()
+    yield e.three()
+    yield e.a()
+    yield e.shift.d().x().text('0.00001').ret()
+    yield e.one()
+    yield e.a()
+
+    def totals():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+) \| Faces:\d+/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    t.assertEqual(totals(), (8, 8, 2))
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.m()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.screen.screenshot(filepath=str(output / 'merge-menu-with-distance.png'))
+    center = ui.get_area_center(area)
+    row_height = 20 * bpy.context.preferences.system.ui_scale
+    yield e.cursor_position_set(center[0] - 60, round(center[1] - 3 * row_height - 6), move=True)
+    yield e.leftmouse()
+    t.assertEqual(totals(), (4, 4, 1))
+    t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+    t.assertEqual(tuple(window.view_layer.objects.active.data.nurbs_selection_mode), (True, False, False))
+    yield e.ctrl.z()
+    t.assertEqual(totals(), (8, 8, 2))
+    yield e.ctrl.shift.z()
+    t.assertEqual(totals(), (4, 4, 1))
+    yield e.three()
+    yield e.a()
+    yield e.e().z().text('1').ret()
+    t.assertEqual(totals(), (8, 12, 6))
+    t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
+    print('NATIVE_DISTANCE_MERGE_MENU_UNDO_CONTINUE_PASS')
