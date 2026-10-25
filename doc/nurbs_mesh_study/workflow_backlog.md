@@ -25,6 +25,18 @@ Screenshot supplied in the conversation on 2026-10-25. This confirms the existin
 explicit snapping gate; the original .blend, exact gesture and target object are
 not supplied. Do not call it a repaired or fully reproduced interaction yet.
 
+Additional reproduction detail supplied on 2026-10-25: extrude a line into a
+face, duplicate that face, then use vertex snapping with the snap source set to
+Active to align one corner with another face's corner. After the corners meet,
+face extrusion stops working. The source confirms that native G/R/S currently
+cancels as soon as snapping is active (`transform_convert_nurbs.cc`), so this
+interaction is not supported by the current native transform adapter. The
+separate post-snap extrusion failure still needs a saved reproduction: snapping
+must move geometry, component IDs and selection must survive, and the later
+extrusion failure must be captured independently. Coincident coordinates alone
+must not silently weld separate vertices; topology merge needs an explicit
+operation or a deliberate snapping policy.
+
 Required behavior:
 
 - Resolve the snap target to source identity and its authoritative position.

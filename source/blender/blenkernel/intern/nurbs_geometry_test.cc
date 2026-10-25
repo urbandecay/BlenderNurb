@@ -1509,6 +1509,34 @@ TEST(nurbs_geometry, RegionConstructionSharesWallsAndContinuesAfterExtrusionAndV
   EXPECT_EQ(continued->geometry->faces.count(), 9);
 }
 
+TEST(nurbs_geometry, DuplicateFaceCanBeSnappedToAdjacentCornerAndStillExtruded)
+{
+  const auto source = make_extrusion_sheet();
+  ASSERT_NE(source, nullptr);
+  const int64_t source_face = first(source->faces)->id;
+  std::string error;
+
+  const auto duplicate = duplicate_components(*source, {{}, {}, {&source_face, 1}}, &error);
+  ASSERT_TRUE(duplicate.has_value()) << error;
+  const int64_t duplicate_face = duplicate->source_to_copy.lookup(source_face);
+
+  Vector<int64_t> duplicate_vertices;
+  for (const NurbsTopologyVertex &vertex : source->vertices) {
+    duplicate_vertices.append(duplicate->source_to_copy.lookup(vertex.id));
+  }
+  /* Moving by the face width makes its left corners coincide with the original right corners,
+   * matching a vertex snap. Snapping moves geometry; it does not implicitly weld topology. */
+  const auto snapped = translate_vertices(
+      *duplicate->geometry, duplicate_vertices, {2, 0, 0}, 0, &error);
+  ASSERT_TRUE(snapped.has_value()) << error;
+
+  const auto result = extrude_components(
+      *snapped->geometry, {{}, {}, {&duplicate_face, 1}}, {0, 0, 1}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_EQ(result->geometry->faces.count(), 7);
+  EXPECT_EQ(result->geometry->vertices.count(), 12);
+}
+
 TEST(nurbs_geometry, MultiFaceRegionCreatesOnlyOuterWallsAndKeepsSharedCapResources)
 {
   const auto source = make_fixture(false);
