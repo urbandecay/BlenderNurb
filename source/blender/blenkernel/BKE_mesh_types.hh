@@ -275,8 +275,8 @@ struct MeshRuntime {
 
   /**
    * A bit vector the size of the number of edges, set to true for edges that should be drawn in
-   * the viewport. Created by the "Optimal Display" feature of the subdivision surface modifier.
-   * Otherwise it will be empty.
+   * the viewport. Used by subdivision's "Optimal Display" and derived NURBS previews to hide
+   * rendering diagonals while keeping their intended display grid. Otherwise it will be empty.
    */
   BitVector<> subsurf_optimal_display_edges;
 

@@ -191,6 +191,56 @@ TEST_F(NurbsFillTest, NonplanarQuadBendsThroughFourCornersAndKeepsBoundaryParame
   expect_fill_preview(*filled->geometry);
 }
 
+TEST_F(NurbsFillTest, SlantedTriangleUsesAnExactAffineChartAndSharedBoundaryCurves)
+{
+  const double3 points[] = {{0, 0, 0}, {2, 1, 1}, {1, 0, 2}};
+  auto source = make_fill_wire({points, 3}, true);
+  auto &first_curve = *static_cast<NurbsCurveGeometry *>(source->curves.first);
+  first_curve.points[1].weight = 2;
+  const auto edges = fill_edges(*source);
+  std::string error;
+  const auto result = fill_components(*source, {{}, edges, {}}, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_EQ(result->construction_error_bound, 0);
+  EXPECT_TRUE(result->created_edges.is_empty());
+  EXPECT_EQ(result->geometry->vertices.count(), 3);
+  EXPECT_EQ(result->geometry->edges.count(), 3);
+  EXPECT_EQ(result->geometry->faces.count(), 1);
+  const auto index = TopologyIndex::build(*result->geometry);
+  for (const int64_t edge : edges) {
+    EXPECT_NE(index->edge(edge), nullptr);
+  }
+  const auto &surface = *static_cast<NurbsSurfaceGeometry *>(result->geometry->surfaces.last);
+  EXPECT_EQ(evaluate_surface(surface, {0.25, 0.25})->position, double3(0.75, 0.25, 0.75));
+  expect_fill_preview(*result->geometry);
+}
+
+TEST_F(NurbsFillTest, TriangleConstructionRoundoffRequiresAnExplicitBudget)
+{
+  const double tiny = 0x1p-60;
+  const double3 points[] = {{tiny, 0, 0}, {2, 1, 1}, {1, 0, 2}};
+  auto source = make_fill_wire({points, 3}, true);
+  const auto edges = fill_edges(*source);
+  const int64_t next_id = source->next_id;
+  std::string error;
+  EXPECT_FALSE(fill_components(*source, {{}, edges, {}}, &error));
+  EXPECT_NE(error.find("roundoff budget"), std::string::npos);
+  const auto result = fill_components(*source, {{}, edges, {}}, 1e-12, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_GE(result->construction_error_bound, tiny);
+  EXPECT_LT(result->construction_error_bound, 1e-12);
+  const auto &face = *static_cast<NurbsTopologyFace *>(result->geometry->faces.first);
+  EXPECT_EQ(face.tolerance, result->construction_error_bound);
+  for (const auto &use : static_cast<NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+    EXPECT_EQ(use.tolerance, result->construction_error_bound);
+  }
+  expect_fill_preview(*result->geometry);
+  EXPECT_EQ(source->next_id, next_id);
+  EXPECT_TRUE(source->faces.is_empty());
+  EXPECT_FALSE(fill_components(*source, {{}, edges, {}}, -1, &error));
+  EXPECT_FALSE(fill_components(*source, {{}, edges, {}}, NAN, &error));
+}
+
 TEST_F(NurbsFillTest, TwoDisconnectedEdgesFillSharpQuadWithMeshBoundaryPairing)
 {
   for (const bool reversed : {false, true}) {

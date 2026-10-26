@@ -916,9 +916,7 @@ const bke::nurbs::ReadSnapshot *DRW_curve_batch_cache_get_edit_source(Curve *cu)
     return nullptr;
   }
   const auto source = prepared->edit->read_snapshot();
-  bke::nurbs::SurfacePreviewOptions options;
-  options.boundary.segments_per_span = std::max(cu->resolu, cu->resolv);
-  options.interior_subdivisions = std::max(cu->resolu, cu->resolv);
+  const auto options = bke::nurbs::curve_preview_options(*cu);
   auto evaluation = bke::nurbs::evaluate_mesh(source, options, &error);
   if (!evaluation) {
     CLOG_ERROR(&LOG_NURBS, "Compatibility overlay for '%s': %s", cu->id.name + 2, error.c_str());

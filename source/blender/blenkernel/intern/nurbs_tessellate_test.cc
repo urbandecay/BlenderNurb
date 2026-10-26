@@ -44,6 +44,29 @@ TEST(nurbs_surface_preview, PlanarSheetRetainsSourceFaceAndBoundaryIdentity)
   EXPECT_EQ(source->edges.count(), 4);
 }
 
+TEST(nurbs_surface_preview, DisplayGridFollowsEachFaceChartIncludingReversedOrientation)
+{
+  auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  auto *face = static_cast<NurbsTopologyFace *>(source->faces.first);
+  for (const int orientation : {1, -1}) {
+    face->orientation = orientation;
+    std::string error;
+    const auto preview = tessellate_surfaces(*source, preview_options(), &error);
+    ASSERT_TRUE(preview.has_value()) << error;
+    int hidden = 0;
+    for (const auto &triangle : preview->triangles) {
+      int sides = 0;
+      for (const int i : IndexRange(3)) {
+        sides += triangle.display_edges[i];
+        hidden += !triangle.display_edges[i];
+      }
+      EXPECT_EQ(sides, 2);
+    }
+    EXPECT_EQ(hidden, 2 * 4 * 4);
+  }
+}
+
 TEST(nurbs_surface_preview, NonBinarySamplingKeepsIdentityParameterAgreementWithZeroAllowance)
 {
   for (const bool unit_coordinates : {false, true}) {
@@ -84,6 +107,9 @@ TEST(nurbs_surface_preview, HoleRemainsUnfilledAndFaceOrientationIsRespected)
   ASSERT_TRUE(preview.has_value()) << error;
   EXPECT_NEAR(planar_area(*preview), 3, 1.0e-12);
   for (const auto &triangle : preview->triangles) {
+    for (const bool visible : triangle.display_edges) {
+      EXPECT_TRUE(visible);
+    }
     const double3 center = (preview->position(triangle.points[0]) +
                             preview->position(triangle.points[1]) +
                             preview->position(triangle.points[2])) /

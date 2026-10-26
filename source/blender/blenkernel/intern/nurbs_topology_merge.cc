@@ -14,6 +14,7 @@
 #include "BLI_memory_utils.hh"
 
 #include "BKE_nurbs_construct.hh"
+#include "BKE_nurbs_evaluate.hh"
 #include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
 
@@ -87,13 +88,230 @@ static void remove_face(NurbsGeometry &geometry, NurbsTopologyFace &face)
   MEM_delete(&face);
 }
 
+/** Degree-one polynomial patches have a boundary-defined deformation rule: a triangle is
+ * affine, four corners define a bilinear patch, and larger cycles require exact planar fill.
+ * Higher-order/rational supports and curved boundaries keep their source deformation rules. */
+static bool boundary_defined_face(const NurbsTopologyFace &face,
+                                  const NurbsSurfaceGeometry &surface,
+                                  const TopologyIndex &index,
+                                  const Map<int64_t, const NurbsCurveGeometry *> &curves)
+{
+  if (!face.loops.is_single() ||
+      static_cast<const NurbsTopologyLoop *>(face.loops.first)->is_inner || surface.order_u != 2 ||
+      surface.order_v != 2 || surface.points_u != 2 || surface.points_v != 2 ||
+      surface.knots_u[0] != surface.knots_u[1] || surface.knots_u[2] != surface.knots_u[3] ||
+      surface.knots_v[0] != surface.knots_v[1] || surface.knots_v[2] != surface.knots_v[3])
+  {
+    return false;
+  }
+  for (int i = 0; i < surface.points_num; i++) {
+    if (!(surface.points[i].weight > 0) || surface.points[i].weight != surface.points[0].weight) {
+      return false;
+    }
+  }
+  for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+    const auto &edge = *index.edge(use.edge_id);
+    if (!full_linear(*curves.lookup(edge.curve_id), edge) ||
+        !full_linear(*curves.lookup(use.pcurve_id), edge))
+    {
+      return false;
+    }
+  }
+  bool affine = true;
+  for (int axis = 0; axis < 3; axis++) {
+    double a, a_error, b, b_error;
+    affine &= detail::sum_with_error(surface.points[0].position[axis],
+                                     surface.points[3].position[axis],
+                                     a,
+                                     a_error) &&
+              detail::sum_with_error(surface.points[1].position[axis],
+                                     surface.points[2].position[axis],
+                                     b,
+                                     b_error) &&
+              a == b && a_error == b_error;
+  }
+  if (affine) {
+    return true;
+  }
+  /* A nonplanar bilinear patch is boundary-defined only on its complete tensor rectangle.
+   * A triangular trim may also be an affine chart whose fourth coefficient was rounded by
+   * the shared constructor. Recognize that construction and its existing recorded budget;
+   * an arbitrary warped support must never be flattened because its edges look straight. */
+  const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
+  if (loop.edge_uses.count() != 3 && loop.edge_uses.count() != 4) {
+    return false;
+  }
+  int64_t corners[4] = {};
+  for (const auto &use : loop.edge_uses) {
+    const auto &edge = *index.edge(use.edge_id);
+    const auto &pcurve = *curves.lookup(use.pcurve_id);
+    int slots[2] = {};
+    for (int end = 0; end < 2; end++) {
+      for (int axis = 0; axis < 2; axis++) {
+        const double *knots = axis == 0 ? surface.knots_u : surface.knots_v;
+        const double coordinate = pcurve.points[end].position[axis];
+        if (coordinate != knots[1] && coordinate != knots[2]) {
+          return false;
+        }
+        slots[end] += (coordinate == knots[2]) ? (1 << axis) : 0;
+      }
+      const int slot = slots[end];
+      if ((corners[slot] && corners[slot] != edge.vertex_ids[end]) ||
+          double3(surface.points[slot].position) !=
+              double3(index.vertex(edge.vertex_ids[end])->position))
+      {
+        return false;
+      }
+      corners[slot] = edge.vertex_ids[end];
+    }
+    if (loop.edge_uses.count() == 4 && (slots[0] ^ slots[1]) != 1 && (slots[0] ^ slots[1]) != 2) {
+      return false;
+    }
+  }
+  const int count = std::count_if(corners, corners + 4, [](int64_t id) { return id != 0; });
+  if (loop.edge_uses.count() == 4) {
+    return count == 4;
+  }
+  if (count != 3) {
+    return false;
+  }
+  const int missing = std::find(corners, corners + 4, 0) - corners;
+  double error;
+  const auto fourth = detail::affine_fourth_corner(double3(surface.points[missing ^ 3].position),
+                                                   double3(surface.points[missing ^ 2].position),
+                                                   double3(surface.points[missing ^ 1].position),
+                                                   error);
+  return fourth && *fourth == double3(surface.points[missing].position) && error <= face.tolerance;
+}
+
+struct FaceRepairCycle {
+  Vector<int64_t> edges;
+  bool first_reversed;
+};
+
+static bool same_boundary_cycle(const NurbsTopologyLoop &loop, const Span<int64_t> cycle)
+{
+  if (loop.is_inner || loop.edge_uses.count() != cycle.size()) {
+    return false;
+  }
+  Vector<int64_t> edges;
+  for (const auto &use : loop.edge_uses) {
+    edges.append(use.edge_id);
+  }
+  const int start = edges.first_index_of_try(cycle.first());
+  if (start < 0) {
+    return false;
+  }
+  for (const int direction : {-1, 1}) {
+    bool equal = true;
+    for (const int i : cycle.index_range()) {
+      equal &= cycle[i] == edges[(start + direction * i + edges.size()) % edges.size()];
+    }
+    if (equal) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A simple affine patch with exact shared straight boundaries realizes the same planar region
+ * as a reconstruction of that cycle. Retain the existing source rather than replacing its chart.
+ * Distinct curved interiors, rounded non-affine charts and unsupported proofs do not qualify. */
+static bool exact_affine_boundary(const NurbsGeometry &geometry, const NurbsTopologyFace &face)
+{
+  if (!face.loops.is_single()) {
+    return false;
+  }
+  const auto index = TopologyIndex::build(geometry);
+  if (!index) {
+    return false;
+  }
+  const NurbsSurfaceGeometry *surface = nullptr;
+  for (const auto &item : geometry.surfaces) {
+    if (item.id == face.surface_id) {
+      surface = &item;
+      break;
+    }
+  }
+  if (!surface || surface->order_u != 2 || surface->order_v != 2 || surface->points_u != 2 ||
+      surface->points_v != 2)
+  {
+    return false;
+  }
+  for (int axis = 0; axis < 3; axis++) {
+    double a, a_error, b, b_error;
+    if (!detail::sum_with_error(
+            surface->points[0].position[axis], surface->points[3].position[axis], a, a_error) ||
+        !detail::sum_with_error(
+            surface->points[1].position[axis], surface->points[2].position[axis], b, b_error) ||
+        a != b || a_error != b_error)
+    {
+      return false;
+    }
+  }
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  for (const auto &curve : geometry.curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+    const auto &edge = *index->edge(use.edge_id);
+    if (linear_curve_support_deviation_bound(
+            *curves.lookup(edge.curve_id), *curves.lookup(use.pcurve_id), *surface) != 0.0)
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
 struct FaceRepair {
   int64_t id;
   int material;
   double tolerance;
-  std::optional<double3> normal;
-  Vector<Vector<int64_t>> cycles;
+  int orientation;
+  Vector<FaceRepairCycle> cycles;
 };
+
+static std::optional<double3> merge_center(const TopologyIndex &index,
+                                           const Span<int64_t> vertices)
+{
+  double3 center;
+  const double count = double(vertices.size());
+  for (int axis = 0; axis < 3; axis++) {
+    bool found = false;
+    // Sum before division, as mesh Merge does. Incremental averaging introduces
+    // spurious offsets even at the center of an integer-coordinate cube.
+    // Compensate cancellation; divide first only if the sum would overflow.
+    for (const bool divide_first : {false, true}) {
+      double sum = 0, correction = 0;
+      bool finite = true;
+      for (const int64_t id : vertices) {
+        const double coordinate = index.vertex(id)->position[axis];
+        double value, residual;
+        if (!detail::sum_with_error(
+                sum, divide_first ? coordinate / count : coordinate, value, residual))
+        {
+          finite = false;
+          break;
+        }
+        sum = value;
+        correction += residual;
+      }
+      if (!finite) {
+        continue;
+      }
+      center[axis] = divide_first ? sum + correction : sum / count + correction / count;
+      if (std::isfinite(center[axis])) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      return std::nullopt;
+    }
+  }
+  return center;
+}
 
 }  // namespace
 
@@ -119,6 +337,7 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
     return fail("NURBS Merge needs selected vertices");
   }
   Map<int64_t, int64_t> vertex_map;
+  Set<int64_t> changed_vertices, displaced_vertices;
   Vector<VertexTransform> transforms;
   for (const auto &group : groups) {
     if (group.vertices.is_empty() || !group.vertices.contains(group.survivor) ||
@@ -132,20 +351,30 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
       if (!vertex || !vertex_map.add(id, group.survivor)) {
         return fail("NURBS Merge groups must contain distinct existing vertices");
       }
+      if (id != group.survivor || double3(vertex->position) != group.target) {
+        changed_vertices.add(id);
+      }
+      if (double3(vertex->position) != group.target) {
+        displaced_vertices.add(id);
+      }
       auto matrix = double4x4::identity();
       matrix.location() = group.target - double3(vertex->position);
       transforms.append({id, matrix});
     }
   }
-  /* Plan faces which the weld removes before requesting geometric deformation.
-   * BMesh also drops a face whose boundary has fewer than three surviving vertices.
-   * A doomed linear triangle must not block welding by requesting a trim deformation.
-   * Closed rational edges/faces are not classified by endpoint count alone. */
+  /* Plan the quotient boundaries before deforming supports, as BMesh weld does.
+   * Boundary-defined patches are reconstructed after all vertex/edge identifications. Their
+   * current number of trim sides must not constrain the next edit. Closed rational edges/faces
+   * are not classified by endpoint count alone, and other curved supports retain their rules. */
   Map<int64_t, const NurbsCurveGeometry *> source_curves;
   for (const auto &curve : source.curves) {
     source_curves.add_new(curve.id, &curve);
   }
-  Set<int64_t> removed_faces;
+  Map<int64_t, const NurbsSurfaceGeometry *> source_surfaces;
+  for (const auto &surface : source.surfaces) {
+    source_surfaces.add_new(surface.id, &surface);
+  }
+  Set<int64_t> removed_faces, rebuilt_faces;
   for (const auto &face : source.faces) {
     if (!face.loops.is_single() ||
         static_cast<const NurbsTopologyLoop *>(face.loops.first)->is_inner)
@@ -153,12 +382,13 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
       continue;
     }
     Set<int64_t> survivors;
-    bool linear = true, changed = false;
+    bool linear = true, changed = false, affected = false;
     for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
       const auto &edge = *index->edge(use.edge_id);
       linear &= full_linear(*source_curves.lookup(edge.curve_id), edge);
       for (const int64_t vertex : edge.vertex_ids) {
         const int64_t mapped = vertex_map.lookup_default(vertex, vertex);
+        affected |= displaced_vertices.contains(vertex);
         changed |= vertex != mapped;
         survivors.add(mapped);
       }
@@ -166,14 +396,20 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
     if (linear && changed && survivors.size() < 3) {
       removed_faces.add(face.id);
     }
+    else if (affected &&
+             boundary_defined_face(
+                 face, *source_surfaces.lookup(face.surface_id), *index, source_curves))
+    {
+      rebuilt_faces.add(face.id);
+    }
   }
   OwnedGeometry deform_source;
-  if (!removed_faces.is_empty()) {
+  if (!removed_faces.is_empty() || !rebuilt_faces.is_empty()) {
     deform_source.reset(geometry_copy(&source));
     selection_storage_free(deform_source->stored_selection);
     deform_source->stored_selection = nullptr;
     for (auto &face : deform_source->faces.items_mutable()) {
-      if (removed_faces.contains(face.id)) {
+      if (removed_faces.contains(face.id) || rebuilt_faces.contains(face.id)) {
         remove_face(*deform_source, face);
       }
     }
@@ -201,8 +437,8 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
   double repair_error = 0;
   Set<int64_t> constant_edges, affected_edges, rewired_edges, touched_faces;
   for (auto &edge : builder.geometry->edges) {
-    const bool affected = vertex_map.contains(edge.vertex_ids[0]) ||
-                          vertex_map.contains(edge.vertex_ids[1]);
+    const bool affected = changed_vertices.contains(edge.vertex_ids[0]) ||
+                          changed_vertices.contains(edge.vertex_ids[1]);
     for (int end = 0; end < 2; end++) {
       const int64_t mapped = vertex_map.lookup_default(edge.vertex_ids[end], edge.vertex_ids[end]);
       if (mapped != edge.vertex_ids[end]) {
@@ -312,43 +548,37 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
       candidates.append(&edge);
     }
   }
-  Map<int64_t, int64_t> original_use_vertices;
-  for (const auto &face : source.faces) {
-    for (const auto &loop : face.loops) {
-      for (const auto &use : loop.edge_uses) {
-        original_use_vertices.add_new(use.id,
-                                      index->edge(use.edge_id)->vertex_ids[use.reversed ? 1 : 0]);
-      }
-    }
-  }
   Vector<FaceRepair> repairs;
-  for (auto &face : builder.geometry->faces.items_mutable()) {
-    bool changed = false;
-    for (auto &loop : face.loops) {
+  for (const auto &face : source.faces) {
+    if (removed_faces.contains(face.id)) {
+      continue;
+    }
+    struct ResolvedUse {
+      int64_t edge;
+      bool reversed;
+    };
+    Vector<ResolvedUse> uses;
+    bool changed = rebuilt_faces.contains(face.id);
+    double tolerance = face.tolerance;
+    for (const auto &loop : face.loops) {
       Map<int64_t, int64_t> seen;
-      for (auto &use : loop.edge_uses) {
+      for (const auto &use : loop.edge_uses) {
+        int64_t edge_id = use.edge_id;
+        bool reversed = use.reversed;
+        tolerance = std::max(tolerance, use.tolerance);
         if (rewired_edges.contains(use.edge_id)) {
           touched_faces.add(face.id);
         }
         if (const auto *replacement = edge_map.lookup_ptr(use.edge_id)) {
-          if (replacement->second) {
-            const auto &old_edge = *builder.edges.lookup(use.edge_id);
-            auto *pcurve = builder.curves.lookup(use.pcurve_id);
-            if (!full_linear(*pcurve, old_edge)) {
-              return fail("NURBS Merge needs exact p-curve reversal for this shared edge");
-            }
-            pcurve = builder.copy_curve(pcurve->id);
-            std::swap(pcurve->points[0], pcurve->points[1]);
-            use.pcurve_id = pcurve->id;
-            use.reversed ^= 1;
-          }
-          use.edge_id = replacement->first;
+          edge_id = replacement->first;
+          reversed ^= replacement->second;
         }
-        const auto &edge = *builder.edges.lookup(use.edge_id);
-        changed |= constant_edges.contains(use.edge_id);
-        if (!constant_edges.contains(use.edge_id)) {
-          const int64_t start = edge.vertex_ids[use.reversed ? 1 : 0];
-          const int64_t original = original_use_vertices.lookup(use.id);
+        const auto &edge = *builder.edges.lookup(edge_id);
+        changed |= constant_edges.contains(edge_id);
+        if (!constant_edges.contains(edge_id)) {
+          uses.append({edge_id, reversed});
+          const int64_t start = edge.vertex_ids[reversed ? 1 : 0];
+          const int64_t original = index->edge(use.edge_id)->vertex_ids[use.reversed ? 1 : 0];
           if (const int64_t *previous = seen.lookup_ptr(start)) {
             changed |= *previous != original;
           }
@@ -364,21 +594,17 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
     if (!face.loops.is_single() || static_cast<NurbsTopologyLoop *>(face.loops.first)->is_inner) {
       return fail("NURBS Merge across collapsed trim holes needs an explicit trim repair");
     }
-    FaceRepair repair{face.id, face.material_index, face.tolerance, std::nullopt, {}};
-    const auto &surface = *builder.surfaces.lookup(face.surface_id);
-    const double2 center(
-        (surface.knots_u[surface.order_u - 1] + surface.knots_u[surface.points_u]) * 0.5,
-        (surface.knots_v[surface.order_v - 1] + surface.knots_v[surface.points_v]) * 0.5);
-    const auto differential = evaluate_surface_differential(surface, center);
-    if (differential && differential->normal) {
-      repair.normal = *differential->normal * face.orientation;
-    }
+    const double deformation_error = detail::add_upper(moved->position_error_bound, repair_error);
+    FaceRepair repair{
+        face.id,
+        face.material_index,
+        detail::expand_tolerance(tolerance, detail::multiply_upper(2, deformation_error)),
+        face.orientation,
+        {}};
     Vector<int64_t> path_vertices, path_edges;
-    for (const auto &use : static_cast<NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
-      if (constant_edges.contains(use.edge_id)) {
-        continue;
-      }
-      const auto &edge = *builder.edges.lookup(use.edge_id);
+    Vector<uint8_t> path_reversals;
+    for (const auto &use : uses) {
+      const auto &edge = *builder.edges.lookup(use.edge);
       if (!full_linear(*builder.curves.lookup(edge.curve_id), edge)) {
         return fail("NURBS Merge cannot silently rebuild a collapsed curved trim boundary");
       }
@@ -392,24 +618,51 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
       }
       const int previous = path_vertices.first_index_of_try(end);
       if (previous >= 0) {
-        Vector<int64_t> cycle;
+        FaceRepairCycle cycle{
+            {}, previous < path_edges.size() ? bool(path_reversals[previous]) : use.reversed};
         for (int i = previous; i < path_edges.size(); i++) {
-          cycle.append(path_edges[i]);
+          cycle.edges.append(path_edges[i]);
         }
-        cycle.append(edge.id);
-        if (cycle.size() >= 3) {
+        cycle.edges.append(edge.id);
+        if (cycle.edges.size() >= 3) {
           repair.cycles.append(std::move(cycle));
         }
         path_vertices.resize(previous + 1);
         path_edges.resize(previous);
+        path_reversals.resize(previous);
       }
       else {
         path_edges.append(edge.id);
+        path_reversals.append(use.reversed);
         path_vertices.append(end);
       }
     }
     repairs.append(std::move(repair));
-    remove_face(*builder.geometry, face);
+    if (auto **existing = builder.faces.lookup_ptr(face.id)) {
+      remove_face(*builder.geometry, **existing);
+    }
+  }
+  /* Only unreconstructed faces retain their original parameterization. Apply edge remapping
+   * there after planning every cycle, so no half-repaired face constrains another face's fill. */
+  for (auto &face : builder.geometry->faces) {
+    for (auto &loop : face.loops) {
+      for (auto &use : loop.edge_uses) {
+        if (const auto *replacement = edge_map.lookup_ptr(use.edge_id)) {
+          if (replacement->second) {
+            const auto &old_edge = *builder.edges.lookup(use.edge_id);
+            auto *pcurve = builder.curves.lookup(use.pcurve_id);
+            if (!full_linear(*pcurve, old_edge)) {
+              return fail("NURBS Merge needs exact p-curve reversal for this shared edge");
+            }
+            pcurve = builder.copy_curve(pcurve->id);
+            std::swap(pcurve->points[0], pcurve->points[1]);
+            use.pcurve_id = pcurve->id;
+            use.reversed ^= 1;
+          }
+          use.edge_id = replacement->first;
+        }
+      }
+    }
   }
   for (auto &edge : builder.geometry->edges.items_mutable()) {
     if (constant_edges.contains(edge.id) || edge_map.contains(edge.id)) {
@@ -430,19 +683,46 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
     return std::nullopt;
   }
   OwnedGeometry geometry = std::move(builder.geometry);
+  double support_error = 0;
+  Set<int64_t> reconstructed_faces;
   for (const auto &repair : repairs) {
     result.source_to_result.add_overwrite(repair.id, 0);
     bool first = true;
     for (const auto &cycle : repair.cycles) {
-      auto filled = fill_components(*geometry, {{}, cycle, {}}, r_error);
+      auto filled = fill_components(*geometry, {{}, cycle.edges, {}}, max_position_error, r_error);
       if (!filled) {
         return std::nullopt;
       }
       if (filled->created_faces.is_empty()) {
-        return fail(
-            "NURBS Merge boundary coincides with another face requiring support reconciliation");
+        /* Two quotient cycles may become the same face, as when a tetrahedron collapses
+         * to a triangle. Identical source edges give identical newly constructed linear
+         * patches, even when their UV charts differ. An unchanged affine source can also be
+         * the weld target when exact coefficient proofs establish its boundary agreement. */
+        int64_t equivalent = 0;
+        for (const auto &face : geometry->faces) {
+          if (!face.loops.is_single()) {
+            continue;
+          }
+          const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
+          if (same_boundary_cycle(loop, cycle.edges) &&
+              (reconstructed_faces.contains(face.id) || exact_affine_boundary(*geometry, face)))
+          {
+            equivalent = face.id;
+            break;
+          }
+        }
+        if (equivalent == 0) {
+          return fail(
+              "NURBS Merge boundary coincides with another face requiring support reconciliation");
+        }
+        if (first) {
+          result.source_to_result.add_overwrite(repair.id, equivalent);
+          first = false;
+        }
+        continue;
       }
       const int64_t created = filled->created_faces[0];
+      support_error = std::max(support_error, filled->construction_error_bound);
       for (auto &face : filled->geometry->faces) {
         if (face.id != created) {
           continue;
@@ -453,24 +733,24 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
           first = false;
         }
         face.material_index = repair.material;
-        face.tolerance = std::max(face.tolerance, repair.tolerance);
-        if (repair.normal) {
-          for (const auto &surface : filled->geometry->surfaces) {
-            if (surface.id == face.surface_id) {
-              const double2 center(
-                  (surface.knots_u[surface.order_u - 1] + surface.knots_u[surface.points_u]) * 0.5,
-                  (surface.knots_v[surface.order_v - 1] + surface.knots_v[surface.points_v]) *
-                      0.5);
-              const auto differential = evaluate_surface_differential(surface, center);
-              if (differential && differential->normal) {
-                face.orientation = math::dot(*repair.normal, *differential->normal) < 0 ? -1 : 1;
-              }
-            }
+        reconstructed_faces.add(face.id);
+        face.tolerance = std::max(
+            face.tolerance, detail::add_upper(repair.tolerance, filled->construction_error_bound));
+        for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses)
+        {
+          if (use.edge_id == cycle.edges.first()) {
+            face.orientation = repair.orientation *
+                               (bool(use.reversed) == cycle.first_reversed ? 1 : -1);
+            break;
           }
         }
       }
       geometry = std::move(filled->geometry);
     }
+  }
+  result.geometry_error_bound = detail::add_upper(result.geometry_error_bound, support_error);
+  if (result.geometry_error_bound > max_position_error) {
+    return fail("NURBS Merge support reconstruction exceeds the requested roundoff budget");
   }
   /* A duplicate face is removable only when its NURBS support and boundary really agree.
    * Distinct curved sheets sharing endpoints/boundaries remain distinct geometry. */
@@ -595,6 +875,8 @@ std::optional<TopologyEditResult> merge_selected_vertices(const NurbsGeometry &s
       continue;
     }
     VertexMergeGroup group;
+    Vector<int64_t> center_vertices;
+    Set<int64_t> center_edges;
     group.survivor = vertex.id;
     group.vertices.append(vertex.id);
     if (mode == VertexMergeMode::Collapse) {
@@ -602,6 +884,9 @@ std::optional<TopologyEditResult> merge_selected_vertices(const NurbsGeometry &s
         for (const int64_t edge_id : index->edges_for_vertex(group.vertices[i])) {
           if (!selection.edges.contains(edge_id)) {
             continue;
+          }
+          if (center_edges.add(edge_id)) {
+            center_vertices.extend(Span(index->edge(edge_id)->vertex_ids, 2));
           }
           for (const int64_t endpoint : index->edge(edge_id)->vertex_ids) {
             if (assigned.add(endpoint)) {
@@ -634,15 +919,15 @@ std::optional<TopologyEditResult> merge_selected_vertices(const NurbsGeometry &s
       group.target = double3(index->vertex(target.id)->position);
     }
     else {
-      // Incremental mean avoids overflowing a sum when the requested center is representable.
-      group.target = double3(0);
-      int count = 0;
-      for (const int64_t id : group.vertices) {
-        const double3 point(index->vertex(id)->position);
-        count++;
-        const double fraction = 1.0 / count;
-        group.target = group.target * (1.0 - fraction) + point * fraction;
+      /* BMesh Collapse averages both endpoints of each selected edge, counting repeated
+       * incidences. Center averages unique selected vertices. These differ at junctions. */
+      const auto center = merge_center(*index,
+                                       center_vertices.is_empty() ? group.vertices.as_span() :
+                                                                    center_vertices.as_span());
+      if (!center) {
+        return fail("NURBS Merge cannot represent the selected vertex center");
       }
+      group.target = *center;
     }
     groups.append(std::move(group));
   }

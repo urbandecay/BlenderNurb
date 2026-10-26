@@ -83,6 +83,27 @@ static int polygon_orientation(const Span<int> polygon, const Span<double2> posi
   return 0;
 }
 
+/** Detect a rectangular chart from its sampled trim, independently of face IDs, selection and
+ * the number of topology edges along each side. Test in UV, so curved supports and periodic
+ * seams retain their U/V grid too. Holes and nonrectangular trims use a triangular display grid.
+ * This classifies display samples only; it never changes the source trim or parameterization. */
+static bool rectangular_chart(const Span<int> polygon,
+                              const Span<double2> parameters,
+                              const double2 minimum,
+                              const double2 maximum)
+{
+  for (const int i : polygon.index_range()) {
+    const double2 a = parameters[polygon[i]];
+    const double2 b = parameters[polygon[(i + 1) % polygon.size()]];
+    const bool u_side = a.x == b.x && (a.x == minimum.x || a.x == maximum.x);
+    const bool v_side = a.y == b.y && (a.y == minimum.y || a.y == maximum.y);
+    if (!u_side && !v_side) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static std::optional<Vector<double>> axis_samples(const double minimum,
                                                   const double maximum,
                                                   const Span<double> knots,
@@ -217,6 +238,8 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
       minimum = math::min(minimum, point);
       maximum = math::max(maximum, point);
     }
+    const bool quad_grid = loops.size() == 1 &&
+                           rectangular_chart(loops[outer_loop], uv, minimum, maximum);
     const double2 origin(std::midpoint(minimum.x, maximum.x), std::midpoint(minimum.y, maximum.y));
     const double scale = std::max(
         {maximum.x - origin.x, maximum.y - origin.y, origin.x - minimum.x, origin.y - minimum.y});
@@ -397,6 +420,11 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
       if (direction != face.orientation) {
         std::swap(evaluated.points[1], evaluated.points[2]);
         std::swap(evaluated.parameters[1], evaluated.parameters[2]);
+      }
+      for (const int i : IndexRange(3)) {
+        const double2 a = evaluated.parameters[i];
+        const double2 b = evaluated.parameters[(i + 1) % 3];
+        evaluated.display_edges[i] = !quad_grid || a.x == b.x || a.y == b.y;
       }
       result.triangles.append(evaluated);
     }

@@ -1709,12 +1709,9 @@ static bke::GeometrySet evaluate_native_nurbs_object(Object &object,
     return fail(
         "Native NURBS preview does not yet support modifiers or legacy curve offsets/bevels");
   }
-  const int resolution_u = for_render && curve.resolu_ren > 0 ? curve.resolu_ren : curve.resolu;
-  const int resolution_v = for_render && curve.resolv_ren > 0 ? curve.resolv_ren : curve.resolv;
-  /* Initial uniform preview uses the maximum configured U/V resolution. No fitting or source
-   * tolerance expansion is performed. Agreement allowance remains explicitly zero. */
-  evaluation->options.boundary.segments_per_span = std::max(resolution_u, resolution_v);
-  evaluation->options.interior_subdivisions = std::max(resolution_u, resolution_v);
+  /* Keep the tagged two-by-two surface's display grid density on native entry. No fitting or
+   * source tolerance expansion is performed. Agreement allowance remains explicitly zero. */
+  evaluation->options = bke::nurbs::curve_preview_options(curve, for_render);
   evaluation->result = bke::nurbs::evaluate_mesh(
       *curve.nurbs_eval_source->snapshot, evaluation->options, &evaluation->error);
   if (!evaluation->result) {

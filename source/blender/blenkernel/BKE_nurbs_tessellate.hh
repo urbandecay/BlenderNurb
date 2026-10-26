@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <array>
+
 /** \file
  * \ingroup bke
  */
@@ -24,6 +26,9 @@ struct SurfacePreviewTriangle {
   int64_t face_id;
   /** Face-local UVs, including different UVs for shared seam positions. */
   double2 parameters[3];
+  /** Display wires for (0, 1), (1, 2), (2, 0). Rectangular charts omit cell diagonals;
+   * other trims keep the triangular preview grid. These are never editable source edges. */
+  std::array<bool, 3> display_edges;
 };
 
 struct SurfacePreview {

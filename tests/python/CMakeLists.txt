@@ -219,6 +219,56 @@ add_blender_test(
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_nurbs_line.py
 )
 
+# Source fixture -> mixed operator sequences -> independent saved-topology comparison.
+# Both the split and aggregate GTest configurations expose the same filtered cases.
+if(TARGET blenkernel_nurbs_topology_edit_test)
+  set(_nurbs_composition_gtest blenkernel_nurbs_topology_edit_test)
+elseif(TARGET blender_test)
+  set(_nurbs_composition_gtest blender_test)
+endif()
+if(DEFINED _nurbs_composition_gtest)
+  set(_nurbs_composition_root "${TEST_OUT_DIR}/nurbs_composition")
+  file(MAKE_DIRECTORY "${_nurbs_composition_root}/fixtures" "${_nurbs_composition_root}/states")
+  add_test(
+    NAME nurbs_composition_fixture
+    COMMAND ${CMAKE_COMMAND} -E env
+      "BLENDER_NURBS_TOPOLOGY_OUTPUT=${_nurbs_composition_root}/fixtures"
+      $<TARGET_FILE:${_nurbs_composition_gtest}>
+      --test-assets-dir "${TEST_SRC_DIR}"
+      --gtest_filter=NurbsTopologyEditTest.LoopCutsCreateSharedEditableSubpatchesAndPreserveTheSurface
+  )
+  set_tests_properties(nurbs_composition_fixture PROPERTIES
+    FIXTURES_SETUP nurbs_composition_source
+    PASS_REGULAR_EXPRESSION "\\[  PASSED  \\] 1 test\\."
+  )
+  add_blender_test_allow_error(
+    script_nurbs_composition
+    --python ${CMAKE_CURRENT_LIST_DIR}/nurbs_native_composition.py
+  )
+  set_property(TEST script_nurbs_composition APPEND PROPERTY ENVIRONMENT
+    "BLENDER_NURBS_TOPOLOGY_OUTPUT=${_nurbs_composition_root}/fixtures"
+    "BLENDER_NURBS_COMPOSITION_OUTPUT=${_nurbs_composition_root}/states"
+  )
+  set_tests_properties(script_nurbs_composition PROPERTIES
+    FIXTURES_REQUIRED nurbs_composition_source
+    FIXTURES_SETUP nurbs_composition_checkpoints
+  )
+  add_test(
+    NAME nurbs_composition_saved_sources
+    COMMAND ${CMAKE_COMMAND} -E env
+      "BLENDER_NURBS_COMPOSITION_OUTPUT=${_nurbs_composition_root}/states"
+      $<TARGET_FILE:${_nurbs_composition_gtest}>
+      --test-assets-dir "${TEST_SRC_DIR}"
+      --gtest_filter=NurbsTopologyEditTest.SavedMixedWorkflowsMatchMeshAndKeepSharedSourceIncidence
+  )
+  set_tests_properties(nurbs_composition_saved_sources PROPERTIES
+    FIXTURES_REQUIRED nurbs_composition_checkpoints
+    PASS_REGULAR_EXPRESSION "\\[  PASSED  \\] 1 test\\."
+  )
+  unset(_nurbs_composition_root)
+  unset(_nurbs_composition_gtest)
+endif()
+
 if(TEST_SRC_DIR_EXISTS)
   add_blender_test(
     script_nurbs_legacy_compat
@@ -1646,6 +1696,15 @@ if(WITH_UI_TESTS)
     test_nurbs_line.face_region_selection_gestures
     test_nurbs_line.duplicate_and_repeat_face_extrusion
     test_nurbs_line.extrude_delete_top_and_continue
+    test_nurbs_native.composition_native_workflow
+    test_nurbs_native.composition_native_multicut_workflow
+    test_nurbs_native.pyramid_movement_workflow
+    test_nurbs_native.pyramid_movement_mesh_workflow
+    test_nurbs_native.pyramid_movement_box_workflow
+    test_nurbs_native.pyramid_shading_workflow
+    test_nurbs_native.pyramid_shading_mesh_workflow
+    test_nurbs_native.pyramid_decimal_move_workflow
+    test_nurbs_native.pyramid_decimal_move_mesh_workflow
     test_sculpt.asset_shelf_brush_selection
     test_sculpt.face_set_expand
     test_sculpt.face_set_gestures

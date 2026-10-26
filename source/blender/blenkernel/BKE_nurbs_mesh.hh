@@ -12,8 +12,9 @@
 #include "BKE_nurbs_tessellate.hh"
 
 namespace blender {
+struct Curve;
 struct Mesh;
-}
+}  // namespace blender
 
 namespace blender::bke::nurbs {
 
@@ -33,6 +34,11 @@ struct MeshEvaluation {
   ReadSnapshot source;
   SurfacePreview preview;
   OwnedMesh mesh;
+  /** Display face index -> original double preview triangle. The preview itself is retained,
+   * including collapsed editing intermediates and triangles lost to float quantization. */
+  Vector<int> mesh_to_preview_triangle;
+  /** Exactly collinear float triangles omitted before building Mesh corner-normal spaces. */
+  int skipped_degenerate_float_triangles = 0;
   /** Measured double-to-float conversion deviation; not a surface approximation error bound. */
   double max_float_position_deviation = 0.0;
   /** Index-collapsed boundary segments omitted from the display mesh, retained in source data. */
@@ -50,15 +56,25 @@ struct ObjectEvaluation {
   std::string error;
 };
 
+/** Shared native/compatibility preview density. A legacy two-by-two patch has 2 * resolution
+ * samples, including its endpoints, so use 2 * resolution - 1 intervals per span. Preserve that
+ * grid density when entering native editing. The current uniform preview uses the larger U/V
+ * setting; render overrides are applied independently before choosing that setting. */
+SurfacePreviewOptions curve_preview_options(const Curve &curve, bool for_render = false);
+
 /**
  * Build a derived float Mesh from an immutable NURBS source. Shares boundary samples by source
- * identity and retains per-triangle face/UV provenance in the accompanying preview. Rejects float
+ * identity and retains per-triangle face/UV provenance in the accompanying preview. Exactly
+ * collinear float triangles are counted and omitted from the Mesh, with an explicit map back to
+ * the unchanged double preview. No area epsilon or coordinate welding is used. Rejects float
  * overflow; reports measured float quantization. Derived diagonals are not source topology.
- * Source identities, coefficients, tolerances and selection are never changed. Corner normals
- * come from source derivatives and face orientation, with one-sided knot limits toward each
- * triangle. Computed degenerate frames are counted and use Blender's display-normal fallback.
- * Normals use Blender's normal encoding; no geometric continuity or error certificate is implied.
- * Does not apply modifiers, create texture UVs or make a persistent Mesh ID.
+ * The mesh renderer's optimal-display mask keeps U/V wires on rectangular charts and triangle
+ * wires on other trims, independently for each source face. Boundary and loose source edges
+ * remain visible. Source identities, coefficients, tolerances and selection are never changed.
+ * Corner normals come from source derivatives and face orientation, with one-sided knot limits
+ * toward each triangle. Computed degenerate frames are counted and use Blender's display-normal
+ * fallback. Normals use Blender's normal encoding; no geometric continuity or error certificate is
+ * implied. Does not apply modifiers, create texture UVs or make a persistent Mesh ID.
  */
 std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
                                             const SurfacePreviewOptions &options,

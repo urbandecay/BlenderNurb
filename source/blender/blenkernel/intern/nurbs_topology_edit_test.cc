@@ -168,11 +168,107 @@ static TopologySignature signature(const Mesh &mesh)
   return result;
 }
 
+static TopologySignature merge_bmesh_reference(const NurbsGeometry &source,
+                                               const SelectionState &selection,
+                                               const VertexMergeMode mode,
+                                               const float3 target)
+{
+  const BMeshCreateParams parameters{.use_toolflags = true};
+  BMesh *mesh = BM_mesh_create(&bm_mesh_allocsize_default, &parameters);
+  BLI_SCOPED_DEFER([&]() { BM_mesh_free(mesh); });
+  Map<int64_t, BMVert *> vertices;
+  const auto index = TopologyIndex::build(source);
+  for (const auto &vertex : source.vertices) {
+    const float3 position(double3(vertex.position));
+    auto *created = BM_vert_create(mesh, position, nullptr, BM_CREATE_NOP);
+    vertices.add_new(vertex.id, created);
+    BM_elem_flag_set(created, BM_ELEM_SELECT, selection.vertices.contains(vertex.id));
+  }
+  for (const auto &edge : source.edges) {
+    auto *created = BM_edge_create(mesh,
+                                   vertices.lookup(edge.vertex_ids[0]),
+                                   vertices.lookup(edge.vertex_ids[1]),
+                                   nullptr,
+                                   BM_CREATE_NOP);
+    BM_elem_flag_set(created, BM_ELEM_SELECT, selection.edges.contains(edge.id));
+  }
+  for (const auto &face : source.faces) {
+    Vector<BMVert *> boundary;
+    for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+      const auto &edge = *index->edge(use.edge_id);
+      boundary.append(vertices.lookup(edge.vertex_ids[use.reversed ? 1 : 0]));
+    }
+    BM_face_create_verts(mesh, boundary.data(), boundary.size(), nullptr, BM_CREATE_NOP, false);
+  }
+  BMOperator op;
+  if (mode == VertexMergeMode::Collapse) {
+    BMO_op_initf(mesh, &op, BMO_FLAG_DEFAULTS, "collapse edges=%he uvs=%b", BM_ELEM_SELECT, false);
+  }
+  else {
+    BMO_op_initf(mesh,
+                 &op,
+                 BMO_FLAG_DEFAULTS,
+                 "pointmerge verts=%hv merge_co=%v",
+                 BM_ELEM_SELECT,
+                 &target.x);
+  }
+  BMO_op_exec(mesh, &op);
+  BMO_op_finish(mesh, &op);
+  TopologySignature result;
+  auto point = [](const BMVert *vertex) {
+    return TopologySignature::Point{vertex->co[0], vertex->co[1], vertex->co[2]};
+  };
+  BMIter iter;
+  BMVert *vertex;
+  BM_ITER_MESH (vertex, &iter, mesh, BM_VERTS_OF_MESH) {
+    result.vertices.push_back(point(vertex));
+  }
+  BMEdge *edge;
+  BM_ITER_MESH (edge, &iter, mesh, BM_EDGES_OF_MESH) {
+    result.edges.push_back({point(edge->v1), point(edge->v2)});
+  }
+  BMFace *face;
+  BM_ITER_MESH (face, &iter, mesh, BM_FACES_OF_MESH) {
+    std::vector<TopologySignature::Point> boundary;
+    BMIter loop_iter;
+    BMLoop *loop;
+    BM_ITER_ELEM (loop, &loop_iter, face, BM_LOOPS_OF_FACE) {
+      boundary.push_back(point(loop->v));
+    }
+    result.faces.push_back(std::move(boundary));
+  }
+  result.sort();
+  return result;
+}
+
 static void expect_signature_equal(const TopologySignature &a, const TopologySignature &b)
 {
   EXPECT_EQ(a.vertices, b.vertices);
   EXPECT_EQ(a.edges, b.edges);
   EXPECT_EQ(a.faces, b.faces);
+}
+
+static void expect_signature_near_mesh(const TopologySignature &a, const TopologySignature &b)
+{
+  ASSERT_EQ(a.vertices.size(), b.vertices.size());
+  for (int i = 0; i < a.vertices.size(); i++) {
+    for (int axis = 0; axis < 3; axis++) {
+      EXPECT_NEAR(a.vertices[i][axis], b.vertices[i][axis], 1e-6);
+    }
+  }
+  const auto compare = [](const auto &first, const auto &second) {
+    ASSERT_EQ(first.size(), second.size());
+    for (int i = 0; i < first.size(); i++) {
+      ASSERT_EQ(first[i].size(), second[i].size());
+      for (int j = 0; j < first[i].size(); j++) {
+        for (int axis = 0; axis < 3; axis++) {
+          EXPECT_NEAR(first[i][j][axis], second[i][j][axis], 1e-6);
+        }
+      }
+    }
+  };
+  compare(a.edges, b.edges);
+  compare(a.faces, b.faces);
 }
 
 static void write_source(const std::string &name,
@@ -201,9 +297,11 @@ static void write_source(const std::string &name,
 
 static void compare_mesh_file(const std::string &name,
                               const NurbsGeometry &geometry,
-                              const double comparison_grid = 0)
+                              const double comparison_grid = 0,
+                              const char *directory_override = nullptr)
 {
-  const char *directory = std::getenv("BLENDER_NURBS_TOPOLOGY_OUTPUT");
+  const char *directory = directory_override ? directory_override :
+                                               std::getenv("BLENDER_NURBS_TOPOLOGY_OUTPUT");
   if (!directory) {
     return;
   }
@@ -605,6 +703,509 @@ TEST_F(NurbsTopologyEditTest, ConsecutiveCenterAndCollapseDropDoomedTriangleBefo
   EXPECT_EQ(source->faces.count(), 1);
 }
 
+TEST_F(NurbsTopologyEditTest, MergeExtrudedBoxTopIntoOneSharedApex)
+{
+  auto sheet = planar_grid(1, 1, {-1, -1, 0}, {2, 2});
+  ASSERT_NE(sheet, nullptr);
+  const int64_t bottom = static_cast<NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  auto box = extrude_components(*sheet, {{}, {}, {&bottom, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(box.has_value()) << error;
+  const ElementRef top{ElementDomain::Face, box->source_to_cap.lookup(bottom)};
+  SelectionState initial;
+  initial.mode = SelectionMode::Face;
+  const auto top_selected = selection_apply(
+      *box->geometry, initial, {&top, 1}, SelectionAction::Set, top, &error);
+  ASSERT_TRUE(top_selected.has_value()) << error;
+  for (const VertexMergeMode merge_mode : {VertexMergeMode::Center, VertexMergeMode::Collapse}) {
+    for (const SelectionMode mode :
+         {SelectionMode::Vertex, SelectionMode::Edge, SelectionMode::Face})
+    {
+      SCOPED_TRACE(int(merge_mode));
+      SCOPED_TRACE(int(mode));
+      const auto selected = selection_change_mode(*box->geometry, *top_selected, mode, &error);
+      ASSERT_TRUE(selected.has_value()) << error;
+      auto result = merge_selected_vertices(*box->geometry, *selected, merge_mode, {}, 0, &error);
+      ASSERT_TRUE(result.has_value()) << error;
+      EXPECT_EQ(result->geometry->vertices.count(), 5);
+      EXPECT_EQ(result->geometry->edges.count(), 8);
+      EXPECT_EQ(result->geometry->faces.count(), 5);
+      EXPECT_EQ(result->geometry_error_bound, 0);
+      expect_signature_equal(
+          signature(*result->geometry),
+          merge_bmesh_reference(*box->geometry, *selected, merge_mode, {0, 0, 2}));
+      ASSERT_EQ(result->vertices.size(), 1);
+      const auto index = TopologyIndex::build(*result->geometry, &error);
+      ASSERT_TRUE(index.has_value()) << error;
+      EXPECT_EQ(double3(index->vertex(result->vertices[0])->position), double3(0, 0, 2));
+      for (const auto &edge : result->geometry->edges) {
+        const auto uses = index->uses_for_edge(edge.id);
+        ASSERT_EQ(uses.size(), 2);
+        EXPECT_EQ(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                  -index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+      }
+      EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+      EXPECT_EQ(box->geometry->vertices.count(), 8);
+      EXPECT_EQ(box->geometry->faces.count(), 6);
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, SuccessiveBoxEdgeAndTopMergesMatchBMesh)
+{
+  auto sheet = planar_grid(1, 1, {-1, -1, 0}, {2, 2});
+  const int64_t bottom = static_cast<NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  const auto box = extrude_components(*sheet, {{}, {}, {&bottom, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(box.has_value()) << error;
+  const ElementRef top{ElementDomain::Face, box->source_to_cap.lookup(bottom)};
+  const auto index = TopologyIndex::build(*box->geometry);
+  for (const auto &first_use :
+       static_cast<const NurbsTopologyLoop *>(index->face(top.id)->loops.first)->edge_uses)
+  {
+    const int64_t first_edge = first_use.edge_id;
+    SCOPED_TRACE(first_edge);
+    const auto &source_edge = *index->edge(first_edge);
+    const double3 first_target = (double3(index->vertex(source_edge.vertex_ids[0])->position) +
+                                  double3(index->vertex(source_edge.vertex_ids[1])->position)) *
+                                 0.5;
+    SelectionState initial;
+    initial.mode = SelectionMode::Edge;
+    const ElementRef edge{ElementDomain::Edge, first_edge};
+    const auto first_selection = selection_apply(
+        *box->geometry, initial, {&edge, 1}, SelectionAction::Set, edge, &error);
+    ASSERT_TRUE(first_selection.has_value()) << error;
+    for (const VertexMergeMode first_mode : {VertexMergeMode::Center, VertexMergeMode::Collapse}) {
+      const auto first = merge_selected_vertices(
+          *box->geometry, *first_selection, first_mode, {}, 1e-9, &error);
+      ASSERT_TRUE(first.has_value()) << error;
+      expect_signature_equal(
+          signature(*first->geometry),
+          merge_bmesh_reference(
+              *box->geometry, *first_selection, first_mode, float3(first_target)));
+      SelectionState face_mode;
+      face_mode.mode = SelectionMode::Face;
+      const auto face_selection = selection_apply(
+          *first->geometry, face_mode, {&top, 1}, SelectionAction::Set, top, &error);
+      ASSERT_TRUE(face_selection.has_value()) << error;
+      const auto first_index = TopologyIndex::build(*first->geometry);
+      double3 second_target(0);
+      for (const int64_t id : face_selection->vertices) {
+        second_target += double3(first_index->vertex(id)->position);
+      }
+      second_target /= double(face_selection->vertices.size());
+      for (const SelectionMode mode :
+           {SelectionMode::Vertex, SelectionMode::Edge, SelectionMode::Face})
+      {
+        const auto selected = selection_change_mode(
+            *first->geometry, *face_selection, mode, &error);
+        ASSERT_TRUE(selected.has_value()) << error;
+        for (const VertexMergeMode second_mode :
+             {VertexMergeMode::Center, VertexMergeMode::Collapse})
+        {
+          SCOPED_TRACE(int(first_mode));
+          SCOPED_TRACE(int(mode));
+          SCOPED_TRACE(int(second_mode));
+          const auto second = merge_selected_vertices(
+              *first->geometry, *selected, second_mode, {}, 1e-9, &error);
+          ASSERT_TRUE(second.has_value()) << error;
+          EXPECT_EQ(second->geometry->vertices.count(), 5);
+          EXPECT_EQ(second->geometry->edges.count(), 8);
+          EXPECT_EQ(second->geometry->faces.count(), 5);
+          // BMesh stores float positions; source targets and error budgets are checked separately.
+          expect_signature_near_mesh(
+              signature(*second->geometry),
+              merge_bmesh_reference(
+                  *first->geometry, *selected, second_mode, float3(second_target)));
+          const auto result_index = TopologyIndex::build(*second->geometry);
+          EXPECT_EQ(double3(result_index->vertex(second->vertices[0])->position), second_target);
+          for (const auto &edge : second->geometry->edges) {
+            const auto uses = result_index->uses_for_edge(edge.id);
+            ASSERT_EQ(uses.size(), 2);
+            EXPECT_EQ(result_index->face(uses[0].face_id)->orientation *
+                          (uses[0].use->reversed ? -1 : 1),
+                      -result_index->face(uses[1].face_id)->orientation *
+                          (uses[1].use->reversed ? -1 : 1));
+          }
+          SurfacePreviewOptions strict_preview;
+          strict_preview.boundary.segments_per_span = strict_preview.interior_subdivisions = 7;
+          const auto preview = tessellate_surfaces(*second->geometry, strict_preview, &error);
+          ASSERT_TRUE(preview.has_value()) << error;
+        }
+      }
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RepeatedEdgeMergesReachFacesWiresAndOneVertexLikeBMesh)
+{
+  for (const VertexMergeMode mode : {VertexMergeMode::Center, VertexMergeMode::Collapse}) {
+    auto sheet = planar_grid(1, 1, {-1, -1, 0}, {2, 2});
+    const int64_t bottom = static_cast<NurbsTopologyFace *>(sheet->faces.first)->id;
+    std::string error;
+    auto box = extrude_components(*sheet, {{}, {}, {&bottom, 1}}, {0, 0, 2}, 0, &error);
+    ASSERT_TRUE(box.has_value()) << error;
+    OwnedGeometry geometry = std::move(box->geometry);
+    while (!geometry->edges.is_empty()) {
+      const int old_count = geometry->vertices.count();
+      SCOPED_TRACE(int(mode));
+      SCOPED_TRACE(old_count);
+      const auto index = TopologyIndex::build(*geometry);
+      const auto &edge = *static_cast<const NurbsTopologyEdge *>(geometry->edges.first);
+      const double3 target = (double3(index->vertex(edge.vertex_ids[0])->position) +
+                              double3(index->vertex(edge.vertex_ids[1])->position)) *
+                             0.5;
+      SelectionState initial;
+      initial.mode = SelectionMode::Edge;
+      const ElementRef ref{ElementDomain::Edge, edge.id};
+      const auto selected = selection_apply(
+          *geometry, initial, {&ref, 1}, SelectionAction::Set, ref, &error);
+      ASSERT_TRUE(selected.has_value()) << error;
+      const auto reference = merge_bmesh_reference(*geometry, *selected, mode, float3(target));
+      auto merged = merge_selected_vertices(*geometry, *selected, mode, {}, 1e-9, &error);
+      ASSERT_TRUE(merged.has_value()) << error;
+      EXPECT_EQ(merged->geometry->vertices.count(), old_count - 1);
+      expect_signature_near_mesh(signature(*merged->geometry), reference);
+      EXPECT_EQ(merged->geometry_error_bound, 0);
+      EXPECT_TRUE(tessellate_surfaces(*merged->geometry, preview_options(), &error)) << error;
+      geometry = std::move(merged->geometry);
+    }
+    EXPECT_EQ(geometry->vertices.count(), 1);
+    EXPECT_TRUE(geometry->faces.is_empty());
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, MergePreservesUnmovedPatchesAndWarpedTriangleInteriors)
+{
+  auto source = planar_grid(3, 1);
+  ASSERT_NE(source, nullptr);
+  const auto index = TopologyIndex::build(*source);
+  const auto &edge = *static_cast<const NurbsTopologyEdge *>(source->edges.first);
+  const auto &unaffected = *static_cast<const NurbsTopologyFace *>(source->faces.last);
+  const auto &loop = *static_cast<const NurbsTopologyLoop *>(unaffected.loops.first);
+  const auto &last_use = *static_cast<const NurbsTopologyEdgeUse *>(loop.edge_uses.first);
+  const auto &last_edge = *index->edge(last_use.edge_id);
+  const int64_t unmoved = last_edge.vertex_ids[1];
+  const VertexMergeGroup groups[] = {
+      {{edge.vertex_ids[0], edge.vertex_ids[1]}, edge.vertex_ids[0], {0.5, 0, 0}},
+      {{unmoved}, unmoved, double3(index->vertex(unmoved)->position)}};
+  std::string error;
+  const auto merged = merge_vertex_groups(*source, {groups, 2}, 0, &error);
+  ASSERT_TRUE(merged.has_value()) << error;
+  const auto output = TopologyIndex::build(*merged->geometry);
+  ASSERT_TRUE(output.has_value());
+  const auto &kept = *output->face(unaffected.id);
+  EXPECT_EQ(kept.surface_id, unaffected.surface_id);
+  const auto &kept_loop = *static_cast<const NurbsTopologyLoop *>(kept.loops.first);
+  EXPECT_EQ(kept_loop.id, loop.id);
+  for (const auto &use : loop.edge_uses) {
+    bool found = false;
+    for (const auto &kept_use : kept_loop.edge_uses) {
+      if (kept_use.id == use.id) {
+        EXPECT_EQ(kept_use.edge_id, use.edge_id);
+        EXPECT_EQ(kept_use.pcurve_id, use.pcurve_id);
+        found = true;
+      }
+    }
+    EXPECT_TRUE(found);
+    EXPECT_EQ(output->edge(use.edge_id)->curve_id, index->edge(use.edge_id)->curve_id);
+  }
+  auto warped = make_planar_sheet();
+  auto &face = *static_cast<NurbsTopologyFace *>(warped->faces.first);
+  for (auto &old_loop : face.loops) {
+    BLI_freelistN(&old_loop.edge_uses);
+  }
+  BLI_freelistN(&face.loops);
+  const double2 corners[] = {{0, 0}, {1, 0}, {0, 1}};
+  const auto *triangle = add_planar_loop(*warped, face, {corners, 3}, false);
+  auto &surface = *static_cast<NurbsSurfaceGeometry *>(warped->surfaces.first);
+  surface.points[3].position[2] = 1;
+  face.tolerance = 1;
+  ASSERT_TRUE(evaluate_boundaries(*warped, {7, 1000, 0}, &error)) << error;
+  const auto warped_index = TopologyIndex::build(*warped);
+  const auto &triangle_use = *static_cast<const NurbsTopologyEdgeUse *>(triangle->edge_uses.first);
+  const int64_t corner = warped_index->edge(triangle_use.edge_id)->vertex_ids[0];
+  const VertexMergeGroup move{{corner}, corner, {-0.75, -1, 0}};
+  const int64_t next_id = warped->next_id;
+  const auto deformed = merge_vertex_groups(*warped, {&move, 1}, 1e-9, &error);
+  ASSERT_TRUE(deformed.has_value()) << error;
+  const auto &deformed_surface = *static_cast<const NurbsSurfaceGeometry *>(
+      deformed->geometry->surfaces.first);
+  EXPECT_EQ(deformed_surface.id, surface.id);
+  for (int axis = 0; axis < 3; axis++) {
+    EXPECT_EQ(
+        deformed_surface.points[0].position[axis] - deformed_surface.points[1].position[axis] -
+            deformed_surface.points[2].position[axis] + deformed_surface.points[3].position[axis],
+        surface.points[0].position[axis] - surface.points[1].position[axis] -
+            surface.points[2].position[axis] + surface.points[3].position[axis]);
+  }
+  EXPECT_TRUE(evaluate_boundaries(*deformed->geometry, {7, 1000, 0}, &error)) << error;
+  EXPECT_EQ(surface.points[3].position[2], 1);
+  EXPECT_EQ(warped->next_id, next_id);
+  EXPECT_EQ(double3(warped_index->vertex(corner)->position), double3(-1, -1, 0));
+}
+
+TEST_F(NurbsTopologyEditTest, MergeShearedBoxTopRepairsSlantedTriangleSupports)
+{
+  auto sheet = planar_grid(1, 1, {-1, -1, 0}, {2, 2});
+  const int64_t bottom = static_cast<NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  auto box = extrude_components(*sheet, {{}, {}, {&bottom, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(box.has_value()) << error;
+  auto shear = double4x4::identity();
+  shear[2][0] = 0.25;
+  shear[0][2] = 0.5;
+  auto source = transform_geometry(*box->geometry, shear, 0, &error);
+  ASSERT_TRUE(source.has_value()) << error;
+  SelectionState selection;
+  selection.mode = SelectionMode::Face;
+  const ElementRef top{ElementDomain::Face, box->source_to_cap.lookup(bottom)};
+  const auto selected = selection_apply(
+      *source->geometry, selection, {&top, 1}, SelectionAction::Set, top, &error);
+  ASSERT_TRUE(selected.has_value()) << error;
+  for (const VertexMergeMode mode : {VertexMergeMode::Center, VertexMergeMode::Collapse}) {
+    const auto result = merge_selected_vertices(
+        *source->geometry, *selected, mode, {}, 1e-9, &error);
+    ASSERT_TRUE(result.has_value()) << error;
+    expect_signature_equal(signature(*result->geometry),
+                           merge_bmesh_reference(*source->geometry, *selected, mode, {0.5, 0, 2}));
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, CollapseRetainsSeparateSelectedEdgeIslandsLikeBMesh)
+{
+  OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+  Vector<NurbsTopologyVertex *> vertices;
+  for (const double x : {0, 2, 4, 6}) {
+    vertices.append(add_vertex(*source, {x, 0, 0}));
+  }
+  for (const int i : {0, 2}) {
+    const auto *curve = add_linear_curve(
+        *source, double3(vertices[i]->position), double3(vertices[i + 1]->position), 3);
+    add_edge(*source, *vertices[i], *vertices[i + 1], *curve);
+  }
+  SelectionState selection;
+  for (const auto *vertex : vertices) {
+    selection.vertices.add(vertex->id);
+  }
+  selection = *selection_flush(*source, selection, selection.mode);
+  for (const VertexMergeMode mode : {VertexMergeMode::Center, VertexMergeMode::Collapse}) {
+    std::string error;
+    const auto result = merge_selected_vertices(*source, selection, mode, {}, 0, &error);
+    ASSERT_TRUE(result.has_value()) << error;
+    EXPECT_EQ(result->vertices.size(), mode == VertexMergeMode::Center ? 1 : 2);
+    expect_signature_equal(signature(*result->geometry),
+                           merge_bmesh_reference(*source, selection, mode, {3, 0, 0}));
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, CollapseAveragesEdgeIncidencesAtJunctionsLikeBMesh)
+{
+  OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+  const auto *center = add_vertex(*source, {0, 0, 0});
+  for (const double3 position : {double3(4, 0, 0), double3(0, 2, 0), double3(0, -2, 0)}) {
+    const auto *end = add_vertex(*source, position);
+    const auto *curve = add_linear_curve(*source, double3(center->position), position, 3);
+    add_edge(*source, *center, *end, *curve);
+  }
+  SelectionState initial;
+  initial.mode = SelectionMode::Vertex;
+  for (const auto &vertex : source->vertices) {
+    initial.vertices.add(vertex.id);
+  }
+  const auto selected = selection_flush(*source, initial, initial.mode);
+  ASSERT_TRUE(selected.has_value());
+  std::string error;
+  for (const VertexMergeMode mode : {VertexMergeMode::Center, VertexMergeMode::Collapse}) {
+    const auto result = merge_selected_vertices(*source, *selected, mode, {}, 1e-9, &error);
+    ASSERT_TRUE(result.has_value()) << error;
+    const double3 expected(mode == VertexMergeMode::Center ? 1.0 : 2.0 / 3, 0, 0);
+    EXPECT_EQ(
+        double3(
+            static_cast<const NurbsTopologyVertex *>(result->geometry->vertices.first)->position),
+        expected);
+    expect_signature_near_mesh(signature(*result->geometry),
+                               merge_bmesh_reference(*source, *selected, mode, float3(expected)));
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, MergeCenterRemainsFiniteWhenTheVertexSumOverflows)
+{
+  OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+  SelectionState selection;
+  selection.vertices.add(add_vertex(*source, {1e308, 0, 0})->id);
+  selection.vertices.add(add_vertex(*source, {1e308, 0, 0})->id);
+  std::string error;
+  const auto result = merge_selected_vertices(
+      *source, selection, VertexMergeMode::Center, {}, 0, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  ASSERT_EQ(result->geometry->vertices.count(), 1);
+  EXPECT_EQ(static_cast<NurbsTopologyVertex *>(result->geometry->vertices.first)->position[0],
+            1e308);
+}
+
+TEST_F(NurbsTopologyEditTest, MergeApexConstructionReportsAndHonorsItsRoundoffBudget)
+{
+  auto sheet = planar_grid(1, 1, {-1, -1, 0}, {2, 2});
+  const int64_t bottom = static_cast<NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  const auto box = extrude_components(*sheet, {{}, {}, {&bottom, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(box.has_value()) << error;
+  VertexMergeGroup group;
+  for (const auto &vertex : box->geometry->vertices) {
+    if (vertex.position[2] == 2) {
+      group.vertices.append(vertex.id);
+    }
+  }
+  group.survivor = group.vertices.first();
+  group.target = {0x1p-60, 0, 2};
+  EXPECT_FALSE(merge_vertex_groups(*box->geometry, {&group, 1}, 0, &error));
+  const auto result = merge_vertex_groups(*box->geometry, {&group, 1}, 1e-12, &error);
+  ASSERT_TRUE(result.has_value()) << error;
+  EXPECT_GT(result->geometry_error_bound, 0);
+  EXPECT_LE(result->geometry_error_bound, 1e-12);
+  EXPECT_EQ(result->geometry->vertices.count(), 5);
+  EXPECT_EQ(result->geometry->edges.count(), 8);
+  EXPECT_EQ(result->geometry->faces.count(), 5);
+  EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+  EXPECT_EQ(box->geometry->vertices.count(), 8);
+  EXPECT_EQ(box->geometry->faces.count(), 6);
+}
+
+TEST_F(NurbsTopologyEditTest, SavedCubeTopMergesMatchActualBMeshAndRetainNurbsSource)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_APEX_OUTPUT");
+  if (!directory) {
+    GTEST_SKIP() << "Run after the cube top merge viewport workflows";
+  }
+  for (const char *label : {"CENTER-VERT-False-True-CAP",
+                            "COLLAPSE-VERT-False-True-CAP",
+                            "CENTER-FACE-False-True-CAP",
+                            "CENTER-EDGE-False-True-CAP",
+                            "CENTER-VERT-True-True-CAP",
+                            "CENTER-VERT-False-False-CAP",
+                            "CENTER-VERT-False-True-BOX",
+                            "CENTER-VERT-False-True-CLICK"})
+  {
+    SCOPED_TRACE(label);
+    ReportList reports;
+    BKE_reports_init(&reports, RPT_STORE);
+    BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+    BlendFileReadReport read_reports{};
+    read_reports.reports = &reports;
+    const std::string path = std::string(directory) + "/apex-" + label + ".blend";
+    auto *file = BLO_read_from_file(path.c_str(), BLO_READ_SKIP_USERDEF, &read_reports);
+    ASSERT_NE(file, nullptr);
+    BLI_SCOPED_DEFER([&]() { BLO_blendfiledata_free(file); });
+    ASSERT_EQ(file->main->objects.count(), 1);
+    const Curve &curve = *id_cast<Curve *>(static_cast<Object *>(file->main->objects.first)->data);
+    EXPECT_TRUE(curve.nurb.is_empty());
+    ASSERT_NE(curve.nurbs_geometry, nullptr);
+    std::string error;
+    EXPECT_TRUE(geometry_validate_structure(*curve.nurbs_geometry, &error)) << error;
+    const double y = STREQ(label, "CENTER-VERT-False-False-CAP") ? 1 : 0;
+    auto sheet = planar_grid(1, 1, {-1, y - 1, 0}, {2, 2});
+    const int64_t bottom = static_cast<NurbsTopologyFace *>(sheet->faces.first)->id;
+    const auto box = extrude_components(*sheet, {{}, {}, {&bottom, 1}}, {0, 0, 2}, 0, &error);
+    ASSERT_TRUE(box.has_value()) << error;
+    SelectionState initial;
+    initial.mode = SelectionMode::Face;
+    const ElementRef top{ElementDomain::Face, box->source_to_cap.lookup(bottom)};
+    const auto selected = selection_apply(
+        *box->geometry, initial, {&top, 1}, SelectionAction::Set, top, &error);
+    ASSERT_TRUE(selected.has_value()) << error;
+    const VertexMergeMode mode = STREQ(label, "COLLAPSE-VERT-False-True-CAP") ?
+                                     VertexMergeMode::Collapse :
+                                     VertexMergeMode::Center;
+    expect_signature_equal(
+        signature(*curve.nurbs_geometry),
+        merge_bmesh_reference(*box->geometry, *selected, mode, {0, float(y), 2}));
+    EXPECT_TRUE(tessellate_surfaces(*curve.nurbs_geometry, preview_options(), &error)) << error;
+    const auto stored = selection_from_storage(curve.nurbs_geometry->stored_selection, &error);
+    ASSERT_TRUE(stored.has_value()) << error;
+    EXPECT_EQ(stored->mode,
+              STREQ(label, "CENTER-FACE-False-True-CAP") ? SelectionMode::Face :
+              STREQ(label, "CENTER-EDGE-False-True-CAP") ? SelectionMode::Edge :
+                                                           SelectionMode::Vertex);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, SavedLayeredMergesMatchBMeshAndContinueFromPersistentSource)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_LAYERED_OUTPUT");
+  if (!directory) {
+    GTEST_SKIP() << "Run after the layered merge viewport workflows";
+  }
+  for (const char *label : {"CENTER-CENTER-VERT",
+                            "COLLAPSE-COLLAPSE-VERT",
+                            "CENTER-COLLAPSE-EDGE",
+                            "CENTER-CENTER-FACE"})
+  {
+    SCOPED_TRACE(label);
+    OwnedGeometry before;
+    SelectionState before_selection;
+    for (const char *stage : {"before-second", "after-second", "continued"}) {
+      SCOPED_TRACE(stage);
+      ReportList reports;
+      BKE_reports_init(&reports, RPT_STORE);
+      BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+      BlendFileReadReport read_reports{};
+      read_reports.reports = &reports;
+      const std::string path = std::string(directory) + "/layered-" + label + "-" + stage +
+                               ".blend";
+      auto *file = BLO_read_from_file(path.c_str(), BLO_READ_SKIP_USERDEF, &read_reports);
+      ASSERT_NE(file, nullptr);
+      BLI_SCOPED_DEFER([&]() { BLO_blendfiledata_free(file); });
+      ASSERT_EQ(file->main->objects.count(), 1);
+      const Curve &curve = *id_cast<Curve *>(
+          static_cast<Object *>(file->main->objects.first)->data);
+      ASSERT_TRUE(curve.nurb.is_empty());
+      ASSERT_NE(curve.nurbs_geometry, nullptr);
+      const auto &geometry = *curve.nurbs_geometry;
+      std::string error;
+      ASSERT_TRUE(geometry_validate_structure(geometry, &error)) << error;
+      SurfacePreviewOptions options;
+      options.boundary.segments_per_span = options.interior_subdivisions = 7;
+      ASSERT_TRUE(tessellate_surfaces(geometry, options, &error)) << error;
+      const auto selected = selection_from_storage(geometry.stored_selection, &error);
+      ASSERT_TRUE(selected.has_value()) << error;
+      const SelectionMode expected = STREQ(stage, "continued")            ? SelectionMode::Vertex :
+                                     STREQ(label, "CENTER-CENTER-FACE")   ? SelectionMode::Face :
+                                     STREQ(label, "CENTER-COLLAPSE-EDGE") ? SelectionMode::Edge :
+                                                                            SelectionMode::Vertex;
+      EXPECT_EQ(selected->mode, expected);
+      if (STREQ(stage, "before-second")) {
+        EXPECT_EQ(geometry.vertices.count(), 7);
+        EXPECT_EQ(selected->vertices.size(), 3);
+        before.reset(geometry_copy(&geometry));
+        before_selection = *selected;
+      }
+      else if (STREQ(stage, "after-second")) {
+        EXPECT_EQ(geometry.vertices.count(), 5);
+        EXPECT_EQ(geometry.edges.count(), 8);
+        EXPECT_EQ(geometry.faces.count(), 5);
+        const VertexMergeMode mode = STREQ(label, "CENTER-CENTER-VERT") ||
+                                             STREQ(label, "CENTER-CENTER-FACE") ?
+                                         VertexMergeMode::Center :
+                                         VertexMergeMode::Collapse;
+        expect_signature_near_mesh(
+            signature(geometry),
+            merge_bmesh_reference(*before, before_selection, mode, {0, 1.0f / 3, 2}));
+        const auto resumed = merge_selected_vertices(
+            *before, before_selection, mode, {}, 1e-9, &error);
+        ASSERT_TRUE(resumed.has_value()) << error;
+        expect_signature_equal(signature(geometry), signature(*resumed->geometry));
+      }
+      else {
+        EXPECT_EQ(geometry.vertices.count(), 6);
+        EXPECT_EQ(geometry.edges.count(), 9);
+        EXPECT_EQ(geometry.faces.count(), 5);
+      }
+    }
+  }
+}
+
 TEST_F(NurbsTopologyEditTest, DistanceClusteringMatchesActualBMeshAndPreservesSourcePrecision)
 {
   const double3 coordinates[] = {
@@ -692,40 +1293,326 @@ TEST_F(NurbsTopologyEditTest, DistanceClusteringMatchesActualBMeshAndPreservesSo
 TEST_F(NurbsTopologyEditTest, DistanceWeldingSharesFaceIdentityAndPreservesRationalCircles)
 {
   for (const bool rational : {false, true}) {
-    auto source = rational ? make_arc_sheet(true) : planar_grid(1, 1);
-    ASSERT_NE(source, nullptr);
-    const int64_t face = static_cast<NurbsTopologyFace *>(source->faces.first)->id;
-    auto duplicate = duplicate_components(*source, {{}, {}, {&face, 1}});
-    ASSERT_TRUE(duplicate.has_value());
-    Vector<int64_t> moving;
-    for (const auto &vertex : source->vertices) {
-      moving.append(duplicate->source_to_copy.lookup(vertex.id));
-    }
-    std::string error;
-    const double3 offset = rational ? double3(0) : double3(0.0625, 0, 0);
-    auto moved = translate_vertices(*duplicate->geometry, moving, offset, 0, &error);
-    ASSERT_TRUE(moved.has_value()) << error;
-    SelectionState selected;
-    for (const auto &vertex : moved->geometry->vertices) {
-      selected.vertices.add(vertex.id);
-    }
-    selected = *selection_flush(*moved->geometry, selected, selected.mode);
-    auto result = merge_by_distance(*moved->geometry, selected, 0.125, true, false, 1e-9, &error);
-    ASSERT_TRUE(result.has_value()) << error;
-    EXPECT_EQ(result->geometry->vertices.count(), source->vertices.count());
-    EXPECT_EQ(result->geometry->edges.count(), source->edges.count());
-    EXPECT_EQ(result->geometry->faces.count(), 1);
-    EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
-    if (rational) {
-      const auto original = TopologyIndex::build(*source);
-      const auto welded = TopologyIndex::build(*result->geometry);
-      for (const auto &edge : source->edges) {
-        ASSERT_NE(welded->edge(edge.id), nullptr);
-        if (edge.vertex_ids[0] == edge.vertex_ids[1]) {
-          EXPECT_EQ(welded->edge(edge.id)->vertex_ids[0], welded->edge(edge.id)->vertex_ids[1]);
-          EXPECT_EQ(welded->uses_for_edge(edge.id).size(),
-                    original->uses_for_edge(edge.id).size());
+    for (const double displacement :
+         rational ? Vector<double>{0.0} : Vector<double>{0.0, 0.0625, 0.1})
+    {
+      for (const bool centroid : {false, true}) {
+        SCOPED_TRACE(rational);
+        SCOPED_TRACE(displacement);
+        SCOPED_TRACE(centroid);
+        auto source = rational ? make_arc_sheet(true) : planar_grid(1, 1);
+        ASSERT_NE(source, nullptr);
+        const int64_t face = static_cast<NurbsTopologyFace *>(source->faces.first)->id;
+        auto duplicate = duplicate_components(*source, {{}, {}, {&face, 1}});
+        ASSERT_TRUE(duplicate.has_value());
+        Vector<int64_t> moving;
+        for (const auto &vertex : source->vertices) {
+          moving.append(duplicate->source_to_copy.lookup(vertex.id));
         }
+        std::string error;
+        const double3 offset(displacement, 0, 0);
+        auto moved = translate_vertices(*duplicate->geometry, moving, offset, 1e-9, &error);
+        ASSERT_TRUE(moved.has_value()) << error;
+        SelectionState selected;
+        for (const auto &vertex : moved->geometry->vertices) {
+          selected.vertices.add(vertex.id);
+        }
+        selected = *selection_flush(*moved->geometry, selected, selected.mode);
+        auto result = merge_by_distance(
+            *moved->geometry, selected, 0.125, centroid, false, 1e-9, &error);
+        ASSERT_TRUE(result.has_value()) << error;
+        EXPECT_EQ(result->geometry->vertices.count(), source->vertices.count());
+        EXPECT_EQ(result->geometry->edges.count(), source->edges.count());
+        EXPECT_EQ(result->geometry->faces.count(), 1);
+        EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+        if (rational) {
+          const auto original = TopologyIndex::build(*source);
+          const auto welded = TopologyIndex::build(*result->geometry);
+          for (const auto &edge : source->edges) {
+            ASSERT_NE(welded->edge(edge.id), nullptr);
+            if (edge.vertex_ids[0] == edge.vertex_ids[1]) {
+              EXPECT_EQ(welded->edge(edge.id)->vertex_ids[0],
+                        welded->edge(edge.id)->vertex_ids[1]);
+              EXPECT_EQ(welded->uses_for_edge(edge.id).size(),
+                        original->uses_for_edge(edge.id).size());
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, CoincidentWeldingRetainsDifferentCurvedInteriors)
+{
+  auto source = planar_grid(1, 1);
+  const int64_t face = static_cast<const NurbsTopologyFace *>(source->faces.first)->id;
+  auto duplicate = duplicate_components(*source, {{}, {}, {&face, 1}});
+  ASSERT_TRUE(duplicate.has_value());
+  const int64_t copied_surface = duplicate->source_to_copy.lookup(
+      static_cast<const NurbsTopologyFace *>(source->faces.first)->surface_id);
+  for (auto &surface : duplicate->geometry->surfaces) {
+    if (surface.id != copied_surface) {
+      continue;
+    }
+    MEM_delete(surface.points);
+    MEM_delete(surface.knots_u);
+    MEM_delete(surface.knots_v);
+    surface.order_u = surface.order_v = surface.points_u = surface.points_v = 3;
+    surface.points_num = 9;
+    surface.knots_u_num = surface.knots_v_num = 6;
+    surface.points = MEM_new_array<NurbsControlPoint>(9, __func__);
+    surface.knots_u = MEM_new_array_zeroed<double>(6, __func__);
+    surface.knots_v = MEM_new_array_zeroed<double>(6, __func__);
+    for (int i = 3; i < 6; i++) {
+      surface.knots_u[i] = surface.knots_v[i] = 1;
+    }
+    for (int v = 0; v < 3; v++) {
+      for (int u = 0; u < 3; u++) {
+        const double3 point(u * 0.5, v * 0.5, u == 1 && v == 1 ? 0.25 : 0);
+        std::copy_n(&point.x, 3, surface.points[v * 3 + u].position);
+      }
+    }
+  }
+  SelectionState initial;
+  for (const auto &vertex : duplicate->geometry->vertices) {
+    initial.vertices.add(vertex.id);
+  }
+  const auto selected = selection_flush(*duplicate->geometry, initial, initial.mode);
+  ASSERT_TRUE(selected.has_value());
+  std::string error;
+  const auto welded = merge_by_distance(
+      *duplicate->geometry, *selected, 0, false, false, 0, &error);
+  ASSERT_TRUE(welded.has_value()) << error;
+  EXPECT_EQ(welded->geometry->vertices.count(), 4);
+  EXPECT_EQ(welded->geometry->edges.count(), 4);
+  EXPECT_EQ(welded->geometry->faces.count(), 2);
+  bool curved = false;
+  for (const auto &surface : welded->geometry->surfaces) {
+    if (surface.id == copied_surface) {
+      EXPECT_EQ(surface.order_u, 3);
+      EXPECT_EQ(surface.points[4].position[2], 0.25);
+      curved = true;
+    }
+  }
+  EXPECT_TRUE(curved);
+  EXPECT_TRUE(tessellate_surfaces(*welded->geometry, preview_options(), &error)) << error;
+}
+
+TEST_F(NurbsTopologyEditTest, SavedMixedWorkflowsMatchMeshAndKeepSharedSourceIncidence)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_COMPOSITION_OUTPUT");
+  if (!directory) {
+    GTEST_SKIP() << "Run nurbs_native_composition.py before checking its saved source states";
+  }
+  for (const int cuts : {1, 2}) {
+    OwnedGeometry before_rejected, before_reload, before_no_weld;
+    SelectionState selected_before_rejected, selected_before_reload;
+    for (const char *stage : {"initial",
+                              "delete-face",
+                              "fill",
+                              "duplicate-sheet",
+                              "weld-sheet",
+                              "loop-cut",
+                              "subdivide-sheet",
+                              "rejected-cut",
+                              "extrude-region",
+                              "delete-cap",
+                              "duplicate-body",
+                              "no-weld",
+                              "subdivide-body",
+                              "reload",
+                              "merge-all",
+                              "extrude-point",
+                              "subdivide-wire",
+                              "duplicate-wire",
+                              "delete-edges"})
+    {
+      SCOPED_TRACE(cuts);
+      SCOPED_TRACE(stage);
+      const std::string suffix = std::to_string(cuts) + "-" + stage;
+      const std::string path = std::string(directory) + "/composition-native-" + suffix + ".blend";
+      ReportList reports;
+      BKE_reports_init(&reports, RPT_STORE);
+      BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+      BlendFileReadReport read_reports{};
+      read_reports.reports = &reports;
+      auto *file = BLO_read_from_file(path.c_str(), BLO_READ_SKIP_USERDEF, &read_reports);
+      ASSERT_NE(file, nullptr);
+      BLI_SCOPED_DEFER([&]() { BLO_blendfiledata_free(file); });
+      ASSERT_EQ(file->main->objects.count(), 1);
+      const auto &curve = *id_cast<Curve *>(
+          static_cast<Object *>(file->main->objects.first)->data);
+      ASSERT_TRUE(curve.nurb.is_empty());
+      ASSERT_NE(curve.nurbs_geometry, nullptr);
+      const auto &geometry = *curve.nurbs_geometry;
+      std::string error;
+      const auto index = TopologyIndex::build(geometry, &error);
+      ASSERT_TRUE(index.has_value()) << error;
+      const auto selected = selection_from_storage(geometry.stored_selection, &error);
+      ASSERT_TRUE(selected.has_value()) << error;
+      const auto edit = EditData::create(geometry, *selected, &error);
+      ASSERT_NE(edit, nullptr) << error;
+      if (STREQ(stage, "subdivide-sheet")) {
+        before_rejected.reset(geometry_copy(&geometry));
+        selected_before_rejected = *selected;
+      }
+      if (STREQ(stage, "duplicate-body")) {
+        before_no_weld.reset(geometry_copy(&geometry));
+      }
+      if (STREQ(stage, "no-weld")) {
+        ASSERT_NE(before_no_weld, nullptr);
+        expect_source_geometry_equal(geometry, *before_no_weld);
+      }
+      if (STREQ(stage, "subdivide-body")) {
+        before_reload.reset(geometry_copy(&geometry));
+        selected_before_reload = *selected;
+      }
+      if (STREQ(stage, "rejected-cut") || STREQ(stage, "reload")) {
+        const bool rejected = STREQ(stage, "rejected-cut");
+        const auto &previous = rejected ? before_rejected : before_reload;
+        const auto &previous_selection = rejected ? selected_before_rejected :
+                                                    selected_before_reload;
+        ASSERT_NE(previous, nullptr);
+        expect_source_geometry_equal(geometry, *previous);
+        EXPECT_EQ(selected->vertices, previous_selection.vertices);
+        EXPECT_EQ(selected->edges, previous_selection.edges);
+        EXPECT_EQ(selected->faces, previous_selection.faces);
+        EXPECT_EQ(selected->history, previous_selection.history);
+        EXPECT_EQ(selected->active, previous_selection.active);
+        EXPECT_EQ(selected->mode, previous_selection.mode);
+      }
+      SurfacePreviewOptions options;
+      options.boundary.segments_per_span = options.interior_subdivisions = 7;
+      EXPECT_TRUE(tessellate_surfaces(geometry, options, &error)) << error;
+      compare_mesh_file("composition-mesh-" + suffix, geometry, 1e-6, directory);
+      Set<int64_t> visited;
+      int components = 0;
+      for (const auto &vertex : geometry.vertices) {
+        if (visited.contains(vertex.id)) {
+          continue;
+        }
+        const auto linked = find_linked_components(
+            geometry, {{&vertex.id, 1}, {}, {}}, LinkedConnectivity::VertexGraph, &error);
+        ASSERT_TRUE(linked.has_value()) << error;
+        visited.add_multiple(linked->vertices);
+        components++;
+      }
+      const bool two = STREQ(stage, "duplicate-sheet") || STREQ(stage, "duplicate-body") ||
+                       STREQ(stage, "no-weld") || STREQ(stage, "subdivide-body") ||
+                       STREQ(stage, "reload") || STREQ(stage, "duplicate-wire");
+      EXPECT_EQ(components, STREQ(stage, "delete-edges") ? 0 : two ? 2 : 1);
+      for (const auto &edge : geometry.edges) {
+        const auto uses = index->uses_for_edge(edge.id);
+        EXPECT_LE(uses.size(), 2);
+        if (uses.size() == 2) {
+          EXPECT_EQ(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                    -index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+        }
+      }
+      for (const auto &vertex : geometry.vertices) {
+        EXPECT_LE(vertex.tolerance, 1e-9);
+      }
+      for (const auto &face : geometry.faces) {
+        EXPECT_LE(face.tolerance, 1e-9);
+      }
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, SavedPyramidMovementMatchesMeshAndPreservesTrimIdentities)
+{
+  const char *directory = std::getenv("BLENDER_NURBS_TRIANGLE_OUTPUT");
+  if (!directory) {
+    GTEST_SKIP() << "Run the pyramid_movement UI workflows before checking their source states";
+  }
+  for (const char *label : {"native", "box"}) {
+    OwnedGeometry initial, apex, extruded;
+    for (const char *stage : {"initial",
+                              "apex-move",
+                              "apex-restored",
+                              "base-move",
+                              "edge-transform",
+                              "face-move",
+                              "extrude",
+                              "reload",
+                              "fresh-move"})
+    {
+      SCOPED_TRACE(label);
+      SCOPED_TRACE(stage);
+      ReportList reports;
+      BKE_reports_init(&reports, RPT_STORE);
+      BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+      BlendFileReadReport read_reports{};
+      read_reports.reports = &reports;
+      const std::string path = std::string(directory) + "/triangle-" + label + "-" + stage +
+                               ".blend";
+      auto *file = BLO_read_from_file(path.c_str(), BLO_READ_SKIP_USERDEF, &read_reports);
+      ASSERT_NE(file, nullptr);
+      BLI_SCOPED_DEFER([&]() { BLO_blendfiledata_free(file); });
+      ASSERT_EQ(file->main->objects.count(), 1);
+      const auto &curve = *id_cast<Curve *>(
+          static_cast<Object *>(file->main->objects.first)->data);
+      ASSERT_TRUE(curve.nurb.is_empty());
+      ASSERT_NE(curve.nurbs_geometry, nullptr);
+      const auto &geometry = *curve.nurbs_geometry;
+      std::string error;
+      const auto index = TopologyIndex::build(geometry, &error);
+      ASSERT_TRUE(index.has_value()) << error;
+      SurfacePreviewOptions options;
+      options.boundary.segments_per_span = options.interior_subdivisions = 7;
+      EXPECT_TRUE(tessellate_surfaces(geometry, options, &error)) << error;
+      compare_mesh_file(std::string("triangle-mesh-") + stage, geometry, 1e-6, directory);
+      if (STREQ(stage, "initial")) {
+        initial.reset(geometry_copy(&geometry));
+      }
+      if (STREQ(stage, "apex-move")) {
+        apex.reset(geometry_copy(&geometry));
+      }
+      if (STREQ(stage, "apex-restored")) {
+        ASSERT_NE(apex, nullptr);
+        expect_source_geometry_equal(geometry, *apex);
+      }
+      if (!STREQ(stage, "extrude") && !STREQ(stage, "reload") && !STREQ(stage, "fresh-move")) {
+        ASSERT_NE(initial, nullptr);
+        EXPECT_EQ(geometry.next_id, initial->next_id);
+        for (const auto &face : initial->faces) {
+          const auto *after = index->face(face.id);
+          ASSERT_NE(after, nullptr);
+          EXPECT_EQ(after->surface_id, face.surface_id);
+          EXPECT_EQ(after->orientation, face.orientation);
+          const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
+          const auto &kept = *static_cast<const NurbsTopologyLoop *>(after->loops.first);
+          EXPECT_EQ(loop.id, kept.id);
+          const auto *use = static_cast<const NurbsTopologyEdgeUse *>(kept.edge_uses.first);
+          for (const auto &old : loop.edge_uses) {
+            ASSERT_NE(use, nullptr);
+            EXPECT_EQ(use->id, old.id);
+            EXPECT_EQ(use->edge_id, old.edge_id);
+            EXPECT_EQ(use->pcurve_id, old.pcurve_id);
+            EXPECT_EQ(use->reversed, old.reversed);
+            use = use->next;
+          }
+        }
+      }
+      if (STREQ(stage, "extrude")) {
+        extruded.reset(geometry_copy(&geometry));
+      }
+      if (STREQ(stage, "reload")) {
+        ASSERT_NE(extruded, nullptr);
+        expect_source_geometry_equal(geometry, *extruded);
+      }
+      if (STREQ(stage, "fresh-move")) {
+        ASSERT_NE(extruded, nullptr);
+        const auto selected = selection_from_storage(extruded->stored_selection, &error);
+        ASSERT_TRUE(selected.has_value()) << error;
+        Vector<int64_t> ids;
+        for (const int64_t id : selected->vertices) {
+          ids.append(id);
+        }
+        const auto resumed = translate_vertices(*extruded, ids, {0.125, 0, 0}, 1e-9, &error);
+        ASSERT_TRUE(resumed.has_value()) << error;
+        expect_source_geometry_equal(geometry, *resumed->geometry);
       }
     }
   }

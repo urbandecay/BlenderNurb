@@ -34,6 +34,15 @@ struct EvaluatedBoundaryUse {
   int edge_index;
   bool reversed;
   bool is_inner;
+  /** Exact coefficient proof for a straight curve on a bilinear support, independent of sampled
+   * floating-point evaluations. Measured discrepancies below remain reported, including when
+   * this proof establishes identity at zero modeling tolerance. */
+  bool exact_curve_support_identity = false;
+  /** Sufficient bound from source polynomial coefficients over the whole edge. Includes the
+   * diagonal of a bilinear patch, whose gap to its chord is bounded by its mixed coefficient.
+   * General straight trims use a quadratic Bernstein difference with bounded arithmetic.
+   * No sampled evaluation error or tolerance widening. Zero also proves exact identity. */
+  std::optional<double> curve_support_deviation_bound;
   /** One UV per canonical edge sample, not reversed into loop traversal order. */
   Vector<double2> parameters;
   double max_curve_support_deviation = 0.0;
@@ -63,11 +72,25 @@ struct BoundaryEvaluationOptions {
   double evaluation_allowance = 0.0;
 };
 
+/** Sufficient whole-interval bound for a full straight polynomial curve and its linear p-curve
+ * on a polynomial bilinear support. Zero proves exact geometric agreement independently of
+ * rounded samples. A missing bound means the representation/proof is unsupported, not that the
+ * geometry disagrees. Requires structurally validated geometry records. No mutation, fitting or
+ * tolerance inference. Requires round-to-nearest/subnormal arithmetic. The sufficient bound can
+ * be conservative; a nonzero bound is not a measurement or proof of a nonzero gap. Shared by
+ * boundary evaluation and topology geometry reconciliation. */
+std::optional<double> linear_curve_support_deviation_bound(const NurbsCurveGeometry &curve,
+                                                           const NurbsCurveGeometry &pcurve,
+                                                           const NurbsSurfaceGeometry &surface);
+
 /**
  * Evaluate shared boundaries for a derived preview. Source vertices supply shared endpoint
  * positions; every incident use refers to the same edge samples through its own p-curve.
  * Measured curve/vertex/support discrepancies must fit declared tolerances plus the explicit
- * allowance and are reported in the result. No source mutation, fitting or coordinate welding.
+ * allowance and are reported in the result. A straight-curve/support coefficient bound
+ * can establish agreement independently of rounded samples; its bound and the measured sample
+ * discrepancies are retained. Endpoint/vertex checks remain required. No source mutation,
+ * fitting or coordinate welding.
  *
  * Initial implementation requires positive weights and continuous curve/support parameterizations.
  * Rejects unsupported arithmetic, unrepresentable subdivisions and failed sampled agreement.

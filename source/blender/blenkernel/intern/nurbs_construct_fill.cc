@@ -254,10 +254,14 @@ static NurbsCurveGeometry *add_fill_line(NurbsGeometry &geometry, const double3 
   return curve;
 }
 
+/** Fourth corner of the affine chart through a, b and c. Try each addition order to avoid
+ * unnecessary overflow/roundoff, retaining an outward bound for the stored coefficient.
+ */
 }  // namespace
 
 std::optional<FillResult> fill_components(const NurbsGeometry &source,
                                           const ComponentSelection &selection,
+                                          const double max_construction_error,
                                           std::string *r_error)
 {
   if (r_error != nullptr) {
@@ -271,6 +275,9 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
   };
   if (!detail::supported_arithmetic()) {
     return fail("NURBS fill requires round-to-nearest arithmetic and subnormal support");
+  }
+  if (!std::isfinite(max_construction_error) || max_construction_error < 0) {
+    return fail("NURBS fill needs a finite non-negative construction error budget");
   }
   const auto closure = component_closure(source, selection, r_error);
   if (!closure) {
@@ -512,6 +519,7 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
   }
   Vector<double3> polygon;
   bool straight_quad = sides.size() == 4;
+  bool straight_triangle = sides.size() == 3;
   bool piecewise_linear = true;
   for (const FillSide &side : sides) {
     if (side.edge == 0) {
@@ -531,6 +539,7 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
           "weights");
     }
     straight_quad &= curve.order == 2 && curve.points_num == 2;
+    straight_triangle &= curve.order == 2 && curve.points_num == 2;
     piecewise_linear &= curve.order == 2;
     for (int i = 0; i < curve.points_num - 1; i++) {
       const int point = side.reversed ? curve.points_num - 1 - i : i;
@@ -571,6 +580,7 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     }
   }
   double plane_a = 0, plane_b = 0, plane_c = 0;
+  bool affine_triangle = false;
   const int u_axis = (frame->axis + 1) % 3, v_axis = (frame->axis + 2) % 3;
   auto check_plane = [&](const double3 &point) {
     const auto height = plane_height(plane_a, plane_b, plane_c, point[u_axis], point[v_axis]);
@@ -595,14 +605,15 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
         }
       }
     }
-    if (!found) {
-      return fail("Exact planar fill correspondence is not representable");
-    }
-    for (const auto &point : polygon) {
-      if (!check_plane(point)) {
-        return fail(
-            "Boundary needs a nonplanar or tolerance-managed construction; no fitting was "
-            "applied");
+    const bool exact_plane = found && std::all_of(polygon.begin(), polygon.end(), check_plane);
+    if (!exact_plane) {
+      if (straight_triangle && closure->faces.is_empty()) {
+        affine_triangle = true;
+      }
+      else {
+        return fail(found ? "Boundary needs a nonplanar or tolerance-managed construction; no "
+                            "fitting was applied" :
+                            "Exact planar fill correspondence is not representable");
       }
     }
   }
@@ -619,7 +630,7 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     }
   }
   // Orient the new UV loop positively. A four-corner chart always follows its own corner order.
-  if (!bilinear) {
+  if (!bilinear && !affine_triangle) {
     double area = 0;
     for (const int i : projected.index_range()) {
       const auto &a = projected[i], &b = projected[(i + 1) % projected.size()];
@@ -706,6 +717,10 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
       point[v_axis] = i & 2 ? maximum.y : minimum.y;
       const auto height = plane_height(plane_a, plane_b, plane_c, point[u_axis], point[v_axis]);
       if (!height) {
+        if (straight_triangle && closure->faces.is_empty()) {
+          affine_triangle = true;
+          break;
+        }
         return fail(
             "Exact planar support coefficients are not representable; no fitting was applied");
       }
@@ -713,6 +728,19 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
       support_points[i] = point;
     }
   }
+  double construction_error = 0;
+  if (affine_triangle) {
+    support_points[0] = double3(index->vertex(sides[0].start)->position);
+    support_points[1] = double3(index->vertex(sides[1].start)->position);
+    support_points[2] = double3(index->vertex(sides[2].start)->position);
+    const auto fourth = detail::affine_fourth_corner(
+        support_points[0], support_points[1], support_points[2], construction_error);
+    if (!fourth || construction_error > max_construction_error) {
+      return fail("NURBS triangle support construction exceeds the requested roundoff budget");
+    }
+    support_points[3] = *fourth;
+  }
+  const bool corner_chart = bilinear || affine_triangle;
   uint64_t missing = 0;
   for (const auto &side : sides) {
     missing += side.edge == 0;
@@ -724,6 +752,7 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     return fail("NURBS identity space is exhausted");
   }
   FillResult result;
+  result.construction_error_bound = construction_error;
   result.geometry.reset(geometry_copy(&source));
   auto &geometry = *result.geometry;
   for (auto &side : sides) {
@@ -759,8 +788,8 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
   surface->knots_v = MEM_new_array<double>(4, __func__);
   for (int i = 0; i < 4; i++) {
     std::copy_n(&support_points[i].x, 3, surface->points[i].position);
-    surface->knots_u[i] = i < 2 ? (bilinear ? 0 : minimum.x) : (bilinear ? 1 : maximum.x);
-    surface->knots_v[i] = i < 2 ? (bilinear ? 0 : minimum.y) : (bilinear ? 1 : maximum.y);
+    surface->knots_u[i] = i < 2 ? (corner_chart ? 0 : minimum.x) : (corner_chart ? 1 : maximum.x);
+    surface->knots_v[i] = i < 2 ? (corner_chart ? 0 : minimum.y) : (corner_chart ? 1 : maximum.y);
   }
   BLI_addtail(&geometry.surfaces, surface);
   auto *face = MEM_new<NurbsTopologyFace>(__func__);
@@ -768,11 +797,13 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
   face->surface_id = surface->id;
   face->orientation = orientation;
   face->material_index = material;
+  face->tolerance = construction_error;
   BLI_addtail(&geometry.faces, face);
   auto *loop = MEM_new<NurbsTopologyLoop>(__func__);
   loop->id = geometry.next_id++;
   BLI_addtail(&face->loops, loop);
   const double2 corners[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+  const double2 triangle_corners[3] = {{0, 0}, {1, 0}, {0, 1}};
   for (const int i : sides.index_range()) {
     const auto &side = sides[i];
     const auto &edge = *candidate_index->edge(side.edge);
@@ -784,9 +815,9 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     pcurve->points = MEM_dupalloc(curve.points);
     for (int j = 0; j < pcurve->points_num; j++) {
       double2 uv;
-      if (bilinear) {
-        const int corner = (i + (side.reversed ? 1 - j : j)) % 4;
-        uv = corners[corner];
+      if (corner_chart) {
+        const int corner = (i + (side.reversed ? 1 - j : j)) % sides.size();
+        uv = affine_triangle ? triangle_corners[corner] : corners[corner];
       }
       else {
         uv = {curve.points[j].position[u_axis], curve.points[j].position[v_axis]};
@@ -801,6 +832,7 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     use->edge_id = edge.id;
     use->pcurve_id = pcurve->id;
     use->reversed = side.reversed;
+    use->tolerance = construction_error;
     BLI_addtail(&loop->edge_uses, use);
   }
   result.created_faces.append(face->id);
@@ -818,6 +850,13 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     return std::nullopt;
   }
   return result;
+}
+
+std::optional<FillResult> fill_components(const NurbsGeometry &source,
+                                          const ComponentSelection &selection,
+                                          std::string *r_error)
+{
+  return fill_components(source, selection, 0, r_error);
 }
 
 }  // namespace blender::bke::nurbs

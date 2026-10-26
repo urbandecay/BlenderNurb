@@ -5,7 +5,38 @@ The full scope remains in the handoff stages, operator inventory/parity maps and
 menu crosswalk. This list records active workflow priorities and user reports;
 it does not replace those inventories or claim unlisted tools are complete.
 
+## Implemented locally: chained editing regression gate
+
+[Mixed native/Mesh workflows](native_composition.md) now compare 38 saved native
+checkpoints with actual Mesh counterparts, including Fill, duplicate/weld,
+cuts, subdivision, multi-face extrusion, cap deletion, reopening, collapse and
+continued wire/surface editing. They check shared identity, source records,
+selection/history, evaluation and atomic rejection. A new CTest fixture chain
+generates its own source and checks its results; two viewport workflows cover
+real keyboard interaction and undo/redo. This found and repaired coincident
+Duplicate → By Distance, by distinguishing rewiring from displacement and
+proving equivalent affine target boundaries before retaining an existing face.
+The fit-point foundation below remains the next major feature dependency.
+
 ## Active: curved fit-point foundation
+
+The user's pyramid shading patches are addressed in the shared float display
+conversion; see [cause, source-preservation contract and checks](pyramid_shading_fix.md).
+Exactly collinear float triangles are omitted before Mesh normal encoding,
+with explicit counts and provenance back to the retained double preview.
+
+The [decimal-boundary correction](decimal_boundary_agreement_fix.md) extends
+whole-interval agreement certificates for rounded straight trims on polynomial
+bilinear supports. It fixes the binary64 `0.3` pyramid move with unchanged source
+tolerances and zero extra evaluation allowance. Typed native G retains doubles;
+the earlier claim that GUI translation could not exercise this input was wrong.
+Exact-rational witnesses, genuine-gap rejection and decimal keyboard/Mesh
+comparisons exercise the correction.
+
+The intervening user-reported pyramid corner transform failure is repaired in
+the shared component deformation service; see the [implementation and regression
+checks](pyramid_vertex_transform_fix.md). This extends partial transformation of
+three-sided bilinear trims without activating curved fit-point handles.
 
 Target: fit points are the normal curve shape handles. Shared topology vertices remain
 line/curve endpoints; internal rational control coefficients are not a user
@@ -65,6 +96,21 @@ still govern implementation order. UV texture data stays separate from geometric
 surface parameters and trim p-curves.
 
 ## Implemented locally: merge repair, By Distance and mesh component overlays
+
+Follow-up: [successive merges](layered_merge_fix.md) repairs box edge → triangular
+top → apex, including all four starting edges and V/E/F. The shared merge service
+plans surviving boundaries before support deformation, coalesces equal rebuilt
+cycles, preserves directed incidence and verifies fractional-coordinate boundary
+agreement. Longer collapse chains and saved-source continuation are covered.
+
+Follow-up: [per-face surface wire grids](surface_wire_grid_fix.md) records the
+display-grid regression after Collapse and the shared preview/mesh-renderer
+filtering used to preserve unaffected rectangular patches.
+
+Follow-up: [cube top → one shared apex](merge_cube_top_fix.md) corrects Center
+and Collapse on extruded boxes, including slanted side triangles. It adds
+BMesh comparisons, source error-budget checks, eight actual viewport workflows
+and saved NURBS source validation.
 
 Center/Collapse now plan doomed linear faces before deformation. By Distance
 uses BMesh's clustering policy with double source coordinates, the common weld

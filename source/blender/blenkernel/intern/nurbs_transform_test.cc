@@ -13,6 +13,8 @@
 #include "BLI_math_vector.hh"
 
 #include "BKE_curve.hh"
+#include "BKE_nurbs_selection.hh"
+#include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
 
 #include "nurbs_test_geometry.hh"
@@ -803,6 +805,197 @@ TEST(nurbs_vertex_transform, SharedAffineVertexAndRegionUpdateEachIncidentResour
     options.boundary.evaluation_allowance = 1e-12;
     EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
   }
+}
+
+TEST(nurbs_vertex_transform, MergedPyramidCornersRemainEditable)
+{
+  const auto sheet = make_planar_sheet();
+  const int64_t bottom = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  const auto box = extrude_components(*sheet, {{}, {}, {&bottom, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(box.has_value()) << error;
+  SelectionState selection;
+  selection.mode = SelectionMode::Face;
+  const ElementRef top{ElementDomain::Face, box->source_to_cap.lookup(bottom)};
+  const auto selected = selection_apply(
+      *box->geometry, selection, {&top, 1}, SelectionAction::Set, top, &error);
+  ASSERT_TRUE(selected.has_value()) << error;
+  const auto pyramid = merge_selected_vertices(
+      *box->geometry, *selected, VertexMergeMode::Center, {}, 0, &error);
+  ASSERT_TRUE(pyramid.has_value()) << error;
+  for (const auto &vertex : pyramid->geometry->vertices) {
+    SCOPED_TRACE(vertex.id);
+    const double3 offset(0.25, -0.125, 0.5);
+    const auto moved = translate_vertices(
+        *pyramid->geometry, {&vertex.id, 1}, offset, 1e-9, &error);
+    ASSERT_TRUE(moved.has_value()) << error;
+    expect_bases_and_ids_unchanged(*pyramid->geometry, *moved->geometry);
+    const auto index = TopologyIndex::build(*moved->geometry);
+    EXPECT_EQ(double3(index->vertex(vertex.id)->position), double3(vertex.position) + offset);
+    SurfacePreviewOptions options;
+    options.boundary.segments_per_span = options.interior_subdivisions = 7;
+    EXPECT_TRUE(tessellate_surfaces(*moved->geometry, options, &error)) << error;
+    auto rotation = double4x4::identity();
+    rotation[0][0] = rotation[1][1] = 0;
+    rotation[0][1] = 1;
+    rotation[1][0] = -1;
+    auto scale = double4x4::identity();
+    scale[0][0] = 1.25;
+    scale[1][1] = 0.5;
+    scale[2][2] = 2;
+    auto singular = double4x4::identity();
+    singular[2][2] = 0;
+    for (const double4x4 &matrix : {rotation, scale, singular}) {
+      const VertexTransform request{vertex.id, matrix};
+      const auto transformed = transform_vertices(*moved->geometry, {&request, 1}, 1e-9, &error);
+      ASSERT_TRUE(transformed.has_value()) << error;
+      expect_bases_and_ids_unchanged(*moved->geometry, *transformed->geometry);
+      const double3 p = double3(index->vertex(vertex.id)->position);
+      const double3 target = double3(matrix * double4(p, 1));
+      const auto output = TopologyIndex::build(*transformed->geometry);
+      for (const auto &old : moved->geometry->vertices) {
+        EXPECT_EQ(double3(output->vertex(old.id)->position),
+                  old.id == vertex.id ? target : double3(old.position));
+      }
+      EXPECT_TRUE(tessellate_surfaces(*transformed->geometry, options, &error)) << error;
+      Vector<int64_t> base_vertices;
+      for (const auto &old : pyramid->geometry->vertices) {
+        if (old.position[2] == 0) {
+          base_vertices.append(old.id);
+        }
+      }
+      const double3 center = (double3(output->vertex(base_vertices[0])->position) +
+                              double3(output->vertex(base_vertices[1])->position)) *
+                             0.5;
+      const VertexMergeGroup edge_merge{
+          {base_vertices[0], base_vertices[1]}, base_vertices[0], center};
+      const auto merged_again = merge_vertex_groups(
+          *transformed->geometry, {&edge_merge, 1}, 1e-9, &error);
+      ASSERT_TRUE(merged_again.has_value()) << error;
+      EXPECT_TRUE(tessellate_surfaces(*merged_again->geometry, options, &error)) << error;
+      SelectionState all;
+      all.mode = SelectionMode::Vertex;
+      for (const auto &item : transformed->geometry->vertices) {
+        all.vertices.add(item.id);
+      }
+      const auto normalized = selection_flush(*transformed->geometry, all, all.mode, &error);
+      ASSERT_TRUE(normalized.has_value()) << error;
+      const auto collapsed = merge_selected_vertices(
+          *transformed->geometry, *normalized, VertexMergeMode::Center, {}, 1e-9, &error);
+      ASSERT_TRUE(collapsed.has_value()) << error;
+      EXPECT_EQ(collapsed->geometry->vertices.count(), 1);
+      EXPECT_TRUE(collapsed->geometry->faces.is_empty());
+    }
+  }
+}
+
+static OwnedGeometry trimmed_triangle(const Span<double2> corners)
+{
+  auto geometry = make_planar_sheet();
+  auto &face = first_transform_item(geometry->faces);
+  for (auto &loop : face.loops) {
+    BLI_freelistN(&loop.edge_uses);
+  }
+  BLI_freelistN(&face.loops);
+  add_planar_loop(*geometry, face, corners, false);
+  return geometry;
+}
+
+TEST(nurbs_vertex_transform, TriangleDisplacementsUseTrimParametersAndIndividualMatrices)
+{
+  const double2 cases[][3] = {{{0, 0}, {1, 0}, {0, 1}},
+                              {{0.125, 0.25}, {0.875, 0.25}, {0.25, 0.75}},
+                              {{0.1, 0.2}, {0.9, 0.3}, {0.2, 0.8}}};
+  for (const auto &corners : cases) {
+    const auto source = trimmed_triangle({corners, 3});
+    const auto index = TopologyIndex::build(*source);
+    const auto &face = first_transform_item(source->faces);
+    const auto &loop = first_transform_item(face.loops);
+    Vector<VertexTransform> transforms;
+    int i = 0;
+    for (const auto &use : loop.edge_uses) {
+      const int64_t id = index->edge(use.edge_id)->vertex_ids[0];
+      auto matrix = double4x4::identity();
+      i++;
+      matrix.location() = double3(0.125 * i, 0, 0.25 * i);
+      transforms.append({id, matrix});
+    }
+    const auto before = OwnedGeometry(geometry_copy(source.get()));
+    std::string error;
+    const auto result = transform_vertices(*source, transforms, 1e-9, &error);
+    ASSERT_TRUE(result.has_value()) << error;
+    expect_source_geometry_equal(*source, *before);
+    expect_bases_and_ids_unchanged(*source, *result->geometry);
+    const auto output = TopologyIndex::build(*result->geometry);
+    for (const auto &request : transforms) {
+      EXPECT_EQ(double3(output->vertex(request.vertex_id)->position),
+                double3(index->vertex(request.vertex_id)->position) + request.matrix.location());
+    }
+    SurfacePreviewOptions options;
+    options.boundary.segments_per_span = options.interior_subdivisions = 7;
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+    if (result->position_error_bound > 0) {
+      EXPECT_FALSE(transform_vertices(*source, transforms, 0, &error));
+      expect_source_geometry_equal(*source, *before);
+    }
+  }
+}
+
+TEST(nurbs_vertex_transform, InvalidTriangleFieldsRejectAtomically)
+{
+  const double2 corners[] = {{0, 0}, {1, 0}, {0, 1}};
+  const double2 degenerate[] = {{0, 0}, {1, 0}, {0, 0}};
+  for (int failure = 0; failure < 5; failure++) {
+    auto source = trimmed_triangle({failure == 4 ? degenerate : corners, 3});
+    auto &face = first_transform_item(source->faces);
+    auto &loop = first_transform_item(face.loops);
+    auto &use = first_transform_item(loop.edge_uses);
+    const auto index = TopologyIndex::build(*source);
+    const int64_t id = index->edge(use.edge_id)->vertex_ids[0];
+    if (failure == 0) {
+      first_transform_item(source->surfaces).points[3].weight = 2;
+    }
+    else if (failure != 4) {
+      for (auto &curve : source->curves) {
+        if (curve.id != use.pcurve_id) {
+          continue;
+        }
+        if (failure == 1) {
+          curve.points[0].weight = 2;
+        }
+        else {
+          // A conflicting endpoint association or an out-of-domain trim.
+          curve.points[0].position[0] = failure == 2 ? 1 : -1;
+        }
+      }
+    }
+    const auto before = OwnedGeometry(geometry_copy(source.get()));
+    std::string error;
+    EXPECT_FALSE(translate_vertices(*source, {&id, 1}, {0, 0, 0.25}, 1e-9, &error));
+    EXPECT_FALSE(error.empty());
+    expect_source_geometry_equal(*source, *before);
+  }
+}
+
+TEST(nurbs_vertex_transform, SharedTriangleSupportsRequireIdenticalOwnerDeformation)
+{
+  const double2 corners[] = {{0, 0}, {1, 0}, {0, 1}};
+  auto source = trimmed_triangle({corners, 3});
+  const auto &original = first_transform_item(source->faces);
+  const auto index = TopologyIndex::build(*source);
+  const auto &use = first_transform_item(first_transform_item(original.loops).edge_uses);
+  const int64_t id = index->edge(use.edge_id)->vertex_ids[0];
+  auto *other = MEM_new<NurbsTopologyFace>(__func__);
+  other->id = source->next_id++;
+  other->surface_id = original.surface_id;
+  other->orientation = original.orientation;
+  BLI_addtail(&source->faces, other);
+  add_planar_loop(*source, *other, {corners, 3}, false);
+  const auto before = OwnedGeometry(geometry_copy(source.get()));
+  std::string error;
+  EXPECT_FALSE(translate_vertices(*source, {&id, 1}, {0, 0, 0.25}, 1e-9, &error));
+  EXPECT_NE(error.find("owners"), std::string::npos) << error;
+  expect_source_geometry_equal(*source, *before);
 }
 
 }  // namespace blender::bke::nurbs::tests

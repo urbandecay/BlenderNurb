@@ -9,6 +9,7 @@
 #include <cfenv>
 #include <cmath>
 #include <limits>
+#include <optional>
 
 #include "BLI_math_vector_types.hh"
 
@@ -102,6 +103,70 @@ inline double expand_tolerance(const double tolerance, const double extra)
   return add_upper(tolerance, extra);
 }
 
+/** Stored value and an absolute arithmetic error bound. Inputs are exact source doubles unless
+ * an error is supplied. Requires supported_arithmetic(); invalid operations propagate infinity. */
+struct BoundedScalar {
+  double value = 0;
+  double error = 0;
+
+  bool valid() const
+  {
+    return std::isfinite(value) && std::isfinite(error) && error >= 0;
+  }
+};
+
+inline BoundedScalar bounded_add(const BoundedScalar a, const BoundedScalar b)
+{
+  double value, residual;
+  if (!a.valid() || !b.valid() || !sum_with_error(a.value, b.value, value, residual)) {
+    return {0, std::numeric_limits<double>::infinity()};
+  }
+  return {value, add_upper(add_upper(a.error, b.error), std::abs(residual))};
+}
+
+inline BoundedScalar bounded_subtract(const BoundedScalar a, const BoundedScalar b)
+{
+  return bounded_add(a, {-b.value, b.error});
+}
+
+inline BoundedScalar bounded_multiply(const BoundedScalar a, const BoundedScalar b)
+{
+  double value, error;
+  if (!a.valid() || !b.valid() || !product_with_error(a.value, b.value, value, error)) {
+    return {0, std::numeric_limits<double>::infinity()};
+  }
+  error = add_upper(error, multiply_upper(std::abs(a.value), b.error));
+  error = add_upper(error, multiply_upper(std::abs(b.value), a.error));
+  error = add_upper(error, multiply_upper(a.error, b.error));
+  return {value, error};
+}
+
+inline BoundedScalar bounded_divide(const BoundedScalar a, const BoundedScalar b)
+{
+  if (!a.valid() || !b.valid() || std::abs(b.value) <= b.error) {
+    return {0, std::numeric_limits<double>::infinity()};
+  }
+  const double value = a.value / b.value;
+  double product, product_error, residual, residual_error;
+  if (!std::isfinite(value) || !product_with_error(value, b.value, product, product_error) ||
+      !sum_with_error(a.value, -product, residual, residual_error))
+  {
+    return {0, std::numeric_limits<double>::infinity()};
+  }
+  double error = add_upper(std::abs(residual), std::abs(residual_error));
+  error = add_upper(error, product_error);
+  error = add_upper(error, a.error);
+  error = add_upper(error, multiply_upper(std::abs(value), b.error));
+  if (error == 0) {
+    return {value, 0};
+  }
+  const double lower = b.error == 0 ? std::abs(b.value) :
+                                      std::nextafter(std::abs(b.value) - b.error, 0.0);
+  return {value,
+          lower > 0 ? std::nextafter(error / lower, std::numeric_limits<double>::infinity()) :
+                      std::numeric_limits<double>::infinity()};
+}
+
 inline bool translate_position(double position[3], const double3 &offset, double &r_error_bound)
 {
   double bound = 0.0;
@@ -118,6 +183,40 @@ inline bool translate_position(double position[3], const double3 &offset, double
   }
   r_error_bound = std::max(r_error_bound, bound);
   return std::isfinite(r_error_bound);
+}
+
+/** Fourth coefficient of an affine bilinear chart, with an outward addition roundoff bound.
+ * Try the three addition orders to retain exact cancellation whenever it is representable. */
+inline std::optional<double3> affine_fourth_corner(const double3 a,
+                                                   const double3 b,
+                                                   const double3 c,
+                                                   double &r_error_bound)
+{
+  double3 corner;
+  r_error_bound = 0;
+  for (int axis = 0; axis < 3; axis++) {
+    double best_error = std::numeric_limits<double>::infinity();
+    const double terms[3][3] = {
+        {b[axis], -a[axis], c[axis]}, {c[axis], -a[axis], b[axis]}, {b[axis], c[axis], -a[axis]}};
+    for (const auto &order : terms) {
+      double partial, first_error, value, second_error;
+      if (!sum_with_error(order[0], order[1], partial, first_error) ||
+          !sum_with_error(partial, order[2], value, second_error))
+      {
+        continue;
+      }
+      const double error = add_upper(std::abs(first_error), std::abs(second_error));
+      if (error < best_error) {
+        corner[axis] = value;
+        best_error = error;
+      }
+    }
+    if (!std::isfinite(best_error)) {
+      return std::nullopt;
+    }
+    r_error_bound = add_upper(r_error_bound, best_error);
+  }
+  return corner;
 }
 
 }  // namespace blender::bke::nurbs::detail

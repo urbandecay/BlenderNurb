@@ -46,15 +46,20 @@ struct VertexTransform {
 /**
  * Apply affine transforms to selected source identities and their incident geometry. Equal
  * transforms form one request group: whole curves/supports keep their rational representation,
- * linear corners and proven ruled rows admit partial edits. Different groups support individual
+ * linear corners and proven ruled rows admit partial edits. Three-sided polynomial bilinear
+ * patches with matching straight edge/p-curve parameterizations admit an affine UV displacement
+ * field through their three corner movements; this preserves the support's existing mixed term.
+ * Different groups support individual
  * selection origins. Shared geometry owners must request identical coefficient assignments.
- * Unselected coefficients, p-curves, weights, knots, topology and selection are retained.
+ * Coefficients outside the requested deformation, p-curves, weights, knots, topology and
+ * selection are retained.
  *
  * The input is never modified. Unsupported partial curved/trimmed deformation, inconsistent
  * ownership, non-affine/non-finite matrices and exceeded arithmetic budgets reject atomically.
  * Tolerances of affected components scale conservatively by the largest supplied linear norm
  * (at least one, including the unchanged part) plus twice the reported coefficient roundoff.
- * The error bound covers application of the supplied matrices, not their construction or NURBS
+ * The error bound covers application of the supplied matrices and construction/application of
+ * triangular displacement fields, not construction of the matrices or NURBS
  * evaluation. Singular scales and reflections are legal editing states; face senses are retained.
  */
 std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &source,
@@ -68,8 +73,9 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
  * complete, clamped tensor faces support corner edits in linear directions and translations of
  * complete boundary rows in ruled directions. Rectangular interior trims admit complete ruled
  * rows when boundary bases, coefficients and projective parameterization match exactly and the
- * two support rows have proportional weight profiles. Other partial curved/trimmed edits are
- * rejected; no endpoint-only control-coefficient rule or fitting fallback is inferred.
+ * two support rows have proportional weight profiles. Triangular polynomial bilinear patches
+ * use the same affine UV displacement field as transform_vertices(). Other partial curved/trimmed
+ * edits are rejected; no endpoint-only control-coefficient rule or fitting fallback is inferred.
  *
  * P-curves, rational weights, bases, identities and unreferenced geometry remain unchanged.
  * Shared geometry resources must receive identical coefficient requests from all their owners.

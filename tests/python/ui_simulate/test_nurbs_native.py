@@ -3456,6 +3456,185 @@ def merge_tagged_and_preflight():
     print('NATIVE_MERGE_ATOMIC_PREFLIGHT_PASS')
 
 
+def composition_native_workflow(cuts=1):
+    """Stack Fill, duplicate/weld, Ctrl+R, subdivision, E, delete and further editing."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    view = space.region_3d
+    output = Path(os.environ.get('BLENDER_NURBS_COMPOSITION_OUTPUT', '/tmp/blender-nurbs-composition'))
+    output.mkdir(parents=True, exist_ok=True)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.context.preferences.view.smooth_view = 0
+    window.scene.cursor.location = (0, 0, 0)
+    window.scene.tool_settings.use_snap = False
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.two()
+    yield e.e().y().text('2').ret()
+    yield e.three()
+    yield e.a()
+
+    def totals():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+) \| Faces:\d+/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def check(expected, mode):
+        t.assertEqual(totals(), expected)
+        obj = window.view_layer.objects.active
+        t.assertEqual(obj.mode, 'EDIT')
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+        t.assertEqual(tuple(obj.data.nurbs_selection_mode), tuple(mode == name for name in ('VERT', 'EDGE', 'FACE')))
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(mesh)
+                t.assertGreaterEqual(len(mesh.vertices), expected[0])
+                if expected[2]:
+                    t.assertGreater(len(mesh.polygons), 0)
+            finally:
+                evaluated.to_mesh_clear()
+
+    def save(stage):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            path = output / f'composition-ui-{cuts}-{stage}'
+            bpy.ops.wm.save_as_mainfile(filepath=str(path) + '.blend', check_existing=False)
+            bpy.ops.screen.screenshot(filepath=str(path) + '.png')
+
+    def merge_menu(row):
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        if row == 0:
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                t.assertEqual(bpy.ops.curve.merge('EXEC_DEFAULT', True, type='CENTER'), {'FINISHED'})
+            yield
+            return
+        yield e.m()
+        center = ui.get_area_center(area)
+        yield e.cursor_position_set(center[0] - 60,
+                                    round(center[1] - row * 20 * bpy.context.preferences.system.ui_scale - (6 if row == 3 else 0)),
+                                    move=True)
+        yield e.leftmouse()
+
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete('EXEC_DEFAULT', True, type='ONLY_FACE'), {'FINISHED'})
+    yield
+    yield e.two()
+    yield e.a()
+    yield e.f()
+    check((4, 4, 1), 'EDGE')
+    yield e.three()
+    yield e.a()
+    yield e.shift.d().ret()
+    check((8, 8, 2), 'FACE')
+    yield e.a()
+    yield from merge_menu(3)
+    t.assertEqual(bpy.context.active_operator.bl_idname, 'CURVE_OT_remove_doubles')
+    check((4, 4, 1), 'FACE')
+    yield e.ctrl.z()
+    check((8, 8, 2), 'FACE')
+    yield e.ctrl.shift.z()
+    check((4, 4, 1), 'FACE')
+    yield e.two()
+    yield e.alt.a()
+    yield e.numpad_7()
+    view.view_location = (0, 1, 0)
+    view.view_distance = 9
+    yield
+    point = location_3d_to_region_2d(region, view, Vector((0, 0, 0)))
+    t.assertIsNotNone(point)
+    yield e.cursor_position_set(round(point.x) + region.x, round(point.y) + region.y, move=True)
+    yield e.ctrl.r()
+    if cuts == 2:
+        yield e.text('2')
+    yield e.ret()
+    yield e.esc()
+    check((6, 7, 2) if cuts == 1 else (8, 10, 3), 'EDGE')
+    yield e.three()
+    yield e.a()
+    yield from ui.call_operator(e, 'Subdivide')
+    sheet = (15, 22, 8) if cuts == 1 else (21, 32, 12)
+    box = (30, 56, 28) if cuts == 1 else (42, 80, 40)
+    opened = (30, 56, 20) if cuts == 1 else (42, 80, 28)
+    doubled = tuple(2 * value for value in opened)
+    refined = (212, 384, 160) if cuts == 1 else (300, 544, 224)
+    check(sheet, 'FACE')
+    yield e.e().z().text('1').ret()
+    check(box, 'FACE')
+    yield e.ctrl.z()
+    check(sheet, 'FACE')
+    yield e.ctrl.shift.z()
+    check(box, 'FACE')
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.curve.delete('EXEC_DEFAULT', True, type='ONLY_FACE'), {'FINISHED'})
+    yield
+    check(opened, 'FACE')
+    yield e.one()
+    yield e.a()
+    yield e.shift.d().x().text('4').ret()
+    check(doubled, 'VERT')
+    yield e.ctrl.z()
+    check(opened, 'VERT')
+    yield e.ctrl.shift.z()
+    check(doubled, 'VERT')
+    yield e.a()
+    yield from ui.call_operator(e, 'Subdivide')
+    check(refined, 'VERT')
+    yield e.numpad_1()
+    yield e.numpad_6()
+    yield e.numpad_8()
+    view.view_location = (2, 1, 0.5)
+    view.view_distance = 12
+    yield e.cursor_position_set(region.x + 20, region.y + 20, move=True)
+    save('bodies')
+    yield e.tab()
+    yield e.tab()
+    check(refined, 'VERT')
+    yield e.a()
+    yield from merge_menu(0)
+    t.assertEqual(bpy.context.active_operator.bl_idname, 'CURVE_OT_merge')
+    check((1, 0, 0), 'VERT')
+    yield e.e().z().text('1').ret()
+    check((2, 1, 0), 'VERT')
+    yield e.a()
+    yield from ui.call_operator(e, 'Subdivide')
+    check((3, 2, 0), 'VERT')
+    yield e.a()
+    yield e.shift.d().x().text('2').ret()
+    check((6, 4, 0), 'VERT')
+    yield e.x().ret()
+    check((3, 2, 0), 'VERT')
+    yield e.ctrl.z()
+    check((6, 4, 0), 'VERT')
+    yield e.ctrl.shift.z()
+    check((3, 2, 0), 'VERT')
+    yield e.a()
+    yield e.e().y().text('1').ret()
+    check((6, 7, 2), 'VERT')
+    yield e.a()
+    yield e.numpad_period()
+    yield e.cursor_position_set(region.x + 20, region.y + 20, move=True)
+    save('continued')
+    print('NURBS_COMPOSITION_UI_PASS', cuts, totals())
+
+
+def composition_native_multicut_workflow():
+    yield from composition_native_workflow(cuts=2)
+
+
 def loopcut_native_workflow():
     import os
     import re
@@ -4086,6 +4265,457 @@ def merge_reported_box_workflow():
     yield from merge_reported_workflow(box_selection=True)
 
 
+def layered_merge_workflow(first_type='CENTER', second_type='CENTER', component_mode='VERT'):
+    """Merge one cube edge, then the triangular top; continue editing the same source."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    view = space.region_3d
+    output = Path(os.environ.get('BLENDER_NURBS_LAYERED_OUTPUT', '/tmp/blender-nurbs-layered-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    label = f'{first_type}-{second_type}-{component_mode}'
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.context.preferences.view.smooth_view = 0
+    window.scene.cursor.location = (0, 0, 0)
+    window.scene.tool_settings.use_snap = False
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.two()
+    yield e.e().y().text('2').ret()
+    yield e.a()
+    yield e.three()
+    yield e.g().y().text('-1').ret()
+    yield e.e().z().text('2').ret()
+    yield e.one()
+    space.shading.show_xray = False
+    yield e.numpad_7()
+    view.view_location = (0, 0, 1)
+    view.view_distance = 8
+    yield e.alt.a()
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, view, Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    for i, point in enumerate(((-1, -1, 2), (1, -1, 2))):
+        yield e.cursor_position_set(*screen(point), move=True)
+        yield e.shift.leftmouse() if i else e.leftmouse()
+
+    def merge(merge_type):
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.m()
+        center = ui.get_area_center(area)
+        row = 2 if merge_type == 'COLLAPSE' else 0
+        yield e.cursor_position_set(center[0] - 60,
+                                    round(center[1] - row * 20 * bpy.context.preferences.system.ui_scale),
+                                    move=True)
+        yield e.leftmouse()
+        t.assertEqual(bpy.context.active_operator.bl_idname, 'CURVE_OT_merge')
+        t.assertEqual(bpy.context.active_operator.type, merge_type)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def save(stage):
+        obj = window.view_layer.objects.active
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            t.assertIsNotNone(mesh)
+            t.assertGreater(len(mesh.polygons), 0, 'The merged NURBS body failed evaluation')
+        finally:
+            evaluated.to_mesh_clear()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'layered-{label}-{stage}.blend'),
+                                      check_existing=False)
+            bpy.ops.screen.screenshot(filepath=str(output / f'layered-{label}-{stage}.png'))
+
+    yield from merge(first_type)
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    t.assertEqual(counts()[1::2], (7, 11, 6))
+    yield e.one() if component_mode == 'VERT' else e.two() if component_mode == 'EDGE' else e.three()
+    yield e.numpad_1()
+    space.shading.show_xray = True
+    yield e.alt.a()
+    yield e.b()
+    yield from e.leftmouse.cursor_motion((screen((-1.2, 0, 1.8)), screen((1.2, 0, 2.2))))
+    t.assertEqual(counts()[0], 3)
+    yield e.numpad_6()
+    yield e.numpad_8()
+    space.shading.show_xray = False
+    save('before-second')
+    before = counts()
+    yield from merge(second_type)
+    t.assertEqual(counts()[1::2], (5, 8, 5))
+    # Mesh leaves the tip selected in V mode; E/F flush clears selection without a surviving
+    # selected edge/face. Check the same source selection policy here.
+    t.assertEqual(counts()[0], 1 if component_mode == 'VERT' else 0)
+    t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+    after = counts()
+    save('after-second')
+    yield e.ctrl.z()
+    t.assertEqual(counts(), before)
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), after)
+    yield e.tab()
+    yield e.tab()
+    t.assertEqual(counts(), after)
+    yield e.one()
+    yield e.alt.a()
+    yield e.numpad_1()
+    yield e.cursor_position_set(*screen((0, 1 / 3, 2)), move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts()[0], 1)
+    yield e.e().z().text('0.5').ret()
+    t.assertEqual(counts()[1::2], (6, 9, 5))
+    save('continued')
+    yield e.ctrl.z()
+    t.assertEqual(counts()[1::2], (5, 8, 5))
+    print('NURBS_LAYERED_MERGE_PASS', label, counts())
+
+
+def layered_merge_collapse_workflow():
+    yield from layered_merge_workflow(first_type='COLLAPSE', second_type='COLLAPSE')
+
+
+def layered_merge_edge_workflow():
+    yield from layered_merge_workflow(second_type='COLLAPSE', component_mode='EDGE')
+
+
+def layered_merge_face_workflow():
+    yield from layered_merge_workflow(component_mode='FACE')
+
+
+def merge_cube_top_workflow(merge_type='CENTER', component_mode='VERT', tagged_entry=False,
+                            centered=True, selection_gesture='CAP'):
+    """The reported line -> face -> cube -> merge top sequence must produce a pyramid."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    window.scene.cursor.location = (0, 0, 0)
+    window.scene.tool_settings.use_snap = False
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    if not tagged_entry:
+        yield e.two()
+    yield e.e().y().text('2').ret()
+    yield e.a()
+    if not tagged_entry:
+        yield e.three()
+    if centered:
+        yield e.g().y().text('-1').ret()
+    yield e.e().z().text('2').ret()
+    if component_mode == 'VERT' and not tagged_entry:
+        yield e.one()
+    elif component_mode == 'EDGE':
+        yield e.two()
+    elif component_mode == 'FACE':
+        yield e.three()
+    space.shading.show_xray = False
+    if selection_gesture != 'CAP':
+        yield e.numpad_7()
+        space.region_3d.view_location = (0, 0, 2)
+        space.region_3d.view_distance = 8
+        yield e.alt.a()
+
+        def screen(point):
+            xy = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+            return round(xy.x) + region.x, round(xy.y) + region.y
+
+        if selection_gesture == 'BOX':
+            yield e.b()
+            yield from e.leftmouse.cursor_motion((screen((-1.2, -1.2, 2)), screen((1.2, 1.2, 2))))
+        else:
+            for i, corner in enumerate(((-1, -1, 2), (1, -1, 2), (1, 1, 2), (-1, 1, 2))):
+                yield e.cursor_position_set(*screen(corner), move=True)
+                yield e.shift.leftmouse() if i else e.leftmouse()
+    yield e.numpad_1()
+    yield e.numpad_6()
+    yield e.numpad_8()
+    space.region_3d.view_location = (0, 0 if centered else 1, 1)
+    space.region_3d.view_distance = 8
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, not tagged_entry)
+
+    def tagged_snapshot():
+        obj = window.view_layer.objects.active
+        obj.update_from_editmode()
+        splines = obj.data.splines
+        t.assertEqual(len(splines), 6)
+        positions = {tuple(point.co[:3]) for spline in splines for point in spline.points}
+        selected = {tuple(point.co[:3]) for spline in splines for point in spline.points if point.select}
+        t.assertEqual(len(positions), 8)
+        t.assertEqual(len(selected), 4)
+        t.assertTrue(all(point[2] == 2 for point in selected))
+        return tuple(tuple((tuple(point.co), point.select) for point in spline.points) for spline in splines)
+
+    if tagged_entry:
+        before = tagged_snapshot()
+    else:
+        t.assertEqual(counts()[1::2], (8, 12, 6))
+        t.assertEqual(counts()[0], 4)
+        before = counts()
+    output = Path(os.environ.get('BLENDER_NURBS_APEX_OUTPUT', '/tmp/blender-nurbs-apex-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    label = f'{merge_type}-{component_mode}-{tagged_entry}-{centered}-{selection_gesture}'
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / f'apex-{label}-before.blend'),
+                                  check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / f'apex-{label}-before.png'))
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.m()
+    center = ui.get_area_center(area)
+    row = 2 if merge_type == 'COLLAPSE' else 0
+    yield e.cursor_position_set(center[0] - 60,
+                                round(center[1] - row * 20 * bpy.context.preferences.system.ui_scale),
+                                move=True)
+    yield e.leftmouse()
+    t.assertEqual(bpy.context.active_operator.bl_idname, 'CURVE_OT_merge')
+    t.assertEqual(bpy.context.active_operator.type, merge_type)
+    t.assertEqual(counts()[1::2], (5, 8, 5))
+    t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+    after = counts()
+    yield e.ctrl.z()
+    t.assertEqual(window.view_layer.objects.active.data.is_native_nurbs, not tagged_entry)
+    t.assertEqual(tagged_snapshot() if tagged_entry else counts(), before)
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), after)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / f'apex-{label}.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / f'apex-{label}.png'))
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    yield e.tab()
+    yield e.tab()
+    t.assertEqual(counts()[1::2], (5, 8, 5))
+    yield e.one()
+    yield e.alt.a()
+    yield e.numpad_1()
+    point = location_3d_to_region_2d(region, space.region_3d, Vector((0, 0 if centered else 1, 2)))
+    yield e.cursor_position_set(round(point.x) + region.x, round(point.y) + region.y, move=True)
+    yield e.leftmouse()
+    t.assertEqual(counts()[0], 1)
+    yield e.e().z().text('0.5').ret()
+    t.assertEqual(counts()[1::2], (6, 9, 5))
+    yield e.ctrl.z()
+    t.assertEqual(counts()[1::2], (5, 8, 5))
+    print('NATIVE_MERGE_CUBE_TOP_PASS', label, counts())
+
+
+def merge_cube_top_collapse_workflow():
+    yield from merge_cube_top_workflow(merge_type='COLLAPSE')
+
+
+def merge_cube_top_face_workflow():
+    yield from merge_cube_top_workflow(component_mode='FACE')
+
+
+def merge_cube_top_edge_workflow():
+    yield from merge_cube_top_workflow(component_mode='EDGE')
+
+
+def merge_cube_top_tagged_workflow():
+    yield from merge_cube_top_workflow(tagged_entry=True)
+
+
+def merge_cube_top_uncentered_workflow():
+    yield from merge_cube_top_workflow(centered=False)
+
+
+def merge_cube_top_box_workflow():
+    yield from merge_cube_top_workflow(selection_gesture='BOX')
+
+
+def merge_cube_top_click_workflow():
+    yield from merge_cube_top_workflow(selection_gesture='CLICK')
+
+
+def surface_wire_grid_workflow(collapse_top=False, solid_wire=False):
+    """Collapsing one tagged cube must preserve the other cube's quad display grid."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    view = space.region_3d
+    output = Path(os.environ.get('BLENDER_NURBS_GRID_OUTPUT', '/tmp/blender-nurbs-grid-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    label = ('top' if collapse_top else 'edge') + ('-solid' if solid_wire else '')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.context.preferences.view.smooth_view = 0
+    bpy.context.preferences.inputs.use_rotate_around_active = False
+    window.scene.cursor.location = (0, 0, 0)
+    window.scene.tool_settings.use_snap = False
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    yield e.e().y().text('2').ret()
+    yield e.a()
+    yield e.e().z().text('2').ret()
+    yield e.a()
+    yield e.shift.d().x().text('4').ret()
+    t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+    space.shading.type = 'WIREFRAME'
+    space.shading.show_xray_wireframe = True
+    space.shading.xray_alpha_wireframe = 1.0
+    if solid_wire:
+        space.shading.type = 'SOLID'
+        space.shading.show_xray = True
+        space.shading.xray_alpha = 1.0
+        space.overlay.show_wireframes = True
+        space.overlay.wireframe_threshold = 1.0
+        window.view_layer.objects.active.show_all_edges = True
+    space.overlay.show_text = False
+    space.overlay.show_floor = False
+    space.overlay.show_axis_x = False
+    space.overlay.show_axis_y = False
+    space.overlay.show_cursor = False
+    space.show_gizmo = False
+    yield e.numpad_1()
+    view.view_location = (2, 1, 1)
+    view.view_distance = 14
+    yield e.alt.a()
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, view, Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    yield e.b()
+    yield from e.leftmouse.cursor_motion((screen((2.8 if collapse_top else 4.8, 0, 1.8)),
+                                          screen((5.2, 0, 2.2))))
+    view.view_rotation = Vector((5, -8, 4)).to_track_quat('Z', 'Y')
+    view.view_perspective = 'ORTHO'
+    yield e.cursor_position_set(region.x + 20, region.y + 20, move=True)
+
+    corners = [screen((x, y, z)) for x in (-1, 1) for y in (0, 2) for z in (0, 2)]
+    crop = (min(p[0] for p in corners) - 5, max(p[0] for p in corners) + 6,
+            min(p[1] for p in corners) - 5, max(p[1] for p in corners) + 6)
+
+    def capture(stage):
+        path = output / f'grid-{label}-{stage}.png'
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(path))
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'grid-{label}-{stage}.blend'),
+                                      check_existing=False)
+        image = bpy.data.images.load(str(path), check_existing=False)
+        try:
+            width, height = image.size
+            pixels = tuple(image.pixels)
+            x0, x1, y0, y1 = crop
+            t.assertTrue(0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height)
+            return [pixels[(y * width + x) * 4 + c]
+                    for y in range(y0, y1) for x in range(x0, x1) for c in range(3)]
+        finally:
+            bpy.data.images.remove(image)
+
+    reference = capture('before')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.m()
+    center = ui.get_area_center(area)
+    yield e.cursor_position_set(center[0] - 60,
+                                round(center[1] - 40 * bpy.context.preferences.system.ui_scale),
+                                move=True)
+    yield e.leftmouse()
+    t.assertEqual(bpy.context.active_operator.bl_idname, 'CURVE_OT_merge')
+    t.assertEqual(bpy.context.active_operator.type, 'COLLAPSE')
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    stats = window.scene.statistics(window.view_layer)
+    match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+    t.assertIsNotNone(match, stats)
+    counts = tuple(map(int, match.groups()))
+    t.assertEqual(counts[1::2], (13, 20, 11) if collapse_top else (15, 23, 12))
+    t.assertEqual(counts[0], 1)
+    yield e.cursor_position_set(region.x + 20, region.y + 20, move=True)
+    after = capture('collapse')
+    error = sum(abs(a - b) for a, b in zip(reference, after)) / len(reference)
+    print('NURBS_UNTOUCHED_GRID_PIXEL_ERROR', label, 'collapse', error)
+    t.assertLess(error, 0.005, 'Collapsing the right cube changed the left cube display grid')
+    yield e.ctrl.z()
+    t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+    yield e.ctrl.shift.z()
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    yield e.x().ret()
+    yield e.cursor_position_set(region.x + 20, region.y + 20, move=True)
+    after_delete = capture('delete')
+    error = sum(abs(a - b) for a, b in zip(reference, after_delete)) / len(reference)
+    print('NURBS_UNTOUCHED_GRID_PIXEL_ERROR', label, 'delete', error)
+    t.assertLess(error, 0.005, 'Deleting the collapsed corner changed the left cube display grid')
+    t.assertEqual(window.view_layer.objects.active.mode, 'EDIT')
+    # Mesh and NURBS picking both search within 75 pixels. A guide click may therefore select
+    # a nearby real corner, but the grid intersection must never become an editing handle.
+    yield e.alt.a()
+    resolution = 2 * max(window.view_layer.objects.active.data.resolution_u,
+                         window.view_layer.objects.active.data.resolution_v) - 1
+    candidates = [screen((-1 + 2 * i / resolution, 0, 2 * j / resolution))
+                  for i in range(1, resolution) for j in range(1, resolution)]
+
+    def distance_from_vertices(point):
+        return min((point[0] - corner[0]) ** 2 + (point[1] - corner[1]) ** 2 for corner in corners)
+
+    guide = max(candidates, key=distance_from_vertices)
+    t.assertGreater(distance_from_vertices(guide), 20 ** 2)
+    yield e.cursor_position_set(*guide, move=True)
+    yield e.leftmouse()
+    t.assertIn('Verts:1/', window.scene.statistics(window.view_layer))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.view3d.snap_cursor_to_active(), {'FINISHED'})
+    selected = tuple(round(value, 6) for value in window.scene.cursor.location)
+    t.assertIn(selected, [(x, y, z) for x in (-1, 1) for y in (0, 2) for z in (0, 2)])
+    yield e.alt.a()
+    yield e.tab()
+    yield e.tab()
+    yield e.cursor_position_set(region.x + 20, region.y + 20, move=True)
+    reentered = capture('reenter')
+    error = sum(abs(a - b) for a, b in zip(after_delete, reentered)) / len(after_delete)
+    t.assertLess(error, 0.005, 'Reentering Edit Mode lost the per-face display grid')
+    print('NURBS_SURFACE_WIRE_GRID_PASS', label, window.scene.statistics(window.view_layer))
+
+
+def surface_wire_grid_top_workflow():
+    yield from surface_wire_grid_workflow(collapse_top=True)
+
+
+def surface_wire_grid_solid_workflow():
+    yield from surface_wire_grid_workflow(solid_wire=True)
+
+
 def mesh_overlay_parity_workflow(custom_theme=False, tagged_entry=False):
     """Compare mesh shader colors and hidden-point depth behavior with the native source overlay."""
     import os
@@ -4436,3 +5066,244 @@ def distance_merge_native_workflow():
     t.assertEqual(totals(), (8, 12, 6))
     t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
     print('NATIVE_DISTANCE_MERGE_MENU_UNDO_CONTINUE_PASS')
+
+
+def pyramid_movement_workflow(mesh_reference=False, box_selection=False):
+    """G/R/S after Merge must deform the same source components as a mesh pyramid."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    import bmesh
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_TRIANGLE_OUTPUT', '/tmp/blender-nurbs-triangle-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    label = 'mesh' if mesh_reference else 'box' if box_selection else 'native'
+    if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+    if mesh_reference:
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 1))
+        bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.select_all(action='DESELECT')
+        bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+        for vertex in bm.verts:
+            vertex.select_set(vertex.co.z == 2)
+        bmesh.update_edit_mesh(window.view_layer.objects.active.data)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.merge('EXEC_DEFAULT', True, type='CENTER')
+    else:
+        yield from merge_cube_top_workflow()
+
+    bpy.context.preferences.view.smooth_view = 0
+    window.scene.tool_settings.use_snap = False
+    window.scene.tool_settings.transform_pivot_point = 'MEDIAN_POINT'
+    space.shading.show_xray = False
+    yield e.one()
+    yield e.numpad_1()
+    yield e.numpad_6()
+    yield e.numpad_8()
+    space.region_3d.view_location = (0, 0, 1)
+    space.region_3d.view_distance = 8
+    yield e.alt.a()
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def screen(point):
+        xy = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+        t.assertIsNotNone(xy)
+        return round(xy.x) + region.x, round(xy.y) + region.y
+
+    def pick(point, vertices):
+        yield e.alt.a()
+        x, y = screen(point)
+        if box_selection:
+            yield e.b()
+            yield from e.leftmouse.cursor_motion(((x - 5, y - 5), (x + 5, y + 5)))
+        else:
+            yield e.cursor_position_set(x, y, move=True)
+            yield e.leftmouse()
+        t.assertEqual(counts()[0], vertices)
+
+    def save(stage):
+        obj = window.view_layer.objects.active
+        t.assertEqual(obj.mode, 'EDIT')
+        if not mesh_reference:
+            t.assertTrue(obj.data.is_native_nurbs)
+            t.assertEqual(len(obj.data.splines), 0)
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                t.assertIsNotNone(mesh)
+                t.assertGreater(len(mesh.polygons), 0)
+            finally:
+                evaluated.to_mesh_clear()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'triangle-{label}-{stage}.blend'),
+                                      check_existing=False)
+            bpy.ops.screen.screenshot(filepath=str(output / f'triangle-{label}-{stage}.png'))
+
+    t.assertEqual(counts()[1::2], (5, 8, 5))
+    save('initial')
+    yield from pick((0, 0, 2), 1)
+    yield e.g().x().text('0.5').ret()
+    save('apex-move')
+    yield e.ctrl.z()
+    yield e.ctrl.shift.z()
+    yield e.g().z().text('1').esc()
+    save('apex-restored')
+    yield from pick((-1, -1, 0), 1)
+    yield e.g().z().text('0.25').ret()
+    save('base-move')
+    yield e.two()
+    yield from pick((0, -1, 0.125), 2)
+    yield e.g().x().text('0.25').ret()
+    yield e.s().z().text('2').ret()
+    yield e.r().z().text('15').ret()
+    t.assertEqual(counts()[1::2], (5, 8, 5))
+    save('edge-transform')
+    yield e.three()
+    # The rotated edge's midpoint remains (0.25, -1, 0.125).
+    yield from pick(((0.25 + 0.25 + 0.5) / 3, -2 / 3, (0.375 - 0.125 + 2) / 3), 3)
+    yield e.g().y().text('-0.25').ret()
+    save('face-move')
+    yield e.e().y().text('-0.5').ret()
+    t.assertEqual(counts()[1::2], (8, 14, 8))
+    save('extrude')
+    yield e.g().x().text('0.125').ret()
+    yield e.ctrl.z()
+    yield e.tab()
+    yield e.tab()
+    t.assertEqual(counts()[1::2], (8, 14, 8))
+    save('reload')
+    import subprocess
+    child = subprocess.run(
+        [bpy.app.binary_path, '--background', '--factory-startup',
+         str(output / f'triangle-{label}-reload.blend'), '--python-exit-code', '1',
+         '--python', str(Path(__file__).resolve().parents[1] / 'nurbs_native_triangle_reload.py')],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=60,
+    )
+    t.assertEqual(child.returncode, 0, child.stdout)
+    t.assertIn('TRIANGLE_FRESH_MOVE_PASS', child.stdout)
+    print('NURBS_TRIANGLE_MOVEMENT_PASS', label, counts())
+
+
+def pyramid_movement_mesh_workflow():
+    yield from pyramid_movement_workflow(mesh_reference=True)
+
+
+def pyramid_movement_box_workflow():
+    yield from pyramid_movement_workflow(box_selection=True)
+
+
+def pyramid_shading_workflow(mesh_reference=False, move_amount='0.5'):
+    """A merged/moved planar pyramid must shade like its actual Mesh counterpart."""
+    import os
+    from pathlib import Path
+    import bpy
+    import bmesh
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_SHADING_OUTPUT', '/tmp/blender-nurbs-shading-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    label = 'mesh' if mesh_reference else 'native'
+    if move_amount != '0.5':
+        label += '-decimal'
+    if mesh_reference:
+        for obj in tuple(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+        bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 1))
+        bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.tab()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.select_all(action='DESELECT')
+        bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+        for vertex in bm.verts:
+            vertex.select_set(vertex.co.z == 2)
+        bmesh.update_edit_mesh(window.view_layer.objects.active.data)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.merge('EXEC_DEFAULT', True, type='CENTER')
+    else:
+        yield from merge_cube_top_workflow()
+    yield e.one()
+    yield e.numpad_1()
+    yield e.numpad_6()
+    yield e.numpad_8()
+    space.region_3d.view_location = (0.2, 0, 1)
+    space.region_3d.view_distance = 3.5
+    space.shading.show_xray = False
+    yield e.g().x().text(move_amount).ret()
+
+    def save(stage):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'pyramid-shading-{label}-{stage}.blend'),
+                                      check_existing=False)
+            bpy.ops.screen.screenshot(filepath=str(output / f'pyramid-shading-{label}-{stage}.png'))
+
+    def check_normals():
+        obj = window.view_layer.objects.active
+        t.assertEqual(obj.mode, 'EDIT')
+        if not mesh_reference:
+            t.assertTrue(obj.data.is_native_nurbs)
+            t.assertEqual(len(obj.data.splines), 0)
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            t.assertIsNotNone(mesh)
+            t.assertGreater(len(mesh.polygons), 0)
+            zero_area = sum(p.area == 0 for p in mesh.polygons)
+            normals = mesh.corner_normals
+            dots = [normals[i].vector.dot(p.normal) for p in mesh.polygons
+                    for i in p.loop_indices if p.area != 0]
+            lengths = [normal.vector.length for normal in normals]
+            print('PYRAMID_SHADING_METRICS', label, len(mesh.polygons), zero_area,
+                  min(dots), min(lengths), max(lengths))
+            t.assertEqual(zero_area, 0)
+            t.assertGreater(min(dots), 0.9999)
+            for length in lengths:
+                t.assertAlmostEqual(length, 1, delta=1e-4)
+        finally:
+            evaluated.to_mesh_clear()
+
+    save('moved')
+    check_normals()
+    yield e.ctrl.z()
+    check_normals()
+    yield e.ctrl.shift.z()
+    check_normals()
+    yield e.tab()
+    yield e.tab()
+    check_normals()
+    save('restored')
+    print('NURBS_PYRAMID_SHADING_PASS', label)
+
+
+def pyramid_shading_mesh_workflow():
+    yield from pyramid_shading_workflow(mesh_reference=True)
+
+
+def pyramid_decimal_move_workflow():
+    yield from pyramid_shading_workflow(move_amount='0.3')
+
+
+def pyramid_decimal_move_mesh_workflow():
+    yield from pyramid_shading_workflow(mesh_reference=True, move_amount='0.3')

@@ -1,7 +1,11 @@
 # Mesh Edit Mode shortcut feasibility for native NURBS
 
 This is a shortcut-level companion to the operator parity map and menu
-crosswalk. It answers two separate questions for each binding:
+crosswalk. For the corrected feasibility decision and adversarial reviews, see
+[the current mesh-shortcut verdict](mesh_shortcut_feasibility_verdict.md). This
+file remains a shortcut-level checklist and older rows below may describe
+proposed behavior rather than current implementation. It answers two separate
+questions for each binding:
 
 1. Can the familiar Blender shortcut be reused?
 2. What should that shortcut do to authoritative NURBS geometry and topology?
@@ -51,8 +55,8 @@ Labels used below:
 | Ctrl+1 / Ctrl+2 / Ctrl+3 — expand mode selection; Shift+1 / 2 / 3 — extend mode | **Reuse.** Apply to the same native component IDs and selection history. | Mode switching is present; all selection combinations need continued regression coverage. |
 | Ctrl+Tab — selection-mode menu in the legacy keymap | **Reuse.** Show the same three NURBS component modes. | Menu support is keymap-configuration dependent; the modern default uses 1/2/3. |
 | A, Alt+A, Ctrl+I — select/toggle, deselect, invert | **Reuse.** Operate on the active native component domain, not display tessellation elements. | Some native selection services exist; do not infer all variants from the shared key binding. |
-| Ctrl+Numpad + / - — grow/shrink selection | **NURBS kernel.** Grow across native incidence: endpoint-to-curve, curve-to-face, and adjacent faces. Shrink is the reverse. | Not a complete native selection family yet. |
-| Shift+Ctrl+Numpad + / - — next/previous item | **NURBS kernel.** Stable ordering must come from source topology IDs. | Not established for native topology. |
+| Ctrl+Numpad + / - — grow/shrink selection | **NURBS kernel.** Match Blender/BMesh region extension within the active selection domain, then apply Blender's mode flushing. Do not invent endpoint-to-curve-to-face mode transitions. | Not implemented for native topology. The current Curve binding calls legacy curve-array operators. |
+| Shift+Ctrl+Numpad + / - — next/previous item | **NURBS kernel.** Match Blender's selection-history and BMesh adjacency behavior, including its tie handling. Stable source IDs are references, not an ordering rule. | Mesh operators are real Python bindings; no native NURBS adapter or Curve key binding exists. |
 | L / Shift+L / Ctrl+L — linked pick / deselect linked / select linked | **NURBS kernel.** Traverse the shared source graph; retain Blender's pick, toggle, and history behavior. | Implemented for native topology and checkpointed. |
 | Alt-click — edge loop; Ctrl+Alt-click — edge ring | **NURBS kernel.** A loop follows actual shared BRep edges and face adjacency. A surface's U/V isoparametric direction is not automatically a topological loop. | Not implemented as a general NURBS loop/ring selector. |
 | Ctrl-click — shortest path | **NURBS kernel.** Find a path over native edge/vertex adjacency; the path may cross face patches. | Not established for native topology. |
@@ -100,21 +104,22 @@ Labels used below:
 | E — extrude/move; Alt+E — extrusion menu | **NURBS kernel.** Wire curve extrusion creates a connected ruled surface. Face-region extrusion creates walls only on the region's outer boundary; internal shared edges stay shared. Selection gesture must not affect the result. | Native E, line-to-surface extrusion, shared multi-face boundary behavior, and the snap-then-extrude regression are implemented/tested. Automatic face-normal constraint and broader geometry cases remain gates. |
 | Shift+D — duplicate/move | **Reuse** the copy-and-move interaction; allocate fresh topology IDs and remap internal sharing/history. Do not keep shared IDs between the source and its duplicate. | Implemented and checkpointed for supported native topology. |
 | Ctrl-click cursor dupli-extrude | **Adapt.** Reuse cursor placement, but make the duplicate/extrusion topology rule explicit for endpoints, curves, and face regions. | Not established for native NURBS. |
-| F — add edge/face; Alt+F — fill | **NURBS kernel.** Keep F. Build actual source curves/trim boundaries and a NURBS patch. Planar boundaries may have exact planar patches; non-planar boundaries need a declared fit/parameterization, exact boundary interpolation where possible, and visible tolerance failure. Keep corners sharp when the requested boundary is sharp. | Basic native fill paths exist, but this is not full mesh Fill/Grid Fill parity; difficult non-planar and repeated boundary cases still need targeted coverage. |
+| F — add edge/face; Alt+F — fill | **NURBS kernel.** Build actual source curves/trim boundaries and a NURBS patch. Planar and compatible ruled/bilinear cases can be exact; arbitrary boundaries need a declared fit/parameterization, measured tolerance, and visible failure. Keep corners sharp when requested. | Native fill handles constrained cases, including a bilinear patch from four straight corners. This is not full mesh Fill/Grid Fill parity. Curve mode currently binds F to `curve.make_segment`; Alt+F is not routed to a native fill menu. |
 | Shift+A — add geometry menu | **Adapt.** Use familiar menu access for NURBS lines, curves, surfaces, and exact analytic primitives. Circles/arcs must remain rational analytic geometry. | Native primitive creation and migration remain gates. |
 | Y — split; Alt+M — split menu | **NURBS kernel.** Disconnect the selected topology while retaining the represented shape and sharing within each side. Cutting an edge/face at a new parameter is a separate operation. | Y is implemented through shared extraction, including exact tagged entry and multiple native owners; see `native_split_tryout.md`. Alt+M menu parity and edge/face cuts remain later work. |
 | V / Alt+V / Alt+D — rip region / rip with fill / rip edge | **NURBS kernel.** Duplicate the affected source boundary/edge identities and update face trims atomically. Maintain the original shape on both sides of the tear. | V is implemented/tested for manifold vertex/edge fans and wire junctions, using actual mesh references. Rip with Fill and broader fan patterns remain planned. |
 | P — separate | **NURBS kernel.** Move selected source components to a new owner while preserving exact geometry and internal sharing; copy boundaries needed by both objects. | Separate Selection is implemented through shared extraction and Blender object duplication; see `native_separate_tryout.md`. By Material/By Loose Parts and mesh popup-menu parity remain planned. |
-| M — merge menu | **Adapt.** Weld only with an explicit merge action and compatibility checks. Compare exact source endpoints/curves or use a declared tolerance. Snapping alone must not weld. | Center/Cursor/First/Last/Collapse are implemented/tested, including real M menu and actual mesh comparisons. Arbitrary curved trim collapse, distance weld and auto-merge remain planned. |
+| M — merge menu | **Adapt.** Weld only with an explicit merge action and compatibility checks. Compare source endpoints/curves or use a declared tolerance. Do not infer a weld from snapping or display coincidence. | Center/Cursor/First/Last/Collapse and By Distance are implemented/tested. Curved trim collapse and automatic merge remain limited/planned. |
 | X / Delete — delete menu | **NURBS kernel.** Delete selected vertices/edges/faces with the selected mesh-style mode, preserving valid remaining source topology. | Native deletion is implemented/tested, including the reported delete-top-face then continue-edit case. |
 | Ctrl+X / Ctrl+Delete — dissolve | **Adapt.** Remove topology while preserving the same support when possible. If dissolving requires a changed fit, report its tolerance and failure. | Not implemented as general dissolve. |
 | Ctrl+R — loop cut; Shift+Ctrl+R — offset loop cut | **NURBS kernel.** Make real, selectable BRep trim partitions along the existing support. Knot insertion is shape-preserving control-net refinement and is not a loop cut. Isoparametric cuts can be exact; general cuts need an explicit intersection/curve solver. | Ctrl+R is implemented/tested for rectangular quad rings, with independent hover preview, count, source-parameter slide, undo/redo and continued editing. Offset/general trim cuts and degenerate endpoints remain planned. |
+| I — inset faces | **Adapt.** Planar/compatible curve offsets can be exact. Curved-face inset must declare its distance metric (parameter-space, 3D offset or geodesic-like); general offsets need tolerance-managed intersections and trim repair. | No native inset operator/kernel. This shortcut was omitted from the earlier audit. |
 | Subdivide (menu/search) | **NURBS kernel.** Share edge splits across every incident face; partition selected rectangular supports into independently editable subpatches. | Wires, full rectangular faces, one side and opposite sides are implemented. Adjacent two-side and three-side mesh patterns need a diagonal partition service and reject before mutation. |
 | J — connect vertex path | **NURBS kernel.** Create a source curve path on the trimmed face and partition its trims without changing the support where possible. | Not implemented. |
 | Ctrl+B / Shift+Ctrl+B — edge/vertex bevel | **Adapt.** Reuse the modal tool. Fillet/chamfer needs NURBS offset/intersection and corner joins; exact only for constrained cases, otherwise tolerance-managed with clear failure. | Not implemented; fillet/bevel is a later kernel family. |
 | K / Shift+K — knife / selected or cut-through variants | **NURBS kernel.** Intersect source curves/surfaces, create trim partitions, and honor visibility/selection options. Do not cut the viewport tessellation. | Not implemented. |
 | Ctrl+F / Ctrl+E / Ctrl+V — face / edge / vertex menus | **Reuse** the menu access, but populate it with available NURBS-native operations and disable unsupported entries accurately. | Menu crosswalk exists; full native menu/operator parity is incomplete. |
-| Alt+R — spin (legacy keymap) | **Adapt.** A NURBS revolve/sweep can be meaningful and exact for supported analytic profiles; it is a dedicated construction, not a mesh spin over display vertices. | Not implemented in native component editing. |
+| Alt+R — spin (legacy keymap) | **Adapt.** Preserve Blender's finite step count, angle, axis, cursor center, duplicate/extrude mode, selection and full-turn identity weld. Transform rational copies exactly and connect compatible stations with degree-1 ruled patches. A continuous NURBS revolution is a separate operation. | Finite native topology Spin is not implemented. Legacy Curve Spin edits a control net and is not this feature. |
 
 ## Mesh operations with no one-to-one source geometry
 
@@ -131,7 +136,7 @@ Labels used below:
 | Ctrl+Shift+Alt+M — select non-manifold (legacy keymap) | **NURBS kernel.** Select source edges by BRep incidence/boundary status. | Incidence is represented in native topology; shortcut/operator parity is not established. |
 | Ctrl+Shift+Alt+F — linked flat faces (legacy keymap) | **Adapt.** Traverse adjacent source faces using analytic normal-angle criteria. Do not inspect display triangles as the source. | Not established. |
 | Shift+Alt+F — beautify fill (legacy keymap) | **Adapt.** Repartition trims on the same support if useful; never reposition the source surface just to improve display triangulation. | No direct source operation established. |
-| Ctrl+0…5 — subdivision level (legacy keymap) | **NURBS-specific counterpart.** Could control progressive, shape-preserving source refinement where supported; it must not change degree or silently act as display resolution. The exact action and scope need a NURBS contract. | Not implemented; keep on the audit until refinement behavior is defined. |
+| Ctrl+0…5 — subdivision level (legacy keymap) | **No direct NURBS topology counterpart.** In Blender this calls `object.subdivision_set` to create/set a Subdivision Surface modifier; it does not refine edit topology. A NURBS preview-density preset is a separate display-only feature, not knot refinement. | Native NURBS evaluation currently rejects modifiers; preview-density key behavior is not implemented. |
 
 ## Generic keys that still apply
 
@@ -165,10 +170,10 @@ to a merely fitted curve.
 
 1. Keep the working selection/transform/duplicate/extrude/delete/snap behavior
    stable, with identical source selection regardless of click or box gesture.
-2. Complete native selection growth, visibility, path/loop selection and
-   source topology operations in the shared kernel.
-3. Implement split/separate/merge/dissolve and real Ctrl+R trim cuts with
-   shared identities and transaction-level validation.
+2. Complete native selection growth, visibility, history-based next/previous,
+   path/loop selection and source topology operations in the shared kernel.
+3. Extend the implemented split/separate/merge/Ctrl+R services; add general
+   dissolve/trim cuts with shared identities and transaction-level validation.
 4. Establish fit-point identity/drag rules and analytic-primitive constraints
    before enabling the normal fit-point editing workflow.
 5. Add tolerance-managed construction families (knife/intersection, offsets,

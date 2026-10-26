@@ -49,10 +49,14 @@ struct VertexMergeGroup {
   double3 target;
 };
 
-/** Weld disjoint explicit vertex groups, using the shared source deformation contract first.
+/** Weld disjoint explicit vertex groups, planning quotient boundaries before deformation.
  * Remove only proven constant collapsed edges; closed rational curves remain real edges.
  * Coalesce equivalent edge representations and repair collapsed straight face boundaries with
- * exact planar construction. Preserve unaffected source geometry and remaining topology IDs.
+ * planar/affine source construction within the explicit roundoff budget. Simple straight-sided
+ * polynomial degree-one patches are rebuilt together from surviving cycles: affine triangles,
+ * bilinear quads or exactly planar polygons. Preserve effective boundary orientation by incidence,
+ * and coalesce equal newly reconstructed cycles. Other geometry uses the source deformation
+ * contract. Preserve unaffected source geometry and remaining topology IDs.
  * Reject unsupported deformation, collapsed curved trims, incompatible parameterizations or
  * exceeded construction roundoff atomically. No proximity inference or hidden surface fitting.
  */
@@ -64,8 +68,9 @@ std::optional<TopologyEditResult> merge_vertex_groups(const NurbsGeometry &sourc
 enum class VertexMergeMode { Center, Cursor, First, Last, Collapse };
 
 /** Mesh merge mode planning over canonical source selection; cursor_target is object-local.
- * Center/Collapse use the arithmetic mean of source vertices, First/Last require selected
- * vertex history, and Collapse groups connected selected edges. No control-net selection.
+ * Center averages selected source vertices. Collapse groups connected selected edges and
+ * averages their endpoint incidences, matching BMesh at junctions. First/Last require selected
+ * vertex history. No control-net selection.
  */
 std::optional<TopologyEditResult> merge_selected_vertices(const NurbsGeometry &source,
                                                           const SelectionState &selection,

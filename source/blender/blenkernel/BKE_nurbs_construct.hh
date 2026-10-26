@@ -96,6 +96,8 @@ struct FillResult {
   Vector<int64_t> created_edges;
   Vector<int64_t> created_faces;
   TopologyDeletionPlan removed;
+  /** Conservative affine-support coefficient roundoff, not a fitting/evaluation certificate. */
+  double construction_error_bound = 0.0;
 };
 
 /** Connect two selected vertices, fill one simple boundary, or merge one planar face region.
@@ -109,6 +111,17 @@ struct FillResult {
  */
 std::optional<FillResult> fill_components(const NurbsGeometry &source,
                                           const ComponentSelection &selection,
+                                          std::string *r_error = nullptr);
+
+/** Also permit affine triangle charts within an explicit coefficient construction budget.
+ * Retain the original shared 3D boundaries and represent their parameter curves on a bilinear
+ * support. Only its fourth coefficient may incur arithmetic roundoff; record the conservative
+ * bound in the result and new face/use tolerances. No boundary fitting or tolerance increase
+ * beyond the caller's budget. The overload above requires zero construction roundoff.
+ */
+std::optional<FillResult> fill_components(const NurbsGeometry &source,
+                                          const ComponentSelection &selection,
+                                          double max_construction_error,
                                           std::string *r_error = nullptr);
 
 }  // namespace blender::bke::nurbs

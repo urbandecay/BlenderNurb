@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #include "MEM_guardedalloc.h"
 
@@ -17,7 +18,78 @@
 #include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_tessellate.hh"
 
+#include "testing/testing.h"
+
 namespace blender::bke::nurbs::tests {
+
+template<typename T, typename Fn>
+inline void expect_records_equal(const ListBaseT<T> &actual,
+                                 const ListBaseT<T> &expected,
+                                 Fn compare)
+{
+  ASSERT_EQ(actual.count(), expected.count());
+  const T *saved = static_cast<const T *>(actual.first);
+  for (const T &record : expected) {
+    ASSERT_NE(saved, nullptr);
+    SCOPED_TRACE(record.id);
+    EXPECT_EQ(saved->id, record.id);
+    compare(*saved, record);
+    saved = saved->next;
+  }
+}
+
+inline void expect_source_geometry_equal(const NurbsGeometry &actual,
+                                         const NurbsGeometry &expected)
+{
+  EXPECT_EQ(actual.next_id, expected.next_id);
+  expect_records_equal(actual.vertices, expected.vertices, [](const auto &a, const auto &b) {
+    EXPECT_EQ(std::memcmp(a.position, b.position, sizeof(a.position)), 0);
+    EXPECT_EQ(a.tolerance, b.tolerance);
+  });
+  expect_records_equal(actual.edges, expected.edges, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.vertex_ids[0], b.vertex_ids[0]);
+    EXPECT_EQ(a.vertex_ids[1], b.vertex_ids[1]);
+    EXPECT_EQ(a.curve_id, b.curve_id);
+    EXPECT_EQ(std::memcmp(a.parameter_range, b.parameter_range, sizeof(a.parameter_range)), 0);
+    EXPECT_EQ(a.tolerance, b.tolerance);
+  });
+  expect_records_equal(actual.curves, expected.curves, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.order, b.order);
+    EXPECT_EQ(a.dimension, b.dimension);
+    ASSERT_EQ(a.points_num, b.points_num);
+    ASSERT_EQ(a.knots_num, b.knots_num);
+    EXPECT_EQ(std::memcmp(a.points, b.points, sizeof(NurbsControlPoint) * b.points_num), 0);
+    EXPECT_EQ(std::memcmp(a.knots, b.knots, sizeof(double) * b.knots_num), 0);
+  });
+  expect_records_equal(actual.surfaces, expected.surfaces, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.order_u, b.order_u);
+    EXPECT_EQ(a.order_v, b.order_v);
+    EXPECT_EQ(a.points_u, b.points_u);
+    EXPECT_EQ(a.points_v, b.points_v);
+    ASSERT_EQ(a.points_num, b.points_num);
+    ASSERT_EQ(a.knots_u_num, b.knots_u_num);
+    ASSERT_EQ(a.knots_v_num, b.knots_v_num);
+    EXPECT_EQ(std::memcmp(a.points, b.points, sizeof(NurbsControlPoint) * b.points_num), 0);
+    EXPECT_EQ(std::memcmp(a.knots_u, b.knots_u, sizeof(double) * b.knots_u_num), 0);
+    EXPECT_EQ(std::memcmp(a.knots_v, b.knots_v, sizeof(double) * b.knots_v_num), 0);
+  });
+  expect_records_equal(actual.faces, expected.faces, [](const auto &a, const auto &b) {
+    EXPECT_EQ(a.surface_id, b.surface_id);
+    EXPECT_EQ(a.tolerance, b.tolerance);
+    EXPECT_EQ(a.orientation, b.orientation);
+    EXPECT_EQ(a.material_index, b.material_index);
+    expect_records_equal(a.loops, b.loops, [](const auto &a_loop, const auto &b_loop) {
+      EXPECT_EQ(a_loop.is_inner, b_loop.is_inner);
+      expect_records_equal(
+          a_loop.edge_uses, b_loop.edge_uses, [](const auto &a_use, const auto &b_use) {
+            EXPECT_EQ(a_use.edge_id, b_use.edge_id);
+            EXPECT_EQ(a_use.pcurve_id, b_use.pcurve_id);
+            EXPECT_EQ(a_use.tolerance, b_use.tolerance);
+            EXPECT_EQ(a_use.reversed, b_use.reversed);
+          });
+    });
+  });
+}
 
 inline NurbsTopologyVertex *add_vertex(NurbsGeometry &geometry, const double3 &position)
 {
