@@ -147,6 +147,11 @@ class TopologyPreview {
   ~TopologyPreview();
   const bke::nurbs::ReadSnapshot &source() const;
   Object &object() const;
+  /** Replace the live native edit preview from the retained original. Cancel restores its exact
+   * geometry/selection and dirty state; runtime revisions remain monotonic. Tagged sources can
+   * use final commit directly, but must enter native component mode for a live preview. */
+  bool update_preview(bContext *C, bke::nurbs::TopologyEditResult result, std::string *r_error);
+  bool cancel_preview(bContext *C, std::string *r_error);
   bool commit(bContext *C,
               bke::nurbs::TopologyEditResult result,
               bke::nurbs::SelectionMode mode,

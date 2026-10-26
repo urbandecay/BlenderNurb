@@ -5991,7 +5991,14 @@ void CURVE_OT_vertex_add(wmOperatorType *ot)
 static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
 {
   const Curve &active_curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
-  if (active_curve.editnurb->nurbs_edit != nullptr) {
+  const bool use_native_topology = RNA_struct_property_is_set(op->ptr, "use_native_topology") ?
+                                       RNA_boolean_get(op->ptr, "use_native_topology") :
+                                       op->opm &&
+                                           STREQ(op->opm->type->idname, "CURVE_OT_extrude_move");
+  if (active_curve.editnurb->nurbs_edit != nullptr ||
+      (use_native_topology &&
+       bke::nurbs::legacy_topology_source_check(active_curve.editnurb->nurbs)))
+  {
     if (RNA_enum_get(op->ptr, "mode") != ed::transform::TFM_TRANSLATION) {
       BKE_report(op->reports,
                  RPT_ERROR,
@@ -6072,6 +6079,17 @@ void CURVE_OT_extrude(wmOperatorType *ot)
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* E enters shared topology before movement so float control points cannot
+   * independently round a planar cap. An explicit override and the standalone
+   * extrusion API retain the tagged legacy backend for existing scripts. */
+  PropertyRNA *prop = RNA_def_boolean(
+      ot->srna,
+      "use_native_topology",
+      false,
+      "Use Native Topology",
+      "Enter shared NURBS topology before extruding a tagged source");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
   /* to give to transform */
   RNA_def_enum(ot->srna,

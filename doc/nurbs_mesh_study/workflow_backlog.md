@@ -16,9 +16,66 @@ generates its own source and checks its results; two viewport workflows cover
 real keyboard interaction and undo/redo. This found and repaired coincident
 Duplicate → By Distance, by distinguishing rewiring from displacement and
 proving equivalent affine target boundaries before retaining an existing face.
-The fit-point foundation below remains the next major feature dependency.
+The user subsequently deferred CV/fit-point interface decisions and prioritized
+refining existing editing, beginning with edge bevel.
 
-## Active: curved fit-point foundation
+## Active: native edge bevel and connected corner repair
+
+The [vertex-mode extrusion correction](native_bevel_vertex_extrusion_fix.md)
+enters native topology before the first interactive extrusion, preventing float
+rounding from warping the faces of an ordinary line → face → box workflow.
+
+The [ruled-surface follow-up](native_bevel_ruled_surface_fix.md) adds exact source
+rails and conic blends on one compatible curved ruled edge, including planar
+end-cap repair. It also verifies ordinary mouse-extruded boxes in a fresh process.
+General curved contact tracing and connected curved corner networks remain pending.
+
+The [input correction](native_bevel_input_fix.md) fixes zero width when Ctrl remains
+held after Ctrl+B. Native bevel now uses mesh bevel's shared modal map and user
+bindings. Paired mesh/native mouse tests and a visible factory-scene test pass.
+
+[Native edge bevel](native_bevel.md) implements Ctrl+B on straight shared edges
+between planar polygon faces. The repair plans connected selections, shared
+corner stations, planar miters and higher-valence chamfer fans together.
+Rounded orthogonal valence-three corners use smooth rational octants; strips
+use the shared partition service. Mouse/numeric preview, wheel segments,
+cancel, undo/redo and Python operator access use the native edit pipeline.
+
+The [robustness follow-up](native_bevel_robustness.md) adds native network width
+limiting, enabled by default with C to toggle, and a certified spherical-corner
+construction that tolerates source-precision rotation errors. It passed 96
+kernel tests, 20 isolated viewport workflows and five CTest cases.
+
+The [corner-blend follow-up](native_bevel_corner_blends.md) adds nonorthogonal
+valence-three boundary patches, common conics at unequal two-edge junctions, and
+private planar quad charts for continued editing. General blends certify G0
+connection; constant radius and G1 are not claimed. It passed 101 kernel tests
+and eleven isolated viewport workflows, including actual mesh references and
+continued G / Shift+D edits.
+
+The [planar-chart correction](native_bevel_planar_chart_fix.md) fixes the ordinary
+line → face → box → resize-top → Ctrl+B failure, privately reparameterizing flat
+non-affine supports. Construction and validation now use consistent certified
+boundary bounds. It passed 104 kernel tests, nine viewport workflows (including
+two visible desktop windows and a mouse-width sweep) and five CTest cases.
+
+General curved-support blends, higher-valence rounded corners,
+vertex bevel, nonplanar corner caps with more than four sides, custom profiles
+and alternative width types remain pending. The earlier connected construction passed 248 kernel tests,
+14 isolated viewport workflows and five CTest cases; see the bevel document
+for exact scope, commands and evidence.
+
+The reported Bevel → Split → move-one-corner failure is addressed by the
+[rectangular trimmed-face deformation rule](trimmed_corner_transform_fix.md)
+in the shared component-transform service. It preserves the NURBS basis and
+existing interior while recording bounded edge/support correspondence.
+
+## Deferred by user: curved fit-point interface
+
+The existing numerical foundation remains useful. The user considered both CV
+and fit-point editing, then requested that handle-mode changes wait while the
+existing topology tools are refined. The earlier fit-only interface proposal
+below is not a newly approved implementation decision.
 
 The user's pyramid shading patches are addressed in the shared float display
 conversion; see [cause, source-preservation contract and checks](pyramid_shading_fix.md).
@@ -90,7 +147,7 @@ fit-point curve creation/joins and exact analytic primitives; broader extrusion,
 bridge/fill and symmetry; lasso/circle selection, visibility, source normal frames,
 proportional editing and multiple transform owners; texture UV seams/unwrapping,
 attributes/materials/normals; intersections/knife/bisect, inset, offsets/thickness,
-booleans and deferred bevel/fillet; modifier/GN/animation/export integration and
+booleans and general bevel/fillet; modifier/GN/animation/export integration and
 full Python component bindings. Dependencies and per-operation geometry policy
 still govern implementation order. UV texture data stays separate from geometric
 surface parameters and trim p-curves.

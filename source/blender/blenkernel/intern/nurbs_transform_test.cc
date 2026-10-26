@@ -13,6 +13,7 @@
 #include "BLI_math_vector.hh"
 
 #include "BKE_curve.hh"
+#include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_selection.hh"
 #include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
@@ -889,7 +890,7 @@ TEST(nurbs_vertex_transform, MergedPyramidCornersRemainEditable)
   }
 }
 
-static OwnedGeometry trimmed_triangle(const Span<double2> corners)
+static OwnedGeometry trimmed_polygon(const Span<double2> corners)
 {
   auto geometry = make_planar_sheet();
   auto &face = first_transform_item(geometry->faces);
@@ -901,13 +902,214 @@ static OwnedGeometry trimmed_triangle(const Span<double2> corners)
   return geometry;
 }
 
+TEST(nurbs_vertex_transform, RectangularTrimFieldsPreserveInteriorAndRationalBoundaryProfiles)
+{
+  const double2 ranges[][2] = {
+      {{0, 0}, {1, 0.75}}, {{0.125, 0.25}, {0.875, 0.75}}, {{0.1, 0.2}, {0.9, 0.8}}};
+  for (int test = 0; test < 3; test++) {
+    SCOPED_TRACE(test);
+    const double2 low = ranges[test][0], high = ranges[test][1];
+    const double2 corners[] = {low, {high.x, low.y}, high, {low.x, high.y}};
+    auto source = trimmed_polygon({corners, 4});
+    auto &face = first_transform_item(source->faces);
+    // The independently constructed nonbinary fixture has its own declared construction budget.
+    face.tolerance = 1e-12;
+    auto &surface = first_transform_item(source->surfaces);
+    if (test == 1) {
+      surface.points[3].position[2] = 0.5;
+    }
+    Map<int64_t, NurbsCurveGeometry *> curves;
+    Map<int64_t, NurbsTopologyVertex *> vertices;
+    for (auto &curve : source->curves) {
+      curves.add_new(curve.id, &curve);
+    }
+    for (auto &vertex : source->vertices) {
+      vertices.add_new(vertex.id, &vertex);
+    }
+    const auto index = TopologyIndex::build(*source);
+    ASSERT_TRUE(index);
+    Vector<VertexTransform> transforms;
+    Vector<double3> displacements;
+    for (const auto &use : first_transform_item(face.loops).edge_uses) {
+      const auto &edge = *index->edge(use.edge_id);
+      auto &curve = *curves.lookup(edge.curve_id);
+      auto &pcurve = *curves.lookup(use.pcurve_id);
+      for (int end = 0; end < 2; end++) {
+        const double2 uv(pcurve.points[end].position);
+        const double z = test == 1 ? 0.5 * uv.x * uv.y : 0;
+        vertices.lookup(edge.vertex_ids[end])->position[2] = z;
+        curve.points[end].position[2] = z;
+        curve.points[end].weight = pcurve.points[end].weight = end + 2;
+        if (test == 2) {
+          pcurve.points[end].position[0] = 2 + 3 * uv.x;
+          pcurve.points[end].position[1] = -3 + 4 * uv.y;
+        }
+      }
+      const int i = transforms.size();
+      auto matrix = double4x4::identity();
+      matrix.location() = double3(0.125 * i, -0.0625 * i, 0.25 * (i + 1));
+      displacements.append(matrix.location());
+      transforms.append({edge.vertex_ids[0], matrix});
+    }
+    if (test == 2) {
+      surface.knots_u[0] = surface.knots_u[1] = 2;
+      surface.knots_u[2] = surface.knots_u[3] = 5;
+      surface.knots_v[0] = surface.knots_v[1] = -3;
+      surface.knots_v[2] = surface.knots_v[3] = 1;
+    }
+    const auto before = OwnedGeometry(geometry_copy(source.get()));
+    std::string error;
+    const auto result = transform_vertices(*source, transforms, 1e-9, &error);
+    ASSERT_TRUE(result) << error;
+    expect_source_geometry_equal(*source, *before);
+    expect_bases_and_ids_unchanged(*source, *result->geometry);
+    const auto &output = first_transform_item(result->geometry->surfaces);
+    for (int y = 0; y <= 4; y++) {
+      for (int x = 0; x <= 4; x++) {
+        const double s = x / 4.0, t = y / 4.0;
+        double2 uv = low + double2(s, t) * (high - low);
+        if (test == 2) {
+          uv = double2(2 + 3 * uv.x, -3 + 4 * uv.y);
+        }
+        const auto original = evaluate_surface(surface, uv, &error);
+        const auto edited = evaluate_surface(output, uv, &error);
+        ASSERT_TRUE(original && edited) << error;
+        const double3 delta = (1 - s) * (1 - t) * displacements[0] +
+                              s * (1 - t) * displacements[1] + s * t * displacements[2] +
+                              (1 - s) * t * displacements[3];
+        for (int axis = 0; axis < 3; axis++) {
+          EXPECT_NEAR(edited->position[axis], original->position[axis] + delta[axis], 1e-12);
+        }
+      }
+    }
+    SurfacePreviewOptions options;
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+    EXPECT_LE(result->boundary_error_bound, 1e-9);
+    if (result->position_error_bound > 0 || result->boundary_error_bound > 0) {
+      EXPECT_FALSE(transform_vertices(*source, transforms, 0, &error));
+      expect_source_geometry_equal(*source, *before);
+    }
+  }
+}
+
+TEST(nurbs_vertex_transform, TrimmedCornerCannotHealAnExistingOutOfToleranceBoundary)
+{
+  const double2 corners[] = {{0, 0}, {1, 0}, {1, 0.75}, {0, 0.75}};
+  auto source = trimmed_polygon({corners, 4});
+  const auto &face = first_transform_item(source->faces);
+  const auto &use = first_transform_item(first_transform_item(face.loops).edge_uses);
+  const auto index = TopologyIndex::build(*source);
+  const int64_t vertex = index->edge(use.edge_id)->vertex_ids[0];
+  for (auto &item : source->vertices) {
+    if (item.id == vertex) {
+      item.position[2] = 0.001;
+    }
+  }
+  for (const int64_t id : index->edges_for_vertex(vertex)) {
+    const auto &edge = *index->edge(id);
+    for (auto &curve : source->curves) {
+      if (curve.id == edge.curve_id) {
+        curve.points[edge.vertex_ids[0] == vertex ? 0 : 1].position[2] = 0.001;
+      }
+    }
+  }
+  const auto before = OwnedGeometry(geometry_copy(source.get()));
+  std::string error;
+  EXPECT_FALSE(translate_vertices(*source, {&vertex, 1}, {0, 0, 0.25}, 1e-9, &error));
+  EXPECT_NE(error.find("input boundary tolerance"), std::string::npos) << error;
+  expect_source_geometry_equal(*source, *before);
+}
+
+TEST(nurbs_vertex_transform, TrimmedQuadsRechartSkewLayoutsAndRejectConflictingFields)
+{
+  const double2 rectangle[] = {{0.125, 0.25}, {0.875, 0.25}, {0.875, 0.75}, {0.125, 0.75}};
+  const double2 skew[] = {{0.125, 0.25}, {0.875, 0.375}, {0.875, 0.75}, {0.125, 0.75}};
+  for (const bool shared : {false, true}) {
+    auto source = trimmed_polygon({shared ? rectangle : skew, 4});
+    const auto &face = first_transform_item(source->faces);
+    const auto &use = first_transform_item(first_transform_item(face.loops).edge_uses);
+    const auto index = TopologyIndex::build(*source);
+    const int64_t vertex = index->edge(use.edge_id)->vertex_ids[0];
+    if (shared) {
+      auto *other = MEM_new<NurbsTopologyFace>(__func__);
+      other->id = source->next_id++;
+      other->surface_id = face.surface_id;
+      other->orientation = face.orientation;
+      BLI_addtail(&source->faces, other);
+      add_planar_loop(*source, *other, {rectangle, 4}, false);
+    }
+    const auto before = OwnedGeometry(geometry_copy(source.get()));
+    std::string error;
+    auto moved = translate_vertices(*source, {&vertex, 1}, {0, 0, 0.25}, 1e-9, &error);
+    if (shared) {
+      EXPECT_FALSE(moved);
+      EXPECT_NE(error.find("owners"), std::string::npos) << error;
+    }
+    else {
+      ASSERT_TRUE(moved) << error;
+      EXPECT_EQ(moved->reparameterized_faces, 1);
+      EXPECT_LE(moved->chart_error_bound, 1e-9);
+      const auto after = TopologyIndex::build(*moved->geometry);
+      ASSERT_TRUE(after);
+      EXPECT_EQ(double3(after->vertex(vertex)->position),
+                double3(index->vertex(vertex)->position) + double3(0, 0, 0.25));
+      BoundaryEvaluationOptions options;
+      options.evaluation_allowance = 0;
+      EXPECT_TRUE(evaluate_boundaries(*moved->geometry, options, &error)) << error;
+      EXPECT_TRUE(tessellate_surfaces(*moved->geometry, {}, &error)) << error;
+    }
+    expect_source_geometry_equal(*source, *before);
+  }
+}
+
+TEST(nurbs_vertex_transform, QuadChartsPreserveOtherOwnersAndBothLoopWindings)
+{
+  const double2 corners[] = {{0.125, 0.25}, {0.875, 0.375}, {0.875, 0.75}, {0.125, 0.75}};
+  for (const bool reversed : {false, true}) {
+    SCOPED_TRACE(reversed);
+    std::array<double2, 4> ordered;
+    std::copy_n(corners, 4, ordered.begin());
+    if (reversed) {
+      std::reverse(ordered.begin(), ordered.end());
+    }
+    auto source = trimmed_polygon(ordered);
+    auto &face = first_transform_item(source->faces);
+    const int64_t face_id = face.id, original_surface = face.surface_id;
+    auto *other = MEM_new<NurbsTopologyFace>(__func__);
+    other->id = source->next_id++;
+    other->surface_id = original_surface;
+    other->orientation = face.orientation;
+    BLI_addtail(&source->faces, other);
+    add_planar_loop(*source, *other, ordered, false);
+    const OwnedGeometry before(geometry_copy(source.get()));
+    std::string error;
+    auto result = reparameterize_planar_quads(*source, {&face_id, 1}, 1e-9, &error);
+    ASSERT_TRUE(result) << error;
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index);
+    EXPECT_NE(index->face(face_id)->surface_id, original_surface);
+    EXPECT_EQ(index->face(other->id)->surface_id, original_surface);
+    EXPECT_EQ(index->face(face_id)->orientation, face.orientation);
+    BoundaryEvaluationOptions options;
+    options.evaluation_allowance = 0;
+    EXPECT_TRUE(evaluate_boundaries(*result->geometry, options, &error)) << error;
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, {}, &error)) << error;
+    expect_source_geometry_equal(*source, *before);
+    /* A large source-support twist is not concealed by a new straight-sided chart. */
+    first_transform_item(source->surfaces).points[3].position[2] = 0.5;
+    face.tolerance = 1;
+    EXPECT_FALSE(reparameterize_planar_quads(*source, {&face_id, 1}, 1e-9, &error));
+    EXPECT_NE(error.find("whole-face error budget"), std::string::npos) << error;
+  }
+}
+
 TEST(nurbs_vertex_transform, TriangleDisplacementsUseTrimParametersAndIndividualMatrices)
 {
   const double2 cases[][3] = {{{0, 0}, {1, 0}, {0, 1}},
                               {{0.125, 0.25}, {0.875, 0.25}, {0.25, 0.75}},
                               {{0.1, 0.2}, {0.9, 0.3}, {0.2, 0.8}}};
   for (const auto &corners : cases) {
-    const auto source = trimmed_triangle({corners, 3});
+    const auto source = trimmed_polygon({corners, 3});
     const auto index = TopologyIndex::build(*source);
     const auto &face = first_transform_item(source->faces);
     const auto &loop = first_transform_item(face.loops);
@@ -946,7 +1148,7 @@ TEST(nurbs_vertex_transform, InvalidTriangleFieldsRejectAtomically)
   const double2 corners[] = {{0, 0}, {1, 0}, {0, 1}};
   const double2 degenerate[] = {{0, 0}, {1, 0}, {0, 0}};
   for (int failure = 0; failure < 5; failure++) {
-    auto source = trimmed_triangle({failure == 4 ? degenerate : corners, 3});
+    auto source = trimmed_polygon({failure == 4 ? degenerate : corners, 3});
     auto &face = first_transform_item(source->faces);
     auto &loop = first_transform_item(face.loops);
     auto &use = first_transform_item(loop.edge_uses);
@@ -980,7 +1182,7 @@ TEST(nurbs_vertex_transform, InvalidTriangleFieldsRejectAtomically)
 TEST(nurbs_vertex_transform, SharedTriangleSupportsRequireIdenticalOwnerDeformation)
 {
   const double2 corners[] = {{0, 0}, {1, 0}, {0, 1}};
-  auto source = trimmed_triangle({corners, 3});
+  auto source = trimmed_polygon({corners, 3});
   const auto &original = first_transform_item(source->faces);
   const auto index = TopologyIndex::build(*source);
   const auto &use = first_transform_item(first_transform_item(original.loops).edge_uses);
@@ -996,6 +1198,88 @@ TEST(nurbs_vertex_transform, SharedTriangleSupportsRequireIdenticalOwnerDeformat
   EXPECT_FALSE(translate_vertices(*source, {&id, 1}, {0, 0, 0.25}, 1e-9, &error));
   EXPECT_NE(error.find("owners"), std::string::npos) << error;
   expect_source_geometry_equal(*source, *before);
+}
+
+TEST(nurbs_vertex_transform, BeveledCornerStripRemainsEditableThroughTrimmedNeighbors)
+{
+  auto sheet = make_planar_sheet();
+  const auto sheet_index = TopologyIndex::build(*sheet);
+  ASSERT_TRUE(sheet_index);
+  int64_t shared_edge = 0;
+  for (const auto &edge : sheet->edges) {
+    if (sheet_index->vertex(edge.vertex_ids[0])->position[1] == 1 &&
+        sheet_index->vertex(edge.vertex_ids[1])->position[1] == 1)
+    {
+      shared_edge = edge.id;
+    }
+  }
+  ASSERT_NE(shared_edge, 0);
+  std::string error;
+  auto corner = extrude_edges(*sheet, {&shared_edge, 1}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(corner) << error;
+  auto beveled = bevel_edges(*corner->geometry, {&shared_edge, 1}, {.offset = 0.25}, &error);
+  ASSERT_TRUE(beveled) << error;
+  ASSERT_EQ(beveled->faces.size(), 1);
+  const auto index = TopologyIndex::build(*beveled->geometry);
+  ASSERT_TRUE(index);
+  Set<int64_t> selected;
+  for (const auto &loop : index->face(beveled->faces[0])->loops) {
+    for (const auto &use : loop.edge_uses) {
+      for (const int64_t id : index->edge(use.edge_id)->vertex_ids) {
+        selected.add(id);
+      }
+    }
+  }
+  const Vector<int64_t> vertices(selected.begin(), selected.end());
+  const auto before = OwnedGeometry(geometry_copy(beveled->geometry.get()));
+  auto moved = translate_vertices(*beveled->geometry, vertices, {0.125, 0, 0.25}, 1e-9, &error);
+  ASSERT_TRUE(moved) << error;
+  expect_source_geometry_equal(*beveled->geometry, *before);
+  expect_bases_and_ids_unchanged(*beveled->geometry, *moved->geometry);
+  SurfacePreviewOptions options;
+  EXPECT_TRUE(tessellate_surfaces(*moved->geometry, options, &error)) << error;
+
+  // Y and P retain the trimmed source support. Each detached original face must still bend
+  // when a single topology corner moves, independently of the former neighboring faces.
+  for (const auto &face : beveled->geometry->faces) {
+    SCOPED_TRACE(face.id);
+    const int64_t face_id = face.id;
+    auto split = split_components(*beveled->geometry, {{}, {}, {&face_id, 1}}, &error);
+    ASSERT_TRUE(split) << error;
+    const auto detached_index = TopologyIndex::build(*split->geometry);
+    ASSERT_TRUE(detached_index);
+    const auto *detached_face = detached_index->face(split->source_to_copy.lookup(face_id));
+    ASSERT_NE(detached_face, nullptr);
+    const auto &loop = first_transform_item(detached_face->loops);
+    for (const auto &use : loop.edge_uses) {
+      const int64_t vertex = detached_index->edge(use.edge_id)->vertex_ids[0];
+      SCOPED_TRACE(vertex);
+      auto deformed = translate_vertices(
+          *split->geometry, {&vertex, 1}, {0, 0, 0.375}, 1e-9, &error);
+      ASSERT_TRUE(deformed) << error;
+      expect_bases_and_ids_unchanged(*split->geometry, *deformed->geometry);
+      const auto output_index = TopologyIndex::build(*deformed->geometry);
+      ASSERT_TRUE(output_index);
+      for (const auto &original : split->geometry->vertices) {
+        const double3 expected = double3(original.position) +
+                                 (original.id == vertex ? double3(0, 0, 0.375) : double3(0));
+        EXPECT_EQ(double3(output_index->vertex(original.id)->position), expected);
+      }
+      auto *output_surface = static_cast<const NurbsSurfaceGeometry *>(
+          deformed->geometry->surfaces.first);
+      for (const auto &original : split->geometry->surfaces) {
+        ASSERT_NE(output_surface, nullptr);
+        if (original.id != detached_face->surface_id) {
+          EXPECT_EQ(std::memcmp(original.points,
+                                output_surface->points,
+                                sizeof(NurbsControlPoint) * original.points_num),
+                    0);
+        }
+        output_surface = output_surface->next;
+      }
+      EXPECT_TRUE(tessellate_surfaces(*deformed->geometry, options, &error)) << error;
+    }
+  }
 }
 
 }  // namespace blender::bke::nurbs::tests

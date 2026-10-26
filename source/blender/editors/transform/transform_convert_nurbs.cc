@@ -53,6 +53,9 @@ struct NurbsTransformData {
   double3 offset = double3(0);
   double3 applied_offset = double3(0);
   double position_error_bound = 0;
+  double boundary_error_bound = 0;
+  double chart_error_bound = 0;
+  int reparameterized_faces = 0;
   bool changed = false;
   wmOperator *op = nullptr;
   std::optional<TranslationPrecision> replay;
@@ -317,6 +320,9 @@ static void recalc_trans_nurbs(TransInfo *t)
     data.applied_mode = t->mode;
     data.applied_offset = data.offset;
     data.position_error_bound = result->position_error_bound;
+    data.boundary_error_bound = result->boundary_error_bound;
+    data.chart_error_bound = result->chart_error_bound;
+    data.reparameterized_faces = result->reparameterized_faces;
     data.changed = true;
   }
 }
@@ -534,6 +540,20 @@ static void after_trans_nurbs(bContext * /*C*/, TransInfo *t)
                   RPT_INFO,
                   "NURBS transform coefficient rounding bound: %.17g local units",
                   data.position_error_bound);
+    }
+    if (data.changed && data.boundary_error_bound > 0) {
+      BKE_reportf(t->reports,
+                  RPT_INFO,
+                  "NURBS transform additional edge/surface agreement bound: %.17g local units",
+                  data.boundary_error_bound);
+    }
+    if (data.changed && data.reparameterized_faces) {
+      BKE_reportf(t->reports,
+                  RPT_INFO,
+                  "NURBS transform: %d planar quad charts rebuilt; whole-face error bound %.17g "
+                  "local units",
+                  data.reparameterized_faces,
+                  data.chart_error_bound);
     }
   }
 }

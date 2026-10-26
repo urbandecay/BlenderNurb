@@ -5307,3 +5307,992 @@ def pyramid_decimal_move_workflow():
 
 def pyramid_decimal_move_mesh_workflow():
     yield from pyramid_shading_workflow(mesh_reference=True, move_amount='0.3')
+
+
+def bevel_corner_workflow(closed=False, rounded=False, mesh_reference=False, vertex_mode=False,
+                          mouse_input=False, mouse_sweep=False, face_depth=2.0, wall_height=2.0,
+                          mouse_limits=False, rotated=False, split_deformation=False,
+                          clamp_test=False, curved=False):
+    """Extruded corner -> Ctrl+B preview/cancel/confirm -> undo/reload/continued extrusion."""
+    import math
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    from mathutils import Matrix, Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path(os.environ.get('BLENDER_NURBS_BEVEL_OUTPUT', '/tmp/blender-nurbs-bevel-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    label = ('mesh' if mesh_reference else 'native') + ('-box' if closed else '-corner')
+    if curved:
+        label += '-curved'
+    if rounded:
+        label += '-round'
+    if vertex_mode:
+        label += '-vertex'
+    if mouse_input:
+        label += '-mouse'
+    if mouse_sweep:
+        label += '-sweep'
+    if mouse_limits:
+        label += '-limits'
+    if clamp_test:
+        label += '-clamped'
+    if rotated:
+        label += '-rotated'
+    if split_deformation:
+        label += '-split-deform'
+    if face_depth != 2.0 or wall_height != 2.0:
+        label += '-decimal'
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    window.scene.cursor.location = (0, 0, 0)
+    window.scene.tool_settings.use_snap = False
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    if mesh_reference:
+        mesh = bpy.data.meshes.new('Bevel mesh reference')
+        mesh.from_pydata([(-1, 0, 0), (1, 0, 0), (-1, face_depth, 0), (1, face_depth, 0),
+                          (-1, face_depth, wall_height), (1, face_depth, wall_height)], [], [(0, 1, 3, 2), (2, 3, 5, 4)])
+        obj = bpy.data.objects.new(mesh.name, mesh)
+        window.scene.collection.objects.link(obj)
+        obj.select_set(True)
+        window.view_layer.objects.active = obj
+        yield e.tab()
+        yield e.two()
+    else:
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        yield e.tab()
+        yield e.two()
+        yield e.e().y().text(str(face_depth)).ret()
+        if closed:
+            yield e.a()
+            yield e.three()
+        yield e.e().z().text(str(wall_height)).ret()
+        yield e.two()
+    obj = window.view_layer.objects.active
+    rotation_degrees = 21.256
+    if rotated:
+        # Rotate the source coefficients around the cursor. This introduces the same tiny
+        # non-affine roundoff that can appear after ordinary transforms in a user scene.
+        window.scene.tool_settings.transform_pivot_point = 'CURSOR'
+        window.scene.cursor.location = (0, 0, 0)
+        yield e.a()
+        yield e.r().z().text(str(rotation_degrees)).ret()
+        window.scene.tool_settings.transform_pivot_point = 'MEDIAN_POINT'
+    yield e.numpad_1()
+    yield e.numpad_6()
+    yield e.numpad_8()
+    space.region_3d.view_location = (0, 1.2, 0.7)
+    space.region_3d.view_distance = 6
+    space.shading.show_xray = False
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+
+    def counts():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))
+
+    def display_positions():
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        t.assertIsNotNone(mesh)
+        try:
+            return tuple(tuple(vertex.co) for vertex in mesh.vertices)
+        finally:
+            evaluated.to_mesh_clear()
+
+    def display_width():
+        # On this L-shaped source the base face ends at Y = face_depth - width.
+        # Measure its visible rail as well as counting topology, so a frozen preview fails.
+        inverse_rotation = Matrix.Identity(4)
+        if rotated:
+            inverse_rotation = Matrix.Rotation(-math.radians(rotation_degrees), 4, 'Z')
+        base = [(inverse_rotation @ Vector(point)).y for point in display_positions()
+                if abs((inverse_rotation @ Vector(point)).z) < 1e-7]
+        t.assertTrue(base)
+        return face_depth - max(base)
+
+    def mode():
+        return tuple(window.scene.tool_settings.mesh_select_mode if mesh_reference else obj.data.nurbs_selection_mode)
+
+    def save(stage):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{stage}.blend'), check_existing=False)
+
+    def screenshot(stage):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'bevel-{label}-{stage}.png'))
+
+    yield e.alt.a()
+    if curved:
+        if closed:
+            space.shading.show_xray = True
+        yield e.one()
+        for position, axis, distance in (((-1, 0, 0), 'z', '0.4'),
+                                          ((1, face_depth, wall_height), 'y', '0.5')):
+            point = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+            t.assertIsNotNone(point)
+            yield e.cursor_position_set(round(point.x) + region.x,
+                                        round(point.y) + region.y, move=True)
+            yield e.leftmouse()
+            t.assertEqual(counts()[0], 1)
+            yield e.g()
+            yield getattr(e, axis)()
+            yield e.text(distance).ret()
+            yield e.alt.a()
+        yield e.two()
+    target = Vector((0, 0, wall_height)) if closed and not curved else Vector((0, face_depth, 0))
+    if rotated:
+        target = Matrix.Rotation(math.radians(rotation_degrees), 4, 'Z') @ target
+    co = location_3d_to_region_2d(region, space.region_3d, target)
+    t.assertIsNotNone(co)
+    yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+    yield e.leftmouse()
+    if curved and closed:
+        space.shading.show_xray = False
+    if vertex_mode:
+        yield e.one()
+    before = counts()
+    t.assertEqual(before[0], 2)
+    t.assertEqual(before[2], 1)
+    before_mode = mode()
+    if not mesh_reference:
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            t.assertEqual(bpy.ops.curve.bevel('EXEC_DEFAULT', offset=0), {'CANCELLED'})
+        t.assertEqual(counts(), before)
+        t.assertEqual(mode(), before_mode)
+    save('before')
+    yield e.ctrl.b().text('0.25')
+    t.assertEqual(obj.mode, 'EDIT')
+    t.assertEqual(mode(), before_mode)
+    t.assertEqual(counts()[1::2], tuple(a + b for a, b in zip(before[1::2], (2, 3, 1))))
+    screenshot('preview')
+    yield e.esc()
+    t.assertEqual(counts(), before)
+    t.assertEqual(mode(), before_mode)
+    save('cancelled')
+    if not mesh_reference:
+        # Explicitly disable the native default clamp to exercise rejected-width behavior.
+        yield e.ctrl.b().c().text('3')
+        t.assertEqual(counts(), before)
+        yield e.esc()
+        t.assertEqual(counts(), before)
+    yield e.ctrl.b()
+    if mouse_input:
+        if clamp_test:
+            if mesh_reference:
+                # Mesh Edit Mode defaults to Clamp Overlap off.
+                yield e.c()
+            if rounded:
+                yield e.wheelupmouse().wheelupmouse()
+            segments = 3 if rounded else 1
+            expected = tuple(a + b for a, b in zip(before[1::2],
+                                                  (2 * segments, 3 * segments, segments)))
+            plateau = None
+            for pixels in (16, 240, 280, 24, 260, 32, 300):
+                yield e.cursor_position_set(round(co.x) + region.x + pixels,
+                                            round(co.y) + region.y, move=True)
+                t.assertEqual(counts()[1::2], expected)
+                width = display_width()
+                print('NURBS_BEVEL_CLAMP', label, pixels, width, flush=True)
+                if pixels >= 240:
+                    t.assertAlmostEqual(width, min(face_depth, wall_height), delta=1e-6)
+                    current = display_positions()
+                    if plateau is not None:
+                        t.assertEqual(current, plateau,
+                                      'The clamped result depends on earlier mouse positions')
+                    plateau = current
+                    save('clamped')
+                else:
+                    t.assertLess(width, min(face_depth, wall_height))
+                t.assertEqual(mode(), before_mode)
+            screenshot('clamped')
+            if not mesh_reference:
+                # C must disable and re-enable the actual geometry limit, rather than
+                # silently accepting a failed request or clearing the accepted preview.
+                yield e.c()
+                t.assertEqual(display_positions(), plateau)
+                yield e.c()
+                t.assertEqual(display_positions(), plateau)
+            yield e.esc()
+            t.assertEqual(counts(), before)
+            save('clamp-cancelled')
+            yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y,
+                                        move=True)
+            yield e.ctrl.b()
+            if mesh_reference:
+                yield e.c()
+            if rounded:
+                yield e.wheelupmouse().wheelupmouse()
+            yield e.cursor_position_set(round(co.x) + region.x + 280,
+                                        round(co.y) + region.y, move=True)
+            t.assertEqual(counts()[1::2], expected)
+            t.assertAlmostEqual(display_width(), min(face_depth, wall_height), delta=1e-6)
+            yield e.ret()
+            t.assertEqual(counts()[1::2], expected)
+            save('clamp-confirmed')
+            yield e.ctrl.z()
+            obj = window.view_layer.objects.active
+            t.assertEqual(counts(), before)
+            yield e.ctrl.shift.z()
+            obj = window.view_layer.objects.active
+            t.assertEqual(counts()[1::2], expected)
+            yield e.tab().tab()
+            obj = window.view_layer.objects.active
+            t.assertEqual(counts()[1::2], expected)
+            save('clamp-restored')
+            # Continue editing the actual limiting result, including its very narrow
+            # retained faces. Undoing across a Tab transition would test mode undo instead.
+            yield e.three()
+            yield e.e().esc()
+            yield e.g().z().text('0.5').ret()
+            t.assertEqual(obj.mode, 'EDIT')
+            t.assertGreater(counts()[5], expected[2])
+            save('clamp-continued')
+            screenshot('clamp-continued')
+            print('NURBS_BEVEL_CLAMP_PASS', label, counts(), flush=True)
+            return
+        if mouse_limits:
+            yield e.c()
+            if rounded:
+                yield e.wheelupmouse().wheelupmouse()
+            segments = 3 if rounded else 1
+            expected = tuple(a + b for a, b in zip(before[1::2],
+                                                  (2 * segments, 3 * segments, segments)))
+            previous_valid = None
+            for pixels in (16, 240, 24, 260, 32, 280, 40):
+                yield e.cursor_position_set(round(co.x) + region.x + pixels,
+                                            round(co.y) + region.y, move=True)
+                actual = counts()[1::2]
+                print('NURBS_BEVEL_MOUSE_LIMIT', label, pixels, actual, flush=True)
+                if actual != expected:
+                    screenshot('limits-failed')
+                    yield e.ret()
+                t.assertEqual(actual, expected, f'Preview disappeared at mouse offset {pixels}')
+                if pixels >= 240:
+                    t.assertEqual(display_positions(), previous_valid)
+                else:
+                    current = display_positions()
+                    if previous_valid is not None:
+                        t.assertNotEqual(current, previous_valid)
+                    previous_valid = current
+                if pixels == 16:
+                    save('last-valid')
+                    # Mesh bevel ignores queued intermediate moves. A stale zero-width event
+                    # must not reset this accepted preview while the cursor is being dragged.
+                    window.event_simulate(type='INBETWEEN_MOUSEMOVE', value='NOTHING',
+                                          x=round(co.x) + region.x,
+                                          y=round(co.y) + region.y)
+                    yield
+                    t.assertEqual(counts()[1::2], expected)
+                elif pixels == 240:
+                    save('held-invalid')
+                    screenshot('held-invalid')
+            # Zero is an explicit request to show the original, even after a held preview.
+            yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+            t.assertEqual(counts(), before)
+            yield e.cursor_position_set(round(co.x) + region.x + 24,
+                                        round(co.y) + region.y, move=True)
+            t.assertEqual(counts()[1::2], expected)
+            yield e.cursor_position_set(round(co.x) + region.x + 260,
+                                        round(co.y) + region.y, move=True)
+            yield e.esc()
+            t.assertEqual(counts(), before)
+            save('held-cancelled')
+            yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+            yield e.ctrl.b().c()
+            if rounded:
+                yield e.wheelupmouse().wheelupmouse()
+            yield e.cursor_position_set(round(co.x) + region.x + 24,
+                                        round(co.y) + region.y, move=True)
+            yield e.cursor_position_set(round(co.x) + region.x + 260,
+                                        round(co.y) + region.y, move=True)
+            # A displayed previous width must not silently accept the rejected request.
+            yield e.ret()
+            t.assertEqual(counts(), before)
+            save('rejected')
+            # Dismiss the confirmation error report before starting another operator.
+            yield e.esc()
+            yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+            yield e.ctrl.b().c()
+            if rounded:
+                yield e.wheelupmouse().wheelupmouse()
+        if mouse_sweep:
+            if rounded:
+                yield e.wheelupmouse().wheelupmouse()
+            segments = 3 if rounded else 1
+            expected = tuple(a + b for a, b in zip(before[1::2],
+                                                  (2 * segments, 3 * segments, segments)))
+            widths = {}
+            for pixels in (*range(8, 65), *range(63, 7, -1)):
+                yield e.cursor_position_set(round(co.x) + region.x + pixels,
+                                            round(co.y) + region.y, move=True)
+                actual = counts()[1::2]
+                print('NURBS_BEVEL_SWEEP', label, pixels, actual, flush=True)
+                if actual != expected:
+                    screenshot('sweep-failed')
+                    yield e.ret()
+                t.assertEqual(actual, expected, f'Bevel disappeared at mouse offset {pixels}')
+                width = display_width()
+                t.assertGreater(width, 0)
+                if pixels in widths:
+                    t.assertAlmostEqual(width, widths[pixels], delta=1e-6)
+                else:
+                    if widths:
+                        t.assertGreater(width, widths[pixels - 1] + 1e-7)
+                    widths[pixels] = width
+        yield e.cursor_position_set(round(co.x) + region.x + 35, round(co.y) + region.y, move=True)
+    else:
+        yield e.text('0.25')
+    if rounded and not (mouse_sweep or mouse_limits):
+        yield e.wheelupmouse()
+        yield e.wheelupmouse()
+    yield e.ret()
+    after = counts()
+    segments = 3 if rounded else 1
+    t.assertEqual(after[1::2], tuple(a + b for a, b in zip(before[1::2], (2 * segments, 3 * segments, segments))))
+    t.assertEqual(obj.mode, 'EDIT')
+    t.assertEqual(mode(), before_mode)
+    screenshot('finished')
+    save('finished')
+    yield e.ctrl.z()
+    obj = window.view_layer.objects.active
+    t.assertEqual(counts(), before)
+    t.assertEqual(obj.mode, 'EDIT')
+    yield e.ctrl.shift.z()
+    obj = window.view_layer.objects.active
+    t.assertEqual(counts(), after)
+    t.assertEqual(mode(), before_mode)
+    yield e.tab()
+    yield e.tab()
+    obj = window.view_layer.objects.active
+    t.assertEqual(counts(), after)
+    if not mesh_reference:
+        t.assertTrue(obj.data.is_native_nurbs)
+        t.assertEqual(len(obj.data.splines), 0)
+    save('restored')
+    if split_deformation:
+        def click(position):
+            point = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+            t.assertIsNotNone(point)
+            yield e.cursor_position_set(round(point.x) + region.x,
+                                        round(point.y) + region.y, move=True)
+            yield e.leftmouse()
+
+        def has_display_point(position):
+            return min((Vector(point) - Vector(position)).length
+                       for point in display_positions()) < 1e-6
+
+        yield e.three()
+        yield e.alt.a()
+        yield from click((0, 0.5, 0))
+        t.assertEqual(counts()[4], 1)
+        yield e.y()
+        yield e.g().z().text('1').ret()
+        yield e.one()
+        yield e.alt.a()
+        yield from click((-1, 0, 1))
+        t.assertEqual(counts()[0], 1)
+        before_deform = counts()
+        t.assertTrue(has_display_point((-1, 0, 1)))
+        save('split-before-deform')
+        yield e.g().z().text('0.375').ret()
+        t.assertEqual(counts(), before_deform)
+        t.assertTrue(has_display_point((-1, 0, 1.375)),
+                     'The detached trimmed face did not deform with its selected corner')
+        t.assertEqual(obj.mode, 'EDIT')
+        save('split-vertex-moved')
+        screenshot('split-vertex-moved')
+        yield e.ctrl.z()
+        obj = window.view_layer.objects.active
+        t.assertTrue(has_display_point((-1, 0, 1)))
+        yield e.ctrl.shift.z()
+        obj = window.view_layer.objects.active
+        t.assertTrue(has_display_point((-1, 0, 1.375)))
+        yield e.g().z().text('2').esc()
+        t.assertTrue(has_display_point((-1, 0, 1.375)))
+        yield e.tab()
+        yield e.tab()
+        obj = window.view_layer.objects.active
+        t.assertTrue(has_display_point((-1, 0, 1.375)))
+        save('split-restored')
+        print('NURBS_BEVEL_SPLIT_DEFORM_PASS', label, counts())
+        return
+    # The bevel's selected region must remain usable by the shared extrusion pipeline.
+    yield e.three()
+    # Mesh E initially constrains to the face normal; native E does not yet do that.
+    # Cancel only the move, then request the same explicit global displacement on both.
+    yield e.e().esc()
+    yield e.g().z().text('0.5').ret()
+    t.assertEqual(obj.mode, 'EDIT')
+    t.assertGreater(counts()[5], after[5])
+    save('continued')
+    screenshot('continued')
+    print('NURBS_BEVEL_WORKFLOW_PASS', label, before, after, counts())
+
+
+def bevel_box_workflow():
+    yield from bevel_corner_workflow(closed=True)
+
+
+def bevel_round_workflow():
+    yield from bevel_corner_workflow(rounded=True)
+
+
+def bevel_curved_workflow():
+    yield from bevel_corner_workflow(curved=True)
+
+
+def bevel_curved_round_workflow():
+    yield from bevel_corner_workflow(curved=True, rounded=True)
+
+
+def bevel_curved_round_box_workflow():
+    yield from bevel_corner_workflow(closed=True, curved=True, rounded=True)
+
+
+def bevel_freehand_box_workflow(vertex_start=False):
+    """Use mouse translations, rather than binary-friendly numeric extrusion fixtures."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path(os.environ.get('BLENDER_NURBS_BEVEL_OUTPUT', '/tmp/blender-nurbs-freehand-bevel'))
+    output.mkdir(parents=True, exist_ok=True)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    center = ui.get_area_center(area)
+    yield e.cursor_position_set(*center, move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab()
+    if not vertex_start:
+        yield e.two()
+    yield e.e()
+    yield e.cursor_position_set(center[0] + 90, center[1] + 90, move=True)
+    yield e.leftmouse()
+    if vertex_start:
+        t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+        t.assertEqual(len(window.view_layer.objects.active.data.splines), 0)
+        yield e.ctrl.z()
+        t.assertFalse(window.view_layer.objects.active.data.is_native_nurbs)
+        t.assertEqual(len(window.view_layer.objects.active.data.splines), 1)
+        yield e.ctrl.shift.z()
+        t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+        yield e.a()
+    else:
+        yield e.three().a()
+    yield e.e()
+    yield e.cursor_position_set(center[0] + 140, center[1] - 50, move=True)
+    yield e.leftmouse()
+    if vertex_start:
+        yield e.three()
+    obj = window.view_layer.objects.active
+
+    def totals():
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)',
+                          window.scene.statistics(window.view_layer))
+        t.assertIsNotNone(match)
+        return tuple(map(int, match.groups()))[1::2]
+
+    t.assertEqual(totals(), (8, 12, 6))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / 'freehand-box-before.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / 'freehand-box-before.png'))
+    yield e.ctrl.b().text('0.1')
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.screen.screenshot(filepath=str(output / 'freehand-box-preview.png'))
+    t.assertEqual(totals(), (12, 20, 10))
+    yield e.ret()
+    t.assertEqual(totals(), (12, 20, 10))
+    t.assertEqual(obj.mode, 'EDIT')
+    yield e.ctrl.z()
+    t.assertEqual(totals(), (8, 12, 6))
+    yield e.ctrl.shift.z()
+    t.assertEqual(totals(), (12, 20, 10))
+    print('NURBS_FREEHAND_BEVEL_PASS', flush=True)
+
+
+def bevel_vertex_freehand_box_workflow():
+    yield from bevel_freehand_box_workflow(vertex_start=True)
+
+
+def bevel_round_box_workflow():
+    yield from bevel_corner_workflow(closed=True, rounded=True)
+
+
+def bevel_vertex_workflow():
+    yield from bevel_corner_workflow(vertex_mode=True)
+
+
+def bevel_mesh_workflow():
+    yield from bevel_corner_workflow(mesh_reference=True)
+
+
+def bevel_mouse_workflow():
+    yield from bevel_corner_workflow(mouse_input=True)
+
+
+def bevel_mesh_mouse_workflow():
+    yield from bevel_corner_workflow(mesh_reference=True, mouse_input=True)
+
+
+def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=False,
+                                   rotated=False, clamped=False, skewed=False, face_selection=False,
+                                   tapered=False, mouse_input=False, hold_launch_ctrl=False,
+                                   remap_snap=False, release_launch_ctrl=False):
+    """A -> Ctrl+B on an extruded box must bevel its connected edge network."""
+    import os
+    import re
+    from pathlib import Path
+    import bpy
+    import math
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    output = Path(os.environ.get('BLENDER_NURBS_BEVEL_OUTPUT', '/tmp/blender-nurbs-bevel-ui'))
+    output.mkdir(parents=True, exist_ok=True)
+    if remap_snap:
+        keymap = bpy.context.window_manager.keyconfigs.user.keymaps['Bevel Modal Map']
+        changed = 0
+        for item in keymap.keymap_items:
+            if item.propvalue in {'SNAP_ON', 'SNAP_OFF'} and item.type == 'LEFT_CTRL':
+                item.type = 'LEFT_ALT'
+                changed += 1
+        t.assertEqual(changed, 2)
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    if mesh_reference:
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.mesh.primitive_cube_add()
+        for vertex in window.view_layer.objects.active.data.vertices:
+            if skewed:
+                vertex.co.y += vertex.co.x * math.sin(math.radians(15))
+                vertex.co.x *= math.cos(math.radians(15))
+            vertex.co.y += 1
+            vertex.co.z += 1
+            if skewed and vertex.co.z > 1:
+                vertex.co.x += 0.3
+                vertex.co.y -= 0.2
+            if tapered and vertex.co.z > 1:
+                vertex.co.x *= 1.3
+        yield e.tab()
+        yield e.two()
+        if pyramid:
+            import bmesh
+            yield e.one()
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.mesh.select_all(action='DESELECT')
+            bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+            for vertex in bm.verts:
+                vertex.select_set(vertex.co.z == 2)
+            bmesh.update_edit_mesh(window.view_layer.objects.active.data)
+            del vertex, bm
+    else:
+        yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+        yield e.tab()
+        yield e.two()
+        if skewed:
+            yield e.r().z().text('15').ret()
+        yield e.e().y().text('2').ret()
+        yield e.a().three()
+        yield e.e().z().text('2').ret()
+        if skewed:
+            yield e.g().x().text('0.3').ret().g().y().text('-0.2').ret()
+        if tapered:
+            yield e.s().x().text('1.3').ret()
+    if pyramid:
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        yield e.m()
+        center = ui.get_area_center(area)
+        yield e.cursor_position_set(center[0] - 60, center[1], move=True)
+        yield e.leftmouse()
+    if not mesh_reference or pyramid:
+        yield e.two()
+    obj = window.view_layer.objects.active
+    yield e.a()
+    if rotated:
+        yield e.r().z().text('21.256').ret()
+    yield e.numpad_1().numpad_6().numpad_8()
+    area.spaces.active.region_3d.view_distance = 7
+    if face_selection:
+        from bpy_extras.view3d_utils import location_3d_to_region_2d
+        from mathutils import Vector
+        yield e.three().alt.a()
+        xy = location_3d_to_region_2d(region, area.spaces.active.region_3d,
+                                     Vector((0.3, 0.8, 2)) if skewed else Vector((0, 1, 2)))
+        yield e.cursor_position_set(int(region.x + xy.x), int(region.y + xy.y), move=True)
+        yield e.leftmouse()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    label = 'mesh' if mesh_reference else 'native'
+    shape = 'pyramid' if pyramid else 'connected'
+    if rounded:
+        shape += '-round'
+    if rotated:
+        shape += '-rotated'
+    if clamped:
+        shape += '-clamped'
+    if skewed:
+        shape += '-skewed'
+    if tapered:
+        shape += '-tapered'
+    if face_selection:
+        shape += '-face'
+    if hold_launch_ctrl:
+        shape += '-launch-ctrl'
+    if remap_snap:
+        shape += '-snap-alt'
+    if release_launch_ctrl:
+        shape += '-released'
+    before = (5, 8, 5) if pyramid else (8, 12, 6)
+    after = (16, 32, 18) if pyramid else (24, 48, 26)
+    if rounded:
+        after = (96, 192, 98) if mesh_reference else (72, 120, 50)
+    if face_selection:
+        after = (20, 36, 18) if rounded else (12, 20, 10)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-before.blend'), check_existing=False)
+
+    def totals():
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        t.assertIsNotNone(match, stats)
+        return tuple(map(int, match.groups()))[1::2]
+
+    def coordinates():
+        window.view_layer.update()
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            return sorted(tuple(round(value, 6) for value in vertex.co) for vertex in mesh.vertices)
+        finally:
+            evaluated.to_mesh_clear()
+
+    if mouse_input:
+        from bpy_extras.view3d_utils import location_3d_to_region_2d
+        from mathutils import Vector
+        if hold_launch_ctrl:
+            area.spaces.active.region_3d.view_location = (0, 1, 2)
+            area.spaces.active.region_3d.view_distance = 2
+            yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        xy = location_3d_to_region_2d(region, area.spaces.active.region_3d,
+                                     Vector((0, 1, 2 if face_selection else 1)))
+        center = (round(region.x + xy.x), round(region.y + xy.y))
+        yield e.cursor_position_set(*center, move=True)
+        if hold_launch_ctrl:
+            for event_type, value in (('LEFT_CTRL', 'PRESS'), ('B', 'PRESS'), ('B', 'RELEASE')):
+                window.event_simulate(type=event_type, value=value, ctrl=True,
+                                      x=center[0], y=center[1])
+                yield
+            if release_launch_ctrl:
+                window.event_simulate(type='LEFT_CTRL', value='RELEASE', ctrl=False,
+                                      x=center[0], y=center[1])
+                yield
+        else:
+            yield e.ctrl.b()
+        if rounded:
+            yield e.wheelupmouse().wheelupmouse()
+        if hold_launch_ctrl:
+            window.event_simulate(type='MOUSEMOVE', value='NOTHING', ctrl=not release_launch_ctrl,
+                                  x=center[0] + 8, y=center[1])
+            yield
+            with bpy.context.temp_override(window=window, area=area, region=region):
+                bpy.ops.screen.screenshot(filepath=str(output / f'bevel-{label}-{shape}-ctrl-held.png'))
+            print('BEVEL_LAUNCH_CTRL', label, totals(), flush=True)
+            t.assertEqual(totals(), after)
+
+            def rail_width():
+                values = [point[1] for point in coordinates() if abs(point[2] - 2) < 1e-6]
+                t.assertTrue(values)
+                return min(values)
+
+            widths = {'launch': rail_width()}
+            t.assertGreater(widths['launch'], 0)
+            t.assertLess(widths['launch'], 0.05)
+            right = area.spaces.active.region_3d.view_matrix.inverted().to_3x3() @ Vector((1, 0, 0))
+            offset = location_3d_to_region_2d(region, area.spaces.active.region_3d,
+                                             Vector((0, 1, 2)) + 0.1 * right)
+            pixel_size = 0.1 / (offset - xy).length
+            initial_radius = math.hypot(center[0] - region.x - xy.x, center[1] - region.y - xy.y)
+            radius = math.hypot(center[0] + 8 - region.x - xy.x, center[1] - region.y - xy.y)
+            expected_width = max(0, (radius - initial_radius - 5) * pixel_size)
+            t.assertAlmostEqual(widths['launch'], expected_width, delta=2e-6)
+            window.event_simulate(type='LEFT_CTRL', value='RELEASE', ctrl=False,
+                                  x=center[0] + 8, y=center[1])
+            yield
+            snap_key = 'LEFT_ALT' if remap_snap else 'LEFT_CTRL'
+            window.event_simulate(type=snap_key, value='PRESS', ctrl=not remap_snap, alt=remap_snap,
+                                  x=center[0] + 8, y=center[1])
+            yield
+            window.event_simulate(type='MOUSEMOVE', value='NOTHING', ctrl=not remap_snap, alt=remap_snap,
+                                  x=center[0] + 28, y=center[1])
+            yield
+            widths['snap'] = rail_width()
+            t.assertAlmostEqual(widths['snap'], 0.1, delta=2e-6)
+            window.event_simulate(type=snap_key, value='RELEASE', ctrl=False, alt=False,
+                                  x=center[0] + 28, y=center[1])
+            yield
+            window.event_simulate(type='LEFT_SHIFT', value='PRESS', shift=True,
+                                  x=center[0] + 28, y=center[1])
+            yield
+            window.event_simulate(type='MOUSEMOVE', value='NOTHING', shift=True,
+                                  x=center[0] + 38, y=center[1])
+            yield
+            widths['precision'] = rail_width()
+            t.assertGreater(widths['precision'], widths['snap'])
+            t.assertLess(widths['precision'] - widths['snap'], 0.02)
+            window.event_simulate(type='LEFT_SHIFT', value='RELEASE', shift=False,
+                                  x=center[0] + 38, y=center[1])
+            yield
+            import json
+            (output / f'bevel-{label}-{shape}-widths.json').write_text(json.dumps(widths))
+            print('BEVEL_INPUT_WIDTHS', label, widths, flush=True)
+        else:
+            previews = {}
+            for distance in (10, 25, 60, 25):
+                yield e.cursor_position_set(center[0] + distance, center[1], move=True)
+                t.assertEqual(totals(), after)
+                current = coordinates()
+                if distance in previews:
+                    t.assertEqual(current, previews[distance])
+                else:
+                    previews[distance] = current
+            t.assertTrue(previews[10] != previews[25], 'The mouse did not change the bevel width')
+            t.assertTrue(previews[25] != previews[60], 'The wider bevel did not update')
+    else:
+        yield e.ctrl.b().text('100' if clamped else '0.25')
+        if clamped and mesh_reference:
+            yield e.c()
+        if rounded:
+            yield e.wheelupmouse().wheelupmouse()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.screen.screenshot(filepath=str(output / f'bevel-{label}-{shape}-preview.png'))
+    t.assertEqual(totals(), after)
+    yield e.esc()
+    t.assertEqual(totals(), before)
+    if hold_launch_ctrl:
+        area.spaces.active.region_3d.view_distance = 7
+        area.spaces.active.region_3d.view_location = (0, 1, 1)
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-cancelled.blend'), check_existing=False)
+    yield e.ctrl.b().text('100' if clamped else '0.25')
+    if clamped and mesh_reference:
+        yield e.c()
+    if rounded:
+        yield e.wheelupmouse().wheelupmouse()
+    yield e.ret()
+    t.assertEqual(totals(), after)
+    t.assertEqual(obj.mode, 'EDIT')
+    t.assertEqual(tuple(window.scene.tool_settings.mesh_select_mode if mesh_reference else
+                        obj.data.nurbs_selection_mode),
+                  (False, False, True) if face_selection else (False, True, False))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-finished.blend'), check_existing=False)
+        bpy.ops.screen.screenshot(filepath=str(output / f'bevel-{label}-{shape}-finished.png'))
+    if skewed or tapered:
+        area.spaces.active.overlay.show_overlays = False
+        area.spaces.active.region_3d.view_distance = 4.4
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / f'bevel-{label}-{shape}-shaded.png'))
+        area.spaces.active.overlay.show_overlays = True
+        area.spaces.active.region_3d.view_distance = 7
+        yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.ctrl.z()
+    t.assertEqual(totals(), before)
+    yield e.ctrl.shift.z()
+    t.assertEqual(totals(), after)
+    yield e.tab().tab()
+    obj = window.view_layer.objects.active
+    t.assertEqual(obj.mode, 'EDIT')
+    t.assertEqual(totals(), after)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-restored.blend'), check_existing=False)
+    if skewed or tapered or hold_launch_ctrl:
+        original = coordinates()
+        yield e.g().z().text('0.15').ret()
+        t.assertEqual(totals(), after)
+        t.assertTrue(coordinates() != original, 'Moving the beveled selection did nothing')
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-continued.blend'), check_existing=False)
+        yield e.ctrl.z()
+        t.assertEqual(coordinates(), original)
+        yield e.shift.d().z().text('3').ret()
+        t.assertGreater(totals()[0], after[0])
+        t.assertEqual(obj.mode, 'EDIT')
+        if not mesh_reference:
+            t.assertTrue(obj.data.is_native_nurbs)
+            t.assertEqual(len(obj.data.splines), 0)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-duplicated.blend'), check_existing=False)
+    print('NURBS_BEVEL_CONNECTED_PASS', label, shape, totals())
+
+
+def bevel_mesh_connected_edges_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True)
+
+
+def bevel_pyramid_workflow():
+    yield from bevel_connected_edges_workflow(pyramid=True)
+
+
+def bevel_mesh_pyramid_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, pyramid=True)
+
+
+def bevel_connected_round_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True)
+
+
+def bevel_mesh_connected_round_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, rounded=True)
+
+
+def bevel_mouse_sweep_workflow():
+    yield from bevel_corner_workflow(mouse_input=True, mouse_sweep=True)
+
+
+def bevel_mesh_mouse_sweep_workflow():
+    yield from bevel_corner_workflow(mesh_reference=True, mouse_input=True, mouse_sweep=True)
+
+
+def bevel_round_mouse_sweep_workflow():
+    yield from bevel_corner_workflow(rounded=True, mouse_input=True, mouse_sweep=True)
+
+
+def bevel_decimal_mouse_sweep_workflow():
+    yield from bevel_corner_workflow(mouse_input=True, mouse_sweep=True,
+                                    face_depth=1.71342, wall_height=2.31871)
+
+
+def bevel_mouse_limits_workflow():
+    yield from bevel_corner_workflow(mouse_input=True, mouse_limits=True)
+
+
+def bevel_round_mouse_limits_workflow():
+    yield from bevel_corner_workflow(rounded=True, mouse_input=True, mouse_limits=True)
+
+
+def bevel_rotated_mouse_sweep_workflow():
+    yield from bevel_corner_workflow(mouse_input=True, mouse_sweep=True, rotated=True)
+
+
+def bevel_rotated_mesh_mouse_sweep_workflow():
+    yield from bevel_corner_workflow(mesh_reference=True, mouse_input=True, mouse_sweep=True,
+                                    rotated=True)
+
+
+def bevel_split_vertex_deformation_workflow():
+    yield from bevel_corner_workflow(split_deformation=True)
+
+
+def bevel_split_vertex_deformation_mesh_workflow():
+    yield from bevel_corner_workflow(mesh_reference=True, split_deformation=True)
+
+
+def bevel_clamped_mouse_workflow():
+    yield from bevel_corner_workflow(mouse_input=True, clamp_test=True)
+
+
+def bevel_clamped_round_mouse_workflow():
+    yield from bevel_corner_workflow(rounded=True, mouse_input=True, clamp_test=True)
+
+
+def bevel_clamped_mesh_mouse_workflow():
+    yield from bevel_corner_workflow(mesh_reference=True, mouse_input=True, clamp_test=True)
+
+
+def bevel_rotated_round_box_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, rotated=True)
+
+
+def bevel_rotated_clamped_round_box_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, rotated=True, clamped=True)
+
+
+def bevel_skewed_round_box_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, skewed=True)
+
+
+def bevel_skewed_round_box_mesh_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, rounded=True, skewed=True)
+
+
+def bevel_skewed_round_face_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, skewed=True, face_selection=True)
+
+
+def bevel_skewed_round_face_mesh_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, rounded=True, skewed=True,
+                                              face_selection=True)
+
+
+def bevel_skewed_clamped_round_box_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, skewed=True, clamped=True)
+
+
+def bevel_tapered_round_box_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, tapered=True)
+
+
+def bevel_tapered_round_box_mesh_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, rounded=True, tapered=True)
+
+
+def bevel_tapered_round_face_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, tapered=True, face_selection=True)
+
+
+def bevel_tapered_round_face_mesh_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, rounded=True, tapered=True,
+                                              face_selection=True)
+
+
+def bevel_tapered_clamped_round_box_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, tapered=True, clamped=True)
+
+
+def bevel_tapered_round_mouse_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, tapered=True, mouse_input=True)
+
+
+def bevel_face_launch_ctrl_workflow():
+    yield from bevel_connected_edges_workflow(face_selection=True, mouse_input=True,
+                                              hold_launch_ctrl=True)
+
+
+def bevel_face_launch_ctrl_mesh_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, face_selection=True,
+                                              mouse_input=True, hold_launch_ctrl=True)
+
+
+def bevel_face_remapped_snap_workflow():
+    yield from bevel_connected_edges_workflow(face_selection=True, mouse_input=True,
+                                              hold_launch_ctrl=True, remap_snap=True)
+
+
+def bevel_face_remapped_snap_mesh_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, face_selection=True,
+                                              mouse_input=True, hold_launch_ctrl=True, remap_snap=True)
+
+
+def bevel_face_released_ctrl_workflow():
+    yield from bevel_connected_edges_workflow(face_selection=True, mouse_input=True,
+                                              hold_launch_ctrl=True, release_launch_ctrl=True)
+
+
+def bevel_face_released_ctrl_mesh_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, face_selection=True,
+                                              mouse_input=True, hold_launch_ctrl=True,
+                                              release_launch_ctrl=True)

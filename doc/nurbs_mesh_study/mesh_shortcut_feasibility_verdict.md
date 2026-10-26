@@ -9,6 +9,11 @@ The inventory includes menus, APIs and data operations as well as keyboard
 bindings; it is not 358 keyboard shortcuts. Add-ons, custom keymaps and
 runtime-generated tools are outside this verdict.
 
+Follow-up: [native bevel](native_bevel.md) adds a restricted straight-edge
+construction. The user has also deferred CV/fit-point interface changes while
+existing editing is refined; the original fit-only proposal below records the
+earlier audit scope rather than a newly approved interface decision.
+
 ## Verdict in one sentence
 
 **Most mesh editing interactions have a meaningful NURBS counterpart, and many
@@ -82,7 +87,7 @@ triangulated preview.
 | V rip; Alt+V rip with fill; Alt+D rip edge | **Yes for supported incidence patterns.** Duplicate boundary identities and update trims atomically. Fill/edge-extend variants need their own topology contract. | V rip supports restricted manifold fans/wire junctions. Alt+V and Alt+D are absent. |
 | Ctrl+R loop cut; Shift+Ctrl+R offset loop cut; Subdivide | **Yes as real BRep/trim partitions.** Isoparametric cuts are exact and preserve the support. General paths/offsets need surface intersection or parameter curves and tolerance. Knot insertion is shape-preserving representation refinement, not a topology cut. | Ctrl+R works on rectangular quad rings; Subdivide handles wires, full rectangles, one side and opposite sides. General trims, offset cuts and some patterns remain. Shift+Ctrl+R is currently Curve row-select, not offset cut. |
 | I inset | **Meaningful.** Planar/compatible curve offsets can be exact. Curved-face inset must declare whether it means parameter-space, 3D offset or geodesic-like distance; general offsets are tolerance-managed. | This shortcut was missing from the older audit; no native inset service/operator. |
-| Ctrl+B / Shift+Ctrl+B bevel | **Meaningful as fillet/chamfer.** Exact on constrained analytic/planar cases; general offsets, intersections and corner joins need a tolerance-managed kernel and explicit continuity. | No native bevel/fillet. |
+| Ctrl+B / Shift+Ctrl+B bevel | **Meaningful as fillet/chamfer.** Exact on constrained analytic/planar cases; general offsets, intersections and corner joins need a tolerance-managed kernel and explicit continuity. | Ctrl+B has a [restricted native straight-edge chamfer/rational round](native_bevel.md) between planar polygon faces, with [private affine chart normalization](native_bevel_planar_chart_fix.md), shared corner planning, planar miters and live source preview. [Network width limiting](native_bevel_robustness.md) starts enabled and uses C to toggle. Right-angle valence-three corners use certified rational octants. [Nonorthogonal three-edge blends and unequal two-edge junctions](native_bevel_corner_blends.md) now share positive rational boundaries, with explicit G0-only continuity. Private planar quad charts support continued edits. Vertex bevel, general curved-face blends and higher-valence rounded corners remain absent. |
 | J connect path; K / Shift+K knife | **Meaningful as source curve/trim cuts.** Exact when the path is representable on the support; general spatial cuts need NURBS intersection/projection and explicit tolerances. Never cut the preview mesh. | Not implemented. |
 | Ctrl+T / Shift+Ctrl+T triangulate; Alt+J tris-to-quads; Alt+P poke | **Meaningful as face-region partitioning** on the existing NURBS support, not as tessellation changes. Exact only where the partition curve has an exact compatible representation; otherwise trim/intersection work is tolerance-managed. | No general trim partition service for these operations. |
 | Alt+R Spin; mesh Screw | **Yes for finite, discrete mesh semantics.** Transform exact copies at each configured step; in extrusion mode connect matching stations with degree-1 ruled patches and shared station identities. Keep sharp station boundaries. Full-turn merge uses known source correspondence, not proximity weld. Continuous revolution is a different NURBS operation. | No native topology Spin/Screw. The old Curve Spin edits a control net and is not this feature. |

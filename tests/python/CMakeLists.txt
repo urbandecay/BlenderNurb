@@ -1705,6 +1705,27 @@ if(WITH_UI_TESTS)
     test_nurbs_native.pyramid_shading_mesh_workflow
     test_nurbs_native.pyramid_decimal_move_workflow
     test_nurbs_native.pyramid_decimal_move_mesh_workflow
+    test_nurbs_native.bevel_corner_workflow
+    test_nurbs_native.bevel_box_workflow
+    test_nurbs_native.bevel_round_workflow
+    test_nurbs_native.bevel_round_box_workflow
+    test_nurbs_native.bevel_vertex_workflow
+    test_nurbs_native.bevel_vertex_freehand_box_workflow
+    test_nurbs_native.bevel_mesh_workflow
+    test_nurbs_native.bevel_mouse_workflow
+    test_nurbs_native.bevel_mouse_sweep_workflow
+    test_nurbs_native.bevel_mesh_mouse_sweep_workflow
+    test_nurbs_native.bevel_round_mouse_sweep_workflow
+    test_nurbs_native.bevel_decimal_mouse_sweep_workflow
+    test_nurbs_native.bevel_mouse_limits_workflow
+    test_nurbs_native.bevel_round_mouse_limits_workflow
+    test_nurbs_native.bevel_mesh_mouse_workflow
+    test_nurbs_native.bevel_connected_edges_workflow
+    test_nurbs_native.bevel_mesh_connected_edges_workflow
+    test_nurbs_native.bevel_pyramid_workflow
+    test_nurbs_native.bevel_mesh_pyramid_workflow
+    test_nurbs_native.bevel_connected_round_workflow
+    test_nurbs_native.bevel_mesh_connected_round_workflow
     test_sculpt.asset_shelf_brush_selection
     test_sculpt.face_set_expand
     test_sculpt.face_set_gestures

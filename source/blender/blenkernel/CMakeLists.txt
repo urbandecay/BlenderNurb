@@ -217,6 +217,7 @@ set(SRC
   intern/node_tree_zones.cc
   intern/nurbs_construct.cc
   intern/nurbs_construct_fill.cc
+  intern/nurbs_construct_patch.cc
   intern/nurbs_edit.cc
   intern/nurbs_evaluate.cc
   intern/nurbs_fit.cc
@@ -230,6 +231,7 @@ set(SRC
   intern/nurbs_selection.cc
   intern/nurbs_tessellate.cc
   intern/nurbs_topology.cc
+  intern/nurbs_topology_bevel.cc
   intern/nurbs_topology_rip.cc
   intern/nurbs_topology_merge.cc
   intern/nurbs_topology_cut.cc

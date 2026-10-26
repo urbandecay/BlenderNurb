@@ -4047,6 +4047,7 @@ class VIEW3D_MT_edit_curve_context_menu(Menu):
             layout.menu("VIEW3D_MT_edit_nurbs_merge", text="Merge")
             layout.operator("curve.subdivide")
             layout.operator("curve.loopcut_slide", text="Loop Cut and Slide")
+            layout.operator("curve.bevel", text="Bevel Edges")
             layout.separator()
             layout.operator("transform.translate")
             layout.operator("transform.rotate")

@@ -316,7 +316,7 @@ TEST(nurbs_surface_preview, RejectsTriangulatorMergingAndOutputBudgetExhaustionW
   EXPECT_TRUE(geometry_validate_structure(*source));
 }
 
-TEST(nurbs_surface_preview, CollapsedModelKeepsSourceAndRejectsAnOpenUVChart)
+TEST(nurbs_surface_preview, CollapsedBoundaryClosesItsChartButGeneralUVGapsStillFail)
 {
   const auto source = make_planar_sheet();
   ASSERT_NE(source, nullptr);
@@ -339,6 +339,14 @@ TEST(nurbs_surface_preview, CollapsedModelKeepsSourceAndRejectsAnOpenUVChart)
       curve.points[0].position[0] = 0.125;
     }
   }
+  /* This gap lies entirely on a certified collapsed natural boundary. */
+  EXPECT_TRUE(tessellate_surfaces(*collapsed->geometry, preview_options(), &error)) << error;
+  for (NurbsCurveGeometry &curve : collapsed->geometry->curves) {
+    if (curve.id == use->pcurve_id) {
+      curve.points[0].position[1] = 0.125;
+    }
+  }
+  /* A gap into the chart interior is not a natural boundary pole. */
   EXPECT_FALSE(tessellate_surfaces(*collapsed->geometry, preview_options(), &error).has_value());
   EXPECT_NE(error.find("UV"), std::string::npos);
 }

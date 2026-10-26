@@ -16,6 +16,34 @@ namespace blender::bke::nurbs {
 
 struct SelectionState;
 
+struct BevelOptions {
+  /** Perpendicular face width. Ruled curved blends use the surface frame at the edge midpoint;
+   * the corresponding natural parameter offset can have varying world width along a curve. */
+  double offset = 0;
+  /** One makes a chamfer; larger counts partition a smooth rational rounded strip. */
+  int segments = 1;
+  double max_error = 1e-9;
+  /** Limit the whole selected network together before its first boundary collision. */
+  bool clamp_overlap = true;
+};
+
+struct BevelOffsetInfo {
+  /** Actual requested or clamped offset, in object-local source units. */
+  double offset = 0;
+  /** Conservative upper limit with positive clearance for construction roundoff. */
+  double limit = 0;
+  /** Junctions using common conic profiles or Coons patches. Shared boundaries are exact (G0),
+   * but tangent continuity and a constant-radius interior are not certified. */
+  int boundary_blend_corners = 0;
+  /** Flat supports whose non-affine parameterization was replaced by a private plane chart. */
+  int planar_charts = 0;
+  double chart_error_bound = 0;
+  /** Source-native conic strips on ruled supports; regular rail joins share tangent planes.
+   * Width is measured in the perpendicular surface frame at the source edge midpoint.
+   * A varying source frame does not imply a constant-radius fillet. */
+  int curved_blend_strips = 0;
+};
+
 /** An independent topology candidate and the source identities selected by the operation.
  * source_to_result maps retained/replaced active/history identities; zero means removed.
  * Output components name semantic results, not control coefficients or tessellation elements.
@@ -26,6 +54,26 @@ struct TopologyEditResult {
   Vector<int64_t> vertices, edges, faces;
   double geometry_error_bound = 0.0;
 };
+
+/** Bevel straight manifold edges between planar faces. Plan shared offsets and endpoint fans,
+ * normalize flat non-affine charts, repair boundaries, and construct chamfer/rational strips.
+ * Convex adjacent face boundaries and regular manifold fans are required; chamfers support higher
+ * valence and planar miter reconstruction. Rounded corners currently require valence three. Fully
+ * selected right-angle corners use spherical supports; other angles use boundary-interpolating
+ * Coons supports, recorded in BevelOffsetInfo. Width limiting uses source station motions, before
+ * constructing surfaces, and preserves their relative offsets across the selected network.
+ * A single natural shared boundary between compatible positive-rational ruled supports also
+ * admits exact isocurve rails, restricted original supports and conic strips with regular G1
+ * rail joins. Planar end caps are trimmed; nonplanar caps need an intersection solver. Curved
+ * widths use the midpoint frame; general circularity and curved self-collision are not certified.
+ * No general curved-support intersection,
+ * source mutation, fitting, display-mesh editing or silent tolerance enlargement.
+ */
+std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
+                                              Span<int64_t> edges,
+                                              const BevelOptions &options,
+                                              std::string *r_error = nullptr,
+                                              BevelOffsetInfo *r_offset_info = nullptr);
 
 /** Disconnect a manifold face fan on the chosen side of a vertex/edge selection, or one wire
  * branch at a single selected junction. side_face/side_edge are source incidence hints supplied

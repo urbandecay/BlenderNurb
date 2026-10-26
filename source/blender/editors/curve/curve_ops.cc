@@ -64,6 +64,7 @@ void ED_operatortypes_curve()
   WM_operatortype_append(CURVE_OT_split);
   WM_operatortype_append(CURVE_OT_rip);
   WM_operatortype_append(CURVE_OT_merge);
+  WM_operatortype_append(CURVE_OT_bevel);
   WM_operatortype_append(CURVE_OT_remove_doubles);
   WM_operatortype_append(CURVE_OT_loopcut_slide);
   WM_operatortype_append(CURVE_OT_duplicate);
@@ -170,6 +171,11 @@ void ED_keymap_curve(wmKeyConfig *keyconf)
   /* only set in editmode curve, by space_view3d listener */
   keymap = WM_keymap_ensure(keyconf, "Curve", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = ED_operator_editsurfcurve_or_nurbs;
+
+  /* Use mesh bevel's modal actions and user bindings. Its action table can be initialized
+   * later by the mesh editor; WM supports this registration order. */
+  wmKeyMap *bevel_keymap = WM_modalkeymap_ensure(keyconf, "Bevel Modal Map", nullptr);
+  WM_modalkeymap_assign(bevel_keymap, "CURVE_OT_bevel");
 
   curve_pen_modal_keymap(keyconf);
 }

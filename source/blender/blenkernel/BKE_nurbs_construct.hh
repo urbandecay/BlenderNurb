@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <array>
+
 /** \file
  * \ingroup bke
  */
@@ -12,6 +14,121 @@
 #include "BKE_nurbs_topology.hh"
 
 namespace blender::bke::nurbs {
+
+struct SurfaceConstruction {
+  OwnedSurface surface;
+  double geometry_error_bound = 0;
+};
+
+struct QuadChartResult {
+  OwnedGeometry geometry;
+  /** Whole-face deviation from the input support, including its measured boundary gap. */
+  double geometry_error_bound = 0;
+};
+
+struct PlanarChartResult {
+  OwnedGeometry geometry;
+  /** Whole-support projection and boundary reconstruction bound; no fitted surface. */
+  double geometry_error_bound = 0;
+};
+
+/** Reparameterize planar polynomial bilinear faces with affine plane charts. A trapezoid is
+ * planar even though its original bilinear chart has a nonzero mixed coefficient. Certify
+ * distance from the entire positive support to the chosen plane; reject actual curvature
+ * outside max_error. Enclose spatial boundary control hulls in the new chart, copy spatial
+ * curves and topology unchanged, and allocate private supports/p-curves. */
+std::optional<PlanarChartResult> reparameterize_affine_planes(const NurbsGeometry &source,
+                                                              Span<int64_t> faces,
+                                                              double max_error,
+                                                              std::string *r_error = nullptr);
+
+/** Give convex straight-sided quads on polynomial bilinear supports complete unit tensor
+ * charts. Bound support twist and input boundary discrepancy over the whole reparameterized
+ * region. Preserve vertices, 3D curves, edges, face/use identities, selection and face senses;
+ * allocate private supports and p-curves so other owners remain unchanged. No fitting or mesh
+ * conversion. Support twist and boundary discrepancy must fit the explicit operation budget;
+ * larger curvature or an invalid input boundary rejects atomically. */
+std::optional<QuadChartResult> reparameterize_planar_quads(const NurbsGeometry &source,
+                                                           Span<int64_t> faces,
+                                                           double max_error,
+                                                           std::string *r_error = nullptr);
+
+struct TriangleBlendShape {
+  /** Optional exact interior tensor control and weight on the collapsed top edge. */
+  NurbsControlPoint interior;
+  double collapsed_weight = 1;
+};
+
+/** Homogeneous Coons interpolation of three clamped positive rational quadratic boundaries.
+ * The curves run A->B, A->C and B->C, have endpoint weights one and parameter domain [0, 1].
+ * The top parameter boundary collapses to C. Copy boundary coefficients exactly and bound
+ * interior coefficient construction roundoff. This interpolates positions (G0); it does not
+ * certify tangent continuity or circular/spherical interior geometry. Reject nonpositive
+ * interior weights rather than fitting or changing boundary geometry. An optional shape adds
+ * a tensor interior/collapsed-boundary correction without changing any spatial boundary. */
+std::optional<SurfaceConstruction> rational_coons_triangle(
+    const NurbsCurveGeometry &ab,
+    const NurbsCurveGeometry &ac,
+    const NurbsCurveGeometry &bc,
+    double max_error,
+    std::string *r_error = nullptr,
+    const TriangleBlendShape *shape = nullptr);
+
+/** Affine image of a spherical octant, with a collapsed top parameter boundary. The three axes
+ * locate its equator endpoints and pole relative to center. Positive rational quadratic tensor
+ * construction; report coefficient/weight roundoff relative to the stored center and axes.
+ * No fitting, identity allocation or source mutation. Singular axis frames remain valid editable
+ * geometry; regularity and solid eligibility are separate contracts. */
+std::optional<SurfaceConstruction> rational_octant_surface(const double3 &center,
+                                                           const std::array<double3, 3> &axes,
+                                                           double max_error,
+                                                           std::string *r_error = nullptr);
+
+/** Construct an octant and certify its full radial deviation from a sphere centered at center.
+ * The error includes the Gram-matrix bound of the stored axes and coefficient/weight roundoff.
+ * Axes are never snapped or fitted; reject when the requested budget cannot cover the result.
+ * This allows nominally spherical constructions after source-precision affine arithmetic. */
+std::optional<SurfaceConstruction> rational_spherical_octant_surface(
+    const double3 &center,
+    const std::array<double3, 3> &axes,
+    double radius,
+    double max_error,
+    std::string *r_error = nullptr);
+
+/** Join two compatible positive-rational curves by a degree-one ruled direction. The curves
+ * must have identical bases. Their positive weights may differ; the ruled direction then has
+ * a rational parameterization of each straight generator. Copy their coefficients exactly; the
+ * returned support has no assigned source identity. Shared by boundary construction, bridge and
+ * bevel services. */
+OwnedSurface ruled_surface(const NurbsCurveGeometry &first,
+                           const NurbsCurveGeometry &second,
+                           std::string *r_error = nullptr);
+
+/** Positive rational quadratic blend between compatible curves, with a common tangent-control
+ * curve. Boundary coefficients are copied exactly. When the control curve lies in both source
+ * tangent planes, the blend has their tangent planes along regular boundaries. A constant
+ * cross weight defines a conic family; circularity/constant radius is not implied. */
+std::optional<SurfaceConstruction> conic_curve_blend(const NurbsCurveGeometry &first,
+                                                     const NurbsCurveGeometry &control,
+                                                     const NurbsCurveGeometry &last,
+                                                     double cross_weight,
+                                                     double max_error,
+                                                     std::string *r_error = nullptr);
+
+struct PlanarCurveProjection {
+  OwnedCurve curve;
+  double geometry_error_bound = 0;
+};
+
+/** Construct the parameter curve of a positive-rational spatial curve on a clamped polynomial
+ * bilinear support. Preserve its basis/weights. Bound the full curve/support deviation, including
+ * bilinear twist, and snap parameter overshoots only when their mapped geometric error fits
+ * max_error. Reject larger errors. No fitting, source mutation or identity allocation. */
+std::optional<PlanarCurveProjection> project_curve_to_affine_surface(
+    const NurbsCurveGeometry &curve,
+    const NurbsSurfaceGeometry &surface,
+    double max_error,
+    std::string *r_error = nullptr);
 
 struct FaceRegionExtrusionPlan {
   /** Unique source identities, in source order. */
@@ -96,7 +213,7 @@ struct FillResult {
   Vector<int64_t> created_edges;
   Vector<int64_t> created_faces;
   TopologyDeletionPlan removed;
-  /** Conservative affine-support coefficient roundoff, not a fitting/evaluation certificate. */
+  /** Conservative support projection/deviation bound, not a fitting/evaluation certificate. */
   double construction_error_bound = 0.0;
 };
 

@@ -228,8 +228,8 @@ struct SelectionTarget {
   bke::nurbs::ReadSnapshot source;
 };
 
-/** Prepare a source lease without changing a live owner. Split and Separate can also enter the
- * exact tagged prototype; other component edits require an already native owner.
+/** Prepare a source lease without changing a live owner. Extrude, Split and Separate can also
+ * enter the exact tagged prototype; other component edits require an already native owner.
  */
 static std::optional<SelectionTarget> component_edit_target(
     Main &bmain,
@@ -1137,7 +1137,11 @@ static bool component_edit(bContext *C,
   for (Object *object : objects) {
     promotions.append(std::nullopt);
     auto target = component_edit_target(
-        bmain, *object, operation == ComponentEdit::Split, promotions.last(), error);
+        bmain,
+        *object,
+        ELEM(operation, ComponentEdit::Split, ComponentEdit::Extrude),
+        promotions.last(),
+        error);
     if (!target) {
       BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
       return false;
@@ -1629,6 +1633,8 @@ bool merge_by_distance(bContext *C,
 struct TopologyPreview::State {
   SelectionTarget target;
   std::optional<bke::nurbs::PreparedCurveSource> promotion;
+  std::optional<bke::nurbs::ReadSnapshot> live_state;
+  int original_needs_flush = 0;
 };
 
 TopologyPreview::TopologyPreview(std::unique_ptr<State> state) : state_(std::move(state)) {}
@@ -1664,6 +1670,7 @@ std::unique_ptr<TopologyPreview> TopologyPreview::begin(bContext *C, std::string
     return nullptr;
   }
   auto state = std::make_unique<State>(State{std::move(*target), std::move(promotion)});
+  state->original_needs_flush = id_cast<Curve *>(object->data)->editnurb->needs_flush_to_id;
   return std::unique_ptr<TopologyPreview>(new TopologyPreview(std::move(state)));
 }
 
@@ -1674,6 +1681,53 @@ const bke::nurbs::ReadSnapshot &TopologyPreview::source() const
 Object &TopologyPreview::object() const
 {
   return *state_->target.object;
+}
+
+bool TopologyPreview::update_preview(bContext *C,
+                                     bke::nurbs::TopologyEditResult result,
+                                     std::string *r_error)
+{
+  if (state_->promotion || CTX_data_edit_object(C) != state_->target.object) {
+    if (r_error) {
+      *r_error = "Enter native NURBS component mode before previewing a topology edit";
+    }
+    return false;
+  }
+  auto candidate = bke::nurbs::edit_snapshot_from_topology_result(
+      std::move(result), source().selection(), source().selection().mode, r_error);
+  Curve &curve = *id_cast<Curve *>(object().data);
+  if (!candidate || !edit_commit(*CTX_data_main(C),
+                                 curve,
+                                 std::move(*candidate),
+                                 state_->live_state.value_or(source()),
+                                 r_error))
+  {
+    return false;
+  }
+  state_->live_state = curve.editnurb->nurbs_edit->read_snapshot();
+  return true;
+}
+
+bool TopologyPreview::cancel_preview(bContext *C, std::string *r_error)
+{
+  if (!state_->live_state) {
+    return true;
+  }
+  if (CTX_data_edit_object(C) != state_->target.object) {
+    if (r_error) {
+      *r_error = "NURBS preview owner changed before cancellation";
+    }
+    return false;
+  }
+  Curve &curve = *id_cast<Curve *>(object().data);
+  if (!edit_commit(
+          *CTX_data_main(C), curve, source().copy_for_edit(), *state_->live_state, r_error))
+  {
+    return false;
+  }
+  state_->live_state = curve.editnurb->nurbs_edit->read_snapshot();
+  curve.editnurb->needs_flush_to_id = state_->original_needs_flush;
+  return true;
 }
 
 bool TopologyPreview::commit(bContext *C,
@@ -1703,7 +1757,12 @@ bool TopologyPreview::commit(bContext *C,
     }
     edit_notify(bmain, curve);
   }
-  else if (!edit_commit(bmain, curve, std::move(*candidate), source(), r_error)) {
+  else if (!edit_commit(bmain,
+                        curve,
+                        std::move(*candidate),
+                        state_->live_state.value_or(source()),
+                        r_error))
+  {
     return false;
   }
   if (bound != 0) {

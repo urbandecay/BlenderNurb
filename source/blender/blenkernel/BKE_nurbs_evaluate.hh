@@ -73,7 +73,8 @@ struct BoundaryEvaluationOptions {
 };
 
 /** Sufficient whole-interval bound for a full straight polynomial curve and its linear p-curve
- * on a polynomial bilinear support. Zero proves exact geometric agreement independently of
+ * on a polynomial bilinear support. Constant-U/V trims also admit matching positive rational
+ * endpoint profiles. Zero proves exact geometric agreement independently of
  * rounded samples. A missing bound means the representation/proof is unsupported, not that the
  * geometry disagrees. Requires structurally validated geometry records. No mutation, fitting or
  * tolerance inference. Requires round-to-nearest/subnormal arithmetic. The sufficient bound can
@@ -82,6 +83,29 @@ struct BoundaryEvaluationOptions {
 std::optional<double> linear_curve_support_deviation_bound(const NurbsCurveGeometry &curve,
                                                            const NurbsCurveGeometry &pcurve,
                                                            const NurbsSurfaceGeometry &surface);
+
+/** Whole-interval matching-basis positive-rational coefficient bound on an exactly affine
+ * polynomial support, independent of rounded evaluator samples. Requires structurally validated
+ * records. No source/tolerance changes. */
+std::optional<double> affine_curve_support_deviation_bound(const NurbsCurveGeometry &curve,
+                                                           const NurbsCurveGeometry &pcurve,
+                                                           const NurbsSurfaceGeometry &surface);
+
+/** Matching-basis positive-rational deviation bound on a polynomial bilinear support. Includes
+ * the support's bilinear twist and roundoff; unlike the affine certificate, permits a small twist
+ * when the returned geometric bound covers it. */
+std::optional<double> bilinear_curve_support_deviation_bound(const NurbsCurveGeometry &curve,
+                                                             const NurbsCurveGeometry &pcurve,
+                                                             const NurbsSurfaceGeometry &surface);
+
+/** Certify a parameter interval on a clamped natural support boundary is exactly one stored
+ * point: all boundary coefficients have that position and positive weights. Requires validated
+ * records. Used to close a face's parameter chart at a source pole without inventing an editable
+ * edge or accepting a general open UV loop. No epsilon, sampling, fitting or source mutation. */
+bool collapsed_surface_boundary_interval(const NurbsSurfaceGeometry &surface,
+                                         const double2 &first,
+                                         const double2 &second,
+                                         const double3 &position);
 
 /**
  * Evaluate shared boundaries for a derived preview. Source vertices supply shared endpoint

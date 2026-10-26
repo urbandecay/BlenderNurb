@@ -12,6 +12,8 @@
 #include "BLI_listbase.h"
 #include "BLI_set.hh"
 
+#include "BKE_nurbs_construct.hh"
+#include "BKE_nurbs_evaluate.hh"
 #include "BKE_nurbs_transform.hh"
 
 #include "nurbs_math.hh"
@@ -476,23 +478,26 @@ struct VertexTransformRequests {
   Set<int64_t> edges, faces;
 };
 
-/** An affine UV displacement field interpolates the three endpoint movements. Adding it to
- * a polynomial bilinear support retains its mixed term, including any existing curved interior.
+/** Interpolate corner displacements on a polynomial bilinear support. Triangles use an affine
+ * UV field; rectangular trims use a bilinear field. Neither changes the existing parameter chart.
  * Matched rational edge/p-curve profiles receive the same field along each complete boundary. */
-struct TriangleDeformation {
+struct BilinearFaceDeformation {
+  int64_t face_id;
   int64_t surface_id;
-  std::array<int64_t, 3> vertices;
-  std::array<std::array<detail::BoundedScalar, 3>, 4> weights;
+  int vertices_num = 0;
+  std::array<int64_t, 4> vertices = {};
+  std::array<std::array<detail::BoundedScalar, 4>, 4> weights = {};
 };
 
-static std::optional<TriangleDeformation> triangle_deformation(
+static std::optional<Map<int64_t, double2>> bilinear_face_parameters(
     const NurbsTopologyFace &face,
     const NurbsSurfaceGeometry &surface,
     const TopologyIndex &index,
     const Map<int64_t, const NurbsCurveGeometry *> &curves,
+    const int corners_num,
     std::string *r_error)
 {
-  auto fail = [&](const char *message) -> std::optional<TriangleDeformation> {
+  auto fail = [&](const char *message) -> std::optional<Map<int64_t, double2>> {
     if (r_error) {
       *r_error = message;
     }
@@ -500,16 +505,16 @@ static std::optional<TriangleDeformation> triangle_deformation(
   };
   if (!face.loops.is_single() ||
       static_cast<const NurbsTopologyLoop *>(face.loops.first)->is_inner ||
-      static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses.count() != 3 ||
+      static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses.count() != corners_num ||
       surface.order_u != 2 || surface.order_v != 2 || surface.points_u != 2 ||
       surface.points_v != 2 || !clamped_direction(2, 2, surface.knots_u) ||
       !clamped_direction(2, 2, surface.knots_v))
   {
-    return fail("Partial triangular NURBS editing requires a polynomial bilinear support");
+    return fail("Partial NURBS corner editing requires a polynomial bilinear support");
   }
   for (int i = 0; i < 4; i++) {
     if (!(surface.points[i].weight > 0) || surface.points[i].weight != surface.points[0].weight) {
-      return fail("Partial triangular NURBS editing requires equal positive support weights");
+      return fail("Partial NURBS corner editing requires equal positive support weights");
     }
   }
   Map<int64_t, double2> parameters;
@@ -524,22 +529,22 @@ static std::optional<TriangleDeformation> triangle_deformation(
         !equal_weight_products({curve.points[0].weight, pcurve.points[1].weight, 1},
                                {curve.points[1].weight, pcurve.points[0].weight, 1}))
     {
-      return fail("Triangular NURBS deformation needs matching complete straight boundaries");
+      return fail("NURBS corner deformation needs matching complete straight boundaries");
     }
     for (int end = 0; end < 2; end++) {
       const int64_t id = edge.vertex_ids[end];
       if (double3(curve.points[end].position) != double3(index.vertex(id)->position)) {
-        return fail("Triangular NURBS deformation needs exact source endpoint associations");
+        return fail("NURBS corner deformation needs exact source endpoint associations");
       }
       const double2 uv(pcurve.points[end].position);
       if (uv.x < surface.knots_u[1] || uv.x > surface.knots_u[2] || uv.y < surface.knots_v[1] ||
           uv.y > surface.knots_v[2])
       {
-        return fail("Triangular NURBS endpoint lies outside its support domain");
+        return fail("NURBS endpoint lies outside its support domain");
       }
       if (const auto *previous = parameters.lookup_ptr(id)) {
         if (*previous != uv) {
-          return fail("A triangular NURBS endpoint has conflicting parameter associations");
+          return fail("A NURBS endpoint has conflicting parameter associations");
         }
       }
       else {
@@ -547,24 +552,40 @@ static std::optional<TriangleDeformation> triangle_deformation(
       }
     }
   }
-  if (parameters.size() != 3) {
-    return fail("Triangular NURBS deformation needs three distinct source endpoints");
+  if (parameters.size() != corners_num) {
+    return fail("NURBS corner deformation needs distinct source endpoints");
   }
-  TriangleDeformation result;
+  return parameters;
+}
+
+static std::optional<BilinearFaceDeformation> triangle_deformation(
+    const NurbsTopologyFace &face,
+    const NurbsSurfaceGeometry &surface,
+    const TopologyIndex &index,
+    const Map<int64_t, const NurbsCurveGeometry *> &curves,
+    std::string *r_error)
+{
+  const auto parameters = bilinear_face_parameters(face, surface, index, curves, 3, r_error);
+  if (!parameters) {
+    return std::nullopt;
+  }
+  BilinearFaceDeformation result;
+  result.face_id = face.id;
   result.surface_id = surface.id;
-  std::copy(parameters.keys().begin(), parameters.keys().end(), result.vertices.begin());
-  std::sort(result.vertices.begin(), result.vertices.end());
+  result.vertices_num = 3;
+  std::copy(parameters->keys().begin(), parameters->keys().end(), result.vertices.begin());
+  std::sort(result.vertices.begin(), result.vertices.begin() + result.vertices_num);
   using detail::bounded_divide;
   using detail::bounded_multiply;
   using detail::bounded_subtract;
   using detail::BoundedScalar;
-  const double2 a = parameters.lookup(result.vertices[0]);
-  const double2 b = parameters.lookup(result.vertices[1]);
-  const double2 c = parameters.lookup(result.vertices[2]);
+  const double2 a = parameters->lookup(result.vertices[0]);
+  const double2 b = parameters->lookup(result.vertices[1]);
+  const double2 c = parameters->lookup(result.vertices[2]);
   std::array<int, 3> natural_corners;
   bool natural = true;
   for (int i = 0; i < 3; i++) {
-    const double2 uv = parameters.lookup(result.vertices[i]);
+    const double2 uv = parameters->lookup(result.vertices[i]);
     int slot = 0;
     for (int axis = 0; axis < 2; axis++) {
       const double *knots = axis == 0 ? surface.knots_u : surface.knots_v;
@@ -603,8 +624,86 @@ static std::optional<TriangleDeformation> triangle_deformation(
     weights[0] = bounded_subtract(bounded_subtract({1}, weights[1]), weights[2]);
     for (const auto &weight : weights) {
       if (!weight.valid()) {
-        return fail(
-            "Triangular NURBS parameterization cannot certify an affine displacement field");
+        if (r_error) {
+          *r_error =
+              "Triangular NURBS parameterization cannot certify an affine displacement field";
+        }
+        return std::nullopt;
+      }
+    }
+  }
+  return result;
+}
+
+/** Interpolate the four movements over a rectangular trim, not the unused support corners.
+ * The resulting bilinear displacement restricts to the same endpoint interpolation as each
+ * shared straight boundary. Add it to the existing support, retaining its previous interior
+ * geometry, weights, knots and p-curves without support reconstruction or fitting. */
+static std::optional<BilinearFaceDeformation> rectangular_deformation(
+    const NurbsTopologyFace &face,
+    const NurbsSurfaceGeometry &surface,
+    const TopologyIndex &index,
+    const Map<int64_t, const NurbsCurveGeometry *> &curves)
+{
+  const auto parameters = bilinear_face_parameters(face, surface, index, curves, 4, nullptr);
+  if (!parameters) {
+    return std::nullopt;
+  }
+  double2 low(std::numeric_limits<double>::infinity());
+  double2 high(-std::numeric_limits<double>::infinity());
+  for (const auto uv : parameters->values()) {
+    for (int axis = 0; axis < 2; axis++) {
+      low[axis] = std::min(low[axis], uv[axis]);
+      high[axis] = std::max(high[axis], uv[axis]);
+    }
+  }
+  if (low.x == high.x || low.y == high.y ||
+      (low == double2(surface.knots_u[1], surface.knots_v[1]) &&
+       high == double2(surface.knots_u[2], surface.knots_v[2])))
+  {
+    // Complete tensor corners retain their existing rational-support transform route.
+    return std::nullopt;
+  }
+  BilinearFaceDeformation result;
+  result.face_id = face.id;
+  result.surface_id = surface.id;
+  result.vertices_num = 4;
+  for (const auto item : parameters->items()) {
+    int corner = 0;
+    for (int axis = 0; axis < 2; axis++) {
+      if (item.value[axis] != low[axis] && item.value[axis] != high[axis]) {
+        return std::nullopt;
+      }
+      corner |= item.value[axis] == high[axis] ? 1 << axis : 0;
+    }
+    if (result.vertices[corner] != 0) {
+      return std::nullopt;
+    }
+    result.vertices[corner] = item.key;
+  }
+  for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+    const auto &edge = *index.edge(use.edge_id);
+    const double2 a = parameters->lookup(edge.vertex_ids[0]);
+    const double2 b = parameters->lookup(edge.vertex_ids[1]);
+    if ((a.x == b.x) == (a.y == b.y)) {
+      return std::nullopt;
+    }
+  }
+  using namespace detail;
+  for (int corner = 0; corner < 4; corner++) {
+    BoundedScalar fraction[2];
+    for (int axis = 0; axis < 2; axis++) {
+      const double *knots = axis == 0 ? surface.knots_u : surface.knots_v;
+      const double coordinate = knots[corner & (1 << axis) ? 2 : 1];
+      fraction[axis] = bounded_divide(bounded_subtract({coordinate}, {low[axis]}),
+                                      bounded_subtract({high[axis]}, {low[axis]}));
+    }
+    for (int point = 0; point < 4; point++) {
+      auto &weight = result.weights[corner][point];
+      weight = bounded_multiply(point & 1 ? fraction[0] : bounded_subtract({1}, fraction[0]),
+                                point & 2 ? fraction[1] : bounded_subtract({1}, fraction[1]));
+      if (!weight.valid()) {
+        return std::nullopt;
       }
     }
   }
@@ -616,7 +715,7 @@ static std::optional<VertexTransformRequests> vertex_transform_requests(
     const NurbsGeometry &source,
     const TopologyIndex &index,
     const Set<int64_t> &selected,
-    const Set<int64_t> &triangle_faces,
+    const Set<int64_t> &deformed_faces,
     std::string *r_error)
 {
   auto fail = [&](const char *message) -> std::optional<VertexTransformRequests> {
@@ -691,7 +790,7 @@ static std::optional<VertexTransformRequests> vertex_transform_requests(
     if (any) {
       moved_faces.add(face.id);
     }
-    if (triangle_faces.contains(face.id)) {
+    if (deformed_faces.contains(face.id)) {
       continue;
     }
     if (any && !all) {
@@ -890,12 +989,16 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
   for (const auto &surface : source.surfaces) {
     surfaces.add_new(surface.id, &surface);
   }
-  Vector<TriangleDeformation> triangles;
-  Set<int64_t> triangle_faces;
+  Vector<BilinearFaceDeformation> deformations;
+  Set<int64_t> deformed_faces;
+  Vector<int64_t> rechart_faces;
   for (const auto &face : source.faces) {
-    if (!face.loops.is_single() ||
-        static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses.count() != 3)
-    {
+    if (!face.loops.is_single()) {
+      continue;
+    }
+    const int corners_num =
+        static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses.count();
+    if (corners_num != 3 && corners_num != 4) {
       continue;
     }
     int first_group = -2;
@@ -913,14 +1016,56 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
       }
     }
     if (different) {
-      const auto plan = triangle_deformation(
-          face, *surfaces.lookup(face.surface_id), *index, curves, r_error);
+      const auto plan = corners_num == 3 ?
+                            triangle_deformation(
+                                face, *surfaces.lookup(face.surface_id), *index, curves, r_error) :
+                            rectangular_deformation(
+                                face, *surfaces.lookup(face.surface_id), *index, curves);
       if (!plan) {
-        return std::nullopt;
+        if (corners_num == 3) {
+          return std::nullopt;
+        }
+        const auto &surface = *surfaces.lookup(face.surface_id);
+        if (const auto parameters = bilinear_face_parameters(
+                face, surface, *index, curves, 4, nullptr))
+        {
+          bool natural = true;
+          for (const auto uv : parameters->values()) {
+            natural &= (uv.x == surface.knots_u[1] || uv.x == surface.knots_u[2]) &&
+                       (uv.y == surface.knots_v[1] || uv.y == surface.knots_v[2]);
+          }
+          if (!natural) {
+            rechart_faces.append(face.id);
+          }
+        }
+        continue;
       }
-      triangles.append(*plan);
-      triangle_faces.add(face.id);
+      deformations.append(*plan);
+      deformed_faces.add(face.id);
     }
+  }
+  if (!rechart_faces.is_empty()) {
+    auto charts = reparameterize_planar_quads(source, rechart_faces, max_position_error, r_error);
+    if (!charts) {
+      return std::nullopt;
+    }
+    auto transformed = transform_vertices(
+        *charts->geometry, transforms, max_position_error, r_error);
+    if (!transformed) {
+      return std::nullopt;
+    }
+    transformed->chart_error_bound = detail::add_upper(
+        transformed->chart_error_bound,
+        detail::multiply_upper(charts->geometry_error_bound, transformed->tolerance_scale_bound));
+    transformed->reparameterized_faces += rechart_faces.size();
+    if (detail::add_upper(transformed->chart_error_bound,
+                          detail::add_upper(transformed->position_error_bound,
+                                            transformed->boundary_error_bound)) >
+        max_position_error)
+    {
+      return fail("NURBS quad chart and transform exceed the combined operation error budget");
+    }
+    return transformed;
   }
   Map<int64_t, Vector<int>> curve_assignments, surface_assignments;
   Set<int64_t> moved_vertices, moved_edges, moved_faces;
@@ -945,7 +1090,7 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
       continue;
     }
     const auto requests = vertex_transform_requests(
-        source, *index, groups[group], triangle_faces, r_error);
+        source, *index, groups[group], deformed_faces, r_error);
     if (!requests) {
       return std::nullopt;
     }
@@ -1009,13 +1154,13 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
       result.position_error_bound = std::max(result.position_error_bound, error);
     }
   }
-  Map<int64_t, std::array<double3, 4>> triangle_positions;
-  for (const auto &triangle : triangles) {
+  Map<int64_t, std::array<double3, 4>> deformed_positions;
+  for (const auto &deformation : deformations) {
     using detail::BoundedScalar;
-    const auto &surface = *surfaces.lookup(triangle.surface_id);
-    std::array<std::array<BoundedScalar, 3>, 3> displacements;
-    for (int i = 0; i < 3; i++) {
-      const int64_t id = triangle.vertices[i];
+    const auto &surface = *surfaces.lookup(deformation.surface_id);
+    std::array<std::array<BoundedScalar, 3>, 4> displacements;
+    for (int i = 0; i < deformation.vertices_num; i++) {
+      const int64_t id = deformation.vertices[i];
       for (int axis = 0; axis < 3; axis++) {
         auto &delta = displacements[i][axis];
         delta = detail::bounded_subtract(
@@ -1028,10 +1173,10 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
       double point_error = 0;
       for (int axis = 0; axis < 3; axis++) {
         BoundedScalar change;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < deformation.vertices_num; i++) {
           change = detail::bounded_add(
               change,
-              detail::bounded_multiply(triangle.weights[corner][i], displacements[i][axis]));
+              detail::bounded_multiply(deformation.weights[corner][i], displacements[i][axis]));
         }
         if (change.value == 0 && change.error == 0) {
           positions[corner][axis] = surface.points[corner].position[axis];
@@ -1039,24 +1184,24 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
         }
         const auto value = detail::bounded_add({surface.points[corner].position[axis]}, change);
         if (!value.valid()) {
-          return fail("Triangular NURBS support deformation overflowed its arithmetic bound");
+          return fail("NURBS corner deformation overflowed its arithmetic bound");
         }
         positions[corner][axis] = value.value;
         point_error = detail::add_upper(point_error, value.error);
       }
       result.position_error_bound = std::max(result.position_error_bound, point_error);
     }
-    if (const auto *previous = triangle_positions.lookup_ptr(triangle.surface_id)) {
+    if (const auto *previous = deformed_positions.lookup_ptr(deformation.surface_id)) {
       if (*previous != positions) {
-        return fail("Shared triangular NURBS supports request incompatible deformation fields");
+        return fail("Shared NURBS supports request incompatible corner deformation fields");
       }
     }
     else {
-      triangle_positions.add_new(triangle.surface_id, positions);
+      deformed_positions.add_new(deformation.surface_id, positions);
     }
   }
   for (auto &surface : result.geometry->surfaces) {
-    const auto *positions = triangle_positions.lookup_ptr(surface.id);
+    const auto *positions = deformed_positions.lookup_ptr(surface.id);
     if (!positions) {
       continue;
     }
@@ -1064,14 +1209,54 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
       if (surface_assignments.contains(surface.id) &&
           double3(surface.points[corner].position) != (*positions)[corner])
       {
-        return fail(
-            "Shared NURBS support owners request incompatible triangle/tensor deformations");
+        return fail("Shared NURBS support owners request incompatible corner/tensor deformations");
       }
       std::copy_n(&(*positions)[corner].x, 3, surface.points[corner].position);
     }
   }
+  Map<int64_t, const NurbsCurveGeometry *> output_curves;
+  Map<int64_t, const NurbsSurfaceGeometry *> output_surfaces;
+  for (const auto &curve : result.geometry->curves) {
+    output_curves.add_new(curve.id, &curve);
+  }
+  for (const auto &surface : result.geometry->surfaces) {
+    output_surfaces.add_new(surface.id, &surface);
+  }
+  Map<int64_t, double> boundary_bounds;
+  for (const auto &deformation : deformations) {
+    if (deformation.vertices_num != 4) {
+      continue;
+    }
+    const auto &face = *index->face(deformation.face_id);
+    for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+      const auto &edge = *index->edge(use.edge_id);
+      const auto &pcurve = *curves.lookup(use.pcurve_id);
+      const double tolerance = std::max({face.tolerance, edge.tolerance, use.tolerance});
+      const auto before = linear_curve_support_deviation_bound(
+          *curves.lookup(edge.curve_id), pcurve, *surfaces.lookup(face.surface_id));
+      if (!before || *before > tolerance) {
+        return fail("Trimmed NURBS deformation cannot certify the input boundary tolerance");
+      }
+      const auto after = linear_curve_support_deviation_bound(
+          *output_curves.lookup(edge.curve_id), pcurve, *output_surfaces.lookup(face.surface_id));
+      if (!after) {
+        return fail("Trimmed NURBS deformation cannot certify its new boundary correspondence");
+      }
+      boundary_bounds.add_new(use.id, *after);
+      const double scaled_tolerance = detail::multiply_upper(tolerance,
+                                                             result.tolerance_scale_bound);
+      if (*after > scaled_tolerance) {
+        const auto excess = detail::bounded_subtract({*after}, {scaled_tolerance});
+        result.boundary_error_bound = std::max(result.boundary_error_bound,
+                                               detail::add_upper(excess.value, excess.error));
+      }
+    }
+  }
   if (result.position_error_bound > max_position_error) {
     return fail("NURBS affine edit roundoff exceeds the requested error budget");
+  }
+  if (result.boundary_error_bound > max_position_error) {
+    return fail("Trimmed NURBS boundary correspondence exceeds the requested error budget");
   }
   const double extra = detail::multiply_upper(2, result.position_error_bound);
   auto expand = [&](const double tolerance) {
@@ -1096,6 +1281,9 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
       for (NurbsTopologyEdgeUse &use : loop.edge_uses) {
         if (moved_faces.contains(face.id) || moved_edges.contains(use.edge_id)) {
           use.tolerance = expand(use.tolerance);
+        }
+        if (const auto *bound = boundary_bounds.lookup_ptr(use.id)) {
+          use.tolerance = std::max(use.tolerance, *bound);
         }
       }
     }

@@ -13,6 +13,7 @@
 #include "BLI_array.hh"
 #include "BLI_math_vector.hh"
 
+#include "BKE_nurbs_evaluate.hh"
 #include "BKE_nurbs_geometry.hh"
 
 #include "nurbs_math.hh"
@@ -419,6 +420,93 @@ std::optional<SurfaceDifferential> evaluate_surface_differential(
     }
   }
   return result;
+}
+
+std::optional<double3> evaluate_surface_pole_normal(const NurbsSurfaceGeometry &surface,
+                                                    const double2 parameter,
+                                                    const SurfaceLimits limits)
+{
+  if (!detail::supported_arithmetic() || !surface_validate_structure(surface, nullptr)) {
+    return std::nullopt;
+  }
+  for (const int fixed : IndexRange(2)) {
+    const int varying = 1 - fixed;
+    const double *knots = fixed == 0 ? surface.knots_u : surface.knots_v;
+    const int count = fixed == 0 ? surface.points_u : surface.points_v;
+    const int order = fixed == 0 ? surface.order_u : surface.order_v;
+    const bool high = parameter[fixed] == knots[count];
+    if (!high && parameter[fixed] != knots[order - 1]) {
+      continue;
+    }
+    const int boundary = high ? count - 1 : 0;
+    const double3 pole(
+        surface.points[fixed == 0 ? boundary : boundary * surface.points_u].position);
+    if (!collapsed_surface_boundary_interval(surface, parameter, parameter, pole)) {
+      continue;
+    }
+    const int adjacent = high ? count - 2 : 1;
+    const int other_count = varying == 0 ? surface.points_u : surface.points_v;
+    const int other_order = varying == 0 ? surface.order_u : surface.order_v;
+    const double *other_knots = varying == 0 ? surface.knots_u : surface.knots_v;
+    const auto basis = calculate_basis(other_knots,
+                                       other_count,
+                                       other_order,
+                                       parameter[varying],
+                                       nullptr,
+                                       varying == 0 ? limits.u : limits.v);
+    if (!basis) {
+      return std::nullopt;
+    }
+    const auto derivative = derivative_basis(
+        other_knots, other_order, parameter[varying], *basis, nullptr);
+    if (!derivative) {
+      return std::nullopt;
+    }
+    Vector<WeightedPoint, 64> points;
+    for (const int i : IndexRange(other_order)) {
+      const int j = basis->start + i;
+      const auto &point = surface.points[fixed == 0 ? j * surface.points_u + adjacent :
+                                                      adjacent * surface.points_u + j];
+      if (point.weight <= 0) {
+        return std::nullopt;
+      }
+      points.append({&point, basis->values[i]});
+    }
+    const auto value = evaluate_weighted_points(points, nullptr);
+    if (!value) {
+      return std::nullopt;
+    }
+    CompensatedSum numerator[3];
+    for (const int i : IndexRange(other_order)) {
+      const auto &point = *points[i].point;
+      const double coefficient = (point.weight / value->weight_scale) * (*derivative)[i];
+      for (const int axis : IndexRange(3)) {
+        numerator[axis].add(coefficient * ((point.position[axis] - value->origin[axis]) -
+                                           value->relative_position[axis]));
+      }
+    }
+    double3 tangent, radial;
+    for (const int axis : IndexRange(3)) {
+      tangent[axis] = numerator[axis].value / value->denominator;
+      radial[axis] = (value->origin[axis] - pole[axis]) + value->relative_position[axis];
+      if (!std::isfinite(tangent[axis]) || !std::isfinite(radial[axis])) {
+        return std::nullopt;
+      }
+    }
+    const double tangent_scale = math::reduce_max(math::abs(tangent));
+    const double radial_scale = math::reduce_max(math::abs(radial));
+    if (tangent_scale == 0 || radial_scale == 0) {
+      continue;
+    }
+    const double3 cross = fixed == 0 ?
+                              math::cross(radial / radial_scale, tangent / tangent_scale) :
+                              math::cross(tangent / tangent_scale, radial / radial_scale);
+    const double length = std::hypot(cross.x, cross.y, cross.z);
+    if (length != 0 && std::isfinite(length)) {
+      return cross * ((high ? -1.0 : 1.0) / length);
+    }
+  }
+  return std::nullopt;
 }
 
 }  // namespace blender::bke::nurbs

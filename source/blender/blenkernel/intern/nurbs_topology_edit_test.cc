@@ -18,6 +18,7 @@
 #include "BKE_main.hh"
 #include "BKE_mesh.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_mesh.hh"
 #include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
@@ -27,6 +28,7 @@
 #include "BLO_writefile.hh"
 
 #include "bmesh.hh"
+#include "bmesh_tools.hh"
 
 #include "nurbs_test_geometry.hh"
 #include "testing/testing.h"
@@ -248,6 +250,276 @@ static void expect_signature_equal(const TopologySignature &a, const TopologySig
   EXPECT_EQ(a.faces, b.faces);
 }
 
+static std::pair<OwnedGeometry, int64_t> bevel_fixture(const bool closed)
+{
+  auto sheet = make_planar_sheet();
+  if (!sheet) {
+    return {};
+  }
+  int64_t corner = 0;
+  for (const auto &edge : sheet->edges) {
+    const auto index = TopologyIndex::build(*sheet);
+    if (index->vertex(edge.vertex_ids[0])->position[1] == 1 &&
+        index->vertex(edge.vertex_ids[1])->position[1] == 1)
+    {
+      corner = edge.id;
+    }
+  }
+  if (closed) {
+    const int64_t face = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
+    auto box = extrude_components(*sheet, {{}, {}, {&face, 1}}, {0, 0, 2}, 0);
+    return {box ? std::move(box->geometry) : nullptr, corner};
+  }
+  auto bent = extrude_edges(*sheet, {&corner, 1}, {0, 0, 2}, 0);
+  return {bent ? std::move(bent->geometry) : nullptr, corner};
+}
+
+static TopologySignature bevel_bmesh_reference(const NurbsGeometry &source,
+                                               const Span<int64_t> selected,
+                                               const double width,
+                                               const bool clamp_overlap = false)
+{
+  const BMeshCreateParams parameters{.use_toolflags = true};
+  BMesh *mesh = BM_mesh_create(&bm_mesh_allocsize_default, &parameters);
+  BLI_SCOPED_DEFER([&]() { BM_mesh_free(mesh); });
+  Map<int64_t, BMVert *> vertices;
+  const auto index = TopologyIndex::build(source);
+  for (const auto &vertex : source.vertices) {
+    const float3 point(double3(vertex.position));
+    vertices.add_new(vertex.id, BM_vert_create(mesh, point, nullptr, BM_CREATE_NOP));
+  }
+  for (const auto &edge : source.edges) {
+    auto *created = BM_edge_create(mesh,
+                                   vertices.lookup(edge.vertex_ids[0]),
+                                   vertices.lookup(edge.vertex_ids[1]),
+                                   nullptr,
+                                   BM_CREATE_NOP);
+    BM_elem_flag_set(created, BM_ELEM_SELECT, selected.contains(edge.id));
+  }
+  for (const auto &face : source.faces) {
+    Vector<BMVert *> boundary;
+    for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+      const auto &edge = *index->edge(use.edge_id);
+      boundary.append(vertices.lookup(edge.vertex_ids[use.reversed ? 1 : 0]));
+    }
+    if (face.orientation < 0) {
+      std::reverse(boundary.begin(), boundary.end());
+    }
+    BM_face_create_verts(mesh, boundary.data(), boundary.size(), nullptr, BM_CREATE_NOP, true);
+  }
+  BM_mesh_normals_update(mesh);
+  BMOperator op;
+  BMO_op_initf(mesh,
+               &op,
+               BMO_FLAG_DEFAULTS,
+               "bevel geom=%he offset=%f segments=%i affect=%i offset_type=%i profile=%f "
+               "clamp_overlap=%b loop_slide=%b",
+               BM_ELEM_SELECT,
+               width,
+               1,
+               BEVEL_AFFECT_EDGES,
+               BEVEL_AMT_OFFSET,
+               0.5,
+               clamp_overlap,
+               true);
+  BMO_op_exec(mesh, &op);
+  BMO_op_finish(mesh, &op);
+  TopologySignature result;
+  auto point = [](const BMVert *v) {
+    return TopologySignature::Point{v->co[0], v->co[1], v->co[2]};
+  };
+  BMIter iter;
+  BMVert *v;
+  BM_ITER_MESH (v, &iter, mesh, BM_VERTS_OF_MESH) {
+    result.vertices.push_back(point(v));
+  }
+  BMEdge *e;
+  BM_ITER_MESH (e, &iter, mesh, BM_EDGES_OF_MESH) {
+    result.edges.push_back({point(e->v1), point(e->v2)});
+  }
+  BMFace *f;
+  BM_ITER_MESH (f, &iter, mesh, BM_FACES_OF_MESH) {
+    std::vector<TopologySignature::Point> boundary;
+    BMIter loop_iter;
+    BMLoop *loop;
+    BM_ITER_ELEM (loop, &loop_iter, f, BM_LOOPS_OF_FACE) {
+      boundary.push_back(point(loop->v));
+    }
+    result.faces.push_back(std::move(boundary));
+  }
+  result.sort();
+  return result;
+}
+
+static void expect_signature_near_mesh(const TopologySignature &a, const TopologySignature &b);
+
+TEST_F(NurbsTopologyEditTest, BevelSurvivesOrdinaryFloatingPointRotation)
+{
+  auto [source, corner] = bevel_fixture(false);
+  ASSERT_NE(source, nullptr);
+  const double angle = 0.371;
+  double4x4 rotation = double4x4::identity();
+  rotation[0][0] = std::cos(angle);
+  rotation[0][1] = -std::sin(angle);
+  rotation[1][0] = std::sin(angle);
+  rotation[1][1] = std::cos(angle);
+  rotation.location() = double3(0.137, -0.283, 0.091);
+  std::string error;
+  auto transformed = transform_geometry(*source, rotation, 1e-9, &error);
+  ASSERT_TRUE(transformed) << error;
+  double4x4 skew = double4x4::identity();
+  skew[0][1] = 0.137;
+  skew[0][2] = -0.219;
+  skew[1][0] = 0.371;
+  skew[1][2] = 0.053;
+  skew[2][0] = -0.127;
+  skew[2][1] = 0.241;
+  skew.location() = double3(-0.173, 0.311, 0.097);
+  auto transformed_again = transform_geometry(*transformed->geometry, skew, 1e-9, &error);
+  ASSERT_TRUE(transformed_again) << error;
+  for (const NurbsGeometry *geometry :
+       {transformed->geometry.get(), transformed_again->geometry.get()})
+  {
+    SCOPED_TRACE(geometry == transformed_again->geometry.get() ? "repeated transform" :
+                                                                 "rotation");
+    for (const double width : {0.031, 0.1, 0.25, 0.4, 0.73}) {
+      SCOPED_TRACE(width);
+      auto result = bevel_edges(*geometry, {&corner, 1}, {.offset = width}, &error);
+      ASSERT_TRUE(result) << error;
+      if (geometry == transformed->geometry.get()) {
+        expect_signature_near_mesh(signature(*result->geometry),
+                                   bevel_bmesh_reference(*geometry, {&corner, 1}, width));
+      }
+      auto options = preview_options();
+      options.boundary.evaluation_allowance = 0;
+      EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, StraightCornerChamferMatchesActualBMeshAndPreservesSupports)
+{
+  for (const bool closed : {false, true}) {
+    auto [source, corner] = bevel_fixture(closed);
+    ASSERT_NE(source, nullptr);
+    ASSERT_NE(corner, 0);
+    const OwnedGeometry before(geometry_copy(source.get()));
+    std::string error;
+    auto result = bevel_edges(*source, {&corner, 1}, {.offset = 0.25, .max_error = 0}, &error);
+    ASSERT_TRUE(result) << error;
+    expect_signature_equal(signature(*result->geometry),
+                           bevel_bmesh_reference(*source, {&corner, 1}, 0.25));
+    EXPECT_EQ(result->geometry_error_bound, 0);
+    EXPECT_EQ(result->faces.size(), 1);
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+    for (const auto &surface : source->surfaces) {
+      const auto *retained = static_cast<const NurbsSurfaceGeometry *>(
+          result->geometry->surfaces.first);
+      while (retained && retained->id != surface.id) {
+        retained = retained->next;
+      }
+      ASSERT_NE(retained, nullptr);
+      EXPECT_EQ(std::memcmp(retained->points,
+                            surface.points,
+                            sizeof(NurbsControlPoint) * surface.points_num),
+                0);
+    }
+    expect_source_geometry_equal(*source, *before);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedBevelIsSharedTangentRationalGeometry)
+{
+  for (const bool closed : {false, true}) {
+    for (const int segments : {2, 3, 8}) {
+      auto [source, corner] = bevel_fixture(closed);
+      std::string error;
+      auto result = bevel_edges(
+          *source, {&corner, 1}, {.offset = 0.25, .segments = segments}, &error);
+      ASSERT_TRUE(result) << error;
+      EXPECT_EQ(result->faces.size(), segments);
+      EXPECT_EQ(result->geometry->faces.count(), source->faces.count() + segments);
+      const auto index = TopologyIndex::build(*result->geometry);
+      ASSERT_TRUE(index);
+      for (const auto &edge : result->geometry->edges) {
+        if (closed) {
+          EXPECT_EQ(index->uses_for_edge(edge.id).size(), 2);
+        }
+      }
+      std::optional<double3> previous_normal;
+      for (const int64_t id : result->faces) {
+        const auto *face = index->face(id);
+        const NurbsSurfaceGeometry *surface = nullptr;
+        for (const auto &candidate : result->geometry->surfaces) {
+          if (candidate.id == face->surface_id) {
+            surface = &candidate;
+          }
+        }
+        ASSERT_NE(surface, nullptr);
+        EXPECT_EQ(surface->order_u, 3);
+        const auto start = evaluate_surface_differential(*surface, {surface->knots_u[2], 0.5});
+        const auto finish = evaluate_surface_differential(*surface, {surface->knots_u[3], 0.5});
+        ASSERT_TRUE(start && start->normal && finish && finish->normal);
+        if (previous_normal) {
+          EXPECT_NEAR(math::dot(*previous_normal, *start->normal), 1, 1e-14);
+        }
+        else {
+          EXPECT_NEAR(std::abs(start->normal->z), 1, 1e-14);
+        }
+        previous_normal = *finish->normal;
+        for (int step = 0; step <= 10; step++) {
+          const double u = surface->knots_u[2] +
+                           (surface->knots_u[3] - surface->knots_u[2]) * step / 10;
+          const auto sample = evaluate_surface(*surface, {u, 0.5}, &error);
+          ASSERT_TRUE(sample) << error;
+          // Corner is y=1,z=0. The quarter-circle center is y=.75,z=.25.
+          EXPECT_NEAR(
+              std::hypot(sample->position.y - 0.75, sample->position.z - 0.25), 0.25, 1e-14);
+        }
+      }
+      ASSERT_TRUE(previous_normal);
+      EXPECT_NEAR(std::abs(previous_normal->y), 1, 1e-14);
+      auto options = preview_options();
+      options.boundary.evaluation_allowance = 0;
+      EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+      auto extrusion = extrude_components(
+          *result->geometry, {{}, {}, result->faces}, {0, 0, 0.5}, 1e-9, &error);
+      ASSERT_TRUE(extrusion) << error;
+      EXPECT_EQ(extrusion->edge_to_face.size(), 2 * segments + 2);
+      EXPECT_TRUE(tessellate_surfaces(*extrusion->geometry, options, &error)) << error;
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, BevelFailuresLeaveSourceAndCounterUnchanged)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_NE(source, nullptr);
+  const OwnedGeometry before(geometry_copy(source.get()));
+  std::string error;
+  for (const double width : {-0.1, 2.0, double(INFINITY), double(NAN)}) {
+    EXPECT_FALSE(
+        bevel_edges(*source, {&corner, 1}, {.offset = width, .clamp_overlap = false}, &error));
+    EXPECT_FALSE(error.empty());
+    expect_source_geometry_equal(*source, *before);
+  }
+  const auto index = TopologyIndex::build(*source);
+  int64_t neighbor = 0;
+  for (const int64_t id : index->edges_for_vertex(index->edge(corner)->vertex_ids[0])) {
+    if (id != corner) {
+      neighbor = id;
+    }
+  }
+  const int64_t joined[] = {corner, neighbor};
+  EXPECT_TRUE(bevel_edges(*source, {joined, 2}, {.offset = 0.25}, &error)) << error;
+  const int64_t missing = 0;
+  EXPECT_FALSE(bevel_edges(*source, {&missing, 1}, {.offset = 0.25}, &error));
+  expect_source_geometry_equal(*source, *before);
+  source->next_id = std::numeric_limits<int64_t>::max();
+  EXPECT_FALSE(bevel_edges(*source, {&corner, 1}, {.offset = 0.25}, &error));
+  EXPECT_NE(error.find("exhausted"), std::string::npos);
+}
+
 static void expect_signature_near_mesh(const TopologySignature &a, const TopologySignature &b)
 {
   ASSERT_EQ(a.vertices.size(), b.vertices.size());
@@ -269,6 +541,1098 @@ static void expect_signature_near_mesh(const TopologySignature &a, const Topolog
   };
   compare(a.edges, b.edges);
   compare(a.faces, b.faces);
+}
+
+TEST_F(NurbsTopologyEditTest, MultipleSeparateBevelsShareFacesAndMatchBMesh)
+{
+  auto [source, corner] = bevel_fixture(true);
+  Vector<int64_t> selected{corner};
+  const auto index = TopologyIndex::build(*source);
+  for (const auto &edge : source->edges) {
+    const double3 a(index->vertex(edge.vertex_ids[0])->position);
+    const double3 b(index->vertex(edge.vertex_ids[1])->position);
+    if (a.y == -1 && b.y == -1 && a.z == 0 && b.z == 0) {
+      selected.append(edge.id);
+    }
+  }
+  ASSERT_EQ(selected.size(), 2);
+  std::string error;
+  auto result = bevel_edges(*source, selected, {.offset = 0.25}, &error);
+  ASSERT_TRUE(result) << error;
+  expect_signature_equal(signature(*result->geometry),
+                         bevel_bmesh_reference(*source, selected, 0.25));
+  EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+  selected.append(corner);
+  std::reverse(selected.begin(), selected.end());
+  auto repeated = bevel_edges(*source, selected, {.offset = 0.25}, &error);
+  ASSERT_TRUE(repeated) << error;
+  expect_source_geometry_equal(*result->geometry, *repeated->geometry);
+  EXPECT_FALSE(bevel_edges(*source, selected, {.offset = 1.25, .clamp_overlap = false}, &error));
+}
+
+TEST_F(NurbsTopologyEditTest, BevelClampUsesFirstSourceCollisionAndReportsAppliedWidth)
+{
+  for (const bool closed : {false, true}) {
+    for (const bool whole_network : {false, true}) {
+      if (!closed && whole_network) {
+        continue;
+      }
+      auto [source, corner] = bevel_fixture(closed);
+      ASSERT_NE(source, nullptr);
+      const OwnedGeometry before(geometry_copy(source.get()));
+      Vector<int64_t> selected{corner};
+      if (whole_network) {
+        selected.clear();
+        for (const auto &edge : source->edges) {
+          selected.append(edge.id);
+        }
+      }
+      for (const int segments : {1, 3}) {
+        SCOPED_TRACE(testing::Message()
+                     << closed << ", network " << whole_network << ", segments " << segments);
+        OwnedGeometry previous;
+        for (const double requested : {4.0, 100.0, std::numeric_limits<double>::max()}) {
+          std::string error;
+          BevelOffsetInfo info;
+          auto result = bevel_edges(
+              *source, selected, {.offset = requested, .segments = segments}, &error, &info);
+          ASSERT_TRUE(result) << error;
+          EXPECT_TRUE(error.empty());
+          /* This two-unit fixture reaches the opposite boundary at two units for one
+           * edge; beveling the entire box collides halfway along each source edge. */
+          EXPECT_NEAR(info.offset, whole_network ? 1.0 : 2.0, 1e-12);
+          EXPECT_LT(info.offset, whole_network ? 1.0 : 2.0);
+          EXPECT_EQ(info.offset, info.limit);
+          EXPECT_LT(info.offset, requested);
+          if (previous) {
+            expect_source_geometry_equal(*result->geometry, *previous);
+          }
+          auto options = preview_options();
+          options.boundary.evaluation_allowance = 0;
+          ASSERT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+          const auto index = TopologyIndex::build(*result->geometry, &error);
+          ASSERT_TRUE(index) << error;
+          for (const auto &edge : result->geometry->edges) {
+            const int64_t uses = index->uses_for_edge(edge.id).size();
+            EXPECT_GE(uses, 1);
+            EXPECT_LE(uses, 2);
+            if (closed) {
+              EXPECT_EQ(uses, 2);
+            }
+          }
+          auto replay = bevel_edges(
+              *source,
+              selected,
+              {.offset = info.offset, .segments = segments, .clamp_overlap = false},
+              &error);
+          ASSERT_TRUE(replay) << error;
+          expect_source_geometry_equal(*result->geometry, *replay->geometry);
+          previous = std::move(result->geometry);
+          BevelOffsetInfo rejected_info{17, 19};
+          EXPECT_FALSE(
+              bevel_edges(*source,
+                          selected,
+                          {.offset = requested, .segments = segments, .clamp_overlap = false},
+                          &error,
+                          &rejected_info));
+          EXPECT_FALSE(error.empty());
+          EXPECT_EQ(rejected_info.offset, 17);
+          EXPECT_EQ(rejected_info.limit, 19);
+          expect_source_geometry_equal(*source, *before);
+        }
+        if (segments == 1) {
+          const auto mesh = bevel_bmesh_reference(*source, selected, 100, true);
+          const auto native = signature(*previous);
+          ASSERT_EQ(native.vertices.size(), mesh.vertices.size());
+          /* At the limiting event BMesh has coincident boundary vertices, whereas native
+           * supports keep arithmetic clearance. Compare locations without assuming the
+           * same lexicographic ordering of nearly coincident corners. */
+          for (const auto &point : native.vertices) {
+            double distance = INFINITY;
+            for (const auto &other : mesh.vertices) {
+              distance = std::min(distance,
+                                  math::length(double3(point[0], point[1], point[2]) -
+                                               double3(other[0], other[1], other[2])));
+            }
+            EXPECT_LT(distance, 1e-6);
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, BevelClampIsIndependentOfScaleRotationAndSelectionOrder)
+{
+  auto [source, corner] = bevel_fixture(false);
+  ASSERT_NE(source, nullptr);
+  for (const double scale : {0.03125, 1.0, 128.0}) {
+    double4x4 matrix = double4x4::identity();
+    matrix[0][0] = matrix[1][1] = scale * std::cos(0.371);
+    matrix[0][1] = -scale * std::sin(0.371);
+    matrix[1][0] = scale * std::sin(0.371);
+    matrix[2][2] = scale;
+    matrix.location() = scale * double3(0.137, -0.283, 0.091);
+    std::string error;
+    auto transformed = transform_geometry(*source, matrix, 1e-9, &error);
+    ASSERT_TRUE(transformed) << error;
+    for (const int segments : {1, 3}) {
+      SCOPED_TRACE(testing::Message() << scale << ", segments " << segments);
+      BevelOffsetInfo info;
+      auto result = bevel_edges(*transformed->geometry,
+                                {&corner, 1},
+                                {.offset = scale * 100, .segments = segments},
+                                &error,
+                                &info);
+      ASSERT_TRUE(result) << error;
+      EXPECT_NEAR(info.offset, scale * 2, scale * 1e-12);
+      auto options = preview_options();
+      options.boundary.evaluation_allowance = 0;
+      ASSERT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+    }
+  }
+  auto [box, edge] = bevel_fixture(true);
+  ASSERT_NE(box, nullptr);
+  Vector<int64_t> selected;
+  for (const auto &item : box->edges) {
+    selected.append(item.id);
+  }
+  std::string error;
+  BevelOffsetInfo forward, reverse;
+  auto first = bevel_edges(*box, selected, {.offset = 100}, &error, &forward);
+  ASSERT_TRUE(first) << error;
+  std::reverse(selected.begin(), selected.end());
+  selected.append(edge);
+  auto second = bevel_edges(*box, selected, {.offset = 100}, &error, &reverse);
+  ASSERT_TRUE(second) << error;
+  EXPECT_EQ(forward.offset, reverse.offset);
+  EXPECT_EQ(forward.limit, reverse.limit);
+  expect_source_geometry_equal(*first->geometry, *second->geometry);
+}
+
+TEST_F(NurbsTopologyEditTest, ClampedChamfersKeepSharedIncidenceForEveryCubeEdgeSubset)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_NE(source, nullptr);
+  Vector<int64_t> edges;
+  for (const auto &edge : source->edges) {
+    edges.append(edge.id);
+  }
+  const OwnedGeometry before(geometry_copy(source.get()));
+  for (uint32_t mask = 1; mask < (1u << edges.size()); mask++) {
+    SCOPED_TRACE(mask);
+    Vector<int64_t> selected;
+    for (const int i : edges.index_range()) {
+      if (mask & (1u << i)) {
+        selected.append(edges[i]);
+      }
+    }
+    std::string error;
+    BevelOffsetInfo info;
+    auto result = bevel_edges(*source, selected, {.offset = 100}, &error, &info);
+    ASSERT_TRUE(result) << error;
+    EXPECT_GE(info.offset, 1.0 - 1e-12);
+    EXPECT_LE(info.offset, 2.0);
+    const auto index = TopologyIndex::build(*result->geometry, &error);
+    ASSERT_TRUE(index) << error;
+    for (const auto &edge : result->geometry->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+    }
+    expect_source_geometry_equal(*source, *before);
+    if (HasFailure()) {
+      return;
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedCubeCornersSurviveRotationAndBlendRealSkew)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_NE(source, nullptr);
+  double4x4 rotation = double4x4::identity();
+  rotation[0][0] = rotation[1][1] = std::cos(0.371);
+  rotation[0][1] = -std::sin(0.371);
+  rotation[1][0] = std::sin(0.371);
+  rotation.location() = double3(0.137, -0.283, 0.091);
+  std::string error;
+  auto transformed = transform_geometry(*source, rotation, 1e-9, &error);
+  ASSERT_TRUE(transformed) << error;
+  Vector<int64_t> selected;
+  for (const auto &edge : source->edges) {
+    selected.append(edge.id);
+  }
+  for (const double width : {0.1, 0.25, 100.0}) {
+    BevelOffsetInfo info;
+    auto result = bevel_edges(
+        *transformed->geometry, selected, {.offset = width, .segments = 3}, &error, &info);
+    ASSERT_TRUE(result) << error;
+    EXPECT_EQ(info.boundary_blend_corners, 0);
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    auto preview = tessellate_surfaces(*result->geometry, options, &error);
+    ASSERT_TRUE(preview) << error;
+    const auto edit = EditData::create(*result->geometry, {}, &error);
+    ASSERT_TRUE(edit) << error;
+    auto display = evaluate_mesh(edit->read_snapshot(), options, &error);
+    ASSERT_TRUE(display) << error;
+    EXPECT_EQ(display->undefined_normal_corners, 0);
+    /* Independently undo the source's rotation and translation. Every point on the
+     * rounded box must lie at the requested radius from its inner axis-aligned box. */
+    for (int i = 0; i < preview->points_num(); i++) {
+      const double3 p = preview->position(i) - rotation.location();
+      const double3 local(std::cos(0.371) * p.x - std::sin(0.371) * p.y,
+                          std::sin(0.371) * p.x + std::cos(0.371) * p.y,
+                          p.z - 1);
+      const double3 outside = math::max(math::abs(local) - double3(1 - info.offset), double3(0));
+      EXPECT_NEAR(math::length(outside), info.offset, 1e-11);
+    }
+  }
+  for (const double amount : {0.1, 0.35, -0.35}) {
+    SCOPED_TRACE(amount);
+    double4x4 shear = double4x4::identity();
+    shear[0][1] = amount;
+    auto skewed = transform_geometry(*source, shear, 1e-9, &error);
+    ASSERT_TRUE(skewed) << error;
+    const OwnedGeometry before(geometry_copy(skewed->geometry.get()));
+    BevelOffsetInfo info;
+    auto result = bevel_edges(
+        *skewed->geometry, selected, {.offset = 0.25, .segments = 3}, &error, &info);
+    ASSERT_TRUE(result) << error;
+    EXPECT_EQ(info.boundary_blend_corners, 8);
+    EXPECT_LE(result->geometry_error_bound, 1e-9);
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    ASSERT_TRUE(evaluate_boundaries(*result->geometry, options.boundary, &error)) << error;
+    const auto edit = EditData::create(*result->geometry, {}, &error);
+    ASSERT_TRUE(edit) << error;
+    auto display = evaluate_mesh(edit->read_snapshot(), options, &error);
+    ASSERT_TRUE(display) << error;
+    EXPECT_EQ(display->undefined_normal_corners, 0);
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index);
+    for (const auto &edge : result->geometry->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+    }
+    expect_source_geometry_equal(*skewed->geometry, *before);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, ConnectedChamfersMatchBMeshForEveryCubeEdgeSubset)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_NE(source, nullptr);
+  const OwnedGeometry before(geometry_copy(source.get()));
+  Vector<int64_t> edges;
+  for (const auto &edge : source->edges) {
+    edges.append(edge.id);
+  }
+  ASSERT_EQ(edges.size(), 12);
+  for (uint32_t mask = 1; mask < (1u << edges.size()); mask++) {
+    SCOPED_TRACE(mask);
+    Vector<int64_t> selected;
+    for (const int i : edges.index_range()) {
+      if (mask & (1u << i)) {
+        selected.append(edges[i]);
+      }
+    }
+    std::string error;
+    auto result = bevel_edges(*source, selected, {.offset = 0.25, .max_error = 0}, &error);
+    ASSERT_TRUE(result) << error;
+    expect_signature_equal(signature(*result->geometry),
+                           bevel_bmesh_reference(*source, selected, 0.25));
+    if (HasFailure()) {
+      return;
+    }
+    EXPECT_EQ(result->geometry_error_bound, 0);
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index);
+    for (const auto &edge : result->geometry->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+    }
+    expect_source_geometry_equal(*source, *before);
+    if (HasFailure()) {
+      return;
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedCornerBlendApproachesTheRightAngleSphereContinuously)
+{
+  auto [box, corner] = bevel_fixture(true);
+  Vector<int64_t> edges;
+  for (const auto &edge : box->edges) {
+    edges.append(edge.id);
+  }
+  for (const double amount : {1e-10, 1e-7, 0.001}) {
+    SCOPED_TRACE(amount);
+    double4x4 shear = double4x4::identity();
+    shear[0][1] = amount;
+    std::string error;
+    auto source = transform_geometry(*box, shear, 1e-9, &error);
+    ASSERT_TRUE(source) << error;
+    BevelOffsetInfo info;
+    auto result = bevel_edges(
+        *source->geometry, edges, {.offset = 0.25, .segments = 3}, &error, &info);
+    ASSERT_TRUE(result) << error;
+    EXPECT_EQ(info.boundary_blend_corners, 8);
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    const auto display = tessellate_surfaces(*result->geometry, options, &error);
+    ASSERT_TRUE(display) << error;
+    for (int i = 0; i < display->points_num(); i++) {
+      double3 p = display->position(i);
+      p.y -= amount * p.x;
+      p.z -= 1;
+      const double3 outside = math::max(math::abs(p) - double3(0.75), double3(0));
+      EXPECT_NEAR(math::length(outside), 0.25, 20 * amount);
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, PlanarTaperedBoxBevelUsesAffineChartsWithoutChangingTheSource)
+{
+  for (const double taper : {0.5, 1.3, 2.0}) {
+    SCOPED_TRACE(taper);
+    auto [box, corner] = bevel_fixture(true);
+    Vector<VertexTransform> transforms;
+    double4x4 scale = double4x4::identity();
+    scale[0][0] = taper;
+    for (const auto &vertex : box->vertices) {
+      if (vertex.position[2] == 2) {
+        transforms.append({vertex.id, scale});
+      }
+    }
+    std::string error;
+    auto tapered = transform_vertices(*box, transforms, 1e-9, &error);
+    ASSERT_TRUE(tapered) << error;
+    const OwnedGeometry before(geometry_copy(tapered->geometry.get()));
+    Vector<int64_t> edges;
+    for (const auto &edge : tapered->geometry->edges) {
+      edges.append(edge.id);
+    }
+    for (const int segments : {1, 3, 8}) {
+      SCOPED_TRACE(segments);
+      BevelOffsetInfo info;
+      auto result = bevel_edges(
+          *tapered->geometry, edges, {.offset = 0.2, .segments = segments}, &error, &info);
+      ASSERT_TRUE(result) << error;
+      EXPECT_EQ(info.planar_charts, 2);
+      EXPECT_LE(info.chart_error_bound, 1e-9);
+      EXPECT_LE(result->geometry_error_bound, 1e-9);
+      const auto index = TopologyIndex::build(*result->geometry);
+      ASSERT_TRUE(index);
+      for (const auto &edge : result->geometry->edges) {
+        const auto uses = index->uses_for_edge(edge.id);
+        ASSERT_EQ(uses.size(), 2);
+        EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                  index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+      }
+      auto options = preview_options();
+      options.boundary.evaluation_allowance = 0;
+      EXPECT_TRUE(evaluate_boundaries(*result->geometry, options.boundary, &error)) << error;
+      EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+      if (segments == 1) {
+        expect_signature_near_mesh(signature(*result->geometry),
+                                   bevel_bmesh_reference(*tapered->geometry, edges, 0.2));
+      }
+      expect_source_geometry_equal(*tapered->geometry, *before);
+    }
+    tapered->geometry->next_id = std::numeric_limits<int64_t>::max() - 1;
+    const OwnedGeometry exhausted(geometry_copy(tapered->geometry.get()));
+    EXPECT_FALSE(bevel_edges(*tapered->geometry, edges, {.offset = 0.2}, &error));
+    EXPECT_NE(error.find("identity range"), std::string::npos) << error;
+    expect_source_geometry_equal(*tapered->geometry, *exhausted);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, PlanarChartDoesNotFlattenAGenuinelyCurvedFace)
+{
+  auto [box, corner] = bevel_fixture(true);
+  const int64_t vertex = static_cast<const NurbsTopologyVertex *>(box->vertices.first)->id;
+  std::string error;
+  auto bent = translate_vertices(*box, {&vertex, 1}, {0.1, 0.2, 0.3}, 1e-9, &error);
+  ASSERT_TRUE(bent) << error;
+  const OwnedGeometry before(geometry_copy(bent->geometry.get()));
+  Vector<int64_t> edges;
+  for (const auto &edge : bent->geometry->edges) {
+    edges.append(edge.id);
+  }
+  EXPECT_FALSE(bevel_edges(*bent->geometry, edges, {.offset = 0.2, .segments = 3}, &error));
+  EXPECT_NE(error.find("not planar"), std::string::npos) << error;
+  expect_source_geometry_equal(*bent->geometry, *before);
+}
+
+TEST_F(NurbsTopologyEditTest, CurvedRuledFacesBevelWithoutFlattening)
+{
+  for (const bool closed : {false, true}) {
+    SCOPED_TRACE(closed);
+    auto [source, corner] = bevel_fixture(closed);
+    std::string error;
+    Vector<int64_t> outer;
+    for (const auto &vertex : source->vertices) {
+      if (vertex.position[1] == -1 && vertex.position[0] == -1 && vertex.position[2] == 0) {
+        outer.append(vertex.id);
+      }
+    }
+    ASSERT_EQ(outer.size(), 1);
+    auto first = translate_vertices(*source, outer, {0, 0, 0.4}, 1e-9, &error);
+    ASSERT_TRUE(first) << error;
+    outer.clear();
+    for (const auto &vertex : first->geometry->vertices) {
+      if (vertex.position[2] == 2 && vertex.position[0] == 1 && vertex.position[1] == 1) {
+        outer.append(vertex.id);
+      }
+    }
+    ASSERT_EQ(outer.size(), 1);
+    auto bent = translate_vertices(*first->geometry, outer, {0, 0.5, 0}, 1e-9, &error);
+    ASSERT_TRUE(bent) << error;
+    const OwnedGeometry before(geometry_copy(bent->geometry.get()));
+    for (const int segments : {1, 3, 8}) {
+      BevelOffsetInfo info;
+      auto result = bevel_edges(
+          *bent->geometry, {&corner, 1}, {.offset = 0.25, .segments = segments}, &error, &info);
+      ASSERT_TRUE(result) << error;
+      EXPECT_EQ(info.curved_blend_strips, 1);
+      EXPECT_EQ(result->geometry->faces.count(), (closed ? 6 : 2) + segments);
+      EXPECT_LE(result->geometry_error_bound, 1e-9);
+      EXPECT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+      EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+      /* Both retained faces use exact cropped original supports. Every old coefficient resource
+       * remains available unchanged, rather than replacing the curved shape with a plane. */
+      for (const auto &surface : bent->geometry->surfaces) {
+        const NurbsSurfaceGeometry *saved = nullptr;
+        for (const auto &candidate : result->geometry->surfaces) {
+          if (candidate.id == surface.id) {
+            saved = &candidate;
+          }
+        }
+        ASSERT_NE(saved, nullptr);
+        EXPECT_EQ(std::memcmp(saved->points,
+                              surface.points,
+                              sizeof(NurbsControlPoint) * surface.points_u * surface.points_v),
+                  0);
+      }
+      expect_source_geometry_equal(*bent->geometry, *before);
+    }
+    EXPECT_FALSE(bevel_edges(
+        *bent->geometry, {&corner, 1}, {.offset = 100, .clamp_overlap = false}, &error));
+    expect_source_geometry_equal(*bent->geometry, *before);
+    BevelOffsetInfo clamped;
+    EXPECT_TRUE(bevel_edges(*bent->geometry, {&corner, 1}, {.offset = 100}, &error, &clamped))
+        << error;
+    EXPECT_LT(clamped.offset, 100);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RationalCurvedEdgeBevelKeepsSupportTangency)
+{
+  auto sheet = make_arc_sheet(false);
+  const auto original_index = TopologyIndex::build(*sheet);
+  int64_t selected = 0;
+  for (const auto &edge : sheet->edges) {
+    if (original_index->vertex(edge.vertex_ids[0])->position[2] == 2 &&
+        original_index->vertex(edge.vertex_ids[1])->position[2] == 2)
+    {
+      selected = edge.id;
+    }
+  }
+  ASSERT_NE(selected, 0);
+  std::string error;
+  auto joined = extrude_edges(*sheet, {&selected, 1}, {2, 1, 1}, 0, &error);
+  ASSERT_TRUE(joined) << error;
+  const OwnedGeometry before(geometry_copy(joined->geometry.get()));
+  BevelOffsetInfo info;
+  auto result = bevel_edges(
+      *joined->geometry, {&selected, 1}, {.offset = 0.2, .segments = 3}, &error, &info);
+  ASSERT_TRUE(result) << error;
+  EXPECT_EQ(info.curved_blend_strips, 1);
+  EXPECT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+  EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+  const auto index = TopologyIndex::build(*result->geometry);
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  Map<int64_t, const NurbsSurfaceGeometry *> supports;
+  for (const auto &curve : result->geometry->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (const auto &surface : result->geometry->surfaces) {
+    supports.add_new(surface.id, &surface);
+  }
+  int rails = 0;
+  for (const auto &edge : result->geometry->edges) {
+    const auto uses = index->uses_for_edge(edge.id);
+    if (uses.size() != 2 ||
+        result->faces.contains(uses[0].face_id) == result->faces.contains(uses[1].face_id))
+    {
+      continue;
+    }
+    rails++;
+    for (const double fraction : {0.0, 0.2, 0.5, 0.8, 1.0}) {
+      const double t = edge.parameter_range[0] +
+                       (edge.parameter_range[1] - edge.parameter_range[0]) * fraction;
+      std::array<double3, 2> normals;
+      for (int side = 0; side < 2; side++) {
+        const auto uv = evaluate_curve(*curves.lookup(uses[side].use->pcurve_id), t, &error);
+        ASSERT_TRUE(uv) << error;
+        const auto differential = evaluate_surface_differential(
+            *supports.lookup(index->face(uses[side].face_id)->surface_id),
+            double2(uv->position),
+            {},
+            &error);
+        ASSERT_TRUE(differential && differential->normal) << error;
+        normals[side] = *differential->normal;
+      }
+      EXPECT_NEAR(std::abs(math::dot(normals[0], normals[1])), 1, 1e-12);
+    }
+  }
+  EXPECT_EQ(rails, 2);
+  expect_source_geometry_equal(*joined->geometry, *before);
+  EXPECT_TRUE(bevel_edges(*joined->geometry, {&selected, 1}, {.offset = 0.2, .segments = 1}));
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedTaperedBoxEdgeSubsetsKeepSharedIncidence)
+{
+  auto [box, corner] = bevel_fixture(true);
+  Vector<VertexTransform> transforms;
+  double4x4 scale = double4x4::identity();
+  scale[0][0] = 1.3;
+  for (const auto &vertex : box->vertices) {
+    if (vertex.position[2] == 2) {
+      transforms.append({vertex.id, scale});
+    }
+  }
+  std::string error;
+  auto source = transform_vertices(*box, transforms, 1e-9, &error);
+  ASSERT_TRUE(source) << error;
+  const OwnedGeometry before(geometry_copy(source->geometry.get()));
+  Vector<int64_t> all;
+  for (const auto &edge : source->geometry->edges) {
+    all.append(edge.id);
+  }
+  for (uint32_t mask = 1; mask < (1u << all.size()); mask++) {
+    SCOPED_TRACE(mask);
+    Vector<int64_t> selected;
+    for (const int i : all.index_range()) {
+      if (mask & (1u << i)) {
+        selected.append(all[i]);
+      }
+    }
+    auto result = bevel_edges(*source->geometry, selected, {.offset = 0.2, .segments = 3}, &error);
+    ASSERT_TRUE(result) << error;
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index);
+    for (const auto &edge : result->geometry->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+    }
+    EXPECT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+    expect_source_geometry_equal(*source->geometry, *before);
+    if (HasFailure()) {
+      return;
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, BevelSelectionModesResolveTheSameOpenCorner)
+{
+  auto [source, corner] = bevel_fixture(false);
+  const auto index = TopologyIndex::build(*source);
+  const auto &edge = *index->edge(corner);
+  std::string error;
+  auto expected = bevel_edges(*source, {&corner, 1}, {.offset = 0.3}, &error);
+  ASSERT_TRUE(expected) << error;
+  for (const auto mode : {SelectionMode::Vertex, SelectionMode::Edge, SelectionMode::Face}) {
+    SelectionState selected;
+    selected.mode = mode;
+    if (mode == SelectionMode::Vertex) {
+      selected.vertices.add_multiple({edge.vertex_ids, 2});
+    }
+    else if (mode == SelectionMode::Edge) {
+      selected.edges.add(corner);
+    }
+    else {
+      selected.faces.add(index->uses_for_edge(corner)[0].face_id);
+    }
+    auto normalized = selection_flush(*source, selected, mode, &error);
+    ASSERT_TRUE(normalized) << error;
+    const Vector<int64_t> edges(normalized->edges.begin(), normalized->edges.end());
+    auto result = bevel_edges(*source, edges, {.offset = 0.3}, &error);
+    ASSERT_TRUE(result) << error;
+    expect_source_geometry_equal(*result->geometry, *expected->geometry);
+  }
+  expect_signature_near_mesh(signature(*expected->geometry),
+                             bevel_bmesh_reference(*source, {&corner, 1}, 0.3));
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedConnectedBoxHasSharedSphereCornersAndEditableStrips)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_NE(source, nullptr);
+  const OwnedGeometry before(geometry_copy(source.get()));
+  Vector<int64_t> edges;
+  for (const auto &edge : source->edges) {
+    edges.append(edge.id);
+  }
+  for (const int segments : {2, 3, 8}) {
+    SCOPED_TRACE(segments);
+    std::string error;
+    auto result = bevel_edges(*source, edges, {.offset = 0.25, .segments = segments}, &error);
+    ASSERT_TRUE(result) << error;
+    EXPECT_EQ(result->geometry->vertices.count(), 24 * segments);
+    EXPECT_EQ(result->geometry->edges.count(), 36 * segments + 12);
+    EXPECT_EQ(result->geometry->faces.count(), 12 * segments + 14);
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index);
+    for (const auto &edge : result->geometry->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+    }
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    auto preview = tessellate_surfaces(*result->geometry, options, &error);
+    ASSERT_TRUE(preview) << error;
+    for (int i = 0; i < preview->points_num(); i++) {
+      const double3 p = preview->position(i) - double3(0, 0, 1);
+      const double3 outside = math::max(math::abs(p) - double3(0.75), double3(0));
+      EXPECT_NEAR(math::length(outside), 0.25, 1e-13);
+    }
+    const auto edit = EditData::create(*result->geometry, {}, &error);
+    ASSERT_NE(edit, nullptr) << error;
+    auto display = evaluate_mesh(edit->read_snapshot(), options, &error);
+    ASSERT_TRUE(display) << error;
+    EXPECT_EQ(display->undefined_normal_corners, 0);
+    const auto positions = display->mesh->vert_positions();
+    const auto corner_vertices = display->mesh->corner_verts();
+    const auto normals = display->mesh->corner_normals();
+    for (const int i : corner_vertices.index_range()) {
+      const double3 point = double3(positions[corner_vertices[i]]) - double3(0, 0, 1);
+      const double3 nearest = math::clamp(point, double3(-0.75), double3(0.75));
+      const double3 expected = math::normalize(point - nearest);
+      EXPECT_GT(math::dot(double3(normals[i]), expected), 0.9999);
+    }
+    expect_source_geometry_equal(*source, *before);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedCubeChainsKeepClosedSharedIncidence)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_NE(source, nullptr);
+  const OwnedGeometry before(geometry_copy(source.get()));
+  Vector<int64_t> all;
+  for (const auto &edge : source->edges) {
+    all.append(edge.id);
+  }
+  for (const uint32_t mask : {3u, 7u, 15u, 85u, 170u, 273u, 1365u, 2730u, 4095u}) {
+    SCOPED_TRACE(mask);
+    Vector<int64_t> edges;
+    for (const int i : all.index_range()) {
+      if (mask & (1u << i)) {
+        edges.append(all[i]);
+      }
+    }
+    std::string error;
+    auto result = bevel_edges(*source, edges, {.offset = 0.25, .segments = 3}, &error);
+    ASSERT_TRUE(result) << error;
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index);
+    for (const auto &edge : result->geometry->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+    }
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, options, &error)) << error;
+    expect_source_geometry_equal(*source, *before);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedSkewedBoxEdgeSubsetsKeepSharedIncidence)
+{
+  auto [box, corner] = bevel_fixture(true);
+  double4x4 shear = double4x4::identity();
+  shear[0][1] = 0.21;
+  shear[0][2] = 0.13;
+  shear[1][2] = -0.17;
+  std::string error;
+  auto source = transform_geometry(*box, shear, 1e-9, &error);
+  ASSERT_TRUE(source) << error;
+  const OwnedGeometry before(geometry_copy(source->geometry.get()));
+  Vector<int64_t> all;
+  for (const auto &edge : source->geometry->edges) {
+    all.append(edge.id);
+  }
+  for (uint32_t mask = 1; mask < (1u << all.size()); mask++) {
+    SCOPED_TRACE(mask);
+    Vector<int64_t> selected;
+    for (const int i : all.index_range()) {
+      if (mask & (1u << i)) {
+        selected.append(all[i]);
+      }
+    }
+    auto result = bevel_edges(*source->geometry, selected, {.offset = 0.2, .segments = 3}, &error);
+    ASSERT_TRUE(result) << error;
+    const auto index = TopologyIndex::build(*result->geometry, &error);
+    ASSERT_TRUE(index) << error;
+    for (const auto &edge : result->geometry->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE(index->face(uses[0].face_id)->orientation * (uses[0].use->reversed ? -1 : 1),
+                index->face(uses[1].face_id)->orientation * (uses[1].use->reversed ? -1 : 1));
+    }
+    EXPECT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+    expect_source_geometry_equal(*source->geometry, *before);
+    if (HasFailure()) {
+      return;
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RationalOctantConstructionReportsErrorAndOnlyCertifiesItsPole)
+{
+  std::string error;
+  auto result = rational_octant_surface(
+      {0, 0, 0}, {double3(1, 0, 0), double3(0, 1, 0), double3(0, 0, 1)}, 1e-9, &error);
+  ASSERT_TRUE(result) << error;
+  EXPECT_GT(result->geometry_error_bound, 0);
+  EXPECT_LT(result->geometry_error_bound, 1e-14);
+  EXPECT_TRUE(collapsed_surface_boundary_interval(*result->surface, {0, 1}, {1, 1}, {0, 0, 1}));
+  EXPECT_FALSE(collapsed_surface_boundary_interval(*result->surface, {0, 0}, {1, 0}, {0, 0, 1}));
+  EXPECT_FALSE(
+      collapsed_surface_boundary_interval(*result->surface, {0, 0.5}, {1, 0.5}, {0, 0, 1}));
+  EXPECT_FALSE(
+      collapsed_surface_boundary_interval(*result->surface, {0, 1}, {1, 1}, {0, 0, 1.001}));
+  for (int u = 0; u <= 16; u++) {
+    const auto normal = evaluate_surface_pole_normal(*result->surface, {u / 16.0, 1});
+    ASSERT_TRUE(normal);
+    EXPECT_NEAR(math::distance(*normal, double3(0, 0, 1)), 0, 1e-14);
+    EXPECT_FALSE(evaluate_surface_pole_normal(*result->surface, {u / 16.0, 0.5}));
+    for (int v = 0; v <= 16; v++) {
+      auto sample = evaluate_surface(*result->surface, {u / 16.0, v / 16.0}, &error);
+      ASSERT_TRUE(sample) << error;
+      EXPECT_NEAR(math::length(sample->position), 1, 1e-14);
+    }
+  }
+  EXPECT_FALSE(rational_octant_surface(
+      {0, 0, 0}, {double3(1, 0, 0), double3(0, 1, 0), double3(0, 0, 1)}, 0, &error));
+}
+
+TEST_F(NurbsTopologyEditTest, SphericalOctantBoundsRadialDeviationWithoutChangingAxes)
+{
+  std::string error;
+  const std::array<double3, 3> axes = {double3(1, 0, 0), double3(0, 1.1, 0), double3(0, 0, 1)};
+  EXPECT_FALSE(rational_spherical_octant_surface({}, axes, 1, 1e-9, &error));
+  EXPECT_FALSE(error.empty());
+  error.clear();
+  auto result = rational_spherical_octant_surface({}, axes, 1, 0.25, &error);
+  ASSERT_TRUE(result) << error;
+  EXPECT_GE(result->geometry_error_bound, 0.1);
+  EXPECT_LT(result->geometry_error_bound, 0.25);
+  auto endpoint = evaluate_surface(*result->surface, {1, 0}, &error);
+  ASSERT_TRUE(endpoint) << error;
+  EXPECT_EQ(endpoint->position, axes[1]);
+  for (int u = 0; u <= 16; u++) {
+    for (int v = 0; v <= 16; v++) {
+      const auto point = evaluate_surface(*result->surface, {u / 16.0, v / 16.0}, &error);
+      ASSERT_TRUE(point) << error;
+      EXPECT_LE(std::abs(math::length(point->position) - 1), result->geometry_error_bound);
+    }
+  }
+  for (const double radius : {0.0, -1.0, double(INFINITY), double(NAN)}) {
+    EXPECT_FALSE(rational_spherical_octant_surface({}, axes, radius, 1, &error));
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RationalCoonsTriangleInterpolatesUnchangedConics)
+{
+  auto quadratic = [](const double3 a, const double3 pole, const double3 b, const double w) {
+    OwnedCurve curve(MEM_new<NurbsCurveGeometry>(__func__));
+    curve->dimension = 3;
+    curve->order = curve->points_num = 3;
+    curve->knots_num = 6;
+    curve->points = MEM_new_array<NurbsControlPoint>(3, __func__);
+    curve->knots = MEM_new_array_zeroed<double>(6, __func__);
+    curve->knots[3] = curve->knots[4] = curve->knots[5] = 1;
+    for (int i = 0; i < 3; i++) {
+      const double3 p = i == 0 ? a : i == 1 ? pole : b;
+      std::copy_n(&p.x, 3, curve->points[i].position);
+    }
+    curve->points[1].weight = w;
+    return curve;
+  };
+  const double3 a(0.23, 0.31, 0.0), b(0.29, 0.0, 0.27), c(0.0, 0.33, 0.22);
+  auto ab = quadratic(a, {0.21, 0, 0}, b, 0.67);
+  auto ac = quadratic(a, {0, 0.24, 0}, c, 0.72);
+  auto bc = quadratic(b, {0, 0, 0.25}, c, 0.81);
+  std::string error;
+  auto patch = rational_coons_triangle(*ab, *ac, *bc, 1e-12, &error);
+  ASSERT_TRUE(patch) << error;
+  const auto &support = *patch->surface;
+  for (const auto &point : Span(support.points, support.points_num)) {
+    EXPECT_GT(point.weight, 0);
+  }
+  for (int i = 0; i <= 32; i++) {
+    const double t = double(i) / 32;
+    for (int side = 0; side < 3; side++) {
+      const double2 uv = side == 0 ? double2(t, 0) : side == 1 ? double2(0, t) : double2(1, t);
+      const auto *curve = side == 0 ? ab.get() : side == 1 ? ac.get() : bc.get();
+      const auto expected = evaluate_curve(*curve, t);
+      const auto actual = evaluate_surface(support, uv);
+      ASSERT_TRUE(expected && actual);
+      EXPECT_LT(math::distance(expected->position, actual->position), 1e-14);
+    }
+    const auto pole = evaluate_surface(support, {t, 1});
+    ASSERT_TRUE(pole);
+    EXPECT_LT(math::distance(pole->position, c), 1e-14);
+  }
+  /* Compare with the independent homogeneous Boolean-sum formula throughout the domain. */
+  auto homogeneous = [](const NurbsCurveGeometry &curve, const double t) {
+    double4 h(0);
+    const double basis[] = {(1 - t) * (1 - t), 2 * t * (1 - t), t * t};
+    for (int i = 0; i < 3; i++) {
+      const auto &p = curve.points[i];
+      h += double4(p.position[0], p.position[1], p.position[2], 1) * (basis[i] * p.weight);
+    }
+    return h;
+  };
+  for (const double u : {0.13, 0.37, 0.71, 0.89}) {
+    for (const double v : {0.17, 0.41, 0.63, 0.91}) {
+      const double4 ha(a.x, a.y, a.z, 1), hb(b.x, b.y, b.z, 1), hc(c.x, c.y, c.z, 1);
+      const double4 h = (1 - v) * homogeneous(*ab, u) + v * hc + (1 - u) * homogeneous(*ac, v) +
+                        u * homogeneous(*bc, v) - ((1 - v) * ((1 - u) * ha + u * hb) + v * hc);
+      const auto actual = evaluate_surface(support, {u, v});
+      ASSERT_TRUE(actual);
+      EXPECT_LT(math::distance(actual->position, double3(h.x, h.y, h.z) / h.w), 1e-14);
+    }
+  }
+  EXPECT_FALSE(rational_coons_triangle(*ab, *ac, *bc, 0, &error));
+  ac->points[0].position[0] += 1e-6;
+  EXPECT_FALSE(rational_coons_triangle(*ab, *ac, *bc, 1e-9, &error));
+  ac->points[0] = ab->points[0];
+  ab->points[1].weight = ac->points[1].weight = bc->points[1].weight = 0.1;
+  EXPECT_FALSE(rational_coons_triangle(*ab, *ac, *bc, 1e-9, &error));
+}
+
+TEST_F(NurbsTopologyEditTest, BevelPyramidSubsetsMatchBMeshOrReportUnsupportedCap)
+{
+  auto [box, corner] = bevel_fixture(true);
+  ASSERT_NE(box, nullptr);
+  SelectionState vertices;
+  for (const auto &v : box->vertices) {
+    if (v.position[2] == 2) {
+      vertices.vertices.add(v.id);
+    }
+  }
+  std::string error;
+  auto selected = selection_flush(*box, vertices, SelectionMode::Vertex, &error);
+  ASSERT_TRUE(selected) << error;
+  auto pyramid = merge_selected_vertices(*box, *selected, VertexMergeMode::Center, {}, 0, &error);
+  ASSERT_TRUE(pyramid) << error;
+  ASSERT_EQ(pyramid->geometry->vertices.count(), 5);
+  const OwnedGeometry original(geometry_copy(pyramid->geometry.get()));
+  Vector<int> unsupported;
+  Vector<int64_t> all;
+  for (const auto &e : pyramid->geometry->edges) {
+    all.append(e.id);
+  }
+  Vector<Vector<int64_t>> cases;
+  for (uint32_t mask = 1; mask < (1u << all.size()); mask++) {
+    Vector<int64_t> edges;
+    for (const int i : all.index_range()) {
+      if (mask & (1u << i)) {
+        edges.append(all[i]);
+      }
+    }
+    cases.append(std::move(edges));
+  }
+  for (const int case_index : cases.index_range()) {
+    const auto &edges = cases[case_index];
+    SCOPED_TRACE(case_index + 1);
+    SCOPED_TRACE(edges.first());
+    SCOPED_TRACE(edges.size());
+    auto result = bevel_edges(*pyramid->geometry, edges, {.offset = 0.25}, &error);
+    if (!result) {
+      EXPECT_EQ(
+          error,
+          "Boundary needs a nonplanar or tolerance-managed construction; no fitting was applied");
+      unsupported.append(case_index + 1);
+      expect_source_geometry_equal(*pyramid->geometry, *original);
+      continue;
+    }
+    const auto native = signature(*result->geometry);
+    const auto reference = bevel_bmesh_reference(*pyramid->geometry, edges, 0.25);
+    EXPECT_EQ(native.vertices.size(), reference.vertices.size());
+    EXPECT_EQ(native.edges.size(), reference.edges.size());
+    EXPECT_EQ(native.faces.size(), reference.faces.size());
+    /* Compare coordinates for independent edges and the complete fan. Partial loop-slide
+     * chains intentionally minimize a symmetric width objective; BMesh's chain traversal can
+     * leave asymmetric widths when a chain returns to the same non-cycle anchor. */
+    if (edges.size() == 1 || edges.size() == all.size()) {
+      expect_signature_near_mesh(native, reference);
+    }
+    if (case_index + 1 == 49) {
+      /* The selected front triangle is symmetric in X. Preserve that symmetry rather than
+       * reproducing BMesh's traversal-dependent width asymmetry at its returned anchor. */
+      for (const auto &point : native.vertices) {
+        const double3 reflected(-point[0], point[1], point[2]);
+        double nearest = std::numeric_limits<double>::infinity();
+        for (const auto &candidate : native.vertices) {
+          nearest = std::min(
+              nearest,
+              math::distance(reflected, double3(candidate[0], candidate[1], candidate[2])));
+        }
+        EXPECT_LT(nearest, 1e-14);
+      }
+    }
+    const auto index = TopologyIndex::build(*result->geometry);
+    ASSERT_TRUE(index);
+    for (const auto &edge : result->geometry->edges) {
+      EXPECT_EQ(index->uses_for_edge(edge.id).size(), 2);
+    }
+    EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+  }
+  EXPECT_EQ(unsupported, (Vector<int>{60, 61, 83, 87, 163, 171, 204, 206}));
+  expect_source_geometry_equal(*pyramid->geometry, *original);
+}
+
+TEST_F(NurbsTopologyEditTest, BevelObliqueAndReversedFacesPreserveSharedBoundaries)
+{
+  for (const bool closed : {false, true}) {
+    for (const bool reversed : {false, true}) {
+      auto [source, corner] = bevel_fixture(closed);
+      auto shear = [](double position[3]) {
+        position[0] += 0.5 * position[2];
+        position[1] += 0.5 * position[2];
+      };
+      for (auto &vertex : source->vertices) {
+        shear(vertex.position);
+      }
+      for (auto &curve : source->curves) {
+        if (curve.dimension == 3) {
+          for (int i = 0; i < curve.points_num; i++) {
+            shear(curve.points[i].position);
+          }
+        }
+      }
+      for (auto &surface : source->surfaces) {
+        for (int i = 0; i < surface.points_num; i++) {
+          shear(surface.points[i].position);
+        }
+      }
+      if (reversed) {
+        for (auto &face : source->faces) {
+          face.orientation *= -1;
+        }
+      }
+      const OwnedGeometry before(geometry_copy(source.get()));
+      std::string error;
+      auto chamfer = bevel_edges(*source, {&corner, 1}, {.offset = 0.3}, &error);
+      ASSERT_TRUE(chamfer) << error;
+      expect_signature_near_mesh(signature(*chamfer->geometry),
+                                 bevel_bmesh_reference(*source, {&corner, 1}, 0.3));
+      auto rounded = bevel_edges(*source, {&corner, 1}, {.offset = 0.3, .segments = 3}, &error);
+      ASSERT_TRUE(rounded) << error;
+      auto options = preview_options();
+      options.boundary.evaluation_allowance = 0;
+      EXPECT_TRUE(tessellate_surfaces(*chamfer->geometry, options, &error)) << error;
+      EXPECT_TRUE(tessellate_surfaces(*rounded->geometry, options, &error)) << error;
+      expect_source_geometry_equal(*source, *before);
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, PlanarCurveProjectionCertifiesRationalTrimsAndRejectsRealGaps)
+{
+  auto sheet = make_planar_sheet();
+  auto arc = make_arc_sheet(false);
+  ASSERT_NE(sheet, nullptr);
+  ASSERT_NE(arc, nullptr);
+  const auto &surface = *static_cast<NurbsSurfaceGeometry *>(sheet->surfaces.first);
+  auto &curve = *static_cast<NurbsCurveGeometry *>(arc->curves.first);
+  const OwnedGeometry before(geometry_copy(arc.get()));
+  std::string error;
+  auto projected = project_curve_to_affine_surface(curve, surface, 0, &error);
+  ASSERT_TRUE(projected) << error;
+  EXPECT_EQ(projected->geometry_error_bound, 0);
+  EXPECT_EQ(projected->curve->points[1].weight, curve.points[1].weight);
+  projected->curve->points[1].position[0] += 0.125;
+  const auto gap = affine_curve_support_deviation_bound(curve, *projected->curve, surface);
+  ASSERT_TRUE(gap);
+  EXPECT_GE(*gap, 0.25);
+  expect_source_geometry_equal(*arc, *before);
+  curve.points[1].position[2] = 0.001;
+  EXPECT_FALSE(project_curve_to_affine_surface(curve, surface, 1e-9, &error));
+  auto other = OwnedCurve(MEM_dupalloc(&curve));
+  other->points = MEM_dupalloc(curve.points);
+  other->knots = MEM_dupalloc(curve.knots);
+  other->points[1].weight = 0.8;
+  auto ruled = ruled_surface(curve, *other, &error);
+  ASSERT_TRUE(ruled) << error;
+  for (const double u : {0.0, 0.17, 0.5, 0.83, 1.0}) {
+    const auto first = evaluate_curve(curve, u), last = evaluate_curve(*other, u);
+    ASSERT_TRUE(first && last);
+    const auto a = evaluate_surface(*ruled, {u, 0}), b = evaluate_surface(*ruled, {u, 1});
+    ASSERT_TRUE(a && b);
+    EXPECT_LT(math::distance(a->position, first->position), 1e-14);
+    EXPECT_LT(math::distance(b->position, last->position), 1e-14);
+    for (const double v : {0.2, 0.5, 0.8}) {
+      const auto point = evaluate_surface(*ruled, {u, v});
+      ASSERT_TRUE(point);
+      EXPECT_LT(math::length(math::cross(point->position - first->position,
+                                         last->position - first->position)),
+                1e-14);
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, PlanarProjectionBoundsSmallBilinearSupportTwist)
+{
+  auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  auto *support = static_cast<NurbsSurfaceGeometry *>(sheet->surfaces.first);
+  const auto index = TopologyIndex::build(*sheet);
+  ASSERT_TRUE(index);
+  const NurbsTopologyEdge *right_edge = nullptr;
+  for (const auto &candidate : sheet->edges) {
+    const auto a = double3(index->vertex(candidate.vertex_ids[0])->position);
+    const auto b = double3(index->vertex(candidate.vertex_ids[1])->position);
+    if (a.x == 1 && b.x == 1) {
+      right_edge = &candidate;
+    }
+  }
+  ASSERT_NE(right_edge, nullptr);
+  const NurbsCurveGeometry *curve = nullptr;
+  for (const auto &candidate : sheet->curves) {
+    if (candidate.id == right_edge->curve_id) {
+      curve = &candidate;
+    }
+  }
+  ASSERT_NE(curve, nullptr);
+  const OwnedGeometry before(geometry_copy(sheet.get()));
+  support->points[3].position[2] = 1e-10;
+  std::string error;
+  auto projected = project_curve_to_affine_surface(*curve, *support, 1e-9, &error);
+  ASSERT_TRUE(projected) << error;
+  EXPECT_GT(projected->geometry_error_bound, 0);
+  EXPECT_LE(projected->geometry_error_bound, 1e-9);
+  support->points[3].position[2] = 1e-5;
+  EXPECT_FALSE(project_curve_to_affine_surface(*curve, *support, 1e-9, &error));
+  support->points[3].position[2] = 0;
+  expect_source_geometry_equal(*sheet, *before);
 }
 
 static void write_source(const std::string &name,
@@ -2065,6 +3429,338 @@ TEST_F(NurbsTopologyEditTest, SavedCutsMatchActualMeshAndRemainAuthoritativeNurb
     ASSERT_TRUE(moved.has_value()) << error;
     EXPECT_TRUE(tessellate_surfaces(*moved->geometry, preview_options(), &error)) << error;
     compare_mesh_file(std::string("cut-mesh-") + label, *curve.nurbs_geometry, 1e-6);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, SavedBevelSourcesRestoreExactlyAndMatchMeshWorkflow)
+{
+  if (!std::getenv("BLENDER_NURBS_BEVEL_UI_READY")) {
+    GTEST_SKIP() << "Run after the native bevel and mesh-reference viewport workflows";
+  }
+  const char *directory = std::getenv("BLENDER_NURBS_BEVEL_OUTPUT");
+  ASSERT_NE(directory, nullptr);
+  ReportList reports;
+  BKE_reports_init(&reports, RPT_STORE);
+  BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+  BlendFileReadReport read_reports{};
+  read_reports.reports = &reports;
+  auto read_source = [&](const std::string &name) -> std::optional<EditSnapshot> {
+    const std::string path = std::string(directory) + "/bevel-" + name + ".blend";
+    auto *file = BLO_read_from_file(path.c_str(), BLO_READ_SKIP_USERDEF, &read_reports);
+    if (!file) {
+      ADD_FAILURE() << "Cannot read " << path;
+      return std::nullopt;
+    }
+    BLI_SCOPED_DEFER([&]() { BLO_blendfiledata_free(file); });
+    if (file->main->curves.count() != 1 || file->main->objects.count() != 1) {
+      ADD_FAILURE() << "Expected one native source in " << path;
+      return std::nullopt;
+    }
+    const auto &curve = *static_cast<const Curve *>(file->main->curves.first);
+    EXPECT_TRUE(curve.nurb.is_empty());
+    if (!curve.nurbs_geometry) {
+      ADD_FAILURE() << "Missing native NURBS source in " << path;
+      return std::nullopt;
+    }
+    std::string error;
+    EXPECT_TRUE(geometry_validate_structure(*curve.nurbs_geometry, &error)) << error;
+    auto selection = selection_from_storage(curve.nurbs_geometry->stored_selection, &error);
+    if (!selection) {
+      ADD_FAILURE() << error;
+      return std::nullopt;
+    }
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    EXPECT_TRUE(tessellate_surfaces(*curve.nurbs_geometry, options, &error)) << error;
+    return EditSnapshot{OwnedGeometry(geometry_copy(curve.nurbs_geometry)), std::move(*selection)};
+  };
+  auto expect_state_equal = [](const EditSnapshot &a, const EditSnapshot &b) {
+    expect_source_geometry_equal(*a.geometry, *b.geometry);
+    EXPECT_EQ(a.selection.vertices, b.selection.vertices);
+    EXPECT_EQ(a.selection.edges, b.selection.edges);
+    EXPECT_EQ(a.selection.faces, b.selection.faces);
+    EXPECT_EQ(a.selection.active, b.selection.active);
+    EXPECT_EQ(a.selection.history, b.selection.history);
+    EXPECT_EQ(a.selection.mode, b.selection.mode);
+  };
+  for (const char *label : {"native-corner",
+                            "native-box",
+                            "native-corner-round",
+                            "native-box-round",
+                            "native-corner-vertex"})
+  {
+    SCOPED_TRACE(label);
+    const bool closed = std::strstr(label, "box");
+    const bool rounded = std::strstr(label, "round");
+    const bool vertex_mode = std::strstr(label, "vertex");
+    auto before = read_source(std::string(label) + "-before");
+    auto cancelled = read_source(std::string(label) + "-cancelled");
+    auto finished = read_source(std::string(label) + "-finished");
+    auto restored = read_source(std::string(label) + "-restored");
+    auto continued = read_source(std::string(label) + "-continued");
+    ASSERT_TRUE(before && cancelled && finished && restored && continued);
+    expect_state_equal(*before, *cancelled);
+    expect_state_equal(*finished, *restored);
+    EXPECT_EQ(before->selection.mode, vertex_mode ? SelectionMode::Vertex : SelectionMode::Edge);
+    EXPECT_EQ(finished->selection.mode, before->selection.mode);
+    ASSERT_EQ(before->selection.edges.size(), 1);
+    const auto index = TopologyIndex::build(*before->geometry);
+    ASSERT_TRUE(index);
+    const auto &selected = *index->edge(*before->selection.edges.begin());
+    for (const int64_t id : selected.vertex_ids) {
+      const double3 point(index->vertex(id)->position);
+      EXPECT_EQ(std::abs(point.x), 1);
+      EXPECT_EQ(point.y, closed ? 0 : 2);
+      EXPECT_EQ(point.z, closed ? 2 : 0);
+    }
+    std::string error;
+    const Vector<int64_t> edges(before->selection.edges.begin(), before->selection.edges.end());
+    auto result = bevel_edges(
+        *before->geometry, edges, {.offset = 0.25, .segments = rounded ? 3 : 1}, &error);
+    ASSERT_TRUE(result) << error;
+    auto expected = edit_snapshot_from_topology_result(
+        std::move(*result), before->selection, before->selection.mode, &error);
+    ASSERT_TRUE(expected) << error;
+    expect_state_equal(*finished, *expected);
+    const auto finished_index = TopologyIndex::build(*finished->geometry);
+    ASSERT_TRUE(finished_index);
+    for (const auto &edge : finished->geometry->edges) {
+      const int64_t uses = finished_index->uses_for_edge(edge.id).size();
+      EXPECT_GT(uses, 0);
+      EXPECT_LE(uses, 2);
+      if (closed) {
+        EXPECT_EQ(uses, 2);
+      }
+    }
+    EXPECT_EQ(continued->selection.mode, SelectionMode::Face);
+    EXPECT_GT(continued->geometry->faces.count(), finished->geometry->faces.count());
+    if (!closed && !rounded) {
+      compare_mesh_file("bevel-mesh-corner-finished", *finished->geometry, 1e-6, directory);
+      compare_mesh_file("bevel-mesh-corner-continued", *continued->geometry, 1e-6, directory);
+    }
+  }
+  for (const char *label : {"native-connected", "native-pyramid", "native-connected-round"}) {
+    SCOPED_TRACE(label);
+    const bool rounded = std::strstr(label, "round");
+    auto before = read_source(std::string(label) + "-before");
+    auto cancelled = read_source(std::string(label) + "-cancelled");
+    auto finished = read_source(std::string(label) + "-finished");
+    auto restored = read_source(std::string(label) + "-restored");
+    ASSERT_TRUE(before && cancelled && finished && restored);
+    expect_state_equal(*before, *cancelled);
+    expect_state_equal(*finished, *restored);
+    EXPECT_EQ(finished->selection.mode, SelectionMode::Edge);
+    std::string error;
+    const Vector<int64_t> edges(before->selection.edges.begin(), before->selection.edges.end());
+    auto result = bevel_edges(
+        *before->geometry, edges, {.offset = 0.25, .segments = rounded ? 3 : 1}, &error);
+    ASSERT_TRUE(result) << error;
+    auto expected = edit_snapshot_from_topology_result(
+        std::move(*result), before->selection, before->selection.mode, &error);
+    ASSERT_TRUE(expected) << error;
+    expect_state_equal(*finished, *expected);
+    if (!rounded) {
+      compare_mesh_file(std::string("bevel-mesh-") +
+                            (std::strstr(label, "pyramid") ? "pyramid" : "connected") +
+                            "-finished",
+                        *finished->geometry,
+                        1e-6,
+                        directory);
+    }
+  }
+  if (std::getenv("BLENDER_NURBS_BEVEL_MOUSE_UI_READY")) {
+    for (const char *label : {"native-corner-mouse-limits", "native-corner-round-mouse-limits"}) {
+      SCOPED_TRACE(label);
+      auto before = read_source(std::string(label) + "-before");
+      auto valid = read_source(std::string(label) + "-last-valid");
+      auto held = read_source(std::string(label) + "-held-invalid");
+      auto cancelled = read_source(std::string(label) + "-held-cancelled");
+      auto rejected = read_source(std::string(label) + "-rejected");
+      ASSERT_TRUE(before && valid && held && cancelled && rejected);
+      expect_state_equal(*valid, *held);
+      expect_state_equal(*before, *cancelled);
+      expect_state_equal(*before, *rejected);
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, SavedBoundaryBlendBevelRestoresAndContinuesFromAuthoritativeSource)
+{
+  if (!std::getenv("BLENDER_NURBS_BEVEL_BLEND_UI_READY")) {
+    GTEST_SKIP() << "Run after the skewed native bevel viewport workflows";
+  }
+  const char *directory = std::getenv("BLENDER_NURBS_BEVEL_BLEND_OUTPUT");
+  ASSERT_NE(directory, nullptr);
+  auto read = [&](const std::string &label, const char *stage) -> std::optional<EditSnapshot> {
+    const std::string path = std::string(directory) + "/bevel-" + label + "-" + stage + ".blend";
+    BlendFileReadReport reports{};
+    auto *file = BLO_read_from_file(path.c_str(), BLO_READ_SKIP_USERDEF, &reports);
+    if (!file) {
+      ADD_FAILURE() << "Cannot read " << path;
+      return std::nullopt;
+    }
+    BLI_SCOPED_DEFER([&]() { BLO_blendfiledata_free(file); });
+    if (file->main->curves.count() != 1) {
+      ADD_FAILURE() << "Expected one authoritative NURBS source in " << path;
+      return std::nullopt;
+    }
+    const auto &curve = *static_cast<const Curve *>(file->main->curves.first);
+    EXPECT_TRUE(curve.nurb.is_empty());
+    if (!curve.nurbs_geometry) {
+      ADD_FAILURE() << "Missing native NURBS geometry in " << path;
+      return std::nullopt;
+    }
+    std::string error;
+    auto selection = selection_from_storage(curve.nurbs_geometry->stored_selection, &error);
+    EXPECT_TRUE(selection) << error;
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    EXPECT_TRUE(evaluate_boundaries(*curve.nurbs_geometry, options.boundary, &error)) << error;
+    EXPECT_TRUE(tessellate_surfaces(*curve.nurbs_geometry, options, &error)) << error;
+    if (!selection) {
+      return std::nullopt;
+    }
+    return EditSnapshot{OwnedGeometry(geometry_copy(curve.nurbs_geometry)), *selection};
+  };
+  auto same = [](const EditSnapshot &a, const EditSnapshot &b) {
+    expect_source_geometry_equal(*a.geometry, *b.geometry);
+    EXPECT_EQ(a.selection.vertices, b.selection.vertices);
+    EXPECT_EQ(a.selection.edges, b.selection.edges);
+    EXPECT_EQ(a.selection.faces, b.selection.faces);
+    EXPECT_EQ(a.selection.history, b.selection.history);
+    EXPECT_EQ(a.selection.active, b.selection.active);
+    EXPECT_EQ(a.selection.mode, b.selection.mode);
+  };
+  Vector<const char *> labels = {"native-connected-round-skewed",
+                                 "native-connected-round-skewed-face",
+                                 "native-connected-round-clamped-skewed"};
+  const char *blend_directory = directory;
+  const char *planar_directory = std::getenv("BLENDER_NURBS_BEVEL_PLANAR_OUTPUT");
+  if (std::getenv("BLENDER_NURBS_BEVEL_PLANAR_UI_READY")) {
+    ASSERT_NE(planar_directory, nullptr);
+    labels.extend({"native-connected-round-tapered",
+                   "native-connected-round-tapered-face",
+                   "native-connected-round-clamped-tapered"});
+  }
+  for (const char *label : labels) {
+    directory = std::strstr(label, "tapered") ? planar_directory : blend_directory;
+    SCOPED_TRACE(label);
+    auto before = read(label, "before"), cancelled = read(label, "cancelled"),
+         finished = read(label, "finished"), restored = read(label, "restored"),
+         continued = read(label, "continued"), duplicated = read(label, "duplicated");
+    ASSERT_TRUE(before && cancelled && finished && restored && continued && duplicated);
+    same(*before, *cancelled);
+    same(*finished, *restored);
+    const Vector<int64_t> edges(before->selection.edges.begin(), before->selection.edges.end());
+    std::string error;
+    BevelOffsetInfo info;
+    auto bevel = bevel_edges(
+        *before->geometry,
+        edges,
+        {.offset = std::strstr(label, "clamped") ? 100.0 : 0.25, .segments = 3},
+        &error,
+        &info);
+    ASSERT_TRUE(bevel) << error;
+    EXPECT_GT(info.boundary_blend_corners, 0);
+    if (std::strstr(label, "tapered")) {
+      EXPECT_GT(info.planar_charts, 0);
+      EXPECT_LE(info.chart_error_bound, 1e-9);
+    }
+    auto expected = edit_snapshot_from_topology_result(
+        std::move(*bevel), before->selection, before->selection.mode, &error);
+    ASSERT_TRUE(expected) << error;
+    same(*finished, *expected);
+    const Vector<int64_t> vertices(finished->selection.vertices.begin(),
+                                   finished->selection.vertices.end());
+    auto moved = translate_vertices(*finished->geometry, vertices, {0, 0, 0.15}, 1e-9, &error);
+    ASSERT_TRUE(moved) << error;
+    expect_source_geometry_equal(*continued->geometry, *moved->geometry);
+    EXPECT_GT(duplicated->geometry->vertices.count(), finished->geometry->vertices.count());
+    EXPECT_EQ(duplicated->selection.mode, finished->selection.mode);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, SavedClampedBevelReplaysSourceAndSurvivesContinuedEditing)
+{
+  if (!std::getenv("BLENDER_NURBS_BEVEL_CLAMP_UI_READY")) {
+    GTEST_SKIP() << "Run after the clamped native bevel viewport workflows";
+  }
+  const char *directory = std::getenv("BLENDER_NURBS_BEVEL_OUTPUT");
+  ASSERT_NE(directory, nullptr);
+  auto read_source = [&](const std::string &label,
+                         const char *stage) -> std::optional<EditSnapshot> {
+    const std::string path = std::string(directory) + "/bevel-" + label + "-" + stage + ".blend";
+    ReportList reports;
+    BKE_reports_init(&reports, RPT_STORE);
+    BLI_SCOPED_DEFER([&]() { BKE_reports_free(&reports); });
+    BlendFileReadReport read_reports{};
+    read_reports.reports = &reports;
+    auto *file = BLO_read_from_file(path.c_str(), BLO_READ_SKIP_USERDEF, &read_reports);
+    if (!file) {
+      ADD_FAILURE() << "Cannot read " << path;
+      return std::nullopt;
+    }
+    BLI_SCOPED_DEFER([&]() { BLO_blendfiledata_free(file); });
+    if (file->main->curves.count() != 1) {
+      ADD_FAILURE() << "Expected one native source in " << path;
+      return std::nullopt;
+    }
+    const auto &curve = *static_cast<const Curve *>(file->main->curves.first);
+    EXPECT_TRUE(curve.nurb.is_empty());
+    if (!curve.nurbs_geometry) {
+      ADD_FAILURE() << "Missing authoritative NURBS geometry in " << path;
+      return std::nullopt;
+    }
+    std::string error;
+    auto selection = selection_from_storage(curve.nurbs_geometry->stored_selection, &error);
+    if (!selection) {
+      ADD_FAILURE() << error;
+      return std::nullopt;
+    }
+    auto options = preview_options();
+    options.boundary.evaluation_allowance = 0;
+    EXPECT_TRUE(tessellate_surfaces(*curve.nurbs_geometry, options, &error))
+        << path << ": " << error;
+    return EditSnapshot{OwnedGeometry(geometry_copy(curve.nurbs_geometry)), std::move(*selection)};
+  };
+  auto expect_state = [](const EditSnapshot &a, const EditSnapshot &b) {
+    expect_source_geometry_equal(*a.geometry, *b.geometry);
+    EXPECT_EQ(a.selection.vertices, b.selection.vertices);
+    EXPECT_EQ(a.selection.edges, b.selection.edges);
+    EXPECT_EQ(a.selection.faces, b.selection.faces);
+    EXPECT_EQ(a.selection.active, b.selection.active);
+    EXPECT_EQ(a.selection.history, b.selection.history);
+    EXPECT_EQ(a.selection.mode, b.selection.mode);
+  };
+  for (const char *name : {"native-corner-mouse-clamped", "native-corner-round-mouse-clamped"}) {
+    SCOPED_TRACE(name);
+    auto before = read_source(name, "before");
+    auto preview = read_source(name, "clamped");
+    auto cancelled = read_source(name, "clamp-cancelled");
+    auto confirmed = read_source(name, "clamp-confirmed");
+    auto restored = read_source(name, "clamp-restored");
+    auto continued = read_source(name, "clamp-continued");
+    ASSERT_TRUE(before && preview && cancelled && confirmed && restored && continued);
+    expect_state(*before, *cancelled);
+    expect_state(*preview, *confirmed);
+    expect_state(*confirmed, *restored);
+    const Vector<int64_t> edges(before->selection.edges.begin(), before->selection.edges.end());
+    std::string error;
+    BevelOffsetInfo info;
+    auto result = bevel_edges(*before->geometry,
+                              edges,
+                              {.offset = 100, .segments = std::strstr(name, "round") ? 3 : 1},
+                              &error,
+                              &info);
+    ASSERT_TRUE(result) << error;
+    EXPECT_LT(info.offset, 2);
+    EXPECT_NEAR(info.offset, 2, 1e-12);
+    auto replay = edit_snapshot_from_topology_result(
+        std::move(*result), before->selection, before->selection.mode, &error);
+    ASSERT_TRUE(replay) << error;
+    expect_state(*confirmed, *replay);
+    EXPECT_GT(continued->geometry->faces.count(), confirmed->geometry->faces.count());
+    EXPECT_EQ(continued->selection.mode, SelectionMode::Face);
   }
 }
 

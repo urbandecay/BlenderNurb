@@ -311,12 +311,88 @@ static std::optional<double> bernstein_curve_support_bound(const NurbsCurveGeome
   return std::isfinite(bound) ? std::optional(bound) : std::nullopt;
 }
 
+/** Along a constant U or V trim, a polynomial bilinear surface is affine in the varying
+ * coordinate. Matching rational endpoint profiles therefore reduce the whole-edge discrepancy
+ * to the convex hull of two coefficient gaps, including bounded coordinate normalization. */
+static std::optional<double> isoparametric_curve_support_bound(const NurbsCurveGeometry &curve,
+                                                               const NurbsCurveGeometry &pcurve,
+                                                               const NurbsSurfaceGeometry &surface)
+{
+  using namespace detail;
+  const auto linear = [](const NurbsCurveGeometry &item) {
+    return item.order == 2 && item.points_num == 2 && item.knots_num == 4 &&
+           item.knots[0] == item.knots[1] && item.knots[2] == item.knots[3] &&
+           item.points[0].weight > 0 && item.points[1].weight > 0;
+  };
+  if (!supported_arithmetic() || curve.dimension != 3 || pcurve.dimension != 2 || !linear(curve) ||
+      !linear(pcurve) || !std::equal(curve.knots, curve.knots + curve.knots_num, pcurve.knots) ||
+      surface.order_u != 2 || surface.order_v != 2 || surface.points_u != 2 ||
+      surface.points_v != 2 || surface.knots_u[0] != surface.knots_u[1] ||
+      surface.knots_u[2] != surface.knots_u[3] || surface.knots_v[0] != surface.knots_v[1] ||
+      surface.knots_v[2] != surface.knots_v[3] ||
+      (pcurve.points[0].position[0] != pcurve.points[1].position[0] &&
+       pcurve.points[0].position[1] != pcurve.points[1].position[1]))
+  {
+    return std::nullopt;
+  }
+  for (int corner = 0; corner < 4; corner++) {
+    if (!(surface.points[corner].weight > 0) ||
+        surface.points[corner].weight != surface.points[0].weight)
+    {
+      return std::nullopt;
+    }
+  }
+  double a, ae, b, be;
+  if (!product_with_error(curve.points[0].weight, pcurve.points[1].weight, a, ae) ||
+      !product_with_error(curve.points[1].weight, pcurve.points[0].weight, b, be) || a != b ||
+      ae != be)
+  {
+    return std::nullopt;
+  }
+  double bound = 0;
+  for (int end = 0; end < 2; end++) {
+    BoundedScalar uv[2];
+    for (int axis = 0; axis < 2; axis++) {
+      const double *knots = axis == 0 ? surface.knots_u : surface.knots_v;
+      uv[axis] = bounded_divide(bounded_subtract({pcurve.points[end].position[axis]}, {knots[1]}),
+                                bounded_subtract({knots[2]}, {knots[1]}));
+    }
+    const BoundedScalar weights[] = {
+        bounded_multiply(bounded_subtract({1}, uv[0]), bounded_subtract({1}, uv[1])),
+        bounded_multiply(uv[0], bounded_subtract({1}, uv[1])),
+        bounded_multiply(bounded_subtract({1}, uv[0]), uv[1]),
+        bounded_multiply(uv[0], uv[1])};
+    double endpoint_bound = 0;
+    for (int axis = 0; axis < 3; axis++) {
+      BoundedScalar gap;
+      for (int corner = 0; corner < 4; corner++) {
+        gap = bounded_add(
+            gap,
+            bounded_multiply(weights[corner],
+                             bounded_subtract({surface.points[corner].position[axis]},
+                                              {curve.points[end].position[axis]})));
+      }
+      if (!gap.valid()) {
+        return std::nullopt;
+      }
+      endpoint_bound = add_upper(endpoint_bound, add_upper(std::abs(gap.value), gap.error));
+    }
+    bound = std::max(bound, endpoint_bound);
+  }
+  return std::isfinite(bound) ? std::optional(bound) : std::nullopt;
+}
+
 std::optional<double> linear_curve_support_deviation_bound(const NurbsCurveGeometry &curve,
                                                            const NurbsCurveGeometry &pcurve,
                                                            const NurbsSurfaceGeometry &surface)
 {
+  const auto isoparametric = isoparametric_curve_support_bound(curve, pcurve, surface);
+  const auto minimum = [&](const std::optional<double> other) {
+    return isoparametric && other ? std::optional(std::min(*isoparametric, *other)) :
+                                    (isoparametric ? isoparametric : other);
+  };
   if (!detail::supported_arithmetic() || !polynomial_boundary_pair(curve, pcurve, surface)) {
-    return std::nullopt;
+    return isoparametric;
   }
   auto specialized = specialized_curve_support_bound(curve, pcurve, surface);
   if (specialized && !std::isfinite(*specialized)) {
@@ -327,9 +403,219 @@ std::optional<double> linear_curve_support_deviation_bound(const NurbsCurveGeome
   }
   const auto bernstein = bernstein_curve_support_bound(curve, pcurve, surface);
   if (!specialized) {
-    return bernstein;
+    return minimum(bernstein);
   }
-  return bernstein ? std::min(*specialized, *bernstein) : specialized;
+  return minimum(bernstein ? std::optional(std::min(*specialized, *bernstein)) : specialized);
+}
+
+static std::optional<double> curve_support_deviation_bound_impl(
+    const NurbsCurveGeometry &curve,
+    const NurbsCurveGeometry &pcurve,
+    const NurbsSurfaceGeometry &surface,
+    const bool bound_bilinear_twist)
+{
+  using namespace detail;
+  if (!supported_arithmetic() || curve.dimension != 3 || pcurve.dimension != 2 ||
+      curve.order != pcurve.order || curve.points_num != pcurve.points_num ||
+      curve.knots_num != pcurve.knots_num || surface.order_u != 2 || surface.order_v != 2 ||
+      surface.points_u != 2 || surface.points_v != 2 || surface.knots_u[0] != surface.knots_u[1] ||
+      surface.knots_u[2] != surface.knots_u[3] || surface.knots_v[0] != surface.knots_v[1] ||
+      surface.knots_v[2] != surface.knots_v[3] ||
+      !std::equal(curve.knots, curve.knots + curve.knots_num, pcurve.knots))
+  {
+    return std::nullopt;
+  }
+  for (int i = 0; i < 4; i++) {
+    if (!(surface.points[i].weight > 0) || surface.points[i].weight != surface.points[0].weight) {
+      return std::nullopt;
+    }
+  }
+  BoundedScalar affine_corners[4][3];
+  double twist_bound = 0;
+  for (int axis = 0; axis < 3; axis++) {
+    for (int corner = 0; corner < 3; corner++) {
+      affine_corners[corner][axis] = {surface.points[corner].position[axis]};
+    }
+    if (!bound_bilinear_twist) {
+      double a, ae, b, be;
+      if (!sum_with_error(
+              surface.points[0].position[axis], surface.points[3].position[axis], a, ae) ||
+          !sum_with_error(
+              surface.points[1].position[axis], surface.points[2].position[axis], b, be) ||
+          a != b || ae != be)
+      {
+        return std::nullopt;
+      }
+      affine_corners[3][axis] = {surface.points[3].position[axis]};
+      continue;
+    }
+    const BoundedScalar expected = bounded_subtract(
+        bounded_add({surface.points[1].position[axis]}, {surface.points[2].position[axis]}),
+        {surface.points[0].position[axis]});
+    const BoundedScalar residual = bounded_subtract({surface.points[3].position[axis]}, expected);
+    if (!expected.valid() || !residual.valid()) {
+      return std::nullopt;
+    }
+    affine_corners[3][axis] = expected;
+    twist_bound = add_upper(twist_bound, add_upper(std::abs(residual.value), residual.error));
+  }
+  double bound = 0, maximum_u = 0, maximum_v = 0;
+  for (int i = 0; i < curve.points_num; i++) {
+    if (!(curve.points[i].weight > 0) || curve.points[i].weight != pcurve.points[i].weight) {
+      return std::nullopt;
+    }
+    BoundedScalar uv[2];
+    for (int axis = 0; axis < 2; axis++) {
+      const double *knots = axis == 0 ? surface.knots_u : surface.knots_v;
+      uv[axis] = bounded_divide(bounded_subtract({pcurve.points[i].position[axis]}, {knots[1]}),
+                                bounded_subtract({knots[2]}, {knots[1]}));
+      if (!uv[axis].valid()) {
+        return std::nullopt;
+      }
+      const double maximum = add_upper(std::abs(uv[axis].value), uv[axis].error);
+      if (axis == 0) {
+        maximum_u = std::max(maximum_u, maximum);
+      }
+      else {
+        maximum_v = std::max(maximum_v, maximum);
+      }
+    }
+    const BoundedScalar weights[] = {
+        bounded_multiply(bounded_subtract({1}, uv[0]), bounded_subtract({1}, uv[1])),
+        bounded_multiply(uv[0], bounded_subtract({1}, uv[1])),
+        bounded_multiply(bounded_subtract({1}, uv[0]), uv[1]),
+        bounded_multiply(uv[0], uv[1])};
+    double coefficient_bound = 0;
+    for (int axis = 0; axis < 3; axis++) {
+      BoundedScalar gap;
+      for (int corner = 0; corner < 4; corner++) {
+        gap = bounded_add(gap,
+                          bounded_multiply(weights[corner],
+                                           bounded_subtract(affine_corners[corner][axis],
+                                                            {curve.points[i].position[axis]})));
+      }
+      if (!gap.valid()) {
+        return std::nullopt;
+      }
+      coefficient_bound = add_upper(coefficient_bound, add_upper(std::abs(gap.value), gap.error));
+    }
+    bound = std::max(bound, coefficient_bound);
+  }
+  if (bound_bilinear_twist) {
+    bound = add_upper(bound, multiply_upper(twist_bound, multiply_upper(maximum_u, maximum_v)));
+  }
+  return std::isfinite(bound) ? std::optional(bound) : std::nullopt;
+}
+
+std::optional<double> affine_curve_support_deviation_bound(const NurbsCurveGeometry &curve,
+                                                           const NurbsCurveGeometry &pcurve,
+                                                           const NurbsSurfaceGeometry &surface)
+{
+  return curve_support_deviation_bound_impl(curve, pcurve, surface, false);
+}
+
+std::optional<double> bilinear_curve_support_deviation_bound(const NurbsCurveGeometry &curve,
+                                                             const NurbsCurveGeometry &pcurve,
+                                                             const NurbsSurfaceGeometry &surface)
+{
+  return curve_support_deviation_bound_impl(curve, pcurve, surface, true);
+}
+
+/** Identity at a clamped tensor boundary. The linear p-curve maps edge parameters identically
+ * to the varying support coordinate. Rational arcs and constant-weight rails retain their basis.
+ */
+static bool natural_curve_support_identity(const NurbsCurveGeometry &curve,
+                                           const NurbsCurveGeometry &pcurve,
+                                           const NurbsSurfaceGeometry &surface)
+{
+  if (curve.dimension != 3 || pcurve.dimension != 2 || pcurve.order != 2 ||
+      pcurve.points_num != 2 || pcurve.knots[0] != pcurve.knots[1] ||
+      pcurve.knots[2] != pcurve.knots[3] || !(pcurve.points[0].weight > 0) ||
+      pcurve.points[0].weight != pcurve.points[1].weight)
+  {
+    return false;
+  }
+  for (int axis = 0; axis < 2; axis++) {
+    const int other = 1 - axis;
+    const double *knots = axis == 0 ? surface.knots_u : surface.knots_v;
+    const double *fixed_knots = other == 0 ? surface.knots_u : surface.knots_v;
+    const int order = axis == 0 ? surface.order_u : surface.order_v;
+    const int count = axis == 0 ? surface.points_u : surface.points_v;
+    const int fixed_order = other == 0 ? surface.order_u : surface.order_v;
+    const int fixed_count = other == 0 ? surface.points_u : surface.points_v;
+    const double fixed = pcurve.points[0].position[other];
+    const bool high = fixed == fixed_knots[fixed_count];
+    if (fixed != pcurve.points[1].position[other] ||
+        (!high && fixed != fixed_knots[fixed_order - 1]) || curve.order != order ||
+        curve.points_num != count ||
+        !std::equal(curve.knots, curve.knots + curve.knots_num, knots) ||
+        pcurve.knots[1] != curve.knots[order - 1] || pcurve.knots[2] != curve.knots[count] ||
+        pcurve.points[0].position[axis] != pcurve.knots[1] ||
+        pcurve.points[1].position[axis] != pcurve.knots[2])
+    {
+      continue;
+    }
+    bool valid = true, same_weights = true, constant_weights = true;
+    const int fixed_index = high ? fixed_count - 1 : 0;
+    const int first = axis == 0 ? fixed_index * surface.points_u : fixed_index;
+    for (int i = 0; i < fixed_order; i++) {
+      valid &= fixed_knots[high ? fixed_count + i : i] == fixed;
+    }
+    for (int i = 0; i < count; i++) {
+      const auto &point = surface.points[axis == 0 ? first + i : first + i * surface.points_u];
+      valid &= curve.points[i].weight > 0 && point.weight > 0 &&
+               double3(curve.points[i].position) == double3(point.position);
+      same_weights &= curve.points[i].weight == point.weight;
+      constant_weights &= curve.points[i].weight == curve.points[0].weight &&
+                          point.weight == surface.points[first].weight;
+    }
+    if (valid && (same_weights || constant_weights)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool collapsed_surface_boundary_interval(const NurbsSurfaceGeometry &surface,
+                                         const double2 &first,
+                                         const double2 &second,
+                                         const double3 &position)
+{
+  if (!std::isfinite(first.x) || !std::isfinite(first.y) || !std::isfinite(second.x) ||
+      !std::isfinite(second.y))
+  {
+    return false;
+  }
+  for (int fixed = 0; fixed < 2; fixed++) {
+    const int varying = 1 - fixed;
+    const double *knots = fixed == 0 ? surface.knots_u : surface.knots_v;
+    const double *other = varying == 0 ? surface.knots_u : surface.knots_v;
+    const int order = fixed == 0 ? surface.order_u : surface.order_v;
+    const int count = fixed == 0 ? surface.points_u : surface.points_v;
+    const int other_order = varying == 0 ? surface.order_u : surface.order_v;
+    const int other_count = varying == 0 ? surface.points_u : surface.points_v;
+    const bool high = first[fixed] == knots[count];
+    if (first[fixed] != second[fixed] || (!high && first[fixed] != knots[order - 1]) ||
+        first[varying] < other[other_order - 1] || first[varying] > other[other_count] ||
+        second[varying] < other[other_order - 1] || second[varying] > other[other_count])
+    {
+      continue;
+    }
+    bool valid = true;
+    for (int i = 0; i < order; i++) {
+      valid &= knots[high ? count + i : i] == first[fixed];
+    }
+    for (int i = 0; i < other_count; i++) {
+      const int slot = fixed == 0 ? i * surface.points_u + (high ? count - 1 : 0) :
+                                    (high ? count - 1 : 0) * surface.points_u + i;
+      valid &= surface.points[slot].weight > 0 &&
+               double3(surface.points[slot].position) == position;
+    }
+    if (valid) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &source,
@@ -522,6 +808,26 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
         evaluated.is_inner = loop.is_inner;
         evaluated.curve_support_deviation_bound = linear_curve_support_deviation_bound(
             *curves.lookup(edge.curve_id), pcurve, surface);
+        if (natural_curve_support_identity(*curves.lookup(edge.curve_id), pcurve, surface)) {
+          evaluated.curve_support_deviation_bound = 0.0;
+        }
+        else {
+          /* Construction services also certify small bilinear twist. Use every valid
+           * whole-curve certificate here, so a different, more conservative proof cannot
+           * reject geometry already certified within its declared source tolerance. */
+          for (const auto bound : {affine_curve_support_deviation_bound(
+                                       *curves.lookup(edge.curve_id), pcurve, surface),
+                                   bilinear_curve_support_deviation_bound(
+                                       *curves.lookup(edge.curve_id), pcurve, surface)})
+          {
+            if (bound) {
+              evaluated.curve_support_deviation_bound =
+                  evaluated.curve_support_deviation_bound ?
+                      std::min(*bound, *evaluated.curve_support_deviation_bound) :
+                      *bound;
+            }
+          }
+        }
         evaluated.exact_curve_support_identity = evaluated.curve_support_deviation_bound == 0.0;
         const double tolerance = std::max({edge.tolerance, use.tolerance, face.tolerance});
         for (const BoundarySample &sample : evaluated_edge.samples) {

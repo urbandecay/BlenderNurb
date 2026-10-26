@@ -53,6 +53,56 @@ class NurbsLineTest(unittest.TestCase):
         finally:
             evaluated.to_mesh_clear()
 
+    def test_extrude_move_enters_native_before_rounding_a_freehand_box(self):
+        # E must use one double-precision displacement for the entire cap, even
+        # before the user has explicitly entered an edge or face selection mode.
+        # These displacements reproduce a user's line -> face -> box workflow;
+        # independent float additions used to warp the top by about 1e-7 units.
+        for segments in (1, 3):
+            with self.subTest(segments=segments):
+                bpy.ops.wm.read_factory_settings(use_empty=True)
+                ob = self.add_line()
+                bpy.ops.object.mode_set(mode='EDIT')
+                self.assertEqual(bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={
+                    'value': (0.9579973220825195, 2.8244473934173584, 0.5318142771720886),
+                }), {'FINISHED'})
+                self.assertTrue(ob.data.is_native_nurbs)
+                self.assertEqual(len(ob.data.splines), 0)
+                bpy.ops.curve.select_all(action='SELECT')
+                self.assertEqual(bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={
+                    'value': (-1.1582239866256714, 0.3948681950569153, 2.4475557804107666),
+                }), {'FINISHED'})
+                self.assertEqual(bpy.ops.curve.select_mode(type='FACE'), {'FINISHED'})
+                self.assertEqual(bpy.ops.curve.bevel(offset=0.1, segments=segments), {'FINISHED'})
+                self.assert_sheet_area(ob)
+                bpy.ops.object.mode_set(mode='OBJECT')
+                self.assertTrue(ob.data.is_native_nurbs)
+                self.assertEqual(len(ob.data.splines), 0)
+
+    def test_extrude_move_can_explicitly_keep_legacy_tagged_topology(self):
+        ob = self.add_line()
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.assertEqual(bpy.ops.curve.extrude_move(
+            CURVE_OT_extrude={'use_native_topology': False},
+            TRANSFORM_OT_translate={'value': (0, 2, 0)}), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertFalse(ob.data.is_native_nurbs)
+        self.assertEqual(len(ob.data.splines), 1)
+        self.assertEqual(ob.data.splines[0].point_count_v, 2)
+        self.assert_sheet_area(ob, 4)
+
+    def test_extrude_move_keeps_an_untagged_nurbs_path_legacy(self):
+        bpy.ops.curve.primitive_nurbs_path_add()
+        ob = bpy.context.object
+        before = len(ob.data.splines[0].points)
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.assertEqual(bpy.ops.curve.extrude_move(
+            TRANSFORM_OT_translate={'value': (0, 2, 0)}), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertFalse(ob.data.is_native_nurbs)
+        self.assertEqual(len(ob.data.splines), 1)
+        self.assertGreater(len(ob.data.splines[0].points), before)
+
     def test_edge_extrudes_to_filled_sheet(self):
         ob = self.add_line()
         spline = ob.data.splines[0]

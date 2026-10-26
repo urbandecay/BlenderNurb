@@ -162,8 +162,11 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
         if (!differential) {
           return std::nullopt;
         }
-        if (differential->normal) {
-          normals[i * 3 + j] = float3(*differential->normal * face.orientation);
+        const auto normal = differential->normal ?
+                                differential->normal :
+                                evaluate_surface_pole_normal(surface, parameter, limits);
+        if (normal) {
+          normals[i * 3 + j] = float3(*normal * face.orientation);
         }
         else {
           result.undefined_normal_corners++;

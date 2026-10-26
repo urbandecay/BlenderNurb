@@ -196,6 +196,14 @@ std::optional<SurfaceDifferential> evaluate_surface_differential(
     SurfaceLimits limits = {},
     std::string *r_error = nullptr);
 
+/** Evaluate the interior limiting normal at an exactly collapsed, clamped natural boundary.
+ * Uses the adjacent coefficient row and its rational derivative, without perturbing parameters.
+ * Returns absent for unsupported or degenerate limits. No regularity or error certificate.
+ */
+std::optional<double3> evaluate_surface_pole_normal(const NurbsSurfaceGeometry &surface,
+                                                    double2 parameter,
+                                                    SurfaceLimits limits = {});
+
 struct EdgeUseReference {
   int64_t face_id;
   int64_t loop_id;

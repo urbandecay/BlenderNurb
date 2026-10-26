@@ -5153,6 +5153,7 @@ def km_edit_curve_legacy(params):
         ("curve.rip_move", {"type": 'V', "value": 'PRESS'}, None),
         op_menu("VIEW3D_MT_edit_nurbs_merge", {"type": 'M', "value": 'PRESS'}),
         ("curve.loopcut_slide", {"type": 'R', "value": 'PRESS', "ctrl": True}, None),
+        ("curve.bevel", {"type": 'B', "value": 'PRESS', "ctrl": True}, None),
         ("curve.handle_type_set", {"type": 'V', "value": 'PRESS'}, None),
         ("curve.vertex_add", {"type": params.action_mouse, "value": 'CLICK', "ctrl": True}, None),
         *_template_items_select_actions(params, "curve.select_all"),

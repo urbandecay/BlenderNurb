@@ -185,6 +185,7 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
     surfaces.add_new(surface.id, &surface);
   }
   for (const NurbsTopologyFace &face : source.faces) {
+    const NurbsSurfaceGeometry &surface = *surfaces.lookup(face.surface_id);
     Vector<double2> uv;
     Vector<int> input_to_global;
     Vector<Vector<int>> loops;
@@ -192,6 +193,7 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
     for (const NurbsTopologyLoop &loop : face.loops) {
       Vector<int> polygon;
       double2 first_uv(0), previous_uv(0);
+      int first_global = -1, previous_global = -1;
       bool first = true;
       for (const NurbsTopologyEdgeUse &source_use : loop.edge_uses) {
         const EvaluatedBoundaryUse &use = *uses.lookup(source_use.id);
@@ -199,11 +201,24 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
         const int start = use.reversed ? int(samples.size()) - 1 : 0;
         const int end = use.reversed ? 0 : int(samples.size()) - 1;
         if (!first && use.parameters[start] != previous_uv) {
-          return fail(fmt::format(
-              "NURBS face {} loop {} has an unsupported open UV chart", face.id, loop.id));
+          const int global = samples[start].point_index;
+          if (global != previous_global ||
+              !collapsed_surface_boundary_interval(
+                  surface, previous_uv, use.parameters[start], result.boundary.positions[global]))
+          {
+            return fail(fmt::format(
+                "NURBS face {} loop {} has an unsupported open UV chart", face.id, loop.id));
+          }
+          if (uv.size() >= std::numeric_limits<int>::max()) {
+            return fail("NURBS pole chart exceeds the triangulator input index range");
+          }
+          polygon.append(int(uv.size()));
+          uv.append(previous_uv);
+          input_to_global.append(global);
         }
         if (first) {
           first_uv = use.parameters[start];
+          first_global = samples[start].point_index;
           first = false;
         }
         const int direction = use.reversed ? -1 : 1;
@@ -216,8 +231,24 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
           input_to_global.append(samples[i].point_index);
         }
         previous_uv = use.parameters[end];
+        previous_global = samples[end].point_index;
       }
-      if (previous_uv != first_uv || polygon.size() < 3) {
+      if (previous_uv != first_uv) {
+        if (previous_global != first_global ||
+            !collapsed_surface_boundary_interval(
+                surface, previous_uv, first_uv, result.boundary.positions[first_global]))
+        {
+          return fail(fmt::format(
+              "NURBS face {} loop {} has a degenerate or open UV boundary", face.id, loop.id));
+        }
+        if (uv.size() >= std::numeric_limits<int>::max()) {
+          return fail("NURBS pole chart exceeds the triangulator input index range");
+        }
+        polygon.append(int(uv.size()));
+        uv.append(previous_uv);
+        input_to_global.append(first_global);
+      }
+      if (polygon.size() < 3) {
         return fail(fmt::format(
             "NURBS face {} loop {} has a degenerate or open UV boundary", face.id, loop.id));
       }
@@ -278,7 +309,6 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
     }
     /* Bound workspace before constructing the grid; the final point/triangle limits are also
      * checked after trimming. Do not allocate an unbounded grid outside a small trimmed face. */
-    const NurbsSurfaceGeometry &surface = *surfaces.lookup(face.surface_id);
     const auto samples_u = axis_samples(minimum.x,
                                         maximum.x,
                                         {surface.knots_u, surface.knots_u_num},

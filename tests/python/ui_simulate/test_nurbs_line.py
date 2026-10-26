@@ -7,6 +7,32 @@
 import modules.ui_test_utils as ui
 
 
+def _legacy_tagged_extrusion(test):
+    """Keep explicit coverage of the legacy spline backend as E adopts native topology."""
+    from functools import wraps
+
+    @wraps(test)
+    def run():
+        import bpy
+        keymap = bpy.context.window_manager.keyconfigs.user.keymaps['Curve']
+        properties = [item.properties.CURVE_OT_extrude for item in keymap.keymap_items
+                      if item.idname == 'curve.extrude_move']
+        previous = [(prop.is_property_set('use_native_topology'), prop.use_native_topology)
+                    for prop in properties]
+        for prop in properties:
+            prop.use_native_topology = False
+        try:
+            yield from test()
+        finally:
+            for prop, (is_set, value) in zip(properties, previous):
+                if is_set:
+                    prop.use_native_topology = value
+                else:
+                    prop.property_unset('use_native_topology')
+
+    return run
+
+
 def _spline(window):
     ob = window.view_layer.objects.active
     ob.update_from_editmode()
@@ -17,6 +43,7 @@ def _coordinates(window):
     return [tuple(round(v, 5) for v in p.co) for p in _spline(window).points]
 
 
+@_legacy_tagged_extrusion
 def line_to_sheet():
     import bpy
 
@@ -70,6 +97,7 @@ def line_to_sheet():
         evaluated.to_mesh_clear()
 
 
+@_legacy_tagged_extrusion
 def face_region_selection_gestures():
     """Identical visible source corners selected by box, click and linked, then modal E."""
     from bpy_extras.view3d_utils import location_3d_to_region_2d
@@ -135,6 +163,7 @@ def face_region_selection_gestures():
             yield e.a().x().ret()
 
 
+@_legacy_tagged_extrusion
 def duplicate_and_repeat_face_extrusion():
     """Actual Shift+D/E macros preserve independent copies and replace attached caps."""
     from pathlib import Path
@@ -199,6 +228,7 @@ def duplicate_and_repeat_face_extrusion():
     print('NURBS_DUPLICATE_REGION_UI_ARTIFACTS', output)
 
 
+@_legacy_tagged_extrusion
 def extrude_delete_top_and_continue():
     """Delete the second extrusion's top vertices, then extrude the surviving cube's rim."""
     from pathlib import Path
