@@ -17,6 +17,7 @@
 #include "BKE_gtest_base.hh"
 #include "BKE_main.hh"
 #include "BKE_mesh.hh"
+#include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_nurbs_refine.hh"
@@ -277,7 +278,8 @@ static std::pair<OwnedGeometry, int64_t> bevel_fixture(const bool closed)
 static TopologySignature bevel_bmesh_reference(const NurbsGeometry &source,
                                                const Span<int64_t> selected,
                                                const double width,
-                                               const bool clamp_overlap = false)
+                                               const bool clamp_overlap = false,
+                                               const int segments = 1)
 {
   const BMeshCreateParams parameters{.use_toolflags = true};
   BMesh *mesh = BM_mesh_create(&bm_mesh_allocsize_default, &parameters);
@@ -316,7 +318,7 @@ static TopologySignature bevel_bmesh_reference(const NurbsGeometry &source,
                "clamp_overlap=%b loop_slide=%b",
                BM_ELEM_SELECT,
                width,
-               1,
+               segments,
                BEVEL_AFFECT_EDGES,
                BEVEL_AMT_OFFSET,
                0.5,
@@ -1174,7 +1176,7 @@ TEST_F(NurbsTopologyEditTest, BevelSelectionModesResolveTheSameOpenCorner)
                              bevel_bmesh_reference(*source, {&corner, 1}, 0.3));
 }
 
-TEST_F(NurbsTopologyEditTest, RoundedConnectedBoxHasSharedSphereCornersAndEditableStrips)
+TEST_F(NurbsTopologyEditTest, RoundedConnectedBoxHasSharedSphereCornersAndEditableSegments)
 {
   auto [source, corner] = bevel_fixture(true);
   ASSERT_NE(source, nullptr);
@@ -1188,11 +1190,39 @@ TEST_F(NurbsTopologyEditTest, RoundedConnectedBoxHasSharedSphereCornersAndEditab
     std::string error;
     auto result = bevel_edges(*source, edges, {.offset = 0.25, .segments = segments}, &error);
     ASSERT_TRUE(result) << error;
-    EXPECT_EQ(result->geometry->vertices.count(), 24 * segments);
-    EXPECT_EQ(result->geometry->edges.count(), 36 * segments + 12);
-    EXPECT_EQ(result->geometry->faces.count(), 12 * segments + 14);
+    /* Compare against Blender's real bevel, including its even/odd center layout. */
+    const auto reference = bevel_bmesh_reference(*source, edges, 0.25, false, segments);
+    EXPECT_EQ(result->geometry->vertices.count(), reference.vertices.size());
+    EXPECT_EQ(result->geometry->edges.count(), reference.edges.size());
+    EXPECT_EQ(result->geometry->faces.count(), reference.faces.size());
+    int triangles = 0;
+    for (const NurbsTopologyFace &face : result->geometry->faces) {
+      ASSERT_TRUE(face.loops.is_single());
+      const auto &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
+      const int sides = loop.edge_uses.count();
+      EXPECT_TRUE(sides == 3 || sides == 4);
+      triangles += sides == 3;
+    }
+    EXPECT_EQ(triangles, segments % 2 ? 8 : 0);
     const auto index = TopologyIndex::build(*result->geometry);
     ASSERT_TRUE(index);
+    std::vector<int> degrees;
+    for (const NurbsTopologyVertex &vertex : result->geometry->vertices) {
+      degrees.push_back(index->edges_for_vertex(vertex.id).size());
+    }
+    std::vector<int> reference_degrees(reference.vertices.size(), 0);
+    for (const auto &edge : reference.edges) {
+      for (const auto &point : edge) {
+        const auto found = std::lower_bound(
+            reference.vertices.begin(), reference.vertices.end(), point);
+        ASSERT_NE(found, reference.vertices.end());
+        ASSERT_EQ(*found, point);
+        reference_degrees[found - reference.vertices.begin()]++;
+      }
+    }
+    std::sort(degrees.begin(), degrees.end());
+    std::sort(reference_degrees.begin(), reference_degrees.end());
+    EXPECT_EQ(degrees, reference_degrees);
     for (const auto &edge : result->geometry->edges) {
       const auto uses = index->uses_for_edge(edge.id);
       ASSERT_EQ(uses.size(), 2);
@@ -3195,6 +3225,63 @@ TEST_F(NurbsTopologyEditTest, TensorRestrictionPreservesNonclampedAndRepeatedKno
   EXPECT_EQ(knots_v[3], 0.5);
   EXPECT_FALSE(restrict_surface(source, {-0.1, 0}, {1, 1}, 1e-9, &error));
   EXPECT_FALSE(restrict_surface(source, {0, 0.7}, {1, 0.3}, 1e-9, &error));
+}
+
+TEST_F(NurbsTopologyEditTest, SurfaceParameterLinesMatchIndependentRationalTensorEvaluation)
+{
+  std::string error;
+  const std::array<double3, 3> axes = {double3(1, 0, 0), double3(0, 1, 0), double3(0, 0, 1)};
+  auto patch = rational_octant_surface({0.137, -0.283, 0.091}, axes, 1e-9, &error);
+  ASSERT_TRUE(patch) << error;
+  const auto &surface = *patch->surface;
+  std::array<NurbsControlPoint, 9> before;
+  std::copy_n(surface.points, 9, before.begin());
+  const double2 lines[][2] = {{{0, 0.5}, {0.5, 0.39}},
+                              {{0.12, 0.31}, {0.81, 0.72}},
+                              {{0.9, 0.8}, {0.2, 0.1}},
+                              {{0.1, 0.8}, {0.8, 0.2}},
+                              {{0.3, 0.1}, {0.3, 0.9}},
+                              {{0.8, 0.6}, {0.2, 0.6}}};
+  for (const auto &line : lines) {
+    auto curve = surface_parameter_line(surface, line[0], line[1], 1e-9, &error);
+    ASSERT_TRUE(curve) << error;
+    EXPECT_LE(curve->geometry_error_bound, 1e-9);
+    for (int sample = 0; sample <= 32; sample++) {
+      const double parameter = sample / 32.0;
+      const long double t = parameter;
+      const long double u = (1 - t) * line[0].x + t * line[1].x;
+      const long double v = (1 - t) * line[0].y + t * line[1].y;
+      const long double bu[] = {(1 - u) * (1 - u), 2 * u * (1 - u), u * u};
+      const long double bv[] = {(1 - v) * (1 - v), 2 * v * (1 - v), v * v};
+      std::array<long double, 3> numerator{};
+      long double denominator = 0;
+      for (int j = 0; j < 3; j++) {
+        for (int i = 0; i < 3; i++) {
+          const NurbsControlPoint &point = surface.points[3 * j + i];
+          const long double basis = bu[i] * bv[j] * point.weight;
+          denominator += basis;
+          for (int axis = 0; axis < 3; axis++) {
+            numerator[axis] += basis * point.position[axis];
+          }
+        }
+      }
+      const auto evaluated = evaluate_curve_bounded(*curve->curve, parameter, 1e-9, &error);
+      ASSERT_TRUE(evaluated) << error;
+      long double gap = 0;
+      for (int axis = 0; axis < 3; axis++) {
+        gap += std::abs(numerator[axis] / denominator - evaluated->position[axis]);
+      }
+      EXPECT_LE(gap,
+                curve->geometry_error_bound + evaluated->error_bound +
+                    256 * std::numeric_limits<long double>::epsilon());
+    }
+  }
+  EXPECT_FALSE(surface_parameter_line(surface, {0.5, 0.5}, {0.5, 0.5}, 1e-9, &error));
+  EXPECT_FALSE(surface_parameter_line(surface, {-0.1, 0.5}, {0.5, 0.5}, 1e-9, &error));
+  for (int i = 0; i < 9; i++) {
+    EXPECT_EQ(double3(surface.points[i].position), double3(before[i].position));
+    EXPECT_EQ(surface.points[i].weight, before[i].weight);
+  }
 }
 
 TEST_F(NurbsTopologyEditTest,

@@ -51,6 +51,15 @@ std::optional<CurveRefinementResult> surface_isocurve(const NurbsSurfaceGeometry
                                                       double max_error,
                                                       std::string *r_error = nullptr);
 
+/** Compose one clamped biquadratic rational span with an affine UV segment. The resulting
+ * quadratic isocurve or quartic diagonal is exact apart from bounded coefficient roundoff.
+ * Its parameter domain is [0, 1], from start to end. No sampled fitting or source mutation. */
+std::optional<CurveRefinementResult> surface_parameter_line(const NurbsSurfaceGeometry &source,
+                                                            double2 start,
+                                                            double2 end,
+                                                            double max_error,
+                                                            std::string *r_error = nullptr);
+
 /** Enclose evaluation of a source curve at the supplied binary64 parameter. */
 std::optional<BoundedCurvePoint> evaluate_curve_bounded(const NurbsCurveGeometry &source,
                                                         double parameter,

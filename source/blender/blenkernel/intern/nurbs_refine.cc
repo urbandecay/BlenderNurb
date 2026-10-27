@@ -9,6 +9,8 @@
 #include <array>
 #include <numeric>
 
+#include "BLI_math_vector.hh"
+
 #include "BKE_nurbs_refine.hh"
 #include "MEM_guardedalloc.h"
 #include "nurbs_math.hh"
@@ -664,6 +666,102 @@ std::optional<SurfaceRefinementResult> restrict_surface(const NurbsSurfaceGeomet
     return std::nullopt;
   }
   return SurfaceRefinementResult{std::move(surface), bound};
+}
+
+std::optional<CurveRefinementResult> surface_parameter_line(const NurbsSurfaceGeometry &source,
+                                                            const double2 start,
+                                                            const double2 end,
+                                                            const double max_error,
+                                                            std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  if (!budget_valid(max_error, r_error) || !surface_validate_structure(source, r_error)) {
+    return std::nullopt;
+  }
+  auto fail = [&](const char *message) -> std::optional<CurveRefinementResult> {
+    if (r_error) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  if (source.order_u != 3 || source.order_v != 3 || source.points_u != 3 || source.points_v != 3 ||
+      source.knots_u_num != 6 || source.knots_v_num != 6 || start == end)
+  {
+    return fail("NURBS parameter line requires one biquadratic span and distinct UV endpoints");
+  }
+  for (int axis = 0; axis < 2; axis++) {
+    const double *knots = axis ? source.knots_v : source.knots_u;
+    for (int i = 0; i < 3; i++) {
+      if (knots[i] != knots[2] || knots[i + 3] != knots[3]) {
+        return fail("NURBS parameter line requires a clamped Bezier span");
+      }
+    }
+    if (!std::isfinite(start[axis]) || !std::isfinite(end[axis]) ||
+        std::min(start[axis], end[axis]) < knots[2] || std::max(start[axis], end[axis]) > knots[3])
+    {
+      return fail("NURBS parameter line endpoints must lie inside the support domain");
+    }
+  }
+  if (start.x == end.x || start.y == end.y) {
+    const int fixed = start.x == end.x ? 0 : 1;
+    auto iso = surface_isocurve(source, fixed, start[fixed], max_error, r_error);
+    if (!iso) {
+      return std::nullopt;
+    }
+    const double a = start[1 - fixed], b = end[1 - fixed];
+    auto restricted = restrict_curve(
+        *iso->curve, {std::min(a, b), std::max(a, b)}, max_error, r_error);
+    if (!restricted) {
+      return std::nullopt;
+    }
+    restricted->geometry_error_bound = detail::add_upper(iso->geometry_error_bound,
+                                                         restricted->geometry_error_bound);
+    if (!accept_error(restricted->geometry_error_bound, max_error, r_error)) {
+      return std::nullopt;
+    }
+    auto &curve = *restricted->curve;
+    if (a > b) {
+      std::reverse(curve.points, curve.points + curve.points_num);
+    }
+    for (int i = 0; i < curve.knots_num; i++) {
+      curve.knots[i] = i < curve.order ? 0 : 1;
+    }
+    curve.id = 0;
+    return restricted;
+  }
+
+  auto patch = restrict_surface(
+      source, math::min(start, end), math::max(start, end), max_error, r_error);
+  if (!patch) {
+    return std::nullopt;
+  }
+  auto point = [&](const int i, const int j) {
+    const int u = start.x < end.x ? i : 2 - i;
+    const int v = start.y < end.y ? j : 2 - j;
+    return Coefficient(patch->surface->points[3 * v + u]);
+  };
+  /* Product of two quadratic Bernstein bases, grouped by i + j. The five quartic
+   * coefficients have weights 1; (1,1)/2; (1,4,1)/6; (1,1)/2; 1. */
+  Vector<Coefficient> points;
+  points.append(point(0, 0));
+  points.append(blend(point(1, 0), point(0, 1), Interval(0.5)));
+  points.append(blend(
+      blend(point(2, 0), point(0, 2), Interval(0.5)), point(1, 1), Interval(2) / Interval(3)));
+  points.append(blend(point(2, 1), point(1, 2), Interval(0.5)));
+  points.append(point(2, 2));
+  const double error = detail::add_upper(patch->geometry_error_bound, coefficient_error(points));
+  if (!accept_error(error, max_error, r_error)) {
+    return std::nullopt;
+  }
+  const double knots[] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
+  CurveData data(5, {knots, 10}, points);
+  auto curve = data.store(3);
+  if (!curve_validate_structure(*curve, r_error)) {
+    return std::nullopt;
+  }
+  return CurveRefinementResult{std::move(curve), error};
 }
 
 std::optional<BoundedCurvePoint> evaluate_curve_bounded(const NurbsCurveGeometry &source,

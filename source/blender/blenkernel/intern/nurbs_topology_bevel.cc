@@ -332,7 +332,310 @@ struct RoundBevelCorner {
   OwnedSurface support;
   /** Equator start, equator end, pole. */
   std::array<int64_t, 3> stations;
+  /** Boundary profile edges in support order: start-end, end-pole, pole-start. */
+  std::array<int64_t, 3> boundary_edges{};
+  int64_t face_id = 0;
 };
+
+/** Port BMesh's three-sided M_ADJ corner indexing and quad assembly. Even segment counts
+ * share one interior vertex; odd counts have a center triangle. Only the subdivision layout
+ * is ported: all points and edge curves are constructed on the authoritative NURBS support.
+ * Private copies of that support and exact UV trims retain the original rounded surface.
+ */
+static bool partition_rounded_corner_patches(TopologyCutResult &cut,
+                                             const Map<int64_t, RoundBevelCorner> &corners,
+                                             const int segments,
+                                             const double max_error,
+                                             std::string *r_error)
+{
+  auto fail = [&](const char *message) {
+    if (r_error) {
+      *r_error = message;
+    }
+    return false;
+  };
+  if (corners.is_empty() || segments <= 1) {
+    return true;
+  }
+  if (segments > 100) {
+    return fail("Rounded NURBS corner partition exceeds the segment budget");
+  }
+  struct EdgeChain {
+    Vector<int64_t> edges, vertices;
+    Vector<double2> parameters;
+  };
+  struct CornerNode {
+    int64_t vertex = 0;
+    double2 uv{0};
+    double3 direction{0};
+  };
+  struct CornerEdge {
+    int64_t edge, pcurve;
+  };
+  TopologyBuilder builder(*cut.edit.geometry);
+  const int half = segments / 2, odd = segments % 2;
+  auto key = [](const int64_t a, const int64_t b) {
+    return std::pair<int64_t, int64_t>{std::min(a, b), std::max(a, b)};
+  };
+  /* Same equivalences as bmesh_bevel.cc::mesh_vert_canon. j is the inward ring,
+   * k the position along the outgoing boundary profile, and i the corner sector. */
+  auto canonical = [&](const int i, const int j, const int k) -> std::array<int, 3> {
+    if (!odd && j == half && k == half) {
+      return {0, j, k};
+    }
+    if (j <= half - 1 + odd && k <= half) {
+      return {i, j, k};
+    }
+    if (k <= half) {
+      return {(i + 2) % 3, k, segments - j};
+    }
+    return {(i + 1) % 3, segments - k, j};
+  };
+  const double weight = std::sqrt(0.5);
+  auto reference_direction = [&](const double2 uv) {
+    auto circle = [&](const double t) {
+      const double a = (1 - t) * (1 - t), b = 2 * weight * t * (1 - t), c = t * t;
+      return double2((a + b) / (a + b + c), (b + c) / (a + b + c));
+    };
+    const double2 longitude = circle(uv.x), latitude = circle(uv.y);
+    const double3 p(longitude.x * latitude.x, longitude.y * latitude.x, latitude.y);
+    return p / (p.x + p.y + p.z);
+  };
+  auto reference_uv = [&](const double3 p) {
+    const double xy = std::hypot(p.x, p.y), xyz = std::hypot(p.x, p.y, p.z);
+    return double2(p.y / (weight * (xy + p.x) + (1 - weight) * p.y),
+                   p.z / (weight * (xyz + xy) + (1 - weight) * p.z));
+  };
+
+  for (const auto &item : corners.items()) {
+    const RoundBevelCorner &corner = item.value;
+    NurbsTopologyFace *face = builder.faces.lookup(corner.face_id);
+    const NurbsTopologyFace face_template = *face;
+    const int64_t support_id = face->surface_id;
+    const NurbsSurfaceGeometry &support = *builder.surfaces.lookup(support_id);
+    Map<int64_t, int64_t> pcurves;
+    for (const NurbsTopologyLoop &loop : face->loops) {
+      for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+        pcurves.add_overwrite(use.edge_id, use.pcurve_id);
+      }
+    }
+    auto edge_chain = [&](const int64_t original,
+                          const int64_t start,
+                          const int64_t end) -> std::optional<EdgeChain> {
+      const auto *pieces = cut.edge_descendants.lookup_ptr(original);
+      if (!pieces || pieces->size() != segments) {
+        return std::nullopt;
+      }
+      EdgeChain chain;
+      Vector<bool> used(segments, false);
+      chain.vertices.append(start);
+      int64_t current = start;
+      for (int step = 0; step < segments; step++) {
+        int chosen = -1;
+        for (const int i : pieces->index_range()) {
+          const auto &edge = *builder.edges.lookup((*pieces)[i]);
+          if (!used[i] && ELEM(current, edge.vertex_ids[0], edge.vertex_ids[1])) {
+            chosen = i;
+            break;
+          }
+        }
+        if (chosen < 0) {
+          return std::nullopt;
+        }
+        used[chosen] = true;
+        const auto &edge = *builder.edges.lookup((*pieces)[chosen]);
+        const bool reverse = edge.vertex_ids[1] == current;
+        const int64_t *pcurve_id = pcurves.lookup_ptr(edge.id);
+        if (!pcurve_id) {
+          return std::nullopt;
+        }
+        const auto &pcurve = *builder.curves.lookup(*pcurve_id);
+        const auto a = evaluate_curve_bounded(
+            pcurve, edge.parameter_range[reverse ? 1 : 0], max_error, r_error);
+        const auto b = evaluate_curve_bounded(
+            pcurve, edge.parameter_range[reverse ? 0 : 1], max_error, r_error);
+        if (!a || !b) {
+          return std::nullopt;
+        }
+        const double2 uv_a(a->position), uv_b(b->position);
+        if (chain.parameters.is_empty()) {
+          chain.parameters.append(uv_a);
+        }
+        else if (chain.parameters.last() != uv_a) {
+          return std::nullopt;
+        }
+        chain.parameters.append(uv_b);
+        current = edge.vertex_ids[reverse ? 0 : 1];
+        chain.edges.append(edge.id);
+        chain.vertices.append(current);
+        cut.edit.geometry_error_bound = std::max(cut.edit.geometry_error_bound,
+                                                 std::max(a->error_bound, b->error_bound));
+      }
+      return current == end ? std::optional<EdgeChain>(std::move(chain)) : std::nullopt;
+    };
+    std::array<EdgeChain, 3> boundaries;
+    for (int i = 0; i < 3; i++) {
+      auto chain = edge_chain(
+          corner.boundary_edges[i], corner.stations[i], corner.stations[(i + 1) % 3]);
+      if (!chain) {
+        return fail("Rounded NURBS corner lost its shared strip boundary subdivisions");
+      }
+      boundaries[i] = std::move(*chain);
+    }
+
+    std::array<Vector<CornerNode>, 3> sectors;
+    for (auto &sector : sectors) {
+      sector.resize((half + 1) * (half + 1));
+    }
+    auto node = [&](const int i, const int j, const int k) -> CornerNode & {
+      const auto index = canonical(i, j, k);
+      return sectors[index[0]][index[1] * (half + 1) + index[2]];
+    };
+    Map<std::pair<int64_t, int64_t>, CornerEdge> corner_edges;
+    for (int i = 0; i < 3; i++) {
+      const EdgeChain &chain = boundaries[i];
+      for (int k = 0; k <= segments; k++) {
+        CornerNode &point = node(i, 0, k);
+        if (point.vertex && point.vertex != chain.vertices[k]) {
+          return fail("Rounded NURBS corner has inconsistent mesh-style boundary identities");
+        }
+        point.vertex = chain.vertices[k];
+        point.uv = chain.parameters[k];
+        point.direction = reference_direction(point.uv);
+      }
+      for (const int k : chain.edges.index_range()) {
+        const int64_t edge = chain.edges[k];
+        corner_edges.add_new(key(chain.vertices[k], chain.vertices[k + 1]),
+                             {edge, pcurves.lookup(edge)});
+      }
+    }
+
+    /* Blend the two actual boundary profiles toward the shared reference centroid. The
+     * symmetric three-sector chart places subdivisions without inheriting the support's pole.
+     * These UVs choose cut positions only; exact source evaluations supply all 3D geometry. */
+    for (int i = 0; i < 3; i++) {
+      for (int j = 1; j <= half; j++) {
+        for (int k = 1; k <= half; k++) {
+          if (!odd && j == half && !(k == half && i == 0)) {
+            continue;
+          }
+          CornerNode &point = node(i, j, k);
+          if (point.vertex) {
+            continue;
+          }
+          const double s = 2.0 * k / segments, t = 2.0 * j / segments;
+          double3 axis(0);
+          axis[i] = 1;
+          point.direction = (1 - t) * node(i, 0, k).direction + (1 - s) * node(i, j, 0).direction -
+                            (1 - s) * (1 - t) * axis + s * t * double3(1.0 / 3.0);
+          point.uv = reference_uv(point.direction);
+          auto iso = surface_isocurve(support, 0, point.uv.x, max_error, r_error);
+          if (!iso) {
+            return false;
+          }
+          const auto evaluated = evaluate_curve_bounded(
+              *iso->curve, point.uv.y, max_error, r_error);
+          if (!evaluated) {
+            return false;
+          }
+          const double error = add_upper(iso->geometry_error_bound, evaluated->error_bound);
+          auto *created = vertex(
+              builder, evaluated->position, add_upper(face_template.tolerance, error));
+          point.vertex = created->id;
+          cut.edit.vertices.append(created->id);
+          cut.edit.geometry_error_bound = std::max(cut.edit.geometry_error_bound, error);
+        }
+      }
+    }
+
+    Vector<Vector<CornerNode *>> polygons;
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < half; j++) {
+        for (int k = 0; k < half + odd; k++) {
+          polygons.append(
+              {&node(i, j, k), &node(i, j, k + 1), &node(i, j + 1, k + 1), &node(i, j + 1, k)});
+        }
+      }
+    }
+    if (odd) {
+      polygons.append({&node(0, half, half), &node(1, half, half), &node(2, half, half)});
+    }
+    auto get_edge = [&](const CornerNode &a, const CornerNode &b) -> std::optional<CornerEdge> {
+      const auto pair = key(a.vertex, b.vertex);
+      if (const auto *existing = corner_edges.lookup_ptr(pair)) {
+        return *existing;
+      }
+      if (!a.vertex || !b.vertex || a.vertex == b.vertex ||
+          ELEM(corner.stations[2], a.vertex, b.vertex))
+      {
+        return std::nullopt;
+      }
+      auto curve = surface_parameter_line(support, a.uv, b.uv, max_error, r_error);
+      if (!curve) {
+        return std::nullopt;
+      }
+      const auto *created = edge(builder,
+                                 a.vertex,
+                                 b.vertex,
+                                 std::move(curve->curve),
+                                 add_upper(face_template.tolerance, curve->geometry_error_bound));
+      const auto *pcurve = install_curve(
+          builder, line({a.uv.x, a.uv.y, 0}, {b.uv.x, b.uv.y, 0}, {0, 1}, 2));
+      CornerEdge result{created->id, pcurve->id};
+      corner_edges.add_new(pair, result);
+      cut.edit.edges.append(created->id);
+      cut.edit.geometry_error_bound = std::max(cut.edit.geometry_error_bound,
+                                               curve->geometry_error_bound);
+      return result;
+    };
+
+    for (auto &loop : face->loops) {
+      BLI_freelistN(&loop.edge_uses);
+    }
+    BLI_freelistN(&face->loops);
+    BLI_remlink(&builder.geometry->faces, face);
+    MEM_delete(face);
+    Vector<int64_t> descendants;
+    for (const auto &polygon : polygons) {
+      auto *child = MEM_new<NurbsTopologyFace>(__func__, face_template);
+      child->id = descendants.is_empty() ? corner.face_id : builder.id();
+      child->surface_id = builder.copy_surface(support_id)->id;
+      child->loops.clear_no_delete();
+      BLI_addtail(&builder.geometry->faces, child);
+      builder.faces.add_overwrite(child->id, child);
+      descendants.append(child->id);
+      cut.edit.faces.append(child->id);
+      auto *loop = MEM_new<NurbsTopologyLoop>(__func__);
+      loop->id = builder.id();
+      BLI_addtail(&child->loops, loop);
+      for (const int k : polygon.index_range()) {
+        const CornerNode &a = *polygon[k], &b = *polygon[(k + 1) % polygon.size()];
+        const auto boundary = get_edge(a, b);
+        if (!boundary) {
+          if (r_error && r_error->empty()) {
+            *r_error = "Rounded NURBS mesh-style corner could not construct a shared edge";
+          }
+          return false;
+        }
+        auto *use = MEM_new<NurbsTopologyEdgeUse>(__func__);
+        use->id = builder.id();
+        use->edge_id = boundary->edge;
+        use->pcurve_id = boundary->pcurve;
+        use->reversed = builder.edges.lookup(boundary->edge)->vertex_ids[0] != a.vertex;
+        use->tolerance = add_upper(face_template.tolerance, cut.edit.geometry_error_bound);
+        BLI_addtail(&loop->edge_uses, use);
+      }
+    }
+    cut.face_descendants.add_overwrite(corner.face_id, std::move(descendants));
+  }
+  if (!builder.valid() || !geometry_validate_structure(*builder.geometry, r_error) ||
+      !std::isfinite(cut.edit.geometry_error_bound) || cut.edit.geometry_error_bound > max_error)
+  {
+    return fail("Rounded NURBS mesh-style corner exceeds its construction budget");
+  }
+  cut.edit.geometry = std::move(builder.geometry);
+  return true;
+}
 
 /** Offset face corners first, then share stations through their original endpoint/edge fan.
  * This is the planar counterpart of BMesh's boundary/offset-meet phase. It deliberately uses
@@ -1536,12 +1839,18 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
       const int orientation = -current->face(incident[0].face_id)->orientation *
                               (incident[0].use->reversed ? -1 : 1) *
                               (boundary.vertex_ids[0] != a ? -1 : 1);
+      corner->boundary_edges = {
+          ab, edges_by_vertices.lookup(pair_key(b, c)), edges_by_vertices.lookup(pair_key(c, a))};
+      if (corner->boundary_edges[1] == 0 || corner->boundary_edges[2] == 0) {
+        return fail("Rounded NURBS corner is missing a shared profile edge");
+      }
       corner->support->id = builder.id();
       auto *surface = corner->support.release();
       BLI_addtail(&builder.geometry->surfaces, surface);
       builder.surfaces.add_new(surface->id, surface);
       auto *face = MEM_new<NurbsTopologyFace>(__func__);
       face->id = builder.id();
+      corner->face_id = face->id;
       face->surface_id = surface->id;
       face->orientation = orientation;
       face->material_index = current->face(incident[0].face_id)->material_index;
@@ -1714,6 +2023,11 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     const double plan_ms = (BLI_time_now_seconds() - partition_start) * 1000.0;
     auto cut = partition_components(*result.geometry, combined, options.max_error, r_error);
     if (!cut) {
+      return std::nullopt;
+    }
+    if (!partition_rounded_corner_patches(
+            *cut, round_corners, options.segments, options.max_error, r_error))
+    {
       return std::nullopt;
     }
     result.geometry_error_bound = add_upper(result.geometry_error_bound,

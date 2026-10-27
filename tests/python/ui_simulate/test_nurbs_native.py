@@ -5983,20 +5983,27 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
         shape += '-released'
     before = (5, 8, 5) if pyramid else (8, 12, 6)
     after = (16, 32, 18) if pyramid else (24, 48, 26)
+    half, odd = divmod(segments, 2)
+    corner_interior = 3 * half * half if odd else 3 * half * (half - 1) + 1
+    corner_faces = 3 * half * (half + odd) + odd
+    rounded_counts = (24 * segments + 8 * corner_interior,
+                      12 * (segments + 1) ** 2,
+                      12 * segments + 6 + 8 * corner_faces)
     if rounded:
-        after = (96, 192, 98) if mesh_reference else (72, 120, 50)
+        after = rounded_counts
     if face_selection:
         after = (20, 36, 18) if rounded else (12, 20, 10)
     if segments != 3:
-        t.assertTrue(rounded and not mesh_reference and not pyramid and not face_selection)
-        after = (24 * segments, 36 * segments + 12, 12 * segments + 14)
+        t.assertTrue(rounded and not pyramid and not face_selection)
+        after = rounded_counts
         shape += f'-segments-{segments}'
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-before.blend'), check_existing=False)
 
     def totals():
         stats = window.scene.statistics(window.view_layer)
-        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)',
+                          stats.replace(',', ''))
         t.assertIsNotNone(match, stats)
         return tuple(map(int, match.groups()))[1::2]
 
@@ -6173,6 +6180,15 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
         with bpy.context.temp_override(window=window, area=area, region=region):
             bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-duplicated.blend'), check_existing=False)
     print('NURBS_BEVEL_CONNECTED_PASS', label, shape, totals())
+
+
+def bevel_eight_segment_round_mouse_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, mouse_input=True, segments=8)
+
+
+def bevel_eight_segment_mesh_mouse_workflow():
+    yield from bevel_connected_edges_workflow(mesh_reference=True, rounded=True,
+                                             mouse_input=True, segments=8)
 
 
 def bevel_dense_round_mouse_workflow():
