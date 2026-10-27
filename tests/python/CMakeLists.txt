@@ -1726,6 +1726,7 @@ if(WITH_UI_TESTS)
     test_nurbs_native.bevel_mesh_pyramid_workflow
     test_nurbs_native.bevel_connected_round_workflow
     test_nurbs_native.bevel_whole_model_translation_workflow
+    test_nurbs_native.bevel_duplicated_component_translation_workflow
     test_nurbs_native.bevel_mesh_connected_round_workflow
     test_sculpt.asset_shelf_brush_selection
     test_sculpt.face_set_expand

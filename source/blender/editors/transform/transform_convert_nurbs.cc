@@ -143,11 +143,16 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
     data->vertices.append(id);
   }
   std::sort(data->vertices.begin(), data->vertices.end());
-  if ((t->flag & T_MODAL) && t->mode == TFM_TRANSLATION &&
-      data->vertices.size() == data->original.geometry().vertices.count())
-  {
-    /* Retain one independently owned original display for the complete drag. Every update
-     * starts here, so repeated mouse positions cannot accumulate preview rounding error. */
+  const auto &selection = data->original.selection();
+  const bool possible_component_translation = !selection.edges.is_empty() ||
+                                              !selection.faces.is_empty() ||
+                                              data->vertices.size() ==
+                                                  data->original.geometry().vertices.count();
+  if ((t->flag & T_MODAL) && t->mode == TFM_TRANSLATION && possible_component_translation) {
+    /* Retain one independently owned original display for the complete drag. This can also
+     * transport independently duplicated components while leaving the original surfaces fixed.
+     * Every update starts here, so repeated mouse positions cannot accumulate preview rounding
+     * error. */
     Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     const Object *evaluated = DEG_get_evaluated(depsgraph, tc.obedit);
     const auto evaluation = evaluated->runtime->nurbs_evaluation;

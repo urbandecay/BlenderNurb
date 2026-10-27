@@ -24,6 +24,70 @@ namespace blender::bke::nurbs::tests {
 
 class NurbsMeshEvaluationTest : public BlenderGTestBase {};
 
+TEST_F(NurbsMeshEvaluationTest, TranslationPreviewMovesDuplicatedFaceAndKeepsOriginalDisplay)
+{
+  auto source_geometry = make_planar_sheet();
+  ASSERT_NE(source_geometry, nullptr);
+  const int64_t source_face =
+      static_cast<const NurbsTopologyFace *>(source_geometry->faces.first)->id;
+  const auto closure = component_closure(*source_geometry, {{}, {}, {&source_face, 1}});
+  ASSERT_TRUE(closure);
+  const auto duplicate = duplicate_components(*source_geometry, {{}, {}, {&source_face, 1}});
+  ASSERT_TRUE(duplicate);
+  const int64_t duplicate_face = duplicate->source_to_copy.lookup(source_face);
+  Vector<int64_t> duplicate_vertices;
+  for (const int64_t vertex_id : closure->vertices) {
+    duplicate_vertices.append(duplicate->source_to_copy.lookup(vertex_id));
+  }
+
+  auto original_edit = EditData::create(*duplicate->geometry);
+  ASSERT_NE(original_edit, nullptr);
+  ObjectEvaluation original;
+  original.options = preview_options();
+  original.result = evaluate_mesh(original_edit->read_snapshot(), original.options);
+  ASSERT_TRUE(original.result);
+  ASSERT_EQ(original.result->undefined_normal_corners, 0);
+  OwnedMesh renderer_mesh = std::move(original.result->mesh);
+  ASSERT_NE(renderer_mesh, nullptr);
+
+  const double3 offset(0.25, -0.5, 0.75);
+  const auto moved = translate_vertices(
+      *duplicate->geometry, duplicate_vertices, offset, std::numeric_limits<double>::max());
+  ASSERT_TRUE(moved);
+  auto moved_edit = EditData::create(*moved->geometry);
+  ASSERT_NE(moved_edit, nullptr);
+  auto preview = translate_mesh_preview(
+      moved_edit->read_snapshot(), original, *renderer_mesh, offset);
+  ASSERT_TRUE(preview);
+  EXPECT_TRUE(preview->is_translation_preview);
+  EXPECT_TRUE(preview->reused_tessellation);
+  EXPECT_TRUE(preview->reused_normals);
+  EXPECT_EQ(preview->mesh_to_preview_triangle, original.result->mesh_to_preview_triangle);
+  EXPECT_EQ(preview->corner_normals, original.result->corner_normals);
+  for (const SurfacePreviewTriangle &triangle : original.result->preview.triangles) {
+    const double3 expected_offset = triangle.face_id == duplicate_face ? offset : double3(0);
+    for (const int corner : IndexRange(3)) {
+      const int point = triangle.points[corner];
+      EXPECT_EQ(preview->preview.position(point),
+                original.result->preview.position(point) + expected_offset);
+    }
+  }
+  for (const int i : IndexRange(preview->preview.points_num())) {
+    EXPECT_EQ(preview->mesh->vert_positions()[i], float3(preview->preview.position(i)));
+  }
+
+  /* The committed source evaluation still matches a fresh NURBS evaluation exactly. */
+  const ReadSnapshot final_source = moved_edit->read_snapshot();
+  ASSERT_TRUE(moved_edit->commit(final_source.copy_for_edit(), final_source));
+  const auto final = evaluate_mesh(moved_edit->read_snapshot(), original.options);
+  ASSERT_TRUE(final);
+  EXPECT_FALSE(final->is_translation_preview);
+  ASSERT_EQ(final->preview.points_num(), preview->preview.points_num());
+  for (const int i : IndexRange(final->preview.points_num())) {
+    EXPECT_EQ(final->preview.position(i), preview->preview.position(i));
+  }
+}
+
 TEST_F(NurbsMeshEvaluationTest, TranslationPreviewTransportsOriginalDisplayAndOwnsItsMesh)
 {
   for (const bool rational : {false, true}) {

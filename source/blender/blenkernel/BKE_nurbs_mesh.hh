@@ -54,7 +54,7 @@ struct MeshEvaluation {
   bool reused_normals = false;
   /** A completed preview of the identical immutable geometry was copied for this evaluation. */
   bool reused_evaluation = false;
-  /** Temporary whole-model translation of an existing display, rebuilt from the source on
+  /** Temporary component translation of an existing display, rebuilt from the source on
    * confirmation. Its positions are transported from the drag's original preview, never from
    * a previous translated frame. Source coefficients and tolerances remain authoritative. */
   bool is_translation_preview = false;
@@ -97,9 +97,11 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
                                             std::string *r_error = nullptr,
                                             const ObjectEvaluation *previous = nullptr);
 
-/** Transport an unchanged display during a whole-model translation. Validate that all active
- * source geometry matches the requested translation, with unchanged trims/topology. The caller
- * must use the same preview settings as previous.
+/** Transport an unchanged display during a translation of whole independent components. Each
+ * active surface and edge curve must be either unchanged or translated uniformly by the requested
+ * amount; shared display samples must agree on their displacement. Partial control-net
+ * deformations fall back to ordinary evaluation. The caller must use the same preview settings as
+ * previous.
  * The independent display_mesh must correspond to previous (its mesh may have been transferred
  * to the renderer). Reject changes in float triangle visibility, undefined source normals and
  * overflow; callers use ordinary evaluation in those cases. Rounded sample transport is only

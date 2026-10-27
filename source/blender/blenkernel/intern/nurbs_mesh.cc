@@ -130,11 +130,21 @@ SurfacePreviewOptions curve_preview_options(const Curve &curve, const bool for_r
   return options;
 }
 
-/** Compare active source records, including loose edges and isolated vertices. Unused parent
- * supports left by refinement do not contribute to the display. No proximity-based matching. */
-static bool source_matches_translation(const NurbsGeometry &source,
-                                       const NurbsGeometry &original,
-                                       const double3 &translation)
+struct TranslationComponents {
+  Map<int64_t, double3> vertices;
+  Map<int64_t, double3> edges;
+  Map<int64_t, double3> faces;
+  Map<int64_t, double3> curves;
+  Map<int64_t, double3> surfaces;
+};
+
+/** Compare active source records. Each independent display surface or edge curve must be either
+ * unchanged or translated as a whole; a partial control-net deformation falls back to sampling.
+ * Unused parent supports left by refinement do not contribute to the display. */
+static bool source_matches_component_translation(const NurbsGeometry &source,
+                                                 const NurbsGeometry &original,
+                                                 const double3 &translation,
+                                                 TranslationComponents &r_components)
 {
   if (source.next_id != original.next_id || source.vertices.count() != original.vertices.count() ||
       source.edges.count() != original.edges.count() ||
@@ -149,21 +159,45 @@ static bool source_matches_translation(const NurbsGeometry &source,
       return false;
     }
   }
-  auto moved = [&](const double *a, const double *b) {
-    for (const int axis : IndexRange(3)) {
-      if (!std::isfinite(a[axis]) || a[axis] != b[axis] + translation[axis]) {
-        return false;
+  auto positions_translation = [&](const auto positions,
+                                   const auto old_positions,
+                                   const int count,
+                                   double3 &r_component_translation) {
+    bool unchanged = true;
+    bool translated = true;
+    for (const int i : IndexRange(count)) {
+      for (const int axis : IndexRange(3)) {
+        const double current = positions(i)[axis];
+        const double previous = old_positions(i)[axis];
+        if (!std::isfinite(current) || !std::isfinite(previous)) {
+          return false;
+        }
+        unchanged &= current == previous;
+        translated &= current == previous + translation[axis];
       }
     }
-    return true;
+    if (unchanged) {
+      r_component_translation = double3(0);
+      return true;
+    }
+    if (translated) {
+      r_component_translation = translation;
+      return true;
+    }
+    return false;
   };
   const auto *old_vertex = static_cast<const NurbsTopologyVertex *>(original.vertices.first);
   for (const auto &vertex : source.vertices) {
-    if (vertex.id != old_vertex->id || !moved(vertex.position, old_vertex->position) ||
-        vertex.tolerance < old_vertex->tolerance)
+    double3 vertex_translation;
+    if (vertex.id != old_vertex->id || vertex.tolerance < old_vertex->tolerance ||
+        !positions_translation([&](const int) { return vertex.position; },
+                               [&](const int) { return old_vertex->position; },
+                               1,
+                               vertex_translation))
     {
       return false;
     }
+    r_components.vertices.add_new(vertex.id, vertex_translation);
     old_vertex = old_vertex->next;
   }
   Set<int64_t> active_curves, active_surfaces;
@@ -211,33 +245,48 @@ static bool source_matches_translation(const NurbsGeometry &source,
     }
     old_face = old_face->next;
   }
-  auto coefficients_match = [&](const NurbsControlPoint *a,
-                                const NurbsControlPoint *b,
-                                const int count,
-                                const bool translate) {
-    for (const int i : IndexRange(count)) {
-      if (a[i].weight != b[i].weight ||
-          (translate ? !moved(a[i].position, b[i].position) :
-                       !std::equal(a[i].position, a[i].position + 3, b[i].position)))
-      {
-        return false;
-      }
-    }
-    return true;
-  };
+  auto coefficients_unchanged =
+      [&](const NurbsControlPoint *a, const NurbsControlPoint *b, const int count) {
+        for (const int i : IndexRange(count)) {
+          if (a[i].weight != b[i].weight ||
+              !std::equal(a[i].position, a[i].position + 3, b[i].position))
+          {
+            return false;
+          }
+        }
+        return true;
+      };
   const auto *old_curve = static_cast<const NurbsCurveGeometry *>(original.curves.first);
   for (const auto &curve : source.curves) {
     if (curve.id != old_curve->id) {
       return false;
     }
-    if (active_curves.contains(curve.id) &&
-        (curve.dimension != old_curve->dimension || curve.order != old_curve->order ||
-         curve.points_num != old_curve->points_num || curve.knots_num != old_curve->knots_num ||
-         !std::equal(curve.knots, curve.knots + curve.knots_num, old_curve->knots) ||
-         !coefficients_match(
-             curve.points, old_curve->points, curve.points_num, curve.dimension == 3)))
-    {
-      return false;
+    if (active_curves.contains(curve.id)) {
+      if (curve.dimension != old_curve->dimension || curve.order != old_curve->order ||
+          curve.points_num != old_curve->points_num || curve.knots_num != old_curve->knots_num ||
+          !std::equal(curve.knots, curve.knots + curve.knots_num, old_curve->knots))
+      {
+        return false;
+      }
+      double3 curve_translation(0);
+      if (curve.dimension == 3) {
+        if (!positions_translation([&](const int i) { return curve.points[i].position; },
+                                   [&](const int i) { return old_curve->points[i].position; },
+                                   curve.points_num,
+                                   curve_translation))
+        {
+          return false;
+        }
+      }
+      else if (!coefficients_unchanged(curve.points, old_curve->points, curve.points_num)) {
+        return false;
+      }
+      for (const int i : IndexRange(curve.points_num)) {
+        if (curve.points[i].weight != old_curve->points[i].weight) {
+          return false;
+        }
+      }
+      r_components.curves.add_new(curve.id, curve_translation);
     }
     old_curve = old_curve->next;
   }
@@ -246,21 +295,41 @@ static bool source_matches_translation(const NurbsGeometry &source,
     if (surface.id != old_surface->id) {
       return false;
     }
-    if (active_surfaces.contains(surface.id) &&
-        (surface.points_u != old_surface->points_u || surface.points_v != old_surface->points_v ||
-         surface.order_u != old_surface->order_u || surface.order_v != old_surface->order_v ||
-         surface.points_num != old_surface->points_num ||
-         surface.knots_u_num != old_surface->knots_u_num ||
-         surface.knots_v_num != old_surface->knots_v_num ||
-         !std::equal(
-             surface.knots_u, surface.knots_u + surface.knots_u_num, old_surface->knots_u) ||
-         !std::equal(
-             surface.knots_v, surface.knots_v + surface.knots_v_num, old_surface->knots_v) ||
-         !coefficients_match(surface.points, old_surface->points, surface.points_num, true)))
-    {
-      return false;
+    if (active_surfaces.contains(surface.id)) {
+      if (surface.points_u != old_surface->points_u || surface.points_v != old_surface->points_v ||
+          surface.order_u != old_surface->order_u || surface.order_v != old_surface->order_v ||
+          surface.points_num != old_surface->points_num ||
+          surface.knots_u_num != old_surface->knots_u_num ||
+          surface.knots_v_num != old_surface->knots_v_num ||
+          !std::equal(
+              surface.knots_u, surface.knots_u + surface.knots_u_num, old_surface->knots_u) ||
+          !std::equal(
+              surface.knots_v, surface.knots_v + surface.knots_v_num, old_surface->knots_v))
+      {
+        return false;
+      }
+      double3 surface_translation(0);
+      if (!positions_translation([&](const int i) { return surface.points[i].position; },
+                                 [&](const int i) { return old_surface->points[i].position; },
+                                 surface.points_num,
+                                 surface_translation))
+      {
+        return false;
+      }
+      for (const int i : IndexRange(surface.points_num)) {
+        if (surface.points[i].weight != old_surface->points[i].weight) {
+          return false;
+        }
+      }
+      r_components.surfaces.add_new(surface.id, surface_translation);
     }
     old_surface = old_surface->next;
+  }
+  for (const auto &edge : source.edges) {
+    r_components.edges.add_new(edge.id, r_components.curves.lookup(edge.curve_id));
+  }
+  for (const auto &face : source.faces) {
+    r_components.faces.add_new(face.id, r_components.surfaces.lookup(face.surface_id));
   }
   return true;
 }
@@ -274,20 +343,61 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
   if (!previous.result || previous.result->is_translation_preview ||
       previous.result->undefined_normal_corners != 0 ||
       display_mesh.verts_num != previous.result->preview.points_num() ||
-      display_mesh.faces_num != previous.result->mesh_to_preview_triangle.size() ||
-      !source_matches_translation(
-          source.geometry(), previous.result->source.geometry(), translation))
+      display_mesh.faces_num != previous.result->mesh_to_preview_triangle.size())
   {
     return std::nullopt;
   }
   const auto &original = *previous.result;
+  TranslationComponents components;
+  if (!source_matches_component_translation(
+          source.geometry(), original.source.geometry(), translation, components))
+  {
+    return std::nullopt;
+  }
   MeshEvaluation result{source, original.preview, nullptr, original.mesh_to_preview_triangle};
-  for (double3 &position : result.preview.boundary.positions) {
-    position += translation;
+  Array<double3> point_translations(result.preview.points_num(), double3(0));
+  Array<uint8_t> assigned(result.preview.points_num(), 0);
+  auto assign_translation = [&](const int point_index, const double3 &point_translation) {
+    if (point_index < 0 || point_index >= point_translations.size()) {
+      return false;
+    }
+    if (assigned[point_index]) {
+      return point_translations[point_index] == point_translation;
+    }
+    point_translations[point_index] = point_translation;
+    assigned[point_index] = 1;
+    return true;
+  };
+  for (const SurfacePreviewTriangle &triangle : result.preview.triangles) {
+    const double3 face_translation = components.faces.lookup(triangle.face_id);
+    for (const int corner : IndexRange(3)) {
+      const int point = triangle.points[corner];
+      if (!assign_translation(point, face_translation)) {
+        return std::nullopt;
+      }
+    }
+  }
+  for (const int i : result.preview.boundary.positions.index_range()) {
+    const int64_t vertex_id = result.preview.boundary.vertex_ids[i];
+    if (vertex_id != 0 && !assign_translation(i, components.vertices.lookup(vertex_id))) {
+      return std::nullopt;
+    }
+  }
+  for (const EvaluatedBoundaryEdge &edge : result.preview.boundary.edges) {
+    const double3 edge_translation = components.edges.lookup(edge.edge_id);
+    for (const BoundarySample &sample : edge.samples) {
+      if (!assign_translation(sample.point_index, edge_translation)) {
+        return std::nullopt;
+      }
+    }
+  }
+  for (const int i : result.preview.boundary.positions.index_range()) {
+    result.preview.boundary.positions[i] += point_translations[i];
   }
   for (auto &edge : result.preview.boundary.edges) {
+    const double3 edge_translation = components.edges.lookup(edge.edge_id);
     for (auto &sample : edge.samples) {
-      sample.curve_position += translation;
+      sample.curve_position += edge_translation;
       for (const int axis : IndexRange(3)) {
         if (!std::isfinite(sample.curve_position[axis])) {
           return std::nullopt;
@@ -296,7 +406,7 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
     }
   }
   for (auto &point : result.preview.interior) {
-    point.position += translation;
+    point.position += components.faces.lookup(point.face_id);
   }
   Array<float3> positions(result.preview.points_num());
   for (const int i : positions.index_range()) {
@@ -340,7 +450,7 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
   result.reused_tessellation = result.reused_normals = result.is_translation_preview = true;
   NURBS_DEBUG_LOG(
       "translation display preview: %.3f ms; %d points, %d triangles; "
-      "original display transported, no source sampling",
+      "component display transported, no source sampling",
       (BLI_time_now_seconds() - start) * 1000.0,
       int(positions.size()),
       result.mesh->faces_num);

@@ -6241,6 +6241,79 @@ def bevel_whole_model_translation_workflow():
     print('NURBS_WHOLE_MODEL_TRANSLATION_PASS', len(confirmed[0]), len(confirmed[2]), flush=True)
 
 
+def bevel_duplicated_component_translation_workflow():
+    """Move a duplicated bevel face while preserving the stationary original display."""
+    from collections import Counter
+    import bpy
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    yield from bevel_connected_edges_workflow(rounded=True, segments=13)
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(region for region in area.regions if region.type == 'WINDOW')
+    space = area.spaces.active
+    obj = window.view_layer.objects.active
+    space.region_3d.view_location = (0, 1, 1)
+    space.region_3d.view_distance = 7
+    yield e.numpad_7()
+    yield e.three().alt.a()
+
+    def screen(position):
+        point = location_3d_to_region_2d(region, space.region_3d, Vector(position))
+        t.assertIsNotNone(point)
+        return round(point.x) + region.x, round(point.y) + region.y
+
+    def display():
+        window.view_layer.update()
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            return (tuple(tuple(vertex.co) for vertex in mesh.vertices),
+                    tuple(tuple(polygon.vertices) for polygon in mesh.polygons))
+        finally:
+            evaluated.to_mesh_clear()
+
+    def selected_faces():
+        import re
+        stats = window.scene.statistics(window.view_layer)
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)',
+                          stats)
+        t.assertIsNotNone(match, stats)
+        return int(match.group(5))
+
+    face_center = screen((0, 1, 2))
+    yield e.cursor_position_set(*face_center, move=True)
+    yield e.leftmouse()
+    t.assertGreater(selected_faces(), 0)
+    before_duplicate = display()
+    yield e.shift.d()
+    duplicate_initial = display()
+    t.assertGreater(len(duplicate_initial[0]), len(before_duplicate[0]))
+    frames = {}
+    for distance in (20, 40, 60, 20, 40, 60):
+        yield e.cursor_position_set(face_center[0] + distance, face_center[1], move=True)
+        current = display()
+        t.assertEqual(current[1], duplicate_initial[1])
+        t.assertTrue(current[0] != duplicate_initial[0])
+        if distance in frames:
+            t.assertEqual(current[0], frames[distance])
+        frames[distance] = current[0]
+    moved_preview = display()[0]
+    original_counts = Counter(before_duplicate[0])
+    moved_counts = Counter(moved_preview)
+    unchanged = sum((original_counts & moved_counts).values())
+    moved = len(moved_preview) - unchanged
+    t.assertGreater(unchanged, 0, 'The original surface moved with the duplicated face')
+    t.assertGreater(moved, 0, 'The duplicated face did not move')
+    t.assertLess(moved, len(moved_preview))
+    yield e.leftmouse()
+    t.assertEqual(obj.mode, 'EDIT')
+    t.assertTrue(obj.data.is_native_nurbs)
+    t.assertEqual(len(obj.data.splines), 0)
+    print('NURBS_DUPLICATED_COMPONENT_TRANSLATION_PASS', unchanged, moved, flush=True)
+
+
 def bevel_mesh_connected_edges_workflow():
     yield from bevel_connected_edges_workflow(mesh_reference=True)
 
