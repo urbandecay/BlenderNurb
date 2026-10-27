@@ -1730,11 +1730,11 @@ bool TopologyPreview::cancel_preview(bContext *C, std::string *r_error)
   return true;
 }
 
-static bool edit_commit_evaluated(Main &bmain,
-                                  Curve &curve,
-                                  std::shared_ptr<const bke::nurbs::ObjectEvaluation> candidate,
-                                  const bke::nurbs::ReadSnapshot &expected,
-                                  std::string *r_error)
+bool edit_commit_evaluated(Main &bmain,
+                           Curve &curve,
+                           std::shared_ptr<const bke::nurbs::ObjectEvaluation> candidate,
+                           const bke::nurbs::ReadSnapshot &expected,
+                           std::string *r_error)
 {
   if (!curve.editnurb || !curve.editnurb->nurbs_edit ||
       !bke::nurbs::curve_validate_source(curve, r_error) ||

@@ -13,6 +13,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_scene_types.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
@@ -20,14 +21,21 @@
 #include "BLI_string.h"
 #include "BLI_time.h"
 
+#include "BKE_context.hh"
 #include "BKE_curve.hh"
-#include "BKE_nurbs_edit.hh"
+#include "BKE_mesh.hh"
 #include "BKE_nurbs_debug.hh"
+#include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_mesh.hh"
 #include "BKE_nurbs_transform.hh"
+#include "BKE_object.hh"
+#include "BKE_object_types.hh"
 #include "BKE_report.hh"
 #include "BKE_unit.hh"
 
 #include "ED_nurbs.hh"
+
+#include "DEG_depsgraph_query.hh"
 
 #include "RNA_access.hh"
 
@@ -63,6 +71,9 @@ struct NurbsTransformData {
   std::optional<TranslationPrecision> replay;
   std::optional<TranslationPrecision> final_value;
   std::optional<double3> exact_space;
+  std::shared_ptr<const nurbs::ObjectEvaluation> original_evaluation;
+  nurbs::OwnedMesh original_display_mesh;
+  bool translation_preview_active = false;
 
   explicit NurbsTransformData(nurbs::ReadSnapshot source)
       : original(source), current(std::move(source))
@@ -70,7 +81,7 @@ struct NurbsTransformData {
   }
 };
 
-static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
+static void create_trans_nurbs(bContext *C, TransInfo *t)
 {
   auto fail = [&](const char *message) {
     if (t->mode != TFM_DUMMY) {
@@ -132,6 +143,22 @@ static void create_trans_nurbs(bContext * /*C*/, TransInfo *t)
     data->vertices.append(id);
   }
   std::sort(data->vertices.begin(), data->vertices.end());
+  if ((t->flag & T_MODAL) && t->mode == TFM_TRANSLATION &&
+      data->vertices.size() == data->original.geometry().vertices.count())
+  {
+    /* Retain one independently owned original display for the complete drag. Every update
+     * starts here, so repeated mouse positions cannot accumulate preview rounding error. */
+    Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+    const Object *evaluated = DEG_get_evaluated(depsgraph, tc.obedit);
+    const auto evaluation = evaluated->runtime->nurbs_evaluation;
+    const Mesh *mesh = BKE_object_get_evaluated_mesh(evaluated);
+    if (evaluation && evaluation->result && !evaluation->result->is_translation_preview && mesh &&
+        &evaluation->result->source.geometry() == &data->original.geometry())
+    {
+      data->original_evaluation = evaluation;
+      data->original_display_mesh.reset(BKE_mesh_copy_for_eval(*mesh));
+    }
+  }
   data->world_to_local = inverse;
   data->local_to_world = double3x3(float3x3(tc.obedit->object_to_world()));
   data->proxies.reinitialize(data->vertices.size());
@@ -194,6 +221,7 @@ static bool restore_nurbs(TransInfo *t, TransDataContainer &tc, NurbsTransformDa
   data.changed = false;
   data.applied_offset = double3(0);
   data.applied_mode = TFM_DUMMY;
+  data.translation_preview_active = false;
   return true;
 }
 
@@ -331,7 +359,36 @@ static void recalc_trans_nurbs(TransInfo *t)
     nurbs::EditSnapshot candidate{std::move(result->geometry), data.original.selection()};
     Curve &curve = *id_cast<Curve *>(tc->obedit->data);
     const double commit_start = BLI_time_now_seconds();
-    if (!ed::nurbs::edit_commit(*t->bmain, curve, std::move(candidate), data.current, &error)) {
+    bool committed = false;
+    bool translation_preview = false;
+    if (translation && data.original_evaluation &&
+        nurbs::curve_preview_options(curve) == data.original_evaluation->options)
+    {
+      auto preview_edit = nurbs::EditData::create(std::move(candidate), &error);
+      if (!preview_edit) {
+        fail(error);
+        return;
+      }
+      auto evaluation = std::make_shared<nurbs::ObjectEvaluation>();
+      evaluation->options = data.original_evaluation->options;
+      evaluation->result = nurbs::translate_mesh_preview(preview_edit->read_snapshot(),
+                                                         *data.original_evaluation,
+                                                         *data.original_display_mesh,
+                                                         local_offset);
+      if (evaluation->result) {
+        committed = ed::nurbs::edit_commit_evaluated(
+            *t->bmain, curve, std::move(evaluation), data.current, &error);
+        translation_preview = true;
+      }
+      else {
+        candidate = preview_edit->read_snapshot().copy_for_edit();
+      }
+    }
+    if (!translation_preview) {
+      committed = ed::nurbs::edit_commit(
+          *t->bmain, curve, std::move(candidate), data.current, &error);
+    }
+    if (!committed) {
       fail(error);
       return;
     }
@@ -344,6 +401,7 @@ static void recalc_trans_nurbs(TransInfo *t)
     data.chart_error_bound = result->chart_error_bound;
     data.reparameterized_faces = result->reparameterized_faces;
     data.changed = true;
+    data.translation_preview_active = translation_preview;
     NURBS_DEBUG_LOG(
               "transform update: %.3f ms total; geometry %.3f ms, validation %.3f ms, commit "
               "%.3f ms; mode %d, selected vertices %d, translation %d, offset "
@@ -559,7 +617,25 @@ static void after_trans_nurbs(bContext * /*C*/, TransInfo *t)
     return;
   }
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
-    const auto &data = *static_cast<const NurbsTransformData *>(tc->custom.type.data);
+    auto &data = *static_cast<NurbsTransformData *>(tc->custom.type.data);
+    if (data.translation_preview_active) {
+      /* Confirmation publishes the exact source through the ordinary evaluation path. This
+       * clears the temporary display before undo storage, mode changes or subsequent tools. */
+      Curve &curve = *id_cast<Curve *>(tc->obedit->data);
+      std::string error;
+      if (!ed::nurbs::edit_commit(
+              *t->bmain, curve, data.current.copy_for_edit(), data.current, &error))
+      {
+        BKE_reportf(
+            t->reports, RPT_ERROR, "NURBS translation could not finalize: %s", error.c_str());
+        t->state = TRANS_CANCEL;
+        restore_nurbs(t, *tc, data);
+        return;
+      }
+      data.current = curve.editnurb->nurbs_edit->read_snapshot();
+      data.translation_preview_active = false;
+      NURBS_DEBUG_LOG("translation preview confirmed: ordinary source evaluation restored");
+    }
     if (t->mode == TFM_TRANSLATION && data.op && data.final_value) {
       if (PropertyRNA *property = RNA_struct_find_property(data.op->ptr, "value_precision")) {
         RNA_property_string_set(data.op->ptr, property, data.final_value->serialize().c_str());

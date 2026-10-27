@@ -130,12 +130,236 @@ SurfacePreviewOptions curve_preview_options(const Curve &curve, const bool for_r
   return options;
 }
 
+/** Compare active source records, including loose edges and isolated vertices. Unused parent
+ * supports left by refinement do not contribute to the display. No proximity-based matching. */
+static bool source_matches_translation(const NurbsGeometry &source,
+                                       const NurbsGeometry &original,
+                                       const double3 &translation)
+{
+  if (source.next_id != original.next_id || source.vertices.count() != original.vertices.count() ||
+      source.edges.count() != original.edges.count() ||
+      source.faces.count() != original.faces.count() ||
+      source.curves.count() != original.curves.count() ||
+      source.surfaces.count() != original.surfaces.count())
+  {
+    return false;
+  }
+  for (const int axis : IndexRange(3)) {
+    if (!std::isfinite(translation[axis])) {
+      return false;
+    }
+  }
+  auto moved = [&](const double *a, const double *b) {
+    for (const int axis : IndexRange(3)) {
+      if (!std::isfinite(a[axis]) || a[axis] != b[axis] + translation[axis]) {
+        return false;
+      }
+    }
+    return true;
+  };
+  const auto *old_vertex = static_cast<const NurbsTopologyVertex *>(original.vertices.first);
+  for (const auto &vertex : source.vertices) {
+    if (vertex.id != old_vertex->id || !moved(vertex.position, old_vertex->position) ||
+        vertex.tolerance < old_vertex->tolerance)
+    {
+      return false;
+    }
+    old_vertex = old_vertex->next;
+  }
+  Set<int64_t> active_curves, active_surfaces;
+  const auto *old_edge = static_cast<const NurbsTopologyEdge *>(original.edges.first);
+  for (const auto &edge : source.edges) {
+    if (edge.id != old_edge->id || edge.curve_id != old_edge->curve_id ||
+        !std::equal(edge.vertex_ids, edge.vertex_ids + 2, old_edge->vertex_ids) ||
+        !std::equal(edge.parameter_range, edge.parameter_range + 2, old_edge->parameter_range) ||
+        edge.tolerance < old_edge->tolerance)
+    {
+      return false;
+    }
+    active_curves.add(edge.curve_id);
+    old_edge = old_edge->next;
+  }
+  const auto *old_face = static_cast<const NurbsTopologyFace *>(original.faces.first);
+  for (const auto &face : source.faces) {
+    if (face.id != old_face->id || face.surface_id != old_face->surface_id ||
+        face.orientation != old_face->orientation ||
+        face.material_index != old_face->material_index || face.tolerance < old_face->tolerance ||
+        face.loops.count() != old_face->loops.count())
+    {
+      return false;
+    }
+    active_surfaces.add(face.surface_id);
+    const auto *old_loop = static_cast<const NurbsTopologyLoop *>(old_face->loops.first);
+    for (const auto &loop : face.loops) {
+      if (loop.id != old_loop->id || loop.is_inner != old_loop->is_inner ||
+          loop.edge_uses.count() != old_loop->edge_uses.count())
+      {
+        return false;
+      }
+      const auto *old_use = static_cast<const NurbsTopologyEdgeUse *>(old_loop->edge_uses.first);
+      for (const auto &use : loop.edge_uses) {
+        if (use.id != old_use->id || use.edge_id != old_use->edge_id ||
+            use.pcurve_id != old_use->pcurve_id || use.reversed != old_use->reversed ||
+            use.tolerance < old_use->tolerance)
+        {
+          return false;
+        }
+        active_curves.add(use.pcurve_id);
+        old_use = old_use->next;
+      }
+      old_loop = old_loop->next;
+    }
+    old_face = old_face->next;
+  }
+  auto coefficients_match = [&](const NurbsControlPoint *a,
+                                const NurbsControlPoint *b,
+                                const int count,
+                                const bool translate) {
+    for (const int i : IndexRange(count)) {
+      if (a[i].weight != b[i].weight ||
+          (translate ? !moved(a[i].position, b[i].position) :
+                       !std::equal(a[i].position, a[i].position + 3, b[i].position)))
+      {
+        return false;
+      }
+    }
+    return true;
+  };
+  const auto *old_curve = static_cast<const NurbsCurveGeometry *>(original.curves.first);
+  for (const auto &curve : source.curves) {
+    if (curve.id != old_curve->id) {
+      return false;
+    }
+    if (active_curves.contains(curve.id) &&
+        (curve.dimension != old_curve->dimension || curve.order != old_curve->order ||
+         curve.points_num != old_curve->points_num || curve.knots_num != old_curve->knots_num ||
+         !std::equal(curve.knots, curve.knots + curve.knots_num, old_curve->knots) ||
+         !coefficients_match(
+             curve.points, old_curve->points, curve.points_num, curve.dimension == 3)))
+    {
+      return false;
+    }
+    old_curve = old_curve->next;
+  }
+  const auto *old_surface = static_cast<const NurbsSurfaceGeometry *>(original.surfaces.first);
+  for (const auto &surface : source.surfaces) {
+    if (surface.id != old_surface->id) {
+      return false;
+    }
+    if (active_surfaces.contains(surface.id) &&
+        (surface.points_u != old_surface->points_u || surface.points_v != old_surface->points_v ||
+         surface.order_u != old_surface->order_u || surface.order_v != old_surface->order_v ||
+         surface.points_num != old_surface->points_num ||
+         surface.knots_u_num != old_surface->knots_u_num ||
+         surface.knots_v_num != old_surface->knots_v_num ||
+         !std::equal(
+             surface.knots_u, surface.knots_u + surface.knots_u_num, old_surface->knots_u) ||
+         !std::equal(
+             surface.knots_v, surface.knots_v + surface.knots_v_num, old_surface->knots_v) ||
+         !coefficients_match(surface.points, old_surface->points, surface.points_num, true)))
+    {
+      return false;
+    }
+    old_surface = old_surface->next;
+  }
+  return true;
+}
+
+std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
+                                                     const ObjectEvaluation &previous,
+                                                     const Mesh &display_mesh,
+                                                     const double3 &translation)
+{
+  const double start = BLI_time_now_seconds();
+  if (!previous.result || previous.result->is_translation_preview ||
+      previous.result->undefined_normal_corners != 0 ||
+      display_mesh.verts_num != previous.result->preview.points_num() ||
+      display_mesh.faces_num != previous.result->mesh_to_preview_triangle.size() ||
+      !source_matches_translation(
+          source.geometry(), previous.result->source.geometry(), translation))
+  {
+    return std::nullopt;
+  }
+  const auto &original = *previous.result;
+  MeshEvaluation result{source, original.preview, nullptr, original.mesh_to_preview_triangle};
+  for (double3 &position : result.preview.boundary.positions) {
+    position += translation;
+  }
+  for (auto &edge : result.preview.boundary.edges) {
+    for (auto &sample : edge.samples) {
+      sample.curve_position += translation;
+      for (const int axis : IndexRange(3)) {
+        if (!std::isfinite(sample.curve_position[axis])) {
+          return std::nullopt;
+        }
+      }
+    }
+  }
+  for (auto &point : result.preview.interior) {
+    point.position += translation;
+  }
+  Array<float3> positions(result.preview.points_num());
+  for (const int i : positions.index_range()) {
+    const double3 position = result.preview.position(i);
+    for (const int axis : IndexRange(3)) {
+      if (!std::isfinite(position[axis]) ||
+          std::abs(position[axis]) > std::numeric_limits<float>::max())
+      {
+        return std::nullopt;
+      }
+      positions[i][axis] = float(position[axis]);
+    }
+    const double3 difference = position - double3(positions[i]);
+    result.max_float_position_deviation = std::max(
+        result.max_float_position_deviation, std::hypot(difference.x, difference.y, difference.z));
+  }
+  /* Translation at large coordinates can collapse or recover float triangles. Retain the
+   * cached connectivity only when the complete visibility map stays identical. */
+  int displayed = 0;
+  for (const int i : result.preview.triangles.index_range()) {
+    const int3 triangle = result.preview.triangles[i].points;
+    const bool visible = display_triangle_has_area(
+        positions[triangle.x], positions[triangle.y], positions[triangle.z]);
+    const bool was_visible = displayed < result.mesh_to_preview_triangle.size() &&
+                             result.mesh_to_preview_triangle[displayed] == i;
+    if (visible != was_visible) {
+      return std::nullopt;
+    }
+    displayed += visible;
+  }
+  result.mesh.reset(BKE_mesh_copy_for_eval(display_mesh));
+  /* The object evaluator attaches its current material slots after this derived evaluation. */
+  MEM_SAFE_DELETE(result.mesh->mat);
+  result.mesh->totcol = 0;
+  result.mesh->vert_positions_for_write().copy_from(positions);
+  result.mesh->tag_positions_changed_uniformly();
+  result.corner_normals = original.corner_normals;
+  result.skipped_degenerate_float_triangles = original.skipped_degenerate_float_triangles;
+  result.skipped_repeated_point_segments = original.skipped_repeated_point_segments;
+  result.preview.reused_faces = source.geometry().faces.count();
+  result.reused_tessellation = result.reused_normals = result.is_translation_preview = true;
+  NURBS_DEBUG_LOG(
+      "translation display preview: %.3f ms; %d points, %d triangles; "
+      "original display transported, no source sampling",
+      (BLI_time_now_seconds() - start) * 1000.0,
+      int(positions.size()),
+      result.mesh->faces_num);
+  return result;
+}
+
 std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
                                             const SurfacePreviewOptions &options,
                                             std::string *r_error,
                                             const ObjectEvaluation *previous)
 {
   const double evaluation_start = BLI_time_now_seconds();
+  /* A temporary translated display is never the starting point of another source edit or
+   * final evaluation. Only the identical prepared candidate can hand it to the renderer. */
+  if (previous && previous->result && previous->result->is_translation_preview &&
+      &previous->result->source.geometry() != &source.geometry())
+  {
+    previous = nullptr;
+  }
   /* A preflighted edit can hand its exact immutable source and owned display mesh to the
    * depsgraph. Copy the derived Mesh for independent renderer ownership, without sampling or
    * calculating source normals a second time. Released renderer meshes cannot take this path. */
@@ -154,6 +378,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
     result.skipped_repeated_point_segments = cached.skipped_repeated_point_segments;
     result.undefined_normal_corners = cached.undefined_normal_corners;
     result.reused_tessellation = result.reused_normals = result.reused_evaluation = true;
+    result.is_translation_preview = cached.is_translation_preview;
     if (r_error) {
       r_error->clear();
     }

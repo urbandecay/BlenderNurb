@@ -47,12 +47,17 @@ struct MeshEvaluation {
   int skipped_repeated_point_segments = 0;
   /** Computed degenerate source frames; zero custom normals request Blender's display fallback. */
   int undefined_normal_corners = 0;
-  /** The UV triangulation came from a matching prior preview; positions were re-evaluated. */
+  /** The UV triangulation came from a matching prior preview; positions were re-evaluated
+   * unless this is an explicitly tagged interactive translation preview. */
   bool reused_tessellation = false;
   /** Source derivatives were unchanged by a uniform support translation. */
   bool reused_normals = false;
   /** A completed preview of the identical immutable geometry was copied for this evaluation. */
   bool reused_evaluation = false;
+  /** Temporary whole-model translation of an existing display, rebuilt from the source on
+   * confirmation. Its positions are transported from the drag's original preview, never from
+   * a previous translated frame. Source coefficients and tolerances remain authoritative. */
+  bool is_translation_preview = false;
 };
 
 /** Object runtime owns this immutable result; failed evaluation retains its diagnostic. */
@@ -91,5 +96,18 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
                                             const SurfacePreviewOptions &options,
                                             std::string *r_error = nullptr,
                                             const ObjectEvaluation *previous = nullptr);
+
+/** Transport an unchanged display during a whole-model translation. Validate that all active
+ * source geometry matches the requested translation, with unchanged trims/topology. The caller
+ * must use the same preview settings as previous.
+ * The independent display_mesh must correspond to previous (its mesh may have been transferred
+ * to the renderer). Reject changes in float triangle visibility, undefined source normals and
+ * overflow; callers use ordinary evaluation in those cases. Rounded sample transport is only
+ * an interactive preview, not a fresh source evaluation or geometric-error certificate. The
+ * editor must discard it on confirmation and cancellation. */
+std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
+                                                     const ObjectEvaluation &previous,
+                                                     const Mesh &display_mesh,
+                                                     const double3 &translation);
 
 }  // namespace blender::bke::nurbs

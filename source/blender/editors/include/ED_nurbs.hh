@@ -72,6 +72,14 @@ bool edit_commit(Main &bmain,
                  const bke::nurbs::ReadSnapshot &expected_state,
                  std::string *r_error = nullptr);
 
+/** Adopt an independently owned evaluated candidate and notify the owner. Interactive display
+ * previews remain the caller's responsibility and must be discarded before confirmation. */
+bool edit_commit_evaluated(Main &bmain,
+                           Curve &curve,
+                           std::shared_ptr<const bke::nurbs::ObjectEvaluation> candidate,
+                           const bke::nurbs::ReadSnapshot &expected,
+                           std::string *r_error = nullptr);
+
 /** Apply V/E/F hits in the stored source mode, retaining the common commit contract. */
 bool select_components(Main &bmain,
                        Curve &curve,

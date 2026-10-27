@@ -207,6 +207,50 @@ TEST_F(NurbsObjectEvaluationTest, DependencyGraphDisplaysLiveSheetAndRetainsPrev
   write_preview_fixture_if_requested();
 }
 
+TEST_F(NurbsObjectEvaluationTest, TranslationPreviewHandoffAndFinalSourceEvaluation)
+{
+  this->build_graph();
+  const auto original = this->evaluated()->runtime->nurbs_evaluation;
+  ASSERT_TRUE(original && original->result);
+  const Mesh *display = this->evaluated()->runtime->geometry_set_eval->get_mesh();
+  ASSERT_NE(display, nullptr);
+  EditData &edit = *curve->editnurb->nurbs_edit;
+  const auto before = edit.read_snapshot();
+  double4x4 matrix = double4x4::identity();
+  matrix.location() = double3(0.25, 0.5, 0.75);
+  auto moved = transform_geometry(before.geometry(), matrix, 0);
+  ASSERT_TRUE(moved);
+  auto candidate = EditData::create(*moved->geometry, before.selection());
+  ASSERT_NE(candidate, nullptr);
+  auto preview = std::make_shared<ObjectEvaluation>();
+  preview->options = original->options;
+  preview->result = translate_mesh_preview(
+      candidate->read_snapshot(), *original, *display, matrix.location());
+  ASSERT_TRUE(preview->result);
+  ASSERT_TRUE(ed::nurbs::edit_commit_evaluated(*bmain, *curve, preview, before));
+  this->refresh();
+  const auto during = this->evaluated()->runtime->nurbs_evaluation;
+  ASSERT_TRUE(during && during->result);
+  EXPECT_TRUE(during->result->is_translation_preview);
+  EXPECT_TRUE(during->result->reused_evaluation);
+  EXPECT_EQ(during->result->source, edit.read_snapshot());
+  const auto current = edit.read_snapshot();
+  ASSERT_TRUE(ed::nurbs::edit_commit(*bmain, *curve, current.copy_for_edit(), current));
+  this->refresh();
+  const auto final = this->evaluated()->runtime->nurbs_evaluation;
+  ASSERT_TRUE(final && final->result);
+  EXPECT_FALSE(final->result->is_translation_preview);
+  EXPECT_EQ(edit.prepared_evaluation(edit.read_snapshot()), nullptr);
+  const auto fresh = evaluate_mesh(edit.read_snapshot(), original->options);
+  ASSERT_TRUE(fresh);
+  const Mesh *final_mesh = this->evaluated()->runtime->geometry_set_eval->get_mesh();
+  ASSERT_NE(final_mesh, nullptr);
+  ASSERT_EQ(final_mesh->verts_num, fresh->mesh->verts_num);
+  for (const int i : IndexRange(final_mesh->verts_num)) {
+    EXPECT_EQ(final_mesh->vert_positions()[i], fresh->mesh->vert_positions()[i]);
+  }
+}
+
 TEST_F(NurbsObjectEvaluationTest, DependencyGraphReusesPreparedPreviewAndInvalidatesOnNextEdit)
 {
   EditData &edit = *curve->editnurb->nurbs_edit;

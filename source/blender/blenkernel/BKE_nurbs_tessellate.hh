@@ -37,7 +37,8 @@ struct SurfacePreview {
   Vector<SurfacePreviewTriangle> triangles;
   int skipped_repeated_point_triangles = 0;
   Map<int64_t, int> skipped_triangles_by_face;
-  /** Faces whose UV triangulation was retained; every position is evaluated for this source. */
+  /** Faces whose UV triangulation was retained. Positions are evaluated for the source except
+   * during the mesh evaluator's explicitly tagged temporary translation previews. */
   int reused_faces = 0;
   double max_interior_weight_condition = 1.0;
 

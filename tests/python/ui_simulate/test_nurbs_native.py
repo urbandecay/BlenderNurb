@@ -6179,6 +6179,68 @@ def bevel_dense_round_mouse_workflow():
     yield from bevel_connected_edges_workflow(rounded=True, mouse_input=True, segments=13)
 
 
+def bevel_whole_model_translation_workflow():
+    """Dense whole-model drag: repeat positions, cancel, confirm, undo/redo and mode re-entry."""
+    import bpy
+    import json
+    import os
+
+    yield from bevel_connected_edges_workflow(rounded=True, segments=13)
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    obj = window.view_layer.objects.active
+    center = ui.get_area_center(area)
+
+    def display():
+        window.view_layer.update()
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            return (tuple(tuple(v.co) for v in mesh.vertices),
+                    tuple(tuple(n.vector) for n in mesh.corner_normals),
+                    tuple(tuple(p.vertices) for p in mesh.polygons))
+        finally:
+            evaluated.to_mesh_clear()
+
+    def assert_display_equal(a, b):
+        t.assertEqual(a[0], b[0])
+        t.assertEqual(a[2], b[2])
+        t.assertEqual(len(a[1]), len(b[1]))
+        # Recomputed float normals can differ by a few ulps after an otherwise rigid move.
+        t.assertLessEqual(max(abs(x - y) for na, nb in zip(a[1], b[1])
+                              for x, y in zip(na, nb)), 2e-6)
+
+    yield e.cursor_position_set(*center, move=True)
+    yield e.a()
+    original = display()
+    yield e.g().x()
+    frames = {}
+    for distance in (20, 40, 60, 80, 100, 40, 80, 20, 60, 100, 40, 20):
+        yield e.cursor_position_set(center[0] + distance, center[1], move=True)
+        current = display()
+        t.assertNotEqual(current[0], original[0])
+        t.assertEqual(current[2], original[2])
+        if distance in frames:
+            assert_display_equal(current, frames[distance])
+        frames[distance] = current
+    yield e.esc()
+    assert_display_equal(display(), original)
+    yield e.cursor_position_set(*center, move=True)
+    yield e.g().x().text('0.25').ret()
+    confirmed = display()
+    t.assertNotEqual(confirmed[0], original[0])
+    yield e.ctrl.z()
+    assert_display_equal(display(), original)
+    yield e.ctrl.shift.z()
+    assert_display_equal(display(), confirmed)
+    yield e.tab().tab()
+    assert_display_equal(display(), confirmed)
+    if path := os.environ.get('BLENDER_NURBS_TRANSLATION_RESULT'):
+        with open(path, 'w') as output:
+            json.dump(display(), output)
+    print('NURBS_WHOLE_MODEL_TRANSLATION_PASS', len(confirmed[0]), len(confirmed[2]), flush=True)
+
+
 def bevel_mesh_connected_edges_workflow():
     yield from bevel_connected_edges_workflow(mesh_reference=True)
 

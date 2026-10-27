@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <cmath>
+#include <limits>
 
 #ifdef WITH_GMP
 #  include "BLI_math_mpq.hh"
@@ -22,6 +23,139 @@
 namespace blender::bke::nurbs::tests {
 
 class NurbsMeshEvaluationTest : public BlenderGTestBase {};
+
+TEST_F(NurbsMeshEvaluationTest, TranslationPreviewTransportsOriginalDisplayAndOwnsItsMesh)
+{
+  for (const bool rational : {false, true}) {
+    SCOPED_TRACE(rational);
+    auto geometry = rational ? make_arc_sheet(true) : make_planar_sheet();
+    auto original_edit = EditData::create(*geometry);
+    ASSERT_NE(original_edit, nullptr);
+    ObjectEvaluation original;
+    original.options = preview_options();
+    original.result = evaluate_mesh(original_edit->read_snapshot(), original.options);
+    ASSERT_TRUE(original.result);
+    ASSERT_EQ(original.result->undefined_normal_corners, 0);
+    const float3 original_position = original.result->mesh->vert_positions()[0];
+    /* The renderer normally owns this Mesh after object evaluation. */
+    OwnedMesh renderer_mesh = std::move(original.result->mesh);
+    ASSERT_NE(renderer_mesh, nullptr);
+    for (const double3 offset : {double3(0.25, -0.5, 0.75), double3(0.5, -0.25, 1.25)}) {
+      double4x4 matrix = double4x4::identity();
+      matrix.location() = offset;
+      auto moved = transform_geometry(*geometry, matrix, std::numeric_limits<double>::max());
+      ASSERT_TRUE(moved);
+      auto edit = EditData::create(*moved->geometry);
+      ASSERT_NE(edit, nullptr);
+      auto preview = translate_mesh_preview(
+          edit->read_snapshot(), original, *renderer_mesh, offset);
+      ASSERT_TRUE(preview);
+      EXPECT_TRUE(preview->is_translation_preview);
+      EXPECT_TRUE(preview->reused_tessellation);
+      EXPECT_TRUE(preview->reused_normals);
+      EXPECT_EQ(preview->source, edit->read_snapshot());
+      EXPECT_EQ(preview->mesh_to_preview_triangle, original.result->mesh_to_preview_triangle);
+      EXPECT_EQ(preview->corner_normals, original.result->corner_normals);
+      const auto &wires = preview->mesh->runtime->subsurf_optimal_display_edges;
+      const auto &original_wires = renderer_mesh->runtime->subsurf_optimal_display_edges;
+      ASSERT_EQ(wires.size(), original_wires.size());
+      for (const int i : wires.index_range()) {
+        EXPECT_EQ(bool(wires[i]), bool(original_wires[i]));
+      }
+      for (const int i : IndexRange(preview->preview.points_num())) {
+        EXPECT_EQ(preview->preview.position(i), original.result->preview.position(i) + offset);
+        EXPECT_EQ(preview->mesh->vert_positions()[i], float3(preview->preview.position(i)));
+      }
+      ObjectEvaluation temporary;
+      temporary.options = original.options;
+      temporary.result = std::move(preview);
+      auto handoff = evaluate_mesh(edit->read_snapshot(), original.options, nullptr, &temporary);
+      ASSERT_TRUE(handoff);
+      EXPECT_TRUE(handoff->is_translation_preview);
+      EXPECT_TRUE(handoff->reused_evaluation);
+      EXPECT_FALSE(
+          translate_mesh_preview(edit->read_snapshot(), temporary, *renderer_mesh, offset));
+
+      /* Confirmation clears the prepared evaluation and obtains a fresh source display. */
+      const auto state = edit->read_snapshot();
+      ASSERT_TRUE(edit->commit(state.copy_for_edit(), state));
+      auto final = evaluate_mesh(edit->read_snapshot(), original.options, nullptr, &temporary);
+      auto fresh = evaluate_mesh(edit->read_snapshot(), original.options);
+      ASSERT_TRUE(final && fresh);
+      EXPECT_FALSE(final->is_translation_preview);
+      EXPECT_FALSE(final->reused_evaluation);
+      for (const int i : IndexRange(final->preview.points_num())) {
+        EXPECT_EQ(final->preview.position(i), fresh->preview.position(i));
+      }
+      temporary.result->mesh->vert_positions_for_write()[0].x = 42;
+      EXPECT_EQ(renderer_mesh->vert_positions()[0], original_position);
+    }
+  }
+}
+
+TEST_F(NurbsMeshEvaluationTest, TranslationPreviewRejectsDeformationTrimAndDisplayChanges)
+{
+  auto geometry = make_planar_sheet();
+  auto original_edit = EditData::create(*geometry);
+  ObjectEvaluation original;
+  original.options = preview_options();
+  original.result = evaluate_mesh(original_edit->read_snapshot(), original.options);
+  ASSERT_TRUE(original.result);
+  const double3 offset(0.25, 0.5, 0.75);
+  double4x4 matrix = double4x4::identity();
+  matrix.location() = offset;
+  auto moved = transform_geometry(*geometry, matrix, 0);
+  ASSERT_TRUE(moved);
+  auto check = [&](OwnedGeometry changed) {
+    auto edit = EditData::create(*changed);
+    ASSERT_NE(edit, nullptr);
+    EXPECT_FALSE(
+        translate_mesh_preview(edit->read_snapshot(), original, *original.result->mesh, offset));
+  };
+  {
+    OwnedGeometry changed(geometry_copy(moved->geometry.get()));
+    static_cast<NurbsTopologyFace *>(changed->faces.first)->material_index++;
+    check(std::move(changed));
+  }
+  {
+    OwnedGeometry changed(geometry_copy(moved->geometry.get()));
+    static_cast<NurbsTopologyFace *>(changed->faces.first)->orientation *= -1;
+    check(std::move(changed));
+  }
+  {
+    OwnedGeometry changed(geometry_copy(moved->geometry.get()));
+    static_cast<NurbsSurfaceGeometry *>(changed->surfaces.first)->points[0].position[2] += 1e-12;
+    check(std::move(changed));
+  }
+  {
+    OwnedGeometry changed(geometry_copy(moved->geometry.get()));
+    for (auto &curve : changed->curves) {
+      if (curve.dimension == 2) {
+        curve.points[0].position[0] += 0.01;
+        break;
+      }
+    }
+    check(std::move(changed));
+  }
+  {
+    const int64_t vertex = static_cast<NurbsTopologyVertex *>(geometry->vertices.first)->id;
+    auto partial = translate_vertices(*geometry, {vertex}, offset, 1e-9);
+    ASSERT_TRUE(partial);
+    check(std::move(partial->geometry));
+  }
+  matrix.location().x = 1e12;
+  auto distant = transform_geometry(*geometry, matrix, std::numeric_limits<double>::max());
+  ASSERT_TRUE(distant);
+  auto edit = EditData::create(*distant->geometry);
+  ASSERT_NE(edit, nullptr);
+  EXPECT_FALSE(translate_mesh_preview(
+      edit->read_snapshot(), original, *original.result->mesh, matrix.location()));
+  auto valid = EditData::create(*moved->geometry);
+  ASSERT_NE(valid, nullptr);
+  original.result->undefined_normal_corners = 1;
+  EXPECT_FALSE(
+      translate_mesh_preview(valid->read_snapshot(), original, *original.result->mesh, offset));
+}
 
 TEST_F(NurbsMeshEvaluationTest, PreparedEditSharesImmutableSourceAndReusesIndependentDisplayMesh)
 {
