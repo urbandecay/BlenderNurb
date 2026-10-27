@@ -7,6 +7,7 @@
  */
 
 #include <array>
+#include <limits>
 #include <numeric>
 
 #include "BLI_math_vector.hh"
@@ -732,6 +733,137 @@ std::optional<CurveRefinementResult> surface_parameter_line(const NurbsSurfaceGe
     return restricted;
   }
 
+  /* A Bezier surface restricted to an affine UV line is a quartic rational curve.
+   * Restrict its nine homogeneous controls directly with the quadratic blossom.
+   * The generic surface restriction allocates, validates and inserts knots for every
+   * individual corner edge even though all of them use this same 3x3 support. */
+  auto normalized = [&](const int axis, const double parameter) {
+    const double *knots = axis ? source.knots_v : source.knots_u;
+    return (Interval(parameter) - Interval(knots[2])) / (Interval(knots[3]) - Interval(knots[2]));
+  };
+  const Interval u0 = normalized(0, start.x), u1 = normalized(0, end.x);
+  const Interval v0 = normalized(1, start.y), v1 = normalized(1, end.y);
+  if (!u0.valid() || !u1.valid() || !v0.valid() || !v1.valid()) {
+    return fail("NURBS parameter line has an unrepresentable support domain");
+  }
+  using Homogeneous = std::array<Interval, 4>;
+  /* The common case admits a cheap conservative roundoff enclosure. All blossom
+   * parameters are in [0,1], so each homogeneous intermediate lies in the convex
+   * hull of the nine source controls. A quartic coefficient uses at most six
+   * levels of affine interpolation. The factor below covers their arithmetic,
+   * the source homogeneous products, and uncertainty in the four normalized UV
+   * endpoints. If that bound is insufficient, use outward interval arithmetic. */
+  auto fast_curve = [&]() -> std::optional<CurveRefinementResult> {
+    struct Parameter {
+      long double value, uncertainty;
+    };
+    auto parameter = [](const Interval enclosure) {
+      const long double low = enclosure.low, high = enclosure.high;
+      const long double value = std::clamp(std::midpoint(low, high), 0.0L, 1.0L);
+      return Parameter{value, std::max(std::abs(value - low), std::abs(high - value))};
+    };
+    const Parameter uv[] = {parameter(u0), parameter(u1), parameter(v0), parameter(v1)};
+    long double uncertainty = 0;
+    for (const Parameter &coordinate : uv) {
+      uncertainty = std::max(uncertainty, coordinate.uncertainty);
+    }
+    using LongHomogeneous = std::array<long double, 4>;
+    std::array<LongHomogeneous, 9> controls;
+    long double magnitude = 0;
+    for (int i = 0; i < 9; i++) {
+      const NurbsControlPoint &point = source.points[i];
+      for (int axis = 0; axis < 3; axis++) {
+        controls[i][axis] = static_cast<long double>(point.position[axis]) * point.weight;
+      }
+      controls[i][3] = point.weight;
+      for (const long double component : controls[i]) {
+        magnitude = std::max(magnitude, std::abs(component));
+      }
+    }
+    auto mix_long =
+        [](const LongHomogeneous &a, const LongHomogeneous &b, const long double alpha) {
+          LongHomogeneous result;
+          for (int axis = 0; axis < 4; axis++) {
+            result[axis] = (1 - alpha) * a[axis] + alpha * b[axis];
+          }
+          return result;
+        };
+    auto restrict_long =
+        [&](const std::array<LongHomogeneous, 3> &row, const long double a, const long double b) {
+          const LongHomogeneous a0 = mix_long(row[0], row[1], a);
+          const LongHomogeneous a1 = mix_long(row[1], row[2], a);
+          const LongHomogeneous b0 = mix_long(row[0], row[1], b);
+          const LongHomogeneous b1 = mix_long(row[1], row[2], b);
+          return std::array<LongHomogeneous, 3>{
+              mix_long(a0, a1, a), mix_long(a0, a1, b), mix_long(b0, b1, b)};
+        };
+    for (int v = 0; v < 3; v++) {
+      const auto row = restrict_long(
+          {controls[3 * v], controls[3 * v + 1], controls[3 * v + 2]}, uv[0].value, uv[1].value);
+      for (int u = 0; u < 3; u++) {
+        controls[3 * v + u] = row[u];
+      }
+    }
+    for (int u = 0; u < 3; u++) {
+      const auto column = restrict_long(
+          {controls[u], controls[3 + u], controls[6 + u]}, uv[2].value, uv[3].value);
+      for (int v = 0; v < 3; v++) {
+        controls[3 * v + u] = column[v];
+      }
+    }
+    auto point = [&](const int u, const int v) { return controls[3 * v + u]; };
+    const std::array<LongHomogeneous, 5> quartic = {
+        point(0, 0),
+        mix_long(point(1, 0), point(0, 1), 0.5L),
+        mix_long(mix_long(point(2, 0), point(0, 2), 0.5L), point(1, 1), 2.0L / 3.0L),
+        mix_long(point(2, 1), point(1, 2), 0.5L),
+        point(2, 2),
+    };
+    const long double radius = std::nextafter(
+        2 * magnitude * (1024 * std::numeric_limits<long double>::epsilon() + 64 * uncertainty) +
+            1024 * std::numeric_limits<long double>::denorm_min(),
+        std::numeric_limits<long double>::infinity());
+    if (!std::isfinite(radius)) {
+      return std::nullopt;
+    }
+    Vector<Coefficient> points;
+    for (const LongHomogeneous &control : quartic) {
+      Homogeneous enclosure;
+      for (int axis = 0; axis < 4; axis++) {
+        const long double lower = std::nextafter(control[axis] - radius,
+                                                 -std::numeric_limits<long double>::infinity());
+        const long double upper = std::nextafter(control[axis] + radius,
+                                                 std::numeric_limits<long double>::infinity());
+        double low = static_cast<double>(lower), high = static_cast<double>(upper);
+        if (!std::isfinite(low) || !std::isfinite(high)) {
+          return std::nullopt;
+        }
+        if (static_cast<long double>(low) > lower) {
+          low = std::nextafter(low, -INFINITY);
+        }
+        if (static_cast<long double>(high) < upper) {
+          high = std::nextafter(high, INFINITY);
+        }
+        enclosure[axis] = Interval(low, high);
+      }
+      points.append(Coefficient(enclosure));
+    }
+    const double error = coefficient_error(points);
+    if (!std::isfinite(error) || error > max_error) {
+      return std::nullopt;
+    }
+    const double knots[] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
+    CurveData data(5, {knots, 10}, points);
+    auto curve = data.store(3);
+    std::string validation_error;
+    if (!curve_validate_structure(*curve, &validation_error)) {
+      return std::nullopt;
+    }
+    return CurveRefinementResult{std::move(curve), error};
+  };
+  if (auto fast = fast_curve()) {
+    return fast;
+  }
   auto patch = restrict_surface(
       source, math::min(start, end), math::max(start, end), max_error, r_error);
   if (!patch) {

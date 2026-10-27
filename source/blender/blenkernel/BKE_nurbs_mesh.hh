@@ -67,6 +67,9 @@ struct ObjectEvaluation {
   SurfacePreviewOptions options;
   std::optional<MeshEvaluation> result;
   std::string error;
+  /** A modal bevel may use a coarser display while dragging. Confirming the edit
+   * replaces it with a full-resolution evaluation of the same exact source. */
+  bool interactive_preview = false;
 };
 
 /** Shared native/compatibility preview density. A legacy two-by-two patch has 2 * resolution

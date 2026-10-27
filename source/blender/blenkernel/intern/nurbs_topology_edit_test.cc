@@ -3284,6 +3284,60 @@ TEST_F(NurbsTopologyEditTest, SurfaceParameterLinesMatchIndependentRationalTenso
   }
 }
 
+TEST_F(NurbsTopologyEditTest, SurfaceParameterLinesCoverShiftedDomainsAndStrictFallback)
+{
+  std::string error;
+  const std::array<double3, 3> axes = {double3(1, 0, 0), double3(0, 1, 0), double3(0, 0, 1)};
+  auto patch = rational_octant_surface({0.137, -0.283, 0.091}, axes, 1e-9, &error);
+  ASSERT_TRUE(patch) << error;
+  NurbsSurfaceGeometry &surface = *patch->surface;
+  for (int i = 0; i < 6; i++) {
+    surface.knots_u[i] = i < 3 ? -2.0 : 3.0;
+    surface.knots_v[i] = i < 3 ? 5.0 : 11.0;
+  }
+  const double2 start(-1.5, 10.0), end(2.6, 5.5);
+  auto curve = surface_parameter_line(surface, start, end, 1e-9, &error);
+  ASSERT_TRUE(curve) << error;
+  for (int sample = 0; sample <= 32; sample++) {
+    const long double t = static_cast<long double>(sample) / 32;
+    const long double u = ((1 - t) * start.x + t * end.x + 2) / 5;
+    const long double v = ((1 - t) * start.y + t * end.y - 5) / 6;
+    const long double bu[] = {(1 - u) * (1 - u), 2 * u * (1 - u), u * u};
+    const long double bv[] = {(1 - v) * (1 - v), 2 * v * (1 - v), v * v};
+    std::array<long double, 3> numerator{};
+    long double denominator = 0;
+    for (int j = 0; j < 3; j++) {
+      for (int i = 0; i < 3; i++) {
+        const NurbsControlPoint &point = surface.points[3 * j + i];
+        const long double basis = bu[i] * bv[j] * point.weight;
+        denominator += basis;
+        for (int axis = 0; axis < 3; axis++) {
+          numerator[axis] += basis * point.position[axis];
+        }
+      }
+    }
+    ASSERT_GT(denominator, 0);
+    const auto measured = evaluate_curve_bounded(*curve->curve, double(t), 1e-9, &error);
+    ASSERT_TRUE(measured) << error;
+    long double gap = 0;
+    for (int axis = 0; axis < 3; axis++) {
+      gap += std::abs(numerator[axis] / denominator - measured->position[axis]);
+    }
+    EXPECT_LE(gap,
+              curve->geometry_error_bound + measured->error_bound +
+                  256 * std::numeric_limits<long double>::epsilon());
+  }
+  for (int i = 0; i < surface.points_num; i++) {
+    for (int axis = 0; axis < 3; axis++) {
+      surface.points[i].position[axis] = 0;
+    }
+    surface.points[i].weight = 1;
+  }
+  auto exact = surface_parameter_line(surface, start, end, 0, &error);
+  ASSERT_TRUE(exact) << error;
+  EXPECT_EQ(exact->geometry_error_bound, 0);
+}
+
 TEST_F(NurbsTopologyEditTest,
        BoundedEvaluationCoversIndependentRationalBezierAndRejectsInsufficientBudget)
 {

@@ -80,7 +80,8 @@ static std::optional<BevelCandidate> candidate(
     const bke::nurbs::BevelOptions &options,
     std::string &error,
     bke::nurbs::BevelOffsetInfo *r_offset_info = nullptr,
-    const bke::nurbs::ObjectEvaluation *previous = nullptr)
+    const bke::nurbs::ObjectEvaluation *previous = nullptr,
+    const bool interactive = false)
 {
   const double candidate_start = BLI_time_now_seconds();
   const size_t source_faces = preview.source().geometry().faces.count();
@@ -139,6 +140,14 @@ static std::optional<BevelCandidate> candidate(
   auto evaluation = std::make_shared<bke::nurbs::ObjectEvaluation>();
   evaluation->options = bke::nurbs::curve_preview_options(
       *id_cast<Curve *>(preview.object().data));
+  evaluation->interactive_preview = interactive && options.offset > 0 && options.segments > 1;
+  if (evaluation->interactive_preview) {
+    const int full = evaluation->options.boundary.segments_per_span;
+    const int preview_segments = std::min(
+        full, std::max(2, (full + options.segments - 1) / options.segments));
+    evaluation->options.boundary.segments_per_span = preview_segments;
+    evaluation->options.interior_subdivisions = preview_segments;
+  }
   evaluation->result = bke::nurbs::evaluate_mesh(
       edit->read_snapshot(), evaluation->options, &error, previous);
   const double preview_ms = (BLI_time_now_seconds() - preview_start) * 1000.0;
@@ -246,7 +255,7 @@ static void update(bContext *C, wmOperator *op, BevelModal &data)
   data.error.clear();
   bke::nurbs::BevelOffsetInfo offset_info;
   auto result = candidate(
-      *data.preview, data.options, data.error, &offset_info, data.evaluation.get());
+      *data.preview, data.options, data.error, &offset_info, data.evaluation.get(), true);
   const double candidate_ms = (BLI_time_now_seconds() - update_start) * 1000.0;
   const double preview_commit_start = BLI_time_now_seconds();
   data.valid = result &&
@@ -459,8 +468,22 @@ static wmOperatorStatus bevel_modal(bContext *C, wmOperator *op, const wmEvent *
         bevel_cancel(C, op);
         return OPERATOR_CANCELLED;
       }
+      std::shared_ptr<const bke::nurbs::ObjectEvaluation> confirmed = data.evaluation;
+      if (data.evaluation->interactive_preview) {
+        auto full = std::make_shared<bke::nurbs::ObjectEvaluation>();
+        full->options = bke::nurbs::curve_preview_options(
+            *id_cast<Curve *>(data.preview->object().data));
+        full->result = bke::nurbs::evaluate_mesh(
+            data.evaluation->result->source, full->options, &data.error, data.evaluation.get());
+        if (!full->result) {
+          BKE_report(op->reports, RPT_ERROR, data.error.c_str());
+          bevel_cancel(C, op);
+          return OPERATOR_CANCELLED;
+        }
+        confirmed = std::move(full);
+      }
       if (!data.preview->commit_evaluated(
-              C, data.evaluation, data.geometry_error_bound, &data.error))
+              C, std::move(confirmed), data.geometry_error_bound, &data.error))
       {
         BKE_report(op->reports, RPT_ERROR, data.error.c_str());
         bevel_cancel(C, op);

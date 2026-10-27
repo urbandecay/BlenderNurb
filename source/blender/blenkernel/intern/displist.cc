@@ -1715,8 +1715,10 @@ static bke::GeometrySet evaluate_native_nurbs_object(Object &object,
   }
   /* Keep the tagged two-by-two surface's display grid density on native entry. No fitting or
    * source tolerance expansion is performed. Agreement allowance remains explicitly zero. */
-  evaluation->options = bke::nurbs::curve_preview_options(curve, for_render);
   const auto &prepared = curve.nurbs_eval_source->prepared_evaluation;
+  evaluation->options = !for_render && prepared && prepared->interactive_preview ?
+                            prepared->options :
+                            bke::nurbs::curve_preview_options(curve, for_render);
   evaluation->result = bke::nurbs::evaluate_mesh(*curve.nurbs_eval_source->snapshot,
                                                  evaluation->options,
                                                  &evaluation->error,

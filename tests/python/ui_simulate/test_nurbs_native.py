@@ -6120,6 +6120,8 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.screen.screenshot(filepath=str(output / f'bevel-{label}-{shape}-preview.png'))
     t.assertEqual(totals(), after)
+    preview_display_points = (len(coordinates()) if rounded and not mesh_reference and
+                              segments >= 8 else None)
     yield e.esc()
     t.assertEqual(totals(), before)
     if hold_launch_ctrl:
@@ -6136,6 +6138,9 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
             yield e.wheelupmouse()
     yield e.ret()
     t.assertEqual(totals(), after)
+    if preview_display_points is not None:
+        t.assertGreater(len(coordinates()), preview_display_points,
+                        'Confirmed bevel retained the lower-density drag preview')
     t.assertEqual(obj.mode, 'EDIT')
     t.assertEqual(tuple(window.scene.tool_settings.mesh_select_mode if mesh_reference else
                         obj.data.nurbs_selection_mode),
