@@ -438,7 +438,7 @@ TEST_F(NurbsMeshEvaluationTest, CachedPreviewMatchesFreshGeometryAndInvalidatesO
   compare(*reversed_cache, *reversed_fresh);
 }
 
-TEST_F(NurbsMeshEvaluationTest, BevelWidthRefreshRebuildsOnlyChangedTrimsAndMatchesFreshPreview)
+TEST_F(NurbsMeshEvaluationTest, BevelWidthRefreshMatchesFreshPreviewWithMeshProfileStations)
 {
   auto sheet = make_planar_sheet();
   const int64_t face = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
@@ -449,45 +449,52 @@ TEST_F(NurbsMeshEvaluationTest, BevelWidthRefreshRebuildsOnlyChangedTrimsAndMatc
   for (const auto &edge : box->geometry->edges) {
     edges.append(edge.id);
   }
-  ObjectEvaluation previous;
-  previous.options = preview_options();
-  for (const double width : {0.2, 0.25, 0.3}) {
-    auto bevel = bevel_edges(*box->geometry, edges, {.offset = width, .segments = 13}, &error);
-    ASSERT_TRUE(bevel) << error;
-    auto edit = EditData::create(*bevel->geometry);
-    ASSERT_NE(edit, nullptr);
-    auto cached = evaluate_mesh(edit->read_snapshot(), previous.options, &error, &previous);
-    ASSERT_TRUE(cached) << error;
-    auto fresh = evaluate_mesh(edit->read_snapshot(), previous.options, &error);
-    ASSERT_TRUE(fresh) << error;
-    if (previous.result) {
-      EXPECT_EQ(cached->preview.reused_faces, bevel->geometry->faces.count() - 6);
-      EXPECT_FALSE(cached->reused_tessellation);
-    }
-    ASSERT_EQ(cached->preview.points_num(), fresh->preview.points_num());
-    for (const int i : IndexRange(cached->preview.points_num())) {
-      EXPECT_EQ(cached->preview.position(i), fresh->preview.position(i));
-    }
-    ASSERT_EQ(cached->preview.triangles.size(), fresh->preview.triangles.size());
-    for (const int i : cached->preview.triangles.index_range()) {
-      const auto &a = cached->preview.triangles[i], &b = fresh->preview.triangles[i];
-      EXPECT_EQ(a.face_id, b.face_id);
-      EXPECT_EQ(a.points, b.points);
-      EXPECT_EQ(a.display_edges, b.display_edges);
-      for (const int j : IndexRange(3)) {
-        EXPECT_EQ(a.parameters[j], b.parameters[j]);
+  for (const int segments : {8, 13}) {
+    SCOPED_TRACE(segments);
+    ObjectEvaluation previous;
+    previous.options = preview_options();
+    for (const double width : {0.2, 0.25, 0.3}) {
+      auto bevel = bevel_edges(
+          *box->geometry, edges, {.offset = width, .segments = segments}, &error);
+      ASSERT_TRUE(bevel) << error;
+      auto edit = EditData::create(*bevel->geometry);
+      ASSERT_NE(edit, nullptr);
+      auto cached = evaluate_mesh(edit->read_snapshot(), previous.options, &error, &previous);
+      ASSERT_TRUE(cached) << error;
+      auto fresh = evaluate_mesh(edit->read_snapshot(), previous.options, &error);
+      ASSERT_TRUE(fresh) << error;
+      if (previous.result) {
+        if (segments == 8) {
+          /* Power-of-two profile stations are fixed; preserve reuse of the straight strips. */
+          EXPECT_GE(cached->preview.reused_faces, 12 * segments);
+        }
+        EXPECT_FALSE(cached->reused_tessellation);
       }
+      ASSERT_EQ(cached->preview.points_num(), fresh->preview.points_num());
+      for (const int i : IndexRange(cached->preview.points_num())) {
+        EXPECT_EQ(cached->preview.position(i), fresh->preview.position(i));
+      }
+      ASSERT_EQ(cached->preview.triangles.size(), fresh->preview.triangles.size());
+      for (const int i : cached->preview.triangles.index_range()) {
+        const auto &a = cached->preview.triangles[i], &b = fresh->preview.triangles[i];
+        EXPECT_EQ(a.face_id, b.face_id);
+        EXPECT_EQ(a.points, b.points);
+        EXPECT_EQ(a.display_edges, b.display_edges);
+        for (const int j : IndexRange(3)) {
+          EXPECT_EQ(a.parameters[j], b.parameters[j]);
+        }
+      }
+      EXPECT_EQ(cached->preview.skipped_repeated_point_triangles,
+                fresh->preview.skipped_repeated_point_triangles);
+      EXPECT_EQ(cached->preview.max_interior_weight_condition,
+                fresh->preview.max_interior_weight_condition);
+      const auto a = cached->mesh->corner_normals(), b = fresh->mesh->corner_normals();
+      ASSERT_EQ(a.size(), b.size());
+      for (const int i : a.index_range()) {
+        EXPECT_EQ(a[i], b[i]);
+      }
+      previous.result = std::move(cached);
     }
-    EXPECT_EQ(cached->preview.skipped_repeated_point_triangles,
-              fresh->preview.skipped_repeated_point_triangles);
-    EXPECT_EQ(cached->preview.max_interior_weight_condition,
-              fresh->preview.max_interior_weight_condition);
-    const auto a = cached->mesh->corner_normals(), b = fresh->mesh->corner_normals();
-    ASSERT_EQ(a.size(), b.size());
-    for (const int i : a.index_range()) {
-      EXPECT_EQ(a[i], b[i]);
-    }
-    previous.result = std::move(cached);
   }
 }
 

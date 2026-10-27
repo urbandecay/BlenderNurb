@@ -243,12 +243,13 @@ static double2 lipschitz(const NurbsSurfaceGeometry &surface)
 
 }  // namespace
 
-std::optional<TopologyCutPlan> plan_loop_cut(const NurbsGeometry &source,
-                                             const int64_t seed_edge,
-                                             const int cuts,
-                                             const double factor,
-                                             const double max_error,
-                                             std::string *r_error)
+static std::optional<TopologyCutPlan> plan_loop_cut_impl(const NurbsGeometry &source,
+                                                         const int64_t seed_edge,
+                                                         const int cuts,
+                                                         const double factor,
+                                                         const double max_error,
+                                                         std::string *r_error,
+                                                         const Span<double> seed_parameters)
 {
   if (r_error) {
     r_error->clear();
@@ -261,6 +262,9 @@ std::optional<TopologyCutPlan> plan_loop_cut(const NurbsGeometry &source,
   };
   if (!request_valid(cuts, max_error, r_error)) {
     return std::nullopt;
+  }
+  if (!seed_parameters.is_empty() && seed_parameters.size() != cuts) {
+    return fail("NURBS loop cut requires one seed parameter per cut");
   }
   if (!std::isfinite(factor) || factor <= -1 || factor >= 1) {
     return fail("NURBS cut slide must remain strictly between the existing boundaries");
@@ -307,9 +311,11 @@ std::optional<TopologyCutPlan> plan_loop_cut(const NurbsGeometry &source,
   };
   const auto &seed = *index->edge(seed_edge);
   for (int i = 0; i < cuts; i++) {
-    const double t = seed.parameter_range[0] +
-                     (seed.parameter_range[1] - seed.parameter_range[0]) *
-                         ((i + 1.0 + factor) / (cuts + 1.0));
+    const double t = seed_parameters.is_empty() ?
+                         seed.parameter_range[0] +
+                             (seed.parameter_range[1] - seed.parameter_range[0]) *
+                                 ((i + 1.0 + factor) / (cuts + 1.0)) :
+                         seed_parameters[i];
     if (!canonical_parameter(seed_edge, i, t)) {
       return fail("NURBS loop cut parameters are not representable inside the seed edge");
     }
@@ -382,6 +388,26 @@ std::optional<TopologyCutPlan> plan_loop_cut(const NurbsGeometry &source,
     }
   }
   return plan;
+}
+
+std::optional<TopologyCutPlan> plan_loop_cut(const NurbsGeometry &source,
+                                             const int64_t seed_edge,
+                                             const int cuts,
+                                             const double factor,
+                                             const double max_error,
+                                             std::string *r_error)
+{
+  return plan_loop_cut_impl(source, seed_edge, cuts, factor, max_error, r_error, {});
+}
+
+std::optional<TopologyCutPlan> detail::plan_loop_cut_parameters(const NurbsGeometry &source,
+                                                                const int64_t seed_edge,
+                                                                const Span<double> parameters,
+                                                                const double max_error,
+                                                                std::string *r_error)
+{
+  return plan_loop_cut_impl(
+      source, seed_edge, parameters.size(), 0, max_error, r_error, parameters);
 }
 
 namespace {

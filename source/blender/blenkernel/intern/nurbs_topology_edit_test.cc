@@ -1192,6 +1192,60 @@ TEST_F(NurbsTopologyEditTest, RoundedConnectedBoxHasSharedSphereCornersAndEditab
     ASSERT_TRUE(result) << error;
     /* Compare against Blender's real bevel, including its even/odd center layout. */
     const auto reference = bevel_bmesh_reference(*source, edges, 0.25, false, segments);
+    const auto nurbs_signature = signature(*result->geometry);
+    double maximum_vertex_error = 0;
+    for (const auto &point : nurbs_signature.vertices) {
+      double nearest = INFINITY;
+      for (const auto &target : reference.vertices) {
+        nearest = std::min(nearest,
+                           math::distance(double3(point[0], point[1], point[2]),
+                                          double3(target[0], target[1], target[2])));
+      }
+      maximum_vertex_error = std::max(maximum_vertex_error, nearest);
+    }
+    std::cout << "NURBS_BEVEL_ALL_VERTEX_ERROR segments=" << segments
+              << " maximum=" << maximum_vertex_error << "\n";
+    EXPECT_LT(maximum_vertex_error, 1e-6);
+    auto corner_points = [](const std::vector<TopologySignature::Point> &points) {
+      std::vector<TopologySignature::Point> result;
+      for (const auto &point : points) {
+        const double3 outside(std::max(std::abs(point[0]) - 0.75, 0.0),
+                              std::max(std::abs(point[1]) - 0.75, 0.0),
+                              std::max(std::max(0.25 - point[2], point[2] - 1.75), 0.0));
+        if (outside.x > 1e-6 && outside.y > 1e-6 && outside.z > 1e-6 &&
+            std::abs(math::length(outside) - 0.25) < 1e-6)
+        {
+          result.push_back(point);
+        }
+      }
+      return result;
+    };
+    const auto nurbs_corner_points = corner_points(nurbs_signature.vertices);
+    const auto mesh_corner_points = corner_points(reference.vertices);
+    ASSERT_EQ(nurbs_corner_points.size(), mesh_corner_points.size());
+    std::vector<bool> matched_mesh_points(mesh_corner_points.size(), false);
+    double maximum_corner_point_error = 0;
+    for (int i = 0; i < nurbs_corner_points.size(); i++) {
+      int nearest = -1;
+      double nearest_distance = std::numeric_limits<double>::infinity();
+      for (int j = 0; j < mesh_corner_points.size(); j++) {
+        if (matched_mesh_points[j]) {
+          continue;
+        }
+        const double distance = math::length(
+            double3(
+                nurbs_corner_points[i][0], nurbs_corner_points[i][1], nurbs_corner_points[i][2]) -
+            double3(mesh_corner_points[j][0], mesh_corner_points[j][1], mesh_corner_points[j][2]));
+        if (distance < nearest_distance) {
+          nearest = j;
+          nearest_distance = distance;
+        }
+      }
+      ASSERT_NE(nearest, -1);
+      matched_mesh_points[nearest] = true;
+      maximum_corner_point_error = std::max(maximum_corner_point_error, nearest_distance);
+    }
+    EXPECT_LT(maximum_corner_point_error, 1e-6);
     EXPECT_EQ(result->geometry->vertices.count(), reference.vertices.size());
     EXPECT_EQ(result->geometry->edges.count(), reference.edges.size());
     EXPECT_EQ(result->geometry->faces.count(), reference.faces.size());
@@ -1253,6 +1307,190 @@ TEST_F(NurbsTopologyEditTest, RoundedConnectedBoxHasSharedSphereCornersAndEditab
       EXPECT_GT(math::dot(double3(normals[i]), expected), 0.9999);
     }
     expect_source_geometry_equal(*source, *before);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedBevelKeepsFlatFacesAndStraightRails)
+{
+  auto [source, unused] = bevel_fixture(true);
+  ASSERT_TRUE(source);
+  Vector<int64_t> selected;
+  for (const auto &edge : source->edges) {
+    selected.append(edge.id);
+  }
+  for (const int segments : {2, 3, 8, 13}) {
+    std::string error;
+    auto result = bevel_edges(*source, selected, {.offset = 0.25, .segments = segments}, &error);
+    ASSERT_TRUE(result) << error;
+    const auto index = TopologyIndex::build(*result->geometry);
+    Map<int64_t, const NurbsCurveGeometry *> curves;
+    for (const auto &curve : result->geometry->curves) {
+      curves.add_new(curve.id, &curve);
+    }
+    for (const auto &original : source->faces) {
+      const auto *face = index->face(original.id);
+      ASSERT_NE(face, nullptr);
+      for (const auto &loop : face->loops) {
+        for (const auto &use : loop.edge_uses) {
+          const auto &edge = *index->edge(use.edge_id);
+          const double3 a(index->vertex(edge.vertex_ids[0])->position);
+          const double3 b(index->vertex(edge.vertex_ids[1])->position);
+          const double3 direction = math::normalize(b - a);
+          for (int sample = 0; sample <= 32; sample++) {
+            const double t = std::lerp(
+                edge.parameter_range[0], edge.parameter_range[1], sample / 32.0);
+            const auto point = evaluate_curve(*curves.lookup(edge.curve_id), t, &error);
+            ASSERT_TRUE(point) << error;
+            EXPECT_LT(math::length(math::cross(point->position - a, direction)), 1e-11)
+                << "Straight rail bowed at " << edge.id << ", " << t;
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedCornerCurvesAvoidPoleDetoursAndHaveAlignedJoins)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_TRUE(source);
+  Vector<int64_t> selected;
+  for (const auto &edge : source->edges) {
+    selected.append(edge.id);
+  }
+  for (const int segments : {2, 3, 8, 13}) {
+    SCOPED_TRACE(segments);
+    std::string error;
+    auto result = bevel_edges(*source, selected, {.offset = 0.25, .segments = segments}, &error);
+    ASSERT_TRUE(result) << error;
+    const auto index = TopologyIndex::build(*result->geometry, &error);
+    ASSERT_TRUE(index) << error;
+    Map<int64_t, const NurbsCurveGeometry *> curves;
+    for (const auto &curve : result->geometry->curves) {
+      curves.add_new(curve.id, &curve);
+    }
+    int tested = 0;
+    double maximum_cross_track = 0;
+    for (const auto &edge : result->geometry->edges) {
+      const double3 a(index->vertex(edge.vertex_ids[0])->position);
+      const double3 b(index->vertex(edge.vertex_ids[1])->position);
+      const double3 midpoint = (a + b) * 0.5;
+      const double3 center(midpoint.x < 0 ? -0.75 : 0.75,
+                           midpoint.y < 0 ? -0.75 : 0.75,
+                           midpoint.z < 1 ? 0.25 : 1.75);
+      const double3 da = math::abs(a - center), db = math::abs(b - center);
+      const bool interior_a = da.x > 1e-6 && da.y > 1e-6 && da.z > 1e-6;
+      const bool interior_b = db.x > 1e-6 && db.y > 1e-6 && db.z > 1e-6;
+      if ((!interior_a && !interior_b) || std::abs(math::length(da) - 0.25) > 1e-6 ||
+          std::abs(math::length(db) - 0.25) > 1e-6)
+      {
+        continue;
+      }
+      SCOPED_TRACE(edge.id);
+      const auto &curve = *curves.lookup(edge.curve_id);
+      const double3 chord = b - a;
+      const double length = math::length(chord);
+      const double3 arc_normal = math::normalize(math::cross(a - center, b - center));
+      double previous_progress = -1e-7;
+      for (int sample = 0; sample <= 32; sample++) {
+        const double t = sample / 32.0;
+        const double parameter = (1 - t) * edge.parameter_range[0] + t * edge.parameter_range[1];
+        const auto evaluated = evaluate_curve_bounded(curve, parameter, 1e-9, &error);
+        ASSERT_TRUE(evaluated) << error;
+        const double progress = math::dot(evaluated->position - a, chord) / (length * length);
+        EXPECT_GE(progress, previous_progress - 1e-7);
+        EXPECT_GE(progress, -1e-7);
+        EXPECT_LE(progress, 1 + 1e-7);
+        const double3 chord_point = a + progress * chord;
+        maximum_cross_track = std::max(
+            maximum_cross_track,
+            std::abs(math::dot(evaluated->position - center, arc_normal)) / length);
+        EXPECT_LE(math::length(evaluated->position - chord_point), 0.25 * length + 1e-8);
+        previous_progress = progress;
+      }
+      tested++;
+    }
+    EXPECT_GE(tested, 24);
+    /* The old latitude/longitude cuts wandered sideways by up to 13% of their chord,
+     * despite matching both endpoints and lying exactly on the same spherical support. */
+    EXPECT_LT(maximum_cross_track, 0.06);
+    int aligned_joins = 0;
+    double maximum_curvature_jump = 0;
+    for (const auto &vertex : result->geometry->vertices) {
+      const double3 point(vertex.position);
+      const double3 outside(std::max(std::abs(point.x) - 0.75, 0.0),
+                            std::max(std::abs(point.y) - 0.75, 0.0),
+                            std::max(std::max(0.25 - point.z, point.z - 1.75), 0.0));
+      const auto incident = index->edges_for_vertex(vertex.id);
+      const int outside_axes = int(outside.x > 1e-6) + int(outside.y > 1e-6) +
+                               int(outside.z > 1e-6);
+      if (incident.size() != 4 || outside_axes < 2 ||
+          std::abs(math::length(outside) - 0.25) > 1e-6)
+      {
+        continue;
+      }
+      auto outward_tangent = [&](const int64_t edge_id) {
+        const auto &edge = *index->edge(edge_id);
+        auto restricted = restrict_curve(
+            *curves.lookup(edge.curve_id), double2(edge.parameter_range), 1e-9, &error);
+        EXPECT_TRUE(restricted) << error;
+        if (!restricted) {
+          return double3(0);
+        }
+        const auto &curve = *restricted->curve;
+        const int endpoint = edge.vertex_ids[0] == vertex.id ? 0 : curve.points_num - 1;
+        const int adjacent = endpoint == 0 ? 1 : curve.points_num - 2;
+        return math::normalize(double3(curve.points[adjacent].position) -
+                               double3(curve.points[endpoint].position));
+      };
+      auto curvature = [&](const int64_t edge_id) {
+        const auto &edge = *index->edge(edge_id);
+        const auto &curve = *curves.lookup(edge.curve_id);
+        EXPECT_EQ(curve.points_num, curve.order);
+        const bool end = edge.vertex_ids[1] == vertex.id;
+        const int p = curve.order - 1;
+        const auto &a = curve.points[end ? p : 0];
+        const auto &b = curve.points[end ? p - 1 : 1];
+        const auto &c = curve.points[end ? p - 2 : 2];
+        const double3 position(a.position);
+        const double w1 = (end ? p : -p) * (a.weight - b.weight);
+        const double w2 = p * (p - 1) * (a.weight - 2 * b.weight + c.weight);
+        const double3 h1 = (end ? p : -p) * (a.weight * position - b.weight * double3(b.position));
+        const double3 h2 = p * (p - 1) *
+                           (a.weight * position - 2 * b.weight * double3(b.position) +
+                            c.weight * double3(c.position));
+        const double3 first = (h1 - position * w1) / a.weight;
+        const double3 second = (h2 - 2 * first * w1 - position * w2) / a.weight;
+        const double speed_squared = math::length_squared(first);
+        return (second - first * (math::dot(first, second) / speed_squared)) / speed_squared;
+      };
+      for (int i = 0; i < 4; i++) {
+        for (int j = i + 1; j < 4; j++) {
+          bool share_face = false;
+          for (const auto &a : index->uses_for_edge(incident[i])) {
+            for (const auto &b : index->uses_for_edge(incident[j])) {
+              share_face |= a.face_id == b.face_id;
+            }
+          }
+          if (!share_face) {
+            EXPECT_LT(math::dot(outward_tangent(incident[i]), outward_tangent(incident[j])),
+                      -0.999999);
+            aligned_joins++;
+            if (outside_axes == 3) {
+              maximum_curvature_jump = std::max(
+                  maximum_curvature_jump,
+                  math::distance(curvature(incident[i]), curvature(incident[j])));
+            }
+          }
+        }
+      }
+    }
+    if (segments > 2) {
+      EXPECT_GT(aligned_joins, 0);
+    }
+    std::cout << "NURBS_ROW_CURVATURE_JUMP segments=" << segments
+              << " maximum=" << maximum_curvature_jump << "\n";
+    EXPECT_LT(maximum_curvature_jump, 1e-5);
   }
 }
 

@@ -11,7 +11,19 @@
 #include "BLI_listbase.h"
 #include "MEM_guardedalloc.h"
 
+namespace blender::bke::nurbs {
+struct TopologyCutPlan;
+}
+
 namespace blender::bke::nurbs::detail {
+
+/** Transport explicitly supplied seed-curve parameters through the same source loop used by
+ * the uniform editing tool. Rounded bevels use this to place equal-angle circle stations. */
+std::optional<TopologyCutPlan> plan_loop_cut_parameters(const NurbsGeometry &source,
+                                                        int64_t seed_edge,
+                                                        Span<double> parameters,
+                                                        double max_error,
+                                                        std::string *r_error);
 
 /** Private candidate builder shared by topology mutation services. Allocation never wraps IDs.
  * A failed builder is discarded; callers must check valid() before validating/returning it.

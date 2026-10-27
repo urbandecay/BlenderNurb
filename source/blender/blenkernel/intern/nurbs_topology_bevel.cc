@@ -20,6 +20,9 @@
 #include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_topology_edit.hh"
 
+#include "bmesh.hh"
+#include "bmesh_tools.hh"
+
 #include "eigen_capi.h"
 
 #include "nurbs_math.hh"
@@ -330,6 +333,10 @@ static bool balance_bevel_widths(const Span<std::array<int, 2>> pairs,
 
 struct RoundBevelCorner {
   OwnedSurface support;
+  /** Original corner frame used by the mesh bevel's spherical corner layout. */
+  double3 center{0};
+  std::array<double3, 3> axes{};
+  bool spherical_support = false;
   /** Equator start, equator end, pole. */
   std::array<int64_t, 3> stations;
   /** Boundary profile edges in support order: start-end, end-pole, pole-start. */
@@ -337,15 +344,492 @@ struct RoundBevelCorner {
   int64_t face_id = 0;
 };
 
-/** Port BMesh's three-sided M_ADJ corner indexing and quad assembly. Even segment counts
- * share one interior vertex; odd counts have a center triangle. Only the subdivision layout
- * is ported: all points and edge curves are constructed on the authoritative NURBS support.
- * Private copies of that support and exact UV trims retain the original rounded surface.
+/** A regular stereographic chart for the whole spherical octant. The old longitude/latitude
+ * chart collapses one side to the pole: straight UV cuts there can make large detours even
+ * between nearby mesh bevel vertices. Put the projection pole outside the octant instead.
+ * Both the support and the projected boundary curves remain positive rational NURBS. */
+struct SphericalCornerChart {
+  const RoundBevelCorner &corner;
+  /** Plane axes followed by its normal, in the corner's local sphere frame. */
+  std::array<BoundedVector, 3> basis;
+  std::array<BoundedVector, 3> inverse_axes;
+
+  explicit SphericalCornerChart(const RoundBevelCorner &corner) : corner(corner)
+  {
+    const auto a = bounded_divide({1}, root({2}));
+    const auto b = bounded_divide({1}, root({6}));
+    const auto c = bounded_divide({1}, root({3}));
+    basis[0] = {a, {-a.value, a.error}, {}};
+    basis[1] = {b, b, bounded_multiply({-2}, b)};
+    basis[2] = {c, c, c};
+    std::array<BoundedVector, 3> axes;
+    for (int i = 0; i < 3; i++) {
+      for (int axis = 0; axis < 3; axis++) {
+        axes[i][axis] = {corner.axes[i][axis]};
+      }
+    }
+    for (int i = 0; i < 3; i++) {
+      const auto cofactors = cross(axes[(i + 1) % 3], axes[(i + 2) % 3]);
+      const auto determinant = dot(axes[i], cofactors);
+      for (int axis = 0; axis < 3; axis++) {
+        inverse_axes[i][axis] = bounded_divide(cofactors[axis], determinant);
+      }
+    }
+  }
+
+  BoundedVector local_point(const double3 position) const
+  {
+    const auto relative = difference(position, corner.center);
+    return {dot(inverse_axes[0], relative),
+            dot(inverse_axes[1], relative),
+            dot(inverse_axes[2], relative)};
+  }
+
+  std::array<BoundedScalar, 3> project(const double3 position) const
+  {
+    const auto local = local_point(position);
+    return {dot(basis[0], local), dot(basis[1], local), bounded_add({1}, dot(basis[2], local))};
+  }
+
+  std::optional<double2> parameters(const double3 position) const
+  {
+    const auto homogeneous = project(position);
+    const auto u = bounded_divide(homogeneous[0], homogeneous[2]);
+    const auto v = bounded_divide(homogeneous[1], homogeneous[2]);
+    if (!u.valid() || !v.valid()) {
+      return std::nullopt;
+    }
+    return double2(u.value, v.value);
+  }
+
+  double2 parameter_tangent(const double3 position, const double3 direction) const
+  {
+    const auto local = local_point(position);
+    double3 q(local[0].value, local[1].value, local[2].value), tangent;
+    q = math::normalize(q);
+    for (int i = 0; i < 3; i++) {
+      tangent[i] = 0;
+      for (int axis = 0; axis < 3; axis++) {
+        tangent[i] += inverse_axes[i][axis].value * direction[axis];
+      }
+    }
+    tangent -= q * math::dot(q, tangent);
+    const double3 normal(basis[2][0].value, basis[2][1].value, basis[2][2].value);
+    const double denominator = 1 + math::dot(normal, q);
+    double2 result;
+    for (int i = 0; i < 2; i++) {
+      const double3 axis(basis[i][0].value, basis[i][1].value, basis[i][2].value);
+      result[i] = (math::dot(axis, tangent) * denominator -
+                   math::dot(axis, q) * math::dot(normal, tangent)) /
+                  (denominator * denominator);
+    }
+    return result;
+  }
+
+  /** Compose a cubic polynomial trim with the stereographic sphere. Its homogeneous
+   * quadratic formula gives a degree-six rational curve without sampling or fitting. */
+  std::optional<CurveRefinementResult> make_curve(const std::array<double2, 4> &uv,
+                                                  const double max_error) const
+  {
+    constexpr int choose3[4] = {1, 3, 3, 1}, choose6[7] = {1, 6, 15, 20, 15, 6, 1};
+    using Scalar = long double;
+    std::array<Scalar, 7> u{}, v{}, squared{};
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 4; j++) {
+        const int k = i + j;
+        const Scalar factor = Scalar(choose3[i] * choose3[j]) / choose6[k];
+        u[k] += factor * uv[i].x;
+        v[k] += factor * uv[i].y;
+        squared[k] += factor * (Scalar(uv[i].x) * uv[j].x + Scalar(uv[i].y) * uv[j].y);
+      }
+    }
+    CurveRefinementResult result;
+    result.curve.reset(MEM_new<NurbsCurveGeometry>(__func__));
+    auto &curve = *result.curve;
+    curve.order = curve.points_num = 7;
+    curve.knots_num = 14;
+    curve.points = MEM_new_array<NurbsControlPoint>(7, __func__);
+    curve.knots = MEM_new_array<double>(14, __func__);
+    for (int i = 0; i < 14; i++) {
+      curve.knots[i] = i < 7 ? 0 : 1;
+    }
+    Scalar minimum_weight = INFINITY, maximum_weight_error = 0;
+    Scalar maximum_numerator_error = 0, extent = 0;
+    for (int k = 0; k < 7; k++) {
+      const Scalar denominator = 1 + squared[k];
+      const Scalar weight_roundoff = 1024 * std::numeric_limits<Scalar>::epsilon() *
+                                     (1 + std::abs(squared[k]));
+      auto &point = curve.points[k];
+      point.weight = double(denominator);
+      if (!(denominator > weight_roundoff) || !(point.weight > 0)) {
+        return std::nullopt;
+      }
+      minimum_weight = std::min(minimum_weight, denominator - weight_roundoff);
+      maximum_weight_error = std::max(
+          maximum_weight_error, std::abs(Scalar(point.weight) - denominator) + weight_roundoff);
+      for (int axis = 0; axis < 3; axis++) {
+        Scalar numerator = Scalar(corner.center[axis]) * denominator;
+        Scalar magnitude = std::abs(numerator);
+        for (int i = 0; i < 3; i++) {
+          const Scalar term = Scalar(corner.axes[i][axis]) *
+                              (2 * u[k] * basis[0][i].value + 2 * v[k] * basis[1][i].value +
+                               (1 - squared[k]) * basis[2][i].value);
+          numerator += term;
+          magnitude += std::abs(term) + std::abs(Scalar(corner.axes[i][axis]));
+        }
+        point.position[axis] = double(numerator / denominator);
+        const Scalar roundoff = 1024 * std::numeric_limits<Scalar>::epsilon() * (1 + magnitude);
+        maximum_numerator_error = std::max(
+            maximum_numerator_error,
+            std::abs(Scalar(point.position[axis]) * point.weight - numerator) + roundoff);
+        extent = std::max(extent, std::abs(Scalar(point.position[axis])));
+      }
+    }
+    const Scalar bound = 3 * (maximum_numerator_error + extent * maximum_weight_error) /
+                         minimum_weight;
+    result.geometry_error_bound = std::nextafter(double(bound), INFINITY);
+    return std::isfinite(result.geometry_error_bound) && result.geometry_error_bound <= max_error ?
+               std::optional<CurveRefinementResult>(std::move(result)) :
+               std::nullopt;
+  }
+
+  std::optional<SurfaceConstruction> make_surface(const double max_error) const
+  {
+    /* Exact binary domain covers the projected octant. Its tensor Bernstein weights are
+     * positive, including the middle weight 1 - 2*(5/8)^2 = 7/32. */
+    constexpr double h = 0.625;
+    constexpr double linear[3] = {-h, 0, h};
+    constexpr double squared[3] = {h * h, -h * h, h * h};
+    SurfaceConstruction result;
+    result.surface.reset(MEM_new<NurbsSurfaceGeometry>(__func__));
+    auto &surface = *result.surface;
+    surface.order_u = surface.order_v = surface.points_u = surface.points_v = 3;
+    surface.points_num = 9;
+    surface.points = MEM_new_array<NurbsControlPoint>(9, __func__);
+    surface.knots_u_num = surface.knots_v_num = 6;
+    surface.knots_u = MEM_new_array<double>(6, __func__);
+    surface.knots_v = MEM_new_array<double>(6, __func__);
+    for (int i = 0; i < 6; i++) {
+      surface.knots_u[i] = surface.knots_v[i] = i < 3 ? -h : h;
+    }
+    for (int v = 0; v < 3; v++) {
+      for (int u = 0; u < 3; u++) {
+        const double denominator = 1 + squared[u] + squared[v];
+        BoundedVector numerator;
+        for (int axis = 0; axis < 3; axis++) {
+          numerator[axis] = bounded_add(
+              bounded_add(bounded_multiply({2 * linear[u]}, basis[0][axis]),
+                          bounded_multiply({2 * linear[v]}, basis[1][axis])),
+              bounded_multiply({1 - squared[u] - squared[v]}, basis[2][axis]));
+        }
+        auto &point = surface.points[v * 3 + u];
+        point.weight = denominator;
+        double error = 0;
+        for (int axis = 0; axis < 3; axis++) {
+          BoundedScalar coordinate = bounded_multiply({corner.center[axis]}, {denominator});
+          for (int i = 0; i < 3; i++) {
+            coordinate = bounded_add(coordinate,
+                                     bounded_multiply({corner.axes[i][axis]}, numerator[i]));
+          }
+          coordinate = bounded_divide(coordinate, {denominator});
+          if (!coordinate.valid()) {
+            return std::nullopt;
+          }
+          point.position[axis] = coordinate.value;
+          error = add_upper(error, coordinate.error);
+        }
+        result.geometry_error_bound = std::max(result.geometry_error_bound, error);
+      }
+    }
+    return result.geometry_error_bound <= max_error ?
+               std::optional<SurfaceConstruction>(std::move(result)) :
+               std::nullopt;
+  }
+
+  std::optional<CurveRefinementResult> project_curve(const NurbsCurveGeometry &source,
+                                                     const double max_error) const
+  {
+    CurveRefinementResult result;
+    result.curve.reset(MEM_new<NurbsCurveGeometry>(__func__, source));
+    auto &curve = *result.curve;
+    curve.next = curve.prev = nullptr;
+    curve.id = 0;
+    curve.dimension = 2;
+    curve.points = MEM_dupalloc(source.points);
+    curve.knots = MEM_dupalloc(source.knots);
+    double minimum_weight = INFINITY, homogeneous_error = 0, weight_error = 0, extent = 0;
+    for (int i = 0; i < source.points_num; i++) {
+      auto projected = project(double3(source.points[i].position));
+      for (auto &coordinate : projected) {
+        coordinate = bounded_multiply(coordinate, {source.points[i].weight});
+      }
+      if (!projected[2].valid() || projected[2].value <= projected[2].error) {
+        return std::nullopt;
+      }
+      auto &point = curve.points[i];
+      point.weight = projected[2].value;
+      point.position[2] = 0;
+      minimum_weight = std::min(minimum_weight, point.weight - projected[2].error);
+      weight_error = std::max(weight_error, projected[2].error);
+      for (int axis = 0; axis < 2; axis++) {
+        const auto coordinate = bounded_divide(projected[axis], projected[2]);
+        if (!coordinate.valid()) {
+          return std::nullopt;
+        }
+        point.position[axis] = coordinate.value;
+        extent = std::max(extent, std::abs(coordinate.value));
+        const auto residual = bounded_subtract(
+            bounded_multiply({coordinate.value}, {point.weight}), projected[axis]);
+        homogeneous_error = std::max(homogeneous_error,
+                                     add_upper(std::abs(residual.value), residual.error));
+      }
+    }
+    const auto bound = bounded_divide(
+        bounded_add({homogeneous_error}, bounded_multiply({extent}, {weight_error})),
+        {minimum_weight});
+    if (!bound.valid()) {
+      return std::nullopt;
+    }
+    result.geometry_error_bound = add_upper(std::abs(bound.value), bound.error);
+    return result.geometry_error_bound <= max_error ?
+               std::optional<CurveRefinementResult>(std::move(result)) :
+               std::nullopt;
+  }
+};
+
+/** Vertex and face positions from Blender's bevel implementation. The NURBS corner uses these
+ * to place its editable vertices in the exact spherical corner frame.
+ */
+struct BevelMeshReference {
+  Vector<double3> vertices;
+  Vector<Vector<int>> faces;
+};
+
+/** Use BMesh's bevel layout as the position reference for the NURBS corner grid. The NURBS
+ * result keeps its own exact surfaces and curves; only the sampled corner layout is borrowed.
+ */
+static std::optional<BevelMeshReference> bevel_mesh_reference(const NurbsGeometry &source,
+                                                              const Set<int64_t> &selected,
+                                                              const BevelOptions &options)
+{
+  const double reference_start = BLI_time_now_seconds();
+  for (const NurbsTopologyFace &face : source.faces) {
+    if (!face.loops.is_single()) {
+      return std::nullopt;
+    }
+  }
+  const BMeshCreateParams parameters{.use_toolflags = true};
+  BMesh *mesh = BM_mesh_create(&bm_mesh_allocsize_default, &parameters);
+  if (!mesh) {
+    return std::nullopt;
+  }
+  BLI_SCOPED_DEFER([&]() { BM_mesh_free(mesh); });
+
+  const auto index = TopologyIndex::build(source);
+  if (!index) {
+    return std::nullopt;
+  }
+  Map<int64_t, BMVert *> vertices;
+  for (const NurbsTopologyVertex &vertex : source.vertices) {
+    const float3 position(double3(vertex.position));
+    vertices.add_new(vertex.id, BM_vert_create(mesh, position, nullptr, BM_CREATE_NOP));
+  }
+  for (const NurbsTopologyEdge &edge : source.edges) {
+    BMEdge *created = BM_edge_create(mesh,
+                                     vertices.lookup(edge.vertex_ids[0]),
+                                     vertices.lookup(edge.vertex_ids[1]),
+                                     nullptr,
+                                     BM_CREATE_NOP);
+    BM_elem_flag_set(created, BM_ELEM_SELECT, selected.contains(edge.id));
+  }
+  for (const NurbsTopologyFace &face : source.faces) {
+    const NurbsTopologyLoop &loop = *static_cast<const NurbsTopologyLoop *>(face.loops.first);
+    Vector<BMVert *> boundary;
+    for (const NurbsTopologyEdgeUse &use : loop.edge_uses) {
+      const NurbsTopologyEdge &edge = *index->edge(use.edge_id);
+      boundary.append(vertices.lookup(edge.vertex_ids[use.reversed ? 1 : 0]));
+    }
+    if (face.orientation < 0) {
+      std::reverse(boundary.begin(), boundary.end());
+    }
+    if (!BM_face_create_verts(
+            mesh, boundary.data(), boundary.size(), nullptr, BM_CREATE_NOP, true))
+    {
+      return std::nullopt;
+    }
+  }
+  BM_mesh_normals_update(mesh);
+  BMOperator op;
+  BMO_op_initf(mesh,
+               &op,
+               BMO_FLAG_DEFAULTS,
+               "bevel geom=%he offset=%f segments=%i affect=%i offset_type=%i profile=%f "
+               "clamp_overlap=%b loop_slide=%b",
+               BM_ELEM_SELECT,
+               options.offset,
+               options.segments,
+               BEVEL_AFFECT_EDGES,
+               BEVEL_AMT_OFFSET,
+               0.5,
+               /* The native planner already limited this width. A second clamp changes
+                * the guide at float precision and makes replay at that width differ. */
+               false,
+               true);
+  BMO_op_exec(mesh, &op);
+  BMO_op_finish(mesh, &op);
+  const double bevel_ms = (BLI_time_now_seconds() - reference_start) * 1000.0;
+
+  BevelMeshReference result;
+  BMIter iter;
+  BMVert *vertex;
+  int vertex_index = 0;
+  BM_ITER_MESH_INDEX (vertex, &iter, mesh, BM_VERTS_OF_MESH, vertex_index) {
+    BM_elem_index_set(vertex, vertex_index);
+    result.vertices.append(double3(vertex->co));
+  }
+  BMFace *face;
+  BM_ITER_MESH (face, &iter, mesh, BM_FACES_OF_MESH) {
+    Vector<int> boundary;
+    BMIter loop_iter;
+    BMLoop *loop;
+    BM_ITER_ELEM (loop, &loop_iter, face, BM_LOOPS_OF_FACE) {
+      boundary.append(BM_elem_index_get(loop->v));
+    }
+    result.faces.append(std::move(boundary));
+  }
+  NURBS_DEBUG_LOG("BMesh bevel layout reference: %.3f ms; %d vertices, %d faces, %d segments",
+                  bevel_ms,
+                  int(result.vertices.size()),
+                  int(result.faces.size()),
+                  options.segments);
+  return result;
+}
+
+/** A whole-row C2 cubic interpolant, parameterized by physical chord lengths. Endpoint
+ * derivatives come from the adjoining analytic strip, not independent automatic handles.
+ * The returned cubic spans are only the storage form of the solved spline. */
+static std::optional<Vector<std::array<double2, 4>>> interpolate_corner_row(
+    const Span<double2> points,
+    const Span<double> parameters,
+    const double2 start_derivative,
+    const double2 end_derivative,
+    const bool closed)
+{
+  const int n = points.size() - int(closed);
+  if (n < 2 || points.size() != parameters.size()) {
+    return std::nullopt;
+  }
+  Vector<double2> second(n);
+  if (closed) {
+    Vector<Vector<double>> matrix(n);
+    Vector<double2> rhs(n);
+    for (int i = 0; i < n; i++) {
+      matrix[i].resize(n, 0.0);
+      const int previous = (i + n - 1) % n, next = (i + 1) % n;
+      const double before = i == 0 ? parameters[n] - parameters[n - 1] :
+                                     parameters[i] - parameters[i - 1];
+      const double after = parameters[i + 1] - parameters[i];
+      if (!(before > 0 && after > 0)) {
+        return std::nullopt;
+      }
+      matrix[i][previous] += before;
+      matrix[i][i] += 2 * (before + after);
+      matrix[i][next] += after;
+      rhs[i] = 6 * ((points[next] - points[i]) / after - (points[i] - points[previous]) / before);
+    }
+    for (int column = 0; column < n; column++) {
+      int pivot = column;
+      for (int row = column + 1; row < n; row++) {
+        if (std::abs(matrix[row][column]) > std::abs(matrix[pivot][column])) {
+          pivot = row;
+        }
+      }
+      if (!(std::abs(matrix[pivot][column]) > 1e-15)) {
+        return std::nullopt;
+      }
+      std::swap(matrix[column], matrix[pivot]);
+      std::swap(rhs[column], rhs[pivot]);
+      for (int row = column + 1; row < n; row++) {
+        const double factor = matrix[row][column] / matrix[column][column];
+        for (int j = column + 1; j < n; j++) {
+          matrix[row][j] -= factor * matrix[column][j];
+        }
+        rhs[row] -= factor * rhs[column];
+      }
+    }
+    for (int i = n - 1; i >= 0; i--) {
+      double2 rhs_i = rhs[i];
+      for (int j = i + 1; j < n; j++) {
+        rhs_i -= matrix[i][j] * second[j];
+      }
+      second[i] = rhs_i / matrix[i][i];
+    }
+  }
+  else {
+    Vector<double> lower(n, 0.0), diagonal(n, 0.0), upper(n, 0.0);
+    Vector<double2> rhs(n);
+    for (int i = 1; i < n; i++) {
+      if (!(parameters[i] > parameters[i - 1])) {
+        return std::nullopt;
+      }
+    }
+    const double first = parameters[1] - parameters[0];
+    const double last = parameters[n - 1] - parameters[n - 2];
+    diagonal[0] = 2 * first;
+    upper[0] = first;
+    rhs[0] = 6 * ((points[1] - points[0]) / first - start_derivative);
+    lower[n - 1] = last;
+    diagonal[n - 1] = 2 * last;
+    rhs[n - 1] = 6 * (end_derivative - (points[n - 1] - points[n - 2]) / last);
+    for (int i = 1; i + 1 < n; i++) {
+      const double before = parameters[i] - parameters[i - 1];
+      const double after = parameters[i + 1] - parameters[i];
+      lower[i] = before;
+      diagonal[i] = 2 * (before + after);
+      upper[i] = after;
+      rhs[i] = 6 * ((points[i + 1] - points[i]) / after - (points[i] - points[i - 1]) / before);
+    }
+    for (int i = 1; i < n; i++) {
+      const double factor = lower[i] / diagonal[i - 1];
+      diagonal[i] -= factor * upper[i - 1];
+      rhs[i] -= factor * rhs[i - 1];
+    }
+    second[n - 1] = rhs[n - 1] / diagonal[n - 1];
+    for (int i = n - 2; i >= 0; i--) {
+      second[i] = (rhs[i] - upper[i] * second[i + 1]) / diagonal[i];
+    }
+  }
+  Vector<std::array<double2, 4>> result;
+  for (int i = 0; i + 1 < points.size(); i++) {
+    const double h = parameters[i + 1] - parameters[i];
+    const double2 a = second[i], b = second[(i + 1) % n];
+    const double2 secant = (points[i + 1] - points[i]) / h;
+    const double2 first = secant - h * (2 * a + b) / 6;
+    const double2 last = secant + h * (a + 2 * b) / 6;
+    const std::array<double2, 4> span = {
+        points[i], points[i] + h * first / 3, points[i + 1] - h * last / 3, points[i + 1]};
+    for (const double2 control : span) {
+      if (!std::isfinite(control.x) || !std::isfinite(control.y) || std::abs(control.x) > 0.625 ||
+          std::abs(control.y) > 0.625)
+      {
+        return std::nullopt;
+      }
+    }
+    result.append(span);
+  }
+  return result;
+}
+
+/** Use BMesh's three-sided M_ADJ corner indexing and quad assembly. Even segment counts
+ * share one interior vertex; odd counts have a center triangle. Spherical corners use a
+ * regular rational chart and aligned cubic trims, avoiding the old chart's collapsed pole.
+ * All face supports and shared edge curves retain the exact rounded NURBS surface.
  */
 static bool partition_rounded_corner_patches(TopologyCutResult &cut,
                                              const Map<int64_t, RoundBevelCorner> &corners,
                                              const int segments,
                                              const double max_error,
+                                             const BevelMeshReference *mesh_reference,
                                              std::string *r_error)
 {
   auto fail = [&](const char *message) {
@@ -373,6 +857,11 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
     int64_t edge, pcurve;
   };
   TopologyBuilder builder(*cut.edit.geometry);
+  Map<int64_t, Vector<int64_t>> source_neighbors;
+  for (const auto &edge : builder.geometry->edges) {
+    source_neighbors.lookup_or_add_default(edge.vertex_ids[0]).append(edge.vertex_ids[1]);
+    source_neighbors.lookup_or_add_default(edge.vertex_ids[1]).append(edge.vertex_ids[0]);
+  }
   const int half = segments / 2, odd = segments % 2;
   auto key = [](const int64_t a, const int64_t b) {
     return std::pair<int64_t, int64_t>{std::min(a, b), std::max(a, b)};
@@ -484,6 +973,7 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
     }
 
     std::array<Vector<CornerNode>, 3> sectors;
+    Vector<CornerNode *> interior_nodes;
     for (auto &sector : sectors) {
       sector.resize((half + 1) * (half + 1));
     }
@@ -542,6 +1032,7 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
           auto *created = vertex(
               builder, evaluated->position, add_upper(face_template.tolerance, error));
           point.vertex = created->id;
+          interior_nodes.append(&point);
           cut.edit.vertices.append(created->id);
           cut.edit.geometry_error_bound = std::max(cut.edit.geometry_error_bound, error);
         }
@@ -560,6 +1051,396 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
     if (odd) {
       polygons.append({&node(0, half, half), &node(1, half, half), &node(2, half, half)});
     }
+
+    /* Use the actual mesh bevel's corner grid as the positional reference. All of its corner
+     * vertices lie on the same sphere; convert their directions back to this exact NURBS support.
+     * Match faces from the shared boundary inward so vertex identities follow the same grid
+     * connectivity, rather than relying on a nearest-point guess. */
+    if (corner.spherical_support && mesh_reference) {
+      Vector<std::array<double, 3>> mesh_coordinates(mesh_reference->vertices.size());
+      Vector<bool> on_corner_sphere(mesh_reference->vertices.size(), false);
+      const double frame_tolerance = 128 * std::numeric_limits<float>::epsilon();
+      for (const int i : mesh_reference->vertices.index_range()) {
+        const double3 relative = mesh_reference->vertices[i] - corner.center;
+        double norm_squared = 0;
+        bool in_octant = true;
+        for (int axis = 0; axis < 3; axis++) {
+          const double axis_length_squared = math::length_squared(corner.axes[axis]);
+          if (!(axis_length_squared > 0)) {
+            in_octant = false;
+            break;
+          }
+          const double coordinate = math::dot(relative, corner.axes[axis]) / axis_length_squared;
+          mesh_coordinates[i][axis] = coordinate;
+          norm_squared += coordinate * coordinate;
+          in_octant &= coordinate >= -frame_tolerance && coordinate <= 1 + frame_tolerance;
+        }
+        on_corner_sphere[i] = in_octant &&
+                              std::abs(std::sqrt(norm_squared) - 1) <= 8 * frame_tolerance;
+      }
+      Vector<Vector<int>> mesh_corner_faces;
+      for (const Vector<int> &face : mesh_reference->faces) {
+        if ((face.size() != 3 && face.size() != 4) ||
+            !std::all_of(face.begin(), face.end(), [&](const int vertex) {
+              return on_corner_sphere[vertex];
+            }))
+        {
+          continue;
+        }
+        mesh_corner_faces.append(face);
+      }
+      Vector<Vector<int>> mesh_faces_by_vertex(mesh_reference->vertices.size());
+      for (const int face : mesh_corner_faces.index_range()) {
+        for (const int vertex : mesh_corner_faces[face]) {
+          mesh_faces_by_vertex[vertex].append(face);
+        }
+      }
+
+      Map<int64_t, int> node_to_mesh;
+      Set<int> used_mesh_vertices;
+      bool matched = mesh_corner_faces.size() == polygons.size();
+      if (matched) {
+        for (int side = 0; side < 3; side++) {
+          Vector<int> profile_vertices;
+          const int zero_axis = (side + 2) % 3;
+          const int frame_axis = side;
+          for (const int i : mesh_reference->vertices.index_range()) {
+            if (on_corner_sphere[i] &&
+                std::abs(mesh_coordinates[i][zero_axis]) <= 8 * frame_tolerance)
+            {
+              profile_vertices.append(i);
+            }
+          }
+          if (profile_vertices.size() != boundaries[side].vertices.size()) {
+            matched = false;
+            break;
+          }
+          std::sort(
+              profile_vertices.begin(), profile_vertices.end(), [&](const int a, const int b) {
+                return mesh_coordinates[a][frame_axis] > mesh_coordinates[b][frame_axis];
+              });
+          for (int k = 0; k < profile_vertices.size(); k++) {
+            const int64_t node_id = boundaries[side].vertices[k];
+            const int mesh_vertex = profile_vertices[k];
+            if (const int *mapped = node_to_mesh.lookup_ptr(node_id)) {
+              matched &= *mapped == mesh_vertex;
+            }
+            else if (!used_mesh_vertices.add(mesh_vertex)) {
+              matched = false;
+            }
+            else {
+              node_to_mesh.add_new(node_id, mesh_vertex);
+            }
+          }
+        }
+      }
+
+      auto map_polygon = [&](const Vector<CornerNode *> &polygon,
+                             const Vector<int> &mesh_face) -> bool {
+        const int count = polygon.size();
+        Vector<Vector<int>> alignments;
+        for (const int direction : {-1, 1}) {
+          for (int start = 0; start < count; start++) {
+            int known = 0;
+            bool compatible = true;
+            Vector<int> alignment(count);
+            for (int i = 0; i < count; i++) {
+              const int mesh_index = (start + direction * i + count * 2) % count;
+              alignment[i] = mesh_face[mesh_index];
+              if (const int *mapped = node_to_mesh.lookup_ptr(polygon[i]->vertex)) {
+                known++;
+                compatible &= *mapped == alignment[i];
+              }
+            }
+            if (compatible && known >= 2 &&
+                std::find(alignments.begin(), alignments.end(), alignment) == alignments.end())
+            {
+              alignments.append(std::move(alignment));
+            }
+          }
+        }
+        if (alignments.size() != 1) {
+          return false;
+        }
+        const Vector<int> &alignment = alignments[0];
+        for (int i = 0; i < count; i++) {
+          const int64_t node_id = polygon[i]->vertex;
+          if (const int *mapped = node_to_mesh.lookup_ptr(node_id)) {
+            if (*mapped != alignment[i]) {
+              return false;
+            }
+          }
+          else if (!used_mesh_vertices.add(alignment[i])) {
+            return false;
+          }
+          else {
+            node_to_mesh.add_new(node_id, alignment[i]);
+          }
+        }
+        return true;
+      };
+      if (matched) {
+        bool progress = true;
+        while (matched && progress &&
+               node_to_mesh.size() < boundaries[0].vertices.size() +
+                                         boundaries[1].vertices.size() +
+                                         boundaries[2].vertices.size() - 3 + interior_nodes.size())
+        {
+          progress = false;
+          for (const Vector<CornerNode *> &polygon : polygons) {
+            int known_vertices = 0;
+            int seed_mesh_vertex = -1;
+            for (const CornerNode *point : polygon) {
+              if (const int *mapped = node_to_mesh.lookup_ptr(point->vertex)) {
+                known_vertices++;
+                seed_mesh_vertex = *mapped;
+              }
+            }
+            if (known_vertices < 2) {
+              continue;
+            }
+            for (const int face : mesh_faces_by_vertex[seed_mesh_vertex]) {
+              const Vector<int> &mesh_face = mesh_corner_faces[face];
+              const int previous_size = node_to_mesh.size();
+              if (map_polygon(polygon, mesh_face)) {
+                progress |= node_to_mesh.size() > previous_size;
+                break;
+              }
+            }
+          }
+        }
+        matched &= node_to_mesh.size() >=
+                   boundaries[0].vertices.size() + boundaries[1].vertices.size() +
+                       boundaries[2].vertices.size() - 3 + interior_nodes.size();
+      }
+      if (matched) {
+        struct MappedCornerPoint {
+          CornerNode *node;
+          double3 direction;
+          double2 uv;
+          double3 position;
+        };
+        Vector<MappedCornerPoint> mapped_points;
+        for (CornerNode *point : interior_nodes) {
+          const int *mesh_vertex = node_to_mesh.lookup_ptr(point->vertex);
+          if (!mesh_vertex) {
+            matched = false;
+            break;
+          }
+          const double3 unit_direction = math::normalize(
+              double3(mesh_coordinates[*mesh_vertex][0],
+                      mesh_coordinates[*mesh_vertex][1],
+                      mesh_coordinates[*mesh_vertex][2]));
+          double3 direction = unit_direction;
+          direction /= direction.x + direction.y + direction.z;
+          const double2 uv = reference_uv(direction);
+          double3 position = corner.center;
+          for (int axis = 0; axis < 3; axis++) {
+            position += corner.axes[axis] * unit_direction[axis];
+          }
+          mapped_points.append({point, direction, uv, position});
+        }
+        matched &= mapped_points.size() == interior_nodes.size();
+        if (matched) {
+          for (const MappedCornerPoint &mapped : mapped_points) {
+            mapped.node->direction = mapped.direction;
+            mapped.node->uv = mapped.uv;
+            auto *created = builder.vertices.lookup(mapped.node->vertex);
+            std::copy_n(&mapped.position.x, 3, created->position);
+            created->tolerance = face_template.tolerance;
+          }
+        }
+      }
+    }
+
+    int64_t child_support_id = support_id;
+    const NurbsSurfaceGeometry *curve_support = &support;
+    std::optional<SphericalCornerChart> regular_chart;
+    if (corner.spherical_support) {
+      regular_chart.emplace(corner);
+      const SphericalCornerChart &chart = *regular_chart;
+      auto regular = chart.make_surface(max_error);
+      if (!regular) {
+        return fail("Rounded NURBS corner could not construct a regular sphere chart");
+      }
+      double chart_error = regular->geometry_error_bound;
+      double metric_bound = 0;
+      for (const double3 &axis : corner.axes) {
+        metric_bound = add_upper(metric_bound, 2 * math::length(axis));
+      }
+      Map<int64_t, double2> vertex_parameters;
+      for (auto &sector : sectors) {
+        for (CornerNode &point : sector) {
+          if (!point.vertex) {
+            continue;
+          }
+          const auto uv = chart.parameters(
+              double3(builder.vertices.lookup(point.vertex)->position));
+          if (!uv) {
+            return fail("Rounded NURBS vertex could not project to its regular sphere chart");
+          }
+          point.uv = *uv;
+          vertex_parameters.add_overwrite(point.vertex, *uv);
+        }
+      }
+      for (auto item : corner_edges.items()) {
+        const auto &boundary = *builder.edges.lookup(item.value.edge);
+        auto projected = chart.project_curve(*builder.curves.lookup(boundary.curve_id), max_error);
+        if (!projected) {
+          return fail("Rounded NURBS boundary could not project to its regular sphere chart");
+        }
+        chart_error = add_upper(chart_error,
+                                multiply_upper(metric_bound, projected->geometry_error_bound));
+        auto restricted = restrict_curve(
+            *projected->curve, double2(boundary.parameter_range), max_error, r_error);
+        if (!restricted) {
+          return false;
+        }
+        chart_error = add_upper(chart_error,
+                                multiply_upper(metric_bound, restricted->geometry_error_bound));
+        /* Adjacent trims must share the exact same stored UV at a shared vertex, as they do
+         * in the original chart. Enclose endpoint reconciliation instead of widening the
+         * tessellator's strict chart-closure rule. */
+        for (int endpoint = 0; endpoint < 2; endpoint++) {
+          auto &point =
+              restricted->curve->points[endpoint ? restricted->curve->points_num - 1 : 0];
+          const double2 uv = vertex_parameters.lookup(boundary.vertex_ids[endpoint]);
+          const double snap = distance_upper(double3(point.position), double3(uv.x, uv.y, 0));
+          chart_error = add_upper(chart_error, multiply_upper(metric_bound, snap));
+          point.position[0] = uv.x;
+          point.position[1] = uv.y;
+        }
+        item.value.pcurve = install_curve(builder, std::move(restricted->curve))->id;
+      }
+      regular->surface->id = builder.id();
+      auto *installed = regular->surface.release();
+      BLI_addtail(&builder.geometry->surfaces, installed);
+      builder.surfaces.add_new(installed->id, installed);
+      child_support_id = installed->id;
+      curve_support = installed;
+      cut.edit.geometry_error_bound = add_upper(cut.edit.geometry_error_bound, chart_error);
+    }
+
+    Map<std::pair<int64_t, int64_t>, double2> handles;
+    if (regular_chart) {
+      Map<int64_t, const CornerNode *> points;
+      Map<int64_t, Vector<int64_t>> neighbors;
+      Map<int64_t, Set<std::pair<int64_t, int64_t>>> wedges;
+      Set<std::pair<int64_t, int64_t>> links;
+      for (const auto &polygon : polygons) {
+        for (const int i : polygon.index_range()) {
+          const int64_t a = polygon[i]->vertex;
+          const int64_t b = polygon[(i + 1) % polygon.size()]->vertex;
+          const int64_t c = polygon[(i + polygon.size() - 1) % polygon.size()]->vertex;
+          points.add_overwrite(a, polygon[i]);
+          wedges.lookup_or_add_default(a).add(key(b, c));
+          if (links.add(key(a, b))) {
+            neighbors.lookup_or_add_default(a).append(b);
+            neighbors.lookup_or_add_default(b).append(a);
+          }
+        }
+      }
+      auto continuation = [&](const int64_t at, const int64_t previous) -> int64_t {
+        const auto &adjacent = neighbors.lookup(at);
+        if (adjacent.size() != 4) {
+          return 0;
+        }
+        for (const int64_t candidate : adjacent) {
+          if (candidate != previous && !wedges.lookup(at).contains(key(previous, candidate))) {
+            return corner_edges.contains(key(at, candidate)) ? 0 : candidate;
+          }
+        }
+        return 0;
+      };
+      Set<std::pair<int64_t, int64_t>> solved;
+      for (const auto &link : links) {
+        if (corner_edges.contains(link) || solved.contains(link)) {
+          continue;
+        }
+        Vector<int64_t> row{link.first, link.second};
+        Set<int64_t> visited;
+        visited.add_multiple(row);
+        bool closed = false;
+        auto extend = [&]() {
+          while (const int64_t next = continuation(row.last(), row[row.size() - 2])) {
+            if (next == row.first()) {
+              row.append(next);
+              closed = true;
+              return true;
+            }
+            if (!visited.add(next)) {
+              return false;
+            }
+            row.append(next);
+          }
+          return true;
+        };
+        if (!extend()) {
+          return fail("Rounded NURBS corner has an ambiguous spline row");
+        }
+        if (!closed) {
+          std::reverse(row.begin(), row.end());
+          if (!extend()) {
+            return fail("Rounded NURBS corner has an ambiguous spline row");
+          }
+        }
+        Vector<double2> uv;
+        Vector<double> parameters;
+        double length = 0;
+        for (const int i : row.index_range()) {
+          uv.append(points.lookup(row[i])->uv);
+          if (i != 0) {
+            length += math::distance(double3(builder.vertices.lookup(row[i - 1])->position),
+                                     double3(builder.vertices.lookup(row[i])->position));
+          }
+          parameters.append(length);
+        }
+        if (!(length > 0)) {
+          return fail("Rounded NURBS corner has a collapsed spline row");
+        }
+        for (double &parameter : parameters) {
+          parameter /= length;
+        }
+        auto derivative = [&](const bool end) {
+          const int64_t at = end ? row.last() : row.first();
+          const int64_t next = end ? row[row.size() - 2] : row[1];
+          const double3 position(builder.vertices.lookup(at)->position);
+          double3 direction = end ? position - double3(builder.vertices.lookup(next)->position) :
+                                    double3(builder.vertices.lookup(next)->position) - position;
+          if (const auto *existing = source_neighbors.lookup_ptr(at)) {
+            int64_t external = 0;
+            for (const int64_t candidate : *existing) {
+              if (!neighbors.lookup(at).contains(candidate)) {
+                if (external) {
+                  external = 0;
+                  break;
+                }
+                external = candidate;
+              }
+            }
+            if (external) {
+              const double3 outside(builder.vertices.lookup(external)->position);
+              direction = end ? outside - position : position - outside;
+            }
+          }
+          return regular_chart->parameter_tangent(position, math::normalize(direction) * length);
+        };
+        auto spans = interpolate_corner_row(
+            uv, parameters, derivative(false), derivative(true), closed);
+        if (!spans) {
+          return fail("Rounded NURBS corner could not interpolate its complete spline row");
+        }
+        for (const int i : spans->index_range()) {
+          const int64_t a = row[i], b = row[i + 1];
+          if (!solved.add(key(a, b))) {
+            return fail("Rounded NURBS corner spline rows overlap");
+          }
+          handles.add_new({a, b}, (*spans)[i][1]);
+          handles.add_new({b, a}, (*spans)[i][2]);
+        }
+      }
+    }
+
     auto get_edge = [&](const CornerNode &a, const CornerNode &b) -> std::optional<CornerEdge> {
       const auto pair = key(a.vertex, b.vertex);
       if (const auto *existing = corner_edges.lookup_ptr(pair)) {
@@ -570,7 +1451,31 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
       {
         return std::nullopt;
       }
-      auto curve = surface_parameter_line(support, a.uv, b.uv, max_error, r_error);
+      std::optional<CurveRefinementResult> curve;
+      OwnedCurve trim;
+      if (regular_chart) {
+        const std::array<double2, 4> uv = {a.uv,
+                                           handles.lookup({a.vertex, b.vertex}),
+                                           handles.lookup({b.vertex, a.vertex}),
+                                           b.uv};
+        curve = regular_chart->make_curve(uv, max_error);
+        trim.reset(MEM_new<NurbsCurveGeometry>(__func__));
+        trim->dimension = 2;
+        trim->order = trim->points_num = 4;
+        trim->knots_num = 8;
+        trim->points = MEM_new_array<NurbsControlPoint>(4, __func__);
+        trim->knots = MEM_new_array<double>(8, __func__);
+        for (int i = 0; i < 4; i++) {
+          trim->points[i].position[0] = uv[i].x;
+          trim->points[i].position[1] = uv[i].y;
+          trim->knots[i] = 0;
+          trim->knots[i + 4] = 1;
+        }
+      }
+      else {
+        curve = surface_parameter_line(*curve_support, a.uv, b.uv, max_error, r_error);
+        trim = line({a.uv.x, a.uv.y, 0}, {b.uv.x, b.uv.y, 0}, {0, 1}, 2);
+      }
       if (!curve) {
         return std::nullopt;
       }
@@ -579,8 +1484,7 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
                                  b.vertex,
                                  std::move(curve->curve),
                                  add_upper(face_template.tolerance, curve->geometry_error_bound));
-      const auto *pcurve = install_curve(
-          builder, line({a.uv.x, a.uv.y, 0}, {b.uv.x, b.uv.y, 0}, {0, 1}, 2));
+      const auto *pcurve = install_curve(builder, std::move(trim));
       CornerEdge result{created->id, pcurve->id};
       corner_edges.add_new(pair, result);
       cut.edit.edges.append(created->id);
@@ -599,7 +1503,7 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
     for (const auto &polygon : polygons) {
       auto *child = MEM_new<NurbsTopologyFace>(__func__, face_template);
       child->id = descendants.is_empty() ? corner.face_id : builder.id();
-      child->surface_id = builder.copy_surface(support_id)->id;
+      child->surface_id = builder.copy_surface(child_support_id)->id;
       child->loops.clear_no_delete();
       BLI_addtail(&builder.geometry->faces, child);
       builder.faces.add_overwrite(child->id, child);
@@ -1290,6 +2194,9 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
         return fail("Rounded NURBS corner exceeds the source construction error budget");
       }
       corner.support = std::move(constructed->surface);
+      corner.center = center;
+      corner.axes = axes;
+      corner.spherical_support = true;
       round_corners.add_new(original.id, std::move(corner));
     }
   }
@@ -1977,9 +2884,25 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     /* Plan against the same unpartitioned source and apply all strip cuts together. Applying
      * each ring separately copied and validated the entire growing body once per strip. */
     const double partition_start = BLI_time_now_seconds();
+    bool needs_mesh_reference = false;
+    for (const auto &item : round_corners.items()) {
+      needs_mesh_reference |= item.value.spherical_support;
+    }
+    std::optional<BevelMeshReference> mesh_reference;
+    if (needs_mesh_reference) {
+      mesh_reference = bevel_mesh_reference(source, selected, options);
+    }
     TopologyCutPlan combined;
     Map<int64_t, int> face_requests;
     Set<int64_t> remaining;
+    Map<int64_t, const NurbsTopologyEdge *> partition_edges;
+    Map<int64_t, const NurbsCurveGeometry *> partition_curves;
+    for (const auto &edge : result.geometry->edges) {
+      partition_edges.add_new(edge.id, &edge);
+    }
+    for (const auto &curve : result.geometry->curves) {
+      partition_curves.add_new(curve.id, &curve);
+    }
     for (const auto &item : strip_seeds) {
       remaining.add(item.first);
     }
@@ -1987,8 +2910,72 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
       if (!remaining.contains(face)) {
         continue;
       }
-      auto plan = plan_loop_cut(
-          *result.geometry, seed, options.segments - 1, 0, options.max_error, r_error);
+      const auto &seed_edge = *partition_edges.lookup(seed);
+      const auto &profile = *partition_curves.lookup(seed_edge.curve_id);
+      Vector<double> parameters;
+      if (profile.order == 3 && profile.points_num == 3 &&
+          profile.points[0].weight == profile.points[2].weight)
+      {
+        const double weight = profile.points[1].weight / profile.points[0].weight;
+        if (weight > 0 && weight < 1) {
+          const double half_angle = std::acos(weight);
+          if (mesh_reference && (options.segments & (options.segments - 1)) != 0) {
+            /* BMesh resamples its power-of-two corner grid for other segment counts.
+             * Those stations differ slightly from ideal equal-angle spacing. Use the
+             * actual mesh guide instead of introducing a second sampling rule. */
+            const double3 first(profile.points[0].position), last(profile.points[2].position);
+            const double3 center = ((first + last) / 2 -
+                                    weight * weight * double3(profile.points[1].position)) /
+                                   (1 - weight * weight);
+            const double radius = math::distance(first, center);
+            const double3 x_axis = math::normalize(first - center);
+            const double3 normal = math::normalize(math::cross(first - center, last - center));
+            const double3 y_axis = math::cross(normal, x_axis);
+            const double tolerance = 32 * std::numeric_limits<float>::epsilon() *
+                                     std::max({1.0, math::length(center), radius});
+            for (const double3 point : mesh_reference->vertices) {
+              const double3 radial = point - center;
+              if (std::abs(math::dot(radial, normal)) > tolerance ||
+                  std::abs(math::length(radial) - radius) > tolerance)
+              {
+                continue;
+              }
+              const double angle = std::atan2(math::dot(radial, y_axis),
+                                              math::dot(radial, x_axis));
+              if (angle <= half_angle * 1e-5 || angle >= 2 * half_angle - half_angle * 1e-5) {
+                continue;
+              }
+              const double a = std::sin(angle / 2);
+              const double b = std::sin(half_angle - angle / 2);
+              parameters.append(std::lerp(
+                  seed_edge.parameter_range[0], seed_edge.parameter_range[1], a / (a + b)));
+            }
+            std::sort(parameters.begin(), parameters.end());
+            parameters.resize(std::unique(parameters.begin(), parameters.end()) -
+                              parameters.begin());
+            if (parameters.size() != options.segments - 1) {
+              parameters.clear();
+            }
+          }
+          if (parameters.is_empty()) {
+            for (int i = 1; i < options.segments; i++) {
+              /* A rational circular quadratic is not uniform in angle. Match mesh bevel's
+               * equal-angle stations before transporting cuts to the shared corner boundary. */
+              const double a = std::sin(half_angle * i / options.segments);
+              const double b = std::sin(half_angle * (options.segments - i) / options.segments);
+              const double t = a / (a + b);
+              parameters.append(
+                  std::lerp(seed_edge.parameter_range[0], seed_edge.parameter_range[1], t));
+            }
+          }
+        }
+      }
+      auto plan =
+          parameters.is_empty() ?
+              plan_loop_cut(
+                  *result.geometry, seed, options.segments - 1, 0, options.max_error, r_error) :
+              detail::plan_loop_cut_parameters(
+                  *result.geometry, seed, parameters, options.max_error, r_error);
       if (!plan) {
         return std::nullopt;
       }
@@ -2025,8 +3012,12 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     if (!cut) {
       return std::nullopt;
     }
-    if (!partition_rounded_corner_patches(
-            *cut, round_corners, options.segments, options.max_error, r_error))
+    if (!partition_rounded_corner_patches(*cut,
+                                          round_corners,
+                                          options.segments,
+                                          options.max_error,
+                                          mesh_reference ? &*mesh_reference : nullptr,
+                                          r_error))
     {
       return std::nullopt;
     }
