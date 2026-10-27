@@ -10,6 +10,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 #include <mutex>
 
 #include "BLI_time.h"
@@ -26,7 +27,8 @@ void debug_log(const char *file, const int line, const char *format, ...)
 {
   std::lock_guard lock(debug_log_mutex);
   if (debug_log_file == nullptr) {
-    debug_log_file = std::fopen("/tmp/nurbs-debug.log", "w");
+    const char *path = std::getenv("BLENDER_NURBS_DEBUG_LOG");
+    debug_log_file = std::fopen(path && path[0] ? path : "/tmp/nurbs-debug.log", "w");
     if (debug_log_file == nullptr) {
       return;
     }

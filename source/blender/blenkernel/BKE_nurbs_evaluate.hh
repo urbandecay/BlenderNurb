@@ -17,6 +17,7 @@ struct BoundarySample {
   int point_index;
   /** Source curve evaluation, before using the shared topology vertex at an endpoint. */
   double3 curve_position;
+  double weight_condition = 1.0;
 };
 
 struct EvaluatedBoundaryEdge {
@@ -58,6 +59,8 @@ struct BoundaryEvaluation {
   Vector<EvaluatedBoundaryEdge> edges;
   /** Source face/loop/use order, including holes and repeated seam uses. */
   Vector<EvaluatedBoundaryUse> uses;
+  /** Samples whose identical natural support evaluation reused their canonical edge result. */
+  int64_t reused_natural_support_samples = 0;
 };
 
 struct BoundaryEvaluationOptions {

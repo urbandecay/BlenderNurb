@@ -150,6 +150,114 @@ static std::optional<Vector<double>> axis_samples(const double minimum,
   return result;
 }
 
+/** A complete Cartesian UV grid needs no general constrained triangulation. Every
+ * cell is an empty rectangle, so either diagonal is Delaunay. Require the exact
+ * existing perimeter and sample coordinates, with no merging or added samples. */
+static std::optional<Vector<int3>> rectangular_grid_triangles(const Span<int> polygon,
+                                                              Vector<double2> &parameters,
+                                                              Vector<double2> &normalized,
+                                                              Vector<int> &input_to_global,
+                                                              const double2 origin,
+                                                              const double scale,
+                                                              const int max_points,
+                                                              const double2 minimum,
+                                                              const double2 maximum,
+                                                              const Span<double> samples_u,
+                                                              const Span<double> samples_v,
+                                                              const double epsilon)
+{
+  Vector<double> coordinates[2];
+  coordinates[0].append(minimum.x);
+  coordinates[0].extend(samples_u);
+  coordinates[0].append(maximum.x);
+  coordinates[1].append(minimum.y);
+  coordinates[1].extend(samples_v);
+  coordinates[1].append(maximum.y);
+  const int nx = coordinates[0].size(), ny = coordinates[1].size();
+  if (int64_t(nx) * ny > max_points || parameters.size() != polygon.size() ||
+      polygon.size() != 2LL * (nx + int64_t(ny)) - 4)
+  {
+    return std::nullopt;
+  }
+  Vector<int> grid(int64_t(nx) * ny, -1);
+  for (const int i : parameters.index_range()) {
+    int cell[2];
+    for (const int axis : IndexRange(2)) {
+      const auto &values = coordinates[axis];
+      const auto found = std::lower_bound(values.begin(), values.end(), parameters[i][axis]);
+      if (found == values.end() || *found != parameters[i][axis]) {
+        return std::nullopt;
+      }
+      cell[axis] = found - values.begin();
+    }
+    if (cell[0] != 0 && cell[0] != nx - 1 && cell[1] != 0 && cell[1] != ny - 1) {
+      return std::nullopt;
+    }
+    int &slot = grid[cell[1] * nx + cell[0]];
+    if (slot != -1) {
+      return std::nullopt;
+    }
+    slot = i;
+  }
+  Vector<int> perimeter;
+  for (int i = 0; i < nx - 1; i++) {
+    perimeter.append(grid[i]);
+  }
+  for (int j = 0; j < ny - 1; j++) {
+    perimeter.append(grid[j * nx + nx - 1]);
+  }
+  for (int i = nx - 1; i > 0; i--) {
+    perimeter.append(grid[(ny - 1) * nx + i]);
+  }
+  for (int j = ny - 1; j > 0; j--) {
+    perimeter.append(grid[j * nx]);
+  }
+  if (perimeter.contains(-1)) {
+    return std::nullopt;
+  }
+  const int first = perimeter.first_index_of_try(polygon.first());
+  if (first < 0) {
+    return std::nullopt;
+  }
+  for (const int i : polygon.index_range()) {
+    if (polygon[i] != perimeter[(int64_t(first) + i) % perimeter.size()]) {
+      return std::nullopt;
+    }
+  }
+  /* Keep close or collapsed normalized coordinates on the ordinary CDT path,
+   * where its epsilon/provenance rejection rules continue to apply. */
+  for (int i = 1; i < nx; i++) {
+    if (normalized[grid[i]].x - normalized[grid[i - 1]].x <= epsilon) {
+      return std::nullopt;
+    }
+  }
+  for (int j = 1; j < ny; j++) {
+    if (normalized[grid[j * nx]].y - normalized[grid[(j - 1) * nx]].y <= epsilon) {
+      return std::nullopt;
+    }
+  }
+  for (int j = 1; j < ny - 1; j++) {
+    for (int i = 1; i < nx - 1; i++) {
+      const double2 parameter(coordinates[0][i], coordinates[1][j]);
+      grid[j * nx + i] = parameters.size();
+      parameters.append(parameter);
+      normalized.append((parameter - origin) / scale);
+      input_to_global.append(-1);
+    }
+  }
+  Vector<int3> triangles;
+  triangles.reserve(2LL * (nx - 1) * (ny - 1));
+  for (int j = 0; j < ny - 1; j++) {
+    for (int i = 0; i < nx - 1; i++) {
+      const int a = grid[j * nx + i], b = grid[j * nx + i + 1];
+      const int c = grid[(j + 1) * nx + i + 1], d = grid[(j + 1) * nx + i];
+      triangles.append({a, b, c});
+      triangles.append({a, c, d});
+    }
+  }
+  return triangles;
+}
+
 static std::optional<SurfacePreview> tessellate_surface_subset(
     const NurbsGeometry &source,
     const SurfacePreviewOptions &options,
@@ -194,6 +302,7 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
   SurfacePreview result;
   result.boundary = std::move(*boundary);
   const double face_tessellation_start = BLI_time_now_seconds();
+  int grid_faces = 0;
   Map<int64_t, const EvaluatedBoundaryUse *> uses;
   Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
   for (const EvaluatedBoundaryUse &use : result.boundary.uses) {
@@ -348,113 +457,136 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
     if (samples_u->size() * samples_v->size() > options.max_points) {
       return fail("NURBS surface preview grid exceeds its workspace limit");
     }
-    for (const double y : *samples_v) {
-      for (const double x : *samples_u) {
-        const double2 parameter(x, y);
-        const double2 point = (parameter - origin) / scale;
-        if (polygon_location(point, loops[outer_loop], normalized) != PolygonLocation::Inside) {
+    Vector<int3> input_triangles;
+    auto grid_triangles = quad_grid ? rectangular_grid_triangles(loops[outer_loop],
+                                                                 uv,
+                                                                 normalized,
+                                                                 input_to_global,
+                                                                 origin,
+                                                                 scale,
+                                                                 options.max_points,
+                                                                 minimum,
+                                                                 maximum,
+                                                                 *samples_u,
+                                                                 *samples_v,
+                                                                 epsilon) :
+                                      std::nullopt;
+    if (grid_triangles) {
+      input_triangles = std::move(*grid_triangles);
+      grid_faces++;
+    }
+    else {
+      for (const double y : *samples_v) {
+        for (const double x : *samples_u) {
+          const double2 parameter(x, y);
+          const double2 point = (parameter - origin) / scale;
+          if (polygon_location(point, loops[outer_loop], normalized) != PolygonLocation::Inside) {
+            continue;
+          }
+          bool in_hole = false;
+          for (const int i : loops.index_range()) {
+            if (i != outer_loop &&
+                polygon_location(point, loops[i], normalized) != PolygonLocation::Outside)
+            {
+              in_hole = true;
+              break;
+            }
+          }
+          if (!in_hole) {
+            if (uv.size() >= std::numeric_limits<int>::max()) {
+              return fail("NURBS surface preview exceeds the triangulator input index range");
+            }
+            uv.append(parameter);
+            normalized.append(point);
+            input_to_global.append(-1);
+          }
+        }
+      }
+      meshintersect::CDT_input<double> input;
+      input.vert = normalized.as_span();
+      input.face = loops.as_span();
+      input.epsilon = epsilon;
+      input.need_ids = true;
+      const auto cdt = meshintersect::delaunay_2d_calc(input, CDT_INSIDE_WITH_HOLES);
+      Vector<int> output_to_input;
+      for (const int i : cdt.vert.index_range()) {
+        if (cdt.vert_orig[i].size() != 1 || cdt.vert_orig[i][0] >= input.vert.size()) {
+          return fail(
+              fmt::format("NURBS face {} triangulation merged or created UV points", face.id));
+        }
+        const int original = int(cdt.vert_orig[i][0]);
+        if (cdt.vert[i] != input.vert[original]) {
+          return fail(fmt::format("NURBS face {} triangulation moved a UV point", face.id));
+        }
+        output_to_input.append(original);
+      }
+      Vector<Vector<int>> constraint_counts;
+      for (const Vector<int> &polygon : loops) {
+        constraint_counts.append(Vector<int>(polygon.size(), 0));
+      }
+      for (const int i : cdt.edge.index_range()) {
+        if (cdt.edge_orig[i].is_empty()) {
           continue;
         }
-        bool in_hole = false;
-        for (const int i : loops.index_range()) {
-          if (i != outer_loop &&
-              polygon_location(point, loops[i], normalized) != PolygonLocation::Outside)
-          {
-            in_hole = true;
-            break;
-          }
+        if (cdt.edge_orig[i].size() != 1 || cdt.face_edge_offset == 0) {
+          return fail(
+              fmt::format("NURBS face {} triangulation overlaps boundary constraints", face.id));
         }
-        if (!in_hole) {
-          if (uv.size() >= std::numeric_limits<int>::max()) {
-            return fail("NURBS surface preview exceeds the triangulator input index range");
-          }
-          uv.append(parameter);
-          normalized.append(point);
-          input_to_global.append(-1);
+        const uint32_t encoded = cdt.edge_orig[i][0];
+        const int polygon_index = int(encoded / cdt.face_edge_offset) - 1;
+        const int corner = int(encoded % cdt.face_edge_offset);
+        if (polygon_index < 0 || polygon_index >= loops.size() ||
+            corner >= loops[polygon_index].size())
+        {
+          return fail("NURBS surface preview received invalid constraint provenance");
+        }
+        const auto &polygon = loops[polygon_index];
+        const int a = output_to_input[cdt.edge[i].first];
+        const int b = output_to_input[cdt.edge[i].second];
+        const int expected_a = polygon[corner],
+                  expected_b = polygon[(corner + 1) % polygon.size()];
+        if (!((a == expected_a && b == expected_b) || (a == expected_b && b == expected_a))) {
+          return fail(fmt::format("NURBS face {} triangulation split a boundary sample interval",
+                                  face.id));
+        }
+        constraint_counts[polygon_index][corner]++;
+      }
+      for (const Vector<int> &counts : constraint_counts) {
+        if (std::any_of(counts.begin(), counts.end(), [](const int count) { return count != 1; }))
+        {
+          return fail(fmt::format("NURBS face {} triangulation lost or split a boundary interval",
+                                  face.id));
         }
       }
-    }
-    meshintersect::CDT_input<double> input;
-    input.vert = normalized.as_span();
-    input.face = loops.as_span();
-    input.epsilon = epsilon;
-    input.need_ids = true;
-    const auto cdt = meshintersect::delaunay_2d_calc(input, CDT_INSIDE_WITH_HOLES);
-    Vector<int> output_to_input;
-    for (const int i : cdt.vert.index_range()) {
-      if (cdt.vert_orig[i].size() != 1 || cdt.vert_orig[i][0] >= input.vert.size()) {
-        return fail(
-            fmt::format("NURBS face {} triangulation merged or created UV points", face.id));
-      }
-      const int original = int(cdt.vert_orig[i][0]);
-      if (cdt.vert[i] != input.vert[original]) {
-        return fail(fmt::format("NURBS face {} triangulation moved a UV point", face.id));
-      }
-      output_to_input.append(original);
-    }
-    Vector<Vector<int>> constraint_counts;
-    for (const Vector<int> &polygon : loops) {
-      constraint_counts.append(Vector<int>(polygon.size(), 0));
-    }
-    for (const int i : cdt.edge.index_range()) {
-      if (cdt.edge_orig[i].is_empty()) {
-        continue;
-      }
-      if (cdt.edge_orig[i].size() != 1 || cdt.face_edge_offset == 0) {
-        return fail(
-            fmt::format("NURBS face {} triangulation overlaps boundary constraints", face.id));
-      }
-      const uint32_t encoded = cdt.edge_orig[i][0];
-      const int polygon_index = int(encoded / cdt.face_edge_offset) - 1;
-      const int corner = int(encoded % cdt.face_edge_offset);
-      if (polygon_index < 0 || polygon_index >= loops.size() ||
-          corner >= loops[polygon_index].size())
-      {
-        return fail("NURBS surface preview received invalid constraint provenance");
-      }
-      const auto &polygon = loops[polygon_index];
-      const int a = output_to_input[cdt.edge[i].first];
-      const int b = output_to_input[cdt.edge[i].second];
-      const int expected_a = polygon[corner], expected_b = polygon[(corner + 1) % polygon.size()];
-      if (!((a == expected_a && b == expected_b) || (a == expected_b && b == expected_a))) {
-        return fail(
-            fmt::format("NURBS face {} triangulation split a boundary sample interval", face.id));
-      }
-      constraint_counts[polygon_index][corner]++;
-    }
-    for (const Vector<int> &counts : constraint_counts) {
-      if (std::any_of(counts.begin(), counts.end(), [](const int count) { return count != 1; })) {
-        return fail(
-            fmt::format("NURBS face {} triangulation lost or split a boundary interval", face.id));
+      for (const Vector<int> &triangle : cdt.face) {
+        if (triangle.size() != 3) {
+          return fail("NURBS surface preview triangulator returned a non-triangle");
+        }
+        input_triangles.append({output_to_input[triangle[0]],
+                                output_to_input[triangle[1]],
+                                output_to_input[triangle[2]]});
       }
     }
-    for (const Vector<int> &triangle : cdt.face) {
-      if (triangle.size() != 3) {
-        return fail("NURBS surface preview triangulator returned a non-triangle");
-      }
-      const int direction = orient2d(normalized[output_to_input[triangle[0]]],
-                                     normalized[output_to_input[triangle[1]]],
-                                     normalized[output_to_input[triangle[2]]]);
+    Vector<double2> interior_parameters;
+    for (const int3 triangle : input_triangles) {
+      const int direction = orient2d(
+          normalized[triangle[0]], normalized[triangle[1]], normalized[triangle[2]]);
       if (direction == 0) {
         return fail("NURBS surface preview triangulator returned a degenerate UV triangle");
       }
       SurfacePreviewTriangle evaluated;
       evaluated.face_id = face.id;
       for (const int i : IndexRange(3)) {
-        const int original = output_to_input[triangle[i]];
+        const int original = triangle[i];
         int &global = input_to_global[original];
         if (global < 0) {
-          if (result.points_num() >= options.max_points) {
+          const int64_t next = int64_t(result.points_num()) + interior_parameters.size();
+          if (next >= options.max_points) {
             return fail("NURBS surface preview exceeds its point limit");
           }
-          const auto point = evaluate_surface(surface, uv[original], r_error);
-          if (!point) {
-            return std::nullopt;
-          }
-          global = result.points_num();
-          result.interior.append({point->position, face.id, uv[original]});
-          result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
-                                                          point->weight_condition);
+          /* Assign indices in the same first-use order, then evaluate the face as one batch. */
+          global = int(next);
+          interior_parameters.append(uv[original]);
         }
         evaluated.points[i] = global;
         evaluated.parameters[i] = uv[original];
@@ -480,11 +612,23 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
       }
       result.triangles.append(evaluated);
     }
+    if (!interior_parameters.is_empty()) {
+      const auto points = evaluate_surface_points(surface, interior_parameters, r_error);
+      if (!points) {
+        return std::nullopt;
+      }
+      for (const int i : interior_parameters.index_range()) {
+        const auto &point = (*points)[i];
+        result.interior.append({point.position, face.id, interior_parameters[i]});
+        result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
+                                                        point.weight_condition);
+      }
+    }
   }
   NURBS_DEBUG_LOG(
       "surface tessellation: %.3f ms total; boundary %.3f ms, face sampling/triangulation "
       "%.3f ms; %d faces, %d boundaries, %d preview points, %d triangles, "
-      "%d interior subdivisions",
+      "%d interior subdivisions, %d rectangle grids",
       (BLI_time_now_seconds() - tessellation_start) * 1000.0,
       boundary_ms,
       (BLI_time_now_seconds() - face_tessellation_start) * 1000.0,
@@ -492,7 +636,8 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
       int(result.boundary.edges.size()),
       result.points_num(),
       int(result.triangles.size()),
-      options.interior_subdivisions);
+      options.interior_subdivisions,
+      grid_faces);
   return result;
 }
 
@@ -688,17 +833,27 @@ std::optional<SurfacePreview> refresh_surface_preview(
         result.reused_faces++;
       }
       if (const auto *indices = points.lookup_ptr(face.id)) {
-        for (const int i : *indices) {
+        Vector<PointEvaluation> evaluated_points;
+        if (!dirty) {
+          Vector<double2> parameters;
+          parameters.reserve(indices->size());
+          for (const int i : *indices) {
+            parameters.append(input.interior[i].parameter);
+          }
+          auto evaluated = evaluate_surface_points(
+              *face_surfaces.lookup(face.id), parameters, r_error);
+          if (!evaluated) {
+            return std::nullopt;
+          }
+          evaluated_points = std::move(*evaluated);
+        }
+        for (const int j : indices->index_range()) {
+          const int i = (*indices)[j];
           auto point = input.interior[i];
           double condition = 1;
           if (!dirty) {
-            const auto evaluated = evaluate_surface(
-                *face_surfaces.lookup(face.id), point.parameter, r_error);
-            if (!evaluated) {
-              return std::nullopt;
-            }
-            point.position = evaluated->position;
-            condition = evaluated->weight_condition;
+            point.position = evaluated_points[j].position;
+            condition = evaluated_points[j].weight_condition;
           }
           result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
                                                           condition);
@@ -754,15 +909,30 @@ std::optional<SurfacePreview> refresh_surface_preview(
   result.reused_faces = source.faces.count();
   result.max_interior_weight_condition = 1.0;
   const double interior_start = BLI_time_now_seconds();
-  for (auto &point : result.interior) {
-    const auto evaluated = evaluate_surface(
-        *face_surfaces.lookup(point.face_id), point.parameter, r_error);
+  Map<int64_t, Vector<int>> interior_by_face;
+  for (const int i : result.interior.index_range()) {
+    interior_by_face.lookup_or_add_default(result.interior[i].face_id).append(i);
+  }
+  for (const auto &face : source.faces) {
+    const auto *indices = interior_by_face.lookup_ptr(face.id);
+    if (!indices) {
+      continue;
+    }
+    Vector<double2> parameters;
+    parameters.reserve(indices->size());
+    for (const int i : *indices) {
+      parameters.append(result.interior[i].parameter);
+    }
+    const auto evaluated = evaluate_surface_points(
+        *face_surfaces.lookup(face.id), parameters, r_error);
     if (!evaluated) {
       return std::nullopt;
     }
-    point.position = evaluated->position;
-    result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
-                                                    evaluated->weight_condition);
+    for (const int j : indices->index_range()) {
+      result.interior[(*indices)[j]].position = (*evaluated)[j].position;
+      result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
+                                                      (*evaluated)[j].weight_condition);
+    }
   }
   const double interior_ms = (BLI_time_now_seconds() - interior_start) * 1000.0;
   r_reused = true;

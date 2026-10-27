@@ -15,6 +15,9 @@
 #include "BLI_listbase.h"
 #include "BLI_math_boolean.hh"
 #include "BLI_set.hh"
+#include "BLI_time.h"
+
+#include "BKE_nurbs_debug.hh"
 
 #include "BKE_nurbs_evaluate.hh"
 
@@ -625,6 +628,7 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
   if (r_error != nullptr) {
     r_error->clear();
   }
+  const double evaluation_start = BLI_time_now_seconds();
   auto fail = [&](const std::string_view message) { return evaluation_error(r_error, message); };
   if (!detail::supported_arithmetic()) {
     return fail("NURBS boundary evaluation requires round-to-nearest and subnormal support");
@@ -748,7 +752,7 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
         result.positions.append(point->position);
         result.vertex_ids.append(0);
       }
-      evaluated.samples.append({parameter, point_index, point->position});
+      evaluated.samples.append({parameter, point_index, point->position, point->weight_condition});
       evaluated.max_weight_condition = std::max(evaluated.max_weight_condition,
                                                 point->weight_condition);
       return true;
@@ -808,7 +812,10 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
         evaluated.is_inner = loop.is_inner;
         evaluated.curve_support_deviation_bound = linear_curve_support_deviation_bound(
             *curves.lookup(edge.curve_id), pcurve, surface);
-        if (natural_curve_support_identity(*curves.lookup(edge.curve_id), pcurve, surface)) {
+        bool reuse_natural_samples = natural_curve_support_identity(
+            *curves.lookup(edge.curve_id), pcurve, surface);
+        bool checked_natural_support = false;
+        if (reuse_natural_samples) {
           evaluated.curve_support_deviation_bound = 0.0;
         }
         else {
@@ -842,7 +849,24 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
             }
             return std::nullopt;
           }
-          const auto support = evaluate_surface(surface, double2(uv->position), r_error);
+          std::optional<PointEvaluation> support;
+          if (reuse_natural_samples && checked_natural_support) {
+            /* The clamped fixed-axis basis is a unit vector; the varying basis,
+             * active coefficients, recentering, summation order and normalized
+             * weights are identical to the canonical curve evaluation. */
+            support = PointEvaluation{sample.curve_position, sample.weight_condition};
+            result.reused_natural_support_samples++;
+          }
+          else {
+            support = evaluate_surface(surface, double2(uv->position), r_error);
+            if (support && reuse_natural_samples) {
+              /* Retain the first support evaluation to check fixed-axis arithmetic,
+               * including extreme knot intervals, before using the identity. */
+              checked_natural_support = true;
+              reuse_natural_samples = support->position == sample.curve_position &&
+                                      support->weight_condition == sample.weight_condition;
+            }
+          }
           if (!support) {
             if (r_error != nullptr) {
               *r_error = fmt::format("NURBS face {} use {} support at ({:.17g}, {:.17g}): {}",
@@ -903,6 +927,10 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
       }
     }
   }
+  NURBS_DEBUG_LOG("boundary evaluation: %.3f ms; %lld natural support samples reused, %d uses",
+                  (BLI_time_now_seconds() - evaluation_start) * 1000.0,
+                  static_cast<long long>(result.reused_natural_support_samples),
+                  int(result.uses.size()));
   return result;
 }
 

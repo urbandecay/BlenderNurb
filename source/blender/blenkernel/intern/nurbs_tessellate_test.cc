@@ -95,6 +95,42 @@ TEST(nurbs_surface_preview, NonBinarySamplingKeepsIdentityParameterAgreementWith
   }
 }
 
+TEST(nurbs_surface_preview, RectangularGridsKeepEveryBoundaryIntervalAndPeriodicSeam)
+{
+  for (const int variant : IndexRange(3)) {
+    const auto source = variant == 0 ? make_planar_sheet() : make_arc_sheet(variant == 2);
+    ASSERT_TRUE(source);
+    const auto original = OwnedGeometry(geometry_copy(source.get()));
+    auto options = preview_options();
+    options.boundary.segments_per_span = options.interior_subdivisions = 7;
+    std::string error;
+    const auto preview = tessellate_surfaces(*source, options, &error);
+    ASSERT_TRUE(preview) << error;
+    for (const auto &use : preview->boundary.uses) {
+      const auto &samples = preview->boundary.edges[use.edge_index].samples;
+      for (int i = 1; i < samples.size(); i++) {
+        const int a = samples[i - 1].point_index, b = samples[i].point_index;
+        const double2 uv_a = use.parameters[i - 1], uv_b = use.parameters[i];
+        int matches = 0;
+        for (const auto &triangle : preview->triangles) {
+          if (triangle.face_id != use.face_id) {
+            continue;
+          }
+          for (const int j : IndexRange(3)) {
+            const int k = (j + 1) % 3;
+            matches += (triangle.points[j] == a && triangle.points[k] == b &&
+                        triangle.parameters[j] == uv_a && triangle.parameters[k] == uv_b) ||
+                       (triangle.points[j] == b && triangle.points[k] == a &&
+                        triangle.parameters[j] == uv_b && triangle.parameters[k] == uv_a);
+          }
+        }
+        EXPECT_EQ(matches, 1) << variant << ": " << use.use_id << "/" << i;
+      }
+    }
+    expect_source_geometry_equal(*source, *original);
+  }
+}
+
 TEST(nurbs_surface_preview, HoleRemainsUnfilledAndFaceOrientationIsRespected)
 {
   const auto source = make_planar_sheet();

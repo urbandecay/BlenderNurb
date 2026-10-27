@@ -145,7 +145,7 @@ struct PointEvaluation {
  * Evaluate the explicit rational source, without fitting, parameter clamping or source mutation.
  * Invalid storage, parameters outside the domain, denominator zeros and non-finite arithmetic
  * fail explicitly. Interior knots use their right limit; the domain end uses its left limit.
- * These scalar services validate storage on each call; batch evaluation can share that work later.
+ * These scalar services validate storage on each call.
  * Round-to-nearest arithmetic and subnormal support are required; other modes fail explicitly.
  */
 std::optional<PointEvaluation> evaluate_curve(const NurbsCurveGeometry &curve,
@@ -154,6 +154,14 @@ std::optional<PointEvaluation> evaluate_curve(const NurbsCurveGeometry &curve,
 std::optional<PointEvaluation> evaluate_surface(const NurbsSurfaceGeometry &surface,
                                                 double2 parameter,
                                                 std::string *r_error = nullptr);
+
+/** Evaluate positions on one immutable support, validating storage once and reusing basis weights
+ * for repeated U/V parameters. Preserves scalar arithmetic, input order and conditioning records;
+ * any failed sample rejects the complete group. Knot limits follow evaluate_surface. */
+std::optional<Vector<PointEvaluation>> evaluate_surface_points(
+    const NurbsSurfaceGeometry &surface,
+    Span<double2> parameters,
+    std::string *r_error = nullptr);
 
 struct CurveBasis {
   int first_coefficient = 0;

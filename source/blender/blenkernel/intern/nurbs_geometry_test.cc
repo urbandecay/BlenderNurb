@@ -738,6 +738,101 @@ TEST(nurbs_geometry, BoundaryPreviewUsesCanonicalArcSamplesWithDifferentFacePara
   ASSERT_NE(previous, nullptr);
 }
 
+TEST(nurbs_geometry, NaturalBoundaryReuseMatchesIndependentScalarSupportSamples)
+{
+  for (const int variant : IndexRange(3)) {
+    GeometryPtr source = make_curved_fixture();
+    Map<int64_t, const NurbsCurveGeometry *> curves;
+    Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+    Map<int64_t, const NurbsTopologyEdgeUse *> source_uses;
+    for (auto &curve : source->curves) {
+      if (variant == 1) {
+        for (int i = 0; i < curve.points_num; i++) {
+          curve.points[i].weight = 1;
+        }
+      }
+      curves.add_new(curve.id, &curve);
+    }
+    for (auto &surface : source->surfaces) {
+      for (int i = 0; i < surface.points_num; i++) {
+        if (variant == 1) {
+          surface.points[i].weight = 5;
+        }
+        else if (variant == 2) {
+          surface.points[i].weight *= 8;
+        }
+      }
+      surfaces.add_new(surface.id, &surface);
+    }
+    for (const auto &face : source->faces) {
+      for (const auto &loop : face.loops) {
+        for (const auto &use : loop.edge_uses) {
+          source_uses.add_new(use.id, &use);
+        }
+      }
+    }
+    std::string error;
+    const auto result = evaluate_boundaries(*source, {9, 10000, 1e-10}, &error);
+    ASSERT_TRUE(result) << error;
+    if (variant < 2) {
+      EXPECT_GT(result->reused_natural_support_samples, 0);
+    }
+    const auto index = TopologyIndex::build(*source);
+    ASSERT_TRUE(index);
+    for (const auto &use : result->uses) {
+      const auto &face = *index->face(use.face_id);
+      const auto &surface = *surfaces.lookup(face.surface_id);
+      const auto &pcurve = *curves.lookup(source_uses.lookup(use.use_id)->pcurve_id);
+      const auto &edge = result->edges[use.edge_index];
+      double curve_deviation = 0, display_deviation = 0, condition = 1;
+      for (const int i : edge.samples.index_range()) {
+        const auto &sample = edge.samples[i];
+        const auto uv = evaluate_curve(pcurve, sample.parameter);
+        ASSERT_TRUE(uv);
+        const auto point = evaluate_surface(surface, double2(uv->position));
+        ASSERT_TRUE(point);
+        EXPECT_EQ(use.parameters[i], double2(uv->position));
+        const double3 curve_delta = sample.curve_position - point->position;
+        const double3 display_delta = result->positions[sample.point_index] - point->position;
+        curve_deviation = std::max(curve_deviation,
+                                   std::hypot(curve_delta.x, curve_delta.y, curve_delta.z));
+        display_deviation = std::max(
+            display_deviation, std::hypot(display_delta.x, display_delta.y, display_delta.z));
+        condition = std::max({condition, uv->weight_condition, point->weight_condition});
+      }
+      EXPECT_EQ(use.max_curve_support_deviation, curve_deviation);
+      EXPECT_EQ(use.max_display_support_deviation, display_deviation);
+      EXPECT_EQ(use.max_weight_condition, condition);
+    }
+  }
+}
+
+TEST(nurbs_geometry, NaturalBoundaryReuseStillRejectsUnsupportedFixedAxisArithmetic)
+{
+  auto source = make_fixture(false);
+  auto *surface = first(source->surfaces);
+  const double maximum = std::numeric_limits<double>::max();
+  surface->knots_u[0] = surface->knots_u[1] = -maximum;
+  surface->knots_u[2] = surface->knots_u[3] = maximum;
+  for (auto &curve : source->curves) {
+    if (curve.dimension == 2) {
+      for (int i = 0; i < curve.points_num; i++) {
+        curve.points[i].position[0] = (2 * curve.points[i].position[0] - 1) * maximum;
+      }
+    }
+  }
+  /* Start on the natural left rail: its varying V basis matches the edge, but
+   * evaluating the clamped fixed U basis still overflows its knot interval. */
+  auto &uses = first(first(source->faces)->loops)->edge_uses;
+  auto *left = static_cast<NurbsTopologyEdgeUse *>(uses.last);
+  BLI_remlink(&uses, left);
+  BLI_addhead(&uses, left);
+  ASSERT_TRUE(geometry_validate_structure(*source));
+  std::string error;
+  EXPECT_FALSE(evaluate_boundaries(*source, {8, 10000, 1e-10}, &error));
+  EXPECT_NE(error.find("knot interval"), std::string::npos);
+}
+
 TEST(nurbs_geometry, BoundaryPreviewRetainsCoincidentIdentityAndCollapsedNonManifoldStates)
 {
   const GeometryPtr source = make_fixture(false);
@@ -1378,6 +1473,71 @@ TEST(nurbs_geometry, TensorSurfaceEvaluationAndFailure)
   EXPECT_FALSE(evaluate_surface(surface, {3.5, 1.1}).has_value());
   surface.order_u = 4;
   EXPECT_FALSE(evaluate_surface(surface, {3.5, 0.5}).has_value());
+}
+
+TEST(nurbs_geometry, BatchedSurfacePointsPreserveScalarResultsAndRejectFailedGroups)
+{
+  GeometryPtr geometry(MEM_new<NurbsGeometry>(__func__), geometry_free);
+  NurbsSurfaceGeometry &surface = *add_arc_strip(*geometry, false);
+  MEM_SAFE_DELETE(surface.points);
+  MEM_SAFE_DELETE(surface.knots_u);
+  surface.points_u = 5;
+  surface.points_num = 10;
+  surface.knots_u_num = 8;
+  surface.points = MEM_new_array<NurbsControlPoint>(10, __func__);
+  surface.knots_u = MEM_new_array_uninitialized<double>(8, __func__);
+  const double knots[] = {2, 2, 2, 3.5, 3.5, 5, 5, 5};
+  std::copy_n(knots, 8, surface.knots_u);
+  Vector<double2> parameters;
+  for (const double u : {5.0, 2.0, 3.5, 2.1, 4.9, 3.5}) {
+    for (const double v : {1.0, 0.25, 0.0, 0.75, 1.0}) {
+      parameters.append({u, v});
+    }
+  }
+  for (const int mode : IndexRange(4)) {
+    SCOPED_TRACE(mode);
+    for (int v = 0; v < 2; v++) {
+      for (int u = 0; u < 5; u++) {
+        auto &point = surface.points[v * 5 + u];
+        point.position[0] = 1e12 + u * 0.125;
+        point.position[1] = u % 2 ? -2.0 : 1.0;
+        point.position[2] = v * 1.5 + u / 8.0;
+        point.weight = u % 2 ? 0.3 : 1.0 + u;
+        if (mode == 1 || (mode == 3 && u % 2)) {
+          point.weight = -point.weight;
+        }
+        if (mode == 2 && u == 1) {
+          point.weight = 0;
+        }
+      }
+    }
+    const auto batched = evaluate_surface_points(surface, parameters);
+    ASSERT_TRUE(batched);
+    ASSERT_EQ(batched->size(), parameters.size());
+    for (const int i : parameters.index_range()) {
+      const auto scalar = evaluate_surface(surface, parameters[i]);
+      ASSERT_TRUE(scalar);
+      EXPECT_EQ((*batched)[i].position, scalar->position);
+      EXPECT_EQ((*batched)[i].weight_condition, scalar->weight_condition);
+    }
+  }
+  const auto empty = evaluate_surface_points(surface, {});
+  ASSERT_TRUE(empty);
+  EXPECT_TRUE(empty->is_empty());
+  parameters.append({1.9, 0.5});
+  EXPECT_FALSE(evaluate_surface_points(surface, parameters));
+  parameters.last() = {3.5, std::numeric_limits<double>::quiet_NaN()};
+  EXPECT_FALSE(evaluate_surface_points(surface, parameters));
+  parameters.remove_last();
+  surface.points[2].weight = surface.points[7].weight = 0;
+  EXPECT_FALSE(evaluate_surface(surface, {3.5, 0.5}));
+  EXPECT_FALSE(evaluate_surface_points(surface, parameters));
+  for (int i = 0; i < surface.points_num; i++) {
+    surface.points[i].weight = 0;
+  }
+  EXPECT_FALSE(evaluate_surface_points(surface, parameters));
+  surface.order_u = 6;
+  EXPECT_FALSE(evaluate_surface_points(surface, {}));
 }
 
 TEST(nurbs_geometry, CurvedSharedEdgeMatchesBothSurfaceParameterizationsAtSamples)

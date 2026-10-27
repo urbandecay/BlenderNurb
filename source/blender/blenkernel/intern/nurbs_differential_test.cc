@@ -71,6 +71,34 @@ TEST(nurbs_differential, GroupedFramesMatchScalarArithmeticAndRejectInvalidSampl
   }
 }
 
+TEST(nurbs_differential, GroupedFramesKeepScalarResultsWhenActiveCoefficientsChange)
+{
+  auto source = make_arc_sheet(false);
+  ASSERT_NE(source, nullptr);
+  auto &surface = first_surface(*source);
+  const double tiny = std::nextafter(0.0, 1.0);
+  Vector<SurfaceDifferentialSample> samples;
+  for (const double u : {0.25, 0.0, tiny, 0.5, 1.0, 0.75}) {
+    for (const double v : {0.25, 0.0, tiny, 0.75, 1.0}) {
+      samples.append({{u, v}, {}});
+    }
+  }
+  for (const double weight : {0.0, -0.3, std::sqrt(0.5)}) {
+    surface.points[1].weight = weight;
+    const auto grouped = evaluate_surface_differentials(surface, samples);
+    ASSERT_TRUE(grouped);
+    for (const int i : samples.index_range()) {
+      const auto scalar = evaluate_surface_differential(surface, samples[i].parameter);
+      ASSERT_TRUE(scalar);
+      EXPECT_EQ((*grouped)[i].point.position, scalar->point.position);
+      EXPECT_EQ((*grouped)[i].point.weight_condition, scalar->point.weight_condition);
+      EXPECT_EQ((*grouped)[i].tangent_u, scalar->tangent_u);
+      EXPECT_EQ((*grouped)[i].tangent_v, scalar->tangent_v);
+      EXPECT_EQ((*grouped)[i].normal, scalar->normal);
+    }
+  }
+}
+
 TEST(nurbs_differential, RationalCylinderMatchesIndependentMidArcDerivativeAndNormal)
 {
   const auto source = make_arc_sheet(false);

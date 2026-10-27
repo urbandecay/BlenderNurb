@@ -144,8 +144,13 @@ struct WeightedEvaluation {
   double weight_scale;
 };
 
-static std::optional<WeightedEvaluation> evaluate_weighted_points(const Span<WeightedPoint> points,
-                                                                  std::string *r_error)
+struct WeightedFrame {
+  double3 origin;
+  double weight_scale;
+};
+
+static std::optional<WeightedFrame> weighted_frame(const Span<WeightedPoint> points,
+                                                   std::string *r_error)
 {
   double weight_scale = 0.0;
   double3 minimum(0.0), maximum(0.0);
@@ -173,6 +178,22 @@ static std::optional<WeightedEvaluation> evaluate_weighted_points(const Span<Wei
   for (int axis = 0; axis < 3; axis++) {
     origin[axis] = std::midpoint(minimum[axis], maximum[axis]);
   }
+  return WeightedFrame{origin, weight_scale};
+}
+
+static std::optional<WeightedEvaluation> evaluate_weighted_points(
+    const Span<WeightedPoint> points, std::string *r_error, const WeightedFrame *frame = nullptr)
+{
+  std::optional<WeightedFrame> local_frame;
+  if (!frame) {
+    local_frame = weighted_frame(points, r_error);
+    if (!local_frame) {
+      return std::nullopt;
+    }
+    frame = &*local_frame;
+  }
+  const double3 origin = frame->origin;
+  const double weight_scale = frame->weight_scale;
   CompensatedSum denominator, absolute_weight;
   CompensatedSum numerator[3];
   for (const WeightedPoint &term : points) {
@@ -274,6 +295,31 @@ std::optional<PointEvaluation> evaluate_curve(const NurbsCurveGeometry &curve,
   if (!basis) {
     return std::nullopt;
   }
+  if (curve.dimension == 2 && curve.order == 2) {
+    const auto &a = curve.points[basis->start], &b = curve.points[basis->start + 1];
+    if (a.weight != 0 && a.weight == b.weight) {
+      const double start = curve.knots[basis->start + 1], end = curve.knots[basis->start + 2];
+      double3 position;
+      bool canonical = true;
+      for (const int axis : IndexRange(3)) {
+        if (a.position[axis] == b.position[axis]) {
+          position[axis] = a.position[axis];
+        }
+        else if (axis < 2 && a.position[axis] == start && b.position[axis] == end) {
+          position[axis] = parameter;
+        }
+        else {
+          canonical = false;
+          break;
+        }
+      }
+      if (canonical) {
+        /* Constant and parameter coordinates are exact identities. The basis was
+         * already checked above; common nonzero weights give condition one. */
+        return PointEvaluation{position, 1.0};
+      }
+    }
+  }
   Vector<WeightedPoint, 12> points;
   for (int i = 0; i < curve.order; i++) {
     points.append({&curve.points[basis->start + i], basis->values[i]});
@@ -308,18 +354,41 @@ struct SurfaceBasisEvaluation {
   WeightedEvaluation value;
 };
 
+/** One immutable batch commonly stays within a single tensor span. Only samples using every
+ * nonzero-weight coefficient in that span share this frame; endpoints and underflowed products
+ * retain their independently calculated active-coefficient frame. */
+struct SurfacePointFrame {
+  int2 start = int2(-1);
+  std::optional<WeightedFrame> frame;
+};
+
 static std::optional<WeightedEvaluation> evaluate_surface_point_with_basis(
     const NurbsSurfaceGeometry &surface,
     const BasisWeights &basis_u,
     const BasisWeights &basis_v,
-    std::string *r_error)
+    std::string *r_error,
+    SurfacePointFrame *cache = nullptr)
 {
   Vector<WeightedPoint, 64> points;
+  bool full_span = cache != nullptr;
   for (int v = 0; v < surface.order_v; v++) {
     for (int u = 0; u < surface.order_u; u++) {
       const int index = (basis_v.start + v) * surface.points_u + basis_u.start + u;
-      points.append({&surface.points[index], basis_u.values[u] * basis_v.values[v]});
+      const double basis = basis_u.values[u] * basis_v.values[v];
+      points.append({&surface.points[index], basis});
+      full_span = full_span && (basis != 0 || surface.points[index].weight == 0);
     }
+  }
+  if (cache && full_span) {
+    const int2 start(basis_u.start, basis_v.start);
+    if (!cache->frame || cache->start != start) {
+      cache->frame = weighted_frame(points, r_error);
+      if (!cache->frame) {
+        return std::nullopt;
+      }
+      cache->start = start;
+    }
+    return evaluate_weighted_points(points, r_error, &*cache->frame);
   }
   return evaluate_weighted_points(points, r_error);
 }
@@ -367,9 +436,56 @@ std::optional<PointEvaluation> evaluate_surface(const NurbsSurfaceGeometry &surf
   return evaluated ? std::optional(evaluated->value.point) : std::nullopt;
 }
 
+std::optional<Vector<PointEvaluation>> evaluate_surface_points(const NurbsSurfaceGeometry &surface,
+                                                               const Span<double2> parameters,
+                                                               std::string *r_error)
+{
+  if (!detail::supported_arithmetic()) {
+    return evaluation_error(
+        r_error, "NURBS evaluation requires round-to-nearest arithmetic and subnormal support");
+  }
+  if (!surface_validate_structure(surface, r_error)) {
+    return std::nullopt;
+  }
+  Map<double, BasisWeights> cache[2];
+  auto basis_at = [&](const int axis, const double parameter) -> const BasisWeights * {
+    if (const auto *basis = cache[axis].lookup_ptr(parameter)) {
+      return basis;
+    }
+    auto basis = calculate_basis(axis ? surface.knots_v : surface.knots_u,
+                                 axis ? surface.points_v : surface.points_u,
+                                 axis ? surface.order_v : surface.order_u,
+                                 parameter,
+                                 r_error);
+    if (!basis) {
+      return nullptr;
+    }
+    cache[axis].add_new(parameter, std::move(*basis));
+    return cache[axis].lookup_ptr(parameter);
+  };
+  Vector<PointEvaluation> result;
+  result.reserve(parameters.size());
+  SurfacePointFrame point_frame;
+  for (const double2 parameter : parameters) {
+    const auto *u = basis_at(0, parameter.x);
+    const auto *v = basis_at(1, parameter.y);
+    if (!u || !v) {
+      return std::nullopt;
+    }
+    const auto point = evaluate_surface_point_with_basis(surface, *u, *v, r_error, &point_frame);
+    if (!point) {
+      return std::nullopt;
+    }
+    result.append(point->point);
+  }
+  return result;
+}
+
 static std::optional<SurfaceDifferential> evaluate_surface_derivatives(
     const NurbsSurfaceGeometry &surface,
-    const SurfaceBasisEvaluation &evaluated,
+    const BasisWeights &u_basis,
+    const BasisWeights &v_basis,
+    const WeightedEvaluation &value,
     const Span<double> derivative_u,
     const Span<double> derivative_v,
     std::string *r_error)
@@ -378,30 +494,30 @@ static std::optional<SurfaceDifferential> evaluate_surface_derivatives(
   for (int v = 0; v < surface.order_v; v++) {
     for (int u = 0; u < surface.order_u; u++) {
       const NurbsControlPoint &point =
-          surface.points[(evaluated.v.start + v) * surface.points_u + evaluated.u.start + u];
-      const double basis_u = derivative_u[u] * evaluated.v.values[v];
-      const double basis_v = evaluated.u.values[u] * derivative_v[v];
+          surface.points[(v_basis.start + v) * surface.points_u + u_basis.start + u];
+      const double basis_u = derivative_u[u] * v_basis.values[v];
+      const double basis_v = u_basis.values[u] * derivative_v[v];
       if ((basis_u == 0 && basis_v == 0) || point.weight == 0) {
         continue;
       }
-      const double weight = point.weight / evaluated.value.weight_scale;
+      const double weight = point.weight / value.weight_scale;
       const double du = weight * basis_u;
       const double dv = weight * basis_v;
       /* Quotient rule in the recentered frame. Do not subtract the rounded absolute position
        * from large coefficients: that would discard small source features in the derivatives. */
       for (const int axis : IndexRange(3)) {
-        const double delta = (point.position[axis] - evaluated.value.origin[axis]) -
-                             evaluated.value.relative_position[axis];
+        const double delta = (point.position[axis] - value.origin[axis]) -
+                             value.relative_position[axis];
         numerator_u[axis].add(du * delta);
         numerator_v[axis].add(dv * delta);
       }
     }
   }
   SurfaceDifferential result;
-  result.point = evaluated.value.point;
+  result.point = value.point;
   for (const int axis : IndexRange(3)) {
-    result.tangent_u[axis] = numerator_u[axis].value / evaluated.value.denominator;
-    result.tangent_v[axis] = numerator_v[axis].value / evaluated.value.denominator;
+    result.tangent_u[axis] = numerator_u[axis].value / value.denominator;
+    result.tangent_v[axis] = numerator_v[axis].value / value.denominator;
     if (!std::isfinite(result.tangent_u[axis]) || !std::isfinite(result.tangent_v[axis])) {
       return evaluation_error(r_error, "NURBS surface derivative exceeds double precision range");
     }
@@ -438,7 +554,13 @@ std::optional<SurfaceDifferential> evaluate_surface_differential(
   if (!derivative_u || !derivative_v) {
     return std::nullopt;
   }
-  return evaluate_surface_derivatives(surface, *evaluated, *derivative_u, *derivative_v, r_error);
+  return evaluate_surface_derivatives(surface,
+                                      evaluated->u,
+                                      evaluated->v,
+                                      evaluated->value,
+                                      *derivative_u,
+                                      *derivative_v,
+                                      r_error);
 }
 
 std::optional<Vector<SurfaceDifferential>> evaluate_surface_differentials(
@@ -480,6 +602,7 @@ std::optional<Vector<SurfaceDifferential>> evaluate_surface_differentials(
   };
   Vector<SurfaceDifferential> result;
   result.reserve(samples.size());
+  SurfacePointFrame point_frame;
   for (const auto &sample : samples) {
     if ((sample.limits.u != KnotSide::Right && sample.limits.u != KnotSide::Left) ||
         (sample.limits.v != KnotSide::Right && sample.limits.v != KnotSide::Left))
@@ -491,12 +614,13 @@ std::optional<Vector<SurfaceDifferential>> evaluate_surface_differentials(
     if (!u || !v) {
       return std::nullopt;
     }
-    const auto point = evaluate_surface_point_with_basis(surface, u->basis, v->basis, r_error);
+    const auto point = evaluate_surface_point_with_basis(
+        surface, u->basis, v->basis, r_error, &point_frame);
     if (!point) {
       return std::nullopt;
     }
     const auto differential = evaluate_surface_derivatives(
-        surface, {u->basis, v->basis, *point}, u->derivative, v->derivative, r_error);
+        surface, u->basis, v->basis, *point, u->derivative, v->derivative, r_error);
     if (!differential) {
       return std::nullopt;
     }

@@ -186,3 +186,144 @@ At 1, 6 and 13 segments, the displayed positions, polygon vertex indices and cor
 normal arrays matched the pushed build exactly. The 13-segment result retains 9,312
 vertices and 18,620 triangles. The comparison summary is
 `/tmp/nurbs-bevel-v2-geometry-summary.json`; no preview settings were reduced.
+
+## Preview follow-up after 12393f6af50
+
+The refinement checkpoint was pushed as `12393f6af50`, with a full commit description.
+The next local build reduces preview work while retaining the same sampling settings:
+
+- For a natural clamped boundary whose varying basis, active coefficients and normalized
+  weights match the shared edge curve, reuse its canonical point evaluation. The first
+  support sample still checks fixed-axis arithmetic and exact numerical agreement.
+  Other representations evaluate their supports normally. Per-sample conditioning is
+  retained, and measured deviation/conditioning records match independent scalar checks.
+- Evaluate canonical constant/parameter p-curve coordinates directly after validating
+  their storage, parameter domain and basis arithmetic. Common nonzero weights give
+  condition one. Other coordinates retain the ordinary rational evaluation.
+- Construct a complete rectangular preview grid directly. Exact perimeter order, sample
+  coordinates and normalized spacing must match the grid. Every cell is an empty
+  rectangle, so its diagonal is Delaunay. Holes, extra boundary intervals, close or
+  coincident UV samples and incompatible grids use the general triangulator.
+  Compatible grids also avoid repeated point-in-polygon tests for their interior samples.
+- Allow `BLENDER_NURBS_DEBUG_LOG` to isolate a benchmark's diagnostic file. Normal
+  interactive use continues to log automatically through `/tmp/nurbs-debug.log`.
+
+The rectangular path can change triangle diagonals and ordering. Source coefficients,
+trims and identities are preserved. Comparisons at 1, 6 and 13 segments retain exactly
+matching sets of evaluated vertex positions and source normal vectors at those positions,
+with the same vertex/triangle counts. No preview resolution or sampling density is reduced.
+The 8-segment bevel uses the grid path for 96 of its 110 faces; it retains 5,952 vertices
+and 11,900 triangles.
+
+### Measurements
+
+Fresh operations started from the same saved native box, selected all 12 edges and used
+width 0.25. Runs alternated the pushed and local executables in before/after/after/before
+order. Each process discarded its warmup, leaving twelve timed samples per build.
+Medians come from individual operation-plus-evaluation samples.
+
+| Instrumented elapsed time, median | Pushed build | Local preview build |
+| --- | ---: | ---: |
+| Fresh 8-segment bevel operator | 43.95 ms | 31.32 ms |
+| Fresh 8-segment operation plus evaluation | 49.22 ms | 36.99 ms |
+| Steady 13-segment mouse handler plus evaluation | 53.09 ms | 50.52 ms |
+
+Fresh creation takes about 25% less time. The matched mouse sequence takes about 5%
+less time; it already reused most triangulation, so the new rectangular construction
+primarily benefits fresh previews. These are operation timings, excluding drawing and
+event harness waits, rather than measured viewport FPS.
+
+The mesh control used the same box and width with 30 segments, yielding 5,768 vertices
+and 11,532 triangles. It measured 17.90 ms in the old-build processes and 17.48 ms in
+the new-build processes. The native result therefore remains about twice as slow in
+this similar-density fresh-operation comparison. Matching triangle count does not
+establish identical geometric approximation error.
+
+The whole-model translation benchmark separately measured 17.41 to 16.23 ms at the
+default preview setting, with 18,620 triangles. Its matching display-mesh control changed
+from 4.67 to 4.28 ms. This single paired movement run is sensitive to timing variation;
+the repeated fresh-bevel and matched viewport comparisons above are the primary evidence.
+
+Summaries are `/tmp/nurbs-bevel-v3-abba-summary.json`,
+`/tmp/nurbs-bevel-v3-ui-summary.json` and `/tmp/nurbs-bevel-v3-geometry-summary.json`.
+Per-process traces use `/tmp/nurbs-bevel-v3-abba-*` and
+`/tmp/nurbs-bevel-v3-ui-{before,after}*`. Movement outputs are
+`/tmp/nurbs-bevel-v3-drag-{before,after}.log`.
+
+### Validation
+
+All 57 geometry, 55 topology, 13 tessellation and 26 display-mesh checks passed
+(151 total). Ten saved-scene topology checks were fixture-gated and skipped.
+The geometry suite used the repository's actual older-file assets. New checks verify
+scalar boundary metrics on curved and differently parameterized supports, constant
+weight scaling, rejection of unsupported fixed-axis arithmetic, and exact retention
+of every boundary interval on open and periodic rectangular grids.
+
+The dense viewport regression passed in both builds, including repeated widths,
+cancellation, confirmation, undo/redo and mode re-entry. The local rendered result was
+also inspected. Kernel logs are `/tmp/nurbs-bevel-v3-*-tests.log`.
+
+## Surface evaluation follow-up
+
+The proposed per-face normal cache was measured and removed. In the 13-segment width
+refresh, the 164 retained UV layouts still use changing rounded support coefficients;
+the six original planar faces change their sampled trims. No face met both the
+unchanged-derivative and matching-triangle requirements (0 of 170 faces). Retaining
+triangulation therefore does not establish that its source normals can be reused.
+
+The retained change reduces calculation work within each immutable surface batch:
+
+- Group interior position samples by face in fresh, partial and complete preview refreshes.
+  Validate the support once and calculate basis weights once per distinct U/V value.
+  Preserve the existing first-use point indexing and scalar summation order.
+- Share the weight scale and recentering origin while all nonzero-weight coefficients
+  of the same tensor span participate. Endpoints, zero basis products and underflowed
+  products retain independently calculated active-coefficient frames. The cache ends
+  with the batch and is never reused across changing support geometry.
+- Pass grouped basis arrays and weighted point results directly into derivative
+  calculation, avoiding copies of the two basis arrays for each normal sample.
+
+### Matched measurements
+
+The previous local preview build and this build ran the same dense mouse workflow in
+before/after/after/before order. Each process contributed the same twelve steady width
+updates at 13 segments, giving 24 samples per build. The first fresh preview and final
+numeric operation are excluded. Combined medians use each paired handler/evaluation.
+
+| Instrumented elapsed time, median | Previous local build | Surface evaluation build |
+| --- | ---: | ---: |
+| Candidate display preview | 20.557 ms | 19.264 ms |
+| Mouse handler plus following evaluation | 48.228 ms | 46.827 ms |
+
+This is about 6% less preview time and 3% less combined update time in this run.
+Drawing and event-harness waits are excluded; these are not viewport FPS measurements.
+Both builds retain 9,312 display vertices and 18,620 triangles at 13 segments.
+
+Fresh creation did not establish an improvement. A separate alternating comparison
+collected 16 operation-plus-evaluation samples per build at 8 segments: native medians
+were 42.760 and 43.904 ms. The similar-density 30-segment mesh control measured 19.682
+and 20.154 ms. The control also varied, so the fresh-operation result should not be
+presented as a speed gain. Native counts remain 5,952 vertices and 11,900 triangles;
+the mesh control has 5,768 vertices and 11,532 triangles, without a matched surface
+approximation-error claim.
+
+Summaries and individual samples are `/tmp/nurbs-point-frame-summary.json` and
+`/tmp/nurbs-point-frame-fresh-summary.json`. Process traces use
+`/tmp/nurbs-point-frame-matched-*` and `/tmp/nurbs-point-frame-fresh-*`.
+
+### Validation
+
+All 55 geometry, 26 display-mesh, 13 tessellation and 11 differential checks passed
+(105 checks). New comparisons cover repeated knots, span changes, endpoint limits,
+zero and signed weights, large translated coordinates, invalid parameters, denominator
+zeros and underflowed basis products. Grouped positions, conditioning records,
+tangents and normals match scalar evaluation exactly in the covered cases.
+
+The dense mouse workflow passed in all four measured processes, including cancel,
+confirm, undo/redo and mode re-entry. Independently exported positions, edge indices,
+triangle corner indices and corner normals match the previous build byte for byte
+at 1, 8 and 13 segments. The hashes are in
+`/tmp/nurbs-point-batch-geometry-before.json` and
+`/tmp/nurbs-point-frame-geometry-after.json`. Kernel logs use
+`/tmp/nurbs-point-frame-*-tests.log`, with the final geometry check in
+`/tmp/nurbs-point-frame-geometry-final-tests.log`.
