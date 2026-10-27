@@ -44,9 +44,14 @@ static Interval operator+(const Interval a, const Interval b)
     return a;
   }
   double lo, hi, elo, ehi;
-  if (!detail::sum_with_error(a.low, b.low, lo, elo) ||
-      !detail::sum_with_error(a.high, b.high, hi, ehi))
-  {
+  if (!detail::sum_with_error(a.low, b.low, lo, elo)) {
+    return Interval::invalid();
+  }
+  if (a.low == a.high && b.low == b.high) {
+    hi = lo;
+    ehi = elo;
+  }
+  else if (!detail::sum_with_error(a.high, b.high, hi, ehi)) {
     return Interval::invalid();
   }
   if (elo < 0) {
@@ -75,21 +80,51 @@ static Interval operator*(const Interval a, const Interval b)
   if (b.low == 1 && b.high == 1) {
     return a;
   }
-  double lo = INFINITY, hi = -INFINITY;
-  /* Point intervals have identical endpoints. Evaluate each distinct corner once; repeating
-   * the same product four times adds no information to its outward enclosure. */
-  const double av[] = {a.low, a.high}, bv[] = {b.low, b.high};
-  for (const int i : IndexRange(a.low == a.high ? 1 : 2)) {
-    for (const int j : IndexRange(b.low == b.high ? 1 : 2)) {
-      double value, error;
-      if (!detail::product_with_error(av[i], bv[j], value, error)) {
-        return Interval::invalid();
-      }
-      lo = std::min(lo, error ? std::nextafter(value, -INFINITY) : value);
-      hi = std::max(hi, error ? std::nextafter(value, INFINITY) : value);
+  auto product = [](const double x, const double y) {
+    double value, error;
+    if (!detail::product_with_error(x, y, value, error)) {
+      return Interval::invalid();
     }
+    return Interval(error ? std::nextafter(value, -INFINITY) : value,
+                    error ? std::nextafter(value, INFINITY) : value);
+  };
+  /* Multiplication is monotone within each sign quadrant. Only the two extremal
+   * corners matter, except when both intervals cross zero. Keep the same outward
+   * endpoint enclosures without evaluating the other corners. */
+  double lx, ly, hx, hy;
+  if (a.low >= 0) {
+    lx = b.low >= 0 ? a.low : a.high;
+    ly = b.low;
+    hx = b.high <= 0 ? a.low : a.high;
+    hy = b.high;
   }
-  return {lo, hi};
+  else if (a.high <= 0) {
+    lx = b.high <= 0 ? a.high : a.low;
+    ly = b.high;
+    hx = b.low >= 0 ? a.high : a.low;
+    hy = b.low;
+  }
+  else if (b.low >= 0) {
+    lx = a.low;
+    hx = a.high;
+    ly = hy = b.high;
+  }
+  else if (b.high <= 0) {
+    lx = a.high;
+    hx = a.low;
+    ly = hy = b.low;
+  }
+  else {
+    const auto low_a = product(a.low, b.high), low_b = product(a.high, b.low);
+    const auto high_a = product(a.low, b.low), high_b = product(a.high, b.high);
+    if (!low_a.valid() || !low_b.valid() || !high_a.valid() || !high_b.valid()) {
+      return Interval::invalid();
+    }
+    return {std::min(low_a.low, low_b.low), std::max(high_a.high, high_b.high)};
+  }
+  const auto low = product(lx, ly);
+  const auto high = lx == hx && ly == hy ? low : product(hx, hy);
+  return low.valid() && high.valid() ? Interval(low.low, high.high) : Interval::invalid();
 }
 static Interval operator/(const Interval a, const Interval b)
 {
@@ -102,23 +137,28 @@ static Interval operator/(const Interval a, const Interval b)
   if (b.low == 1 && b.high == 1) {
     return a;
   }
-  double lo = INFINITY, hi = -INFINITY;
-  const double av[] = {a.low, a.high}, bv[] = {b.low, b.high};
-  for (const int i : IndexRange(a.low == a.high ? 1 : 2)) {
-    for (const int j : IndexRange(b.low == b.high ? 1 : 2)) {
-      const double x = av[i], y = bv[j];
-      const double value = x / y;
-      double product, error;
-      if (!std::isfinite(value) || !detail::product_with_error(value, y, product, error)) {
-        return Interval::invalid();
-      }
-      const bool exact = error == 0 && product == x;
-      lo = std::min(lo, exact ? value : std::nextafter(value, -INFINITY));
-      hi = std::max(hi, exact ? value : std::nextafter(value, INFINITY));
-    }
+  if (b.high < 0) {
+    return Interval(-a.high, -a.low) / Interval(-b.high, -b.low);
   }
-  return {lo, hi};
+  auto quotient = [](const double x, const double y) {
+    const double value = x / y;
+    double product, error;
+    if (!std::isfinite(value) || !detail::product_with_error(value, y, product, error)) {
+      return Interval::invalid();
+    }
+    const bool exact = error == 0 && product == x;
+    return Interval(exact ? value : std::nextafter(value, -INFINITY),
+                    exact ? value : std::nextafter(value, INFINITY));
+  };
+  const double low_divisor = a.low >= 0 ? b.high : b.low;
+  const double high_divisor = a.high <= 0 ? b.high : b.low;
+  const auto low = quotient(a.low, low_divisor);
+  const auto high = a.low == a.high && low_divisor == high_divisor ?
+                        low :
+                        quotient(a.high, high_divisor);
+  return low.valid() && high.valid() ? Interval(low.low, high.high) : Interval::invalid();
 }
+
 static double midpoint(const Interval x)
 {
   return x.valid() ? std::midpoint(x.low, x.high) : NAN;
@@ -182,8 +222,9 @@ static Coefficient blend(const Coefficient &a, const Coefficient &b, const Inter
       const bool constant = a.position[axis].low == a.position[axis].high &&
                             a.position[axis].low == b.position[axis].low &&
                             a.position[axis].high == b.position[axis].high;
-      result.set_position(
-          axis, constant ? a.position[axis] : a.position[axis] * beta + b.position[axis] * alpha);
+      if (!constant) {
+        result.set_position(axis, a.position[axis] * beta + b.position[axis] * alpha);
+      }
     }
     return result;
   }
@@ -250,6 +291,102 @@ static double coefficient_error(const Span<Coefficient> points)
   return detail::add_upper(point_error, weight_effect.high);
 }
 
+/** Knot insertion depends on the knot vector and requested interval, independently of
+ * the coefficient row. A tensor restriction uses one plan per axis for every row/column. */
+struct RestrictionPlan {
+  struct Insertion {
+    int prefix, suffix;
+    Vector<Interval, 12> weights;
+  };
+  Vector<Insertion> insertions;
+  Vector<double> knots;
+  int first = 0, count = 0;
+
+  static std::optional<RestrictionPlan> create(const int order,
+                                               const Span<double> source_knots,
+                                               const int source_points,
+                                               const double2 range)
+  {
+    if (!std::isfinite(range.x) || !std::isfinite(range.y) || range.x >= range.y ||
+        range.x < source_knots[order - 1] || range.y > source_knots[source_points])
+    {
+      return std::nullopt;
+    }
+    RestrictionPlan plan;
+    plan.knots = source_knots;
+    int points = source_points;
+    const int degree = order - 1;
+    for (const double parameter : {range.x, range.y}) {
+      int multiplicity = int(std::count(plan.knots.begin(), plan.knots.end(), parameter));
+      while (multiplicity < order) {
+        /* Insert after the full existing knot run, including an unclamped upper
+         * domain endpoint. Using its left evaluation span would discard the last
+         * active coefficient before the endpoint has been clamped. */
+        const int span = int(std::upper_bound(plan.knots.begin(), plan.knots.end(), parameter) -
+                             plan.knots.begin()) -
+                         1;
+        Insertion insertion{span - degree + 1, span - multiplicity, {}};
+        if (span < degree || insertion.prefix > points || insertion.suffix < 0 ||
+            insertion.suffix >= points)
+        {
+          return std::nullopt;
+        }
+        for (int i = insertion.prefix; i <= insertion.suffix; i++) {
+          const Interval alpha = (Interval(parameter) - Interval(plan.knots[i])) /
+                                 (Interval(plan.knots[i + degree]) - Interval(plan.knots[i]));
+          if (!alpha.valid()) {
+            return std::nullopt;
+          }
+          insertion.weights.append(alpha);
+        }
+        plan.insertions.append(std::move(insertion));
+        plan.knots.insert(span + 1, parameter);
+        points++;
+        multiplicity++;
+      }
+    }
+    plan.first = int(std::lower_bound(plan.knots.begin(), plan.knots.end(), range.x) -
+                     plan.knots.begin());
+    const int last = int(std::upper_bound(plan.knots.begin(), plan.knots.end(), range.y) -
+                         plan.knots.begin());
+    plan.count = last - plan.first - order;
+    if (plan.count < order || plan.first + plan.count > points) {
+      return std::nullopt;
+    }
+    if (plan.first != 0 || last != plan.knots.size()) {
+      plan.knots = Vector<double>(plan.knots.as_span().slice(plan.first, last - plan.first));
+    }
+    return plan;
+  }
+
+  void apply(Vector<Coefficient> &points, Vector<Coefficient> &output) const
+  {
+    if (!insertions.is_empty()) {
+      const int capacity = int(points.size() + insertions.size());
+      points.reserve(capacity);
+      output.reserve(capacity);
+      for (const auto &insertion : insertions) {
+        output.clear();
+        output.extend(points.as_span().take_front(insertion.prefix));
+        for (const int i : insertion.weights.index_range()) {
+          const int point = insertion.prefix + i;
+          output.append(blend(points[point - 1], points[point], insertion.weights[i]));
+        }
+        output.extend(points.as_span().drop_front(insertion.suffix));
+        std::swap(points, output);
+      }
+    }
+    if (first != 0) {
+      for (const int i : IndexRange(count)) {
+        points[i] = points[first + i];
+      }
+    }
+    while (points.size() > count) {
+      points.remove_last();
+    }
+  }
+};
+
 struct CurveData {
   int order;
   Vector<double> knots;
@@ -265,76 +402,15 @@ struct CurveData {
       : order(order), knots(knots), points(points)
   {
   }
-  int span(const double parameter) const
-  {
-    if (parameter == knots[points.size()]) {
-      return int(points.size()) - 1;
-    }
-    return int(std::upper_bound(
-                   knots.begin() + order - 1, knots.begin() + points.size() + 1, parameter) -
-               knots.begin()) -
-           1;
-  }
-  int multiplicity(const double parameter) const
-  {
-    return int(std::count(knots.begin(), knots.end(), parameter));
-  }
-  bool insert(const double parameter)
-  {
-    const int p = order - 1, k = span(parameter), s = multiplicity(parameter);
-    if (s >= order) {
-      return true;
-    }
-    if (k < p || k >= points.size()) {
-      return false;
-    }
-    Vector<Coefficient> output;
-    output.reserve(points.size() + 1);
-    for (int i = 0; i <= k - p; i++) {
-      output.append(points[i]);
-    }
-    for (int i = k - p + 1; i <= k - s; i++) {
-      const Interval alpha = (Interval(parameter) - Interval(knots[i])) /
-                             (Interval(knots[i + p]) - Interval(knots[i]));
-      if (!alpha.valid()) {
-        return false;
-      }
-      output.append(blend(points[i - 1], points[i], alpha));
-    }
-    for (int i = k - s; i < points.size(); i++) {
-      output.append(points[i]);
-    }
-    if (output.size() != points.size() + 1) {
-      return false;
-    }
-    knots.insert(k + 1, parameter);
-    points = std::move(output);
-    return true;
-  }
   bool restrict_to(const double2 &range)
   {
-    if (!std::isfinite(range.x) || !std::isfinite(range.y) || range.x >= range.y ||
-        range.x < knots[order - 1] || range.y > knots[points.size()])
-    {
+    auto plan = RestrictionPlan::create(order, knots, points.size(), range);
+    if (!plan) {
       return false;
     }
-    for (const double parameter : {range.x, range.y}) {
-      while (multiplicity(parameter) < order) {
-        if (!insert(parameter)) {
-          return false;
-        }
-      }
-    }
-    const int first = int(std::lower_bound(knots.begin(), knots.end(), range.x) - knots.begin());
-    const int last = int(std::upper_bound(knots.begin(), knots.end(), range.y) - knots.begin());
-    const int count = last - first - order;
-    if (count < order || first + count > points.size()) {
-      return false;
-    }
-    Vector<Coefficient> cropped(points.as_span().slice(first, count));
-    Vector<double> cropped_knots(knots.as_span().slice(first, last - first));
-    points = std::move(cropped);
-    knots = std::move(cropped_knots);
+    Vector<Coefficient> scratch;
+    plan->apply(points, scratch);
+    knots = std::move(plan->knots);
     return true;
   }
   OwnedCurve store(const int dimension, const int64_t id = 0) const
@@ -527,49 +603,41 @@ std::optional<SurfaceRefinementResult> restrict_surface(const NurbsSurfaceGeomet
   if (!budget_valid(max_error, r_error) || !surface_validate_structure(source, r_error)) {
     return std::nullopt;
   }
-  Vector<Coefficient> rows;
-  Vector<double> u_knots, v_knots;
-  int nu = 0, nv = 0;
+  const auto u_plan = RestrictionPlan::create(
+      source.order_u, {source.knots_u, source.knots_u_num}, source.points_u, {low.x, high.x});
+  const auto v_plan = RestrictionPlan::create(
+      source.order_v, {source.knots_v, source.knots_v_num}, source.points_v, {low.y, high.y});
+  if (!u_plan || !v_plan) {
+    if (r_error) {
+      *r_error = !u_plan ? "NURBS support restriction needs a valid U interval" :
+                           "NURBS support restriction needs a valid V interval";
+    }
+    return std::nullopt;
+  }
+  const int nu = u_plan->count, nv = v_plan->count;
+  const auto &u_knots = u_plan->knots, &v_knots = v_plan->knots;
+  Vector<Coefficient> rows, columns, points, scratch;
+  rows.reserve(nu * source.points_v);
+  columns.reserve(nu * nv);
   for (int v = 0; v < source.points_v; v++) {
-    Vector<Coefficient> points;
+    points.clear();
     for (int u = 0; u < source.points_u; u++) {
       points.append(Coefficient(source.points[v * source.points_u + u]));
     }
-    CurveData row(source.order_u, {source.knots_u, source.knots_u_num}, points);
-    if (!row.restrict_to({low.x, high.x})) {
-      if (r_error) {
-        *r_error = "NURBS support restriction needs a valid U interval";
-      }
-      return std::nullopt;
-    }
-    nu = int(row.points.size());
-    u_knots = std::move(row.knots);
-    rows.extend(row.points);
+    u_plan->apply(points, scratch);
+    rows.extend(points);
   }
-  Vector<Vector<Coefficient>> columns;
   for (int u = 0; u < nu; u++) {
-    Vector<Coefficient> points;
+    points.clear();
     for (int v = 0; v < source.points_v; v++) {
       points.append(rows[v * nu + u]);
     }
-    CurveData column(source.order_v, {source.knots_v, source.knots_v_num}, points);
-    if (!column.restrict_to({low.y, high.y})) {
-      if (r_error) {
-        *r_error = "NURBS support restriction needs a valid V interval";
-      }
-      return std::nullopt;
-    }
-    nv = int(column.points.size());
-    v_knots = std::move(column.knots);
-    columns.append(std::move(column.points));
+    v_plan->apply(points, scratch);
+    columns.extend(points);
   }
-  Vector<Coefficient> points;
-  for (int v = 0; v < nv; v++) {
-    for (int u = 0; u < nu; u++) {
-      points.append(columns[u][v]);
-    }
-  }
-  const double bound = coefficient_error(points);
+  /* Bounds are maxima over the coefficients with the same first anchor. They do
+   * not require a row-major copy; transpose only the final stored point records. */
+  const double bound = coefficient_error(columns);
   if (!accept_error(bound, max_error, r_error)) {
     return std::nullopt;
   }
@@ -582,11 +650,13 @@ std::optional<SurfaceRefinementResult> restrict_surface(const NurbsSurfaceGeomet
   surface->points_num = nu * nv;
   surface->knots_u_num = int(u_knots.size());
   surface->knots_v_num = int(v_knots.size());
-  surface->points = MEM_new_array<NurbsControlPoint>(points.size(), __func__);
+  surface->points = MEM_new_array<NurbsControlPoint>(nu * nv, __func__);
   surface->knots_u = MEM_new_array<double>(u_knots.size(), __func__);
   surface->knots_v = MEM_new_array<double>(v_knots.size(), __func__);
-  for (const int i : points.index_range()) {
-    surface->points[i] = points[i].value;
+  for (int v = 0; v < nv; v++) {
+    for (int u = 0; u < nu; u++) {
+      surface->points[v * nu + u] = columns[u * nv + v].value;
+    }
   }
   std::copy(u_knots.begin(), u_knots.end(), surface->knots_u);
   std::copy(v_knots.begin(), v_knots.end(), surface->knots_v);

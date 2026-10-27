@@ -3079,22 +3079,122 @@ TEST_F(NurbsTopologyEditTest, RefinementClampsNonuniformNonclampedCurvesWithoutC
   curve.points = points;
   curve.knots = knots;
   std::string error;
-  auto piece = restrict_curve(curve, {0.25, 1.75}, 1e-10, &error);
-  ASSERT_TRUE(piece.has_value()) << error;
-  for (int i = 0; i <= 64; i++) {
-    const double parameter = 0.25 + 1.5 * (i / 64.0);
-    const auto a = evaluate_curve_bounded(curve, parameter, 1e-10, &error);
-    const auto b = evaluate_curve_bounded(*piece->curve, parameter, 1e-10, &error);
-    ASSERT_TRUE(a.has_value()) << error;
-    ASSERT_TRUE(b.has_value()) << error;
-    const double3 delta = a->position - b->position;
-    EXPECT_LE(std::hypot(delta.x, delta.y, delta.z),
-              piece->geometry_error_bound + a->error_bound + b->error_bound);
+  for (const double2 range : {double2(0.25, 1.75), double2(0, 2), double2(0.5, 2)}) {
+    auto piece = restrict_curve(curve, range, 1e-10, &error);
+    ASSERT_TRUE(piece.has_value()) << error;
+    for (int i = 0; i <= 64; i++) {
+      const double parameter = std::lerp(range.x, range.y, i / 64.0);
+      const auto a = evaluate_curve_bounded(curve, parameter, 1e-10, &error);
+      const auto b = evaluate_curve_bounded(*piece->curve, parameter, 1e-10, &error);
+      ASSERT_TRUE(a.has_value()) << error;
+      ASSERT_TRUE(b.has_value()) << error;
+      const double3 delta = a->position - b->position;
+      EXPECT_LE(std::hypot(delta.x, delta.y, delta.z),
+                piece->geometry_error_bound + a->error_bound + b->error_bound);
+    }
   }
   EXPECT_EQ(curve.points, points);
   EXPECT_EQ(curve.knots, knots);
   EXPECT_EQ(curve.points_num, 4);
   EXPECT_EQ(knots[0], -2);
+}
+
+TEST_F(NurbsTopologyEditTest, TensorRestrictionPreservesNonclampedAndRepeatedKnotSupports)
+{
+  NurbsSurfaceGeometry source;
+  source.order_u = source.order_v = 3;
+  source.points_u = 4;
+  source.points_v = 5;
+  source.points_num = 20;
+  source.knots_u_num = 7;
+  source.knots_v_num = 8;
+  NurbsControlPoint points[20];
+  double knots_u[] = {-2, -1, 0, 0.5, 1, 2, 3};
+  double knots_v[] = {0, 0, 0, 0.5, 0.5, 1, 1, 1};
+  source.points = points;
+  source.knots_u = knots_u;
+  source.knots_v = knots_v;
+  for (int v = 0; v < source.points_v; v++) {
+    for (int u = 0; u < source.points_u; u++) {
+      auto &point = points[v * source.points_u + u];
+      point.position[0] = 0.7 * u - 1.3;
+      point.position[1] = 0.3 * v - 0.6;
+      point.position[2] = 0.2 * ((u + v) % 3) - 0.1;
+      point.weight = 0.7 + 0.1 * ((2 * u + v) % 5);
+    }
+  }
+  const std::vector<NurbsControlPoint> saved(std::begin(points), std::end(points));
+  auto reference_basis = [](const Span<double> knots,
+                            const int order,
+                            const int count,
+                            const double parameter) {
+    std::vector<long double> values(knots.size() - 1);
+    for (int i = 0; i < int(values.size()); i++) {
+      values[i] = parameter == knots[count] ? knots[i] < parameter && parameter <= knots[i + 1] :
+                                              knots[i] <= parameter && parameter < knots[i + 1];
+    }
+    for (int degree = 1; degree < order; degree++) {
+      for (int i = 0; i < int(values.size()) - degree; i++) {
+        const long double left = static_cast<long double>(knots[i + degree]) - knots[i];
+        const long double right = static_cast<long double>(knots[i + degree + 1]) - knots[i + 1];
+        values[i] = (left == 0 ?
+                         0 :
+                         (parameter - static_cast<long double>(knots[i])) / left * values[i]) +
+                    (right == 0 ? 0 :
+                                  (static_cast<long double>(knots[i + degree + 1]) - parameter) /
+                                      right * values[i + 1]);
+      }
+    }
+    values.resize(count);
+    return values;
+  };
+  std::string error;
+  for (const auto &range : {std::array<double2, 2>{{{0.17, 0.23}, {0.83, 0.91}}},
+                            std::array<double2, 2>{{{0, 0}, {1, 1}}},
+                            std::array<double2, 2>{{{0.5, 0.5}, {0.83, 1}}}})
+  {
+    const auto piece = restrict_surface(source, range[0], range[1], 1e-9, &error);
+    ASSERT_TRUE(piece) << error;
+    EXPECT_EQ(piece->surface->order_u, source.order_u);
+    EXPECT_EQ(piece->surface->order_v, source.order_v);
+    for (int j = 0; j <= 8; j++) {
+      const double v = std::lerp(range[0].y, range[1].y, j / 8.0);
+      const auto bv = reference_basis({knots_v, 8}, source.order_v, source.points_v, v);
+      const auto iso = surface_isocurve(*piece->surface, 1, v, 1e-9, &error);
+      ASSERT_TRUE(iso) << error;
+      for (int i = 0; i <= 8; i++) {
+        const double u = std::lerp(range[0].x, range[1].x, i / 8.0);
+        const auto bu = reference_basis({knots_u, 7}, source.order_u, source.points_u, u);
+        std::array<long double, 3> numerator{};
+        long double weight = 0;
+        for (int y = 0; y < source.points_v; y++) {
+          for (int x = 0; x < source.points_u; x++) {
+            const auto &point = points[y * source.points_u + x];
+            const long double basis = bu[x] * bv[y] * point.weight;
+            weight += basis;
+            for (const int axis : IndexRange(3)) {
+              numerator[axis] += basis * point.position[axis];
+            }
+          }
+        }
+        ASSERT_GT(weight, 0);
+        const auto actual = evaluate_curve_bounded(*iso->curve, u, 1e-9, &error);
+        ASSERT_TRUE(actual) << error;
+        long double deviation = 0;
+        for (const int axis : IndexRange(3)) {
+          deviation += std::abs(numerator[axis] / weight - actual->position[axis]);
+        }
+        EXPECT_LE(deviation,
+                  piece->geometry_error_bound + iso->geometry_error_bound + actual->error_bound +
+                      256 * std::numeric_limits<long double>::epsilon());
+      }
+    }
+  }
+  EXPECT_EQ(std::memcmp(points, saved.data(), sizeof(points)), 0);
+  EXPECT_EQ(knots_u[0], -2);
+  EXPECT_EQ(knots_v[3], 0.5);
+  EXPECT_FALSE(restrict_surface(source, {-0.1, 0}, {1, 1}, 1e-9, &error));
+  EXPECT_FALSE(restrict_surface(source, {0, 0.7}, {1, 0.3}, 1e-9, &error));
 }
 
 TEST_F(NurbsTopologyEditTest,

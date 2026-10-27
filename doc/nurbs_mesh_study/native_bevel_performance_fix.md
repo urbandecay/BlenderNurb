@@ -124,3 +124,65 @@ that deform supports still require fresh source derivatives.
 
 Exact outputs are `/tmp/nurbs-bevel-final-drag-{before,after}-benchmark.log`.
 The fresh bevel comparison is `/tmp/nurbs-bevel-final-bevel-benchmark.log`.
+
+## Refinement follow-up after 9b6e6af58b0
+
+The first efficiency version was committed and pushed as `9b6e6af58b0` on
+`nurbs/shared-topology-foundation`. The next local build reduces repeated work inside
+rounded strip partitioning:
+
+- Build one knot insertion plan per tensor axis and apply it to every coefficient
+  row or column. Knot searches, multiplicities and interval blend weights depend on
+  the parameter domain, independently of the row positions.
+- Reuse scratch buffers and store the restricted columns directly. Avoid allocating
+  a coefficient vector for each row and avoid transposing the whole interval grid
+  before checking the maximum coefficient error.
+- Evaluate only extremal interval multiplication/division corners, using their sign
+  and monotonicity. Intervals crossing zero retain the necessary extra corners.
+  Point interval sums share their exact residual calculation. Outward rounding and
+  explicit error budget checks remain required.
+- Preserve copied constant coefficients directly in equal-weight blends.
+
+An independent long-double tensor basis check exposed an unclamped upper-domain
+endpoint issue: knot insertion must follow the complete knot run, whereas point
+sampling uses the left evaluation span there. The refinement plan now handles that
+endpoint correctly. Curve and tensor regressions cover it, alongside repeated interior
+knots, signed coordinates, unequal positive weights, invalid intervals and unchanged
+source records.
+
+### Matched viewport comparison
+
+Both builds ran the same dense viewport regression, with identical twelve steady
+mouse positions at 13 segments. The following native object evaluation is paired with
+each modal handler. The first new preview and final numeric operation are excluded.
+
+| Instrumented elapsed time, median | Pushed build | Follow-up build |
+| --- | ---: | ---: |
+| Rounded strip partitioning | 26.98 ms | 19.84 ms |
+| Bevel geometry construction | 34.11 ms | 27.28 ms |
+| Candidate display preview | 21.48 ms | 21.92 ms |
+| Handler plus following evaluation | 58.52 ms | 51.95 ms |
+
+The complete measured update takes about 11% less time; strip partitioning takes
+about 26% less time. The preview stage is still a substantial remaining cost.
+These timings exclude drawing and event harness waits and are not viewport FPS.
+Exact summaries and logs are `/tmp/nurbs-bevel-v2-ui-summary.json` and
+`/tmp/nurbs-bevel-v2-ui-{before,after}-debug.log`.
+
+The fresh-operation benchmark separately measured native totals of 82.20 to 65.92 ms
+at 13 segments (about 20% less time), 39.72 to 32.35 ms at 6, and 10.00 to 8.97 ms
+at 1. These include operator and evaluated-mesh access. The logs are
+`/tmp/nurbs-bevel-v2-{before,final}-benchmark.log`.
+
+### Follow-up validation
+
+All 55 topology, 26 display mesh and 12 tessellation checks passed. Ten saved-scene
+checks remain fixture-gated and were skipped. The topology run includes the exhaustive
+box edge subsets. The viewport regression passed in both builds, exercising repeated
+widths, cancel, confirm, undo, redo and mode re-entry. Test logs are
+`/tmp/nurbs-bevel-v2-{topology,mesh,tessellate}-tests.log`.
+
+At 1, 6 and 13 segments, the displayed positions, polygon vertex indices and corner
+normal arrays matched the pushed build exactly. The 13-segment result retains 9,312
+vertices and 18,620 triangles. The comparison summary is
+`/tmp/nurbs-bevel-v2-geometry-summary.json`; no preview settings were reduced.
