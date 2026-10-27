@@ -471,7 +471,7 @@ static bool find_component(const ViewContext &vc,
       if (!evaluated) {
         return false;
       }
-      const auto &preview = evaluated->result->preview;
+      const auto &preview = *evaluated->result->preview;
       if (flag_is_set(mode, SelectionMode::Edge)) {
         project_edge_segments(
             vc,
@@ -596,7 +596,7 @@ bool select_box(const ViewContext &vc, const rcti &rect, const eSelectOp operati
       WM_global_report(RPT_ERROR, error.c_str());
       return false;
     }
-    const auto &preview = evaluated->result->preview;
+    const auto &preview = *evaluated->result->preview;
     if (flag_is_set(mode, SelectionMode::Edge)) {
       Set<int64_t> intersecting, not_fully_inside;
       project_edge_segments(

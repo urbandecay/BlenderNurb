@@ -342,7 +342,7 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
   const double start = BLI_time_now_seconds();
   if (!previous.result || previous.result->is_translation_preview ||
       previous.result->undefined_normal_corners != 0 ||
-      display_mesh.verts_num != previous.result->preview.points_num() ||
+      display_mesh.verts_num != previous.result->preview->points_num() ||
       display_mesh.faces_num != previous.result->mesh_to_preview_triangle.size())
   {
     return std::nullopt;
@@ -354,9 +354,10 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
   {
     return std::nullopt;
   }
-  MeshEvaluation result{source, original.preview, nullptr, original.mesh_to_preview_triangle};
-  Array<double3> point_translations(result.preview.points_num(), double3(0));
-  Array<uint8_t> assigned(result.preview.points_num(), 0);
+  auto preview = std::make_shared<SurfacePreview>(*original.preview);
+  MeshEvaluation result{source, preview, nullptr, original.mesh_to_preview_triangle};
+  Array<double3> point_translations(preview->points_num(), double3(0));
+  Array<uint8_t> assigned(preview->points_num(), 0);
   auto assign_translation = [&](const int point_index, const double3 &point_translation) {
     if (point_index < 0 || point_index >= point_translations.size()) {
       return false;
@@ -368,7 +369,7 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
     assigned[point_index] = 1;
     return true;
   };
-  for (const SurfacePreviewTriangle &triangle : result.preview.triangles) {
+  for (const SurfacePreviewTriangle &triangle : preview->triangles) {
     const double3 face_translation = components.faces.lookup(triangle.face_id);
     for (const int corner : IndexRange(3)) {
       const int point = triangle.points[corner];
@@ -377,13 +378,13 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
       }
     }
   }
-  for (const int i : result.preview.boundary.positions.index_range()) {
-    const int64_t vertex_id = result.preview.boundary.vertex_ids[i];
+  for (const int i : preview->boundary.positions.index_range()) {
+    const int64_t vertex_id = preview->boundary.vertex_ids[i];
     if (vertex_id != 0 && !assign_translation(i, components.vertices.lookup(vertex_id))) {
       return std::nullopt;
     }
   }
-  for (const EvaluatedBoundaryEdge &edge : result.preview.boundary.edges) {
+  for (const EvaluatedBoundaryEdge &edge : preview->boundary.edges) {
     const double3 edge_translation = components.edges.lookup(edge.edge_id);
     for (const BoundarySample &sample : edge.samples) {
       if (!assign_translation(sample.point_index, edge_translation)) {
@@ -391,10 +392,10 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
       }
     }
   }
-  for (const int i : result.preview.boundary.positions.index_range()) {
-    result.preview.boundary.positions[i] += point_translations[i];
+  for (const int i : preview->boundary.positions.index_range()) {
+    preview->boundary.positions[i] += point_translations[i];
   }
-  for (auto &edge : result.preview.boundary.edges) {
+  for (auto &edge : preview->boundary.edges) {
     const double3 edge_translation = components.edges.lookup(edge.edge_id);
     for (auto &sample : edge.samples) {
       sample.curve_position += edge_translation;
@@ -405,12 +406,12 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
       }
     }
   }
-  for (auto &point : result.preview.interior) {
+  for (auto &point : preview->interior) {
     point.position += components.faces.lookup(point.face_id);
   }
-  Array<float3> positions(result.preview.points_num());
+  Array<float3> positions(preview->points_num());
   for (const int i : positions.index_range()) {
-    const double3 position = result.preview.position(i);
+    const double3 position = preview->position(i);
     for (const int axis : IndexRange(3)) {
       if (!std::isfinite(position[axis]) ||
           std::abs(position[axis]) > std::numeric_limits<float>::max())
@@ -426,8 +427,8 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
   /* Translation at large coordinates can collapse or recover float triangles. Retain the
    * cached connectivity only when the complete visibility map stays identical. */
   int displayed = 0;
-  for (const int i : result.preview.triangles.index_range()) {
-    const int3 triangle = result.preview.triangles[i].points;
+  for (const int i : preview->triangles.index_range()) {
+    const int3 triangle = preview->triangles[i].points;
     const bool visible = display_triangle_has_area(
         positions[triangle.x], positions[triangle.y], positions[triangle.z]);
     const bool was_visible = displayed < result.mesh_to_preview_triangle.size() &&
@@ -446,7 +447,7 @@ std::optional<MeshEvaluation> translate_mesh_preview(const ReadSnapshot &source,
   result.corner_normals = original.corner_normals;
   result.skipped_degenerate_float_triangles = original.skipped_degenerate_float_triangles;
   result.skipped_repeated_point_segments = original.skipped_repeated_point_segments;
-  result.preview.reused_faces = source.geometry().faces.count();
+  preview->reused_faces = source.geometry().faces.count();
   result.reused_tessellation = result.reused_normals = result.is_translation_preview = true;
   NURBS_DEBUG_LOG(
       "translation display preview: %.3f ms; %d points, %d triangles; "
@@ -472,7 +473,9 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
   }
   /* A preflighted edit can hand its exact immutable source and owned display mesh to the
    * depsgraph. Copy the derived Mesh for independent renderer ownership, without sampling or
-   * calculating source normals a second time. Released renderer meshes cannot take this path. */
+   * calculating source normals a second time. Share the immutable preview, while retaining the
+   * current source lease for picking and stale-state checks. Released renderer meshes cannot
+   * take this path. */
   if (previous && previous->result && previous->result->mesh && previous->options == options &&
       &previous->result->source.geometry() == &source.geometry())
   {
@@ -482,7 +485,6 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
                           OwnedMesh(BKE_mesh_copy_for_eval(*cached.mesh)),
                           cached.mesh_to_preview_triangle};
     result.corner_normals = cached.corner_normals;
-    result.preview.reused_faces = source.geometry().faces.count();
     result.skipped_degenerate_float_triangles = cached.skipped_degenerate_float_triangles;
     result.max_float_position_deviation = cached.max_float_position_deviation;
     result.skipped_repeated_point_segments = cached.skipped_repeated_point_segments;
@@ -495,7 +497,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
     NURBS_DEBUG_LOG("mesh eval prepared preview hit: %.3f ms total; %d faces, %d triangles",
                     (BLI_time_now_seconds() - evaluation_start) * 1000.0,
                     source.geometry().faces.count(),
-                    int(result.preview.triangles.size()));
+                    int(result.preview->triangles.size()));
     return result;
   }
   double position_ms = 0.0, triangle_filter_ms = 0.0, edge_build_ms = 0.0;
@@ -513,7 +515,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
                                              options,
                                              previous->result->source.geometry(),
                                              previous->options,
-                                             previous->result->preview,
+                                             *previous->result->preview,
                                              reused,
                                              r_error) :
                      tessellate_surfaces(source.geometry(), options, r_error);
@@ -526,12 +528,15 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
   if (preview->triangles.size() > std::numeric_limits<int>::max() / 3) {
     return fail("NURBS display mesh exceeds the corner index range");
   }
-  MeshEvaluation result{source, std::move(*preview), nullptr, {}};
+  MeshEvaluation result{source,
+                        std::make_shared<const SurfacePreview>(std::move(*preview)),
+                        nullptr,
+                        {}};
   result.reused_tessellation = reused;
-  Array<float3> positions(result.preview.points_num());
+  Array<float3> positions(result.preview->points_num());
   const double position_start = BLI_time_now_seconds();
   for (const int i : positions.index_range()) {
-    const double3 position = result.preview.position(i);
+    const double3 position = result.preview->position(i);
     for (const int axis : IndexRange(3)) {
       if (!std::isfinite(position[axis]) ||
           std::abs(position[axis]) > std::numeric_limits<float>::max())
@@ -546,8 +551,8 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
   }
   position_ms = (BLI_time_now_seconds() - position_start) * 1000.0;
   const double triangle_filter_start = BLI_time_now_seconds();
-  for (const int i : result.preview.triangles.index_range()) {
-    const int3 triangle = result.preview.triangles[i].points;
+  for (const int i : result.preview->triangles.index_range()) {
+    const int3 triangle = result.preview->triangles[i].points;
     if (display_triangle_has_area(
             positions[triangle.x], positions[triangle.y], positions[triangle.z]))
     {
@@ -561,7 +566,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
   const double edge_build_start = BLI_time_now_seconds();
   Vector<int2> edges;
   Set<int2> edge_keys;
-  for (const EvaluatedBoundaryEdge &edge : result.preview.boundary.edges) {
+  for (const EvaluatedBoundaryEdge &edge : result.preview->boundary.edges) {
     for (const int i : IndexRange(edge.samples.size() - 1)) {
       const int a = edge.samples[i].point_index, b = edge.samples[i + 1].point_index;
       if (a == b) {
@@ -643,7 +648,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
     }
     Map<int64_t, Vector<int>> face_triangles;
     for (const int i : result.mesh_to_preview_triangle.index_range()) {
-      const auto &triangle = result.preview.triangles[result.mesh_to_preview_triangle[i]];
+      const auto &triangle = result.preview->triangles[result.mesh_to_preview_triangle[i]];
       for (const int j : IndexRange(3)) {
         corner_verts[i * 3 + j] = triangle.points[j];
       }
@@ -662,7 +667,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
         Map<std::pair<double2, int>, int> sample_indices;
         Vector<SurfaceDifferentialSample> samples;
         for (const int i : *triangles) {
-          const auto &triangle = result.preview.triangles[result.mesh_to_preview_triangle[i]];
+          const auto &triangle = result.preview->triangles[result.mesh_to_preview_triangle[i]];
           double2 center;
           for (const int axis : IndexRange(2)) {
             center[axis] = std::lerp(
@@ -728,7 +733,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
     auto sharp_faces = attributes.lookup_or_add_for_write_span<bool>("sharp_face",
                                                                      AttrDomain::Face);
     for (const int i : result.mesh_to_preview_triangle.index_range()) {
-      const auto &triangle = result.preview.triangles[result.mesh_to_preview_triangle[i]];
+      const auto &triangle = result.preview->triangles[result.mesh_to_preview_triangle[i]];
       materials.span[i] = index->face(triangle.face_id)->material_index;
       sharp_faces.span[i] = false;
     }
@@ -763,7 +768,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
     const Span<int> corner_edges = mesh.corner_edges();
     for (const int i : result.mesh_to_preview_triangle.index_range()) {
       for (const int corner : IndexRange(3)) {
-        if (result.preview.triangles[result.mesh_to_preview_triangle[i]].display_edges[corner]) {
+        if (result.preview->triangles[result.mesh_to_preview_triangle[i]].display_edges[corner]) {
           mesh.runtime->subsurf_optimal_display_edges[corner_edges[3 * i + corner]].set();
         }
       }
@@ -784,9 +789,9 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
       mesh_build_ms,
       normal_ms,
       source.geometry().faces.count(),
-      int(result.preview.boundary.edges.size()),
-      result.preview.points_num(),
-      int(result.preview.triangles.size()),
+      int(result.preview->boundary.edges.size()),
+      result.preview->points_num(),
+      int(result.preview->triangles.size()),
       faces_num,
       normal_evaluations,
       result.reused_normals ? "reused" : "recalculated",

@@ -946,8 +946,8 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
   if (evaluation != nullptr && cache.native_source != nullptr &&
       evaluation->source == *cache.native_source)
   {
-    const auto &boundary = evaluation->preview.boundary;
-    const auto &preview = evaluation->preview;
+    const auto &boundary = evaluation->preview->boundary;
+    const auto &preview = *evaluation->preview;
     const auto &selection = cache.native_source->selection();
     Vector<double3> boundary_normals(boundary.positions.size(), double3(0));
     Map<int64_t, double3> face_normals;
@@ -992,7 +992,7 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
     }
     if (flag_is_set(selection.mode, bke::nurbs::SelectionMode::Face)) {
       const auto centers = bke::nurbs::face_display_centers(cache.native_source->geometry(),
-                                                            evaluation->preview);
+                                                            *evaluation->preview);
       for (const NurbsTopologyFace &face : cache.native_source->geometry().faces) {
         const auto *center = centers.lookup_ptr(face.id);
         if (center == nullptr) {

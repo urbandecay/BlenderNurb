@@ -177,7 +177,7 @@ TEST_F(NurbsObjectEvaluationTest, DependencyGraphDisplaysLiveSheetAndRetainsPrev
   const Mesh *mesh = evaluated->runtime->geometry_set_eval->get_mesh();
   ASSERT_NE(mesh, nullptr);
   EXPECT_GT(mesh->faces_num, 1);
-  EXPECT_EQ(mesh->faces_num, before->result->preview.triangles.size());
+  EXPECT_EQ(mesh->faces_num, before->result->preview->triangles.size());
   EXPECT_EQ(object->runtime->nurbs_evaluation, nullptr);
   EXPECT_EQ(curve->nurbs_geometry->faces.count(), 0);
   const ReadSnapshot first_state = before->result->source;
@@ -198,8 +198,8 @@ TEST_F(NurbsObjectEvaluationTest, DependencyGraphDisplaysLiveSheetAndRetainsPrev
   EXPECT_TRUE(after->result->reused_tessellation);
   EXPECT_EQ(after->result->source, edit.read_snapshot());
   EXPECT_NE(after->result->source, first_state);
-  EXPECT_DOUBLE_EQ(after->result->preview.position(0).z, 3);
-  EXPECT_DOUBLE_EQ(before->result->preview.position(0).z, 0);
+  EXPECT_DOUBLE_EQ(after->result->preview->position(0).z, 3);
+  EXPECT_DOUBLE_EQ(before->result->preview->position(0).z, 0);
   EXPECT_EQ(first_state.geometry().faces.count(), 1);
   mesh = evaluated->runtime->geometry_set_eval->get_mesh();
   ASSERT_NE(mesh, nullptr);
@@ -284,8 +284,8 @@ TEST_F(NurbsObjectEvaluationTest, DependencyGraphReusesPreparedPreviewAndInvalid
   ASSERT_TRUE(after->result) << after->error;
   EXPECT_FALSE(after->result->reused_evaluation);
   EXPECT_EQ(after->result->source, edit.read_snapshot());
-  EXPECT_DOUBLE_EQ(after->result->preview.position(0).z, 1);
-  EXPECT_DOUBLE_EQ(prepared->result->preview.position(0).z, 0);
+  EXPECT_DOUBLE_EQ(after->result->preview->position(0).z, 1);
+  EXPECT_DOUBLE_EQ(prepared->result->preview->position(0).z, 0);
 }
 
 TEST_F(NurbsObjectEvaluationTest, OriginalObjectMeshExtractionUsesLiveSourceWithoutFlushingIt)
@@ -360,7 +360,7 @@ TEST_F(NurbsObjectEvaluationTest, RuntimeCopyAndCacheFreeDoNotDuplicateOrInvalid
   EXPECT_EQ(evaluated->runtime->nurbs_evaluation, nullptr);
   EXPECT_EQ(evaluated->runtime->geometry_set_eval, nullptr);
   EXPECT_EQ(retained->result->source.geometry().faces.count(), 1);
-  EXPECT_FALSE(retained->result->preview.triangles.is_empty());
+  EXPECT_FALSE(retained->result->preview->triangles.is_empty());
 }
 
 }  // namespace blender::bke::nurbs::tests

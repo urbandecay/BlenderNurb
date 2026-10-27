@@ -14,6 +14,7 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_listbase.h"
+#include "BLI_map.hh"
 #include "BLI_math_matrix.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
@@ -56,6 +57,7 @@ struct NurbsTransformData {
   Vector<int64_t> vertices;
   Array<float3> proxies;
   Array<double3> centers;
+  Map<int64_t, double3> original_positions;
   double3x3 world_to_local, local_to_world;
   double3x3 linear = double3x3::identity();
   int applied_mode = TFM_DUMMY;
@@ -189,6 +191,7 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
     td.flag = TD_SELECTED;
     td.factor = 1;
     const auto &vertex = *index->vertex(data->vertices[i]);
+    data->original_positions.add_new(vertex.id, double3(vertex.position));
     data->centers[i] = double3(vertex.position);
     for (int axis = 0; axis < 3; axis++) {
       td.center[axis] = float(vertex.position[axis]);
@@ -348,12 +351,15 @@ static void recalc_trans_nurbs(TransInfo *t)
     double validation_ms = 0.0;
     if (translation && local_offset != double3(0)) {
       const double validation_start = BLI_time_now_seconds();
-      const auto original_index = nurbs::TopologyIndex::build(data.original.geometry());
-      const auto moved_index = nurbs::TopologyIndex::build(*result->geometry);
       bool changed_position = false;
-      for (const int64_t id : data.vertices) {
-        changed_position |= double3(original_index->vertex(id)->position) !=
-                            double3(moved_index->vertex(id)->position);
+      /* Translation preserves vertex identities. Compare the selected positions directly;
+       * rebuilding both complete topology indices adds no information to this precision check. */
+      for (const auto &vertex : result->geometry->vertices) {
+        const double3 *original = data.original_positions.lookup_ptr(vertex.id);
+        if (original && *original != double3(vertex.position)) {
+          changed_position = true;
+          break;
+        }
       }
       if (!changed_position) {
         fail("Requested NURBS movement is smaller than the source coordinate precision");

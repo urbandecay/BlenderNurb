@@ -1282,4 +1282,59 @@ TEST(nurbs_vertex_transform, BeveledCornerStripRemainsEditableThroughTrimmedNeig
   }
 }
 
+TEST(nurbs_vertex_transform, WholeSelectionTranslationKeepsUnusedSupportsAndMatchesGeneralPath)
+{
+  auto source = weighted_patch();
+  ASSERT_TRUE(source);
+  auto *unused_curve = MEM_dupalloc(&first_transform_item(source->curves));
+  unused_curve->id = source->next_id++;
+  unused_curve->points = MEM_dupalloc(unused_curve->points);
+  unused_curve->knots = MEM_dupalloc(unused_curve->knots);
+  BLI_addtail(&source->curves, unused_curve);
+  auto *unused_surface = MEM_dupalloc(&first_transform_item(source->surfaces));
+  unused_surface->id = source->next_id++;
+  unused_surface->points = MEM_dupalloc(unused_surface->points);
+  unused_surface->knots_u = MEM_dupalloc(unused_surface->knots_u);
+  unused_surface->knots_v = MEM_dupalloc(unused_surface->knots_v);
+  BLI_addtail(&source->surfaces, unused_surface);
+  const auto before = OwnedGeometry(geometry_copy(source.get()));
+  Vector<int64_t> ids;
+  for (const auto &vertex : source->vertices) {
+    ids.append(vertex.id);
+  }
+  ids.append(ids.first());
+  for (const double3 offset : {double3(0), double3(0.1, -0.2, 0.3), double3(4, 2, 1)}) {
+    auto matrix = double4x4::identity();
+    matrix.location() = offset;
+    Vector<VertexTransform> requests;
+    for (const int64_t id : ids) {
+      requests.append({id, matrix});
+    }
+    for (const double budget : {0.0, 1e-9}) {
+      auto expected = transform_vertices(*source, requests, budget);
+      auto actual = translate_vertices(*source, ids, offset, budget);
+      ASSERT_EQ(bool(actual), bool(expected));
+      if (actual) {
+        expect_source_geometry_equal(*actual->geometry, *expected->geometry);
+        EXPECT_EQ(actual->position_error_bound, expected->position_error_bound);
+        EXPECT_EQ(actual->boundary_error_bound, expected->boundary_error_bound);
+      }
+    }
+  }
+  ids[0] = source->next_id + 100;
+  EXPECT_FALSE(translate_vertices(*source, ids, {1, 0, 0}, 0));
+  expect_source_geometry_equal(*source, *before);
+
+  /* Retain the general component-edit gate for an inconsistent input edge endpoint. */
+  auto invalid = OwnedGeometry(geometry_copy(source.get()));
+  first_transform_item(invalid->vertices).position[0] += 10;
+  ids.clear();
+  for (const auto &vertex : invalid->vertices) {
+    ids.append(vertex.id);
+  }
+  std::string error;
+  EXPECT_FALSE(translate_vertices(*invalid, ids, {1, 0, 0}, 1e-9, &error));
+  EXPECT_NE(error.find("endpoint"), std::string::npos) << error;
+}
+
 }  // namespace blender::bke::nurbs::tests

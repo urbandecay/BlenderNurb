@@ -8,6 +8,8 @@
  * \ingroup bke
  */
 
+#include <memory>
+
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_tessellate.hh"
 
@@ -32,7 +34,9 @@ struct MeshEvaluation {
   MEM_CXX_CLASS_ALLOC_FUNCS("NURBS Mesh Evaluation");
 
   ReadSnapshot source;
-  SurfacePreview preview;
+  /** Immutable display samples and connectivity can be shared across renderer handoffs.
+   * The source lease above remains specific to this evaluation and its selection/revision. */
+  std::shared_ptr<const SurfacePreview> preview;
   OwnedMesh mesh;
   /** Display face index -> original double preview triangle. The preview itself is retained,
    * including collapsed editing intermediates and triangles lost to float quantization. */
@@ -52,7 +56,7 @@ struct MeshEvaluation {
   bool reused_tessellation = false;
   /** Source derivatives were unchanged by a uniform support translation. */
   bool reused_normals = false;
-  /** A completed preview of the identical immutable geometry was copied for this evaluation. */
+  /** A completed preview of the identical immutable geometry was shared for this evaluation. */
   bool reused_evaluation = false;
   /** Temporary component translation of an existing display, rebuilt from the source on
    * confirmation. Its positions are transported from the drag's original preview, never from

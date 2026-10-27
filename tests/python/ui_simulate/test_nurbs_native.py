@@ -6234,11 +6234,14 @@ def bevel_whole_model_translation_workflow():
     yield e.cursor_position_set(*center, move=True)
     yield e.a()
     original = display()
+    object_matrix = obj.matrix_world.copy()
     yield e.g().x()
     frames = {}
     for distance in (20, 40, 60, 80, 100, 40, 80, 20, 60, 100, 40, 20):
         yield e.cursor_position_set(center[0] + distance, center[1], move=True)
         current = display()
+        t.assertEqual(obj.matrix_world, object_matrix,
+                      'Edit Mode movement must retain the object transform')
         t.assertNotEqual(current[0], original[0])
         t.assertEqual(current[2], original[2])
         if distance in frames:
@@ -6266,6 +6269,7 @@ def bevel_duplicated_component_translation_workflow():
     """Move a duplicated bevel face while preserving the stationary original display."""
     from collections import Counter
     import bpy
+    import os
     from bpy_extras.view3d_utils import location_3d_to_region_2d
     from mathutils import Vector
 
@@ -6291,13 +6295,15 @@ def bevel_duplicated_component_translation_workflow():
         mesh = evaluated.to_mesh()
         try:
             return (tuple(tuple(vertex.co) for vertex in mesh.vertices),
-                    tuple(tuple(polygon.vertices) for polygon in mesh.polygons))
+                    tuple(tuple(polygon.vertices) for polygon in mesh.polygons),
+                    tuple(sorted((mesh.vertices[edge.vertices[0]].co -
+                                  mesh.vertices[edge.vertices[1]].co).length for edge in mesh.edges)))
         finally:
             evaluated.to_mesh_clear()
 
     def selected_faces():
         import re
-        stats = window.scene.statistics(window.view_layer)
+        stats = window.scene.statistics(window.view_layer).replace(',', '')
         match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)',
                           stats)
         t.assertIsNotNone(match, stats)
@@ -6316,6 +6322,9 @@ def bevel_duplicated_component_translation_workflow():
         yield e.cursor_position_set(face_center[0] + distance, face_center[1], move=True)
         current = display()
         t.assertEqual(current[1], duplicate_initial[1])
+        t.assertEqual(len(current[2]), len(duplicate_initial[2]))
+        t.assertLessEqual(max(abs(a - b) for a, b in zip(current[2], duplicate_initial[2])),
+                         2e-6, 'Duplicating and moving a face stretched display edges')
         t.assertTrue(current[0] != duplicate_initial[0])
         if distance in frames:
             t.assertEqual(current[0], frames[distance])
@@ -6328,6 +6337,9 @@ def bevel_duplicated_component_translation_workflow():
     t.assertGreater(unchanged, 0, 'The original surface moved with the duplicated face')
     t.assertGreater(moved, 0, 'The duplicated face did not move')
     t.assertLess(moved, len(moved_preview))
+    if output := os.environ.get('BLENDER_NURBS_TRANSLATION_CAPTURE_DIR'):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=os.path.join(output, 'duplicate-during-drag.png'))
     yield e.leftmouse()
     t.assertEqual(obj.mode, 'EDIT')
     t.assertTrue(obj.data.is_native_nurbs)

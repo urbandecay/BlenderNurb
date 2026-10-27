@@ -6,6 +6,7 @@
  * \ingroup bke
  */
 
+#include <algorithm>
 #include <array>
 #include <numeric>
 
@@ -107,10 +108,12 @@ static bool transform_position(double position[3], const double4x4 &matrix, doub
   return std::isfinite(r_error_bound);
 }
 
-std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &source,
-                                                          const double4x4 &matrix,
-                                                          const double max_position_error,
-                                                          std::string *r_error)
+static std::optional<GeometryTransformResult> transform_geometry_impl(
+    const NurbsGeometry &source,
+    const double4x4 &matrix,
+    const double max_position_error,
+    const bool active_only,
+    std::string *r_error)
 {
   if (r_error != nullptr) {
     r_error->clear();
@@ -148,6 +151,42 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
   }
   result.geometry.reset(geometry_copy(&source));
   NurbsGeometry &geometry = *result.geometry;
+  Set<int64_t> active_curves, active_surfaces;
+  if (active_only) {
+    for (const auto &edge : source.edges) {
+      active_curves.add(edge.curve_id);
+    }
+    for (const auto &face : source.faces) {
+      active_surfaces.add(face.surface_id);
+    }
+    /* The component-edit API also checks each moved edge's geometric endpoints. A uniform
+     * move can skip coefficient-assignment planning, but must retain this input-validity gate. */
+    Map<int64_t, const NurbsTopologyVertex *> vertices;
+    Map<int64_t, const NurbsCurveGeometry *> curves;
+    for (const auto &vertex : source.vertices) {
+      vertices.add_new(vertex.id, &vertex);
+    }
+    for (const auto &curve : source.curves) {
+      curves.add_new(curve.id, &curve);
+    }
+    for (const auto &edge : source.edges) {
+      for (int end = 0; end < 2; end++) {
+        const auto point = evaluate_curve(*curves.lookup(edge.curve_id),
+                                          edge.parameter_range[end],
+                                          r_error);
+        if (!point) {
+          return std::nullopt;
+        }
+        const auto &vertex = *vertices.lookup(edge.vertex_ids[end]);
+        const double3 difference = point->position - double3(vertex.position);
+        if (std::hypot(difference.x, difference.y, difference.z) >
+            std::max(vertex.tolerance, edge.tolerance))
+        {
+          return fail("NURBS edge endpoint disagrees with its source vertex tolerance");
+        }
+      }
+    }
+  }
   auto transform_points = [&](NurbsControlPoint *points, const int points_num) {
     for (int i = 0; i < points_num; i++) {
       if (points[i].weight <= 0.0 ||
@@ -159,11 +198,16 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
     return true;
   };
   for (NurbsCurveGeometry &curve : geometry.curves) {
-    if (curve.dimension == 3 && !transform_points(curve.points, curve.points_num)) {
+    if (curve.dimension == 3 && (!active_only || active_curves.contains(curve.id)) &&
+        !transform_points(curve.points, curve.points_num))
+    {
       return fail("NURBS 3D curve transform needs positive weights and finite arithmetic");
     }
   }
   for (NurbsSurfaceGeometry &surface : geometry.surfaces) {
+    if (active_only && !active_surfaces.contains(surface.id)) {
+      continue;
+    }
     if (!transform_points(surface.points, surface.points_num)) {
       return fail("NURBS support transform needs positive weights and finite arithmetic");
     }
@@ -199,6 +243,14 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
     return std::nullopt;
   }
   return result;
+}
+
+std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &source,
+                                                          const double4x4 &matrix,
+                                                          const double max_position_error,
+                                                          std::string *r_error)
+{
+  return transform_geometry_impl(source, matrix, max_position_error, false, r_error);
 }
 
 /** Exact comparison of positive binary64 products without overflowing intermediate products. */
@@ -906,6 +958,20 @@ std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &s
 {
   auto matrix = double4x4::identity();
   matrix.location() = offset;
+  if (offset != double3(0) && !vertex_ids.is_empty() &&
+      vertex_ids.size() >= source.vertices.count())
+  {
+    const Set<int64_t> selected(vertex_ids);
+    if (selected.size() == source.vertices.count() &&
+        std::all_of(source.vertices.begin(), source.vertices.end(), [&](const auto &vertex) {
+          return selected.contains(vertex.id);
+        }))
+    {
+      /* Every topology vertex receives the same translation. There are no partial-support
+       * requests to reconcile. Preserve unused parent supports left by refinement. */
+      return transform_geometry_impl(source, matrix, max_position_error, true, r_error);
+    }
+  }
   Vector<VertexTransform> transforms;
   transforms.reserve(vertex_ids.size());
   for (const int64_t id : vertex_ids) {

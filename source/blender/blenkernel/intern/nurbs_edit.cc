@@ -378,9 +378,8 @@ bool EditData::commit_evaluated(std::shared_ptr<const ObjectEvaluation> candidat
     return false;
   }
   const ReadSnapshot &source = candidate->result->source;
-  if (!snapshot_validate(*source.state_->snapshot, r_error)) {
-    return false;
-  }
+  /* ReadSnapshot can only retain a state accepted by create/commit. Geometry and selection are
+   * immutable for that state's lifetime, so validating this same snapshot again is redundant. */
   std::scoped_lock lock(mutex_);
   if (current_ != expected_state.state_ ||
       current_->revision == std::numeric_limits<uint64_t>::max())
@@ -472,10 +471,11 @@ bool curve_validate_source(const Curve &curve, std::string *r_error)
   if (curve.editnurb != nullptr && edit == nullptr) {
     return fail("NURBS source has incompatible legacy edit data");
   }
-  /* A live edit source is authoritative. Its older ID cache may be replaced during flush. */
+  /* A live edit source is authoritative and only publishes validated immutable snapshots.
+   * Keep the owner checks above, but do not rebuild a topology index merely to revalidate a
+   * snapshot which has not changed. Its older persistent cache may be replaced during flush. */
   if (edit != nullptr) {
-    const ReadSnapshot snapshot = edit->read_snapshot();
-    return source_validate(snapshot.geometry(), snapshot.selection(), r_error);
+    return true;
   }
   return geometry_validate_structure(*curve.nurbs_geometry, r_error);
 }

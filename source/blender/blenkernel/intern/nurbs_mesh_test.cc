@@ -64,16 +64,16 @@ TEST_F(NurbsMeshEvaluationTest, TranslationPreviewMovesDuplicatedFaceAndKeepsOri
   EXPECT_TRUE(preview->reused_normals);
   EXPECT_EQ(preview->mesh_to_preview_triangle, original.result->mesh_to_preview_triangle);
   EXPECT_EQ(preview->corner_normals, original.result->corner_normals);
-  for (const SurfacePreviewTriangle &triangle : original.result->preview.triangles) {
+  for (const SurfacePreviewTriangle &triangle : original.result->preview->triangles) {
     const double3 expected_offset = triangle.face_id == duplicate_face ? offset : double3(0);
     for (const int corner : IndexRange(3)) {
       const int point = triangle.points[corner];
-      EXPECT_EQ(preview->preview.position(point),
-                original.result->preview.position(point) + expected_offset);
+      EXPECT_EQ(preview->preview->position(point),
+                original.result->preview->position(point) + expected_offset);
     }
   }
-  for (const int i : IndexRange(preview->preview.points_num())) {
-    EXPECT_EQ(preview->mesh->vert_positions()[i], float3(preview->preview.position(i)));
+  for (const int i : IndexRange(preview->preview->points_num())) {
+    EXPECT_EQ(preview->mesh->vert_positions()[i], float3(preview->preview->position(i)));
   }
 
   /* The committed source evaluation still matches a fresh NURBS evaluation exactly. */
@@ -82,9 +82,9 @@ TEST_F(NurbsMeshEvaluationTest, TranslationPreviewMovesDuplicatedFaceAndKeepsOri
   const auto final = evaluate_mesh(moved_edit->read_snapshot(), original.options);
   ASSERT_TRUE(final);
   EXPECT_FALSE(final->is_translation_preview);
-  ASSERT_EQ(final->preview.points_num(), preview->preview.points_num());
-  for (const int i : IndexRange(final->preview.points_num())) {
-    EXPECT_EQ(final->preview.position(i), preview->preview.position(i));
+  ASSERT_EQ(final->preview->points_num(), preview->preview->points_num());
+  for (const int i : IndexRange(final->preview->points_num())) {
+    EXPECT_EQ(final->preview->position(i), preview->preview->position(i));
   }
 }
 
@@ -126,9 +126,9 @@ TEST_F(NurbsMeshEvaluationTest, TranslationPreviewTransportsOriginalDisplayAndOw
       for (const int i : wires.index_range()) {
         EXPECT_EQ(bool(wires[i]), bool(original_wires[i]));
       }
-      for (const int i : IndexRange(preview->preview.points_num())) {
-        EXPECT_EQ(preview->preview.position(i), original.result->preview.position(i) + offset);
-        EXPECT_EQ(preview->mesh->vert_positions()[i], float3(preview->preview.position(i)));
+      for (const int i : IndexRange(preview->preview->points_num())) {
+        EXPECT_EQ(preview->preview->position(i), original.result->preview->position(i) + offset);
+        EXPECT_EQ(preview->mesh->vert_positions()[i], float3(preview->preview->position(i)));
       }
       ObjectEvaluation temporary;
       temporary.options = original.options;
@@ -148,8 +148,8 @@ TEST_F(NurbsMeshEvaluationTest, TranslationPreviewTransportsOriginalDisplayAndOw
       ASSERT_TRUE(final && fresh);
       EXPECT_FALSE(final->is_translation_preview);
       EXPECT_FALSE(final->reused_evaluation);
-      for (const int i : IndexRange(final->preview.points_num())) {
-        EXPECT_EQ(final->preview.position(i), fresh->preview.position(i));
+      for (const int i : IndexRange(final->preview->points_num())) {
+        EXPECT_EQ(final->preview->position(i), fresh->preview->position(i));
       }
       temporary.result->mesh->vert_positions_for_write()[0].x = 42;
       EXPECT_EQ(renderer_mesh->vert_positions()[0], original_position);
@@ -245,6 +245,7 @@ TEST_F(NurbsMeshEvaluationTest, PreparedEditSharesImmutableSourceAndReusesIndepe
   auto reused = evaluate_mesh(accepted, prepared->options, &error, prepared.get());
   ASSERT_TRUE(reused) << error;
   EXPECT_TRUE(reused->reused_evaluation);
+  EXPECT_EQ(reused->preview, prepared->result->preview);
   EXPECT_EQ(reused->source, accepted);
   EXPECT_NE(reused->mesh.get(), prepared->result->mesh.get());
   const auto a = reused->mesh->corner_normals();
@@ -369,13 +370,13 @@ TEST_F(NurbsMeshEvaluationTest, CachedPreviewMatchesFreshGeometryAndInvalidatesO
   ASSERT_TRUE(previous.result) << error;
 
   auto compare = [&](const MeshEvaluation &cached, const MeshEvaluation &fresh) {
-    ASSERT_EQ(cached.preview.points_num(), fresh.preview.points_num());
-    ASSERT_EQ(cached.preview.triangles.size(), fresh.preview.triangles.size());
-    for (const int i : IndexRange(cached.preview.points_num())) {
-      EXPECT_EQ(cached.preview.position(i), fresh.preview.position(i));
+    ASSERT_EQ(cached.preview->points_num(), fresh.preview->points_num());
+    ASSERT_EQ(cached.preview->triangles.size(), fresh.preview->triangles.size());
+    for (const int i : IndexRange(cached.preview->points_num())) {
+      EXPECT_EQ(cached.preview->position(i), fresh.preview->position(i));
     }
-    for (const int i : cached.preview.triangles.index_range()) {
-      const auto &a = cached.preview.triangles[i], &b = fresh.preview.triangles[i];
+    for (const int i : cached.preview->triangles.index_range()) {
+      const auto &a = cached.preview->triangles[i], &b = fresh.preview->triangles[i];
       EXPECT_EQ(a.face_id, b.face_id);
       EXPECT_EQ(a.points, b.points);
       EXPECT_EQ(a.display_edges, b.display_edges);
@@ -466,17 +467,17 @@ TEST_F(NurbsMeshEvaluationTest, BevelWidthRefreshMatchesFreshPreviewWithMeshProf
       if (previous.result) {
         if (segments == 8) {
           /* Power-of-two profile stations are fixed; preserve reuse of the straight strips. */
-          EXPECT_GE(cached->preview.reused_faces, 12 * segments);
+          EXPECT_GE(cached->preview->reused_faces, 12 * segments);
         }
         EXPECT_FALSE(cached->reused_tessellation);
       }
-      ASSERT_EQ(cached->preview.points_num(), fresh->preview.points_num());
-      for (const int i : IndexRange(cached->preview.points_num())) {
-        EXPECT_EQ(cached->preview.position(i), fresh->preview.position(i));
+      ASSERT_EQ(cached->preview->points_num(), fresh->preview->points_num());
+      for (const int i : IndexRange(cached->preview->points_num())) {
+        EXPECT_EQ(cached->preview->position(i), fresh->preview->position(i));
       }
-      ASSERT_EQ(cached->preview.triangles.size(), fresh->preview.triangles.size());
-      for (const int i : cached->preview.triangles.index_range()) {
-        const auto &a = cached->preview.triangles[i], &b = fresh->preview.triangles[i];
+      ASSERT_EQ(cached->preview->triangles.size(), fresh->preview->triangles.size());
+      for (const int i : cached->preview->triangles.index_range()) {
+        const auto &a = cached->preview->triangles[i], &b = fresh->preview->triangles[i];
         EXPECT_EQ(a.face_id, b.face_id);
         EXPECT_EQ(a.points, b.points);
         EXPECT_EQ(a.display_edges, b.display_edges);
@@ -484,10 +485,10 @@ TEST_F(NurbsMeshEvaluationTest, BevelWidthRefreshMatchesFreshPreviewWithMeshProf
           EXPECT_EQ(a.parameters[j], b.parameters[j]);
         }
       }
-      EXPECT_EQ(cached->preview.skipped_repeated_point_triangles,
-                fresh->preview.skipped_repeated_point_triangles);
-      EXPECT_EQ(cached->preview.max_interior_weight_condition,
-                fresh->preview.max_interior_weight_condition);
+      EXPECT_EQ(cached->preview->skipped_repeated_point_triangles,
+                fresh->preview->skipped_repeated_point_triangles);
+      EXPECT_EQ(cached->preview->max_interior_weight_condition,
+                fresh->preview->max_interior_weight_condition);
       const auto a = cached->mesh->corner_normals(), b = fresh->mesh->corner_normals();
       ASSERT_EQ(a.size(), b.size());
       for (const int i : a.index_range()) {
@@ -585,16 +586,16 @@ TEST_F(NurbsMeshEvaluationTest, CachedRoundedBoxMatchesFreshPreviewAfterTranslat
   EXPECT_TRUE(cached->reused_tessellation);
   const auto fresh = evaluate_mesh(edit->read_snapshot(), options, &error);
   ASSERT_TRUE(fresh) << error;
-  ASSERT_EQ(cached->preview.points_num(), fresh->preview.points_num());
-  ASSERT_EQ(cached->preview.triangles.size(), fresh->preview.triangles.size());
-  for (const int i : IndexRange(cached->preview.points_num())) {
-    EXPECT_EQ(cached->preview.position(i), fresh->preview.position(i));
+  ASSERT_EQ(cached->preview->points_num(), fresh->preview->points_num());
+  ASSERT_EQ(cached->preview->triangles.size(), fresh->preview->triangles.size());
+  for (const int i : IndexRange(cached->preview->points_num())) {
+    EXPECT_EQ(cached->preview->position(i), fresh->preview->position(i));
   }
-  for (const int i : cached->preview.triangles.index_range()) {
-    EXPECT_EQ(cached->preview.triangles[i].points, fresh->preview.triangles[i].points);
-    EXPECT_EQ(cached->preview.triangles[i].face_id, fresh->preview.triangles[i].face_id);
-    EXPECT_EQ(cached->preview.triangles[i].display_edges,
-              fresh->preview.triangles[i].display_edges);
+  for (const int i : cached->preview->triangles.index_range()) {
+    EXPECT_EQ(cached->preview->triangles[i].points, fresh->preview->triangles[i].points);
+    EXPECT_EQ(cached->preview->triangles[i].face_id, fresh->preview->triangles[i].face_id);
+    EXPECT_EQ(cached->preview->triangles[i].display_edges,
+              fresh->preview->triangles[i].display_edges);
   }
   const auto cached_normals = cached->mesh->corner_normals();
   const auto fresh_normals = fresh->mesh->corner_normals();
@@ -711,7 +712,7 @@ TEST_F(NurbsMeshEvaluationTest, CollapsedBoxKeepsQuadBaseAndTriangularWallGrids)
   options.boundary.evaluation_allowance = 0;
   const auto result = evaluate_mesh(snapshot, options, &error);
   ASSERT_TRUE(result.has_value()) << error;
-  for (const auto &use : result->preview.boundary.uses) {
+  for (const auto &use : result->preview->boundary.uses) {
     EXPECT_TRUE(use.exact_curve_support_identity);
   }
   for (const auto &face : snapshot.geometry().faces) {
@@ -724,7 +725,7 @@ TEST_F(NurbsMeshEvaluationTest, CollapsedBoxKeepsQuadBaseAndTriangularWallGrids)
   }
   Set<int64_t> triangular_faces;
   int hidden_base_diagonals = 0;
-  for (const auto &triangle : result->preview.triangles) {
+  for (const auto &triangle : result->preview->triangles) {
     for (const int i : IndexRange(3)) {
       if (triangle.face_id == bottom) {
         hidden_base_diagonals += !triangle.display_edges[i];
@@ -740,7 +741,7 @@ TEST_F(NurbsMeshEvaluationTest, CollapsedBoxKeepsQuadBaseAndTriangularWallGrids)
   const auto &visible = result->mesh->runtime->subsurf_optimal_display_edges;
   const auto corners = result->mesh->corner_edges();
   for (const int face : result->mesh_to_preview_triangle.index_range()) {
-    const auto &triangle = result->preview.triangles[result->mesh_to_preview_triangle[face]];
+    const auto &triangle = result->preview->triangles[result->mesh_to_preview_triangle[face]];
     for (const int corner : IndexRange(3)) {
       EXPECT_EQ(bool(visible[corners[3 * face + corner]]), triangle.display_edges[corner]);
     }
@@ -827,8 +828,8 @@ TEST_F(NurbsMeshEvaluationTest, SheetMeshRetainsSourceFaceProvenanceAndIndepende
   ASSERT_TRUE(result.has_value()) << error;
   ASSERT_NE(result->mesh, nullptr);
   EXPECT_EQ(result->source, snapshot);
-  EXPECT_EQ(result->mesh->verts_num, result->preview.points_num());
-  EXPECT_EQ(result->mesh->faces_num, result->preview.triangles.size());
+  EXPECT_EQ(result->mesh->verts_num, result->preview->points_num());
+  EXPECT_EQ(result->mesh->faces_num, result->preview->triangles.size());
   EXPECT_GT(result->mesh->faces_num, 1);
   EXPECT_EQ(result->mesh->corners_num, 3 * result->mesh->faces_num);
   const auto materials = result->mesh->attributes().lookup<int>("material_index",
@@ -874,9 +875,9 @@ TEST_F(NurbsMeshEvaluationTest, FloatQuantizationIsReportedWithoutRoundingAuthor
       static_cast<const NurbsTopologyVertex *>(edit->geometry().vertices.first)->position[0];
   EXPECT_DOUBLE_EQ(original, 1.0e12 - 0.875);
   EXPECT_NE(double(result->mesh->vert_positions()[0].x), original);
-  EXPECT_DOUBLE_EQ(result->preview.position(0).x, original);
+  EXPECT_DOUBLE_EQ(result->preview->position(0).x, original);
   EXPECT_EQ(result->mesh->faces_num, 0);
-  EXPECT_EQ(result->skipped_degenerate_float_triangles, result->preview.triangles.size());
+  EXPECT_EQ(result->skipped_degenerate_float_triangles, result->preview->triangles.size());
   EXPECT_TRUE(result->mesh_to_preview_triangle.is_empty());
   EXPECT_EQ(edit->revision(), 1);
 }
@@ -923,7 +924,7 @@ TEST_F(NurbsMeshEvaluationTest, WireDisplayRetainsCoincidentVerticesWithDistinct
   EXPECT_EQ(result->mesh->edges_num, 2);
   EXPECT_EQ(result->mesh->faces_num, 0);
   EXPECT_EQ(result->mesh->vert_positions()[0], result->mesh->vert_positions()[2]);
-  EXPECT_NE(result->preview.boundary.vertex_ids[0], result->preview.boundary.vertex_ids[2]);
+  EXPECT_NE(result->preview->boundary.vertex_ids[0], result->preview->boundary.vertex_ids[2]);
   EXPECT_EQ(result->source, snapshot);
 }
 
@@ -960,7 +961,7 @@ TEST_F(NurbsMeshEvaluationTest, SharedNormalCachePreservesBothSidesOfAnInternalK
   const Span<float3> normals = result->mesh->corner_normals();
   std::optional<float3> left, right;
   for (const int i : result->mesh_to_preview_triangle.index_range()) {
-    const auto &triangle = result->preview.triangles[result->mesh_to_preview_triangle[i]];
+    const auto &triangle = result->preview->triangles[result->mesh_to_preview_triangle[i]];
     const double center_u = (triangle.parameters[0].x + triangle.parameters[1].x +
                              triangle.parameters[2].x) /
                             3;
@@ -1031,8 +1032,8 @@ TEST_F(NurbsMeshEvaluationTest, SourceNormalsPreserveG0FaceJoinWithoutAveragingI
   ASSERT_TRUE(result.has_value()) << error;
   EXPECT_EQ(result->undefined_normal_corners, 0);
   const auto normals = result->mesh->corner_normals();
-  for (const int i : result->preview.triangles.index_range()) {
-    const bool horizontal = result->preview.triangles[i].face_id == original_face;
+  for (const int i : result->preview->triangles.index_range()) {
+    const bool horizontal = result->preview->triangles[i].face_id == original_face;
     for (const int j : IndexRange(3)) {
       const float3 normal = normals[i * 3 + j];
       if (horizontal) {
@@ -1065,9 +1066,9 @@ TEST_F(NurbsMeshEvaluationTest, CollapsedEditingSurfaceRetainsPreviewWithoutDege
   std::string error;
   const auto result = evaluate_mesh(edit->read_snapshot(), preview_options(), &error);
   ASSERT_TRUE(result.has_value()) << error;
-  EXPECT_FALSE(result->preview.triangles.is_empty());
+  EXPECT_FALSE(result->preview->triangles.is_empty());
   EXPECT_EQ(result->mesh->faces_num, 0);
-  EXPECT_EQ(result->skipped_degenerate_float_triangles, result->preview.triangles.size());
+  EXPECT_EQ(result->skipped_degenerate_float_triangles, result->preview->triangles.size());
   EXPECT_TRUE(result->mesh_to_preview_triangle.is_empty());
   EXPECT_GT(result->mesh->edges_num, 0);
   EXPECT_EQ(result->undefined_normal_corners, 0);
@@ -1111,7 +1112,7 @@ TEST_F(NurbsMeshEvaluationTest, PyramidDisplayNormalsMatchMeshFacesAfterMovingIt
       const auto &mesh = *result->mesh;
       EXPECT_EQ(mesh.faces_num, result->mesh_to_preview_triangle.size());
       EXPECT_EQ(mesh.faces_num + result->skipped_degenerate_float_triangles,
-                result->preview.triangles.size());
+                result->preview->triangles.size());
       EXPECT_EQ(result->undefined_normal_corners, 0);
       const auto normals = mesh.corner_normals();
       const auto face_normals = mesh.face_normals();
@@ -1119,7 +1120,7 @@ TEST_F(NurbsMeshEvaluationTest, PyramidDisplayNormalsMatchMeshFacesAfterMovingIt
         SCOPED_TRACE(i);
         const int original = result->mesh_to_preview_triangle[i];
         EXPECT_TRUE(i == 0 || original > result->mesh_to_preview_triangle[i - 1]);
-        const auto &triangle = result->preview.triangles[original];
+        const auto &triangle = result->preview->triangles[original];
         for (const int j : IndexRange(3)) {
           EXPECT_EQ(mesh.corner_verts()[i * 3 + j], triangle.points[j]);
           // This planar body's corner shading must agree with Mesh's geometric face normals.
@@ -1197,7 +1198,7 @@ TEST_F(NurbsMeshEvaluationTest,
       ASSERT_EQ(options.boundary.evaluation_allowance, 0);
       const auto result = evaluate_mesh(edit->read_snapshot(), options, &error);
       ASSERT_TRUE(result.has_value()) << error;
-      for (const auto &use : result->preview.boundary.uses) {
+      for (const auto &use : result->preview->boundary.uses) {
         ASSERT_TRUE(use.curve_support_deviation_bound.has_value());
         const double tolerance = tolerances.lookup(use.use_id);
         EXPECT_LE(*use.curve_support_deviation_bound, tolerance);
