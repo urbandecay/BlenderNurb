@@ -37,6 +37,12 @@ static Interval operator+(const Interval a, const Interval b)
   if (!a.valid() || !b.valid()) {
     return Interval::invalid();
   }
+  if (a.low == 0 && a.high == 0) {
+    return b;
+  }
+  if (b.low == 0 && b.high == 0) {
+    return a;
+  }
   double lo, hi, elo, ehi;
   if (!detail::sum_with_error(a.low, b.low, lo, elo) ||
       !detail::sum_with_error(a.high, b.high, hi, ehi))
@@ -60,11 +66,23 @@ static Interval operator*(const Interval a, const Interval b)
   if (!a.valid() || !b.valid()) {
     return Interval::invalid();
   }
+  if ((a.low == 0 && a.high == 0) || (b.low == 0 && b.high == 0)) {
+    return Interval(0);
+  }
+  if (a.low == 1 && a.high == 1) {
+    return b;
+  }
+  if (b.low == 1 && b.high == 1) {
+    return a;
+  }
   double lo = INFINITY, hi = -INFINITY;
-  for (const double x : {a.low, a.high}) {
-    for (const double y : {b.low, b.high}) {
+  /* Point intervals have identical endpoints. Evaluate each distinct corner once; repeating
+   * the same product four times adds no information to its outward enclosure. */
+  const double av[] = {a.low, a.high}, bv[] = {b.low, b.high};
+  for (const int i : IndexRange(a.low == a.high ? 1 : 2)) {
+    for (const int j : IndexRange(b.low == b.high ? 1 : 2)) {
       double value, error;
-      if (!detail::product_with_error(x, y, value, error)) {
+      if (!detail::product_with_error(av[i], bv[j], value, error)) {
         return Interval::invalid();
       }
       lo = std::min(lo, error ? std::nextafter(value, -INFINITY) : value);
@@ -78,9 +96,17 @@ static Interval operator/(const Interval a, const Interval b)
   if (!a.valid() || !b.valid() || (b.low <= 0 && b.high >= 0)) {
     return Interval::invalid();
   }
+  if (a.low == 0 && a.high == 0) {
+    return Interval(0);
+  }
+  if (b.low == 1 && b.high == 1) {
+    return a;
+  }
   double lo = INFINITY, hi = -INFINITY;
-  for (const double x : {a.low, a.high}) {
-    for (const double y : {b.low, b.high}) {
+  const double av[] = {a.low, a.high}, bv[] = {b.low, b.high};
+  for (const int i : IndexRange(a.low == a.high ? 1 : 2)) {
+    for (const int j : IndexRange(b.low == b.high ? 1 : 2)) {
+      const double x = av[i], y = bv[j];
       const double value = x / y;
       double product, error;
       if (!std::isfinite(value) || !detail::product_with_error(value, y, product, error)) {
@@ -101,6 +127,9 @@ static double radius(const Interval x, const double value)
 {
   if (!x.valid() || !std::isfinite(value)) {
     return INFINITY;
+  }
+  if (x.low == value && x.high == value) {
+    return 0;
   }
   const Interval lo = Interval(value) - Interval(x.low), hi = Interval(x.high) - Interval(value);
   return std::max({0.0, lo.high, hi.high});
@@ -141,30 +170,36 @@ static Coefficient blend(const Coefficient &a, const Coefficient &b, const Inter
   if (alpha.low == 1 && alpha.high == 1) {
     return b;
   }
-  std::array<Interval, 4> h;
-  for (int i = 0; i < 4; i++) {
-    h[i] = a.homogeneous[i] * (Interval(1) - alpha) + b.homogeneous[i] * alpha;
-  }
-  Coefficient result(h);
-  /* Partition of unity preserves equal weights and constant Euclidean coordinates.
-   * Keep those identities instead of losing their correlation in interval sums. */
+  const Interval beta = Interval(1) - alpha;
   const bool equal_weights = a.homogeneous[3].low == a.homogeneous[3].high &&
                              a.homogeneous[3].low == b.homogeneous[3].low &&
                              a.homogeneous[3].high == b.homogeneous[3].high;
   if (equal_weights) {
-    result.homogeneous[3] = a.homogeneous[3];
-    result.value.weight = a.value.weight;
+    /* Equal weights cancel analytically. The general homogeneous blend below previously did
+     * all four components and three divisions, then overwrote them with these same values. */
+    Coefficient result(a);
+    for (int axis = 0; axis < 3; axis++) {
+      const bool constant = a.position[axis].low == a.position[axis].high &&
+                            a.position[axis].low == b.position[axis].low &&
+                            a.position[axis].high == b.position[axis].high;
+      result.set_position(
+          axis, constant ? a.position[axis] : a.position[axis] * beta + b.position[axis] * alpha);
+    }
+    return result;
   }
+  std::array<Interval, 4> h;
+  for (int i = 0; i < 4; i++) {
+    h[i] = a.homogeneous[i] * beta + b.homogeneous[i] * alpha;
+  }
+  Coefficient result(h);
+  /* Partition of unity preserves equal weights and constant Euclidean coordinates.
+   * Keep those identities instead of losing their correlation in interval sums. */
   for (int axis = 0; axis < 3; axis++) {
     if (a.position[axis].low == a.position[axis].high &&
         a.position[axis].low == b.position[axis].low &&
         a.position[axis].high == b.position[axis].high)
     {
       result.set_position(axis, a.position[axis]);
-    }
-    else if (equal_weights) {
-      result.set_position(axis,
-                          a.position[axis] * (Interval(1) - alpha) + b.position[axis] * alpha);
     }
   }
   return result;
@@ -571,6 +606,33 @@ std::optional<BoundedCurvePoint> evaluate_curve_bounded(const NurbsCurveGeometry
   }
   if (!budget_valid(max_error, r_error) || !curve_validate_structure(source, r_error)) {
     return std::nullopt;
+  }
+  if (source.order == 2 && source.points_num == 2 && source.knots[0] == source.knots[1] &&
+      source.knots[2] == source.knots[3] && source.points[0].weight > 0 &&
+      source.points[0].weight == source.points[1].weight && std::isfinite(parameter) &&
+      parameter >= source.knots[1] && parameter <= source.knots[2])
+  {
+    /* Canonical trim lines are exactly t in one coordinate and constant in the others.
+     * Their equal rational weights cancel. Preserve that identity directly instead of
+     * rebuilding interval basis/coefficient data for every partition boundary endpoint. */
+    double3 position;
+    bool identity = true;
+    for (const int axis : IndexRange(3)) {
+      const double a = source.points[0].position[axis], b = source.points[1].position[axis];
+      if (a == b) {
+        position[axis] = a;
+      }
+      else if (a == source.knots[1] && b == source.knots[2]) {
+        position[axis] = parameter;
+      }
+      else {
+        identity = false;
+        break;
+      }
+    }
+    if (identity) {
+      return BoundedCurvePoint{position, 0};
+    }
   }
   const auto basis = polynomial_basis(
       source.order, {source.knots, source.knots_num}, source.points_num, parameter);

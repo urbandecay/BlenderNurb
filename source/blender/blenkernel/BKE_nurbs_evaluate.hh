@@ -70,6 +70,7 @@ struct BoundaryEvaluationOptions {
    * Not an evaluation error bound, fitting tolerance or approximation certificate.
    */
   double evaluation_allowance = 0.0;
+  bool operator==(const BoundaryEvaluationOptions &) const = default;
 };
 
 /** Sufficient whole-interval bound for a full straight polynomial curve and its linear p-curve

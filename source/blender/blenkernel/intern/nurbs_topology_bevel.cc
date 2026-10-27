@@ -12,8 +12,10 @@
 #include "BLI_math_boolean.hh"
 #include "BLI_math_vector.hh"
 #include "BLI_memory_utils.hh"
+#include "BLI_time.h"
 
 #include "BKE_nurbs_construct.hh"
+#include "BKE_nurbs_debug.hh"
 #include "BKE_nurbs_evaluate.hh"
 #include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_topology_edit.hh"
@@ -24,6 +26,7 @@
 #include "nurbs_topology_edit.hh"
 
 namespace blender::bke::nurbs {
+
 namespace {
 
 using namespace detail;
@@ -1662,6 +1665,11 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     result.geometry = std::move(filled->geometry);
   }
   if (rounded) {
+    /* Plan against the same unpartitioned source and apply all strip cuts together. Applying
+     * each ring separately copied and validated the entire growing body once per strip. */
+    const double partition_start = BLI_time_now_seconds();
+    TopologyCutPlan combined;
+    Map<int64_t, int> face_requests;
     Set<int64_t> remaining;
     for (const auto &item : strip_seeds) {
       remaining.add(item.first);
@@ -1670,42 +1678,73 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
       if (!remaining.contains(face)) {
         continue;
       }
-      const auto plan = plan_loop_cut(
+      auto plan = plan_loop_cut(
           *result.geometry, seed, options.segments - 1, 0, options.max_error, r_error);
       if (!plan) {
         return std::nullopt;
       }
-      auto cut = partition_components(*result.geometry, *plan, options.max_error, r_error);
-      if (!cut) {
-        return std::nullopt;
-      }
-      result.geometry_error_bound = add_upper(result.geometry_error_bound,
-                                              cut->edit.geometry_error_bound);
-      if (result.geometry_error_bound > options.max_error) {
-        return fail("Rounded bevel partitions exceed the source construction error budget");
-      }
-      auto descendants = [](const Vector<int64_t> &ids,
-                            const Map<int64_t, Vector<int64_t>> &mapping) {
-        Vector<int64_t> result;
-        for (const int64_t id : ids) {
-          if (const auto *parts = mapping.lookup_ptr(id)) {
-            result.extend(*parts);
+      combined.transport_error_bound = add_upper(combined.transport_error_bound,
+                                                 plan->transport_error_bound);
+      combined.edges.extend(std::move(plan->edges));
+      for (auto &request : plan->faces) {
+        remaining.remove(request.face_id);
+        const int slot = face_requests.lookup_or_add(request.face_id, combined.faces.size());
+        if (slot == combined.faces.size()) {
+          combined.faces.append(std::move(request));
+          continue;
+        }
+        auto &cuts = combined.faces[slot].cuts;
+        for (const auto &cut : request.cuts) {
+          bool duplicate = false;
+          for (const auto &existing : cuts) {
+            if (existing.axis == cut.axis && existing.parameter == cut.parameter) {
+              if (existing.boundary_parameters != cut.boundary_parameters) {
+                return fail("Rounded bevel partitions disagree on a shared cut parameter");
+              }
+              duplicate = true;
+              break;
+            }
           }
-          else {
-            result.append(id);
+          if (!duplicate) {
+            cuts.append(cut);
           }
         }
-        return result;
-      };
-      result.faces = descendants(result.faces, cut->face_descendants);
-      result.edges = descendants(result.edges, cut->edge_descendants);
-      result.edges.extend(cut->edit.edges);
-      result.vertices.extend(cut->edit.vertices);
-      for (const auto &request : plan->faces) {
-        remaining.remove(request.face_id);
       }
-      result.geometry = std::move(cut->edit.geometry);
     }
+    const double plan_ms = (BLI_time_now_seconds() - partition_start) * 1000.0;
+    auto cut = partition_components(*result.geometry, combined, options.max_error, r_error);
+    if (!cut) {
+      return std::nullopt;
+    }
+    result.geometry_error_bound = add_upper(result.geometry_error_bound,
+                                            cut->edit.geometry_error_bound);
+    if (result.geometry_error_bound > options.max_error) {
+      return fail("Rounded bevel partitions exceed the source construction error budget");
+    }
+    auto descendants = [](const Vector<int64_t> &ids,
+                          const Map<int64_t, Vector<int64_t>> &mapping) {
+      Vector<int64_t> result;
+      for (const int64_t id : ids) {
+        if (const auto *parts = mapping.lookup_ptr(id)) {
+          result.extend(*parts);
+        }
+        else {
+          result.append(id);
+        }
+      }
+      return result;
+    };
+    result.faces = descendants(result.faces, cut->face_descendants);
+    result.edges = descendants(result.edges, cut->edge_descendants);
+    result.edges.extend(cut->edit.edges);
+    result.vertices.extend(cut->edit.vertices);
+    result.geometry = std::move(cut->edit.geometry);
+    NURBS_DEBUG_LOG(
+        "bevel batched strip partition: %.3f ms total, %.3f planning; %d faces, %d segments",
+        (BLI_time_now_seconds() - partition_start) * 1000.0,
+        plan_ms,
+        int(combined.faces.size()),
+        options.segments);
   }
   if (!evaluate_boundaries(*result.geometry, {}, r_error)) {
     return std::nullopt;
@@ -2355,6 +2394,8 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
                                               std::string *r_error,
                                               BevelOffsetInfo *r_offset_info)
 {
+  const double bevel_start = BLI_time_now_seconds();
+  double topology_ms = 0.0, classification_ms = 0.0;
   std::string local_error;
   if (!r_error) {
     r_error = &local_error;
@@ -2366,6 +2407,13 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
     if (r_error) {
       *r_error = message;
     }
+    NURBS_DEBUG_LOG(
+        "bevel kernel rejected after %.3f ms; width %.9g, segments %d, input edges %d; %s",
+        (BLI_time_now_seconds() - bevel_start) * 1000.0,
+        options.offset,
+        options.segments,
+        int(edges.size()),
+        message);
     return std::nullopt;
   };
   if (!supported_arithmetic() || !std::isfinite(options.offset) || options.offset < 0 ||
@@ -2374,8 +2422,14 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
   {
     return fail("NURBS bevel requires a finite nonnegative width/error budget and 1–100 segments");
   }
+  const double topology_start = BLI_time_now_seconds();
   const auto index = TopologyIndex::build(source, r_error);
+  topology_ms = (BLI_time_now_seconds() - topology_start) * 1000.0;
   if (!index) {
+    NURBS_DEBUG_LOG("bevel kernel failed building topology index after %.3f ms; total %.3f ms; %s",
+                    topology_ms,
+                    (BLI_time_now_seconds() - bevel_start) * 1000.0,
+                    r_error ? r_error->c_str() : "");
     return std::nullopt;
   }
   Set<int64_t> selected;
@@ -2401,8 +2455,16 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
     if (r_offset_info) {
       *r_offset_info = {};
     }
+    NURBS_DEBUG_LOG(
+        "bevel kernel zero-width copy completed in %.3f ms (topology %.3f ms); %d input, "
+        "%d selected edges",
+        (BLI_time_now_seconds() - bevel_start) * 1000.0,
+        topology_ms,
+        int(edges.size()),
+        int(selected.size()));
     return result;
   }
+  const double classification_start = BLI_time_now_seconds();
   Set<int64_t> affected_vertices;
   for (const int64_t id : selected) {
     affected_vertices.add_multiple({index->edge(id)->vertex_ids, 2});
@@ -2439,23 +2501,66 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
       planar_charts.append(face.id);
     }
   }
+  classification_ms = (BLI_time_now_seconds() - classification_start) * 1000.0;
   if (!planar_charts.is_empty()) {
+    const double chart_start = BLI_time_now_seconds();
     auto charts = reparameterize_affine_planes(source, planar_charts, options.max_error, r_error);
     if (!charts) {
       if (selected.size() == 1) {
-        return bevel_ruled_edge(
+        const double ruled_start = BLI_time_now_seconds();
+        auto ruled = bevel_ruled_edge(
             source, *index, *selected.begin(), options, r_error, r_offset_info);
+        NURBS_DEBUG_LOG(
+            "bevel ruled fallback after chart rejection: %.3f ms ruled, %.3f ms chart "
+            "stage, %.3f ms total; %d selected edges, %d segments, success %d%s",
+            (BLI_time_now_seconds() - ruled_start) * 1000.0,
+            (BLI_time_now_seconds() - chart_start) * 1000.0,
+            (BLI_time_now_seconds() - bevel_start) * 1000.0,
+            int(selected.size()),
+            options.segments,
+            int(bool(ruled)),
+            r_error && !r_error->empty() ? r_error->c_str() : "");
+        return ruled;
       }
+      NURBS_DEBUG_LOG(
+          "bevel planar chart construction failed after %.3f ms; %.3f ms total; %d charts, "
+          "%d selected edges; %s",
+          (BLI_time_now_seconds() - chart_start) * 1000.0,
+          (BLI_time_now_seconds() - bevel_start) * 1000.0,
+          int(planar_charts.size()),
+          int(selected.size()),
+          r_error ? r_error->c_str() : "");
       return std::nullopt;
     }
+    const double chart_ms = (BLI_time_now_seconds() - chart_start) * 1000.0;
+    const double chart_index_start = BLI_time_now_seconds();
     const auto chart_index = TopologyIndex::build(*charts->geometry, r_error);
     if (!chart_index) {
+      NURBS_DEBUG_LOG(
+          "bevel failed building reparameterized topology index after %.3f ms; total "
+          "%.3f ms; %s",
+          (BLI_time_now_seconds() - chart_index_start) * 1000.0,
+          (BLI_time_now_seconds() - bevel_start) * 1000.0,
+          r_error ? r_error->c_str() : "");
       return std::nullopt;
     }
+    const double chart_index_ms = (BLI_time_now_seconds() - chart_index_start) * 1000.0;
     BevelOffsetInfo info;
+    const double network_start = BLI_time_now_seconds();
     auto result = bevel_planar_network(
         *charts->geometry, *chart_index, selected, options, r_error, &info);
+    const double network_ms = (BLI_time_now_seconds() - network_start) * 1000.0;
     if (!result) {
+      NURBS_DEBUG_LOG(
+          "bevel planar network failed: %.3f ms network, %.3f ms charts, %.3f ms chart "
+          "index, %.3f ms classification, %.3f ms source index; %.3f ms total; %s",
+          network_ms,
+          chart_ms,
+          chart_index_ms,
+          classification_ms,
+          topology_ms,
+          (BLI_time_now_seconds() - bevel_start) * 1000.0,
+          r_error ? r_error->c_str() : "");
       return std::nullopt;
     }
     result->geometry_error_bound = add_upper(result->geometry_error_bound,
@@ -2468,16 +2573,56 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
     if (r_offset_info) {
       *r_offset_info = info;
     }
+    NURBS_DEBUG_LOG(
+        "bevel planar network complete: %.3f ms network, %.3f ms charts, %.3f ms chart "
+        "index, %.3f ms classification, %.3f ms source index; %.3f ms total; %d selected "
+        "edges, %d charts, %d segments, error bound %.3g",
+        network_ms,
+        chart_ms,
+        chart_index_ms,
+        classification_ms,
+        topology_ms,
+        (BLI_time_now_seconds() - bevel_start) * 1000.0,
+        int(selected.size()),
+        int(planar_charts.size()),
+        options.segments,
+        result->geometry_error_bound);
     return result;
   }
+  const double network_start = BLI_time_now_seconds();
   auto result = bevel_planar_network(source, *index, selected, options, r_error, r_offset_info);
+  const double network_ms = (BLI_time_now_seconds() - network_start) * 1000.0;
   if (!result && selected.size() == 1 && r_error &&
       (r_error->find("planar") != std::string::npos ||
        r_error->find("straight") != std::string::npos ||
        r_error->find("projection") != std::string::npos))
   {
-    return bevel_ruled_edge(source, *index, *selected.begin(), options, r_error, r_offset_info);
+    const double ruled_start = BLI_time_now_seconds();
+    auto ruled = bevel_ruled_edge(
+        source, *index, *selected.begin(), options, r_error, r_offset_info);
+    NURBS_DEBUG_LOG(
+        "bevel ruled fallback: %.3f ms after %.3f ms planar network, %.3f ms total; %d "
+        "selected edges, %d segments, success %d%s",
+        (BLI_time_now_seconds() - ruled_start) * 1000.0,
+        network_ms,
+        (BLI_time_now_seconds() - bevel_start) * 1000.0,
+        int(selected.size()),
+        options.segments,
+        int(bool(ruled)),
+        r_error && !r_error->empty() ? r_error->c_str() : "");
+    return ruled;
   }
+  NURBS_DEBUG_LOG(
+      "bevel planar network %s: %.3f ms network, %.3f ms classification, %.3f ms source "
+      "index; %.3f ms total; %d selected edges, %d segments%s",
+      result ? "succeeded" : "failed",
+      network_ms,
+      classification_ms,
+      topology_ms,
+      (BLI_time_now_seconds() - bevel_start) * 1000.0,
+      int(selected.size()),
+      options.segments,
+      r_error && !r_error->empty() ? r_error->c_str() : "");
   return result;
 }
 

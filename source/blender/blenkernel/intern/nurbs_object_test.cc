@@ -195,6 +195,7 @@ TEST_F(NurbsObjectEvaluationTest, DependencyGraphDisplaysLiveSheetAndRetainsPrev
   const auto after = evaluated->runtime->nurbs_evaluation;
   ASSERT_NE(after, nullptr);
   ASSERT_TRUE(after->result.has_value()) << after->error;
+  EXPECT_TRUE(after->result->reused_tessellation);
   EXPECT_EQ(after->result->source, edit.read_snapshot());
   EXPECT_NE(after->result->source, first_state);
   EXPECT_DOUBLE_EQ(after->result->preview.position(0).z, 3);
@@ -204,6 +205,43 @@ TEST_F(NurbsObjectEvaluationTest, DependencyGraphDisplaysLiveSheetAndRetainsPrev
   ASSERT_NE(mesh, nullptr);
   EXPECT_FLOAT_EQ(mesh->vert_positions()[0].z, 3);
   write_preview_fixture_if_requested();
+}
+
+TEST_F(NurbsObjectEvaluationTest, DependencyGraphReusesPreparedPreviewAndInvalidatesOnNextEdit)
+{
+  EditData &edit = *curve->editnurb->nurbs_edit;
+  const ReadSnapshot original = edit.read_snapshot();
+  auto candidate = EditData::create(original.copy_for_edit());
+  ASSERT_NE(candidate, nullptr);
+  auto prepared = std::make_shared<ObjectEvaluation>();
+  prepared->options = curve_preview_options(*curve);
+  prepared->result = evaluate_mesh(candidate->read_snapshot(), prepared->options);
+  ASSERT_TRUE(prepared->result);
+  ASSERT_TRUE(edit.commit_evaluated(prepared, original));
+  const ReadSnapshot accepted = edit.read_snapshot();
+  this->build_graph();
+  const auto evaluated = this->evaluated()->runtime->nurbs_evaluation;
+  ASSERT_NE(evaluated, nullptr);
+  ASSERT_TRUE(evaluated->result) << evaluated->error;
+  EXPECT_TRUE(evaluated->result->reused_evaluation);
+  EXPECT_EQ(evaluated->result->source, accepted);
+  EXPECT_NE(prepared->result->mesh, nullptr);
+  EXPECT_EQ(evaluated->result->mesh, nullptr);
+
+  auto changed = accepted.copy_for_edit();
+  double4x4 matrix = double4x4::identity();
+  matrix.location().z = 1;
+  auto moved = transform_geometry(*changed.geometry, matrix, 0);
+  ASSERT_TRUE(moved);
+  changed.geometry = std::move(moved->geometry);
+  ASSERT_TRUE(ed::nurbs::edit_commit(*bmain, *curve, std::move(changed), accepted));
+  this->refresh();
+  const auto after = this->evaluated()->runtime->nurbs_evaluation;
+  ASSERT_TRUE(after->result) << after->error;
+  EXPECT_FALSE(after->result->reused_evaluation);
+  EXPECT_EQ(after->result->source, edit.read_snapshot());
+  EXPECT_DOUBLE_EQ(after->result->preview.position(0).z, 1);
+  EXPECT_DOUBLE_EQ(prepared->result->preview.position(0).z, 0);
 }
 
 TEST_F(NurbsObjectEvaluationTest, OriginalObjectMeshExtractionUsesLiveSourceWithoutFlushingIt)

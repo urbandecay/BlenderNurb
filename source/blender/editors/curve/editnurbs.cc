@@ -1730,6 +1730,82 @@ bool TopologyPreview::cancel_preview(bContext *C, std::string *r_error)
   return true;
 }
 
+static bool edit_commit_evaluated(Main &bmain,
+                                  Curve &curve,
+                                  std::shared_ptr<const bke::nurbs::ObjectEvaluation> candidate,
+                                  const bke::nurbs::ReadSnapshot &expected,
+                                  std::string *r_error)
+{
+  if (!curve.editnurb || !curve.editnurb->nurbs_edit ||
+      !bke::nurbs::curve_validate_source(curve, r_error) ||
+      !curve.editnurb->nurbs_edit->commit_evaluated(std::move(candidate), expected, r_error))
+  {
+    return false;
+  }
+  edit_notify(bmain, curve);
+  return true;
+}
+
+bool TopologyPreview::update_evaluated_preview(
+    bContext *C,
+    std::shared_ptr<const bke::nurbs::ObjectEvaluation> candidate,
+    std::string *r_error)
+{
+  if (state_->promotion || CTX_data_edit_object(C) != state_->target.object) {
+    if (r_error) {
+      *r_error = "Enter native NURBS component mode before previewing a topology edit";
+    }
+    return false;
+  }
+  Curve &curve = *id_cast<Curve *>(object().data);
+  if (!edit_commit_evaluated(*CTX_data_main(C),
+                             curve,
+                             std::move(candidate),
+                             state_->live_state.value_or(source()),
+                             r_error))
+  {
+    return false;
+  }
+  state_->live_state = curve.editnurb->nurbs_edit->read_snapshot();
+  return true;
+}
+
+bool TopologyPreview::commit_evaluated(
+    bContext *C,
+    std::shared_ptr<const bke::nurbs::ObjectEvaluation> candidate,
+    const double geometry_error_bound,
+    std::string *r_error)
+{
+  if (CTX_data_edit_object(C) != state_->target.object) {
+    if (r_error) {
+      *r_error = "NURBS preview source owner changed before confirmation";
+    }
+    return false;
+  }
+  Curve &curve = *id_cast<Curve *>(object().data);
+  Main &bmain = *CTX_data_main(C);
+  if (state_->promotion) {
+    if (!state_->promotion->edit->commit_evaluated(std::move(candidate), source(), r_error) ||
+        !bke::nurbs::curve_edit_commit_tagged(curve, std::move(*state_->promotion), r_error))
+    {
+      return false;
+    }
+    edit_notify(bmain, curve);
+  }
+  else if (!edit_commit_evaluated(
+               bmain, curve, std::move(candidate), state_->live_state.value_or(source()), r_error))
+  {
+    return false;
+  }
+  if (geometry_error_bound != 0) {
+    BKE_reportf(CTX_wm_reports(C),
+                RPT_INFO,
+                "NURBS construction roundoff bound %.17g; source tolerances include this bound",
+                geometry_error_bound);
+  }
+  return true;
+}
+
 bool TopologyPreview::commit(bContext *C,
                              bke::nurbs::TopologyEditResult result,
                              const bke::nurbs::SelectionMode mode,

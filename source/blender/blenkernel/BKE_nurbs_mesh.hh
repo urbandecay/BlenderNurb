@@ -37,6 +37,8 @@ struct MeshEvaluation {
   /** Display face index -> original double preview triangle. The preview itself is retained,
    * including collapsed editing intermediates and triangles lost to float quantization. */
   Vector<int> mesh_to_preview_triangle;
+  /** Source-derived display normals for each mesh corner, retained for rigid translations. */
+  Vector<float3> corner_normals;
   /** Exactly collinear float triangles omitted before building Mesh corner-normal spaces. */
   int skipped_degenerate_float_triangles = 0;
   /** Measured double-to-float conversion deviation; not a surface approximation error bound. */
@@ -45,6 +47,12 @@ struct MeshEvaluation {
   int skipped_repeated_point_segments = 0;
   /** Computed degenerate source frames; zero custom normals request Blender's display fallback. */
   int undefined_normal_corners = 0;
+  /** The UV triangulation came from a matching prior preview; positions were re-evaluated. */
+  bool reused_tessellation = false;
+  /** Source derivatives were unchanged by a uniform support translation. */
+  bool reused_normals = false;
+  /** A completed preview of the identical immutable geometry was copied for this evaluation. */
+  bool reused_evaluation = false;
 };
 
 /** Object runtime owns this immutable result; failed evaluation retains its diagnostic. */
@@ -73,11 +81,15 @@ SurfacePreviewOptions curve_preview_options(const Curve &curve, bool for_render 
  * remain visible. Source identities, coefficients, tolerances and selection are never changed.
  * Corner normals come from source derivatives and face orientation, with one-sided knot limits
  * toward each triangle. Computed degenerate frames are counted and use Blender's display-normal
- * fallback. Normals use Blender's normal encoding; no geometric continuity or error certificate is
- * implied. Does not apply modifiers, create texture UVs or make a persistent Mesh ID.
+ * fallback. Regular frames use Blender's floating-point free corner normals; undefined frames
+ * retain its encoded automatic fallback. No continuity or derivative error certificate is implied.
+ * A previous successful object evaluation can provide a reusable UV triangulation; it
+ * must retain the source and options that generated it. Does not apply modifiers, create texture
+ * UVs or make a persistent Mesh ID.
  */
 std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
                                             const SurfacePreviewOptions &options,
-                                            std::string *r_error = nullptr);
+                                            std::string *r_error = nullptr,
+                                            const ObjectEvaluation *previous = nullptr);
 
 }  // namespace blender::bke::nurbs

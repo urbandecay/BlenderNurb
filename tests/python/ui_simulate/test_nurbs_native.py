@@ -5818,6 +5818,33 @@ def bevel_freehand_box_workflow(vertex_start=False):
     t.assertEqual(totals(), (8, 12, 6))
     yield e.ctrl.shift.z()
     t.assertEqual(totals(), (12, 20, 10))
+    if vertex_start:
+        def preview_positions():
+            window.view_layer.update()
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                return tuple(tuple(vertex.co) for vertex in mesh.vertices)
+            finally:
+                evaluated.to_mesh_clear()
+
+        yield e.a()
+        before_move = preview_positions()
+        yield e.cursor_position_set(*center, move=True)
+        yield e.g()
+        yield e.cursor_position_set(center[0] + 55, center[1] + 30, move=True)
+        moved = preview_positions()
+        t.assertEqual(len(moved), len(before_move))
+        t.assertGreater(max(sum((a - b) ** 2 for a, b in zip(p, q))
+                            for p, q in zip(moved, before_move)), 1e-6)
+        yield e.esc()
+        t.assertEqual(preview_positions(), before_move)
+        yield e.g().x().text('0.2').ret()
+        t.assertNotEqual(preview_positions(), before_move)
+        yield e.ctrl.z()
+        t.assertEqual(preview_positions(), before_move)
+        yield e.ctrl.shift.z()
+        t.assertNotEqual(preview_positions(), before_move)
     print('NURBS_FREEHAND_BEVEL_PASS', flush=True)
 
 
@@ -5848,7 +5875,7 @@ def bevel_mesh_mouse_workflow():
 def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=False,
                                    rotated=False, clamped=False, skewed=False, face_selection=False,
                                    tapered=False, mouse_input=False, hold_launch_ctrl=False,
-                                   remap_snap=False, release_launch_ctrl=False):
+                                   remap_snap=False, release_launch_ctrl=False, segments=3):
     """A -> Ctrl+B on an extruded box must bevel its connected edge network."""
     import os
     import re
@@ -5960,6 +5987,10 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
         after = (96, 192, 98) if mesh_reference else (72, 120, 50)
     if face_selection:
         after = (20, 36, 18) if rounded else (12, 20, 10)
+    if segments != 3:
+        t.assertTrue(rounded and not mesh_reference and not pyramid and not face_selection)
+        after = (24 * segments, 36 * segments + 12, 12 * segments + 14)
+        shape += f'-segments-{segments}'
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-before.blend'), check_existing=False)
 
@@ -6001,7 +6032,8 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
         else:
             yield e.ctrl.b()
         if rounded:
-            yield e.wheelupmouse().wheelupmouse()
+            for _ in range(segments - 1):
+                yield e.wheelupmouse()
         if hold_launch_ctrl:
             window.event_simulate(type='MOUSEMOVE', value='NOTHING', ctrl=not release_launch_ctrl,
                                   x=center[0] + 8, y=center[1])
@@ -6059,7 +6091,9 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
             print('BEVEL_INPUT_WIDTHS', label, widths, flush=True)
         else:
             previews = {}
-            for distance in (10, 25, 60, 25):
+            distances = ((10, 25, 60, 25) if segments == 3 else
+                         (10, 25, 60, 25, 45, 20, 60, 25, 45, 20, 30, 50, 40))
+            for distance in distances:
                 yield e.cursor_position_set(center[0] + distance, center[1], move=True)
                 t.assertEqual(totals(), after)
                 current = coordinates()
@@ -6074,7 +6108,8 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
         if clamped and mesh_reference:
             yield e.c()
         if rounded:
-            yield e.wheelupmouse().wheelupmouse()
+            for _ in range(segments - 1):
+                yield e.wheelupmouse()
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.screen.screenshot(filepath=str(output / f'bevel-{label}-{shape}-preview.png'))
     t.assertEqual(totals(), after)
@@ -6090,7 +6125,8 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
     if clamped and mesh_reference:
         yield e.c()
     if rounded:
-        yield e.wheelupmouse().wheelupmouse()
+        for _ in range(segments - 1):
+            yield e.wheelupmouse()
     yield e.ret()
     t.assertEqual(totals(), after)
     t.assertEqual(obj.mode, 'EDIT')
@@ -6137,6 +6173,10 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
         with bpy.context.temp_override(window=window, area=area, region=region):
             bpy.ops.wm.save_as_mainfile(filepath=str(output / f'bevel-{label}-{shape}-duplicated.blend'), check_existing=False)
     print('NURBS_BEVEL_CONNECTED_PASS', label, shape, totals())
+
+
+def bevel_dense_round_mouse_workflow():
+    yield from bevel_connected_edges_workflow(rounded=True, mouse_input=True, segments=13)
 
 
 def bevel_mesh_connected_edges_workflow():

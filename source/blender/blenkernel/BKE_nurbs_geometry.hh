@@ -196,6 +196,19 @@ std::optional<SurfaceDifferential> evaluate_surface_differential(
     SurfaceLimits limits = {},
     std::string *r_error = nullptr);
 
+struct SurfaceDifferentialSample {
+  double2 parameter;
+  SurfaceLimits limits;
+};
+
+/** Evaluate a group on one immutable support, validating its structure once and reusing the
+ * basis and derivative weights for repeated U/V parameters and knot sides. Uses the same scalar
+ * arithmetic and error rules; preserves input order and rejects the complete group on failure. */
+std::optional<Vector<SurfaceDifferential>> evaluate_surface_differentials(
+    const NurbsSurfaceGeometry &surface,
+    Span<SurfaceDifferentialSample> samples,
+    std::string *r_error = nullptr);
+
 /** Evaluate the interior limiting normal at an exactly collapsed, clamped natural boundary.
  * Uses the adjacent coefficient row and its rational derivative, without perturbing parameters.
  * Returns absent for unsupported or degenerate limits. No regularity or error certificate.

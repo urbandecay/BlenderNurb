@@ -16,6 +16,7 @@
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 #include "BLI_string_utf8.h"
+#include "BLI_time.h"
 
 #include "BLT_translation.hh"
 
@@ -23,6 +24,7 @@
 #include "BKE_editmesh.hh"
 #include "BKE_global.hh"
 #include "BKE_layer.hh"
+#include "BKE_nurbs_debug.hh"
 #include "BKE_screen.hh"
 #include "BKE_unit.hh"
 
@@ -327,6 +329,7 @@ static bool edbm_bevel_init(bContext *C, wmOperator *op, const bool is_modal)
 
 static bool edbm_bevel_calc(wmOperator *op)
 {
+  const double calc_start = BLI_time_now_seconds();
   BevelData *opdata = static_cast<BevelData *>(op->customdata);
   BMOperator bmop;
   bool changed_multi = false;
@@ -352,11 +355,19 @@ static bool edbm_bevel_calc(wmOperator *op)
   for (BevelObjectStore &ob_store : opdata->ob_store) {
     Object *obedit = ob_store.ob;
     BMEditMesh *em = BKE_editmesh_from_object(obedit);
+    const double object_start = BLI_time_now_seconds();
 
     /* revert to original mesh */
     if (opdata->is_modal) {
       EDBM_redo_state_restore(&ob_store.mesh_backup, em, false);
     }
+
+    const int input_verts = em->bm->totvert;
+    const int input_edges = em->bm->totedge;
+    const int input_faces = em->bm->totface;
+    const int selected_verts = em->bm->totvertsel;
+    const int selected_edges = em->bm->totedgesel;
+    const int selected_faces = em->bm->totfacesel;
 
     const int material = std::clamp(material_init, -1, obedit->totcol - 1);
 
@@ -388,8 +399,11 @@ static bool edbm_bevel_calc(wmOperator *op)
                  opdata->custom_profile,
                  vmesh_method);
 
+    const double bmesh_start = BLI_time_now_seconds();
     BMO_op_exec(em->bm, &bmop);
+    const double bmesh_ms = (BLI_time_now_seconds() - bmesh_start) * 1000.0;
 
+    const double post_bmesh_start = BLI_time_now_seconds();
     if (offset != 0.0f) {
       /* Not essential, but we may have some loose geometry that
        * won't get beveled and better not leave it selected. */
@@ -417,18 +431,53 @@ static bool edbm_bevel_calc(wmOperator *op)
     }
 
     changed |= EDBM_op_finish(em, &bmop, op, true);
+    const double post_bmesh_ms = (BLI_time_now_seconds() - post_bmesh_start) * 1000.0;
 
     /* no need to de-select existing geometry */
+    double update_ms = 0.0;
     if (changed) {
       EDBMUpdate_Params params{};
       params.calc_looptris = true;
       params.calc_normals = true;
       params.is_destructive = true;
+      const double update_start = BLI_time_now_seconds();
       EDBM_update(id_cast<Mesh *>(obedit->data), &params);
+      update_ms = (BLI_time_now_seconds() - update_start) * 1000.0;
     }
+
+    NURBS_DEBUG_LOG(
+        "mesh bevel object '%s': %.3f ms total; BMesh bevel %.3f, post-bevel processing %.3f, mesh update %.3f ms; changed %d, modal %d; input %d verts/%d edges/%d faces, selected %d verts/%d edges/%d faces -> output %d verts/%d edges/%d faces; offset %.9g, segments %d, profile %.6g",
+        obedit->id.name + 2,
+        (BLI_time_now_seconds() - object_start) * 1000.0,
+        bmesh_ms,
+        post_bmesh_ms,
+        update_ms,
+        changed,
+        opdata->is_modal,
+        input_verts,
+        input_edges,
+        input_faces,
+        selected_verts,
+        selected_edges,
+        selected_faces,
+        em->bm->totvert,
+        em->bm->totedge,
+        em->bm->totface,
+        offset,
+        segments,
+        profile);
 
     changed_multi |= changed;
   }
+  NURBS_DEBUG_LOG(
+      "mesh bevel calculation: %.3f ms total across %d objects; offset %.9g, segments %d, profile %.6g, offset type %d, affect %d",
+      (BLI_time_now_seconds() - calc_start) * 1000.0,
+      opdata->ob_store.size(),
+      offset,
+      segments,
+      profile,
+      offset_type,
+      affect);
   return changed_multi;
 }
 

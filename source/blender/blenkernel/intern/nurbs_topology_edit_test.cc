@@ -1183,7 +1183,7 @@ TEST_F(NurbsTopologyEditTest, RoundedConnectedBoxHasSharedSphereCornersAndEditab
   for (const auto &edge : source->edges) {
     edges.append(edge.id);
   }
-  for (const int segments : {2, 3, 8}) {
+  for (const int segments : {2, 3, 8, 13}) {
     SCOPED_TRACE(segments);
     std::string error;
     auto result = bevel_edges(*source, edges, {.offset = 0.25, .segments = segments}, &error);
@@ -2979,6 +2979,26 @@ TEST_F(NurbsTopologyEditTest, SavedPyramidMovementMatchesMeshAndPreservesTrimIde
         expect_source_geometry_equal(geometry, *resumed->geometry);
       }
     }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, CanonicalTrimCoordinatesHaveExactBoundedEvaluation)
+{
+  OwnedGeometry geometry(MEM_new<NurbsGeometry>(__func__));
+  auto *curve = add_linear_curve(*geometry, {-0.3, 2, 0}, {0.7, 2, 0}, 2);
+  curve->knots[0] = curve->knots[1] = -0.3;
+  curve->knots[2] = curve->knots[3] = 0.7;
+  for (const double weight : {0.7, 1e300}) {
+    curve->points[0].weight = curve->points[1].weight = weight;
+    for (const double parameter : {-0.3, 0.0, 0.1, 0.7}) {
+      const auto point = evaluate_curve_bounded(*curve, parameter, 0);
+      ASSERT_TRUE(point);
+      EXPECT_EQ(point->position, double3(parameter, 2, 0));
+      EXPECT_EQ(point->error_bound, 0);
+    }
+    EXPECT_FALSE(evaluate_curve_bounded(*curve, -0.4, 0));
+    EXPECT_FALSE(evaluate_curve_bounded(*curve, 0.8, 0));
+    EXPECT_FALSE(evaluate_curve_bounded(*curve, NAN, 0));
   }
 }
 

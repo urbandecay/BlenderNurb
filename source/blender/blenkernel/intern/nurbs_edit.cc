@@ -24,10 +24,14 @@ namespace detail {
 struct EditStateStorage {
   MEM_CXX_CLASS_ALLOC_FUNCS("NURBS Edit State");
 
-  EditSnapshot snapshot;
+  std::shared_ptr<const EditSnapshot> snapshot;
   uint64_t revision;
 
   EditStateStorage(EditSnapshot snapshot, const uint64_t revision)
+      : snapshot(std::make_shared<EditSnapshot>(std::move(snapshot))), revision(revision)
+  {
+  }
+  EditStateStorage(std::shared_ptr<const EditSnapshot> snapshot, const uint64_t revision)
       : snapshot(std::move(snapshot)), revision(revision)
   {
   }
@@ -226,12 +230,12 @@ ReadSnapshot::ReadSnapshot(std::shared_ptr<const detail::EditStateStorage> state
 
 const NurbsGeometry &ReadSnapshot::geometry() const
 {
-  return *state_->snapshot.geometry;
+  return *state_->snapshot->geometry;
 }
 
 const SelectionState &ReadSnapshot::selection() const
 {
-  return state_->snapshot.selection;
+  return state_->snapshot->selection;
 }
 
 uint64_t ReadSnapshot::revision() const
@@ -241,7 +245,7 @@ uint64_t ReadSnapshot::revision() const
 
 EditSnapshot ReadSnapshot::copy_for_edit() const
 {
-  return snapshot_copy(state_->snapshot);
+  return snapshot_copy(*state_->snapshot);
 }
 
 EditData::EditData(EditSnapshot snapshot)
@@ -267,14 +271,22 @@ std::unique_ptr<EditData> EditData::create(const NurbsGeometry &geometry,
   return std::unique_ptr<EditData>(new EditData(std::move(snapshot)));
 }
 
+std::unique_ptr<EditData> EditData::create(EditSnapshot snapshot, std::string *r_error)
+{
+  if (!snapshot_validate(snapshot, r_error)) {
+    return nullptr;
+  }
+  return std::unique_ptr<EditData>(new EditData(std::move(snapshot)));
+}
+
 const NurbsGeometry &EditData::geometry() const
 {
-  return *current_->snapshot.geometry;
+  return *current_->snapshot->geometry;
 }
 
 const SelectionState &EditData::selection() const
 {
-  return current_->snapshot.selection;
+  return current_->snapshot->selection;
 }
 
 uint64_t EditData::revision() const
@@ -339,15 +351,59 @@ bool EditData::commit_impl(EditSnapshot candidate,
   }
   std::shared_ptr<const detail::EditStateStorage> next(
       new detail::EditStateStorage(std::move(candidate), expected_revision + 1));
+  std::shared_ptr<const ObjectEvaluation> previous_evaluation;
   {
     std::scoped_lock lock(mutex_);
     if (!matches()) {
       return stale();
     }
     current_.swap(next);
+    previous_evaluation.swap(prepared_evaluation_);
   }
   /* Release the previous state outside the lock; readers may still retain it. */
   return true;
+}
+
+bool EditData::commit_evaluated(std::shared_ptr<const ObjectEvaluation> candidate,
+                                const ReadSnapshot &expected_state,
+                                std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  if (!candidate || !candidate->error.empty() || !candidate->result || !candidate->result->mesh) {
+    if (r_error) {
+      *r_error = "NURBS prepared edit requires a successful owned display evaluation";
+    }
+    return false;
+  }
+  const ReadSnapshot &source = candidate->result->source;
+  if (!snapshot_validate(*source.state_->snapshot, r_error)) {
+    return false;
+  }
+  std::scoped_lock lock(mutex_);
+  if (current_ != expected_state.state_ ||
+      current_->revision == std::numeric_limits<uint64_t>::max())
+  {
+    if (r_error) {
+      *r_error = "NURBS evaluated candidate has a stale source state or exhausted revision";
+    }
+    return false;
+  }
+  current_ = std::make_shared<detail::EditStateStorage>(source.state_->snapshot,
+                                                        current_->revision + 1);
+  prepared_evaluation_.swap(candidate);
+  return true;
+}
+
+std::shared_ptr<const ObjectEvaluation> EditData::prepared_evaluation(
+    const ReadSnapshot &source) const
+{
+  std::scoped_lock lock(mutex_);
+  return prepared_evaluation_ &&
+                 &prepared_evaluation_->result->source.geometry() == &source.geometry() ?
+             prepared_evaluation_ :
+             nullptr;
 }
 
 bool EditData::restore(const EditSnapshot &snapshot, std::string *r_error)
@@ -439,6 +495,7 @@ std::unique_ptr<EvaluationSource> curve_eval_source_capture(const Curve &curve)
   }
   if (edit != nullptr) {
     result->snapshot = edit->read_snapshot();
+    result->prepared_evaluation = edit->prepared_evaluation(*result->snapshot);
   }
   else {
     const auto selection = selection_from_storage(curve.nurbs_geometry->stored_selection,

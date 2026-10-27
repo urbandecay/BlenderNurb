@@ -18,9 +18,11 @@
 #include "BLI_math_vector.h"
 #include "BLI_math_vector.hh"
 #include "BLI_string.h"
+#include "BLI_time.h"
 
 #include "BKE_curve.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_debug.hh"
 #include "BKE_nurbs_transform.hh"
 #include "BKE_report.hh"
 #include "BKE_unit.hh"
@@ -199,12 +201,19 @@ static void recalc_trans_nurbs(TransInfo *t)
 {
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     auto &data = *static_cast<NurbsTransformData *>(tc->custom.type.data);
+    const double update_start = BLI_time_now_seconds();
     if (t->state == TRANS_CANCEL || data.reset_requested) {
       data.reset_requested = false;
       restore_nurbs(t, *tc, data);
       continue;
     }
     auto fail = [&](const std::string &message) {
+      NURBS_DEBUG_LOG(
+                "transform update failed after %.3f ms: mode %d, selected vertices %d; %s",
+                (BLI_time_now_seconds() - update_start) * 1000.0,
+                t->mode,
+                int(data.vertices.size()),
+                message.c_str());
       BKE_report(t->reports, RPT_ERROR, message.c_str());
       t->state = TRANS_CANCEL;
       restore_nurbs(t, *tc, data);
@@ -223,6 +232,10 @@ static void recalc_trans_nurbs(TransInfo *t)
     }
     const bool translation = t->mode == TFM_TRANSLATION;
     if (translation && data.applied_mode == t->mode && data.offset == data.applied_offset) {
+      NURBS_DEBUG_LOG(
+                "transform update skipped: unchanged translation, %.3f ms; %d selected vertices",
+                (BLI_time_now_seconds() - update_start) * 1000.0,
+                int(data.vertices.size()));
       continue;
     }
     if (!translation && data.linear == double3x3::identity()) {
@@ -233,6 +246,7 @@ static void recalc_trans_nurbs(TransInfo *t)
     std::string error;
     std::optional<nurbs::GeometryTransformResult> result;
     double3 local_offset(0);
+    const double geometry_start = BLI_time_now_seconds();
     if (translation) {
       local_offset = data.world_to_local * data.offset;
       if (data.offset != double3(0) && local_offset == double3(0)) {
@@ -293,11 +307,14 @@ static void recalc_trans_nurbs(TransInfo *t)
       result = nurbs::transform_vertices(
           data.original.geometry(), transforms, std::numeric_limits<double>::max(), &error);
     }
+    const double geometry_ms = (BLI_time_now_seconds() - geometry_start) * 1000.0;
     if (!result) {
       fail(error);
       return;
     }
+    double validation_ms = 0.0;
     if (translation && local_offset != double3(0)) {
+      const double validation_start = BLI_time_now_seconds();
       const auto original_index = nurbs::TopologyIndex::build(data.original.geometry());
       const auto moved_index = nurbs::TopologyIndex::build(*result->geometry);
       bool changed_position = false;
@@ -309,13 +326,16 @@ static void recalc_trans_nurbs(TransInfo *t)
         fail("Requested NURBS movement is smaller than the source coordinate precision");
         return;
       }
+      validation_ms = (BLI_time_now_seconds() - validation_start) * 1000.0;
     }
     nurbs::EditSnapshot candidate{std::move(result->geometry), data.original.selection()};
     Curve &curve = *id_cast<Curve *>(tc->obedit->data);
+    const double commit_start = BLI_time_now_seconds();
     if (!ed::nurbs::edit_commit(*t->bmain, curve, std::move(candidate), data.current, &error)) {
       fail(error);
       return;
     }
+    const double commit_ms = (BLI_time_now_seconds() - commit_start) * 1000.0;
     data.current = curve.editnurb->nurbs_edit->read_snapshot();
     data.applied_mode = t->mode;
     data.applied_offset = data.offset;
@@ -324,6 +344,25 @@ static void recalc_trans_nurbs(TransInfo *t)
     data.chart_error_bound = result->chart_error_bound;
     data.reparameterized_faces = result->reparameterized_faces;
     data.changed = true;
+    NURBS_DEBUG_LOG(
+              "transform update: %.3f ms total; geometry %.3f ms, validation %.3f ms, commit "
+              "%.3f ms; mode %d, selected vertices %d, translation %d, offset "
+              "(%.9g, %.9g, %.9g), error bounds position %.3g boundary %.3g chart %.3g, "
+              "reparameterized faces %d",
+              (BLI_time_now_seconds() - update_start) * 1000.0,
+              geometry_ms,
+              validation_ms,
+              commit_ms,
+              t->mode,
+              int(data.vertices.size()),
+              int(translation),
+              data.offset.x,
+              data.offset.y,
+              data.offset.z,
+              data.position_error_bound,
+              data.boundary_error_bound,
+              data.chart_error_bound,
+              data.reparameterized_faces);
   }
 }
 

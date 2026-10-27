@@ -36,6 +36,9 @@ struct SurfacePreview {
   Vector<SurfacePreviewPoint> interior;
   Vector<SurfacePreviewTriangle> triangles;
   int skipped_repeated_point_triangles = 0;
+  Map<int64_t, int> skipped_triangles_by_face;
+  /** Faces whose UV triangulation was retained; every position is evaluated for this source. */
+  int reused_faces = 0;
   double max_interior_weight_condition = 1.0;
 
   int points_num() const;
@@ -62,6 +65,7 @@ struct SurfacePreviewOptions {
    * This controls triangulator proximity checks, not model-space approximation or fitting.
    */
   double normalized_merge_epsilon = 1.0e-10;
+  bool operator==(const SurfacePreviewOptions &) const = default;
 };
 
 /**
@@ -81,5 +85,19 @@ struct SurfacePreviewOptions {
 std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
                                                   const SurfacePreviewOptions &options,
                                                   std::string *r_error = nullptr);
+
+/** Refresh positions while retaining unchanged face UV triangulations. Stable boundary sample
+ * identities, face orientations, support knots and preview options are required; changed trims
+ * rebuild only their own faces. Boundaries/interior positions and collapsed pole joins are
+ * evaluated for the current source. r_reused means the entire layout was retained; reused_faces
+ * also reports partial reuse. The prior preview must belong to the supplied source/options. */
+std::optional<SurfacePreview> refresh_surface_preview(
+    const NurbsGeometry &source,
+    const SurfacePreviewOptions &options,
+    const NurbsGeometry &previous_source,
+    const SurfacePreviewOptions &previous_options,
+    const SurfacePreview &previous,
+    bool &r_reused,
+    std::string *r_error = nullptr);
 
 }  // namespace blender::bke::nurbs

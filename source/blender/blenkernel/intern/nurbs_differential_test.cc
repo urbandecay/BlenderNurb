@@ -37,6 +37,40 @@ TEST(nurbs_differential, PlaneFrameAndPointAgreeWithScalarEvaluationIncludingEnd
   }
 }
 
+TEST(nurbs_differential, GroupedFramesMatchScalarArithmeticAndRejectInvalidSamples)
+{
+  for (const bool rational : {false, true}) {
+    auto source = rational ? make_arc_sheet(false) : make_planar_sheet();
+    ASSERT_NE(source, nullptr);
+    const auto &surface = first_surface(*source);
+    Vector<SurfaceDifferentialSample> samples;
+    for (const double u : {0.0, 0.1, 0.5, 1.0}) {
+      for (const double v : {0.0, 0.25, 0.75, 1.0}) {
+        for (const auto side : {KnotSide::Left, KnotSide::Right}) {
+          samples.append({{u, v}, {side, side}});
+        }
+      }
+    }
+    const auto grouped = evaluate_surface_differentials(surface, samples);
+    ASSERT_TRUE(grouped);
+    ASSERT_EQ(grouped->size(), samples.size());
+    for (const int i : samples.index_range()) {
+      const auto scalar = evaluate_surface_differential(
+          surface, samples[i].parameter, samples[i].limits);
+      ASSERT_TRUE(scalar);
+      EXPECT_EQ((*grouped)[i].point.position, scalar->point.position);
+      EXPECT_EQ((*grouped)[i].point.weight_condition, scalar->point.weight_condition);
+      EXPECT_EQ((*grouped)[i].tangent_u, scalar->tangent_u);
+      EXPECT_EQ((*grouped)[i].tangent_v, scalar->tangent_v);
+      EXPECT_EQ((*grouped)[i].normal, scalar->normal);
+    }
+    samples.append({{-1, 0}, {}});
+    EXPECT_FALSE(evaluate_surface_differentials(surface, samples));
+    samples.last() = {{0, 0}, {KnotSide(99), KnotSide::Right}};
+    EXPECT_FALSE(evaluate_surface_differentials(surface, samples));
+  }
+}
+
 TEST(nurbs_differential, RationalCylinderMatchesIndependentMidArcDerivativeAndNormal)
 {
   const auto source = make_arc_sheet(false);
@@ -147,6 +181,12 @@ TEST(nurbs_differential, OneSidedInternalKnotLimitsPreserveCreaseAndDomainEndLim
   EXPECT_EQ(*right->normal, double3(-1, 0, 0));
   EXPECT_EQ(left->tangent_u, double3(2, 0, 0));
   EXPECT_EQ(right->tangent_u, double3(0, 0, 2));
+  const SurfaceDifferentialSample samples[] = {{{0.5, 0.25}, {KnotSide::Left, KnotSide::Right}},
+                                               {{0.5, 0.25}, {}}};
+  const auto grouped = evaluate_surface_differentials(*surface, {samples, 2});
+  ASSERT_TRUE(grouped);
+  EXPECT_EQ((*grouped)[0].normal, left->normal);
+  EXPECT_EQ((*grouped)[1].normal, right->normal);
   const auto start = evaluate_surface_differential(
       *surface, {0, 0}, {KnotSide::Left, KnotSide::Left});
   const auto end = evaluate_surface_differential(*surface, {1, 1});

@@ -18,7 +18,9 @@
 #include "BLI_listbase.h"
 #include "BLI_math_boolean.hh"
 #include "BLI_math_vector.hh"
+#include "BLI_time.h"
 
+#include "BKE_nurbs_debug.hh"
 #include "BKE_nurbs_selection.hh"
 #include "BKE_nurbs_tessellate.hh"
 
@@ -148,10 +150,14 @@ static std::optional<Vector<double>> axis_samples(const double minimum,
   return result;
 }
 
-std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
-                                                  const SurfacePreviewOptions &options,
-                                                  std::string *r_error)
+static std::optional<SurfacePreview> tessellate_surface_subset(
+    const NurbsGeometry &source,
+    const SurfacePreviewOptions &options,
+    std::string *r_error,
+    std::optional<BoundaryEvaluation> supplied_boundary,
+    const Set<int64_t> *face_filter)
 {
+  const double tessellation_start = BLI_time_now_seconds();
   if (r_error != nullptr) {
     r_error->clear();
   }
@@ -159,6 +165,10 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
     if (r_error != nullptr) {
       *r_error = message;
     }
+    NURBS_DEBUG_LOG("surface tessellation failed after %.3f ms; %d faces, %s",
+                    (BLI_time_now_seconds() - tessellation_start) * 1000.0,
+                    source.faces.count(),
+                    message.data());
     return std::nullopt;
   };
   const double epsilon = options.normalized_merge_epsilon;
@@ -167,8 +177,15 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
   {
     return fail("Invalid NURBS surface preview options");
   }
-  auto boundary = evaluate_boundaries(source, options.boundary, r_error);
+  const double boundary_start = BLI_time_now_seconds();
+  auto boundary = supplied_boundary ? std::move(supplied_boundary) :
+                                      evaluate_boundaries(source, options.boundary, r_error);
+  const double boundary_ms = (BLI_time_now_seconds() - boundary_start) * 1000.0;
   if (!boundary) {
+    NURBS_DEBUG_LOG("boundary evaluation failed after %.3f ms; %d faces, %s",
+                    (BLI_time_now_seconds() - tessellation_start) * 1000.0,
+                    source.faces.count(),
+                    r_error ? r_error->c_str() : "no diagnostic");
     return std::nullopt;
   }
   if (boundary->positions.size() > options.max_points) {
@@ -176,6 +193,7 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
   }
   SurfacePreview result;
   result.boundary = std::move(*boundary);
+  const double face_tessellation_start = BLI_time_now_seconds();
   Map<int64_t, const EvaluatedBoundaryUse *> uses;
   Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
   for (const EvaluatedBoundaryUse &use : result.boundary.uses) {
@@ -185,6 +203,9 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
     surfaces.add_new(surface.id, &surface);
   }
   for (const NurbsTopologyFace &face : source.faces) {
+    if (face_filter && !face_filter->contains(face.id)) {
+      continue;
+    }
     const NurbsSurfaceGeometry &surface = *surfaces.lookup(face.surface_id);
     Vector<double2> uv;
     Vector<int> input_to_global;
@@ -442,6 +463,7 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
           evaluated.points[1] == evaluated.points[2] || evaluated.points[2] == evaluated.points[0])
       {
         result.skipped_repeated_point_triangles++;
+        result.skipped_triangles_by_face.lookup_or_add_default(face.id)++;
         continue;
       }
       if (result.triangles.size() >= options.max_triangles) {
@@ -459,6 +481,303 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
       result.triangles.append(evaluated);
     }
   }
+  NURBS_DEBUG_LOG(
+      "surface tessellation: %.3f ms total; boundary %.3f ms, face sampling/triangulation "
+      "%.3f ms; %d faces, %d boundaries, %d preview points, %d triangles, "
+      "%d interior subdivisions",
+      (BLI_time_now_seconds() - tessellation_start) * 1000.0,
+      boundary_ms,
+      (BLI_time_now_seconds() - face_tessellation_start) * 1000.0,
+      source.faces.count(),
+      int(result.boundary.edges.size()),
+      result.points_num(),
+      int(result.triangles.size()),
+      options.interior_subdivisions);
+  return result;
+}
+
+std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
+                                                  const SurfacePreviewOptions &options,
+                                                  std::string *r_error)
+{
+  return tessellate_surface_subset(source, options, r_error, std::nullopt, nullptr);
+}
+
+std::optional<SurfacePreview> refresh_surface_preview(
+    const NurbsGeometry &source,
+    const SurfacePreviewOptions &options,
+    const NurbsGeometry &previous_source,
+    const SurfacePreviewOptions &previous_options,
+    const SurfacePreview &previous,
+    bool &r_reused,
+    std::string *r_error)
+{
+  const double refresh_start = BLI_time_now_seconds();
+  r_reused = false;
+  std::optional<BoundaryEvaluation> boundary;
+  auto rebuild = [&](const char *reason) {
+    NURBS_DEBUG_LOG("preview layout cache miss (%s) after %.3f ms validation; rebuilding",
+                    reason,
+                    (BLI_time_now_seconds() - refresh_start) * 1000.0);
+    return tessellate_surface_subset(source, options, r_error, std::move(boundary), nullptr);
+  };
+  if (options.boundary.segments_per_span != previous_options.boundary.segments_per_span ||
+      options.boundary.max_sample_entries != previous_options.boundary.max_sample_entries ||
+      options.boundary.evaluation_allowance != previous_options.boundary.evaluation_allowance ||
+      options.interior_subdivisions != previous_options.interior_subdivisions ||
+      options.max_points != previous_options.max_points ||
+      options.max_triangles != previous_options.max_triangles ||
+      options.normalized_merge_epsilon != previous_options.normalized_merge_epsilon ||
+      source.faces.count() != previous_source.faces.count())
+  {
+    return rebuild("options or face count changed");
+  }
+  const double boundary_start = BLI_time_now_seconds();
+  boundary = evaluate_boundaries(source, options.boundary, r_error);
+  const double boundary_ms = (BLI_time_now_seconds() - boundary_start) * 1000.0;
+  if (!boundary) {
+    return std::nullopt;
+  }
+  const auto &old = previous.boundary;
+  if (boundary->positions.size() != old.positions.size() ||
+      boundary->vertex_ids.size() != old.vertex_ids.size() ||
+      boundary->edges.size() != old.edges.size() || boundary->uses.size() != old.uses.size() ||
+      !std::equal(
+          boundary->vertex_ids.begin(), boundary->vertex_ids.end(), old.vertex_ids.begin()))
+  {
+    return rebuild("boundary sample count or vertex identities changed");
+  }
+  for (const int i : boundary->edges.index_range()) {
+    const auto &a = boundary->edges[i], &b = old.edges[i];
+    if (a.edge_id != b.edge_id || a.samples.size() != b.samples.size()) {
+      return rebuild("boundary edge identity or sample count changed");
+    }
+    for (const int j : a.samples.index_range()) {
+      if (a.samples[j].parameter != b.samples[j].parameter ||
+          a.samples[j].point_index != b.samples[j].point_index)
+      {
+        return rebuild("boundary parameter layout changed");
+      }
+    }
+  }
+  Map<int64_t, const NurbsSurfaceGeometry *> surfaces, old_surfaces, face_surfaces;
+  for (const auto &surface : source.surfaces) {
+    surfaces.add_new(surface.id, &surface);
+  }
+  for (const auto &surface : previous_source.surfaces) {
+    old_surfaces.add_new(surface.id, &surface);
+  }
+  for (const auto &face : source.faces) {
+    face_surfaces.add_new(face.id, surfaces.lookup(face.surface_id));
+  }
+  Set<int64_t> dirty_faces;
+  int64_t loop_id = 0, current_face_id = 0;
+  int first_global = -1, end_global = -1;
+  double2 first_uv, end_uv;
+  bool in_loop = false;
+  auto valid_join = [&](const int64_t face_id,
+                        const double2 previous_uv,
+                        const int previous_global,
+                        const double2 next_uv,
+                        const int next_global) {
+    return previous_uv == next_uv ||
+           (previous_global == next_global &&
+            collapsed_surface_boundary_interval(*face_surfaces.lookup(face_id),
+                                                previous_uv,
+                                                next_uv,
+                                                boundary->positions[next_global]));
+  };
+  for (const int i : boundary->uses.index_range()) {
+    const auto &a = boundary->uses[i], &b = old.uses[i];
+    if (a.face_id != b.face_id || a.loop_id != b.loop_id || a.use_id != b.use_id ||
+        a.edge_index != b.edge_index || a.reversed != b.reversed || a.is_inner != b.is_inner ||
+        a.parameters.size() != b.parameters.size() || a.parameters.is_empty())
+    {
+      return rebuild("boundary use or trim parameters changed");
+    }
+    if (!std::equal(a.parameters.begin(), a.parameters.end(), b.parameters.begin())) {
+      dirty_faces.add(a.face_id);
+    }
+    const double2 start = a.reversed ? a.parameters.last() : a.parameters.first();
+    const double2 end = a.reversed ? a.parameters.first() : a.parameters.last();
+    const auto &samples = boundary->edges[a.edge_index].samples;
+    const int start_global = a.reversed ? samples.last().point_index : samples.first().point_index;
+    const int next_end_global = a.reversed ? samples.first().point_index :
+                                             samples.last().point_index;
+    if (!in_loop || loop_id != a.loop_id) {
+      if (in_loop && !valid_join(current_face_id, end_uv, end_global, first_uv, first_global)) {
+        return rebuild("boundary use or trim parameters changed");
+      }
+      loop_id = a.loop_id;
+      current_face_id = a.face_id;
+      first_uv = start;
+      first_global = start_global;
+      in_loop = true;
+    }
+    else if (!valid_join(current_face_id, end_uv, end_global, start, start_global)) {
+      return rebuild("boundary loop join changed");
+    }
+    end_uv = end;
+    end_global = next_end_global;
+  }
+  if (in_loop && !valid_join(current_face_id, end_uv, end_global, first_uv, first_global)) {
+    return rebuild("closed boundary loop join changed");
+  }
+  const auto *old_face = static_cast<const NurbsTopologyFace *>(previous_source.faces.first);
+  for (const auto &face : source.faces) {
+    if (!old_face || face.id != old_face->id || face.surface_id != old_face->surface_id ||
+        face.orientation != old_face->orientation)
+    {
+      return rebuild("face identity or orientation changed");
+    }
+    const auto &surface = *surfaces.lookup(face.surface_id);
+    const auto &old_surface = *old_surfaces.lookup(old_face->surface_id);
+    if (surface.order_u != old_surface.order_u || surface.order_v != old_surface.order_v ||
+        surface.points_u != old_surface.points_u || surface.points_v != old_surface.points_v ||
+        surface.knots_u_num != old_surface.knots_u_num ||
+        surface.knots_v_num != old_surface.knots_v_num ||
+        !std::equal(surface.knots_u, surface.knots_u + surface.knots_u_num, old_surface.knots_u) ||
+        !std::equal(surface.knots_v, surface.knots_v + surface.knots_v_num, old_surface.knots_v))
+    {
+      return rebuild("surface support or knot vectors changed");
+    }
+    old_face = old_face->next;
+  }
+  if (!dirty_faces.is_empty()) {
+    if (dirty_faces.size() == source.faces.count()) {
+      return rebuild("all face trims changed");
+    }
+    auto changed = tessellate_surface_subset(
+        source, options, r_error, std::move(boundary), &dirty_faces);
+    if (!changed) {
+      return std::nullopt;
+    }
+    SurfacePreview result;
+    result.boundary = std::move(changed->boundary);
+    Map<int64_t, Vector<int>> old_points, new_points, old_triangles, new_triangles;
+    for (const int i : previous.interior.index_range()) {
+      old_points.lookup_or_add_default(previous.interior[i].face_id).append(i);
+    }
+    for (const int i : changed->interior.index_range()) {
+      new_points.lookup_or_add_default(changed->interior[i].face_id).append(i);
+    }
+    for (const int i : previous.triangles.index_range()) {
+      old_triangles.lookup_or_add_default(previous.triangles[i].face_id).append(i);
+    }
+    for (const int i : changed->triangles.index_range()) {
+      new_triangles.lookup_or_add_default(changed->triangles[i].face_id).append(i);
+    }
+    const int boundary_points = result.boundary.positions.size();
+    Vector<int> old_to_new(previous.points_num(), -1);
+    Vector<int> changed_to_new(boundary_points + changed->interior.size(), -1);
+    for (const int i : IndexRange(boundary_points)) {
+      old_to_new[i] = changed_to_new[i] = i;
+    }
+    for (const auto &face : source.faces) {
+      const bool dirty = dirty_faces.contains(face.id);
+      const auto &input = dirty ? *changed : previous;
+      auto &point_map = dirty ? changed_to_new : old_to_new;
+      const auto &points = dirty ? new_points : old_points;
+      const auto &triangles = dirty ? new_triangles : old_triangles;
+      const int skipped = input.skipped_triangles_by_face.lookup_default(face.id, 0);
+      result.skipped_repeated_point_triangles += skipped;
+      if (skipped) {
+        result.skipped_triangles_by_face.add_new(face.id, skipped);
+      }
+      if (!dirty) {
+        result.reused_faces++;
+      }
+      if (const auto *indices = points.lookup_ptr(face.id)) {
+        for (const int i : *indices) {
+          auto point = input.interior[i];
+          double condition = 1;
+          if (!dirty) {
+            const auto evaluated = evaluate_surface(
+                *face_surfaces.lookup(face.id), point.parameter, r_error);
+            if (!evaluated) {
+              return std::nullopt;
+            }
+            point.position = evaluated->position;
+            condition = evaluated->weight_condition;
+          }
+          result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
+                                                          condition);
+          if (result.interior.size() >= options.max_points - boundary_points) {
+            if (r_error) {
+              *r_error = "NURBS partially refreshed preview exceeds its point limit";
+            }
+            return std::nullopt;
+          }
+          point_map[boundary_points + i] = result.points_num();
+          result.interior.append(point);
+        }
+      }
+      if (const auto *indices = triangles.lookup_ptr(face.id)) {
+        for (const int i : *indices) {
+          if (result.triangles.size() >= options.max_triangles) {
+            if (r_error) {
+              *r_error = "NURBS partially refreshed preview exceeds its triangle limit";
+            }
+            return std::nullopt;
+          }
+          auto triangle = input.triangles[i];
+          for (const int j : IndexRange(3)) {
+            triangle.points[j] = point_map[triangle.points[j]];
+            BLI_assert(triangle.points[j] >= 0);
+          }
+          result.triangles.append(triangle);
+        }
+      }
+      if (result.points_num() > options.max_points ||
+          result.triangles.size() > options.max_triangles)
+      {
+        if (r_error) {
+          *r_error = "NURBS partially refreshed preview exceeds its output limits";
+        }
+        return std::nullopt;
+      }
+    }
+    result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
+                                                    changed->max_interior_weight_condition);
+    NURBS_DEBUG_LOG("preview partial layout hit: %.3f ms total; %d reused faces, %d rebuilt faces",
+                    (BLI_time_now_seconds() - refresh_start) * 1000.0,
+                    result.reused_faces,
+                    int(dirty_faces.size()));
+    return result;
+  }
+  SurfacePreview result;
+  result.boundary = std::move(*boundary);
+  result.interior = previous.interior;
+  result.triangles = previous.triangles;
+  result.skipped_repeated_point_triangles = previous.skipped_repeated_point_triangles;
+  result.skipped_triangles_by_face = previous.skipped_triangles_by_face;
+  result.reused_faces = source.faces.count();
+  result.max_interior_weight_condition = 1.0;
+  const double interior_start = BLI_time_now_seconds();
+  for (auto &point : result.interior) {
+    const auto evaluated = evaluate_surface(
+        *face_surfaces.lookup(point.face_id), point.parameter, r_error);
+    if (!evaluated) {
+      return std::nullopt;
+    }
+    point.position = evaluated->position;
+    result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
+                                                    evaluated->weight_condition);
+  }
+  const double interior_ms = (BLI_time_now_seconds() - interior_start) * 1000.0;
+  r_reused = true;
+  NURBS_DEBUG_LOG(
+      "preview layout cache hit: %.3f ms total; boundary %.3f ms, interior evaluation "
+      "%.3f ms, layout validation %.3f ms; %d faces, %d boundary samples, %d interior "
+      "samples, %d reused triangles",
+      (BLI_time_now_seconds() - refresh_start) * 1000.0,
+      boundary_ms,
+      interior_ms,
+      (BLI_time_now_seconds() - refresh_start) * 1000.0 - boundary_ms - interior_ms,
+      source.faces.count(),
+      int(result.boundary.positions.size()),
+      int(result.interior.size()),
+      int(result.triangles.size()));
   return result;
 }
 

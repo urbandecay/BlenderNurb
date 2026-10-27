@@ -23,6 +23,382 @@ namespace blender::bke::nurbs::tests {
 
 class NurbsMeshEvaluationTest : public BlenderGTestBase {};
 
+TEST_F(NurbsMeshEvaluationTest, PreparedEditSharesImmutableSourceAndReusesIndependentDisplayMesh)
+{
+  auto geometry = make_planar_sheet();
+  ASSERT_NE(geometry, nullptr);
+  auto edit = EditData::create(*geometry);
+  const ReadSnapshot original = edit->read_snapshot();
+  auto prepared_edit = EditData::create(original.copy_for_edit());
+  ASSERT_NE(prepared_edit, nullptr);
+  auto prepared = std::make_shared<ObjectEvaluation>();
+  prepared->options = preview_options();
+  prepared->result = evaluate_mesh(prepared_edit->read_snapshot(), prepared->options);
+  ASSERT_TRUE(prepared->result);
+  std::string error;
+  ASSERT_TRUE(edit->commit_evaluated(prepared, original, &error)) << error;
+  const ReadSnapshot accepted = edit->read_snapshot();
+  EXPECT_EQ(accepted.revision(), original.revision() + 1);
+  EXPECT_NE(accepted, prepared->result->source);
+  EXPECT_EQ(&accepted.geometry(), &prepared->result->source.geometry());
+  EXPECT_EQ(edit->prepared_evaluation(accepted), prepared);
+  EXPECT_EQ(edit->prepared_evaluation(original), nullptr);
+
+  auto reused = evaluate_mesh(accepted, prepared->options, &error, prepared.get());
+  ASSERT_TRUE(reused) << error;
+  EXPECT_TRUE(reused->reused_evaluation);
+  EXPECT_EQ(reused->source, accepted);
+  EXPECT_NE(reused->mesh.get(), prepared->result->mesh.get());
+  const auto a = reused->mesh->corner_normals();
+  const auto b = prepared->result->mesh->corner_normals();
+  ASSERT_EQ(a.size(), b.size());
+  for (const int i : a.index_range()) {
+    EXPECT_EQ(a[i], b[i]);
+  }
+  const float3 first_position = prepared->result->mesh->vert_positions()[0];
+  reused->mesh->vert_positions_for_write()[0].x += 1;
+  EXPECT_EQ(prepared->result->mesh->vert_positions()[0], first_position);
+
+  auto changed_options = prepared->options;
+  changed_options.interior_subdivisions++;
+  const auto changed = evaluate_mesh(accepted, changed_options, &error, prepared.get());
+  ASSERT_TRUE(changed) << error;
+  EXPECT_FALSE(changed->reused_evaluation);
+  EXPECT_FALSE(changed->reused_tessellation);
+
+  EXPECT_FALSE(edit->commit_evaluated(prepared, original, &error));
+  EXPECT_EQ(edit->read_snapshot(), accepted);
+  EXPECT_EQ(edit->prepared_evaluation(accepted), prepared);
+  EXPECT_FALSE(edit->commit_evaluated(std::make_shared<ObjectEvaluation>(), accepted, &error));
+  EXPECT_EQ(edit->read_snapshot(), accepted);
+  ASSERT_TRUE(edit->commit(accepted.copy_for_edit(), accepted, &error)) << error;
+  EXPECT_EQ(edit->prepared_evaluation(edit->read_snapshot()), nullptr);
+  auto fresh = evaluate_mesh(edit->read_snapshot(), prepared->options, &error, prepared.get());
+  ASSERT_TRUE(fresh) << error;
+  EXPECT_FALSE(fresh->reused_evaluation);
+  EXPECT_EQ(original.geometry().faces.count(), 1);
+}
+
+TEST_F(NurbsMeshEvaluationTest, RegularSourceNormalsUseFreeFloatStorageAndSurviveMeshCopies)
+{
+  auto geometry = make_arc_sheet(false);
+  auto edit = EditData::create(*geometry);
+  ASSERT_NE(edit, nullptr);
+  auto evaluated = evaluate_mesh(edit->read_snapshot(), preview_options());
+  ASSERT_TRUE(evaluated);
+  ASSERT_EQ(evaluated->undefined_normal_corners, 0);
+  const auto meta = evaluated->mesh->attributes().lookup_meta_data("custom_normal");
+  ASSERT_TRUE(meta);
+  EXPECT_EQ(meta->data_type, AttrType::Float3);
+  EXPECT_EQ(meta->domain, AttrDomain::Corner);
+  const auto normals = evaluated->mesh->corner_normals();
+  ASSERT_EQ(normals.size(), evaluated->corner_normals.size());
+  OwnedMesh copy(BKE_mesh_copy_for_eval(*evaluated->mesh));
+  const auto copied_normals = copy->corner_normals();
+  for (const int i : normals.index_range()) {
+    EXPECT_EQ(normals[i], evaluated->corner_normals[i]);
+    EXPECT_EQ(copied_normals[i], normals[i]);
+  }
+}
+
+TEST_F(NurbsMeshEvaluationTest, UndefinedInteriorSourceFramesRetainAutomaticNormalFallback)
+{
+  auto geometry = make_planar_sheet();
+  auto &surface = *static_cast<NurbsSurfaceGeometry *>(geometry->surfaces.first);
+  MEM_SAFE_DELETE(surface.points);
+  MEM_SAFE_DELETE(surface.knots_u);
+  surface.order_u = surface.points_u = 4;
+  surface.points_num = 8;
+  surface.knots_u_num = 8;
+  surface.points = MEM_new_array<NurbsControlPoint>(8, __func__);
+  surface.knots_u = MEM_new_array<double>(8, __func__);
+  /* x=(2u-1)^3 has a stationary interior derivative at u=1/2, while its sampled faces
+   * remain nondegenerate. The geometric limiting normal is still +Z. */
+  for (int i = 0; i < 8; i++) {
+    surface.knots_u[i] = i < 4 ? 0 : 1;
+    surface.points[i].position[0] = i % 2 == 0 ? -1 : 1;
+    surface.points[i].position[1] = i < 4 ? -1 : 1;
+  }
+  for (auto &curve : geometry->curves) {
+    if (curve.dimension != 3 || curve.points[0].position[1] != curve.points[1].position[1]) {
+      continue;
+    }
+    const double y = curve.points[0].position[1];
+    const double first_x = curve.points[0].position[0];
+    MEM_SAFE_DELETE(curve.points);
+    MEM_SAFE_DELETE(curve.knots);
+    curve.order = curve.points_num = 4;
+    curve.knots_num = 8;
+    curve.points = MEM_new_array<NurbsControlPoint>(4, __func__);
+    curve.knots = MEM_new_array<double>(8, __func__);
+    for (int i = 0; i < 8; i++) {
+      curve.knots[i] = i < 4 ? 0 : 1;
+    }
+    for (int i = 0; i < 4; i++) {
+      curve.points[i].position[0] = i % 2 == 0 ? first_x : -first_x;
+      curve.points[i].position[1] = y;
+    }
+  }
+  auto edit = EditData::create(*geometry);
+  ASSERT_NE(edit, nullptr);
+  auto options = preview_options();
+  options.boundary.segments_per_span = options.interior_subdivisions = 4;
+  std::string error;
+  auto evaluated = evaluate_mesh(edit->read_snapshot(), options, &error);
+  ASSERT_TRUE(evaluated) << error;
+  EXPECT_GT(evaluated->undefined_normal_corners, 0);
+  const auto meta = evaluated->mesh->attributes().lookup_meta_data("custom_normal");
+  ASSERT_TRUE(meta);
+  EXPECT_NE(meta->data_type, AttrType::Float3);
+  for (const float3 normal : evaluated->mesh->corner_normals()) {
+    EXPECT_NEAR(normal.x, 0, 1e-6);
+    EXPECT_NEAR(normal.y, 0, 1e-6);
+    EXPECT_NEAR(normal.z, 1, 1e-6);
+  }
+}
+
+TEST_F(NurbsMeshEvaluationTest, CachedPreviewMatchesFreshGeometryAndInvalidatesOnChanges)
+{
+  auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  auto original_edit = EditData::create(*source);
+  ASSERT_NE(original_edit, nullptr);
+  const auto options = preview_options();
+  std::string error;
+  ObjectEvaluation previous;
+  previous.options = options;
+  previous.result = evaluate_mesh(original_edit->read_snapshot(), options, &error);
+  ASSERT_TRUE(previous.result) << error;
+
+  auto compare = [&](const MeshEvaluation &cached, const MeshEvaluation &fresh) {
+    ASSERT_EQ(cached.preview.points_num(), fresh.preview.points_num());
+    ASSERT_EQ(cached.preview.triangles.size(), fresh.preview.triangles.size());
+    for (const int i : IndexRange(cached.preview.points_num())) {
+      EXPECT_EQ(cached.preview.position(i), fresh.preview.position(i));
+    }
+    for (const int i : cached.preview.triangles.index_range()) {
+      const auto &a = cached.preview.triangles[i], &b = fresh.preview.triangles[i];
+      EXPECT_EQ(a.face_id, b.face_id);
+      EXPECT_EQ(a.points, b.points);
+      EXPECT_EQ(a.display_edges, b.display_edges);
+      for (const int j : IndexRange(3)) {
+        EXPECT_EQ(a.parameters[j], b.parameters[j]);
+      }
+    }
+    ASSERT_EQ(cached.mesh->verts_num, fresh.mesh->verts_num);
+    ASSERT_EQ(cached.mesh->faces_num, fresh.mesh->faces_num);
+    const auto a_normals = cached.mesh->corner_normals(), b_normals = fresh.mesh->corner_normals();
+    ASSERT_EQ(a_normals.size(), b_normals.size());
+    for (const int i : a_normals.index_range()) {
+      EXPECT_EQ(a_normals[i], b_normals[i]);
+    }
+  };
+
+  Vector<int64_t> vertices;
+  for (const auto &vertex : source->vertices) {
+    vertices.append(vertex.id);
+  }
+  /* Exercise both a rigid drag and a one-corner deformation of the same UV chart. */
+  for (const bool whole_sheet : {true, false}) {
+    SCOPED_TRACE(whole_sheet);
+    const Span<int64_t> moving = whole_sheet ? vertices.as_span() :
+                                               vertices.as_span().take_front(1);
+    auto moved = translate_vertices(
+        *source, moving, {0.123456789, 0.234567891, 0.345678912}, 1e-9, &error);
+    ASSERT_TRUE(moved) << error;
+    auto edit = EditData::create(*moved->geometry);
+    ASSERT_NE(edit, nullptr);
+    const auto snapshot = edit->read_snapshot();
+    const auto cached = evaluate_mesh(snapshot, options, &error, &previous);
+    ASSERT_TRUE(cached) << error;
+    EXPECT_TRUE(cached->reused_tessellation);
+    const auto fresh = evaluate_mesh(snapshot, options, &error);
+    ASSERT_TRUE(fresh) << error;
+    compare(*cached, *fresh);
+  }
+
+  auto denser = options;
+  denser.interior_subdivisions++;
+  const auto changed_resolution = evaluate_mesh(
+      original_edit->read_snapshot(), denser, &error, &previous);
+  ASSERT_TRUE(changed_resolution) << error;
+  EXPECT_FALSE(changed_resolution->reused_tessellation);
+  const auto fresh_resolution = evaluate_mesh(original_edit->read_snapshot(), denser, &error);
+  ASSERT_TRUE(fresh_resolution) << error;
+  compare(*changed_resolution, *fresh_resolution);
+
+  OwnedGeometry reversed(geometry_copy(source.get()));
+  static_cast<NurbsTopologyFace *>(reversed->faces.first)->orientation *= -1;
+  auto reversed_edit = EditData::create(*reversed);
+  ASSERT_NE(reversed_edit, nullptr);
+  const auto reversed_cache = evaluate_mesh(
+      reversed_edit->read_snapshot(), options, &error, &previous);
+  ASSERT_TRUE(reversed_cache) << error;
+  EXPECT_FALSE(reversed_cache->reused_tessellation);
+  const auto reversed_fresh = evaluate_mesh(reversed_edit->read_snapshot(), options, &error);
+  ASSERT_TRUE(reversed_fresh) << error;
+  compare(*reversed_cache, *reversed_fresh);
+}
+
+TEST_F(NurbsMeshEvaluationTest, BevelWidthRefreshRebuildsOnlyChangedTrimsAndMatchesFreshPreview)
+{
+  auto sheet = make_planar_sheet();
+  const int64_t face = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  auto box = extrude_components(*sheet, {{}, {}, {&face, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(box) << error;
+  Vector<int64_t> edges;
+  for (const auto &edge : box->geometry->edges) {
+    edges.append(edge.id);
+  }
+  ObjectEvaluation previous;
+  previous.options = preview_options();
+  for (const double width : {0.2, 0.25, 0.3}) {
+    auto bevel = bevel_edges(*box->geometry, edges, {.offset = width, .segments = 13}, &error);
+    ASSERT_TRUE(bevel) << error;
+    auto edit = EditData::create(*bevel->geometry);
+    ASSERT_NE(edit, nullptr);
+    auto cached = evaluate_mesh(edit->read_snapshot(), previous.options, &error, &previous);
+    ASSERT_TRUE(cached) << error;
+    auto fresh = evaluate_mesh(edit->read_snapshot(), previous.options, &error);
+    ASSERT_TRUE(fresh) << error;
+    if (previous.result) {
+      EXPECT_EQ(cached->preview.reused_faces, bevel->geometry->faces.count() - 6);
+      EXPECT_FALSE(cached->reused_tessellation);
+    }
+    ASSERT_EQ(cached->preview.points_num(), fresh->preview.points_num());
+    for (const int i : IndexRange(cached->preview.points_num())) {
+      EXPECT_EQ(cached->preview.position(i), fresh->preview.position(i));
+    }
+    ASSERT_EQ(cached->preview.triangles.size(), fresh->preview.triangles.size());
+    for (const int i : cached->preview.triangles.index_range()) {
+      const auto &a = cached->preview.triangles[i], &b = fresh->preview.triangles[i];
+      EXPECT_EQ(a.face_id, b.face_id);
+      EXPECT_EQ(a.points, b.points);
+      EXPECT_EQ(a.display_edges, b.display_edges);
+      for (const int j : IndexRange(3)) {
+        EXPECT_EQ(a.parameters[j], b.parameters[j]);
+      }
+    }
+    EXPECT_EQ(cached->preview.skipped_repeated_point_triangles,
+              fresh->preview.skipped_repeated_point_triangles);
+    EXPECT_EQ(cached->preview.max_interior_weight_condition,
+              fresh->preview.max_interior_weight_condition);
+    const auto a = cached->mesh->corner_normals(), b = fresh->mesh->corner_normals();
+    ASSERT_EQ(a.size(), b.size());
+    for (const int i : a.index_range()) {
+      EXPECT_EQ(a[i], b[i]);
+    }
+    previous.result = std::move(cached);
+  }
+}
+
+TEST_F(NurbsMeshEvaluationTest, TranslationNormalsIgnoreUnusedParentsButRejectCoefficientChanges)
+{
+  auto source = make_planar_sheet();
+  const auto &surface = *static_cast<const NurbsSurfaceGeometry *>(source->surfaces.first);
+  auto *unused = MEM_dupalloc(&surface);
+  unused->id = source->next_id++;
+  unused->points = MEM_dupalloc(surface.points);
+  unused->knots_u = MEM_dupalloc(surface.knots_u);
+  unused->knots_v = MEM_dupalloc(surface.knots_v);
+  BLI_addtail(&source->surfaces, unused);
+  auto original_edit = EditData::create(*source);
+  ASSERT_NE(original_edit, nullptr);
+  ObjectEvaluation previous;
+  previous.options = preview_options();
+  previous.result = evaluate_mesh(original_edit->read_snapshot(), previous.options);
+  ASSERT_TRUE(previous.result);
+  double4x4 matrix = double4x4::identity();
+  matrix.location() = double3(0.125, 0.25, 0.5);
+  auto moved = transform_geometry(*source, matrix, 0);
+  ASSERT_TRUE(moved);
+  for (auto &support : moved->geometry->surfaces) {
+    if (support.id == unused->id) {
+      std::copy_n(unused->points, unused->points_num, support.points);
+    }
+  }
+  auto current_edit = EditData::create(*moved->geometry);
+  ASSERT_NE(current_edit, nullptr);
+  auto evaluated = evaluate_mesh(
+      current_edit->read_snapshot(), previous.options, nullptr, &previous);
+  ASSERT_TRUE(evaluated);
+  EXPECT_TRUE(evaluated->reused_tessellation);
+  EXPECT_TRUE(evaluated->reused_normals);
+  const auto a = evaluated->mesh->corner_normals();
+  const auto b = previous.result->mesh->corner_normals();
+  ASSERT_EQ(a.size(), b.size());
+  for (const int i : a.index_range()) {
+    EXPECT_EQ(a[i], b[i]);
+  }
+  auto changed = current_edit->read_snapshot().copy_for_edit();
+  auto &changed_support = *static_cast<NurbsSurfaceGeometry *>(changed.geometry->surfaces.first);
+  changed_support.points[0].position[2] = std::nextafter(changed_support.points[0].position[2],
+                                                         INFINITY);
+  static_cast<NurbsTopologyFace *>(changed.geometry->faces.first)->tolerance = 1e-8;
+  auto changed_edit = EditData::create(std::move(changed));
+  ASSERT_NE(changed_edit, nullptr);
+  std::string error;
+  auto not_translation = evaluate_mesh(
+      changed_edit->read_snapshot(), previous.options, &error, &previous);
+  ASSERT_TRUE(not_translation) << error;
+  EXPECT_TRUE(not_translation->reused_tessellation);
+  EXPECT_FALSE(not_translation->reused_normals);
+}
+
+TEST_F(NurbsMeshEvaluationTest, CachedRoundedBoxMatchesFreshPreviewAfterTranslation)
+{
+  auto sheet = make_planar_sheet();
+  ASSERT_NE(sheet, nullptr);
+  const int64_t face = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
+  std::string error;
+  auto box = extrude_components(*sheet, {{}, {}, {&face, 1}}, {0, 0, 2}, 0, &error);
+  ASSERT_TRUE(box) << error;
+  Vector<int64_t> edges;
+  for (const auto &edge : box->geometry->edges) {
+    edges.append(edge.id);
+  }
+  auto bevel = bevel_edges(*box->geometry, edges, {.offset = 0.2, .segments = 3}, &error);
+  ASSERT_TRUE(bevel) << error;
+  auto original_edit = EditData::create(*bevel->geometry);
+  ASSERT_NE(original_edit, nullptr);
+  const auto options = preview_options();
+  ObjectEvaluation previous;
+  previous.options = options;
+  previous.result = evaluate_mesh(original_edit->read_snapshot(), options, &error);
+  ASSERT_TRUE(previous.result) << error;
+  Vector<int64_t> vertices;
+  for (const auto &vertex : bevel->geometry->vertices) {
+    vertices.append(vertex.id);
+  }
+  auto moved = translate_vertices(*bevel->geometry, vertices, {0.125, 0.25, 0.5}, 1e-9, &error);
+  ASSERT_TRUE(moved) << error;
+  auto edit = EditData::create(*moved->geometry);
+  ASSERT_NE(edit, nullptr);
+  const auto cached = evaluate_mesh(edit->read_snapshot(), options, &error, &previous);
+  ASSERT_TRUE(cached) << error;
+  EXPECT_TRUE(cached->reused_tessellation);
+  const auto fresh = evaluate_mesh(edit->read_snapshot(), options, &error);
+  ASSERT_TRUE(fresh) << error;
+  ASSERT_EQ(cached->preview.points_num(), fresh->preview.points_num());
+  ASSERT_EQ(cached->preview.triangles.size(), fresh->preview.triangles.size());
+  for (const int i : IndexRange(cached->preview.points_num())) {
+    EXPECT_EQ(cached->preview.position(i), fresh->preview.position(i));
+  }
+  for (const int i : cached->preview.triangles.index_range()) {
+    EXPECT_EQ(cached->preview.triangles[i].points, fresh->preview.triangles[i].points);
+    EXPECT_EQ(cached->preview.triangles[i].face_id, fresh->preview.triangles[i].face_id);
+    EXPECT_EQ(cached->preview.triangles[i].display_edges,
+              fresh->preview.triangles[i].display_edges);
+  }
+  const auto cached_normals = cached->mesh->corner_normals();
+  const auto fresh_normals = fresh->mesh->corner_normals();
+  ASSERT_EQ(cached_normals.size(), fresh_normals.size());
+  for (const int i : cached_normals.index_range()) {
+    EXPECT_EQ(cached_normals[i], fresh_normals[i]);
+  }
+}
+
 TEST_F(NurbsMeshEvaluationTest, RectangularSurfaceShowsAQuadGridAtDifferentResolutions)
 {
   const auto source = make_planar_sheet();
@@ -344,6 +720,62 @@ TEST_F(NurbsMeshEvaluationTest, WireDisplayRetainsCoincidentVerticesWithDistinct
   EXPECT_EQ(result->mesh->vert_positions()[0], result->mesh->vert_positions()[2]);
   EXPECT_NE(result->preview.boundary.vertex_ids[0], result->preview.boundary.vertex_ids[2]);
   EXPECT_EQ(result->source, snapshot);
+}
+
+TEST_F(NurbsMeshEvaluationTest, SharedNormalCachePreservesBothSidesOfAnInternalKnot)
+{
+  auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  auto &surface = *static_cast<NurbsSurfaceGeometry *>(source->surfaces.first);
+  MEM_delete(surface.points);
+  MEM_delete(surface.knots_u);
+  MEM_delete(surface.knots_v);
+  surface.points_u = surface.points_v = 3;
+  surface.points_num = 9;
+  surface.knots_u_num = surface.knots_v_num = 5;
+  surface.points = MEM_new_array<NurbsControlPoint>(9, __func__);
+  surface.knots_u = MEM_new_array_uninitialized<double>(5, __func__);
+  surface.knots_v = MEM_new_array_uninitialized<double>(5, __func__);
+  const double knots[] = {0, 0, 0.5, 1, 1};
+  std::copy_n(knots, 5, surface.knots_u);
+  std::copy_n(knots, 5, surface.knots_v);
+  for (const int v : IndexRange(3)) {
+    for (const int u : IndexRange(3)) {
+      const double3 point(-1.0 + u, -1.0 + v, u == 1 && v == 1 ? 0.5 : 0.0);
+      std::copy_n(&point.x, 3, surface.points[v * 3 + u].position);
+    }
+  }
+  auto edit = EditData::create(*source);
+  ASSERT_NE(edit, nullptr);
+  auto options = preview_options();
+  options.boundary.segments_per_span = options.interior_subdivisions = 8;
+  std::string error;
+  const auto result = evaluate_mesh(edit->read_snapshot(), options, &error);
+  ASSERT_TRUE(result) << error;
+  const Span<float3> normals = result->mesh->corner_normals();
+  std::optional<float3> left, right;
+  for (const int i : result->mesh_to_preview_triangle.index_range()) {
+    const auto &triangle = result->preview.triangles[result->mesh_to_preview_triangle[i]];
+    const double center_u = (triangle.parameters[0].x + triangle.parameters[1].x +
+                             triangle.parameters[2].x) /
+                            3;
+    for (const int j : IndexRange(3)) {
+      if (triangle.parameters[j] == double2(0.5, 0.25)) {
+        (center_u < 0.5 ? left : right) = normals[3 * i + j];
+      }
+    }
+  }
+  ASSERT_TRUE(left && right);
+  const auto expected_left = evaluate_surface_differential(
+      surface, {0.5, 0.25}, {KnotSide::Left, KnotSide::Right});
+  const auto expected_right = evaluate_surface_differential(
+      surface, {0.5, 0.25}, {KnotSide::Right, KnotSide::Right});
+  ASSERT_TRUE(expected_left && expected_left->normal && expected_right && expected_right->normal);
+  const float orientation = float(
+      static_cast<const NurbsTopologyFace *>(source->faces.first)->orientation);
+  EXPECT_GT(math::dot(*left, float3(*expected_left->normal) * orientation), 0.999f);
+  EXPECT_GT(math::dot(*right, float3(*expected_right->normal) * orientation), 0.999f);
+  EXPECT_LT(math::dot(*left, *right), 0.95f);
 }
 
 TEST_F(NurbsMeshEvaluationTest, RationalCylinderUsesRadialSourceNormalsAtDisplayCorners)

@@ -340,13 +340,38 @@ TEST(nurbs_surface_preview, CollapsedBoundaryClosesItsChartButGeneralUVGapsStill
     }
   }
   /* This gap lies entirely on a certified collapsed natural boundary. */
-  EXPECT_TRUE(tessellate_surfaces(*collapsed->geometry, preview_options(), &error)) << error;
+  const auto pole_preview = tessellate_surfaces(*collapsed->geometry, preview_options(), &error);
+  ASSERT_TRUE(pole_preview) << error;
+  OwnedGeometry pole_source(geometry_copy(collapsed->geometry.get()));
+  bool reused = false;
+  const auto refreshed = refresh_surface_preview(*collapsed->geometry,
+                                                 preview_options(),
+                                                 *pole_source,
+                                                 preview_options(),
+                                                 *pole_preview,
+                                                 reused,
+                                                 &error);
+  ASSERT_TRUE(refreshed) << error;
+  EXPECT_TRUE(reused);
+  ASSERT_EQ(refreshed->points_num(), pole_preview->points_num());
+  ASSERT_EQ(refreshed->triangles.size(), pole_preview->triangles.size());
+  for (const int i : IndexRange(refreshed->points_num())) {
+    EXPECT_EQ(refreshed->position(i), pole_preview->position(i));
+  }
   for (NurbsCurveGeometry &curve : collapsed->geometry->curves) {
     if (curve.id == use->pcurve_id) {
       curve.points[0].position[1] = 0.125;
     }
   }
   /* A gap into the chart interior is not a natural boundary pole. */
+  EXPECT_FALSE(refresh_surface_preview(*collapsed->geometry,
+                                       preview_options(),
+                                       *pole_source,
+                                       preview_options(),
+                                       *pole_preview,
+                                       reused,
+                                       &error));
+  EXPECT_FALSE(reused);
   EXPECT_FALSE(tessellate_surfaces(*collapsed->geometry, preview_options(), &error).has_value());
   EXPECT_NE(error.find("UV"), std::string::npos);
 }

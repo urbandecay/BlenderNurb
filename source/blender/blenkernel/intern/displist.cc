@@ -30,6 +30,7 @@
 #include "BLI_span.hh"
 #include "BLI_string.h"
 #include "BLI_task.hh"
+#include "BLI_time.h"
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
 
@@ -42,6 +43,7 @@
 #include "BKE_lib_id.hh"
 #include "BKE_mesh.hh"
 #include "BKE_modifier.hh"
+#include "BKE_nurbs_debug.hh"
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
@@ -1685,8 +1687,10 @@ static bke::GeometrySet evaluate_curve_type_object(Depsgraph *depsgraph,
 /** Native source dispatch. Keep all source/geometry construction in the shared kernel services. */
 static bke::GeometrySet evaluate_native_nurbs_object(Object &object,
                                                      const Curve &curve,
-                                                     const bool for_render)
+                                                     const bool for_render,
+                                                     const bke::nurbs::ObjectEvaluation *previous)
 {
+  const double evaluation_start = BLI_time_now_seconds();
   auto evaluation = std::shared_ptr<bke::nurbs::ObjectEvaluation>(
       new bke::nurbs::ObjectEvaluation());
   auto fail = [&](const std::string &error) {
@@ -1712,9 +1716,16 @@ static bke::GeometrySet evaluate_native_nurbs_object(Object &object,
   /* Keep the tagged two-by-two surface's display grid density on native entry. No fitting or
    * source tolerance expansion is performed. Agreement allowance remains explicitly zero. */
   evaluation->options = bke::nurbs::curve_preview_options(curve, for_render);
-  evaluation->result = bke::nurbs::evaluate_mesh(
-      *curve.nurbs_eval_source->snapshot, evaluation->options, &evaluation->error);
+  const auto &prepared = curve.nurbs_eval_source->prepared_evaluation;
+  evaluation->result = bke::nurbs::evaluate_mesh(*curve.nurbs_eval_source->snapshot,
+                                                 evaluation->options,
+                                                 &evaluation->error,
+                                                 prepared ? prepared.get() : previous);
   if (!evaluation->result) {
+    NURBS_DEBUG_LOG("object '%s' NURBS evaluation failed after %.3f ms: %s",
+                    object.id.name + 2,
+                    (BLI_time_now_seconds() - evaluation_start) * 1000.0,
+                    evaluation->error.c_str());
     return fail(evaluation->error);
   }
   Mesh *mesh = evaluation->result->mesh.get();
@@ -1725,6 +1736,17 @@ static bke::GeometrySet evaluate_native_nurbs_object(Object &object,
   bke::GeometrySet geometry;
   geometry.replace_mesh(evaluation->result->mesh.release());
   object.runtime->nurbs_evaluation = std::move(evaluation);
+  NURBS_DEBUG_LOG(
+      "object '%s' NURBS evaluation completed in %.3f ms; %s, render %d, %d vertices, "
+      "%d edges, %d faces",
+      object.id.name + 2,
+      (BLI_time_now_seconds() - evaluation_start) * 1000.0,
+      object.runtime->nurbs_evaluation->result->reused_tessellation ? "preview cache hit" :
+                                                                      "preview cache miss",
+      int(for_render),
+      mesh->verts_num,
+      mesh->edges_num,
+      mesh->faces_num);
   return geometry;
 }
 
@@ -1735,6 +1757,8 @@ void BKE_displist_make_curveTypes(Depsgraph *depsgraph,
 {
   BLI_assert(ELEM(ob->type, OB_SURF, OB_CURVES_LEGACY, OB_FONT));
 
+  /* Retain the previous immutable source and UV preview across cache destruction. */
+  const auto previous_nurbs_evaluation = ob->runtime->nurbs_evaluation;
   BKE_object_free_derived_caches(ob);
 
   /* It's important to retrieve this after calling #BKE_object_free_derived_caches,
@@ -1747,7 +1771,8 @@ void BKE_displist_make_curveTypes(Depsgraph *depsgraph,
   if (original_curve.nurbs_eval_source != nullptr || original_curve.nurbs_geometry != nullptr ||
       (original_curve.editnurb != nullptr && original_curve.editnurb->nurbs_edit != nullptr))
   {
-    bke::GeometrySet geometry = evaluate_native_nurbs_object(*ob, original_curve, for_render);
+    bke::GeometrySet geometry = evaluate_native_nurbs_object(
+        *ob, original_curve, for_render, previous_nurbs_evaluation.get());
     ob->runtime->geometry_set_eval = new bke::GeometrySet(std::move(geometry));
     return;
   }

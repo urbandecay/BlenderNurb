@@ -228,6 +228,7 @@ set(SRC
   intern/nurbs_geometry_legacy.cc
   intern/nurbs_legacy_edit.cc
   intern/nurbs_mesh.cc
+  intern/nurbs_debug.cc
   intern/nurbs_selection.cc
   intern/nurbs_tessellate.cc
   intern/nurbs_topology.cc

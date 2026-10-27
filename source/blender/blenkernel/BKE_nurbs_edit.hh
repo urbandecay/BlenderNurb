@@ -34,6 +34,7 @@ struct EditStateStorage;
 }
 
 class EditData;
+struct ObjectEvaluation;
 
 /**
  * Immutable geometry/selection/revision read lease. Retains its data across commits and edit-owner
@@ -89,6 +90,8 @@ struct EvaluationSource {
 
   std::optional<ReadSnapshot> snapshot;
   std::string error;
+  /** Completed preview of this exact immutable geometry, retained across the depsgraph handoff. */
+  std::shared_ptr<const ObjectEvaluation> prepared_evaluation;
 };
 
 /**
@@ -128,6 +131,8 @@ class EditData {
   static std::unique_ptr<EditData> create(const NurbsGeometry &geometry,
                                           const SelectionState &selection = {},
                                           std::string *r_error = nullptr);
+  /** Adopt an independently owned candidate without copying its geometry again. */
+  static std::unique_ptr<EditData> create(EditSnapshot snapshot, std::string *r_error = nullptr);
 
   /** Borrowed editor-thread access; invalidated by the next mutation or owner destruction. */
   const NurbsGeometry &geometry() const;
@@ -143,6 +148,12 @@ class EditData {
               const ReadSnapshot &expected_state,
               std::string *r_error = nullptr);
   bool restore(const EditSnapshot &snapshot, std::string *r_error = nullptr);
+  /** Commit an already evaluated immutable candidate atomically. Share its owned source and
+   * retain the completed preview; the live edit revision still advances independently. */
+  bool commit_evaluated(std::shared_ptr<const ObjectEvaluation> candidate,
+                        const ReadSnapshot &expected_state,
+                        std::string *r_error = nullptr);
+  std::shared_ptr<const ObjectEvaluation> prepared_evaluation(const ReadSnapshot &source) const;
 
  private:
   explicit EditData(EditSnapshot snapshot);
@@ -153,6 +164,7 @@ class EditData {
 
   mutable std::mutex mutex_;
   std::shared_ptr<const detail::EditStateStorage> current_;
+  std::shared_ptr<const ObjectEvaluation> prepared_evaluation_;
 };
 
 /** Prepared exact transition from the tagged prototype to the existing native edit pipeline.

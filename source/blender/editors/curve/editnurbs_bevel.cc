@@ -15,14 +15,18 @@
 #include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "BLI_listbase_iterator.hh"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.hh"
 #include "BLI_string.h"
+#include "BLI_time.h"
 
 #include "BLT_translation.hh"
 
 #include "BKE_context.hh"
+#include "BKE_nurbs_debug.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_geometry.hh"
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_report.hh"
 #include "BKE_screen.hh"
@@ -62,43 +66,109 @@ struct BevelModal {
   std::optional<bke::nurbs::BevelOptions> visible_options;
   NumInput num{};
   std::string error;
+  std::shared_ptr<const bke::nurbs::ObjectEvaluation> evaluation;
+  double geometry_error_bound = 0;
 };
 
-static std::optional<bke::nurbs::TopologyEditResult> candidate(
+struct BevelCandidate {
+  std::shared_ptr<const bke::nurbs::ObjectEvaluation> evaluation;
+  double geometry_error_bound;
+};
+
+static std::optional<BevelCandidate> candidate(
     const ed::nurbs::TopologyPreview &preview,
     const bke::nurbs::BevelOptions &options,
     std::string &error,
-    bke::nurbs::BevelOffsetInfo *r_offset_info = nullptr)
+    bke::nurbs::BevelOffsetInfo *r_offset_info = nullptr,
+    const bke::nurbs::ObjectEvaluation *previous = nullptr)
 {
+  const double candidate_start = BLI_time_now_seconds();
+  const size_t source_faces = preview.source().geometry().faces.count();
   const auto &selection = preview.source().selection();
   const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
+  const double bevel_start = BLI_time_now_seconds();
   auto result = bke::nurbs::bevel_edges(
       preview.source().geometry(), edges, options, &error, r_offset_info);
+  const double bevel_ms = (BLI_time_now_seconds() - bevel_start) * 1000.0;
   if (!result) {
+    NURBS_DEBUG_LOG(
+        "bevel candidate failed: bevel %.3f ms, total %.3f ms; %d selected edges, "
+        "%zu source faces, width %.9g, segments %d; %s",
+        bevel_ms,
+        (BLI_time_now_seconds() - candidate_start) * 1000.0,
+        int(edges.size()),
+        source_faces,
+        options.offset,
+        options.segments,
+        error.c_str());
     return std::nullopt;
   }
-  // Preflight the same source evaluation used by Blender's body/overlay pipeline.
+  // Keep the evaluated immutable candidate for the actual viewport handoff.
+  const double geometry_error_bound = result->geometry_error_bound;
+  const int result_faces = result->geometry->faces.count();
+  const double snapshot_start = BLI_time_now_seconds();
   auto snapshot = bke::nurbs::edit_snapshot_from_topology_result(
-      bke::nurbs::TopologyEditResult{
-          .geometry = bke::nurbs::OwnedGeometry(bke::nurbs::geometry_copy(result->geometry.get())),
-          .vertices = result->vertices,
-          .edges = result->edges,
-          .faces = result->faces},
-      selection,
-      selection.mode,
-      &error);
+      std::move(*result), selection, selection.mode, &error);
+  const double snapshot_ms = (BLI_time_now_seconds() - snapshot_start) * 1000.0;
   if (!snapshot) {
+    NURBS_DEBUG_LOG(
+        "bevel candidate failed: bevel %.3f ms, snapshot %.3f ms, total %.3f ms; "
+        "%d selected edges; %s",
+        bevel_ms,
+        snapshot_ms,
+        (BLI_time_now_seconds() - candidate_start) * 1000.0,
+        int(edges.size()),
+        error.c_str());
     return std::nullopt;
   }
-  const auto edit = bke::nurbs::EditData::create(*snapshot->geometry, snapshot->selection, &error);
-  if (!edit || !bke::nurbs::evaluate_mesh(
-                   edit->read_snapshot(),
-                   bke::nurbs::curve_preview_options(*id_cast<Curve *>(preview.object().data)),
-                   &error))
-  {
+  const double edit_start = BLI_time_now_seconds();
+  const auto edit = bke::nurbs::EditData::create(std::move(*snapshot), &error);
+  const double edit_ms = (BLI_time_now_seconds() - edit_start) * 1000.0;
+  if (!edit) {
+    NURBS_DEBUG_LOG(
+        "bevel candidate failed: bevel %.3f ms, snapshot %.3f ms, edit data %.3f ms, "
+        "total %.3f ms; %s",
+        bevel_ms,
+        snapshot_ms,
+        edit_ms,
+        (BLI_time_now_seconds() - candidate_start) * 1000.0,
+        error.c_str());
     return std::nullopt;
   }
-  return result;
+  const double preview_start = BLI_time_now_seconds();
+  auto evaluation = std::make_shared<bke::nurbs::ObjectEvaluation>();
+  evaluation->options = bke::nurbs::curve_preview_options(
+      *id_cast<Curve *>(preview.object().data));
+  evaluation->result = bke::nurbs::evaluate_mesh(
+      edit->read_snapshot(), evaluation->options, &error, previous);
+  const double preview_ms = (BLI_time_now_seconds() - preview_start) * 1000.0;
+  if (!evaluation->result) {
+    NURBS_DEBUG_LOG(
+        "bevel candidate failed: bevel %.3f ms, snapshot %.3f ms, edit data %.3f ms, "
+        "preview %.3f ms, total %.3f ms; %s",
+        bevel_ms,
+        snapshot_ms,
+        edit_ms,
+        preview_ms,
+        (BLI_time_now_seconds() - candidate_start) * 1000.0,
+        error.c_str());
+    return std::nullopt;
+  }
+  NURBS_DEBUG_LOG(
+      "bevel candidate: bevel %.3f ms, snapshot %.3f ms, edit data %.3f ms, preview "
+      "%.3f ms, total %.3f ms; %d selected edges, %zu source faces -> %d result faces, "
+      "width %.9g, %d segments",
+      bevel_ms,
+      snapshot_ms,
+      edit_ms,
+      preview_ms,
+      (BLI_time_now_seconds() - candidate_start) * 1000.0,
+      int(edges.size()),
+      source_faces,
+      result_faces,
+      options.offset,
+      options.segments);
+  return BevelCandidate{std::move(evaluation), geometry_error_bound};
 }
 
 static int modal_action_value(const wmOperatorType &type, const char *identifier)
@@ -172,13 +242,32 @@ static void status(bContext *C, wmOperator *op, const BevelModal &data)
 
 static void update(bContext *C, wmOperator *op, BevelModal &data)
 {
+  const double update_start = BLI_time_now_seconds();
   data.error.clear();
   bke::nurbs::BevelOffsetInfo offset_info;
-  auto result = candidate(*data.preview, data.options, data.error, &offset_info);
-  data.valid = result && (data.options.offset == 0 ?
-                              data.preview->cancel_preview(C, &data.error) :
-                              data.preview->update_preview(C, std::move(*result), &data.error));
+  auto result = candidate(
+      *data.preview, data.options, data.error, &offset_info, data.evaluation.get());
+  const double candidate_ms = (BLI_time_now_seconds() - update_start) * 1000.0;
+  const double preview_commit_start = BLI_time_now_seconds();
+  data.valid = result &&
+               (data.options.offset == 0 ?
+                    data.preview->cancel_preview(C, &data.error) :
+                    data.preview->update_evaluated_preview(C, result->evaluation, &data.error));
+  const double preview_commit_ms = (BLI_time_now_seconds() - preview_commit_start) * 1000.0;
+  NURBS_DEBUG_LOG(
+      "bevel modal update: %.3f ms total; candidate %.3f ms, preview commit %.3f ms; "
+      "valid %d, width %.9g, segments %d, clamp %d%s",
+      (BLI_time_now_seconds() - update_start) * 1000.0,
+      candidate_ms,
+      preview_commit_ms,
+      int(data.valid),
+      data.options.offset,
+      data.options.segments,
+      int(data.options.clamp_overlap),
+      data.error.empty() ? "" : data.error.c_str());
   if (data.valid) {
+    data.evaluation = result->evaluation;
+    data.geometry_error_bound = result->geometry_error_bound;
     data.offset_info = offset_info;
     data.visible_options = data.options.offset == 0 ? std::nullopt : std::optional(data.options);
     if (data.visible_options) {
@@ -267,7 +356,7 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
   bke::nurbs::BevelOffsetInfo offset_info;
   auto result = candidate(*preview, options, error, &offset_info);
   if (!result ||
-      !preview->commit(C, std::move(*result), preview->source().selection().mode, &error))
+      !preview->commit_evaluated(C, result->evaluation, result->geometry_error_bound, &error))
   {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
@@ -370,10 +459,8 @@ static wmOperatorStatus bevel_modal(bContext *C, wmOperator *op, const wmEvent *
         bevel_cancel(C, op);
         return OPERATOR_CANCELLED;
       }
-      auto result = candidate(*data.preview, data.options, data.error);
-      if (!result ||
-          !data.preview->commit(
-              C, std::move(*result), data.preview->source().selection().mode, &data.error))
+      if (!data.preview->commit_evaluated(
+              C, data.evaluation, data.geometry_error_bound, &data.error))
       {
         BKE_report(op->reports, RPT_ERROR, data.error.c_str());
         bevel_cancel(C, op);
