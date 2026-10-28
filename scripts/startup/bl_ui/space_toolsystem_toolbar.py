@@ -1115,6 +1115,28 @@ class _defs_nurbs_draw:
             draw_settings=draw_settings,
         )
 
+    @ToolDef.from_fn
+    def arc():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("curve.draw_arc")
+            layout.prop(props, "mode", expand=True)
+            layout.prop(props, "use_axis_snap")
+            layout.prop(props, "use_angle_snap")
+            if props.use_angle_snap:
+                layout.prop(props, "angle_increment")
+            layout.popover(panel="VIEW3D_PT_nurbs_arc_overlay", text="", icon='OVERLAY')
+
+        return dict(
+            idname="builtin.nurbs_draw_arc",
+            operator="curve.draw_arc",
+            label="Arc",
+            description="Draw a NURBS arc by center and sweep, endpoints and bulge, or three points",
+            icon="rna:CURVE_NCURVE",
+            cursor='CROSSHAIR',
+            keymap="3D View Tool: NURBS Arc",
+            draw_settings=draw_settings,
+        )
+
 
 class _defs_edit_curve:
 
@@ -3046,6 +3068,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             None,
             _defs_nurbs_draw.line,
             _defs_nurbs_draw.spline,
+            _defs_nurbs_draw.arc,
             None,
             _defs_edit_curve.draw,
             _defs_edit_curve.pen,
@@ -3074,6 +3097,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             None,
             _defs_nurbs_draw.line,
             _defs_nurbs_draw.spline,
+            _defs_nurbs_draw.arc,
             None,
             _defs_transform.shear,
         ],

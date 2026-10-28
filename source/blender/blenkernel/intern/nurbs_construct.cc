@@ -11,6 +11,7 @@
 #include <limits>
 
 #include "BLI_listbase.h"
+#include "BLI_math_vector.hh"
 #include "BLI_set.hh"
 
 #include "BKE_nurbs_construct.hh"
@@ -18,6 +19,115 @@
 #include "nurbs_math.hh"
 
 namespace blender::bke::nurbs {
+
+OwnedCurve circular_arc(const double3 &center,
+                        const double3 &start,
+                        const double3 &normal,
+                        const double sweep,
+                        std::string *r_error)
+{
+  auto fail = [&](const char *message) -> OwnedCurve {
+    if (r_error) {
+      *r_error = message;
+    }
+    return nullptr;
+  };
+  if (r_error) {
+    r_error->clear();
+  }
+  const auto finite = [](const double3 &p) {
+    return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
+  };
+  if (!finite(center) || !finite(start) || !finite(normal) || !std::isfinite(sweep) ||
+      sweep == 0 || std::abs(sweep) > 2 * M_PI)
+  {
+    return fail("Arc requires finite input and a nonzero sweep of at most 360 degrees");
+  }
+  const double radius = math::distance(center, start);
+  const double normal_length = math::length(normal);
+  if (!(radius > 0) || !std::isfinite(radius) || !(normal_length > 0) ||
+      !std::isfinite(normal_length))
+  {
+    return fail("Arc requires a nonzero radius and plane normal");
+  }
+  const double3 x = (start - center) / radius;
+  const double3 n = normal / normal_length;
+  if (std::abs(math::dot(x, n)) > 1e-10) {
+    return fail("Arc start must lie on the drawing plane");
+  }
+  const double3 y = math::normalize(math::cross(n, x));
+  const int spans = std::max(1, int(std::ceil(std::abs(sweep) / (M_PI / 2))));
+  const double step = sweep / spans;
+  const double weight = std::cos(step / 2);
+  OwnedCurve curve(MEM_new<NurbsCurveGeometry>(__func__));
+  curve->order = 3;
+  curve->points_num = 2 * spans + 1;
+  curve->knots_num = curve->points_num + 3;
+  curve->points = MEM_new_array<NurbsControlPoint>(curve->points_num, __func__);
+  curve->knots = MEM_new_array<double>(curve->knots_num, __func__);
+  for (int i = 0; i < curve->points_num; i++) {
+    const double angle = step * i / 2;
+    const double w = i % 2 ? weight : 1;
+    const double3 point = center + (x * std::cos(angle) + y * std::sin(angle)) * (radius / w);
+    if (!finite(point)) {
+      return fail("Arc construction exceeds coordinate range");
+    }
+    std::copy_n(&point.x, 3, curve->points[i].position);
+    curve->points[i].weight = w;
+  }
+  std::copy_n(&start.x, 3, curve->points[0].position);
+  if (std::abs(sweep) == 2 * M_PI) {
+    curve->points[curve->points_num - 1] = curve->points[0];
+  }
+  for (int i = 0; i < curve->knots_num; i++) {
+    curve->knots[i] = i < 3 ? 0 : i >= curve->knots_num - 3 ? 1 : double((i - 1) / 2) / spans;
+  }
+  return curve;
+}
+
+OwnedCurve circular_arc_through_points(const double3 &start,
+                                       const double3 &through,
+                                       const double3 &end,
+                                       std::string *r_error)
+{
+  const double3 a = through - start, b = end - start;
+  const double scale = std::max(math::length(a), math::length(b));
+  if (!(scale > 0) || !std::isfinite(scale)) {
+    if (r_error) {
+      *r_error = "Arc requires three finite, distinct points";
+    }
+    return nullptr;
+  }
+  const double3 u = a / scale, v = b / scale;
+  const double3 cross = math::cross(u, v);
+  const double cross_squared = math::length_squared(cross);
+  if (!(cross_squared > 1e-24)) {
+    if (r_error) {
+      *r_error = "Arc requires three distinct, noncollinear points";
+    }
+    return nullptr;
+  }
+  const double3 offset = (math::cross(v, cross) * math::length_squared(u) +
+                          math::cross(cross, u) * math::length_squared(v)) *
+                         (scale / (2 * cross_squared));
+  const double3 center = start + offset;
+  const double3 normal = math::normalize(cross);
+  const double3 x = math::normalize(start - center), y = math::cross(normal, x);
+  auto angle = [&](const double3 &point) {
+    const double3 d = point - center;
+    const double a = std::atan2(math::dot(d, y), math::dot(d, x));
+    return a < 0 ? a + 2 * M_PI : a;
+  };
+  double sweep = angle(end);
+  if (angle(through) > sweep) {
+    sweep -= 2 * M_PI;
+  }
+  auto curve = circular_arc(center, start, normal, sweep, r_error);
+  if (curve) {
+    std::copy_n(&end.x, 3, curve->points[curve->points_num - 1].position);
+  }
+  return curve;
+}
 
 std::optional<FaceRegionExtrusionPlan> plan_face_region_extrusion(const NurbsGeometry &source,
                                                                   const Span<int64_t> face_ids,

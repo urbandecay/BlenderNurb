@@ -4,10 +4,11 @@
 
 /** \file
  * \ingroup edcurve
- * Click drawing inspired by radCAD's polyline and interpolation tools.
+ * Click drawing and construction overlays ported from radCAD.
  */
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <cmath>
 #include <iomanip>
@@ -15,6 +16,7 @@
 
 #include "BKE_context.hh"
 #include "BKE_layer.hh"
+#include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_fit.hh"
 #include "BKE_nurbs_mesh.hh"
@@ -46,6 +48,7 @@
 #include "MEM_guardedalloc.h"
 #include "RNA_access.hh"
 #include "RNA_define.hh"
+#include "UI_interface.hh"
 #include "WM_api.hh"
 #include "WM_toolsystem.hh"
 #include "WM_types.hh"
@@ -66,6 +69,7 @@ struct DrawData {
   std::unique_ptr<ed::nurbs::TopologyPreview> source;
   ARegion *region = nullptr;
   void *draw_handle = nullptr;
+  void *draw_handle_pixel = nullptr;
   ed::transform::SnapObjectContext *snap = nullptr;
   Vector<NativeCenter> centers;
   Vector<Object *> center_objects;
@@ -82,6 +86,19 @@ struct DrawData {
   float3 face_normal = float3(0, 0, 1);
   bool locked = true;
   bool spline = false;
+  int arc_mode = -1;
+  float3 arc_reference_normal = float3(0, 0, 1);
+  bool arc_perpendicular = false;
+  int arc_vertical_axis = -1;
+  bool arc_free = false;
+  double arc_previous_angle = 0;
+  double arc_accumulated = 0;
+  double arc_sweep = 0;
+  double arc_compass_rotation = 0;
+  double arc_radius = 0;
+  bool arc_valid = false;
+  Vector<float3> arc_markers;
+  Vector<std::string> arc_hud;
   NumInput num{};
   double4x4 inverse;
 };
@@ -90,6 +107,69 @@ static bool is_spline(const wmOperator *op)
 {
   return STREQ(op->type->idname, "CURVE_OT_draw_spline");
 }
+
+static bool is_arc(const wmOperator *op)
+{
+  return STREQ(op->type->idname, "CURVE_OT_draw_arc");
+}
+
+static double arc_sweep_get(wmOperator *op)
+{
+  const double value = RNA_float_get(op->ptr, "sweep");
+  std::istringstream input(RNA_string_get(op->ptr, "sweep_exact"));
+  double exact;
+  if ((input >> exact) && std::isfinite(exact) && float(exact) == float(value)) {
+    return exact;
+  }
+  return std::abs(value) == float(2 * M_PI) ? std::copysign(2 * M_PI, value) : value;
+}
+
+/* Construct in world coordinates, then transform the rational coefficients to object space.
+ * This preserves a circular world-space arc even under nonuniform object scale and shear. */
+static OwnedCurve arc_support(const Span<double3> points,
+                              const int mode,
+                              const double3 &normal,
+                              const double sweep,
+                              const double4x4 &inverse,
+                              std::string &error)
+{
+  if (points.size() != (mode == 0 ? 2 : 3)) {
+    error = "Place the arc construction points";
+    return nullptr;
+  }
+  OwnedCurve curve;
+  if (mode == 0) {
+    const double3 radial = points[1] - points[0];
+    double3 n = math::normalize(normal);
+    /* Viewport plane normals are floats. Remove only their storage roundoff along the radius. */
+    if (math::length_squared(radial) > 0 && std::abs(math::dot(math::normalize(radial), n)) < 1e-6)
+    {
+      n = math::normalize(n - radial * (math::dot(radial, n) / math::length_squared(radial)));
+    }
+    curve = circular_arc(points[0], points[1], n, sweep, &error);
+  }
+  else {
+    double3 through = points[2];
+    if (mode == 1) {
+      const double3 chord = points[1] - points[0];
+      const double3 side = math::normalize(math::cross(normal, chord));
+      const double3 midpoint = (points[0] + points[1]) / 2;
+      through = midpoint + side * math::dot(through - midpoint, side);
+    }
+    curve = circular_arc_through_points(points[0], through, points[1], &error);
+  }
+  if (curve) {
+    for (int i = 0; i < curve->points_num; i++) {
+      const double3 local = math::transform_point(inverse, double3(curve->points[i].position));
+      std::copy_n(&local.x, 3, curve->points[i].position);
+    }
+  }
+  return curve;
+}
+
+static wmOperatorStatus arc_exec(bContext *C, wmOperator *op);
+static void arc_update(bContext *C, wmOperator *op, const wmEvent *event);
+static std::array<double3, 2> arc_plane_axes(const double3 &normal);
 
 static OwnedCurve draw_support(const Span<double3> points,
                                const bool spline,
@@ -300,6 +380,98 @@ static void snap_incremental(const Scene &scene,
   }
 }
 
+static std::optional<float3> draw_constraint_axis(const DrawData &data)
+{
+  if (data.arc_free) {
+    return std::nullopt;
+  }
+  if (data.axis == 3) {
+    if (math::length_squared(data.face_normal) > 1e-12f) {
+      return math::normalize(data.face_normal);
+    }
+    return std::nullopt;
+  }
+  if (data.axis >= 0) {
+    float3 axis(0.0f);
+    axis[data.axis] = 1.0f;
+    return axis;
+  }
+  if (data.shift_direction && math::length_squared(*data.shift_direction) > 1e-12f) {
+    return math::normalize(*data.shift_direction);
+  }
+  return std::nullopt;
+}
+
+static double3 constrain_to_axis(const double3 &anchor,
+                                 const double3 &position,
+                                 const float3 &axis)
+{
+  const double3 direction(axis);
+  return anchor + direction * math::dot(position - anchor, direction);
+}
+
+static bool position_on_draw_constraint(const DrawData &data,
+                                        const double3 &position,
+                                        const std::optional<float3> &axis_override = std::nullopt)
+{
+  if (data.points.is_empty() || (data.arc_mode >= 0 && data.points.size() == 2)) {
+    return true;
+  }
+  const std::optional<float3> axis = axis_override ? axis_override : draw_constraint_axis(data);
+  if (!axis) {
+    return true;
+  }
+  const double3 anchor = data.points.last();
+  const double3 projected = constrain_to_axis(anchor, position, *axis);
+  const double tolerance = 1e-6 * std::max(1.0, math::distance(anchor, position));
+  return math::distance(projected, position) <= tolerance;
+}
+
+static std::optional<float3> infer_axis_from_cursor(const ARegion &region,
+                                                    const float2 &mouse,
+                                                    const double3 &start)
+{
+  float2 start_screen;
+  if (ED_view3d_project_float_global(&region, float3(start), start_screen, V3D_PROJ_TEST_NOP) !=
+      V3D_PROJ_RET_OK)
+  {
+    return std::nullopt;
+  }
+  float2 screen_direction = mouse - start_screen;
+  if (math::length_squared(screen_direction) < 1.0f) {
+    return std::nullopt;
+  }
+  screen_direction = math::normalize(screen_direction);
+
+  const float3 axes[3] = {float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1)};
+  float best_alignment = -1.0f;
+  std::optional<float3> best_axis;
+  for (const float3 &axis : axes) {
+    float2 axis_screen;
+    if (ED_view3d_project_float_global(
+            &region, float3(start + double3(axis)), axis_screen, V3D_PROJ_TEST_NOP) !=
+        V3D_PROJ_RET_OK)
+    {
+      continue;
+    }
+    float2 projected_axis = axis_screen - start_screen;
+    if (math::length_squared(projected_axis) < 1e-8f) {
+      continue;
+    }
+    projected_axis = math::normalize(projected_axis);
+    const float alignment = std::abs(math::dot(screen_direction, projected_axis));
+    if (alignment > best_alignment) {
+      best_alignment = alignment;
+      best_axis = axis;
+    }
+  }
+  /* Match radCAD's default six-degree screen-space alignment tolerance. */
+  if (best_alignment < std::cos(6.0f * float(M_PI) / 180.0f)) {
+    return std::nullopt;
+  }
+  return best_axis;
+}
+
 static bool snap_to_volume(ed::transform::SnapObjectContext *snap_context,
                            Depsgraph *depsgraph,
                            const ARegion *region,
@@ -346,6 +518,9 @@ static bool snap_to_volume(ed::transform::SnapObjectContext *snap_context,
 
 static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
 {
+  if (is_arc(op)) {
+    return arc_exec(C, op);
+  }
   std::string error;
   auto source = ed::nurbs::TopologyPreview::begin(C, &error);
   Vector<double3> points = read_points(op);
@@ -465,10 +640,112 @@ static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
+{
+  std::string error;
+  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+  if (!source) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  bool invertible;
+  const double4x4 transform(source->object().object_to_world());
+  const double4x4 inverse = math::invert(transform, invertible);
+  if (!invertible) {
+    BKE_report(op->reports, RPT_ERROR, "Drawing requires an invertible object transform");
+    return OPERATOR_CANCELLED;
+  }
+  Vector<double3> points = read_points(op);
+  for (double3 &point : points) {
+    point = math::transform_point(transform, point);
+  }
+  float normal[3];
+  RNA_float_get_array(op->ptr, "plane_normal", normal);
+  auto support = arc_support(
+      points, RNA_enum_get(op->ptr, "mode"), double3(normal), arc_sweep_get(op), inverse, error);
+  if (!support) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  TopologyEditResult result;
+  result.geometry.reset(geometry_copy(&source->source().geometry()));
+  auto &geometry = *result.geometry;
+  support->id = geometry.next_id++;
+  const auto index = TopologyIndex::build(geometry);
+  int64_t refs[2] = {0, 0};
+  std::istringstream references(RNA_string_get(op->ptr, "vertex_references"));
+  references >> refs[0] >> refs[1];
+  int64_t vertices[2];
+  double tolerance = 0;
+  for (int i = 0; i < 2; i++) {
+    const double3 point(support->points[i == 0 ? 0 : support->points_num - 1].position);
+    const auto *anchor = index ? index->vertex(refs[i]) : nullptr;
+    const double gap = anchor ? math::distance(point, double3(anchor->position)) : 0;
+    if (anchor && gap <= 1e-10 * std::max(1.0, double(math::length(point)))) {
+      vertices[i] = anchor->id;
+      tolerance = std::max(tolerance, gap);
+    }
+    else if (i == 1 && point == double3(support->points[0].position)) {
+      vertices[i] = vertices[0];
+    }
+    else {
+      auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+      vertex->id = geometry.next_id++;
+      std::copy_n(&point.x, 3, vertex->position);
+      BLI_addtail(&geometry.vertices, vertex);
+      vertices[i] = vertex->id;
+    }
+    result.vertices.append_non_duplicates(vertices[i]);
+  }
+  auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
+  edge->id = geometry.next_id++;
+  edge->curve_id = support->id;
+  std::copy_n(vertices, 2, edge->vertex_ids);
+  edge->parameter_range[0] = 0;
+  edge->parameter_range[1] = 1;
+  edge->tolerance = tolerance;
+  result.edges.append(edge->id);
+  BLI_addtail(&geometry.edges, edge);
+  BLI_addtail(&geometry.curves, support.release());
+  if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
+    if (STREQ(tool->idname, "builtin.nurbs_draw_arc")) {
+      PointerRNA settings;
+      WM_toolsystem_ref_properties_ensure_ex(tool, op->type->idname, op->type->srna, &settings);
+      RNA_enum_set(&settings, "mode", RNA_enum_get(op->ptr, "mode"));
+      for (const char *name : {"show_compass",
+                               "use_axis_colors",
+                               "show_measurements",
+                               "use_axis_snap",
+                               "use_angle_snap"})
+      {
+        RNA_boolean_set(&settings, name, RNA_boolean_get(op->ptr, name));
+      }
+      for (const char *name : {"compass_size", "preview_points", "preview_point_size"}) {
+        RNA_int_set(&settings, name, RNA_int_get(op->ptr, name));
+      }
+      for (const char *name : {"angle_increment", "axis_color_dim"}) {
+        RNA_float_set(&settings, name, RNA_float_get(op->ptr, name));
+      }
+      for (const char *name : {"overlay_color", "start_color", "end_color"}) {
+        float color[4];
+        RNA_float_get_array(op->ptr, name, color);
+        RNA_float_set_array(&settings, name, color);
+      }
+    }
+  }
+  return OPERATOR_FINISHED;
+}
+
 static void rebuild_preview(wmOperator *op)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
   data.wire.clear();
+  data.arc_markers.clear();
+  data.arc_valid = false;
   Vector<double3> points = data.points;
   if (points.is_empty() || math::distance(points.last(), data.current) > 1e-9) {
     points.append(data.current);
@@ -477,58 +754,290 @@ static void rebuild_preview(wmOperator *op)
     return;
   }
   std::string error;
-  for (double3 &point : points) {
-    point = math::transform_point(data.inverse, point);
+  if (data.arc_mode < 0) {
+    for (double3 &point : points) {
+      point = math::transform_point(data.inverse, point);
+    }
   }
-  auto support = draw_support(points,
-                              data.spline,
-                              RNA_enum_get(op->ptr, "method") == 1,
-                              RNA_int_get(op->ptr, "degree"),
-                              error);
+  auto support = data.arc_mode >= 0 ? arc_support(data.arc_mode == 0 && points.size() > 2 ?
+                                                      points.as_span().take_front(2) :
+                                                      points.as_span(),
+                                                  data.arc_mode,
+                                                  double3(data.plane_normal),
+                                                  data.arc_sweep,
+                                                  double4x4::identity(),
+                                                  error) :
+                                      draw_support(points,
+                                                   data.spline,
+                                                   RNA_enum_get(op->ptr, "method") == 1,
+                                                   RNA_int_get(op->ptr, "degree"),
+                                                   error);
   if (!support) {
+    if (data.arc_mode > 0 && data.points.size() == 2) {
+      data.arc_hud.append("Move the third point off the chord");
+    }
+    if (data.arc_mode >= 0) {
+      for (const double3 &point : points) {
+        data.wire.append(float3(point));
+      }
+    }
     return;
   }
-  const int samples = std::max<int>(2, (points.size() - 1) * 16);
+  if (data.arc_mode >= 0) {
+    data.arc_valid = true;
+    const int markers = RNA_int_get(op->ptr, "preview_points");
+    for (int i = 0; i <= markers; i++) {
+      if (const auto point = evaluate_curve(*support, double(i) / markers)) {
+        data.arc_markers.append(float3(point->position));
+      }
+    }
+    if (data.arc_mode == 0) {
+      data.arc_radius = math::distance(points[0], points[1]);
+    }
+    else {
+      const auto a = evaluate_curve(*support, 0);
+      const auto b = evaluate_curve(*support, 0.5);
+      const auto c = evaluate_curve(*support, 1);
+      if (a && b && c) {
+        const double3 ab = b->position - a->position, ac = c->position - a->position;
+        const double area = math::length(math::cross(ab, ac));
+        data.arc_radius = area > 0 ? math::length(ab) * math::length(ac) *
+                                         math::distance(b->position, c->position) / (2 * area) :
+                                     0;
+      }
+    }
+    std::ostringstream radius;
+    radius << "R: " << std::fixed << std::setprecision(3) << data.arc_radius;
+    data.arc_hud.append(radius.str());
+  }
+  const int samples = data.arc_mode >= 0 ? 128 : std::max<int>(2, (points.size() - 1) * 16);
   for (int i = 0; i <= samples; i++) {
     if (auto point = evaluate_curve(*support, double(i) / samples)) {
-      data.wire.append(float3(math::transform_point(
-          double4x4(data.source->object().object_to_world()), point->position)));
+      data.wire.append(data.arc_mode >= 0 ? float3(point->position) :
+                                            float3(math::transform_point(
+                                                double4x4(data.source->object().object_to_world()),
+                                                point->position)));
     }
   }
 }
 
-static void draw_preview(const bContext *, ARegion *region, void *arg)
+/* RCAD's compass has a fixed screen diameter, a ticked outer circle, two inner
+ * circular segments closed by chords, and a center cross. Only its in-plane
+ * orientation rotates: the drawing plane and its axis color remain authoritative. */
+static void draw_arc_overlay(wmOperator *op, ARegion *region)
 {
-  auto &data = *static_cast<DrawData *>(static_cast<wmOperator *>(arg)->customdata);
-  GPU_blend(GPU_BLEND_ALPHA);
+  const auto &data = *static_cast<const DrawData *>(op->customdata);
+  if (data.points.is_empty()) {
+    return;
+  }
+  const float4 black(0, 0, 0, 1);
+  float4 fallback;
+  RNA_float_get_array(op->ptr, "overlay_color", &fallback.x);
+  const bool axis_colors = RNA_boolean_get(op->ptr, "use_axis_colors");
+  const float dim = RNA_float_get(op->ptr, "axis_color_dim");
+  auto aligned_color = [&](const double3 &direction, const float4 &other) {
+    if (axis_colors && math::length_squared(direction) > 1e-12) {
+      const double3 n = math::normalize(direction);
+      if (std::abs(n.x) > 0.9999) {
+        return float4(1.0f * dim, 0.1f * dim, 0.1f * dim, 1);
+      }
+      if (std::abs(n.y) > 0.9999) {
+        return float4(0.1f * dim, 0.7f * dim, 0.1f * dim, 1);
+      }
+      if (std::abs(n.z) > 0.9999) {
+        return float4(0.2f * dim, 0.5f * dim, 1.0f * dim, 1);
+      }
+    }
+    return other;
+  };
+  const auto [x, y] = arc_plane_axes(double3(data.plane_normal));
+  const double3 n = math::normalize(double3(data.plane_normal));
+  const auto *rv3d = static_cast<const RegionView3D *>(region->regiondata);
+  const auto depth = GPU_depth_test_get();
+  const bool depth_write = GPU_depth_mask_get();
+  GPU_depth_test(GPU_DEPTH_NONE);
+  GPU_depth_mask(false);
   const uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", gpu::VertAttrType::SFLOAT_32_32_32);
-  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-  immUniformColor4f(1.0f, 0.55f, 0.15f, 1.0f);
-  if (data.wire.size() >= 2) {
+  immBindBuiltinProgram(GPU_SHADER_3D_POLYLINE_UNIFORM_COLOR);
+  float viewport[4];
+  GPU_viewport_size_get_f(viewport);
+  immUniform2fv("viewportSize", &viewport[2]);
+  immUniform1f("lineWidth", std::max(1.0f, U.pixelsize));
+  auto draw_lines = [&](const Span<float3> vertices, const float4 &color) {
+    if (vertices.is_empty()) {
+      return;
+    }
+    immUniformColor4fv(color);
+    immBegin(GPU_PRIM_LINES, vertices.size());
+    for (const float3 &point : vertices) {
+      immVertex3fv(pos, point);
+    }
+    immEnd();
+  };
+  auto guide = [&](const double3 &a, const double3 &b, const float4 &color) {
+    const std::array<float3, 2> vertices = {float3(a), float3(b)};
+    draw_lines(vertices, color);
+  };
+  /* RCAD draws the compass only in draw_preview_1point. Endpoint arc modes
+   * have chord/height/through-point guides, never a compass at either stage. */
+  if (data.arc_mode == 0 && RNA_boolean_get(op->ptr, "show_compass")) {
+    const double3 center = data.points[0];
+    const float3 position(center);
+    const double radius = ED_view3d_pixel_size(rv3d, &position.x) *
+                          RNA_int_get(op->ptr, "compass_size") * 0.5 * U.pixelsize;
+    Vector<float3> compass;
+    auto point = [&](const double angle, const double r) {
+      const double a = angle + data.arc_compass_rotation;
+      return float3(center + (x * std::cos(a) + y * std::sin(a)) * r);
+    };
+    auto segment = [&](const float3 &a, const float3 &b) {
+      compass.append(a);
+      compass.append(b);
+    };
+    for (int i = 0; i < 72; i++) {
+      segment(point(2 * M_PI * i / 72, radius), point(2 * M_PI * (i + 1) / 72, radius));
+    }
+    const double increment = RNA_float_get(op->ptr, "angle_increment");
+    const int ticks = std::max(1, int(std::round(2 * M_PI / increment)));
+    for (int i = 0; i < ticks; i++) {
+      const double angle = 2 * M_PI * i / ticks;
+      segment(point(angle, radius), point(angle, radius * (110.0 / 120.0)));
+    }
+    for (const double start : {20.0, 200.0}) {
+      for (int i = 0; i < 48; i++) {
+        segment(point((start + 140.0 * i / 48) * M_PI / 180, radius * 2 / 3),
+                point((start + 140.0 * (i + 1) / 48) * M_PI / 180, radius * 2 / 3));
+      }
+      segment(point(start * M_PI / 180, radius * 2 / 3),
+              point((start + 140) * M_PI / 180, radius * 2 / 3));
+    }
+    segment(float3(center - x * radius / 12), float3(center + x * radius / 12));
+    segment(float3(center - y * radius / 12), float3(center + y * radius / 12));
+    draw_lines(compass, aligned_color(n, black));
+  }
+  const double3 first = data.points[0];
+  if (data.arc_mode == 0) {
+    float4 start_color, end_color;
+    RNA_float_get_array(op->ptr, "start_color", &start_color.x);
+    RNA_float_get_array(op->ptr, "end_color", &end_color.x);
+    guide(first, data.points.size() == 1 ? data.current : data.points[1], start_color);
+    if (data.points.size() == 2) {
+      guide(first, data.current, end_color);
+    }
+  }
+  else {
+    const double3 end = data.points.size() == 1 ? data.current : data.points[1];
+    guide(first, end, aligned_color(end - first, fallback));
+    if (data.points.size() == 2) {
+      const double3 anchor = data.arc_mode == 1 ? (first + end) / 2 : end;
+      guide(anchor, data.current, aligned_color(data.current - anchor, fallback));
+    }
+  }
+  if (data.arc_valid && data.wire.size() >= 2) {
+    immUniformColor4fv(black);
     immBegin(GPU_PRIM_LINE_STRIP, data.wire.size());
     for (const float3 &point : data.wire) {
       immVertex3fv(pos, point);
     }
     immEnd();
   }
-  if (!data.points.is_empty()) {
-    GPU_point_size(6.0f);
-    immBegin(GPU_PRIM_POINTS, data.points.size());
-    for (const double3 &point : data.points) {
-      immVertex3fv(pos, float3(point));
+  Vector<float3> crosses;
+  auto marker = [&](const float3 &point) {
+    const double size = ED_view3d_pixel_size(rv3d, &point.x) *
+                        RNA_int_get(op->ptr, "preview_point_size") * 0.25 * U.pixelsize;
+    for (const double3 &axis : {x, y, n}) {
+      crosses.append(point - float3(axis * size));
+      crosses.append(point + float3(axis * size));
     }
-    immEnd();
-    GPU_point_size(1.0f);
+  };
+  /* Match the addon's stage-specific construction markers. Center arcs use
+   * their compass cross and sampled arc markers; 3 Point has no moving dot
+   * until the chord has been placed. */
+  if (data.arc_mode > 0) {
+    for (const double3 &point : data.points) {
+      marker(float3(point));
+    }
+    if (data.arc_mode == 1 && data.points.size() == 1) {
+      marker(float3(data.current));
+    }
   }
+  for (const float3 &point : data.arc_markers) {
+    marker(point);
+  }
+  immUniform1f("lineWidth", std::max(1.0f, 1.5f * U.pixelsize));
+  draw_lines(crosses, black);
   immUnbindProgram();
-  GPU_blend(GPU_BLEND_NONE);
+  GPU_depth_mask(depth_write);
+  GPU_depth_test(depth);
+}
+
+static void draw_arc_hud(const bContext *, ARegion *region, void *arg)
+{
+  const auto *op = static_cast<wmOperator *>(arg);
+  const auto &data = *static_cast<const DrawData *>(op->customdata);
+  if (!RNA_boolean_get(op->ptr, "show_measurements") || data.points.is_empty()) {
+    return;
+  }
+  float2 position;
+  if (ED_view3d_project_float_global(
+          region, float3(data.current), position, V3D_PROJ_TEST_CLIP_DEFAULT) != V3D_PROJ_RET_OK)
+  {
+    return;
+  }
+  const auto blend = GPU_blend_get();
+  GPU_blend(GPU_BLEND_ALPHA);
+  position += float2(24, 20) * U.pixelsize;
+  const float4 foreground(1, 1, 1, 1);
+  const float4 background = hasNumInput(&data.num) ? float4(0.2f, 0.25f, 0.35f, 0.95f) :
+                                                     float4(0.06f, 0.06f, 0.06f, 0.88f);
+  for (const std::string &label : data.arc_hud) {
+    ui::fontstyle_draw_simple_backdrop(
+        &ui::style_get()->widget, position.x, position.y, label, foreground, background);
+    position.y -= 23 * U.pixelsize;
+  }
+  GPU_blend(blend);
+}
+
+static void draw_preview(const bContext *, ARegion *region, void *arg)
+{
+  auto &data = *static_cast<DrawData *>(static_cast<wmOperator *>(arg)->customdata);
+  const auto previous_blend = GPU_blend_get();
+  GPU_blend(GPU_BLEND_ALPHA);
+  if (data.arc_mode >= 0) {
+    draw_arc_overlay(static_cast<wmOperator *>(arg), region);
+  }
+  else {
+    const uint pos = GPU_vertformat_attr_add(
+        immVertexFormat(), "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+    immUniformColor4f(1.0f, 0.55f, 0.15f, 1.0f);
+    if (data.wire.size() >= 2) {
+      immBegin(GPU_PRIM_LINE_STRIP, data.wire.size());
+      for (const float3 &point : data.wire) {
+        immVertex3fv(pos, point);
+      }
+      immEnd();
+    }
+    if (!data.points.is_empty()) {
+      GPU_point_size(6.0f);
+      immBegin(GPU_PRIM_POINTS, data.points.size());
+      for (const double3 &point : data.points) {
+        immVertex3fv(pos, float3(point));
+      }
+      immEnd();
+      GPU_point_size(1.0f);
+    }
+    immUnbindProgram();
+  }
+  GPU_blend(previous_blend);
 
   /* Use Blender's standard snap glyphs so the preview gives the same visual feedback as
    * viewport mesh snapping. The draw utility expects view matrices to already be active, as
    * they are for this REGION_DRAW_POST_VIEW callback. */
   if (data.snap_type != SCE_SNAP_TO_NONE) {
-    const uchar snap_color[4] = {255, 255, 255, 255};
+    const uchar snap_color[4] = {
+        255, uchar(data.arc_mode >= 0 ? 204 : 255), uchar(data.arc_mode >= 0 ? 0 : 255), 255};
     ED_view3d_cursor_snap_draw_util(static_cast<RegionView3D *>(region->regiondata),
                                     nullptr,
                                     float3(data.current),
@@ -572,9 +1081,13 @@ static void draw_exit(bContext *C, wmOperator *op)
     return;
   }
   ED_region_draw_cb_exit(data->region->runtime->type, data->draw_handle);
+  if (data->draw_handle_pixel) {
+    ED_region_draw_cb_exit(data->region->runtime->type, data->draw_handle_pixel);
+  }
   ed::transform::snap_object_context_destroy(data->snap);
   ED_region_tag_redraw(data->region);
   ED_workspace_status_text(C, nullptr);
+  ED_area_status_text(CTX_wm_area(C), nullptr);
   MEM_delete(data);
   op->customdata = nullptr;
 }
@@ -582,6 +1095,7 @@ static void draw_exit(bContext *C, wmOperator *op)
 static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
+  data.arc_free = data.arc_mode >= 0 && (event->modifier & KM_ALT);
   auto *v3d = CTX_wm_view3d(C);
   const Scene *scene = CTX_data_scene(C);
   const ToolSettings *tool_settings = scene->toolsettings;
@@ -591,14 +1105,20 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
   float3 origin, direction, target;
   ED_view3d_win_to_ray(data.region, float2(event->mval), origin, direction);
   const float denominator = math::dot(direction, data.plane_normal);
-  if (std::abs(denominator) > 1e-8f) {
+  /* A nominally edge-on orthographic view still has float rotation roundoff. Avoid
+   * intersecting an arc's floor plane millions of units away in that case. */
+  if (std::abs(denominator) > (data.arc_mode >= 0 ? 1e-5f : 1e-8f)) {
     target = origin +
              direction * (math::dot(data.plane_origin - origin, data.plane_normal) / denominator);
   }
   else {
     ED_view3d_win_to_3d(v3d, data.region, data.plane_origin, float2(event->mval), target);
   }
+  if (!data.points.is_empty() && !(event->modifier & KM_SHIFT)) {
+    data.shift_direction.reset();
+  }
   bool snapped = false;
+  std::optional<float3> inferred_axis;
   data.snap_type = SCE_SNAP_TO_NONE;
   float3 snap_location(target);
   float snap_distance = 12.0f * U.pixelsize;
@@ -706,38 +1226,45 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
       target = unsnapped_target;
       normal = float3(0);
     }
+    /* With a point or direction constraint active, a candidate that does not lie on the
+     * constrained line is not a snap. Discard it before comparing native NURBS centers. */
+    if (snap_result != SCE_SNAP_TO_NONE && !position_on_draw_constraint(data, double3(target))) {
+      snap_result = SCE_SNAP_TO_NONE;
+      target = unsnapped_target;
+      normal = float3(0);
+      snap_distance = 12.0f * U.pixelsize;
+    }
     float center_distance = snap_result != SCE_SNAP_TO_NONE ? snap_distance : 12.0f * U.pixelsize;
     float center_depth = snap_result != SCE_SNAP_TO_NONE ? math::dot(target - origin, direction) :
                                                            FLT_MAX;
-    if (data.axis < 0 && !(event->modifier & KM_SHIFT)) {
-      for (const NativeCenter &center : data.centers) {
-        if (!(snap_mode & center.type) ||
-            !center_target_allowed(
-                C, *center.object, data.source->object(), snap_params.snap_target_select))
-        {
-          continue;
-        }
-        float2 screen;
-        if (ED_view3d_project_float_global(
-                data.region, float3(center.position), screen, V3D_PROJ_TEST_CLIP_DEFAULT) !=
-            V3D_PROJ_RET_OK)
-        {
-          continue;
-        }
-        const float distance = math::distance(screen, float2(event->mval));
-        const float depth = math::dot(float3(center.position) - origin, direction);
-        if (depth < 0 || distance > center_distance + 1e-4f ||
-            (std::abs(distance - center_distance) <= 1e-4f && depth >= center_depth))
-        {
-          continue;
-        }
-        center_depth = depth;
-        center_distance = snap_distance = distance;
-        native_center_position = center.position;
-        target = float3(center.position);
-        normal = center.normal;
-        snap_result = center.type;
+    for (const NativeCenter &center : data.centers) {
+      if (!(snap_mode & center.type) ||
+          !center_target_allowed(
+              C, *center.object, data.source->object(), snap_params.snap_target_select) ||
+          !position_on_draw_constraint(data, center.position))
+      {
+        continue;
       }
+      float2 screen;
+      if (ED_view3d_project_float_global(
+              data.region, float3(center.position), screen, V3D_PROJ_TEST_CLIP_DEFAULT) !=
+          V3D_PROJ_RET_OK)
+      {
+        continue;
+      }
+      const float distance = math::distance(screen, float2(event->mval));
+      const float depth = math::dot(float3(center.position) - origin, direction);
+      if (depth < 0 || distance > center_distance + 1e-4f ||
+          (std::abs(distance - center_distance) <= 1e-4f && depth >= center_depth))
+      {
+        continue;
+      }
+      center_depth = depth;
+      center_distance = snap_distance = distance;
+      native_center_position = center.position;
+      target = float3(center.position);
+      normal = center.normal;
+      snap_result = center.type;
     }
     snapped = snap_result != SCE_SNAP_TO_NONE;
     if (snapped) {
@@ -750,6 +1277,9 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     if (snapped && (data.points.is_empty() || !data.locked) && math::length_squared(normal) > 0) {
       data.plane_normal = math::normalize(normal);
       data.plane_origin = target;
+      if (data.arc_mode >= 0 && data.points.size() < 2 && !data.arc_perpendicular) {
+        data.arc_reference_normal = data.plane_normal;
+      }
     }
   }
   if (use_snap && !snapped && (snap_mode & SCE_SNAP_TO_VOLUME)) {
@@ -767,57 +1297,69 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
       data.face_normal = float3(0.0f, 0.0f, 1.0f);
     }
   }
-  if (!data.points.is_empty()) {
+  const bool linear_constraints = data.arc_mode < 0 ||
+                                  (data.points.size() == 1 && !(event->modifier & KM_ALT));
+  if (!data.points.is_empty() && linear_constraints) {
     const float3 anchor(data.points.last());
     if (!(event->modifier & KM_SHIFT)) {
       data.shift_direction.reset();
     }
-    else if (!data.shift_direction && math::length_squared(target - anchor) > 1e-12f) {
-      data.shift_direction = math::normalize(target - anchor);
+    else if (!data.shift_direction) {
+      /* Shift locks to the axis the cursor is already approaching when it is close to X/Y/Z,
+       * matching radCAD's Shift behavior. Only fall back to the raw cursor direction when no
+       * world axis is a clear screen-space match. */
+      if (data.axis >= 0) {
+        data.shift_direction = draw_constraint_axis(data);
+      }
+      else if (RNA_boolean_get(op->ptr, "use_axis_snap")) {
+        data.shift_direction = infer_axis_from_cursor(
+            *data.region, float2(event->mval), double3(anchor));
+      }
+      if (!data.shift_direction && math::length_squared(target - anchor) > 1e-12f) {
+        data.shift_direction = math::normalize(target - anchor);
+      }
     }
-    if (data.axis >= 0 || data.shift_direction) {
-      float3 axis = data.shift_direction.value_or(float3(0));
-      if (data.axis == 3) {
-        axis = data.face_normal;
-      }
-      else if (data.axis >= 0) {
-        axis = float3(0);
-        axis[data.axis] = 1;
-      }
-      const float projection = math::dot(direction, axis);
+    if (const std::optional<float3> axis = draw_constraint_axis(data)) {
+      const float projection = math::dot(direction, *axis);
       const float denominator_axis = 1 - projection * projection;
-      float distance = math::dot(target - anchor, axis);
+      float distance = math::dot(target - anchor, *axis);
       if (!snapped && denominator_axis > 1e-8f) {
-        distance = (math::dot(origin - anchor, axis) -
+        distance = (math::dot(origin - anchor, *axis) -
                     projection * math::dot(origin - anchor, direction)) /
                    denominator_axis;
       }
-      target = anchor + axis * distance;
+      else if (!snapped && denominator_axis <= 1e-8f) {
+        /* A view ray parallel to the constrained line cannot determine its depth. Preserve the
+         * last preview's position along the line instead of letting the endpoint jump. */
+        distance = math::dot(float3(data.current) - anchor, *axis);
+      }
+      target = anchor + *axis * distance;
     }
     else if (!snapped && RNA_boolean_get(op->ptr, "use_axis_snap")) {
-      const float3 delta = target - anchor;
-      const float length = math::length(delta);
-      for (int axis = 0; axis < 3 && length > 0; axis++) {
-        if (std::abs(delta[axis]) / length > std::cos(6.0f * float(M_PI) / 180.0f)) {
-          target = anchor;
-          target[axis] += delta[axis];
-          break;
+      inferred_axis = infer_axis_from_cursor(*data.region, float2(event->mval), double3(anchor));
+      if (inferred_axis) {
+        const float projection = math::dot(direction, *inferred_axis);
+        const float denominator_axis = 1.0f - projection * projection;
+        if (denominator_axis > 1e-8f) {
+          const float distance = (math::dot(origin - anchor, *inferred_axis) -
+                                  projection * math::dot(origin - anchor, direction)) /
+                                 denominator_axis;
+          target = anchor + *inferred_axis * distance;
         }
       }
     }
   }
   data.current = native_center_position.value_or(double3(target));
   data.current_vertex = 0;
-  if (!data.points.is_empty() && (data.axis >= 0 || data.shift_direction)) {
-    double3 axis = double3(data.shift_direction.value_or(float3(0)));
-    if (data.axis == 3) {
-      axis = double3(data.face_normal);
+  std::optional<float3> active_axis = linear_constraints ? draw_constraint_axis(data) :
+                                                           std::nullopt;
+  if (!active_axis) {
+    active_axis = inferred_axis;
+  }
+  if (!data.points.is_empty()) {
+    if (active_axis) {
+      data.current = constrain_to_axis(data.points.last(), data.current, *active_axis);
     }
-    else if (data.axis >= 0) {
-      axis = double3(0);
-      axis[data.axis] = 1;
-    }
-    data.current = data.points.last() + axis * math::dot(data.current - data.points.last(), axis);
   }
   if (use_snap && !snapped && (snap_mode & SCE_SNAP_TO_INCREMENT)) {
     float3 incremented(data.current);
@@ -826,6 +1368,14 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     if (math::distance_squared(float3(data.current), float3(target)) > 1e-12f) {
       data.snap_type = SCE_SNAP_TO_GRID;
       snap_location = incremented;
+    }
+  }
+  /* Increment/grid snapping is evaluated after the pointer constraint, but the constraint must
+   * remain authoritative. In particular, absolute grid snapping must not move the endpoint off
+   * the locked X/Y/Z or Shift direction line. */
+  if (!data.points.is_empty()) {
+    if (active_axis) {
+      data.current = constrain_to_axis(data.points.last(), data.current, *active_axis);
     }
   }
   // Prefer native endpoints over vertices of the display tessellation.
@@ -838,7 +1388,7 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     }
     const double4x4 transform(data.source->object().object_to_world());
     if ((snap_mode & SCE_SNAP_TO_EDGE) && !(snap_mode & SCE_SNAP_TO_EDGE_MIDPOINT) &&
-        can_snap_active_object && data.axis < 0 && !data.shift_direction)
+        can_snap_active_object)
     {
       const auto hit = ed::nurbs::topology_edge_under_cursor(
           C, *data.source, event->mval, nullptr);
@@ -891,11 +1441,16 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
           }
           const double t = (left + right) / 2;
           const float edge_distance = distance_at(t);
-          if (edge_distance < best) {
-            best = edge_distance;
-            data.current = math::transform_point(transform, evaluate_curve(*curve, t)->position);
-            data.snap_type = SCE_SNAP_TO_EDGE;
-            snap_location = float3(data.current);
+          if (const auto evaluation = evaluate_curve(*curve, t)) {
+            const double3 edge_position = math::transform_point(transform, evaluation->position);
+            if (edge_distance < best &&
+                position_on_draw_constraint(data, edge_position, inferred_axis))
+            {
+              best = edge_distance;
+              data.current = edge_position;
+              data.snap_type = SCE_SNAP_TO_EDGE;
+              snap_location = float3(data.current);
+            }
           }
         }
       }
@@ -907,7 +1462,7 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
                 data.region, float3(point), screen, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK)
         {
           const float distance = math::distance(screen, float2(event->mval));
-          if (distance < best && data.axis < 0 && !data.shift_direction) {
+          if (distance < best && position_on_draw_constraint(data, point, inferred_axis)) {
             best = distance;
             data.current = point;
             data.snap_type = SCE_SNAP_TO_POINT;
@@ -925,7 +1480,9 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
             const float distance = math::distance(screen, float2(event->mval));
             /* Keep the native vertex identity when Blender's generic snap found the same
              * point at an equal screen distance. */
-            if (distance <= best + 1e-4f && data.axis < 0 && !data.shift_direction) {
+            if (distance <= best + 1e-4f &&
+                position_on_draw_constraint(data, world, inferred_axis))
+            {
               best = distance;
               data.current = world;
               data.current_vertex = vertex.id;
@@ -937,9 +1494,15 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
       }
     }
   }
-  if (!data.points.is_empty() && hasNumInput(&data.num)) {
+  if (!data.points.is_empty() && hasNumInput(&data.num) &&
+      (data.arc_mode < 0 || data.points.size() == 1))
+  {
     data.current_vertex = 0;
-    const double3 delta = data.current - data.points.last();
+    double3 delta = data.current - data.points.last();
+    if (data.arc_mode == 0 || data.arc_mode == 2) {
+      const double3 n = math::normalize(double3(data.plane_normal));
+      delta -= n * math::dot(delta, n);
+    }
     double length = math::length(delta);
     applyNumInput(&data.num, &length);
     double3 direction = math::length_squared(delta) > 0 ? math::normalize(delta) :
@@ -951,6 +1514,9 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
       }
     }
     data.current = data.points.last() + direction * length;
+  }
+  if (data.arc_mode >= 0) {
+    arc_update(C, op, event);
   }
   if (data.snap_type != SCE_SNAP_TO_NONE) {
     const double snap_tolerance = 1e-6 * std::max(1.0, double(math::length(snap_location)));
@@ -964,6 +1530,328 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
   ED_region_tag_redraw(data.region);
 }
 
+static void arc_num_reset(bContext *C, DrawData &data)
+{
+  initNumInput(&data.num);
+  data.num.idx_max = 0;
+  data.num.unit_sys = CTX_data_scene(C)->unit.system;
+  data.num.unit_type[0] = data.arc_mode == 0 && data.points.size() == 2 ? B_UNIT_ROTATION :
+                                                                          B_UNIT_LENGTH;
+  data.num.flag |= NUM_USE_DOUBLE;
+}
+
+static double3 arc_project(const DrawData &data, const double3 &point)
+{
+  const double3 normal = math::normalize(double3(data.plane_normal));
+  return point - normal * math::dot(point - data.points[0], normal);
+}
+
+static std::array<double3, 2> arc_plane_axes(const double3 &normal)
+{
+  const double3 n = math::normalize(normal);
+  const double3 reference = std::abs(n.x) < 0.99 ? double3(1, 0, 0) : double3(0, 1, 0);
+  const double3 y = math::normalize(math::cross(n, reference));
+  return {math::normalize(math::cross(y, n)), y};
+}
+
+static void arc_set_chord_plane(DrawData &data)
+{
+  const double3 chord = math::normalize(data.points[1] - data.points[0]);
+  double3 normal(data.arc_reference_normal);
+  if (data.arc_perpendicular) {
+    normal = math::cross(chord, normal);
+  }
+  normal -= chord * math::dot(chord, normal);
+  if (math::length_squared(normal) < 1e-8) {
+    /* Vertical chord: choose the reference-plane axis facing the view most directly. */
+    const auto [x, y] = arc_plane_axes(double3(data.arc_reference_normal));
+    const auto *rv3d = static_cast<RegionView3D *>(data.region->regiondata);
+    const double3 view(rv3d->viewinv[2]);
+    normal = data.arc_vertical_axis == 0                                 ? x :
+             data.arc_vertical_axis == 1                                 ? y :
+             std::abs(math::dot(x, view)) > std::abs(math::dot(y, view)) ? x :
+                                                                           y;
+    normal -= chord * math::dot(chord, normal);
+  }
+  data.plane_normal = float3(math::normalize(normal));
+  data.plane_origin = float3(data.points[0]);
+}
+
+static void arc_update(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  if (data.points.is_empty()) {
+    return;
+  }
+  const double3 original = data.current;
+  /* Endpoint chords may leave the initial plane through snapping or axis constraints.
+   * Once the chord is fixed, use a plane containing it. */
+  if (data.arc_mode == 0 || data.points.size() == 2) {
+    data.current = arc_project(data, data.current);
+  }
+  const bool free = event->modifier & KM_ALT;
+  const bool geometry_snap = data.snap_type != SCE_SNAP_TO_NONE &&
+                             data.snap_type != SCE_SNAP_TO_GRID;
+  const double increment = RNA_float_get(op->ptr, "angle_increment");
+  auto snap_angle = [&](const double angle) {
+    if (free || geometry_snap || !RNA_boolean_get(op->ptr, "use_angle_snap")) {
+      return angle;
+    }
+    const double nearest = std::round(angle / increment) * increment;
+    return std::abs(nearest - angle) < 6 * M_PI / 180 ? nearest : angle;
+  };
+  if (data.points.size() == 1 && data.arc_mode == 0 && data.axis < 0 && !data.shift_direction &&
+      !hasNumInput(&data.num))
+  {
+    const auto [x, y] = arc_plane_axes(double3(data.plane_normal));
+    const double3 radial = data.current - data.points[0];
+    const double angle = snap_angle(std::atan2(math::dot(radial, y), math::dot(radial, x)));
+    data.current = data.points[0] +
+                   math::length(radial) * (x * std::cos(angle) + y * std::sin(angle));
+  }
+  const auto [compass_x, compass_y] = arc_plane_axes(double3(data.plane_normal));
+  const double3 compass_direction = (data.points.size() == 2 ? data.points[1] : data.current) -
+                                    data.points[0];
+  if (math::length_squared(compass_direction) > 1e-20) {
+    data.arc_compass_rotation = std::atan2(math::dot(compass_direction, compass_y),
+                                           math::dot(compass_direction, compass_x));
+  }
+  if (data.points.size() == 2) {
+    if (data.arc_mode == 0) {
+      const double3 x = math::normalize(data.points[1] - data.points[0]);
+      const double3 y = math::normalize(math::cross(double3(data.plane_normal), x));
+      const double3 radial = data.current - data.points[0];
+      const double raw = std::atan2(math::dot(radial, y), math::dot(radial, x));
+      if (math::length_squared(radial) > 1e-20) {
+        data.arc_accumulated = std::clamp(
+            data.arc_accumulated + std::remainder(raw - data.arc_previous_angle, 2 * M_PI),
+            -2 * M_PI,
+            2 * M_PI);
+        data.arc_previous_angle = raw;
+      }
+      /* RCAD snaps angles in the drawing-plane basis, including when the start was
+       * geometry-snapped between angular increments. Keep that offset in the sweep. */
+      const auto [plane_x, plane_y] = arc_plane_axes(double3(data.plane_normal));
+      const double start_angle = std::atan2(math::dot(x, plane_y), math::dot(x, plane_x));
+      data.arc_sweep = snap_angle(data.arc_accumulated + start_angle) - start_angle;
+      if (hasNumInput(&data.num)) {
+        applyNumInput(&data.num, &data.arc_sweep);
+      }
+      data.arc_sweep = std::clamp(data.arc_sweep, -2 * M_PI, 2 * M_PI);
+      data.current = data.points[0] +
+                     math::distance(data.points[0], data.points[1]) *
+                         (x * std::cos(data.arc_sweep) + y * std::sin(data.arc_sweep));
+    }
+    else if (data.arc_mode == 1) {
+      const double3 chord = data.points[1] - data.points[0];
+      const double3 midpoint = (data.points[0] + data.points[1]) / 2;
+      const double3 side = math::normalize(math::cross(double3(data.plane_normal), chord));
+      double height = math::dot(data.current - midpoint, side);
+      const double half_chord = math::length(chord) / 2;
+      if (!free && !geometry_snap && RNA_boolean_get(op->ptr, "use_angle_snap") &&
+          std::abs(std::abs(height) - half_chord) < math::length(chord) * 0.06)
+      {
+        height = std::copysign(half_chord, height);
+      }
+      if (hasNumInput(&data.num)) {
+        applyNumInput(&data.num, &height);
+      }
+      data.current = midpoint + side * height;
+    }
+    else if (hasNumInput(&data.num)) {
+      const double3 delta = data.current - data.points[0];
+      double length = math::length(delta);
+      applyNumInput(&data.num, &length);
+      if (math::length_squared(delta) > 0) {
+        data.current = data.points[0] + math::normalize(delta) * length;
+      }
+    }
+  }
+  if (math::distance(original, data.current) > 1e-8) {
+    data.current_vertex = 0;
+  }
+  std::ostringstream status;
+  status << std::fixed << std::setprecision(3);
+  if (data.points.size() == 1) {
+    status << (data.arc_mode == 0 ? "Radius: " : "Chord: ")
+           << math::distance(data.points[0], data.current);
+  }
+  else if (data.arc_mode == 0) {
+    status << "Sweep: " << data.arc_sweep * 180 / M_PI << " degrees";
+  }
+  else if (data.arc_mode == 1) {
+    const double3 midpoint = (data.points[0] + data.points[1]) / 2;
+    const double3 side = math::normalize(
+        math::cross(double3(data.plane_normal), data.points[1] - data.points[0]));
+    status << "S: " << math::dot(data.current - midpoint, side);
+  }
+  else {
+    status << "Chord: " << math::distance(data.points[0], data.points[1]);
+  }
+  ED_area_status_text(CTX_wm_area(C), status.str().c_str());
+  data.arc_hud.clear();
+  data.arc_hud.append(data.arc_mode == 0 ? "Center Arc" :
+                      data.arc_mode == 1 ? "2 Point Arc" :
+                                           "3 Point Arc");
+  data.arc_hud.append(data.points.size() == 1 ?
+                          (data.arc_mode == 0 ? "Place start / radius (2/3)" : "Place end (2/3)") :
+                          (data.arc_mode == 0 ? "Place sweep (3/3)" :
+                           data.arc_mode == 1 ? "Place bulge (3/3)" :
+                                                "Place point on arc (3/3)"));
+  data.arc_hud.append(status.str());
+}
+
+static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  if (event->type == RIGHTMOUSE && event->val == KM_PRESS) {
+    draw_exit(C, op);
+    return OPERATOR_CANCELLED;
+  }
+  const bool confirm = ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER) &&
+                       event->val == KM_PRESS;
+  if (confirm) {
+    update_mouse(C, op, event);
+    if (data.points.size() == 1) {
+      if (math::distance(data.points[0], data.current) <= 1e-9) {
+        return OPERATOR_RUNNING_MODAL;
+      }
+      data.points.append(data.current);
+      data.point_vertices.append(data.current_vertex);
+      if (data.arc_mode != 0) {
+        arc_set_chord_plane(data);
+      }
+      data.locked = true;
+      data.axis = -1;
+      data.shift_direction.reset();
+      data.arc_previous_angle = data.arc_accumulated = data.arc_sweep = 0;
+      arc_num_reset(C, data);
+      update_mouse(C, op, event);
+      return OPERATOR_RUNNING_MODAL;
+    }
+    Vector<double3> points = data.points;
+    if (data.arc_mode != 0) {
+      points.append(data.current);
+    }
+    std::string error;
+    if (!arc_support(points,
+                     data.arc_mode,
+                     double3(data.plane_normal),
+                     data.arc_sweep,
+                     data.inverse,
+                     error))
+    {
+      BKE_report(op->reports, RPT_WARNING, error.c_str());
+      return OPERATOR_RUNNING_MODAL;
+    }
+    std::ostringstream input;
+    input << std::setprecision(17);
+    const auto index = TopologyIndex::build(data.source->source().geometry());
+    for (const int i : points.index_range()) {
+      const auto *vertex = i < data.point_vertices.size() && index ?
+                               index->vertex(data.point_vertices[i]) :
+                               nullptr;
+      const double3 local = vertex && math::distance(
+                                          math::transform_point(
+                                              double4x4(data.source->object().object_to_world()),
+                                              double3(vertex->position)),
+                                          points[i]) <= 1e-10 ?
+                                double3(vertex->position) :
+                                math::transform_point(data.inverse, points[i]);
+      input << local.x << ' ' << local.y << ' ' << local.z << '\n';
+    }
+    RNA_string_set(op->ptr, "points", input.str().c_str());
+    RNA_float_set_array(op->ptr, "plane_normal", &data.plane_normal.x);
+    RNA_float_set(op->ptr, "sweep", float(data.arc_sweep));
+    std::ostringstream sweep;
+    sweep << std::setprecision(17) << data.arc_sweep;
+    RNA_string_set(op->ptr, "sweep_exact", sweep.str().c_str());
+    std::ostringstream references;
+    references << data.point_vertices[data.arc_mode == 0 ? 1 : 0] << ' '
+               << (data.arc_mode == 0 ? data.current_vertex : data.point_vertices[1]);
+    RNA_string_set(op->ptr, "vertex_references", references.str().c_str());
+    draw_exit(C, op);
+    const wmOperatorStatus result = arc_exec(C, op);
+    WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
+    return result;
+  }
+  if (event->val == KM_PRESS && handleNumInput(C, &data.num, event)) {
+    update_mouse(C, op, event);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (event->val == KM_PRESS) {
+    if (event->type == EVT_BACKSPACEKEY && data.points.size() > 1) {
+      data.points.remove_last();
+      data.point_vertices.remove_last();
+      data.plane_normal = data.arc_reference_normal;
+      data.arc_sweep = data.arc_accumulated = data.arc_previous_angle = 0;
+      arc_num_reset(C, data);
+    }
+    else if (event->type == EVT_LKEY && data.points.size() == 1) {
+      data.locked = !data.locked;
+      if (data.locked) {
+        data.arc_reference_normal = data.plane_normal;
+      }
+    }
+    else if (event->type == EVT_PKEY) {
+      data.arc_perpendicular = !data.arc_perpendicular;
+      if (data.points.size() == 2) {
+        const double3 chord = math::normalize(data.points[1] - data.points[0]);
+        if (std::abs(math::dot(chord, double3(data.arc_reference_normal))) > 0.99) {
+          /* For a vertical chord, P alternates its two reference-plane orientations. */
+          const double3 x = arc_plane_axes(double3(data.arc_reference_normal))[0];
+          data.arc_vertical_axis = std::abs(math::dot(x, double3(data.plane_normal))) > 0.5 ? 1 :
+                                                                                              0;
+        }
+        arc_set_chord_plane(data);
+      }
+      else {
+        const double3 chord = data.current - data.points[0];
+        const double3 n = math::cross(chord, double3(data.arc_reference_normal));
+        if (data.arc_perpendicular && math::length_squared(n) > 1e-12) {
+          data.plane_normal = float3(math::normalize(n));
+        }
+        else {
+          data.plane_normal = data.arc_reference_normal;
+        }
+      }
+      data.arc_previous_angle = data.arc_accumulated = data.arc_sweep = 0;
+    }
+    else if (ELEM(event->type, EVT_XKEY, EVT_YKEY, EVT_ZKEY)) {
+      const int axis = event->type == EVT_XKEY ? 0 : event->type == EVT_YKEY ? 1 : 2;
+      if (data.points.size() == 2 || data.arc_mode == 0) {
+        double3 normal(0);
+        normal[axis] = 1;
+        const double3 bridge = data.points.size() == 2 ? data.points[1] - data.points[0] :
+                                                         double3(0);
+        if (math::length_squared(bridge) == 0 ||
+            std::abs(math::dot(math::normalize(bridge), normal)) < 1e-6)
+        {
+          data.plane_normal = float3(normal);
+          if (data.points.size() == 1) {
+            data.arc_reference_normal = data.plane_normal;
+            data.arc_perpendicular = false;
+          }
+        }
+        data.arc_previous_angle = data.arc_accumulated = data.arc_sweep = 0;
+      }
+      else {
+        data.axis = data.axis == axis ? -1 : axis;
+      }
+    }
+    else if (event->type == EVT_NKEY && data.points.size() == 1) {
+      data.axis = data.axis == 3 ? -1 : 3;
+    }
+  }
+  if (event->type == MOUSEMOVE || event->val == KM_PRESS ||
+      ELEM(event->type, EVT_LEFTSHIFTKEY, EVT_RIGHTSHIFTKEY))
+  {
+    update_mouse(C, op, event);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
+}
+
 static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   std::string error;
@@ -975,6 +1863,7 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   auto *data = MEM_new<DrawData>(__func__);
   data->source = std::move(source);
   data->spline = is_spline(op);
+  data->arc_mode = is_arc(op) ? RNA_enum_get(op->ptr, "mode") : -1;
   bool invertible;
   data->inverse = math::invert(double4x4(data->source->object().object_to_world()), invertible);
   if (!invertible) {
@@ -990,20 +1879,34 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   data->region = CTX_wm_region(C);
   data->plane_origin = CTX_data_scene(C)->cursor.location;
   const auto *rv3d = static_cast<RegionView3D *>(data->region->regiondata);
-  data->plane_normal = math::normalize(float3(rv3d->viewinv[2]));
+  data->plane_normal = data->arc_mode >= 0 ? float3(0, 0, 1) :
+                                             math::normalize(float3(rv3d->viewinv[2]));
   data->snap = ed::transform::snap_object_context_create();
   op->customdata = data;
   data->draw_handle = ED_region_draw_cb_activate(
       data->region->runtime->type, draw_preview, op, REGION_DRAW_POST_VIEW);
+  if (data->arc_mode >= 0) {
+    data->draw_handle_pixel = ED_region_draw_cb_activate(
+        data->region->runtime->type, draw_arc_hud, op, REGION_DRAW_POST_PIXEL);
+  }
   update_mouse(C, op, event);
   data->points.append(data->current);
   data->point_vertices.append(data->current_vertex);
   data->plane_origin = float3(data->current);
+  data->arc_reference_normal = data->plane_normal;
+  if (data->arc_mode >= 0) {
+    arc_update(C, op, event);
+  }
   ED_workspace_status_text(
       C,
-      "Click: Add point | Enter / Right Click: Finish | Esc: Cancel | "
-      "Backspace: Remove point | X/Y/Z: Axis | N: Normal | Shift: Direction | L: Plane lock | "
-      "Tab: Fit Points / CVs | Ctrl: Toggle snap");
+      data->arc_mode >= 0 ?
+          "Click: Radius / endpoint, then finish arc | Enter: Confirm | Esc / Right Click: Cancel "
+          "| "
+          "Backspace: Previous stage | P: Perpendicular plane | X/Y/Z: Axis | Ctrl: Toggle snap | "
+          "Alt: Free" :
+          "Click: Add point | Enter / Right Click: Finish | Esc: Cancel | "
+          "Backspace: Remove point | X/Y/Z: Axis | N: Normal | Shift: Direction | L: Plane lock | "
+          "Tab: Fit Points / CVs | Ctrl: Toggle snap");
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
 }
@@ -1021,6 +1924,9 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
   if (event->type == EVT_ESCKEY && event->val == KM_PRESS) {
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
+  }
+  if (data.arc_mode >= 0) {
+    return arc_modal(C, op, event);
   }
   if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER) && event->val == KM_PRESS &&
       hasNumInput(&data.num))
@@ -1179,11 +2085,158 @@ static void draw_operator(wmOperatorType *ot, const bool spline)
   RNA_def_boolean(
       ot->srna, "use_axis_snap", true, "Axis Inference", "Align near-axis segments to world axes");
 }
+static void arc_operator(wmOperatorType *ot)
+{
+  ot->name = "Draw NURBS Arc";
+  ot->idname = "CURVE_OT_draw_arc";
+  ot->description =
+      "Draw an exact circular NURBS arc by center and sweep, endpoints and bulge, or three points";
+  ot->poll = ed::nurbs::topology_edit_poll;
+  ot->invoke = draw_invoke;
+  ot->exec = draw_exec;
+  ot->modal = draw_modal;
+  ot->cancel = draw_exit;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+  static const EnumPropertyItem modes[] = {
+      {0, "CENTER", 0, "Center", "Center, start point, then signed sweep"},
+      {1, "ENDPOINTS", 0, "2 Point", "Start and end points, then bulge height"},
+      {2, "THREE_POINTS", 0, "3 Point", "Start and end points, then a point on the arc"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  RNA_def_enum(ot->srna, "mode", modes, 0, "Construction", "");
+  auto *prop = RNA_def_string(
+      ot->srna, "points", nullptr, 0, "Points", "Construction points in local coordinates");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  prop = RNA_def_string(ot->srna,
+                        "vertex_references",
+                        nullptr,
+                        0,
+                        "Snapped Vertices",
+                        "Explicit endpoint snap identities");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  static const float normal[3] = {0, 0, 1};
+  prop = RNA_def_float_vector(ot->srna,
+                              "plane_normal",
+                              3,
+                              normal,
+                              -1,
+                              1,
+                              "Plane Normal",
+                              "World-space drawing plane normal",
+                              -1,
+                              1);
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  prop = RNA_def_float_rotation(ot->srna,
+                                "sweep",
+                                0,
+                                nullptr,
+                                -2 * M_PI,
+                                2 * M_PI,
+                                "Sweep",
+                                "Signed center arc sweep",
+                                -2 * M_PI,
+                                2 * M_PI);
+  prop = RNA_def_string(ot->srna,
+                        "sweep_exact",
+                        nullptr,
+                        0,
+                        "Exact Sweep",
+                        "Full precision interactive sweep for replay");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  RNA_def_boolean(
+      ot->srna, "use_axis_snap", true, "Axis Inference", "Align near-axis chords to world axes");
+  RNA_def_boolean(ot->srna,
+                  "use_angle_snap",
+                  true,
+                  "Angle Snapping",
+                  "Snap near angle increments and semicircular bulges");
+  prop = RNA_def_float_rotation(ot->srna,
+                                "angle_increment",
+                                0,
+                                nullptr,
+                                M_PI / 180,
+                                M_PI,
+                                "Angle Increment",
+                                "Soft angular snapping increment",
+                                M_PI / 180,
+                                M_PI / 2);
+  RNA_def_property_float_default(prop, M_PI / 12);
+  RNA_def_boolean(ot->srna,
+                  "show_compass",
+                  true,
+                  "Compass",
+                  "Show the rotating drawing-plane compass for the Center arc");
+  RNA_def_int(ot->srna,
+              "compass_size",
+              125,
+              50,
+              500,
+              "Compass Size",
+              "Screen diameter of the compass in pixels",
+              50,
+              500);
+  RNA_def_boolean(ot->srna,
+                  "use_axis_colors",
+                  true,
+                  "Axis Colors",
+                  "Color the compass by its plane normal and guides by X, Y or Z alignment");
+  RNA_def_float(ot->srna, "axis_color_dim", 1, 0, 1, "Axis Color Brightness", "", 0, 1);
+  static const float overlay_color[4] = {0.1f, 0.1f, 0.1f, 1};
+  static const float radius_color[4] = {0.2f, 0.8f, 0.2f, 1};
+  RNA_def_float_color(ot->srna,
+                      "overlay_color",
+                      4,
+                      overlay_color,
+                      0,
+                      1,
+                      "Guide Color",
+                      "Guide color when not aligned to an axis",
+                      0,
+                      1);
+  RNA_def_float_color(ot->srna,
+                      "start_color",
+                      4,
+                      radius_color,
+                      0,
+                      1,
+                      "Start Radius",
+                      "Center arc start radius color",
+                      0,
+                      1);
+  RNA_def_float_color(ot->srna,
+                      "end_color",
+                      4,
+                      radius_color,
+                      0,
+                      1,
+                      "End Radius",
+                      "Center arc end radius color",
+                      0,
+                      1);
+  RNA_def_int(ot->srna,
+              "preview_points",
+              32,
+              4,
+              256,
+              "Preview Markers",
+              "Display markers along the exact arc; does not change source geometry",
+              4,
+              128);
+  RNA_def_int(ot->srna, "preview_point_size", 5, 1, 50, "Marker Size", "", 1, 20);
+  RNA_def_boolean(ot->srna,
+                  "show_measurements",
+                  true,
+                  "Measurements",
+                  "Show construction stage and live measurements beside the pointer");
+}
 }  // namespace
 
 void CURVE_OT_draw_line(wmOperatorType *ot)
 {
   draw_operator(ot, false);
+}
+void CURVE_OT_draw_arc(wmOperatorType *ot)
+{
+  arc_operator(ot);
 }
 void CURVE_OT_draw_spline(wmOperatorType *ot)
 {

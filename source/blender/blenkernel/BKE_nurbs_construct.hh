@@ -15,6 +15,23 @@
 
 namespace blender::bke::nurbs {
 
+/** Exact positive rational quadratic circular arc, with spans of at most 90 degrees.
+ * The start lies on the plane through center with the supplied normal. Sweep is signed,
+ * nonzero and at most one revolution. Domain [0, 1]; no source identity is assigned.
+ * Coefficients carry ordinary double-precision construction roundoff. */
+OwnedCurve circular_arc(const double3 &center,
+                        const double3 &start,
+                        const double3 &normal,
+                        double sweep,
+                        std::string *r_error = nullptr);
+
+/** Circular arc from start to end through the third point, including major arcs.
+ * Reject coincident/collinear input instead of silently substituting a line. */
+OwnedCurve circular_arc_through_points(const double3 &start,
+                                       const double3 &through,
+                                       const double3 &end,
+                                       std::string *r_error = nullptr);
+
 struct SurfaceConstruction {
   OwnedSurface surface;
   double geometry_error_bound = 0;

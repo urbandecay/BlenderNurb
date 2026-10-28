@@ -253,6 +253,7 @@ void ED_curve_nurb_vert_selected_find(
 void CURVE_OT_draw(wmOperatorType *ot);
 void CURVE_OT_draw_line(wmOperatorType *ot);
 void CURVE_OT_draw_spline(wmOperatorType *ot);
+void CURVE_OT_draw_arc(wmOperatorType *ot);
 
 /* `editcurve_pen.cc` */
 

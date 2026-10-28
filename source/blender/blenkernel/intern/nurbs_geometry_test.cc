@@ -2503,4 +2503,79 @@ TEST_F(NurbsGeometryOwnerTest, NativeFileAndMemfilePersistence)
   check_loaded(*loaded);
 }
 
+TEST(NurbsCircularArc, RationalCircleSignedSweepAndTiltedPlane)
+{
+  const double3 center(7, -3, 11);
+  const double3 normal = math::normalize(double3(1, 2, 3));
+  const double3 x = math::normalize(math::cross(normal, double3(1, 0, 0)));
+  const double3 y = math::cross(normal, x);
+  for (const double sweep : {M_PI / 3, -M_PI / 2, 1.75 * M_PI, -2 * M_PI, 2 * M_PI}) {
+    std::string error;
+    const auto curve = circular_arc(center, center + x * 4, normal, sweep, &error);
+    ASSERT_TRUE(curve) << error;
+    EXPECT_EQ(curve->order, 3);
+    EXPECT_LE(curve->points_num, 9);
+    for (int i = 0; i <= 256; i++) {
+      const auto point = evaluate_curve(*curve, double(i) / 256);
+      ASSERT_TRUE(point);
+      const double3 radial = point->position - center;
+      EXPECT_NEAR(math::length(radial), 4, 2e-13);
+      EXPECT_NEAR(math::dot(radial, normal), 0, 2e-13);
+    }
+    const auto end = evaluate_curve(*curve, 1);
+    ASSERT_TRUE(end);
+    EXPECT_LT(
+        math::distance(end->position, center + 4 * (x * std::cos(sweep) + y * std::sin(sweep))),
+        2e-13);
+    for (int i = 0; i < curve->points_num; i++) {
+      EXPECT_GT(curve->points[i].weight, 0);
+    }
+    if (std::abs(sweep) == 2 * M_PI) {
+      EXPECT_EQ(double3(curve->points[0].position),
+                double3(curve->points[curve->points_num - 1].position));
+    }
+  }
+}
+
+TEST(NurbsCircularArc, ThroughPointSelectsMinorMajorAndReversedArcs)
+{
+  for (const double sweep : {M_PI / 2, -M_PI / 2, 1.75 * M_PI, -1.75 * M_PI}) {
+    const double3 start(1, 0, 0);
+    const double3 through(std::cos(sweep / 2), std::sin(sweep / 2), 0);
+    const double3 end(std::cos(sweep), std::sin(sweep), 0);
+    std::string error;
+    const auto curve = circular_arc_through_points(start, through, end, &error);
+    ASSERT_TRUE(curve) << error;
+    const auto middle = evaluate_curve(*curve, 0.5);
+    ASSERT_TRUE(middle);
+    EXPECT_LT(math::distance(middle->position, through), 1e-13);
+    EXPECT_EQ(double3(curve->points[0].position), start);
+    EXPECT_EQ(double3(curve->points[curve->points_num - 1].position), end);
+    for (int i = 0; i <= 100; i++) {
+      const auto point = evaluate_curve(*curve, double(i) / 100);
+      ASSERT_TRUE(point);
+      EXPECT_NEAR(math::length(point->position), 1, 1e-13);
+    }
+  }
+  /* A vertical chord with its through point in the YZ plane. */
+  const auto vertical = circular_arc_through_points({0, 0, -1}, {0, 1, 0}, {0, 0, 1});
+  ASSERT_TRUE(vertical);
+  const auto midpoint = evaluate_curve(*vertical, 0.5);
+  ASSERT_TRUE(midpoint);
+  EXPECT_LT(math::distance(midpoint->position, double3(0, 1, 0)), 1e-13);
+}
+
+TEST(NurbsCircularArc, RejectDegenerateAndNonfiniteInput)
+{
+  EXPECT_FALSE(circular_arc({0, 0, 0}, {0, 0, 0}, {0, 0, 1}, M_PI));
+  EXPECT_FALSE(circular_arc({0, 0, 0}, {1, 0, 0}, {0, 0, 0}, M_PI));
+  EXPECT_FALSE(circular_arc({0, 0, 0}, {1, 0, 0}, {1, 0, 0}, M_PI));
+  EXPECT_FALSE(circular_arc({0, 0, 0}, {1, 0, 0}, {0, 0, 1}, 0));
+  EXPECT_FALSE(circular_arc({0, 0, 0}, {1, 0, 0}, {0, 0, 1}, 3 * M_PI));
+  EXPECT_FALSE(
+      circular_arc({0, 0, 0}, {1, 0, 0}, {0, 0, 1}, std::numeric_limits<double>::quiet_NaN()));
+  EXPECT_FALSE(circular_arc_through_points({0, 0, 0}, {1, 0, 0}, {2, 0, 0}));
+  EXPECT_FALSE(circular_arc_through_points({0, 0, 0}, {0, 0, 0}, {1, 0, 0}));
+}
+
 }  // namespace blender::bke::nurbs::tests

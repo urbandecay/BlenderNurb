@@ -6568,7 +6568,42 @@ class VIEW3D_AST_brush_vertex_paint(View3DAssetShelf, bpy.types.AssetShelf):
     brush_type_prop = "vertex_brush_type"
 
 
+class VIEW3D_PT_nurbs_arc_overlay(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'HEADER'
+    bl_label = "Arc Overlays"
+    bl_ui_units_x = 14
+
+    def draw(self, context):
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool is None or tool.idname != "builtin.nurbs_draw_arc":
+            return
+        props = tool.operator_properties("curve.draw_arc")
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        if props.mode == 'CENTER':
+            layout.prop(props, "show_compass")
+            row = layout.row()
+            row.active = props.show_compass
+            row.prop(props, "compass_size")
+        layout.prop(props, "use_axis_colors")
+        row = layout.row()
+        row.active = props.use_axis_colors
+        row.prop(props, "axis_color_dim")
+        if props.mode == 'CENTER':
+            layout.prop(props, "start_color")
+            layout.prop(props, "end_color")
+        else:
+            layout.prop(props, "overlay_color")
+        layout.separator()
+        layout.prop(props, "preview_points")
+        layout.prop(props, "preview_point_size")
+        layout.prop(props, "show_measurements")
+
+
 classes = (
+    VIEW3D_PT_nurbs_arc_overlay,
     VIEW3D_HT_header,
     VIEW3D_HT_tool_header,
     VIEW3D_MT_editor_menus,
