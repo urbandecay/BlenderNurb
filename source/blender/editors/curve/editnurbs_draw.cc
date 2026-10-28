@@ -510,21 +510,58 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
   if (object_snap_modes & SCE_SNAP_INDIVIDUAL_NEAREST) {
     initial_snap_point_ptr = &initial_snap_point.x;
   }
+  /* Blender's snap API uses one geometry representation per query. Keep vertex/edge snapping on
+   * the live edit cage, but query faces (and other surface-based targets) against the evaluated
+   * surface. In Edit Mode, Blender intentionally skips face raycasts on NURBS surfaces unless
+   * SNAP_GEOM_FINAL is requested. */
+  const eSnapMode evaluated_snap_modes = eSnapMode(
+      object_snap_modes &
+      (SCE_SNAP_TO_FACE | SCE_SNAP_TO_FACE_MIDPOINT | SCE_SNAP_INDIVIDUAL_NEAREST));
+  eSnapMode edit_snap_modes = eSnapMode(
+      object_snap_modes & ~(SCE_SNAP_TO_FACE | SCE_SNAP_TO_FACE_MIDPOINT |
+                            SCE_SNAP_INDIVIDUAL_NEAREST | SCE_SNAP_TO_GRID));
+  eSnapMode evaluated_snap_modes_with_grid = evaluated_snap_modes;
+  if (evaluated_snap_modes == SCE_SNAP_TO_NONE) {
+    edit_snap_modes |= eSnapMode(object_snap_modes & SCE_SNAP_TO_GRID);
+  }
+  else {
+    evaluated_snap_modes_with_grid |= eSnapMode(object_snap_modes & SCE_SNAP_TO_GRID);
+  }
   if (use_snap && object_snap_modes != SCE_SNAP_TO_NONE) {
     float3 normal;
-    snap_result = ed::transform::snap_object_project_view3d(
-        data.snap,
-        CTX_data_ensure_evaluated_depsgraph(C),
-        data.region,
-        v3d,
-        object_snap_modes,
-        &snap_params,
-        initial_snap_point_ptr,
-        float2(event->mval),
-        previous_point_ptr,
-        &snap_distance,
-        target,
-        normal);
+    Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+    if (edit_snap_modes != SCE_SNAP_TO_NONE) {
+      snap_result = ed::transform::snap_object_project_view3d(data.snap,
+                                                               depsgraph,
+                                                               data.region,
+                                                               v3d,
+                                                               edit_snap_modes,
+                                                               &snap_params,
+                                                               nullptr,
+                                                               float2(event->mval),
+                                                               previous_point_ptr,
+                                                               &snap_distance,
+                                                               target,
+                                                               normal);
+    }
+    if (snap_result == SCE_SNAP_TO_NONE &&
+        evaluated_snap_modes_with_grid != SCE_SNAP_TO_NONE)
+    {
+      ed::transform::SnapObjectParams evaluated_params = snap_params;
+      evaluated_params.edit_mode_type = ed::transform::SNAP_GEOM_FINAL;
+      snap_result = ed::transform::snap_object_project_view3d(data.snap,
+                                                               depsgraph,
+                                                               data.region,
+                                                               v3d,
+                                                               evaluated_snap_modes_with_grid,
+                                                               &evaluated_params,
+                                                               initial_snap_point_ptr,
+                                                               float2(event->mval),
+                                                               previous_point_ptr,
+                                                               &snap_distance,
+                                                               target,
+                                                               normal);
+    }
     snapped = snap_result != SCE_SNAP_TO_NONE;
     if (snapped) {
       data.snap_type = snap_result;
@@ -826,9 +863,7 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
   if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER, RIGHTMOUSE) && event->val == KM_PRESS) {
     if (data.points.size() < 2) {
       draw_exit(C, op);
-      if (event->type == RIGHTMOUSE) {
-        WM_toolsystem_ref_set_by_id(C, "builtin.select");
-      }
+      WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
       return OPERATOR_CANCELLED;
     }
     /* Preview coordinates are world-space. Store authoritative local input at full double
@@ -859,9 +894,7 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     RNA_string_set(op->ptr, "vertex_references", references.str().c_str());
     draw_exit(C, op);
     const wmOperatorStatus status = draw_exec(C, op);
-    if (event->type == RIGHTMOUSE && status == OPERATOR_FINISHED) {
-      WM_toolsystem_ref_set_by_id(C, "builtin.select");
-    }
+    WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
     return status;
   }
   if (event->val == KM_PRESS && !data.points.is_empty() && handleNumInput(C, &data.num, event)) {

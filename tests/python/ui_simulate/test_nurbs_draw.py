@@ -70,7 +70,7 @@ def drawing_workflow():
     t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
     with bpy.context.temp_override(window=window, area=area, region=region):
         tool = window.workspace.tools.from_space_view3d_mode(bpy.context.mode)
-        t.assertEqual(tool.idname, 'builtin.select')
+        t.assertEqual(tool.idname, 'builtin.select_box')
     finished = counts()
     yield e.ctrl.z()
     t.assertEqual(counts(), before)
