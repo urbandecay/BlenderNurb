@@ -92,6 +92,8 @@ def drawing_workflow():
     fit_height = highest_y()
     yield e.ctrl.z()
     t.assertEqual(counts(), finished)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_spline')
     yield e.cursor_position_set(*screen((-2, 1, 0)), move=True)
     yield e.leftmouse()
     yield e.cursor_position_set(*screen((-1, 3, 0)), move=True)
@@ -104,6 +106,8 @@ def drawing_workflow():
     t.assertLess(highest_y(), fit_height - 0.1)
     after_spline = counts()
     t.assertEqual(after_spline, (finished[0] + 2, finished[1] + 1, finished[2]))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_spline')
     yield e.cursor_position_set(*screen((-2, 0, 0)), move=True)
     yield e.leftmouse()
     yield e.cursor_position_set(*screen((0, 2, 0)), move=True)
@@ -127,6 +131,7 @@ def drawing_workflow():
     before_numeric = counts()
     with bpy.context.temp_override(window=window, area=area, region=region):
         window.scene.tool_settings.use_snap = False
+        bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_line')
     yield e.cursor_position_set(*screen((3, -3, 0)), move=True)
     yield e.leftmouse()
     yield e.cursor_position_set(*screen((4, -3, 0)), move=True)
@@ -139,3 +144,91 @@ def drawing_workflow():
     t.assertGreater(max(v.co.x for v in mesh.vertices), 4.4)
     evaluated.to_mesh_clear()
     print('NURBS_DRAW_WORKFLOW_PASS', flush=True)
+
+
+def native_center_snaps():
+    """Committed endpoints must land on native face/edge centers from an offset cursor."""
+    import bpy
+    import os
+    from pathlib import Path
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    with bpy.data.libraries.load(os.environ['BLENDER_NURBS_PREVIEW_FIXTURE']) as (_, data):
+        data.curves = ['Native preview sheet']
+    obj = bpy.data.objects.new('Center snap regression sheet', data.curves[0])
+    window.scene.collection.objects.link(obj)
+    obj.select_set(True)
+    window.view_layer.objects.active = obj
+    obj.scale = (2, 1, -1)
+    window.scene.cursor.location = (0, 0, 3)
+    output = Path('/tmp/nurbs-center-snaps')
+    output.mkdir(exist_ok=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.tab().numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 12
+
+    def screen(point):
+        p = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+        t.assertIsNotNone(p)
+        return round(p.x) + region.x, round(p.y) + region.y
+
+    for mode, expected, label in [('FACE_MIDPOINT', (0, 0, 0), 'face'),
+                                  ('FACE_MIDPOINT', (0, 0, 0), 'face-oblique'),
+                                  ('FACE_MIDPOINT', (0, 0, 0), 'face-back'),
+                                  ('EDGE_MIDPOINT', (0, -1, 0), 'edge'),
+                                  ('FACE_MIDPOINT', None, 'no-center')]:
+        if label == 'face-oblique':
+            from mathutils import Quaternion
+            import math
+            space.region_3d.view_rotation = Quaternion((1, 0, 0), math.radians(65))
+        if label == 'face-back':
+            yield e.ctrl.numpad_7()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            settings = window.scene.tool_settings
+            settings.use_snap = True
+            settings.snap_elements = {mode} if expected is not None else {'FACE', 'FACE_MIDPOINT'}
+            settings.use_snap_self = True
+            settings.use_snap_edit = True
+            settings.use_snap_nonedit = True
+            settings.use_snap_backface_culling = True
+            bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_line')
+            tool = window.workspace.tools.from_space_view3d_mode(bpy.context.mode)
+            tool.operator_properties('curve.draw_line').use_axis_snap = False
+        yield e.cursor_position_set(*screen((-4, -3, 3)), move=True)
+        yield e.leftmouse()
+        x, y = screen(expected or (0, 0, 0))
+        yield e.cursor_position_set(x + (4 if expected is not None else 40), y + 3, move=True)
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=str(output / (label + '-preview.png')))
+        yield e.leftmouse().rightmouse()
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            used = {tuple(sorted(k)) for p in mesh.polygons for k in p.edge_keys}
+            degrees = {}
+            for edge in mesh.edges:
+                a, b = edge.vertices
+                if tuple(sorted((a, b))) not in used:
+                    degrees[a] = degrees.get(a, 0) + 1
+                    degrees[b] = degrees.get(b, 0) + 1
+            endpoints = [obj.matrix_world @ mesh.vertices[i].co for i, n in degrees.items() if n == 1]
+            t.assertEqual(len(endpoints), 2, (label, endpoints))
+            if expected is not None:
+                t.assertLess(min((v - Vector(expected)).length for v in endpoints), 1e-6,
+                             (label, endpoints, expected))
+            else:
+                t.assertTrue(all(abs(v.z - 3) < 1e-6 for v in endpoints), endpoints)
+        finally:
+            evaluated.to_mesh_clear()
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.save_as_mainfile(filepath=str(output / (label + '-result.blend')), check_existing=False)
+        yield e.ctrl.z()
+    print('NURBS_NATIVE_CENTER_SNAPS_PASS', flush=True)

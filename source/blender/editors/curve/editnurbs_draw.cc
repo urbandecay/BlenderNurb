@@ -14,15 +14,22 @@
 #include <sstream>
 
 #include "BKE_context.hh"
+#include "BKE_layer.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_fit.hh"
+#include "BKE_nurbs_mesh.hh"
+#include "BKE_nurbs_tessellate.hh"
 #include "BKE_nurbs_topology_edit.hh"
+#include "BKE_object.hh"
 #include "BKE_report.hh"
 #include "BKE_screen.hh"
 #include "BKE_unit.hh"
 #include "BLI_listbase.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.hh"
+#include "DEG_depsgraph_query.hh"
+#include "DNA_curve_types.h"
+#include "DNA_layer_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -48,11 +55,21 @@ namespace blender {
 namespace {
 using namespace bke::nurbs;
 
+struct NativeCenter {
+  Object *object;
+  double3 position;
+  float3 normal;
+  eSnapMode type;
+};
+
 struct DrawData {
   std::unique_ptr<ed::nurbs::TopologyPreview> source;
   ARegion *region = nullptr;
   void *draw_handle = nullptr;
   ed::transform::SnapObjectContext *snap = nullptr;
+  Vector<NativeCenter> centers;
+  Vector<Object *> center_objects;
+  eSnapMode cached_center_modes = SCE_SNAP_TO_NONE;
   Vector<double3> points;
   Vector<int64_t> point_vertices;
   int64_t current_vertex = 0;
@@ -166,12 +183,109 @@ static ed::transform::SnapObjectParams snap_params_from_tool_settings(
   return params;
 }
 
+static void ensure_native_centers(bContext *C, DrawData &data, const eSnapMode modes)
+{
+  const eSnapMode missing = eSnapMode(
+      modes & (SCE_SNAP_TO_FACE_MIDPOINT | SCE_SNAP_TO_EDGE_MIDPOINT) & ~data.cached_center_modes);
+  if (missing == SCE_SNAP_TO_NONE) {
+    return;
+  }
+  data.cached_center_modes |= missing;
+  ViewLayer *layer = CTX_data_view_layer(C);
+  BKE_view_layer_synced_ensure(*CTX_data_main(C), CTX_data_scene(C), layer);
+  for (Base &base : *BKE_view_layer_object_bases_get(layer)) {
+    Object *object = base.object;
+    if (!BASE_VISIBLE(CTX_wm_view3d(C), &base) || !ELEM(object->type, OB_CURVES_LEGACY, OB_SURF)) {
+      continue;
+    }
+    const auto captured = curve_eval_source_capture(*id_cast<Curve *>(object->data));
+    const NurbsGeometry *geometry = object == &data.source->object() ?
+                                        &data.source->source().geometry() :
+                                    captured && captured->snapshot ?
+                                        &captured->snapshot->geometry() :
+                                        nullptr;
+    if (!geometry) {
+      continue;
+    }
+    if (!data.center_objects.contains(object)) {
+      data.center_objects.append(object);
+    }
+    const double4x4 transform(object->object_to_world());
+    if (missing & SCE_SNAP_TO_EDGE_MIDPOINT) {
+      for (const auto &edge : geometry->edges) {
+        for (const auto &curve : geometry->curves) {
+          if (curve.id != edge.curve_id) {
+            continue;
+          }
+          const auto point = curve_length_midpoint(
+              curve, double2(edge.parameter_range), transform);
+          if (point) {
+            data.centers.append({object, *point, float3(0), SCE_SNAP_TO_EDGE_MIDPOINT});
+          }
+          break;
+        }
+      }
+    }
+    if ((missing & SCE_SNAP_TO_FACE_MIDPOINT) && !geometry->faces.is_empty()) {
+      const auto preview = tessellate_surfaces(
+          *geometry, curve_preview_options(*id_cast<Curve *>(object->data)));
+      if (!preview) {
+        continue;
+      }
+      for (const auto &face : geometry->faces) {
+        for (const auto &surface : geometry->surfaces) {
+          if (surface.id != face.surface_id) {
+            continue;
+          }
+          const auto center = surface_area_center(surface, face.id, *preview, transform);
+          if (center) {
+            const auto d = evaluate_surface_differential(surface, center->parameter);
+            float3 normal(0);
+            if (d) {
+              normal = float3(math::normalize(
+                  math::cross(math::transform_direction(transform, d->tangent_u),
+                              math::transform_direction(transform, d->tangent_v))));
+            }
+            data.centers.append({object, center->position, normal, SCE_SNAP_TO_FACE_MIDPOINT});
+          }
+          break;
+        }
+      }
+    }
+  }
+}
+
+static bool center_target_allowed(const bContext *C,
+                                  const Object &object,
+                                  const Object &active,
+                                  const eSnapTargetOP flags)
+{
+  if ((flags & SCE_SNAP_TARGET_NOT_ACTIVE) && &object == &active) {
+    return false;
+  }
+  const bool edited = object.mode & OB_MODE_EDIT;
+  if ((flags & SCE_SNAP_TARGET_NOT_EDITED) && edited && &object != &active) {
+    return false;
+  }
+  if ((flags & SCE_SNAP_TARGET_NOT_NONEDITED) && !edited) {
+    return false;
+  }
+  if (flags & SCE_SNAP_TARGET_ONLY_SELECTABLE) {
+    const Base *base = BKE_view_layer_base_find(CTX_data_view_layer(C),
+                                                const_cast<Object *>(&object));
+    if (!base || !(base->flag & BASE_SELECTABLE)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static void snap_incremental(const Scene &scene,
-                            const View3D &v3d,
-                            const ARegion &region,
-                            const ToolSettings &tool_settings,
-                            const Span<double3> points,
-                            float3 &position)
+                             const View3D &v3d,
+                             const ARegion &region,
+                             const ToolSettings &tool_settings,
+                             const Span<double3> points,
+                             float3 &position)
 {
   const float grid_size = ED_view3d_grid_view_scale(&scene, &v3d, &region, nullptr);
   if (grid_size <= 0.0f) {
@@ -213,7 +327,7 @@ static bool snap_to_volume(ed::transform::SnapObjectContext *snap_context,
       }
       if (far == nullptr ||
           ((tool_settings.snap_flag & SCE_SNAP_PEEL_OBJECT) ? hit.depth > far->depth :
-                                                             hit.depth < far->depth))
+                                                              hit.depth < far->depth))
       {
         far = &hit;
       }
@@ -497,6 +611,13 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
   if (snap_mode & SCE_SNAP_INDIVIDUAL_PROJECT) {
     object_snap_modes |= SCE_SNAP_TO_FACE;
   }
+  if (object_snap_modes & SCE_SNAP_TO_EDGE_MIDPOINT) {
+    object_snap_modes &= ~SCE_SNAP_TO_EDGE;
+  }
+  if (use_snap) {
+    ensure_native_centers(C, data, object_snap_modes);
+  }
+  std::optional<double3> native_center_position;
   ed::transform::SnapObjectParams snap_params = snap_params_from_tool_settings(*tool_settings);
   snap_params.grid_size = ED_view3d_grid_view_scale(scene, v3d, data.region, nullptr);
   float3 previous_point;
@@ -514,12 +635,17 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
    * the live edit cage, but query faces (and other surface-based targets) against the evaluated
    * surface. In Edit Mode, Blender intentionally skips face raycasts on NURBS surfaces unless
    * SNAP_GEOM_FINAL is requested. */
-  const eSnapMode evaluated_snap_modes = eSnapMode(
+  eSnapMode evaluated_snap_modes = eSnapMode(
       object_snap_modes &
       (SCE_SNAP_TO_FACE | SCE_SNAP_TO_FACE_MIDPOINT | SCE_SNAP_INDIVIDUAL_NEAREST));
-  eSnapMode edit_snap_modes = eSnapMode(
-      object_snap_modes & ~(SCE_SNAP_TO_FACE | SCE_SNAP_TO_FACE_MIDPOINT |
-                            SCE_SNAP_INDIVIDUAL_NEAREST | SCE_SNAP_TO_GRID));
+  if (evaluated_snap_modes & SCE_SNAP_TO_FACE_MIDPOINT) {
+    /* Face Center is a precise target: don't let Face or Face Nearest turn it into an arbitrary
+     * point on the surface when the cursor isn't close enough to a face center. */
+    evaluated_snap_modes = SCE_SNAP_TO_FACE_MIDPOINT;
+  }
+  eSnapMode edit_snap_modes = eSnapMode(object_snap_modes &
+                                        ~(SCE_SNAP_TO_FACE | SCE_SNAP_TO_FACE_MIDPOINT |
+                                          SCE_SNAP_INDIVIDUAL_NEAREST | SCE_SNAP_TO_GRID));
   eSnapMode evaluated_snap_modes_with_grid = evaluated_snap_modes;
   if (evaluated_snap_modes == SCE_SNAP_TO_NONE) {
     edit_snap_modes |= eSnapMode(object_snap_modes & SCE_SNAP_TO_GRID);
@@ -528,39 +654,90 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     evaluated_snap_modes_with_grid |= eSnapMode(object_snap_modes & SCE_SNAP_TO_GRID);
   }
   if (use_snap && object_snap_modes != SCE_SNAP_TO_NONE) {
-    float3 normal;
+    float3 normal(0);
+    const Object *snap_object = nullptr;
+    const float3 unsnapped_target(target);
     Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     if (edit_snap_modes != SCE_SNAP_TO_NONE) {
-      snap_result = ed::transform::snap_object_project_view3d(data.snap,
-                                                               depsgraph,
-                                                               data.region,
-                                                               v3d,
-                                                               edit_snap_modes,
-                                                               &snap_params,
-                                                               nullptr,
-                                                               float2(event->mval),
-                                                               previous_point_ptr,
-                                                               &snap_distance,
-                                                               target,
-                                                               normal);
+      snap_result = ed::transform::snap_object_project_view3d_ex(data.snap,
+                                                                 depsgraph,
+                                                                 data.region,
+                                                                 v3d,
+                                                                 edit_snap_modes,
+                                                                 &snap_params,
+                                                                 nullptr,
+                                                                 float2(event->mval),
+                                                                 previous_point_ptr,
+                                                                 &snap_distance,
+                                                                 target,
+                                                                 normal,
+                                                                 nullptr,
+                                                                 &snap_object,
+                                                                 nullptr,
+                                                                 nullptr);
     }
-    if (snap_result == SCE_SNAP_TO_NONE &&
-        evaluated_snap_modes_with_grid != SCE_SNAP_TO_NONE)
-    {
+    if (snap_result == SCE_SNAP_TO_NONE && evaluated_snap_modes_with_grid != SCE_SNAP_TO_NONE) {
       ed::transform::SnapObjectParams evaluated_params = snap_params;
       evaluated_params.edit_mode_type = ed::transform::SNAP_GEOM_FINAL;
-      snap_result = ed::transform::snap_object_project_view3d(data.snap,
-                                                               depsgraph,
-                                                               data.region,
-                                                               v3d,
-                                                               evaluated_snap_modes_with_grid,
-                                                               &evaluated_params,
-                                                               initial_snap_point_ptr,
-                                                               float2(event->mval),
-                                                               previous_point_ptr,
-                                                               &snap_distance,
-                                                               target,
-                                                               normal);
+      /* Drawing onto a surface should work from either side, regardless of the global snap
+       * backface-culling preference. Keep this override local to the evaluated-surface query. */
+      evaluated_params.use_backface_culling = false;
+      snap_result = ed::transform::snap_object_project_view3d_ex(data.snap,
+                                                                 depsgraph,
+                                                                 data.region,
+                                                                 v3d,
+                                                                 evaluated_snap_modes_with_grid,
+                                                                 &evaluated_params,
+                                                                 initial_snap_point_ptr,
+                                                                 float2(event->mval),
+                                                                 previous_point_ptr,
+                                                                 &snap_distance,
+                                                                 target,
+                                                                 normal,
+                                                                 nullptr,
+                                                                 &snap_object,
+                                                                 nullptr,
+                                                                 nullptr);
+    }
+    if (snap_object && (snap_result & (SCE_SNAP_TO_FACE_MIDPOINT | SCE_SNAP_TO_EDGE_MIDPOINT)) &&
+        data.center_objects.contains(const_cast<Object *>(DEG_get_original(snap_object))))
+    {
+      snap_result = SCE_SNAP_TO_NONE;
+      target = unsnapped_target;
+      normal = float3(0);
+    }
+    float center_distance = snap_result != SCE_SNAP_TO_NONE ? snap_distance : 12.0f * U.pixelsize;
+    float center_depth = snap_result != SCE_SNAP_TO_NONE ? math::dot(target - origin, direction) :
+                                                           FLT_MAX;
+    if (data.axis < 0 && !(event->modifier & KM_SHIFT)) {
+      for (const NativeCenter &center : data.centers) {
+        if (!(snap_mode & center.type) ||
+            !center_target_allowed(
+                C, *center.object, data.source->object(), snap_params.snap_target_select))
+        {
+          continue;
+        }
+        float2 screen;
+        if (ED_view3d_project_float_global(
+                data.region, float3(center.position), screen, V3D_PROJ_TEST_CLIP_DEFAULT) !=
+            V3D_PROJ_RET_OK)
+        {
+          continue;
+        }
+        const float distance = math::distance(screen, float2(event->mval));
+        const float depth = math::dot(float3(center.position) - origin, direction);
+        if (depth < 0 || distance > center_distance + 1e-4f ||
+            (std::abs(distance - center_distance) <= 1e-4f && depth >= center_depth))
+        {
+          continue;
+        }
+        center_depth = depth;
+        center_distance = snap_distance = distance;
+        native_center_position = center.position;
+        target = float3(center.position);
+        normal = center.normal;
+        snap_result = center.type;
+      }
     }
     snapped = snap_result != SCE_SNAP_TO_NONE;
     if (snapped) {
@@ -629,7 +806,7 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
       }
     }
   }
-  data.current = double3(target);
+  data.current = native_center_position.value_or(double3(target));
   data.current_vertex = 0;
   if (!data.points.is_empty() && (data.axis >= 0 || data.shift_direction)) {
     double3 axis = double3(data.shift_direction.value_or(float3(0)));
@@ -652,16 +829,16 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     }
   }
   // Prefer native endpoints over vertices of the display tessellation.
-  const bool can_snap_active_object =
-      !(snap_params.snap_target_select & SCE_SNAP_TARGET_NOT_ACTIVE);
+  const bool can_snap_active_object = !(snap_params.snap_target_select &
+                                        SCE_SNAP_TARGET_NOT_ACTIVE);
   if (use_snap) {
     float best = 12.0f * U.pixelsize;
     if (snap_result != SCE_SNAP_TO_NONE) {
       best = snap_distance;
     }
     const double4x4 transform(data.source->object().object_to_world());
-    if ((snap_mode & SCE_SNAP_TO_EDGE) && can_snap_active_object && data.axis < 0 &&
-        !data.shift_direction)
+    if ((snap_mode & SCE_SNAP_TO_EDGE) && !(snap_mode & SCE_SNAP_TO_EDGE_MIDPOINT) &&
+        can_snap_active_object && data.axis < 0 && !data.shift_direction)
     {
       const auto hit = ed::nurbs::topology_edge_under_cursor(
           C, *data.source, event->mval, nullptr);
@@ -726,10 +903,8 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     if (snap_mode & SCE_SNAP_TO_VERTEX) {
       for (const double3 &point : data.points) {
         float2 screen;
-        if (ED_view3d_project_float_global(data.region,
-                                           float3(point),
-                                           screen,
-                                           V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK)
+        if (ED_view3d_project_float_global(
+                data.region, float3(point), screen, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK)
         {
           const float distance = math::distance(screen, float2(event->mval));
           if (distance < best && data.axis < 0 && !data.shift_direction) {
@@ -748,7 +923,9 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
                   data.region, float3(world), screen, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK)
           {
             const float distance = math::distance(screen, float2(event->mval));
-            if (distance < best && data.axis < 0 && !data.shift_direction) {
+            /* Keep the native vertex identity when Blender's generic snap found the same
+             * point at an equal screen distance. */
+            if (distance <= best + 1e-4f && data.axis < 0 && !data.shift_direction) {
               best = distance;
               data.current = world;
               data.current_vertex = vertex.id;
@@ -897,7 +1074,9 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
     return status;
   }
-  if (event->val == KM_PRESS && !data.points.is_empty() && handleNumInput(C, &data.num, event)) {
+  if (event->val == KM_PRESS && !data.points.is_empty() &&
+      !(event->type == EVT_TABKEY && data.spline) && handleNumInput(C, &data.num, event))
+  {
     update_mouse(C, op, event);
     return OPERATOR_RUNNING_MODAL;
   }

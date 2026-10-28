@@ -11,6 +11,7 @@
  */
 
 #include "BKE_nurbs_evaluate.hh"
+#include "BLI_math_matrix_types.hh"
 
 namespace blender::bke::nurbs {
 
@@ -53,6 +54,29 @@ struct SurfacePreview {
  */
 Map<int64_t, double3> face_display_centers(const NurbsGeometry &source,
                                            const SurfacePreview &preview);
+
+/** Numerical arc-length midpoint in world space. Integrates rational derivatives over knot
+ * spans; independent of display sampling. Returns absent for degenerate/failed evaluations. */
+std::optional<double3> curve_length_midpoint(const NurbsCurveGeometry &curve,
+                                             double2 interval,
+                                             const double4x4 &transform);
+
+struct SurfaceAreaCenter {
+  double area;
+  double3 centroid;
+  /** Closest-point approximation on the exact support, constrained to the sampled trim domain. */
+  double3 position;
+  double2 parameter;
+};
+
+/** Integrate |Su x Sv| and its first moment using adaptive quadrature on a face's preview UV
+ * triangles, evaluating the rational source, not its display chords. Trim boundaries have the
+ * preview's sampling accuracy. Projects the centroid onto the support with constrained numerical
+ * minimization. Neither quadrature nor projection is a certified global error bound. */
+std::optional<SurfaceAreaCenter> surface_area_center(const NurbsSurfaceGeometry &surface,
+                                                     int64_t face_id,
+                                                     const SurfacePreview &preview,
+                                                     const double4x4 &transform);
 
 struct SurfacePreviewOptions {
   BoundaryEvaluationOptions boundary;

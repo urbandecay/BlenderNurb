@@ -17,6 +17,7 @@
 #include "BLI_delaunay_2d.hh"
 #include "BLI_listbase.h"
 #include "BLI_math_boolean.hh"
+#include "BLI_math_matrix.hh"
 #include "BLI_math_vector.hh"
 #include "BLI_time.h"
 
@@ -678,7 +679,8 @@ std::optional<SurfacePreview> refresh_surface_preview(
     return rebuild("options or face count changed");
   }
   const double boundary_start = BLI_time_now_seconds();
-  const BoundaryEvaluationCache cache{previous_source, previous_options.boundary, previous.boundary};
+  const BoundaryEvaluationCache cache{
+      previous_source, previous_options.boundary, previous.boundary};
   boundary = evaluate_boundaries(source, options.boundary, r_error, &cache);
   const double boundary_ms = (BLI_time_now_seconds() - boundary_start) * 1000.0;
   if (!boundary) {
@@ -791,7 +793,8 @@ std::optional<SurfacePreview> refresh_surface_preview(
     bool unchanged = surface.points_num == old_surface.points_num;
     for (int i = 0; unchanged && i < surface.points_num; i++) {
       unchanged = surface.points[i].weight == old_surface.points[i].weight &&
-                  std::equal(surface.points[i].position, surface.points[i].position + 3,
+                  std::equal(surface.points[i].position,
+                             surface.points[i].position + 3,
                              old_surface.points[i].position);
     }
     if (unchanged) {
@@ -904,9 +907,9 @@ std::optional<SurfacePreview> refresh_surface_preview(
         return std::nullopt;
       }
     }
-    result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
-                                                    std::max(changed->max_interior_weight_condition,
-                                                             previous.max_interior_weight_condition));
+    result.max_interior_weight_condition = std::max(
+        result.max_interior_weight_condition,
+        std::max(changed->max_interior_weight_condition, previous.max_interior_weight_condition));
     NURBS_DEBUG_LOG("preview partial layout hit: %.3f ms total; %d reused faces, %d rebuilt faces",
                     (BLI_time_now_seconds() - refresh_start) * 1000.0,
                     result.reused_faces,
@@ -1020,6 +1023,302 @@ Map<int64_t, double3> face_display_centers(const NurbsGeometry &source,
     }
   }
   return result;
+}
+
+namespace {
+/* Orthogonal closest point, including degenerate triangle boundaries. */
+template<typename V> V center_closest_triangle(const V &p, const V &a, const V &b, const V &c)
+{
+  const V ab = b - a, ac = c - a, ap = p - a;
+  const double d1 = math::dot(ab, ap), d2 = math::dot(ac, ap);
+  if (d1 <= 0 && d2 <= 0) {
+    return a;
+  }
+  const V bp = p - b;
+  const double d3 = math::dot(ab, bp), d4 = math::dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) {
+    return b;
+  }
+  const double vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0 && d1 != d3) {
+    return a + ab * (d1 / (d1 - d3));
+  }
+  const V cp = p - c;
+  const double d5 = math::dot(ab, cp), d6 = math::dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) {
+    return c;
+  }
+  const double vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0 && d2 != d6) {
+    return a + ac * (d2 / (d2 - d6));
+  }
+  const double va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 >= d3 && d5 >= d6 && d4 - d3 + d5 - d6 > 0) {
+    return b + (c - b) * ((d4 - d3) / (d4 - d3 + d5 - d6));
+  }
+  const double sum = va + vb + vc;
+  return sum > 0 ? a + ab * (vb / sum) + ac * (vc / sum) : a;
+}
+}  // namespace
+
+std::optional<double3> curve_length_midpoint(const NurbsCurveGeometry &curve,
+                                             const double2 interval,
+                                             const double4x4 &transform)
+{
+  if (!curve_validate_structure(curve) || interval.x >= interval.y) {
+    return std::nullopt;
+  }
+  /* A ruled support reuses the authoritative rational derivative evaluator for C'(t). */
+  Vector<NurbsControlPoint> points;
+  for (int row = 0; row < 2; row++) {
+    for (int i = 0; i < curve.points_num; i++) {
+      points.append(curve.points[i]);
+      points.last().position[2] += row;
+    }
+  }
+  double v_knots[4] = {0, 0, 1, 1};
+  NurbsSurfaceGeometry ruled;
+  ruled.points = points.data();
+  ruled.points_num = points.size();
+  ruled.points_u = curve.points_num;
+  ruled.points_v = 2;
+  ruled.order_u = curve.order;
+  ruled.order_v = 2;
+  ruled.knots_u = curve.knots;
+  ruled.knots_u_num = curve.knots_num;
+  ruled.knots_v = v_knots;
+  ruled.knots_v_num = 4;
+  bool valid = true;
+  auto gauss = [&](const double a, const double b) {
+    constexpr double nodes[] = {0.3399810435848563, 0.8611363115940526};
+    constexpr double weights[] = {0.6521451548625461, 0.3478548451374538};
+    double result = 0;
+    for (int i = 0; i < 2; i++) {
+      for (const double sign : {-1.0, 1.0}) {
+        const auto d = evaluate_surface_differential(
+            ruled, {(a + b) * 0.5 + sign * (b - a) * 0.5 * nodes[i], 0});
+        if (!d) {
+          valid = false;
+          return 0.0;
+        }
+        result += weights[i] * math::length(math::transform_direction(transform, d->tangent_u));
+      }
+    }
+    return result * (b - a) * 0.5;
+  };
+  auto integrate = [&](auto &&self, const double a, const double b, const int depth) -> double {
+    const double coarse = gauss(a, b), mid = (a + b) * 0.5;
+    const double fine = gauss(a, mid) + gauss(mid, b);
+    if (!valid || depth == 10 || std::abs(fine - coarse) <= 1e-9 * std::max(fine, 1e-30)) {
+      return fine;
+    }
+    return self(self, a, mid, depth + 1) + self(self, mid, b, depth + 1);
+  };
+  Vector<double> bounds, lengths;
+  bounds.append(interval.x);
+  for (int i = 0; i < curve.knots_num; i++) {
+    if (curve.knots[i] > bounds.last() && curve.knots[i] < interval.y) {
+      bounds.append(curve.knots[i]);
+    }
+  }
+  bounds.append(interval.y);
+  double total = 0;
+  for (int i = 1; i < bounds.size(); i++) {
+    const double length = integrate(integrate, bounds[i - 1], bounds[i], 0);
+    lengths.append(length);
+    total += length;
+  }
+  if (!valid || !std::isfinite(total) || total <= 0) {
+    return std::nullopt;
+  }
+  double remaining = total * 0.5;
+  for (const int i : lengths.index_range()) {
+    if (remaining > lengths[i]) {
+      remaining -= lengths[i];
+      continue;
+    }
+    double a = bounds[i], b = bounds[i + 1];
+    for (int j = 0; j < 32; j++) {
+      const double mid = (a + b) * 0.5;
+      const double length = integrate(integrate, bounds[i], mid, 0);
+      if (length < remaining) {
+        a = mid;
+      }
+      else {
+        b = mid;
+      }
+    }
+    const auto point = evaluate_curve(curve, (a + b) * 0.5);
+    if (!valid || !point) {
+      return std::nullopt;
+    }
+    return math::transform_point(transform, point->position);
+  }
+  return std::nullopt;
+}
+
+std::optional<SurfaceAreaCenter> surface_area_center(const NurbsSurfaceGeometry &surface,
+                                                     const int64_t face_id,
+                                                     const SurfacePreview &preview,
+                                                     const double4x4 &transform)
+{
+  struct Moment {
+    double area = 0;
+    double3 first = double3(0);
+  };
+  Vector<const SurfacePreviewTriangle *> triangles;
+  for (const auto &tri : preview.triangles) {
+    if (tri.face_id == face_id) {
+      triangles.append(&tri);
+    }
+  }
+  if (triangles.is_empty()) {
+    return std::nullopt;
+  }
+  const auto reference = evaluate_surface(surface, triangles[0]->parameters[0]);
+  if (!reference) {
+    return std::nullopt;
+  }
+  const double3 origin = math::transform_point(transform, reference->position);
+  bool valid = true;
+  auto sample_triangle = [&](const double2 a, const double2 b, const double2 c) {
+    Moment m;
+    const double determinant = std::abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+    for (const double2 uv : {(4 * a + b + c) / 6, (a + 4 * b + c) / 6, (a + b + 4 * c) / 6}) {
+      const auto d = evaluate_surface_differential(surface, uv);
+      if (!d) {
+        valid = false;
+        return Moment{};
+      }
+      const double weight = determinant / 6 *
+                            math::length(
+                                math::cross(math::transform_direction(transform, d->tangent_u),
+                                            math::transform_direction(transform, d->tangent_v)));
+      m.area += weight;
+      m.first += (math::transform_point(transform, d->point.position) - origin) * weight;
+    }
+    return m;
+  };
+  auto integrate =
+      [&](auto &&self, const double2 a, const double2 b, const double2 c, int depth) -> Moment {
+    const Moment coarse = sample_triangle(a, b, c);
+    const double2 ab = (a + b) * 0.5, bc = (b + c) * 0.5, ca = (c + a) * 0.5;
+    Moment fine;
+    for (const auto &t :
+         {std::array<double2, 3>{a, ab, ca}, {ab, b, bc}, {ca, bc, c}, {ab, bc, ca}})
+    {
+      const Moment m = sample_triangle(t[0], t[1], t[2]);
+      fine.area += m.area;
+      fine.first += m.first;
+    }
+    if (!valid || depth == 5 ||
+        (std::abs(fine.area - coarse.area) <= 1e-6 * std::max(fine.area, 1e-30) &&
+         math::length(fine.first - coarse.first) <=
+             1e-6 * std::max(math::length(fine.first), fine.area)))
+    {
+      return fine;
+    }
+    Moment result;
+    for (const auto &t :
+         {std::array<double2, 3>{a, ab, ca}, {ab, b, bc}, {ca, bc, c}, {ab, bc, ca}})
+    {
+      const Moment m = self(self, t[0], t[1], t[2], depth + 1);
+      result.area += m.area;
+      result.first += m.first;
+    }
+    return result;
+  };
+  Moment total;
+  for (const auto *tri : triangles) {
+    const Moment m = integrate(
+        integrate, tri->parameters[0], tri->parameters[1], tri->parameters[2], 0);
+    total.area += m.area;
+    total.first += m.first;
+  }
+  if (!valid || !std::isfinite(total.area) || total.area <= 0) {
+    return std::nullopt;
+  }
+  SurfaceAreaCenter result;
+  result.area = total.area;
+  result.centroid = origin + total.first / total.area;
+  struct Seed {
+    double distance;
+    double2 uv;
+    const SurfacePreviewTriangle *triangle;
+  };
+  Vector<Seed> seeds;
+  for (const auto *tri : triangles) {
+    const auto pa = evaluate_surface(surface, tri->parameters[0]);
+    const auto pb = evaluate_surface(surface, tri->parameters[1]);
+    const auto pc = evaluate_surface(surface, tri->parameters[2]);
+    if (!pa || !pb || !pc) {
+      return std::nullopt;
+    }
+    const double3 a = math::transform_point(transform, pa->position);
+    const double3 b = math::transform_point(transform, pb->position);
+    const double3 c = math::transform_point(transform, pc->position);
+    const double3 point = center_closest_triangle(result.centroid, a, b, c);
+    const double3 ab = b - a, ac = c - a, ap = point - a;
+    const double aa = math::dot(ab, ab), bb = math::dot(ab, ac), cc = math::dot(ac, ac),
+                 det = aa * cc - bb * bb;
+    if (det <= 0) {
+      continue;
+    }
+    const double u = (math::dot(ap, ab) * cc - math::dot(ap, ac) * bb) / det;
+    const double v = (math::dot(ap, ac) * aa - math::dot(ap, ab) * bb) / det;
+    seeds.append({math::distance_squared(point, result.centroid),
+                  tri->parameters[0] + (tri->parameters[1] - tri->parameters[0]) * u +
+                      (tri->parameters[2] - tri->parameters[0]) * v,
+                  tri});
+  }
+  std::sort(seeds.begin(), seeds.end(), [](const Seed &a, const Seed &b) {
+    return a.distance < b.distance;
+  });
+  double best = std::numeric_limits<double>::infinity();
+  for (int i = 0; i < std::min<int>(8, seeds.size()); i++) {
+    double2 uv = seeds[i].uv;
+    const auto &t = seeds[i].triangle->parameters;
+    uv = center_closest_triangle(uv, t[0], t[1], t[2]);
+    for (int step = 0; step < 30; step++) {
+      const auto d = evaluate_surface_differential(surface, uv);
+      if (!d) {
+        break;
+      }
+      const double3 p = math::transform_point(transform, d->point.position);
+      const double distance = math::distance_squared(p, result.centroid);
+      if (distance < best) {
+        best = distance;
+        result.position = p;
+        result.parameter = uv;
+      }
+      const double3 du = math::transform_direction(transform, d->tangent_u);
+      const double3 dv = math::transform_direction(transform, d->tangent_v);
+      const double aa = math::dot(du, du), bb = math::dot(du, dv), cc = math::dot(dv, dv),
+                   det = aa * cc - bb * bb;
+      if (det <= 0) {
+        break;
+      }
+      const double3 delta = result.centroid - p;
+      const double2 update((math::dot(delta, du) * cc - math::dot(delta, dv) * bb) / det,
+                           (math::dot(delta, dv) * aa - math::dot(delta, du) * bb) / det);
+      bool improved = false;
+      for (double scale = 1; scale >= 1.0 / 128; scale *= 0.5) {
+        const double2 next = center_closest_triangle(uv + update * scale, t[0], t[1], t[2]);
+        const auto q = evaluate_surface(surface, next);
+        if (q && math::distance_squared(math::transform_point(transform, q->position),
+                                        result.centroid) < distance)
+        {
+          uv = next;
+          improved = true;
+          break;
+        }
+      }
+      if (!improved) {
+        break;
+      }
+    }
+  }
+  return std::isfinite(best) ? std::optional(result) : std::nullopt;
 }
 
 }  // namespace blender::bke::nurbs

@@ -10,6 +10,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_math_boolean.hh"
+#include "BLI_math_matrix.hh"
 #include "BLI_math_vector.hh"
 #include "BLI_set.hh"
 
@@ -434,6 +435,105 @@ TEST(nurbs_surface_preview, FaceDisplayCentersStayInsideTrimAndKeepPlanarCenters
   EXPECT_LE(std::abs(anchor.x), 1);
   EXPECT_LE(std::abs(anchor.y), 1);
   EXPECT_TRUE(std::abs(anchor.x) >= 0.5 || std::abs(anchor.y) >= 0.5);
+}
+
+TEST(nurbs_surface_preview, AreaCenterIntegratesRationalSurfaceInsteadOfParameterMidpoint)
+{
+  auto source = make_planar_sheet();
+  ASSERT_NE(source, nullptr);
+  const auto preview = tessellate_surfaces(*source, preview_options());
+  ASSERT_TRUE(preview);
+  auto &surface = *static_cast<NurbsSurfaceGeometry *>(source->surfaces.first);
+  for (int v = 0; v < surface.points_v; v++) {
+    surface.points[v * surface.points_u + surface.points_u - 1].weight = 4;
+  }
+  const auto midpoint = evaluate_surface(surface, {0.5, 0.5});
+  ASSERT_TRUE(midpoint);
+  EXPECT_GT(std::abs(midpoint->position.x), 0.1);
+  const auto face = static_cast<NurbsTopologyFace *>(source->faces.first);
+  const auto center = surface_area_center(surface, face->id, *preview, double4x4::identity());
+  ASSERT_TRUE(center);
+  EXPECT_NEAR(center->area, 4, 1e-5);
+  EXPECT_LT(math::length(center->centroid), 1e-5);
+  EXPECT_LT(math::length(center->position), 1e-5);
+  const auto on_surface = evaluate_surface(surface, center->parameter);
+  ASSERT_TRUE(on_surface);
+  EXPECT_LT(math::distance(on_surface->position, center->position), 1e-12);
+}
+
+TEST(nurbs_surface_preview, CurvedAreaCenterIsProjectedBackOntoTheExactSurface)
+{
+  auto source = make_arc_sheet(false);
+  ASSERT_NE(source, nullptr);
+  const auto preview = tessellate_surfaces(*source, preview_options());
+  ASSERT_TRUE(preview);
+  const auto &surface = *static_cast<NurbsSurfaceGeometry *>(source->surfaces.first);
+  const auto &face = *static_cast<NurbsTopologyFace *>(source->faces.first);
+  const auto center = surface_area_center(surface, face.id, *preview, double4x4::identity());
+  ASSERT_TRUE(center);
+  EXPECT_NEAR(center->area, M_PI, 1e-5);
+  EXPECT_NEAR(center->centroid.x, 2 / M_PI, 1e-5);
+  EXPECT_NEAR(center->centroid.y, 2 / M_PI, 1e-5);
+  EXPECT_NEAR(center->centroid.z, 1, 1e-5);
+  EXPECT_NEAR(center->position.x, std::sqrt(0.5), 1e-5);
+  EXPECT_NEAR(center->position.y, std::sqrt(0.5), 1e-5);
+  EXPECT_NEAR(center->position.z, 1, 1e-5);
+}
+
+TEST(nurbs_surface_preview, AreaCenterIgnoresOrientationAndStaysOutsideHoles)
+{
+  auto source = make_planar_sheet();
+  auto &face = *static_cast<NurbsTopologyFace *>(source->faces.first);
+  const double2 hole[] = {{0.25, 0.25}, {0.25, 0.75}, {0.75, 0.75}, {0.75, 0.25}};
+  add_planar_loop(*source, face, Span(hole, 4), true);
+  for (const int orientation : {1, -1}) {
+    face.orientation = orientation;
+    const auto preview = tessellate_surfaces(*source, preview_options());
+    ASSERT_TRUE(preview);
+    const auto &surface = *static_cast<NurbsSurfaceGeometry *>(source->surfaces.first);
+    const auto center = surface_area_center(surface, face.id, *preview, double4x4::identity());
+    ASSERT_TRUE(center);
+    EXPECT_NEAR(center->area, 3, 1e-8);
+    EXPECT_LT(math::length(center->centroid), 1e-8);
+    EXPECT_NEAR(math::length(center->position), 0.5, 1e-7);
+  }
+}
+
+TEST(nurbs_surface_preview, SplineMidpointUsesLengthAndTheTrimmedInterval)
+{
+  NurbsControlPoint points[2];
+  points[1].position[0] = 10;
+  points[1].weight = 4;
+  double knots[] = {0, 0, 1, 1};
+  NurbsCurveGeometry curve;
+  curve.points = points;
+  curve.points_num = 2;
+  curve.order = 2;
+  curve.knots = knots;
+  curve.knots_num = 4;
+  const auto point = curve_length_midpoint(curve, {0, 1}, double4x4::identity());
+  ASSERT_TRUE(point);
+  EXPECT_NEAR(point->x, 5, 1e-7);
+  const auto end = evaluate_curve(curve, 0.25);
+  const auto trimmed = curve_length_midpoint(curve, {0, 0.25}, double4x4::identity());
+  ASSERT_TRUE(end);
+  ASSERT_TRUE(trimmed);
+  EXPECT_NEAR(trimmed->x, end->position.x / 2, 1e-7);
+
+  const auto sheet = make_arc_sheet(false);
+  ASSERT_TRUE(sheet);
+  const auto &arc = *static_cast<const NurbsCurveGeometry *>(sheet->curves.first);
+  const auto arc_center = curve_length_midpoint(arc, {0, 1}, double4x4::identity());
+  ASSERT_TRUE(arc_center);
+  EXPECT_NEAR(arc_center->x, std::sqrt(0.5), 1e-8);
+  EXPECT_NEAR(arc_center->y, std::sqrt(0.5), 1e-8);
+  const auto arc_end = evaluate_curve(arc, 0.25);
+  ASSERT_TRUE(arc_end);
+  const auto arc_trimmed = curve_length_midpoint(arc, {0, 0.25}, double4x4::identity());
+  ASSERT_TRUE(arc_trimmed);
+  const double half_angle = std::atan2(arc_end->position.y, arc_end->position.x) * 0.5;
+  EXPECT_NEAR(arc_trimmed->x, std::cos(half_angle), 1e-8);
+  EXPECT_NEAR(arc_trimmed->y, std::sin(half_angle), 1e-8);
 }
 
 }  // namespace blender::bke::nurbs::tests
