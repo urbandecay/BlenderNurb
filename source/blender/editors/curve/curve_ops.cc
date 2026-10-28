@@ -121,6 +121,8 @@ void ED_operatortypes_curve()
   WM_operatortype_append(CURVE_OT_spin);
   WM_operatortype_append(CURVE_OT_vertex_add);
   WM_operatortype_append(CURVE_OT_draw);
+  WM_operatortype_append(CURVE_OT_draw_line);
+  WM_operatortype_append(CURVE_OT_draw_spline);
   WM_operatortype_append(CURVE_OT_pen);
   WM_operatortype_append(CURVE_OT_extrude);
   WM_operatortype_append(CURVE_OT_cyclic_toggle);

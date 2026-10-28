@@ -26,6 +26,7 @@ set(SRC
   editnurbs.cc
   editnurbs_ops.cc
   editnurbs_cut.cc
+  editnurbs_draw.cc
   editnurbs_bevel.cc
 
   curve_intern.hh

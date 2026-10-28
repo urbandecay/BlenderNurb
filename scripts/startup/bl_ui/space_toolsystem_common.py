@@ -238,6 +238,10 @@ class ToolSelectPanelHelper:
     @staticmethod
     def _icon_value_from_icon_handle(icon_name):
         import os
+        # Native SVG icons can also be used by workspace tools.
+        if icon_name is not None and icon_name.startswith("rna:"):
+            icons = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items
+            return icons[icon_name[4:]].value
         if icon_name is not None:
             assert type(icon_name) is str
             icon_value = _icon_cache.get(icon_name)

@@ -151,6 +151,8 @@ if(WITH_BLENDER)
     set(SVG_FILENAMES_NOEXT
       action
       action_slot
+      nurbs_draw_line
+      nurbs_draw_spline
       action_tweak
       add
       aliased

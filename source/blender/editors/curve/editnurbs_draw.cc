@@ -1,0 +1,769 @@
+/* SPDX-FileCopyrightText: 2026 Blender Authors
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
+
+/** \file
+ * \ingroup edcurve
+ * Click drawing inspired by radCAD's polyline and interpolation tools.
+ */
+
+#include <algorithm>
+#include <cfloat>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
+
+#include "BKE_context.hh"
+#include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_fit.hh"
+#include "BKE_nurbs_topology_edit.hh"
+#include "BKE_report.hh"
+#include "BKE_screen.hh"
+#include "BKE_unit.hh"
+#include "BLI_listbase.h"
+#include "BLI_math_matrix.hh"
+#include "BLI_math_vector.hh"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
+#include "DNA_workspace_types.h"
+#include "ED_numinput.hh"
+#include "ED_nurbs.hh"
+#include "ED_screen.hh"
+#include "ED_space_api.hh"
+#include "ED_transform_snap_object_context.hh"
+#include "ED_view3d.hh"
+#include "GPU_immediate.hh"
+#include "GPU_state.hh"
+#include "MEM_guardedalloc.h"
+#include "RNA_access.hh"
+#include "RNA_define.hh"
+#include "WM_api.hh"
+#include "WM_toolsystem.hh"
+#include "WM_types.hh"
+#include "curve_intern.hh"
+
+namespace blender {
+namespace {
+using namespace bke::nurbs;
+
+struct DrawData {
+  std::unique_ptr<ed::nurbs::TopologyPreview> source;
+  ARegion *region = nullptr;
+  void *draw_handle = nullptr;
+  ed::transform::SnapObjectContext *snap = nullptr;
+  Vector<double3> points;
+  Vector<int64_t> point_vertices;
+  int64_t current_vertex = 0;
+  Vector<float3> wire;
+  double3 current = double3(0);
+  float3 plane_origin, plane_normal;
+  int axis = -1;
+  std::optional<float3> shift_direction;
+  float3 face_normal = float3(0, 0, 1);
+  bool locked = true;
+  bool spline = false;
+  NumInput num{};
+  double4x4 inverse;
+};
+
+static bool is_spline(const wmOperator *op)
+{
+  return STREQ(op->type->idname, "CURVE_OT_draw_spline");
+}
+
+static OwnedCurve draw_support(const Span<double3> points,
+                               const bool spline,
+                               const bool cv,
+                               const int degree,
+                               std::string &error)
+{
+  if (points.size() < 2 || points.size() > 256) {
+    error = "Place between 2 and 256 points";
+    return nullptr;
+  }
+  const int p = spline ? std::min<int>(degree, points.size() - 1) : 1;
+  if (spline && !cv) {
+    Vector<CurveFitPoint> fit;
+    double length = 0;
+    fit.append({0, points[0]});
+    for (int i = 1; i < points.size(); i++) {
+      length += math::distance(points[i - 1], points[i]);
+      fit.append({length, points[i]});
+    }
+    if (length <= 0) {
+      error = "Points must be distinct";
+      return nullptr;
+    }
+    for (auto &point : fit) {
+      point.parameter /= length;
+    }
+    CurveFitOptions options;
+    double scale = 1;
+    for (const auto &point : points) {
+      scale = std::max(scale, double(math::length(point)));
+    }
+    options.max_point_error = scale * 1e-10;
+    auto result = interpolate_freeform_curve(fit, p, options, &error);
+    return result ? std::move(result->curve) : nullptr;
+  }
+  OwnedCurve curve(MEM_new<NurbsCurveGeometry>(__func__));
+  curve->order = p + 1;
+  curve->points_num = points.size();
+  curve->knots_num = points.size() + p + 1;
+  curve->points = MEM_new_array<NurbsControlPoint>(curve->points_num, __func__);
+  curve->knots = MEM_new_array<double>(curve->knots_num, __func__);
+  for (const int i : points.index_range()) {
+    std::copy_n(&points[i].x, 3, curve->points[i].position);
+  }
+  for (int i = 0; i < curve->knots_num; i++) {
+    curve->knots[i] = i <= p ? 0 : i >= points.size() ? 1 : double(i - p) / (points.size() - p);
+  }
+  return curve;
+}
+
+static Vector<double3> read_points(wmOperator *op)
+{
+  Vector<double3> points;
+  std::istringstream input(RNA_string_get(op->ptr, "points"));
+  double3 point;
+  while (input >> point.x >> point.y >> point.z) {
+    points.append(point);
+  }
+  return points;
+}
+
+static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
+{
+  std::string error;
+  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+  Vector<double3> points = read_points(op);
+  if (source && !is_spline(op) && points.size() >= 2) {
+    const double3 delta = points.last() - points[points.size() - 2];
+    const double length = math::length(
+        math::transform_direction(double4x4(source->object().object_to_world()), delta));
+    const float requested = RNA_float_get(op->ptr, "segment_length");
+    if (length > 0 && requested > 0 && requested != float(length)) {
+      points.last() = points[points.size() - 2] + delta * (double(requested) / length);
+    }
+  }
+  auto support = draw_support(points,
+                              is_spline(op),
+                              RNA_enum_get(op->ptr, "method") == 1,
+                              RNA_int_get(op->ptr, "degree"),
+                              error);
+  if (!source || !support) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  TopologyEditResult result;
+  result.geometry.reset(geometry_copy(&source->source().geometry()));
+  auto &geometry = *result.geometry;
+  support->id = is_spline(op) ? geometry.next_id++ : 0;
+  const int64_t curve_id = support->id;
+  /* Every polyline corner is a source vertex. A spline has one authoritative support,
+   * with source vertices at its ends; its coefficients remain curve data. */
+  Vector<double> parameters;
+  if (!is_spline(op)) {
+    for (int i = 0; i < points.size(); i++) {
+      parameters.append(double(i) / (points.size() - 1));
+    }
+  }
+  else {
+    parameters = {0, 1};
+  }
+  Vector<int64_t> references;
+  std::istringstream refs(RNA_string_get(op->ptr, "vertex_references"));
+  int64_t ref;
+  while (refs >> ref) {
+    references.append(ref);
+  }
+  auto index = TopologyIndex::build(geometry);
+  int64_t previous = 0;
+  double previous_gap = 0;
+  const bool closed_line = !is_spline(op) && points.size() > 3 && points.first() == points.last();
+  for (const int i : parameters.index_range()) {
+    const auto evaluated = evaluate_curve(*support, parameters[i], &error);
+    if (!evaluated) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    int64_t vertex_id;
+    double gap = 0;
+    const int point_index = is_spline(op) && i == 1 ? points.size() - 1 : i;
+    const NurbsTopologyVertex *anchor = references.size() == points.size() && index ?
+                                            index->vertex(references[point_index]) :
+                                            nullptr;
+    if (anchor && double3(anchor->position) == points[point_index]) {
+      vertex_id = anchor->id;
+      gap = math::distance(double3(anchor->position), evaluated->position);
+      result.vertices.append(vertex_id);
+    }
+    else if (closed_line && i == parameters.size() - 1) {
+      vertex_id = result.vertices.first();
+    }
+    else {
+      auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+      vertex->id = geometry.next_id++;
+      std::copy_n(&evaluated->position.x, 3, vertex->position);
+      BLI_addtail(&geometry.vertices, vertex);
+      result.vertices.append(vertex->id);
+      vertex_id = vertex->id;
+    }
+    if (previous) {
+      auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
+      edge->id = geometry.next_id++;
+      edge->vertex_ids[0] = previous;
+      edge->vertex_ids[1] = vertex_id;
+      edge->curve_id = curve_id;
+      edge->tolerance = std::max(previous_gap, gap);
+      edge->parameter_range[0] = parameters[i - 1];
+      edge->parameter_range[1] = parameters[i];
+      if (!is_spline(op)) {
+        auto segment = draw_support(points.as_span().slice(i - 1, 2), false, false, 1, error);
+        segment->id = geometry.next_id++;
+        edge->curve_id = segment->id;
+        edge->parameter_range[0] = 0;
+        edge->parameter_range[1] = 1;
+        BLI_addtail(&geometry.curves, segment.release());
+      }
+      BLI_addtail(&geometry.edges, edge);
+      result.edges.append(edge->id);
+    }
+    previous = vertex_id;
+    previous_gap = gap;
+  }
+  if (is_spline(op)) {
+    BLI_addtail(&geometry.curves, support.release());
+  }
+  if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  PointerRNA last;
+  WM_operator_last_properties_ensure(op->type, &last);
+  RNA_enum_set(&last, "method", RNA_enum_get(op->ptr, "method"));
+  RNA_int_set(&last, "degree", RNA_int_get(op->ptr, "degree"));
+  if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
+    if (STREQ(tool->idname,
+              is_spline(op) ? "builtin.nurbs_draw_spline" : "builtin.nurbs_draw_line"))
+    {
+      PointerRNA settings;
+      WM_toolsystem_ref_properties_ensure_ex(tool, op->type->idname, op->type->srna, &settings);
+      RNA_enum_set(&settings, "method", RNA_enum_get(op->ptr, "method"));
+      RNA_int_set(&settings, "degree", RNA_int_get(op->ptr, "degree"));
+    }
+  }
+  return OPERATOR_FINISHED;
+}
+
+static void rebuild_preview(wmOperator *op)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  data.wire.clear();
+  Vector<double3> points = data.points;
+  if (points.is_empty() || math::distance(points.last(), data.current) > 1e-9) {
+    points.append(data.current);
+  }
+  if (points.size() < 2) {
+    return;
+  }
+  std::string error;
+  for (double3 &point : points) {
+    point = math::transform_point(data.inverse, point);
+  }
+  auto support = draw_support(points,
+                              data.spline,
+                              RNA_enum_get(op->ptr, "method") == 1,
+                              RNA_int_get(op->ptr, "degree"),
+                              error);
+  if (!support) {
+    return;
+  }
+  const int samples = std::max<int>(2, (points.size() - 1) * 16);
+  for (int i = 0; i <= samples; i++) {
+    if (auto point = evaluate_curve(*support, double(i) / samples)) {
+      data.wire.append(float3(math::transform_point(
+          double4x4(data.source->object().object_to_world()), point->position)));
+    }
+  }
+}
+
+static void draw_preview(const bContext *, ARegion *, void *arg)
+{
+  auto &data = *static_cast<DrawData *>(static_cast<wmOperator *>(arg)->customdata);
+  GPU_blend(GPU_BLEND_ALPHA);
+  const uint pos = GPU_vertformat_attr_add(
+      immVertexFormat(), "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+  immUniformColor4f(1.0f, 0.55f, 0.15f, 1.0f);
+  if (data.wire.size() >= 2) {
+    immBegin(GPU_PRIM_LINE_STRIP, data.wire.size());
+    for (const float3 &point : data.wire) {
+      immVertex3fv(pos, point);
+    }
+    immEnd();
+  }
+  if (!data.points.is_empty()) {
+    GPU_point_size(6.0f);
+    immBegin(GPU_PRIM_POINTS, data.points.size());
+    for (const double3 &point : data.points) {
+      immVertex3fv(pos, float3(point));
+    }
+    immEnd();
+    GPU_point_size(1.0f);
+  }
+  immUnbindProgram();
+  GPU_blend(GPU_BLEND_NONE);
+}
+
+static void draw_exit(bContext *C, wmOperator *op)
+{
+  auto *data = static_cast<DrawData *>(op->customdata);
+  if (!data) {
+    return;
+  }
+  ED_region_draw_cb_exit(data->region->runtime->type, data->draw_handle);
+  ed::transform::snap_object_context_destroy(data->snap);
+  ED_region_tag_redraw(data->region);
+  ED_workspace_status_text(C, nullptr);
+  MEM_delete(data);
+  op->customdata = nullptr;
+}
+
+static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  auto *v3d = CTX_wm_view3d(C);
+  float3 origin, direction, target;
+  ED_view3d_win_to_ray(data.region, float2(event->mval), origin, direction);
+  const float denominator = math::dot(direction, data.plane_normal);
+  if (std::abs(denominator) > 1e-8f) {
+    target = origin +
+             direction * (math::dot(data.plane_origin - origin, data.plane_normal) / denominator);
+  }
+  else {
+    ED_view3d_win_to_3d(v3d, data.region, data.plane_origin, float2(event->mval), target);
+  }
+  bool snapped = false;
+  if (RNA_boolean_get(op->ptr, "use_snap") != bool(event->modifier & KM_CTRL)) {
+    using namespace ed::transform;
+    SnapObjectParams params{};
+    params.snap_target_select = SCE_SNAP_TARGET_ALL;
+    params.edit_mode_type = SNAP_GEOM_EDIT;
+    params.occlusion_test = SNAP_OCCLUSION_AS_SEEM;
+    float distance = RNA_float_get(op->ptr, "snap_distance");
+    float3 normal;
+    const auto mode = snap_object_project_view3d(
+        data.snap,
+        CTX_data_ensure_evaluated_depsgraph(C),
+        data.region,
+        v3d,
+        eSnapMode(SCE_SNAP_TO_VERTEX | SCE_SNAP_TO_EDGE | SCE_SNAP_TO_FACE),
+        &params,
+        nullptr,
+        float2(event->mval),
+        nullptr,
+        &distance,
+        target,
+        normal);
+    snapped = mode != 0;
+    if (snapped && math::length_squared(normal) > 0) {
+      data.face_normal = math::normalize(normal);
+    }
+    if (snapped && (data.points.is_empty() || !data.locked) && math::length_squared(normal) > 0) {
+      data.plane_normal = math::normalize(normal);
+      data.plane_origin = target;
+    }
+  }
+  if (!data.points.is_empty()) {
+    const float3 anchor(data.points.last());
+    if (!(event->modifier & KM_SHIFT)) {
+      data.shift_direction.reset();
+    }
+    else if (!data.shift_direction && math::length_squared(target - anchor) > 1e-12f) {
+      data.shift_direction = math::normalize(target - anchor);
+    }
+    if (data.axis >= 0 || data.shift_direction) {
+      float3 axis = data.shift_direction.value_or(float3(0));
+      if (data.axis == 3) {
+        axis = data.face_normal;
+      }
+      else if (data.axis >= 0) {
+        axis = float3(0);
+        axis[data.axis] = 1;
+      }
+      const float projection = math::dot(direction, axis);
+      const float denominator_axis = 1 - projection * projection;
+      float distance = math::dot(target - anchor, axis);
+      if (!snapped && denominator_axis > 1e-8f) {
+        distance = (math::dot(origin - anchor, axis) -
+                    projection * math::dot(origin - anchor, direction)) /
+                   denominator_axis;
+      }
+      target = anchor + axis * distance;
+    }
+    else if (!snapped && RNA_boolean_get(op->ptr, "use_axis_snap")) {
+      const float3 delta = target - anchor;
+      const float length = math::length(delta);
+      for (int axis = 0; axis < 3 && length > 0; axis++) {
+        if (std::abs(delta[axis]) / length > std::cos(6.0f * float(M_PI) / 180.0f)) {
+          target = anchor;
+          target[axis] += delta[axis];
+          break;
+        }
+      }
+    }
+  }
+  data.current = double3(target);
+  data.current_vertex = 0;
+  if (!data.points.is_empty() && (data.axis >= 0 || data.shift_direction)) {
+    double3 axis = double3(data.shift_direction.value_or(float3(0)));
+    if (data.axis == 3) {
+      axis = double3(data.face_normal);
+    }
+    else if (data.axis >= 0) {
+      axis = double3(0);
+      axis[data.axis] = 1;
+    }
+    data.current = data.points.last() + axis * math::dot(data.current - data.points.last(), axis);
+  }
+  // Prefer native endpoints over vertices of the display tessellation.
+  if (RNA_boolean_get(op->ptr, "use_snap") != bool(event->modifier & KM_CTRL)) {
+    float best = RNA_float_get(op->ptr, "snap_distance");
+    const double4x4 transform(data.source->object().object_to_world());
+    if (data.axis < 0 && !data.shift_direction) {
+      const auto hit = ed::nurbs::topology_edge_under_cursor(
+          C, *data.source, event->mval, nullptr);
+      if (hit) {
+        const auto index = TopologyIndex::build(data.source->source().geometry());
+        const auto *edge = index ? index->edge(*hit) : nullptr;
+        const NurbsCurveGeometry *curve = nullptr;
+        if (edge) {
+          for (const auto &support : data.source->source().geometry().curves) {
+            if (support.id == edge->curve_id) {
+              curve = &support;
+              break;
+            }
+          }
+        }
+        if (curve) {
+          auto distance_at = [&](const double t) {
+            const auto point = evaluate_curve(*curve, t);
+            float2 screen;
+            if (!point || ED_view3d_project_float_global(
+                              data.region,
+                              float3(math::transform_point(transform, point->position)),
+                              screen,
+                              V3D_PROJ_TEST_NOP) != V3D_PROJ_RET_OK)
+            {
+              return FLT_MAX;
+            }
+            return math::distance(screen, float2(event->mval));
+          };
+          const double a = edge->parameter_range[0], b = edge->parameter_range[1];
+          int nearest = 0;
+          float distance = FLT_MAX;
+          for (int i = 0; i <= 32; i++) {
+            const float value = distance_at(a + (b - a) * i / 32.0);
+            if (value < distance) {
+              distance = value;
+              nearest = i;
+            }
+          }
+          double left = a + (b - a) * std::max(0, nearest - 1) / 32.0;
+          double right = a + (b - a) * std::min(32, nearest + 1) / 32.0;
+          for (int i = 0; i < 24; i++) {
+            const double u = (2 * left + right) / 3, v = (left + 2 * right) / 3;
+            if (distance_at(u) < distance_at(v)) {
+              right = v;
+            }
+            else {
+              left = u;
+            }
+          }
+          const double t = (left + right) / 2;
+          if (distance_at(t) < best) {
+            data.current = math::transform_point(transform, evaluate_curve(*curve, t)->position);
+          }
+        }
+      }
+    }
+    for (const double3 &point : data.points) {
+      float2 screen;
+      if (ED_view3d_project_float_global(data.region, float3(point), screen, V3D_PROJ_TEST_NOP) ==
+          V3D_PROJ_RET_OK)
+      {
+        const float distance = math::distance(screen, float2(event->mval));
+        if (distance < best && data.axis < 0 && !data.shift_direction) {
+          best = distance;
+          data.current = point;
+        }
+      }
+    }
+    for (const auto &vertex : data.source->source().geometry().vertices) {
+      const double3 world = math::transform_point(transform, double3(vertex.position));
+      float2 screen;
+      if (ED_view3d_project_float_global(data.region, float3(world), screen, V3D_PROJ_TEST_NOP) ==
+          V3D_PROJ_RET_OK)
+      {
+        const float distance = math::distance(screen, float2(event->mval));
+        if (distance < best && data.axis < 0 && !data.shift_direction) {
+          best = distance;
+          data.current = world;
+          data.current_vertex = vertex.id;
+        }
+      }
+    }
+  }
+  if (!data.points.is_empty() && hasNumInput(&data.num)) {
+    data.current_vertex = 0;
+    const double3 delta = data.current - data.points.last();
+    double length = math::length(delta);
+    applyNumInput(&data.num, &length);
+    double3 direction = math::length_squared(delta) > 0 ? math::normalize(delta) :
+                                                          double3(1, 0, 0);
+    if (math::length_squared(delta) == 0 && data.axis >= 0) {
+      direction = data.axis == 3 ? double3(data.face_normal) : double3(0);
+      if (data.axis < 3) {
+        direction[data.axis] = 1;
+      }
+    }
+    data.current = data.points.last() + direction * length;
+  }
+  rebuild_preview(op);
+  ED_region_tag_redraw(data.region);
+}
+
+static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  std::string error;
+  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+  if (!source) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  auto *data = MEM_new<DrawData>(__func__);
+  data->source = std::move(source);
+  data->spline = is_spline(op);
+  bool invertible;
+  data->inverse = math::invert(double4x4(data->source->object().object_to_world()), invertible);
+  if (!invertible) {
+    MEM_delete(data);
+    BKE_report(op->reports, RPT_ERROR, "Drawing requires an invertible object transform");
+    return OPERATOR_CANCELLED;
+  }
+  initNumInput(&data->num);
+  data->num.idx_max = 0;
+  data->num.unit_sys = CTX_data_scene(C)->unit.system;
+  data->num.unit_type[0] = B_UNIT_LENGTH;
+  data->num.flag |= NUM_USE_DOUBLE;
+  data->region = CTX_wm_region(C);
+  data->plane_origin = CTX_data_scene(C)->cursor.location;
+  const auto *rv3d = static_cast<RegionView3D *>(data->region->regiondata);
+  data->plane_normal = math::normalize(float3(rv3d->viewinv[2]));
+  data->snap = ed::transform::snap_object_context_create();
+  op->customdata = data;
+  data->draw_handle = ED_region_draw_cb_activate(
+      data->region->runtime->type, draw_preview, op, REGION_DRAW_POST_VIEW);
+  update_mouse(C, op, event);
+  data->points.append(data->current);
+  data->point_vertices.append(data->current_vertex);
+  data->plane_origin = float3(data->current);
+  ED_workspace_status_text(
+      C,
+      "Click: Add point | Enter / Right Click: Finish | Esc: Cancel | "
+      "Backspace: Remove point | X/Y/Z: Axis | N: Normal | Shift: Direction | L: Plane lock | "
+      "Tab: Fit Points / CVs | Ctrl: Toggle snap");
+  WM_event_add_modal_handler(C, op);
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  if (CTX_data_edit_object(C) != &data.source->object()) {
+    draw_exit(C, op);
+    return OPERATOR_CANCELLED;
+  }
+  if (ELEM(event->type, MIDDLEMOUSE, WHEELUPMOUSE, WHEELDOWNMOUSE)) {
+    return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
+  }
+  if (event->type == EVT_ESCKEY && event->val == KM_PRESS) {
+    draw_exit(C, op);
+    return OPERATOR_CANCELLED;
+  }
+  if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER) && event->val == KM_PRESS &&
+      hasNumInput(&data.num))
+  {
+    update_mouse(C, op, event);
+    if (math::distance(data.points.last(), data.current) > 1e-9 && data.points.size() < 256) {
+      data.points.append(data.current);
+      data.point_vertices.append(data.current_vertex);
+    }
+    initNumInput(&data.num);
+    data.num.unit_sys = CTX_data_scene(C)->unit.system;
+    data.num.unit_type[0] = B_UNIT_LENGTH;
+    data.num.flag |= NUM_USE_DOUBLE;
+    rebuild_preview(op);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER, RIGHTMOUSE) && event->val == KM_PRESS) {
+    if (data.points.size() < 2) {
+      draw_exit(C, op);
+      return OPERATOR_CANCELLED;
+    }
+    /* Preview coordinates are world-space. Store authoritative local input at full double
+     * precision so redo does not round-trip native geometry through stroke floats. */
+    const double4x4 inverse = data.inverse;
+    std::ostringstream points;
+    points << std::setprecision(17);
+    const auto index = TopologyIndex::build(data.source->source().geometry());
+    for (const int i : data.points.index_range()) {
+      const auto *vertex = index ? index->vertex(data.point_vertices[i]) : nullptr;
+      const double3 local = vertex ? double3(vertex->position) :
+                                     math::transform_point(inverse, data.points[i]);
+      points << local.x << ' ' << local.y << ' ' << local.z << '\n';
+    }
+    RNA_string_set(op->ptr, "points", points.str().c_str());
+    const Vector<double3> local_points = read_points(op);
+    if (!data.spline && local_points.size() > 1) {
+      const double3 delta = local_points.last() - local_points[local_points.size() - 2];
+      RNA_float_set(op->ptr,
+                    "segment_length",
+                    float(math::length(math::transform_direction(
+                        double4x4(data.source->object().object_to_world()), delta))));
+    }
+    std::ostringstream references;
+    for (const int64_t vertex : data.point_vertices) {
+      references << vertex << ' ';
+    }
+    RNA_string_set(op->ptr, "vertex_references", references.str().c_str());
+    draw_exit(C, op);
+    return draw_exec(C, op);
+  }
+  if (event->val == KM_PRESS && !data.points.is_empty() && handleNumInput(C, &data.num, event)) {
+    update_mouse(C, op, event);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (event->val == KM_PRESS) {
+    if (ELEM(event->type, EVT_XKEY, EVT_YKEY, EVT_ZKEY)) {
+      const int axis = event->type == EVT_XKEY ? 0 : event->type == EVT_YKEY ? 1 : 2;
+      data.axis = data.axis == axis ? -1 : axis;
+    }
+    else if (event->type == EVT_NKEY) {
+      data.axis = data.axis == 3 ? -1 : 3;
+    }
+    else if (event->type == EVT_LKEY) {
+      data.locked = !data.locked;
+    }
+    else if (event->type == EVT_TABKEY && data.spline) {
+      RNA_enum_set(op->ptr, "method", 1 - RNA_enum_get(op->ptr, "method"));
+    }
+    else if (event->type == EVT_BACKSPACEKEY) {
+      if (data.points.size() > 1) {
+        data.points.remove_last();
+        data.point_vertices.remove_last();
+      }
+    }
+    else if (event->type == LEFTMOUSE) {
+      update_mouse(C, op, event);
+      if (math::distance(data.points.last(), data.current) > 1e-9 && data.points.size() < 256) {
+        data.points.append(data.current);
+        data.point_vertices.append(data.current_vertex);
+        data.axis = -1;
+        data.shift_direction.reset();
+        initNumInput(&data.num);
+        data.num.unit_sys = CTX_data_scene(C)->unit.system;
+        data.num.unit_type[0] = B_UNIT_LENGTH;
+        data.num.flag |= NUM_USE_DOUBLE;
+      }
+    }
+  }
+  if (event->type == MOUSEMOVE || event->val == KM_PRESS) {
+    update_mouse(C, op, event);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
+}
+
+static void draw_operator(wmOperatorType *ot, const bool spline)
+{
+  ot->name = spline ? "Draw NURBS Spline" : "Draw NURBS Line";
+  ot->idname = spline ? "CURVE_OT_draw_spline" : "CURVE_OT_draw_line";
+  ot->description = spline ?
+                        "Place fit points or control vertices to draw a native NURBS spline" :
+                        "Place successive points to draw connected native NURBS line segments";
+  ot->poll = ed::nurbs::topology_edit_poll;
+  ot->invoke = draw_invoke;
+  ot->exec = draw_exec;
+  ot->modal = draw_modal;
+  ot->cancel = draw_exit;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+  auto *prop = RNA_def_string(
+      ot->srna, "points", nullptr, 0, "Points", "Drawing input in local coordinates");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  prop = RNA_def_string(ot->srna,
+                        "vertex_references",
+                        nullptr,
+                        0,
+                        "Snapped Vertices",
+                        "Explicit endpoint snap identities");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  static const EnumPropertyItem methods[] = {
+      {0, "FIT_POINTS", 0, "Fit Points", "Curve passes through the placed points"},
+      {1, "CONTROL_VERTICES", 0, "CVs", "Placed points form the NURBS control polygon"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  prop = RNA_def_enum(ot->srna, "method", methods, 0, "Drawing Method", "");
+  if (!spline) {
+    RNA_def_property_flag(prop, PROP_HIDDEN);
+  }
+  prop = RNA_def_int(ot->srna,
+                     "degree",
+                     3,
+                     1,
+                     5,
+                     "Degree",
+                     "Spline degree, limited by the number of points",
+                     1,
+                     5);
+  if (!spline) {
+    RNA_def_property_flag(prop, PROP_HIDDEN);
+  }
+  if (!spline) {
+    prop = RNA_def_float_distance(ot->srna,
+                                  "segment_length",
+                                  0,
+                                  0,
+                                  FLT_MAX,
+                                  "Last Segment Length",
+                                  "Adjust the final line segment along its drawn direction",
+                                  0,
+                                  100);
+    RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  }
+  RNA_def_boolean(
+      ot->srna, "use_snap", true, "Snap to Geometry", "Snap placed points to scene geometry");
+  RNA_def_boolean(
+      ot->srna, "use_axis_snap", true, "Axis Inference", "Align near-axis segments to world axes");
+  RNA_def_float(ot->srna,
+                "snap_distance",
+                20,
+                1,
+                100,
+                "Snap Distance",
+                "Screen distance for snapping in pixels",
+                1,
+                50);
+}
+}  // namespace
+
+void CURVE_OT_draw_line(wmOperatorType *ot)
+{
+  draw_operator(ot, false);
+}
+void CURVE_OT_draw_spline(wmOperatorType *ot)
+{
+  draw_operator(ot, true);
+}
+}  // namespace blender

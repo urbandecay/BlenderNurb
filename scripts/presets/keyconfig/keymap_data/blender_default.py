@@ -7061,6 +7061,17 @@ def km_3d_view_tool_edit_mesh_rip_edge(params):
 # ------------------------------------------------------------------------------
 # Tool System (3D View, Edit Curve)
 
+def km_3d_view_tool_nurbs_draw(params, *, spline=False):
+    return (
+        "3D View Tool: NURBS Curve Interpolation" if spline else "3D View Tool: NURBS Line",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("curve.draw_spline" if spline else "curve.draw_line",
+             {"type": params.tool_mouse, "value": 'PRESS'}, None),
+        ]},
+    )
+
+
 def km_3d_view_tool_edit_curve_draw(params):
     return (
         "3D View Tool: Edit Curve, Draw",
@@ -7957,6 +7968,8 @@ def generate_keymaps(params=None):
         km_3d_view_tool_edit_mesh_rip_region(params),
         km_3d_view_tool_edit_mesh_rip_edge(params),
         km_3d_view_tool_edit_curve_draw(params),
+        km_3d_view_tool_nurbs_draw(params),
+        km_3d_view_tool_nurbs_draw(params, spline=True),
         km_3d_view_tool_edit_curve_pen(params),
         km_3d_view_tool_edit_curve_radius(params),
         km_3d_view_tool_edit_curve_tilt(params),

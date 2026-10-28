@@ -1078,6 +1078,32 @@ def curve_draw_settings(context, layout, tool, *, extra=False):
     col.prop(props, "bezier_as_nurbs", text="As NURBS")
 
 
+class _defs_nurbs_draw:
+    @ToolDef.from_fn
+    def line():
+        return dict(
+            idname="builtin.nurbs_draw_line",
+            operator="curve.draw_line",
+            label="Line",
+            description="Draw connected NURBS line segments. Click to place points; Enter to finish",
+            icon="rna:NURBS_DRAW_LINE",
+            cursor='CROSSHAIR',
+            keymap="3D View Tool: NURBS Line",
+        )
+
+    @ToolDef.from_fn
+    def spline():
+        return dict(
+            idname="builtin.nurbs_draw_spline",
+            operator="curve.draw_spline",
+            label="Curve Interpolation",
+            description="Draw a NURBS spline with Fit Points or CVs. Tab switches method; Enter finishes",
+            icon="rna:NURBS_DRAW_SPLINE",
+            cursor='CROSSHAIR',
+            keymap="3D View Tool: NURBS Curve Interpolation",
+        )
+
+
 class _defs_edit_curve:
 
     @ToolDef.from_fn
@@ -3006,6 +3032,9 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
         'EDIT_CURVE': [
             *_tools_default,
             None,
+            _defs_nurbs_draw.line,
+            _defs_nurbs_draw.spline,
+            None,
             _defs_edit_curve.draw,
             _defs_edit_curve.pen,
             (
@@ -3030,6 +3059,9 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
         ],
         'EDIT_SURFACE': [
             *_tools_default,
+            None,
+            _defs_nurbs_draw.line,
+            _defs_nurbs_draw.spline,
             None,
             _defs_transform.shear,
         ],
