@@ -1081,6 +1081,10 @@ def curve_draw_settings(context, layout, tool, *, extra=False):
 class _defs_nurbs_draw:
     @ToolDef.from_fn
     def line():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("curve.draw_line")
+            layout.prop(props, "use_axis_snap")
+
         return dict(
             idname="builtin.nurbs_draw_line",
             operator="curve.draw_line",
@@ -1089,10 +1093,17 @@ class _defs_nurbs_draw:
             icon="rna:NURBS_DRAW_LINE",
             cursor='CROSSHAIR',
             keymap="3D View Tool: NURBS Line",
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
     def spline():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("curve.draw_spline")
+            layout.prop(props, "method", expand=True)
+            layout.prop(props, "degree")
+            layout.prop(props, "use_axis_snap")
+
         return dict(
             idname="builtin.nurbs_draw_spline",
             operator="curve.draw_spline",
@@ -1101,6 +1112,7 @@ class _defs_nurbs_draw:
             icon="rna:NURBS_DRAW_SPLINE",
             cursor='CROSSHAIR',
             keymap="3D View Tool: NURBS Curve Interpolation",
+            draw_settings=draw_settings,
         )
 
 
