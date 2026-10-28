@@ -58,6 +58,7 @@ struct DrawData {
   int64_t current_vertex = 0;
   Vector<float3> wire;
   double3 current = double3(0);
+  eSnapMode snap_type = SCE_SNAP_TO_NONE;
   float3 plane_origin, plane_normal;
   int axis = -1;
   std::optional<float3> shift_direction;
@@ -382,7 +383,7 @@ static void rebuild_preview(wmOperator *op)
   }
 }
 
-static void draw_preview(const bContext *, ARegion *, void *arg)
+static void draw_preview(const bContext *, ARegion *region, void *arg)
 {
   auto &data = *static_cast<DrawData *>(static_cast<wmOperator *>(arg)->customdata);
   GPU_blend(GPU_BLEND_ALPHA);
@@ -408,6 +409,21 @@ static void draw_preview(const bContext *, ARegion *, void *arg)
   }
   immUnbindProgram();
   GPU_blend(GPU_BLEND_NONE);
+
+  /* Use Blender's standard snap glyphs so the preview gives the same visual feedback as
+   * viewport mesh snapping. The draw utility expects view matrices to already be active, as
+   * they are for this REGION_DRAW_POST_VIEW callback. */
+  if (data.snap_type != SCE_SNAP_TO_NONE) {
+    const uchar snap_color[4] = {255, 255, 255, 255};
+    ED_view3d_cursor_snap_draw_util(static_cast<RegionView3D *>(region->regiondata),
+                                    nullptr,
+                                    float3(data.current),
+                                    SCE_SNAP_TO_NONE,
+                                    data.snap_type,
+                                    snap_color,
+                                    snap_color);
+    GPU_line_width(1.0f);
+  }
 }
 
 static void draw_exit(bContext *C, wmOperator *op)
@@ -444,6 +460,8 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     ED_view3d_win_to_3d(v3d, data.region, data.plane_origin, float2(event->mval), target);
   }
   bool snapped = false;
+  data.snap_type = SCE_SNAP_TO_NONE;
+  float3 snap_location(target);
   float snap_distance = 12.0f * U.pixelsize;
   eSnapMode snap_result = SCE_SNAP_TO_NONE;
   eSnapMode object_snap_modes = eSnapMode(
@@ -483,6 +501,10 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
         target,
         normal);
     snapped = snap_result != SCE_SNAP_TO_NONE;
+    if (snapped) {
+      data.snap_type = snap_result;
+      snap_location = target;
+    }
     if (snapped && math::length_squared(normal) > 0) {
       data.face_normal = math::normalize(normal);
     }
@@ -501,6 +523,8 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
                              float2(event->mval),
                              target);
     if (snapped) {
+      data.snap_type = SCE_SNAP_TO_VOLUME;
+      snap_location = target;
       data.face_normal = float3(0.0f, 0.0f, 1.0f);
     }
   }
@@ -560,6 +584,10 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     float3 incremented(data.current);
     snap_incremental(*scene, *v3d, *data.region, *tool_settings, data.points, incremented);
     data.current = double3(incremented);
+    if (math::distance_squared(float3(data.current), float3(target)) > 1e-12f) {
+      data.snap_type = SCE_SNAP_TO_GRID;
+      snap_location = incremented;
+    }
   }
   // Prefer native endpoints over vertices of the display tessellation.
   const bool can_snap_active_object =
@@ -623,8 +651,12 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
             }
           }
           const double t = (left + right) / 2;
-          if (distance_at(t) < best) {
+          const float edge_distance = distance_at(t);
+          if (edge_distance < best) {
+            best = edge_distance;
             data.current = math::transform_point(transform, evaluate_curve(*curve, t)->position);
+            data.snap_type = SCE_SNAP_TO_EDGE;
+            snap_location = float3(data.current);
           }
         }
       }
@@ -641,6 +673,8 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
           if (distance < best && data.axis < 0 && !data.shift_direction) {
             best = distance;
             data.current = point;
+            data.snap_type = SCE_SNAP_TO_POINT;
+            snap_location = float3(point);
           }
         }
       }
@@ -656,6 +690,8 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
               best = distance;
               data.current = world;
               data.current_vertex = vertex.id;
+              data.snap_type = SCE_SNAP_TO_POINT;
+              snap_location = float3(world);
             }
           }
         }
@@ -676,6 +712,14 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
       }
     }
     data.current = data.points.last() + direction * length;
+  }
+  if (data.snap_type != SCE_SNAP_TO_NONE) {
+    const double snap_tolerance = 1e-6 * std::max(1.0, double(math::length(snap_location)));
+    if (math::distance(data.current, double3(snap_location)) > snap_tolerance) {
+      /* Axis constraints and numeric input can move the preview off the snap target. Don't show
+       * a snap marker in that case. */
+      data.snap_type = SCE_SNAP_TO_NONE;
+    }
   }
   rebuild_preview(op);
   ED_region_tag_redraw(data.region);
