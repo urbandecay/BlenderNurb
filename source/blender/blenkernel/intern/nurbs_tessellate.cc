@@ -678,7 +678,8 @@ std::optional<SurfacePreview> refresh_surface_preview(
     return rebuild("options or face count changed");
   }
   const double boundary_start = BLI_time_now_seconds();
-  boundary = evaluate_boundaries(source, options.boundary, r_error);
+  const BoundaryEvaluationCache cache{previous_source, previous_options.boundary, previous.boundary};
+  boundary = evaluate_boundaries(source, options.boundary, r_error, &cache);
   const double boundary_ms = (BLI_time_now_seconds() - boundary_start) * 1000.0;
   if (!boundary) {
     return std::nullopt;
@@ -716,6 +717,7 @@ std::optional<SurfacePreview> refresh_surface_preview(
     face_surfaces.add_new(face.id, surfaces.lookup(face.surface_id));
   }
   Set<int64_t> dirty_faces;
+  Set<int64_t> unchanged_surfaces;
   int64_t loop_id = 0, current_face_id = 0;
   int first_global = -1, end_global = -1;
   double2 first_uv, end_uv;
@@ -786,6 +788,15 @@ std::optional<SurfacePreview> refresh_surface_preview(
     {
       return rebuild("surface support or knot vectors changed");
     }
+    bool unchanged = surface.points_num == old_surface.points_num;
+    for (int i = 0; unchanged && i < surface.points_num; i++) {
+      unchanged = surface.points[i].weight == old_surface.points[i].weight &&
+                  std::equal(surface.points[i].position, surface.points[i].position + 3,
+                             old_surface.points[i].position);
+    }
+    if (unchanged) {
+      unchanged_surfaces.add(surface.id);
+    }
     old_face = old_face->next;
   }
   if (!dirty_faces.is_empty()) {
@@ -834,7 +845,8 @@ std::optional<SurfacePreview> refresh_surface_preview(
       }
       if (const auto *indices = points.lookup_ptr(face.id)) {
         Vector<PointEvaluation> evaluated_points;
-        if (!dirty) {
+        const bool evaluate_positions = !dirty && !unchanged_surfaces.contains(face.surface_id);
+        if (evaluate_positions) {
           Vector<double2> parameters;
           parameters.reserve(indices->size());
           for (const int i : *indices) {
@@ -851,7 +863,7 @@ std::optional<SurfacePreview> refresh_surface_preview(
           const int i = (*indices)[j];
           auto point = input.interior[i];
           double condition = 1;
-          if (!dirty) {
+          if (evaluate_positions) {
             point.position = evaluated_points[j].position;
             condition = evaluated_points[j].weight_condition;
           }
@@ -893,7 +905,8 @@ std::optional<SurfacePreview> refresh_surface_preview(
       }
     }
     result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
-                                                    changed->max_interior_weight_condition);
+                                                    std::max(changed->max_interior_weight_condition,
+                                                             previous.max_interior_weight_condition));
     NURBS_DEBUG_LOG("preview partial layout hit: %.3f ms total; %d reused faces, %d rebuilt faces",
                     (BLI_time_now_seconds() - refresh_start) * 1000.0,
                     result.reused_faces,
@@ -907,7 +920,7 @@ std::optional<SurfacePreview> refresh_surface_preview(
   result.skipped_repeated_point_triangles = previous.skipped_repeated_point_triangles;
   result.skipped_triangles_by_face = previous.skipped_triangles_by_face;
   result.reused_faces = source.faces.count();
-  result.max_interior_weight_condition = 1.0;
+  result.max_interior_weight_condition = previous.max_interior_weight_condition;
   const double interior_start = BLI_time_now_seconds();
   Map<int64_t, Vector<int>> interior_by_face;
   for (const int i : result.interior.index_range()) {
@@ -915,7 +928,7 @@ std::optional<SurfacePreview> refresh_surface_preview(
   }
   for (const auto &face : source.faces) {
     const auto *indices = interior_by_face.lookup_ptr(face.id);
-    if (!indices) {
+    if (!indices || unchanged_surfaces.contains(face.surface_id)) {
       continue;
     }
     Vector<double2> parameters;

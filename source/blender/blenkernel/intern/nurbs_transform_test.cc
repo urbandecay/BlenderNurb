@@ -1337,4 +1337,40 @@ TEST(nurbs_vertex_transform, WholeSelectionTranslationKeepsUnusedSupportsAndMatc
   EXPECT_NE(error.find("endpoint"), std::string::npos) << error;
 }
 
+TEST(nurbs_vertex_transform, WholeSelectionRotationMatchesGeneralPath)
+{
+  auto source = weighted_patch();
+  ASSERT_TRUE(source);
+  const auto *unused_curve = add_linear_curve(*source, {10, 0, 0}, {11, 0, 0}, 3);
+  const int64_t unused_curve_id = unused_curve->id;
+  auto matrix = double4x4::identity();
+  matrix[0][0] = 0;
+  matrix[1][1] = 0;
+  matrix[0][1] = 1;
+  matrix[1][0] = -1;
+  const double3 pivot(0.25, -0.5, 0.75);
+  matrix.location() = pivot - double3(matrix[0][0] * pivot.x + matrix[1][0] * pivot.y,
+                                       matrix[0][1] * pivot.x + matrix[1][1] * pivot.y,
+                                       pivot.z);
+  Vector<VertexTransform> requests;
+  for (const NurbsTopologyVertex &vertex : source->vertices) {
+    requests.append({vertex.id, matrix});
+  }
+
+  std::string error;
+  const auto expected = transform_vertices(*source, requests, 0, &error);
+  ASSERT_TRUE(expected) << error;
+  const auto actual = transform_all_vertices(*source, matrix, 0, &error);
+  ASSERT_TRUE(actual) << error;
+  expect_source_geometry_equal(*actual->geometry, *expected->geometry);
+  EXPECT_EQ(actual->position_error_bound, expected->position_error_bound);
+  EXPECT_EQ(actual->boundary_error_bound, expected->boundary_error_bound);
+  for (const NurbsCurveGeometry &curve : actual->geometry->curves) {
+    if (curve.id == unused_curve_id) {
+      EXPECT_EQ(double3(curve.points[0].position), double3(10, 0, 0));
+      EXPECT_EQ(double3(curve.points[1].position), double3(11, 0, 0));
+    }
+  }
+}
+
 }  // namespace blender::bke::nurbs::tests

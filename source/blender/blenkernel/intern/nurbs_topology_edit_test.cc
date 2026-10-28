@@ -15,6 +15,7 @@
 #include "BKE_blender.hh"
 #include "BKE_curve.hh"
 #include "BKE_gtest_base.hh"
+#include "BKE_lib_id.hh"
 #include "BKE_main.hh"
 #include "BKE_mesh.hh"
 #include "BKE_nurbs_construct.hh"
@@ -24,6 +25,9 @@
 #include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
 #include "BKE_report.hh"
+#include "BKE_subdiv.hh"
+#include "BKE_subdiv_eval.hh"
+#include "BKE_subdiv_mesh.hh"
 
 #include "BLO_readfile.hh"
 #include "BLO_writefile.hh"
@@ -279,7 +283,8 @@ static TopologySignature bevel_bmesh_reference(const NurbsGeometry &source,
                                                const Span<int64_t> selected,
                                                const double width,
                                                const bool clamp_overlap = false,
-                                               const int segments = 1)
+                                               const int segments = 1,
+                                               Mesh **r_mesh = nullptr)
 {
   const BMeshCreateParams parameters{.use_toolflags = true};
   BMesh *mesh = BM_mesh_create(&bm_mesh_allocsize_default, &parameters);
@@ -348,6 +353,10 @@ static TopologySignature bevel_bmesh_reference(const NurbsGeometry &source,
       boundary.push_back(point(loop->v));
     }
     result.faces.push_back(std::move(boundary));
+  }
+  if (r_mesh) {
+    *r_mesh = BKE_id_new_nomain<Mesh>(nullptr);
+    BM_mesh_bm_to_me_for_eval(*mesh, **r_mesh, nullptr);
   }
   result.sort();
   return result;
@@ -863,6 +872,331 @@ TEST_F(NurbsTopologyEditTest, ConnectedChamfersMatchBMeshForEveryCubeEdgeSubset)
     expect_source_geometry_equal(*source, *before);
     if (HasFailure()) {
       return;
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, UnsupportedSubdivisionCageRejectsWithoutChangingSource)
+{
+  auto [source, edge] = bevel_fixture(true);
+  ASSERT_TRUE(source);
+  const OwnedGeometry before(geometry_copy(source.get()));
+  std::string error;
+  auto smooth = bevel_edges(
+      *source,
+      {&edge, 1},
+      {.offset = 0.2, .segments = 8, .surface_shape = BevelSurfaceShape::Subdivision},
+      &error);
+  EXPECT_FALSE(smooth);
+  EXPECT_NE(error.find("triangular and quadrilateral"), std::string::npos) << error;
+  expect_source_geometry_equal(*source, *before);
+  EXPECT_TRUE(bevel_edges(*source, {&edge, 1}, {.offset = 0.2, .segments = 8}, &error)) << error;
+  expect_source_geometry_equal(*source, *before);
+}
+
+TEST_F(NurbsTopologyEditTest, SubdivisionBevelMatchesMeshLimitCurvesAndSmoothSharedPatches)
+{
+  auto [box, unused] = bevel_fixture(true);
+  for (int variant = 0; variant < 3; variant++) {
+    double4x4 matrix = double4x4::identity();
+    if (variant) {
+      matrix[0][1] = 0.35;
+    }
+    if (variant == 2) {
+      matrix[0][0] = 2;
+      matrix[2][2] = 0.4;
+    }
+    std::string error;
+    auto source = transform_geometry(*box, matrix, 1e-9, &error);
+    ASSERT_TRUE(source) << error;
+    const OwnedGeometry before(geometry_copy(source->geometry.get()));
+    Vector<int64_t> selected;
+    for (const auto &edge : source->geometry->edges) {
+      selected.append(edge.id);
+    }
+    for (const int segments : {3, 8, 13}) {
+      SCOPED_TRACE(variant);
+      SCOPED_TRACE(segments);
+      constexpr double width = 0.2;
+      auto cage = bevel_edges(
+          *source->geometry, selected, {.offset = width, .segments = segments}, &error);
+      ASSERT_TRUE(cage) << error;
+      BevelOffsetInfo info;
+      auto fitted = bevel_edges(
+          *source->geometry,
+          selected,
+          {.offset = width, .segments = segments, .surface_shape = BevelSurfaceShape::Subdivision},
+          &error,
+          &info);
+      ASSERT_TRUE(fitted) << error;
+      EXPECT_EQ(fitted->geometry->vertices.count(), cage->geometry->vertices.count());
+      EXPECT_EQ(fitted->geometry->faces.count(), cage->geometry->faces.count());
+      EXPECT_LT(info.subdivision_deviation, width * 0.005);
+      Mesh *reference = nullptr;
+      bevel_bmesh_reference(*source->geometry, selected, width, false, segments, &reference);
+      ASSERT_NE(reference, nullptr);
+      BLI_SCOPED_DEFER([&]() { BKE_id_free(nullptr, reference); });
+      Array<float3> limit_positions(reference->verts_num);
+      subdiv::calculate_limit_positions(reference, limit_positions);
+      for (const auto &vertex : fitted->geometry->vertices) {
+        double nearest = INFINITY;
+        for (const float3 target : limit_positions) {
+          nearest = std::min(nearest, math::distance(double3(vertex.position), double3(target)));
+        }
+        EXPECT_LT(nearest, 2e-6);
+      }
+      Map<int64_t, int> mesh_vertices;
+      const auto mesh_positions = limit_positions.as_span();
+      for (const auto &vertex : fitted->geometry->vertices) {
+        int chosen = -1;
+        double nearest = INFINITY;
+        for (const int i : mesh_positions.index_range()) {
+          const double distance = math::distance(double3(vertex.position),
+                                                 double3(mesh_positions[i]));
+          if (distance < nearest) {
+            nearest = distance;
+            chosen = i;
+          }
+        }
+        ASSERT_LT(nearest, 2e-6);
+        mesh_vertices.add_new(vertex.id, chosen);
+      }
+      subdiv::Settings settings{};
+      settings.is_adaptive = true;
+      settings.level = 4;
+      settings.vtx_boundary_interpolation = subdiv::SUBDIV_VTX_BOUNDARY_EDGE_ONLY;
+      settings.fvar_linear_interpolation =
+          subdiv::SUBDIV_FVAR_LINEAR_INTERPOLATION_CORNERS_AND_JUNCTIONS;
+      auto *smooth = subdiv::new_from_mesh(&settings, reference);
+      ASSERT_NE(smooth, nullptr);
+      BLI_SCOPED_DEFER([&]() { subdiv::free(smooth); });
+      ASSERT_TRUE(
+          subdiv::eval_begin_from_mesh(smooth, reference, subdiv::SUBDIV_EVALUATOR_TYPE_CPU));
+      const auto ptex = subdiv::face_ptex_offset_get(smooth);
+      const auto mesh_faces = reference->faces();
+      const auto corners = reference->corner_verts();
+      Map<std::pair<int, int>, std::pair<int, int>> reference_edges;
+      for (const int face : mesh_faces.index_range()) {
+        const auto boundary = mesh_faces[face];
+        for (const int i : boundary.index_range()) {
+          const int a = corners[boundary[i]], b = corners[boundary[(i + 1) % boundary.size()]];
+          reference_edges.lookup_or_add({std::min(a, b), std::max(a, b)}, {face, i});
+        }
+      }
+      Map<int64_t, const NurbsCurveGeometry *> curves;
+      Map<int64_t, const NurbsSurfaceGeometry *> supports;
+      for (const auto &curve : fitted->geometry->curves) {
+        curves.add_new(curve.id, &curve);
+      }
+      for (const auto &surface : fitted->geometry->surfaces) {
+        supports.add_new(surface.id, &surface);
+      }
+      const auto index = TopologyIndex::build(*fitted->geometry);
+      ASSERT_TRUE(index);
+      double maximum_curve_error = 0, maximum_join_angle = 0;
+      for (const auto &edge : fitted->geometry->edges) {
+        const int a = mesh_vertices.lookup(edge.vertex_ids[0]),
+                  b = mesh_vertices.lookup(edge.vertex_ids[1]);
+        const auto location = reference_edges.lookup({std::min(a, b), std::max(a, b)});
+        const auto boundary = mesh_faces[location.first];
+        const bool reverse = corners[boundary[location.second]] != a;
+        for (const double parameter : {0.137, 0.371, 0.683, 0.863}) {
+          const double t = reverse ? 1 - parameter : parameter;
+          int patch = ptex[location.first];
+          double2 uv;
+          const int side = location.second;
+          if (boundary.size() == 4) {
+            uv = side == 0 ? double2(t, 0) :
+                 side == 1 ? double2(1, t) :
+                 side == 2 ? double2(1 - t, 1) :
+                             double2(0, 1 - t);
+          }
+          else if (t <= 0.5) {
+            patch += side;
+            uv = {2 * t, 0};
+          }
+          else {
+            patch += (side + 1) % boundary.size();
+            uv = {0, 2 * (1 - t)};
+          }
+          const double3 target(subdiv::eval_limit_point(smooth, patch, uv.x, uv.y));
+          const auto actual = evaluate_curve(*curves.lookup(edge.curve_id), parameter, &error);
+          ASSERT_TRUE(actual) << error;
+          maximum_curve_error = std::max(maximum_curve_error,
+                                         math::distance(actual->position, target));
+        }
+        const auto uses = index->uses_for_edge(edge.id);
+        ASSERT_EQ(uses.size(), 2);
+        for (int sample = 1; sample < 8; sample++) {
+          double3 normals[2];
+          for (int side = 0; side < 2; side++) {
+            const auto &use = *uses[side].use;
+            const auto uv = evaluate_curve(*curves.lookup(use.pcurve_id), sample / 8.0, &error);
+            ASSERT_TRUE(uv) << error;
+            const auto value = evaluate_surface_differential(
+                *supports.lookup(index->face(uses[side].face_id)->surface_id),
+                double2(uv->position),
+                {},
+                &error);
+            ASSERT_TRUE(value) << error;
+            ASSERT_TRUE(value->normal);
+            normals[side] = *value->normal;
+          }
+          maximum_join_angle = std::max(
+              maximum_join_angle,
+              std::acos(std::clamp(math::dot(normals[0], normals[1]), -1.0, 1.0)) * 180 / M_PI);
+        }
+      }
+      for (const auto &vertex : fitted->geometry->vertices) {
+        const auto incident = index->edges_for_vertex(vertex.id);
+        if (incident.size() != 4) {
+          continue;
+        }
+        auto outward = [&](const int64_t id) {
+          const auto &edge = *index->edge(id);
+          const auto &curve = *curves.lookup(edge.curve_id);
+          const bool end = edge.vertex_ids[1] == vertex.id;
+          const int endpoint = end ? curve.points_num - 1 : 0;
+          const int adjacent = end ? curve.points_num - 2 : 1;
+          return math::normalize(double3(curve.points[adjacent].position) -
+                                 double3(curve.points[endpoint].position));
+        };
+        for (int i = 0; i < 4; i++) {
+          for (int j = i + 1; j < 4; j++) {
+            bool common = false;
+            for (const auto &a : index->uses_for_edge(incident[i])) {
+              for (const auto &b : index->uses_for_edge(incident[j])) {
+                common |= a.face_id == b.face_id;
+              }
+            }
+            if (!common) {
+              EXPECT_LT(math::dot(outward(incident[i]), outward(incident[j])), -0.999999);
+            }
+          }
+        }
+      }
+      EXPECT_LT(maximum_curve_error, width * 0.001);
+      EXPECT_LT(maximum_join_angle, 0.5);
+      ASSERT_TRUE(evaluate_boundaries(*fitted->geometry, {}, &error)) << error;
+      ASSERT_TRUE(tessellate_surfaces(*fitted->geometry, preview_options(), &error)) << error;
+      const auto edit = EditData::create(*fitted->geometry, {}, &error);
+      ASSERT_TRUE(edit) << error;
+      const auto display = evaluate_mesh(edit->read_snapshot(), preview_options(), &error);
+      ASSERT_TRUE(display) << error;
+      EXPECT_EQ(display->undefined_normal_corners, 0);
+      expect_source_geometry_equal(*source->geometry, *before);
+      std::cout << "SUBDIVISION_BEVEL_COMPARISON variant=" << variant << " segments=" << segments
+                << " max_curve_error=" << maximum_curve_error
+                << " max_join_degrees=" << maximum_join_angle
+                << " sampled_surface_error=" << info.subdivision_deviation << "\n";
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, RoundedSlantedBoxCornersFollowMeshAndKeepSmoothInteriorRows)
+{
+  auto [box, unused] = bevel_fixture(true);
+  for (const double amount : {0.0, 0.000001, 0.35, -0.35, 0.8}) {
+    double4x4 shear = double4x4::identity();
+    shear[0][1] = amount;
+    std::string error;
+    auto source = transform_geometry(*box, shear, 1e-9, &error);
+    ASSERT_TRUE(source) << error;
+    Vector<int64_t> edges;
+    for (const auto &edge : source->geometry->edges) {
+      edges.append(edge.id);
+    }
+    for (const int segments : {2, 3, 8, 13}) {
+      SCOPED_TRACE(amount);
+      SCOPED_TRACE(segments);
+      BevelOffsetInfo info;
+      auto result = bevel_edges(
+          *source->geometry, edges, {.offset = 0.25, .segments = segments}, &error, &info);
+      ASSERT_TRUE(result) << error;
+      const auto reference = bevel_bmesh_reference(
+          *source->geometry, edges, 0.25, false, segments);
+      double maximum_error = 0;
+      for (const auto &vertex : result->geometry->vertices) {
+        double nearest = INFINITY;
+        for (const auto &target : reference.vertices) {
+          nearest = std::min(
+              nearest,
+              math::distance(double3(vertex.position), double3(target[0], target[1], target[2])));
+        }
+        maximum_error = std::max(maximum_error, nearest);
+      }
+      const auto index = TopologyIndex::build(*result->geometry);
+      Map<int64_t, const NurbsCurveGeometry *> curves;
+      for (const auto &curve : result->geometry->curves) {
+        curves.add_new(curve.id, &curve);
+      }
+      EXPECT_LT(maximum_error, 1e-6);
+      Map<int64_t, const NurbsSurfaceGeometry *> supports;
+      for (const auto &support : result->geometry->surfaces) {
+        supports.add_new(support.id, &support);
+      }
+      double maximum_join_angle = 0;
+      double maximum_interior_angle = 0;
+      int interior_joins = 0;
+      for (const auto &vertex : result->geometry->vertices) {
+        const auto incident = index->edges_for_vertex(vertex.id);
+        if (incident.size() != 4) {
+          continue;
+        }
+        bool corner_interior = true;
+        for (const int64_t edge_id : incident) {
+          for (const auto &use : index->uses_for_edge(edge_id)) {
+            const auto &support = *supports.lookup(index->face(use.face_id)->surface_id);
+            corner_interior &= support.order_u == 3 && support.order_v == 3 &&
+                               support.points_u == 3 && support.points_v == 3;
+          }
+        }
+        for (int i = 0; i < 4; i++) {
+          for (int j = i + 1; j < 4; j++) {
+            bool same_face = false;
+            for (const auto &a : index->uses_for_edge(incident[i])) {
+              for (const auto &b : index->uses_for_edge(incident[j])) {
+                same_face |= a.face_id == b.face_id;
+              }
+            }
+            if (same_face) {
+              continue;
+            }
+            auto outward = [&](const int64_t id) {
+              const auto &edge = *index->edge(id);
+              const bool end = edge.vertex_ids[1] == vertex.id;
+              const double t = edge.parameter_range[end ? 1 : 0];
+              const double delta = (edge.parameter_range[1] - edge.parameter_range[0]) * 1e-5;
+              const auto a = evaluate_curve(*curves.lookup(edge.curve_id), t, &error);
+              const auto b = evaluate_curve(
+                  *curves.lookup(edge.curve_id), t + (end ? -delta : delta), &error);
+              EXPECT_TRUE(a) << error;
+              EXPECT_TRUE(b) << error;
+              return a && b ? math::normalize(b->position - a->position) : double3(0);
+            };
+            const double cosine = std::clamp(
+                -math::dot(outward(incident[i]), outward(incident[j])), -1.0, 1.0);
+            const double angle = std::acos(cosine) * 180 / M_PI;
+            maximum_join_angle = std::max(maximum_join_angle, angle);
+            if (corner_interior) {
+              maximum_interior_angle = std::max(maximum_interior_angle, angle);
+              interior_joins++;
+            }
+          }
+        }
+      }
+      EXPECT_LT(maximum_interior_angle, 0.002);
+      if (segments >= 3) {
+        EXPECT_GT(interior_joins, 0);
+      }
+      ASSERT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+      auto preview = tessellate_surfaces(*result->geometry, preview_options(), &error);
+      ASSERT_TRUE(preview) << error;
+      std::cout << "SLANTED_BEVEL_DIAGNOSTIC shear=" << amount << " segments=" << segments
+                << " blend_corners=" << info.boundary_blend_corners
+                << " max_mesh_vertex_error=" << maximum_error
+                << " max_row_join_degrees=" << maximum_join_angle
+                << " max_interior_join_degrees=" << maximum_interior_angle << "\n";
     }
   }
 }

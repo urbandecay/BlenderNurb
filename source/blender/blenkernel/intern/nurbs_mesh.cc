@@ -113,6 +113,27 @@ static bool supports_differ_only_by_translation(const NurbsGeometry &source,
   return have_translation;
 }
 
+static bool surface_coefficients_identical(const NurbsSurfaceGeometry &a,
+                                           const NurbsSurfaceGeometry &b)
+{
+  if (a.points_num != b.points_num || a.points_u != b.points_u || a.points_v != b.points_v ||
+      a.order_u != b.order_u || a.order_v != b.order_v || a.knots_u_num != b.knots_u_num ||
+      a.knots_v_num != b.knots_v_num ||
+      !std::equal(a.knots_u, a.knots_u + a.knots_u_num, b.knots_u) ||
+      !std::equal(a.knots_v, a.knots_v + a.knots_v_num, b.knots_v))
+  {
+    return false;
+  }
+  for (const int i : IndexRange(a.points_num)) {
+    if (a.points[i].weight != b.points[i].weight ||
+        !std::equal(a.points[i].position, a.points[i].position + 3, b.points[i].position))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
 void MeshDeleter::operator()(Mesh *mesh) const
 {
   if (mesh != nullptr) {
@@ -624,6 +645,49 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
     const bool reuse_normals = reused && same_display_triangles && previous_result &&
                                previous_result->corner_normals.size() == mesh.corners_num &&
                                support_translation;
+    Array<uint8_t> reuse_triangle_normals(faces_num, 0);
+    if (!reuse_normals && reused && same_display_triangles && previous_result &&
+        previous_result->preview && previous_result->undefined_normal_corners == 0 &&
+        previous_result->corner_normals.size() == mesh.corners_num)
+    {
+      Map<int64_t, const NurbsTopologyFace *> previous_faces;
+      Map<int64_t, const NurbsSurfaceGeometry *> previous_surfaces;
+      for (const NurbsTopologyFace &face : previous_result->source.geometry().faces) {
+        previous_faces.add_new(face.id, &face);
+      }
+      for (const NurbsSurfaceGeometry &surface : previous_result->source.geometry().surfaces) {
+        previous_surfaces.add_new(surface.id, &surface);
+      }
+      Set<int64_t> unchanged_faces;
+      for (const NurbsTopologyFace &face : source.geometry().faces) {
+        const NurbsTopologyFace *const *old_face = previous_faces.lookup_ptr(face.id);
+        const NurbsSurfaceGeometry *const *old_surface =
+            previous_surfaces.lookup_ptr(face.surface_id);
+        const NurbsSurfaceGeometry *const *surface = surfaces.lookup_ptr(face.surface_id);
+        if (old_face && old_surface && surface && (*old_face)->surface_id == face.surface_id &&
+            (*old_face)->orientation == face.orientation &&
+            surface_coefficients_identical(**surface, **old_surface))
+        {
+          unchanged_faces.add(face.id);
+        }
+      }
+      for (const int i : result.mesh_to_preview_triangle.index_range()) {
+        const int current_index = result.mesh_to_preview_triangle[i];
+        const int previous_index = previous_result->mesh_to_preview_triangle[i];
+        const SurfacePreviewTriangle &current = result.preview->triangles[current_index];
+        const SurfacePreviewTriangle &old = previous_result->preview->triangles[previous_index];
+        if (current.face_id == old.face_id && unchanged_faces.contains(current.face_id) &&
+            std::equal(current.parameters,
+                       current.parameters + 3,
+                       old.parameters,
+                       [](const double2 &a, const double2 &b) { return a == b; }))
+        {
+          reuse_triangle_normals[i] = 1;
+        }
+      }
+    }
+    const int reused_normal_triangles = std::count(
+        reuse_triangle_normals.begin(), reuse_triangle_normals.end(), uint8_t(1));
     if (!reused) {
       normal_reuse_reason = "preview layout was rebuilt";
     }
@@ -637,9 +701,19 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
       normal_reuse_reason = "previous normal array size changed";
     }
     result.reused_normals = reuse_normals;
-    NURBS_DEBUG_LOG("normal cache %s: %s",
-                    reuse_normals ? "reused" : "not reused",
-                    reuse_normals ? "uniform support translation" : normal_reuse_reason);
+    if (reuse_normals) {
+      NURBS_DEBUG_LOG("normal cache reused for all %d display triangles: uniform support translation",
+                      faces_num);
+    }
+    else if (reused_normal_triangles > 0) {
+      NURBS_DEBUG_LOG("normal cache partially reused for %d/%d display triangles; %s",
+                      reused_normal_triangles,
+                      faces_num,
+                      normal_reuse_reason ? normal_reuse_reason : "changed face normals recalculated");
+    }
+    else {
+      NURBS_DEBUG_LOG("normal cache not reused: %s", normal_reuse_reason);
+    }
     if (reuse_normals) {
       std::copy(previous_result->corner_normals.begin(),
                 previous_result->corner_normals.end(),
@@ -663,10 +737,25 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
         if (!triangles) {
           continue;
         }
+        Vector<int> triangles_to_evaluate;
+        triangles_to_evaluate.reserve(triangles->size());
+        for (const int i : *triangles) {
+          if (reuse_triangle_normals[i]) {
+            for (const int corner : IndexRange(3)) {
+              normals[i * 3 + corner] = previous_result->corner_normals[i * 3 + corner];
+            }
+          }
+          else {
+            triangles_to_evaluate.append(i);
+          }
+        }
+        if (triangles_to_evaluate.is_empty()) {
+          continue;
+        }
         const NurbsSurfaceGeometry &surface = *surfaces.lookup(face.surface_id);
         Map<std::pair<double2, int>, int> sample_indices;
         Vector<SurfaceDifferentialSample> samples;
-        for (const int i : *triangles) {
+        for (const int i : triangles_to_evaluate) {
           const auto &triangle = result.preview->triangles[result.mesh_to_preview_triangle[i]];
           double2 center;
           for (const int axis : IndexRange(2)) {
@@ -714,7 +803,7 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
           source_normals.append(normal ? std::optional(float3(*normal * face.orientation)) :
                                          std::nullopt);
         }
-        for (const int i : *triangles) {
+        for (const int i : triangles_to_evaluate) {
           for (const int j : IndexRange(3)) {
             const auto &normal = source_normals[corner_samples[i * 3 + j]];
             if (normal) {

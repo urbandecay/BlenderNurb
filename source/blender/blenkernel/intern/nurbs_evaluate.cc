@@ -621,9 +621,48 @@ bool collapsed_surface_boundary_interval(const NurbsSurfaceGeometry &surface,
   return false;
 }
 
+static bool same_curve(const NurbsCurveGeometry &a, const NurbsCurveGeometry &b)
+{
+  if (a.dimension != b.dimension || a.order != b.order || a.points_num != b.points_num ||
+      a.knots_num != b.knots_num ||
+      !std::equal(a.knots, a.knots + a.knots_num, b.knots))
+  {
+    return false;
+  }
+  for (int i = 0; i < a.points_num; i++) {
+    if (a.points[i].weight != b.points[i].weight ||
+        !std::equal(a.points[i].position, a.points[i].position + 3, b.points[i].position))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool same_surface(const NurbsSurfaceGeometry &a, const NurbsSurfaceGeometry &b)
+{
+  if (a.order_u != b.order_u || a.order_v != b.order_v || a.points_u != b.points_u ||
+      a.points_v != b.points_v || a.points_num != b.points_num ||
+      a.knots_u_num != b.knots_u_num || a.knots_v_num != b.knots_v_num ||
+      !std::equal(a.knots_u, a.knots_u + a.knots_u_num, b.knots_u) ||
+      !std::equal(a.knots_v, a.knots_v + a.knots_v_num, b.knots_v))
+  {
+    return false;
+  }
+  for (int i = 0; i < a.points_num; i++) {
+    if (a.points[i].weight != b.points[i].weight ||
+        !std::equal(a.points[i].position, a.points[i].position + 3, b.points[i].position))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &source,
                                                       const BoundaryEvaluationOptions &options,
-                                                      std::string *r_error)
+                                                      std::string *r_error,
+                                                      const BoundaryEvaluationCache *cache)
 {
   if (r_error != nullptr) {
     r_error->clear();
@@ -650,6 +689,43 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
   for (const NurbsSurfaceGeometry &surface : source.surfaces) {
     surfaces.add_new(surface.id, &surface);
   }
+
+  std::optional<TopologyIndex> old_index;
+  Map<int64_t, const NurbsCurveGeometry *> old_curves;
+  Map<int64_t, const NurbsSurfaceGeometry *> old_surfaces;
+  Map<int64_t, const NurbsTopologyEdgeUse *> old_uses;
+  Map<int64_t, const EvaluatedBoundaryEdge *> cached_edges;
+  Map<int64_t, const EvaluatedBoundaryUse *> cached_uses;
+  if (cache && cache->options == options) {
+    old_index = TopologyIndex::build(cache->source);
+    if (old_index) {
+      for (const auto &curve : cache->source.curves) {
+        old_curves.add_new(curve.id, &curve);
+      }
+      for (const auto &surface : cache->source.surfaces) {
+        old_surfaces.add_new(surface.id, &surface);
+      }
+      for (const auto &face : cache->source.faces) {
+        for (const auto &loop : face.loops) {
+          for (const auto &use : loop.edge_uses) {
+            old_uses.add_new(use.id, &use);
+          }
+        }
+      }
+      for (const auto &edge : cache->evaluation.edges) {
+        cached_edges.add_new(edge.edge_id, &edge);
+      }
+      for (const auto &use : cache->evaluation.uses) {
+        cached_uses.add_new(use.use_id, &use);
+      }
+    }
+  }
+  auto curve_unchanged = [&](const int64_t id) {
+    const auto *old = old_curves.lookup_ptr(id);
+    return old && same_curve(*curves.lookup(id), **old);
+  };
+  Set<int64_t> reused_edges;
+  int reused_uses = 0;
 
   BoundaryEvaluation result;
   int64_t remaining = options.max_sample_entries;
@@ -716,6 +792,46 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
     }
     EvaluatedBoundaryEdge evaluated;
     evaluated.edge_id = edge.id;
+    const NurbsTopologyEdge *old_edge = old_index ? old_index->edge(edge.id) : nullptr;
+    const auto *cached_edge = cached_edges.lookup_ptr(edge.id);
+    bool reuse_edge = old_edge && cached_edge && edge.curve_id == old_edge->curve_id &&
+                      edge.tolerance >= old_edge->tolerance &&
+                      std::equal(edge.vertex_ids, edge.vertex_ids + 2, old_edge->vertex_ids) &&
+                      std::equal(edge.parameter_range, edge.parameter_range + 2,
+                                 old_edge->parameter_range) &&
+                      curve_unchanged(edge.curve_id) &&
+                      (*cached_edge)->samples.size() == sample_count &&
+                      index->uses_for_edge(edge.id).size() == old_index->uses_for_edge(edge.id).size();
+    for (int end = 0; reuse_edge && end < 2; end++) {
+      const auto &vertex = *index->vertex(edge.vertex_ids[end]);
+      const auto *old = old_index->vertex(vertex.id);
+      reuse_edge = old && vertex.tolerance >= old->tolerance &&
+                   std::equal(vertex.position, vertex.position + 3, old->position);
+    }
+    for (const auto &reference : index->uses_for_edge(edge.id)) {
+      const auto *old = old_uses.lookup_ptr(reference.use->id);
+      reuse_edge &= old && (*old)->edge_id == edge.id &&
+                    (*old)->pcurve_id == reference.use->pcurve_id &&
+                    curve_unchanged(reference.use->pcurve_id);
+    }
+    if (reuse_edge) {
+      evaluated = **cached_edge;
+      for (const int i : evaluated.samples.index_range()) {
+        auto &sample = evaluated.samples[i];
+        if (i == 0 || i == evaluated.samples.size() - 1) {
+          sample.point_index = vertex_indices.lookup(edge.vertex_ids[i == 0 ? 0 : 1]);
+        }
+        else {
+          sample.point_index = result.positions.size();
+          result.positions.append(sample.curve_position);
+          result.vertex_ids.append(0);
+        }
+      }
+      edge_indices.add_new(edge.id, result.edges.size());
+      result.edges.append(std::move(evaluated));
+      reused_edges.add(edge.id);
+      continue;
+    }
     auto append_sample = [&](const double parameter, const int endpoint) {
       const auto point = evaluate_curve(curve, parameter, r_error);
       if (!point) {
@@ -803,6 +919,24 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
         }
         const NurbsTopologyEdge &edge = *index->edge(use.edge_id);
         const NurbsCurveGeometry &pcurve = *curves.lookup(use.pcurve_id);
+        const auto *old_use = old_uses.lookup_ptr(use.id);
+        const auto *cached_use = cached_uses.lookup_ptr(use.id);
+        const auto *old_face = old_index ? old_index->face(face.id) : nullptr;
+        const auto *old_surface = old_surfaces.lookup_ptr(face.surface_id);
+        if (reused_edges.contains(edge.id) && old_use && cached_use && old_face && old_surface &&
+            (*old_use)->pcurve_id == use.pcurve_id && (*old_use)->edge_id == use.edge_id &&
+            use.tolerance >= (*old_use)->tolerance && face.tolerance >= old_face->tolerance &&
+            old_face->surface_id == face.surface_id && curve_unchanged(use.pcurve_id) &&
+            same_surface(surface, **old_surface) && (*cached_use)->face_id == face.id &&
+            (*cached_use)->loop_id == loop.id && (*cached_use)->reversed == bool(use.reversed) &&
+            (*cached_use)->is_inner == bool(loop.is_inner))
+        {
+          auto reused = **cached_use;
+          reused.edge_index = edge_index;
+          result.uses.append(std::move(reused));
+          reused_uses++;
+          continue;
+        }
         EvaluatedBoundaryUse evaluated;
         evaluated.face_id = face.id;
         evaluated.loop_id = loop.id;
@@ -927,6 +1061,11 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
       }
     }
   }
+  NURBS_DEBUG_LOG("boundary cache: %d/%d edges, %d/%d uses reused",
+                  int(reused_edges.size()),
+                  int(result.edges.size()),
+                  reused_uses,
+                  int(result.uses.size()));
   NURBS_DEBUG_LOG("boundary evaluation: %.3f ms; %lld natural support samples reused, %d uses",
                   (BLI_time_now_seconds() - evaluation_start) * 1000.0,
                   static_cast<long long>(result.reused_natural_support_samples),

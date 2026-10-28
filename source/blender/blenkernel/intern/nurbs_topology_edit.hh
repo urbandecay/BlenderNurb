@@ -25,6 +25,16 @@ std::optional<TopologyCutPlan> plan_loop_cut_parameters(const NurbsGeometry &sou
                                                         double max_error,
                                                         std::string *r_error);
 
+/** Construct shared native polynomial patches from the Catmull-Clark limit of a bevel cage. */
+struct SubdivisionBevelFit {
+  OwnedGeometry geometry;
+  double sampled_deviation = 0;
+  double coefficient_error = 0;
+};
+std::optional<SubdivisionBevelFit> subdivision_bevel_surfaces(const NurbsGeometry &source,
+                                                              double max_error,
+                                                              std::string *r_error);
+
 /** Private candidate builder shared by topology mutation services. Allocation never wraps IDs.
  * A failed builder is discarded; callers must check valid() before validating/returning it.
  */

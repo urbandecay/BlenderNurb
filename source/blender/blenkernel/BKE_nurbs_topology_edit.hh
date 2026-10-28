@@ -16,6 +16,8 @@ namespace blender::bke::nurbs {
 
 struct SelectionState;
 
+enum class BevelSurfaceShape { Circular, Subdivision };
+
 struct BevelOptions {
   /** Perpendicular face width. Ruled curved blends use the surface frame at the edge midpoint;
    * the corresponding natural parameter offset can have varying world width along a curve. */
@@ -25,6 +27,9 @@ struct BevelOptions {
   double max_error = 1e-9;
   /** Limit the whole selected network together before its first boundary collision. */
   bool clamp_overlap = true;
+  /** Subdivision changes the surface shape, including the retained cage faces. Circular keeps
+   * analytic rounding; Subdivision fits shared native patches to the bevel cage's limit. */
+  BevelSurfaceShape surface_shape = BevelSurfaceShape::Circular;
 };
 
 struct BevelOffsetInfo {
@@ -32,7 +37,7 @@ struct BevelOffsetInfo {
   double offset = 0;
   /** Conservative upper limit with positive clearance for construction roundoff. */
   double limit = 0;
-  /** Junctions using common conic profiles or Coons patches. Shared boundaries are exact (G0),
+  /** Junctions using common conic profiles or affine octants. Shared boundaries are exact (G0),
    * but tangent continuity and a constant-radius interior are not certified. */
   int boundary_blend_corners = 0;
   /** Flat supports whose non-affine parameterization was replaced by a private plane chart. */
@@ -42,6 +47,8 @@ struct BevelOffsetInfo {
    * Width is measured in the perpendicular surface frame at the source edge midpoint.
    * A varying source frame does not imply a constant-radius fillet. */
   int curved_blend_strips = 0;
+  /** Maximum sampled holdout deviation of a subdivision fit, not a certified global bound. */
+  double subdivision_deviation = 0;
 };
 
 /** An independent topology candidate and the source identities selected by the operation.
@@ -59,15 +66,19 @@ struct TopologyEditResult {
  * normalize flat non-affine charts, repair boundaries, and construct chamfer/rational strips.
  * Convex adjacent face boundaries and regular manifold fans are required; chamfers support higher
  * valence and planar miter reconstruction. Rounded corners currently require valence three. Fully
- * selected right-angle corners use spherical supports; other angles use boundary-interpolating
- * Coons supports, recorded in BevelOffsetInfo. Width limiting uses source station motions, before
- * constructing surfaces, and preserves their relative offsets across the selected network.
- * A single natural shared boundary between compatible positive-rational ruled supports also
- * admits exact isocurve rails, restricted original supports and conic strips with regular G1
- * rail joins. Planar end caps are trimmed; nonplanar caps need an intersection solver. Curved
- * widths use the midpoint frame; general circularity and curved self-collision are not certified.
- * No general curved-support intersection,
- * source mutation, fitting, display-mesh editing or silent tolerance enlargement.
+ * selected corners use mapped rational octants and mesh-guided complete curve rows. Right-angle
+ * corners certify a spherical radius; other angles use affine supports, recorded in
+ * BevelOffsetInfo. Width limiting uses source station motions, before constructing surfaces, and
+ * preserves their relative offsets across the selected network. A single natural shared boundary
+ * between compatible positive-rational ruled supports also admits exact isocurve rails, restricted
+ * original supports and conic strips with regular G1 rail joins. Planar end caps are trimmed;
+ * nonplanar caps need an intersection solver. Curved widths use the midpoint frame; general
+ * circularity and curved self-collision are not certified. Subdivision surface shape fits native
+ * polynomial patches to the Catmull-Clark limit of a closed triangular/quadrilateral bevel cage.
+ * It also changes retained faces. Shared edges are authoritative; sampled target deviation is
+ * reported separately from coefficient roundoff. Circular shape uses no fitting. Neither path
+ * mutates source or edits a display mesh, performs general curved-support intersection, or
+ * silently enlarges the construction tolerance.
  */
 std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
                                               Span<int64_t> edges,

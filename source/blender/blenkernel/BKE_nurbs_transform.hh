@@ -44,6 +44,13 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
                                                           double max_position_error,
                                                           std::string *r_error = nullptr);
 
+/** Transform every topology vertex and the curve/surface supports referenced by its topology
+ * with one affine matrix. Unreferenced parent supports and UV p-curves remain unchanged. */
+std::optional<GeometryTransformResult> transform_all_vertices(const NurbsGeometry &source,
+                                                              const double4x4 &matrix,
+                                                              double max_position_error,
+                                                              std::string *r_error = nullptr);
+
 struct VertexTransform {
   int64_t vertex_id;
   double4x4 matrix;

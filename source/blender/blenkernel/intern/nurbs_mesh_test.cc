@@ -24,6 +24,84 @@ namespace blender::bke::nurbs::tests {
 
 class NurbsMeshEvaluationTest : public BlenderGTestBase {};
 
+TEST_F(NurbsMeshEvaluationTest, BoundaryCacheMatchesFreshEvaluationAndRejectsChangedInputs)
+{
+  auto original = make_planar_sheet();
+  BoundaryEvaluationOptions options;
+  const auto previous = evaluate_boundaries(*original, options);
+  ASSERT_TRUE(previous);
+  const BoundaryEvaluationCache cache{*original, options, *previous};
+  for (int mutation = 0; mutation < 6; mutation++) {
+    auto candidate = OwnedGeometry(geometry_copy(original.get()));
+    auto settings = options;
+    if (mutation == 1) {
+      static_cast<NurbsTopologyVertex *>(candidate->vertices.first)->position[2] += 0.1;
+    }
+    if (mutation == 2) {
+      static_cast<NurbsCurveGeometry *>(candidate->curves.first)->points[0].position[2] += 0.1;
+    }
+    if (mutation == 3) {
+      static_cast<NurbsSurfaceGeometry *>(candidate->surfaces.first)->points[0].position[2] += 0.1;
+    }
+    if (mutation == 4) {
+      settings.segments_per_span++;
+    }
+    if (mutation == 5) {
+      for (auto &curve : candidate->curves) {
+        if (curve.dimension == 2) {
+          curve.points[0].position[0] += 0.125;
+          break;
+        }
+      }
+    }
+    const auto fresh = evaluate_boundaries(*candidate, settings);
+    const auto cached = evaluate_boundaries(*candidate, settings, nullptr, &cache);
+    ASSERT_EQ(bool(cached), bool(fresh)) << mutation;
+    if (fresh) {
+      EXPECT_EQ(cached->positions, fresh->positions);
+      EXPECT_EQ(cached->vertex_ids, fresh->vertex_ids);
+      ASSERT_EQ(cached->edges.size(), fresh->edges.size());
+      ASSERT_EQ(cached->uses.size(), fresh->uses.size());
+      for (const int i : cached->uses.index_range()) {
+        EXPECT_EQ(cached->uses[i].parameters, fresh->uses[i].parameters);
+        EXPECT_EQ(cached->uses[i].max_display_support_deviation,
+                  fresh->uses[i].max_display_support_deviation);
+      }
+    }
+  }
+
+  /* Previously accepted discrepancies must be checked again after tolerance tightening. */
+  static_cast<NurbsSurfaceGeometry *>(original->surfaces.first)->points[0].position[2] += 0.01;
+  for (auto &edge : original->edges) {
+    edge.tolerance = 0.1;
+  }
+  for (auto &face : original->faces) {
+    face.tolerance = 0.1;
+    for (auto &loop : face.loops) {
+      for (auto &use : loop.edge_uses) {
+        use.tolerance = 0.1;
+      }
+    }
+  }
+  const auto loose = evaluate_boundaries(*original, options);
+  ASSERT_TRUE(loose);
+  const BoundaryEvaluationCache loose_cache{*original, options, *loose};
+  auto tightened = OwnedGeometry(geometry_copy(original.get()));
+  for (auto &edge : tightened->edges) {
+    edge.tolerance = 0;
+  }
+  for (auto &face : tightened->faces) {
+    face.tolerance = 0;
+    for (auto &loop : face.loops) {
+      for (auto &use : loop.edge_uses) {
+        use.tolerance = 0;
+      }
+    }
+  }
+  EXPECT_FALSE(evaluate_boundaries(*tightened, options));
+  EXPECT_FALSE(evaluate_boundaries(*tightened, options, nullptr, &loose_cache));
+}
+
 TEST_F(NurbsMeshEvaluationTest, TranslationPreviewMovesDuplicatedFaceAndKeepsOriginalDisplay)
 {
   auto source_geometry = make_planar_sheet();
@@ -86,6 +164,67 @@ TEST_F(NurbsMeshEvaluationTest, TranslationPreviewMovesDuplicatedFaceAndKeepsOri
   for (const int i : IndexRange(final->preview->points_num())) {
     EXPECT_EQ(final->preview->position(i), preview->preview->position(i));
   }
+}
+
+TEST_F(NurbsMeshEvaluationTest, PartialSurfaceRotationReusesUnchangedFaceNormalsExactly)
+{
+  auto source_geometry = make_planar_sheet();
+  ASSERT_NE(source_geometry, nullptr);
+  const int64_t source_face =
+      static_cast<const NurbsTopologyFace *>(source_geometry->faces.first)->id;
+  const auto closure = component_closure(*source_geometry, {{}, {}, {&source_face, 1}});
+  ASSERT_TRUE(closure);
+  const auto duplicate = duplicate_components(*source_geometry, {{}, {}, {&source_face, 1}});
+  ASSERT_TRUE(duplicate);
+  auto original_edit = EditData::create(*duplicate->geometry);
+  ASSERT_NE(original_edit, nullptr);
+
+  ObjectEvaluation previous;
+  previous.options = preview_options();
+  previous.result = evaluate_mesh(original_edit->read_snapshot(), previous.options);
+  ASSERT_TRUE(previous.result);
+  const Mesh &previous_mesh = *previous.result->mesh;
+
+  const double angle = 0.37;
+  const double cosine = std::cos(angle), sine = std::sin(angle);
+  auto matrix = double4x4::identity();
+  matrix[1][1] = cosine;
+  matrix[2][2] = cosine;
+  matrix[1][2] = sine;
+  matrix[2][1] = -sine;
+  Vector<VertexTransform> transforms;
+  for (const int64_t vertex_id : closure->vertices) {
+    transforms.append({duplicate->source_to_copy.lookup(vertex_id), matrix});
+  }
+  std::string error;
+  const auto rotated = transform_vertices(
+      *duplicate->geometry, transforms, std::numeric_limits<double>::max(), &error);
+  ASSERT_TRUE(rotated) << error;
+  auto rotated_edit = EditData::create(*rotated->geometry);
+  ASSERT_NE(rotated_edit, nullptr);
+
+  const auto cached = evaluate_mesh(
+      rotated_edit->read_snapshot(), previous.options, &error, &previous);
+  ASSERT_TRUE(cached) << error;
+  const auto fresh = evaluate_mesh(rotated_edit->read_snapshot(), previous.options, &error);
+  ASSERT_TRUE(fresh) << error;
+  EXPECT_FALSE(cached->reused_normals);
+  EXPECT_EQ(cached->mesh_to_preview_triangle, fresh->mesh_to_preview_triangle);
+  ASSERT_EQ(cached->preview->points_num(), fresh->preview->points_num());
+  ASSERT_EQ(cached->corner_normals.size(), fresh->corner_normals.size());
+  for (const int i : IndexRange(cached->preview->points_num())) {
+    EXPECT_EQ(cached->preview->position(i), fresh->preview->position(i));
+  }
+  for (const int i : cached->corner_normals.index_range()) {
+    EXPECT_EQ(cached->corner_normals[i], fresh->corner_normals[i]);
+  }
+  const Span<float3> cached_mesh_normals = cached->mesh->corner_normals();
+  const Span<float3> fresh_mesh_normals = fresh->mesh->corner_normals();
+  ASSERT_EQ(cached_mesh_normals.size(), fresh_mesh_normals.size());
+  for (const int i : cached_mesh_normals.index_range()) {
+    EXPECT_EQ(cached_mesh_normals[i], fresh_mesh_normals[i]);
+  }
+  EXPECT_EQ(previous_mesh.corners_num, cached->mesh->corners_num);
 }
 
 TEST_F(NurbsMeshEvaluationTest, TranslationPreviewTransportsOriginalDisplayAndOwnsItsMesh)

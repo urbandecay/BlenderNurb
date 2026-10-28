@@ -222,11 +222,18 @@ static void status(bContext *C, wmOperator *op, const BevelModal &data)
     }
     BLI_snprintf(text,
                  sizeof(text),
-                 "Width: %s | Segments: %d | Clamp: %s%s%s",
+                 "Shape: %s | Width: %s | Segments: %d | Clamp: %s%s%s",
+                 data.options.segments == 1 ? "Chamfer" :
+                 data.options.surface_shape == bke::nurbs::BevelSurfaceShape::Subdivision ?
+                                              "Subdivision" :
+                                              "Circular",
                  width,
                  data.options.segments,
                  data.options.clamp_overlap ? "On" : "Off",
-                 data.offset_info.boundary_blend_corners ? " | Corners: Boundary Blend (G0)" : "",
+                 data.offset_info.boundary_blend_corners &&
+                         data.options.surface_shape == bke::nurbs::BevelSurfaceShape::Circular ?
+                     " | Corners: Boundary Blend (G0)" :
+                     "",
                  data.offset_info.curved_blend_strips ? " | Curved Blend" : "");
   }
   ED_area_status_text(CTX_wm_area(C), text);
@@ -355,10 +362,12 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
   }
-  const bke::nurbs::BevelOptions options{read_offset(op),
-                                         RNA_int_get(op->ptr, "segments"),
-                                         RNA_float_get(op->ptr, "max_error"),
-                                         RNA_boolean_get(op->ptr, "clamp_overlap")};
+  const bke::nurbs::BevelOptions options{
+      read_offset(op),
+      RNA_int_get(op->ptr, "segments"),
+      RNA_float_get(op->ptr, "max_error"),
+      RNA_boolean_get(op->ptr, "clamp_overlap"),
+      bke::nurbs::BevelSurfaceShape(RNA_enum_get(op->ptr, "surface_shape"))};
   if (options.offset == 0) {
     return OPERATOR_CANCELLED;
   }
@@ -373,7 +382,9 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
   if (offset_info.offset < options.offset) {
     BKE_reportf(op->reports, RPT_INFO, "NURBS bevel width limited to %.17g", offset_info.offset);
   }
-  if (offset_info.boundary_blend_corners) {
+  if (offset_info.boundary_blend_corners &&
+      options.surface_shape == bke::nurbs::BevelSurfaceShape::Circular)
+  {
     BKE_reportf(
         op->reports,
         RPT_INFO,
@@ -381,6 +392,11 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
         offset_info.boundary_blend_corners);
   }
   report_planar_charts(op, offset_info);
+  /* Redo-panel execution does not pass through the normal last-properties store.
+   * Keep the user's surface choice for the next modal bevel as well. */
+  PointerRNA last_properties;
+  WM_operator_last_properties_ensure(op->type, &last_properties);
+  RNA_enum_set(&last_properties, "surface_shape", int(options.surface_shape));
   return OPERATOR_FINISHED;
 }
 
@@ -401,6 +417,8 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   data->options.segments = RNA_int_get(op->ptr, "segments");
   data->options.max_error = RNA_float_get(op->ptr, "max_error");
   data->options.clamp_overlap = RNA_boolean_get(op->ptr, "clamp_overlap");
+  data->options.surface_shape = bke::nurbs::BevelSurfaceShape(
+      RNA_enum_get(op->ptr, "surface_shape"));
   float center3d[3];
   if (!ed::transform::calculateTransformCenter(
           C, V3D_AROUND_CENTER_MEDIAN, center3d, data->center))
@@ -495,6 +513,7 @@ static wmOperatorStatus bevel_modal(bContext *C, wmOperator *op, const wmEvent *
       RNA_string_set(op->ptr, "offset_exact", exact);
       RNA_int_set(op->ptr, "segments", data.options.segments);
       RNA_boolean_set(op->ptr, "clamp_overlap", data.options.clamp_overlap);
+      RNA_enum_set(op->ptr, "surface_shape", int(data.options.surface_shape));
       report_planar_charts(op, data.offset_info);
       cleanup(C, op);
       return OPERATOR_FINISHED;
@@ -597,6 +616,25 @@ void CURVE_OT_bevel(wmOperatorType *ot)
                   true,
                   "Clamp Overlap",
                   "Limit bevel width before neighboring NURBS boundaries collide");
+  static const EnumPropertyItem surface_shapes[] = {
+      {int(bke::nurbs::BevelSurfaceShape::Circular),
+       "CIRCULAR",
+       0,
+       "Circular",
+       "Keep analytic rounded surfaces"},
+      {int(bke::nurbs::BevelSurfaceShape::Subdivision),
+       "SUBDIVISION",
+       0,
+       "Subdivision",
+       "Match the smoothed bevel mesh with native NURBS surfaces; changes the surface shape"},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+  RNA_def_enum(ot->srna,
+               "surface_shape",
+               surface_shapes,
+               int(bke::nurbs::BevelSurfaceShape::Circular),
+               "Surface Shape",
+               "Shape of the rounded surfaces");
   WM_operatortype_props_advanced_begin(ot);
   RNA_def_float(ot->srna,
                 "max_error",

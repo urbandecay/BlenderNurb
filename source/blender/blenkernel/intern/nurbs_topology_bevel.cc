@@ -333,10 +333,10 @@ static bool balance_bevel_widths(const Span<std::array<int, 2>> pairs,
 
 struct RoundBevelCorner {
   OwnedSurface support;
-  /** Original corner frame used by the mesh bevel's spherical corner layout. */
+  /** Invertible affine corner frame used by the mesh bevel's cube-corner layout. */
   double3 center{0};
   std::array<double3, 3> axes{};
-  bool spherical_support = false;
+  bool affine_octant_support = false;
   /** Equator start, equator end, pole. */
   std::array<int64_t, 3> stations;
   /** Boundary profile edges in support order: start-end, end-pole, pole-start. */
@@ -830,6 +830,7 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
                                              const int segments,
                                              const double max_error,
                                              const BevelMeshReference *mesh_reference,
+                                             const bool cage_only,
                                              std::string *r_error)
 {
   auto fail = [&](const char *message) {
@@ -1053,13 +1054,15 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
     }
 
     /* Use the actual mesh bevel's corner grid as the positional reference. All of its corner
-     * vertices lie on the same sphere; convert their directions back to this exact NURBS support.
+     * vertices lie on the same affine octant; invert its complete frame before mapping
+     * their directions back to this exact NURBS support.
      * Match faces from the shared boundary inward so vertex identities follow the same grid
      * connectivity, rather than relying on a nearest-point guess. */
-    if (corner.spherical_support && mesh_reference) {
+    if (corner.affine_octant_support && mesh_reference) {
       Vector<std::array<double, 3>> mesh_coordinates(mesh_reference->vertices.size());
       Vector<bool> on_corner_sphere(mesh_reference->vertices.size(), false);
       const double frame_tolerance = 128 * std::numeric_limits<float>::epsilon();
+      const SphericalCornerChart corner_frame(corner);
       for (const int i : mesh_reference->vertices.index_range()) {
         const double3 relative = mesh_reference->vertices[i] - corner.center;
         double norm_squared = 0;
@@ -1070,7 +1073,11 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
             in_octant = false;
             break;
           }
-          const double coordinate = math::dot(relative, corner.axes[axis]) / axis_length_squared;
+          /* The guide is float mesh data; its membership test does not need bounded
+           * source arithmetic for every point. Keep the full inverse for skew frames. */
+          const auto &inverse = corner_frame.inverse_axes[axis];
+          const double coordinate = inverse[0].value * relative.x + inverse[1].value * relative.y +
+                                    inverse[2].value * relative.z;
           mesh_coordinates[i][axis] = coordinate;
           norm_squared += coordinate * coordinate;
           in_octant &= coordinate >= -frame_tolerance && coordinate <= 1 + frame_tolerance;
@@ -1256,7 +1263,7 @@ static bool partition_rounded_corner_patches(TopologyCutResult &cut,
     int64_t child_support_id = support_id;
     const NurbsSurfaceGeometry *curve_support = &support;
     std::optional<SphericalCornerChart> regular_chart;
-    if (corner.spherical_support) {
+    if (corner.affine_octant_support && !cage_only) {
       regular_chart.emplace(corner);
       const SphericalCornerChart &chart = *regular_chart;
       auto regular = chart.make_surface(max_error);
@@ -2028,121 +2035,12 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
       if (station != 3) {
         return fail("Rounded NURBS corner requires three incident face stations");
       }
+      /* Match BMesh's mapped cube-corner construction. A slanted corner is an affine
+       * image of the reference octant; forcing it through an unrelated boundary-only
+       * Coons patch changes both the surface and its editable grid. The ruled strips
+       * below consume these same conic boundaries. */
       if (!orthogonal) {
-        /* As in a fillet kernel's analytic-then-boundary-patch strategy, retain the
-         * spherical construction when valid and interpolate the actual shared conics
-         * otherwise. This is a Coons corner blend, not a claimed spherical fillet. */
-        std::array<OwnedCurve, 3> profiles;
-        std::array<BoundedScalar, 3> profile_weights;
-        double profile_error = station_error;
-        const int pairs[3][2] = {{0, 1}, {0, 2}, {1, 2}};
-        for (int side = 0; side < 3; side++) {
-          const int a = pairs[side][0], b = pairs[side][1];
-          const NurbsTopologyEdge *source_edge = nullptr;
-          for (const int64_t edge_id : index.edges_for_vertex(original.id)) {
-            const auto uses = index.uses_for_edge(edge_id);
-            if ((uses[0].face_id == face_ids[a] && uses[1].face_id == face_ids[b]) ||
-                (uses[1].face_id == face_ids[a] && uses[0].face_id == face_ids[b]))
-            {
-              source_edge = index.edge(edge_id);
-              break;
-            }
-          }
-          if (!source_edge) {
-            return fail("Rounded NURBS corner has no unique shared source edge");
-          }
-          const auto weight = profile_weight(*source_edge, original.id);
-          if (!weight) {
-            return fail("Rounded NURBS corner has an uncertifiable conic angle");
-          }
-          profile_weights[side] = *weight;
-          const double3 pa(builder.vertices.lookup(corner.stations[a])->position);
-          const double3 pb(builder.vertices.lookup(corner.stations[b])->position);
-          const double3 origin(original.position);
-          const auto along = difference(
-              double3(
-                  index
-                      .vertex(source_edge
-                                  ->vertex_ids[source_edge->vertex_ids[0] == original.id ? 1 : 0])
-                      ->position),
-              origin);
-          const auto mean = bounded_multiply(
-              bounded_add(dot(difference(pa, origin), along), dot(difference(pb, origin), along)),
-              {0.5});
-          const auto parameter = bounded_divide(mean, dot(along, along));
-          auto &curve = profiles[side];
-          curve.reset(MEM_new<NurbsCurveGeometry>(__func__));
-          curve->dimension = 3;
-          curve->order = curve->points_num = 3;
-          curve->knots_num = 6;
-          curve->points = MEM_new_array<NurbsControlPoint>(3, __func__);
-          curve->knots = MEM_new_array_zeroed<double>(6, __func__);
-          curve->knots[3] = curve->knots[4] = curve->knots[5] = 1;
-          std::copy_n(&pa.x, 3, curve->points[0].position);
-          std::copy_n(&pb.x, 3, curve->points[2].position);
-          double error = station_error;
-          for (int axis = 0; axis < 3; axis++) {
-            const auto coordinate = bounded_add({origin[axis]},
-                                                bounded_multiply(along[axis], parameter));
-            if (!coordinate.valid()) {
-              return fail("Rounded NURBS corner conic pole is not representable");
-            }
-            curve->points[1].position[axis] = coordinate.value;
-            error = add_upper(error, coordinate.error);
-          }
-          curve->points[1].weight = weight->value;
-          const double extent = std::max(distance_upper(double3(curve->points[1].position), pa),
-                                         distance_upper(double3(curve->points[1].position), pb));
-          const auto perturbation = bounded_divide(
-              bounded_multiply({2 * extent}, {weight->error}),
-              bounded_subtract({weight->value}, {weight->error}));
-          error = add_upper(error, add_upper(std::abs(perturbation.value), perturbation.error));
-          profile_error = std::max(profile_error, error);
-        }
-        /* Correct the interior tensor coefficient and collapsed-edge weight so this
-         * family meets the exact spherical octant continuously at a right angle.
-         * The interior control remains at the original source vertex. */
-        const auto interior_weight = bounded_multiply(
-            profile_weights[0],
-            bounded_multiply(bounded_add(profile_weights[1], profile_weights[2]), {0.5}));
-        TriangleBlendShape shape;
-        std::copy_n(original.position, 3, shape.interior.position);
-        shape.interior.weight = interior_weight.value;
-        shape.collapsed_weight = profile_weights[0].value;
-        double minimum_weight = interior_weight.value - interior_weight.error;
-        double extent = 0;
-        for (int side = 0; side < 3; side++) {
-          minimum_weight = std::min(minimum_weight,
-                                    profile_weights[side].value - profile_weights[side].error);
-          for (const auto &point : Span(profiles[side]->points, 3)) {
-            extent = std::max(extent,
-                              distance_upper(double3(original.position), double3(point.position)));
-          }
-        }
-        const auto shape_error = bounded_divide(
-            bounded_multiply({2 * extent},
-                             {add_upper(interior_weight.error, profile_weights[0].error)}),
-            {minimum_weight});
-        if (!(minimum_weight > 0) || !shape_error.valid()) {
-          return fail("Rounded NURBS corner cannot certify positive blend coefficients");
-        }
-        profile_error = add_upper(profile_error,
-                                  add_upper(std::abs(shape_error.value), shape_error.error));
-        auto constructed = rational_coons_triangle(
-            *profiles[0], *profiles[1], *profiles[2], options.max_error, r_error, &shape);
-        if (!constructed) {
-          return std::nullopt;
-        }
-        result.geometry_error_bound = std::max(
-            result.geometry_error_bound,
-            add_upper(profile_error, constructed->geometry_error_bound));
-        if (result.geometry_error_bound > options.max_error) {
-          return fail("Rounded NURBS corner blend exceeds the source construction error budget");
-        }
-        corner.support = std::move(constructed->surface);
-        round_corners.add_new(original.id, std::move(corner));
         boundary_blend_corners++;
-        continue;
       }
       const double input_error = station_error;
       BoundedVector center_bound;
@@ -2173,8 +2071,10 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
           transport_error = add_upper(transport_error, value.error);
         }
       }
-      auto constructed = rational_spherical_octant_surface(
-          center, axes, options.offset, options.max_error, r_error);
+      auto constructed = orthogonal ?
+                             rational_spherical_octant_surface(
+                                 center, axes, options.offset, options.max_error, r_error) :
+                             rational_octant_surface(center, axes, options.max_error, r_error);
       if (!constructed) {
         return std::nullopt;
       }
@@ -2196,7 +2096,7 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
       corner.support = std::move(constructed->surface);
       corner.center = center;
       corner.axes = axes;
-      corner.spherical_support = true;
+      corner.affine_octant_support = true;
       round_corners.add_new(original.id, std::move(corner));
     }
   }
@@ -2886,7 +2786,7 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     const double partition_start = BLI_time_now_seconds();
     bool needs_mesh_reference = false;
     for (const auto &item : round_corners.items()) {
-      needs_mesh_reference |= item.value.spherical_support;
+      needs_mesh_reference |= item.value.affine_octant_support;
     }
     std::optional<BevelMeshReference> mesh_reference;
     if (needs_mesh_reference) {
@@ -2927,21 +2827,30 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
             const double3 center = ((first + last) / 2 -
                                     weight * weight * double3(profile.points[1].position)) /
                                    (1 - weight * weight);
-            const double radius = math::distance(first, center);
-            const double3 x_axis = math::normalize(first - center);
-            const double3 normal = math::normalize(math::cross(first - center, last - center));
-            const double3 y_axis = math::cross(normal, x_axis);
-            const double tolerance = 32 * std::numeric_limits<float>::epsilon() *
-                                     std::max({1.0, math::length(center), radius});
+            /* Invert the conic's affine circle frame. Dot products with unit axes only
+             * work for a circular profile; skewed corners have elliptical profiles. */
+            const double3 x_axis = first - center;
+            const double3 y_axis = (last - center - std::cos(2 * half_angle) * x_axis) /
+                                   std::sin(2 * half_angle);
+            const double xx = math::dot(x_axis, x_axis), xy = math::dot(x_axis, y_axis);
+            const double yy = math::dot(y_axis, y_axis), determinant = xx * yy - xy * xy;
+            const double tolerance =
+                32 * std::numeric_limits<float>::epsilon() *
+                std::max({1.0, math::length(center), math::length(x_axis), math::length(y_axis)});
             for (const double3 point : mesh_reference->vertices) {
+              if (!(determinant > 0)) {
+                break;
+              }
               const double3 radial = point - center;
-              if (std::abs(math::dot(radial, normal)) > tolerance ||
-                  std::abs(math::length(radial) - radius) > tolerance)
+              const double rx = math::dot(radial, x_axis), ry = math::dot(radial, y_axis);
+              const double x = (rx * yy - ry * xy) / determinant;
+              const double y = (ry * xx - rx * xy) / determinant;
+              if (math::distance(radial, x_axis * x + y_axis * y) > tolerance ||
+                  std::abs(x * x + y * y - 1) > 32 * std::numeric_limits<float>::epsilon())
               {
                 continue;
               }
-              const double angle = std::atan2(math::dot(radial, y_axis),
-                                              math::dot(radial, x_axis));
+              const double angle = std::atan2(y, x);
               if (angle <= half_angle * 1e-5 || angle >= 2 * half_angle - half_angle * 1e-5) {
                 continue;
               }
@@ -3017,6 +2926,7 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
                                           options.segments,
                                           options.max_error,
                                           mesh_reference ? &*mesh_reference : nullptr,
+                                          options.surface_shape == BevelSurfaceShape::Subdivision,
                                           r_error))
     {
       return std::nullopt;
@@ -3051,11 +2961,29 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
         int(combined.faces.size()),
         options.segments);
   }
+  double subdivision_deviation = 0;
+  if (rounded && options.surface_shape == BevelSurfaceShape::Subdivision) {
+    auto smooth = detail::subdivision_bevel_surfaces(*result.geometry, options.max_error, r_error);
+    if (!smooth) {
+      return std::nullopt;
+    }
+    if (smooth->sampled_deviation > options.offset * 0.01) {
+      return fail("Subdivision bevel fit exceeds one percent of the bevel width");
+    }
+    subdivision_deviation = smooth->sampled_deviation;
+    result.geometry_error_bound = add_upper(result.geometry_error_bound,
+                                            smooth->coefficient_error);
+    if (result.geometry_error_bound > options.max_error) {
+      return fail("Subdivision bevel coefficients exceed the construction error budget");
+    }
+    result.geometry = std::move(smooth->geometry);
+  }
   if (!evaluate_boundaries(*result.geometry, {}, r_error)) {
     return std::nullopt;
   }
   if (r_offset_info) {
     *r_offset_info = {options.offset, limit.offset, boundary_blend_corners};
+    r_offset_info->subdivision_deviation = subdivision_deviation;
   }
   return result;
 }

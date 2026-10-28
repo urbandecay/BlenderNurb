@@ -328,7 +328,7 @@ static void recalc_trans_nurbs(TransInfo *t)
       }
       Vector<nurbs::VertexTransform> transforms;
       const double3x3 linear = data.world_to_local * data.linear * data.local_to_world;
-      for (const auto &group : *groups) {
+      const auto group_matrix = [&](const auto &group) {
         double4x4 matrix = double4x4::identity();
         for (int column = 0; column < 3; column++) {
           for (int row = 0; row < 3; row++) {
@@ -336,12 +336,34 @@ static void recalc_trans_nurbs(TransInfo *t)
           }
         }
         matrix.location() = group.center - linear * group.center;
-        for (const int64_t id : group.vertices) {
-          transforms.append({id, matrix});
-        }
+        return matrix;
+      };
+      const bool whole_model_rotation =
+          t->mode == TFM_ROTATION && groups->size() == 1 &&
+          groups->first().vertices.size() == data.original.geometry().vertices.count() &&
+          std::all_of(data.original.geometry().vertices.begin(),
+                      data.original.geometry().vertices.end(),
+                      [&](const auto &vertex) {
+                        return groups->first().vertices.contains(vertex.id);
+                      });
+      if (whole_model_rotation) {
+        /* One rigid transform over the whole topology does not need per-vertex support ownership
+         * planning. Transform the referenced NURBS supports once, like the whole-model move path. */
+        result = nurbs::transform_all_vertices(data.original.geometry(),
+                                               group_matrix(groups->first()),
+                                               std::numeric_limits<double>::max(),
+                                               &error);
       }
-      result = nurbs::transform_vertices(
-          data.original.geometry(), transforms, std::numeric_limits<double>::max(), &error);
+      else {
+        for (const auto &group : *groups) {
+          const double4x4 matrix = group_matrix(group);
+          for (const int64_t id : group.vertices) {
+            transforms.append({id, matrix});
+          }
+        }
+        result = nurbs::transform_vertices(
+            data.original.geometry(), transforms, std::numeric_limits<double>::max(), &error);
+      }
     }
     const double geometry_ms = (BLI_time_now_seconds() - geometry_start) * 1000.0;
     if (!result) {

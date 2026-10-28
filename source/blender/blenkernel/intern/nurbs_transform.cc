@@ -253,6 +253,14 @@ std::optional<GeometryTransformResult> transform_geometry(const NurbsGeometry &s
   return transform_geometry_impl(source, matrix, max_position_error, false, r_error);
 }
 
+std::optional<GeometryTransformResult> transform_all_vertices(const NurbsGeometry &source,
+                                                              const double4x4 &matrix,
+                                                              const double max_position_error,
+                                                              std::string *r_error)
+{
+  return transform_geometry_impl(source, matrix, max_position_error, true, r_error);
+}
+
 /** Exact comparison of positive binary64 products without overflowing intermediate products. */
 static bool equal_weight_products(const std::array<double, 3> &left,
                                   const std::array<double, 3> &right)

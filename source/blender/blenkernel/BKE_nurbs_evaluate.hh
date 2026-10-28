@@ -76,6 +76,14 @@ struct BoundaryEvaluationOptions {
   bool operator==(const BoundaryEvaluationOptions &) const = default;
 };
 
+/** Previously accepted samples and their immutable inputs. Reuse requires unchanged coefficients,
+ * sampling options and incidence; tightened tolerances are evaluated again. */
+struct BoundaryEvaluationCache {
+  const NurbsGeometry &source;
+  const BoundaryEvaluationOptions &options;
+  const BoundaryEvaluation &evaluation;
+};
+
 /** Sufficient whole-interval bound for a full straight polynomial curve and its linear p-curve
  * on a polynomial bilinear support. Constant-U/V trims also admit matching positive rational
  * endpoint profiles. Zero proves exact geometric agreement independently of
@@ -130,6 +138,7 @@ bool collapsed_surface_boundary_interval(const NurbsSurfaceGeometry &surface,
  */
 std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &source,
                                                       const BoundaryEvaluationOptions &options,
-                                                      std::string *r_error = nullptr);
+                                                      std::string *r_error = nullptr,
+                                                      const BoundaryEvaluationCache *cache = nullptr);
 
 }  // namespace blender::bke::nurbs

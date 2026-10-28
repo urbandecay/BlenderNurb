@@ -233,6 +233,7 @@ set(SRC
   intern/nurbs_tessellate.cc
   intern/nurbs_topology.cc
   intern/nurbs_topology_bevel.cc
+  intern/nurbs_topology_bevel_subdiv.cc
   intern/nurbs_topology_rip.cc
   intern/nurbs_topology_merge.cc
   intern/nurbs_topology_cut.cc

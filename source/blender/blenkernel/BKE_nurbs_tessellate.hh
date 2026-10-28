@@ -37,8 +37,8 @@ struct SurfacePreview {
   Vector<SurfacePreviewTriangle> triangles;
   int skipped_repeated_point_triangles = 0;
   Map<int64_t, int> skipped_triangles_by_face;
-  /** Faces whose UV triangulation was retained. Positions are evaluated for the source except
-   * during the mesh evaluator's explicitly tagged temporary translation previews. */
+  /** Faces whose UV triangulation was retained. Identical source supports can also retain their
+   * evaluated positions; changed supports are sampled again. */
   int reused_faces = 0;
   double max_interior_weight_condition = 1.0;
 
@@ -89,8 +89,9 @@ std::optional<SurfacePreview> tessellate_surfaces(const NurbsGeometry &source,
 
 /** Refresh positions while retaining unchanged face UV triangulations. Stable boundary sample
  * identities, face orientations, support knots and preview options are required; changed trims
- * rebuild only their own faces. Boundaries/interior positions and collapsed pole joins are
- * evaluated for the current source. r_reused means the entire layout was retained; reused_faces
+ * rebuild only their own faces. Boundary evaluations with identical inputs and interior positions
+ * on identical supports are reused. Changed inputs and collapsed pole joins are checked for the
+ * current source. r_reused means the entire layout was retained; reused_faces
  * also reports partial reuse. The prior preview must belong to the supplied source/options. */
 std::optional<SurfacePreview> refresh_surface_preview(
     const NurbsGeometry &source,

@@ -6429,6 +6429,116 @@ def bevel_rotated_clamped_round_box_workflow():
     yield from bevel_connected_edges_workflow(rounded=True, rotated=True, clamped=True)
 
 
+def bevel_subdivision_exec_workflow():
+    import bpy
+    import re
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab().two().e().y().text('2').ret().a().three().e().z().text('2').ret().two().a()
+
+    def totals():
+        match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)',
+                          window.scene.statistics(window.view_layer).replace(',', ''))
+        t.assertIsNotNone(match)
+        return tuple(map(int, match.groups()))[1::2]
+
+    def display():
+        window.view_layer.update()
+        evaluated = window.view_layer.objects.active.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            return tuple(tuple(vertex.co) for vertex in mesh.vertices)
+        finally:
+            evaluated.to_mesh_clear()
+
+    t.assertEqual(totals(), (8, 12, 6))
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        result = bpy.ops.curve.bevel(offset=0.25, segments=8, surface_shape='SUBDIVISION')
+    t.assertEqual(result, {'FINISHED'})
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    t.assertEqual(totals(), (488, 972, 486))
+    smooth = display()
+    yield e.ctrl.z()
+    t.assertEqual(totals(), (8, 12, 6))
+    yield e.two().a()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        result = bpy.ops.curve.bevel(offset=0.25, segments=8, surface_shape='CIRCULAR')
+    t.assertEqual(result, {'FINISHED'})
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    t.assertEqual(totals(), (488, 972, 486))
+    t.assertNotEqual(display(), smooth)
+    t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+    bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape = 'CIRCULAR'
+    print('NURBS_SUBDIVISION_EXEC_PASS', flush=True)
+
+
+def bevel_subdivision_redo_workflow():
+    import bpy
+    import re
+    import os
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    previous = bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape
+    bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape = 'CIRCULAR'
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab().two().e().y().text('2').ret().a().three().e().z().text('2').ret().two().a()
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.ctrl.b().text('0.25')
+    for _ in range(7):
+        yield e.wheelupmouse()
+    yield e.ret()
+    last = bpy.context.window_manager.operators[-1]
+    t.assertEqual(last.bl_idname, 'CURVE_OT_bevel')
+    t.assertEqual(last.properties.surface_shape, 'CIRCULAR')
+    last.properties.surface_shape = 'SUBDIVISION'
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        result = bpy.ops.ed.undo_redo()
+    t.assertEqual(result, {'FINISHED'})
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    stats = window.scene.statistics(window.view_layer).replace(',', '')
+    match = re.search(r'Verts:(\d+)/(\d+) \| Edges:(\d+)/(\d+) \| Faces:(\d+)/(\d+)', stats)
+    t.assertIsNotNone(match)
+    t.assertEqual(tuple(map(int, match.groups()))[1::2], (488, 972, 486))
+    t.assertEqual(bpy.context.window_manager.operators[-1].properties.surface_shape, 'SUBDIVISION')
+    t.assertEqual(bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape,
+                  'SUBDIVISION')
+    yield e.f9()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.screen.screenshot(filepath=os.path.join(os.environ['BLENDER_NURBS_BEVEL_OUTPUT'], 'surface-shape-settings.png'))
+    yield e.esc()
+    bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape = previous
+    print('NURBS_SUBDIVISION_REDO_PASS', flush=True)
+
+
+def bevel_subdivision_round_box_workflow():
+    import bpy
+    previous = bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape
+    bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape = 'SUBDIVISION'
+    try:
+        yield from bevel_connected_edges_workflow(rounded=True, skewed=True, segments=8)
+    finally:
+        bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape = previous
+
+
+def bevel_subdivision_odd_round_box_workflow():
+    import bpy
+    previous = bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape
+    bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape = 'SUBDIVISION'
+    try:
+        yield from bevel_connected_edges_workflow(rounded=True, skewed=True, segments=13)
+    finally:
+        bpy.context.window_manager.operator_properties_last('CURVE_OT_bevel').surface_shape = previous
+
+
 def bevel_skewed_round_box_workflow():
     yield from bevel_connected_edges_workflow(rounded=True, skewed=True)
 
