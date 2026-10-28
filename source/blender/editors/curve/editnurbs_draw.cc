@@ -422,6 +422,31 @@ static void draw_preview(const bContext *, ARegion *region, void *arg)
                                     data.snap_type,
                                     snap_color,
                                     snap_color);
+    if (data.snap_type == SCE_SNAP_TO_GRID) {
+      /* Blender's standard snap glyph intentionally omits grid targets. Draw a small cross in
+       * the view plane so grid and increment snaps are still visible during drawing. */
+      RegionView3D *rv3d = static_cast<RegionView3D *>(region->regiondata);
+      const float3 center(data.current);
+      const float3 right(rv3d->viewinv[0]);
+      const float3 up(rv3d->viewinv[1]);
+      const float size = 4.0f * U.pixelsize * ED_view3d_pixel_size(rv3d, &center.x);
+      GPU_blend(GPU_BLEND_ALPHA);
+      GPU_line_smooth(true);
+      GPU_line_width(1.5f);
+      const uint pos = GPU_vertformat_attr_add(
+          immVertexFormat(), "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+      immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+      immUniformColor4ubv(snap_color);
+      immBegin(GPU_PRIM_LINES, 4);
+      immVertex3fv(pos, center - right * size);
+      immVertex3fv(pos, center + right * size);
+      immVertex3fv(pos, center - up * size);
+      immVertex3fv(pos, center + up * size);
+      immEnd();
+      immUnbindProgram();
+      GPU_line_smooth(false);
+      GPU_blend(GPU_BLEND_NONE);
+    }
     GPU_line_width(1.0f);
   }
 }
