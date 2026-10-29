@@ -6631,7 +6631,31 @@ class VIEW3D_PT_nurbs_circle_overlay(Panel):
         layout.prop(props, "show_measurements")
 
 
+class VIEW3D_PT_nurbs_shape_overlay(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'HEADER'
+    bl_label = "Drawing Overlays"
+    bl_ui_units_x = 14
+
+    def draw(self, context):
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool is None or tool.idname not in {
+            "builtin.nurbs_draw_ellipse", "builtin.nurbs_draw_polygon", "builtin.nurbs_draw_rectangle",
+        }:
+            return
+        props = tool.operator_properties("curve.draw_" + tool.idname.removeprefix("builtin.nurbs_draw_"))
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.prop(props, "use_axis_colors")
+        layout.prop(props, "axis_color_dim")
+        layout.prop(props, "overlay_color")
+        layout.prop(props, "preview_point_size")
+        layout.prop(props, "show_measurements")
+
+
 classes = (
+    VIEW3D_PT_nurbs_shape_overlay,
     VIEW3D_PT_nurbs_circle_overlay,
     VIEW3D_PT_nurbs_arc_overlay,
     VIEW3D_HT_header,

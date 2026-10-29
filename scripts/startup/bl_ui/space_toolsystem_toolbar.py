@@ -1162,6 +1162,67 @@ class _defs_nurbs_draw:
             draw_settings=draw_settings,
         )
 
+    @ToolDef.from_fn
+    def ellipse():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("curve.draw_ellipse")
+            layout.popover(panel="VIEW3D_PT_nurbs_shape_overlay", text="", icon='OVERLAY')
+            layout.prop(props, "mode", expand=True)
+            layout.prop(props, "preview_points")
+            if props.mode == 'FOCI':
+                layout.prop(props, "keep_foci")
+
+        return dict(
+            idname="builtin.nurbs_draw_ellipse",
+            operator="curve.draw_ellipse",
+            label="Ellipse",
+            description="Draw a native NURBS ellipse using radCAD construction modes",
+            icon="rna:CURVE_NCIRCLE",
+            cursor='CROSSHAIR',
+            widget="VIEW3D_GGT_nurbs_draw_snap",
+            keymap="3D View Tool: NURBS Ellipse",
+            draw_settings=draw_settings,
+        )
+
+    @ToolDef.from_fn
+    def polygon():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("curve.draw_polygon")
+            layout.popover(panel="VIEW3D_PT_nurbs_shape_overlay", text="", icon='OVERLAY')
+            layout.prop(props, "mode", expand=True)
+            layout.prop(props, "preview_points")
+
+        return dict(
+            idname="builtin.nurbs_draw_polygon",
+            operator="curve.draw_polygon",
+            label="Polygon",
+            description="Draw a native NURBS polygon using radCAD construction modes",
+            icon="rna:MESH_CIRCLE",
+            cursor='CROSSHAIR',
+            widget="VIEW3D_GGT_nurbs_draw_snap",
+            keymap="3D View Tool: NURBS Polygon",
+            draw_settings=draw_settings,
+        )
+
+    @ToolDef.from_fn
+    def rectangle():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("curve.draw_rectangle")
+            layout.popover(panel="VIEW3D_PT_nurbs_shape_overlay", text="", icon='OVERLAY')
+            layout.prop(props, "mode", expand=True)
+
+        return dict(
+            idname="builtin.nurbs_draw_rectangle",
+            operator="curve.draw_rectangle",
+            label="Rectangle",
+            description="Draw a native NURBS rectangle using radCAD construction modes",
+            icon="rna:MESH_PLANE",
+            cursor='CROSSHAIR',
+            widget="VIEW3D_GGT_nurbs_draw_snap",
+            keymap="3D View Tool: NURBS Rectangle",
+            draw_settings=draw_settings,
+        )
+
 
 class _defs_edit_curve:
 
@@ -3095,6 +3156,9 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_nurbs_draw.spline,
             _defs_nurbs_draw.arc,
             _defs_nurbs_draw.circle,
+            _defs_nurbs_draw.ellipse,
+            _defs_nurbs_draw.polygon,
+            _defs_nurbs_draw.rectangle,
             None,
             _defs_edit_curve.draw,
             _defs_edit_curve.pen,
@@ -3125,6 +3189,9 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_nurbs_draw.spline,
             _defs_nurbs_draw.arc,
             _defs_nurbs_draw.circle,
+            _defs_nurbs_draw.ellipse,
+            _defs_nurbs_draw.polygon,
+            _defs_nurbs_draw.rectangle,
             None,
             _defs_transform.shear,
         ],

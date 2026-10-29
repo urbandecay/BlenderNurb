@@ -7092,6 +7092,16 @@ def km_3d_view_tool_nurbs_circle(params):
     )
 
 
+def km_3d_view_tool_nurbs_shape(params, shape):
+    return (
+        "3D View Tool: NURBS " + shape.title(),
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("curve.draw_" + shape, {"type": params.tool_mouse, "value": 'PRESS'}, None),
+        ]},
+    )
+
+
 def km_3d_view_tool_edit_curve_draw(params):
     return (
         "3D View Tool: Edit Curve, Draw",
@@ -7992,6 +8002,7 @@ def generate_keymaps(params=None):
         km_3d_view_tool_nurbs_draw(params, spline=True),
         km_3d_view_tool_nurbs_arc(params),
         km_3d_view_tool_nurbs_circle(params),
+        *(km_3d_view_tool_nurbs_shape(params, shape) for shape in ("ellipse", "polygon", "rectangle")),
         km_3d_view_tool_edit_curve_pen(params),
         km_3d_view_tool_edit_curve_radius(params),
         km_3d_view_tool_edit_curve_tilt(params),

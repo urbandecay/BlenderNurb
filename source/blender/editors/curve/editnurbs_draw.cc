@@ -74,6 +74,8 @@ enum class DrawNumericMode : uint8_t {
   Sagitta,
   Angle,
   Segments,
+  Width,
+  Height,
 };
 
 struct DrawData {
@@ -98,6 +100,12 @@ struct DrawData {
   float3 face_normal = float3(0, 0, 1);
   bool locked = true;
   bool spline = false;
+  int shape = 0; /* 1 ellipse, 2 polygon, 3 rectangle. */
+  int shape_mode = 0;
+  bool square = false;
+  bool keep_foci = false;
+  std::optional<double> width, height;
+  Vector<double3> shape_points;
   int arc_mode = -1;
   bool circle = false;
   bool circle_input_radius = false;
@@ -141,6 +149,14 @@ static bool is_arc(const wmOperator *op)
 static bool is_circle(const wmOperator *op)
 {
   return STREQ(op->type->idname, "CURVE_OT_draw_circle");
+}
+
+static int shape_type(const wmOperator *op)
+{
+  return STREQ(op->type->idname, "CURVE_OT_draw_ellipse")   ? 1 :
+         STREQ(op->type->idname, "CURVE_OT_draw_polygon")   ? 2 :
+         STREQ(op->type->idname, "CURVE_OT_draw_rectangle") ? 3 :
+                                                              0;
 }
 
 static double arc_sweep_get(wmOperator *op)
@@ -330,6 +346,8 @@ static Vector<double> arc_divisions(const NurbsCurveGeometry &support,
 }
 
 static wmOperatorStatus arc_exec(bContext *C, wmOperator *op);
+static wmOperatorStatus shape_exec(bContext *C, wmOperator *op);
+static void shape_preview(wmOperator *op);
 static void arc_update(bContext *C, wmOperator *op, const wmEvent *event);
 static void circle_update(bContext *C, wmOperator *op, const wmEvent *event);
 static void update_arc_area_status_text(bContext *C, wmOperator *op);
@@ -683,6 +701,9 @@ static bool snap_to_volume(ed::transform::SnapObjectContext *snap_context,
 
 static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
 {
+  if (shape_type(op)) {
+    return shape_exec(C, op);
+  }
   if (is_arc(op) || is_circle(op)) {
     return arc_exec(C, op);
   }
@@ -744,11 +765,10 @@ static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
     }
     int64_t vertex_id;
     double gap = 0;
-    const int point_index = is_spline(op) ?
-                                (i == 0 ? 0 :
-                                 i == parameters.size() - 1 ? points.size() - 1 :
-                                                              -1) :
-                                i;
+    const int point_index = is_spline(op) ? (i == 0                     ? 0 :
+                                             i == parameters.size() - 1 ? points.size() - 1 :
+                                                                          -1) :
+                                            i;
     const NurbsTopologyVertex *anchor = point_index >= 0 && references.size() == points.size() &&
                                                 index ?
                                             index->vertex(references[point_index]) :
@@ -857,10 +877,9 @@ static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
   references >> refs[0] >> refs[1];
   /* Preview divisions become shared source endpoints on the exact support. */
   const bool circle = is_circle(op);
-  Vector<double> parameters = arc_divisions(
-      *support,
-      RNA_int_get(op->ptr, "preview_points"),
-      !circle && RNA_enum_get(op->ptr, "mode") == 0);
+  Vector<double> parameters = arc_divisions(*support,
+                                            RNA_int_get(op->ptr, "preview_points"),
+                                            !circle && RNA_enum_get(op->ptr, "mode") == 0);
   if (circle) {
     const auto divisions = circle_divisions(op);
     if (!divisions) {
@@ -961,9 +980,292 @@ static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+/* Ellipses retain an exact rational support. Polygon and rectangle corners are
+ * shared topology vertices, with a degree-one support for each straight side. */
+static OwnedCurve ellipse_support(const Span<double3> points, std::string &error)
+{
+  if (points.size() != 3) {
+    error = "Place both ellipse axes";
+    return nullptr;
+  }
+  const double3 x = points[1] - points[0], y = points[2] - points[0];
+  if (math::length(x) < 1e-9 || math::length(y) < 1e-9) {
+    error = "Ellipse axes must have nonzero length";
+    return nullptr;
+  }
+  auto curve = circular_arc(double3(0), double3(1, 0, 0), double3(0, 0, 1), 2 * M_PI, &error);
+  if (curve) {
+    for (int i = 0; i < curve->points_num; i++) {
+      const double3 p(curve->points[i].position);
+      const double3 q = points[0] + x * p.x + y * p.y;
+      std::copy_n(&q.x, 3, curve->points[i].position);
+    }
+  }
+  return curve;
+}
+
+static wmOperatorStatus shape_exec(bContext *C, wmOperator *op)
+{
+  std::string error;
+  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+  const Vector<double3> points = read_points(op);
+  const bool ellipse = shape_type(op) == 1;
+  OwnedCurve support = ellipse ? ellipse_support(points, error) :
+                                 draw_support(
+                                     points.as_span().take_front(std::min<int>(2, points.size())),
+                                     false,
+                                     false,
+                                     1,
+                                     error);
+  if (!source || !support) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  TopologyEditResult result;
+  result.geometry.reset(geometry_copy(&source->source().geometry()));
+  auto &geometry = *result.geometry;
+  const int count = ellipse ? RNA_int_get(op->ptr, "preview_points") : points.size() - 1;
+  if (ellipse) {
+    support->id = geometry.next_id++;
+  }
+  Vector<int64_t> vertices;
+  Vector<double> parameters;
+  for (int i = 0; i < count; i++) {
+    const double t = ellipse ? circle_parameter_at_angle(2 * M_PI * i / count) : double(i) / count;
+    const auto point = evaluate_curve(*support, t, &error);
+    if (!point) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+    vertex->id = geometry.next_id++;
+    const double3 position = ellipse ? point->position : points[i];
+    std::copy_n(&position.x, 3, vertex->position);
+    BLI_addtail(&geometry.vertices, vertex);
+    vertices.append(vertex->id);
+    result.vertices.append(vertex->id);
+    parameters.append(t);
+  }
+  for (int i = 0; i < count; i++) {
+    auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
+    edge->id = geometry.next_id++;
+    edge->vertex_ids[0] = vertices[i];
+    edge->vertex_ids[1] = vertices[(i + 1) % count];
+    edge->curve_id = support->id;
+    edge->parameter_range[0] = parameters[i];
+    edge->parameter_range[1] = i + 1 == count ? 1 : parameters[i + 1];
+    if (!ellipse) {
+      auto segment = draw_support(points.as_span().slice(i, 2), false, false, 1, error);
+      segment->id = geometry.next_id++;
+      edge->curve_id = segment->id;
+      edge->parameter_range[0] = 0;
+      edge->parameter_range[1] = 1;
+      BLI_addtail(&geometry.curves, segment.release());
+    }
+    BLI_addtail(&geometry.edges, edge);
+    result.edges.append(edge->id);
+  }
+  if (ellipse) {
+    BLI_addtail(&geometry.curves, support.release());
+  }
+  if (ellipse && RNA_boolean_get(op->ptr, "keep_foci")) {
+    std::istringstream foci(RNA_string_get(op->ptr, "foci"));
+    double3 position;
+    while (foci >> position.x >> position.y >> position.z) {
+      auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+      vertex->id = geometry.next_id++;
+      std::copy_n(&position.x, 3, vertex->position);
+      BLI_addtail(&geometry.vertices, vertex);
+      result.vertices.append(vertex->id);
+    }
+  }
+  if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
+    PointerRNA settings;
+    WM_toolsystem_ref_properties_ensure_ex(tool, op->type->idname, op->type->srna, &settings);
+    RNA_enum_set(&settings, "mode", RNA_enum_get(op->ptr, "mode"));
+    RNA_int_set(&settings, "preview_points", RNA_int_get(op->ptr, "preview_points"));
+    RNA_boolean_set(&settings, "keep_foci", RNA_boolean_get(op->ptr, "keep_foci"));
+  }
+  return OPERATOR_FINISHED;
+}
+
+static bool shape_three_points(const DrawData &data)
+{
+  return (data.shape == 1 && data.shape_mode != 3) || (data.shape == 3 && data.shape_mode == 2);
+}
+
+static void shape_preview(wmOperator *op)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  data.wire.clear();
+  data.arc_markers.clear();
+  data.shape_points.clear();
+  data.arc_valid = false;
+  data.arc_hud.clear();
+  if (data.points.is_empty()) {
+    return;
+  }
+  const int mode = data.shape_mode;
+  const double3 anchor = data.points[0];
+  const double3 normal = math::normalize(double3(data.plane_normal));
+  auto [x, y] = arc_plane_axes(normal);
+  double3 target = data.current - normal * math::dot(data.current - anchor, normal);
+  data.current = target;
+  const double3 second = data.points.size() > 1 ? data.points[1] : target;
+  const double3 bridge = second - anchor;
+  const bool oriented = (data.shape == 1 && mode != 3) || data.shape == 2 ||
+                        (data.shape == 3 && mode == 2);
+  if (oriented && math::length(bridge) > 1e-9) {
+    x = math::normalize(bridge);
+    y = math::normalize(math::cross(normal, x));
+  }
+  const bool initial = shape_three_points(data) && data.points.size() == 1;
+  if (initial) {
+    data.wire = {float3(anchor), float3(second)};
+    data.arc_hud.append(data.shape == 1 ? "Place major axis / second focus" : "Place first edge");
+    return;
+  }
+  double3 center = anchor;
+  double rx = 0, ry = 0;
+  if (data.shape == 1) {
+    if (mode == 3) {
+      const double dx = math::dot(target - anchor, x), dy = math::dot(target - anchor, y);
+      center += x * (dx / 2) + y * (dy / 2);
+      rx = std::abs(dx) / 2;
+      ry = std::abs(dy) / 2;
+    }
+    else {
+      center = mode == 0 ? anchor : (anchor + second) / 2;
+      rx = math::length(bridge) * (mode == 0 ? 1 : 0.5);
+      const double minor = math::dot(target - center, y);
+      ry = std::abs(minor);
+      if (mode != 1) {
+        data.current = center + y * minor;
+      }
+      if (mode == 1) {
+        rx = (math::distance(target, anchor) + math::distance(target, second)) / 2;
+        ry = std::sqrt(std::max(0.0, rx * rx - math::length_squared(bridge) / 4));
+      }
+    }
+    data.shape_points = {center, center + x * rx, center + y * ry};
+    std::string error;
+    auto support = ellipse_support(data.shape_points, error);
+    if (support) {
+      for (int i = 0; i <= 192; i++) {
+        if (const auto p = evaluate_curve(*support, double(i) / 192)) {
+          data.wire.append(float3(p->position));
+        }
+      }
+      const int count = RNA_int_get(op->ptr, "preview_points");
+      for (int i = 0; i < count; i++) {
+        const double a = 2 * M_PI * i / count;
+        data.arc_markers.append(float3(center + x * (rx * std::cos(a)) + y * (ry * std::sin(a))));
+      }
+      data.arc_valid = true;
+    }
+  }
+  else if (data.shape == 2) {
+    int count = RNA_int_get(op->ptr, "preview_points");
+    if (mode == 3 && count % 2 == 0) {
+      count = std::min(255, count + 1);
+      RNA_int_set(op->ptr, "preview_points", count);
+    }
+    rx = math::length(bridge);
+    double angle = 0;
+    if (mode == 1) {
+      rx /= std::cos(M_PI / count);
+      angle = -M_PI / count;
+    }
+    else if (mode == 2) {
+      rx /= 2 * std::sin(M_PI / count);
+      center = (anchor + second) / 2 - y * (rx * std::cos(M_PI / count));
+      x = math::normalize(anchor - center);
+      y = math::normalize(math::cross(normal, x));
+    }
+    else if (mode == 3) {
+      rx /= 1 + std::cos(M_PI / count);
+      center = anchor + x * rx;
+      x = -x;
+      y = -y;
+    }
+    for (int i = 0; i < count; i++) {
+      const double a = angle + 2 * M_PI * i / count;
+      data.shape_points.append(center + rx * (x * std::cos(a) + y * std::sin(a)));
+    }
+  }
+  else {
+    double dx = mode == 2 ? math::length(bridge) : math::dot(target - anchor, x);
+    double dy = math::dot(target - anchor, y);
+    const double factor = mode == 0 ? 0.5 : 1;
+    if (data.width) {
+      dx = *data.width * factor;
+    }
+    if (data.height) {
+      dy = *data.height * factor;
+    }
+    if (data.square && mode != 2) {
+      const double side = data.width  ? std::abs(*data.width) * factor :
+                          data.height ? std::abs(*data.height) * factor :
+                                        std::max(std::abs(dx), std::abs(dy));
+      dx = std::copysign(side, dx);
+      dy = std::copysign(side, dy);
+    }
+    rx = std::abs(dx) / factor;
+    ry = std::abs(dy) / factor;
+    const double3 a = mode == 0 ? anchor - x * dx - y * dy : anchor;
+    const double3 u = x * (dx / factor), v = y * (dy / factor);
+    data.shape_points = {a, a + u, a + u + v, a + v};
+    if (std::abs(dx * dy) < 1e-18) {
+      data.shape_points.clear();
+    }
+  }
+  if (data.shape != 1 && !data.shape_points.is_empty() && rx > 1e-9) {
+    data.shape_points.append(data.shape_points[0]);
+    for (int i = 0; i < data.shape_points.size(); i++) {
+      data.wire.append(float3(data.shape_points[i]));
+      if (i + 1 < data.shape_points.size()) {
+        data.arc_markers.append(float3(data.shape_points[i]));
+      }
+    }
+    data.arc_valid = true;
+  }
+  std::ostringstream status;
+  status << std::fixed << std::setprecision(3);
+  status << (data.shape == 1 ? "Ellipse | Rx: " :
+             data.shape == 2 ? "Polygon | Radius: " :
+                               "Rectangle | Width: ")
+         << rx;
+  if (data.shape != 2) {
+    status << (data.shape == 1 ? " | Ry: " : " | Height: ") << ry;
+  }
+  if (data.shape != 3) {
+    status << " | " << (data.shape == 2 ? "Sides: " : "Segments: ")
+           << RNA_int_get(op->ptr, "preview_points");
+  }
+  if (data.square) {
+    status << " | Square";
+  }
+  if (RNA_boolean_get(op->ptr, "show_measurements")) {
+    data.arc_hud.append(status.str());
+  }
+  else {
+    data.arc_hud.append(data.shape == 1 ? "Ellipse: place minor radius / confirm" :
+                        data.shape == 2 ? "Polygon: place endpoint / confirm" :
+                                          "Rectangle: place corner / confirm");
+  }
+}
+
 static void rebuild_preview(wmOperator *op)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
+  if (data.shape) {
+    shape_preview(op);
+    return;
+  }
   data.wire.clear();
   data.arc_markers.clear();
   data.arc_valid = false;
@@ -1084,8 +1386,7 @@ static void rebuild_preview(wmOperator *op)
     const double4x4 transform(data.source->object().object_to_world());
     for (int i = 1; i < segments; i++) {
       if (const auto point = evaluate_curve(*support, double(i) / segments)) {
-        data.arc_markers.append(
-            float3(math::transform_point(transform, point->position)));
+        data.arc_markers.append(float3(math::transform_point(transform, point->position)));
       }
     }
   }
@@ -1162,7 +1463,9 @@ static void draw_arc_overlay(wmOperator *op, ARegion *region)
   };
   /* RCAD draws the compass only in draw_preview_1point. Endpoint arc modes
    * have chord/height/through-point guides, never a compass at either stage. */
-  if (!data.circle && data.arc_mode == 0 && RNA_boolean_get(op->ptr, "show_compass")) {
+  if (!data.shape && !data.circle && data.arc_mode == 0 &&
+      RNA_boolean_get(op->ptr, "show_compass"))
+  {
     const double3 center = data.points[0];
     const float3 position(center);
     const double radius = ED_view3d_pixel_size(rv3d, &position.x) *
@@ -1216,6 +1519,38 @@ static void draw_arc_overlay(wmOperator *op, ARegion *region)
     }
     immUniform1f("lineWidth", U.pixelsize);
   }
+  else if (data.shape) {
+    const double3 end = data.points.size() == 1 ? data.current : data.points[1];
+    if (data.shape == 1 && data.shape_mode == 3 && data.shape_points.size() == 3) {
+      const double3 center = data.shape_points[0];
+      const double3 u = data.shape_points[1] - center, v = data.shape_points[2] - center;
+      const std::array<double3, 4> corners = {
+          center - u - v, center + u - v, center + u + v, center - u + v};
+      for (int i = 0; i < 4; i++) {
+        guide(corners[i], corners[(i + 1) % 4], float4(0, 1, 0, 1));
+      }
+    }
+    else if (data.shape == 1 && data.shape_mode == 0) {
+      guide(first * 2 - end, end, aligned_color(end - first, fallback));
+      if (data.points.size() > 1) {
+        guide(first, data.current, aligned_color(data.current - first, fallback));
+      }
+    }
+    else if (data.shape == 1 && data.shape_mode == 1 && data.points.size() > 1) {
+      guide(first, data.current, float4(0, 1, 0, 1));
+      guide(end, data.current, float4(0, 1, 0, 1));
+    }
+    else if (data.shape == 1 && data.shape_mode == 2) {
+      guide(first, end, aligned_color(end - first, fallback));
+      if (data.points.size() > 1) {
+        const double3 center = (first + end) / 2;
+        guide(center, data.current, aligned_color(data.current - center, fallback));
+      }
+    }
+    else if (data.shape != 3 || (data.shape_mode == 2 && data.points.size() == 1)) {
+      guide(first, end, aligned_color(end - first, fallback));
+    }
+  }
   else if (data.circle) {
     const double3 end = data.points.size() == 1 ? data.current : data.points[1];
     const float4 neutral = data.arc_mode == 2 ? float4(0.5f, 0.5f, 0.5f, 0.5f) : fallback;
@@ -1267,7 +1602,7 @@ static void draw_arc_overlay(wmOperator *op, ARegion *region)
   /* Match the addon's stage-specific construction markers. Center arcs use
    * their compass cross and sampled arc markers; 3 Point has no moving dot
    * until the chord has been placed. */
-  if ((data.circle && data.arc_mode < 3) || (!data.circle && data.arc_mode > 0)) {
+  if (data.shape || (data.circle && data.arc_mode < 3) || (!data.circle && data.arc_mode > 0)) {
     for (const double3 &point : data.points) {
       marker(float3(point));
     }
@@ -1332,7 +1667,7 @@ static void draw_preview(const bContext *, ARegion *region, void *arg)
   auto &data = *static_cast<DrawData *>(static_cast<wmOperator *>(arg)->customdata);
   const auto previous_blend = GPU_blend_get();
   GPU_blend(GPU_BLEND_ALPHA);
-  if (data.arc_mode >= 0) {
+  if (data.arc_mode >= 0 || data.shape) {
     draw_arc_overlay(static_cast<wmOperator *>(arg), region);
   }
   else {
@@ -1452,8 +1787,7 @@ static void update_mouse(bContext *C,
    * accepted position until Enter applies the input. */
   const bool pending = data.numeric_mode != DrawNumericMode::Automatic || hasNumInput(&data.num);
   if ((pending && !data.numeric_applying) ||
-      (data.numeric_hold && !pending &&
-       ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER)))
+      (data.numeric_hold && !pending && ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER)))
   {
     update_arc_area_status_text(C, op);
     if (tag_redraw) {
@@ -1645,7 +1979,8 @@ static void update_mouse(bContext *C,
     if (snapped && (data.points.is_empty() || !data.locked) && math::length_squared(normal) > 0) {
       data.plane_normal = math::normalize(normal);
       data.plane_origin = target;
-      if (data.arc_mode >= 0 && data.points.size() < 2 && !data.arc_perpendicular) {
+      if ((data.arc_mode >= 0 || data.shape) && data.points.size() < 2 && !data.arc_perpendicular)
+      {
         data.arc_reference_normal = data.plane_normal;
       }
     }
@@ -1665,9 +2000,13 @@ static void update_mouse(bContext *C,
       data.face_normal = float3(0.0f, 0.0f, 1.0f);
     }
   }
-  const bool linear_constraints = data.arc_mode < 0 ||
-                                  (!(data.circle && data.arc_mode >= 3) &&
-                                   data.points.size() == 1 && !(event->modifier & KM_ALT));
+  const bool linear_constraints = (data.shape && data.shape != 3 &&
+                                   !(data.shape == 1 && data.shape_mode == 3) &&
+                                   data.points.size() == 1) ||
+                                  (!data.shape &&
+                                   (data.arc_mode < 0 ||
+                                    (!(data.circle && data.arc_mode >= 3) &&
+                                     data.points.size() == 1 && !(event->modifier & KM_ALT))));
   if (!data.points.is_empty() && linear_constraints) {
     const float3 anchor(data.points.last());
     if (!(event->modifier & KM_SHIFT)) {
@@ -1863,7 +2202,7 @@ static void update_mouse(bContext *C,
       }
     }
   }
-  if (!data.points.is_empty() && hasNumInput(&data.num) &&
+  if (!data.shape && !data.points.is_empty() && hasNumInput(&data.num) &&
       data.numeric_mode != DrawNumericMode::Segments &&
       (data.arc_mode < 0 || (data.points.size() == 1 && !(data.circle && data.arc_mode >= 3))))
   {
@@ -1897,6 +2236,9 @@ static void update_mouse(bContext *C,
       rebuild_preview(op);
       update_arc_area_status_text(C, op);
     }
+  }
+  if (data.shape) {
+    shape_preview(op);
   }
   if (data.snap_type != SCE_SNAP_TO_NONE) {
     const double snap_tolerance = 1e-6 * std::max(1.0, double(math::length(snap_location)));
@@ -1943,20 +2285,25 @@ static void draw_snap_hover(const bContext *context, wmGizmo *gizmo)
   {
     return;
   }
-  const char *operator_id = STREQ(tool->idname, "builtin.nurbs_draw_line") ?
-                                "CURVE_OT_draw_line" :
-                            STREQ(tool->idname, "builtin.nurbs_draw_spline") ?
-                                "CURVE_OT_draw_spline" :
-                            STREQ(tool->idname, "builtin.nurbs_draw_arc") ?
-                                "CURVE_OT_draw_arc" :
-                            STREQ(tool->idname, "builtin.nurbs_draw_circle") ?
-                                "CURVE_OT_draw_circle" :
-                                nullptr;
+  const char *operator_id =
+      STREQ(tool->idname, "builtin.nurbs_draw_line")      ? "CURVE_OT_draw_line" :
+      STREQ(tool->idname, "builtin.nurbs_draw_spline")    ? "CURVE_OT_draw_spline" :
+      STREQ(tool->idname, "builtin.nurbs_draw_arc")       ? "CURVE_OT_draw_arc" :
+      STREQ(tool->idname, "builtin.nurbs_draw_ellipse")   ? "CURVE_OT_draw_ellipse" :
+      STREQ(tool->idname, "builtin.nurbs_draw_polygon")   ? "CURVE_OT_draw_polygon" :
+      STREQ(tool->idname, "builtin.nurbs_draw_rectangle") ? "CURVE_OT_draw_rectangle" :
+      STREQ(tool->idname, "builtin.nurbs_draw_circle")    ? "CURVE_OT_draw_circle" :
+                                                            nullptr;
   if (!operator_id) {
     return;
   }
-  for (const char *id :
-       {"CURVE_OT_draw_line", "CURVE_OT_draw_spline", "CURVE_OT_draw_arc", "CURVE_OT_draw_circle"})
+  for (const char *id : {"CURVE_OT_draw_line",
+                         "CURVE_OT_draw_spline",
+                         "CURVE_OT_draw_arc",
+                         "CURVE_OT_draw_circle",
+                         "CURVE_OT_draw_ellipse",
+                         "CURVE_OT_draw_polygon",
+                         "CURVE_OT_draw_rectangle"})
   {
     if (WM_operator_find_modal_by_type(CTX_wm_window(C), WM_operatortype_find(id, false))) {
       return;
@@ -1992,11 +2339,14 @@ static void draw_snap_hover(const bContext *context, wmGizmo *gizmo)
   op.customdata = &data;
   data.spline = is_spline(&op);
   data.circle = is_circle(&op);
+  data.shape = shape_type(&op);
+  data.shape_mode = data.shape ? RNA_enum_get(op.ptr, "mode") : 0;
   data.arc_mode = is_arc(&op) || data.circle ? RNA_enum_get(op.ptr, "mode") : -1;
   data.region = region;
   data.plane_origin = CTX_data_scene(C)->cursor.location;
-  data.plane_normal = data.arc_mode >= 0 ? float3(0, 0, 1) :
-                                           math::normalize(float3(rv3d->viewinv[2]));
+  data.plane_normal = (data.arc_mode >= 0 || data.shape) ?
+                          float3(0, 0, 1) :
+                          math::normalize(float3(rv3d->viewinv[2]));
   data.snap = reinterpret_cast<DrawSnapGizmo *>(gizmo)->snap;
   update_mouse(C, &op, &event, false);
   draw_preview(C, region, &op);
@@ -2033,9 +2383,9 @@ static void draw_num_input_begin(bContext *C,
   initNumInput(&data.num);
   data.num.idx_max = 0;
   data.num.unit_sys = CTX_data_scene(C)->unit.system;
-  data.num.unit_type[0] = mode == DrawNumericMode::Angle ? B_UNIT_ROTATION :
+  data.num.unit_type[0] = mode == DrawNumericMode::Angle    ? B_UNIT_ROTATION :
                           mode == DrawNumericMode::Segments ? B_UNIT_NONE :
-                                                             B_UNIT_LENGTH;
+                                                              B_UNIT_LENGTH;
   if (mode == DrawNumericMode::Segments) {
     data.num.val_flag[0] |= NUM_NO_FRACTION;
   }
@@ -2148,9 +2498,8 @@ static void arc_update(bContext * /*C*/, wmOperator *op, const wmEvent *event)
         }
         data.current_vertex = 0;
         data.arc_radius = radius;
-        data.current = data.points[0] + radius *
-                                             (x * std::cos(data.arc_sweep) +
-                                              y * std::sin(data.arc_sweep));
+        data.current = data.points[0] +
+                       radius * (x * std::cos(data.arc_sweep) + y * std::sin(data.arc_sweep));
       }
       else {
         const double3 x = math::normalize(data.points[1] - data.points[0]);
@@ -2256,7 +2605,12 @@ static void update_arc_area_status_text(bContext *C, wmOperator *op)
   };
 
   const bool has_input = hasNumInput(&data.num);
-  if (data.arc_mode < 0) {
+  if (data.shape) {
+    for (const std::string &line : data.arc_hud) {
+      append(line);
+    }
+  }
+  else if (data.arc_mode < 0) {
     if (!data.spline && data.numeric_mode == DrawNumericMode::Automatic && !has_input) {
       ED_area_status_text(CTX_wm_area(C), nullptr);
       return;
@@ -2919,6 +3273,10 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   auto *data = MEM_new<DrawData>(__func__);
   data->source = std::move(source);
   data->spline = is_spline(op);
+  data->shape = shape_type(op);
+  data->shape_mode = data->shape ? RNA_enum_get(op->ptr, "mode") : 0;
+  data->keep_foci = data->shape == 1 && data->shape_mode == 1 &&
+                    RNA_boolean_get(op->ptr, "keep_foci");
   data->circle = is_circle(op);
   if (data->circle) {
     data->locked = false;
@@ -2939,8 +3297,9 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   data->region = CTX_wm_region(C);
   data->plane_origin = CTX_data_scene(C)->cursor.location;
   const auto *rv3d = static_cast<RegionView3D *>(data->region->regiondata);
-  data->plane_normal = data->arc_mode >= 0 ? float3(0, 0, 1) :
-                                             math::normalize(float3(rv3d->viewinv[2]));
+  data->plane_normal = (data->arc_mode >= 0 || data->shape) ?
+                           float3(0, 0, 1) :
+                           math::normalize(float3(rv3d->viewinv[2]));
   data->snap = ed::transform::snap_object_context_create();
   data->navigation = ED_view3d_navigation_init(C, nullptr);
   op->customdata = data;
@@ -2970,6 +3329,11 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   }
   ED_workspace_status_text(
       C,
+      data->shape ?
+          "Click: Place construction point | Enter: Accept value / finish | Esc / Right Click: "
+          "Cancel | "
+          "Backspace: Previous stage | P: Perpendicular | X/Y: Plane / rectangle dimensions | "
+          "R/D: Size | S: Segments / sides | Shift: Square | Ctrl: Toggle snap" :
       data->circle ?
           "Click / Enter: Confirm circle placement | Esc / Right Click: Cancel | Backspace: "
           "Previous stage | "
@@ -3023,11 +3387,11 @@ static bool draw_numeric_shortcut(bContext *C, wmOperator *op, const wmEvent *ev
       mode = DrawNumericMode::Radius;
     }
     if (mode == DrawNumericMode::Radius) {
-      label = data.circle ? "Radius" :
-              data.arc_mode == 0 ? "Radius" :
+      label = data.circle                                  ? "Radius" :
+              data.arc_mode == 0                           ? "Radius" :
               data.arc_mode == 1 && data.points.size() > 1 ? "Sagitta" :
-              data.arc_mode == 1 ? "Chord" :
-                                  "Length";
+              data.arc_mode == 1                           ? "Chord" :
+                                                             "Length";
     }
   }
   else if (event->type == EVT_SKEY && (data.arc_mode >= 0 || data.spline)) {
@@ -3035,8 +3399,7 @@ static bool draw_numeric_shortcut(bContext *C, wmOperator *op, const wmEvent *ev
     label = "Segments";
     data.numeric_initial_segments = RNA_int_get(op->ptr, "preview_points");
   }
-  else if (event->type == EVT_DKEY && data.circle && data.arc_mode == 1 &&
-           data.points.size() == 1)
+  else if (event->type == EVT_DKEY && data.circle && data.arc_mode == 1 && data.points.size() == 1)
   {
     mode = DrawNumericMode::Diameter;
     data.numeric_initial_circle_input_radius = data.circle_input_radius;
@@ -3076,11 +3439,251 @@ static bool draw_numeric_shortcut(bContext *C, wmOperator *op, const wmEvent *ev
   return true;
 }
 
+static void shape_plane(DrawData &data)
+{
+  double3 normal(data.arc_reference_normal);
+  if (data.arc_perpendicular) {
+    if (data.points.size() > 1) {
+      normal = math::cross(data.points[1] - data.points[0], normal);
+    }
+    else {
+      const auto axes = arc_plane_axes(normal);
+      const auto *rv3d = static_cast<const RegionView3D *>(data.region->regiondata);
+      const double3 view(rv3d->viewinv[2]);
+      normal = data.arc_vertical_axis == 0                                             ? axes[0] :
+               data.arc_vertical_axis == 1                                             ? axes[1] :
+               std::abs(math::dot(view, axes[0])) > std::abs(math::dot(view, axes[1])) ? axes[0] :
+                                                                                         axes[1];
+    }
+  }
+  if (math::length_squared(normal) > 1e-12) {
+    data.plane_normal = float3(math::normalize(normal));
+  }
+}
+
+static wmOperatorStatus shape_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  const bool enter = event->val == KM_PRESS && ELEM(event->type, EVT_RETKEY, EVT_PADENTER);
+  const bool pending = data.numeric_mode != DrawNumericMode::Automatic || hasNumInput(&data.num);
+  if (pending) {
+    if (enter) {
+      double value = 0;
+      if (applyNumInput(&data.num, &value)) {
+        const auto mode = data.numeric_mode;
+        value = std::abs(value);
+        if (mode == DrawNumericMode::Segments) {
+          RNA_int_set(op->ptr,
+                      "preview_points",
+                      std::clamp(int(std::lround(value)), data.shape == 1 ? 4 : 3, 256));
+        }
+        else if (mode == DrawNumericMode::Width || mode == DrawNumericMode::Height) {
+          auto [x, y] = arc_plane_axes(double3(data.plane_normal));
+          if (data.shape_mode == 2) {
+            const double3 edge = (data.points.size() > 1 ? data.points[1] : data.current) -
+                                 data.points[0];
+            if (math::length(edge) > 1e-9) {
+              x = math::normalize(edge);
+              y = math::normalize(math::cross(double3(data.plane_normal), x));
+            }
+          }
+          const double sign = math::dot(data.current - data.points[0],
+                                        mode == DrawNumericMode::Width ? x : y);
+          (mode == DrawNumericMode::Width ? data.width : data.height) = std::copysign(value, sign);
+          if (data.shape_mode == 2 && data.points.size() == 1 && mode == DrawNumericMode::Width) {
+            const double3 delta = data.current - data.points[0];
+            const double3 x = math::length(delta) > 1e-9 ?
+                                  math::normalize(delta) :
+                                  arc_plane_axes(double3(data.plane_normal))[0];
+            data.points.append(data.points[0] + x * value);
+            data.point_vertices.append(0);
+          }
+        }
+        else if (data.shape == 1) {
+          const double3 anchor = data.points[0];
+          auto [x, y] = arc_plane_axes(double3(data.plane_normal));
+          const double3 delta = (data.points.size() > 1 ? data.points[1] : data.current) - anchor;
+          if (math::length(delta) > 1e-9) {
+            x = math::normalize(delta);
+            y = math::normalize(math::cross(double3(data.plane_normal), x));
+          }
+          if (data.shape_mode == 1 || mode == DrawNumericMode::Diameter) {
+            const double length = mode == DrawNumericMode::Diameter && data.shape_mode == 0 ?
+                                      value / 2 :
+                                      value;
+            if (data.points.size() == 1) {
+              data.points.append(anchor + x * length);
+              data.point_vertices.append(0);
+            }
+            else {
+              data.points[1] = anchor + x * length;
+            }
+          }
+          else {
+            if (data.points.size() == 1) {
+              data.points.append(data.current);
+              data.point_vertices.append(0);
+            }
+            const double3 center = data.shape_mode == 0 ? anchor : (anchor + data.points[1]) / 2;
+            data.current = center + y * value;
+          }
+        }
+        else {
+          const double3 delta = data.current - data.points[0];
+          const double3 x = math::length(delta) > 1e-9 ?
+                                math::normalize(delta) :
+                                arc_plane_axes(double3(data.plane_normal))[0];
+          data.current = data.points[0] + x * value;
+        }
+        data.current_vertex = 0;
+        data.snap_type = SCE_SNAP_TO_NONE;
+      }
+      arc_num_reset(C, data);
+      data.numeric_hold = true;
+      rebuild_preview(op);
+      update_arc_area_status_text(C, op);
+      ED_region_tag_redraw(data.region);
+      return OPERATOR_RUNNING_MODAL;
+    }
+    if (event->val == KM_PRESS && event->type != LEFTMOUSE) {
+      handleNumInput(C, &data.num, event);
+      update_arc_area_status_text(C, op);
+      ED_region_tag_redraw(data.region);
+    }
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (event->type == RIGHTMOUSE && event->val == KM_PRESS) {
+    draw_exit(C, op);
+    return OPERATOR_CANCELLED;
+  }
+  if (event->val == KM_PRESS) {
+    DrawNumericMode mode = DrawNumericMode::Automatic;
+    const char *label = "Length";
+    if (event->type == EVT_SKEY && data.shape != 3) {
+      mode = DrawNumericMode::Segments;
+      label = data.shape == 2 ? "Sides" : "Segments";
+      data.numeric_initial_segments = RNA_int_get(op->ptr, "preview_points");
+    }
+    else if (data.shape == 3 && ELEM(event->type, EVT_XKEY, EVT_YKEY)) {
+      mode = event->type == EVT_XKEY ? DrawNumericMode::Width : DrawNumericMode::Height;
+      label = event->type == EVT_XKEY ? "Width" : "Height";
+    }
+    else if (event->type == EVT_RKEY &&
+             !(data.shape == 1 &&
+               (data.shape_mode == 3 || (data.shape_mode == 1 && data.points.size() > 1))) &&
+             data.shape != 3)
+    {
+      mode = DrawNumericMode::Radius;
+      label = data.shape == 1 ? (data.shape_mode == 1 ? "Focus distance" : "Minor radius") :
+                                "Radius";
+    }
+    else if (event->type == EVT_DKEY && data.shape == 1 && ELEM(data.shape_mode, 0, 2)) {
+      mode = DrawNumericMode::Diameter;
+      label = "Major diameter";
+    }
+    else if ((event->type == EVT_AKEY && data.shape == 2 && data.shape_mode == 1) ||
+             (event->type == EVT_LKEY && data.shape == 2 && data.shape_mode >= 2))
+    {
+      mode = DrawNumericMode::Length;
+      label = data.shape_mode == 1 ? "Apothem" : "Length";
+    }
+    if (mode != DrawNumericMode::Automatic) {
+      draw_num_input_begin(C, data, mode, label);
+      update_arc_area_status_text(C, op);
+      ED_region_tag_redraw(data.region);
+      return OPERATOR_RUNNING_MODAL;
+    }
+    if (event->type == EVT_PKEY) {
+      data.arc_perpendicular = !data.arc_perpendicular;
+      shape_plane(data);
+    }
+    else if (ELEM(event->type, EVT_XKEY, EVT_YKEY) && data.shape != 3) {
+      data.arc_vertical_axis = event->type == EVT_XKEY ? 0 : 1;
+      shape_plane(data);
+    }
+    else if (event->type == EVT_LKEY) {
+      data.locked = !data.locked;
+    }
+    else if (event->type == EVT_KKEY && data.shape == 1 && data.shape_mode == 1) {
+      data.keep_foci = !data.keep_foci;
+      RNA_boolean_set(op->ptr, "keep_foci", data.keep_foci);
+    }
+    else if (ELEM(event->type, EVT_LEFTSHIFTKEY, EVT_RIGHTSHIFTKEY) && data.shape == 3 &&
+             data.shape_mode != 2)
+    {
+      data.square = !data.square;
+    }
+    else if (event->type == EVT_BACKSPACEKEY && data.points.size() > 1) {
+      data.points.remove_last();
+      data.point_vertices.remove_last();
+      data.width.reset();
+      data.height.reset();
+    }
+    else if (event->type == LEFTMOUSE || enter) {
+      update_mouse(C, op, event);
+      if (shape_three_points(data) && data.points.size() == 1) {
+        if (math::distance(data.current, data.points[0]) > 1e-9) {
+          data.points.append(data.current);
+          data.point_vertices.append(data.current_vertex);
+          shape_plane(data);
+          data.numeric_hold = false;
+          rebuild_preview(op);
+          update_arc_area_status_text(C, op);
+          ED_region_tag_redraw(data.region);
+        }
+        return OPERATOR_RUNNING_MODAL;
+      }
+      if (!data.arc_valid) {
+        return OPERATOR_RUNNING_MODAL;
+      }
+      std::ostringstream points;
+      points << std::setprecision(17);
+      for (const double3 &world : data.shape_points) {
+        const double3 local = math::transform_point(data.inverse, world);
+        points << local.x << ' ' << local.y << ' ' << local.z << '\n';
+      }
+      RNA_string_set(op->ptr, "points", points.str().c_str());
+      if (data.keep_foci && data.points.size() > 1) {
+        std::ostringstream foci;
+        foci << std::setprecision(17);
+        for (const double3 &world : data.points) {
+          const double3 local = math::transform_point(data.inverse, world);
+          foci << local.x << ' ' << local.y << ' ' << local.z << '\n';
+        }
+        RNA_string_set(op->ptr, "foci", foci.str().c_str());
+      }
+      draw_exit(C, op);
+      const auto result = shape_exec(C, op);
+      WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
+      return result;
+    }
+    else if (((data.shape == 2) ||
+              (data.shape == 1 && data.shape_mode != 3 &&
+               !(data.shape_mode == 1 && data.points.size() > 1)) ||
+              (data.shape == 3 && data.square)) &&
+             handleNumInput(C, &data.num, event))
+    {
+      /* Direct typing chooses the same stage-dependent default as radCAD. */
+      data.numeric_mode = data.shape == 3 ? DrawNumericMode::Width :
+                          data.shape == 1 && data.points.size() == 1 && data.shape_mode != 1 ?
+                                            DrawNumericMode::Diameter :
+                                            DrawNumericMode::Radius;
+      data.numeric_label = data.shape == 3 ? "Width" : "Size";
+      update_arc_area_status_text(C, op);
+      ED_region_tag_redraw(data.region);
+      return OPERATOR_RUNNING_MODAL;
+    }
+  }
+  if (event->type == MOUSEMOVE || event->val == KM_PRESS) {
+    update_mouse(C, op, event);
+  }
+  return OPERATOR_RUNNING_MODAL;
+}
+
 static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
-  data.numeric_applying = event->val == KM_PRESS &&
-                          ELEM(event->type, EVT_RETKEY, EVT_PADENTER);
+  data.numeric_applying = event->val == KM_PRESS && ELEM(event->type, EVT_RETKEY, EVT_PADENTER);
   if (CTX_data_edit_object(C) != &data.source->object()) {
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
@@ -3088,23 +3691,27 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
   const auto *rv3d = static_cast<const RegionView3D *>(data.region->regiondata);
   /* Keep wheel segment adjustment, while native navigation owns complete orbit,
    * pan and zoom gestures. Drawing inputs stay fixed until navigation finishes. */
-  const bool segment_wheel = (data.arc_mode >= 0 || data.spline) &&
+  const bool segment_wheel = (data.arc_mode >= 0 || data.spline || data.shape) &&
                              ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) &&
                              !(event->modifier & KM_CTRL) && !(rv3d->rflag & RV3D_NAVIGATING);
   if (!segment_wheel && ED_view3d_navigation_do(C, data.navigation, event, nullptr)) {
     return OPERATOR_RUNNING_MODAL;
   }
-  if ((data.arc_mode >= 0 || data.spline) &&
-      ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) &&
-      event->val == KM_PRESS && !(event->modifier & KM_CTRL))
+  if ((data.arc_mode >= 0 || data.spline || (data.shape && data.shape != 3)) &&
+      ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) && event->val == KM_PRESS &&
+      !(event->modifier & KM_CTRL))
   {
-    const int minimum = data.circle ? 4 : data.arc_mode >= 0 ? 0 : 1;
-    RNA_int_set(
-        op->ptr,
-        "preview_points",
-        std::clamp(RNA_int_get(op->ptr, "preview_points") + (event->type == WHEELUPMOUSE ? 1 : -1),
-                   minimum,
-                   256));
+    const int minimum = data.shape         ? (data.shape == 1 ? 4 : 3) :
+                        data.circle        ? 4 :
+                        data.arc_mode >= 0 ? 0 :
+                                             1;
+    RNA_int_set(op->ptr,
+                "preview_points",
+                std::clamp(RNA_int_get(op->ptr, "preview_points") +
+                               (event->type == WHEELUPMOUSE ? 1 : -1) *
+                                   (data.shape == 2 && data.shape_mode == 3 ? 2 : 1),
+                           minimum,
+                           256));
     rebuild_preview(op);
     update_arc_area_status_text(C, op);
     ED_region_tag_redraw(data.region);
@@ -3141,6 +3748,9 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     }
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
+  }
+  if (data.shape) {
+    return shape_modal(C, op, event);
   }
   if (draw_numeric_shortcut(C, op, event)) {
     return OPERATOR_RUNNING_MODAL;
@@ -3530,9 +4140,8 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
               circle ? 4 : 0,
               256,
               "Segments",
-              circle ?
-                  "Exact circular edges and shared endpoints; matches the preview divisions" :
-                  "Arc edges and shared endpoints; zero uses 90 degree divisions",
+              circle ? "Exact circular edges and shared endpoints; matches the preview divisions" :
+                       "Arc edges and shared endpoints; zero uses 90 degree divisions",
               circle ? 4 : 0,
               128);
   RNA_def_int(ot->srna, "preview_point_size", 5, 1, 50, "Marker Size", "", 1, 20);
@@ -3541,6 +4150,53 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
                   true,
                   "Measurements",
                   "Show construction stage and live measurements beside the pointer");
+}
+static void shape_operator(wmOperatorType *ot, const int shape)
+{
+  arc_operator(ot);
+  ot->name = shape == 1 ? "Draw NURBS Ellipse" :
+             shape == 2 ? "Draw NURBS Polygon" :
+                          "Draw NURBS Rectangle";
+  ot->idname = shape == 1 ? "CURVE_OT_draw_ellipse" :
+               shape == 2 ? "CURVE_OT_draw_polygon" :
+                            "CURVE_OT_draw_rectangle";
+  ot->description = "Draw native NURBS geometry with radCAD construction modes";
+  ot->exec = shape_exec;
+  static const EnumPropertyItem ellipse_modes[] = {
+      {0, "RADIUS", 0, "Radius", "Center, major radius, minor radius"},
+      {1, "FOCI", 0, "Foci", "Two foci and a point on the ellipse; K keeps the foci"},
+      {2, "ENDPOINTS", 0, "Endpoints", "Major axis endpoints, then minor radius"},
+      {3, "CORNERS", 0, "Corners", "Opposite corners of the bounding rectangle"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  static const EnumPropertyItem polygon_modes[] = {
+      {0, "CENTER_CORNER", 0, "Center–Corner", "Center and a vertex"},
+      {1, "CENTER_TANGENT", 0, "Center–Tangent", "Center and the midpoint of a side"},
+      {2, "CORNER_CORNER", 0, "Corner–Corner", "Two adjacent vertices"},
+      {3, "EDGE", 0, "Edge", "Vertex and opposite side midpoint; odd side count"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  static const EnumPropertyItem rectangle_modes[] = {
+      {0, "CENTER_CORNER", 0, "Center–Corner", "Center and a corner"},
+      {1, "CORNER_CORNER", 0, "Corner–Corner", "Opposite corners"},
+      {2, "THREE_POINTS", 0, "3 Point", "Two adjacent corners, then signed height"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  auto *prop = RNA_struct_type_find_property(ot->srna, "mode");
+  RNA_def_property_enum_items(prop,
+                              shape == 1 ? ellipse_modes :
+                              shape == 2 ? polygon_modes :
+                                           rectangle_modes);
+  prop = RNA_struct_type_find_property(ot->srna, "preview_points");
+  RNA_def_property_int_default(prop, shape == 1 ? 32 : shape == 2 ? 6 : 4);
+  RNA_def_property_range(prop, shape == 1 ? 4 : 3, 256);
+  RNA_def_property_ui_text(
+      prop, shape == 2 ? "Sides" : "Segments", "Preview and committed endpoints");
+  if (shape == 3) {
+    RNA_def_property_flag(prop, PROP_HIDDEN);
+  }
+  RNA_def_property_boolean_default(RNA_struct_type_find_property(ot->srna, "show_compass"), false);
+  RNA_def_boolean(
+      ot->srna, "keep_foci", false, "Keep Foci", "Keep the two ellipse foci as native vertices");
+  prop = RNA_def_string(ot->srna, "foci", nullptr, 0, "Foci", "Local focus positions");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 }  // namespace
 
@@ -3576,6 +4232,18 @@ void CURVE_OT_draw_arc(wmOperatorType *ot)
 void CURVE_OT_draw_circle(wmOperatorType *ot)
 {
   arc_operator(ot, true);
+}
+void CURVE_OT_draw_ellipse(wmOperatorType *ot)
+{
+  shape_operator(ot, 1);
+}
+void CURVE_OT_draw_polygon(wmOperatorType *ot)
+{
+  shape_operator(ot, 2);
+}
+void CURVE_OT_draw_rectangle(wmOperatorType *ot)
+{
+  shape_operator(ot, 3);
 }
 void CURVE_OT_draw_spline(wmOperatorType *ot)
 {

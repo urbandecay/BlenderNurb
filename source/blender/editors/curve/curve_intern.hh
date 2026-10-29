@@ -255,6 +255,9 @@ void CURVE_OT_draw_line(wmOperatorType *ot);
 void CURVE_OT_draw_spline(wmOperatorType *ot);
 void CURVE_OT_draw_arc(wmOperatorType *ot);
 void CURVE_OT_draw_circle(wmOperatorType *ot);
+void CURVE_OT_draw_ellipse(wmOperatorType *ot);
+void CURVE_OT_draw_polygon(wmOperatorType *ot);
+void CURVE_OT_draw_rectangle(wmOperatorType *ot);
 
 /* `editcurve_pen.cc` */
 
