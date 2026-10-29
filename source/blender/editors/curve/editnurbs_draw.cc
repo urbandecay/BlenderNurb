@@ -116,6 +116,8 @@ struct DrawData {
   std::string numeric_label;
   int numeric_initial_segments = 0;
   int circle_solution = 0;
+  bool circle_tangent_valid = false;
+  double3 circle_solution_seed = double3(0);
   Vector<Vector<const NurbsTopologyEdge *>> circle_chains;
   Vector<double3> circle_contacts;
   double3 circle_center = double3(0);
@@ -2887,8 +2889,8 @@ static bool circle_load_chains(DrawData &data, std::string &error)
   }
   const int count = data.arc_mode == 3 ? 2 : 3;
   if (data.circle_chains.size() != count) {
-    error = count == 2 ? "Select two separate native curve chains for Tan Tan" :
-                         "Select three separate native curve chains for Tan Tan Tan";
+    error = count == 2 ? "Select two separate native curve chains for Tangent to 2 Curves" :
+                         "Select three separate native curve chains for Tangent to 3 Curves";
     return false;
   }
   const double4x4 transform(data.source->object().object_to_world());
@@ -2939,6 +2941,10 @@ static bool circle_load_chains(DrawData &data, std::string &error)
       error = "Tangent circle construction requires coplanar curves";
       return false;
     }
+  }
+  data.circle_solution_seed = double3(0);
+  for (const double3 &point : plane_points) {
+    data.circle_solution_seed += point / plane_points.size();
   }
   data.plane_origin = float3(origin);
   data.plane_normal = data.arc_reference_normal = float3(normal);
@@ -3102,14 +3108,24 @@ static void circle_update(bContext *C, wmOperator *op, const wmEvent *event)
   data.arc_hud.append(data.arc_mode == 0 ? "Center Circle" :
                       data.arc_mode == 1 ? "2 Point Circle" :
                       data.arc_mode == 2 ? "3 Point Circle" :
-                      data.arc_mode == 3 ? "Circle Tan Tan" :
-                                           "Circle Tan Tan Tan");
+                      data.arc_mode == 3 ? "Circle Tangent to 2 Curves" :
+                                           "Circle Tangent to 3 Curves");
   if (data.arc_mode >= 3) {
-    if (!circle_solve_tangent(data, data.current)) {
+    /* The addon holds the three-curve solution while the pointer moves. Tab
+     * solves the next contact configuration from the source curves again. */
+    if (data.arc_mode == 3 || !data.circle_tangent_valid) {
+      data.circle_tangent_valid = circle_solve_tangent(
+          data, data.arc_mode == 4 ? data.circle_solution_seed : data.current);
+    }
+    if (!data.circle_tangent_valid) {
+      data.circle_contacts.clear();
       data.current = data.points[0];
       data.arc_hud.append("No tangent solution here; move the pointer or press Tab");
     }
     else {
+      data.points[0] = data.circle_center;
+      data.current = data.circle_center +
+                     arc_plane_axes(double3(data.plane_normal))[0] * data.arc_radius;
       data.arc_hud.append(data.arc_mode == 4 ? "Tab: Next solution | Click: Confirm" :
                                                "Move center | Click: Confirm");
     }
@@ -3182,6 +3198,10 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
   }
   if (event->val == KM_PRESS && ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER)) {
     update_mouse(C, op, event);
+    if (data.arc_mode >= 3 && !data.circle_tangent_valid) {
+      BKE_report(op->reports, RPT_WARNING, "No valid tangent circle to confirm");
+      return OPERATOR_RUNNING_MODAL;
+    }
     if (data.arc_mode == 2 && data.points.size() == 1) {
       if (math::distance(data.current, data.points[0]) <= 1e-9) {
         return OPERATOR_RUNNING_MODAL;
@@ -3234,6 +3254,7 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
   if (data.arc_mode >= 3) {
     if (event->type == EVT_TABKEY && event->val == KM_PRESS && data.arc_mode == 4) {
       data.circle_solution = (data.circle_solution + 1) % 8;
+      data.circle_tangent_valid = false;
     }
     if (event->type == MOUSEMOVE || event->val == KM_PRESS) {
       update_mouse(C, op, event);
@@ -3326,6 +3347,8 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
     else {
       arc_update(C, op, event);
     }
+    rebuild_preview(op);
+    update_arc_area_status_text(C, op);
   }
   ED_workspace_status_text(
       C,
@@ -3988,12 +4011,16 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
       {0, "CENTER", 0, "Center", "Center and radius point"},
       {1, "DIAMETER", 0, "2 Point", "Opposite ends of the diameter"},
       {2, "THREE_POINTS", 0, "3 Point", "Three points on the circle"},
-      {3, "TAN_TAN", 0, "Tan Tan", "Circle tangent to two selected native curve chains"},
+      {3,
+       "TAN_TAN",
+       0,
+       "Tangent to 2 Curves",
+       "Select two separate curve chains, then move and confirm the tangent circle"},
       {4,
        "TAN_TAN_TAN",
        0,
-       "Tan Tan Tan",
-       "Circle tangent to three selected native curve chains; Tab cycles solutions"},
+       "Tangent to 3 Curves",
+       "Select three separate coplanar curve chains; Tab cycles tangent solutions"},
       {0, nullptr, 0, nullptr, nullptr}};
   RNA_def_enum(ot->srna, "mode", circle ? circle_modes : modes, 0, "Construction", "");
   if (circle) {

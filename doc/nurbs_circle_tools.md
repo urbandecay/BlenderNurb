@@ -7,8 +7,8 @@ The Circle button in Curve and Surface Edit Mode contains all five RCAD modes:
 | Center | Center, then radius point |
 | 2 Point | Opposite diameter endpoints |
 | 3 Point | First point, second point, third point on the circumference |
-| Tan Tan | Preselect two separate native curve chains, then move and confirm the circle |
-| Tan Tan Tan | Preselect three separate coplanar native curve chains; Tab cycles the eight tangency configurations |
+| Tangent to 2 Curves | Preselect two separate native curve chains, then move and confirm the circle |
+| Tangent to 3 Curves | Preselect three separate coplanar native curve chains; Tab cycles the eight tangency configurations |
 
 Click or Enter confirms each placement. Esc or right-click discards the preview.
 Backspace returns from the third-point stage to the second point. Typed lengths
@@ -88,3 +88,8 @@ are saved under `/tmp/nurbs-circle-overlays` for inspection.
 
 Typed parameter values stay pending until Enter accepts them. Typing and editing
 the entry preserve the current geometry preview; Esc discards the pending value.
+
+The three-curve solution stays fixed as the pointer moves, matching the addon.
+Tab solves the next configuration from the selected source curves. Invalid
+tangent solutions cannot be confirmed. Select the source edges in Edit Mode
+before choosing a tangent construction in the Circle tool header.
