@@ -153,6 +153,25 @@ if(WITH_BLENDER)
       action_slot
       nurbs_draw_line
       nurbs_draw_spline
+      nurbs_arc_center
+      nurbs_arc_endpoints
+      nurbs_arc_three_points
+      nurbs_circle_center
+      nurbs_circle_diameter
+      nurbs_circle_three_points
+      nurbs_circle_tan_tan
+      nurbs_circle_tan_tan_tan
+      nurbs_ellipse_radius
+      nurbs_ellipse_foci
+      nurbs_ellipse_endpoints
+      nurbs_ellipse_corners
+      nurbs_polygon_center_corner
+      nurbs_polygon_center_tangent
+      nurbs_polygon_corner_corner
+      nurbs_polygon_edge
+      nurbs_rectangle_center_corner
+      nurbs_rectangle_corner_corner
+      nurbs_rectangle_three_points
       action_tweak
       add
       aliased

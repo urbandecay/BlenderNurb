@@ -2515,7 +2515,8 @@ void Layout::prop_enum(PointerRNA *ptr,
                        PropertyRNA *prop,
                        const char *value,
                        const std::optional<StringRefNull> name,
-                       int icon)
+                       int icon,
+                       bool icon_after_text)
 {
   if (UNLIKELY(RNA_property_type(prop) != PROP_ENUM)) {
     const StringRefNull propname = RNA_property_identifier(prop);
@@ -2552,7 +2553,13 @@ void Layout::prop_enum(PointerRNA *ptr,
           CTX_IFACE_(RNA_property_translation_context(prop), item[a].name));
       const eUI_Item_Flag flag = !item_name.is_empty() ? UI_ITEM_NONE : ITEM_R_ICON_ONLY;
 
+      const int previous_buttons = this->block()->buttons_ptrs.size();
       this->prop(ptr, prop, RNA_ENUM_VALUE, ivalue, flag, item_name, icon ? icon : item[a].icon);
+      if (icon_after_text && this->block()->buttons_ptrs.size() > previous_buttons) {
+        Button *button = this->block()->buttons_ptrs.last().get();
+        button->drawflag &= ~BUT_ICON_LEFT;
+        button->drawflag |= BUT_ICON_RIGHT;
+      }
       break;
     }
   }

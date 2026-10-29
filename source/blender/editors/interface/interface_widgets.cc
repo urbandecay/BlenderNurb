@@ -1402,7 +1402,10 @@ static void widget_draw_icon(
     const float ofs = 1.0f / aspect;
     float xs, ys;
 
-    if (but->drawflag & BUT_ICON_LEFT) {
+    if (but->drawflag & BUT_ICON_RIGHT) {
+      xs = rect->xmax - height - 4.0f * ofs;
+    }
+    else if (but->drawflag & BUT_ICON_LEFT) {
       /* special case - icon_only pie buttons */
       if (block_is_pie_menu(but->block) &&
           !ELEM(but->type, ButtonType::Menu, ButtonType::Popover) && but->str.empty())
@@ -2937,7 +2940,12 @@ static void widget_draw_text_icon(const uiFontStyle *fstyle,
     but->block->aspect = aspect_orig;
 #endif
 
-    rect->xmin += round_fl_to_int(icon_size + icon_padding);
+    if (but->drawflag & BUT_ICON_RIGHT) {
+      rect->xmax -= round_fl_to_int(icon_size + icon_padding);
+    }
+    else {
+      rect->xmin += round_fl_to_int(icon_size + icon_padding);
+    }
   }
 
   /* Menu contains sub-menu items with triangle icon on their right. Shortcut

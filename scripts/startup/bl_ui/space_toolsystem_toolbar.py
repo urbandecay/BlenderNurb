@@ -1121,7 +1121,10 @@ class _defs_nurbs_draw:
     def arc():
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("curve.draw_arc")
-            layout.prop(props, "mode", expand=True)
+            row = layout.row(align=True)
+            for value in ('CENTER', 'ENDPOINTS', 'THREE_POINTS'):
+                row.prop_enum(props, "mode", value,
+                              icon="NURBS_ARC_" + value, icon_after_text=True)
             layout.prop(props, "preview_points")
             layout.prop(props, "use_axis_snap")
             layout.prop(props, "use_angle_snap")
@@ -1145,7 +1148,10 @@ class _defs_nurbs_draw:
     def circle():
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("curve.draw_circle")
-            layout.prop(props, "mode", expand=True)
+            row = layout.row(align=True)
+            for value in ('CENTER', 'DIAMETER', 'THREE_POINTS', 'TAN_TAN', 'TAN_TAN_TAN'):
+                row.prop_enum(props, "mode", value,
+                              icon="NURBS_CIRCLE_" + value, icon_after_text=True)
             if props.mode in {'CENTER', 'DIAMETER', 'THREE_POINTS'}:
                 layout.prop(props, "use_axis_snap")
             layout.popover(panel="VIEW3D_PT_nurbs_circle_overlay", text="", icon='OVERLAY')
@@ -1167,7 +1173,10 @@ class _defs_nurbs_draw:
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("curve.draw_ellipse")
             layout.popover(panel="VIEW3D_PT_nurbs_shape_overlay", text="", icon='OVERLAY')
-            layout.prop(props, "mode", expand=True)
+            row = layout.row(align=True)
+            for value in ('RADIUS', 'FOCI', 'ENDPOINTS', 'CORNERS'):
+                row.prop_enum(props, "mode", value,
+                              icon="NURBS_ELLIPSE_" + value, icon_after_text=True)
             layout.prop(props, "preview_points")
             if props.mode == 'FOCI':
                 layout.prop(props, "keep_foci")
@@ -1189,7 +1198,10 @@ class _defs_nurbs_draw:
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("curve.draw_polygon")
             layout.popover(panel="VIEW3D_PT_nurbs_shape_overlay", text="", icon='OVERLAY')
-            layout.prop(props, "mode", expand=True)
+            row = layout.row(align=True)
+            for value in ('CENTER_CORNER', 'CENTER_TANGENT', 'CORNER_CORNER', 'EDGE'):
+                row.prop_enum(props, "mode", value,
+                              icon="NURBS_POLYGON_" + value, icon_after_text=True)
             layout.prop(props, "preview_points")
 
         return dict(
@@ -1209,7 +1221,10 @@ class _defs_nurbs_draw:
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("curve.draw_rectangle")
             layout.popover(panel="VIEW3D_PT_nurbs_shape_overlay", text="", icon='OVERLAY')
-            layout.prop(props, "mode", expand=True)
+            row = layout.row(align=True)
+            for value in ('CENTER_CORNER', 'CORNER_CORNER', 'THREE_POINTS'):
+                row.prop_enum(props, "mode", value,
+                              icon="NURBS_RECTANGLE_" + value, icon_after_text=True)
 
         return dict(
             idname="builtin.nurbs_draw_rectangle",

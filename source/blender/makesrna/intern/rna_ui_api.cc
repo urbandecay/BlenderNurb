@@ -390,7 +390,8 @@ static void rna_uiItemEnumR_string(Layout *layout,
                                    const char *name,
                                    const char *text_ctxt,
                                    bool translate,
-                                   int icon)
+                                   int icon,
+                                   bool icon_after_text)
 {
   PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
 
@@ -405,7 +406,7 @@ static void rna_uiItemEnumR_string(Layout *layout,
   std::optional<StringRefNull> text = rna_translate_ui_text(
       name, text_ctxt, nullptr, prop, translate);
 
-  layout->prop_enum(ptr, prop, value, text, icon);
+  layout->prop_enum(ptr, prop, value, text, icon, icon_after_text);
 }
 
 static void rna_uiItemsEnumR(Layout *layout, PointerRNA *ptr, const char *propname)
@@ -1689,6 +1690,11 @@ void RNA_api_ui_layout(StructRNA *srna)
   parm = RNA_def_string(func, "value", nullptr, 0, "", "Enum property value");
   RNA_def_parameter_flags(parm, PropertyFlag(0), PARM_REQUIRED);
   api_ui_item_common(func);
+  RNA_def_boolean(func,
+                  "icon_after_text",
+                  false,
+                  "Icon After Text",
+                  "Place the icon to the right of the label");
 
   func = RNA_def_function(srna, "prop_search", "rna_uiItemPointerR");
   api_ui_item_rna_common(func);

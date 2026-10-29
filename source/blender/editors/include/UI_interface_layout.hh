@@ -600,7 +600,8 @@ struct Layout : public Item, NonCopyable, NonMovable {
                  PropertyRNA *prop,
                  const char *value,
                  std::optional<StringRefNull> name,
-                 int icon);
+                 int icon,
+                 bool icon_after_text = false);
   /**
    * Add a enum property value item. This button acts like a radio button that are used to chose
    * a single enum value from a set of the enum property value items.

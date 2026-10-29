@@ -468,6 +468,8 @@ enum {
   /** Text and icon alignment (by default, they are centered). */
   BUT_TEXT_LEFT = 1 << 1,
   BUT_ICON_LEFT = 1 << 2,
+  /** Place the icon after the button label. */
+  BUT_ICON_RIGHT = 1 << 8,
   BUT_TEXT_RIGHT = 1 << 3,
   /** Prevent the button to show any tool-tip. */
   BUT_NO_TOOLTIP = 1 << 4,
@@ -2530,7 +2532,6 @@ void template_strip_modifiers(Layout *layout, bContext *C);
  */
 void template_constraints(Layout *layout, bContext *C);
 
-
 void template_operator_redo_properties(Layout *layout, const bContext *C);
 
 void template_constraint_header(Layout *layout, PointerRNA *ptr);
@@ -2758,7 +2759,6 @@ void template_asset_shelf_popover(
 
 void template_light_linking_collection(
     Layout *layout, bContext *C, Layout *context_layout, PointerRNA *ptr, StringRefNull propname);
-
 
 void template_tree_interface(Layout *layout, const bContext *C, PointerRNA *ptr);
 /**
