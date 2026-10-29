@@ -21,7 +21,9 @@ Click to place points; Enter or right-click finishes, and Escape cancels. Backsp
 removes the last point. X/Y/Z lock a world axis, N locks the hovered face normal,
 Shift holds a direction, L toggles drawing-plane locking, Ctrl inverts geometry
 snapping, and Tab switches Fit Points/CVs during spline drawing. Typing a length
-and pressing Enter places the next point. View navigation passes through the modal
+and pressing Enter places the next point. R explicitly starts length entry for
+the next point. S enters the interpolation spline's segment count; those exact
+NURBS edge divisions become shared topology endpoints. View navigation passes through the modal
 operator. Options are normal Blender operator properties in the existing redo panel;
 there is no additional settings panel or add-on options overlay. Tab selects the
 curve drawing method while drawing. The redo panel can change method and degree
@@ -56,3 +58,6 @@ Validation:
 - Typed numeric length placement and changing the final segment length through redo also passed.
 - Viewport log: `/tmp/nurbs-move-optimization/drawing-tools-numeric/run.log`.
 - Screenshot: `/tmp/nurbs-move-optimization/drawing-tools-final/drawing-tools.png`.
+
+Typed parameter values stay pending until Enter accepts them. Typing and editing
+the entry preserve the current geometry preview; Esc discards the pending value.

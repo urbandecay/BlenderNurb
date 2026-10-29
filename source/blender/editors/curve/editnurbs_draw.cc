@@ -66,6 +66,16 @@ struct NativeCenter {
   eSnapMode type;
 };
 
+enum class DrawNumericMode : uint8_t {
+  Automatic,
+  Length,
+  Radius,
+  Diameter,
+  Sagitta,
+  Angle,
+  Segments,
+};
+
 struct DrawData {
   std::unique_ptr<ed::nurbs::TopologyPreview> source;
   ARegion *region = nullptr;
@@ -91,6 +101,12 @@ struct DrawData {
   int arc_mode = -1;
   bool circle = false;
   bool circle_input_radius = false;
+  bool numeric_initial_circle_input_radius = false;
+  DrawNumericMode numeric_mode = DrawNumericMode::Automatic;
+  bool numeric_applying = false;
+  bool numeric_hold = false;
+  std::string numeric_label;
+  int numeric_initial_segments = 0;
   int circle_solution = 0;
   Vector<Vector<const NurbsTopologyEdge *>> circle_chains;
   Vector<double3> circle_contacts;
@@ -262,32 +278,62 @@ static std::optional<Vector<double>> circle_divisions(wmOperator *op)
   return unique;
 }
 
-/* Equal angular divisions on the exact rational arc. Its constructor uses
- * equally swept quadratic spans; their parameter speed is not constant. */
-static Vector<double> arc_divisions(const NurbsCurveGeometry &support, const int count)
+/* Convert an absolute swept angle to the parameter of an exact rational arc.
+ * Its constructor uses equal-angle quadratic spans, but their parameter speed
+ * is not constant. */
+static double arc_parameter_at_angle(const NurbsCurveGeometry &support, const double angle)
 {
   const int spans = (support.points_num - 1) / 2;
   const double span_angle = 2 * std::acos(std::clamp(support.points[1].weight, 0.0, 1.0));
-  Vector<double> parameters;
-  for (int i = 0; i <= count; i++) {
-    if (i == count) {
-      parameters.append(1);
-      break;
-    }
-    const double span_position = double(i) * spans / count;
-    const int span = int(span_position);
-    const double fraction = span_position - span;
-    const double a = std::sin(span_angle * fraction / 2);
-    const double b = std::sin(span_angle * (1 - fraction) / 2);
-    const double t = span_angle > 1e-8 ? a / (a + b) : fraction;
-    parameters.append((span + t) / spans);
+  if (angle >= span_angle * spans) {
+    return 1;
   }
+  if (span_angle < 1e-8) {
+    return angle / (span_angle * spans);
+  }
+  const double span_position = angle / span_angle;
+  const int span = std::clamp(int(span_position), 0, spans - 1);
+  const double local_angle = angle - span * span_angle;
+  const double a = std::sin(local_angle / 2);
+  const double b = std::sin((span_angle - local_angle) / 2);
+  return (span + a / (a + b)) / spans;
+}
+
+/* Center Arc keeps its initial count of segments distributed across the sweep
+ * until count * 90 degrees. Once that window is complete, the NURBS quarter
+ * points stay in place and later quarter points are added as the sweep grows. */
+static Vector<double> arc_divisions(const NurbsCurveGeometry &support,
+                                    const int count,
+                                    const bool center_arc)
+{
+  const int spans = (support.points_num - 1) / 2;
+  const double span_angle = 2 * std::acos(std::clamp(support.points[1].weight, 0.0, 1.0));
+  const double total_angle = spans * span_angle;
+  const int segments = std::max(0, count);
+  Vector<double> parameters;
+  parameters.append(0);
+
+  const bool quarter_steps = segments == 0 ||
+                             (center_arc && total_angle > segments * (M_PI / 2) + 1e-10);
+  if (quarter_steps) {
+    for (double angle = M_PI / 2; angle < total_angle - 1e-10; angle += M_PI / 2) {
+      parameters.append(arc_parameter_at_angle(support, angle));
+    }
+  }
+  else {
+    for (int i = 1; i < segments; i++) {
+      parameters.append(arc_parameter_at_angle(support, total_angle * i / segments));
+    }
+  }
+  parameters.append(1);
   return parameters;
 }
 
 static wmOperatorStatus arc_exec(bContext *C, wmOperator *op);
 static void arc_update(bContext *C, wmOperator *op, const wmEvent *event);
 static void circle_update(bContext *C, wmOperator *op, const wmEvent *event);
+static void update_arc_area_status_text(bContext *C, wmOperator *op);
+static void draw_apply_segment_input(wmOperator *op);
 static std::array<double3, 2> arc_plane_axes(const double3 &normal);
 
 static OwnedCurve draw_support(const Span<double3> points,
@@ -675,7 +721,10 @@ static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
     }
   }
   else {
-    parameters = {0, 1};
+    const int segments = std::clamp(RNA_int_get(op->ptr, "preview_points"), 1, 256);
+    for (int i = 0; i <= segments; i++) {
+      parameters.append(double(i) / segments);
+    }
   }
   Vector<int64_t> references;
   std::istringstream refs(RNA_string_get(op->ptr, "vertex_references"));
@@ -695,8 +744,13 @@ static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
     }
     int64_t vertex_id;
     double gap = 0;
-    const int point_index = is_spline(op) && i == 1 ? points.size() - 1 : i;
-    const NurbsTopologyVertex *anchor = references.size() == points.size() && index ?
+    const int point_index = is_spline(op) ?
+                                (i == 0 ? 0 :
+                                 i == parameters.size() - 1 ? points.size() - 1 :
+                                                              -1) :
+                                i;
+    const NurbsTopologyVertex *anchor = point_index >= 0 && references.size() == points.size() &&
+                                                index ?
                                             index->vertex(references[point_index]) :
                                             nullptr;
     if (anchor && double3(anchor->position) == points[point_index]) {
@@ -803,7 +857,10 @@ static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
   references >> refs[0] >> refs[1];
   /* Preview divisions become shared source endpoints on the exact support. */
   const bool circle = is_circle(op);
-  Vector<double> parameters = arc_divisions(*support, RNA_int_get(op->ptr, "preview_points"));
+  Vector<double> parameters = arc_divisions(
+      *support,
+      RNA_int_get(op->ptr, "preview_points"),
+      !circle && RNA_enum_get(op->ptr, "mode") == 0);
   if (circle) {
     const auto divisions = circle_divisions(op);
     if (!divisions) {
@@ -955,7 +1012,9 @@ static void rebuild_preview(wmOperator *op)
   if (data.arc_mode >= 0) {
     data.arc_valid = true;
     const int markers = RNA_int_get(op->ptr, "preview_points");
-    for (const double parameter : arc_divisions(*support, markers)) {
+    for (const double parameter :
+         arc_divisions(*support, markers, !data.circle && data.arc_mode == 0))
+    {
       if (const auto point = evaluate_curve(*support, parameter)) {
         data.arc_markers.append(float3(point->position));
       }
@@ -1018,6 +1077,16 @@ static void rebuild_preview(wmOperator *op)
     data.arc_hud.append(radius.str());
     if (!data.arc_markers.is_empty()) {
       data.arc_hud.append("Segments: " + std::to_string(data.arc_markers.size() - 1));
+    }
+  }
+  else if (data.spline) {
+    const int segments = std::clamp(RNA_int_get(op->ptr, "preview_points"), 1, 256);
+    const double4x4 transform(data.source->object().object_to_world());
+    for (int i = 1; i < segments; i++) {
+      if (const auto point = evaluate_curve(*support, double(i) / segments)) {
+        data.arc_markers.append(
+            float3(math::transform_point(transform, point->position)));
+      }
     }
   }
   const int samples = data.arc_mode >= 0 ? 128 : std::max<int>(2, (points.size() - 1) * 16);
@@ -1287,6 +1356,16 @@ static void draw_preview(const bContext *, ARegion *region, void *arg)
       immEnd();
       GPU_point_size(1.0f);
     }
+    if (!data.arc_markers.is_empty()) {
+      immUniformColor4f(0.05f, 0.05f, 0.05f, 1.0f);
+      GPU_point_size(4.0f * U.pixelsize);
+      immBegin(GPU_PRIM_POINTS, data.arc_markers.size());
+      for (const float3 &point : data.arc_markers) {
+        immVertex3fv(pos, point);
+      }
+      immEnd();
+      GPU_point_size(1.0f);
+    }
     immUnbindProgram();
   }
   GPU_blend(previous_blend);
@@ -1360,10 +1439,34 @@ static void update_mouse(bContext *C,
                          const bool tag_redraw = true)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
+  if (data.numeric_applying && data.numeric_mode == DrawNumericMode::Segments) {
+    draw_apply_segment_input(op);
+    rebuild_preview(op);
+    update_arc_area_status_text(C, op);
+    if (tag_redraw) {
+      ED_region_tag_redraw(data.region);
+    }
+    return;
+  }
+  /* Typing edits the pending value only. Keep the construction at its last
+   * accepted position until Enter applies the input. */
+  const bool pending = data.numeric_mode != DrawNumericMode::Automatic || hasNumInput(&data.num);
+  if ((pending && !data.numeric_applying) ||
+      (data.numeric_hold && !pending &&
+       ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER)))
+  {
+    update_arc_area_status_text(C, op);
+    if (tag_redraw) {
+      ED_region_tag_redraw(data.region);
+    }
+    return;
+  }
+  data.numeric_hold = false;
   data.arc_free = data.arc_mode >= 0 && (event->modifier & KM_ALT);
   auto *v3d = CTX_wm_view3d(C);
   const Scene *scene = CTX_data_scene(C);
   const ToolSettings *tool_settings = scene->toolsettings;
+  draw_apply_segment_input(op);
   const eSnapMode snap_mode = eSnapMode(tool_settings->snap_mode);
   const bool use_snap = bool(tool_settings->snap_flag & SCE_SNAP) !=
                         bool(event->modifier & KM_CTRL);
@@ -1761,6 +1864,7 @@ static void update_mouse(bContext *C,
     }
   }
   if (!data.points.is_empty() && hasNumInput(&data.num) &&
+      data.numeric_mode != DrawNumericMode::Segments &&
       (data.arc_mode < 0 || (data.points.size() == 1 && !(data.circle && data.arc_mode >= 3))))
   {
     data.current_vertex = 0;
@@ -1790,6 +1894,8 @@ static void update_mouse(bContext *C,
     }
     else {
       arc_update(C, op, event);
+      rebuild_preview(op);
+      update_arc_area_status_text(C, op);
     }
   }
   if (data.snap_type != SCE_SNAP_TO_NONE) {
@@ -1801,6 +1907,7 @@ static void update_mouse(bContext *C,
     }
   }
   rebuild_preview(op);
+  update_arc_area_status_text(C, op);
   if (tag_redraw) {
     ED_region_tag_redraw(data.region);
   }
@@ -1914,6 +2021,41 @@ static void arc_num_reset(bContext *C, DrawData &data)
   data.num.unit_type[0] = data.arc_mode == 0 && data.points.size() == 2 ? B_UNIT_ROTATION :
                                                                           B_UNIT_LENGTH;
   data.num.flag |= NUM_USE_DOUBLE;
+  data.numeric_mode = DrawNumericMode::Automatic;
+  data.numeric_label.clear();
+}
+
+static void draw_num_input_begin(bContext *C,
+                                 DrawData &data,
+                                 const DrawNumericMode mode,
+                                 const char *label)
+{
+  initNumInput(&data.num);
+  data.num.idx_max = 0;
+  data.num.unit_sys = CTX_data_scene(C)->unit.system;
+  data.num.unit_type[0] = mode == DrawNumericMode::Angle ? B_UNIT_ROTATION :
+                          mode == DrawNumericMode::Segments ? B_UNIT_NONE :
+                                                             B_UNIT_LENGTH;
+  if (mode == DrawNumericMode::Segments) {
+    data.num.val_flag[0] |= NUM_NO_FRACTION;
+  }
+  data.num.flag |= NUM_USE_DOUBLE;
+  data.numeric_mode = mode;
+  data.numeric_label = label;
+}
+
+static void draw_apply_segment_input(wmOperator *op)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  if (data.numeric_mode != DrawNumericMode::Segments || !hasNumInput(&data.num)) {
+    return;
+  }
+  double count = RNA_int_get(op->ptr, "preview_points");
+  if (!applyNumInput(&data.num, &count)) {
+    return;
+  }
+  const int minimum = data.circle ? 4 : data.arc_mode >= 0 ? 0 : 1;
+  RNA_int_set(op->ptr, "preview_points", std::clamp(int(std::lround(count)), minimum, 256));
 }
 
 static double3 arc_project(const DrawData &data, const double3 &point)
@@ -1953,7 +2095,7 @@ static void arc_set_chord_plane(DrawData &data)
   data.plane_origin = float3(data.points[0]);
 }
 
-static void arc_update(bContext *C, wmOperator *op, const wmEvent *event)
+static void arc_update(bContext * /*C*/, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
   if (data.points.is_empty()) {
@@ -1977,7 +2119,7 @@ static void arc_update(bContext *C, wmOperator *op, const wmEvent *event)
     return std::abs(nearest - angle) < 6 * M_PI / 180 ? nearest : angle;
   };
   if (data.points.size() == 1 && data.arc_mode == 0 && data.axis < 0 && !data.shift_direction &&
-      !hasNumInput(&data.num))
+      (!hasNumInput(&data.num) || data.numeric_mode == DrawNumericMode::Segments))
   {
     const auto [x, y] = arc_plane_axes(double3(data.plane_normal));
     const double3 radial = data.current - data.points[0];
@@ -1994,47 +2136,69 @@ static void arc_update(bContext *C, wmOperator *op, const wmEvent *event)
   }
   if (data.points.size() == 2) {
     if (data.arc_mode == 0) {
-      const double3 x = math::normalize(data.points[1] - data.points[0]);
-      const double3 y = math::normalize(math::cross(double3(data.plane_normal), x));
-      const double3 radial = data.current - data.points[0];
-      const double raw = std::atan2(math::dot(radial, y), math::dot(radial, x));
-      if (math::length_squared(radial) > 1e-20) {
-        data.arc_accumulated = std::clamp(
-            data.arc_accumulated + std::remainder(raw - data.arc_previous_angle, 2 * M_PI),
-            -2 * M_PI,
-            2 * M_PI);
-        data.arc_previous_angle = raw;
+      if (data.numeric_mode == DrawNumericMode::Radius && hasNumInput(&data.num)) {
+        const double3 x = math::normalize(data.points[1] - data.points[0]);
+        const double3 y = math::normalize(math::cross(double3(data.plane_normal), x));
+        double radius = math::distance(data.points[0], data.points[1]);
+        applyNumInput(&data.num, &radius);
+        radius = std::abs(radius);
+        data.points[1] = data.points[0] + x * radius;
+        if (data.point_vertices.size() > 1) {
+          data.point_vertices[1] = 0;
+        }
+        data.current_vertex = 0;
+        data.arc_radius = radius;
+        data.current = data.points[0] + radius *
+                                             (x * std::cos(data.arc_sweep) +
+                                              y * std::sin(data.arc_sweep));
       }
-      /* RCAD snaps angles in the drawing-plane basis, including when the start was
-       * geometry-snapped between angular increments. Keep that offset in the sweep. */
-      const auto [plane_x, plane_y] = arc_plane_axes(double3(data.plane_normal));
-      const double start_angle = std::atan2(math::dot(x, plane_y), math::dot(x, plane_x));
-      data.arc_sweep = snap_angle(data.arc_accumulated + start_angle) - start_angle;
-      if (hasNumInput(&data.num)) {
-        applyNumInput(&data.num, &data.arc_sweep);
+      else {
+        const double3 x = math::normalize(data.points[1] - data.points[0]);
+        const double3 y = math::normalize(math::cross(double3(data.plane_normal), x));
+        const double3 radial = data.current - data.points[0];
+        const double raw = std::atan2(math::dot(radial, y), math::dot(radial, x));
+        if (math::length_squared(radial) > 1e-20) {
+          data.arc_accumulated = std::clamp(
+              data.arc_accumulated + std::remainder(raw - data.arc_previous_angle, 2 * M_PI),
+              -2 * M_PI,
+              2 * M_PI);
+          data.arc_previous_angle = raw;
+        }
+        /* RCAD snaps angles in the drawing-plane basis, including when the start was
+         * geometry-snapped between angular increments. Keep that offset in the sweep. */
+        const auto [plane_x, plane_y] = arc_plane_axes(double3(data.plane_normal));
+        const double start_angle = std::atan2(math::dot(x, plane_y), math::dot(x, plane_x));
+        data.arc_sweep = snap_angle(data.arc_accumulated + start_angle) - start_angle;
+        if (hasNumInput(&data.num) && data.numeric_mode != DrawNumericMode::Segments) {
+          applyNumInput(&data.num, &data.arc_sweep);
+        }
+        data.arc_sweep = std::clamp(data.arc_sweep, -2 * M_PI, 2 * M_PI);
+        data.current = data.points[0] +
+                       math::distance(data.points[0], data.points[1]) *
+                           (x * std::cos(data.arc_sweep) + y * std::sin(data.arc_sweep));
       }
-      data.arc_sweep = std::clamp(data.arc_sweep, -2 * M_PI, 2 * M_PI);
-      data.current = data.points[0] +
-                     math::distance(data.points[0], data.points[1]) *
-                         (x * std::cos(data.arc_sweep) + y * std::sin(data.arc_sweep));
     }
     else if (data.arc_mode == 1) {
       const double3 chord = data.points[1] - data.points[0];
       const double3 midpoint = (data.points[0] + data.points[1]) / 2;
       const double3 side = math::normalize(math::cross(double3(data.plane_normal), chord));
       double height = math::dot(data.current - midpoint, side);
+      const double current_side = height < 0 ? -1.0 : 1.0;
       const double half_chord = math::length(chord) / 2;
       if (!free && !geometry_snap && RNA_boolean_get(op->ptr, "use_angle_snap") &&
           std::abs(std::abs(height) - half_chord) < math::length(chord) * 0.06)
       {
         height = std::copysign(half_chord, height);
       }
-      if (hasNumInput(&data.num)) {
+      if (hasNumInput(&data.num) && data.numeric_mode != DrawNumericMode::Segments) {
         applyNumInput(&data.num, &height);
+        if (ELEM(data.numeric_mode, DrawNumericMode::Radius, DrawNumericMode::Sagitta)) {
+          height = std::copysign(std::abs(height), current_side);
+        }
       }
       data.current = midpoint + side * height;
     }
-    else if (hasNumInput(&data.num)) {
+    else if (hasNumInput(&data.num) && data.numeric_mode != DrawNumericMode::Segments) {
       const double3 delta = data.current - data.points[0];
       double length = math::length(delta);
       applyNumInput(&data.num, &length);
@@ -2064,7 +2228,6 @@ static void arc_update(bContext *C, wmOperator *op, const wmEvent *event)
   else {
     status << "Chord: " << math::distance(data.points[0], data.points[1]);
   }
-  ED_area_status_text(CTX_wm_area(C), status.str().c_str());
   data.arc_hud.clear();
   data.arc_hud.append(data.arc_mode == 0 ? "Center Arc" :
                       data.arc_mode == 1 ? "2 Point Arc" :
@@ -2077,12 +2240,113 @@ static void arc_update(bContext *C, wmOperator *op, const wmEvent *event)
   data.arc_hud.append(status.str());
 }
 
+/* Keep Arc construction information in the tool header instead of over the
+ * compass and curve preview, where the cursor HUD can obscure the geometry. */
+static void update_arc_area_status_text(bContext *C, wmOperator *op)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  std::ostringstream status;
+  bool first = true;
+  const auto append = [&](const std::string &text) {
+    if (!first) {
+      status << "  |  ";
+    }
+    status << text;
+    first = false;
+  };
+
+  const bool has_input = hasNumInput(&data.num);
+  if (data.arc_mode < 0) {
+    if (!data.spline && data.numeric_mode == DrawNumericMode::Automatic && !has_input) {
+      ED_area_status_text(CTX_wm_area(C), nullptr);
+      return;
+    }
+    if (data.spline) {
+      append("Segments: " + std::to_string(RNA_int_get(op->ptr, "preview_points")));
+    }
+  }
+  else if (data.circle) {
+    if (data.numeric_mode == DrawNumericMode::Automatic && !has_input) {
+      return;
+    }
+    if (data.arc_hud.size() > 1) {
+      append(data.arc_hud[1]);
+    }
+  }
+  else {
+    for (int i = 0; i < std::min<int>(2, data.arc_hud.size()); i++) {
+      append(data.arc_hud[i]);
+    }
+    const bool show_measurements = RNA_boolean_get(op->ptr, "show_measurements");
+    for (int i = 2; i < data.arc_hud.size(); i++) {
+      const std::string &line = data.arc_hud[i];
+      if (line.rfind("R: ", 0) == 0 || line.rfind("Segments: ", 0) == 0) {
+        continue;
+      }
+      if (i == 2 && !show_measurements) {
+        continue;
+      }
+      append(line);
+    }
+    if (show_measurements && data.arc_valid) {
+      if (data.points.size() > 1) {
+        std::ostringstream radius;
+        radius << "R: " << std::fixed << std::setprecision(3) << data.arc_radius;
+        append(radius.str());
+      }
+      append("Segments: " + std::to_string(std::max<int>(0, data.arc_markers.size() - 1)));
+    }
+  }
+
+  if (data.numeric_mode != DrawNumericMode::Automatic || has_input) {
+    const char *label = data.numeric_label.c_str();
+    if (data.numeric_mode == DrawNumericMode::Automatic) {
+      if (data.arc_mode < 0) {
+        label = "Length";
+      }
+      else if (data.circle) {
+        label = data.arc_mode == 0 ? "Radius" :
+                data.arc_mode == 1 ? (data.circle_input_radius ? "Radius" : "Diameter") :
+                                     "Distance";
+      }
+      else if (data.arc_mode == 0) {
+        label = data.points.size() == 1 ? "Radius" : "Sweep";
+      }
+      else if (data.arc_mode == 1) {
+        label = data.points.size() < 2 ? "Chord" : "Sagitta";
+      }
+      else {
+        label = data.points.size() < 2 ? "Chord" : "Distance";
+      }
+    }
+    char value[NUM_STR_REP_LEN] = "";
+    if (has_input) {
+      outputNumInput(&data.num, value, CTX_data_scene(C)->unit);
+    }
+    append(std::string(label) + ": " + value);
+  }
+  ED_area_status_text(CTX_wm_area(C), status.str().c_str());
+}
+
 static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
   if (event->type == RIGHTMOUSE && event->val == KM_PRESS) {
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
+  }
+  if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER) && event->val == KM_PRESS &&
+      (data.numeric_mode == DrawNumericMode::Segments ||
+       (data.numeric_mode != DrawNumericMode::Automatic && !hasNumInput(&data.num)) ||
+       (data.points.size() > 1 && hasNumInput(&data.num))))
+  {
+    if (hasNumInput(&data.num)) {
+      update_mouse(C, op, event);
+    }
+    arc_num_reset(C, data);
+    data.numeric_hold = true;
+    update_arc_area_status_text(C, op);
+    return OPERATOR_RUNNING_MODAL;
   }
   const bool confirm = ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER) &&
                        event->val == KM_PRESS;
@@ -2102,6 +2366,7 @@ static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *ev
       data.shift_direction.reset();
       data.arc_previous_angle = data.arc_accumulated = data.arc_sweep = 0;
       arc_num_reset(C, data);
+      data.numeric_hold = false;
       update_mouse(C, op, event);
       return OPERATOR_RUNNING_MODAL;
     }
@@ -2550,6 +2815,17 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
   }
+  if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER) && event->val == KM_PRESS &&
+      (hasNumInput(&data.num) || data.numeric_mode != DrawNumericMode::Automatic))
+  {
+    if (hasNumInput(&data.num)) {
+      update_mouse(C, op, event);
+    }
+    arc_num_reset(C, data);
+    data.numeric_hold = true;
+    update_arc_area_status_text(C, op);
+    return OPERATOR_RUNNING_MODAL;
+  }
   if (event->val == KM_PRESS && ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER)) {
     update_mouse(C, op, event);
     if (data.arc_mode == 2 && data.points.size() == 1) {
@@ -2562,6 +2838,7 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
       data.axis = -1;
       arc_set_chord_plane(data);
       arc_num_reset(C, data);
+      data.numeric_hold = false;
       update_mouse(C, op, event);
       return OPERATOR_RUNNING_MODAL;
     }
@@ -2589,6 +2866,10 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
     WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
     return result;
   }
+  if (event->val == KM_PRESS && handleNumInput(C, &data.num, event)) {
+    update_mouse(C, op, event);
+    return OPERATOR_RUNNING_MODAL;
+  }
   if (data.arc_mode >= 3 && event->type == EVT_TKEY && event->val == KM_PRESS) {
     RNA_boolean_set(
         op->ptr, "anchor_tangent_markers", !RNA_boolean_get(op->ptr, "anchor_tangent_markers"));
@@ -2603,13 +2884,6 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
     if (event->type == MOUSEMOVE || event->val == KM_PRESS) {
       update_mouse(C, op, event);
     }
-    return OPERATOR_RUNNING_MODAL;
-  }
-  if (event->val == KM_PRESS && ELEM(event->type, EVT_RKEY, EVT_DKEY) && data.arc_mode == 1) {
-    data.circle_input_radius = event->type == EVT_RKEY;
-    arc_num_reset(C, data);
-    ED_area_status_text(CTX_wm_area(C),
-                        data.circle_input_radius ? "Type radius" : "Type diameter");
     return OPERATOR_RUNNING_MODAL;
   }
   /* Plane locking, perpendicular toggling, axis keys and numeric length entry share
@@ -2672,7 +2946,7 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   op->customdata = data;
   data->draw_handle = ED_region_draw_cb_activate(
       data->region->runtime->type, draw_preview, op, REGION_DRAW_POST_VIEW);
-  if (data->arc_mode >= 0) {
+  if (data->circle && data->arc_mode >= 0) {
     data->draw_handle_pixel = ED_region_draw_cb_activate(
         data->region->runtime->type, draw_arc_hud, op, REGION_DRAW_POST_PIXEL);
   }
@@ -2699,23 +2973,114 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
       data->circle ?
           "Click / Enter: Confirm circle placement | Esc / Right Click: Cancel | Backspace: "
           "Previous stage | "
-          "P: Perpendicular plane | X/Y/Z: Axis | L: Plane lock | Tab: Tangent solution | Ctrl: "
-          "Toggle snap | Alt: Free" :
+          "P: Perpendicular plane | X/Y/Z: Axis | L: Plane lock | S: Segments | R/D: Size | "
+          "Tab: Tangent solution | C: Angle snap | Ctrl: Toggle snap | Alt: Free" :
       data->arc_mode >= 0 ?
           "Click: Radius / endpoint, then finish arc | Enter: Confirm | Esc / Right Click: Cancel "
           "| "
-          "Backspace: Previous stage | P: Perpendicular plane | X/Y/Z: Axis | Ctrl: Toggle snap | "
-          "Alt: Free" :
+          "Backspace: Previous stage | P: Perpendicular plane | X/Y/Z: Axis | S: Segments | R: "
+          "Radius / length | D: Chord / sagitta | A: Sweep | H: Sagitta | C: Angle snap | "
+          "Ctrl: Toggle snap | Alt: Free" :
+      data->spline ?
           "Click: Add point | Enter / Right Click: Finish | Esc: Cancel | "
-          "Backspace: Remove point | X/Y/Z: Axis | N: Normal | Shift: Direction | L: Plane lock | "
-          "Tab: Fit Points / CVs | Ctrl: Toggle snap");
+          "Backspace: Remove point | R: Length | S: Segments | X/Y/Z: Axis | N: Normal | "
+          "Shift: Direction | L: Plane lock | Tab: Fit Points / CVs | Ctrl: Toggle snap" :
+          "Click: Add point | Enter / Right Click: Finish | Esc: Cancel | "
+          "Backspace: Remove point | R: Length | X/Y/Z: Axis | N: Normal | Shift: Direction | "
+          "L: Plane lock | Ctrl: Toggle snap");
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
+}
+
+static bool draw_numeric_shortcut(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  if (event->val != KM_PRESS) {
+    return false;
+  }
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  if (data.numeric_mode != DrawNumericMode::Automatic || hasNumInput(&data.num)) {
+    return false;
+  }
+  DrawNumericMode mode = DrawNumericMode::Automatic;
+  const char *label = nullptr;
+  if (event->type == EVT_CKEY && data.arc_mode >= 0) {
+    RNA_boolean_set(op->ptr, "use_angle_snap", !RNA_boolean_get(op->ptr, "use_angle_snap"));
+    update_mouse(C, op, event);
+    return true;
+  }
+  if (event->type == EVT_RKEY && !data.points.is_empty()) {
+    if (data.circle) {
+      if (data.arc_mode == 0 && data.points.size() == 1) {
+        mode = DrawNumericMode::Radius;
+      }
+      else if (data.arc_mode == 1 && data.points.size() == 1) {
+        mode = DrawNumericMode::Radius;
+        data.numeric_initial_circle_input_radius = data.circle_input_radius;
+        data.circle_input_radius = true;
+      }
+    }
+    else if (data.arc_mode >= 0 || !data.points.is_empty()) {
+      mode = DrawNumericMode::Radius;
+    }
+    if (mode == DrawNumericMode::Radius) {
+      label = data.circle ? "Radius" :
+              data.arc_mode == 0 ? "Radius" :
+              data.arc_mode == 1 && data.points.size() > 1 ? "Sagitta" :
+              data.arc_mode == 1 ? "Chord" :
+                                  "Length";
+    }
+  }
+  else if (event->type == EVT_SKEY && (data.arc_mode >= 0 || data.spline)) {
+    mode = DrawNumericMode::Segments;
+    label = "Segments";
+    data.numeric_initial_segments = RNA_int_get(op->ptr, "preview_points");
+  }
+  else if (event->type == EVT_DKEY && data.circle && data.arc_mode == 1 &&
+           data.points.size() == 1)
+  {
+    mode = DrawNumericMode::Diameter;
+    data.numeric_initial_circle_input_radius = data.circle_input_radius;
+    data.circle_input_radius = false;
+    label = "Diameter";
+  }
+  else if (event->type == EVT_DKEY && !data.circle && data.arc_mode == 1 &&
+           data.points.size() == 1)
+  {
+    mode = DrawNumericMode::Length;
+    label = "Chord";
+  }
+  else if (event->type == EVT_DKEY && !data.circle && data.arc_mode == 1 &&
+           data.points.size() == 2)
+  {
+    mode = DrawNumericMode::Sagitta;
+    label = "Sagitta";
+  }
+  else if (event->type == EVT_AKEY && !data.circle && data.arc_mode == 0 &&
+           data.points.size() == 2)
+  {
+    mode = DrawNumericMode::Angle;
+    label = "Angle";
+  }
+  else if (event->type == EVT_HKEY && !data.circle && data.arc_mode == 1 &&
+           data.points.size() == 2)
+  {
+    mode = DrawNumericMode::Sagitta;
+    label = "Sagitta";
+  }
+  if (mode == DrawNumericMode::Automatic) {
+    return false;
+  }
+  draw_num_input_begin(C, data, mode, label);
+  update_arc_area_status_text(C, op);
+  ED_region_tag_redraw(data.region);
+  return true;
 }
 
 static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
+  data.numeric_applying = event->val == KM_PRESS &&
+                          ELEM(event->type, EVT_RETKEY, EVT_PADENTER);
   if (CTX_data_edit_object(C) != &data.source->object()) {
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
@@ -2723,22 +3088,25 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
   const auto *rv3d = static_cast<const RegionView3D *>(data.region->regiondata);
   /* Keep wheel segment adjustment, while native navigation owns complete orbit,
    * pan and zoom gestures. Drawing inputs stay fixed until navigation finishes. */
-  const bool segment_wheel = data.arc_mode >= 0 &&
+  const bool segment_wheel = (data.arc_mode >= 0 || data.spline) &&
                              ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) &&
                              !(event->modifier & KM_CTRL) && !(rv3d->rflag & RV3D_NAVIGATING);
   if (!segment_wheel && ED_view3d_navigation_do(C, data.navigation, event, nullptr)) {
     return OPERATOR_RUNNING_MODAL;
   }
-  if (data.arc_mode >= 0 && ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) &&
+  if ((data.arc_mode >= 0 || data.spline) &&
+      ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) &&
       event->val == KM_PRESS && !(event->modifier & KM_CTRL))
   {
+    const int minimum = data.circle ? 4 : data.arc_mode >= 0 ? 0 : 1;
     RNA_int_set(
         op->ptr,
         "preview_points",
         std::clamp(RNA_int_get(op->ptr, "preview_points") + (event->type == WHEELUPMOUSE ? 1 : -1),
-                   4,
+                   minimum,
                    256));
     rebuild_preview(op);
+    update_arc_area_status_text(C, op);
     ED_region_tag_redraw(data.region);
     return OPERATOR_RUNNING_MODAL;
   }
@@ -2746,14 +3114,75 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
   }
   if (event->type == EVT_ESCKEY && event->val == KM_PRESS) {
+    if (data.numeric_mode != DrawNumericMode::Automatic || hasNumInput(&data.num)) {
+      if (data.numeric_mode == DrawNumericMode::Segments) {
+        RNA_int_set(op->ptr, "preview_points", data.numeric_initial_segments);
+      }
+      if (data.circle && data.arc_mode == 1 &&
+          ELEM(data.numeric_mode, DrawNumericMode::Radius, DrawNumericMode::Diameter))
+      {
+        data.circle_input_radius = data.numeric_initial_circle_input_radius;
+      }
+      if (data.arc_mode >= 0) {
+        arc_num_reset(C, data);
+      }
+      else {
+        initNumInput(&data.num);
+        data.num.unit_sys = CTX_data_scene(C)->unit.system;
+        data.num.unit_type[0] = B_UNIT_LENGTH;
+        data.num.flag |= NUM_USE_DOUBLE;
+        data.numeric_mode = DrawNumericMode::Automatic;
+        data.numeric_label.clear();
+      }
+      rebuild_preview(op);
+      update_arc_area_status_text(C, op);
+      ED_region_tag_redraw(data.region);
+      return OPERATOR_RUNNING_MODAL;
+    }
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
+  }
+  if (draw_numeric_shortcut(C, op, event)) {
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (event->type == LEFTMOUSE && event->val == KM_PRESS &&
+      (data.numeric_mode != DrawNumericMode::Automatic || hasNumInput(&data.num)))
+  {
+    return OPERATOR_RUNNING_MODAL;
   }
   if (data.circle) {
     return circle_modal(C, op, event);
   }
   if (data.arc_mode >= 0) {
     return arc_modal(C, op, event);
+  }
+  if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER) && event->val == KM_PRESS &&
+      data.numeric_mode != DrawNumericMode::Automatic && !hasNumInput(&data.num))
+  {
+    initNumInput(&data.num);
+    data.num.unit_sys = CTX_data_scene(C)->unit.system;
+    data.num.unit_type[0] = B_UNIT_LENGTH;
+    data.num.flag |= NUM_USE_DOUBLE;
+    data.numeric_mode = DrawNumericMode::Automatic;
+    data.numeric_label.clear();
+    update_arc_area_status_text(C, op);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER) && event->val == KM_PRESS &&
+      data.numeric_mode == DrawNumericMode::Segments)
+  {
+    if (hasNumInput(&data.num)) {
+      update_mouse(C, op, event);
+    }
+    initNumInput(&data.num);
+    data.num.unit_sys = CTX_data_scene(C)->unit.system;
+    data.num.unit_type[0] = B_UNIT_LENGTH;
+    data.num.flag |= NUM_USE_DOUBLE;
+    data.numeric_mode = DrawNumericMode::Automatic;
+    data.numeric_label.clear();
+    rebuild_preview(op);
+    update_arc_area_status_text(C, op);
+    return OPERATOR_RUNNING_MODAL;
   }
   if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER) && event->val == KM_PRESS &&
       hasNumInput(&data.num))
@@ -2767,7 +3196,10 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     data.num.unit_sys = CTX_data_scene(C)->unit.system;
     data.num.unit_type[0] = B_UNIT_LENGTH;
     data.num.flag |= NUM_USE_DOUBLE;
+    data.numeric_mode = DrawNumericMode::Automatic;
+    data.numeric_label.clear();
     rebuild_preview(op);
+    update_arc_area_status_text(C, op);
     return OPERATOR_RUNNING_MODAL;
   }
   if (ELEM(event->type, EVT_RETKEY, EVT_PADENTER, RIGHTMOUSE) && event->val == KM_PRESS) {
@@ -2844,6 +3276,8 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
         data.num.unit_sys = CTX_data_scene(C)->unit.system;
         data.num.unit_type[0] = B_UNIT_LENGTH;
         data.num.flag |= NUM_USE_DOUBLE;
+        data.numeric_mode = DrawNumericMode::Automatic;
+        data.numeric_label.clear();
       }
     }
   }
@@ -2896,6 +3330,17 @@ static void draw_operator(wmOperatorType *ot, const bool spline)
                      5);
   if (!spline) {
     RNA_def_property_flag(prop, PROP_HIDDEN);
+  }
+  else {
+    RNA_def_int(ot->srna,
+                "preview_points",
+                32,
+                1,
+                256,
+                "Segments",
+                "Exact NURBS edge divisions used by the preview and committed spline",
+                1,
+                128);
   }
   if (!spline) {
     prop = RNA_def_float_distance(ot->srna,
@@ -3082,11 +3527,13 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
   RNA_def_int(ot->srna,
               "preview_points",
               32,
-              4,
+              circle ? 4 : 0,
               256,
               "Segments",
-              "Exact circular edges and shared endpoints; matches the preview divisions",
-              4,
+              circle ?
+                  "Exact circular edges and shared endpoints; matches the preview divisions" :
+                  "Arc edges and shared endpoints; zero uses 90 degree divisions",
+              circle ? 4 : 0,
               128);
   RNA_def_int(ot->srna, "preview_point_size", 5, 1, 50, "Marker Size", "", 1, 20);
   RNA_def_boolean(ot->srna,

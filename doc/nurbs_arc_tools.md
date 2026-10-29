@@ -9,9 +9,17 @@ Curve and Surface Edit Mode. Its tool settings select the RCAD construction mode
 | 2 Point | Start endpoint | End endpoint | Bulge above/below the chord midpoint |
 | 3 Point | Start endpoint | End endpoint | A point the arc passes through |
 
-The third placement commits one exact native curve support, divided into the
-number of curved edges chosen by Segments (32 by default). Every preview division
-becomes a shared topology endpoint, with equal angular spacing along the arc.
+The third placement commits one exact native curve support, divided into
+curved edges with shared topology endpoints. For Center Arc, setting Segments
+to 0 places an endpoint every 90 degrees. A positive count initially
+divides the sweep evenly into that many edges until it reaches `count * 90°`;
+past that angle, the 90-degree endpoints stay fixed as the live endpoint extends
+to the next quarter. For example, with two segments, a 160-degree sweep has its
+shared endpoint at 80 degrees; after reaching 180 degrees, that endpoint stays
+at 90 degrees and the endpoint at 180 degrees stays fixed as the arc grows.
+Other arc modes retain equal angular divisions when Segments is positive and
+use 90-degree divisions at zero. Every preview division becomes a shared
+topology endpoint.
 An open arc has one more endpoint than edges; a full sweep closes the last edge
 onto the first endpoint. The through point selects minor or major arcs and winding. The center, bulge and through
 point are construction inputs, not additional topology vertices.
@@ -19,9 +27,15 @@ point are construction inputs, not additional topology vertices.
 Click or Enter confirms a construction stage. Type a radius/chord length during
 the second placement, a sweep in degrees during the final Center placement, or
 a signed bulge length during the final 2 Point placement. Three Point also accepts
-a distance from its start to the through point. Esc or right-click cancels the
-whole uncommitted arc; Backspace returns to radius/chord placement. Completion
-returns to Box Select, like the other native drawing tools.
+a distance from its start to the through point. R selects radius/length input,
+A selects Center Arc sweep input, D selects the 2 Point chord or sagitta, and H
+selects 2 Point sagitta input. S starts integer Segments entry; Enter accepts
+that count and the preview divisions update the committed edge endpoints. C
+toggles angle snapping. Enter accepts a typed value at the current stage;
+confirm again to finish the arc.
+Esc or right-click cancels the whole uncommitted arc; Backspace returns to
+radius/chord placement. Completion returns to Box Select, like the other native
+drawing tools.
 
 X/Y/Z constrain the endpoint chord; for Center they choose its plane normal.
 After the chord/radius is established, X/Y/Z can choose a plane containing that
@@ -89,9 +103,10 @@ start/end radius guides. Exact-curve previews and their display markers are
 black, with yellow snap feedback. These are viewport overlays, not source
 geometry.
 
-Live labels beside the pointer identify the active construction stage and show
-radius, chord, sweep or sagitta, plus segment count. The wheel changes Segments;
-Ctrl-wheel zooms. Three Point follows RCAD's click order: start,
+The Arc tool header shows the active construction stage and live radius, chord,
+sweep or sagitta, plus the current edge count. This keeps text clear of the
+compass and curve preview. The wheel changes Segments; Ctrl-wheel zooms. Three
+Point follows RCAD's click order: start,
 end, then a point on the arc. Collinear third points show a correction hint and
 can be moved before committing.
 
@@ -110,3 +125,6 @@ retain the exact NURBS support.
   interaction, numeric input, plane changes, endpoint sharing, cancellation,
   Backspace, undo and redo.
 - Existing `test_nurbs_draw.drawing_workflow`: line/interpolation regression.
+
+Typed parameter values stay pending until Enter accepts them. Typing and editing
+the entry preserve the current geometry preview; Esc discards the pending value.

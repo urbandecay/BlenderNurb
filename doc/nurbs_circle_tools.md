@@ -12,8 +12,11 @@ The Circle button in Curve and Surface Edit Mode contains all five RCAD modes:
 
 Click or Enter confirms each placement. Esc or right-click discards the preview.
 Backspace returns from the third-point stage to the second point. Typed lengths
-set radius in Center mode and diameter in 2 Point mode. R and D select radius or
-diameter entry for 2 Point. P toggles a perpendicular plane, X/Y/Z constrain the
+set radius in Center mode and diameter in 2 Point mode. R selects radius entry
+in Center mode; R and D select radius or diameter entry for 2 Point. Enter
+accepts the typed value and leaves the circle preview active for confirmation.
+S enters the segment count; the resulting divisions become real endpoints on
+the exact circle. C toggles angle snapping. P toggles a perpendicular plane, X/Y/Z constrain the
 live radius/diameter, X/Y choose vertical plane orientation, L toggles plane
 locking, Shift locks direction, Ctrl toggles snapping and Alt bypasses inference.
 
@@ -82,3 +85,6 @@ closure, tilted planes, nonuniform transforms and atomic rejection.
 `tests/python/ui_simulate/test_nurbs_circle.py` covers staged placement, numeric input,
 Backspace, cancellation, tangent input, curved supports, Tab, undo and redo. Screenshots
 are saved under `/tmp/nurbs-circle-overlays` for inspection.
+
+Typed parameter values stay pending until Enter accepts them. Typing and editing
+the entry preserve the current geometry preview; Esc discards the pending value.
