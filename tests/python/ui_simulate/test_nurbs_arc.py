@@ -47,6 +47,7 @@ def arc_workflow():
             props.mode = mode
             props.use_axis_snap = False
             props.use_angle_snap = True
+            props.preview_points = 32
 
     if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
         yield e.tab()
@@ -59,17 +60,19 @@ def arc_workflow():
     space.region_3d.view_distance = 12
     window.scene.tool_settings.use_snap = False
 
-    # Each mode has three placements, with one support and two topological endpoints.
+    # All modes commit the displayed divisions as exact curved edges and shared endpoints.
     for mode, points in (
             ('CENTER', ((0, 0, 0), (2, 0, 0), (0, 2, 0))),
             ('ENDPOINTS', ((-2, -2, 0), (2, -2, 0), (0, -4, 0))),
             ('THREE_POINTS', ((-2, 2, 0), (2, 2, 0), (0, 4, 0)))):
         before = counts()
         activate(mode)
-        for point in points:
+        for i, point in enumerate(points):
             yield e.cursor_position_set(*screen(point), move=True)
+            if i == 2:
+                yield e.wheelupmouse()
             yield e.leftmouse()
-        t.assertEqual(counts(), (before[0] + 2, before[1] + 1, 0))
+        t.assertEqual(counts(), (before[0] + 34, before[1] + 33, 0))
         t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
         with bpy.context.temp_override(window=window, area=area, region=region):
             tool = window.workspace.tools.from_space_view3d_mode(bpy.context.mode)
@@ -107,7 +110,7 @@ def arc_workflow():
     yield e.text('3').ret()
     yield e.cursor_position_set(*screen((0, 2, 0)), move=True)
     yield e.text('-90').ret()
-    t.assertEqual(counts(), (before[0] + 2, before[1] + 1, 0))
+    t.assertEqual(counts(), (before[0] + 33, before[1] + 32, 0))
     added = mesh_points() - before_points
     t.assertGreater(len(added), 4)
     for x, y, z in added:
@@ -126,13 +129,13 @@ def arc_workflow():
     for point in ((0, 2.5, 0), (-2.5, 0, 0), (0, -2.5, 0)):
         yield e.cursor_position_set(*screen(point), move=True)
     yield e.leftmouse()
-    t.assertEqual(counts(), (before[0] + 2, before[1] + 1, 0))
+    t.assertEqual(counts(), (before[0] + 33, before[1] + 32, 0))
     added = mesh_points() - before_points
     t.assertGreater(max(p[1] for p in added), 2)
     t.assertLess(min(p[1] for p in added), -2)
     t.assertLess(min(p[0] for p in added), -2)
 
-    # Full circles have a single shared seam vertex.
+    # A full sweep closes the last segment onto the first endpoint.
     before = counts()
     activate('CENTER')
     yield e.cursor_position_set(*screen((0, 0, 0)), move=True)
@@ -140,7 +143,7 @@ def arc_workflow():
     yield e.cursor_position_set(*screen((2, 0, 0)), move=True)
     yield e.leftmouse()
     yield e.text('360').ret()
-    t.assertEqual(counts(), (before[0] + 1, before[1] + 1, 0))
+    t.assertEqual(counts(), (before[0] + 32, before[1] + 32, 0))
 
     # Backspace returns to chord placement; a degenerate through point cannot commit.
     before = counts()
@@ -156,7 +159,7 @@ def arc_workflow():
     t.assertEqual(counts(), before)
     yield e.cursor_position_set(*screen((0, -3, 0)), move=True)
     yield e.leftmouse()
-    t.assertEqual(counts(), (before[0] + 2, before[1] + 1, 0))
+    t.assertEqual(counts(), (before[0] + 33, before[1] + 32, 0))
 
     # Reuse native endpoint identities rather than duplicating coincident arc endpoints.
     before = counts()
@@ -169,7 +172,7 @@ def arc_workflow():
     yield e.leftmouse()
     yield e.cursor_position_set(*screen((0, -1, 0)), move=True)
     yield e.leftmouse()
-    t.assertEqual(counts(), (before[0] + 1, before[1] + 1, 0))
+    t.assertEqual(counts(), (before[0] + 32, before[1] + 32, 0))
     window.scene.tool_settings.use_snap = False
 
     # Vertical chords choose a stable plane. P alternates its two orientations.
@@ -192,7 +195,7 @@ def arc_workflow():
             yield e.cursor_position_set(*ui.get_area_center(area), move=True)
         yield e.cursor_position_set(*screen(peak), move=True)
         yield e.leftmouse()
-        t.assertEqual(counts(), (before[0] + 2, before[1] + 1, 0))
+        t.assertEqual(counts(), (before[0] + 33, before[1] + 32, 0))
         added = mesh_points() - before_points
         t.assertGreater(len(added), 4)
         for x, y, z in added:
@@ -324,7 +327,7 @@ def arc_overlays_and_three_point():
     screenshot('three-point-preview', (0, -1, 0), 2, max_dominant=0)
     t.assertEqual(totals(), before)
     yield e.leftmouse()
-    t.assertEqual(totals(), (before[0] + 2, before[1] + 1, 0))
+    t.assertEqual(totals(), (before[0] + 33, before[1] + 32, 0))
     obj = window.view_layer.objects.active
     evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
     mesh = evaluated.to_mesh()
@@ -345,3 +348,96 @@ def arc_overlays_and_three_point():
     t.assertEqual(totals(), before)
     yield e.ctrl.shift.z()
     t.assertEqual(totals(), finished)
+
+
+def arc_preview_matches_commit():
+    """Compare preview and committed arc bounds and endpoint marker footprints."""
+    import bpy
+    import math
+    from pathlib import Path
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    output = Path('/tmp/nurbs-arc-preview-size')
+    output.mkdir(exist_ok=True)
+
+    def screen(point):
+        co = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+        t.assertIsNotNone(co)
+        return round(co.x) + region.x, round(co.y) + region.y
+
+    def capture(name, committed):
+        path = str(output / (name + '.png'))
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.screen.screenshot(filepath=path)
+        image = bpy.data.images.load(path, check_existing=False)
+        try:
+            pixels = image.pixels[:]
+            width, height = image.size
+            left, bottom = screen((-3.3, 0.4, 0))
+            right, top = screen((3.3, 3.3, 0))
+            mask = set()
+            for y in range(max(0, bottom), min(height, top)):
+                for x in range(max(0, left), min(width, right)):
+                    r, g, b = pixels[(y * width + x) * 4:(y * width + x) * 4 + 3]
+                    if (r > 0.6 and g > 0.2 and b < 0.25) if committed else max(r, g, b) < 0.08:
+                        mask.add((x, y))
+            t.assertGreater(len(mask), 100)
+            return mask
+        finally:
+            bpy.data.images.remove(image)
+
+    if window.view_layer.objects.active and window.view_layer.objects.active.mode == 'EDIT':
+        yield e.tab()
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab().two().numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 12
+    space.overlay.show_floor = False
+    space.overlay.show_axis_x = False
+    space.overlay.show_axis_y = False
+    window.scene.tool_settings.use_snap = False
+
+    for mode in ('CENTER', 'ENDPOINTS', 'THREE_POINTS'):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_arc')
+            props = window.workspace.tools.from_space_view3d_mode(bpy.context.mode).operator_properties('curve.draw_arc')
+            props.mode = mode
+            props.use_axis_snap = False
+            props.use_angle_snap = False
+            props.show_compass = False
+            props.show_measurements = False
+            props.preview_points = 16
+            props.preview_point_size = 5
+            props.start_color = (0, 0, 0, 0)
+            props.end_color = (0, 0, 0, 0)
+            props.overlay_color = (0, 0, 0, 0)
+        points = ((0, 0, 0), (3, 0, 0)) if mode == 'CENTER' else ((-3, 0, 0), (3, 0, 0))
+        for point in points:
+            yield e.cursor_position_set(*screen(point), move=True)
+            yield e.leftmouse()
+        yield e.cursor_position_set(*screen((0, 3, 0)), move=True)
+        if mode == 'CENTER':
+            yield e.cursor_position_set(*screen((-3, 0, 0)), move=True)
+            yield e.text('180')
+        preview = capture(mode.lower() + '-preview', False)
+        yield e.leftmouse()
+        committed = capture(mode.lower() + '-committed', True)
+        for axis in (0, 1):
+            t.assertLessEqual(abs(min(p[axis] for p in preview) - min(p[axis] for p in committed)), 2)
+            t.assertLessEqual(abs(max(p[axis] for p in preview) - max(p[axis] for p in committed)), 2)
+        # At the apex the wire is horizontal, so vertical width measures the dot.
+        cx, cy = screen((0, 3, 0))
+        def marker_height(mask):
+            ys = [y for x, y in mask if abs(x - cx) <= 1 and abs(y - cy) <= 5]
+            t.assertTrue(ys)
+            return max(ys) - min(ys) + 1
+        t.assertLessEqual(abs(marker_height(preview) - marker_height(committed)), 1)
+        yield e.ctrl.z()

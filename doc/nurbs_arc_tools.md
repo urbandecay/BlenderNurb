@@ -9,9 +9,11 @@ Curve and Surface Edit Mode. Its tool settings select the RCAD construction mode
 | 2 Point | Start endpoint | End endpoint | Bulge above/below the chord midpoint |
 | 3 Point | Start endpoint | End endpoint | A point the arc passes through |
 
-The third placement commits one native curve support and one topological edge.
-The through point selects the minor or major arc, including clockwise paths.
-A complete center arc uses a single seam vertex. The center, bulge and through
+The third placement commits one exact native curve support, divided into the
+number of curved edges chosen by Segments (32 by default). Every preview division
+becomes a shared topology endpoint, with equal angular spacing along the arc.
+An open arc has one more endpoint than edges; a full sweep closes the last edge
+onto the first endpoint. The through point selects minor or major arcs and winding. The center, bulge and through
 point are construction inputs, not additional topology vertices.
 
 Click or Enter confirms a construction stage. Type a radius/chord length during
@@ -30,6 +32,17 @@ locks the chord direction, Ctrl toggles Blender snapping, and Alt bypasses
 inference and soft angular/semicircle snapping. Angle snapping defaults to
 15-degree increments with a six-degree attraction range.
 
+When snapping is enabled, a target glyph appears under the hovering pointer
+before the first placement. Line, Curve Interpolation, Arc and Circle tools use
+the same snap query for hover and placement, including native endpoints, edges,
+edge/face centers, and grid targets. Hover creates no geometry; during drawing
+the modal preview provides the feedback instead.
+
+Viewport navigation stays available throughout construction. Middle mouse orbits
+and Shift + middle mouse pans using Blender's configured navigation bindings.
+Navigation holds the construction inputs fixed; release the gesture to continue
+drawing from the same stage.
+
 ## Porting decisions
 
 The source is `radCAD/operators/arc_tools.py`, with input dispatch in
@@ -40,8 +53,8 @@ RCAD's three classes share staged plane, radius and winding calculations, then
 `commit_arc_to_mesh` creates mesh edges from `preview_pts` and invokes its weld
 manager. Native NURBS construction instead uses positive rational quadratic
 spans of at most 90 degrees, with repeated interior knots and domain [0, 1].
-Preview sampling never becomes source topology. Changing display resolution
-does not change the curve. No mesh weld or display-mesh fitting is involved.
+Segment divisions become source edge intervals and shared endpoints without
+altering the exact support. Display resolution remains independent. No mesh weld or display-mesh fitting is involved.
 
 The 2 Point sagitta is projected onto the chord's perpendicular bisector. The
 3 Point circumcircle chooses the sweep containing its through point. Center
@@ -58,8 +71,8 @@ no proximity search welds unrelated source components. The shared native
 `TopologyPreview` commit path handles selection, edit lifecycle and undo.
 
 The port uses Blender's existing snap settings, native source endpoint/edge/face
-center picking and snap glyphs. RCAD's mesh segment count and mesh weld settings have no native geometry
-equivalent. The Center / 2 Point / 3 Point selector remains in the tool settings.
+center picking and snap glyphs. Segments controls native edge and endpoint divisions. RCAD mesh weld settings
+have no native geometry equivalent. The Center / 2 Point / 3 Point selector remains in the tool settings.
 
 ## Construction overlays
 
@@ -77,13 +90,15 @@ black, with yellow snap feedback. These are viewport overlays, not source
 geometry.
 
 Live labels beside the pointer identify the active construction stage and show
-radius, chord, sweep or sagitta. Three Point follows RCAD's click order: start,
+radius, chord, sweep or sagitta, plus segment count. The wheel changes Segments;
+Ctrl-wheel zooms. Three Point follows RCAD's click order: start,
 end, then a point on the arc. Collinear third points show a correction hint and
 can be moved before committing.
 
 The overlay popover next to the existing selector exposes compass visibility
 and diameter only for Center mode. Each mode also exposes its axis colors,
-guide colors, display marker count/size and measurements. Preview markers never change the exact NURBS support.
+guide colors, segment count, marker size and measurements. Segment divisions
+retain the exact NURBS support.
 
 ## Validation
 

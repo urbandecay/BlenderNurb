@@ -6602,7 +6602,37 @@ class VIEW3D_PT_nurbs_arc_overlay(Panel):
         layout.prop(props, "show_measurements")
 
 
+class VIEW3D_PT_nurbs_circle_overlay(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'HEADER'
+    bl_label = "Circle Overlays"
+    bl_ui_units_x = 14
+
+    def draw(self, context):
+        tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        if tool is None or tool.idname != "builtin.nurbs_draw_circle":
+            return
+        props = tool.operator_properties("curve.draw_circle")
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        if props.mode in {'TAN_TAN', 'TAN_TAN_TAN'}:
+            layout.prop(props, "show_source_curves")
+            layout.prop(props, "tangent_color")
+            layout.prop(props, "source_width")
+            layout.prop(props, "show_tangents")
+            layout.prop(props, "anchor_tangent_markers")
+        else:
+            layout.prop(props, "use_axis_colors")
+            layout.prop(props, "axis_color_dim")
+            layout.prop(props, "overlay_color")
+        layout.prop(props, "preview_points")
+        layout.prop(props, "preview_point_size")
+        layout.prop(props, "show_measurements")
+
+
 classes = (
+    VIEW3D_PT_nurbs_circle_overlay,
     VIEW3D_PT_nurbs_arc_overlay,
     VIEW3D_HT_header,
     VIEW3D_HT_tool_header,

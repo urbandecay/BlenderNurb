@@ -55,8 +55,8 @@ class NurbsArcTest(unittest.TestCase):
                 self.setUp()
                 self.assertEqual(bpy.ops.curve.draw_arc(
                     mode='CENTER', points='10 0 0 11 0 0', sweep=sweep), {'FINISHED'})
-                expected_vertices = 3 if abs(sweep) == 2 * math.pi else 4
-                self.assertEqual(self.totals(), (expected_vertices, 2, 0))
+                expected_vertices = 34 if abs(sweep) == 2 * math.pi else 35
+                self.assertEqual(self.totals(), (expected_vertices, 33, 0))
                 self.assertTrue(self.obj.data.is_native_nurbs)
                 self.assertEqual(len(self.obj.data.splines), 0)
                 points = self.world_arc_points()
@@ -74,7 +74,7 @@ class NurbsArcTest(unittest.TestCase):
                     self.setUp()
                     self.assertEqual(bpy.ops.curve.draw_arc(
                         mode=mode, points=f'9 0 0 11 0 0 10 {height} 0'), {'FINISHED'})
-                    self.assertEqual(self.totals(), (4, 2, 0))
+                    self.assertEqual(self.totals(), (35, 33, 0))
                     center_y = (height * height - 1) / (2 * height)
                     radius = abs(height - center_y)
                     points = self.world_arc_points()
@@ -84,6 +84,20 @@ class NurbsArcTest(unittest.TestCase):
                     peak = max(p.y for p in points) if height > 0 else min(p.y for p in points)
                     # Display tessellation need not sample the exact arc midpoint.
                     self.assertAlmostEqual(peak, height, delta=0.02)
+
+    def test_segment_count_and_equal_angles(self):
+        for count in (4, 7, 32):
+            for sweep in (0.3, 2.8, -5.7):
+                with self.subTest(count=count, sweep=sweep):
+                    self.setUp()
+                    bpy.ops.curve.draw_arc(mode='CENTER', points='10 0 0 12 0 0',
+                                           sweep=sweep, preview_points=count)
+                    self.assertEqual(self.totals(), (count + 3, count + 1, 0))
+                    samples = self.world_arc_points()
+                    for i in range(count + 1):
+                        angle = sweep * i / count
+                        target = Vector((10 + 2 * math.cos(angle), 2 * math.sin(angle), 0))
+                        self.assertLess(min((p - target).length for p in samples), 2e-5)
 
     def test_world_circle_under_nonuniform_scale(self):
         self.obj.scale = (2, 3, 4)
@@ -113,7 +127,7 @@ class NurbsArcTest(unittest.TestCase):
             self.assertEqual(self.totals(), before)
             self.assertEqual(bpy.ops.curve.draw_arc(
                 mode='CENTER', points='15 0 0 16 0 0', sweep=math.pi), {'FINISHED'})
-            self.assertEqual(self.totals(), (before[0] + 2, before[1] + 1, 0))
+            self.assertEqual(self.totals(), (before[0] + 33, before[1] + 32, 0))
 
     def test_rejection_is_atomic(self):
         # Enter native geometry before checking rejected operations.

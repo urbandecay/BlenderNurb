@@ -37,6 +37,7 @@
 #include "DNA_screen_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_workspace_types.h"
+#include "ED_gizmo_utils.hh"
 #include "ED_numinput.hh"
 #include "ED_nurbs.hh"
 #include "ED_screen.hh"
@@ -68,6 +69,7 @@ struct NativeCenter {
 struct DrawData {
   std::unique_ptr<ed::nurbs::TopologyPreview> source;
   ARegion *region = nullptr;
+  ViewOpsData *navigation = nullptr;
   void *draw_handle = nullptr;
   void *draw_handle_pixel = nullptr;
   ed::transform::SnapObjectContext *snap = nullptr;
@@ -87,6 +89,13 @@ struct DrawData {
   bool locked = true;
   bool spline = false;
   int arc_mode = -1;
+  bool circle = false;
+  bool circle_input_radius = false;
+  int circle_solution = 0;
+  Vector<Vector<const NurbsTopologyEdge *>> circle_chains;
+  Vector<double3> circle_contacts;
+  double3 circle_center = double3(0);
+  Vector<Vector<float3>> circle_curve_overlays;
   float3 arc_reference_normal = float3(0, 0, 1);
   bool arc_perpendicular = false;
   int arc_vertical_axis = -1;
@@ -111,6 +120,11 @@ static bool is_spline(const wmOperator *op)
 static bool is_arc(const wmOperator *op)
 {
   return STREQ(op->type->idname, "CURVE_OT_draw_arc");
+}
+
+static bool is_circle(const wmOperator *op)
+{
+  return STREQ(op->type->idname, "CURVE_OT_draw_circle");
 }
 
 static double arc_sweep_get(wmOperator *op)
@@ -167,8 +181,113 @@ static OwnedCurve arc_support(const Span<double3> points,
   return curve;
 }
 
+/* RCAD circle construction inputs become an exact closed rational support. */
+static OwnedCurve circle_support(const Span<double3> points,
+                                 const int mode,
+                                 const double3 &normal,
+                                 const double4x4 &inverse,
+                                 std::string &error)
+{
+  if (points.size() != (mode == 2 ? 3 : 2)) {
+    error = "Place the circle construction points";
+    return nullptr;
+  }
+  double3 center = points[0], start = points[1], n = normal;
+  if (mode == 1) {
+    center = (points[0] + points[1]) / 2;
+    start = points[0];
+  }
+  else if (mode == 2) {
+    const double3 a = points[1] - points[0], b = points[2] - points[0];
+    const double3 cross = math::cross(a, b);
+    const double area_squared = math::length_squared(cross);
+    if (area_squared <= 1e-20 * math::length_squared(a) * math::length_squared(b)) {
+      error = "Place three distinct, noncollinear circle points";
+      return nullptr;
+    }
+    center += (math::length_squared(a) * math::cross(b, cross) +
+               math::length_squared(b) * math::cross(cross, a)) /
+              (2 * area_squared);
+    start = points[0];
+    n = math::normalize(cross);
+  }
+  const std::array<double3, 2> radius = {center, start};
+  return arc_support(radius, 0, n, 2 * M_PI, inverse, error);
+}
+
+/* Convert a geometric angle to the parameter of our four rational quadratic
+ * quarter spans. Uniform parameters are not uniformly spaced circle angles. */
+static double circle_parameter_at_angle(const double angle)
+{
+  if (angle >= 2 * M_PI) {
+    return 0;
+  }
+  const int quarter = std::clamp(int(angle / (M_PI / 2)), 0, 3);
+  const double local_angle = angle - quarter * (M_PI / 2);
+  const double sine = std::sin(local_angle / 2);
+  const double t = sine / (sine + std::sin((M_PI / 2 - local_angle) / 2));
+  return (quarter + t) / 4;
+}
+
+/* Preview and commit use exactly the same source parameter divisions. Optional
+ * tangency contacts are replay data; the regular divisions follow Segments. */
+static std::optional<Vector<double>> circle_divisions(wmOperator *op)
+{
+  Vector<double> parameters;
+  const int count = RNA_int_get(op->ptr, "preview_points");
+  for (int i = 0; i < count; i++) {
+    parameters.append(circle_parameter_at_angle(2 * M_PI * i / count));
+  }
+  if (RNA_enum_get(op->ptr, "mode") >= 3 && RNA_boolean_get(op->ptr, "anchor_tangent_markers")) {
+    std::istringstream input(RNA_string_get(op->ptr, "tangent_parameters"));
+    double t;
+    int contacts = 0;
+    while (input >> t) {
+      if (!std::isfinite(t) || t < 0 || t >= 1 || ++contacts > 3) {
+        return std::nullopt;
+      }
+      parameters.append(t);
+    }
+    if (!input.eof()) {
+      return std::nullopt;
+    }
+  }
+  std::sort(parameters.begin(), parameters.end());
+  Vector<double> unique;
+  for (const double t : parameters) {
+    if ((unique.is_empty() || t - unique.last() > 1e-10) && 1 - t > 1e-10) {
+      unique.append(t);
+    }
+  }
+  return unique;
+}
+
+/* Equal angular divisions on the exact rational arc. Its constructor uses
+ * equally swept quadratic spans; their parameter speed is not constant. */
+static Vector<double> arc_divisions(const NurbsCurveGeometry &support, const int count)
+{
+  const int spans = (support.points_num - 1) / 2;
+  const double span_angle = 2 * std::acos(std::clamp(support.points[1].weight, 0.0, 1.0));
+  Vector<double> parameters;
+  for (int i = 0; i <= count; i++) {
+    if (i == count) {
+      parameters.append(1);
+      break;
+    }
+    const double span_position = double(i) * spans / count;
+    const int span = int(span_position);
+    const double fraction = span_position - span;
+    const double a = std::sin(span_angle * fraction / 2);
+    const double b = std::sin(span_angle * (1 - fraction) / 2);
+    const double t = span_angle > 1e-8 ? a / (a + b) : fraction;
+    parameters.append((span + t) / spans);
+  }
+  return parameters;
+}
+
 static wmOperatorStatus arc_exec(bContext *C, wmOperator *op);
 static void arc_update(bContext *C, wmOperator *op, const wmEvent *event);
+static void circle_update(bContext *C, wmOperator *op, const wmEvent *event);
 static std::array<double3, 2> arc_plane_axes(const double3 &normal);
 
 static OwnedCurve draw_support(const Span<double3> points,
@@ -518,7 +637,7 @@ static bool snap_to_volume(ed::transform::SnapObjectContext *snap_context,
 
 static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
 {
-  if (is_arc(op)) {
+  if (is_arc(op) || is_circle(op)) {
     return arc_exec(C, op);
   }
   std::string error;
@@ -661,8 +780,15 @@ static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
   }
   float normal[3];
   RNA_float_get_array(op->ptr, "plane_normal", normal);
-  auto support = arc_support(
-      points, RNA_enum_get(op->ptr, "mode"), double3(normal), arc_sweep_get(op), inverse, error);
+  auto support = is_circle(op) ?
+                     circle_support(
+                         points, RNA_enum_get(op->ptr, "mode"), double3(normal), inverse, error) :
+                     arc_support(points,
+                                 RNA_enum_get(op->ptr, "mode"),
+                                 double3(normal),
+                                 arc_sweep_get(op),
+                                 inverse,
+                                 error);
   if (!support) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
@@ -675,18 +801,39 @@ static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
   int64_t refs[2] = {0, 0};
   std::istringstream references(RNA_string_get(op->ptr, "vertex_references"));
   references >> refs[0] >> refs[1];
-  int64_t vertices[2];
-  double tolerance = 0;
-  for (int i = 0; i < 2; i++) {
-    const double3 point(support->points[i == 0 ? 0 : support->points_num - 1].position);
-    const auto *anchor = index ? index->vertex(refs[i]) : nullptr;
-    const double gap = anchor ? math::distance(point, double3(anchor->position)) : 0;
-    if (anchor && gap <= 1e-10 * std::max(1.0, double(math::length(point)))) {
-      vertices[i] = anchor->id;
-      tolerance = std::max(tolerance, gap);
+  /* Preview divisions become shared source endpoints on the exact support. */
+  const bool circle = is_circle(op);
+  Vector<double> parameters = arc_divisions(*support, RNA_int_get(op->ptr, "preview_points"));
+  if (circle) {
+    const auto divisions = circle_divisions(op);
+    if (!divisions) {
+      BKE_report(op->reports, RPT_ERROR, "Invalid circle tangency divisions");
+      return OPERATOR_CANCELLED;
     }
-    else if (i == 1 && point == double3(support->points[0].position)) {
+    parameters = *divisions;
+  }
+  const int vertex_count = parameters.size();
+  Vector<int64_t> vertices(vertex_count, 0);
+  Vector<double> tolerances(vertex_count, 0);
+  for (int i = 0; i < vertex_count; i++) {
+    const auto evaluated = evaluate_curve(*support, parameters[i]);
+    if (!evaluated) {
+      BKE_report(op->reports, RPT_ERROR, "Cannot evaluate a circular segment endpoint");
+      return OPERATOR_CANCELLED;
+    }
+    const double3 point = evaluated->position;
+    const bool end = !circle && i == vertex_count - 1;
+    const auto *anchor = index && (i == 0 || end) ? index->vertex(refs[end ? 1 : 0]) : nullptr;
+    const double gap = anchor ? math::distance(point, double3(anchor->position)) : 0;
+    if (end && double3(support->points[0].position) ==
+                   double3(support->points[support->points_num - 1].position))
+    {
       vertices[i] = vertices[0];
+      tolerances[i] = tolerances[0];
+    }
+    else if (anchor && gap <= 1e-10 * std::max(1.0, double(math::length(point)))) {
+      vertices[i] = anchor->id;
+      tolerances[i] = gap;
     }
     else {
       auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
@@ -697,25 +844,42 @@ static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
     }
     result.vertices.append_non_duplicates(vertices[i]);
   }
-  auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
-  edge->id = geometry.next_id++;
-  edge->curve_id = support->id;
-  std::copy_n(vertices, 2, edge->vertex_ids);
-  edge->parameter_range[0] = 0;
-  edge->parameter_range[1] = 1;
-  edge->tolerance = tolerance;
-  result.edges.append(edge->id);
-  BLI_addtail(&geometry.edges, edge);
+  const int edge_count = circle ? vertex_count : vertex_count - 1;
+  for (int i = 0; i < edge_count; i++) {
+    const int next = circle ? (i + 1) % vertex_count : i + 1;
+    auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
+    edge->id = geometry.next_id++;
+    edge->curve_id = support->id;
+    edge->vertex_ids[0] = vertices[i];
+    edge->vertex_ids[1] = vertices[next];
+    edge->parameter_range[0] = parameters[i];
+    edge->parameter_range[1] = i + 1 == vertex_count ? 1 : parameters[i + 1];
+    edge->tolerance = std::max(tolerances[i], tolerances[next]);
+    result.edges.append(edge->id);
+    BLI_addtail(&geometry.edges, edge);
+  }
   BLI_addtail(&geometry.curves, support.release());
   if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
   }
   if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
-    if (STREQ(tool->idname, "builtin.nurbs_draw_arc")) {
+    if (STREQ(tool->idname,
+              is_circle(op) ? "builtin.nurbs_draw_circle" : "builtin.nurbs_draw_arc"))
+    {
       PointerRNA settings;
       WM_toolsystem_ref_properties_ensure_ex(tool, op->type->idname, op->type->srna, &settings);
       RNA_enum_set(&settings, "mode", RNA_enum_get(op->ptr, "mode"));
+      if (is_circle(op)) {
+        for (const char *name : {"show_source_curves", "show_tangents", "anchor_tangent_markers"})
+        {
+          RNA_boolean_set(&settings, name, RNA_boolean_get(op->ptr, name));
+        }
+        float color[4];
+        RNA_float_get_array(op->ptr, "tangent_color", color);
+        RNA_float_set_array(&settings, "tangent_color", color);
+        RNA_float_set(&settings, "source_width", RNA_float_get(op->ptr, "source_width"));
+      }
       for (const char *name : {"show_compass",
                                "use_axis_colors",
                                "show_measurements",
@@ -759,7 +923,12 @@ static void rebuild_preview(wmOperator *op)
       point = math::transform_point(data.inverse, point);
     }
   }
-  auto support = data.arc_mode >= 0 ? arc_support(data.arc_mode == 0 && points.size() > 2 ?
+  auto support = data.circle        ? circle_support(points,
+                                              data.arc_mode,
+                                              double3(data.plane_normal),
+                                              double4x4::identity(),
+                                              error) :
+                 data.arc_mode >= 0 ? arc_support(data.arc_mode == 0 && points.size() > 2 ?
                                                       points.as_span().take_front(2) :
                                                       points.as_span(),
                                                   data.arc_mode,
@@ -786,18 +955,18 @@ static void rebuild_preview(wmOperator *op)
   if (data.arc_mode >= 0) {
     data.arc_valid = true;
     const int markers = RNA_int_get(op->ptr, "preview_points");
-    for (int i = 0; i <= markers; i++) {
-      if (const auto point = evaluate_curve(*support, double(i) / markers)) {
+    for (const double parameter : arc_divisions(*support, markers)) {
+      if (const auto point = evaluate_curve(*support, parameter)) {
         data.arc_markers.append(float3(point->position));
       }
     }
-    if (data.arc_mode == 0) {
+    if (!data.circle && data.arc_mode == 0) {
       data.arc_radius = math::distance(points[0], points[1]);
     }
     else {
       const auto a = evaluate_curve(*support, 0);
-      const auto b = evaluate_curve(*support, 0.5);
-      const auto c = evaluate_curve(*support, 1);
+      const auto b = evaluate_curve(*support, data.circle ? 0.25 : 0.5);
+      const auto c = evaluate_curve(*support, data.circle ? 0.5 : 1);
       if (a && b && c) {
         const double3 ab = b->position - a->position, ac = c->position - a->position;
         const double area = math::length(math::cross(ab, ac));
@@ -806,9 +975,50 @@ static void rebuild_preview(wmOperator *op)
                                      0;
       }
     }
+    if (data.circle) {
+      const auto a = evaluate_curve(*support, 0);
+      const auto b = evaluate_curve(*support, 0.25);
+      const auto c = evaluate_curve(*support, 0.5);
+      if (a && b && c) {
+        const double3 center = (a->position + c->position) / 2;
+        const double3 x = math::normalize(a->position - center);
+        const double3 y = math::normalize(b->position - center);
+        std::ostringstream contacts;
+        contacts << std::setprecision(17);
+        if (data.arc_mode >= 3 && RNA_boolean_get(op->ptr, "anchor_tangent_markers")) {
+          for (const double3 &contact : data.circle_contacts) {
+            const double3 radial = contact - center;
+            const double angle = std::atan2(math::dot(radial, y), math::dot(radial, x));
+            contacts << circle_parameter_at_angle(angle < 0 ? angle + 2 * M_PI : angle) << ' ';
+          }
+        }
+        RNA_string_set(op->ptr, "tangent_parameters", contacts.str().c_str());
+        data.arc_markers.clear();
+        if (const auto divisions = circle_divisions(op)) {
+          for (const double t : *divisions) {
+            if (const auto point = evaluate_curve(*support, t)) {
+              data.arc_markers.append(float3(point->position));
+            }
+          }
+        }
+        if (!data.arc_markers.is_empty()) {
+          data.arc_markers.append(data.arc_markers[0]);
+        }
+      }
+    }
+    {
+      for (int i = data.arc_hud.size() - 1; i >= 0; i--) {
+        if (data.arc_hud[i].rfind("R: ", 0) == 0 || data.arc_hud[i].rfind("Segments: ", 0) == 0) {
+          data.arc_hud.remove(i);
+        }
+      }
+    }
     std::ostringstream radius;
     radius << "R: " << std::fixed << std::setprecision(3) << data.arc_radius;
     data.arc_hud.append(radius.str());
+    if (!data.arc_markers.is_empty()) {
+      data.arc_hud.append("Segments: " + std::to_string(data.arc_markers.size() - 1));
+    }
   }
   const int samples = data.arc_mode >= 0 ? 128 : std::max<int>(2, (points.size() - 1) * 16);
   for (int i = 0; i <= samples; i++) {
@@ -854,6 +1064,8 @@ static void draw_arc_overlay(wmOperator *op, ARegion *region)
   const double3 n = math::normalize(double3(data.plane_normal));
   const auto *rv3d = static_cast<const RegionView3D *>(region->regiondata);
   const auto depth = GPU_depth_test_get();
+  const auto blend = GPU_blend_get();
+  GPU_blend(GPU_BLEND_ALPHA);
   const bool depth_write = GPU_depth_mask_get();
   GPU_depth_test(GPU_DEPTH_NONE);
   GPU_depth_mask(false);
@@ -881,7 +1093,7 @@ static void draw_arc_overlay(wmOperator *op, ARegion *region)
   };
   /* RCAD draws the compass only in draw_preview_1point. Endpoint arc modes
    * have chord/height/through-point guides, never a compass at either stage. */
-  if (data.arc_mode == 0 && RNA_boolean_get(op->ptr, "show_compass")) {
+  if (!data.circle && data.arc_mode == 0 && RNA_boolean_get(op->ptr, "show_compass")) {
     const double3 center = data.points[0];
     const float3 position(center);
     const double radius = ED_view3d_pixel_size(rv3d, &position.x) *
@@ -917,7 +1129,33 @@ static void draw_arc_overlay(wmOperator *op, ARegion *region)
     draw_lines(compass, aligned_color(n, black));
   }
   const double3 first = data.points[0];
-  if (data.arc_mode == 0) {
+  if (data.circle && data.arc_mode >= 3) {
+    float4 cyan;
+    RNA_float_get_array(op->ptr, "tangent_color", &cyan.x);
+    if (RNA_boolean_get(op->ptr, "show_source_curves")) {
+      immUniform1f("lineWidth", RNA_float_get(op->ptr, "source_width") * U.pixelsize);
+      for (const auto &curve : data.circle_curve_overlays) {
+        for (int i = 1; i < curve.size(); i++) {
+          guide(double3(curve[i - 1]), double3(curve[i]), cyan);
+        }
+      }
+    }
+    if (RNA_boolean_get(op->ptr, "show_tangents")) {
+      for (const double3 &contact : data.circle_contacts) {
+        guide(data.circle_center, contact, float4(1, 0.8f, 0, 1));
+      }
+    }
+    immUniform1f("lineWidth", U.pixelsize);
+  }
+  else if (data.circle) {
+    const double3 end = data.points.size() == 1 ? data.current : data.points[1];
+    const float4 neutral = data.arc_mode == 2 ? float4(0.5f, 0.5f, 0.5f, 0.5f) : fallback;
+    guide(first, end, aligned_color(end - first, neutral));
+    if (data.points.size() == 2) {
+      guide(end, data.current, aligned_color(data.current - end, neutral));
+    }
+  }
+  else if (data.arc_mode == 0) {
     float4 start_color, end_color;
     RNA_float_get_array(op->ptr, "start_color", &start_color.x);
     RNA_float_get_array(op->ptr, "end_color", &end_color.x);
@@ -935,41 +1173,62 @@ static void draw_arc_overlay(wmOperator *op, ARegion *region)
     }
   }
   if (data.arc_valid && data.wire.size() >= 2) {
-    immUniformColor4fv(black);
+    float4 curve_color = black;
+    if (data.circle && data.arc_mode >= 3) {
+      RNA_float_get_array(op->ptr, "tangent_color", &curve_color.x);
+      immUniform1f("lineWidth", RNA_float_get(op->ptr, "source_width") * U.pixelsize);
+    }
+    immUniformColor4fv(curve_color);
     immBegin(GPU_PRIM_LINE_STRIP, data.wire.size());
     for (const float3 &point : data.wire) {
       immVertex3fv(pos, point);
     }
     immEnd();
   }
-  Vector<float3> crosses;
-  auto marker = [&](const float3 &point) {
-    const double size = ED_view3d_pixel_size(rv3d, &point.x) *
-                        RNA_int_get(op->ptr, "preview_point_size") * 0.25 * U.pixelsize;
-    for (const double3 &axis : {x, y, n}) {
-      crosses.append(point - float3(axis * size));
-      crosses.append(point + float3(axis * size));
+  if (data.circle && data.arc_mode >= 3 && data.arc_markers.size() > 1) {
+    immUniform1f("lineWidth", U.pixelsize);
+    for (int i = 1; i < data.arc_markers.size(); i++) {
+      guide(double3(data.arc_markers[i - 1]), double3(data.arc_markers[i]), black);
     }
-  };
+  }
+  /* Match circle previews and native endpoint display: point size is measured
+   * in screen pixels, independent of the plane orientation and view zoom. */
+  Vector<float3> dots;
+  auto marker = [&](const float3 &point) { dots.append(point); };
   /* Match the addon's stage-specific construction markers. Center arcs use
    * their compass cross and sampled arc markers; 3 Point has no moving dot
    * until the chord has been placed. */
-  if (data.arc_mode > 0) {
+  if ((data.circle && data.arc_mode < 3) || (!data.circle && data.arc_mode > 0)) {
     for (const double3 &point : data.points) {
       marker(float3(point));
     }
-    if (data.arc_mode == 1 && data.points.size() == 1) {
+    if (data.circle || (data.arc_mode == 1 && data.points.size() == 1)) {
       marker(float3(data.current));
     }
   }
   for (const float3 &point : data.arc_markers) {
     marker(point);
   }
-  immUniform1f("lineWidth", std::max(1.0f, 1.5f * U.pixelsize));
-  draw_lines(crosses, black);
   immUnbindProgram();
+  if (!dots.is_empty()) {
+    const auto blend = GPU_blend_get();
+    GPU_blend(GPU_BLEND_ALPHA);
+    const uint dot_pos = GPU_vertformat_attr_add(
+        immVertexFormat(), "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+    immBindBuiltinProgram(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
+    immUniform1f("size", RNA_int_get(op->ptr, "preview_point_size") * U.pixelsize);
+    immUniform4fv("color", black);
+    immBegin(GPU_PRIM_POINTS, dots.size());
+    for (const float3 &point : dots) {
+      immVertex3fv(dot_pos, point);
+    }
+    immEnd();
+    immUnbindProgram();
+    GPU_blend(blend);
+  }
   GPU_depth_mask(depth_write);
   GPU_depth_test(depth);
+  GPU_blend(blend);
 }
 
 static void draw_arc_hud(const bContext *, ARegion *region, void *arg)
@@ -1084,6 +1343,9 @@ static void draw_exit(bContext *C, wmOperator *op)
   if (data->draw_handle_pixel) {
     ED_region_draw_cb_exit(data->region->runtime->type, data->draw_handle_pixel);
   }
+  if (data->navigation) {
+    ED_view3d_navigation_free(C, data->navigation);
+  }
   ed::transform::snap_object_context_destroy(data->snap);
   ED_region_tag_redraw(data->region);
   ED_workspace_status_text(C, nullptr);
@@ -1092,7 +1354,10 @@ static void draw_exit(bContext *C, wmOperator *op)
   op->customdata = nullptr;
 }
 
-static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
+static void update_mouse(bContext *C,
+                         wmOperator *op,
+                         const wmEvent *event,
+                         const bool tag_redraw = true)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
   data.arc_free = data.arc_mode >= 0 && (event->modifier & KM_ALT);
@@ -1298,7 +1563,8 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     }
   }
   const bool linear_constraints = data.arc_mode < 0 ||
-                                  (data.points.size() == 1 && !(event->modifier & KM_ALT));
+                                  (!(data.circle && data.arc_mode >= 3) &&
+                                   data.points.size() == 1 && !(event->modifier & KM_ALT));
   if (!data.points.is_empty() && linear_constraints) {
     const float3 anchor(data.points.last());
     if (!(event->modifier & KM_SHIFT)) {
@@ -1495,16 +1761,19 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     }
   }
   if (!data.points.is_empty() && hasNumInput(&data.num) &&
-      (data.arc_mode < 0 || data.points.size() == 1))
+      (data.arc_mode < 0 || (data.points.size() == 1 && !(data.circle && data.arc_mode >= 3))))
   {
     data.current_vertex = 0;
     double3 delta = data.current - data.points.last();
-    if (data.arc_mode == 0 || data.arc_mode == 2) {
+    if ((!data.circle && data.arc_mode == 0) || data.arc_mode == 2) {
       const double3 n = math::normalize(double3(data.plane_normal));
       delta -= n * math::dot(delta, n);
     }
     double length = math::length(delta);
     applyNumInput(&data.num, &length);
+    if (data.circle && data.arc_mode == 1 && data.circle_input_radius) {
+      length *= 2;
+    }
     double3 direction = math::length_squared(delta) > 0 ? math::normalize(delta) :
                                                           double3(1, 0, 0);
     if (math::length_squared(delta) == 0 && data.axis >= 0) {
@@ -1516,7 +1785,12 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     data.current = data.points.last() + direction * length;
   }
   if (data.arc_mode >= 0) {
-    arc_update(C, op, event);
+    if (data.circle) {
+      circle_update(C, op, event);
+    }
+    else {
+      arc_update(C, op, event);
+    }
   }
   if (data.snap_type != SCE_SNAP_TO_NONE) {
     const double snap_tolerance = 1e-6 * std::max(1.0, double(math::length(snap_location)));
@@ -1527,7 +1801,109 @@ static void update_mouse(bContext *C, wmOperator *op, const wmEvent *event)
     }
   }
   rebuild_preview(op);
-  ED_region_tag_redraw(data.region);
+  if (tag_redraw) {
+    ED_region_tag_redraw(data.region);
+  }
+}
+
+struct DrawSnapGizmo {
+  wmGizmo gizmo;
+  ed::transform::SnapObjectContext *snap;
+};
+
+static void draw_snap_gizmo_setup(wmGizmo *gizmo)
+{
+  reinterpret_cast<DrawSnapGizmo *>(gizmo)->snap = ed::transform::snap_object_context_create();
+  gizmo->flag |= WM_GIZMO_HIDDEN_KEYMAP;
+}
+
+static void draw_snap_gizmo_free(wmGizmo *gizmo)
+{
+  ed::transform::snap_object_context_destroy(reinterpret_cast<DrawSnapGizmo *>(gizmo)->snap);
+}
+
+/* Tool-owned hover gizmo. Query the same unanchored point used by draw_invoke,
+ * without starting a modal operation or creating source geometry. */
+static void draw_snap_hover(const bContext *context, wmGizmo *gizmo)
+{
+  bContext *C = const_cast<bContext *>(context);
+  bToolRef *tool = WM_toolsystem_ref_from_context(C);
+  ARegion *region = CTX_wm_region(C);
+  const auto *rv3d = CTX_wm_region_view3d(C);
+  const wmEvent *event_state = CTX_wm_window(C)->runtime->eventstate;
+  if (!tool || !rv3d || !event_state || (rv3d->rflag & RV3D_NAVIGATING) ||
+      !ed::nurbs::topology_edit_poll(C))
+  {
+    return;
+  }
+  const char *operator_id = STREQ(tool->idname, "builtin.nurbs_draw_line") ?
+                                "CURVE_OT_draw_line" :
+                            STREQ(tool->idname, "builtin.nurbs_draw_spline") ?
+                                "CURVE_OT_draw_spline" :
+                            STREQ(tool->idname, "builtin.nurbs_draw_arc") ?
+                                "CURVE_OT_draw_arc" :
+                            STREQ(tool->idname, "builtin.nurbs_draw_circle") ?
+                                "CURVE_OT_draw_circle" :
+                                nullptr;
+  if (!operator_id) {
+    return;
+  }
+  for (const char *id :
+       {"CURVE_OT_draw_line", "CURVE_OT_draw_spline", "CURVE_OT_draw_arc", "CURVE_OT_draw_circle"})
+  {
+    if (WM_operator_find_modal_by_type(CTX_wm_window(C), WM_operatortype_find(id, false))) {
+      return;
+    }
+  }
+  wmEvent event = *event_state;
+  event.mval[0] = event.xy[0] - region->winrct.xmin;
+  event.mval[1] = event.xy[1] - region->winrct.ymin;
+  if (event.mval[0] < 0 || event.mval[1] < 0 || event.mval[0] >= region->winx ||
+      event.mval[1] >= region->winy)
+  {
+    return;
+  }
+  const auto *settings = CTX_data_scene(C)->toolsettings;
+  if (bool(settings->snap_flag & SCE_SNAP) == bool(event.modifier & KM_CTRL)) {
+    return;
+  }
+  DrawData data;
+  data.source = ed::nurbs::TopologyPreview::begin(C, nullptr);
+  if (!data.source) {
+    return;
+  }
+  bool invertible;
+  data.inverse = math::invert(double4x4(data.source->object().object_to_world()), invertible);
+  if (!invertible) {
+    return;
+  }
+  PointerRNA properties;
+  wmOperator op{};
+  op.type = WM_operatortype_find(operator_id, true);
+  WM_toolsystem_ref_properties_ensure_ex(tool, op.type->idname, op.type->srna, &properties);
+  op.ptr = &properties;
+  op.customdata = &data;
+  data.spline = is_spline(&op);
+  data.circle = is_circle(&op);
+  data.arc_mode = is_arc(&op) || data.circle ? RNA_enum_get(op.ptr, "mode") : -1;
+  data.region = region;
+  data.plane_origin = CTX_data_scene(C)->cursor.location;
+  data.plane_normal = data.arc_mode >= 0 ? float3(0, 0, 1) :
+                                           math::normalize(float3(rv3d->viewinv[2]));
+  data.snap = reinterpret_cast<DrawSnapGizmo *>(gizmo)->snap;
+  update_mouse(C, &op, &event, false);
+  draw_preview(C, region, &op);
+}
+
+static int draw_snap_hover_test_select(bContext *C, wmGizmo *, const int[2])
+{
+  ED_region_tag_redraw_editor_overlays(CTX_wm_region(C));
+  return -1; /* Feedback never captures a drawing click. */
+}
+
+static void draw_snap_hover_setup(const bContext *, wmGizmoGroup *group)
+{
+  WM_gizmo_new("VIEW3D_GT_nurbs_draw_snap", group, nullptr);
 }
 
 static void arc_num_reset(bContext *C, DrawData &data)
@@ -1852,6 +2228,412 @@ static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *ev
   return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
 }
 
+static const NurbsCurveGeometry *find_curve(const NurbsGeometry &geometry, const int64_t id)
+{
+  for (const auto &curve : geometry.curves) {
+    if (curve.id == id) {
+      return &curve;
+    }
+  }
+  return nullptr;
+}
+
+/* Selected native edges replace RCAD's mesh-chain Catmull-Rom reconstruction.
+ * Projection refines parameters on the original rational supports, never on display wires. */
+static bool circle_load_chains(DrawData &data, std::string &error)
+{
+  const auto &snapshot = data.source->source();
+  const auto &geometry = snapshot.geometry();
+  Vector<const NurbsTopologyEdge *> pending;
+  for (const auto &edge : geometry.edges) {
+    if (snapshot.selection().edges.contains(edge.id)) {
+      pending.append(&edge);
+    }
+  }
+  while (!pending.is_empty()) {
+    Vector<const NurbsTopologyEdge *> chain;
+    chain.append(pending.pop_last());
+    for (int i = 0; i < chain.size(); i++) {
+      for (int j = pending.size() - 1; j >= 0; j--) {
+        const auto *a = chain[i], *b = pending[j];
+        if (ELEM(a->vertex_ids[0], b->vertex_ids[0], b->vertex_ids[1]) ||
+            ELEM(a->vertex_ids[1], b->vertex_ids[0], b->vertex_ids[1]))
+        {
+          chain.append(b);
+          pending.remove_and_reorder(j);
+        }
+      }
+    }
+    data.circle_chains.append(std::move(chain));
+  }
+  const int count = data.arc_mode == 3 ? 2 : 3;
+  if (data.circle_chains.size() != count) {
+    error = count == 2 ? "Select two separate native curve chains for Tan Tan" :
+                         "Select three separate native curve chains for Tan Tan Tan";
+    return false;
+  }
+  const double4x4 transform(data.source->object().object_to_world());
+  Vector<double3> plane_points;
+  for (const auto &chain : data.circle_chains) {
+    for (const auto *edge : chain) {
+      const auto *curve = find_curve(geometry, edge->curve_id);
+      if (!curve) {
+        return false;
+      }
+      Vector<float3> overlay;
+      for (int i = 0; i <= 32; i++) {
+        const double t = edge->parameter_range[0] +
+                         (edge->parameter_range[1] - edge->parameter_range[0]) * i / 32;
+        const auto sample = evaluate_curve(*curve, t);
+        if (!sample) {
+          return false;
+        }
+        const double3 world = math::transform_point(transform, sample->position);
+        overlay.append(float3(world));
+        plane_points.append(world);
+      }
+      data.circle_curve_overlays.append(std::move(overlay));
+    }
+  }
+  double3 normal(0);
+  const double3 origin = plane_points[0];
+  double3 direction(0);
+  for (const double3 &point : plane_points) {
+    if (math::length_squared(point - origin) > math::length_squared(direction)) {
+      direction = point - origin;
+    }
+  }
+  for (const double3 &point : plane_points) {
+    const double3 cross = math::cross(direction, point - origin);
+    if (math::length_squared(cross) > math::length_squared(normal)) {
+      normal = cross;
+    }
+  }
+  if (math::length_squared(normal) < 1e-20) {
+    error = "Tangent curves must define a common plane";
+    return false;
+  }
+  normal = math::normalize(normal);
+  const double scale = std::max(1.0, math::length(direction));
+  for (const double3 &point : plane_points) {
+    if (std::abs(math::dot(point - origin, normal)) > scale * 1e-6) {
+      error = "Tangent circle construction requires coplanar curves";
+      return false;
+    }
+  }
+  data.plane_origin = float3(origin);
+  data.plane_normal = data.arc_reference_normal = float3(normal);
+  return true;
+}
+
+static double3 circle_contact(const DrawData &data,
+                              const int chain_index,
+                              const double3 &center,
+                              const bool farthest = false,
+                              double *tangent_error = nullptr)
+{
+  const auto &geometry = data.source->source().geometry();
+  const double4x4 transform(data.source->object().object_to_world());
+  double best = farthest ? -DBL_MAX : DBL_MAX;
+  double3 contact(0);
+  for (const auto *edge : data.circle_chains[chain_index]) {
+    const auto *curve = find_curve(geometry, edge->curve_id);
+    auto position = [&](const double t) {
+      return math::transform_point(transform, evaluate_curve(*curve, t)->position);
+    };
+    auto score = [&](const double t) {
+      const double distance = math::length_squared(position(t) - center);
+      return farthest ? -distance : distance;
+    };
+    const double lo = edge->parameter_range[0], hi = edge->parameter_range[1];
+    double parameter = lo, best_score = DBL_MAX;
+    for (int i = 0; i <= 64; i++) {
+      const double t = lo + (hi - lo) * i / 64;
+      const double value = score(t);
+      if (value < best_score) {
+        best_score = value;
+        parameter = t;
+      }
+    }
+    double a = std::max(lo, parameter - (hi - lo) / 64);
+    double b = std::min(hi, parameter + (hi - lo) / 64);
+    for (int j = 0; j < 32; j++) {
+      const double l = a + (b - a) / 3, r = b - (b - a) / 3;
+      if (score(l) < score(r)) {
+        b = r;
+      }
+      else {
+        a = l;
+      }
+    }
+    for (const double t : {lo, (a + b) / 2, hi}) {
+      const double3 point = position(t);
+      const double distance = math::length_squared(point - center);
+      if ((farthest && distance > best) || (!farthest && distance < best)) {
+        best = distance;
+        contact = point;
+        if (tangent_error) {
+          const double h = (hi - lo) * 1e-6;
+          const double3 tangent = position(std::min(hi, t + h)) - position(std::max(lo, t - h));
+          *tangent_error = math::length_squared(tangent) > 0 && distance > 0 ?
+                               std::abs(math::dot(math::normalize(tangent),
+                                                  math::normalize(center - point))) :
+                               1;
+        }
+      }
+    }
+  }
+  return contact;
+}
+
+static bool circle_solve_tangent(DrawData &data, const double3 &seed)
+{
+  const auto [x, y] = arc_plane_axes(double3(data.plane_normal));
+  const double3 n = math::normalize(double3(data.plane_normal));
+  double3 center = seed - n * math::dot(seed - double3(data.plane_origin), n);
+  static constexpr int signs[8][3] = {{1, 1, 1},
+                                      {-1, -1, -1},
+                                      {1, 1, -1},
+                                      {1, -1, 1},
+                                      {-1, 1, 1},
+                                      {-1, -1, 1},
+                                      {-1, 1, -1},
+                                      {1, -1, -1}};
+  auto contact = [&](const int i, const double3 &c) {
+    return circle_contact(data, i, c, data.arc_mode == 4 && signs[data.circle_solution][i] < 0);
+  };
+  for (int iteration = 0; iteration < 40; iteration++) {
+    const double3 a = contact(0, center), b = contact(1, center);
+    const double ra = math::distance(center, a), rb = math::distance(center, b);
+    if (ra < 1e-9 || rb < 1e-9) {
+      return false;
+    }
+    if (data.arc_mode == 3) {
+      const double3 diff = b - a;
+      const double3 rail = math::cross(diff, n);
+      if (math::length_squared(rail) < 1e-18) {
+        return false;
+      }
+      const double3 mid = (a + b) / 2;
+      const double3 next = mid +
+                           rail * (math::dot(center - mid, rail) / math::length_squared(rail));
+      if (math::distance(center, next) < 1e-9) {
+        break;
+      }
+      center = next;
+    }
+    else {
+      const double3 c = contact(2, center);
+      const double rc = math::distance(center, c);
+      if (rc < 1e-9) {
+        return false;
+      }
+      const double f = rb - ra, g = rc - ra;
+      if (std::max(std::abs(f), std::abs(g)) < 1e-8 * std::max(1.0, ra)) {
+        break;
+      }
+      const double3 df = (center - b) / rb - (center - a) / ra;
+      const double3 dg = (center - c) / rc - (center - a) / ra;
+      const double a00 = math::dot(df, x), a01 = math::dot(df, y);
+      const double a10 = math::dot(dg, x), a11 = math::dot(dg, y);
+      const double det = a00 * a11 - a01 * a10;
+      if (std::abs(det) < 1e-12) {
+        return false;
+      }
+      const double3 step = x * ((-f * a11 + g * a01) / det) + y * ((-g * a00 + f * a10) / det);
+      center += step * 0.8;
+      if (!std::isfinite(math::length_squared(center))) {
+        return false;
+      }
+    }
+  }
+  data.circle_contacts.clear();
+  double radius = 0;
+  for (const int i : data.circle_chains.index_range()) {
+    double tangent_error = 1;
+    const bool farthest = data.arc_mode == 4 && signs[data.circle_solution][i] < 0;
+    const double3 point = circle_contact(data, i, center, farthest, &tangent_error);
+    if (tangent_error > 1e-4) {
+      data.circle_contacts.clear();
+      return false;
+    }
+    data.circle_contacts.append(point);
+    radius += math::distance(center, data.circle_contacts.last()) / data.circle_chains.size();
+  }
+  for (const double3 &p : data.circle_contacts) {
+    if (std::abs(math::distance(center, p) - radius) > 1e-6 * std::max(1.0, radius)) {
+      data.circle_contacts.clear();
+      return false;
+    }
+  }
+  data.circle_center = center;
+  data.arc_radius = radius;
+  data.current = center + x * radius;
+  data.points[0] = center;
+  return radius > 1e-8;
+}
+
+static void circle_update(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  if (data.points.is_empty()) {
+    return;
+  }
+  data.arc_hud.clear();
+  data.arc_hud.append(data.arc_mode == 0 ? "Center Circle" :
+                      data.arc_mode == 1 ? "2 Point Circle" :
+                      data.arc_mode == 2 ? "3 Point Circle" :
+                      data.arc_mode == 3 ? "Circle Tan Tan" :
+                                           "Circle Tan Tan Tan");
+  if (data.arc_mode >= 3) {
+    if (!circle_solve_tangent(data, data.current)) {
+      data.current = data.points[0];
+      data.arc_hud.append("No tangent solution here; move the pointer or press Tab");
+    }
+    else {
+      data.arc_hud.append(data.arc_mode == 4 ? "Tab: Next solution | Click: Confirm" :
+                                               "Move center | Click: Confirm");
+    }
+    return;
+  }
+  /* Circle planes follow the live radius/diameter before the last placement. */
+  if (data.points.size() == 1) {
+    const double3 bridge = data.current - data.points[0];
+    const double3 up(data.arc_reference_normal);
+    if (math::length_squared(bridge) > 1e-16) {
+      const double3 dir = math::normalize(bridge);
+      if (data.arc_perpendicular || std::abs(math::dot(dir, up)) > 0.995) {
+        double3 normal = math::cross(dir, up);
+        if (math::length_squared(normal) < 1e-12) {
+          const auto [x, y] = arc_plane_axes(up);
+          const auto *rv3d = static_cast<RegionView3D *>(data.region->regiondata);
+          const double3 view(rv3d->viewinv[2]);
+          normal = data.arc_vertical_axis == 0                                 ? x :
+                   data.arc_vertical_axis == 1                                 ? y :
+                   std::abs(math::dot(view, x)) > std::abs(math::dot(view, y)) ? x :
+                                                                                 y;
+        }
+        data.plane_normal = float3(math::normalize(normal));
+      }
+      else {
+        data.plane_normal = data.arc_reference_normal;
+      }
+    }
+    data.current = arc_project(data, data.current);
+  }
+  else if (data.arc_mode == 2) {
+    /* RCAD's three-point circle lets the third point establish its plane. */
+    const double3 n = math::cross(data.points[1] - data.points[0], data.current - data.points[0]);
+    if (math::length_squared(n) > 1e-16 && !data.arc_perpendicular) {
+      data.plane_normal = float3(math::normalize(n));
+    }
+    data.current = arc_project(data, data.current);
+  }
+  data.arc_hud.append(data.points.size() == 2 ? "Place third point (3/3)" :
+                      data.arc_mode == 0      ? "Place radius (2/2)" :
+                      data.arc_mode == 1      ? "Place diameter endpoint (2/2)" :
+                                                "Place second point (2/3)");
+  if (data.points.size() == 1) {
+    std::ostringstream label;
+    label << (data.arc_mode == 0 ? "R: " : "D: ") << std::fixed << std::setprecision(3)
+          << math::distance(data.points[0], data.current);
+    data.arc_hud.append(label.str());
+  }
+  ED_area_status_text(CTX_wm_area(C), data.arc_hud.last().c_str());
+  UNUSED_VARS(event);
+}
+
+static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  auto &data = *static_cast<DrawData *>(op->customdata);
+  if (event->type == RIGHTMOUSE && event->val == KM_PRESS) {
+    draw_exit(C, op);
+    return OPERATOR_CANCELLED;
+  }
+  if (event->val == KM_PRESS && ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER)) {
+    update_mouse(C, op, event);
+    if (data.arc_mode == 2 && data.points.size() == 1) {
+      if (math::distance(data.current, data.points[0]) <= 1e-9) {
+        return OPERATOR_RUNNING_MODAL;
+      }
+      data.points.append(data.current);
+      data.point_vertices.append(data.current_vertex);
+      data.locked = true;
+      data.axis = -1;
+      arc_set_chord_plane(data);
+      arc_num_reset(C, data);
+      update_mouse(C, op, event);
+      return OPERATOR_RUNNING_MODAL;
+    }
+    Vector<double3> points = data.points;
+    points.append(data.current);
+    std::string error;
+    if (!circle_support(points, data.arc_mode, double3(data.plane_normal), data.inverse, error)) {
+      BKE_report(op->reports, RPT_WARNING, error.c_str());
+      return OPERATOR_RUNNING_MODAL;
+    }
+    std::ostringstream input;
+    input << std::setprecision(17);
+    for (const double3 &world : points) {
+      const double3 local = math::transform_point(data.inverse, world);
+      input << local.x << ' ' << local.y << ' ' << local.z << '\n';
+    }
+    RNA_string_set(op->ptr, "points", input.str().c_str());
+    RNA_float_set_array(op->ptr, "plane_normal", &data.plane_normal.x);
+    const int64_t seam = data.arc_mode == 0 ? data.current_vertex : data.point_vertices[0];
+    std::ostringstream references;
+    references << (data.arc_mode >= 3 ? 0 : seam) << ' ' << (data.arc_mode >= 3 ? 0 : seam);
+    RNA_string_set(op->ptr, "vertex_references", references.str().c_str());
+    draw_exit(C, op);
+    const wmOperatorStatus result = arc_exec(C, op);
+    WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
+    return result;
+  }
+  if (data.arc_mode >= 3 && event->type == EVT_TKEY && event->val == KM_PRESS) {
+    RNA_boolean_set(
+        op->ptr, "anchor_tangent_markers", !RNA_boolean_get(op->ptr, "anchor_tangent_markers"));
+    rebuild_preview(op);
+    ED_region_tag_redraw(data.region);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (data.arc_mode >= 3) {
+    if (event->type == EVT_TABKEY && event->val == KM_PRESS && data.arc_mode == 4) {
+      data.circle_solution = (data.circle_solution + 1) % 8;
+    }
+    if (event->type == MOUSEMOVE || event->val == KM_PRESS) {
+      update_mouse(C, op, event);
+    }
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (event->val == KM_PRESS && ELEM(event->type, EVT_RKEY, EVT_DKEY) && data.arc_mode == 1) {
+    data.circle_input_radius = event->type == EVT_RKEY;
+    arc_num_reset(C, data);
+    ED_area_status_text(CTX_wm_area(C),
+                        data.circle_input_radius ? "Type radius" : "Type diameter");
+    return OPERATOR_RUNNING_MODAL;
+  }
+  /* Plane locking, perpendicular toggling, axis keys and numeric length entry share
+   * the native arc input path. Confirmation above has circle-specific stage counts. */
+  if (ELEM(event->type, EVT_XKEY, EVT_YKEY, EVT_ZKEY) && event->val == KM_PRESS &&
+      data.points.size() == 1)
+  {
+    const int axis = event->type == EVT_XKEY ? 0 : event->type == EVT_YKEY ? 1 : 2;
+    const double3 bridge = data.current - data.points[0];
+    if (math::length_squared(bridge) > 1e-16 &&
+        std::abs(math::dot(math::normalize(bridge), double3(data.arc_reference_normal))) > 0.99 &&
+        axis < 2)
+    {
+      data.arc_vertical_axis = axis;
+    }
+    else {
+      data.axis = data.axis == axis ? -1 : axis;
+    }
+    update_mouse(C, op, event);
+    return OPERATOR_RUNNING_MODAL;
+  }
+  return arc_modal(C, op, event);
+}
+
 static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   std::string error;
@@ -1863,7 +2645,11 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   auto *data = MEM_new<DrawData>(__func__);
   data->source = std::move(source);
   data->spline = is_spline(op);
-  data->arc_mode = is_arc(op) ? RNA_enum_get(op->ptr, "mode") : -1;
+  data->circle = is_circle(op);
+  if (data->circle) {
+    data->locked = false;
+  }
+  data->arc_mode = is_arc(op) || data->circle ? RNA_enum_get(op->ptr, "mode") : -1;
   bool invertible;
   data->inverse = math::invert(double4x4(data->source->object().object_to_world()), invertible);
   if (!invertible) {
@@ -1882,6 +2668,7 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
   data->plane_normal = data->arc_mode >= 0 ? float3(0, 0, 1) :
                                              math::normalize(float3(rv3d->viewinv[2]));
   data->snap = ed::transform::snap_object_context_create();
+  data->navigation = ED_view3d_navigation_init(C, nullptr);
   op->customdata = data;
   data->draw_handle = ED_region_draw_cb_activate(
       data->region->runtime->type, draw_preview, op, REGION_DRAW_POST_VIEW);
@@ -1889,16 +2676,31 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
     data->draw_handle_pixel = ED_region_draw_cb_activate(
         data->region->runtime->type, draw_arc_hud, op, REGION_DRAW_POST_PIXEL);
   }
+  if (data->circle && data->arc_mode >= 3 && !circle_load_chains(*data, error)) {
+    draw_exit(C, op);
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
   update_mouse(C, op, event);
   data->points.append(data->current);
   data->point_vertices.append(data->current_vertex);
   data->plane_origin = float3(data->current);
   data->arc_reference_normal = data->plane_normal;
   if (data->arc_mode >= 0) {
-    arc_update(C, op, event);
+    if (data->circle) {
+      circle_update(C, op, event);
+    }
+    else {
+      arc_update(C, op, event);
+    }
   }
   ED_workspace_status_text(
       C,
+      data->circle ?
+          "Click / Enter: Confirm circle placement | Esc / Right Click: Cancel | Backspace: "
+          "Previous stage | "
+          "P: Perpendicular plane | X/Y/Z: Axis | L: Plane lock | Tab: Tangent solution | Ctrl: "
+          "Toggle snap | Alt: Free" :
       data->arc_mode >= 0 ?
           "Click: Radius / endpoint, then finish arc | Enter: Confirm | Esc / Right Click: Cancel "
           "| "
@@ -1918,12 +2720,37 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
   }
+  const auto *rv3d = static_cast<const RegionView3D *>(data.region->regiondata);
+  /* Keep wheel segment adjustment, while native navigation owns complete orbit,
+   * pan and zoom gestures. Drawing inputs stay fixed until navigation finishes. */
+  const bool segment_wheel = data.arc_mode >= 0 &&
+                             ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) &&
+                             !(event->modifier & KM_CTRL) && !(rv3d->rflag & RV3D_NAVIGATING);
+  if (!segment_wheel && ED_view3d_navigation_do(C, data.navigation, event, nullptr)) {
+    return OPERATOR_RUNNING_MODAL;
+  }
+  if (data.arc_mode >= 0 && ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) &&
+      event->val == KM_PRESS && !(event->modifier & KM_CTRL))
+  {
+    RNA_int_set(
+        op->ptr,
+        "preview_points",
+        std::clamp(RNA_int_get(op->ptr, "preview_points") + (event->type == WHEELUPMOUSE ? 1 : -1),
+                   4,
+                   256));
+    rebuild_preview(op);
+    ED_region_tag_redraw(data.region);
+    return OPERATOR_RUNNING_MODAL;
+  }
   if (ELEM(event->type, MIDDLEMOUSE, WHEELUPMOUSE, WHEELDOWNMOUSE)) {
     return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
   }
   if (event->type == EVT_ESCKEY && event->val == KM_PRESS) {
     draw_exit(C, op);
     return OPERATOR_CANCELLED;
+  }
+  if (data.circle) {
+    return circle_modal(C, op, event);
   }
   if (data.arc_mode >= 0) {
     return arc_modal(C, op, event);
@@ -2085,10 +2912,10 @@ static void draw_operator(wmOperatorType *ot, const bool spline)
   RNA_def_boolean(
       ot->srna, "use_axis_snap", true, "Axis Inference", "Align near-axis segments to world axes");
 }
-static void arc_operator(wmOperatorType *ot)
+static void arc_operator(wmOperatorType *ot, const bool circle = false)
 {
-  ot->name = "Draw NURBS Arc";
-  ot->idname = "CURVE_OT_draw_arc";
+  ot->name = circle ? "Draw NURBS Circle" : "Draw NURBS Arc";
+  ot->idname = circle ? "CURVE_OT_draw_circle" : "CURVE_OT_draw_arc";
   ot->description =
       "Draw an exact circular NURBS arc by center and sweep, endpoints and bulge, or three points";
   ot->poll = ed::nurbs::topology_edit_poll;
@@ -2102,7 +2929,47 @@ static void arc_operator(wmOperatorType *ot)
       {1, "ENDPOINTS", 0, "2 Point", "Start and end points, then bulge height"},
       {2, "THREE_POINTS", 0, "3 Point", "Start and end points, then a point on the arc"},
       {0, nullptr, 0, nullptr, nullptr}};
-  RNA_def_enum(ot->srna, "mode", modes, 0, "Construction", "");
+  static const EnumPropertyItem circle_modes[] = {
+      {0, "CENTER", 0, "Center", "Center and radius point"},
+      {1, "DIAMETER", 0, "2 Point", "Opposite ends of the diameter"},
+      {2, "THREE_POINTS", 0, "3 Point", "Three points on the circle"},
+      {3, "TAN_TAN", 0, "Tan Tan", "Circle tangent to two selected native curve chains"},
+      {4,
+       "TAN_TAN_TAN",
+       0,
+       "Tan Tan Tan",
+       "Circle tangent to three selected native curve chains; Tab cycles solutions"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  RNA_def_enum(ot->srna, "mode", circle ? circle_modes : modes, 0, "Construction", "");
+  if (circle) {
+    ot->description =
+        "Draw an exact NURBS circle by radius, diameter, three points or selected tangent curves";
+    RNA_def_boolean(ot->srna,
+                    "show_source_curves",
+                    true,
+                    "Source Curves",
+                    "Show the selected native curves in cyan");
+    RNA_def_boolean(ot->srna,
+                    "show_tangents",
+                    true,
+                    "Tangency Guides",
+                    "Show yellow center to contact radius guides");
+    RNA_def_boolean(ot->srna,
+                    "anchor_tangent_markers",
+                    false,
+                    "Tangent Markers",
+                    "Include exact tangency contacts as circle endpoints; T toggles this");
+    auto *contact_prop = RNA_def_string(ot->srna,
+                                        "tangent_parameters",
+                                        nullptr,
+                                        0,
+                                        "Tangent Parameters",
+                                        "Source parameters of tangent endpoints for replay");
+    RNA_def_property_flag(contact_prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+    static const float cyan[4] = {0, 0.8f, 1, 0.5f};
+    RNA_def_float_color(ot->srna, "tangent_color", 4, cyan, 0, 1, "Curve Color", "", 0, 1);
+    RNA_def_float(ot->srna, "source_width", 2, 1, 10, "Curve Width", "", 1, 5);
+  }
   auto *prop = RNA_def_string(
       ot->srna, "points", nullptr, 0, "Points", "Construction points in local coordinates");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
@@ -2217,8 +3084,8 @@ static void arc_operator(wmOperatorType *ot)
               32,
               4,
               256,
-              "Preview Markers",
-              "Display markers along the exact arc; does not change source geometry",
+              "Segments",
+              "Exact circular edges and shared endpoints; matches the preview divisions",
               4,
               128);
   RNA_def_int(ot->srna, "preview_point_size", 5, 1, 50, "Marker Size", "", 1, 20);
@@ -2230,6 +3097,27 @@ static void arc_operator(wmOperatorType *ot)
 }
 }  // namespace
 
+void VIEW3D_GT_nurbs_draw_snap(wmGizmoType *type)
+{
+  type->idname = "VIEW3D_GT_nurbs_draw_snap";
+  type->struct_size = sizeof(DrawSnapGizmo);
+  type->setup = draw_snap_gizmo_setup;
+  type->free = draw_snap_gizmo_free;
+  type->draw = draw_snap_hover;
+  type->test_select = draw_snap_hover_test_select;
+}
+
+void VIEW3D_GGT_nurbs_draw_snap(wmGizmoGroupType *type)
+{
+  type->idname = "VIEW3D_GGT_nurbs_draw_snap";
+  type->name = "NURBS Drawing Snap Preview";
+  type->flag = WM_GIZMOGROUPTYPE_3D | WM_GIZMOGROUPTYPE_TOOL_FALLBACK_KEYMAP;
+  type->gzmap_params.spaceid = SPACE_VIEW3D;
+  type->gzmap_params.regionid = RGN_TYPE_WINDOW;
+  type->poll = ED_gizmo_poll_or_unlink_delayed_from_tool;
+  type->setup = draw_snap_hover_setup;
+}
+
 void CURVE_OT_draw_line(wmOperatorType *ot)
 {
   draw_operator(ot, false);
@@ -2237,6 +3125,10 @@ void CURVE_OT_draw_line(wmOperatorType *ot)
 void CURVE_OT_draw_arc(wmOperatorType *ot)
 {
   arc_operator(ot);
+}
+void CURVE_OT_draw_circle(wmOperatorType *ot)
+{
+  arc_operator(ot, true);
 }
 void CURVE_OT_draw_spline(wmOperatorType *ot)
 {

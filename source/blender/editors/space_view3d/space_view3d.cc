@@ -41,6 +41,7 @@
 #include "BKE_viewer_path.hh"
 
 #include "ED_asset_shelf.hh"
+#include "ED_curve.hh"
 #include "ED_geometry.hh"
 #include "ED_info.hh"
 #include "ED_object.hh"
@@ -338,10 +339,8 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
                             RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
-  keymap = WM_keymap_ensure(wm->runtime->defaultconf,
-                            "Paint Vertex Selection (Vertex)",
-                            SPACE_EMPTY,
-                            RGN_TYPE_WINDOW);
+  keymap = WM_keymap_ensure(
+      wm->runtime->defaultconf, "Paint Vertex Selection (Vertex)", SPACE_EMPTY, RGN_TYPE_WINDOW);
   WM_event_add_keymap_handler(&region->runtime->handlers, keymap);
 
   /* Before Vertex Paint so adding curve points is not overridden. */
@@ -437,6 +436,8 @@ static void view3d_widgets()
   WM_gizmogrouptype_append(ed::transform::VIEW3D_GGT_xform_cage);
   WM_gizmogrouptype_append(ed::transform::VIEW3D_GGT_xform_shear);
   WM_gizmogrouptype_append(ed::transform::VIEW3D_GGT_xform_extrude);
+  WM_gizmotype_append(VIEW3D_GT_nurbs_draw_snap);
+  WM_gizmogrouptype_append(VIEW3D_GGT_nurbs_draw_snap);
   WM_gizmogrouptype_append(VIEW3D_GGT_mesh_preselect_elem);
   WM_gizmogrouptype_append(VIEW3D_GGT_mesh_preselect_edgering);
   WM_gizmogrouptype_append(VIEW3D_GGT_tool_generic_handle_normal);

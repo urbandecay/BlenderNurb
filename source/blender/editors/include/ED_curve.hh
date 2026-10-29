@@ -30,8 +30,13 @@ struct Text;
 struct UndoType;
 struct View3D;
 struct bContext;
+struct wmGizmoType;
+struct wmGizmoGroupType;
 struct wmKeyConfig;
 struct wmOperator;
+
+void VIEW3D_GT_nurbs_draw_snap(wmGizmoType *type);
+void VIEW3D_GGT_nurbs_draw_snap(wmGizmoGroupType *type);
 
 /* `curve_ops.cc` */
 

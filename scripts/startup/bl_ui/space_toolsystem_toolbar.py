@@ -1092,6 +1092,7 @@ class _defs_nurbs_draw:
             description="Draw connected NURBS line segments. Click to place points; Enter to finish",
             icon="rna:NURBS_DRAW_LINE",
             cursor='CROSSHAIR',
+            widget="VIEW3D_GGT_nurbs_draw_snap",
             keymap="3D View Tool: NURBS Line",
             draw_settings=draw_settings,
         )
@@ -1111,6 +1112,7 @@ class _defs_nurbs_draw:
             description="Draw a NURBS spline with Fit Points or CVs. Tab switches method; Enter finishes",
             icon="rna:NURBS_DRAW_SPLINE",
             cursor='CROSSHAIR',
+            widget="VIEW3D_GGT_nurbs_draw_snap",
             keymap="3D View Tool: NURBS Curve Interpolation",
             draw_settings=draw_settings,
         )
@@ -1120,6 +1122,7 @@ class _defs_nurbs_draw:
         def draw_settings(_context, layout, tool):
             props = tool.operator_properties("curve.draw_arc")
             layout.prop(props, "mode", expand=True)
+            layout.prop(props, "preview_points")
             layout.prop(props, "use_axis_snap")
             layout.prop(props, "use_angle_snap")
             if props.use_angle_snap:
@@ -1133,7 +1136,29 @@ class _defs_nurbs_draw:
             description="Draw a NURBS arc by center and sweep, endpoints and bulge, or three points",
             icon="rna:CURVE_NCURVE",
             cursor='CROSSHAIR',
+            widget="VIEW3D_GGT_nurbs_draw_snap",
             keymap="3D View Tool: NURBS Arc",
+            draw_settings=draw_settings,
+        )
+
+    @ToolDef.from_fn
+    def circle():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("curve.draw_circle")
+            layout.prop(props, "mode", expand=True)
+            if props.mode in {'CENTER', 'DIAMETER', 'THREE_POINTS'}:
+                layout.prop(props, "use_axis_snap")
+            layout.popover(panel="VIEW3D_PT_nurbs_circle_overlay", text="", icon='OVERLAY')
+
+        return dict(
+            idname="builtin.nurbs_draw_circle",
+            operator="curve.draw_circle",
+            label="Circle",
+            description="Draw exact NURBS circles by radius, diameter, three points or tangent curves",
+            icon="rna:CURVE_NCIRCLE",
+            cursor='CROSSHAIR',
+            widget="VIEW3D_GGT_nurbs_draw_snap",
+            keymap="3D View Tool: NURBS Circle",
             draw_settings=draw_settings,
         )
 
@@ -3069,6 +3094,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_nurbs_draw.line,
             _defs_nurbs_draw.spline,
             _defs_nurbs_draw.arc,
+            _defs_nurbs_draw.circle,
             None,
             _defs_edit_curve.draw,
             _defs_edit_curve.pen,
@@ -3098,6 +3124,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_nurbs_draw.line,
             _defs_nurbs_draw.spline,
             _defs_nurbs_draw.arc,
+            _defs_nurbs_draw.circle,
             None,
             _defs_transform.shear,
         ],
