@@ -74,6 +74,7 @@ struct NurbsTransformData {
   std::optional<TranslationPrecision> replay;
   std::optional<TranslationPrecision> final_value;
   std::optional<double3> exact_space;
+  std::optional<double3> custom_snap_source;
   std::shared_ptr<const nurbs::ObjectEvaluation> original_evaluation;
   nurbs::OwnedMesh original_display_mesh;
   bool translation_preview_active = false;
@@ -607,14 +608,29 @@ bool nurbs_translation_replay(TransInfo *t, double3 &r_space, double3 &r_world)
   return true;
 }
 
+void nurbs_snap_source_set(TransInfo *t)
+{
+  auto &data = *static_cast<NurbsTransformData *>(t->data_container[0].custom.type.data);
+  data.custom_snap_source = double3(t->tsnap.snap_source);
+  /* Keep an authoritative point when the picker provides one. Other snap modes use the
+   * same world-space snap location as mesh transforms. */
+  if (!(t->tsnap.status & SNAP_MULTI_POINTS) &&
+      ELEM(t->tsnap.target_type, SCE_SNAP_TO_POINT, SCE_SNAP_TO_EDGE_ENDPOINT) &&
+      t->tsnap.object_context && t->tsnap.object_context->ret.point_location)
+  {
+    data.custom_snap_source = *t->tsnap.object_context->ret.point_location;
+  }
+}
+
 bool nurbs_translation_snap(TransInfo *t, double3 &r_world, std::string &r_error)
 {
+  const bool custom_source = t->tsnap.snap_source_fn == nullptr;
   if ((!ELEM(t->tsnap.target_type, SCE_SNAP_TO_POINT, SCE_SNAP_TO_EDGE_ENDPOINT) &&
-       !(t->modifiers & MOD_SNAP_FORCED)) ||
+       !(t->modifiers & MOD_SNAP_FORCED) && !custom_source) ||
       (t->tsnap.status & SNAP_MULTI_POINTS) || (t->tsnap.flag & SCE_SNAP_ROTATE) ||
-      t->tsnap.snap_source_fn == nullptr)
+      (custom_source && !(t->tsnap.status & SNAP_SOURCE_FOUND)))
   {
-    r_error = "Native NURBS move currently supports vertex snapping with the standard snap base";
+    r_error = "Native NURBS move requires point snapping or a custom snap base without snap rotation";
     return false;
   }
   const TransDataContainer &tc = t->data_container[0];
@@ -634,7 +650,10 @@ bool nurbs_translation_snap(TransInfo *t, double3 &r_world, std::string &r_error
     }
     return math::transform_point(matrix, center);
   };
-  if (t->tsnap.source_operation == SCE_SNAP_SOURCE_CLOSEST) {
+  if (custom_source) {
+    source = data.custom_snap_source.value_or(double3(t->tsnap.snap_source));
+  }
+  else if (t->tsnap.source_operation == SCE_SNAP_SOURCE_CLOSEST) {
     /* Follow Blender's chosen float picking proxy back to its double source representative.
      * If several sources share one proxy, prefer the closest authoritative point. */
     std::optional<double> distance;

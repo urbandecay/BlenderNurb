@@ -246,6 +246,7 @@ void nurbs_transform_reset(TransInfo *t);
 bool nurbs_translation_replay(TransInfo *t, double3 &r_space, double3 &r_world);
 void nurbs_translation_update(TransInfo *t, const double3 &space, const double3 &world);
 bool nurbs_translation_snap(TransInfo *t, double3 &r_world, std::string &r_error);
+void nurbs_snap_source_set(TransInfo *t);
 
 /* `transform_convert_curves.cc` */
 

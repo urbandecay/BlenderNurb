@@ -76,6 +76,9 @@ static void snapsource_confirm(TransInfo *t)
 {
   BLI_assert(t->modifiers & MOD_EDIT_SNAP_SOURCE);
   getSnapPoint(t, t->tsnap.snap_source);
+  if (t->data_type == &TransConvertType_Nurbs) {
+    nurbs_snap_source_set(t);
+  }
   t->tsnap.snap_source_fn = nullptr;
   t->tsnap.source_type = t->tsnap.target_type;
   t->tsnap.status |= SNAP_SOURCE_FOUND;
