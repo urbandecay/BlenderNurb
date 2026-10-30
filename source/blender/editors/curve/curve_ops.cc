@@ -64,6 +64,7 @@ void ED_operatortypes_curve()
   WM_operatortype_append(CURVE_OT_split);
   WM_operatortype_append(CURVE_OT_rip);
   WM_operatortype_append(CURVE_OT_merge);
+  WM_operatortype_append(CURVE_OT_dissolve_limited);
   WM_operatortype_append(CURVE_OT_bevel);
   WM_operatortype_append(CURVE_OT_remove_doubles);
   WM_operatortype_append(CURVE_OT_loopcut_slide);

@@ -209,4 +209,17 @@ std::optional<TopologyEditResult> subdivide_components(const NurbsGeometry &sour
                                                        double max_error,
                                                        std::string *r_error = nullptr);
 
+/** Dissolve selected seams between compatible NURBS patches within the face-normal angle limit.
+ * Join copies of one trimmed support directly, or concatenate compatible natural patch sides
+ * using C0 knots and shared coefficient rows. Retain the curved shape, rational weights and trim
+ * correspondence; no sampled fitting or polygon conversion. Matching degrees and transverse
+ * knot vectors are required for concatenation. Face mode requires both incident faces selected.
+ * Join tangent boundary curves and remove redundant vertices only when all surviving face uses
+ * can be updated together. Wires or additional vertex incidence protect junctions. Coplanar
+ * bilinear quadrilaterals also retain the planar reconstruction route. */
+std::optional<TopologyEditResult> dissolve_limited(const NurbsGeometry &source,
+                                                   const SelectionState &selection,
+                                                   double angle_limit,
+                                                   std::string *r_error = nullptr);
+
 }  // namespace blender::bke::nurbs

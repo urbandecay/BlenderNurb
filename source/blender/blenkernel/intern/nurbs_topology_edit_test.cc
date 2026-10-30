@@ -502,6 +502,216 @@ TEST_F(NurbsTopologyEditTest, RoundedBevelIsSharedTangentRationalGeometry)
   }
 }
 
+/** Locate each original Bezier patch inside the joined support, allowing chart swaps/flips
+ * and a common homogeneous weight scale. Compare evaluated positions throughout that patch. */
+static bool surface_piece_preserved(const NurbsSurfaceGeometry &old,
+                                     const NurbsSurfaceGeometry &joined)
+{
+  if (old.points_u != old.order_u || old.points_v != old.order_v) {
+    return false;
+  }
+  for (int sv = joined.order_v - 1; sv < joined.points_v; sv++) {
+    if (joined.knots_v[sv] == joined.knots_v[sv + 1]) {
+      continue;
+    }
+    for (int su = joined.order_u - 1; su < joined.points_u; su++) {
+      if (joined.knots_u[su] == joined.knots_u[su + 1]) {
+        continue;
+      }
+      for (const bool swap : {false, true}) {
+        if ((swap ? old.order_v : old.order_u) != joined.order_u ||
+            (swap ? old.order_u : old.order_v) != joined.order_v)
+        {
+          continue;
+        }
+        for (const bool flip_u : {false, true}) {
+          for (const bool flip_v : {false, true}) {
+            double ratio = 0;
+            bool matches = true;
+            for (int v = 0; v < joined.order_v && matches; v++) {
+              for (int u = 0; u < joined.order_u; u++) {
+                int ou = swap ? v : u, ov = swap ? u : v;
+                if (flip_u) {
+                  ou = old.points_u - 1 - ou;
+                }
+                if (flip_v) {
+                  ov = old.points_v - 1 - ov;
+                }
+                const auto &a = old.points[ov * old.points_u + ou];
+                const auto &b = joined.points[(sv - joined.order_v + 1 + v) * joined.points_u +
+                                              su - joined.order_u + 1 + u];
+                if (u == 0 && v == 0) {
+                  ratio = a.weight / b.weight;
+                }
+                if (math::distance(double3(a.position), double3(b.position)) > 1e-9 ||
+                    std::abs(a.weight - ratio * b.weight) > 1e-9 * std::abs(a.weight))
+                {
+                  matches = false;
+                  break;
+                }
+              }
+            }
+            if (!matches) {
+              continue;
+            }
+            for (int y = 0; y <= 6; y++) {
+              for (int x = 0; x <= 6; x++) {
+                const double s = x / 6.0, t = y / 6.0;
+                const double u = swap ? t : s, v = swap ? s : t;
+                const double2 old_uv = {
+                    math::interpolate(old.knots_u[old.order_u - 1], old.knots_u[old.points_u],
+                                      flip_u ? 1 - u : u),
+                    math::interpolate(old.knots_v[old.order_v - 1], old.knots_v[old.points_v],
+                                      flip_v ? 1 - v : v)};
+                const double2 new_uv = {
+                    math::interpolate(joined.knots_u[su], joined.knots_u[su + 1], s),
+                    math::interpolate(joined.knots_v[sv], joined.knots_v[sv + 1], t)};
+                const auto a = evaluate_surface(old, old_uv), b = evaluate_surface(joined, new_uv);
+                if (!a || !b || math::distance(a->position, b->position) > 1e-9) {
+                  return false;
+                }
+              }
+            }
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+static void expect_dissolve_shape_preserved(const NurbsGeometry &before,
+                                            const TopologyEditResult &after)
+{
+  Map<int64_t, const NurbsSurfaceGeometry *> old_surfaces, new_surfaces;
+  for (const auto &surface : before.surfaces) {
+    old_surfaces.add_new(surface.id, &surface);
+  }
+  for (const auto &surface : after.geometry->surfaces) {
+    new_surfaces.add_new(surface.id, &surface);
+  }
+  const auto index = TopologyIndex::build(*after.geometry);
+  ASSERT_TRUE(index);
+  for (const auto &face : before.faces) {
+    const auto *replacement = index->face(after.source_to_result.lookup_default(face.id, face.id));
+    ASSERT_NE(replacement, nullptr) << face.id;
+    EXPECT_TRUE(surface_piece_preserved(*old_surfaces.lookup(face.surface_id),
+                                        *new_surfaces.lookup(replacement->surface_id))) << face.id;
+  }
+  std::string error;
+  EXPECT_TRUE(evaluate_boundaries(*after.geometry, {}, &error)) << error;
+  EXPECT_TRUE(tessellate_surfaces(*after.geometry, preview_options(), &error)) << error;
+}
+
+TEST_F(NurbsTopologyEditTest, LimitedDissolveJoinsRoundedStripsWithoutChangingTheirShape)
+{
+  for (const int segments : {3, 8}) {
+    auto [source, edge] = bevel_fixture(true);
+    std::string error;
+    auto beveled = bevel_edges(*source, {&edge, 1}, {.offset = 0.25, .segments = segments}, &error);
+    ASSERT_TRUE(beveled) << error;
+    SelectionState selected;
+    selected.mode = SelectionMode::Face;
+    selected.faces.add_multiple(beveled->faces);
+    auto flushed = selection_flush(*beveled->geometry, selected, selected.mode, &error);
+    ASSERT_TRUE(flushed) << error;
+    const OwnedGeometry before(geometry_copy(beveled->geometry.get()));
+    auto dissolved = dissolve_limited(*beveled->geometry, *flushed, M_PI / 36, &error);
+    ASSERT_TRUE(dissolved) << error;
+    EXPECT_EQ(dissolved->geometry->faces.count(), before->faces.count() - segments + 1);
+    EXPECT_LT(dissolved->geometry->vertices.count(), before->vertices.count());
+    expect_dissolve_shape_preserved(*before, *dissolved);
+    expect_source_geometry_equal(*before, *beveled->geometry);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, LimitedDissolvePreservesRoundedCircularAndSubdivisionBoxes)
+{
+  for (const auto shape : {BevelSurfaceShape::Circular, BevelSurfaceShape::Subdivision}) {
+    for (const int segments : {3, 8}) {
+      SCOPED_TRACE(int(shape));
+      SCOPED_TRACE(segments);
+      auto [source, unused] = bevel_fixture(true);
+      Vector<int64_t> edges;
+      for (const auto &edge : source->edges) {
+        edges.append(edge.id);
+      }
+      std::string error;
+      auto beveled = bevel_edges(*source, edges,
+                                 {.offset = 0.2, .segments = segments, .surface_shape = shape}, &error);
+      ASSERT_TRUE(beveled) << error;
+      SelectionState selected;
+      selected.mode = SelectionMode::Edge;
+      for (const auto &edge : beveled->geometry->edges) {
+        selected.edges.add(edge.id);
+      }
+      auto flushed = selection_flush(*beveled->geometry, selected, selected.mode, &error);
+      ASSERT_TRUE(flushed) << error;
+      const OwnedGeometry before(geometry_copy(beveled->geometry.get()));
+      auto dissolved = dissolve_limited(*beveled->geometry, *flushed, M_PI / 36, &error);
+      ASSERT_TRUE(dissolved) << error;
+      EXPECT_LT(dissolved->geometry->faces.count(), before->faces.count());
+      EXPECT_LT(dissolved->geometry->vertices.count(), before->vertices.count());
+      const auto index = TopologyIndex::build(*dissolved->geometry);
+      ASSERT_TRUE(index);
+      for (const auto &edge : dissolved->geometry->edges) {
+        EXPECT_EQ(index->uses_for_edge(edge.id).size(), 2);
+      }
+      expect_dissolve_shape_preserved(*before, *dissolved);
+      expect_source_geometry_equal(*before, *beveled->geometry);
+    }
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, LimitedDissolveOnlyRemovesSelectedRoundedSeams)
+{
+  auto [source, edge] = bevel_fixture(true);
+  std::string error;
+  auto beveled = bevel_edges(*source, {&edge, 1}, {.offset = 0.25, .segments = 3}, &error);
+  ASSERT_TRUE(beveled) << error;
+  const auto index = TopologyIndex::build(*beveled->geometry);
+  ASSERT_TRUE(index);
+  Set<int64_t> rounded;
+  rounded.add_multiple(beveled->faces);
+  SelectionState selection;
+  selection.mode = SelectionMode::Edge;
+  int64_t selected = 0;
+  for (const auto &candidate : beveled->geometry->edges) {
+    const auto uses = index->uses_for_edge(candidate.id);
+    if (uses.size() == 2 && rounded.contains(uses[0].face_id) &&
+        rounded.contains(uses[1].face_id))
+    {
+      selected = candidate.id;
+      break;
+    }
+  }
+  ASSERT_NE(selected, 0);
+  selection.edges.add(selected);
+  auto flushed = selection_flush(*beveled->geometry, selection, selection.mode, &error);
+  ASSERT_TRUE(flushed) << error;
+  auto dissolved = dissolve_limited(*beveled->geometry, *flushed, M_PI / 36, &error);
+  ASSERT_TRUE(dissolved) << error;
+  EXPECT_EQ(dissolved->geometry->faces.count(), beveled->geometry->faces.count() - 1);
+  expect_dissolve_shape_preserved(*beveled->geometry, *dissolved);
+}
+
+TEST_F(NurbsTopologyEditTest, LimitedDissolveRetainsSharpBoxEdges)
+{
+  auto [source, unused] = bevel_fixture(true);
+  const OwnedGeometry before(geometry_copy(source.get()));
+  SelectionState selection;
+  selection.mode = SelectionMode::Edge;
+  for (const auto &edge : source->edges) {
+    selection.edges.add(edge.id);
+  }
+  std::string error;
+  auto flushed = selection_flush(*source, selection, selection.mode, &error);
+  ASSERT_TRUE(flushed) << error;
+  EXPECT_FALSE(dissolve_limited(*source, *flushed, M_PI / 36, &error));
+  expect_source_geometry_equal(*before, *source);
+}
+
 TEST_F(NurbsTopologyEditTest, BevelFailuresLeaveSourceAndCounterUnchanged)
 {
   auto [source, corner] = bevel_fixture(true);

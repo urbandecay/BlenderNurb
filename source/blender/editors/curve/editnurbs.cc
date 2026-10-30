@@ -1630,6 +1630,19 @@ bool merge_by_distance(bContext *C,
   return changed;
 }
 
+bool dissolve_limited(bContext *C, const double angle_limit)
+{
+  return topology_edit(
+      C,
+      false,
+      std::nullopt,
+      [&](const SelectionTarget &target,
+          std::string &error) -> std::optional<bke::nurbs::TopologyEditResult> {
+        return bke::nurbs::dissolve_limited(
+            target.source.geometry(), target.source.selection(), angle_limit, &error);
+      });
+}
+
 struct TopologyPreview::State {
   SelectionTarget target;
   std::optional<bke::nurbs::PreparedCurveSource> promotion;

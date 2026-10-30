@@ -192,6 +192,7 @@ void CURVE_OT_select_all(wmOperatorType *ot);
 void CURVE_OT_select_mode(wmOperatorType *ot);
 void CURVE_OT_rip(wmOperatorType *ot);
 void CURVE_OT_merge(wmOperatorType *ot);
+void CURVE_OT_dissolve_limited(wmOperatorType *ot);
 void CURVE_OT_bevel(wmOperatorType *ot);
 void CURVE_OT_remove_doubles(wmOperatorType *ot);
 void CURVE_OT_loopcut_slide(wmOperatorType *ot);

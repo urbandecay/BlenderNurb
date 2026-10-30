@@ -10,6 +10,7 @@ Run with: blender --background --factory-startup --python-exit-code 1
 
 import math
 import os
+import re
 import tempfile
 import unittest
 
@@ -52,6 +53,132 @@ class NurbsLineTest(unittest.TestCase):
             self.assertTrue(all(math.isfinite(v) for p in mesh.vertices for v in p.co))
         finally:
             evaluated.to_mesh_clear()
+
+    def test_limited_dissolve_removes_redundant_boundary_vertices(self):
+        for mode in ('VERT', 'EDGE', 'FACE'):
+            with self.subTest(mode=mode):
+                self.setUp()
+                ob = self.add_line()
+                self.extrude((0, 2, 0))
+                self.extrude((0, 1, 0))
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.curve.select_all(action='SELECT')
+                bpy.ops.curve.select_mode(type=mode)
+                self.assertEqual(bpy.ops.curve.dissolve_limited(), {'FINISHED'})
+                stats = bpy.context.scene.statistics(bpy.context.view_layer)
+                for domain, total in (('Verts', 4), ('Edges', 4), ('Faces', 1)):
+                    self.assertRegex(stats, rf'{domain}:{total}/{total}(?: |$)')
+                bpy.ops.object.mode_set(mode='OBJECT')
+                self.assert_sheet_area(ob, 6.0)
+
+    def test_limited_dissolve_preserves_vertices_used_by_other_faces(self):
+        ob = self.add_line()
+        self.extrude((0, 2, 0))
+        self.extrude((0, 1, 0))
+        for spline in ob.data.splines:
+            for point in spline.points:
+                point.select = point.co.x == -1 and point.co.y <= 2
+        self.extrude((-2, 0, 0))
+        self.assertEqual(len(ob.data.splines), 3)
+        for i, spline in enumerate(ob.data.splines):
+            for point in spline.points:
+                point.select = i < 2
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.select_mode(type='FACE')
+        self.assertEqual(bpy.ops.curve.dissolve_limited(), {'FINISHED'})
+        stats = bpy.context.scene.statistics(bpy.context.view_layer)
+        for domain, total in (('Verts', 7), ('Edges', 8), ('Faces', 2)):
+            self.assertRegex(stats, rf'{domain}:\d+/{total}(?: |$)')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assert_sheet_area(ob, 10.0)
+
+    def test_limited_dissolve_cleans_an_existing_face_with_boundary_midpoints(self):
+        ob = self.add_line()
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.assertEqual(bpy.ops.curve.draw_line(
+            points='1 0 0\n1 2 0\n1 3 0\n-1 3 0\n-1 2 0\n-1 0 0'), {'FINISHED'})
+        bpy.ops.curve.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.curve.remove_doubles(threshold=1e-6), {'FINISHED'})
+        self.assertEqual(bpy.ops.curve.make_segment(), {'FINISHED'})
+        # This is already one face: the remaining edit must remove its collinear vertices.
+        self.assertEqual(bpy.ops.curve.dissolve_limited(), {'FINISHED'})
+        stats = bpy.context.scene.statistics(bpy.context.view_layer)
+        for domain, total in (('Verts', 4), ('Edges', 4), ('Faces', 1)):
+            self.assertRegex(stats, rf'{domain}:{total}/{total}(?: |$)')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assert_sheet_area(ob, 6.0)
+
+    def test_limited_dissolve_preserves_a_boundary_vertex_with_an_attached_wire(self):
+        ob = self.add_line()
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.curve.draw_line(points='1 0 0\n1 2 0\n1 3 0\n-1 3 0\n-1 2 0\n-1 0 0')
+        bpy.ops.curve.select_all(action='SELECT')
+        bpy.ops.curve.remove_doubles(threshold=1e-6)
+        self.assertEqual(bpy.ops.curve.make_segment(), {'FINISHED'})
+        bpy.ops.curve.draw_line(points='-1 2 0\n-2 2 0')
+        bpy.ops.curve.select_all(action='SELECT')
+        bpy.ops.curve.remove_doubles(threshold=1e-6)
+        bpy.ops.curve.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.curve.dissolve_limited(), {'FINISHED'})
+        stats = bpy.context.scene.statistics(bpy.context.view_layer)
+        for domain, total in (('Verts', 6), ('Edges', 6), ('Faces', 1)):
+            self.assertRegex(stats, rf'{domain}:\d+/{total}(?: |$)')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assert_sheet_area(ob, 6.0)
+
+    def test_limited_dissolve_round_bevel_survives_save_and_reload(self):
+        def totals():
+            stats = bpy.context.scene.statistics(bpy.context.view_layer)
+            match = re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+) \| Faces:\d+/(\d+)', stats)
+            self.assertIsNotNone(match, stats)
+            return tuple(map(int, match.groups()))
+
+        def bounds(ob):
+            bpy.context.view_layer.update()
+            evaluated = ob.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            self.assertIsNotNone(mesh)
+            try:
+                self.assertGreater(len(mesh.polygons), 0)
+                return tuple((min(v.co[axis] for v in mesh.vertices),
+                              max(v.co[axis] for v in mesh.vertices)) for axis in range(3))
+            finally:
+                evaluated.to_mesh_clear()
+
+        for shape in ('CIRCULAR', 'SUBDIVISION'):
+            with self.subTest(shape=shape), tempfile.TemporaryDirectory() as directory:
+                self.setUp()
+                ob = self.add_line()
+                name = ob.name
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={'value': (0, 2, 0)})
+                bpy.ops.curve.select_all(action='SELECT')
+                bpy.ops.curve.select_mode(type='FACE')
+                bpy.ops.curve.extrude_move(TRANSFORM_OT_translate={'value': (0, 0, 2)})
+                bpy.ops.curve.select_mode(type='EDGE')
+                bpy.ops.curve.select_all(action='SELECT')
+                self.assertEqual(bpy.ops.curve.bevel(offset=0.2, segments=3, surface_shape=shape),
+                                 {'FINISHED'})
+                bpy.ops.curve.select_all(action='SELECT')
+                before = totals()
+                bpy.ops.object.mode_set(mode='OBJECT')
+                original_bounds = bounds(ob)
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.curve.select_all(action='SELECT')
+                self.assertEqual(bpy.ops.curve.dissolve_limited(), {'FINISHED'})
+                bpy.ops.object.mode_set(mode='OBJECT')
+                path = os.path.join(directory, 'dissolved_round_bevel.blend')
+                bpy.ops.wm.save_as_mainfile(filepath=path)
+                bpy.ops.wm.open_mainfile(filepath=path)
+                ob = bpy.data.objects[name]
+                self.assertTrue(ob.data.is_native_nurbs)
+                for old, new in zip(original_bounds, bounds(ob)):
+                    for a, b in zip(old, new):
+                        self.assertAlmostEqual(a, b, places=7)
+                bpy.ops.object.mode_set(mode='EDIT')
+                after = totals()
+                self.assertTrue(all(a < b for a, b in zip(after, before)), (before, after))
+                print('NURBS round dissolve', shape, before, '->', after)
 
     def test_extrude_move_enters_native_before_rounding_a_freehand_box(self):
         # E must use one double-precision displacement for the entire cap, even

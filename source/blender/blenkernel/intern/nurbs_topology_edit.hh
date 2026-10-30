@@ -13,9 +13,16 @@
 
 namespace blender::bke::nurbs {
 struct TopologyCutPlan;
+struct TopologyEditResult;
 }
 
 namespace blender::bke::nurbs::detail {
+
+/** Join compatible curved patch charts and their redundant boundary stations without fitting. */
+std::optional<TopologyEditResult> dissolve_compatible_patches(const NurbsGeometry &source,
+                                                              const SelectionState &selection,
+                                                              double angle_limit,
+                                                              std::string *r_error);
 
 /** Transport explicitly supplied seed-curve parameters through the same source loop used by
  * the uniform editing tool. Rounded bevels use this to place equal-angle circle stations. */

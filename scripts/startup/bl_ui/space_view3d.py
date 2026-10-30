@@ -694,7 +694,12 @@ class VIEW3D_MT_editor_menus(Menu):
             layout.menu("VIEW3D_MT_surface_add", text="Add", text_ctxt=i18n_contexts.operator_default)
 
         if edit_object:
-            if not is_native_nurbs:
+            if is_native_nurbs or (
+                edit_object.type in {'CURVE', 'SURFACE'} and
+                getattr(edit_object.data, "has_tagged_nurbs", False)
+            ):
+                layout.menu("VIEW3D_MT_edit_nurbs")
+            else:
                 layout.menu("VIEW3D_MT_edit_" + edit_object.type.lower())
 
             if mode_string == 'EDIT_MESH':
@@ -4006,10 +4011,145 @@ class VIEW3D_MT_edit_curve_segments(Menu):
 class VIEW3D_MT_edit_curve_clean(Menu):
     bl_label = "Clean Up"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
 
         layout.operator("curve.decimate")
+
+        edit_object = context.edit_object
+        if edit_object and edit_object.type in {'CURVE', 'SURFACE'} and (
+            getattr(edit_object.data, "is_native_nurbs", False)
+            or getattr(edit_object.data, "has_tagged_nurbs", False)
+        ):
+            layout.separator()
+            layout.operator("curve.dissolve_limited")
+
+
+class VIEW3D_MT_edit_nurbs(Menu):
+    bl_label = "NURBS"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.menu("VIEW3D_MT_edit_nurbs_transform", text="Transform")
+        row = layout.row()
+        row.enabled = False
+        row.menu("VIEW3D_MT_mirror")
+        layout.menu("VIEW3D_MT_edit_nurbs_snap", text="Snap")
+        layout.separator()
+        layout.operator("curve.duplicate_move", text="Duplicate")
+        layout.operator("curve.extrude_move", text="Extrude")
+        layout.separator()
+        layout.menu("VIEW3D_MT_edit_nurbs_merge", text="Merge")
+        layout.operator("curve.split", text="Split")
+        layout.operator("curve.separate", text="Separate")
+        layout.separator()
+        layout.operator("curve.subdivide")
+        layout.operator("curve.loopcut_slide", text="Loop Cut and Slide")
+        layout.operator("curve.bevel", text="Bevel Edges")
+        layout.separator()
+        for operator in ("mesh.bisect", "mesh.knife_project", "mesh.knife_tool", "mesh.convex_hull"):
+            row = layout.row()
+            row.enabled = False
+            row.operator(operator)
+        layout.separator()
+        for operator in ("mesh.symmetrize", "mesh.symmetry_snap"):
+            row = layout.row()
+            row.enabled = False
+            row.operator(operator)
+        layout.separator()
+        for menu in ("VIEW3D_MT_edit_mesh_normals", "VIEW3D_MT_edit_mesh_shading", "VIEW3D_MT_edit_mesh_weights"):
+            row = layout.row()
+            row.enabled = False
+            row.menu(menu)
+        row = layout.row()
+        row.enabled = False
+        row.operator("mesh.attribute_set")
+        row = layout.row()
+        row.enabled = False
+        row.operator_menu_enum("mesh.sort_elements", "type", text="Sort Elements")
+        layout.separator()
+        row = layout.row()
+        row.enabled = False
+        row.menu("VIEW3D_MT_edit_curve_showhide")
+        layout.menu("VIEW3D_MT_edit_nurbs_clean")
+        layout.separator()
+        layout.menu("VIEW3D_MT_edit_nurbs_delete")
+
+
+class VIEW3D_MT_edit_nurbs_transform(Menu):
+    bl_label = "Transform"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator("transform.translate")
+        layout.operator("transform.rotate")
+        layout.operator("transform.resize", text="Scale")
+        layout.operator("transform.vert_slide", text="Vertex Slide")
+        layout.separator()
+        for operator in ("transform.tosphere", "transform.shear", "transform.bend", "transform.push_pull"):
+            row = layout.row()
+            row.enabled = False
+            row.operator(operator)
+
+
+class VIEW3D_MT_edit_nurbs_snap(Menu):
+    bl_label = "Snap"
+
+    def draw(self, _context):
+        layout = self.layout
+        row = layout.column()
+        row.enabled = False
+        row.operator("view3d.snap_selected_to_grid", text="Selection to Grid")
+        row.operator("view3d.snap_selected_to_cursor", text="Selection to Cursor").use_offset = False
+        row.operator("view3d.snap_selected_to_cursor", text="Selection to Cursor (Keep Offset)").use_offset = True
+        row.operator("view3d.snap_selected_to_active", text="Selection to Active")
+        layout.separator()
+        row = layout.row()
+        row.enabled = False
+        row.operator("view3d.snap_cursor_to_selected", text="Cursor to Selected")
+        layout.operator("view3d.snap_cursor_to_center", text="Cursor to World Origin")
+        layout.operator("view3d.snap_cursor_to_grid", text="Cursor to Grid")
+        row = layout.row()
+        row.enabled = False
+        row.operator("view3d.snap_cursor_to_active", text="Cursor to Active")
+
+
+class VIEW3D_MT_edit_nurbs_clean(Menu):
+    bl_label = "Clean Up"
+
+    def draw(self, _context):
+        layout = self.layout
+        row = layout.row()
+        row.enabled = False
+        row.operator("mesh.delete_loose")
+        layout.separator()
+        row = layout.column()
+        row.enabled = False
+        row.operator("mesh.decimate")
+        row.operator("mesh.dissolve_degenerate")
+        layout.operator("curve.dissolve_limited")
+        row = layout.row()
+        row.enabled = False
+        row.operator("mesh.face_make_planar")
+        layout.separator()
+        row = layout.column()
+        row.enabled = False
+        row.operator("mesh.vert_connect_nonplanar")
+        row.operator("mesh.vert_connect_concave")
+        layout.operator("curve.remove_doubles", text="Merge by Distance")
+        row = layout.row()
+        row.enabled = False
+        row.operator("mesh.fill_holes")
+
+
+class VIEW3D_MT_edit_nurbs_delete(Menu):
+    bl_label = "Delete"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator_enum("curve.delete", "type")
+        layout.separator()
+        layout.operator("curve.dissolve_limited")
 
 
 class VIEW3D_MT_edit_nurbs_merge(Menu):
@@ -6768,6 +6908,11 @@ classes = (
     VIEW3D_MT_edit_curve_clean,
     VIEW3D_MT_edit_curve_context_menu,
     VIEW3D_MT_edit_nurbs_merge,
+    VIEW3D_MT_edit_nurbs,
+    VIEW3D_MT_edit_nurbs_transform,
+    VIEW3D_MT_edit_nurbs_snap,
+    VIEW3D_MT_edit_nurbs_clean,
+    VIEW3D_MT_edit_nurbs_delete,
     VIEW3D_MT_edit_curve_delete,
     VIEW3D_MT_edit_curve_showhide,
     VIEW3D_MT_edit_surface,

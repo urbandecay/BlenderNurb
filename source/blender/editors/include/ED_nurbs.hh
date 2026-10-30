@@ -144,6 +144,7 @@ bool merge_by_distance(bContext *C,
                        bool use_centroid,
                        bool use_unselected,
                        double max_position_error);
+bool dissolve_limited(bContext *C, double angle_limit);
 bool subdivide(bContext *C, int cuts, double max_error);
 
 /** Retained original source and optional exact tagged entry for preview-based topology tools.

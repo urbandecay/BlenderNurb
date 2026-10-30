@@ -237,6 +237,8 @@ set(SRC
   intern/nurbs_topology_rip.cc
   intern/nurbs_topology_merge.cc
   intern/nurbs_topology_cut.cc
+  intern/nurbs_topology_dissolve.cc
+  intern/nurbs_topology_dissolve_curved.cc
   intern/nurbs_transform.cc
   intern/object.cc
   intern/object_deform.cc

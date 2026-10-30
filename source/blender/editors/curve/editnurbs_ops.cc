@@ -143,6 +143,35 @@ void CURVE_OT_merge(wmOperatorType *ot)
                 0.001f);
 }
 
+static wmOperatorStatus nurbs_dissolve_limited_exec(bContext *C, wmOperator *op)
+{
+  return ed::nurbs::dissolve_limited(C, RNA_float_get(op->ptr, "angle_limit")) ?
+             OPERATOR_FINISHED :
+             OPERATOR_CANCELLED;
+}
+
+void CURVE_OT_dissolve_limited(wmOperatorType *ot)
+{
+  ot->name = "Limited Dissolve";
+  ot->idname = "CURVE_OT_dissolve_limited";
+  ot->description = "Dissolve redundant NURBS edges and vertices while preserving the surface shape";
+  ot->exec = nurbs_dissolve_limited_exec;
+  ot->poll = ed::nurbs::topology_edit_poll;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  PropertyRNA *prop = RNA_def_float_rotation(ot->srna,
+                                              "angle_limit",
+                                              0,
+                                              nullptr,
+                                              0.0f,
+                                              DEG2RADF(90.0f),
+                                              "Max Angle",
+                                              "Maximum angle between adjacent face normals",
+                                              0.0f,
+                                              DEG2RADF(90.0f));
+  RNA_def_property_float_default(prop, DEG2RADF(5.0f));
+}
+
 static wmOperatorStatus nurbs_remove_doubles_exec(bContext *C, wmOperator *op)
 {
   return ed::nurbs::merge_by_distance(C,
