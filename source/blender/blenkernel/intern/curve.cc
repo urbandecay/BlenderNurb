@@ -439,6 +439,9 @@ void BKE_curve_init(Curve *cu, const ObjectType curve_type)
     cu->resolu = 4;
     cu->resolv = 4;
   }
+  else if (cu->ob_type == OB_CURVES_LEGACY) {
+    cu->resolu = 128;
+  }
   cu->bevel_profile = nullptr;
   /* Initialize the offset to 1.0, to compensate for it being set to -1.0
    * in the property getter. */

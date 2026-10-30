@@ -148,6 +148,10 @@ SurfacePreviewOptions curve_preview_options(const Curve &curve, const bool for_r
   SurfacePreviewOptions options;
   options.boundary.segments_per_span = 2 * std::max(resolution_u, resolution_v) - 1;
   options.interior_subdivisions = options.boundary.segments_per_span;
+  /* Exact zero source tolerances still need a small numerical allowance for evaluating the same
+   * NURBS boundary through its 3D curve and surface support. Without it, round-off at double
+   * precision (for example, ~2e-16 in unit-scale geometry) rejects the whole display mesh. */
+  options.boundary.evaluation_allowance = 1.0e-12;
   return options;
 }
 
