@@ -716,7 +716,7 @@ static bool transform_modal_item_poll(const wmOperator *op, int value)
         return t->data_type == &TransConvertType_Tracking;
       }
       if (value == TFM_MODAL_VERT_EDGE_SLIDE &&
-          (!ELEM(t->data_type, &TransConvertType_Mesh, &TransConvertType_MeshUV) ||
+          (!ELEM(t->data_type, &TransConvertType_Mesh, &TransConvertType_MeshUV, &TransConvertType_Nurbs) ||
            /* WORKAROUND: Avoid repeated keys in status bar.
             *
             * Previously, `Vert/Edge Slide` and `Move` were triggered by the same modal key.
@@ -1091,7 +1091,8 @@ wmOperatorStatus transformEvent(TransInfo *t, wmOperator *op, const wmEvent *eve
           break;
         }
         if (t->data_type == &TransConvertType_Nurbs &&
-            !ELEM(event->val, TFM_MODAL_TRANSLATE, TFM_MODAL_ROTATE, TFM_MODAL_RESIZE))
+            !ELEM(event->val, TFM_MODAL_TRANSLATE, TFM_MODAL_ROTATE, TFM_MODAL_RESIZE,
+                  TFM_MODAL_VERT_EDGE_SLIDE))
         {
           BKE_report(
               t->reports, RPT_WARNING, "This native NURBS transform needs a geometry adapter");
@@ -1147,8 +1148,9 @@ wmOperatorStatus transformEvent(TransInfo *t, wmOperator *op, const wmEvent *eve
           transform_mode_init(t, nullptr, TFM_RESIZE);
         }
         else {
-          /* First try Edge Slide. */
-          transform_mode_init(t, op, TFM_EDGE_SLIDE);
+          /* Native NURBS vertices slide using their incident topology edges. */
+          transform_mode_init(t, op, t->data_type == &TransConvertType_Nurbs ?
+                                         TFM_VERT_SLIDE : TFM_EDGE_SLIDE);
           /* If that fails, try Vertex Slide. */
           if (t->state == TRANS_CANCEL) {
             resetTransModal(t);

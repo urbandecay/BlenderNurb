@@ -204,6 +204,9 @@ static VertSlideData *createVertSlideVerts(TransInfo *t, TransDataContainer *tc)
   if (t->data_type == &TransConvertType_MeshUV) {
     sld->sv = transform_mesh_uv_vert_slide_data_create(t, tc, sld->targets_buffer);
   }
+  else if (t->data_type == &TransConvertType_Nurbs) {
+    sld->sv = transform_nurbs_vert_slide_data_create(tc, sld->targets_buffer);
+  }
   else {
     sld->sv = transform_mesh_vert_slide_data_create(tc, sld->targets_buffer);
   }
@@ -622,7 +625,7 @@ static void vert_slide_transform_matrix_fn(TransInfo *t, float mat_xform[4][4])
 static void initVertSlide_ex(
     TransInfo *t, wmOperator *op, bool use_even, bool flipped, bool use_clamp)
 {
-  if ((t->flag & T_EDIT) == 0 || (t->obedit_type != OB_MESH)) {
+  if ((t->flag & T_EDIT) == 0 || (t->obedit_type != OB_MESH && t->data_type != &TransConvertType_Nurbs)) {
     BKE_report(t->reports, RPT_ERROR, "'Vertex Slide' is only supported in mesh edit mode");
     t->state = TRANS_CANCEL;
     return;

@@ -1294,11 +1294,21 @@ static void TRANSFORM_OT_edge_slide(wmOperatorType *ot)
   properties_register(ot, P_MIRROR | P_GEO_SNAP | P_CORRECT_UV);
 }
 
+static bool vertex_slide_poll(bContext *C)
+{
+  if (ED_operator_editmesh(C)) {
+    return true;
+  }
+  const Object *object = CTX_data_edit_object(C);
+  return object && ELEM(object->type, OB_CURVES_LEGACY, OB_SURF) &&
+         id_cast<const Curve *>(object->data)->nurbs_geometry;
+}
+
 static void TRANSFORM_OT_vert_slide(wmOperatorType *ot)
 {
   /* Identifiers. */
   ot->name = "Vertex Slide";
-  ot->description = "Slide a vertex along a mesh";
+  ot->description = "Slide vertices along connected edges";
   ot->idname = OP_VERT_SLIDE;
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING | OPTYPE_DEPENDS_ON_CURSOR;
 
@@ -1307,7 +1317,7 @@ static void TRANSFORM_OT_vert_slide(wmOperatorType *ot)
   ot->exec = transform_exec;
   ot->modal = transform_modal;
   ot->cancel = transform_cancel;
-  ot->poll = ED_operator_editmesh;
+  ot->poll = vertex_slide_poll;
   ot->poll_property = transform_poll_property;
 
   PropertyRNA *prop;

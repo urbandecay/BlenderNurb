@@ -238,6 +238,8 @@ extern TransConvertTypeInfo TransConvertType_Curve;
 /* `transform_convert_nurbs.cc` */
 
 extern TransConvertTypeInfo TransConvertType_Nurbs;
+Array<TransDataVertSlideVert> transform_nurbs_vert_slide_data_create(
+    TransDataContainer *tc, Vector<float3> &targets);
 void nurbs_translation_init(TransInfo *t, wmOperator *op);
 void nurbs_affine_update(TransInfo *t, const float matrix[3][3]);
 void nurbs_transform_reset(TransInfo *t);

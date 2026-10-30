@@ -69,6 +69,7 @@ struct NurbsTransformData {
   double chart_error_bound = 0;
   int reparameterized_faces = 0;
   bool changed = false;
+  bool slide_coordinates = false;
   wmOperator *op = nullptr;
   std::optional<TranslationPrecision> replay;
   std::optional<TranslationPrecision> final_value;
@@ -90,7 +91,7 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
       BKE_report(t->reports, RPT_ERROR, message);
     }
   };
-  if (!ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE, TFM_DUMMY)) {
+  if (!ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE, TFM_VERT_SLIDE, TFM_DUMMY)) {
     fail("This native NURBS transform needs a geometry adapter");
     return;
   }
@@ -211,6 +212,47 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
   }
 }
 
+Array<TransDataVertSlideVert> transform_nurbs_vert_slide_data_create(
+    TransDataContainer *tc, Vector<float3> &targets)
+{
+  auto &data = *static_cast<NurbsTransformData *>(tc->custom.type.data);
+  const auto index = nurbs::TopologyIndex::build(data.original.geometry());
+  if (!index) {
+    return {};
+  }
+  Array<TransDataVertSlideVert> result(tc->data_len);
+  for (int i = 0; i < tc->data_len; i++) {
+    TransData &td = tc->data[i];
+    const int64_t id = data.vertices[i];
+    const float3 origin(data.original_positions.lookup(id));
+    copy_v3_v3(td.iloc, origin);
+    copy_v3_v3(td.loc, origin);
+    const int start = targets.size();
+    for (const auto &edge : data.original.geometry().edges) {
+      const int other = edge.vertex_ids[0] == id ? 1 : edge.vertex_ids[1] == id ? 0 : -1;
+      if (other != -1) {
+        if (const auto *vertex = index->vertex(edge.vertex_ids[other])) {
+          targets.append(float3(vertex->position));
+        }
+      }
+    }
+    if (targets.size() == start) {
+      targets.append(origin);
+    }
+    result[i].td = &td;
+    result[i].co_link_curr = targets.size() - start;
+  }
+  int start = 0;
+  for (auto &vertex : result) {
+    const int count = vertex.co_link_curr;
+    vertex.co_link_orig_3d = targets.as_span().slice(start, count);
+    vertex.co_link_curr = 0;
+    start += count;
+  }
+  data.slide_coordinates = true;
+  return result;
+}
+
 static bool restore_nurbs(TransInfo *t, TransDataContainer &tc, NurbsTransformData &data)
 {
   if (!data.changed) {
@@ -254,7 +296,7 @@ static void recalc_trans_nurbs(TransInfo *t)
       t->state = TRANS_CANCEL;
       restore_nurbs(t, *tc, data);
     };
-    if (!ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE)) {
+    if (!ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE, TFM_VERT_SLIDE)) {
       fail("This native NURBS transform needs a geometry adapter");
       return;
     }
@@ -274,7 +316,7 @@ static void recalc_trans_nurbs(TransInfo *t)
                 int(data.vertices.size()));
       continue;
     }
-    if (!translation && data.linear == double3x3::identity()) {
+    if (!translation && t->mode != TFM_VERT_SLIDE && data.linear == double3x3::identity()) {
       restore_nurbs(t, *tc, data);
       data.applied_mode = t->mode;
       continue;
@@ -283,7 +325,17 @@ static void recalc_trans_nurbs(TransInfo *t)
     std::optional<nurbs::GeometryTransformResult> result;
     double3 local_offset(0);
     const double geometry_start = BLI_time_now_seconds();
-    if (translation) {
+    if (t->mode == TFM_VERT_SLIDE) {
+      Vector<nurbs::VertexTransform> transforms;
+      for (int i = 0; i < tc->data_len; i++) {
+        double4x4 matrix = double4x4::identity();
+        matrix.location() = double3(data.proxies[i]) - double3(tc->data[i].iloc);
+        transforms.append({data.vertices[i], matrix});
+      }
+      result = nurbs::transform_vertices(data.original.geometry(), transforms,
+                                          std::numeric_limits<double>::max(), &error);
+    }
+    else if (translation) {
       local_offset = data.world_to_local * data.offset;
       if (data.offset != double3(0) && local_offset == double3(0)) {
         fail("Requested NURBS movement underflows in object space");
@@ -470,6 +522,13 @@ void nurbs_transform_reset(TransInfo *t)
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     if (auto *data = static_cast<NurbsTransformData *>(tc->custom.type.data)) {
       data->reset_requested = true;
+      if (data->slide_coordinates) {
+        for (int i = 0; i < tc->data_len; i++) {
+          zero_v3(tc->data[i].iloc);
+          zero_v3(tc->data[i].loc);
+        }
+        data->slide_coordinates = false;
+      }
     }
   }
 }
