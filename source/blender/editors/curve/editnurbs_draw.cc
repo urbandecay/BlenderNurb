@@ -3706,6 +3706,12 @@ static wmOperatorStatus shape_modal(bContext *C, wmOperator *op, const wmEvent *
 static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
+  /* Include overlapping headers/toolbars when deciding which region owns input.
+   * PASS_THROUGH alone lets regular UI handlers run; combining it with RUNNING_MODAL
+   * stops dispatch before those handlers. The modal operator remains registered. */
+  if (ED_area_find_region_xy_visual(CTX_wm_area(C), RGN_TYPE_ANY, event->xy) != data.region) {
+    return OPERATOR_PASS_THROUGH;
+  }
   data.numeric_applying = event->val == KM_PRESS && ELEM(event->type, EVT_RETKEY, EVT_PADENTER);
   if (CTX_data_edit_object(C) != &data.source->object()) {
     draw_exit(C, op);
@@ -3933,7 +3939,7 @@ static void draw_operator(wmOperatorType *ot, const bool spline)
   ot->exec = draw_exec;
   ot->modal = draw_modal;
   ot->cancel = draw_exit;
-  ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING;
+  ot->flag = OPTYPE_UNDO;
   auto *prop = RNA_def_string(
       ot->srna, "points", nullptr, 0, "Points", "Drawing input in local coordinates");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
@@ -4001,7 +4007,7 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
   ot->exec = draw_exec;
   ot->modal = draw_modal;
   ot->cancel = draw_exit;
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
   static const EnumPropertyItem modes[] = {
       {0, "CENTER", 0, "Center", "Center, start point, then signed sweep"},
       {1, "ENDPOINTS", 0, "2 Point", "Start and end points, then bulge height"},
