@@ -13,6 +13,8 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_math_vector.h"
+#include "BLI_listbase.h"
+#include "BLI_rect.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.hh"
@@ -42,6 +44,7 @@
 
 #include "transform.hh"
 #include "transform_convert.hh"
+#include "transform_snap.hh"
 #include "transform_translate_precision.hh"
 
 namespace blender {
@@ -407,6 +410,49 @@ static wmOperatorStatus transform_modal(bContext *C, wmOperator *op, const wmEve
   wmOperatorStatus exit_code = OPERATOR_PASS_THROUGH;
 
   TransInfo *t = static_cast<TransInfo *>(op->customdata);
+
+  /* Let viewport headers and overlapping snap popovers receive mouse input while a transform
+   * remains modal. Refresh snap data after the UI has handled those clicks. */
+  const bool is_mouse_event = ELEM(event->type,
+                                   LEFTMOUSE,
+                                   RIGHTMOUSE,
+                                   MIDDLEMOUSE,
+                                   MOUSEMOVE,
+                                   WHEELUPMOUSE,
+                                   WHEELDOWNMOUSE) ||
+                              (event->type == EVT_MODAL_MAP &&
+                               ELEM(event->prev_type,
+                                    LEFTMOUSE,
+                                    RIGHTMOUSE,
+                                    MIDDLEMOUSE,
+                                    WHEELUPMOUSE,
+                                    WHEELDOWNMOUSE));
+  if (t->spacetype == SPACE_VIEW3D && t->region && is_mouse_event)
+  {
+    const ScrArea *area = CTX_wm_area(C);
+    bool is_in_other_region = false;
+    if (area) {
+      for (const ARegion &region : area->regionbase) {
+        if (&region != t->region && region.runtime->visible &&
+            BLI_rcti_isect_pt_v(&region.winrct, event->xy))
+        {
+          is_in_other_region = true;
+          break;
+        }
+      }
+    }
+    if (!BLI_rcti_isect_pt_v(&t->region->winrct, event->xy) || is_in_other_region)
+    {
+      t->snap_settings_dirty = true;
+      return OPERATOR_PASS_THROUGH;
+    }
+    if (t->snap_settings_dirty) {
+      initSnapping(t, op);
+      t->snap_settings_dirty = false;
+      t->redraw |= TREDRAW_HARD;
+    }
+  }
+
   const eTfmMode mode_prev = t->mode;
 
 #if defined(WITH_INPUT_NDOF) && 0

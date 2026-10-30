@@ -812,6 +812,8 @@ struct TransInfo {
 
   /** Snap Data. */
   TransSnap tsnap;
+  /** Snap controls can be changed in overlapping viewport regions during a modal transform. */
+  bool snap_settings_dirty;
 
   /** Numerical input. */
   NumInput num;
