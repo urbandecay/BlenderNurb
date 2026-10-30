@@ -1402,7 +1402,14 @@ static void widget_draw_icon(
     const float ofs = 1.0f / aspect;
     float xs, ys;
 
-    if (but->drawflag & BUT_ICON_RIGHT) {
+    /* Built-in icons stay at their standard size in the larger toolbar buttons. Center them
+     * when the toolbar shows icons only, matching the placement of the larger tool icons. */
+    if (but_is_tool(but) && but->str.empty() && icon > ICON_NONE &&
+        icon < BIFICONID_LAST_STATIC)
+    {
+      xs = (rect->xmin + rect->xmax - height) / 2.0f;
+    }
+    else if (but->drawflag & BUT_ICON_RIGHT) {
       xs = rect->xmax - height - 4.0f * ofs;
     }
     else if (but->drawflag & BUT_ICON_LEFT) {
