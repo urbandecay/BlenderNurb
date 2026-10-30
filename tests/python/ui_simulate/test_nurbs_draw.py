@@ -80,6 +80,7 @@ def drawing_workflow():
         bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_spline')
         tool = window.workspace.tools.from_space_view3d_mode(bpy.context.mode)
         tool.operator_properties('curve.draw_spline').use_axis_snap = False
+        tool.operator_properties('curve.draw_spline').preview_points = 1
     yield e.cursor_position_set(*screen((-2, 1, 0)), move=True)
     yield e.leftmouse()
     yield e.cursor_position_set(*screen((-1, 3, 0)), move=True)
@@ -232,3 +233,90 @@ def native_center_snaps():
             bpy.ops.wm.save_as_mainfile(filepath=str(output / (label + '-result.blend')), check_existing=False)
         yield e.ctrl.z()
     print('NURBS_NATIVE_CENTER_SNAPS_PASS', flush=True)
+
+
+def locked_direction_vertex_snap():
+    import bpy
+    import re
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    space = area.spaces.active
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    bpy.context.preferences.view.smooth_view = 0
+    yield e.tab().one().numpad_7()
+    space.region_3d.view_location = (0, 0, 0)
+    space.region_3d.view_distance = 16
+    settings = window.scene.tool_settings
+    settings.use_snap = True
+    settings.snap_elements = {'VERTEX'}
+    settings.use_snap_self = True
+    settings.use_snap_edit = True
+    settings.use_snap_nonedit = True
+    mesh = bpy.data.meshes.new('Off-axis mesh snap target')
+    mesh.from_pydata(((2, 2, 0),), (), ())
+    target = bpy.data.objects.new(mesh.name, mesh)
+    window.scene.collection.objects.link(target)
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        # The second case picks an authoritative native vertex on the active object.
+        bpy.ops.curve.draw_line(points='3 3 0 4 3 0')
+        bpy.ops.curve.draw_line(points='-3 -2 0 -3 -4 0')
+
+    def screen(point):
+        xy = location_3d_to_region_2d(region, space.region_3d, Vector(point))
+        return round(region.x + xy.x), round(region.y + xy.y)
+
+    for start, approach, destination, expected, lock in (
+            ((-3, -2, 0), (-2, -2, 0), (2, 2, 0), (2, -2, 0), 'SHIFT'),
+            ((-3, -4, 0), (-2, -4, 0), (3, 3, 0), (3, -4, 0), 'X')):
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_line')
+            tool = window.workspace.tools.from_space_view3d_mode(bpy.context.mode)
+            tool.operator_properties('curve.draw_line').use_axis_snap = True
+        yield
+        yield e.cursor_position_set(*screen(start), move=True)
+        yield e.leftmouse()
+        yield e.cursor_position_set(*screen(approach), move=True)
+        if lock == 'SHIFT':
+            e.shift.press()
+            yield
+        else:
+            yield e.x()
+        xy = screen(approach)
+        e.cursor_position_set(*xy)
+        window.event_simulate(type='MOUSEMOVE', value='NOTHING', x=xy[0], y=xy[1], shift=lock == 'SHIFT')
+        yield
+        # Offset the pointer so using its projected position cannot pass as vertex snapping.
+        xy = screen(destination)
+        e.cursor_position_set(xy[0] + 5, xy[1] + 3)
+        window.event_simulate(type='MOUSEMOVE', value='NOTHING', x=xy[0] + 5, y=xy[1] + 3, shift=lock == 'SHIFT')
+        yield
+        if lock == 'SHIFT':
+            yield e.shift.leftmouse()
+        else:
+            yield e.leftmouse()
+        if lock == 'SHIFT':
+            e.shift.release()
+            yield
+        yield e.ret()
+        obj = window.view_layer.objects.active
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        display = evaluated.to_mesh()
+        try:
+            t.assertTrue(any((v.co - Vector(expected)).length < 1e-5 for v in display.vertices),
+                         f'{lock}: missing constrained snap endpoint {expected}: {[tuple(v.co) for v in display.vertices]}')
+        finally:
+            evaluated.to_mesh_clear()
+        t.assertTrue(obj.data.is_native_nurbs)
+    # Projecting onto a native target must create a separate endpoint, not weld to that target.
+    stats = window.scene.statistics(window.view_layer).replace(',', '')
+    match = re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+)', stats)
+    t.assertIsNotNone(match, stats)
+    t.assertEqual(tuple(map(int, match.groups())), (8, 5))
+    print('PASS NURBS constrained vertex snapping: Shift, X, mesh/native targets, no false weld', flush=True)

@@ -1821,6 +1821,34 @@ static void update_mouse(bContext *C,
   if (!data.points.is_empty() && !(event->modifier & KM_SHIFT)) {
     data.shift_direction.reset();
   }
+  const bool linear_constraints = (data.shape && data.shape != 3 &&
+                                   !(data.shape == 1 && data.shape_mode == 3) &&
+                                   data.points.size() == 1) ||
+                                  (!data.shape &&
+                                   (data.arc_mode < 0 ||
+                                    (!(data.circle && data.arc_mode >= 3) &&
+                                     data.points.size() == 1 && !(event->modifier & KM_ALT))));
+  if (!data.points.is_empty() && linear_constraints) {
+    const float3 anchor(data.points.last());
+    if (!(event->modifier & KM_SHIFT)) {
+      data.shift_direction.reset();
+    }
+    else if (!data.shift_direction) {
+      /* Shift locks to the axis the cursor is already approaching when it is close to X/Y/Z,
+       * matching radCAD's Shift behavior. Only fall back to the raw cursor direction when no
+       * world axis is a clear screen-space match. */
+      if (data.axis >= 0) {
+        data.shift_direction = draw_constraint_axis(data);
+      }
+      else if (RNA_boolean_get(op->ptr, "use_axis_snap")) {
+        data.shift_direction = infer_axis_from_cursor(
+            *data.region, float2(event->mval), double3(anchor));
+      }
+      if (!data.shift_direction && math::length_squared(target - anchor) > 1e-12f) {
+        data.shift_direction = math::normalize(target - anchor);
+      }
+    }
+  }
   bool snapped = false;
   std::optional<float3> inferred_axis;
   data.snap_type = SCE_SNAP_TO_NONE;
@@ -1930,9 +1958,11 @@ static void update_mouse(bContext *C,
       target = unsnapped_target;
       normal = float3(0);
     }
-    /* With a point or direction constraint active, a candidate that does not lie on the
-     * constrained line is not a snap. Discard it before comparing native NURBS centers. */
-    if (snap_result != SCE_SNAP_TO_NONE && !position_on_draw_constraint(data, double3(target))) {
+    /* Linear locks project the picked target, matching constrained mesh translation.
+     * Other construction constraints still require a target on the construction. */
+    if (!linear_constraints && snap_result != SCE_SNAP_TO_NONE &&
+        !position_on_draw_constraint(data, double3(target)))
+    {
       snap_result = SCE_SNAP_TO_NONE;
       target = unsnapped_target;
       normal = float3(0);
@@ -1945,7 +1975,7 @@ static void update_mouse(bContext *C,
       if (!(snap_mode & center.type) ||
           !center_target_allowed(
               C, *center.object, data.source->object(), snap_params.snap_target_select) ||
-          !position_on_draw_constraint(data, center.position))
+          (!linear_constraints && !position_on_draw_constraint(data, center.position)))
       {
         continue;
       }
@@ -2002,33 +2032,8 @@ static void update_mouse(bContext *C,
       data.face_normal = float3(0.0f, 0.0f, 1.0f);
     }
   }
-  const bool linear_constraints = (data.shape && data.shape != 3 &&
-                                   !(data.shape == 1 && data.shape_mode == 3) &&
-                                   data.points.size() == 1) ||
-                                  (!data.shape &&
-                                   (data.arc_mode < 0 ||
-                                    (!(data.circle && data.arc_mode >= 3) &&
-                                     data.points.size() == 1 && !(event->modifier & KM_ALT))));
   if (!data.points.is_empty() && linear_constraints) {
     const float3 anchor(data.points.last());
-    if (!(event->modifier & KM_SHIFT)) {
-      data.shift_direction.reset();
-    }
-    else if (!data.shift_direction) {
-      /* Shift locks to the axis the cursor is already approaching when it is close to X/Y/Z,
-       * matching radCAD's Shift behavior. Only fall back to the raw cursor direction when no
-       * world axis is a clear screen-space match. */
-      if (data.axis >= 0) {
-        data.shift_direction = draw_constraint_axis(data);
-      }
-      else if (RNA_boolean_get(op->ptr, "use_axis_snap")) {
-        data.shift_direction = infer_axis_from_cursor(
-            *data.region, float2(event->mval), double3(anchor));
-      }
-      if (!data.shift_direction && math::length_squared(target - anchor) > 1e-12f) {
-        data.shift_direction = math::normalize(target - anchor);
-      }
-    }
     if (const std::optional<float3> axis = draw_constraint_axis(data)) {
       const float projection = math::dot(direction, *axis);
       const float denominator_axis = 1 - projection * projection;
@@ -2154,7 +2159,7 @@ static void update_mouse(bContext *C,
           if (const auto evaluation = evaluate_curve(*curve, t)) {
             const double3 edge_position = math::transform_point(transform, evaluation->position);
             if (edge_distance < best &&
-                position_on_draw_constraint(data, edge_position, inferred_axis))
+                (linear_constraints || position_on_draw_constraint(data, edge_position, inferred_axis)))
             {
               best = edge_distance;
               data.current = edge_position;
@@ -2172,7 +2177,8 @@ static void update_mouse(bContext *C,
                 data.region, float3(point), screen, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK)
         {
           const float distance = math::distance(screen, float2(event->mval));
-          if (distance < best && position_on_draw_constraint(data, point, inferred_axis)) {
+          if (distance < best &&
+              (linear_constraints || position_on_draw_constraint(data, point, inferred_axis))) {
             best = distance;
             data.current = point;
             data.snap_type = SCE_SNAP_TO_POINT;
@@ -2191,17 +2197,28 @@ static void update_mouse(bContext *C,
             /* Keep the native vertex identity when Blender's generic snap found the same
              * point at an equal screen distance. */
             if (distance <= best + 1e-4f &&
-                position_on_draw_constraint(data, world, inferred_axis))
+                (linear_constraints || position_on_draw_constraint(data, world, inferred_axis)))
             {
               best = distance;
               data.current = world;
-              data.current_vertex = vertex.id;
+              data.current_vertex = position_on_draw_constraint(data, world, inferred_axis) ?
+                                        vertex.id :
+                                        0;
               data.snap_type = SCE_SNAP_TO_POINT;
               snap_location = float3(world);
             }
           }
         }
       }
+    }
+  }
+  /* Native candidates are chosen after the generic picker. Apply the lock to those too,
+   * and keep snap feedback at the constrained result. A projected target is not a weld. */
+  if (!data.points.is_empty() && active_axis) {
+    data.current = constrain_to_axis(data.points.last(), data.current, *active_axis);
+    if (data.snap_type != SCE_SNAP_TO_NONE) {
+      snap_location = float3(
+          constrain_to_axis(data.points.last(), double3(snap_location), *active_axis));
     }
   }
   if (!data.shape && !data.points.is_empty() && hasNumInput(&data.num) &&
