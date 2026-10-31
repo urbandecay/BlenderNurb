@@ -61,6 +61,89 @@ class NurbsCircleTest(unittest.TestCase):
                     target = Vector((10 + 2 * math.cos(angle), 2 * math.sin(angle), 0))
                     self.assertLess(min((p - target).length for p in samples), 2e-5)
 
+    def test_limited_dissolve_preserves_closed_circle(self):
+        import os
+        import tempfile
+
+        for count in (4, 7, 32, 65):
+            with self.subTest(count=count):
+                self.setUp()
+                bpy.ops.curve.draw_circle(points='10 0 0 12 0 0', preview_points=count)
+                self.assertEqual(bpy.ops.curve.dissolve_limited(), {'FINISHED'})
+                scene = bpy.context.scene
+                fresh = scene.view_layers.new('Dissolved circle statistics')
+                try:
+                    fresh.objects.active = self.obj
+                    fresh.update()
+                    stats = scene.statistics(fresh).replace(' ', '')
+                finally:
+                    scene.view_layers.remove(fresh)
+                # The original primitive is an unselected, separate two-vertex line.
+                self.assertIn('Verts:2/4', stats)
+                self.assertIn('Edges:2/3', stats)
+                for reload in (False, True):
+                    if reload:
+                        with tempfile.TemporaryDirectory() as directory:
+                            path = os.path.join(directory, 'dissolved-circle.blend')
+                            bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=False)
+                            bpy.ops.wm.open_mainfile(filepath=path)
+                        self.obj = bpy.context.object
+                    self.assertTrue(self.obj.data.is_native_nurbs)
+                    samples = self.samples()
+                    self.assertGreater(len(samples), 16)
+                    for point in samples:
+                        self.assertAlmostEqual((point - Vector((10, 0, 0))).length, 2, places=5)
+                        self.assertAlmostEqual(point.z, 0, places=5)
+                    evaluated = self.obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                    mesh = evaluated.to_mesh()
+                    try:
+                        circle_vertices = {v.index for v in mesh.vertices if v.co.x > 5}
+                        degree = {i: 0 for i in circle_vertices}
+                        for edge in mesh.edges:
+                            for i in edge.vertices:
+                                if i in degree:
+                                    degree[i] += 1
+                        self.assertTrue(all(value == 2 for value in degree.values()),
+                                        'Dissolved circle must remain a closed wire')
+                    finally:
+                        evaluated.to_mesh_clear()
+
+    def test_move_circle_immediately_after_limited_dissolve(self):
+        for count in (4, 7, 32, 65):
+            with self.subTest(count=count):
+                self.setUp()
+                bpy.ops.curve.draw_circle(points='10 0 0 12 0 0', preview_points=count)
+                bpy.ops.curve.dissolve_limited()
+                # Use the selection produced by dissolve, without selecting anything again.
+                before = self.samples()
+                delta = Vector((2, 3, 4))
+                self.assertEqual(bpy.ops.transform.translate(value=delta), {'FINISHED'})
+                after = self.samples()
+                self.assertEqual(len(before), len(after))
+                for a, b in zip(before, after):
+                    self.assertLess((b - a - delta).length, 2e-5)
+                for point in after:
+                    self.assertAlmostEqual((point - Vector((12, 3, 4))).length, 2, places=5)
+                self.assertEqual(bpy.ops.transform.translate(value=-delta), {'FINISHED'})
+                for a, b in zip(before, self.samples()):
+                    self.assertLess((b - a).length, 2e-5)
+
+    def test_limited_dissolve_preserves_sharp_wire_corner(self):
+        bpy.ops.curve.draw_line(points='10 0 0 12 0 0 12 2 0')
+        bpy.ops.curve.dissolve_limited()
+        fresh = bpy.context.scene.view_layers.new('Sharp corner statistics')
+        try:
+            fresh.objects.active = self.obj
+            fresh.update()
+            stats = bpy.context.scene.statistics(fresh).replace(' ', '')
+        finally:
+            bpy.context.scene.view_layers.remove(fresh)
+        self.assertIn('Verts:3/5', stats)
+        self.assertIn('Edges:2/3', stats)
+        samples = self.samples()
+        for endpoint in ((10, 0, 0), (12, 0, 0), (12, 2, 0)):
+            self.assertLess(min((p - Vector(endpoint)).length for p in samples), 1e-5)
+
     def test_tangent_endpoint_replay(self):
         self.assertEqual(bpy.ops.curve.draw_circle(
             mode='TAN_TAN_TAN', points='10 0 0 12 0 0', preview_points=7,

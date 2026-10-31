@@ -13,6 +13,7 @@
 
 #include "BLI_math_vector.hh"
 #include "BKE_nurbs_topology_edit.hh"
+#include "BKE_nurbs_topology.hh"
 #include "BKE_nurbs_refine.hh"
 #include "nurbs_topology_edit.hh"
 
@@ -665,9 +666,14 @@ static OwnedCurve join_curves(const NurbsCurveGeometry &a,
     point = b.points[reverse_b ? b.points_num - 1 - i : i];
     point.weight *= ratio;
   }
-  std::copy(ka->begin(), ka->end() - 1, curve->knots);
+  const double length_a = range_a.y - range_a.x, length_b = range_b.y - range_b.x;
+  /* Preserve interval lengths across repeated joins, so a many-segment wire does not
+   * repeatedly halve its earliest knot spans. P-curves use the same parameter map. */
+  for (int i = 0; i < ka->size() - 1; i++) {
+    curve->knots[i] = (*ka)[i] * length_a;
+  }
   for (int i = b.order; i < kb->size(); i++) {
-    curve->knots[ka->size() - 1 + i - b.order] = 1 + (*kb)[i];
+    curve->knots[ka->size() - 1 + i - b.order] = length_a + (*kb)[i] * length_b;
   }
   return curve;
 }
@@ -686,7 +692,14 @@ static std::optional<TopologyEditResult> join_boundary(const NurbsGeometry &sour
     return std::nullopt;
   }
   const bool ra = a->vertex_ids[0] == vertex_id, rb = b->vertex_ids[1] == vertex_id;
-  const auto *ac = find_curve(source, a->curve_id), *bc = find_curve(source, b->curve_id);
+  const auto crop_a = restrict_curve(
+      *find_curve(source, a->curve_id), double2(a->parameter_range), 1e-9);
+  const auto crop_b = restrict_curve(
+      *find_curve(source, b->curve_id), double2(b->parameter_range), 1e-9);
+  if (!crop_a || !crop_b) {
+    return std::nullopt;
+  }
+  const auto *ac = crop_a->curve.get(), *bc = crop_b->curve.get();
   const double3 incoming = ra ? double3(ac->points[0].position) - double3(ac->points[1].position) :
                                double3(ac->points[ac->points_num - 1].position) -
                                    double3(ac->points[ac->points_num - 2].position);
@@ -700,10 +713,10 @@ static std::optional<TopologyEditResult> join_boundary(const NurbsGeometry &sour
     return std::nullopt;
   }
   const auto uses_a = index.uses_for_edge(a->id), uses_b = index.uses_for_edge(b->id);
-  if (uses_a.is_empty() || uses_a.size() != uses_b.size() || uses_a.size() > 2) {
+  if (uses_a.size() != uses_b.size() || uses_a.size() > 2) {
     return std::nullopt;
   }
-  auto curve = join_curves(*ac, *bc, ra, rb,
+  auto curve = join_curves(*find_curve(source, a->curve_id), *find_curve(source, b->curve_id), ra, rb,
                            double2(a->parameter_range), double2(b->parameter_range));
   if (!curve) {
     return std::nullopt;
@@ -762,7 +775,7 @@ static std::optional<TopologyEditResult> join_boundary(const NurbsGeometry &sour
   edge->curve_id = installed->id;
   edge->vertex_ids[0] = a->vertex_ids[ra ? 1 : 0];
   edge->vertex_ids[1] = b->vertex_ids[rb ? 0 : 1];
-  edge->parameter_range[1] = 2;
+  edge->parameter_range[1] = installed->knots[installed->points_num];
   edge->tolerance = std::max(a->tolerance, b->tolerance);
   if (edge->vertex_ids[0] == edge->vertex_ids[1]) {
     MEM_delete(edge);
@@ -849,6 +862,34 @@ std::optional<TopologyEditResult> dissolve_compatible_patches(const NurbsGeometr
     }
   }
   TopologyEditResult total;
+  /* Keep two well separated junctions on closed wires. The curve spans remain exact;
+   * these vertices expose the two joined sections in Edit Mode. */
+  Vector<int64_t> wire_edges;
+  for (const auto &edge : source.edges) {
+    if (index->uses_for_edge(edge.id).is_empty()) {
+      wire_edges.append(edge.id);
+    }
+  }
+  if (const auto chains = trace_edge_chains(source, wire_edges)) {
+    for (const auto &chain : *chains) {
+      if (!chain.closed || chain.vertices.size() < 3) {
+        continue;
+      }
+      const int64_t first = chain.vertices.first();
+      int64_t opposite = first;
+      double farthest = 0;
+      for (const int64_t id : chain.vertices) {
+        const double distance = math::distance_squared(
+            double3(index->vertex(first)->position), double3(index->vertex(id)->position));
+        if (distance > farthest) {
+          farthest = distance;
+          opposite = id;
+        }
+      }
+      vertices.remove(first);
+      vertices.remove(opposite);
+    }
+  }
   total.vertices.extend(selection.vertices.begin(), selection.vertices.end());
   total.edges.extend(selection.edges.begin(), selection.edges.end());
   total.faces.extend(selection.faces.begin(), selection.faces.end());
