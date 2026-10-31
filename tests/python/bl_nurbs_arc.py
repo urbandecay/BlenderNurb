@@ -67,6 +67,82 @@ class NurbsArcTest(unittest.TestCase):
                 if abs(sweep) == math.pi / 2:
                     self.assertTrue(all(p.y * sweep >= -1e-6 for p in points))
 
+    def test_fill_closes_dissolved_semicircle_with_a_straight_edge(self):
+        for count in (4, 7, 32):
+            with self.subTest(count=count):
+                self.setUp()
+                bpy.ops.curve.draw_arc(mode='CENTER', points='10 0 0 12 0 0',
+                                       sweep=math.pi, preview_points=count)
+                bpy.ops.curve.dissolve_limited()
+                self.assertEqual(self.totals(), (4, 2, 0))
+                arc_points = self.world_arc_points()
+                self.assertEqual(bpy.ops.curve.make_segment(), {'FINISHED'})
+                self.assertEqual(self.totals(), (4, 3, 0))
+                bpy.context.view_layer.update()
+                evaluated = self.obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                mesh = evaluated.to_mesh()
+                try:
+                    diameter_length = sum(
+                        (mesh.vertices[e.vertices[0]].co - mesh.vertices[e.vertices[1]].co).length
+                        for e in mesh.edges
+                        if all(mesh.vertices[i].co.x > 5 and
+                               abs(mesh.vertices[i].co.y) < 1e-5 and
+                               abs(mesh.vertices[i].co.z) < 1e-5 for i in e.vertices))
+                    self.assertAlmostEqual(diameter_length, 4, places=5,
+                                           msg='F must add the straight diameter')
+                finally:
+                    evaluated.to_mesh_clear()
+                after = self.world_arc_points()
+                for p in arc_points:
+                    self.assertLess(min((p - q).length for q in after), 1e-5,
+                                    'Adding the chord must preserve the curved boundary')
+                with tempfile.TemporaryDirectory() as directory:
+                    path = str(Path(directory) / 'closed-semicircle.blend')
+                    bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=False)
+                    bpy.ops.wm.open_mainfile(filepath=path)
+                self.obj = bpy.context.object
+                self.assertTrue(self.obj.data.is_native_nurbs)
+                self.assertEqual(self.totals(), (4, 3, 0))
+
+    def test_fill_closed_semicircle_creates_a_face(self):
+        for count, sweep in ((4, math.pi), (7, math.pi), (32, math.pi), (32, -math.pi)):
+            with self.subTest(count=count, sweep=sweep):
+                self.setUp()
+                bpy.ops.curve.draw_arc(mode='CENTER', points='10 0 0 12 0 0',
+                                       sweep=sweep, preview_points=count)
+                bpy.ops.curve.dissolve_limited()
+                bpy.ops.curve.make_segment()
+                self.assertEqual(bpy.ops.curve.make_segment(), {'FINISHED'})
+                self.assertEqual(self.totals(), (4, 3, 1))
+
+                def check_face():
+                    bpy.context.view_layer.update()
+                    evaluated = self.obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                    mesh = evaluated.to_mesh()
+                    try:
+                        self.assertGreater(len(mesh.polygons), 0)
+                        self.assertAlmostEqual(sum(p.area for p in mesh.polygons), 2 * math.pi,
+                                               delta=0.03)
+                        for p in mesh.polygons:
+                            self.assertGreater(p.area, 0)
+                            self.assertTrue(all(abs(mesh.vertices[i].co.z) < 1e-5
+                                                for i in p.vertices))
+                    finally:
+                        evaluated.to_mesh_clear()
+
+                check_face()
+                # Repeating F must not duplicate the existing face.
+                bpy.ops.curve.make_segment()
+                self.assertEqual(self.totals(), (4, 3, 1))
+                with tempfile.TemporaryDirectory() as directory:
+                    path = str(Path(directory) / 'semicircle-face.blend')
+                    bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=False)
+                    bpy.ops.wm.open_mainfile(filepath=path)
+                self.obj = bpy.context.object
+                self.assertTrue(self.obj.data.is_native_nurbs)
+                self.assertEqual(self.totals(), (4, 3, 1))
+                check_face()
+
     def test_endpoints_bulge_and_three_point_major(self):
         for mode in ('ENDPOINTS', 'THREE_POINTS'):
             for height in (-2, -1, 0.25, 1, 2):

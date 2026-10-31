@@ -224,6 +224,83 @@ static bool composite_bezier_monotone(const NurbsCurveGeometry &curve, const Fil
   return true;
 }
 
+/** Certify an arch and its endpoint chord using positive rational control hulls.
+ * Each Bezier span is monotone. Separating lines keep different span hulls disjoint,
+ * apart from consecutive shared endpoints, and the chord stays outside the arch hulls. */
+static bool simple_arch(const NurbsCurveGeometry &curve, const FillProjection &frame)
+{
+  if (!composite_bezier_monotone(curve, frame)) {
+    return false;
+  }
+  Vector<double2> points;
+  for (int i = 0; i < curve.points_num; i++) {
+    points.append(frame.point(double3(curve.points[i].position)));
+  }
+  const double2 a = points.first(), b = points.last();
+  int side = 0;
+  for (const double2 p : points) {
+    if (p == a || p == b) {
+      continue;
+    }
+    const int turn = orient2d(a, b, p);
+    if (turn == 0 || (side != 0 && side != turn)) {
+      return false;
+    }
+    side = turn;
+  }
+  if (side == 0) {
+    return false;
+  }
+  const int degree = curve.order - 1;
+  for (int i = 0; i + degree < points.size(); i += degree) {
+    for (int j = i + degree; j + degree < points.size(); j += degree) {
+      const bool adjacent = j == i + degree;
+      const double2 shared = points[j];
+      auto separates = [&](const double2 origin, const double2 end) {
+        if (origin == end) {
+          return false;
+        }
+        int sign = 0;
+        for (int k = i; k <= i + degree; k++) {
+          if (adjacent && points[k] == shared) {
+            continue;
+          }
+          const int turn = orient2d(origin, end, points[k]);
+          if (turn == 0 || (sign != 0 && turn != sign)) {
+            return false;
+          }
+          sign = turn;
+        }
+        for (int k = j; k <= j + degree; k++) {
+          if (adjacent && points[k] == shared) {
+            continue;
+          }
+          if (orient2d(origin, end, points[k]) != -sign) {
+            return false;
+          }
+        }
+        return sign != 0;
+      };
+      /* A transverse line at a shared endpoint separates the neighboring hulls. */
+      const double2 chord = points[j + degree] - points[i];
+      bool separated = adjacent && separates(shared, shared + double2(-chord.y, chord.x));
+      /* Strict separation avoids special overlap cases along the separating line.
+       * Try lines halfway between pairs of hull vertices, normal to their separation. */
+      for (int u = i; !separated && u <= i + degree; u++) {
+        for (int v = j; !separated && v <= j + degree; v++) {
+          const double2 delta = points[v] - points[u];
+          const double2 middle = (points[u] + points[v]) * 0.5;
+          separated = separates(middle, middle + double2(-delta.y, delta.x));
+        }
+      }
+      if (!separated) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 /** Sufficient exact-affine correspondence check; a nonzero arithmetic residual rejects. */
 static std::optional<double> plane_height(
     const double a, const double b, const double c, const double u, const double v)
@@ -326,7 +403,9 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
     }
   }
   Vector<FillSide> sides;
-  if (closure->faces.is_empty() && closure->vertices.size() == 2 && edge_ids.is_empty()) {
+  const bool connect_two_vertices = closure->faces.is_empty() && closure->vertices.size() == 2 &&
+                                    edge_ids.size() <= 1;
+  if (connect_two_vertices) {
     Vector<int64_t> vertices;
     for (const NurbsTopologyVertex &vertex : source.vertices) {
       if (closure->vertices.contains(vertex.id)) {
@@ -462,6 +541,12 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
       if ((edge.vertex_ids[0] == side.start && edge.vertex_ids[1] == side.end) ||
           (edge.vertex_ids[1] == side.start && edge.vertex_ids[0] == side.end))
       {
+        /* Two endpoints of one arc request its straight closing chord. The existing
+         * curved edge is retained as a distinct boundary between the same vertices. */
+        const auto &curve = *curves.lookup(edge.curve_id);
+        if (connect_two_vertices && (curve.order != 2 || curve.points_num != 2)) {
+          continue;
+        }
         if (side.edge != 0) {
           return fail("Endpoint pair has multiple NURBS edges; select the intended boundary");
         }
@@ -568,7 +653,15 @@ std::optional<FillResult> fill_components(const NurbsGeometry &source,
   const int turn = polygon_turn(projected);
   const bool bilinear = straight_quad && (nonplanar_quad || turn != 0);
   if (!piecewise_linear && !bilinear) {
-    if (turn == 0) {
+    bool arch_and_chord = false;
+    if (sides.size() == 2 && sides[0].edge != 0 && sides[1].edge != 0) {
+      for (int i = 0; i < 2; i++) {
+        const auto &line = *curves.lookup(index->edge(sides[i].edge)->curve_id);
+        const auto &arch = *curves.lookup(index->edge(sides[1 - i].edge)->curve_id);
+        arch_and_chord |= line.order == 2 && line.points_num == 2 && simple_arch(arch, *frame);
+      }
+    }
+    if (turn == 0 && !arch_and_chord) {
       return fail("Curved planar fill currently requires a simple convex control polygon");
     }
     for (const auto &side : sides) {

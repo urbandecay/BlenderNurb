@@ -2,6 +2,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <algorithm>
 #include <limits>
 
 #include "BKE_gtest_base.hh"
@@ -145,6 +146,46 @@ TEST_F(NurbsFillTest, ConnectTwoVerticesPreservesSharedIdentityAndIsIdempotent)
   ASSERT_TRUE(again.has_value()) << error;
   EXPECT_TRUE(again->created_edges.is_empty());
   EXPECT_EQ(again->geometry->next_id, filled->geometry->next_id);
+}
+
+TEST_F(NurbsFillTest, FillArchWithReflexControlPolygonAndRejectCrossingChord)
+{
+  const double3 endpoints[] = {{0, 0, 0}, {4, 0, 0}};
+  auto source = make_fill_wire({endpoints, 2}, false);
+  const auto vertices = fill_vertices(*source);
+  const auto index = TopologyIndex::build(*source);
+  auto *curve = MEM_new<NurbsCurveGeometry>(__func__);
+  curve->id = source->next_id++;
+  curve->order = 3;
+  curve->points_num = 5;
+  curve->knots_num = 8;
+  curve->points = MEM_new_array<NurbsControlPoint>(5, __func__);
+  curve->knots = MEM_new_array<double>(8, __func__);
+  const double knots[] = {0, 0, 0, 1, 1, 2, 2, 2};
+  std::copy_n(knots, 8, curve->knots);
+  const double3 points[] = {{0, 0, 0}, {1, 2, 0}, {2, 1, 0}, {3, 2, 0}, {4, 0, 0}};
+  for (int i = 0; i < 5; i++) {
+    std::copy_n(&points[i].x, 3, curve->points[i].position);
+    curve->points[i].weight = i % 2 ? 0.8 : 1;
+  }
+  BLI_addtail(&source->curves, curve);
+  auto *edge = add_edge(*source, *index->vertex(vertices[0]), *index->vertex(vertices[1]), *curve);
+  edge->parameter_range[1] = 2;
+  const auto edges = fill_edges(*source);
+  const int64_t next_id = source->next_id;
+  std::string error;
+  auto filled = fill_components(*source, {{}, edges, {}}, &error);
+  ASSERT_TRUE(filled.has_value()) << error;
+  ASSERT_EQ(filled->created_faces.size(), 1);
+  EXPECT_EQ(filled->geometry->edges.count(), 2);
+  EXPECT_EQ(filled->geometry->vertices.count(), 2);
+  expect_fill_preview(*filled->geometry);
+  EXPECT_EQ(source->next_id, next_id);
+  EXPECT_TRUE(source->faces.is_empty());
+  // This boundary actually crosses the chord, rather than just having a reflex control turn.
+  curve->points[2].position[1] = -4;
+  EXPECT_FALSE(fill_components(*source, {{}, edges, {}}, &error).has_value());
+  EXPECT_TRUE(source->faces.is_empty());
 }
 
 TEST_F(NurbsFillTest, ClosedQuadReusesBoundaryAndCreatesExactBilinearSupport)
