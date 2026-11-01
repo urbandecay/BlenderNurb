@@ -635,6 +635,122 @@ static std::optional<CurveRefinementResult> single_circle_arc(const NurbsCurveGe
   return CurveRefinementResult{std::move(curve), bound};
 }
 
+OwnedGeometry compact_circle_extrusion_controls(const NurbsGeometry &source,
+                                                const double max_error,
+                                                std::string *r_error)
+{
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index || !budget_valid(max_error, r_error)) {
+    return nullptr;
+  }
+  OwnedGeometry result(geometry_copy(&source));
+  Map<int64_t, NurbsCurveGeometry *> curves;
+  Map<int64_t, NurbsTopologyEdge *> edges;
+  Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+  for (auto &curve : result->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (auto &edge : result->edges) {
+    edges.add_new(edge.id, &edge);
+  }
+  for (const auto &surface : source.surfaces) {
+    surfaces.add_new(surface.id, &surface);
+  }
+  for (auto &face : result->faces) {
+    const auto &surface = *surfaces.lookup(face.surface_id);
+    if (surface.order_u != 3 || surface.points_u != 9 || surface.order_v != 2 ||
+        surface.points_v != 2 || !face.loops.is_single())
+    {
+      continue;
+    }
+    auto &loop = *static_cast<NurbsTopologyLoop *>(face.loops.first);
+    if (loop.edge_uses.count() != 4) {
+      continue;
+    }
+    NurbsTopologyEdgeUse *rows[2] = {};
+    bool rectangle = true;
+    double2 range;
+    for (auto &use : loop.edge_uses) {
+      const auto &uv = *curves.lookup(use.pcurve_id);
+      if (uv.order != 2 || uv.points_num != 2 || uv.points[0].weight != uv.points[1].weight) {
+        rectangle = false;
+        break;
+      }
+      const double2 a(uv.points[0].position), b(uv.points[1].position);
+      if (a.y == b.y && a.x < b.x) {
+        const int row = a.y == surface.knots_v[1] ? 0 : a.y == surface.knots_v[2] ? 1 : -1;
+        if (row < 0 || rows[row] || index->uses_for_edge(use.edge_id).size() != 1) {
+          rectangle = false;
+          break;
+        }
+        rows[row] = &use;
+        const auto &edge = *edges.lookup(use.edge_id);
+        rectangle &= double2(edge.parameter_range) == double2(a.x, b.x);
+        if (rows[0] && rows[1]) {
+          rectangle &= range == double2(a.x, b.x);
+        }
+        range = {a.x, b.x};
+      }
+      else {
+        rectangle &= a.x == b.x && a.y == surface.knots_v[1] && b.y == surface.knots_v[2];
+      }
+    }
+    if (!rectangle || !rows[0] || !rows[1]) {
+      continue;
+    }
+    std::array<std::optional<CurveRefinementResult>, 2> compact;
+    for (int row = 0; row < 2; row++) {
+      NurbsCurveGeometry curve;
+      curve.order = surface.order_u;
+      curve.points_num = surface.points_u;
+      curve.knots_num = surface.knots_u_num;
+      curve.knots = surface.knots_u;
+      curve.points = surface.points + row * surface.points_u;
+      const auto &edge = *edges.lookup(rows[row]->edge_id);
+      compact[row] = single_circle_arc(curve,
+                                       range,
+                                       double3(index->vertex(edge.vertex_ids[0])->position),
+                                       double3(index->vertex(edge.vertex_ids[1])->position),
+                                       max_error);
+    }
+    if (!compact[0] || !compact[1] ||
+        compact[0]->curve->points[1].weight != compact[1]->curve->points[1].weight)
+    {
+      continue;
+    }
+    if (result->next_id > std::numeric_limits<int64_t>::max() - 3) {
+      if (r_error) {
+        *r_error = "NURBS circle control refinement exhausted source identities";
+      }
+      return nullptr;
+    }
+    auto *patch = MEM_new<NurbsSurfaceGeometry>(__func__);
+    patch->id = result->next_id++;
+    patch->order_u = patch->points_u = 3;
+    patch->order_v = patch->points_v = 2;
+    patch->points_num = 6;
+    patch->knots_u_num = 6;
+    patch->knots_v_num = 4;
+    patch->knots_u = MEM_dupalloc(compact[0]->curve->knots);
+    patch->knots_v = MEM_dupalloc(surface.knots_v);
+    patch->points = MEM_new_array<NurbsControlPoint>(6, __func__);
+    for (int row = 0; row < 2; row++) {
+      auto &part = *compact[row];
+      std::copy_n(part.curve->points, 3, patch->points + 3 * row);
+      part.curve->id = result->next_id++;
+      auto &edge = *edges.lookup(rows[row]->edge_id);
+      edge.curve_id = part.curve->id;
+      edge.tolerance = std::max(edge.tolerance, 2 * part.geometry_error_bound);
+      rows[row]->tolerance = std::max(rows[row]->tolerance, edge.tolerance);
+      face.tolerance = std::max(face.tolerance, edge.tolerance);
+      BLI_addtail(&result->curves, part.curve.release());
+    }
+    face.surface_id = patch->id;
+    BLI_addtail(&result->surfaces, patch);
+  }
+  return result;
+}
+
 std::optional<Vector<CurveControlCage>> curve_control_cages(const NurbsGeometry &source,
                                                             const double max_error,
                                                             std::string *r_error)

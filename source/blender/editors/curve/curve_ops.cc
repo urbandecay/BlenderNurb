@@ -170,6 +170,17 @@ void ED_operatormacros_curve()
   otmacro = WM_operatortype_macro_define(ot, "TRANSFORM_OT_translate");
   RNA_boolean_set(otmacro->ptr, "use_proportional_edit", false);
   RNA_boolean_set(otmacro->ptr, "mirror", false);
+  ot = WM_operatortype_append_macro(
+      "CURVE_OT_extrude_manifold",
+      "Extrude Manifold",
+      "Extrude NURBS faces and merge coplanar seams and coincident boundaries",
+      OPTYPE_UNDO | OPTYPE_REGISTER);
+  ot->poll = ed::nurbs::topology_edit_poll;
+  WM_operatortype_macro_define(ot, "CURVE_OT_extrude");
+  otmacro = WM_operatortype_macro_define(ot, "TRANSFORM_OT_translate");
+  RNA_boolean_set(otmacro->ptr, "use_proportional_edit", false);
+  RNA_boolean_set(otmacro->ptr, "mirror", false);
+  RNA_boolean_set(otmacro->ptr, "use_automerge_and_split", true);
 }
 
 void ED_keymap_curve(wmKeyConfig *keyconf)

@@ -38,6 +38,7 @@
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_topology.hh"
+#include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
@@ -787,6 +788,124 @@ static bool select_control_points_matching(Main &bmain,
     return false;
   }
   candidate.selection = std::move(selected);
+  return edit_commit(bmain, curve, std::move(candidate), expected, r_error);
+}
+
+bool select_control_points_from_components(Main &bmain, Curve &curve, std::string *r_error)
+{
+  using namespace bke::nurbs;
+  if (!curve.editnurb || !curve.editnurb->nurbs_edit) {
+    return true;
+  }
+  const auto expected = curve.editnurb->nurbs_edit->read_snapshot();
+  const auto &selection = expected.selection();
+  auto candidate = expected.copy_for_edit();
+  candidate.geometry = compact_circle_extrusion_controls(expected.geometry(), 1e-9, r_error);
+  if (!candidate.geometry) {
+    return false;
+  }
+  if (selection.vertices.is_empty() && selection.edges.is_empty() && selection.faces.is_empty()) {
+    /* Existing files may already have selected, cropped extrusion controls. Keep
+     * endpoint selection and transfer redundant interior handles to the compact handle. */
+    const auto old_index = TopologyIndex::build(expected.geometry(), r_error);
+    if (!old_index) {
+      return false;
+    }
+    Map<int64_t, int> counts;
+    for (const auto &support : expected.geometry().curves) {
+      counts.add_new(support.id, support.points_num);
+    }
+    candidate.selection.control_points.clear();
+    candidate.selection.active_control_point.reset();
+    for (const auto &point : selection.control_points) {
+      bool replaced = false;
+      for (const auto &edge : candidate.geometry->edges) {
+        const auto &before = *old_index->edge(edge.id);
+        if (before.curve_id != point.curve_id || before.curve_id == edge.curve_id) {
+          continue;
+        }
+        replaced = true;
+        const CurveControlPointRef mapped{
+            edge.curve_id, point.point_index == 0 ? 0 :
+                           point.point_index == counts.lookup(point.curve_id) - 1 ? 2 : 1};
+        if (!candidate.selection.control_points.contains(mapped)) {
+          candidate.selection.control_points.append(mapped);
+        }
+        if (selection.active_control_point == point) {
+          candidate.selection.active_control_point = mapped;
+        }
+      }
+      if (!replaced) {
+        candidate.selection.control_points.append(point);
+        if (selection.active_control_point == point) {
+          candidate.selection.active_control_point = point;
+        }
+      }
+    }
+    return edit_commit(bmain, curve, std::move(candidate), expected, r_error);
+  }
+  const auto index = TopologyIndex::build(*candidate.geometry, r_error);
+  auto cages = curve_control_cages(*candidate.geometry, 1e-9, r_error);
+  if (!index || !cages) {
+    return false;
+  }
+  candidate.selection.control_points.clear();
+  candidate.selection.active_control_point.reset();
+  for (auto &cage : *cages) {
+    const auto &edge = *index->edge(cage.edges[0]);
+    bool whole_edge = selection.edges.contains(edge.id);
+    for (const auto &use : index->uses_for_edge(edge.id)) {
+      whole_edge |= selection.faces.contains(use.face_id);
+    }
+    Vector<int> points;
+    for (int i = 0; i < cage.curve->points_num; i++) {
+      if (whole_edge || (i == 0 && selection.vertices.contains(edge.vertex_ids[0])) ||
+          (i == cage.curve->points_num - 1 && selection.vertices.contains(edge.vertex_ids[1])))
+      {
+        points.append(i);
+      }
+    }
+    if (points.is_empty()) {
+      continue;
+    }
+    int64_t support_id = cage.source_curve_id;
+    if (!cage.uses_source_points) {
+      if (candidate.geometry->next_id == std::numeric_limits<int64_t>::max()) {
+        if (r_error) {
+          *r_error = "NURBS control selection exhausted source identities";
+        }
+        return false;
+      }
+      support_id = candidate.geometry->next_id++;
+      cage.curve->id = support_id;
+      BLI_addtail(&candidate.geometry->curves, cage.curve.release());
+      for (auto &part : candidate.geometry->edges) {
+        if (cage.edges.contains(part.id)) {
+          part.curve_id = support_id;
+          part.tolerance = std::max(part.tolerance, 2 * cage.geometry_error_bound);
+        }
+      }
+    }
+    for (const int i : points) {
+      const CurveControlPointRef point{support_id, i};
+      if (!candidate.selection.control_points.contains(point)) {
+        candidate.selection.control_points.append(point);
+      }
+      if (selection.active &&
+          ((selection.active->domain == ElementDomain::Vertex &&
+            ((i == 0 && selection.active->id == edge.vertex_ids[0]) ||
+             (i == points.last() && selection.active->id == edge.vertex_ids[1]))) ||
+           (selection.active->domain == ElementDomain::Edge && selection.active->id == edge.id &&
+            i == points[points.size() / 2])))
+      {
+        candidate.selection.active_control_point = point;
+      }
+    }
+  }
+  if (!candidate.selection.active_control_point && !candidate.selection.control_points.is_empty())
+  {
+    candidate.selection.active_control_point = candidate.selection.control_points.last();
+  }
   return edit_commit(bmain, curve, std::move(candidate), expected, r_error);
 }
 
@@ -1601,6 +1720,325 @@ bool extrude(bContext *C)
   return component_edit(C, ComponentEdit::Extrude, bke::nurbs::DeleteMode::Vertices);
 }
 
+bool manifold_extrusion_can_extend_faces(const Curve &curve)
+{
+  using namespace bke::nurbs;
+  if (!curve.editnurb || !curve.editnurb->nurbs_edit) {
+    return false;
+  }
+  const auto source = curve.editnurb->nurbs_edit->read_snapshot();
+  Vector<int64_t> faces(source.selection().faces.begin(), source.selection().faces.end());
+  if (faces.is_empty()) {
+    return false;
+  }
+  const auto plan = plan_face_region_extrusion(source.geometry(), faces);
+  const auto index = TopologyIndex::build(source.geometry());
+  if (!plan || !index) {
+    return false;
+  }
+  Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+  for (const auto &surface : source.geometry().surfaces) {
+    surfaces.add_new(surface.id, &surface);
+  }
+  double3 normal(0);
+  for (const int64_t id : faces) {
+    const auto &face = *index->face(id);
+    const auto &surface = *surfaces.lookup(face.surface_id);
+    const double2 uv(
+        (surface.knots_u[surface.order_u - 1] + surface.knots_u[surface.points_u]) / 2,
+        (surface.knots_v[surface.order_v - 1] + surface.knots_v[surface.points_v]) / 2);
+    const auto frame = evaluate_surface_differential(surface, uv);
+    if (!frame || !frame->normal) {
+      return false;
+    }
+    normal += double(face.orientation) * *frame->normal;
+  }
+  normal = math::normalize(normal);
+  if (normal == double3(0)) {
+    return false;
+  }
+  for (const int64_t edge : plan->boundary_edges) {
+    bool found = false;
+    for (const auto &use : index->uses_for_edge(edge)) {
+      if (source.selection().faces.contains(use.face_id)) {
+        continue;
+      }
+      found = true;
+      const auto &surface = *surfaces.lookup(index->face(use.face_id)->surface_id);
+      bool extends = false;
+      for (int axis = 0; axis < 2; axis++) {
+        if ((axis == 0 ? surface.order_u : surface.order_v) != 2 ||
+            (axis == 0 ? surface.points_u : surface.points_v) != 2)
+        {
+          continue;
+        }
+        bool parallel = true;
+        for (int i = 0; i < (axis == 0 ? surface.points_v : surface.points_u); i++) {
+          const int low = axis == 0 ? i * surface.points_u : i;
+          const int high = axis == 0 ? low + 1 : low + surface.points_u;
+          const auto &a = surface.points[low], &b = surface.points[high];
+          const double3 delta = double3(b.position) - double3(a.position);
+          parallel &= a.weight == b.weight && math::length_squared(delta) > 0 &&
+                      math::length(math::cross(math::normalize(delta), normal)) < 1e-10;
+        }
+        extends |= parallel;
+      }
+      if (!extends) {
+        return false;
+      }
+    }
+    if (!found) {
+      return false;
+    }
+  }
+  return !plan->boundary_edges.is_empty();
+}
+
+bool finish_manifold_extrusion(Main &bmain,
+                               Curve &curve,
+                               const double merge_distance,
+                               std::string *r_error)
+{
+  using namespace bke::nurbs;
+  const auto expected = curve.editnurb->nurbs_edit->read_snapshot();
+  if (expected.selection().faces.is_empty()) {
+    return true;
+  }
+  auto candidate = expected.copy_for_edit();
+  auto apply = [&](TopologyEditResult result) {
+    Map<int64_t, int64_t> mapping;
+    const auto target = TopologyIndex::build(*result.geometry, r_error);
+    if (!target) {
+      return false;
+    }
+    for (const auto &vertex : candidate.geometry->vertices) {
+      mapping.add(vertex.id, target->vertex(vertex.id) ? vertex.id : 0);
+    }
+    for (const auto &edge : candidate.geometry->edges) {
+      mapping.add(edge.id, target->edge(edge.id) ? edge.id : 0);
+    }
+    for (const auto &face : candidate.geometry->faces) {
+      mapping.add(face.id, target->face(face.id) ? face.id : 0);
+    }
+    for (const auto item : result.source_to_result.items()) {
+      mapping.add_overwrite(item.key, item.value);
+    }
+    auto selected = selection_remap(*candidate.geometry,
+                                    *result.geometry,
+                                    candidate.selection,
+                                    mapping,
+                                    candidate.selection.mode,
+                                    r_error);
+    if (!selected) {
+      return false;
+    }
+    candidate = {std::move(result.geometry), std::move(*selected)};
+    return true;
+  };
+  /* Mesh's auto-merge splits stationary edges when an extruded vertex lands on
+   * them. Use source edge parameters so all incident NURBS uses split together. */
+  auto index = TopologyIndex::build(*candidate.geometry, r_error);
+  if (!index) {
+    return false;
+  }
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  for (const auto &support : candidate.geometry->curves) {
+    curves.add_new(support.id, &support);
+  }
+  TopologyCutPlan plan;
+  for (const auto &edge : candidate.geometry->edges) {
+    if (candidate.selection.edges.contains(edge.id) ||
+        candidate.selection.vertices.contains(edge.vertex_ids[0]) ||
+        candidate.selection.vertices.contains(edge.vertex_ids[1]))
+    {
+      continue;
+    }
+    const auto &support = *curves.lookup(edge.curve_id);
+    if (support.order != 2 || support.points_num != 2 ||
+        support.points[0].weight != support.points[1].weight)
+    {
+      continue;
+    }
+    const double3 a(index->vertex(edge.vertex_ids[0])->position);
+    const double3 delta = double3(index->vertex(edge.vertex_ids[1])->position) - a;
+    const double length_squared = math::length_squared(delta);
+    if (length_squared == 0) {
+      continue;
+    }
+    EdgePartitionRequest request{edge.id, {}};
+    for (const int64_t vertex : candidate.selection.vertices) {
+      const double3 position(index->vertex(vertex)->position);
+      const double factor = math::dot(position - a, delta) / length_squared;
+      if (factor > 0 && factor < 1 &&
+          math::distance(position, a + factor * delta) <= merge_distance)
+      {
+        const double parameter = std::lerp(
+            edge.parameter_range[0], edge.parameter_range[1], factor);
+        if (!request.parameters.contains(parameter)) {
+          request.parameters.append(parameter);
+        }
+      }
+    }
+    if (!request.parameters.is_empty()) {
+      std::sort(request.parameters.begin(), request.parameters.end());
+      plan.edges.append(std::move(request));
+    }
+  }
+  auto add_cut = [&](const NurbsTopologyEdge &edge, const double factor) {
+    if (!(factor > 0 && factor < 1)) {
+      return;
+    }
+    const double parameter = std::lerp(edge.parameter_range[0], edge.parameter_range[1], factor);
+    for (auto &request : plan.edges) {
+      if (request.edge_id == edge.id) {
+        if (!request.parameters.contains(parameter)) {
+          request.parameters.append(parameter);
+        }
+        return;
+      }
+    }
+    plan.edges.append({edge.id, {parameter}});
+  };
+  for (const auto &moving : candidate.geometry->edges) {
+    if (!candidate.selection.edges.contains(moving.id)) {
+      continue;
+    }
+    const auto &moving_curve = *curves.lookup(moving.curve_id);
+    if (moving_curve.order != 2 || moving_curve.points_num != 2 ||
+        moving_curve.points[0].weight != moving_curve.points[1].weight)
+    {
+      continue;
+    }
+    const double3 a(index->vertex(moving.vertex_ids[0])->position);
+    const double3 u = double3(index->vertex(moving.vertex_ids[1])->position) - a;
+    const double uu = math::dot(u, u);
+    if (uu == 0) {
+      continue;
+    }
+    for (const auto &target : candidate.geometry->edges) {
+      if (candidate.selection.vertices.contains(target.vertex_ids[0]) ||
+          candidate.selection.vertices.contains(target.vertex_ids[1]))
+      {
+        continue;
+      }
+      const auto &target_curve = *curves.lookup(target.curve_id);
+      if (target_curve.order != 2 || target_curve.points_num != 2 ||
+          target_curve.points[0].weight != target_curve.points[1].weight)
+      {
+        continue;
+      }
+      const double3 b(index->vertex(target.vertex_ids[0])->position);
+      const double3 v = double3(index->vertex(target.vertex_ids[1])->position) - b;
+      const double3 w = a - b;
+      const double vv = math::dot(v, v), uv = math::dot(u, v);
+      const double denominator = uu * vv - uv * uv;
+      for (const int64_t vertex : target.vertex_ids) {
+        const double3 position(index->vertex(vertex)->position);
+        const double factor = math::dot(position - a, u) / uu;
+        if (math::distance(position, a + factor * u) <= merge_distance) {
+          add_cut(moving, factor);
+        }
+      }
+      if (denominator <= 64 * std::numeric_limits<double>::epsilon() * uu * vv) {
+        continue;
+      }
+      const double uw = math::dot(u, w), vw = math::dot(v, w);
+      const double first = (uv * vw - vv * uw) / denominator;
+      const double second = (uu * vw - uv * uw) / denominator;
+      if (first >= 0 && first <= 1 && second >= 0 && second <= 1 &&
+          math::distance(a + first * u, b + second * v) <= merge_distance)
+      {
+        add_cut(moving, first);
+        add_cut(target, second);
+      }
+    }
+  }
+  for (auto &request : plan.edges) {
+    std::sort(request.parameters.begin(), request.parameters.end());
+  }
+  if (!plan.edges.is_empty()) {
+    auto split = partition_components(*candidate.geometry, plan, 1e-9, r_error);
+    if (!split || !apply(std::move(split->edit))) {
+      return false;
+    }
+  }
+  auto merged = merge_by_distance(
+      *candidate.geometry, candidate.selection, merge_distance, false, true, 1e-9, r_error);
+  if (!merged || !apply(std::move(*merged))) {
+    return false;
+  }
+  index = TopologyIndex::build(*candidate.geometry, r_error);
+  if (!index) {
+    return false;
+  }
+  Set<int64_t> walls;
+  for (const int64_t edge : candidate.selection.edges) {
+    for (const auto &use : index->uses_for_edge(edge)) {
+      if (!candidate.selection.faces.contains(use.face_id)) {
+        walls.add(use.face_id);
+      }
+    }
+  }
+  curves.clear();
+  Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+  for (const auto &support : candidate.geometry->curves) {
+    curves.add_new(support.id, &support);
+  }
+  for (const auto &support : candidate.geometry->surfaces) {
+    surfaces.add_new(support.id, &support);
+  }
+  auto tangent_seam = [&](const int64_t edge_id) {
+    const auto uses = index->uses_for_edge(edge_id);
+    if (uses.size() != 2) {
+      return false;
+    }
+    double3 normals[2];
+    const auto &edge = *index->edge(edge_id);
+    for (int i = 0; i < 2; i++) {
+      const auto &use = *uses[i].use;
+      const auto uv = evaluate_curve(*curves.lookup(use.pcurve_id),
+                                     (edge.parameter_range[0] + edge.parameter_range[1]) / 2);
+      if (!uv) {
+        return false;
+      }
+      const auto &face = *index->face(uses[i].face_id);
+      const auto frame = evaluate_surface_differential(*surfaces.lookup(face.surface_id),
+                                                       double2(uv->position));
+      if (!frame || !frame->normal) {
+        return false;
+      }
+      normals[i] = double(face.orientation) * *frame->normal;
+    }
+    return math::dot(normals[0], normals[1]) >= std::cos(1e-6);
+  };
+  SelectionState seams;
+  seams.mode = SelectionMode::Edge;
+  for (const int64_t wall : walls) {
+    for (const auto &loop : index->face(wall)->loops) {
+      for (const auto &use : loop.edge_uses) {
+        if (!candidate.selection.edges.contains(use.edge_id) && tangent_seam(use.edge_id)) {
+          seams.edges.add(use.edge_id);
+          const auto &edge = *index->edge(use.edge_id);
+          seams.vertices.add(edge.vertex_ids[0]);
+          seams.vertices.add(edge.vertex_ids[1]);
+        }
+      }
+    }
+  }
+  if (!seams.edges.is_empty()) {
+    auto dissolved = bke::nurbs::dissolve_limited(*candidate.geometry, seams, 1e-6, r_error);
+    if (!dissolved) {
+      if (r_error && !r_error->empty()) {
+        return false;
+      }
+    }
+    else if (!apply(std::move(*dissolved))) {
+      return false;
+    }
+  }
+  return edit_commit(bmain, curve, std::move(candidate), expected, r_error);
+}
+
 bool delete_components(bContext *C, const bke::nurbs::DeleteMode mode)
 {
   return component_edit(C, ComponentEdit::Delete, mode);
@@ -1901,15 +2339,16 @@ bool merge_by_distance(bContext *C,
 
 bool dissolve_limited(bContext *C, const double angle_limit)
 {
-  return topology_edit(
-      C,
-      false,
-      std::nullopt,
-      [&](const SelectionTarget &target,
-          std::string &error) -> std::optional<bke::nurbs::TopologyEditResult> {
-        return bke::nurbs::dissolve_limited(
-            target.source.geometry(), target.source.selection(), angle_limit, &error);
-      });
+  return topology_edit(C,
+                       false,
+                       std::nullopt,
+                       [&](const SelectionTarget &target,
+                           std::string &error) -> std::optional<bke::nurbs::TopologyEditResult> {
+                         return bke::nurbs::dissolve_limited(target.source.geometry(),
+                                                             target.source.selection(),
+                                                             angle_limit,
+                                                             &error);
+                       });
 }
 
 struct TopologyPreview::State {

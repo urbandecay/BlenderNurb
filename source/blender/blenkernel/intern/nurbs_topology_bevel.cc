@@ -2978,7 +2978,9 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     }
     result.geometry = std::move(smooth->geometry);
   }
-  if (!evaluate_boundaries(*result.geometry, {}, r_error)) {
+  if (!evaluate_boundaries(*result.geometry,
+                           {},
+                           r_error)) {
     return std::nullopt;
   }
   if (r_offset_info) {
@@ -3010,7 +3012,9 @@ static std::optional<TopologyEditResult> bevel_ruled_edge(const NurbsGeometry &s
     return fail("Closed curved bevel needs periodic rail and end-profile topology");
   }
   const auto uses = index.uses_for_edge(selected);
-  if (!evaluate_boundaries(source, {}, r_error)) {
+  if (!evaluate_boundaries(source,
+                           {},
+                           r_error)) {
     return std::nullopt;
   }
   if (uses.size() != 2 || uses[0].face_id == uses[1].face_id) {
@@ -3579,7 +3583,9 @@ static std::optional<TopologyEditResult> bevel_ruled_edge(const NurbsGeometry &s
   const int64_t seed = profiles[0];
   result.geometry = std::move(builder.geometry);
   if (!builder.valid() || !geometry_validate_structure(*result.geometry, r_error) ||
-      !evaluate_boundaries(*result.geometry, {}, r_error))
+      !evaluate_boundaries(*result.geometry,
+                           {},
+                           r_error))
   {
     return std::nullopt;
   }
@@ -3696,6 +3702,12 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
         int(edges.size()),
         int(selected.size()));
     return result;
+  }
+  if (!evaluate_boundaries(source,
+                           {},
+                           r_error))
+  {
+    return std::nullopt;
   }
   const double classification_start = BLI_time_now_seconds();
   Set<int64_t> affected_vertices;

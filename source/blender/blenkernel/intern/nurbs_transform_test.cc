@@ -118,6 +118,37 @@ TEST(nurbs_transform, EveryCircleArcHasAnIndependentExactControlCage)
       for (const auto &part : *surface_cages) {
         EXPECT_FALSE(part.reparameterized);
       }
+      auto compact = compact_circle_extrusion_controls(*surface->geometry, 1e-9, &error);
+      ASSERT_TRUE(compact) << error;
+      auto compact_cages = curve_control_cages(*compact, 1e-9, &error);
+      ASSERT_TRUE(compact_cages) << error;
+      for (const auto &part : *compact_cages) {
+        EXPECT_EQ(part.curve->points_num, part.curve->order == 2 ? 2 : 3);
+        if (part.curve->order == 3) {
+          EXPECT_NEAR(part.curve->points[1].weight, std::cos(M_PI / count), 1e-12);
+        }
+      }
+      BoundaryEvaluationOptions options;
+      options.evaluation_allowance = 1e-9;
+      EXPECT_TRUE(evaluate_boundaries(*compact, options, &error)) << error;
+      for (const auto &face : compact->faces) {
+        const NurbsSurfaceGeometry *patch = nullptr;
+        for (const auto &support : compact->surfaces) {
+          if (support.id == face.surface_id) {
+            patch = &support;
+          }
+        }
+        ASSERT_TRUE(patch);
+        EXPECT_EQ(patch->points_u, 3);
+        EXPECT_EQ(patch->points_v, 2);
+        for (int u = 0; u <= 4; u++) {
+          const double parameter = std::lerp(patch->knots_u[2], patch->knots_u[3], u / 4.0);
+          const auto point = evaluate_surface(*patch, {parameter, 0.5});
+          ASSERT_TRUE(point);
+          EXPECT_NEAR(std::hypot(point->position.x, point->position.y), 2, 1e-9);
+          EXPECT_NEAR(point->position.z, 1, 1e-9);
+        }
+      }
     }
     auto &cage = (*cages)[0];
     cage.curve->id = source->next_id++;
@@ -142,6 +173,70 @@ TEST(nurbs_transform, EveryCircleArcHasAnIndependentExactControlCage)
     }
     EXPECT_TRUE(evaluate_boundaries(*moved->geometry, {}, &error)) << error;
   }
+}
+
+TEST(nurbs_transform, FourExtrudedCircleControlsAllowEvaluationRoundoffAndRejectRealGaps)
+{
+  OwnedGeometry wire(MEM_new<NurbsGeometry>(__func__));
+  auto support = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, 2 * M_PI);
+  ASSERT_TRUE(support);
+  support->id = wire->next_id++;
+  auto *curve = support.release();
+  BLI_addtail(&wire->curves, curve);
+  Vector<double> parameters;
+  Vector<NurbsTopologyVertex *> vertices;
+  Vector<int64_t> edges;
+  for (int i = 0; i < 10; i++) {
+    const double angle = 2 * M_PI * i / 10;
+    const int quarter = i * 4 / 10;
+    const double local = angle - quarter * (M_PI / 2);
+    const double a = std::sin(local / 2), b = std::sin((M_PI / 2 - local) / 2);
+    parameters.append((quarter + a / (a + b)) / 4);
+    const auto point = evaluate_curve(*curve, parameters.last());
+    ASSERT_TRUE(point);
+    vertices.append(add_vertex(*wire, point->position));
+  }
+  for (int i = 0; i < 10; i++) {
+    auto *edge = add_edge(*wire, *vertices[i], *vertices[(i + 1) % 10], *curve);
+    edge->parameter_range[0] = parameters[i];
+    edge->parameter_range[1] = i == 9 ? 1 : parameters[i + 1];
+    edges.append(edge->id);
+  }
+  std::string error;
+  auto extrusion = extrude_edges(*wire, edges, {0, 0, 2}, 1e-9, &error);
+  ASSERT_TRUE(extrusion) << error;
+  auto matrix = double4x4::identity();
+  matrix.location() = double3(0, 0, 1);
+  Vector<CurveControlPointTransform> requests;
+  for (const auto &line : extrusion->geometry->curves) {
+    if (line.dimension != 3 || line.points_num != 2 ||
+        line.points[0].position[2] == line.points[1].position[2])
+    {
+      continue;
+    }
+    const double3 a(line.points[0].position);
+    for (const int station : {2, 7}) {
+      const double3 b(vertices[station]->position);
+      if (math::length(double2(a.x - b.x, a.y - b.y)) < 1e-12) {
+        requests.append({{line.id, 0}, matrix});
+        requests.append({{line.id, 1}, matrix});
+      }
+    }
+  }
+  ASSERT_EQ(requests.size(), 4);
+  const OwnedGeometry before(geometry_copy(extrusion->geometry.get()));
+  auto moved = transform_curve_control_points(*extrusion->geometry, requests, 1e-9, &error);
+  ASSERT_TRUE(moved) << error;
+  EXPECT_TRUE(tessellate_surfaces(*moved->geometry, preview_options(), &error)) << error;
+  expect_source_geometry_equal(*extrusion->geometry, *before);
+
+  /* A genuine support mismatch must still reject without changing the source. */
+  auto &surface = *static_cast<NurbsSurfaceGeometry *>(extrusion->geometry->surfaces.first);
+  surface.points[0].position[0] += 0.01;
+  const OwnedGeometry invalid(geometry_copy(extrusion->geometry.get()));
+  EXPECT_FALSE(transform_curve_control_points(*extrusion->geometry, requests, 1e-9, &error));
+  EXPECT_NE(error.find("exceed allowed agreement"), std::string::npos) << error;
+  expect_source_geometry_equal(*extrusion->geometry, *invalid);
 }
 
 TEST(nurbs_transform, ControlPointDeformsRationalArcWithoutChangingBasisOrOtherCoefficients)
@@ -1639,8 +1734,8 @@ TEST(nurbs_vertex_transform, WholeSelectionRotationMatchesGeneralPath)
   matrix[1][0] = -1;
   const double3 pivot(0.25, -0.5, 0.75);
   matrix.location() = pivot - double3(matrix[0][0] * pivot.x + matrix[1][0] * pivot.y,
-                                       matrix[0][1] * pivot.x + matrix[1][1] * pivot.y,
-                                       pivot.z);
+                                      matrix[0][1] * pivot.x + matrix[1][1] * pivot.y,
+                                      pivot.z);
   Vector<VertexTransform> requests;
   for (const NurbsTopologyVertex &vertex : source->vertices) {
     requests.append({vertex.id, matrix});

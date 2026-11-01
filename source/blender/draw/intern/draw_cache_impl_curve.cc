@@ -958,6 +958,29 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
     const auto &boundary = evaluation->preview->boundary;
     const auto &preview = *evaluation->preview;
     const auto &selection = cache.native_source->selection();
+    const auto source_index = bke::nurbs::TopologyIndex::build(cache.native_source->geometry());
+    auto control_cages = show_control_points ? bke::nurbs::curve_control_cages(
+                                                   cache.native_source->geometry(), 1e-9) :
+                                               std::nullopt;
+    /* An endpoint belongs to every incident control cage. All of its display
+     * copies must carry the same selection flags, otherwise a later unselected
+     * copy can cover the selected point. Use topology identity, not proximity. */
+    Map<int64_t, uchar> control_vertex_flags;
+    if (control_cages) {
+      for (const auto &cage : *control_cages) {
+        if (!cage.uses_source_points) {
+          continue;
+        }
+        const auto &edge = *source_index->edge(cage.edges[0]);
+        for (int end = 0; end < 2; end++) {
+          const bke::nurbs::CurveControlPointRef ref{cage.source_curve_id,
+                                                     end == 0 ? 0 : cage.curve->points_num - 1};
+          const uchar flag = (selection.control_points.contains(ref) ? VFLAG_VERT_SELECTED : 0) |
+                             (selection.active_control_point == ref ? VFLAG_VERT_ACTIVE : 0);
+          control_vertex_flags.lookup_or_add(edge.vertex_ids[end], 0) |= flag;
+        }
+      }
+    }
     Vector<double3> boundary_normals(boundary.positions.size(), double3(0));
     Map<int64_t, double3> face_normals;
     for (const auto &triangle : preview.triangles) {
@@ -985,7 +1008,8 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
       normal = math::normalize(normal);
     }
     auto vertex_flag = [&](const int64_t id) -> uchar {
-      return (selection.vertices.contains(id) ? VFLAG_VERT_SELECTED : 0) |
+      return control_vertex_flags.lookup_default(id, 0) |
+             (selection.vertices.contains(id) ? VFLAG_VERT_SELECTED : 0) |
              (selection.active == bke::nurbs::ElementRef{bke::nurbs::ElementDomain::Vertex, id} ?
                   VFLAG_VERT_ACTIVE :
                   0);
@@ -1020,7 +1044,6 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
       }
     }
 
-    const auto source_index = bke::nurbs::TopologyIndex::build(cache.native_source->geometry());
     Map<int64_t, const NurbsCurveGeometry *> source_curves;
     for (const auto &curve : cache.native_source->geometry().curves) {
       source_curves.add_new(curve.id, &curve);
@@ -1035,28 +1058,26 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
         }
       }
     }
-    if (show_control_points) {
-      if (const auto cages = bke::nurbs::curve_control_cages(cache.native_source->geometry(),
-                                                             1e-9))
-      {
-        for (const auto &cage : *cages) {
-          const uint32_t control_start = positions.size();
-          for (const int i : IndexRange(cage.curve->points_num)) {
-            const bke::nurbs::CurveControlPointRef ref{cage.source_curve_id, i};
-            const uchar flag = !cage.uses_source_points ?
-                                   0 :
-                                   (selection.control_points.contains(ref) ? VFLAG_VERT_SELECTED :
-                                                                             0) |
-                                       (selection.active_control_point == ref ? VFLAG_VERT_ACTIVE :
-                                                                                0);
-            points.append(positions.size());
-            positions.append(float3(double3(cage.curve->points[i].position)));
-            flags.append(uchar4(0, flag, 0, 0));
-            normals.append(float4(0));
+    if (control_cages) {
+      for (const auto &cage : *control_cages) {
+        const uint32_t control_start = positions.size();
+        for (const int i : IndexRange(cage.curve->points_num)) {
+          const bke::nurbs::CurveControlPointRef ref{cage.source_curve_id, i};
+          uchar flag = !cage.uses_source_points ?
+                           0 :
+                           (selection.control_points.contains(ref) ? VFLAG_VERT_SELECTED : 0) |
+                               (selection.active_control_point == ref ? VFLAG_VERT_ACTIVE : 0);
+          if (i == 0 || i == cage.curve->points_num - 1) {
+            const auto &edge = *source_index->edge(cage.edges[0]);
+            flag |= vertex_flag(edge.vertex_ids[i == 0 ? 0 : 1]);
           }
-          for (const int i : IndexRange(cage.curve->points_num - 1)) {
-            lines.append({control_start + uint32_t(i), control_start + uint32_t(i + 1)});
-          }
+          points.append(positions.size());
+          positions.append(float3(double3(cage.curve->points[i].position)));
+          flags.append(uchar4(0, flag, 0, 0));
+          normals.append(float4(0));
+        }
+        for (const int i : IndexRange(cage.curve->points_num - 1)) {
+          lines.append({control_start + uint32_t(i), control_start + uint32_t(i + 1)});
         }
       }
     }

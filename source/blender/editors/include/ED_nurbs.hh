@@ -111,6 +111,9 @@ bool select_vertices(Main &bmain,
 /** Source-provenance component picking; ordinary selection checks viewport scene depth. */
 bool select_pick(bContext *C, const int mval[2], int distance, const SelectPick_Params &params);
 bool select_box(const ViewContext &vc, const rcti &rect, eSelectOp operation);
+/** Transfer the current topology selection to its displayed control coefficients. */
+bool select_control_points_from_components(Main &bmain, Curve &curve,
+                                            std::string *r_error = nullptr);
 bool select_all_control_points(Main &bmain,
                                Curve &curve,
                                bke::nurbs::SelectionAction action,
@@ -207,6 +210,11 @@ bool extrude(Main &bmain,
              std::string *r_error = nullptr,
              double *r_source_endpoint_deviation = nullptr);
 bool extrude(bContext *C);
+bool manifold_extrusion_can_extend_faces(const Curve &curve);
+bool finish_manifold_extrusion(Main &bmain,
+                               Curve &curve,
+                               double merge_distance,
+                               std::string *r_error = nullptr);
 
 /** Connect or fill source components using the shared construction service. Context form
  * preflights all edit owners before committing any of them.

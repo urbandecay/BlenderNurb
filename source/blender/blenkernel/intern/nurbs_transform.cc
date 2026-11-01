@@ -1173,7 +1173,8 @@ static bool update_control_point_boundaries(const NurbsGeometry &source,
       std::copy_n(&point.value.x, 3, surface.points[point.key].position);
     }
   }
-  return bool(evaluate_boundaries(*result.geometry, {}, r_error));
+  return bool(evaluate_boundaries(*result.geometry,
+      {}, r_error));
 }
 
 std::optional<GeometryTransformResult> transform_curve_control_points(
@@ -1196,6 +1197,10 @@ std::optional<GeometryTransformResult> transform_curve_control_points(
       !detail::supported_arithmetic())
   {
     return fail("NURBS control-point editing requires valid geometry and a finite error budget");
+  }
+  if (!evaluate_boundaries(source,
+      {}, r_error)) {
+    return std::nullopt;
   }
   GeometryTransformResult result;
   result.geometry.reset(geometry_copy(&source));

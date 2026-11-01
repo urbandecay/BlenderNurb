@@ -4048,7 +4048,10 @@ class VIEW3D_MT_edit_nurbs(Menu):
         layout.menu("VIEW3D_MT_edit_nurbs_snap", text="Snap")
         layout.separator()
         layout.operator("curve.duplicate_move", text="Duplicate")
-        layout.operator("curve.extrude_move", text="Extrude")
+        col = layout.column()
+        col.operator_context = 'INVOKE_REGION_WIN'
+        col.operator("curve.extrude_move", text="Extrude")
+        col.operator("curve.extrude_manifold", text="Extrude Manifold")
         layout.separator()
         layout.menu("VIEW3D_MT_edit_nurbs_merge", text="Merge")
         layout.operator("curve.split", text="Split")
@@ -4151,6 +4154,16 @@ class VIEW3D_MT_edit_nurbs_clean(Menu):
         row = layout.row()
         row.enabled = False
         row.operator("mesh.fill_holes")
+
+
+class VIEW3D_MT_edit_nurbs_extrude(Menu):
+    bl_label = "Extrude"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator_context = 'INVOKE_REGION_WIN'
+        layout.operator("curve.extrude_move", text="Extrude")
+        layout.operator("curve.extrude_manifold", text="Extrude Manifold")
 
 
 class VIEW3D_MT_edit_nurbs_delete(Menu):
@@ -6898,6 +6911,7 @@ classes = (
     VIEW3D_MT_edit_mesh_select_linked,
     VIEW3D_MT_edit_mesh_select_loops,
     VIEW3D_MT_edit_mesh_extrude,
+    VIEW3D_MT_edit_nurbs_extrude,
     VIEW3D_MT_edit_mesh_vertices,
     VIEW3D_MT_edit_mesh_edges,
     VIEW3D_MT_edit_mesh_faces,

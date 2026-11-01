@@ -279,6 +279,59 @@ static std::pair<OwnedGeometry, int64_t> bevel_fixture(const bool closed)
   return {bent ? std::move(bent->geometry) : nullptr, corner};
 }
 
+TEST_F(NurbsTopologyEditTest, BevelAllowsEvaluationRoundoffButRejectsRealBoundaryGaps)
+{
+  auto [source, corner] = bevel_fixture(true);
+  ASSERT_TRUE(source);
+  double4x4 matrix = double4x4::identity();
+  matrix[0][0] = matrix[1][1] = std::cos(0.371);
+  matrix[0][1] = -std::sin(0.371);
+  matrix[1][0] = std::sin(0.371);
+  matrix.location() = {0.137, -0.283, 0.091};
+  std::string error;
+  auto transformed = transform_geometry(*source, matrix, 1e-9, &error);
+  ASSERT_TRUE(transformed) << error;
+  auto &geometry = *transformed->geometry;
+  /* Model two independent evaluations rounding the common boundary one ULP apart. */
+  auto &coordinate =
+      static_cast<NurbsSurfaceGeometry *>(geometry.surfaces.first)->points[0].position[0];
+  coordinate = std::nextafter(coordinate, std::numeric_limits<double>::infinity());
+  for (auto &vertex : geometry.vertices) {
+    vertex.tolerance = 0;
+  }
+  for (auto &edge : geometry.edges) {
+    edge.tolerance = 0;
+  }
+  for (auto &face : geometry.faces) {
+    face.tolerance = 0;
+    for (auto &loop : face.loops) {
+      for (auto &use : loop.edge_uses) {
+        use.tolerance = 0;
+      }
+    }
+  }
+  BoundaryEvaluationOptions strict;
+  strict.allow_evaluation_roundoff = false;
+  EXPECT_FALSE(evaluate_boundaries(geometry, strict, &error));
+  EXPECT_NE(error.find("exceed allowed agreement"), std::string::npos) << error;
+  EXPECT_TRUE(evaluate_boundaries(geometry, {}, &error)) << error;
+  const BoundaryEvaluationOptions options;
+  EXPECT_TRUE(options.allow_evaluation_roundoff);
+  EXPECT_LT(options.evaluation_allowance, 1e-9);
+  EXPECT_EQ(options.evaluation_allowance, 0);
+  ASSERT_TRUE(evaluate_boundaries(geometry, options, &error)) << error;
+  for (const int segments : {1, 3}) {
+    auto result = bevel_edges(geometry, {&corner, 1},
+                             {.offset = 0.25, .segments = segments}, &error);
+    ASSERT_TRUE(result) << error;
+    EXPECT_TRUE(evaluate_boundaries(*result->geometry,
+        {}, &error)) << error;
+  }
+  static_cast<NurbsSurfaceGeometry *>(geometry.surfaces.first)->points[0].position[0] += 0.01;
+  EXPECT_FALSE(bevel_edges(geometry, {&corner, 1}, {.offset = 0.25}, &error));
+  EXPECT_NE(error.find("exceed allowed agreement"), std::string::npos) << error;
+}
+
 static TopologySignature bevel_bmesh_reference(const NurbsGeometry &source,
                                                const Span<int64_t> selected,
                                                const double width,

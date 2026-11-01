@@ -351,8 +351,8 @@ static void recalc_trans_nurbs(TransInfo *t)
       fail("This native NURBS transform needs a geometry adapter");
       return;
     }
-    if (ELEM(t->orient[t->orient_curr].type, V3D_ORIENT_NORMAL, V3D_ORIENT_GIMBAL)) {
-      fail("Native NURBS Normal and Gimbal transforms need a source orientation adapter");
+    if (t->orient[t->orient_curr].type == V3D_ORIENT_GIMBAL) {
+      fail("Native NURBS Gimbal transforms need a source orientation adapter");
       return;
     }
     if (transform_snap_is_active(t) && t->mode != TFM_TRANSLATION && validSnap(t)) {
@@ -832,6 +832,25 @@ static void after_trans_nurbs(bContext * /*C*/, TransInfo *t)
       data.current = curve.editnurb->nurbs_edit->read_snapshot();
       data.translation_preview_active = false;
       NURBS_DEBUG_LOG("translation preview confirmed: ordinary source evaluation restored");
+    }
+    if (data.op && data.op->opm && STREQ(data.op->opm->type->idname, "CURVE_OT_extrude_manifold"))
+    {
+      Curve &curve = *id_cast<Curve *>(tc->obedit->data);
+      std::string error;
+      NURBS_DEBUG_LOG("manifold confirm offset %.17g %.17g %.17g",
+                      data.offset.x,
+                      data.offset.y,
+                      data.offset.z);
+      if (!ed::nurbs::finish_manifold_extrusion(
+              *t->bmain, curve, t->scene->toolsettings->doublimit, &error))
+      {
+        NURBS_DEBUG_LOG("manifold confirm rejected: %s", error.c_str());
+        BKE_reportf(t->reports, RPT_ERROR, "NURBS manifold extrusion: %s", error.c_str());
+        t->state = TRANS_CANCEL;
+        restore_nurbs(t, *tc, data);
+        return;
+      }
+      data.current = curve.editnurb->nurbs_edit->read_snapshot();
     }
     if (t->mode == TFM_TRANSLATION && data.op && data.final_value) {
       if (PropertyRNA *property = RNA_struct_find_property(data.op->ptr, "value_precision")) {

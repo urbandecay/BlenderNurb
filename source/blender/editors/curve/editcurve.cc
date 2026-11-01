@@ -5993,8 +5993,9 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
   const Curve &active_curve = *id_cast<Curve *>(CTX_data_edit_object(C)->data);
   const bool use_native_topology = RNA_struct_property_is_set(op->ptr, "use_native_topology") ?
                                        RNA_boolean_get(op->ptr, "use_native_topology") :
-                                       op->opm &&
-                                           STREQ(op->opm->type->idname, "CURVE_OT_extrude_move");
+                                       op->opm && ELEM(std::string_view(op->opm->type->idname),
+                                                       "CURVE_OT_extrude_move",
+                                                       "CURVE_OT_extrude_manifold");
   if (active_curve.editnurb->nurbs_edit != nullptr ||
       (use_native_topology &&
        bke::nurbs::legacy_topology_source_check(active_curve.editnurb->nurbs)))
@@ -6005,7 +6006,33 @@ static wmOperatorStatus curve_extrude_exec(bContext *C, wmOperator *op)
                  "Native NURBS extrusion currently supports straight translation");
       return OPERATOR_CANCELLED;
     }
-    return ed::nurbs::extrude(C) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+    if (op->opm && active_curve.editnurb->nurbs_edit &&
+        !active_curve.editnurb->nurbs_edit->read_snapshot().selection().faces.is_empty())
+    {
+      for (wmOperator &step : op->opm->macro) {
+        if (STREQ(step.type->idname, "TRANSFORM_OT_translate") &&
+            !RNA_struct_property_is_set(step.ptr, "constraint_axis"))
+        {
+          const bool axis[3] = {false, false, true};
+          RNA_boolean_set_array(step.ptr, "constraint_axis", axis);
+          RNA_enum_set(step.ptr, "orient_type", V3D_ORIENT_NORMAL);
+        }
+      }
+    }
+    const bool extend_walls = op->opm &&
+                              STREQ(op->opm->type->idname, "CURVE_OT_extrude_manifold") &&
+                              ed::nurbs::manifold_extrusion_can_extend_faces(active_curve);
+    /* Mesh Manifold removes the zero-width wall and its seam before moving.
+     * For a complete compatible ruled ring, retaining its original cap and
+     * extending the existing rows gives exactly that topology without creating
+     * and welding coincident curved boundary resources. */
+    if (extend_walls) {
+      return OPERATOR_FINISHED;
+    }
+    if (!ed::nurbs::extrude(C)) {
+      return OPERATOR_CANCELLED;
+    }
+    return OPERATOR_FINISHED;
   }
   Main *bmain = CTX_data_main(C);
   const Scene *scene = CTX_data_scene(C);

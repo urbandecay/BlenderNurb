@@ -10,9 +10,10 @@
 
 #include "DNA_windowmanager_types.h"
 
-#include "BKE_curve.hh"
 #include "BKE_context.hh"
+#include "BKE_curve.hh"
 #include "BKE_nurbs_edit.hh"
+#include "BKE_report.hh"
 
 #include "DEG_depsgraph.hh"
 
@@ -24,6 +25,7 @@
 #include "RNA_enum_types.hh"
 
 #include "ED_nurbs.hh"
+#include "ED_undo.hh"
 
 #include "WM_api.hh"
 #include "WM_types.hh"
@@ -36,6 +38,13 @@ static wmOperatorStatus nurbs_control_points_toggle_exec(bContext *C, wmOperator
 {
   Object *object = CTX_data_edit_object(C);
   Curve *curve = id_cast<Curve *>(object->data);
+  if (!(curve->flag & CU_SHOW_NURBS_CONTROL_POINTS)) {
+    std::string error;
+    if (!ed::nurbs::select_control_points_from_components(*CTX_data_main(C), *curve, &error)) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+  }
   curve->flag ^= CU_SHOW_NURBS_CONTROL_POINTS;
   BKE_curve_batch_cache_dirty_tag(curve, BKE_CURVE_BATCH_DIRTY_ALL);
   DEG_id_tag_update(&curve->id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
@@ -44,8 +53,8 @@ static wmOperatorStatus nurbs_control_points_toggle_exec(bContext *C, wmOperator
 }
 
 static wmOperatorStatus nurbs_control_points_sequence_invoke(bContext *C,
-                                                              wmOperator *op,
-                                                              const wmEvent * /*event*/)
+                                                             wmOperator *op,
+                                                             const wmEvent * /*event*/)
 {
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
@@ -59,8 +68,13 @@ static wmOperatorStatus nurbs_control_points_sequence_modal(bContext *C,
     return OPERATOR_RUNNING_MODAL;
   }
   switch (event->val) {
-    case NURBS_CONTROL_POINTS_MODAL_TOGGLE:
-      return nurbs_control_points_toggle_exec(C, nullptr);
+    case NURBS_CONTROL_POINTS_MODAL_TOGGLE: {
+      const wmOperatorStatus status = nurbs_control_points_toggle_exec(C, nullptr);
+      if (status & OPERATOR_FINISHED) {
+        ED_undo_push(C, "Show NURBS Control Points");
+      }
+      return status;
+    }
     case NURBS_CONTROL_POINTS_MODAL_CIRCLE_SELECT: {
       wmEvent circle_event = *event;
       circle_event.type = EVT_CKEY;
@@ -83,15 +97,16 @@ void CURVE_OT_nurbs_control_points_toggle(wmOperatorType *ot)
   ot->description = "Toggle the NURBS control polygon and control points in the viewport";
   ot->exec = nurbs_control_points_toggle_exec;
   ot->poll = ed::nurbs::topology_edit_poll;
-  ot->flag = OPTYPE_REGISTER;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 void CURVE_OT_nurbs_control_points_sequence(wmOperatorType *ot)
 {
   ot->name = "NURBS Control Points Shortcut";
   ot->idname = "CURVE_OT_nurbs_control_points_sequence";
-  ot->description = "Press P while holding C to toggle NURBS control points; release C for Circle "
-                    "Select";
+  ot->description =
+      "Press P while holding C to toggle NURBS control points; release C for Circle "
+      "Select";
   ot->invoke = nurbs_control_points_sequence_invoke;
   ot->modal = nurbs_control_points_sequence_modal;
   ot->poll = ed::nurbs::topology_edit_poll;
@@ -223,21 +238,22 @@ void CURVE_OT_dissolve_limited(wmOperatorType *ot)
 {
   ot->name = "Limited Dissolve";
   ot->idname = "CURVE_OT_dissolve_limited";
-  ot->description = "Dissolve redundant NURBS edges and vertices while preserving the surface shape";
+  ot->description =
+      "Dissolve redundant NURBS edges and vertices while preserving the surface shape";
   ot->exec = nurbs_dissolve_limited_exec;
   ot->poll = ed::nurbs::topology_edit_poll;
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   PropertyRNA *prop = RNA_def_float_rotation(ot->srna,
-                                              "angle_limit",
-                                              0,
-                                              nullptr,
-                                              0.0f,
-                                              DEG2RADF(90.0f),
-                                              "Max Angle",
-                                              "Maximum angle between adjacent face normals",
-                                              0.0f,
-                                              DEG2RADF(90.0f));
+                                             "angle_limit",
+                                             0,
+                                             nullptr,
+                                             0.0f,
+                                             DEG2RADF(90.0f),
+                                             "Max Angle",
+                                             "Maximum angle between adjacent face normals",
+                                             0.0f,
+                                             DEG2RADF(90.0f));
   RNA_def_property_float_default(prop, DEG2RADF(5.0f));
 }
 

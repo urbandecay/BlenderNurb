@@ -24,6 +24,57 @@ namespace blender::bke::nurbs::tests {
 
 class NurbsMeshEvaluationTest : public BlenderGTestBase {};
 
+TEST_F(NurbsMeshEvaluationTest, SharedBoundaryCheckerHandlesRoundoffAndKeepsSmallRealGaps)
+{
+  for (const double scale : {1e-12, 1.0, 1e12}) {
+    SCOPED_TRACE(scale);
+    auto geometry = make_planar_sheet();
+    for (auto &vertex : geometry->vertices) {
+      for (double &coordinate : vertex.position) {
+        coordinate *= scale;
+      }
+    }
+    for (auto &curve : geometry->curves) {
+      if (curve.dimension == 3) {
+        for (auto &point : MutableSpan(curve.points, curve.points_num)) {
+          for (double &coordinate : point.position) {
+            coordinate *= scale;
+          }
+        }
+      }
+    }
+    for (auto &surface : geometry->surfaces) {
+      for (auto &point : MutableSpan(surface.points, surface.points_num)) {
+        for (double &coordinate : point.position) {
+          coordinate *= scale;
+        }
+      }
+    }
+    auto &endpoint = static_cast<NurbsCurveGeometry *>(geometry->curves.first)->points[0];
+    endpoint.position[0] = std::nextafter(endpoint.position[0], INFINITY);
+    auto &surface = *static_cast<NurbsSurfaceGeometry *>(geometry->surfaces.first);
+    surface.points[0].position[1] = std::nextafter(surface.points[0].position[1], INFINITY);
+    const OwnedGeometry before(geometry_copy(geometry.get()));
+    BoundaryEvaluationOptions options;
+    std::string error;
+    auto evaluated = evaluate_boundaries(*geometry, options, &error);
+    ASSERT_TRUE(evaluated) << error;
+    EXPECT_GT(evaluated->edges[0].max_endpoint_deviation, 0);
+    const BoundaryEvaluationCache cache{*geometry, options, *evaluated};
+    auto strict = options;
+    strict.allow_evaluation_roundoff = false;
+    EXPECT_FALSE(evaluate_boundaries(*geometry, strict, &error));
+    EXPECT_FALSE(evaluate_boundaries(*geometry, strict, &error, &cache));
+    expect_source_geometry_equal(*geometry, *before);
+
+    /* A tiny real Z gap must still reject, regardless of X/Y scale or unrelated supports. */
+    add_linear_curve(*geometry, {1e30, 0, 0}, {2e30, 0, 0}, 3);
+    surface.points[0].position[2] = 1e-20 * scale;
+    EXPECT_FALSE(evaluate_boundaries(*geometry, options, &error));
+    EXPECT_NE(error.find("exceed allowed agreement"), std::string::npos) << error;
+  }
+}
+
 TEST_F(NurbsMeshEvaluationTest, BoundaryCacheMatchesFreshEvaluationAndRejectsChangedInputs)
 {
   auto original = make_planar_sheet();
@@ -803,12 +854,12 @@ TEST_F(NurbsMeshEvaluationTest, BilinearDiagonalGapUsesItsCoefficientBoundWithou
   surface.points[3].position[2] = 0.125;
   std::string error;
   // A real unsampled midpoint gap still fails; this is not an evaluator epsilon.
-  EXPECT_FALSE(evaluate_boundaries(*source, {1, 1000, 0}, &error));
+  EXPECT_FALSE(evaluate_boundaries(*source, {1, 1000, 0, false}, &error));
   EXPECT_NE(error.find("edge/support"), std::string::npos);
   face.tolerance = std::nextafter(0.03125, 0.0);
-  EXPECT_FALSE(evaluate_boundaries(*source, {7, 1000, 0}, &error));
+  EXPECT_FALSE(evaluate_boundaries(*source, {7, 1000, 0, false}, &error));
   face.tolerance = 0.03125;
-  const auto result = evaluate_boundaries(*source, {7, 1000, 0}, &error);
+  const auto result = evaluate_boundaries(*source, {7, 1000, 0, false}, &error);
   ASSERT_TRUE(result.has_value()) << error;
   int diagonals = 0;
   for (const auto &use : result->uses) {

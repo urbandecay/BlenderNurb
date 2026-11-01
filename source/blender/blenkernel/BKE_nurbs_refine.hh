@@ -37,6 +37,13 @@ struct CurveControlCage {
   double geometry_error_bound = 0;
 };
 
+/** Compact untouched circular extrusion strips together with their boundary curves.
+ * Retains topology identities and endpoints; only accepts isolated rectangular strips
+ * whose two tensor rows are recognized constructor circles. */
+OwnedGeometry compact_circle_extrusion_controls(const NurbsGeometry &source,
+                                                double max_error,
+                                                std::string *r_error = nullptr);
+
 /** One control cage per topology edge, shared by drawing and picking. Recognized wire-circle
  * arcs use a single rational quadratic when their sweep is below 180 degrees. Adjacent
  * edges may share a parent support but retain independent arc controls. */

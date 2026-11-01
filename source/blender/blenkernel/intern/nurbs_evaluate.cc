@@ -14,6 +14,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_math_boolean.hh"
+#include "BLI_math_vector.hh"
 #include "BLI_set.hh"
 #include "BLI_time.h"
 
@@ -24,6 +25,23 @@
 #include "nurbs_math.hh"
 
 namespace blender::bke::nurbs {
+
+/* Use the incident coefficients, separately for each coordinate. An unrelated large
+ * object, or a large X coordinate, must not hide a genuine small gap in Z. This is
+ * a sampled comparison policy, not a certificate for construction arithmetic. */
+static double3 coordinate_roundoff(const Span<NurbsControlPoint> points, const int complexity)
+{
+  double3 scale(0);
+  for (const auto &point : points) {
+    scale = math::max(scale, math::abs(double3(point.position)));
+  }
+  return scale * (64 * std::numeric_limits<double>::epsilon() * complexity);
+}
+
+static double deviation_after_roundoff(const double3 &a, const double3 &b, const double3 &roundoff)
+{
+  return math::length(math::max(math::abs(a - b) - roundoff, double3(0)));
+}
 
 static std::nullopt_t evaluation_error(std::string *r_error, const std::string_view message)
 {
@@ -624,8 +642,7 @@ bool collapsed_surface_boundary_interval(const NurbsSurfaceGeometry &surface,
 static bool same_curve(const NurbsCurveGeometry &a, const NurbsCurveGeometry &b)
 {
   if (a.dimension != b.dimension || a.order != b.order || a.points_num != b.points_num ||
-      a.knots_num != b.knots_num ||
-      !std::equal(a.knots, a.knots + a.knots_num, b.knots))
+      a.knots_num != b.knots_num || !std::equal(a.knots, a.knots + a.knots_num, b.knots))
   {
     return false;
   }
@@ -642,8 +659,8 @@ static bool same_curve(const NurbsCurveGeometry &a, const NurbsCurveGeometry &b)
 static bool same_surface(const NurbsSurfaceGeometry &a, const NurbsSurfaceGeometry &b)
 {
   if (a.order_u != b.order_u || a.order_v != b.order_v || a.points_u != b.points_u ||
-      a.points_v != b.points_v || a.points_num != b.points_num ||
-      a.knots_u_num != b.knots_u_num || a.knots_v_num != b.knots_v_num ||
+      a.points_v != b.points_v || a.points_num != b.points_num || a.knots_u_num != b.knots_u_num ||
+      a.knots_v_num != b.knots_v_num ||
       !std::equal(a.knots_u, a.knots_u + a.knots_u_num, b.knots_u) ||
       !std::equal(a.knots_v, a.knots_v + a.knots_v_num, b.knots_v))
   {
@@ -794,14 +811,13 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
     evaluated.edge_id = edge.id;
     const NurbsTopologyEdge *old_edge = old_index ? old_index->edge(edge.id) : nullptr;
     const auto *cached_edge = cached_edges.lookup_ptr(edge.id);
-    bool reuse_edge = old_edge && cached_edge && edge.curve_id == old_edge->curve_id &&
-                      edge.tolerance >= old_edge->tolerance &&
-                      std::equal(edge.vertex_ids, edge.vertex_ids + 2, old_edge->vertex_ids) &&
-                      std::equal(edge.parameter_range, edge.parameter_range + 2,
-                                 old_edge->parameter_range) &&
-                      curve_unchanged(edge.curve_id) &&
-                      (*cached_edge)->samples.size() == sample_count &&
-                      index->uses_for_edge(edge.id).size() == old_index->uses_for_edge(edge.id).size();
+    bool reuse_edge =
+        old_edge && cached_edge && edge.curve_id == old_edge->curve_id &&
+        edge.tolerance >= old_edge->tolerance &&
+        std::equal(edge.vertex_ids, edge.vertex_ids + 2, old_edge->vertex_ids) &&
+        std::equal(edge.parameter_range, edge.parameter_range + 2, old_edge->parameter_range) &&
+        curve_unchanged(edge.curve_id) && (*cached_edge)->samples.size() == sample_count &&
+        index->uses_for_edge(edge.id).size() == old_index->uses_for_edge(edge.id).size();
     for (int end = 0; reuse_edge && end < 2; end++) {
       const auto &vertex = *index->vertex(edge.vertex_ids[end]);
       const auto *old = old_index->vertex(vertex.id);
@@ -847,9 +863,17 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
         point_index = vertex_indices.lookup(vertex.id);
         const double deviation = measured_distance(point->position, double3(vertex.position));
         evaluated.max_endpoint_deviation = std::max(evaluated.max_endpoint_deviation, deviation);
+        const double3 roundoff = options.allow_evaluation_roundoff ?
+                                     math::max(coordinate_roundoff(
+                                                   {curve.points, curve.points_num}, curve.order),
+                                               math::abs(double3(vertex.position)) *
+                                                   (64 * std::numeric_limits<double>::epsilon())) :
+                                     double3(0);
+        const double checked_deviation = deviation_after_roundoff(
+            point->position, double3(vertex.position), roundoff);
         if (!std::isfinite(deviation) ||
-            deviation > detail::add_upper(std::max(edge.tolerance, vertex.tolerance),
-                                          options.evaluation_allowance))
+            checked_deviation > detail::add_upper(std::max(edge.tolerance, vertex.tolerance),
+                                                  options.evaluation_allowance))
         {
           evaluation_error(
               r_error,
@@ -971,6 +995,14 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
         }
         evaluated.exact_curve_support_identity = evaluated.curve_support_deviation_bound == 0.0;
         const double tolerance = std::max({edge.tolerance, use.tolerance, face.tolerance});
+        const auto &curve = *curves.lookup(edge.curve_id);
+        const double3 roundoff =
+            options.allow_evaluation_roundoff ?
+                math::max(coordinate_roundoff({curve.points, curve.points_num}, curve.order),
+                          coordinate_roundoff({surface.points, surface.points_num},
+                                              surface.order_u + surface.order_v + pcurve.order)) :
+                double3(0);
+        const double roundoff_length = math::length(roundoff);
         for (const BoundarySample &sample : evaluated_edge.samples) {
           const auto uv = evaluate_curve(pcurve, sample.parameter, r_error);
           if (!uv) {
@@ -1029,11 +1061,22 @@ std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &sourc
                                     measured_distance(result.positions[sample.point_index],
                                                       sample.curve_position)) :
                   display_deviation;
+          const double curve_allowed = detail::add_upper(tolerance, options.evaluation_allowance);
+          const double display_allowed = detail::add_upper(display_tolerance,
+                                                           options.evaluation_allowance);
+          const bool curve_agrees =
+              checked_curve_deviation <= curve_allowed ||
+              (checked_curve_deviation <= detail::add_upper(curve_allowed, roundoff_length) &&
+               deviation_after_roundoff(sample.curve_position, support->position, roundoff) <=
+                   curve_allowed);
+          const bool display_agrees =
+              checked_display_deviation <= display_allowed ||
+              (checked_display_deviation <= detail::add_upper(display_allowed, roundoff_length) &&
+               deviation_after_roundoff(result.positions[sample.point_index],
+                                        support->position,
+                                        roundoff) <= display_allowed);
           if (!std::isfinite(curve_deviation) || !std::isfinite(display_deviation) ||
-              checked_curve_deviation >
-                  detail::add_upper(tolerance, options.evaluation_allowance) ||
-              checked_display_deviation >
-                  detail::add_upper(display_tolerance, options.evaluation_allowance))
+              !curve_agrees || !display_agrees)
           {
             return fail(
                 fmt::format("NURBS face {} use {} edge/support at {:.17g}: measured curve/display "

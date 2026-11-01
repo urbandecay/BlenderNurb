@@ -31,6 +31,9 @@
 
 #include "BKE_context.hh"
 #include "BKE_curve.hh"
+#include "BKE_nurbs_edit.hh"
+#include "BKE_nurbs_mesh.hh"
+#include "BLI_math_vector.hh"
 #include "BKE_editmesh.hh"
 #include "BKE_layer.hh"
 #include "BKE_report.hh"
@@ -1038,122 +1041,169 @@ int getTransformOrientation_ex(const Main &bmain,
     } /* End edit-mesh. */
     else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
       Curve *cu = id_cast<Curve *>(obedit->data);
-      Nurb *nu = nullptr;
-      int a;
-      ListBaseT<Nurb> *nurbs = BKE_curve_editNurbs_get(cu);
-
-      void *vert_act = nullptr;
-      if (activeOnly && BKE_curve_nurb_vert_active_get(cu, &nu, &vert_act)) {
-        if (nu->type == CU_BEZIER) {
-          BezTriple *bezt = static_cast<BezTriple *>(vert_act);
-          BKE_nurb_bezt_calc_normal(nu, bezt, r_normal);
-          BKE_nurb_bezt_calc_plane(nu, bezt, r_plane);
+      if (cu->editnurb && cu->editnurb->nurbs_edit) {
+        const auto source = cu->editnurb->nurbs_edit->read_snapshot();
+        Map<int64_t, const NurbsCurveGeometry *> curves;
+        Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+        for (const auto &support : source.geometry().curves) {
+          curves.add_new(support.id, &support);
         }
-        else {
-          BPoint *bp = static_cast<BPoint *>(vert_act);
-          BKE_nurb_bpoint_calc_normal(nu, bp, r_normal);
-          BKE_nurb_bpoint_calc_plane(nu, bp, r_plane);
+        for (const auto &support : source.geometry().surfaces) {
+          surfaces.add_new(support.id, &support);
+        }
+        double3 normal(0);
+        for (const auto &face : source.geometry().faces) {
+          if (!source.selection().faces.contains(face.id) ||
+              (activeOnly && source.selection().active &&
+               source.selection().active->id != face.id))
+          {
+            continue;
+          }
+          double2 uv(0);
+          int count = 0;
+          for (const auto &loop : face.loops) {
+            for (const auto &use : loop.edge_uses) {
+              const auto &curve = *curves.lookup(use.pcurve_id);
+              const auto point = bke::nurbs::evaluate_curve(
+                  curve, (curve.knots[curve.order - 1] + curve.knots[curve.points_num]) / 2);
+              if (point) {
+                uv += double2(point->position);
+                count++;
+              }
+            }
+          }
+          if (count) {
+            const auto frame = bke::nurbs::evaluate_surface_differential(
+                *surfaces.lookup(face.surface_id), uv / double(count));
+            if (frame && frame->normal) {
+              normal += double(face.orientation) * *frame->normal;
+            }
+          }
+        }
+        copy_v3_v3(r_normal, float3(math::normalize(normal)));
+        if (!is_zero_v3(r_normal)) {
+          ortho_v3_v3(r_plane, r_normal);
+          result = ORIENTATION_FACE;
         }
       }
       else {
-        const bool use_handle = v3d ? (v3d->overlay.handle_display != CURVE_HANDLE_NONE) : true;
+        Nurb *nu = nullptr;
+        int a;
+        ListBaseT<Nurb> *nurbs = BKE_curve_editNurbs_get(cu);
 
-        for (nu = static_cast<Nurb *>(nurbs->first); nu; nu = nu->next) {
-          /* Only bezier has a normal. */
+        void *vert_act = nullptr;
+        if (activeOnly && BKE_curve_nurb_vert_active_get(cu, &nu, &vert_act)) {
           if (nu->type == CU_BEZIER) {
-            BezTriple *bezt = nu->bezt;
-            a = nu->pntsu;
-            while (a--) {
-              short flag = 0;
+            BezTriple *bezt = static_cast<BezTriple *>(vert_act);
+            BKE_nurb_bezt_calc_normal(nu, bezt, r_normal);
+            BKE_nurb_bezt_calc_plane(nu, bezt, r_plane);
+          }
+          else {
+            BPoint *bp = static_cast<BPoint *>(vert_act);
+            BKE_nurb_bpoint_calc_normal(nu, bp, r_normal);
+            BKE_nurb_bpoint_calc_plane(nu, bp, r_plane);
+          }
+        }
+        else {
+          const bool use_handle = v3d ? (v3d->overlay.handle_display != CURVE_HANDLE_NONE) : true;
+
+          for (nu = static_cast<Nurb *>(nurbs->first); nu; nu = nu->next) {
+            /* Only bezier has a normal. */
+            if (nu->type == CU_BEZIER) {
+              BezTriple *bezt = nu->bezt;
+              a = nu->pntsu;
+              while (a--) {
+                short flag = 0;
 
 #define SEL_F1 (1 << 0)
 #define SEL_F2 (1 << 1)
 #define SEL_F3 (1 << 2)
 
-              if (use_handle) {
-                if (bezt->f1 & SELECT) {
-                  flag |= SEL_F1;
-                }
-                if (bezt->f2 & SELECT) {
-                  flag |= SEL_F2;
-                }
-                if (bezt->f3 & SELECT) {
-                  flag |= SEL_F3;
-                }
-              }
-              else {
-                flag = (bezt->f2 & SELECT) ? (SEL_F1 | SEL_F2 | SEL_F3) : 0;
-              }
-
-              /* Exception. */
-              if (flag) {
-                float tvec[3];
-                if ((around == V3D_AROUND_LOCAL_ORIGINS) ||
-                    ELEM(flag, SEL_F2, SEL_F1 | SEL_F3, SEL_F1 | SEL_F2 | SEL_F3))
-                {
-                  BKE_nurb_bezt_calc_normal(nu, bezt, tvec);
-                  add_v3_v3(r_normal, tvec);
+                if (use_handle) {
+                  if (bezt->f1 & SELECT) {
+                    flag |= SEL_F1;
+                  }
+                  if (bezt->f2 & SELECT) {
+                    flag |= SEL_F2;
+                  }
+                  if (bezt->f3 & SELECT) {
+                    flag |= SEL_F3;
+                  }
                 }
                 else {
-                  /* Ignore `bezt->f2` in this case. */
-                  if (flag & SEL_F1) {
-                    sub_v3_v3v3(tvec, bezt->vec[0], bezt->vec[1]);
-                    normalize_v3(tvec);
-                    add_v3_v3(r_normal, tvec);
-                  }
-                  if (flag & SEL_F3) {
-                    sub_v3_v3v3(tvec, bezt->vec[1], bezt->vec[2]);
-                    normalize_v3(tvec);
-                    add_v3_v3(r_normal, tvec);
-                  }
+                  flag = (bezt->f2 & SELECT) ? (SEL_F1 | SEL_F2 | SEL_F3) : 0;
                 }
 
-                BKE_nurb_bezt_calc_plane(nu, bezt, tvec);
-                add_v3_v3(r_plane, tvec);
-              }
+                /* Exception. */
+                if (flag) {
+                  float tvec[3];
+                  if ((around == V3D_AROUND_LOCAL_ORIGINS) ||
+                      ELEM(flag, SEL_F2, SEL_F1 | SEL_F3, SEL_F1 | SEL_F2 | SEL_F3))
+                  {
+                    BKE_nurb_bezt_calc_normal(nu, bezt, tvec);
+                    add_v3_v3(r_normal, tvec);
+                  }
+                  else {
+                    /* Ignore `bezt->f2` in this case. */
+                    if (flag & SEL_F1) {
+                      sub_v3_v3v3(tvec, bezt->vec[0], bezt->vec[1]);
+                      normalize_v3(tvec);
+                      add_v3_v3(r_normal, tvec);
+                    }
+                    if (flag & SEL_F3) {
+                      sub_v3_v3v3(tvec, bezt->vec[1], bezt->vec[2]);
+                      normalize_v3(tvec);
+                      add_v3_v3(r_normal, tvec);
+                    }
+                  }
+
+                  BKE_nurb_bezt_calc_plane(nu, bezt, tvec);
+                  add_v3_v3(r_plane, tvec);
+                }
 
 #undef SEL_F1
 #undef SEL_F2
 #undef SEL_F3
 
-              bezt++;
-            }
-          }
-          else if (nu->bp && (nu->pntsv == 1)) {
-            BPoint *bp = nu->bp;
-            a = nu->pntsu;
-            while (a--) {
-              if (bp->f1 & SELECT) {
-                float tvec[3];
-
-                BPoint *bp_prev = BKE_nurb_bpoint_get_prev(nu, bp);
-                BPoint *bp_next = BKE_nurb_bpoint_get_next(nu, bp);
-
-                const bool is_prev_sel = bp_prev && (bp_prev->f1 & SELECT);
-                const bool is_next_sel = bp_next && (bp_next->f1 & SELECT);
-                if (is_prev_sel == false && is_next_sel == false) {
-                  /* Isolated, add based on surrounding. */
-                  BKE_nurb_bpoint_calc_normal(nu, bp, tvec);
-                  add_v3_v3(r_normal, tvec);
-                }
-                else if (is_next_sel) {
-                  /* A segment, add the edge normal. */
-                  sub_v3_v3v3(tvec, bp->vec, bp_next->vec);
-                  normalize_v3(tvec);
-                  add_v3_v3(r_normal, tvec);
-                }
-
-                BKE_nurb_bpoint_calc_plane(nu, bp, tvec);
-                add_v3_v3(r_plane, tvec);
+                bezt++;
               }
-              bp++;
+            }
+            else if (nu->bp && (nu->pntsv == 1)) {
+              BPoint *bp = nu->bp;
+              a = nu->pntsu;
+              while (a--) {
+                if (bp->f1 & SELECT) {
+                  float tvec[3];
+
+                  BPoint *bp_prev = BKE_nurb_bpoint_get_prev(nu, bp);
+                  BPoint *bp_next = BKE_nurb_bpoint_get_next(nu, bp);
+
+                  const bool is_prev_sel = bp_prev && (bp_prev->f1 & SELECT);
+                  const bool is_next_sel = bp_next && (bp_next->f1 & SELECT);
+                  if (is_prev_sel == false && is_next_sel == false) {
+                    /* Isolated, add based on surrounding. */
+                    BKE_nurb_bpoint_calc_normal(nu, bp, tvec);
+                    add_v3_v3(r_normal, tvec);
+                  }
+                  else if (is_next_sel) {
+                    /* A segment, add the edge normal. */
+                    sub_v3_v3v3(tvec, bp->vec, bp_next->vec);
+                    normalize_v3(tvec);
+                    add_v3_v3(r_normal, tvec);
+                  }
+
+                  BKE_nurb_bpoint_calc_plane(nu, bp, tvec);
+                  add_v3_v3(r_plane, tvec);
+                }
+                bp++;
+              }
             }
           }
         }
-      }
 
-      if (!is_zero_v3(r_normal)) {
-        result = ORIENTATION_FACE;
+        if (!is_zero_v3(r_normal)) {
+          result = ORIENTATION_FACE;
+        }
       }
     }
     /* Vectors from edges don't need the special transpose inverse multiplication. */

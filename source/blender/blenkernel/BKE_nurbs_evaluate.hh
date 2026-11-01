@@ -73,6 +73,9 @@ struct BoundaryEvaluationOptions {
    * Not an evaluation error bound, fitting tolerance or approximation certificate.
    */
   double evaluation_allowance = 0.0;
+  /** Handle floating-point noise per coordinate and incident support by default.
+   * Disable only for strict numerical diagnostics. Modeling tolerances are unchanged. */
+  bool allow_evaluation_roundoff = true;
   bool operator==(const BoundaryEvaluationOptions &) const = default;
 };
 
@@ -136,9 +139,10 @@ bool collapsed_surface_boundary_interval(const NurbsSurfaceGeometry &surface,
  * and retain its state token separately when using these source IDs for picking or later edits.
  * Results own their values and contain no borrowed source pointers.
  */
-std::optional<BoundaryEvaluation> evaluate_boundaries(const NurbsGeometry &source,
-                                                      const BoundaryEvaluationOptions &options,
-                                                      std::string *r_error = nullptr,
-                                                      const BoundaryEvaluationCache *cache = nullptr);
+std::optional<BoundaryEvaluation> evaluate_boundaries(
+    const NurbsGeometry &source,
+    const BoundaryEvaluationOptions &options,
+    std::string *r_error = nullptr,
+    const BoundaryEvaluationCache *cache = nullptr);
 
 }  // namespace blender::bke::nurbs
