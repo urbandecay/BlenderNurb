@@ -11,10 +11,12 @@
 #include <numeric>
 
 #include "BLI_listbase.h"
+#include "BLI_math_vector.hh"
 #include "BLI_set.hh"
 
 #include "BKE_nurbs_construct.hh"
 #include "BKE_nurbs_evaluate.hh"
+#include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_transform.hh"
 
 #include "nurbs_math.hh"
@@ -954,6 +956,371 @@ static std::optional<VertexTransformRequests> vertex_transform_requests(
     if (!add_request(surface_requests, surface.id, std::move(request))) {
       return fail("Shared NURBS support owners request conflicting coefficient transforms");
     }
+  }
+  return result;
+}
+
+/* A boundary handle edits the same coefficients in each incident tensor patch.
+ * Match by p-curve and basis, never by proximity to unrelated points. */
+static bool update_control_point_boundaries(const NurbsGeometry &source,
+                                            GeometryTransformResult &result,
+                                            const double max_error,
+                                            std::string *r_error)
+{
+  auto fail = [&](const char *message) {
+    if (r_error) {
+      *r_error = message;
+    }
+    return false;
+  };
+  const auto old_index = TopologyIndex::build(source, r_error);
+  const auto new_index = TopologyIndex::build(*result.geometry, r_error);
+  if (!old_index || !new_index) {
+    return false;
+  }
+  Map<int64_t, const NurbsCurveGeometry *> old_curves, new_curves;
+  Map<int64_t, NurbsSurfaceGeometry *> surfaces;
+  for (const auto &curve : source.curves) {
+    old_curves.add_new(curve.id, &curve);
+  }
+  for (const auto &curve : result.geometry->curves) {
+    new_curves.add_new(curve.id, &curve);
+  }
+  for (auto &surface : result.geometry->surfaces) {
+    surfaces.add_new(surface.id, &surface);
+  }
+  Map<int64_t, Map<int, double3>> assignments;
+  Map<int64_t, NurbsTopologyFace *> output_faces;
+  for (auto &face : result.geometry->faces) {
+    output_faces.add_new(face.id, &face);
+  }
+  for (const auto &face : source.faces) {
+    auto *support = surfaces.lookup(face.surface_id);
+    bool changed_face = false;
+    bool rectangle = face.loops.is_single() &&
+                     static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses.count() ==
+                         4;
+    double2 low(std::numeric_limits<double>::infinity()),
+        high(-std::numeric_limits<double>::infinity());
+    for (const auto &loop : face.loops) {
+      for (const auto &use : loop.edge_uses) {
+        const auto &old_curve = *old_curves.lookup(old_index->edge(use.edge_id)->curve_id);
+        const auto &new_curve = *new_curves.lookup(new_index->edge(use.edge_id)->curve_id);
+        changed_face |= old_curve.points_num != new_curve.points_num;
+        for (int i = 0; i < std::min(old_curve.points_num, new_curve.points_num); i++) {
+          changed_face |= double3(old_curve.points[i].position) !=
+                          double3(new_curve.points[i].position);
+        }
+        const auto &uv = *old_curves.lookup(use.pcurve_id);
+        if (uv.order != 2 || uv.points_num != 2 || uv.points[0].weight != uv.points[1].weight) {
+          rectangle = false;
+          continue;
+        }
+        const double2 a(uv.points[0].position), b(uv.points[1].position);
+        rectangle &= (a.x == b.x) != (a.y == b.y);
+        low = math::min(low, math::min(a, b));
+        high = math::max(high, math::max(a, b));
+      }
+    }
+    if (!changed_face) {
+      continue;
+    }
+    if (rectangle && low.x < high.x && low.y < high.y &&
+        (low != double2(support->knots_u[support->order_u - 1],
+                        support->knots_v[support->order_v - 1]) ||
+         high !=
+             double2(support->knots_u[support->points_u], support->knots_v[support->points_v])))
+    {
+      auto crop = restrict_surface(*support, low, high, max_error, r_error);
+      if (!crop || result.geometry->next_id == std::numeric_limits<int64_t>::max()) {
+        return false;
+      }
+      crop->surface->id = result.geometry->next_id++;
+      support = crop->surface.get();
+      output_faces.lookup(face.id)->surface_id = support->id;
+      surfaces.add_new(support->id, support);
+      result.position_error_bound = std::max(result.position_error_bound,
+                                             crop->geometry_error_bound);
+      BLI_addtail(&result.geometry->surfaces, crop->surface.release());
+    }
+    auto &surface = *support;
+    for (const auto &loop : face.loops) {
+      for (const auto &use : loop.edge_uses) {
+        const auto &old_edge = *old_index->edge(use.edge_id);
+        const auto &new_edge = *new_index->edge(use.edge_id);
+        const auto &before = *old_curves.lookup(old_edge.curve_id);
+        const auto &after = *new_curves.lookup(new_edge.curve_id);
+        bool changed = before.points_num != after.points_num;
+        for (int i = 0; !changed && i < before.points_num; i++) {
+          changed |= double3(before.points[i].position) != double3(after.points[i].position);
+        }
+        if (!changed) {
+          continue;
+        }
+        const auto &uv = *old_curves.lookup(use.pcurve_id);
+        if (uv.order != 2 || uv.points_num != 2 || uv.points[0].weight != uv.points[1].weight) {
+          return fail("Control-point editing requires a straight tensor-boundary p-curve");
+        }
+        const double2 a(uv.points[0].position), b(uv.points[1].position);
+        const int fixed = a.x == b.x ? 0 : 1, varying = 1 - fixed;
+        const double *fixed_knots = fixed == 0 ? surface.knots_u : surface.knots_v;
+        const int fixed_count = fixed == 0 ? surface.points_u : surface.points_v;
+        const int fixed_order = fixed == 0 ? surface.order_u : surface.order_v;
+        const double *knots = varying == 0 ? surface.knots_u : surface.knots_v;
+        const int count = varying == 0 ? surface.points_u : surface.points_v;
+        const int order = varying == 0 ? surface.order_u : surface.order_v;
+        const bool high = a[fixed] == fixed_knots[fixed_count];
+        const bool reverse = a[varying] > b[varying];
+        if (a[fixed] != b[fixed] || (!high && a[fixed] != fixed_knots[fixed_order - 1]) ||
+            std::min(a[varying], b[varying]) != knots[order - 1] ||
+            std::max(a[varying], b[varying]) != knots[count])
+        {
+          return fail(
+              "Control-point editing of interior surface trims requires a deformation rule");
+        }
+        for (int i = 0; i < fixed_order; i++) {
+          if (fixed_knots[high ? fixed_count + i : i] != a[fixed]) {
+            return fail("Control-point editing requires a clamped surface boundary");
+          }
+        }
+        auto old_crop = restrict_curve(
+            before, double2(old_edge.parameter_range), max_error, r_error);
+        auto new_crop = restrict_curve(
+            after, double2(new_edge.parameter_range), max_error, r_error);
+        if (!old_crop || !new_crop) {
+          return false;
+        }
+        auto coefficients =
+            [&](const NurbsCurveGeometry &curve) -> std::optional<Vector<double4>> {
+          Vector<double4> values;
+          for (int i = 0; i < curve.points_num; i++) {
+            const auto &point = curve.points[reverse ? curve.points_num - 1 - i : i];
+            values.append(double4(double3(point.position) * point.weight, point.weight));
+          }
+          /* Subdivision bevels elevate shared polynomial edges to their patch degree. */
+          if (curve.points_num == curve.order && count == order && curve.order <= order) {
+            for (int n = values.size(); n < count; n++) {
+              Vector<double4> elevated;
+              elevated.append(values.first());
+              for (int i = 1; i < n; i++) {
+                const double alpha = double(i) / n;
+                elevated.append(alpha * values[i - 1] + (1 - alpha) * values[i]);
+              }
+              elevated.append(values.last());
+              values = std::move(elevated);
+            }
+          }
+          else {
+            if (curve.order != order || curve.points_num != count) {
+              return std::nullopt;
+            }
+            const double low = curve.knots[curve.order - 1], high = curve.knots[curve.points_num];
+            for (int i = 0; i < curve.knots_num; i++) {
+              const double t = reverse ? high - curve.knots[curve.knots_num - 1 - i] :
+                                         curve.knots[i] - low;
+              const double mapped = knots[order - 1] +
+                                    t * (knots[count] - knots[order - 1]) / (high - low);
+              if (std::abs(mapped - knots[i]) > max_error) {
+                return std::nullopt;
+              }
+            }
+          }
+          return values;
+        };
+        const auto old_values = coefficients(*old_crop->curve);
+        const auto new_values = coefficients(*new_crop->curve);
+        if (!old_values || !new_values) {
+          return fail("The boundary curve and surface control bases are incompatible");
+        }
+        auto &requests = assignments.lookup_or_add_default(surface.id);
+        for (int i = 0; i < count; i++) {
+          const int slot = varying == 0 ? (high ? fixed_count - 1 : 0) * surface.points_u + i :
+                                          i * surface.points_u + (high ? fixed_count - 1 : 0);
+          const auto &point = surface.points[slot];
+          const auto old = (*old_values)[i], now = (*new_values)[i];
+          if (!(old.w > 0 && now.w > 0 && point.weight > 0) ||
+              math::distance(double3(point.position), old.xyz() / old.w) >
+                  std::max({old_edge.tolerance, use.tolerance, max_error}) ||
+              std::abs(now.w / old.w - 1) > 1e-12)
+          {
+            return fail("The boundary coefficients do not match their surface support");
+          }
+          const double3 delta = now.xyz() / now.w - old.xyz() / old.w;
+          if (delta == double3(0)) {
+            continue;
+          }
+          double3 position(point.position);
+          auto matrix = double4x4::identity();
+          matrix.location() = delta;
+          if (!transform_position(&position.x, matrix, result.position_error_bound)) {
+            return fail("Surface boundary control movement overflowed");
+          }
+          if (const auto *previous = requests.lookup_ptr(slot)) {
+            if (math::distance(*previous, position) > max_error) {
+              return fail("Shared surface corners request conflicting control positions");
+            }
+          }
+          else {
+            requests.add_new(slot, position);
+          }
+        }
+      }
+    }
+  }
+  for (const auto &item : assignments.items()) {
+    auto &surface = *surfaces.lookup(item.key);
+    for (const auto &point : item.value.items()) {
+      std::copy_n(&point.value.x, 3, surface.points[point.key].position);
+    }
+  }
+  return bool(evaluate_boundaries(*result.geometry, {}, r_error));
+}
+
+std::optional<GeometryTransformResult> transform_curve_control_points(
+    const NurbsGeometry &source,
+    const Span<CurveControlPointTransform> transforms,
+    const double max_position_error,
+    std::string *r_error)
+{
+  auto fail = [&](const char *message) -> std::optional<GeometryTransformResult> {
+    if (r_error) {
+      *r_error = message;
+    }
+    return std::nullopt;
+  };
+  if (r_error) {
+    r_error->clear();
+  }
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index || !std::isfinite(max_position_error) || max_position_error < 0 ||
+      !detail::supported_arithmetic())
+  {
+    return fail("NURBS control-point editing requires valid geometry and a finite error budget");
+  }
+  GeometryTransformResult result;
+  result.geometry.reset(geometry_copy(&source));
+  Map<int64_t, NurbsCurveGeometry *> curves;
+  Map<int64_t, NurbsTopologyVertex *> vertices;
+  for (auto &curve : result.geometry->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (auto &vertex : result.geometry->vertices) {
+    vertices.add_new(vertex.id, &vertex);
+  }
+  Vector<CurveControlPointRef> assigned;
+  Set<int64_t> changed_curves;
+  for (const auto &request : transforms) {
+    auto **curve_ptr = curves.lookup_ptr(request.point.curve_id);
+    if (!curve_ptr || (*curve_ptr)->dimension != 3 || request.point.point_index < 0 ||
+        request.point.point_index >= (*curve_ptr)->points_num || assigned.contains(request.point))
+    {
+      return fail("NURBS control-point transform has an invalid or repeated coefficient");
+    }
+    for (int col = 0; col < 4; col++) {
+      for (int row = 0; row < 4; row++) {
+        if (!std::isfinite(request.matrix[col][row])) {
+          return fail("NURBS control-point transform matrix is not finite");
+        }
+      }
+    }
+    if (request.matrix[0][3] != 0 || request.matrix[1][3] != 0 || request.matrix[2][3] != 0 ||
+        request.matrix[3][3] != 1)
+    {
+      return fail("NURBS control-point editing requires an affine transform");
+    }
+    auto &point = (*curve_ptr)->points[request.point.point_index];
+    if (point.weight <= 0 ||
+        !transform_position(point.position, request.matrix, result.position_error_bound))
+    {
+      return fail("NURBS control-point movement needs positive weights and finite coordinates");
+    }
+    assigned.append(request.point);
+    changed_curves.add(request.point.curve_id);
+  }
+  /* A clamped closed support has two coefficient records at its common endpoint. */
+  for (const auto &old : source.curves) {
+    if (!changed_curves.contains(old.id) || old.points_num < 2 ||
+        double3(old.points[0].position) != double3(old.points[old.points_num - 1].position) ||
+        old.points[0].weight != old.points[old.points_num - 1].weight)
+    {
+      continue;
+    }
+    auto &curve = *curves.lookup(old.id);
+    const bool first = assigned.contains({old.id, 0});
+    const bool last = assigned.contains({old.id, old.points_num - 1});
+    if (first && !last) {
+      curve.points[curve.points_num - 1] = curve.points[0];
+    }
+    else if (last && !first) {
+      curve.points[0] = curve.points[curve.points_num - 1];
+    }
+  }
+  Map<int64_t, double3> endpoint_requests;
+  for (const auto &edge : source.edges) {
+    if (!changed_curves.contains(edge.curve_id)) {
+      continue;
+    }
+    for (int end = 0; end < 2; end++) {
+      const auto value = evaluate_curve_bounded(
+          *curves.lookup(edge.curve_id), edge.parameter_range[end], max_position_error, r_error);
+      if (!value) {
+        return std::nullopt;
+      }
+      result.position_error_bound = std::max(result.position_error_bound, value->error_bound);
+      if (const auto *previous = endpoint_requests.lookup_ptr(edge.vertex_ids[end])) {
+        if (math::distance(*previous, value->position) >
+            std::max(edge.tolerance, 2 * result.position_error_bound))
+        {
+          return fail("Shared NURBS control points request conflicting endpoint positions");
+        }
+      }
+      else {
+        endpoint_requests.add_new(edge.vertex_ids[end], value->position);
+      }
+    }
+  }
+  for (const auto item : endpoint_requests.items()) {
+    auto &vertex = *vertices.lookup(item.key);
+    std::copy_n(&item.value.x, 3, vertex.position);
+    vertex.tolerance = std::max(vertex.tolerance, 2 * result.position_error_bound);
+  }
+  for (auto &edge : result.geometry->edges) {
+    if (changed_curves.contains(edge.curve_id)) {
+      edge.tolerance = std::max(edge.tolerance, 2 * result.position_error_bound);
+      continue;
+    }
+    bool moved = false;
+    for (int end = 0; end < 2; end++) {
+      moved |= double3(vertices.lookup(edge.vertex_ids[end])->position) !=
+               double3(index->vertex(edge.vertex_ids[end])->position);
+    }
+    if (!moved) {
+      continue;
+    }
+    auto crop = restrict_curve(
+        *curves.lookup(edge.curve_id), double2(edge.parameter_range), max_position_error, r_error);
+    if (!crop || result.geometry->next_id == std::numeric_limits<int64_t>::max()) {
+      return std::nullopt;
+    }
+    auto &support = *crop->curve;
+    support.id = result.geometry->next_id++;
+    for (int end = 0; end < 2; end++) {
+      const double3 position(vertices.lookup(edge.vertex_ids[end])->position);
+      std::copy_n(&position.x, 3, support.points[end ? support.points_num - 1 : 0].position);
+    }
+    edge.curve_id = support.id;
+    edge.tolerance = std::max(edge.tolerance, 2 * crop->geometry_error_bound);
+    result.position_error_bound = std::max(result.position_error_bound,
+                                           crop->geometry_error_bound);
+    BLI_addtail(&result.geometry->curves, crop->curve.release());
+  }
+  if (!update_control_point_boundaries(source, result, max_position_error, r_error)) {
+    return std::nullopt;
+  }
+  if (result.position_error_bound > max_position_error ||
+      !geometry_validate_structure(*result.geometry, r_error))
+  {
+    return fail("NURBS control-point movement exceeds its coordinate error budget");
   }
   return result;
 }

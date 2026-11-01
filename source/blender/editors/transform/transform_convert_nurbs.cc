@@ -28,6 +28,7 @@
 #include "BKE_nurbs_debug.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_mesh.hh"
+#include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_transform.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
@@ -55,6 +56,7 @@ struct NurbsTransformData {
   nurbs::ReadSnapshot original;
   nurbs::ReadSnapshot current;
   Vector<int64_t> vertices;
+  Vector<nurbs::CurveControlPointRef> control_points;
   Array<float3> proxies;
   Array<double3> centers;
   Map<int64_t, double3> original_positions;
@@ -112,7 +114,28 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
   }
   auto source = curve.editnurb->nurbs_edit->read_snapshot();
   const auto index = nurbs::TopologyIndex::build(source.geometry());
-  if (!index || source.selection().vertices.is_empty()) {
+  const bool control_edit = (curve.flag & CU_SHOW_NURBS_CONTROL_POINTS) &&
+                            !source.selection().control_points.is_empty();
+  if (!index || (source.selection().vertices.is_empty() && !control_edit)) {
+    return;
+  }
+  if (control_edit) {
+    const auto cages = nurbs::curve_control_cages(source.geometry(), 1e-9);
+    for (const auto &point : source.selection().control_points) {
+      bool visible = false;
+      if (cages) {
+        for (const auto &cage : *cages) {
+          visible |= cage.uses_source_points && cage.source_curve_id == point.curve_id;
+        }
+      }
+      if (!visible) {
+        fail("Select the arc's displayed control points before transforming");
+        return;
+      }
+    }
+  }
+  if (control_edit && t->mode == TFM_VERT_SLIDE) {
+    fail("Control-point sliding requires a control-polygon constraint");
     return;
   }
   bool invertible = true;
@@ -143,16 +166,40 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
     MEM_delete(static_cast<NurbsTransformData *>(custom->data));
     custom->data = nullptr;
   };
-  for (const int64_t id : data->original.selection().vertices) {
-    data->vertices.append(id);
+  if (control_edit) {
+    data->control_points = data->original.selection().control_points;
+    for (const int i : data->control_points.index_range()) {
+      data->vertices.append(i + 1);
+      const auto &point = data->control_points[i];
+      for (const auto &support : data->original.geometry().curves) {
+        if (support.id == point.curve_id) {
+          const double3 position(support.points[point.point_index].position);
+          for (const double value : Span<double>(&position.x, 3)) {
+            if (!std::isfinite(value) || std::abs(value) > std::numeric_limits<float>::max()) {
+              fail("NURBS control point exceeds the viewport transform coordinate range");
+              return;
+            }
+          }
+          data->original_positions.add_new(i + 1, position);
+          break;
+        }
+      }
+    }
   }
-  std::sort(data->vertices.begin(), data->vertices.end());
+  else {
+    for (const int64_t id : data->original.selection().vertices) {
+      data->vertices.append(id);
+    }
+    std::sort(data->vertices.begin(), data->vertices.end());
+  }
   const auto &selection = data->original.selection();
   const bool possible_component_translation = !selection.edges.is_empty() ||
                                               !selection.faces.is_empty() ||
                                               data->vertices.size() ==
                                                   data->original.geometry().vertices.count();
-  if ((t->flag & T_MODAL) && t->mode == TFM_TRANSLATION && possible_component_translation) {
+  if (!control_edit && (t->flag & T_MODAL) && t->mode == TFM_TRANSLATION &&
+      possible_component_translation)
+  {
     /* Retain one independently owned original display for the complete drag. This can also
      * transport independently duplicated components while leaving the original surfaces fixed.
      * Every update starts here, so repeated mouse positions cannot accumulate preview rounding
@@ -173,7 +220,7 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
   data->proxies.reinitialize(data->vertices.size());
   data->centers.reinitialize(data->vertices.size());
   std::optional<Vector<nurbs::SelectionTransformGroup>> islands;
-  if (t->around == V3D_AROUND_LOCAL_ORIGINS) {
+  if (!control_edit && t->around == V3D_AROUND_LOCAL_ORIGINS) {
     std::string error;
     islands = nurbs::selection_transform_groups(data->original.geometry(),
                                                 data->original.selection(),
@@ -192,11 +239,14 @@ static void create_trans_nurbs(bContext *C, TransInfo *t)
     td.loc = data->proxies[i];
     td.flag = TD_SELECTED;
     td.factor = 1;
-    const auto &vertex = *index->vertex(data->vertices[i]);
-    data->original_positions.add_new(vertex.id, double3(vertex.position));
-    data->centers[i] = double3(vertex.position);
+    const double3 position = control_edit ? data->original_positions.lookup(i + 1) :
+                                            double3(index->vertex(data->vertices[i])->position);
+    if (!control_edit) {
+      data->original_positions.add_new(data->vertices[i], position);
+    }
+    data->centers[i] = position;
     for (int axis = 0; axis < 3; axis++) {
-      td.center[axis] = float(vertex.position[axis]);
+      td.center[axis] = float(position[axis]);
     }
     if (islands) {
       for (const auto &island : *islands) {
@@ -326,7 +376,36 @@ static void recalc_trans_nurbs(TransInfo *t)
     std::optional<nurbs::GeometryTransformResult> result;
     double3 local_offset(0);
     const double geometry_start = BLI_time_now_seconds();
-    if (t->mode == TFM_VERT_SLIDE) {
+    if (!data.control_points.is_empty()) {
+      Vector<nurbs::CurveControlPointTransform> transforms;
+      const double3x3 linear = data.world_to_local * data.linear * data.local_to_world;
+      local_offset = data.world_to_local * data.offset;
+      const double3 center = data.world_to_local *
+                             (double3(t->center_global) -
+                              double3(tc->obedit->object_to_world().location()));
+      for (const int i : data.control_points.index_range()) {
+        double4x4 matrix = double4x4::identity();
+        if (translation) {
+          matrix.location() = local_offset;
+        }
+        else {
+          for (int col = 0; col < 3; col++) {
+            for (int row = 0; row < 3; row++) {
+              matrix[col][row] = linear[col][row];
+            }
+          }
+          const double3 pivot = t->around == V3D_AROUND_LOCAL_ORIGINS &&
+                                        !(t->flag & T_OVERRIDE_CENTER) ?
+                                    data.centers[i] :
+                                    center;
+          matrix.location() = pivot - linear * pivot;
+        }
+        transforms.append({data.control_points[i], matrix});
+      }
+      result = nurbs::transform_curve_control_points(
+          data.original.geometry(), transforms, std::numeric_limits<double>::max(), &error);
+    }
+    else if (t->mode == TFM_VERT_SLIDE) {
       Vector<nurbs::VertexTransform> transforms;
       for (int i = 0; i < tc->data_len; i++) {
         double4x4 matrix = double4x4::identity();
@@ -424,7 +503,7 @@ static void recalc_trans_nurbs(TransInfo *t)
       return;
     }
     double validation_ms = 0.0;
-    if (translation && local_offset != double3(0)) {
+    if (translation && data.control_points.is_empty() && local_offset != double3(0)) {
       const double validation_start = BLI_time_now_seconds();
       bool changed_position = false;
       /* Translation preserves vertex identities. Compare the selected positions directly;
@@ -679,14 +758,21 @@ bool nurbs_translation_snap(TransInfo *t, double3 &r_world, std::string &r_error
            (t->tsnap.source_operation == SCE_SNAP_SOURCE_CENTER &&
             t->around == V3D_AROUND_ACTIVE && !(t->flag & T_OVERRIDE_CENTER)))
   {
-    const auto groups = nurbs::selection_transform_groups(data.original.geometry(),
-                                                          data.original.selection(),
-                                                          nurbs::SelectionPivot::Active,
-                                                          &r_error);
-    if (!groups || groups->is_empty()) {
-      return false;
+    if (!data.control_points.is_empty()) {
+      const auto active = data.original.selection().active_control_point;
+      const int slot = active ? data.control_points.first_index_of_try(*active) : -1;
+      source = math::transform_point(matrix, data.centers[slot >= 0 ? slot : 0]);
     }
-    source = math::transform_point(matrix, (*groups)[0].center);
+    else {
+      const auto groups = nurbs::selection_transform_groups(data.original.geometry(),
+                                                            data.original.selection(),
+                                                            nurbs::SelectionPivot::Active,
+                                                            &r_error);
+      if (!groups || groups->is_empty()) {
+        return false;
+      }
+      source = math::transform_point(matrix, (*groups)[0].center);
+    }
   }
   else if (t->tsnap.source_operation == SCE_SNAP_SOURCE_CENTER &&
            ((t->flag & T_OVERRIDE_CENTER) || t->around == V3D_AROUND_CURSOR))

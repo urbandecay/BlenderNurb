@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "BLI_function_ref.hh"
+
 /** \file
  * \ingroup editors
  */
@@ -109,6 +111,13 @@ bool select_vertices(Main &bmain,
 /** Source-provenance component picking; ordinary selection checks viewport scene depth. */
 bool select_pick(bContext *C, const int mval[2], int distance, const SelectPick_Params &params);
 bool select_box(const ViewContext &vc, const rcti &rect, eSelectOp operation);
+bool select_all_control_points(Main &bmain,
+                               Curve &curve,
+                               bke::nurbs::SelectionAction action,
+                               std::string *r_error = nullptr);
+bool select_control_points_region(const ViewContext &vc,
+                                  eSelectOp operation,
+                                  FunctionRef<bool(const float2 &)> inside);
 
 /** Grow selection through source incidence, preserving active identity/history. */
 bool select_linked(Main &bmain, Curve &curve, std::string *r_error = nullptr);

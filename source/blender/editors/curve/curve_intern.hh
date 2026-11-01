@@ -193,6 +193,14 @@ void CURVE_OT_select_mode(wmOperatorType *ot);
 void CURVE_OT_rip(wmOperatorType *ot);
 void CURVE_OT_merge(wmOperatorType *ot);
 void CURVE_OT_dissolve_limited(wmOperatorType *ot);
+void CURVE_OT_nurbs_control_points_toggle(wmOperatorType *ot);
+void CURVE_OT_nurbs_control_points_sequence(wmOperatorType *ot);
+
+enum eNurbsControlPointsModalEvent {
+  NURBS_CONTROL_POINTS_MODAL_TOGGLE = 1,
+  NURBS_CONTROL_POINTS_MODAL_CIRCLE_SELECT,
+  NURBS_CONTROL_POINTS_MODAL_CANCEL,
+};
 void CURVE_OT_bevel(wmOperatorType *ot);
 void CURVE_OT_remove_doubles(wmOperatorType *ot);
 void CURVE_OT_loopcut_slide(wmOperatorType *ot);

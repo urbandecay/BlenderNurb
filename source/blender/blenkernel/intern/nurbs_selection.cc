@@ -21,6 +21,38 @@
 
 namespace blender::bke::nurbs {
 
+bool control_point_selection_validate(const NurbsGeometry &geometry,
+                                      const SelectionState &selection,
+                                      std::string *r_error)
+{
+  for (const auto &point : selection.control_points) {
+    const NurbsCurveGeometry *support = nullptr;
+    for (const auto &curve : geometry.curves) {
+      if (curve.id == point.curve_id) {
+        support = &curve;
+        break;
+      }
+    }
+    if (!support || support->dimension != 3 || point.point_index < 0 ||
+        point.point_index >= support->points_num)
+    {
+      if (r_error) {
+        *r_error = "NURBS selection references an unavailable control point";
+      }
+      return false;
+    }
+  }
+  if (selection.active_control_point &&
+      !selection.control_points.contains(*selection.active_control_point))
+  {
+    if (r_error) {
+      *r_error = "The active NURBS control point is not selected";
+    }
+    return false;
+  }
+  return true;
+}
+
 std::optional<Vector<double3>> selection_positions(const NurbsGeometry &geometry,
                                                    const SelectionState &selection,
                                                    std::string *r_error)
@@ -30,6 +62,14 @@ std::optional<Vector<double3>> selection_positions(const NurbsGeometry &geometry
     return std::nullopt;
   }
   Vector<double3> positions;
+  for (const auto &point : selected->control_points) {
+    for (const auto &curve : geometry.curves) {
+      if (curve.id == point.curve_id) {
+        positions.append(double3(curve.points[point.point_index].position));
+        break;
+      }
+    }
+  }
   positions.reserve(selected->vertices.size());
   for (const NurbsTopologyVertex &vertex : geometry.vertices) {
     if (selected->vertices.contains(vertex.id)) {
@@ -246,7 +286,7 @@ std::optional<SelectionState> selection_flush(const NurbsGeometry &geometry,
     return std::nullopt;
   }
   const auto index = TopologyIndex::build(geometry, r_error);
-  if (!index || !selection_validate(
+  if (!index || !control_point_selection_validate(geometry, selection, r_error) || !selection_validate(
                     selection,
                     [&](const ElementRef element) {
                       switch (element.domain) {
@@ -485,6 +525,8 @@ std::optional<SelectionState> selection_apply(const NurbsGeometry &geometry,
   }
   SelectionState result = action == SelectionAction::Set ? SelectionState{} : selection;
   result.mode = selection.mode;
+  result.control_points.clear();
+  result.active_control_point.reset();
   auto set_vertex = [&](const int64_t id, const bool select) {
     if (select) {
       result.vertices.add(id);
@@ -728,6 +770,16 @@ std::optional<SelectionState> selection_from_storage(const NurbsStoredSelection 
   }
   for (int i = 0; i < storage->elements_num; i++) {
     const NurbsSelectionElement &element = storage->elements[i];
+    if (element.domain == 3) {
+      const CurveControlPointRef point{element.id, element._pad};
+      if (point.curve_id <= 0 || point.point_index < 0 ||
+          selection.control_points.contains(point))
+      {
+        return fail("Invalid or repeated NURBS stored control point");
+      }
+      selection.control_points.append(point);
+      continue;
+    }
     Set<int64_t> *domain = nullptr;
     switch (ElementDomain(element.domain)) {
       case ElementDomain::Vertex:
@@ -745,7 +797,12 @@ std::optional<SelectionState> selection_from_storage(const NurbsStoredSelection 
     }
   }
   if (storage->active.id != 0) {
-    selection.active = ElementRef{ElementDomain(storage->active.domain), storage->active.id};
+    if (storage->active.domain == 3) {
+      selection.active_control_point = CurveControlPointRef{storage->active.id, storage->active._pad};
+    }
+    else {
+      selection.active = ElementRef{ElementDomain(storage->active.domain), storage->active.id};
+    }
   }
   else if (storage->active.domain != 0) {
     return fail("Invalid NURBS stored active-element domain");
@@ -770,7 +827,7 @@ NurbsStoredSelection *selection_to_storage(const SelectionState &selection, std:
     return nullptr;
   }
   const int64_t elements_num = selection.vertices.size() + selection.edges.size() +
-                               selection.faces.size();
+                               selection.faces.size() + selection.control_points.size();
   if (elements_num > std::numeric_limits<int>::max() ||
       selection.history.size() > std::numeric_limits<int>::max())
   {
@@ -796,15 +853,27 @@ NurbsStoredSelection *selection_to_storage(const SelectionState &selection, std:
     append_domain(selection.vertices, ElementDomain::Vertex);
     append_domain(selection.edges, ElementDomain::Edge);
     append_domain(selection.faces, ElementDomain::Face);
+    for (const auto &point : selection.control_points) {
+      storage->elements[i].id = point.curve_id;
+      storage->elements[i].domain = 3;
+      storage->elements[i]._pad = point.point_index;
+      i++;
+    }
     std::sort(storage->elements,
               storage->elements + elements_num,
               [](const NurbsSelectionElement &a, const NurbsSelectionElement &b) {
-                return a.domain == b.domain ? a.id < b.id : a.domain < b.domain;
+                return a.domain != b.domain ? a.domain < b.domain :
+                       a.id != b.id ? a.id < b.id : a._pad < b._pad;
               });
   }
   if (selection.active) {
     storage->active.id = selection.active->id;
     storage->active.domain = int(selection.active->domain);
+  }
+  if (selection.active_control_point) {
+    storage->active.id = selection.active_control_point->curve_id;
+    storage->active.domain = 3;
+    storage->active._pad = selection.active_control_point->point_index;
   }
   if (!selection.history.is_empty()) {
     storage->history = MEM_new_array<NurbsSelectionElement>(selection.history.size(), __func__);

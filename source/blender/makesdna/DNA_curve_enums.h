@@ -45,6 +45,8 @@ enum eCurveFlag : int {
   CU_FILL_CAPS = 1 << 14,
   /** map taper object to beveled area */
   CU_MAP_TAPER = 1 << 15,
+  /** Show the native NURBS control polygon and control points in edit mode. */
+  CU_SHOW_NURBS_CONTROL_POINTS = 1 << 16,
 };
 ENUM_OPERATORS(eCurveFlag)
 

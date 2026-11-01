@@ -818,6 +818,11 @@ static bool do_lasso_select_curve(const ViewContext *vc,
   view3d_userdata_lassoselect_init(&data, vc, &rect, mcoords, sel_op);
 
   Curve *curve = id_cast<Curve *>(vc->obedit->data);
+  if (curve->editnurb->nurbs_edit && (curve->flag & CU_SHOW_NURBS_CONTROL_POINTS)) {
+    return ed::nurbs::select_control_points_region(*vc, sel_op, [&](const float2 &point) {
+      return BLI_lasso_is_point_inside(mcoords, int(point.x), int(point.y), INT_MAX);
+    });
+  }
   ListBaseT<Nurb> *nurbs = BKE_curve_editNurbs_get(curve);
 
   /* For deselect all, items to be selected are tagged with temp flag. Clear that first. */
@@ -3754,6 +3759,11 @@ static bool nurbscurve_circle_select(const ViewContext *vc,
   view3d_userdata_circleselect_init(&data, vc, select, mval, rad);
 
   Curve *curve = id_cast<Curve *>(vc->obedit->data);
+  if (curve->editnurb->nurbs_edit && (curve->flag & CU_SHOW_NURBS_CONTROL_POINTS)) {
+    return ed::nurbs::select_control_points_region(*vc, sel_op, [&](const float2 &point) {
+      return math::distance_squared(point, float2(mval[0], mval[1])) <= rad * rad;
+    });
+  }
   ListBaseT<Nurb> *nurbs = BKE_curve_editNurbs_get(curve);
 
   /* For deselect all, items to be selected are tagged with temp flag. Clear that first. */

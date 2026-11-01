@@ -4028,8 +4028,19 @@ class VIEW3D_MT_edit_curve_clean(Menu):
 class VIEW3D_MT_edit_nurbs(Menu):
     bl_label = "NURBS"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
+        edit_object = context.edit_object
+        if edit_object and (
+            getattr(edit_object.data, "is_native_nurbs", False)
+            or getattr(edit_object.data, "has_tagged_nurbs", False)
+        ):
+            layout.operator(
+                "curve.nurbs_control_points_toggle",
+                text="Show Control Points",
+                depress=edit_object.data.show_nurbs_control_points,
+            )
+            layout.separator()
         layout.menu("VIEW3D_MT_edit_nurbs_transform", text="Transform")
         row = layout.row()
         row.enabled = False

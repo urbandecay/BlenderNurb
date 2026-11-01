@@ -5141,6 +5141,8 @@ def km_edit_curve_legacy(params):
     )
 
     items.extend([
+        # Native NURBS: wait for P or C release before invoking Circle Select.
+        ("curve.nurbs_control_points_sequence", {"type": 'C', "value": 'PRESS'}, None),
         # Native source component modes. The operator poll leaves legacy curve behavior intact.
         *[("curve.select_mode", {"type": key, "value": 'PRESS', **({'shift': True} if extend else {})},
            {"properties": [("type", mode), ("use_extend", extend)]})
@@ -5964,6 +5966,18 @@ def km_sculpt_mesh_filter_modal_map(_params):
         ("CANCEL", {"type": 'RIGHTMOUSE', "value": 'PRESS', "any": True}, None),
     ])
     return keymap
+
+
+def km_nurbs_control_points_modal_map(_params):
+    return (
+        "NURBS Control Points Sequence",
+        {"space_type": 'EMPTY', "region_type": 'WINDOW', "modal": True},
+        {"items": [
+            ("TOGGLE_CONTROL_POINTS", {"type": 'P', "value": 'PRESS', "any": True}, None),
+            ("CIRCLE_SELECT", {"type": 'C', "value": 'RELEASE', "any": True}, None),
+            ("CANCEL", {"type": 'ESC', "value": 'PRESS', "any": True}, None),
+        ]},
+    )
 
 
 def km_curve_pen_modal_map(_params):
@@ -7911,6 +7925,7 @@ def generate_keymaps(params=None):
         km_sculpt_expand_modal(params),
         km_sculpt_mesh_filter_modal_map(params),
         km_curve_pen_modal_map(params),
+        km_nurbs_control_points_modal_map(params),
         km_pen_tool_modal_map(params),
         km_node_link_modal_map(params),
         km_node_resize_modal_map(params),

@@ -36,6 +36,7 @@
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_nurbs_mesh.hh"
+#include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_topology.hh"
 #include "BKE_nurbs_transform.hh"
 #include "BKE_object.hh"
@@ -171,6 +172,8 @@ bool select_components(Main &bmain,
   if (selection->mode == previous.mode && selection->vertices == previous.vertices &&
       selection->edges == previous.edges && selection->faces == previous.faces &&
       selection->active == previous.active &&
+      selection->control_points.as_span() == previous.control_points.as_span() &&
+      selection->active_control_point == previous.active_control_point &&
       selection->history.as_span() == previous.history.as_span())
   {
     return false;
@@ -514,6 +517,148 @@ static bool find_component(const ViewContext &vc,
   return true;
 }
 
+static std::optional<bool> select_control_point_pick(bContext *C,
+                                                     const ViewContext &vc,
+                                                     const int mval[2],
+                                                     const int distance,
+                                                     const SelectPick_Params &params)
+{
+  using namespace bke::nurbs;
+  SelectionDepth depth(vc);
+  if (depth.required && !depth.depths) {
+    return std::nullopt;
+  }
+  Vector<SelectionTarget> targets;
+  Object *hit_object = nullptr;
+  std::optional<CurveControlCage> hit_cage;
+  int hit_index = -1;
+  double closest = double(distance) * distance;
+  float closest_depth = std::numeric_limits<float>::infinity();
+  std::string error;
+  for (Object *object : BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+           *vc.bmain, vc.scene, vc.view_layer, vc.v3d))
+  {
+    const Curve &curve = *id_cast<Curve *>(object->data);
+    if (!curve.editnurb->nurbs_edit) {
+      continue;
+    }
+    targets.append({object, curve.editnurb->nurbs_edit->read_snapshot()});
+    if (!(curve.flag & CU_SHOW_NURBS_CONTROL_POINTS)) {
+      continue;
+    }
+    auto cages = curve_control_cages(targets.last().source.geometry(), 1e-9, &error);
+    if (!cages) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+    ED_view3d_init_mats_rv3d(object, vc.rv3d);
+    ED_view3d_clipping_local(vc.rv3d, object->object_to_world().ptr());
+    for (auto &cage : *cages) {
+      int best = -1;
+      for (int i = 0; i < cage.curve->points_num; i++) {
+        const auto screen = project_position(vc, double3(cage.curve->points[i].position), error);
+        if (!screen || !depth.visible(*screen)) {
+          continue;
+        }
+        const double d = math::length_squared(float2(screen->x - mval[0], screen->y - mval[1]));
+        if (d < closest || (d == closest && screen->z < closest_depth)) {
+          closest = d;
+          closest_depth = screen->z;
+          best = i;
+        }
+      }
+      if (best != -1) {
+        hit_object = object;
+        hit_index = best;
+        hit_cage = std::move(cage);
+      }
+    }
+  }
+  if (!hit_object) {
+    return std::nullopt;
+  }
+  bool changed = false;
+  for (const auto &target : targets) {
+    const bool is_hit = target.object == hit_object;
+    if (!is_hit && params.sel_op != SEL_OP_SET) {
+      continue;
+    }
+    auto candidate = target.source.copy_for_edit();
+    const auto mode = candidate.selection.mode;
+    if (!is_hit) {
+      candidate.selection = {};
+      candidate.selection.mode = mode;
+    }
+    else {
+      CurveControlPointRef point{hit_cage->source_curve_id, hit_index};
+      const bool selected = hit_cage->uses_source_points &&
+                            candidate.selection.control_points.contains(point);
+      if (params.sel_op == SEL_OP_SET && params.select_passthrough && selected) {
+        return false;
+      }
+      if (params.sel_op == SEL_OP_SUB && !selected) {
+        return false;
+      }
+      /* A displayed restriction needs an independent, clamped support before its
+       * coefficients can be edited. Preserve edge parameters and untouched intervals. */
+      if (!hit_cage->uses_source_points) {
+        if (candidate.geometry->next_id == std::numeric_limits<int64_t>::max()) {
+          return false;
+        }
+        point.curve_id = candidate.geometry->next_id++;
+        hit_cage->curve->id = point.curve_id;
+        BLI_addtail(&candidate.geometry->curves, hit_cage->curve.release());
+        for (auto &edge : candidate.geometry->edges) {
+          if (hit_cage->edges.contains(edge.id)) {
+            edge.curve_id = point.curve_id;
+            edge.tolerance = std::max(edge.tolerance, 2 * hit_cage->geometry_error_bound);
+          }
+        }
+      }
+      SelectionState selection;
+      selection.mode = mode;
+      if (params.sel_op != SEL_OP_SET) {
+        /* Restricted display cages have new coefficient indices. Retain only selected
+         * controls that still correspond to a displayed, complete source support. */
+        auto cages = curve_control_cages(target.source.geometry(), 1e-9, &error);
+        if (!cages) {
+          BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+          return false;
+        }
+        for (const auto &ref : candidate.selection.control_points) {
+          for (const auto &cage : *cages) {
+            if (cage.uses_source_points && cage.source_curve_id == ref.curve_id) {
+              selection.control_points.append(ref);
+              break;
+            }
+          }
+        }
+      }
+      if (params.sel_op == SEL_OP_SUB || (params.sel_op == SEL_OP_XOR && selected)) {
+        selection.control_points.remove_if([&](const auto &ref) { return ref == point; });
+      }
+      else if (!selection.control_points.contains(point)) {
+        selection.control_points.append(point);
+      }
+      if (!selection.control_points.is_empty()) {
+        selection.active_control_point = selection.control_points.last();
+      }
+      candidate.selection = std::move(selection);
+    }
+    changed |= edit_commit(*vc.bmain,
+                           *id_cast<Curve *>(target.object->data),
+                           std::move(candidate),
+                           target.source,
+                           &error);
+    if (!error.empty()) {
+      BKE_report(CTX_wm_reports(C), RPT_ERROR, error.c_str());
+      return false;
+    }
+  }
+  ed::object::base_activate(C, BKE_view_layer_base_find(vc.view_layer, hit_object));
+  return changed;
+}
+
 bool select_pick(bContext *C,
                  const int mval[2],
                  const int distance,
@@ -521,6 +666,9 @@ bool select_pick(bContext *C,
 {
   using namespace bke::nurbs;
   ViewContext vc = ED_view3d_viewcontext_init(C, CTX_data_ensure_evaluated_depsgraph(C));
+  if (const auto control_hit = select_control_point_pick(C, vc, mval, distance, params)) {
+    return *control_hit;
+  }
   Vector<SelectionTarget> targets;
   Object *hit_object = nullptr;
   ElementRef hit{ElementDomain::Vertex, 0};
@@ -563,10 +711,131 @@ bool select_pick(bContext *C,
   return changed;
 }
 
+static bool select_control_points_matching(Main &bmain,
+                                           Curve &curve,
+                                           const bke::nurbs::SelectionAction action,
+                                           FunctionRef<bool(const double3 &)> inside,
+                                           std::string *r_error)
+{
+  using namespace bke::nurbs;
+  const auto expected = curve.editnurb->nurbs_edit->read_snapshot();
+  auto cages = curve_control_cages(expected.geometry(), 1e-9, r_error);
+  if (!cages) {
+    return false;
+  }
+  auto candidate = expected.copy_for_edit();
+  SelectionState selected;
+  selected.mode = expected.selection().mode;
+  for (auto &cage : *cages) {
+    Vector<int> hits;
+    for (int i = 0; i < cage.curve->points_num; i++) {
+      const bool hit = inside(double3(cage.curve->points[i].position));
+      const bool was_selected = cage.uses_source_points &&
+                                expected.selection().control_points.contains(
+                                    {cage.source_curve_id, i});
+      const bool keep = action == SelectionAction::Set       ? hit :
+                        action == SelectionAction::Add       ? hit || was_selected :
+                        action == SelectionAction::Subtract  ? was_selected && !hit :
+                        action == SelectionAction::Intersect ? was_selected && hit :
+                                                               was_selected != hit;
+      if (keep) {
+        hits.append(i);
+      }
+    }
+    if (hits.is_empty()) {
+      continue;
+    }
+    int64_t support_id = cage.source_curve_id;
+    for (const auto &support : expected.geometry().curves) {
+      if (support.id == support_id && !cage.uses_source_points) {
+        if (candidate.geometry->next_id == std::numeric_limits<int64_t>::max()) {
+          if (r_error) {
+            *r_error = "NURBS control selection exhausted source identities";
+          }
+          return false;
+        }
+        support_id = candidate.geometry->next_id++;
+        cage.curve->id = support_id;
+        BLI_addtail(&candidate.geometry->curves, cage.curve.release());
+        for (auto &edge : candidate.geometry->edges) {
+          if (cage.edges.contains(edge.id)) {
+            edge.curve_id = support_id;
+            edge.tolerance = std::max(edge.tolerance, 2 * cage.geometry_error_bound);
+          }
+        }
+        break;
+      }
+    }
+    for (const int i : hits) {
+      selected.control_points.append({support_id, i});
+    }
+  }
+  if (r_error && !r_error->empty()) {
+    return false;
+  }
+  if (!selected.control_points.is_empty()) {
+    const auto active = expected.selection().active_control_point;
+    selected.active_control_point = active && selected.control_points.contains(*active) ?
+                                        active :
+                                        std::optional(selected.control_points.last());
+  }
+  if (selected.control_points.as_span() == expected.selection().control_points.as_span() &&
+      selected.active_control_point == expected.selection().active_control_point &&
+      expected.selection().vertices.is_empty() && expected.selection().edges.is_empty() &&
+      expected.selection().faces.is_empty())
+  {
+    return false;
+  }
+  candidate.selection = std::move(selected);
+  return edit_commit(bmain, curve, std::move(candidate), expected, r_error);
+}
+
+bool select_all_control_points(Main &bmain,
+                               Curve &curve,
+                               const bke::nurbs::SelectionAction action,
+                               std::string *r_error)
+{
+  return select_control_points_matching(
+      bmain, curve, action, [](const double3 &) { return true; }, r_error);
+}
+
+bool select_control_points_region(const ViewContext &vc,
+                                  const eSelectOp operation,
+                                  FunctionRef<bool(const float2 &)> inside)
+{
+  SelectionDepth depth(vc);
+  if (depth.required && !depth.depths) {
+    WM_global_report(RPT_ERROR, "NURBS control selection could not acquire viewport depth");
+    return false;
+  }
+  ED_view3d_init_mats_rv3d(vc.obedit, vc.rv3d);
+  ED_view3d_clipping_local(vc.rv3d, vc.obedit->object_to_world().ptr());
+  std::string error;
+  const bool changed = select_control_points_matching(
+      *vc.bmain,
+      *id_cast<Curve *>(vc.obedit->data),
+      selection_action(operation),
+      [&](const double3 &position) {
+        const auto point = project_position(vc, position, error);
+        return point && depth.visible(*point) && inside(float2(point->x, point->y));
+      },
+      &error);
+  if (!error.empty()) {
+    WM_global_report(RPT_ERROR, error.c_str());
+  }
+  return changed;
+}
+
 bool select_box(const ViewContext &vc, const rcti &rect, const eSelectOp operation)
 {
   using namespace bke::nurbs;
   Curve &curve = *id_cast<Curve *>(vc.obedit->data);
+  if (curve.flag & CU_SHOW_NURBS_CONTROL_POINTS) {
+    return select_control_points_region(vc, operation, [&](const float2 &point) {
+      return point.x >= rect.xmin && point.x <= rect.xmax && point.y >= rect.ymin &&
+             point.y <= rect.ymax;
+    });
+  }
   const SelectionTarget target{vc.obedit, curve.editnurb->nurbs_edit->read_snapshot()};
   const auto mode = target.source.selection().mode;
   SelectionDepth depth(vc);

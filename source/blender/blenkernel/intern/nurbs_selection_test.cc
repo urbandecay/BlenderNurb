@@ -21,6 +21,35 @@ namespace blender::bke::nurbs::tests {
 
 class NurbsSelectionTest : public BlenderGTestBase {};
 
+TEST_F(NurbsSelectionTest, ControlPointSelectionStorageAndSnapshotsRoundTrip)
+{
+  auto source = make_planar_sheet();
+  const auto &curve = *static_cast<NurbsCurveGeometry *>(source->curves.first);
+  SelectionState selected;
+  selected.control_points.append({curve.id, 0});
+  selected.control_points.append({curve.id, 1});
+  selected.active_control_point = selected.control_points.last();
+  auto *stored = selection_to_storage(selected);
+  ASSERT_NE(stored, nullptr);
+  const auto decoded = selection_from_storage(stored);
+  ASSERT_TRUE(decoded);
+  EXPECT_EQ(decoded->control_points.as_span(), selected.control_points.as_span());
+  EXPECT_EQ(decoded->active_control_point, selected.active_control_point);
+  EXPECT_TRUE(control_point_selection_validate(*source, *decoded));
+  auto edit = EditData::create(*source, *decoded);
+  ASSERT_TRUE(edit);
+  const auto snapshot = edit->snapshot();
+  auto candidate = edit->read_snapshot().copy_for_edit();
+  candidate.selection.control_points.clear();
+  candidate.selection.active_control_point.reset();
+  EXPECT_TRUE(edit->commit(std::move(candidate), edit->read_snapshot()));
+  EXPECT_TRUE(edit->restore(snapshot));
+  EXPECT_EQ(edit->selection().control_points.as_span(), selected.control_points.as_span());
+  selection_storage_free(stored);
+  selected.control_points.append({curve.id, curve.points_num});
+  EXPECT_FALSE(control_point_selection_validate(*source, selected));
+}
+
 template<typename T> static T &first_item(const ListBaseT<T> &list)
 {
   return *static_cast<T *>(list.first);

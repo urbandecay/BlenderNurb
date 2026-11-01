@@ -12,8 +12,12 @@
 #include "BLI_listbase.h"
 #include "BLI_math_vector.hh"
 
+#include "BKE_blender.hh"
 #include "BKE_curve.hh"
+#include "BKE_gtest_base.hh"
+#include "BKE_main.hh"
 #include "BKE_nurbs_construct.hh"
+#include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_selection.hh"
 #include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
@@ -22,6 +26,291 @@
 #include "testing/testing.h"
 
 namespace blender::bke::nurbs::tests {
+
+TEST(nurbs_transform, EveryCircleArcHasAnIndependentExactControlCage)
+{
+  for (const int count : {8, 10, 12, 13, 32}) {
+    SCOPED_TRACE(count);
+    OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+    auto support = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, 2 * M_PI);
+    ASSERT_TRUE(support);
+    support->id = source->next_id++;
+    auto *curve = support.release();
+    BLI_addtail(&source->curves, curve);
+    const double low = curve->knots[curve->order - 1], high = curve->knots[curve->points_num];
+    Vector<NurbsTopologyVertex *> vertices;
+    Vector<double> parameters;
+    for (int i = 0; i <= count; i++) {
+      const double angle = 2 * M_PI * i / count;
+      const int quarter = std::min(i * 4 / count, 3);
+      const double local = angle - quarter * (M_PI / 2);
+      const double a = std::sin(local / 2), b = std::sin((M_PI / 2 - local) / 2);
+      parameters.append(i == count ? high : std::lerp(low, high, (quarter + a / (a + b)) / 4));
+    }
+    for (int i = 0; i < count; i++) {
+      const auto point = evaluate_curve(*curve, parameters[i]);
+      ASSERT_TRUE(point);
+      vertices.append(add_vertex(*source, point->position));
+    }
+    for (int i = 0; i < count; i++) {
+      auto *edge = add_edge(*source, *vertices[i], *vertices[(i + 1) % count], *curve);
+      edge->parameter_range[0] = parameters[i];
+      edge->parameter_range[1] = parameters[i + 1];
+      edge->tolerance = 1e-10;
+    }
+    std::string error;
+    auto cages = curve_control_cages(*source, 1e-9, &error);
+    ASSERT_TRUE(cages) << error;
+    ASSERT_EQ(cages->size(), count);
+    for (int i = 0; i < count; i++) {
+      const auto &cage = (*cages)[i];
+      EXPECT_EQ(cage.edges.size(), 1);
+      EXPECT_FALSE(cage.uses_source_points);
+      EXPECT_EQ(cage.curve->points_num, 3);
+      EXPECT_TRUE(cage.reparameterized);
+      const double theta = 2 * M_PI * (i + 0.5) / count;
+      const double weight = std::cos(M_PI / count);
+      EXPECT_NEAR(cage.curve->points[1].weight, weight, 1e-12);
+      EXPECT_NEAR(cage.curve->points[1].position[0], 2 * std::cos(theta) / weight, 1e-9);
+      EXPECT_NEAR(cage.curve->points[1].position[1], 2 * std::sin(theta) / weight, 1e-9);
+      for (int sample = 0; sample <= 8; sample++) {
+        const double t = std::lerp(cage.range.x, cage.range.y, sample / 8.0);
+        const auto original = evaluate_curve(*curve, t);
+        const auto restricted = evaluate_curve(*cage.curve, t);
+        ASSERT_TRUE(original && restricted);
+        EXPECT_NEAR(math::length(restricted->position), 2, 1e-9);
+        EXPECT_NEAR(restricted->position.z, 0, 1e-9);
+        if (sample == 0 || sample == 8) {
+          EXPECT_LT(math::distance(original->position, restricted->position), 1e-9);
+        }
+      }
+    }
+    if (count == 10) {
+      /* Keep edited geometry intact, even if it started life as a circle. */
+      OwnedGeometry edited(geometry_copy(source.get()));
+      auto &deformed = *static_cast<NurbsCurveGeometry *>(edited->curves.first);
+      deformed.points[1].position[0] += 0.125;
+      int i = 0;
+      for (auto &vertex : edited->vertices) {
+        const auto point = evaluate_curve(deformed, parameters[i++]);
+        ASSERT_TRUE(point);
+        std::copy_n(&point->position.x, 3, vertex.position);
+      }
+      auto edited_cages = curve_control_cages(*edited, 1e-9, &error);
+      ASSERT_TRUE(edited_cages) << error;
+      for (const auto &part : *edited_cages) {
+        EXPECT_FALSE(part.reparameterized);
+        const double t = (part.range.x + part.range.y) / 2;
+        const auto old_point = evaluate_curve(deformed, t);
+        const auto new_point = evaluate_curve(*part.curve, t);
+        ASSERT_TRUE(old_point && new_point);
+        EXPECT_LT(math::distance(old_point->position, new_point->position), 1e-9);
+      }
+      /* A surface's p-curves still use the original curve parameterization. */
+      Vector<int64_t> edges;
+      for (const auto &edge : source->edges) {
+        edges.append(edge.id);
+      }
+      auto surface = extrude_edges(*source, edges, {0, 0, 2}, 1e-9, &error);
+      ASSERT_TRUE(surface) << error;
+      auto surface_cages = curve_control_cages(*surface->geometry, 1e-9, &error);
+      ASSERT_TRUE(surface_cages) << error;
+      for (const auto &part : *surface_cages) {
+        EXPECT_FALSE(part.reparameterized);
+      }
+    }
+    auto &cage = (*cages)[0];
+    cage.curve->id = source->next_id++;
+    const int64_t id = cage.curve->id;
+    for (auto &edge : source->edges) {
+      if (edge.id == cage.edges[0]) {
+        edge.curve_id = id;
+      }
+    }
+    BLI_addtail(&source->curves, cage.curve.release());
+    auto matrix = double4x4::identity();
+    matrix.location() = double3(0, 0, 1);
+    const CurveControlPointTransform request{{id, 1}, matrix};
+    auto moved = transform_curve_control_points(*source, {&request, 1}, 1e-9, &error);
+    ASSERT_TRUE(moved) << error;
+    for (const auto &after : moved->geometry->curves) {
+      if (after.id == curve->id) {
+        EXPECT_EQ(std::memcmp(
+                      after.points, curve->points, sizeof(NurbsControlPoint) * curve->points_num),
+                  0);
+      }
+    }
+    EXPECT_TRUE(evaluate_boundaries(*moved->geometry, {}, &error)) << error;
+  }
+}
+
+TEST(nurbs_transform, ControlPointDeformsRationalArcWithoutChangingBasisOrOtherCoefficients)
+{
+  OwnedGeometry geometry(MEM_new<NurbsGeometry>(__func__));
+  auto support = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, M_PI / 2);
+  ASSERT_TRUE(support);
+  support->id = geometry->next_id++;
+  auto *curve = support.release();
+  BLI_addtail(&geometry->curves, curve);
+  auto *a = add_vertex(*geometry, double3(curve->points[0].position));
+  auto *b = add_vertex(*geometry, double3(curve->points[curve->points_num - 1].position));
+  add_edge(*geometry, *a, *b, *curve);
+  auto matrix = double4x4::identity();
+  matrix.location() = double3(0, 0, 1);
+  const CurveControlPointTransform request{{curve->id, 1}, matrix};
+  std::string error;
+  auto result = transform_curve_control_points(*geometry, {&request, 1}, 1e-10, &error);
+  ASSERT_TRUE(result) << error;
+  const auto &after = *static_cast<NurbsCurveGeometry *>(result->geometry->curves.first);
+  EXPECT_EQ(after.order, curve->order);
+  EXPECT_EQ(after.points_num, curve->points_num);
+  EXPECT_EQ(std::memcmp(after.knots, curve->knots, sizeof(double) * curve->knots_num), 0);
+  for (int i = 0; i < curve->points_num; i++) {
+    EXPECT_EQ(after.points[i].weight, curve->points[i].weight);
+    EXPECT_EQ(double3(after.points[i].position),
+              double3(curve->points[i].position) + (i == 1 ? double3(0, 0, 1) : double3(0)));
+  }
+  const auto sample = evaluate_curve(after, 0.5);
+  ASSERT_TRUE(sample);
+  EXPECT_NEAR(sample->position.z, std::sqrt(2.0) - 1, 1e-14);
+  EXPECT_EQ(
+      double3(static_cast<NurbsTopologyVertex *>(result->geometry->vertices.first)->position),
+      double3(a->position));
+  EXPECT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+}
+
+TEST(nurbs_transform, ControlPointEndpointKeepsAdjacentWireConnected)
+{
+  OwnedGeometry geometry(MEM_new<NurbsGeometry>(__func__));
+  auto support = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, M_PI / 2);
+  support->id = geometry->next_id++;
+  auto *curve = support.release();
+  BLI_addtail(&geometry->curves, curve);
+  auto *a = add_vertex(*geometry, double3(curve->points[0].position));
+  auto *b = add_vertex(*geometry, double3(curve->points[curve->points_num - 1].position));
+  auto *c = add_vertex(*geometry, {4, 0, 0});
+  add_edge(*geometry, *a, *b, *curve);
+  const auto *line = add_linear_curve(*geometry, double3(a->position), double3(c->position), 3);
+  add_edge(*geometry, *a, *c, *line);
+  auto matrix = double4x4::identity();
+  matrix.location() = double3(0, 0, 1);
+  const CurveControlPointTransform request{{curve->id, 0}, matrix};
+  std::string error;
+  auto result = transform_curve_control_points(*geometry, {&request, 1}, 1e-10, &error);
+  ASSERT_TRUE(result) << error;
+  const auto index = TopologyIndex::build(*result->geometry);
+  ASSERT_TRUE(index);
+  EXPECT_EQ(double3(index->vertex(a->id)->position), double3(2, 0, 1));
+  EXPECT_EQ(double3(index->vertex(c->id)->position), double3(c->position));
+  EXPECT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+}
+
+TEST(nurbs_transform, InvalidControlPointTransformDoesNotModifySource)
+{
+  auto source = make_planar_sheet();
+  const OwnedGeometry before(geometry_copy(source.get()));
+  const CurveControlPointTransform request{{123456, 3}, double4x4::identity()};
+  EXPECT_FALSE(transform_curve_control_points(*source, {&request, 1}, 1e-10));
+  expect_source_geometry_equal(*source, *before);
+}
+
+TEST(nurbs_transform, BoundaryControlPointDeformsIncidentRationalSurface)
+{
+  auto source = make_arc_sheet(false);
+  ASSERT_TRUE(source);
+  const auto &curve = *static_cast<const NurbsCurveGeometry *>(source->curves.first);
+  auto matrix = double4x4::identity();
+  matrix.location() = double3(0.25, 0, 0.5);
+  const CurveControlPointTransform request{{curve.id, 1}, matrix};
+  const OwnedGeometry before(geometry_copy(source.get()));
+  std::string error;
+  auto result = transform_curve_control_points(*source, {&request, 1}, 1e-9, &error);
+  ASSERT_TRUE(result) << error;
+  const auto &old_surface = *static_cast<const NurbsSurfaceGeometry *>(source->surfaces.first);
+  const auto &surface = *static_cast<const NurbsSurfaceGeometry *>(
+      result->geometry->surfaces.first);
+  EXPECT_EQ(surface.points_num, old_surface.points_num);
+  int moved = 0;
+  for (int i = 0; i < surface.points_num; i++) {
+    EXPECT_EQ(surface.points[i].weight, old_surface.points[i].weight);
+    moved += double3(surface.points[i].position) != double3(old_surface.points[i].position);
+  }
+  EXPECT_EQ(moved, 1);
+  EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+  expect_source_geometry_equal(*source, *before);
+}
+
+TEST(nurbs_transform, BoundaryEndpointKeepsSurfaceAndNeighborEdgesConnected)
+{
+  auto source = make_arc_sheet(false);
+  ASSERT_TRUE(source);
+  const auto &curve = *static_cast<const NurbsCurveGeometry *>(source->curves.first);
+  auto matrix = double4x4::identity();
+  matrix.location() = double3(0.25, 0, 0.5);
+  const CurveControlPointTransform request{{curve.id, 0}, matrix};
+  std::string error;
+  auto result = transform_curve_control_points(*source, {&request, 1}, 1e-9, &error);
+  ASSERT_TRUE(result) << error;
+  EXPECT_TRUE(tessellate_surfaces(*result->geometry, preview_options(), &error)) << error;
+}
+
+class NurbsControlPointTest : public BlenderGTestBase {
+ protected:
+  void SetUp() override
+  {
+    BlenderGTestBase::SetUp();
+    BKE_blender_globals_main_replace(BKE_main_new());
+  }
+  void TearDown() override
+  {
+    BKE_blender_globals_clear();
+    BlenderGTestBase::TearDown();
+  }
+};
+
+TEST_F(NurbsControlPointTest, SubdivisionBevelBoundaryHandlesEditAllIncidentPatches)
+{
+  auto sheet = make_planar_sheet();
+  const int64_t face = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
+  auto box = extrude_components(*sheet, {{}, {}, {&face, 1}}, {0, 0, 2}, 0);
+  ASSERT_TRUE(box);
+  Vector<int64_t> edges;
+  for (const auto &edge : box->geometry->edges) {
+    edges.append(edge.id);
+  }
+  std::string error;
+  for (const auto shape : {BevelSurfaceShape::Subdivision}) {
+    SCOPED_TRACE(int(shape));
+    auto bevel = bevel_edges(
+        *box->geometry, edges, {.offset = 0.25, .segments = 2, .surface_shape = shape}, &error);
+    ASSERT_TRUE(bevel) << error;
+    auto matrix = double4x4::identity();
+    matrix.location() = double3(0.03, 0.02, 0.04);
+    int tested = 0;
+    Set<int64_t> supports;
+    for (const auto &edge : bevel->geometry->edges) {
+      const NurbsCurveGeometry *curve = nullptr;
+      for (const auto &support : bevel->geometry->curves) {
+        if (support.id == edge.curve_id) {
+          curve = &support;
+        }
+      }
+      if (!curve || supports.contains(curve->id)) {
+        continue;
+      }
+      supports.add(curve->id);
+      for (int i = 0; i < curve->points_num; i++) {
+        SCOPED_TRACE(::testing::Message() << "order " << curve->order << " point " << i);
+        const CurveControlPointTransform request{{curve->id, i}, matrix};
+        auto moved = transform_curve_control_points(*bevel->geometry, {&request, 1}, 1e-9, &error);
+        ASSERT_TRUE(moved) << error;
+        EXPECT_TRUE(tessellate_surfaces(*moved->geometry, preview_options(), &error)) << error;
+        tested++;
+      }
+    }
+    EXPECT_GE(tested, 3);
+  }
+}
 
 template<typename T> static T &first_transform_item(const ListBaseT<T> &list)
 {

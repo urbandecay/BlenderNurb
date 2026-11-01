@@ -305,6 +305,7 @@ class Curves : Overlay {
       const bool vertex_mode = flag_is_set(mode, bke::nurbs::SelectionMode::Vertex);
       const bool edge_mode = flag_is_set(mode, bke::nurbs::SelectionMode::Edge);
       const bool face_mode = flag_is_set(mode, bke::nurbs::SelectionMode::Face);
+      const bool show_control_points = (curve.flag & CU_SHOW_NURBS_CONTROL_POINTS) != 0;
       auto &edges = native_edges_ps_.sub("Source Edges");
       edges.push_constant("select_face", face_mode);
       edges.push_constant("select_edge", edge_mode);
@@ -323,7 +324,7 @@ class Curves : Overlay {
       if (native_needs_depth_ && ob->dt > OB_WIRE && !native_xray_enabled_) {
         native_depth_ps_.draw(triangles, res_handle);
       }
-      if (vertex_mode) {
+      if (vertex_mode || show_control_points) {
         native_points_ps_.draw(DRW_cache_curve_vert_overlay_get(ob), res_handle);
       }
       if (face_mode && native_show_facedots_) {

@@ -29,6 +29,7 @@
 #include "BKE_geometry_set.hh"
 #include "BKE_nurbs_legacy_edit.hh"
 #include "BKE_nurbs_mesh.hh"
+#include "BKE_nurbs_refine.hh"
 #include "BKE_object_types.hh"
 #include "BKE_vfont.hh"
 
@@ -340,6 +341,7 @@ struct CurveBatchCache {
   /* settings to determine if cache is invalid */
   bool is_dirty;
   bool is_editmode;
+  bool show_nurbs_control_points;
   /** Retain the exact source state used by native overlay buffers. */
   bke::nurbs::ReadSnapshot *native_source;
   /** Display adapter only; the compatibility splines remain the editable source. */
@@ -358,6 +360,10 @@ static bool curve_batch_cache_valid(Curve *cu)
   }
 
   if (cache->is_dirty) {
+    return false;
+  }
+
+  if (cache->show_nurbs_control_points != bool(cu->flag & CU_SHOW_NURBS_CONTROL_POINTS)) {
     return false;
   }
 
@@ -408,6 +414,7 @@ static void curve_batch_cache_init(Curve *cu)
 #endif
 
   cache->is_editmode = (cu->editnurb != nullptr) || (cu->editfont != nullptr);
+  cache->show_nurbs_control_points = (cu->flag & CU_SHOW_NURBS_CONTROL_POINTS) != 0;
 
   cache->is_dirty = false;
   if (cu->nurbs_eval_source != nullptr && cu->nurbs_eval_source->snapshot) {
@@ -939,6 +946,8 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
   Vector<float3> triangles;
   Vector<uchar4> triangle_flags;
   const auto &object_evaluation = object.runtime->nurbs_evaluation;
+  const Curve &curve_data = *id_cast<const Curve *>(object.data);
+  const bool show_control_points = (curve_data.flag & CU_SHOW_NURBS_CONTROL_POINTS) != 0;
   const bke::nurbs::MeshEvaluation *evaluation = cache.tagged_evaluation;
   if (!evaluation && object_evaluation && object_evaluation->result) {
     evaluation = &*object_evaluation->result;
@@ -1026,8 +1035,32 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
         }
       }
     }
+    if (show_control_points) {
+      if (const auto cages = bke::nurbs::curve_control_cages(cache.native_source->geometry(),
+                                                             1e-9))
+      {
+        for (const auto &cage : *cages) {
+          const uint32_t control_start = positions.size();
+          for (const int i : IndexRange(cage.curve->points_num)) {
+            const bke::nurbs::CurveControlPointRef ref{cage.source_curve_id, i};
+            const uchar flag = !cage.uses_source_points ?
+                                   0 :
+                                   (selection.control_points.contains(ref) ? VFLAG_VERT_SELECTED :
+                                                                             0) |
+                                       (selection.active_control_point == ref ? VFLAG_VERT_ACTIVE :
+                                                                                0);
+            points.append(positions.size());
+            positions.append(float3(double3(cage.curve->points[i].position)));
+            flags.append(uchar4(0, flag, 0, 0));
+            normals.append(float4(0));
+          }
+          for (const int i : IndexRange(cage.curve->points_num - 1)) {
+            lines.append({control_start + uint32_t(i), control_start + uint32_t(i + 1)});
+          }
+        }
+      }
+    }
     for (const auto &edge : boundary.edges) {
-      const uint32_t start = positions.size();
       const uchar data = (selection.edges.contains(edge.edge_id) ? VFLAG_EDGE_SELECTED : 0) |
                          (active_face_edges.contains(edge.edge_id) ||
                                   selection.active ==
@@ -1037,6 +1070,7 @@ static void native_curve_create_edit_data(const Object &object, CurveBatchCache 
                               0);
       const auto *source_edge = source_index->edge(edge.edge_id);
       const NurbsCurveGeometry *curve = source_curves.lookup(source_edge->curve_id);
+      const uint32_t start = positions.size();
       const bool straight = curve && curve->order == 2 && curve->points_num == 2;
       int segments = 0;
       for (const int i : edge.samples.index_range()) {

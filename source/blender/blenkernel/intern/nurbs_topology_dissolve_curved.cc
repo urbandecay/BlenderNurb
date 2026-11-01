@@ -716,6 +716,37 @@ static std::optional<TopologyEditResult> join_boundary(const NurbsGeometry &sour
   if (uses_a.size() != uses_b.size() || uses_a.size() > 2) {
     return std::nullopt;
   }
+  /* Drawing subdivisions are intervals of one exact support. Removing a wire station
+   * only extends that interval; cropping and concatenating it would manufacture knots
+   * and control points at every former station. Keep the support and its parameter map. */
+  if (uses_a.is_empty() && a->curve_id == b->curve_id && ra == rb &&
+      a->parameter_range[ra ? 0 : 1] == b->parameter_range[rb ? 1 : 0])
+  {
+    TopologyBuilder builder(source);
+    auto *edge = builder.edges.lookup(a->id);
+    edge->vertex_ids[ra ? 0 : 1] = b->vertex_ids[rb ? 0 : 1];
+    edge->parameter_range[ra ? 0 : 1] = b->parameter_range[rb ? 0 : 1];
+    edge->tolerance = std::max(a->tolerance, b->tolerance);
+    if (edge->vertex_ids[0] == edge->vertex_ids[1]) {
+      return std::nullopt;
+    }
+    auto *removed_edge = builder.edges.lookup(b->id);
+    BLI_remlink(&builder.geometry->edges, removed_edge);
+    MEM_delete(removed_edge);
+    auto *vertex = builder.vertices.lookup(vertex_id);
+    BLI_remlink(&builder.geometry->vertices, vertex);
+    MEM_delete(vertex);
+    if (!builder.valid() || !geometry_validate_structure(*builder.geometry)) {
+      return std::nullopt;
+    }
+    TopologyEditResult result;
+    result.source_to_result.add_new(b->id, a->id);
+    result.source_to_result.add_new(vertex_id, 0);
+    result.edges.append(edge->id);
+    result.vertices.extend({edge->vertex_ids[0], edge->vertex_ids[1]});
+    result.geometry = std::move(builder.geometry);
+    return result;
+  }
   auto curve = join_curves(*find_curve(source, a->curve_id), *find_curve(source, b->curve_id), ra, rb,
                            double2(a->parameter_range), double2(b->parameter_range));
   if (!curve) {
@@ -938,6 +969,54 @@ std::optional<TopologyEditResult> dissolve_compatible_patches(const NurbsGeometr
       }
     }
   } while (changed);
+  /* Repair redundant support knots left by earlier crop-and-concatenate dissolves,
+   * including a wire whose topology is already down to its two endpoints. Only fully
+   * selected wire supports participate; surface trim parameterizations stay untouched. */
+  {
+    const auto &current = total.geometry ? *total.geometry : source;
+    index = TopologyIndex::build(current);
+    Set<int64_t> supports, excluded;
+    for (const auto &edge : current.edges) {
+      if (index->uses_for_edge(edge.id).is_empty() &&
+          (eligible.contains(edge.id) || total.edges.contains(edge.id)))
+      {
+        supports.add(edge.curve_id);
+      }
+      else {
+        excluded.add(edge.curve_id);
+      }
+    }
+    for (const int64_t id : supports) {
+      if (excluded.contains(id)) {
+        continue;
+      }
+      const auto *curve = find_curve(total.geometry ? *total.geometry : source, id);
+      if (curve->points_num <= curve->order) {
+        continue;
+      }
+      double extent = 1;
+      for (int i = 1; i < curve->points_num; i++) {
+        extent = std::max(extent, math::distance(double3(curve->points[0].position),
+                                               double3(curve->points[i].position)));
+      }
+      auto reduced = simplify_curve_knots(*curve, 1e-10 * extent);
+      if (!reduced || reduced->curve->points_num == curve->points_num) {
+        continue;
+      }
+      if (!total.geometry) {
+        total.geometry.reset(geometry_copy(&source));
+      }
+      for (auto &target : total.geometry->curves) {
+        if (target.id == id) {
+          std::swap(target.points, reduced->curve->points);
+          std::swap(target.knots, reduced->curve->knots);
+          std::swap(target.points_num, reduced->curve->points_num);
+          std::swap(target.knots_num, reduced->curve->knots_num);
+          break;
+        }
+      }
+    }
+  }
   if (!total.geometry) {
     return std::nullopt;
   }

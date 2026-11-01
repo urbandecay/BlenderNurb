@@ -58,7 +58,7 @@ static bool source_validate(const NurbsGeometry &geometry,
   if (!index) {
     return false;
   }
-  return selection_validate(
+  return control_point_selection_validate(geometry, selection, r_error) && selection_validate(
       selection,
       [&](const ElementRef element) {
         switch (element.domain) {
@@ -419,6 +419,7 @@ size_t snapshot_memory_size(const EditSnapshot &snapshot)
   size_t bytes = sizeof(EditSnapshot) + snapshot.selection.vertices.size_in_bytes() +
                  snapshot.selection.edges.size_in_bytes() +
                  snapshot.selection.faces.size_in_bytes() +
+                 snapshot.selection.control_points.size() * sizeof(CurveControlPointRef) +
                  size_t(snapshot.selection.history.capacity()) * sizeof(ElementRef);
   if (!snapshot.geometry) {
     return bytes;

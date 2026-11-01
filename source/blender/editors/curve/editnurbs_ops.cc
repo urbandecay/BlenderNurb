@@ -10,8 +10,11 @@
 
 #include "DNA_windowmanager_types.h"
 
+#include "BKE_curve.hh"
 #include "BKE_context.hh"
 #include "BKE_nurbs_edit.hh"
+
+#include "DEG_depsgraph.hh"
 
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
@@ -28,6 +31,72 @@
 #include "curve_intern.hh"
 
 namespace blender {
+
+static wmOperatorStatus nurbs_control_points_toggle_exec(bContext *C, wmOperator * /*op*/)
+{
+  Object *object = CTX_data_edit_object(C);
+  Curve *curve = id_cast<Curve *>(object->data);
+  curve->flag ^= CU_SHOW_NURBS_CONTROL_POINTS;
+  BKE_curve_batch_cache_dirty_tag(curve, BKE_CURVE_BATCH_DIRTY_ALL);
+  DEG_id_tag_update(&curve->id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
+  WM_event_add_notifier(C, NC_GEOM | ND_DATA, curve);
+  return OPERATOR_FINISHED;
+}
+
+static wmOperatorStatus nurbs_control_points_sequence_invoke(bContext *C,
+                                                              wmOperator *op,
+                                                              const wmEvent * /*event*/)
+{
+  WM_event_add_modal_handler(C, op);
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static wmOperatorStatus nurbs_control_points_sequence_modal(bContext *C,
+                                                            wmOperator * /*op*/,
+                                                            const wmEvent *event)
+{
+  if (event->type != EVT_MODAL_MAP) {
+    return OPERATOR_RUNNING_MODAL;
+  }
+  switch (event->val) {
+    case NURBS_CONTROL_POINTS_MODAL_TOGGLE:
+      return nurbs_control_points_toggle_exec(C, nullptr);
+    case NURBS_CONTROL_POINTS_MODAL_CIRCLE_SELECT: {
+      wmEvent circle_event = *event;
+      circle_event.type = EVT_CKEY;
+      circle_event.val = KM_RELEASE;
+      WM_operator_name_call(
+          C, "VIEW3D_OT_select_circle", wm::OpCallContext::InvokeDefault, nullptr, &circle_event);
+      return OPERATOR_FINISHED;
+    }
+    case NURBS_CONTROL_POINTS_MODAL_CANCEL:
+      return OPERATOR_CANCELLED;
+    default:
+      return OPERATOR_RUNNING_MODAL;
+  }
+}
+
+void CURVE_OT_nurbs_control_points_toggle(wmOperatorType *ot)
+{
+  ot->name = "Show NURBS Control Points";
+  ot->idname = "CURVE_OT_nurbs_control_points_toggle";
+  ot->description = "Toggle the NURBS control polygon and control points in the viewport";
+  ot->exec = nurbs_control_points_toggle_exec;
+  ot->poll = ed::nurbs::topology_edit_poll;
+  ot->flag = OPTYPE_REGISTER;
+}
+
+void CURVE_OT_nurbs_control_points_sequence(wmOperatorType *ot)
+{
+  ot->name = "NURBS Control Points Shortcut";
+  ot->idname = "CURVE_OT_nurbs_control_points_sequence";
+  ot->description = "Press P while holding C to toggle NURBS control points; release C for Circle "
+                    "Select";
+  ot->invoke = nurbs_control_points_sequence_invoke;
+  ot->modal = nurbs_control_points_sequence_modal;
+  ot->poll = ed::nurbs::topology_edit_poll;
+  ot->flag = OPTYPE_BLOCKING;
+}
 
 static wmOperatorStatus nurbs_rip_invoke(bContext *C, wmOperator * /*op*/, const wmEvent *event)
 {

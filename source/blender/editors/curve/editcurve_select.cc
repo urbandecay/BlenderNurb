@@ -581,9 +581,11 @@ static wmOperatorStatus de_select_all_exec(bContext *C, wmOperator *op)
       Curve *cu = id_cast<Curve *>(obedit->data);
 
       const auto *edit = cu->editnurb->nurbs_edit;
-      const bool native_selected = edit != nullptr && (!edit->selection().vertices.is_empty() ||
-                                                       !edit->selection().edges.is_empty() ||
-                                                       !edit->selection().faces.is_empty());
+      const bool native_selected = edit != nullptr &&
+                                   (!edit->selection().vertices.is_empty() ||
+                                    !edit->selection().edges.is_empty() ||
+                                    !edit->selection().faces.is_empty() ||
+                                    !edit->selection().control_points.is_empty());
       if (native_selected || ED_curve_select_check(v3d, cu->editnurb)) {
         action = SEL_DESELECT;
         break;
@@ -597,6 +599,20 @@ static wmOperatorStatus de_select_all_exec(bContext *C, wmOperator *op)
 
     if (cu->editnurb->nurbs_edit != nullptr) {
       using bke::nurbs::SelectionAction;
+      if (cu->flag & CU_SHOW_NURBS_CONTROL_POINTS) {
+        std::string error;
+        ed::nurbs::select_all_control_points(*bmain,
+                                             *cu,
+                                             action == SEL_INVERT ? SelectionAction::Invert :
+                                             action == SEL_SELECT ? SelectionAction::Add :
+                                                                    SelectionAction::Subtract,
+                                             &error);
+        if (!error.empty()) {
+          BKE_report(op->reports, RPT_ERROR, error.c_str());
+          return OPERATOR_CANCELLED;
+        }
+        continue;
+      }
       const auto expected = cu->editnurb->nurbs_edit->read_snapshot();
       using namespace bke::nurbs;
       Vector<ElementRef> hits;

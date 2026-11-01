@@ -604,6 +604,139 @@ static void expect_dissolve_shape_preserved(const NurbsGeometry &before,
   EXPECT_TRUE(tessellate_surfaces(*after.geometry, preview_options(), &error)) << error;
 }
 
+static OwnedCurve densely_refined_arc(const NurbsCurveGeometry &source, const int segments)
+{
+  Vector<NurbsControlPoint> points;
+  Vector<double> knots;
+  for (int i = 0; i < 3; i++) {
+    knots.append(0);
+  }
+  for (int segment = 0; segment < segments; segment++) {
+    const double start = double(segment) / segments, end = double(segment + 1) / segments;
+    auto piece = restrict_curve(source, {start, end}, 1e-10);
+    if (!piece || piece->curve->points_num != 3) {
+      return nullptr;
+    }
+    points.extend(Span(piece->curve->points, 3).drop_front(segment == 0 ? 0 : 1));
+    if (segment + 1 < segments) {
+      knots.append(end);
+      knots.append(end);
+    }
+  }
+  for (int i = 0; i < 3; i++) {
+    knots.append(1);
+  }
+  OwnedCurve curve(MEM_new<NurbsCurveGeometry>(__func__));
+  curve->order = 3;
+  curve->points_num = points.size();
+  curve->knots_num = knots.size();
+  curve->points = MEM_new_array<NurbsControlPoint>(points.size(), __func__);
+  curve->knots = MEM_new_array<double>(knots.size(), __func__);
+  std::copy(points.begin(), points.end(), curve->points);
+  std::copy(knots.begin(), knots.end(), curve->knots);
+  return curve;
+}
+
+TEST_F(NurbsTopologyEditTest, LimitedDissolveKeepsArcAndCircleSupportCoefficients)
+{
+  for (const bool closed : {false, true}) {
+    OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+    auto support = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, closed ? 2 * M_PI : M_PI);
+    ASSERT_TRUE(support);
+    support->id = source->next_id++;
+    const int64_t support_id = support->id;
+    auto *curve = support.release();
+    BLI_addtail(&source->curves, curve);
+    Vector<NurbsTopologyVertex *> vertices;
+    constexpr int segments = 32;
+    for (int i = 0; i < (closed ? segments : segments + 1); i++) {
+      const auto point = evaluate_curve(*curve, double(i) / segments);
+      ASSERT_TRUE(point);
+      vertices.append(add_vertex(*source, point->position));
+    }
+    for (int i = 0; i < segments; i++) {
+      auto *edge = add_edge(*source, *vertices[i], *vertices[(i + 1) % vertices.size()], *curve);
+      edge->parameter_range[0] = double(i) / segments;
+      edge->parameter_range[1] = double(i + 1) / segments;
+    }
+    SelectionState selected;
+    selected.mode = SelectionMode::Vertex;
+    for (const auto *vertex : vertices) {
+      selected.vertices.add(vertex->id);
+    }
+    const auto flushed = selection_flush(*source, selected, selected.mode);
+    ASSERT_TRUE(flushed);
+    std::string error;
+    auto result = dissolve_limited(*source, *flushed, M_PI / 36, &error);
+    ASSERT_TRUE(result) << error;
+    EXPECT_EQ(result->geometry->vertices.count(), 2);
+    EXPECT_EQ(result->geometry->edges.count(), closed ? 2 : 1);
+    ASSERT_EQ(result->geometry->curves.count(), 1);
+    const auto &after = *static_cast<NurbsCurveGeometry *>(result->geometry->curves.first);
+    EXPECT_EQ(after.id, support_id);
+    ASSERT_EQ(after.points_num, curve->points_num);
+    ASSERT_EQ(after.knots_num, curve->knots_num);
+    EXPECT_EQ(std::memcmp(after.points, curve->points,
+                          sizeof(NurbsControlPoint) * curve->points_num), 0);
+    EXPECT_EQ(std::memcmp(after.knots, curve->knots, sizeof(double) * curve->knots_num), 0);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, LimitedDissolveRepairsAlreadyJoinedDenseArcSupport)
+{
+  auto original = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, M_PI);
+  ASSERT_TRUE(original);
+  auto dense = densely_refined_arc(*original, 32);
+  ASSERT_TRUE(dense);
+  ASSERT_EQ(dense->points_num, 65);
+  OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+  dense->id = source->next_id++;
+  auto *curve = dense.release();
+  BLI_addtail(&source->curves, curve);
+  auto *a = add_vertex(*source, double3(curve->points[0].position));
+  auto *b = add_vertex(*source, double3(curve->points[curve->points_num - 1].position));
+  const auto *edge = add_edge(*source, *a, *b, *curve);
+  SelectionState selected;
+  selected.mode = SelectionMode::Edge;
+  selected.edges.add(edge->id);
+  const auto flushed = selection_flush(*source, selected, selected.mode);
+  ASSERT_TRUE(flushed);
+  std::string error;
+  auto result = dissolve_limited(*source, *flushed, M_PI / 36, &error);
+  ASSERT_TRUE(result) << error;
+  EXPECT_EQ(result->geometry->vertices.count(), 2);
+  EXPECT_EQ(result->geometry->edges.count(), 1);
+  const auto &after = *static_cast<NurbsCurveGeometry *>(result->geometry->curves.first);
+  EXPECT_EQ(after.points_num, 5);
+  EXPECT_EQ(after.order, 3);
+  for (int i = 0; i <= 128; i++) {
+    const double parameter = double(i) / 128;
+    const auto before = evaluate_curve(*curve, parameter), now = evaluate_curve(after, parameter);
+    ASSERT_TRUE(before && now);
+    EXPECT_LT(math::distance(before->position, now->position), 1e-9);
+  }
+}
+
+TEST_F(NurbsTopologyEditTest, KnotReductionRetainsGenuineCurveDetailAndBoundsTotalError)
+{
+  auto original = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, M_PI);
+  ASSERT_TRUE(original);
+  auto dense = densely_refined_arc(*original, 32);
+  ASSERT_TRUE(dense);
+  dense->points[17].position[2] = 0.01;
+  constexpr double budget = 1e-10;
+  auto result = simplify_curve_knots(*dense, budget);
+  ASSERT_TRUE(result);
+  EXPECT_GT(result->curve->points_num, 5);
+  EXPECT_LE(result->geometry_error_bound, budget);
+  for (int i = 0; i <= 256; i++) {
+    const double parameter = double(i) / 256;
+    const auto a = evaluate_curve(*dense, parameter), b = evaluate_curve(*result->curve, parameter);
+    ASSERT_TRUE(a && b);
+    EXPECT_LE(math::distance(a->position, b->position), budget);
+  }
+}
+
 TEST_F(NurbsTopologyEditTest, LimitedDissolveJoinsRoundedStripsWithoutChangingTheirShape)
 {
   for (const int segments : {3, 8}) {

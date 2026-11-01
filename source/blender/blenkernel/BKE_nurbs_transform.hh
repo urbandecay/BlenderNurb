@@ -11,6 +11,7 @@
 #include "BLI_math_matrix_types.hh"
 
 #include "BKE_nurbs_geometry.hh"
+#include "BKE_nurbs_selection.hh"
 
 namespace blender::bke::nurbs {
 
@@ -55,6 +56,21 @@ struct VertexTransform {
   int64_t vertex_id;
   double4x4 matrix;
 };
+
+struct CurveControlPointTransform {
+  CurveControlPointRef point;
+  double4x4 matrix;
+};
+
+/** Deform curve supports by their rational coefficients, retaining weights and knots.
+ * Re-evaluate incident topology stations and keep adjoining endpoints connected. Matching
+ * clamped natural tensor boundaries update every incident surface row, including polynomial
+ * degree elevation used by subdivision bevels. Unsupported interior trims reject atomically. */
+std::optional<GeometryTransformResult> transform_curve_control_points(
+    const NurbsGeometry &source,
+    Span<CurveControlPointTransform> transforms,
+    double max_position_error,
+    std::string *r_error = nullptr);
 
 /**
  * Apply affine transforms to selected source identities and their incident geometry. Equal

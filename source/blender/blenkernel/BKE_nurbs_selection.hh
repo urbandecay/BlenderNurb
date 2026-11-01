@@ -36,7 +36,14 @@ struct ElementRef {
   friend bool operator==(const ElementRef &a, const ElementRef &b) = default;
 };
 
-/** Topology selection. Fit-point constraints/handles are a separate source domain. */
+/** A coefficient belongs to a support resource, independently of topology vertices. */
+struct CurveControlPointRef {
+  int64_t curve_id;
+  int point_index;
+  friend bool operator==(const CurveControlPointRef &, const CurveControlPointRef &) = default;
+};
+
+/** Topology selection and a separate list of source control-coefficient handles. */
 struct SelectionState {
   Set<int64_t> vertices;
   Set<int64_t> edges;
@@ -44,7 +51,13 @@ struct SelectionState {
   std::optional<ElementRef> active;
   Vector<ElementRef> history;
   SelectionMode mode = SelectionMode::Vertex;
+  Vector<CurveControlPointRef> control_points;
+  std::optional<CurveControlPointRef> active_control_point;
 };
+
+bool control_point_selection_validate(const NurbsGeometry &geometry,
+                                      const SelectionState &selection,
+                                      std::string *r_error = nullptr);
 
 /** Check source references, active state and history; does not flush mesh-style V/E/F selection.
  */
@@ -90,10 +103,10 @@ std::optional<SelectionState> selection_apply(const NurbsGeometry &geometry,
 
 bool selection_contains(const SelectionState &selection, ElementRef element);
 
-/** Unique selected topology endpoint positions, in source order and source precision.
+/** Selected coefficient positions followed by unique selected topology endpoint positions.
  * Normalize V/E/F selection first so edge and face selections include their endpoint closure.
- * Empty selection returns an empty vector. No coefficient/fit-point/display samples, mutation,
- * owner transition or ID allocation. Failed source/selection validation returns no result.
+ * Empty selection returns an empty vector. No display samples, mutation, owner transition or
+ * ID allocation. Failed source/selection validation returns no result.
  */
 std::optional<Vector<double3>> selection_positions(const NurbsGeometry &geometry,
                                                    const SelectionState &selection,

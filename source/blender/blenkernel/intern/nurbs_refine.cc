@@ -7,9 +7,11 @@
  */
 
 #include <array>
+#include <cmath>
 #include <limits>
 #include <numeric>
 
+#include "BLI_listbase.h"
 #include "BLI_math_vector.hh"
 
 #include "BKE_nurbs_refine.hh"
@@ -522,6 +524,282 @@ std::optional<CurveRefinementResult> restrict_curve(const NurbsCurveGeometry &so
     return std::nullopt;
   }
   return CurveRefinementResult{std::move(curve), bound};
+}
+
+static bool insert_refinement_knot(CurveData &data, const double parameter)
+{
+  const int degree = data.order - 1;
+  const int span = int(std::upper_bound(data.knots.begin(), data.knots.end(), parameter) -
+                       data.knots.begin()) -
+                   1;
+  const int multiplicity = int(std::count(data.knots.begin(), data.knots.end(), parameter));
+  if (multiplicity >= data.order || span < degree || span >= data.points.size()) {
+    return false;
+  }
+  const int first = span - degree + 1, last = span - multiplicity;
+  Vector<Coefficient> points;
+  points.extend(data.points.as_span().take_front(first));
+  for (int i = first; i <= last; i++) {
+    const Interval alpha = (Interval(parameter) - Interval(data.knots[i])) /
+                           (Interval(data.knots[i + degree]) - Interval(data.knots[i]));
+    if (!alpha.valid()) {
+      return false;
+    }
+    points.append(blend(data.points[i - 1], data.points[i], alpha));
+  }
+  points.extend(data.points.as_span().drop_front(last));
+  data.points = std::move(points);
+  data.knots.insert(span + 1, parameter);
+  return true;
+}
+
+/* The circle constructor stores four quadratic quarters. Restricting across their
+ * joins retains an internal knot even when the visible edge is only a small arc.
+ * Recognize that constructor's affine conic by its complete coefficient net, then
+ * give a wire edge its own quadratic parameterization. Face p-curves retain theirs.
+ * This also works after an affine object transform (an ellipse in object space). */
+static std::optional<CurveRefinementResult> single_circle_arc(const NurbsCurveGeometry &source,
+                                                              const double2 range,
+                                                              const double3 &start,
+                                                              const double3 &end,
+                                                              const double max_error)
+{
+  if (source.order != 3 || source.points_num != 9 || source.knots_num != 12) {
+    return std::nullopt;
+  }
+  const double low = source.knots[2], high = source.knots[9];
+  const double quarter_weight = std::cos(M_PI / 4);
+  const int knot_quarters[] = {0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4};
+  for (int i = 0; i < 12; i++) {
+    if (source.knots[i] != std::lerp(low, high, knot_quarters[i] / 4.0)) {
+      return std::nullopt;
+    }
+  }
+  const double3 center = (double3(source.points[0].position) +
+                          double3(source.points[4].position)) /
+                         2;
+  const double3 x = double3(source.points[0].position) - center;
+  const double3 y = double3(source.points[2].position) - center;
+  const int2 offsets[] = {
+      {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}, {1, 0}};
+  double deviation = 0, extent = 1;
+  for (int i = 0; i < 9; i++) {
+    if (source.points[i].weight != (i % 2 ? quarter_weight : 1)) {
+      return std::nullopt;
+    }
+    const double3 expected = center + offsets[i].x * x + offsets[i].y * y;
+    deviation = std::max(deviation, math::distance(expected, double3(source.points[i].position)));
+    extent = std::max(extent, math::length(expected));
+  }
+  auto angle = [&](const double parameter) {
+    const double u = 4 * (parameter - low) / (high - low);
+    const int quarter = std::clamp(int(u), 0, 3);
+    const double t = u - quarter;
+    const double middle = 2 * t * (1 - t) * quarter_weight;
+    return quarter * (M_PI / 2) + std::atan2(middle + t * t, (1 - t) * (1 - t) + middle);
+  };
+  const double a = angle(range.x), b = angle(range.y);
+  const double weight = std::cos((b - a) / 2);
+  if (!(b > a) || b - a >= M_PI - 1e-6 || weight < 1e-4) {
+    return std::nullopt;
+  }
+  auto position = [&](const double theta) {
+    return center + std::cos(theta) * x + std::sin(theta) * y;
+  };
+  deviation = std::max(
+      {deviation, math::distance(position(a), start), math::distance(position(b), end)});
+  /* Identical positive basis weights bound parent-versus-conic error by the largest
+   * coefficient discrepancy. Allow for constructing the affine frame, angle conversion,
+   * and the new quadratic (including its division by the middle weight). */
+  const double bound = detail::add_upper(
+      2 * deviation,
+      detail::multiply_upper(512 * std::numeric_limits<double>::epsilon(),
+                             extent / (weight * weight)));
+  if (!std::isfinite(bound) || bound > max_error) {
+    return std::nullopt;
+  }
+  OwnedCurve curve(MEM_new<NurbsCurveGeometry>(__func__));
+  curve->order = curve->points_num = 3;
+  curve->knots_num = 6;
+  curve->points = MEM_new_array<NurbsControlPoint>(3, __func__);
+  curve->knots = MEM_new_array<double>(6, __func__);
+  const double middle = (a + b) / 2;
+  const double3 control = center + (std::cos(middle) * x + std::sin(middle) * y) / weight;
+  std::copy_n(&start.x, 3, curve->points[0].position);
+  std::copy_n(&control.x, 3, curve->points[1].position);
+  std::copy_n(&end.x, 3, curve->points[2].position);
+  curve->points[1].weight = weight;
+  for (int i = 0; i < 6; i++) {
+    curve->knots[i] = i < 3 ? range.x : range.y;
+  }
+  return CurveRefinementResult{std::move(curve), bound};
+}
+
+std::optional<Vector<CurveControlCage>> curve_control_cages(const NurbsGeometry &source,
+                                                            const double max_error,
+                                                            std::string *r_error)
+{
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  Map<int64_t, Vector<const NurbsTopologyEdge *>> supports;
+  for (const auto &edge : source.edges) {
+    supports.lookup_or_add_default(edge.curve_id).append(&edge);
+  }
+  Vector<CurveControlCage> cages;
+  for (const auto &curve : source.curves) {
+    auto *edges = supports.lookup_ptr(curve.id);
+    if (!edges || curve.dimension != 3) {
+      continue;
+    }
+    std::sort(edges->begin(), edges->end(), [](const auto *a, const auto *b) {
+      return a->parameter_range[0] < b->parameter_range[0];
+    });
+    Vector<CurveControlCage> intervals;
+    for (const auto *edge : *edges) {
+      const double2 range(edge->parameter_range);
+      CurveControlCage interval{curve.id, range, {}, nullptr};
+      interval.edges.append(edge->id);
+      intervals.append(std::move(interval));
+    }
+    for (auto &interval : intervals) {
+      auto cropped = restrict_curve(curve, interval.range, max_error, r_error);
+      if (!cropped) {
+        return std::nullopt;
+      }
+      const auto *edge = index->edge(interval.edges[0]);
+      if (index->uses_for_edge(edge->id).is_empty()) {
+        auto simple = single_circle_arc(curve,
+                                        interval.range,
+                                        double3(index->vertex(edge->vertex_ids[0])->position),
+                                        double3(index->vertex(edge->vertex_ids[1])->position),
+                                        max_error);
+        if (simple) {
+          cropped = std::move(simple);
+          interval.reparameterized = true;
+        }
+      }
+      interval.geometry_error_bound = cropped->geometry_error_bound;
+      interval.curve = std::move(cropped->curve);
+      const auto &restricted = *interval.curve;
+      interval.uses_source_points = restricted.order == curve.order &&
+                                    restricted.points_num == curve.points_num &&
+                                    restricted.knots_num == curve.knots_num &&
+                                    std::equal(restricted.knots,
+                                               restricted.knots + restricted.knots_num,
+                                               curve.knots);
+      for (int i = 0; interval.uses_source_points && i < curve.points_num; i++) {
+        interval.uses_source_points = restricted.points[i].weight == curve.points[i].weight &&
+                                      double3(restricted.points[i].position) ==
+                                          double3(curve.points[i].position);
+      }
+      cages.append(std::move(interval));
+    }
+  }
+  return cages;
+}
+
+std::optional<CurveRefinementResult> simplify_curve_knots(const NurbsCurveGeometry &source,
+                                                          const double max_error,
+                                                          std::string *r_error)
+{
+  if (r_error) {
+    r_error->clear();
+  }
+  if (!budget_valid(max_error, r_error) || !curve_validate_structure(source, r_error)) {
+    return std::nullopt;
+  }
+  CurveData current(source);
+  double accepted_error = 0;
+  bool changed;
+  do {
+    changed = false;
+    for (int r = current.order; r < current.points.size(); r++) {
+      const double parameter = current.knots[r];
+      if (parameter <= current.knots[current.order - 1] ||
+          parameter >= current.knots[current.points.size()] || current.knots[r + 1] == parameter)
+      {
+        continue;
+      }
+      Vector<double> knots;
+      for (const int i : current.knots.index_range()) {
+        if (i != r) {
+          knots.append(current.knots[i]);
+        }
+      }
+      const int degree = current.order - 1, span = r - 1;
+      const int multiplicity = int(std::count(knots.begin(), knots.end(), parameter));
+      const int first = span - degree + 1, last = span - multiplicity;
+      Vector<Coefficient> points;
+      points.extend(current.points.as_span().take_front(first));
+      bool valid = true;
+      /* Invert insertion from the unchanged left coefficients. The right coefficients
+       * stay fixed; reinsertion below checks their shared equation and the whole curve. */
+      for (int i = first; i < last; i++) {
+        const Interval alpha = (Interval(parameter) - Interval(knots[i])) /
+                               (Interval(knots[i + degree]) - Interval(knots[i]));
+        if (!alpha.valid() || alpha.low <= 0) {
+          valid = false;
+          break;
+        }
+        std::array<Interval, 4> h;
+        for (int axis = 0; axis < 4; axis++) {
+          h[axis] = (current.points[i].homogeneous[axis] -
+                     (Interval(1) - alpha) * points.last().homogeneous[axis]) /
+                    alpha;
+        }
+        Coefficient point(h);
+        if (!(h[3].low > 0) || !std::isfinite(point.value.weight)) {
+          valid = false;
+          break;
+        }
+        points.append(point);
+      }
+      if (!valid) {
+        continue;
+      }
+      points.extend(current.points.as_span().drop_front(last + 1));
+      CurveData proposed(current.order, knots, points);
+      auto stored = proposed.store(source.dimension, source.id);
+      if (!curve_validate_structure(*stored)) {
+        continue;
+      }
+      CurveData refined(*stored);
+      /* Compare against the initial input, not the previous removal: roundoff and
+       * approximation cannot accumulate beyond the caller's single error budget. */
+      for (int i = source.order; i < source.points_num && valid;) {
+        const double knot = source.knots[i];
+        int end = i + 1;
+        while (end < source.points_num && source.knots[end] == knot) {
+          end++;
+        }
+        int count = int(std::count(refined.knots.begin(), refined.knots.end(), knot));
+        while (count++ < end - i) {
+          if (!insert_refinement_knot(refined, knot)) {
+            valid = false;
+            break;
+          }
+        }
+        i = end;
+      }
+      if (!valid || refined.points.size() != source.points_num) {
+        continue;
+      }
+      for (const int i : refined.points.index_range()) {
+        refined.points[i].value = source.points[i];
+      }
+      const double bound = coefficient_error(refined.points);
+      if (!std::isfinite(bound) || bound > max_error) {
+        continue;
+      }
+      current = CurveData(*stored);
+      accepted_error = bound;
+      changed = true;
+      break;
+    }
+  } while (changed);
+  return CurveRefinementResult{current.store(source.dimension, source.id), accepted_error};
 }
 
 std::optional<CurveRefinementResult> surface_isocurve(const NurbsSurfaceGeometry &source,

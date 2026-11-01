@@ -1745,6 +1745,14 @@ static void rna_def_curve(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_PTR_NO_OWNERSHIP);
   RNA_def_property_ui_text(prop, "Shape Keys", "");
 
+  prop = RNA_def_property(srna, "show_nurbs_control_points", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, nullptr, "flag", CU_SHOW_NURBS_CONTROL_POINTS);
+  RNA_def_property_ui_text(prop,
+                           "Show NURBS Control Points",
+                           "Display the native NURBS control polygon and control points in edit "
+                           "mode");
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
   prop = RNA_def_property(srna, "splines", PROP_COLLECTION, PROP_NONE);
 #  if 0
   RNA_def_property_collection_sdna(prop, nullptr, "nurb", nullptr);

@@ -65,6 +65,8 @@ void ED_operatortypes_curve()
   WM_operatortype_append(CURVE_OT_rip);
   WM_operatortype_append(CURVE_OT_merge);
   WM_operatortype_append(CURVE_OT_dissolve_limited);
+  WM_operatortype_append(CURVE_OT_nurbs_control_points_toggle);
+  WM_operatortype_append(CURVE_OT_nurbs_control_points_sequence);
   WM_operatortype_append(CURVE_OT_bevel);
   WM_operatortype_append(CURVE_OT_remove_doubles);
   WM_operatortype_append(CURVE_OT_loopcut_slide);
@@ -179,6 +181,24 @@ void ED_keymap_curve(wmKeyConfig *keyconf)
   /* only set in editmode curve, by space_view3d listener */
   keymap = WM_keymap_ensure(keyconf, "Curve", SPACE_EMPTY, RGN_TYPE_WINDOW);
   keymap->poll = ED_operator_editsurfcurve_or_nurbs;
+
+  static const EnumPropertyItem control_points_modal_items[] = {
+      {NURBS_CONTROL_POINTS_MODAL_TOGGLE,
+       "TOGGLE_CONTROL_POINTS",
+       0,
+       "Show NURBS Control Points",
+       "Toggle the NURBS control polygon and control points"},
+      {NURBS_CONTROL_POINTS_MODAL_CIRCLE_SELECT,
+       "CIRCLE_SELECT",
+       0,
+       "Circle Select",
+       "Continue to circle selection when C is released"},
+      {NURBS_CONTROL_POINTS_MODAL_CANCEL, "CANCEL", 0, "Cancel", "Cancel the shortcut"},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+  wmKeyMap *control_points_modal_keymap = WM_modalkeymap_ensure(
+      keyconf, "NURBS Control Points Sequence", control_points_modal_items);
+  WM_modalkeymap_assign(control_points_modal_keymap, "CURVE_OT_nurbs_control_points_sequence");
 
   /* Use mesh bevel's modal actions and user bindings. Its action table can be initialized
    * later by the mesh editor; WM supports this registration order. */

@@ -394,7 +394,7 @@ bool geometry_validate_structure(const NurbsGeometry &geometry, std::string *r_e
     if (!selection) {
       return false;
     }
-    return selection_validate(
+    return control_point_selection_validate(geometry, *selection, r_error) && selection_validate(
         *selection,
         [&](const ElementRef element) {
           switch (element.domain) {
