@@ -10,8 +10,11 @@
 
 #include "BLI_math_vector.hh"
 
+#include "BKE_nurbs_construct.hh"
+#include "BKE_nurbs_evaluate.hh"
 #include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_topology_edit.hh"
+#include "BKE_nurbs_transform.hh"
 
 #include "nurbs_math.hh"
 #include "nurbs_topology_edit.hh"
@@ -1105,6 +1108,225 @@ std::optional<TopologyEditResult> subdivide_components(const NurbsGeometry &sour
     }
   }
   return result;
+}
+
+std::optional<OwnedGeometry> open_planar_extrusion_exit(const NurbsGeometry &source,
+                                                        const int64_t cap_face,
+                                                        const double3 &travel,
+                                                        const double max_error,
+                                                        std::string *r_error)
+{
+  const auto index = TopologyIndex::build(source, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  const auto *cap = index->face(cap_face);
+  if (!cap || !cap->loops.is_single() || math::length_squared(travel) == 0) {
+    return OwnedGeometry(geometry_copy(&source));
+  }
+  Map<int64_t, const NurbsSurfaceGeometry *> surfaces;
+  Map<int64_t, const NurbsCurveGeometry *> curves;
+  for (const auto &s : source.surfaces) {
+    surfaces.add_new(s.id, &s);
+  }
+  for (const auto &c : source.curves) {
+    curves.add_new(c.id, &c);
+  }
+  const auto &support = *surfaces.lookup(cap->surface_id);
+  const auto frame = evaluate_surface_differential(
+      support,
+      double2((support.knots_u[support.order_u - 1] + support.knots_u[support.points_u]) / 2,
+              (support.knots_v[support.order_v - 1] + support.knots_v[support.points_v]) / 2));
+  if (!frame || !frame->normal || math::dot(travel, *frame->normal * cap->orientation) >= 0) {
+    return OwnedGeometry(geometry_copy(&source));
+  }
+  const auto &cap_loop = *static_cast<const NurbsTopologyLoop *>(cap->loops.first);
+  Set<int64_t> cap_vertices;
+  Vector<double3> hull;
+  for (const auto &use : cap_loop.edge_uses) {
+    const auto &edge = *index->edge(use.edge_id);
+    cap_vertices.add(edge.vertex_ids[0]);
+    cap_vertices.add(edge.vertex_ids[1]);
+    for (const auto &point :
+         Span(curves.lookup(edge.curve_id)->points, curves.lookup(edge.curve_id)->points_num))
+    {
+      if (!(point.weight > 0)) {
+        return OwnedGeometry(geometry_copy(&source));
+      }
+      hull.append(double3(point.position));
+    }
+  }
+  const Vector<int64_t> cap_ids{cap_face};
+  const auto linked = find_linked_components(
+      source, {{}, {}, cap_ids}, LinkedConnectivity::FaceBoundaries, r_error);
+  if (!linked) {
+    return std::nullopt;
+  }
+  /* Solid cuts require a closed, consistently traversed boundary. Sheets and wires retain
+   * their ordinary extrusion behavior. */
+  for (const int64_t edge : linked->edges) {
+    const auto uses = index->uses_for_edge(edge);
+    if (uses.size() != 2 ||
+        ((uses[0].use->reversed != 0) ^ (index->face(uses[0].face_id)->orientation < 0)) ==
+            ((uses[1].use->reversed != 0) ^ (index->face(uses[1].face_id)->orientation < 0)))
+    {
+      return OwnedGeometry(geometry_copy(&source));
+    }
+  }
+  const double3 end = hull.first();
+  double hit_factor = 2;
+  int64_t exit_id = 0;
+  for (const int64_t id : linked->faces) {
+    const auto &face = *index->face(id);
+    if (id == cap_face || !face.loops.is_single()) {
+      continue;
+    }
+    const auto &s = *surfaces.lookup(face.surface_id);
+    if (s.order_u != 2 || s.order_v != 2 || s.points_u != 2 || s.points_v != 2) {
+      continue;
+    }
+    const double3 origin(s.points[0].position);
+    const double3 u = double3(s.points[1].position) - origin;
+    const double3 v = double3(s.points[2].position) - origin;
+    const double3 normal = math::normalize(math::cross(u, v));
+    if (normal == double3(0) ||
+        math::dot(normal * face.orientation, *frame->normal * cap->orientation) > -1 + 1e-10)
+    {
+      continue;
+    }
+    bool planar = true;
+    for (const auto &p : Span(s.points, 4)) {
+      planar &= p.weight == s.points[0].weight &&
+                std::abs(math::dot(double3(p.position) - origin, normal)) <= max_error;
+    }
+    const double denominator = math::dot(travel, normal);
+    if (!planar || std::abs(denominator) < 1e-15 * math::length(travel)) {
+      continue;
+    }
+    const double factor = math::dot(origin - (end - travel), normal) / denominator;
+    if (factor <= 0 || factor > 1 + max_error / std::abs(denominator) || factor >= hit_factor) {
+      continue;
+    }
+    const double3 back = (std::min(factor, 1.0) - 1) * travel;
+    Vector<double3> polygon;
+    bool supported = true;
+    for (const auto &use : static_cast<const NurbsTopologyLoop *>(face.loops.first)->edge_uses) {
+      const auto &edge = *index->edge(use.edge_id);
+      const auto &curve = *curves.lookup(edge.curve_id);
+      supported &= curve.order == 2 && curve.points_num == 2 &&
+                   curve.points[0].weight == curve.points[1].weight;
+      polygon.append(double3(index->vertex(edge.vertex_ids[use.reversed ? 1 : 0])->position));
+    }
+    /* A positive rational curve lies in its control hull. Strict half-plane containment
+     * proves the complete opening stays inside this convex face, not just its sample points. */
+    double sign = 0;
+    for (const int i : polygon.index_range()) {
+      const double3 a = polygon[i], b = polygon[(i + 1) % polygon.size()];
+      const double3 inward = math::cross(normal, b - a);
+      double side_sign = 0;
+      for (const double3 &p : polygon) {
+        const double side = math::dot(p - a, inward);
+        if (std::abs(side) > max_error * math::length(inward)) {
+          if (side_sign && side_sign * side < 0) {
+            supported = false;
+          }
+          side_sign = side > 0 ? 1 : -1;
+        }
+      }
+      if (!side_sign || (sign && sign != side_sign)) {
+        supported = false;
+      }
+      sign = side_sign;
+      for (const double3 &p : hull) {
+        supported &= std::abs(math::dot(p + back - origin, normal)) <= max_error &&
+                     sign * math::dot(p + back - a, inward) > max_error * math::length(inward);
+      }
+    }
+    if (supported) {
+      hit_factor = std::min(factor, 1.0);
+      exit_id = id;
+    }
+  }
+  if (!exit_id) {
+    return OwnedGeometry(geometry_copy(&source));
+  }
+  const Vector<int64_t> vertices(cap_vertices.begin(), cap_vertices.end());
+  auto clipped = translate_vertices(
+      source, vertices, (hit_factor - 1) * travel, max_error, r_error);
+  if (!clipped) {
+    return std::nullopt;
+  }
+  const Vector<int64_t> exit_ids{exit_id};
+  auto chart = reparameterize_affine_planes(*clipped->geometry, exit_ids, max_error, r_error);
+  if (!chart) {
+    return std::nullopt;
+  }
+  detail::TopologyBuilder builder(*chart->geometry);
+  auto &exit = *builder.faces.lookup(exit_id);
+  const auto &s = *builder.surfaces.lookup(exit.surface_id);
+  const double3 origin(s.points[0].position);
+  const double3 u = double3(s.points[1].position) - origin;
+  const double3 v = double3(s.points[2].position) - origin;
+  const double uu = math::dot(u, u), uv = math::dot(u, v), vv = math::dot(v, v);
+  const double det = uu * vv - uv * uv;
+  if (!(det > 0)) {
+    if (r_error) {
+      *r_error = "NURBS exit face has a singular plane chart";
+    }
+    return std::nullopt;
+  }
+  auto *hole = MEM_new<NurbsTopologyLoop>(__func__);
+  hole->id = builder.id();
+  hole->is_inner = 1;
+  BLI_addtail(&exit.loops, hole);
+  const auto &old_cap = *builder.faces.lookup(cap_face);
+  const bool reverse = old_cap.orientation != exit.orientation;
+  for (const auto &old : static_cast<const NurbsTopologyLoop *>(old_cap.loops.first)->edge_uses) {
+    const auto &curve = *builder.curves.lookup(builder.edges.lookup(old.edge_id)->curve_id);
+    const auto &edge = *builder.edges.lookup(old.edge_id);
+    auto interval = restrict_curve(curve, double2(edge.parameter_range), max_error, r_error);
+    if (!interval) {
+      return std::nullopt;
+    }
+    auto *pcurve = interval->curve.release();
+    pcurve->id = builder.id();
+    pcurve->dimension = 2;
+    for (const int end : IndexRange(2)) {
+      std::copy_n(builder.vertices.lookup(edge.vertex_ids[end])->position,
+                  3,
+                  pcurve->points[end ? pcurve->points_num - 1 : 0].position);
+    }
+    for (auto &p : MutableSpan(pcurve->points, pcurve->points_num)) {
+      const double3 delta = double3(p.position) - origin;
+      const double du = math::dot(delta, u), dv = math::dot(delta, v);
+      p.position[0] = std::lerp(
+          s.knots_u[s.order_u - 1], s.knots_u[s.points_u], (du * vv - dv * uv) / det);
+      p.position[1] = std::lerp(
+          s.knots_v[s.order_v - 1], s.knots_v[s.points_v], (dv * uu - du * uv) / det);
+      p.position[2] = 0;
+    }
+    BLI_addtail(&builder.geometry->curves, pcurve);
+    auto *use = MEM_dupalloc(&old);
+    use->id = builder.id();
+    use->pcurve_id = pcurve->id;
+    use->tolerance = std::max(use->tolerance, max_error);
+    if (reverse) {
+      use->reversed = !use->reversed;
+      BLI_addhead(&hole->edge_uses, use);
+    }
+    else {
+      BLI_addtail(&hole->edge_uses, use);
+    }
+  }
+  if (!builder.valid()) {
+    return std::nullopt;
+  }
+  auto removed = delete_components(
+      *builder.geometry, {{}, {}, cap_ids}, DeleteMode::FacesOnly, r_error);
+  if (!removed || !evaluate_boundaries(*removed->geometry, {}, r_error)) {
+    return std::nullopt;
+  }
+  return std::move(removed->geometry);
 }
 
 }  // namespace blender::bke::nurbs

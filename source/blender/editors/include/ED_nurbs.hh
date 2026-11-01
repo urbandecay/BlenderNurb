@@ -214,6 +214,7 @@ bool manifold_extrusion_can_extend_faces(const Curve &curve);
 bool finish_manifold_extrusion(Main &bmain,
                                Curve &curve,
                                double merge_distance,
+                               const double3 &travel,
                                std::string *r_error = nullptr);
 
 /** Connect or fill source components using the shared construction service. Context form

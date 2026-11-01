@@ -76,6 +76,7 @@ gpu::Batch *DRW_cache_mesh_surface_sculptcolors_get(Object *ob);
 gpu::Batch *DRW_cache_mesh_surface_weights_get(Object *ob);
 gpu::Batch *DRW_cache_mesh_surface_mesh_analysis_get(Object *ob);
 gpu::Batch *DRW_cache_mesh_face_wireframe_get(Object *ob);
+gpu::Batch *DRW_cache_mesh_nurbs_isocurves_get(Object *ob);
 gpu::Batch *DRW_cache_mesh_surface_viewer_attribute_get(Object *ob);
 
 /* Curve */

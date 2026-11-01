@@ -184,6 +184,9 @@ class Wireframe : Overlay {
             gpu::Batch *geom = DRW_cache_mesh_face_wireframe_get(ob_ref.object);
             (all_edges ? coloring.mesh_all_edges_ps_ : coloring.mesh_ps_)
                 ->draw(geom, manager.unique_handle(ob_ref), res.select_id(ob_ref).get());
+            if (gpu::Batch *curves = DRW_cache_mesh_nurbs_isocurves_get(ob_ref.object)) {
+              coloring.curves_ps_->draw(curves, manager.unique_handle(ob_ref), res.select_id(ob_ref).get());
+            }
           }
         }
 

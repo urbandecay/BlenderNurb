@@ -22,6 +22,7 @@
 #include "BLI_time.h"
 
 #include "BKE_nurbs_debug.hh"
+#include "BKE_nurbs_refine.hh"
 #include "BKE_nurbs_selection.hh"
 #include "BKE_nurbs_tessellate.hh"
 
@@ -149,6 +150,99 @@ static std::optional<Vector<double>> axis_samples(const double minimum,
     }
   }
   return result;
+}
+
+/** Display chords of exact rational isocurves, clipped against the same sampled trim loops
+ * used by the shading preview. Trimming affects display intervals only, never source geometry. */
+static bool append_isocurves(const NurbsSurfaceGeometry &surface,
+                             const int64_t face_id,
+                             const Span<Vector<int>> loops,
+                             const Span<double2> uv,
+                             const double2 minimum,
+                             const double2 maximum,
+                             const SurfacePreviewOptions &options,
+                             SurfacePreview &result,
+                             std::string *r_error)
+{
+  for (const int axis : IndexRange(2)) {
+    const Span<double> knots(axis ? surface.knots_v : surface.knots_u,
+                             axis ? surface.knots_v_num : surface.knots_u_num);
+    const auto stations = axis_samples(minimum[axis],
+                                       maximum[axis],
+                                       knots,
+                                       options.isocurve_subdivisions,
+                                       options.max_points,
+                                       r_error);
+    if (!stations) {
+      return false;
+    }
+    for (const double station : *stations) {
+      auto curve = surface_isocurve(
+          surface, axis, station, std::numeric_limits<double>::max(), r_error);
+      if (!curve) {
+        return false;
+      }
+      Vector<double> crossings;
+      for (const auto &loop : loops) {
+        for (const int i : loop.index_range()) {
+          const double2 a = uv[loop[i]], b = uv[loop[(i + 1) % loop.size()]];
+          /* Half-open crossings count a trim vertex once and ignore tangential contacts. */
+          if ((a[axis] <= station && station < b[axis]) ||
+              (b[axis] <= station && station < a[axis]))
+          {
+            crossings.append(
+                std::lerp(a[1 - axis], b[1 - axis], (station - a[axis]) / (b[axis] - a[axis])));
+          }
+        }
+      }
+      std::sort(crossings.begin(), crossings.end());
+      if (crossings.size() % 2) {
+        continue;
+      }
+      for (int i = 0; i + 1 < crossings.size(); i += 2) {
+        const double low = crossings[i], high = crossings[i + 1];
+        if (!(high > low)) {
+          continue;
+        }
+        /* Include every remaining-axis knot and sample within each interval. */
+        const auto samples = axis_samples(low,
+                                          high,
+                                          Span(curve->curve->knots, curve->curve->knots_num),
+                                          16,
+                                          options.max_points,
+                                          r_error);
+        if (!samples) {
+          return false;
+        }
+        Vector<double> parameters;
+        parameters.append(low);
+        parameters.extend(*samples);
+        parameters.append(high);
+        int previous = -1;
+        for (const double parameter : parameters) {
+          if (result.points_num() >= options.max_points) {
+            if (r_error) {
+              *r_error = "NURBS isocurve display exceeds its point budget";
+            }
+            return false;
+          }
+          double2 location;
+          location[axis] = station;
+          location[1 - axis] = parameter;
+          const double2 one[] = {location};
+          const auto point = evaluate_surface_points(surface, Span(one, 1), r_error);
+          if (!point) { return false; }
+          const int current = result.points_num();
+          result.interior.append({(*point)[0].position, face_id, location});
+          if (previous >= 0) {
+            result.isocurves.append({{previous, current}, face_id});
+          }
+          previous = current;
+        }
+      }
+    }
+  }
+  return true;
 }
 
 /** A complete Cartesian UV grid needs no general constrained triangulation. Every
@@ -281,8 +375,9 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
     return std::nullopt;
   };
   const double epsilon = options.normalized_merge_epsilon;
-  if (options.interior_subdivisions < 1 || options.max_points < 1 || options.max_triangles < 0 ||
-      !std::isfinite(epsilon) || epsilon <= 0 || epsilon > 1 || epsilon * epsilon == 0)
+  if (options.isocurve_subdivisions < 1 || options.interior_subdivisions < 1 ||
+      options.max_points < 1 || options.max_triangles < 0 || !std::isfinite(epsilon) ||
+      epsilon <= 0 || epsilon > 1 || epsilon * epsilon == 0)
   {
     return fail("Invalid NURBS surface preview options");
   }
@@ -568,6 +663,13 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
                                 output_to_input[triangle[2]]});
       }
     }
+    Set<int2> display_boundaries;
+    for (const auto &loop : loops) {
+      for (const int i : loop.index_range()) {
+        const int a = input_to_global[loop[i]], b = input_to_global[loop[(i+1)%loop.size()]];
+        display_boundaries.add(int2(std::min(a,b), std::max(a,b)));
+      }
+    }
     Vector<double2> interior_parameters;
     for (const int3 triangle : input_triangles) {
       const int direction = orient2d(
@@ -607,9 +709,8 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
         std::swap(evaluated.parameters[1], evaluated.parameters[2]);
       }
       for (const int i : IndexRange(3)) {
-        const double2 a = evaluated.parameters[i];
-        const double2 b = evaluated.parameters[(i + 1) % 3];
-        evaluated.display_edges[i] = !quad_grid || a.x == b.x || a.y == b.y;
+        const int a = evaluated.points[i], b = evaluated.points[(i+1)%3];
+        evaluated.display_edges[i] = display_boundaries.contains(int2(std::min(a,b), std::max(a,b)));
       }
       result.triangles.append(evaluated);
     }
@@ -624,6 +725,10 @@ static std::optional<SurfacePreview> tessellate_surface_subset(
         result.max_interior_weight_condition = std::max(result.max_interior_weight_condition,
                                                         point.weight_condition);
       }
+    }
+    if (!append_isocurves(surface, face.id, loops, uv, minimum, maximum, options, result, r_error))
+    {
+      return std::nullopt;
     }
   }
   NURBS_DEBUG_LOG(
@@ -671,6 +776,7 @@ std::optional<SurfacePreview> refresh_surface_preview(
       options.boundary.max_sample_entries != previous_options.boundary.max_sample_entries ||
       options.boundary.evaluation_allowance != previous_options.boundary.evaluation_allowance ||
       options.interior_subdivisions != previous_options.interior_subdivisions ||
+      options.isocurve_subdivisions != previous_options.isocurve_subdivisions ||
       options.max_points != previous_options.max_points ||
       options.max_triangles != previous_options.max_triangles ||
       options.normalized_merge_epsilon != previous_options.normalized_merge_epsilon ||
@@ -898,6 +1004,12 @@ std::optional<SurfacePreview> refresh_surface_preview(
           result.triangles.append(triangle);
         }
       }
+      for (const auto &segment : input.isocurves) {
+        if (segment.face_id == face.id) {
+          result.isocurves.append(
+              {{point_map[segment.points.x], point_map[segment.points.y]}, face.id});
+        }
+      }
       if (result.points_num() > options.max_points ||
           result.triangles.size() > options.max_triangles)
       {
@@ -920,6 +1032,7 @@ std::optional<SurfacePreview> refresh_surface_preview(
   result.boundary = std::move(*boundary);
   result.interior = previous.interior;
   result.triangles = previous.triangles;
+  result.isocurves = previous.isocurves;
   result.skipped_repeated_point_triangles = previous.skipped_repeated_point_triangles;
   result.skipped_triangles_by_face = previous.skipped_triangles_by_face;
   result.reused_faces = source.faces.count();

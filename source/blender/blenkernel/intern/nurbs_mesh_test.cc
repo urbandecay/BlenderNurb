@@ -823,9 +823,9 @@ TEST_F(NurbsMeshEvaluationTest, RectangularSurfaceShowsAQuadGridAtDifferentResol
         wires++;
       }
     }
-    EXPECT_EQ(wires, 2 * resolution * (resolution + 1));
+    EXPECT_EQ(wires, 4 * resolution);
     EXPECT_EQ(mesh.faces_num, 2 * resolution * resolution);
-    EXPECT_EQ(mesh.edges_num - wires, resolution * resolution);
+    EXPECT_EQ(mesh.edges_num - wires, 3 * resolution * resolution - 2 * resolution);
     EXPECT_EQ(result->source, snapshot);
     EXPECT_EQ(snapshot.geometry().faces.count(), 1);
     EXPECT_EQ(snapshot.geometry().edges.count(), 4);
@@ -921,13 +921,13 @@ TEST_F(NurbsMeshEvaluationTest, CollapsedBoxKeepsQuadBaseAndTriangularWallGrids)
         hidden_base_diagonals += !triangle.display_edges[i];
       }
       else {
-        EXPECT_TRUE(triangle.display_edges[i]);
+        /* Interior shading diagonals are hidden; separate U/V curves remain visible. */
         triangular_faces.add(triangle.face_id);
       }
     }
   }
   EXPECT_EQ(triangular_faces.size(), 4);
-  EXPECT_EQ(hidden_base_diagonals, 2 * 7 * 7);
+  EXPECT_EQ(hidden_base_diagonals, 6 * 7 * 7 - 4 * 7);
   const auto &visible = result->mesh->runtime->subsurf_optimal_display_edges;
   const auto corners = result->mesh->corner_edges();
   for (const int face : result->mesh_to_preview_triangle.index_range()) {
@@ -951,7 +951,7 @@ TEST_F(NurbsMeshEvaluationTest, CollapsedBoxKeepsQuadBaseAndTriangularWallGrids)
   for (const int i : remaining_mesh->mesh->runtime->subsurf_optimal_display_edges.index_range()) {
     hidden += !remaining_mesh->mesh->runtime->subsurf_optimal_display_edges[i];
   }
-  EXPECT_EQ(hidden, 7 * 7);
+  EXPECT_EQ(hidden, 3 * 7 * 7 - 2 * 7);
   /* A tiny real gap invalidates the identity proof and still fails at zero source tolerance. */
   OwnedGeometry broken(geometry_copy(&snapshot.geometry()));
   const auto index = TopologyIndex::build(*broken);
@@ -1002,7 +1002,7 @@ TEST_F(NurbsMeshEvaluationTest, SplittingABoundaryEdgeDoesNotTurnARectangularGri
     }
   }
   /* 4x4 grid, with four extra sample intervals on the split source boundary. */
-  EXPECT_EQ(wires, 2 * 4 * 5 + 4);
+  EXPECT_EQ(wires, 4 * 4 + 4);
 }
 
 TEST_F(NurbsMeshEvaluationTest, SheetMeshRetainsSourceFaceProvenanceAndIndependentGeometry)
@@ -1202,8 +1202,8 @@ TEST_F(NurbsMeshEvaluationTest, RationalCylinderUsesRadialSourceNormalsAtDisplay
     hidden += !visible[i];
   }
   /* Four rational knot spans around the seam, each with four U and four V subdivisions. */
-  EXPECT_EQ(hidden, 4 * 4 * 4);
-  EXPECT_EQ(visible.size() - hidden, 16 * 5 + 16 * 4);
+  EXPECT_EQ(hidden, result->mesh->edges_num - (2 * 16 + 4));
+  EXPECT_EQ(visible.size() - hidden, 2 * 16 + 4);
 }
 
 TEST_F(NurbsMeshEvaluationTest, SourceNormalsPreserveG0FaceJoinWithoutAveragingItsTangents)
@@ -1537,6 +1537,66 @@ TEST_F(NurbsMeshEvaluationTest, PolynomialCertificateRequiresParameterRolesAndCo
   pcurve->dimension = 2;
   pcurve->points[1].position[0] = 1.25;
   EXPECT_FALSE(linear_curve_support_deviation_bound(*curve, *pcurve, surface));
+}
+
+TEST_F(NurbsMeshEvaluationTest, WireCurvesFollowSurfaceParametersIndependentlyOfShading)
+{
+  auto geometry = make_arc_sheet(false);
+  ASSERT_NE(geometry, nullptr);
+  auto edit = EditData::create(*geometry);
+  ASSERT_NE(edit, nullptr);
+  Vector<std::pair<int64_t, double2>> previous;
+  for (const int resolution : {3, 7}) {
+    auto options = preview_options();
+    options.interior_subdivisions = resolution;
+    std::string error;
+    auto result = evaluate_mesh(edit->read_snapshot(), options, &error);
+    ASSERT_TRUE(result) << error;
+    EXPECT_FALSE(result->preview->isocurves.is_empty());
+    Vector<std::pair<int64_t, double2>> parameters;
+    auto index = TopologyIndex::build(*geometry);
+    for (const auto &segment : result->preview->isocurves) {
+      const auto &a =
+          result->preview->interior[segment.points.x - result->preview->boundary.positions.size()];
+      const auto &b =
+          result->preview->interior[segment.points.y - result->preview->boundary.positions.size()];
+      EXPECT_TRUE(a.parameter.x == b.parameter.x || a.parameter.y == b.parameter.y);
+      parameters.append({segment.face_id, a.parameter});
+      const auto &surface = *static_cast<const NurbsSurfaceGeometry *>(geometry->surfaces.first);
+      auto point = evaluate_surface(surface, a.parameter, &error);
+      ASSERT_TRUE(point) << error;
+      EXPECT_LT(math::distance(point->position, a.position), 1e-12);
+      const auto next = result->mesh->attributes().lookup<int>(".nurbs_isocurve_next", bke::AttrDomain::Point);
+      ASSERT_TRUE(next);
+      EXPECT_EQ(next.varray[segment.points.x], segment.points.y);
+    }
+    if (!previous.is_empty()) {
+      EXPECT_EQ(previous, parameters);
+    }
+    previous = std::move(parameters);
+  }
+}
+
+TEST_F(NurbsMeshEvaluationTest, IsocurvesStopAtHoleTrims)
+{
+  auto geometry = make_planar_sheet();
+  const double2 hole[] = {{0.3,0.3}, {0.3,0.7}, {0.7,0.7}, {0.7,0.3}};
+  add_planar_loop(*geometry, *static_cast<NurbsTopologyFace *>(geometry->faces.first), Span(hole, 4), true);
+  auto edit = EditData::create(*geometry);
+  ASSERT_NE(edit, nullptr);
+  std::string error;
+  auto result = evaluate_mesh(edit->read_snapshot(), preview_options(), &error);
+  ASSERT_TRUE(result) << error;
+  EXPECT_FALSE(result->preview->isocurves.is_empty());
+  bool split_center = false;
+  for (const auto &segment : result->preview->isocurves) {
+    const double3 a = result->preview->position(segment.points.x);
+    const double3 b = result->preview->position(segment.points.y);
+    const double3 midpoint = (a+b)/2;
+    EXPECT_FALSE(std::abs(midpoint.x) < 0.399999 && std::abs(midpoint.y) < 0.399999);
+    split_center |= std::abs(a.x) < 1e-12 && std::abs(std::abs(a.y)-0.4) < 1e-12;
+  }
+  EXPECT_TRUE(split_center);
 }
 
 }  // namespace blender::bke::nurbs::tests

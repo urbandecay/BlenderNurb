@@ -27,8 +27,7 @@ struct SurfacePreviewTriangle {
   int64_t face_id;
   /** Face-local UVs, including different UVs for shared seam positions. */
   double2 parameters[3];
-  /** Display wires for (0, 1), (1, 2), (2, 0). Rectangular charts omit cell diagonals;
-   * other trims keep the triangular preview grid. These are never editable source edges. */
+  /** Shading edges are hidden. Source boundaries and sampled isocurves draw separately. */
   std::array<bool, 3> display_edges;
 };
 
@@ -36,6 +35,12 @@ struct SurfacePreview {
   BoundaryEvaluation boundary;
   Vector<SurfacePreviewPoint> interior;
   Vector<SurfacePreviewTriangle> triangles;
+  /** Sampled exact constant-U/V curves. Indices address position(); face IDs retain provenance. */
+  struct IsocurveSegment {
+    int2 points;
+    int64_t face_id;
+  };
+  Vector<IsocurveSegment> isocurves;
   int skipped_repeated_point_triangles = 0;
   Map<int64_t, int> skipped_triangles_by_face;
   /** Faces whose UV triangulation was retained. Identical source supports can also retain their
@@ -82,6 +87,8 @@ struct SurfacePreviewOptions {
   BoundaryEvaluationOptions boundary;
   /** Subdivide each support knot span inside the sampled trim bounds. Keep interior knots too. */
   int interior_subdivisions = 8;
+  /** Subintervals per knot span; two gives one center isocurve in each direction. */
+  int isocurve_subdivisions = 2;
   int max_points = 1 << 20;
   int max_triangles = 1 << 21;
   /**

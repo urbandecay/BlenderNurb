@@ -29,6 +29,7 @@
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_mesh.hh"
 #include "BKE_nurbs_refine.hh"
+#include "BKE_nurbs_topology_edit.hh"
 #include "BKE_nurbs_transform.hh"
 #include "BKE_object.hh"
 #include "BKE_object_types.hh"
@@ -80,6 +81,7 @@ struct NurbsTransformData {
   std::shared_ptr<const nurbs::ObjectEvaluation> original_evaluation;
   nurbs::OwnedMesh original_display_mesh;
   bool translation_preview_active = false;
+  bool opened_manifold_exit = false;
 
   explicit NurbsTransformData(nurbs::ReadSnapshot source)
       : original(source), current(std::move(source))
@@ -522,11 +524,49 @@ static void recalc_trans_nurbs(TransInfo *t)
       validation_ms = (BLI_time_now_seconds() - validation_start) * 1000.0;
     }
     nurbs::EditSnapshot candidate{std::move(result->geometry), data.original.selection()};
+    data.opened_manifold_exit = false;
+    if (translation && data.op && data.op->opm &&
+        STREQ(data.op->opm->type->idname, "CURVE_OT_extrude_manifold") &&
+        candidate.selection.faces.size() == 1)
+    {
+      const int64_t cap = *candidate.selection.faces.begin();
+      auto opened = nurbs::open_planar_extrusion_exit(
+          *candidate.geometry, cap, local_offset, 1e-9, &error);
+      if (!opened) {
+        fail(error);
+        return;
+      }
+      const auto index = nurbs::TopologyIndex::build(**opened, &error);
+      if (!index) {
+        fail(error);
+        return;
+      }
+      if (!index->face(cap)) {
+        nurbs::SelectionState walls;
+        walls.mode = candidate.selection.mode;
+        const auto previous_index = nurbs::TopologyIndex::build(*candidate.geometry);
+        for (const int64_t edge : candidate.selection.edges) {
+          for (const auto &use : previous_index->uses_for_edge(edge)) {
+            if (use.face_id == cap) {
+              continue;
+            }
+            walls.faces.add(use.face_id);
+          }
+        }
+        auto selected = nurbs::selection_flush(**opened, walls, walls.mode, &error);
+        if (!selected) {
+          fail(error);
+          return;
+        }
+        candidate = {std::move(*opened), std::move(*selected)};
+        data.opened_manifold_exit = true;
+      }
+    }
     Curve &curve = *id_cast<Curve *>(tc->obedit->data);
     const double commit_start = BLI_time_now_seconds();
     bool committed = false;
     bool translation_preview = false;
-    if (translation && data.original_evaluation &&
+    if (translation && !data.opened_manifold_exit && data.original_evaluation &&
         nurbs::curve_preview_options(curve) == data.original_evaluation->options)
     {
       auto preview_edit = nurbs::EditData::create(std::move(candidate), &error);
@@ -833,7 +873,8 @@ static void after_trans_nurbs(bContext * /*C*/, TransInfo *t)
       data.translation_preview_active = false;
       NURBS_DEBUG_LOG("translation preview confirmed: ordinary source evaluation restored");
     }
-    if (data.op && data.op->opm && STREQ(data.op->opm->type->idname, "CURVE_OT_extrude_manifold"))
+    if (!data.opened_manifold_exit && data.op && data.op->opm &&
+        STREQ(data.op->opm->type->idname, "CURVE_OT_extrude_manifold"))
     {
       Curve &curve = *id_cast<Curve *>(tc->obedit->data);
       std::string error;
@@ -841,8 +882,11 @@ static void after_trans_nurbs(bContext * /*C*/, TransInfo *t)
                       data.offset.x,
                       data.offset.y,
                       data.offset.z);
-      if (!ed::nurbs::finish_manifold_extrusion(
-              *t->bmain, curve, t->scene->toolsettings->doublimit, &error))
+      if (!ed::nurbs::finish_manifold_extrusion(*t->bmain,
+                                                curve,
+                                                t->scene->toolsettings->doublimit,
+                                                data.world_to_local * data.offset,
+                                                &error))
       {
         NURBS_DEBUG_LOG("manifold confirm rejected: %s", error.c_str());
         BKE_reportf(t->reports, RPT_ERROR, "NURBS manifold extrusion: %s", error.c_str());

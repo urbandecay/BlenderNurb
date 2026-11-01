@@ -250,6 +250,11 @@ gpu::Batch *DRW_cache_mesh_surface_weights_get(Object *ob)
   return DRW_mesh_batch_cache_get_surface_weights(DRW_object_get_data_for_drawing<Mesh>(*ob));
 }
 
+gpu::Batch *DRW_cache_mesh_nurbs_isocurves_get(Object *ob)
+{
+  return DRW_mesh_batch_cache_get_nurbs_isocurves(DRW_object_get_data_for_drawing<Mesh>(*ob));
+}
+
 gpu::Batch *DRW_cache_mesh_face_wireframe_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);

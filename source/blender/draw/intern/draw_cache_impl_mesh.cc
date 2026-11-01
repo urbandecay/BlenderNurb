@@ -493,6 +493,7 @@ static void mesh_batch_cache_free_subdiv_cache(MeshBatchCache &cache)
 
 static void mesh_batch_cache_clear(MeshBatchCache &cache)
 {
+  GPU_BATCH_DISCARD_SAFE(cache.nurbs_isocurves);
   FOREACH_MESH_BUFFER_CACHE (cache, mbc) {
     mesh_buffer_cache_clear(mbc);
   }
@@ -620,6 +621,28 @@ gpu::Batch *DRW_mesh_batch_cache_get_edge_detection(Mesh &mesh, bool *r_is_manif
     *r_is_manifold = cache.is_manifold;
   }
   return DRW_batch_request(&cache.batch.edge_detection);
+}
+
+gpu::Batch *DRW_mesh_batch_cache_get_nurbs_isocurves(Mesh &mesh)
+{
+  MeshBatchCache &cache = *mesh_batch_cache_get(mesh);
+  if (cache.nurbs_isocurves) { return cache.nurbs_isocurves; }
+  const auto next = mesh.attributes().lookup<int>(".nurbs_isocurve_next", bke::AttrDomain::Point);
+  if (!next) { return nullptr; }
+  const auto positions = mesh.vert_positions();
+  Vector<float3> lines;
+  for (const int i : positions.index_range()) {
+    const int j = next.varray[i];
+    if (j >= 0 && j < positions.size()) { lines.append(positions[i]); lines.append(positions[j]); }
+  }
+  if (lines.is_empty()) { return nullptr; }
+  GPUVertFormat format{};
+  const uint attr = GPU_vertformat_attr_add(&format, "pos", gpu::VertAttrType::SFLOAT_32_32_32);
+  gpu::VertBuf *vbo = GPU_vertbuf_create_with_format(format);
+  GPU_vertbuf_data_alloc(*vbo, lines.size());
+  GPU_vertbuf_attr_fill(vbo, attr, lines.data());
+  cache.nurbs_isocurves = GPU_batch_create_ex(GPU_PRIM_LINES, vbo, nullptr, GPU_BATCH_OWNS_VBO);
+  return cache.nurbs_isocurves;
 }
 
 gpu::Batch *DRW_mesh_batch_cache_get_wireframes_face(Mesh &mesh)

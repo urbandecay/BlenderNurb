@@ -91,6 +91,8 @@ class DATA_PT_shape_curve(CurveButtonsPanel, Panel):
         sub.prop(curve, "render_resolution_u", text="Render U")
         if is_surf:
             sub.prop(curve, "render_resolution_v", text="V")
+        if curve.is_native_nurbs or curve.has_tagged_nurbs:
+            col.prop(curve, "nurbs_isocurve_density", text="Isocurve Density")
         col.separator()
 
         if is_curve:

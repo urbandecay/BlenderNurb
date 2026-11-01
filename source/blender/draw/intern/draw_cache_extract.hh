@@ -263,6 +263,7 @@ struct MeshBufferCache {
                  ((mbc == &batch_cache.cage) ? &batch_cache.uv_cage : nullptr))
 
 struct MeshBatchCache {
+  gpu::Batch *nurbs_isocurves = nullptr;
   MeshBufferCache final, cage, uv_cage;
 
   MeshBatchList batch;

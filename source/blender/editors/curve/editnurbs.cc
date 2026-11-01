@@ -1797,6 +1797,7 @@ bool manifold_extrusion_can_extend_faces(const Curve &curve)
 bool finish_manifold_extrusion(Main &bmain,
                                Curve &curve,
                                const double merge_distance,
+                               const double3 &travel,
                                std::string *r_error)
 {
   using namespace bke::nurbs;
@@ -1805,6 +1806,36 @@ bool finish_manifold_extrusion(Main &bmain,
     return true;
   }
   auto candidate = expected.copy_for_edit();
+  if (candidate.selection.faces.size() == 1) {
+    const int64_t cap = *candidate.selection.faces.begin();
+    auto opened = open_planar_extrusion_exit(*candidate.geometry, cap, travel, 1e-9, r_error);
+    if (!opened) {
+      return false;
+    }
+    const auto opened_index = TopologyIndex::build(**opened, r_error);
+    if (!opened_index) {
+      return false;
+    }
+    if (!opened_index->face(cap)) {
+      SelectionState walls;
+      walls.mode = candidate.selection.mode;
+      const auto previous_index = bke::nurbs::TopologyIndex::build(*candidate.geometry);
+      for (const int64_t edge : candidate.selection.edges) {
+        for (const auto &use : previous_index->uses_for_edge(edge)) {
+          if (use.face_id == cap) {
+            continue;
+          }
+          walls.faces.add(use.face_id);
+        }
+      }
+      auto selected = selection_flush(**opened, walls, walls.mode, r_error);
+      if (!selected) {
+        return false;
+      }
+      candidate = {std::move(*opened), std::move(*selected)};
+      return edit_commit(bmain, curve, std::move(candidate), expected, r_error);
+    }
+  }
   auto apply = [&](TopologyEditResult result) {
     Map<int64_t, int64_t> mapping;
     const auto target = TopologyIndex::build(*result.geometry, r_error);

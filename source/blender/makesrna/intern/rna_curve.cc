@@ -1845,6 +1845,18 @@ static void rna_def_curve(BlenderRNA *brna)
       "The number of computed points in the V direction between every pair of control points");
   RNA_def_property_update(prop, 0, "rna_Curve_resolution_v_update_data");
 
+  prop = RNA_def_property(srna, "nurbs_isocurve_density", PROP_INT, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_IDPROPERTY);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_int_default(prop, 1);
+  RNA_def_property_range(prop, 1, 64);
+  RNA_def_property_ui_range(prop, 1, 16, 1, -1);
+  RNA_def_property_ui_text(prop,
+                           "Isocurve Density",
+                           "Interior U and V isocurves per knot span; one displays a single cross "
+                           "on a simple face without changing the surface geometry");
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
   prop = RNA_def_property(srna, "render_resolution_u", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, nullptr, "resolu_ren");
   RNA_def_property_range(prop, 0, 1024);

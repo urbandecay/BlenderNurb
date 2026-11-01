@@ -16,6 +16,16 @@ namespace blender::bke::nurbs {
 
 struct SelectionState;
 
+/** Open a single inward swept cap through a parallel planar exit, strictly inside a convex
+ * straight outer boundary. Clip its ruled walls and reuse the cap boundary as an exit hole.
+ * Return an unchanged copy if no supported exit is crossed. No tessellation or owner mutation.
+ */
+std::optional<OwnedGeometry> open_planar_extrusion_exit(const NurbsGeometry &source,
+                                                        int64_t cap_face,
+                                                        const double3 &travel,
+                                                        double max_error,
+                                                        std::string *r_error = nullptr);
+
 enum class BevelSurfaceShape { Circular, Subdivision };
 
 struct BevelOptions {

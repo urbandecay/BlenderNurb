@@ -204,3 +204,83 @@ def manifold_cancel():
 
 def face_extrude_cancel():
     yield from workflow(cancel=True)
+
+
+def through_hole(*, depth=4, cancel=False):
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    for obj in tuple(bpy.data.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    window.scene.tool_settings.use_snap = False
+    bpy.context.window_manager.keyconfigs.active.preferences.select_mouse = 'RIGHT'
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
+    yield e.tab().two().e().y().text('3').ret().a().three().e().text('3').ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.curve.subdivide(number_cuts=2)
+    yield e.alt.a().numpad_7()
+    area.spaces.active.region_3d.view_location = (0, 1.5, 0)
+    area.spaces.active.region_3d.view_distance = 8
+    yield
+    co = location_3d_to_region_2d(region, area.spaces.active.region_3d, Vector((0, 1.5, 3)))
+    yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+    yield e.rightmouse()
+    before = window.scene.statistics(window.view_layer).split(' | Duration:')[0]
+    t.assertIn('Faces:1/', before)
+
+    def hits_floor():
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            obj = window.view_layer.objects.active
+            obj = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = obj.to_mesh()
+            try:
+                from mathutils.bvhtree import BVHTree
+                tree = BVHTree.FromPolygons([v.co for v in mesh.vertices],
+                                           [list(p.vertices) for p in mesh.polygons])
+                hit = tree.ray_cast(Vector((0, 1.5, -1)), Vector((0, 0, 1)))
+                t.assertGreaterEqual(min(v.co.z for v in mesh.vertices), -1e-6)
+                return hit[0] is not None
+            finally:
+                obj.to_mesh_clear()
+    t.assertTrue(hits_floor())
+    yield from ui.call_operator(e, 'Extrude Manifold')
+    yield e.text(str(-depth))
+    t.assertEqual(hits_floor(), depth < 3)
+    if depth == 4 and not cancel:
+        yield e.back_space().text('1')
+        t.assertTrue(hits_floor())
+        yield e.back_space().text('4')
+        t.assertFalse(hits_floor())
+    if cancel:
+        yield e.esc()
+        t.assertTrue(hits_floor())
+        # Like mesh extrusion, Esc cancels movement; Undo removes the zero-distance extrusion.
+        yield e.ctrl.z()
+        t.assertTrue(hits_floor())
+        t.assertEqual(window.scene.statistics(window.view_layer).split(' | Duration:')[0], before)
+        return
+    yield e.ret()
+    t.assertEqual(hits_floor(), depth < 3)
+    after = window.scene.statistics(window.view_layer).split(' | Duration:')[0]
+    yield e.ctrl.z()
+    t.assertTrue(hits_floor())
+    t.assertEqual(window.scene.statistics(window.view_layer).split(' | Duration:')[0], before)
+    yield e.ctrl.shift.z()
+    t.assertEqual(hits_floor(), depth < 3)
+    t.assertEqual(window.scene.statistics(window.view_layer).split(' | Duration:')[0], after)
+
+
+def inward_pocket():
+    yield from through_hole(depth=1)
+
+
+def through_hole_at_wall():
+    yield from through_hole(depth=3)
+
+
+def through_hole_cancel():
+    yield from through_hole(cancel=True)

@@ -249,6 +249,7 @@ gpu::Batch *DRW_mesh_batch_cache_get_verts_with_select_id(Mesh &mesh);
  * \{ */
 
 gpu::Batch *DRW_mesh_batch_cache_get_wireframes_face(Mesh &mesh);
+gpu::Batch *DRW_mesh_batch_cache_get_nurbs_isocurves(Mesh &mesh);
 
 /** \} */
 

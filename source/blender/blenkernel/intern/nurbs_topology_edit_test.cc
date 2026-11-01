@@ -4993,4 +4993,52 @@ TEST_F(NurbsTopologyEditTest, SavedClampedBevelReplaysSourceAndSurvivesContinued
   }
 }
 
+TEST_F(NurbsTopologyEditTest, InwardExtrusionOpensPlanarExitAndPreservesPocket)
+{
+  auto grid = planar_grid(3, 3);
+  ASSERT_NE(grid, nullptr);
+  Vector<int64_t> bottom;
+  for (const auto &face : grid->faces) {
+    bottom.append(face.id);
+  }
+  auto box = extrude_components(*grid, {{}, {}, bottom}, {0, 0, 3}, 1e-9);
+  ASSERT_TRUE(box);
+  const int64_t center = box->source_to_cap.lookup(bottom[4]);
+  std::string error;
+  auto merged = fill_components(*box->geometry, {{}, {}, bottom}, &error);
+  ASSERT_TRUE(merged) << error;
+  const int original_faces = merged->geometry->faces.count();
+  for (const double depth : {0.5, 2.999, 3.0, 4.0}) {
+    auto inward = extrude_components(
+        *merged->geometry, {{}, {}, {&center, 1}}, {0, 0, -depth}, 1e-9, &error);
+    ASSERT_TRUE(inward) << error;
+    const int64_t cap = inward->source_to_cap.lookup(center);
+    auto opened = open_planar_extrusion_exit(*inward->geometry, cap, {0, 0, -depth}, 1e-9, &error);
+    ASSERT_TRUE(opened) << error;
+    ASSERT_TRUE(geometry_validate_structure(**opened, &error)) << error;
+    ASSERT_TRUE(evaluate_boundaries(**opened, {}, &error)) << error;
+    const auto index = TopologyIndex::build(**opened, &error);
+    ASSERT_TRUE(index) << error;
+    EXPECT_EQ(index->face(cap) != nullptr, depth < 3);
+    int holes = 0;
+    for (const auto &face : (*opened)->faces) {
+      for (const auto &loop : face.loops) {
+        holes += loop.is_inner != 0;
+      }
+    }
+    EXPECT_EQ(holes, depth < 3 ? 0 : 1);
+    EXPECT_EQ((*opened)->faces.count(), original_faces + (depth < 3 ? 4 : 3));
+    for (const auto &vertex : (*opened)->vertices) {
+      EXPECT_GE(vertex.position[2], -1e-9);
+    }
+    for (const auto &edge : (*opened)->edges) {
+      const auto uses = index->uses_for_edge(edge.id);
+      ASSERT_EQ(uses.size(), 2);
+      EXPECT_NE((uses[0].use->reversed != 0) ^ (index->face(uses[0].face_id)->orientation < 0),
+                (uses[1].use->reversed != 0) ^ (index->face(uses[1].face_id)->orientation < 0));
+    }
+    EXPECT_NE(TopologyIndex::build(*inward->geometry)->face(cap), nullptr);
+  }
+}
+
 }  // namespace blender::bke::nurbs::tests

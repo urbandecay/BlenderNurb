@@ -20,6 +20,7 @@
 #include "BLI_time.h"
 
 #include "BKE_attribute.hh"
+#include "BKE_idprop.hh"
 #include "BKE_lib_id.hh"
 #include "BKE_mesh.hh"
 #include "BKE_mesh_types.hh"
@@ -148,6 +149,16 @@ SurfacePreviewOptions curve_preview_options(const Curve &curve, const bool for_r
   SurfacePreviewOptions options;
   options.boundary.segments_per_span = 2 * std::max(resolution_u, resolution_v) - 1;
   options.interior_subdivisions = options.boundary.segments_per_span;
+  if (curve.id.system_properties) {
+    const IDProperty *density = IDP_GetPropertyFromGroup(curve.id.system_properties,
+                                                        "nurbs_isocurve_density");
+    if (density && density->type == IDP_INT) {
+      options.isocurve_subdivisions = std::clamp(IDP_int_get(density), 1, 64) + 1;
+    }
+  }
+  NURBS_DEBUG_LOG("wire display '%s': %d isocurve subdivisions, system properties %p",
+                  curve.id.name + 2, options.isocurve_subdivisions,
+                  static_cast<void *>(curve.id.system_properties));
   /* Exact zero source tolerances still need a small numerical allowance for evaluating the same
    * NURBS boundary through its 3D curve and surface support. Without it, round-off at double
    * precision (for example, ~2e-16 in unit-scale geometry) rejects the whole display mesh. */
@@ -614,6 +625,15 @@ std::optional<MeshEvaluation> evaluate_mesh(const ReadSnapshot &source,
   Mesh &mesh = *result.mesh;
   mesh.vert_positions_for_write().copy_from(positions);
   mesh.edges_for_write().copy_from(edges);
+  if (!result.preview->isocurves.is_empty()) {
+    auto next = mesh.attributes_for_write().lookup_or_add_for_write_span<int>(
+        ".nurbs_isocurve_next", bke::AttrDomain::Point);
+    next.span.fill(-1);
+    for (const auto &segment : result.preview->isocurves) {
+      next.span[segment.points.x] = segment.points.y;
+    }
+    next.finish();
+  }
   MutableSpan<int> offsets = mesh.face_offsets_for_write();
   MutableSpan<int> corner_verts = mesh.corner_verts_for_write();
   for (const int i : offsets.index_range()) {
