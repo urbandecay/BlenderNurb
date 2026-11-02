@@ -1565,7 +1565,7 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     }
     return std::nullopt;
   };
-  const bool rounded = options.segments > 1;
+  const bool rounded = options.segments > 0;
   Map<int64_t, int> selected_count;
   Set<int64_t> affected;
   for (const auto &item : source.edges) {
@@ -2780,7 +2780,7 @@ static std::optional<TopologyEditResult> bevel_planar_network(const NurbsGeometr
     result.faces.extend(filled->created_faces);
     result.geometry = std::move(filled->geometry);
   }
-  if (rounded) {
+  if (rounded && options.segments > 1) {
     /* Plan against the same unpartitioned source and apply all strip cuts together. Applying
      * each ring separately copied and validated the entire growing body once per strip. */
     const double partition_start = BLI_time_now_seconds();
@@ -3290,7 +3290,7 @@ static std::optional<TopologyEditResult> bevel_ruled_edge(const NurbsGeometry &s
     }
     return candidate;
   }
-  const bool rounded = options.segments > 1;
+  const bool rounded = options.segments > 0;
   const double weight = rounded ?
                             std::sqrt(std::max(0.0, (1 - math::dot(inward[0], inward[1])) * 0.5)) :
                             1;
@@ -3589,7 +3589,7 @@ static std::optional<TopologyEditResult> bevel_ruled_edge(const NurbsGeometry &s
   {
     return std::nullopt;
   }
-  if (rounded) {
+  if (rounded && options.segments > 1) {
     auto plan = plan_loop_cut(
         *result.geometry, seed, options.segments - 1, 0, options.max_error, r_error);
     auto cut = plan ? partition_components(*result.geometry, *plan, options.max_error, r_error) :
@@ -3656,10 +3656,10 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
     return std::nullopt;
   };
   if (!supported_arithmetic() || !std::isfinite(options.offset) || options.offset < 0 ||
-      !std::isfinite(options.max_error) || options.max_error < 0 || options.segments < 1 ||
+      !std::isfinite(options.max_error) || options.max_error < 0 || options.segments < 0 ||
       options.segments > 100)
   {
-    return fail("NURBS bevel requires a finite nonnegative width/error budget and 1–100 segments");
+    return fail("NURBS bevel requires a finite nonnegative width/error budget and 0–100 segments");
   }
   const double topology_start = BLI_time_now_seconds();
   const auto index = TopologyIndex::build(source, r_error);

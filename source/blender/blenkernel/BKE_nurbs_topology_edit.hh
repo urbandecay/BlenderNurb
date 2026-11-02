@@ -32,14 +32,17 @@ struct BevelOptions {
   /** Perpendicular face width. Ruled curved blends use the surface frame at the edge midpoint;
    * the corresponding natural parameter offset can have varying world width along a curve. */
   double offset = 0;
-  /** One makes a chamfer; larger counts partition a smooth rational rounded strip. */
-  int segments = 1;
+  /** Zero chamfers; one rounds without internal splits. Larger counts partition the same
+   * rounded strip/arc. The kernel default retains the basic chamfer construction. */
+  int segments = 0;
   double max_error = 1e-9;
   /** Limit the whole selected network together before its first boundary collision. */
   bool clamp_overlap = true;
   /** Subdivision changes the surface shape, including the retained cage faces. Circular keeps
    * analytic rounding; Subdivision fits shared native patches to the bevel cage's limit. */
   BevelSurfaceShape surface_shape = BevelSurfaceShape::Circular;
+  /** Round selected degree-two curve vertices instead of shared surface edges. */
+  bool affect_vertices = false;
 };
 
 struct BevelOffsetInfo {
@@ -95,6 +98,16 @@ std::optional<TopologyEditResult> bevel_edges(const NurbsGeometry &source,
                                               const BevelOptions &options,
                                               std::string *r_error = nullptr,
                                               BevelOffsetInfo *r_offset_info = nullptr);
+
+/** Bevel degree-two corners between straight curve edges, including planar face trims.
+ * Width is distance from the original corner along each incident edge. Zero segments chamfers;
+ * one creates a tangent rational circular arc, larger counts partition that same arc. Curved incident edges and branching
+ * junctions need a separate intersection construction and are rejected atomically. */
+std::optional<TopologyEditResult> bevel_curve_vertices(const NurbsGeometry &source,
+                                                       Span<int64_t> vertices,
+                                                       const BevelOptions &options,
+                                                       std::string *r_error = nullptr,
+                                                       BevelOffsetInfo *r_offset_info = nullptr);
 
 /** Disconnect a manifold face fan on the chosen side of a vertex/edge selection, or one wire
  * branch at a single selected junction. side_face/side_edge are source incidence hints supplied

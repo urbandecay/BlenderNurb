@@ -583,6 +583,9 @@ static wmOperatorStatus curvesurf_prim_add(
       newob = true;
 
       cu = id_cast<Curve *>(obedit->data);
+      if ((type & CU_TYPE) == CU_NURBS) {
+        cu->resolu = cu->resolv = 16;
+      }
 
       if (type & CU_PRIM_PATH) {
         cu->flag |= CU_PATH | CU_3D;

@@ -436,8 +436,8 @@ void BKE_curve_init(Curve *cu, const ObjectType curve_type)
   }
   else if (cu->ob_type == OB_SURF) {
     cu->flag |= CU_3D;
-    cu->resolu = 4;
-    cu->resolv = 4;
+    cu->resolu = 16;
+    cu->resolv = 16;
   }
   else if (cu->ob_type == OB_CURVES_LEGACY) {
     cu->resolu = 128;

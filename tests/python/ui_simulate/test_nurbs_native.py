@@ -5323,6 +5323,14 @@ def bevel_corner_workflow(closed=False, rounded=False, mesh_reference=False, ver
     from bpy_extras.view3d_utils import location_3d_to_region_2d
 
     e, t, window = ui.test_window()
+    if not mesh_reference and not rounded:
+        # These workflows explicitly compare the flat chamfer with mesh bevel. Native
+        # surface bevel now defaults to an unsplit round at one; zero selects a chamfer.
+        keymap = bpy.context.window_manager.keyconfigs.user.keymaps['Curve']
+        for item in keymap.keymap_items:
+            if item.idname in {'CURVE_OT_bevel', 'curve.bevel'} and item.ctrl and not item.shift:
+                item.properties.segments = 0
+
     area = ui.get_window_area_by_type(window, 'VIEW_3D')
     region = next(r for r in area.regions if r.type == 'WINDOW')
     space = area.spaces.active
@@ -5884,6 +5892,14 @@ def bevel_connected_edges_workflow(mesh_reference=False, pyramid=False, rounded=
     import math
 
     e, t, window = ui.test_window()
+    if not mesh_reference and not rounded:
+        # These workflows explicitly compare the flat chamfer with mesh bevel. Native
+        # surface bevel now defaults to an unsplit round at one; zero selects a chamfer.
+        keymap = bpy.context.window_manager.keyconfigs.user.keymaps['Curve']
+        for item in keymap.keymap_items:
+            if item.idname in {'CURVE_OT_bevel', 'curve.bevel'} and item.ctrl and not item.shift:
+                item.properties.segments = 0
+
     area = ui.get_window_area_by_type(window, 'VIEW_3D')
     region = next(r for r in area.regions if r.type == 'WINDOW')
     output = Path(os.environ.get('BLENDER_NURBS_BEVEL_OUTPUT', '/tmp/blender-nurbs-bevel-ui'))

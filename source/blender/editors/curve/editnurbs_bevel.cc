@@ -25,6 +25,7 @@
 
 #include "BKE_context.hh"
 #include "BKE_nurbs_debug.hh"
+#include "BKE_nurbs_curve_bevel.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_nurbs_geometry.hh"
 #include "BKE_nurbs_mesh.hh"
@@ -80,46 +81,73 @@ static std::optional<BevelCandidate> candidate(
     const bke::nurbs::BevelOptions &options,
     std::string &error,
     bke::nurbs::BevelOffsetInfo *r_offset_info = nullptr,
-    const bke::nurbs::ObjectEvaluation *previous = nullptr,
-    const bool interactive = false)
+    const bke::nurbs::ObjectEvaluation *previous = nullptr)
 {
   const double candidate_start = BLI_time_now_seconds();
   const size_t source_faces = preview.source().geometry().faces.count();
   const auto &selection = preview.source().selection();
+  const auto &geometry = preview.source().geometry();
   const Vector<int64_t> edges(selection.edges.begin(), selection.edges.end());
-  const double bevel_start = BLI_time_now_seconds();
-  auto result = bke::nurbs::bevel_edges(
-      preview.source().geometry(), edges, options, &error, r_offset_info);
-  const double bevel_ms = (BLI_time_now_seconds() - bevel_start) * 1000.0;
-  if (!result) {
-    NURBS_DEBUG_LOG(
-        "bevel candidate failed: bevel %.3f ms, total %.3f ms; %d selected edges, "
-        "%zu source faces, width %.9g, segments %d; %s",
-        bevel_ms,
-        (BLI_time_now_seconds() - candidate_start) * 1000.0,
-        int(edges.size()),
-        source_faces,
-        options.offset,
-        options.segments,
-        error.c_str());
-    return std::nullopt;
+  Vector<int64_t> vertices(selection.vertices.begin(), selection.vertices.end());
+  bool interior_controls = false;
+  if (options.affect_vertices) {
+    for (const auto &point : selection.control_points) {
+      for (const auto &curve : geometry.curves) {
+        if (curve.id != point.curve_id) {
+          continue;
+        }
+        const bool first = point.point_index == 0;
+        const bool last = point.point_index == curve.points_num - 1;
+        interior_controls |= !first && !last;
+        for (const auto &edge : geometry.edges) {
+          if (edge.curve_id != curve.id) {
+            continue;
+          }
+          if (first && edge.parameter_range[0] == curve.knots[curve.order - 1]) {
+            vertices.append_non_duplicates(edge.vertex_ids[0]);
+          }
+          if (last && edge.parameter_range[1] == curve.knots[curve.points_num]) {
+            vertices.append_non_duplicates(edge.vertex_ids[1]);
+          }
+        }
+      }
+    }
   }
-  // Keep the evaluated immutable candidate for the actual viewport handoff.
-  const double geometry_error_bound = result->geometry_error_bound;
-  const int result_faces = result->geometry->faces.count();
-  const double snapshot_start = BLI_time_now_seconds();
-  auto snapshot = bke::nurbs::edit_snapshot_from_topology_result(
-      std::move(*result), selection, selection.mode, &error);
-  const double snapshot_ms = (BLI_time_now_seconds() - snapshot_start) * 1000.0;
+  const double bevel_start = BLI_time_now_seconds();
+  double geometry_error_bound = 0;
+  int result_faces = 0;
+  auto snapshot = [&]() -> std::optional<bke::nurbs::EditSnapshot> {
+    if (interior_controls) {
+      auto result = bke::nurbs::bevel_curve_controls(geometry, selection, options, &error);
+      if (!result) {
+        return std::nullopt;
+      }
+      if (r_offset_info) {
+        *r_offset_info = result->offset_info;
+      }
+      result_faces = result->snapshot.geometry->faces.count();
+      return std::move(result->snapshot);
+    }
+    auto result = options.affect_vertices ?
+                      bke::nurbs::bevel_curve_vertices(
+                          geometry, vertices, options, &error, r_offset_info) :
+                      bke::nurbs::bevel_edges(
+                          geometry, edges, options, &error, r_offset_info);
+    if (!result) {
+      return std::nullopt;
+    }
+    geometry_error_bound = result->geometry_error_bound;
+    result_faces = result->geometry->faces.count();
+    return bke::nurbs::edit_snapshot_from_topology_result(
+        std::move(*result), selection, selection.mode, &error);
+  }();
+  const double bevel_ms = (BLI_time_now_seconds() - bevel_start) * 1000.0;
+  const double snapshot_ms = 0;
+  NURBS_DEBUG_LOG("bevel selection: %d vertices, %d controls; mode %s; width %.9g; valid %d%s",
+                  int(vertices.size()), int(selection.control_points.size()),
+                  interior_controls ? "control polygon" : options.affect_vertices ? "vertices" : "edges",
+                  options.offset, bool(snapshot), error.c_str());
   if (!snapshot) {
-    NURBS_DEBUG_LOG(
-        "bevel candidate failed: bevel %.3f ms, snapshot %.3f ms, total %.3f ms; "
-        "%d selected edges; %s",
-        bevel_ms,
-        snapshot_ms,
-        (BLI_time_now_seconds() - candidate_start) * 1000.0,
-        int(edges.size()),
-        error.c_str());
     return std::nullopt;
   }
   const double edit_start = BLI_time_now_seconds();
@@ -140,14 +168,10 @@ static std::optional<BevelCandidate> candidate(
   auto evaluation = std::make_shared<bke::nurbs::ObjectEvaluation>();
   evaluation->options = bke::nurbs::curve_preview_options(
       *id_cast<Curve *>(preview.object().data));
-  evaluation->interactive_preview = interactive && options.offset > 0 && options.segments > 1;
-  if (evaluation->interactive_preview) {
-    const int full = evaluation->options.boundary.segments_per_span;
-    const int preview_segments = std::min(
-        full, std::max(2, (full + options.segments - 1) / options.segments));
-    evaluation->options.boundary.segments_per_span = preview_segments;
-    evaluation->options.interior_subdivisions = preview_segments;
-  }
+  /* The candidate includes unselected geometry from the same object. Reducing global
+   * sampling here makes unrelated curves change shape until confirmation. Keep the object's
+   * display settings and let the preview caches reuse unchanged source geometry. */
+  evaluation->interactive_preview = false;
   evaluation->result = bke::nurbs::evaluate_mesh(
       edit->read_snapshot(), evaluation->options, &error, previous);
   const double preview_ms = (BLI_time_now_seconds() - preview_start) * 1000.0;
@@ -223,7 +247,7 @@ static void status(bContext *C, wmOperator *op, const BevelModal &data)
     BLI_snprintf(text,
                  sizeof(text),
                  "Shape: %s | Width: %s | Segments: %d | Clamp: %s%s%s",
-                 data.options.segments == 1 ? "Chamfer" :
+                 (data.options.segments == 0) ? "Chamfer" :
                  data.options.surface_shape == bke::nurbs::BevelSurfaceShape::Subdivision ?
                                               "Subdivision" :
                                               "Circular",
@@ -262,7 +286,7 @@ static void update(bContext *C, wmOperator *op, BevelModal &data)
   data.error.clear();
   bke::nurbs::BevelOffsetInfo offset_info;
   auto result = candidate(
-      *data.preview, data.options, data.error, &offset_info, data.evaluation.get(), true);
+      *data.preview, data.options, data.error, &offset_info, data.evaluation.get());
   const double candidate_ms = (BLI_time_now_seconds() - update_start) * 1000.0;
   const double preview_commit_start = BLI_time_now_seconds();
   data.valid = result &&
@@ -367,7 +391,8 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
       RNA_int_get(op->ptr, "segments"),
       RNA_float_get(op->ptr, "max_error"),
       RNA_boolean_get(op->ptr, "clamp_overlap"),
-      bke::nurbs::BevelSurfaceShape(RNA_enum_get(op->ptr, "surface_shape"))};
+      bke::nurbs::BevelSurfaceShape(RNA_enum_get(op->ptr, "surface_shape")),
+      RNA_enum_get(op->ptr, "affect") == 1};
   if (options.offset == 0) {
     return OPERATOR_CANCELLED;
   }
@@ -414,6 +439,7 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
     cleanup(C, op);
     return OPERATOR_CANCELLED;
   }
+  data->options.affect_vertices = RNA_enum_get(op->ptr, "affect") == 1;
   data->options.segments = RNA_int_get(op->ptr, "segments");
   data->options.max_error = RNA_float_get(op->ptr, "max_error");
   data->options.clamp_overlap = RNA_boolean_get(op->ptr, "clamp_overlap");
@@ -423,7 +449,7 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   if (!ed::transform::calculateTransformCenter(
           C, V3D_AROUND_CENTER_MEDIAN, center3d, data->center))
   {
-    BKE_report(op->reports, RPT_ERROR, "Select a shared NURBS edge to bevel");
+    BKE_report(op->reports, RPT_ERROR, "Select NURBS edges or curve corner vertices to bevel");
     cleanup(C, op);
     return OPERATOR_CANCELLED;
   }
@@ -520,7 +546,8 @@ static wmOperatorStatus bevel_modal(bContext *C, wmOperator *op, const wmEvent *
     }
     if (STREQ(action, "SEGMENTS_UP") || STREQ(action, "SEGMENTS_DOWN")) {
       data.options.segments = std::clamp(
-          data.options.segments + (STREQ(action, "SEGMENTS_UP") ? 1 : -1), 1, 100);
+          data.options.segments + (STREQ(action, "SEGMENTS_UP") ? 1 : -1),
+          0, 100);
       update(C, op, data);
       return OPERATOR_RUNNING_MODAL;
     }
@@ -577,32 +604,38 @@ static wmOperatorStatus bevel_modal(bContext *C, wmOperator *op, const wmEvent *
 
 void CURVE_OT_bevel(wmOperatorType *ot)
 {
-  ot->name = "Bevel NURBS Edges";
+  ot->name = "Bevel NURBS";
   ot->idname = "CURVE_OT_bevel";
-  ot->description = "Bevel shared NURBS edges with chamfer or smooth rational surface strips";
+  ot->description = "Bevel shared NURBS edges or selected curve corner vertices";
   ot->poll = ed::nurbs::topology_edit_poll;
   ot->invoke = bevel_invoke;
   ot->exec = bevel_exec;
   ot->modal = bevel_modal;
   ot->cancel = bevel_cancel;
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING | OPTYPE_GRAB_CURSOR_XY;
+  static const EnumPropertyItem affects[] = {
+      {0, "EDGES", 0, "Edges", "Bevel shared surface edges"},
+      {1, "VERTICES", 0, "Vertices", "Bevel corners between two straight curve edges"},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+  RNA_def_enum(ot->srna, "affect", affects, 0, "Affect", "Geometry to bevel");
   RNA_def_float_distance(ot->srna,
                          "offset",
                          0.1f,
                          0,
                          FLT_MAX,
                          "Width",
-                         "Perpendicular width along each adjacent face",
+                         "Width along adjacent faces, or setback along each incident curve edge",
                          0,
                          100);
   RNA_def_int(ot->srna,
               "segments",
               1,
-              1,
+              0,
               100,
               "Segments",
-              "One makes a chamfer; more partition a smooth rounded NURBS surface",
-              1,
+              "Zero makes a chamfer, one makes a continuous round, higher values divide the round",
+              0,
               32);
   auto *prop = RNA_def_string(ot->srna,
                               "offset_exact",

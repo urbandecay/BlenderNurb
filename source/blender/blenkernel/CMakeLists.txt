@@ -232,6 +232,8 @@ set(SRC
   intern/nurbs_selection.cc
   intern/nurbs_tessellate.cc
   intern/nurbs_topology.cc
+  intern/nurbs_curve_bevel.cc
+  intern/nurbs_topology_bevel_vertices.cc
   intern/nurbs_topology_bevel.cc
   intern/nurbs_topology_bevel_subdiv.cc
   intern/nurbs_topology_rip.cc
@@ -471,6 +473,7 @@ set(SRC
   BKE_node_tree_reference_lifetimes.hh
   BKE_node_tree_update.hh
   BKE_node_tree_zones.hh
+  BKE_nurbs_curve_bevel.hh
   BKE_nurbs_construct.hh
   BKE_nurbs_edit.hh
   BKE_nurbs_evaluate.hh

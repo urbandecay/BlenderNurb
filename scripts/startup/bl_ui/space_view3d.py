@@ -4059,7 +4059,12 @@ class VIEW3D_MT_edit_nurbs(Menu):
         layout.separator()
         layout.operator("curve.subdivide")
         layout.operator("curve.loopcut_slide", text="Loop Cut and Slide")
-        layout.operator("curve.bevel", text="Bevel Edges")
+        props = layout.operator("curve.bevel", text="Bevel Edges")
+        props.affect = 'EDGES'
+        props.segments = 1
+        props = layout.operator("curve.bevel", text="Bevel Curve Corners")
+        props.affect = 'VERTICES'
+        props.segments = 1
         layout.separator()
         for operator in ("mesh.bisect", "mesh.knife_project", "mesh.knife_tool", "mesh.convex_hull"):
             row = layout.row()
@@ -4211,7 +4216,12 @@ class VIEW3D_MT_edit_curve_context_menu(Menu):
             layout.menu("VIEW3D_MT_edit_nurbs_merge", text="Merge")
             layout.operator("curve.subdivide")
             layout.operator("curve.loopcut_slide", text="Loop Cut and Slide")
-            layout.operator("curve.bevel", text="Bevel Edges")
+            props = layout.operator("curve.bevel", text="Bevel Edges")
+            props.affect = 'EDGES'
+            props.segments = 1
+            props = layout.operator("curve.bevel", text="Bevel Curve Corners")
+            props.affect = 'VERTICES'
+            props.segments = 1
             layout.separator()
             layout.operator("transform.translate")
             layout.operator("transform.rotate")
