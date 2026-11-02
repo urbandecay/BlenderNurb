@@ -64,8 +64,8 @@ struct CurveControlPointTransform {
 
 /** Deform curve supports by their rational coefficients, retaining weights and knots.
  * Re-evaluate incident topology stations and keep adjoining endpoints connected. Matching
- * clamped natural tensor boundaries update every incident surface row, including polynomial
- * degree elevation used by subdivision bevels. Unsupported interior trims reject atomically. */
+ * clamped natural tensor boundaries update every incident surface row and collapsed pole,
+ * including polynomial degree elevation used by subdivision bevels. Unsupported interior trims reject atomically. */
 std::optional<GeometryTransformResult> transform_curve_control_points(
     const NurbsGeometry &source,
     Span<CurveControlPointTransform> transforms,
@@ -75,8 +75,11 @@ std::optional<GeometryTransformResult> transform_curve_control_points(
 /**
  * Apply affine transforms to selected source identities and their incident geometry. Equal
  * transforms form one request group: whole curves/supports keep their rational representation,
- * linear corners and proven ruled rows admit partial edits. Three-sided polynomial bilinear
- * patches with matching straight edge/p-curve parameterizations admit an affine UV displacement
+ * linear corners and proven ruled rows admit partial edits. Partial curved edges move their
+ * clamped endpoint coefficients and incident surface boundary rows, matching control-cage
+ * endpoint edits. Trimmed/shared edges receive private restricted supports before deformation.
+ * Three-sided polynomial bilinear patches with matching straight edge/p-curve parameterizations
+ * admit an affine UV displacement
  * field through their three corner movements; this preserves the support's existing mixed term.
  * Rectangular trims of polynomial bilinear supports interpolate four corner displacements in
  * their actual trim rectangle. Bound and record any additional edge/support discrepancy.
@@ -88,7 +91,7 @@ std::optional<GeometryTransformResult> transform_curve_control_points(
  * Other coefficients, topology and selection are retained. Explicit quad reparameterization
  * allocates private supports/p-curves and changes their basis, weights and parameter domains.
  *
- * The input is never modified. Unsupported partial curved/trimmed deformation, inconsistent
+ * The input is never modified. Unsupported interior-trim deformation, inconsistent
  * ownership, non-affine/non-finite matrices and exceeded arithmetic budgets reject atomically.
  * Tolerances of affected components scale conservatively by the largest supplied linear norm
  * (at least one, including the unchanged part) plus twice the reported coefficient roundoff.
@@ -111,11 +114,12 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
  * rows when boundary bases, coefficients and projective parameterization match exactly and the
  * two support rows have proportional weight profiles. Triangular polynomial bilinear patches
  * use an affine UV displacement field; rectangular polynomial trims use the bilinear corner rule
- * in transform_vertices(). Unsupported layouts reject without an endpoint-only control-coefficient
- * rule or fitting fallback.
+ * in transform_vertices(). Partial curved endpoints use the same coefficient deformation as
+ * control-cage endpoint edits, updating incident surfaces without fitting.
  *
- * Outside explicit planar quad reparameterization, p-curves, rational weights, bases,
- * identities and unreferenced geometry remain unchanged.
+ * P-curves and unreferenced geometry remain unchanged outside explicit planar quad
+ * reparameterization. Edge restriction preserves geometry before endpoint deformation but
+ * may allocate private supports with new coefficient bases and identities.
  * Shared geometry resources must receive identical coefficient requests from all their owners.
  * The explicit roundoff budget and arithmetic requirements of transform_geometry apply; source
  * tolerances on affected components expand for the reported coefficient/vertex addition bound.

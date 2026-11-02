@@ -407,6 +407,61 @@ TEST_F(NurbsControlPointTest, SubdivisionBevelBoundaryHandlesEditAllIncidentPatc
   }
 }
 
+TEST_F(NurbsControlPointTest, BeveledBoxVerticesMoveWithTheControlCageHidden)
+{
+  auto sheet = make_planar_sheet();
+  const int64_t face = static_cast<const NurbsTopologyFace *>(sheet->faces.first)->id;
+  auto box = extrude_components(*sheet, {{}, {}, {&face, 1}}, {0, 0, 2}, 0);
+  ASSERT_TRUE(box);
+  Vector<int64_t> edges;
+  for (const auto &edge : box->geometry->edges) {
+    edges.append(edge.id);
+  }
+  std::string error;
+  for (const auto shape : {BevelSurfaceShape::Circular, BevelSurfaceShape::Subdivision}) {
+    SCOPED_TRACE(int(shape));
+    auto bevel = bevel_edges(*box->geometry,
+                             edges,
+                             {.offset = 0.25, .segments = 1, .surface_shape = shape},
+                             &error);
+    ASSERT_TRUE(bevel) << error;
+    const OwnedGeometry before(geometry_copy(bevel->geometry.get()));
+    for (const auto &vertex : bevel->geometry->vertices) {
+      SCOPED_TRACE(vertex.id);
+      const double3 offset(0.03, 0.02, 0.04);
+      auto moved = translate_vertices(*bevel->geometry, {vertex.id}, offset, 1e-9, &error);
+      ASSERT_TRUE(moved) << error;
+      const auto index = TopologyIndex::build(*moved->geometry);
+      ASSERT_TRUE(index);
+      EXPECT_LT(math::distance(double3(index->vertex(vertex.id)->position),
+                               double3(vertex.position) + offset), 1e-9);
+      for (const auto &other : bevel->geometry->vertices) {
+        if (other.id != vertex.id) {
+          EXPECT_LT(math::distance(double3(index->vertex(other.id)->position),
+                                   double3(other.position)), 1e-9);
+        }
+      }
+      EXPECT_TRUE(evaluate_boundaries(*moved->geometry, {}, &error)) << error;
+      EXPECT_TRUE(tessellate_surfaces(*moved->geometry, preview_options(), &error)) << error;
+    }
+    Vector<int64_t> top;
+    double max_z = -std::numeric_limits<double>::infinity();
+    for (const auto &vertex : bevel->geometry->vertices) {
+      max_z = std::max(max_z, vertex.position[2]);
+    }
+    for (const auto &vertex : bevel->geometry->vertices) {
+      if (std::abs(vertex.position[2] - max_z) < 1e-9) {
+        top.append(vertex.id);
+      }
+    }
+    ASSERT_FALSE(top.is_empty());
+    auto moved = translate_vertices(*bevel->geometry, top, {0, 0, 0.5}, 1e-9, &error);
+    ASSERT_TRUE(moved) << error;
+    EXPECT_TRUE(tessellate_surfaces(*moved->geometry, preview_options(), &error)) << error;
+    expect_source_geometry_equal(*bevel->geometry, *before);
+  }
+}
+
 template<typename T> static T &first_transform_item(const ListBaseT<T> &list)
 {
   return *static_cast<T *>(list.first);
@@ -574,7 +629,7 @@ TEST(nurbs_vertex_transform, CompleteRuledArcBoundaryMovesWithoutChangingRationa
   }
 }
 
-TEST(nurbs_vertex_transform, PartialCurvedEndpointRejectsWithoutChangingSource)
+TEST(nurbs_vertex_transform, PartialCurvedEndpointDeformsLikeItsControlPoint)
 {
   const auto source = make_arc_sheet(false);
   ASSERT_NE(source, nullptr);
@@ -582,13 +637,67 @@ TEST(nurbs_vertex_transform, PartialCurvedEndpointRejectsWithoutChangingSource)
   const auto &surface = first_transform_item(source->surfaces);
   const double3 point(surface.points[0].position);
   std::string error;
-  EXPECT_FALSE(translate_vertices(*source, {id}, {1, 0, 0}, 0, &error).has_value());
-  EXPECT_FALSE(error.empty());
+  auto moved = translate_vertices(*source, {id}, {1, 0, 0}, 1e-9, &error);
+  ASSERT_TRUE(moved) << error;
+  auto matrix = double4x4::identity();
+  matrix.location() = double3(1, 0, 0);
+  const auto &curve = first_transform_item(source->curves);
+  const CurveControlPointTransform request{{curve.id, 0}, matrix};
+  const auto control = transform_curve_control_points(*source, {&request, 1}, 1e-9, &error);
+  ASSERT_TRUE(control) << error;
+  const auto moved_index = TopologyIndex::build(*moved->geometry);
+  const auto control_index = TopologyIndex::build(*control->geometry);
+  ASSERT_TRUE(moved_index && control_index);
+  for (const auto &vertex : source->vertices) {
+    EXPECT_EQ(double3(moved_index->vertex(vertex.id)->position),
+              double3(control_index->vertex(vertex.id)->position));
+  }
+  const auto &moved_surface = first_transform_item(moved->geometry->surfaces);
+  const auto &control_surface = first_transform_item(control->geometry->surfaces);
+  ASSERT_EQ(moved_surface.points_num, control_surface.points_num);
+  for (int i = 0; i < moved_surface.points_num; i++) {
+    EXPECT_EQ(double3(moved_surface.points[i].position),
+              double3(control_surface.points[i].position));
+  }
+  EXPECT_TRUE(tessellate_surfaces(*moved->geometry, preview_options(), &error)) << error;
   EXPECT_EQ(double3(surface.points[0].position), point);
   auto noop = translate_vertices(*source, {id}, {0, 0, 0}, 0, &error);
   ASSERT_TRUE(noop.has_value()) << error;
   expect_bases_and_ids_unchanged(*source, *noop->geometry);
   EXPECT_EQ(double3(first_transform_item(noop->geometry->surfaces).points[0].position), point);
+}
+
+TEST(nurbs_vertex_transform, MovingASharedArcStationKeepsItsOtherEndpointsFixed)
+{
+  OwnedGeometry source(MEM_new<NurbsGeometry>(__func__));
+  auto arc = circular_arc({0, 0, 0}, {2, 0, 0}, {0, 0, 1}, M_PI / 2);
+  ASSERT_TRUE(arc);
+  arc->id = source->next_id++;
+  auto *curve = arc.release();
+  BLI_addtail(&source->curves, curve);
+  const double low = curve->knots[curve->order - 1];
+  const double high = curve->knots[curve->points_num];
+  const double middle = (low + high) / 2;
+  auto *a = add_vertex(*source, evaluate_curve(*curve, low)->position);
+  auto *b = add_vertex(*source, evaluate_curve(*curve, middle)->position);
+  auto *c = add_vertex(*source, evaluate_curve(*curve, high)->position);
+  auto *ab = add_edge(*source, *a, *b, *curve);
+  auto *bc = add_edge(*source, *b, *c, *curve);
+  ab->parameter_range[1] = middle;
+  bc->parameter_range[0] = middle;
+  const OwnedGeometry before(geometry_copy(source.get()));
+  std::string error;
+  auto result = translate_vertices(*source, {b->id}, {0, 0, 1}, 1e-9, &error);
+  ASSERT_TRUE(result) << error;
+  auto index = TopologyIndex::build(*result->geometry);
+  ASSERT_TRUE(index);
+  EXPECT_LT(math::distance(double3(index->vertex(b->id)->position),
+                           double3(b->position) + double3(0, 0, 1)), 1e-9);
+  EXPECT_EQ(double3(index->vertex(a->id)->position), double3(a->position));
+  EXPECT_EQ(double3(index->vertex(c->id)->position), double3(c->position));
+  EXPECT_NE(index->edge(ab->id)->curve_id, index->edge(bc->id)->curve_id);
+  EXPECT_TRUE(evaluate_boundaries(*result->geometry, {}, &error)) << error;
+  expect_source_geometry_equal(*source, *before);
 }
 
 TEST(nurbs_vertex_transform, IndependentOwnersOfOneCurveRejectConflictingRequests)
@@ -1104,8 +1213,7 @@ TEST(nurbs_vertex_transform, AffineFailuresRetainSourceAndNoopAllowsCurvedSelect
   EXPECT_TRUE(transform_vertices(*source, {{id, identity}}, 0, &error)) << error;
   double4x4 matrix = identity;
   matrix[0][0] = 2;
-  EXPECT_FALSE(transform_vertices(*source, {{id, matrix}}, 0, &error));
-  EXPECT_NE(error.find("fit-point"), std::string::npos);
+  EXPECT_TRUE(transform_vertices(*source, {{id, matrix}}, 1e-9, &error)) << error;
   matrix[0][3] = 1;
   EXPECT_FALSE(transform_vertices(*source, {{id, matrix}}, 0, &error));
   matrix = identity;

@@ -1169,7 +1169,41 @@ static bool update_control_point_boundaries(const NurbsGeometry &source,
   }
   for (const auto &item : assignments.items()) {
     auto &surface = *surfaces.lookup(item.key);
-    for (const auto &point : item.value.items()) {
+    /* A triangular corner may be represented by a tensor patch with a collapsed
+     * boundary row. That row represents one topology vertex, not separate handles. */
+    auto &requests = assignments.lookup(item.key);
+    for (int pass = 0; pass < 2; pass++) {
+      for (int axis = 0; axis < 2; axis++) {
+        const int count = axis == 0 ? surface.points_u : surface.points_v;
+        for (const bool high : {false, true}) {
+          auto slot = [&](const int i) {
+            return axis == 0 ? (high ? surface.points_v - 1 : 0) * surface.points_u + i :
+                               i * surface.points_u + (high ? surface.points_u - 1 : 0);
+          };
+          const double3 pole(surface.points[slot(0)].position);
+          bool collapsed = true, conflicting = false;
+          std::optional<double3> position;
+          for (int i = 0; i < count; i++) {
+            collapsed &= double3(surface.points[slot(i)].position) == pole;
+            if (const auto *value = requests.lookup_ptr(slot(i))) {
+              if (position && math::distance(*position, *value) > max_error) {
+                conflicting = true;
+              }
+              position = *value;
+            }
+          }
+          if (collapsed && conflicting) {
+            return fail("A collapsed NURBS boundary requests conflicting vertex positions");
+          }
+          if (collapsed && position) {
+            for (int i = 0; i < count; i++) {
+              requests.add_overwrite(slot(i), *position);
+            }
+          }
+        }
+      }
+    }
+    for (const auto &point : requests.items()) {
       std::copy_n(&point.value.x, 3, surface.points[point.key].position);
     }
   }
@@ -1330,6 +1364,142 @@ std::optional<GeometryTransformResult> transform_curve_control_points(
   return result;
 }
 
+/** Visible topology endpoints are also the end coefficients of their incident clamped
+ * curves. Give trimmed/shared edges private supports before editing those coefficients;
+ * interior handles retain their positions, just as when the control cage is visible. */
+static std::optional<GeometryTransformResult> transform_curved_endpoints(
+    const NurbsGeometry &source,
+    const Map<int64_t, int> &assignments,
+    const Vector<double4x4> &matrices,
+    const double max_error,
+    std::string *r_error)
+{
+  OwnedGeometry prepared(geometry_copy(&source));
+  Map<int64_t, NurbsCurveGeometry *> curves;
+  Map<int64_t, int> owners;
+  for (auto &curve : prepared->curves) {
+    curves.add_new(curve.id, &curve);
+  }
+  for (const auto &edge : source.edges) {
+    owners.lookup_or_add(edge.curve_id, 0)++;
+  }
+  auto group = [&](const int64_t vertex) {
+    const int value = assignments.lookup_default(vertex, -1);
+    return value >= 0 && matrices[value] != double4x4::identity() ? value : -1;
+  };
+  Vector<CurveControlPointTransform> requests;
+  double restriction_error = 0;
+  for (auto &edge : prepared->edges) {
+    const int a = group(edge.vertex_ids[0]), b = group(edge.vertex_ids[1]);
+    if (a < 0 && b < 0) {
+      continue;
+    }
+    auto *curve = curves.lookup(edge.curve_id);
+    if (owners.lookup(edge.curve_id) != 1 ||
+        !clamped_direction(curve->order, curve->points_num, curve->knots) ||
+        edge.parameter_range[0] != curve->knots[curve->order - 1] ||
+        edge.parameter_range[1] != curve->knots[curve->points_num])
+    {
+      auto crop = restrict_curve(*curve, double2(edge.parameter_range), max_error, r_error);
+      if (!crop || prepared->next_id == std::numeric_limits<int64_t>::max()) {
+        return std::nullopt;
+      }
+      restriction_error = std::max(restriction_error, crop->geometry_error_bound);
+      curve = crop->curve.release();
+      curve->id = prepared->next_id++;
+      edge.curve_id = curve->id;
+      curves.add_new(curve->id, curve);
+      BLI_addtail(&prepared->curves, curve);
+    }
+    for (int i = 0; i < curve->points_num; i++) {
+      const int transform = a == b ? a : (i == 0 ? a : (i == curve->points_num - 1 ? b : -1));
+      if (transform >= 0) {
+        requests.append({{curve->id, i}, matrices[transform]});
+      }
+    }
+  }
+  auto result = transform_curve_control_points(*prepared, requests, max_error, r_error);
+  if (!result) {
+    return std::nullopt;
+  }
+  result->position_error_bound = detail::add_upper(result->position_error_bound,
+                                                   restriction_error);
+  Map<int64_t, const NurbsSurfaceGeometry *> old_surfaces;
+  Map<int64_t, NurbsSurfaceGeometry *> new_surfaces;
+  for (const auto &surface : prepared->surfaces) {
+    old_surfaces.add_new(surface.id, &surface);
+  }
+  for (auto &surface : result->geometry->surfaces) {
+    new_surfaces.add_new(surface.id, &surface);
+  }
+  const auto index = TopologyIndex::build(*prepared, r_error);
+  if (!index) {
+    return std::nullopt;
+  }
+  /* A whole selected face transports its interior coefficients as well as its boundary. */
+  for (auto &face : result->geometry->faces) {
+    int common = -2;
+    bool whole = true;
+    for (const auto &loop : face.loops) {
+      for (const auto &use : loop.edge_uses) {
+        for (const int64_t id : index->edge(use.edge_id)->vertex_ids) {
+          const int value = group(id);
+          if (common == -2) {
+            common = value;
+          }
+          whole &= common == value;
+        }
+      }
+    }
+    if (!whole || common < 0) {
+      continue;
+    }
+    auto *surface = new_surfaces.lookup(face.surface_id);
+    const auto *original = old_surfaces.lookup(index->face(face.id)->surface_id);
+    auto crop = restrict_surface(*original,
+                                 {surface->knots_u[surface->order_u - 1],
+                                  surface->knots_v[surface->order_v - 1]},
+                                 {surface->knots_u[surface->points_u],
+                                  surface->knots_v[surface->points_v]},
+                                 max_error,
+                                 r_error);
+    if (!crop || crop->surface->points_num != surface->points_num) {
+      return std::nullopt;
+    }
+    result->position_error_bound = std::max(result->position_error_bound,
+                                           crop->geometry_error_bound);
+    for (int i = 0; i < surface->points_num; i++) {
+      std::copy_n(crop->surface->points[i].position, 3, surface->points[i].position);
+      if (!transform_position(surface->points[i].position,
+                              matrices[common], result->position_error_bound))
+      {
+        return std::nullopt;
+      }
+    }
+  }
+  /* Isolated topology vertices have no curve coefficient to carry their movement. */
+  Set<int64_t> incident;
+  for (const auto &edge : source.edges) {
+    incident.add(edge.vertex_ids[0]);
+    incident.add(edge.vertex_ids[1]);
+  }
+  for (auto &vertex : result->geometry->vertices) {
+    const int value = group(vertex.id);
+    if (value >= 0 && !incident.contains(vertex.id) &&
+        !transform_position(vertex.position, matrices[value], result->position_error_bound))
+    {
+      return std::nullopt;
+    }
+  }
+  if (result->position_error_bound > max_error ||
+      !evaluate_boundaries(*result->geometry, {}, r_error) ||
+      !geometry_validate_structure(*result->geometry, r_error))
+  {
+    return std::nullopt;
+  }
+  return result;
+}
+
 std::optional<GeometryTransformResult> translate_vertices(const NurbsGeometry &source,
                                                           const Span<int64_t> vertex_ids,
                                                           const double3 &offset,
@@ -1434,6 +1604,20 @@ std::optional<GeometryTransformResult> transform_vertices(const NurbsGeometry &s
   }
   for (const auto &surface : source.surfaces) {
     surfaces.add_new(surface.id, &surface);
+  }
+  /* A partial curved edge has a defined endpoint-control edit, independent of whether
+   * its control cage is displayed. Keep the existing component/ruled-row path otherwise. */
+  for (const auto &edge : source.edges) {
+    auto group = [&](const int64_t vertex) {
+      const int value = assignments.lookup_default(vertex, -1);
+      return value >= 0 && matrices[value] != double4x4::identity() ? value : -1;
+    };
+    if (group(edge.vertex_ids[0]) != group(edge.vertex_ids[1]) &&
+        !linear_curve(*curves.lookup(edge.curve_id),
+                      edge.parameter_range[0], edge.parameter_range[1]))
+    {
+      return transform_curved_endpoints(source, assignments, matrices, max_position_error, r_error);
+    }
   }
   Vector<BilinearFaceDeformation> deformations;
   Set<int64_t> deformed_faces;
