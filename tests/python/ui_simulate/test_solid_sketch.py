@@ -98,6 +98,60 @@ def analytic_shape_construction_modes():
     yield from construction_modes(analytic=True)
 
 
+def _duplicate_move(mode):
+    import bpy
+    import bmesh
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    yield from ui.call_menu(e, 'Add -> Solid -> Rectangle Sketch' if mode == 'FACE' else 'Add -> Solid -> Line Sketch')
+    if mode == 'FACE':
+        yield e.e().text('2').ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.mesh.select_mode(type=mode)
+        if mode == 'VERT':
+            bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+            for element in (*bm.faces, *bm.edges, *bm.verts):
+                element.select_set(False)
+            for v in bm.verts:
+                v.select_set(v.co.x > 0)
+            bm.select_flush_mode()
+            bmesh.update_edit_mesh(window.view_layer.objects.active.data)
+
+    def counts():
+        d = window.view_layer.objects.active.data
+        return (d.solid_vertices_count, d.solid_edges_count, d.solid_faces_count)
+    before = counts()
+    delta = {'VERT': (1, 0, 0), 'EDGE': (2, 1, 0), 'FACE': (4, 4, 1)}[mode]
+    expected = tuple(a + b for a, b in zip(before, delta))
+    yield e.shift.d().z().text('3').ret()
+    t.assertEqual(counts(), expected)
+    bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+    heights = [v.co.z for v in bm.verts]
+    t.assertAlmostEqual(min(heights), 0)
+    t.assertAlmostEqual(max(heights), 5 if mode == 'FACE' else 3)
+    yield e.ctrl.z()
+    t.assertEqual(counts(), before)
+    yield e.ctrl.shift.z()
+    t.assertEqual(counts(), expected)
+    yield e.shift.d().z().text('1').esc()
+    t.assertEqual(counts(), tuple(a + b for a, b in zip(expected, delta)))
+
+
+def duplicate_vertex_move():
+    yield from _duplicate_move('VERT')
+
+
+def duplicate_edge_move():
+    yield from _duplicate_move('EDGE')
+
+
+def duplicate_face_move():
+    yield from _duplicate_move('FACE')
+
+
 def analytic_deferred_numeric_input():
     from test_nurbs_numeric import deferred_parameters
     yield from deferred_parameters(analytic=True)

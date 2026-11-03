@@ -4807,6 +4807,7 @@ def km_edit_mesh(params):
     items.extend([
         ("solid.extrude", {"type": 'E', "value": 'PRESS'}, None),
         ("solid.fill", {"type": 'F', "value": 'PRESS'}, None),
+        ("solid.duplicate_move", {"type": 'D', "value": 'PRESS', "shift": True}, None),
         ("solid.merge", {"type": 'M', "value": 'PRESS'}, None),
         ("solid.bevel", {"type": 'B', "value": 'PRESS', "ctrl": True}, None),
         ("solid.bevel", {"type": 'B', "value": 'PRESS', "ctrl": True, "shift": True},

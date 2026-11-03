@@ -1856,6 +1856,7 @@ class VIEW3D_MT_edit_solid(Menu):
         layout.operator_context = 'INVOKE_REGION_WIN'
         layout.operator("solid.extrude", text="Extrude Solid")
         layout.operator("solid.fill", text="Fill Profile")
+        layout.operator("solid.duplicate_move", text="Duplicate")
         layout.operator_menu_enum("solid.merge", "type", text="Merge")
         layout.operator("solid.bevel", text="Bevel Edges")
         layout.operator("solid.bevel", text="Bevel Vertices").vertices_only = True

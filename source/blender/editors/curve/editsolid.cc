@@ -542,6 +542,20 @@ static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent
   return OPERATOR_RUNNING_MODAL;
 }
 
+static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
+{
+  std::string error;
+  auto session = ed::solid_editor::Session::begin(C, &error);
+  auto result = session ? solid::duplicate_elements(
+                              *session->source().model, session->source().selection, &error) :
+                          std::nullopt;
+  if (!result || !session->apply(C, std::move(*result), &error)) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  return OPERATOR_FINISHED;
+}
+
 static wmOperatorStatus merge_exec(bContext *C, wmOperator *op)
 {
   std::string error;
@@ -710,6 +724,17 @@ void SOLID_OT_extrude(wmOperatorType *ot)
                        "Translation for vertex or edge extrusion in object-local coordinates",
                        -100,
                        100);
+}
+
+void SOLID_OT_duplicate(wmOperatorType *ot)
+{
+  ot->name = "Duplicate Solid Elements";
+  ot->idname = "SOLID_OT_duplicate";
+  ot->description =
+      "Duplicate selected source vertices, edges and faces with independent geometry";
+  ot->poll = solid_edit_poll;
+  ot->exec = duplicate_exec;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 void SOLID_OT_merge(wmOperatorType *ot)

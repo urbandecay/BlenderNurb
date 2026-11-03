@@ -270,6 +270,97 @@ bool reset_lines(Model &m, std::string *error)
 }
 }  // namespace
 
+std::optional<EditResult> duplicate_elements(const Model &model,
+                                             Selection selection,
+                                             std::string *error)
+{
+  if (!validate(model, error))
+    return {};
+  selection = normalize_selection(model, std::move(selection));
+  if (selection.vertices.empty()) {
+    fail(error, "Select vertices, edges or faces to duplicate");
+    return {};
+  }
+  EditResult result{model, {}};
+  Model &out = result.model;
+  Set vertices(selection.vertices.begin(), selection.vertices.end());
+  Set edges(selection.edges.begin(), selection.edges.end());
+  Set faces(selection.faces.begin(), selection.faces.end());
+  Set curves, surfaces;
+  for (const Edge &e : model.edges)
+    if (edges.contains(e.id))
+      curves.insert(e.curve);
+  for (const Face &f : model.faces)
+    if (faces.contains(f.id))
+      surfaces.insert(f.surface);
+  for (const Surface &s : model.surfaces)
+    if (surfaces.contains(s.id) && s.kind == SurfaceKind::Extrusion)
+      curves.insert(s.curve);
+  const size_t count = vertices.size() + edges.size() + faces.size() + curves.size() +
+                       surfaces.size();
+  if (count > std::numeric_limits<Id>::max() - out.next_id) {
+    fail(error, "Duplication source identities exhausted");
+    return {};
+  }
+  std::unordered_map<Id, Id> ids;
+  auto allocate = [&](const auto &items, const Set &chosen) {
+    for (const auto &item : items)
+      if (chosen.contains(item.id))
+        ids[item.id] = out.next_id++;
+  };
+  allocate(model.vertices, vertices);
+  allocate(model.curves, curves);
+  allocate(model.edges, edges);
+  allocate(model.surfaces, surfaces);
+  allocate(model.faces, faces);
+  for (Vertex v : model.vertices)
+    if (vertices.contains(v.id)) {
+      v.id = ids.at(v.id);
+      out.vertices.push_back(v);
+      result.selection.vertices.push_back(v.id);
+    }
+  for (Curve c : model.curves)
+    if (curves.contains(c.id)) {
+      c.id = ids.at(c.id);
+      out.curves.push_back(c);
+    }
+  for (Edge e : model.edges)
+    if (edges.contains(e.id)) {
+      e.id = ids.at(e.id);
+      e.curve = ids.at(e.curve);
+      for (Id &v : e.vertices)
+        v = ids.at(v);
+      out.edges.push_back(e);
+      result.selection.edges.push_back(e.id);
+    }
+  for (Surface s : model.surfaces)
+    if (surfaces.contains(s.id)) {
+      s.id = ids.at(s.id);
+      if (s.kind == SurfaceKind::Extrusion)
+        s.curve = ids.at(s.curve);
+      out.surfaces.push_back(s);
+    }
+  for (Face f : model.faces)
+    if (faces.contains(f.id)) {
+      f.id = ids.at(f.id);
+      f.surface = ids.at(f.surface);
+      for (Coedge &use : f.outer)
+        use.edge = ids.at(use.edge);
+      for (auto &hole : f.holes)
+        for (Coedge &use : hole)
+          use.edge = ids.at(use.edge);
+      out.faces.push_back(f);
+      result.selection.faces.push_back(f.id);
+    }
+  result.selection.mode = selection.mode;
+  result.selection.active = ids.contains(selection.active) ? ids.at(selection.active) :
+                                                             result.selection.vertices.back();
+  result.selection = normalize_selection(out, std::move(result.selection));
+  if (!validate(out, error))
+    return {};
+  return result;
+}
+
 bool refit_linear_faces(Model &m, std::string *error)
 {
   Set replaced;

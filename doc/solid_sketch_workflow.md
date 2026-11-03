@@ -39,6 +39,10 @@ spline/control-net authoring remains in the separate NURBS workflow.
    intersect through the same half-space construction, including corners of higher valence.
 8. Use **X/Delete** for source vertex, edge, face or only-face deletion. **F** can also connect
    two source vertices or close and fill an open planar boundary chain.
+9. Use **Shift+D** to duplicate selected vertices, edges or faces and move the copy. The
+   copied topology and analytic supports have independent identities. Shared boundaries within
+   the copied selection remain connected. X/Y/Z constraints and numeric entry use the standard
+   move tool. Escape cancels movement and leaves the duplicate at its original position.
 
 Move, rotate and scale work on planar body components. Their straight edges and support planes
 are reconstructed from edited source coordinates. A polygon that becomes nonplanar is split
@@ -96,6 +100,11 @@ Validation of the component-editing update on November 3, 2026:
 
 The final combined viewport regression run completed all 16 cases with zero failures on the
 installed update, including free mouse extrusion, axis input, both bevel shortcuts and undo.
+
+The subsequent Shift+D addition passed all 16 API tests, including vertex, edge, planar-face
+and exact circular-face duplication followed by translation. Three additional viewport tests
+passed for vertex, edge and face duplication, axis/numeric movement, undo/redo, and cancellation
+of movement while retaining the copy. The installed Blender includes this addition.
 
 The shared drawing code also fixes construction Backspace being consumed by inactive numeric
 input, and keeps drawing input streams in the executable's C++ runtime to prevent a locale

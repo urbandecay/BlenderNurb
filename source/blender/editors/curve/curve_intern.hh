@@ -33,6 +33,7 @@ struct wmOperatorType;
 void SOLID_OT_sketch_add(wmOperatorType *ot);
 void SOLID_OT_extrude(wmOperatorType *ot);
 void SOLID_OT_fill(wmOperatorType *ot);
+void SOLID_OT_duplicate(wmOperatorType *ot);
 void SOLID_OT_merge(wmOperatorType *ot);
 void SOLID_OT_bevel(wmOperatorType *ot);
 void SOLID_OT_delete(wmOperatorType *ot);

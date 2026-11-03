@@ -200,6 +200,42 @@ class SolidSketchTest(unittest.TestCase):
         bm.select_flush_mode()
         bmesh.update_edit_mesh(bpy.context.object.data, loop_triangles=False, destructive=False)
 
+    def test_duplicate_vertices_edges_faces_and_exact_circle(self):
+        for mode in ('VERT', 'EDGE', 'FACE', 'CIRCLE'):
+            with self.subTest(mode=mode):
+                self.setUp()
+                bpy.ops.solid.sketch_add(
+                    type='CIRCLE' if mode == 'CIRCLE' else 'LINE' if mode != 'FACE' else 'RECTANGLE')
+                if mode in ('FACE', 'CIRCLE'):
+                    bpy.ops.solid.extrude(distance=2)
+                elif mode == 'VERT':
+                    self.source_select('VERT', lambda v: v.co.x > 0)
+                else:
+                    self.source_select('EDGE', lambda e: True)
+                obj = bpy.context.object
+                before = (obj.data.solid_vertices_count, obj.data.solid_edges_count, obj.data.solid_faces_count)
+                self.assertEqual(
+                    bpy.ops.solid.duplicate_move(
+                        TRANSFORM_OT_translate={
+                            'value': (
+                                0, 0, 4)}), {'FINISHED'})
+                delta = {'VERT': (1, 0, 0), 'EDGE': (2, 1, 0), 'FACE': (4, 4, 1), 'CIRCLE': (1, 1, 1)}[mode]
+                self.assertEqual(
+                    (obj.data.solid_vertices_count,
+                     obj.data.solid_edges_count,
+                     obj.data.solid_faces_count),
+                    tuple(
+                        a + b for a,
+                        b in zip(
+                            before,
+                            delta)))
+                bpy.ops.object.mode_set(mode='OBJECT')
+                heights = [v.co.z for v in obj.data.vertices]
+                self.assertAlmostEqual(min(heights), 0)
+                self.assertAlmostEqual(max(heights), 6 if mode in ('FACE', 'CIRCLE') else 4)
+                if mode == 'CIRCLE':
+                    self.assertEqual(obj.data.solid_edges_count, 4)
+
     def test_open_edge_extrusion_and_legacy_poll(self):
         bpy.ops.solid.sketch_add(type='LINE')
         obj = bpy.context.object

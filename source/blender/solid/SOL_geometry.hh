@@ -150,6 +150,10 @@ std::optional<EditResult> extrude_elements(const Model &model,
                                            Vec3 offset,
                                            std::string *error = nullptr);
 enum class MergeMode { Center, First, Last, Cursor, Distance, Collapse };
+/** Copy selected topology with independent identities and shared supports within the copy. */
+std::optional<EditResult> duplicate_elements(const Model &model,
+                                             Selection selection,
+                                             std::string *error = nullptr);
 std::optional<EditResult> merge_vertices(const Model &model,
                                          Selection selection,
                                          MergeMode mode,

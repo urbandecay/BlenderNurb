@@ -28,6 +28,7 @@ void ED_operatortypes_curve()
   WM_operatortype_append(SOLID_OT_sketch_add);
   WM_operatortype_append(SOLID_OT_extrude);
   WM_operatortype_append(SOLID_OT_fill);
+  WM_operatortype_append(SOLID_OT_duplicate);
   WM_operatortype_append(SOLID_OT_merge);
   WM_operatortype_append(SOLID_OT_bevel);
   WM_operatortype_append(SOLID_OT_delete);
@@ -148,6 +149,15 @@ void ED_operatormacros_curve()
 {
   wmOperatorType *ot;
   wmOperatorTypeMacro *otmacro;
+
+  ot = WM_operatortype_append_macro("SOLID_OT_duplicate_move",
+                                    "Duplicate Solid and Move",
+                                    "Duplicate selected source vertices, edges or faces and move the copy",
+                                    OPTYPE_UNDO | OPTYPE_REGISTER);
+  WM_operatortype_macro_define(ot, "SOLID_OT_duplicate");
+  otmacro = WM_operatortype_macro_define(ot, "TRANSFORM_OT_translate");
+  RNA_boolean_set(otmacro->ptr, "use_proportional_edit", false);
+  RNA_boolean_set(otmacro->ptr, "mirror", false);
 
   ot = WM_operatortype_append_macro("CURVE_OT_duplicate_move",
                                     "Add Duplicate",
