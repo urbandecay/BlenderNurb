@@ -215,6 +215,7 @@ set(SRC
   intern/node_tree_structure_type_inferencing.cc
   intern/node_tree_update.cc
   intern/node_tree_zones.cc
+  intern/solid_host.cc
   intern/nurbs_construct.cc
   intern/nurbs_construct_fill.cc
   intern/nurbs_construct_patch.cc
@@ -474,6 +475,7 @@ set(SRC
   BKE_node_tree_update.hh
   BKE_node_tree_zones.hh
   BKE_nurbs_curve_bevel.hh
+  BKE_solid_host.hh
   BKE_nurbs_construct.hh
   BKE_nurbs_edit.hh
   BKE_nurbs_evaluate.hh
@@ -567,6 +569,7 @@ set(SRC
 )
 
 set(LIB
+  PUBLIC bf_solid_analytic
   PRIVATE bf::animrig
   PRIVATE bf::asset_system
   PRIVATE bf::blenfont

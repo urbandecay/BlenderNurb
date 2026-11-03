@@ -4,7 +4,7 @@
 import modules.ui_test_utils as ui
 
 
-def tangent_circles():
+def tangent_circles(*, analytic=False):
     import bpy
     import hashlib
     import re
@@ -20,6 +20,9 @@ def tangent_circles():
         return round(p.x) + region.x, round(p.y) + region.y
 
     def counts():
+        if analytic:
+            data=window.view_layer.objects.active.data
+            return (data.solid_vertices_count,data.solid_edges_count)
         stats = window.scene.statistics(window.view_layer).replace(',', '')
         return tuple(map(int, re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+)', stats).groups()))
 
@@ -41,8 +44,10 @@ def tangent_circles():
     for obj in tuple(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
     yield e.cursor_position_set(*ui.get_area_center(area), move=True)
-    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
-    yield e.tab().two().numpad_7()
+    yield from ui.call_menu(e, 'Add -> Solid -> Sketch' if analytic else 'Add -> Curve -> Nurbs Line')
+    if not analytic:
+        yield e.tab()
+    yield e.two().numpad_7()
     space.region_3d.view_location = (0, 0, 0)
     space.region_3d.view_distance = 14
     window.scene.tool_settings.use_snap = False
@@ -54,11 +59,18 @@ def tangent_circles():
     )
     for mode, curved, sources, seed in cases:
         with bpy.context.temp_override(window=window, area=area, region=region):
-            bpy.ops.curve.select_all(action='SELECT')
-            bpy.ops.curve.delete(type='VERT')
+            if analytic:
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bpy.ops.object.select_all(action='SELECT')
+                bpy.ops.object.delete(use_global=False)
+                bpy.ops.solid.sketch_add(type='EMPTY')
+                bpy.ops.mesh.select_mode(type='EDGE')
+            else:
+                bpy.ops.curve.select_all(action='SELECT')
+                bpy.ops.curve.delete(type='VERT')
             for points in sources:
                 (bpy.ops.curve.draw_circle if curved else bpy.ops.curve.draw_line)(points=points)
-            bpy.ops.curve.select_all(action='SELECT')
+            (bpy.ops.mesh.select_all if analytic else bpy.ops.curve.select_all)(action='SELECT')
             bpy.ops.ed.undo_push(message='Tangent circle source curves')
             bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_circle')
             props = window.workspace.tools.from_space_view3d_mode(bpy.context.mode).operator_properties('curve.draw_circle')

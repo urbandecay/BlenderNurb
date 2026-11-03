@@ -432,6 +432,7 @@ set(SRC
 )
 
 set(LIB
+  PRIVATE bf_solid_analytic
   PRIVATE bf::animrig
   PRIVATE bf::blenlib
   PRIVATE bf::dna

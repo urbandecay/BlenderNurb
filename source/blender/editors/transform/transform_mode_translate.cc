@@ -611,6 +611,8 @@ static void applyTranslation(TransInfo *t)
   }
 
   applyTranslationValue(t, global_dir);
+  if (t->data_type == &TransConvertType_Solid)
+    solid_translation_update(t, double3(global_dir));
 
   /* Evil hack - redo translation if clipping needed. */
   if (t->flag & T_CLIP_UV && clip_uv_transform_translation(t, global_dir)) {

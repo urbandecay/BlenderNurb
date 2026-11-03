@@ -1,0 +1,413 @@
+/* SPDX-FileCopyrightText: 2026 Blender Authors
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
+
+#include "BKE_solid_host.hh"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <unordered_map>
+
+#include "MEM_guardedalloc.h"
+
+#include "DNA_mesh_types.h"
+#include "DNA_solid_types.h"
+
+#include "BKE_attribute.hh"
+#include "BKE_customdata.hh"
+#include "BKE_editmesh.hh"
+#include "BKE_lib_id.hh"
+#include "BKE_mesh.h"
+#include "BKE_mesh.hh"
+#include "bmesh.hh"
+
+#include "BLO_read_write.hh"
+
+namespace blender::bke::solid_host {
+namespace {
+struct Runtime {
+  std::shared_ptr<const solid::Model> model;
+  solid::Selection selection;
+  std::string error;
+};
+
+Runtime &ensure(const SolidStorage &storage)
+{
+  auto &mutable_storage = const_cast<SolidStorage &>(storage);
+  if (!mutable_storage.runtime) {
+    auto *runtime = new Runtime;
+    const auto decoded = storage.bytes_num > 0 ? solid::decode(storage.bytes,
+                                                               size_t(storage.bytes_num),
+                                                               &runtime->error) :
+                                                 std::nullopt;
+    if (decoded) {
+      runtime->model = std::make_shared<const solid::Model>(std::move(decoded->model));
+      runtime->selection = std::move(decoded->selection);
+    }
+    else if (runtime->error.empty()) {
+      runtime->error = "Analytic source storage is missing or invalid";
+    }
+    mutable_storage.runtime = runtime;
+  }
+  return *static_cast<Runtime *>(mutable_storage.runtime);
+}
+
+int2 split_id(solid::Id id)
+{
+  return {int32_t(uint32_t(id)), int32_t(uint32_t(id >> 32))};
+}
+bool selected(const std::vector<solid::Id> &ids, solid::Id id)
+{
+  return id && std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+}  // namespace
+
+SolidStorage *storage_create(solid::Model model, solid::Selection selection, std::string *error)
+{
+  if (!solid::validate(model, error))
+    return nullptr;
+  auto *storage = MEM_new<SolidStorage>(__func__);
+  auto *runtime = new Runtime;
+  runtime->model = std::make_shared<const solid::Model>(std::move(model));
+  runtime->selection = solid::normalize_selection(*runtime->model, std::move(selection));
+  storage->runtime = runtime;
+  return storage;
+}
+
+SolidStorage *storage_copy(const SolidStorage *source)
+{
+  if (!source)
+    return nullptr;
+  auto *copy = MEM_new<SolidStorage>(__func__);
+  copy->revision = source->revision;
+  const Runtime &runtime = ensure(*source);
+  if (!runtime.model) {
+    copy->bytes_num = source->bytes_num;
+    copy->bytes = source->bytes ? MEM_dupalloc(source->bytes) : nullptr;
+  }
+  copy->runtime = new Runtime(runtime);
+  return copy;
+}
+
+void storage_free(SolidStorage *storage)
+{
+  if (!storage)
+    return;
+  delete static_cast<Runtime *>(storage->runtime);
+  MEM_SAFE_DELETE(storage->bytes);
+  MEM_delete(storage);
+}
+
+void storage_write(BlendWriter *writer, const SolidStorage &storage)
+{
+  const auto &runtime = ensure(storage);
+  std::vector<uint8_t> encoded = runtime.model ? solid::encode(*runtime.model, runtime.selection) :
+                                                 std::vector<uint8_t>();
+  SolidStorage saved = storage;
+  saved.runtime = nullptr;
+  if (!encoded.empty()) {
+    saved.bytes = encoded.data();
+    saved.bytes_num = encoded.size();
+  }
+  BLO_write_generated_pointer_tag(writer, saved.bytes);
+  writer->write_struct_at_address(&storage, &saved);
+  writer->write_uint8_array(saved.bytes_num, saved.bytes);
+}
+
+void storage_read(BlendDataReader *reader, SolidStorage &storage)
+{
+  storage.runtime = nullptr;
+  if (storage.bytes_num < 0 || storage.bytes_num > (128 << 20) ||
+      !BLO_read_array(reader, &storage.bytes, storage.bytes_num))
+  {
+    storage.bytes = nullptr;
+    storage.bytes_num = 0;
+  }
+  /* Preserve failure explicitly. A corrupt analytic payload must not become an editable mesh. */
+  if (ensure(storage).model) {
+    MEM_SAFE_DELETE(storage.bytes);
+    storage.bytes_num = 0;
+  }
+}
+
+std::optional<Snapshot> read(const Mesh &mesh, std::string *error)
+{
+  if (!mesh.solid_storage) {
+    if (error)
+      *error = "Object has no analytic solid source";
+    return {};
+  }
+  const auto &runtime = ensure(*mesh.solid_storage);
+  if (!runtime.model) {
+    if (error)
+      *error = runtime.error;
+    return {};
+  }
+  return Snapshot{runtime.model, runtime.selection, mesh.solid_storage->revision};
+}
+
+std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error)
+{
+  auto source = read(mesh, error);
+  if (!source || !mesh.runtime->edit_mesh)
+    return source;
+  const BMesh &bm = *mesh.runtime->edit_mesh->bm;
+  auto &selection = source->selection;
+  selection.mode = bm.selectmode & 4 ? 4 : bm.selectmode & 2 ? 2 : 1;
+  auto read_domain =
+      [&](const CustomData &data, int iter_type, const char *name, std::vector<solid::Id> &ids) {
+        const int offset = CustomData_get_offset_named(&data, CD_PROP_INT32_2D, name);
+        if (offset < 0) {
+          ids.clear();
+          return;
+        }
+        struct Counts {
+          int total = 0, selected = 0;
+        };
+        std::unordered_map<solid::Id, Counts> counts;
+        BMIter iter;
+        BMElem *element;
+        BM_ITER_MESH (element, &iter, const_cast<BMesh *>(&bm), iter_type) {
+          const auto *value = static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(element, offset));
+          const solid::Id id = uint64_t(uint32_t(value->x)) | (uint64_t(uint32_t(value->y)) << 32);
+          if (id) {
+            auto &count = counts[id];
+            count.total++;
+            count.selected += BM_elem_flag_test(element, BM_ELEM_SELECT) != 0;
+          }
+        }
+        std::vector<solid::Id> selected_ids;
+        for (const auto &[id, count] : counts) {
+          const bool was_selected = selected(ids, id);
+          if ((was_selected && count.selected == count.total) ||
+              (!was_selected && count.selected > 0))
+            selected_ids.push_back(id);
+        }
+        ids = std::move(selected_ids);
+        std::sort(ids.begin(), ids.end());
+      };
+  read_domain(bm.vdata, BM_VERTS_OF_MESH, ".solid_vertex_id", selection.vertices);
+  read_domain(bm.edata, BM_EDGES_OF_MESH, ".solid_edge_id", selection.edges);
+  read_domain(bm.pdata, BM_FACES_OF_MESH, ".solid_face_id", selection.faces);
+  std::vector<solid::Id> ordered;
+  for (const BMEditSelection *item = static_cast<const BMEditSelection *>(bm.selected.first); item;
+       item = item->next)
+  {
+    const CustomData &domain = item->htype == BM_VERT ? bm.vdata :
+                               item->htype == BM_EDGE ? bm.edata :
+                                                        bm.pdata;
+    const char *name = item->htype == BM_VERT ? ".solid_vertex_id" :
+                       item->htype == BM_EDGE ? ".solid_edge_id" :
+                                                ".solid_face_id";
+    const int offset = CustomData_get_offset_named(&domain, CD_PROP_INT32_2D, name);
+    if (offset < 0)
+      continue;
+    const int2 &value = *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(item->ele, offset));
+    const solid::Id id = uint64_t(uint32_t(value.x)) | (uint64_t(uint32_t(value.y)) << 32);
+    if (!id)
+      continue;
+    selection.active = id;
+    if (item->htype == BM_VERT && selected(selection.vertices, id) && !selected(ordered, id))
+      ordered.push_back(id);
+  }
+  for (solid::Id id : selection.vertices)
+    if (!selected(ordered, id))
+      ordered.push_back(id);
+  selection.vertices = std::move(ordered);
+  selection = solid::normalize_selection(*source->model, std::move(selection));
+  return source;
+}
+
+void sync_edit_selection(Mesh &mesh)
+{
+  auto source = read_edit(mesh);
+  if (!source || !mesh.runtime->edit_mesh)
+    return;
+  if (!publish(mesh, *source, source->revision, nullptr))
+    return;
+  BMesh &bm = *mesh.runtime->edit_mesh->bm;
+  BM_mesh_elem_hflag_disable_all(&bm, BM_VERT | BM_EDGE | BM_FACE, BM_ELEM_SELECT, false);
+  auto source_id = [](const BMElem *element, int offset) -> solid::Id {
+    if (offset < 0)
+      return 0;
+    const auto &id = *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(element, offset));
+    return uint64_t(uint32_t(id.x)) | (uint64_t(uint32_t(id.y)) << 32);
+  };
+  const int v_offset = CustomData_get_offset_named(
+      &bm.vdata, CD_PROP_INT32_2D, ".solid_vertex_id");
+  const int e_offset = CustomData_get_offset_named(&bm.edata, CD_PROP_INT32_2D, ".solid_edge_id");
+  const int f_offset = CustomData_get_offset_named(&bm.pdata, CD_PROP_INT32_2D, ".solid_face_id");
+  BMIter iter;
+  BMVert *v;
+  BMEdge *e;
+  BMFace *f;
+  BM_ITER_MESH (v, &iter, &bm, BM_VERTS_OF_MESH)
+    if (selected(source->selection.vertices, source_id(reinterpret_cast<BMElem *>(v), v_offset)))
+      BM_vert_select_set(&bm, v, true);
+  BM_ITER_MESH (e, &iter, &bm, BM_EDGES_OF_MESH)
+    if (selected(source->selection.edges, source_id(reinterpret_cast<BMElem *>(e), e_offset)))
+      BM_edge_select_set(&bm, e, true);
+  BM_ITER_MESH (f, &iter, &bm, BM_FACES_OF_MESH)
+    if (selected(source->selection.faces, source_id(reinterpret_cast<BMElem *>(f), f_offset)))
+      BM_face_select_set(&bm, f, true);
+  BM_mesh_select_mode_flush(&bm);
+}
+
+bool publish(Mesh &mesh, Snapshot candidate, uint64_t expected, std::string *error)
+{
+  if (!mesh.solid_storage || mesh.solid_storage->revision != expected || !candidate.model ||
+      expected == std::numeric_limits<uint64_t>::max() ||
+      !solid::validate(*candidate.model, error))
+  {
+    if (error && error->empty())
+      *error = "Analytic source changed before the edit could be committed";
+    return false;
+  }
+  auto &runtime = ensure(*mesh.solid_storage);
+  runtime.model = std::move(candidate.model);
+  runtime.selection = solid::normalize_selection(*runtime.model, std::move(candidate.selection));
+  runtime.error.clear();
+  mesh.solid_storage->revision++;
+  return true;
+}
+
+bool transform_mesh(Mesh &mesh, const float4x4 &matrix, std::string *error)
+{
+  if (mesh.runtime->edit_mesh) {
+    if (error)
+      *error =
+          "Use component transforms in Edit Mode, or exit Edit Mode before transforming the "
+          "datablock";
+    return false;
+  }
+  auto source = read(mesh, error);
+  if (!source)
+    return false;
+  solid::Selection all;
+  for (const auto &v : source->model->vertices)
+    all.vertices.push_back(v.id);
+  solid::Affine affine;
+  for (int i = 0; i < 3; ++i)
+    affine.columns[i] = {matrix[i].x, matrix[i].y, matrix[i].z};
+  affine.translation = {matrix.location().x, matrix.location().y, matrix.location().z};
+  auto transformed = solid::transform_selected(*source->model, std::move(all), affine, error);
+  if (!transformed)
+    return false;
+  Snapshot next{std::make_shared<const solid::Model>(std::move(transformed->model)),
+                source->selection,
+                source->revision};
+  auto display = display_mesh(next, 64, error);
+  if (!display || !publish(mesh, next, source->revision, error))
+    return false;
+  BKE_mesh_nomain_to_mesh(display.release(), &mesh, nullptr, false);
+  return true;
+}
+
+void MeshDeleter::operator()(Mesh *mesh) const
+{
+  if (mesh)
+    BKE_id_free(nullptr, mesh);
+}
+
+OwnedMesh display_mesh(const Snapshot &source, int circle_segments, std::string *error)
+{
+  if (!source.model)
+    return {};
+  const auto display = solid::tessellate(*source.model, circle_segments, error);
+  if (!display)
+    return {};
+  int corners = 0;
+  for (const auto &polygon : display->polygons)
+    corners += int(polygon.size());
+  OwnedMesh mesh(BKE_mesh_new_nomain(
+      display->positions.size(), display->edges.size(), display->polygons.size(), corners));
+  auto positions = mesh->vert_positions_for_write();
+  for (const int i : positions.index_range()) {
+    const auto &p = display->positions[i];
+    const double limit = std::numeric_limits<float>::max();
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
+        std::abs(p.x) > limit || std::abs(p.y) > limit || std::abs(p.z) > limit)
+    {
+      if (error)
+        *error = "Analytic display exceeds the viewport coordinate range";
+      return {};
+    }
+    positions[i] = float3(p.x, p.y, p.z);
+  }
+  auto edges = mesh->edges_for_write();
+  for (const int i : edges.index_range())
+    edges[i] = int2(display->edges[i][0], display->edges[i][1]);
+  auto offsets = mesh->face_offsets_for_write();
+  auto corner_verts = mesh->corner_verts_for_write();
+  int offset = 0;
+  for (const int i : mesh->faces().index_range()) {
+    offsets[i] = offset;
+    for (int v : display->polygons[i])
+      corner_verts[offset++] = v;
+  }
+  if (!offsets.is_empty())
+    offsets.last() = offset;
+  auto attributes = mesh->attributes_for_write();
+  auto v_id = attributes.lookup_or_add_for_write_span<int2>(".solid_vertex_id", AttrDomain::Point);
+  auto e_id = attributes.lookup_or_add_for_write_span<int2>(".solid_edge_id", AttrDomain::Edge);
+  auto f_id = attributes.lookup_or_add_for_write_span<int2>(".solid_face_id", AttrDomain::Face);
+  auto v_select = attributes.lookup_or_add_for_write_span<bool>(".select_vert", AttrDomain::Point);
+  auto e_select = attributes.lookup_or_add_for_write_span<bool>(".select_edge", AttrDomain::Edge);
+  auto f_select = attributes.lookup_or_add_for_write_span<bool>(".select_poly", AttrDomain::Face);
+  auto face_dot = attributes.lookup_or_add_for_write_span<bool>(".solid_face_dot",
+                                                                AttrDomain::Face);
+  face_dot.span.fill(false);
+  std::unordered_map<solid::Id, std::vector<int>> face_aliases;
+  for (int i = 0; i < int(display->face_source.size()); ++i)
+    face_aliases[display->face_source[i]].push_back(i);
+  for (const auto &[id, aliases] : face_aliases)
+    if (id && !aliases.empty())
+      face_dot.span[aliases[aliases.size() / 2]] = true;
+
+  for (const int i : v_id.span.index_range()) {
+    v_id.span[i] = split_id(display->vertex_source[i]);
+    v_select.span[i] = selected(source.selection.vertices, display->vertex_source[i]);
+  }
+  for (const int i : e_id.span.index_range()) {
+    e_id.span[i] = split_id(display->edge_source[i]);
+    e_select.span[i] = selected(source.selection.edges, display->edge_source[i]);
+  }
+  for (const int i : f_id.span.index_range()) {
+    f_id.span[i] = split_id(display->face_source[i]);
+    f_select.span[i] = selected(source.selection.faces, display->face_source[i]);
+  }
+  /* Sampling vertices inherit source edge/face display selection, but retain ID zero:
+   * they can never become independent source points when selection is read back. */
+  for (size_t i = 0; i < display->edges.size(); ++i) {
+    if (selected(source.selection.edges, display->edge_source[i])) {
+      for (int v : display->edges[i])
+        v_select.span[v] = true;
+    }
+  }
+  for (size_t i = 0; i < display->polygons.size(); ++i) {
+    if (selected(source.selection.faces, display->face_source[i])) {
+      for (int v : display->polygons[i])
+        v_select.span[v] = true;
+    }
+  }
+  v_id.finish();
+  e_id.finish();
+  f_id.finish();
+  v_select.finish();
+  e_select.finish();
+  f_select.finish();
+  face_dot.finish();
+  mesh_calc_edges(*mesh, true, false);
+  Vector<float3> normals;
+  normals.reserve(corners);
+  for (const auto &polygon : display->corner_normals) {
+    for (const auto &n : polygon)
+      normals.append(float3(n.x, n.y, n.z));
+  }
+  if (normals.size() == corners && corners)
+    bke::mesh_set_custom_normals_normalized(*mesh, normals);
+  return mesh;
+}
+
+}  // namespace blender::bke::solid_host

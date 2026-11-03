@@ -5,7 +5,7 @@
 import modules.ui_test_utils as ui
 
 
-def drawing_snap_hover():
+def drawing_snap_hover(*, analytic=False):
     import bpy
     import re
     from pathlib import Path
@@ -25,6 +25,9 @@ def drawing_snap_hover():
         return round(co.x) + region.x, round(co.y) + region.y
 
     def counts():
+        if analytic:
+            data=window.view_layer.objects.active.data
+            return (data.solid_vertices_count,data.solid_edges_count,data.solid_faces_count)
         stats = window.scene.statistics(window.view_layer).replace(',', '')
         match = re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+) \| Faces:\d+/(\d+)', stats)
         t.assertIsNotNone(match, stats)
@@ -56,8 +59,10 @@ def drawing_snap_hover():
     for obj in tuple(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
     yield e.cursor_position_set(*ui.get_area_center(area), move=True)
-    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
-    yield e.tab().two().numpad_7()
+    yield from ui.call_menu(e, 'Add -> Solid -> Line Sketch' if analytic else 'Add -> Curve -> Nurbs Line')
+    if not analytic:
+        yield e.tab()
+    yield e.two().numpad_7()
     space.region_3d.view_location = (0, 0, 0)
     space.region_3d.view_distance = 12
     space.overlay.show_floor = False
@@ -82,6 +87,8 @@ def drawing_snap_hover():
     yield e.cursor_position_set(*ui.get_area_center(area), move=True)
     baseline = counts()
     for tool, mode in cases:
+        if analytic and tool=='spline':
+            continue
         with bpy.context.temp_override(window=window, area=area, region=region):
             bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_' + tool)
             active = window.workspace.tools.from_space_view3d_mode(bpy.context.mode)

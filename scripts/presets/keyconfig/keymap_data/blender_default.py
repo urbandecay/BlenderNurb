@@ -4805,6 +4805,15 @@ def km_edit_mesh(params):
     )
 
     items.extend([
+        ("solid.extrude", {"type": 'E', "value": 'PRESS'}, None),
+        ("solid.fill", {"type": 'F', "value": 'PRESS'}, None),
+        ("solid.merge", {"type": 'M', "value": 'PRESS'}, None),
+        ("solid.bevel", {"type": 'B', "value": 'PRESS', "ctrl": True}, None),
+        ("solid.bevel", {"type": 'B', "value": 'PRESS', "ctrl": True, "shift": True},
+         {"properties": [("vertices_only", True)]}),
+        ("solid.delete", {"type": 'X', "value": 'PRESS'}, None),
+        ("solid.delete", {"type": 'DEL', "value": 'PRESS'}, None),
+
         # Transform Actions.
         *_template_items_transform_actions(params, use_bend=True, use_mirror=True, use_tosphere=True, use_shear=True),
         ("transform.skin_resize", {"type": 'A', "value": 'PRESS', "ctrl": True}, None),

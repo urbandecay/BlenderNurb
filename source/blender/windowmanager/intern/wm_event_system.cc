@@ -13,11 +13,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <fmt/format.h>
+#include <string_view>
 
 #include "AS_asset_library.hh"
 #include "AS_asset_representation.hh"
 
 #include "DNA_listBase.h"
+#include "DNA_mesh_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_userdef_types.h"
@@ -49,6 +52,7 @@
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
 #include "BKE_screen.hh"
+#include "BKE_solid_host.hh"
 #include "BKE_undo_system.hh"
 #include "BKE_workspace.hh"
 
@@ -1115,6 +1119,39 @@ bool WM_operator_poll(bContext *C, wmOperatorType *ot)
   PRF_scope_with_name("Operator Call (poll)", ProfileCategory::Default);
   PRF_scope_set_dynamic_name("Op: %s", ot->idname);
 
+  if (STRPREFIX(ot->idname, "OBJECT_OT_modifier_apply") || STREQ(ot->idname, "OBJECT_OT_join")) {
+    if (const Object *object = CTX_data_active_object(C)) {
+      if (object->type == OB_MESH && id_cast<const Mesh *>(object->data)->solid_storage) {
+        CTX_wm_operator_poll_msg_set(
+            C, "This mesh operation has no analytic solid source implementation");
+        return false;
+      }
+    }
+  }
+
+  /* Analytic solids own their geometry. Mesh operators may select the display adapter,
+   * but must not mutate tessellation while leaving the exact source unchanged. */
+  if (STRPREFIX(ot->idname, "MESH_OT_")) {
+    const Object *edit_object = CTX_data_edit_object(C);
+    if (edit_object && edit_object->type == OB_MESH &&
+        id_cast<const Mesh *>(edit_object->data)->solid_storage)
+    {
+      const char *name = ot->idname + 8;
+      if (!STRPREFIX(name, "select") && !ELEM(std::string_view(name),
+                                              "loop_select",
+                                              "edgering_select",
+                                              "loop_multi_select",
+                                              "hide",
+                                              "reveal",
+                                              "region_to_loop",
+                                              "loop_to_region"))
+      {
+        CTX_wm_operator_poll_msg_set(C, "Use solid tools to edit analytic source geometry");
+        return false;
+      }
+    }
+  }
+
   for (wmOperatorTypeMacro &otmacro : ot->macro) {
     wmOperatorType *ot_macro = WM_operatortype_find(otmacro.idname, false);
 
@@ -1286,6 +1323,13 @@ static void wm_operator_finished(bContext *C,
                                  const bool has_undo_step,
                                  const bool has_register)
 {
+  if (STRPREFIX(op->type->idname, "MESH_OT_")) {
+    if (Object *object = CTX_data_edit_object(C)) {
+      if (object->type == OB_MESH && id_cast<const Mesh *>(object->data)->solid_storage)
+        bke::solid_host::sync_edit_selection(*id_cast<Mesh *>(object->data));
+    }
+  }
+
   wmWindowManager *wm = CTX_wm_manager(C);
   enum {
     NOP,

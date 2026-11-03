@@ -47,6 +47,7 @@
 #include "BKE_paint.hh"
 #include "BKE_paint_bvh.hh"
 #include "BKE_scene.hh"
+#include "BKE_solid_host.hh"
 #include "BKE_subdiv_ccg.hh"
 #include "BKE_subdiv_modifier.hh"
 
@@ -210,6 +211,19 @@ static bool is_native_nurbs_edit(const Object &object)
 static void stats_object_edit(Object *obedit, SceneStats *stats)
 {
   if (obedit->type == OB_MESH) {
+    const Mesh &mesh = *id_cast<const Mesh *>(obedit->data);
+    if (mesh.solid_storage) {
+      if (const auto source = bke::solid_host::read_edit(mesh)) {
+        stats->totvert += source->model->vertices.size();
+        stats->totedge += source->model->edges.size();
+        stats->totface += source->model->faces.size();
+        stats->totvertsel += source->selection.vertices.size();
+        stats->totedgesel += source->selection.edges.size();
+        stats->totfacesel += source->selection.faces.size();
+      }
+      return;
+    }
+
     BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
     stats->totvert += em->bm->totvert;

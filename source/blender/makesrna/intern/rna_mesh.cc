@@ -101,6 +101,8 @@ static const EnumPropertyItem rna_enum_mesh_remesh_mode_items[] = {
 
 #ifdef RNA_RUNTIME
 
+#  include "BKE_solid_host.hh"
+
 #  include <fmt/format.h>
 
 #  include "DNA_material_types.h"
@@ -156,6 +158,26 @@ static CustomData *rna_mesh_vdata(const PointerRNA *ptr)
 /* -------------------------------------------------------------------- */
 /** \name Generic CustomData Layer Functions
  * \{ */
+
+static bool rna_Mesh_is_solid_model_get(PointerRNA *ptr)
+{
+  return static_cast<const Mesh *>(ptr->data)->solid_storage != nullptr;
+}
+static int rna_Mesh_solid_vertices_get(PointerRNA *ptr)
+{
+  const auto source = bke::solid_host::read(*static_cast<const Mesh *>(ptr->data));
+  return source ? int(source->model->vertices.size()) : 0;
+}
+static int rna_Mesh_solid_edges_get(PointerRNA *ptr)
+{
+  const auto source = bke::solid_host::read(*static_cast<const Mesh *>(ptr->data));
+  return source ? int(source->model->edges.size()) : 0;
+}
+static int rna_Mesh_solid_faces_get(PointerRNA *ptr)
+{
+  const auto source = bke::solid_host::read(*static_cast<const Mesh *>(ptr->data));
+  return source ? int(source->model->faces.size()) : 0;
+}
 
 static bool rna_Mesh_has_custom_normals_get(PointerRNA *ptr)
 {
@@ -2789,6 +2811,20 @@ static void rna_def_mesh(BlenderRNA *brna)
 
   srna = RNA_def_struct(brna, "Mesh", "ID");
   RNA_def_struct_ui_text(srna, "Mesh", "Mesh data-block defining geometric surfaces");
+
+  prop = RNA_def_property(srna, "is_solid_model", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_Mesh_is_solid_model_get", nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Analytic Solid", "Independent exact sketch and solid source");
+  prop = RNA_def_property(srna, "solid_vertices_count", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_funcs(prop, "rna_Mesh_solid_vertices_get", nullptr, nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  prop = RNA_def_property(srna, "solid_edges_count", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_funcs(prop, "rna_Mesh_solid_edges_get", nullptr, nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  prop = RNA_def_property(srna, "solid_faces_count", PROP_INT, PROP_UNSIGNED);
+  RNA_def_property_int_funcs(prop, "rna_Mesh_solid_faces_get", nullptr, nullptr);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_struct_ui_icon(srna, ICON_MESH_DATA);
 
   prop = RNA_def_property(srna, "vertices", PROP_COLLECTION, PROP_NONE);

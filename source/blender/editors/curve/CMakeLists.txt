@@ -24,6 +24,9 @@ set(SRC
   editfont.cc
   editfont_undo.cc
   editnurbs.cc
+  editsolid.cc
+  exact_drawing.cc
+  exact_drawing.hh
   editnurbs_ops.cc
   editnurbs_cut.cc
   editnurbs_draw.cc
@@ -31,6 +34,7 @@ set(SRC
 
   curve_intern.hh
   ../include/ED_nurbs.hh
+  ../include/ED_solid.hh
 )
 
 set(LIB

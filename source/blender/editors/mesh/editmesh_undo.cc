@@ -40,6 +40,7 @@
 #include "BKE_mesh.hh"
 #include "BKE_object.hh"
 #include "BKE_undo_system.hh"
+#include "BKE_solid_host.hh"
 
 #include "DEG_depsgraph.hh"
 
@@ -1213,6 +1214,7 @@ static bool mesh_undosys_step_encode(bContext *C, Main *bmain, UndoStep *us_p)
                            mesh->vertex_group_active_index,
                            um_references ? um_references[i] : nullptr);
 
+    elem->data.mesh->solid_storage = bke::solid_host::storage_copy(mesh->solid_storage);
     em->needs_flush_to_id = 1;
     us->step.data_size += elem->data.undo_size;
 
@@ -1260,6 +1262,9 @@ static void mesh_undosys_step_decode(
     BMEditMesh *em = mesh->runtime->edit_mesh.get();
     undomesh_to_editmesh(
         &elem->data, em, &mesh->vertex_group_names, &mesh->vertex_group_active_index);
+
+    bke::solid_host::storage_free(mesh->solid_storage);
+    mesh->solid_storage = bke::solid_host::storage_copy(elem->data.mesh->solid_storage);
 
     obedit->shapenr = em->bm->shapenr;
 

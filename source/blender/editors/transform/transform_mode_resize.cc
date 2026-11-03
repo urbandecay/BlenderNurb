@@ -248,6 +248,8 @@ static void applyResize(TransInfo *t)
   if (t->data_type == &TransConvertType_Nurbs) {
     nurbs_affine_update(t, mat);
   }
+  if (t->data_type == &TransConvertType_Solid)
+    solid_affine_update(t, mat);
 
   recalc_data(t);
 

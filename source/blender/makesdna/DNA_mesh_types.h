@@ -341,6 +341,9 @@ struct Mesh {
    * free the data if they are passed to functions that expect run-time data.
    */
   bke::MeshRuntime *runtime = nullptr;
+
+  /** Independent analytic solid source; mesh arrays are its derived viewport adapter. */
+  struct SolidStorage *solid_storage = nullptr;
 #ifdef __cplusplus
   /**
    * Array of vertex positions. Edges and face corners are defined by indices into this array.

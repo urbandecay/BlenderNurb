@@ -25,6 +25,12 @@ namespace blender {
 
 void ED_operatortypes_curve()
 {
+  WM_operatortype_append(SOLID_OT_sketch_add);
+  WM_operatortype_append(SOLID_OT_extrude);
+  WM_operatortype_append(SOLID_OT_fill);
+  WM_operatortype_append(SOLID_OT_merge);
+  WM_operatortype_append(SOLID_OT_bevel);
+  WM_operatortype_append(SOLID_OT_delete);
   WM_operatortype_append(FONT_OT_text_insert);
   WM_operatortype_append(FONT_OT_line_break);
 

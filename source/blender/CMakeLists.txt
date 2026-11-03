@@ -70,6 +70,7 @@ set(SRC_DNA_INC
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_sdna_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_sequence_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_session_uid_types.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_solid_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_sound_types.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_space_enums.h
   ${CMAKE_CURRENT_SOURCE_DIR}/makesdna/DNA_space_types.h
@@ -109,6 +110,7 @@ add_subdirectory(editors)
 add_subdirectory(windowmanager)
 add_subdirectory(animrig)
 add_subdirectory(asset_system)
+add_subdirectory(solid)
 add_subdirectory(blenkernel)
 add_subdirectory(blenlib)
 add_subdirectory(bmesh)

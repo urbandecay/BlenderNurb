@@ -1,0 +1,891 @@
+/* SPDX-FileCopyrightText: 2026 Blender Authors
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later */
+
+#include "SOL_geometry.hh"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <numbers>
+#include <unordered_map>
+#include <unordered_set>
+
+namespace blender::solid {
+
+constexpr double pi = std::numbers::pi;
+constexpr double tau = 2 * pi;
+
+Vec3 operator+(Vec3 a, Vec3 b)
+{
+  return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+Vec3 operator-(Vec3 a, Vec3 b)
+{
+  return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+Vec3 operator*(Vec3 a, double b)
+{
+  return {a.x * b, a.y * b, a.z * b};
+}
+Vec3 operator/(Vec3 a, double b)
+{
+  return a * (1 / b);
+}
+double dot(Vec3 a, Vec3 b)
+{
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+Vec3 cross(Vec3 a, Vec3 b)
+{
+  return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+double length(Vec3 a)
+{
+  return std::hypot(a.x, a.y, a.z);
+}
+
+namespace {
+void fail(std::string *error, const char *message)
+{
+  if (error) {
+    *error = message;
+  }
+}
+bool finite(Vec3 p)
+{
+  return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
+}
+bool near(Vec3 a, Vec3 b)
+{
+  if (!finite(a) || !finite(b))
+    return false;
+  return length(a - b) <=
+         128 * std::numeric_limits<double>::epsilon() * std::max({1.0, length(a), length(b)});
+}
+std::array<double, 2> sin_cos(double angle)
+{
+  angle = std::remainder(angle, tau);
+  if (angle == 0) {
+    return {0, 1};
+  }
+  if (angle == pi / 2) {
+    return {1, 0};
+  }
+  if (angle == -pi / 2) {
+    return {-1, 0};
+  }
+  if (std::abs(angle) == pi) {
+    return {0, -1};
+  }
+  return {std::sin(angle), std::cos(angle)};
+}
+template<typename T> const T *find(const std::vector<T> &items, Id id)
+{
+  const auto it = std::find_if(items.begin(), items.end(), [=](const T &v) { return v.id == id; });
+  return it == items.end() ? nullptr : &*it;
+}
+struct Index {
+  std::unordered_map<Id, const Vertex *> vertices;
+  std::unordered_map<Id, const Curve *> curves;
+  std::unordered_map<Id, const Edge *> edges;
+  std::unordered_map<Id, const Surface *> surfaces;
+  std::unordered_map<Id, const Face *> faces;
+  explicit Index(const Model &m)
+  {
+    for (const auto &v : m.vertices)
+      vertices.emplace(v.id, &v);
+    for (const auto &v : m.curves)
+      curves.emplace(v.id, &v);
+    for (const auto &v : m.edges)
+      edges.emplace(v.id, &v);
+    for (const auto &v : m.surfaces)
+      surfaces.emplace(v.id, &v);
+    for (const auto &v : m.faces)
+      faces.emplace(v.id, &v);
+  }
+};
+Id begin_vertex(const Edge &e, const Coedge &use)
+{
+  return e.vertices[use.reversed ? 1 : 0];
+}
+Id end_vertex(const Edge &e, const Coedge &use)
+{
+  return e.vertices[use.reversed ? 0 : 1];
+}
+std::vector<const std::vector<Coedge> *> loops(const Face &face)
+{
+  std::vector<const std::vector<Coedge> *> result{&face.outer};
+  for (const auto &loop : face.holes)
+    result.push_back(&loop);
+  return result;
+}
+Vec3 area_integral(const Curve &c, double a, double b)
+{
+  if (c.kind == CurveKind::Line) {
+    return cross(evaluate(c, a), evaluate(c, b));
+  }
+  const auto x = sin_cos(a), y = sin_cos(b);
+  return cross(c.origin, c.u * (y[1] - x[1]) + c.v * (y[0] - x[0])) + cross(c.u, c.v) * (b - a);
+}
+}  // namespace
+
+const Vertex *vertex(const Model &m, Id id)
+{
+  return find(m.vertices, id);
+}
+const Curve *curve(const Model &m, Id id)
+{
+  return find(m.curves, id);
+}
+const Edge *edge(const Model &m, Id id)
+{
+  return find(m.edges, id);
+}
+const Surface *surface(const Model &m, Id id)
+{
+  return find(m.surfaces, id);
+}
+const Face *face(const Model &m, Id id)
+{
+  return find(m.faces, id);
+}
+
+Vec3 evaluate(const Curve &c, double t)
+{
+  if (c.kind == CurveKind::Line)
+    return c.origin + c.u * t;
+  const auto sc = sin_cos(t);
+  return c.origin + c.u * sc[1] + c.v * sc[0];
+}
+Vec3 tangent(const Curve &c, double t)
+{
+  if (c.kind == CurveKind::Line)
+    return c.u;
+  const auto sc = sin_cos(t);
+  return c.v * sc[1] - c.u * sc[0];
+}
+
+std::optional<Curve> line(Vec3 a, Vec3 b, std::string *error)
+{
+  if (!finite(a) || !finite(b) || a == b || !finite(b - a)) {
+    fail(error, "A line needs two finite, distinct endpoints");
+    return {};
+  }
+  return Curve{0, CurveKind::Line, a, b - a, {}};
+}
+
+std::optional<Curve> ellipse(Vec3 center, Vec3 u, Vec3 v, std::string *error)
+{
+  if (!finite(center) || !finite(u) || !finite(v) || !(length(cross(u, v)) > 0) ||
+      !std::isfinite(length(cross(u, v))))
+  {
+    fail(error, "A conic needs a finite center and two independent axes");
+    return {};
+  }
+  return Curve{0, CurveKind::Conic, center, u, v};
+}
+
+std::optional<Curve> circle(Vec3 center, Vec3 start, Vec3 normal, std::string *error)
+{
+  const Vec3 radial = start - center;
+  const double radius = length(radial), nlen = length(normal);
+  if (!(radius > 0) || !(nlen > 0) || !std::isfinite(radius) || !std::isfinite(nlen)) {
+    fail(error, "A circle needs a nonzero radius and plane normal");
+    return {};
+  }
+  normal = normal / nlen;
+  const Vec3 axis = radial / radius;
+  if (std::abs(dot(axis, normal)) > 1e-6) {
+    fail(error, "The circle radius must lie in its plane");
+    return {};
+  }
+  normal = normal - axis * dot(axis, normal);
+  normal = normal / length(normal);
+  return ellipse(center, radial, cross(normal, radial), error);
+}
+
+std::optional<Curve> circle_through(Vec3 a, Vec3 through, Vec3 b, std::string *error)
+{
+  const Vec3 u = through - a, v = b - a, n = cross(u, v);
+  const double nn = dot(n, n);
+  if (!(nn > 0) || !std::isfinite(nn)) {
+    fail(error, "Three distinct noncollinear points are required");
+    return {};
+  }
+  const Vec3 center = a + (cross(v, n) * dot(u, u) + cross(n, u) * dot(v, v)) / (2 * nn);
+  return circle(center, a, n, error);
+}
+
+bool append_curve(Model &model,
+                  Curve c,
+                  double a,
+                  double b,
+                  Id va,
+                  Id vb,
+                  bool closed,
+                  Selection *result,
+                  std::string *error)
+{
+  if (!std::isfinite(a) || !std::isfinite(b) || a == b || !finite(evaluate(c, a)) ||
+      !finite(evaluate(c, b)) || model.next_id > std::numeric_limits<Id>::max() - 4)
+  {
+    fail(error, "Invalid analytic curve interval or exhausted source identities");
+    return false;
+  }
+  const Vec3 start = evaluate(c, a), end = evaluate(c, b);
+  const auto *first = va ? vertex(model, va) : nullptr;
+  const auto *last = vb ? vertex(model, vb) : nullptr;
+  if ((va && (!first || !near(first->position, start))) ||
+      (vb && (!last || !near(last->position, end))) || (closed && !near(start, end)))
+  {
+    fail(error, "Snapped source endpoints do not agree with the analytic curve");
+    return false;
+  }
+  if (!va) {
+    va = model.next_id++;
+    model.vertices.push_back({va, start});
+  }
+  if (closed)
+    vb = va;
+  if (!vb) {
+    vb = model.next_id++;
+    model.vertices.push_back({vb, end});
+  }
+  c.id = model.next_id++;
+  const Id edge_id = model.next_id++;
+  model.curves.push_back(c);
+  model.edges.push_back({edge_id, c.id, {va, vb}, a, b});
+  if (result) {
+    if (std::find(result->vertices.begin(), result->vertices.end(), va) == result->vertices.end())
+      result->vertices.push_back(va);
+    if (std::find(result->vertices.begin(), result->vertices.end(), vb) == result->vertices.end())
+      result->vertices.push_back(vb);
+    result->edges.push_back(edge_id);
+    result->active = edge_id;
+  }
+  return true;
+}
+
+bool validate(const Model &m, std::string *error)
+{
+  if (m.next_id == 0) {
+    fail(error, "Invalid source identity counter");
+    return false;
+  }
+  Index index(m);
+  std::unordered_set<Id> ids;
+  auto identity = [&](Id id) { return id && id < m.next_id && ids.insert(id).second; };
+  for (const auto &v : m.vertices) {
+    if (!identity(v.id) || !finite(v.position))
+      goto invalid;
+  }
+  for (const auto &c : m.curves) {
+    if (!identity(c.id) || !finite(c.origin) || !finite(c.u) || !finite(c.v) ||
+        (c.kind != CurveKind::Line && c.kind != CurveKind::Conic) || !(length(c.u) > 0) ||
+        !std::isfinite(length(c.u)) ||
+        (c.kind == CurveKind::Conic &&
+         (!(length(cross(c.u, c.v)) > 0) || !std::isfinite(length(cross(c.u, c.v))))))
+      goto invalid;
+  }
+  for (const auto &e : m.edges) {
+    if (!identity(e.id) || !index.curves.contains(e.curve) ||
+        !index.vertices.contains(e.vertices[0]) || !index.vertices.contains(e.vertices[1]) ||
+        !std::isfinite(e.start) || !std::isfinite(e.end) || !std::isfinite(e.end - e.start) ||
+        e.start == e.end)
+      goto invalid;
+    const auto &c = *index.curves.at(e.curve);
+    if (c.kind == CurveKind::Conic && std::abs(e.end - e.start) > 64 * pi)
+      goto invalid;
+    if (!near(evaluate(c, e.start), index.vertices.at(e.vertices[0])->position) ||
+        !near(evaluate(c, e.end), index.vertices.at(e.vertices[1])->position))
+      goto invalid;
+  }
+  for (const auto &s : m.surfaces) {
+    if (!identity(s.id) || !finite(s.origin) || !finite(s.u) || !finite(s.v) ||
+        (s.kind != SurfaceKind::Plane && s.kind != SurfaceKind::Extrusion) ||
+        (s.kind == SurfaceKind::Plane &&
+         (!(length(cross(s.u, s.v)) > 0) || !std::isfinite(length(cross(s.u, s.v))))) ||
+        (s.kind == SurfaceKind::Extrusion &&
+         (!index.curves.contains(s.curve) || !(length(s.u) > 0) || !std::isfinite(length(s.u)) ||
+          !std::isfinite(s.start) || !std::isfinite(s.end) || s.start == s.end)))
+      goto invalid;
+  }
+  for (const auto &f : m.faces) {
+    if (!identity(f.id) || !index.surfaces.contains(f.surface) ||
+        (f.orientation != 1 && f.orientation != -1))
+      goto invalid;
+    for (const auto *loop : loops(f)) {
+      if (loop->empty())
+        goto invalid;
+      Id first = 0, previous = 0;
+      for (const Coedge &use : *loop) {
+        if (!index.edges.contains(use.edge))
+          goto invalid;
+        const auto &e = *index.edges.at(use.edge);
+        const Id start = begin_vertex(e, use);
+        if (previous && previous != start)
+          goto invalid;
+        if (!first)
+          first = start;
+        previous = end_vertex(e, use);
+      }
+      if (first != previous)
+        goto invalid;
+    }
+    const Surface &support = *index.surfaces.at(f.surface);
+    if (support.kind == SurfaceKind::Plane) {
+      const Vec3 n = cross(support.u, support.v) / length(cross(support.u, support.v));
+      for (const auto *loop : loops(f))
+        for (const Coedge &use : *loop) {
+          const Curve &c = *index.curves.at(index.edges.at(use.edge)->curve);
+          const double tolerance =
+              256 * std::numeric_limits<double>::epsilon() *
+              std::max({1.0, length(support.origin), length(c.origin), length(c.u), length(c.v)});
+          if (std::abs(dot(c.origin - support.origin, n)) > tolerance ||
+              std::abs(dot(c.u, n)) > tolerance ||
+              (c.kind == CurveKind::Conic && std::abs(dot(c.v, n)) > tolerance))
+            goto invalid;
+        }
+    }
+    else {
+      if (f.outer.size() != 4 || !f.holes.empty() || f.outer[0].reversed || f.outer[1].reversed ||
+          !f.outer[2].reversed || !f.outer[3].reversed)
+        goto invalid;
+      const Edge &bottom = *index.edges.at(f.outer[0].edge),
+                 &top = *index.edges.at(f.outer[2].edge);
+      const Curve &a = *index.curves.at(bottom.curve), &b = *index.curves.at(top.curve);
+      auto parameter_agrees = [](double x, double y) {
+        return std::abs(x - y) <= 128 * std::numeric_limits<double>::epsilon() *
+                                      std::max({1.0, std::abs(x), std::abs(y)});
+      };
+      if (bottom.curve != support.curve || a.kind != b.kind ||
+          !near(a.origin + support.u, b.origin) || !near(a.u, b.u) || !near(a.v, b.v) ||
+          !parameter_agrees(bottom.start, support.start) ||
+          !parameter_agrees(bottom.end, support.end) ||
+          !parameter_agrees(bottom.start, top.start) || !parameter_agrees(bottom.end, top.end))
+        goto invalid;
+      for (size_t rail : {size_t(1), size_t(3)}) {
+        const Edge &e = *index.edges.at(f.outer[rail].edge);
+        if (index.curves.at(e.curve)->kind != CurveKind::Line)
+          goto invalid;
+      }
+    }
+  }
+  return true;
+invalid:
+  fail(error, "Invalid analytic geometry, identity, boundary or source reference");
+  return false;
+}
+
+std::optional<Profile> prepare_profile(const Model &source,
+                                       const Selection &selected,
+                                       std::string *error)
+{
+  if (!validate(source, error))
+    return {};
+  Index index(source);
+  Profile out;
+  out.model = source;
+  const Face *existing = nullptr;
+  if (!selected.faces.empty()) {
+    if (selected.faces.size() != 1 || !(existing = face(source, selected.faces[0])) ||
+        surface(source, existing->surface)->kind != SurfaceKind::Plane)
+    {
+      fail(error, "Select one planar face or a closed sketch profile");
+      return {};
+    }
+    out.face = existing->id;
+    const auto &s = *surface(source, existing->surface);
+    out.normal = cross(s.u, s.v);
+    out.normal = out.normal / length(out.normal) * existing->orientation;
+    int incidence = 0;
+    for (const auto &f : source.faces) {
+      for (const auto *loop : loops(f)) {
+        for (const auto &use : *loop) {
+          if (use.edge == existing->outer[0].edge)
+            incidence++;
+        }
+      }
+    }
+    out.attached = incidence == 2;
+    return out;
+  }
+  std::unordered_set<Id> pending(selected.edges.begin(), selected.edges.end());
+  if (pending.empty() && !selected.vertices.empty()) {
+    const std::unordered_set<Id> verts(selected.vertices.begin(), selected.vertices.end());
+    for (const auto &e : source.edges) {
+      if (verts.contains(e.vertices[0]) && verts.contains(e.vertices[1]))
+        pending.insert(e.id);
+    }
+  }
+  if (pending.empty()) {
+    fail(error, "Select one complete closed sketch profile");
+    return {};
+  }
+  std::vector<Coedge> boundary;
+  const Edge *first = nullptr;
+  for (const auto &e : source.edges)
+    if (pending.contains(e.id)) {
+      first = &e;
+      break;
+    }
+  if (!first) {
+    fail(error, "Unknown selected sketch edge");
+    return {};
+  }
+  const Id start = first->vertices[0];
+  Id current = start;
+  while (!pending.empty()) {
+    const Edge *next = nullptr;
+    for (const auto &e : source.edges) {
+      if (!pending.contains(e.id) || (e.vertices[0] != current && e.vertices[1] != current))
+        continue;
+      if (next && current != start) {
+        fail(error, "A branched sketch does not define one profile");
+        return {};
+      }
+      next = &e;
+      if (boundary.empty())
+        break;
+    }
+    if (!next) {
+      fail(error, "Close the sketch boundary before extrusion");
+      return {};
+    }
+    const Coedge use{next->id, next->vertices[0] != current};
+    boundary.push_back(use);
+    pending.erase(next->id);
+    current = end_vertex(*next, use);
+    if (current == start)
+      break;
+  }
+  if (!pending.empty() || current != start) {
+    fail(error, "Select one closed, unbranched sketch boundary");
+    return {};
+  }
+  std::unordered_map<Id, double> conic_sweeps;
+  for (const auto &use : boundary) {
+    const Edge &e = *index.edges.at(use.edge);
+    if (index.curves.at(e.curve)->kind == CurveKind::Conic &&
+        (conic_sweeps[e.curve] += std::abs(e.end - e.start)) > tau + 1e-12)
+    {
+      fail(error, "A closed profile cannot wind repeatedly around the same conic");
+      return {};
+    }
+  }
+  Vec3 area{};
+  const Vec3 origin = index.vertices.at(start)->position;
+  double scale = 0;
+  for (const auto &use : boundary) {
+    const auto &e = *index.edges.at(use.edge);
+    const auto &c = *index.curves.at(e.curve);
+    /* Subtract the same origin before integration to avoid large-translation cancellation. */
+    Curve local = c;
+    local.origin = local.origin - origin;
+    area = area + area_integral(local, e.start, e.end) * (use.reversed ? -1 : 1);
+    scale = std::max({scale, length(c.origin - origin), length(c.u), length(c.v)});
+  }
+  if (!(length(area) > 0) || !finite(area)) {
+    fail(error, "The sketch must enclose nonzero planar area");
+    return {};
+  }
+  out.normal = area / length(area);
+  const double tolerance = 256 * std::numeric_limits<double>::epsilon() * std::max(1.0, scale);
+  for (const auto &use : boundary) {
+    const auto &c = *index.curves.at(index.edges.at(use.edge)->curve);
+    if (std::abs(dot(c.origin - origin, out.normal)) > tolerance ||
+        std::abs(dot(c.u, out.normal)) > tolerance ||
+        (c.kind == CurveKind::Conic && std::abs(dot(c.v, out.normal)) > tolerance))
+    {
+      fail(error, "Solid extrusion requires coplanar analytic sketch curves");
+      return {};
+    }
+    for (const auto &f : source.faces) {
+      for (const auto *loop : loops(f)) {
+        for (const auto &item : *loop) {
+          if (item.edge == use.edge) {
+            fail(error, "Select a body face or an independent sketch");
+            return {};
+          }
+        }
+      }
+    }
+  }
+  /* Straight boundaries have an analytic intersection test. Reject crossed or retraced
+   * strokes before constructing a face; sampled viewport wires are not a validity test. */
+  for (size_t i = 0; i < boundary.size(); ++i) {
+    const Edge &a = *index.edges.at(boundary[i].edge);
+    const Curve &ca = *index.curves.at(a.curve);
+    if (ca.kind != CurveKind::Line)
+      continue;
+    const Vec3 p = evaluate(ca, a.start), r = evaluate(ca, a.end) - p;
+    for (size_t j = i + 1; j < boundary.size(); ++j) {
+      const Edge &b = *index.edges.at(boundary[j].edge);
+      const Curve &cb = *index.curves.at(b.curve);
+      if (cb.kind != CurveKind::Line)
+        continue;
+      const Vec3 q = evaluate(cb, b.start), s = evaluate(cb, b.end) - q;
+      const double determinant = dot(cross(r, s), out.normal);
+      const double roundoff = 256 * std::numeric_limits<double>::epsilon() * length(r) * length(s);
+      const bool shared = a.vertices[0] == b.vertices[0] || a.vertices[0] == b.vertices[1] ||
+                          a.vertices[1] == b.vertices[0] || a.vertices[1] == b.vertices[1];
+      bool crossing = false;
+      if (std::abs(determinant) > roundoff) {
+        const double t = dot(cross(q - p, s), out.normal) / determinant;
+        const double u = dot(cross(q - p, r), out.normal) / determinant;
+        crossing = !shared && t >= 0 && t <= 1 && u >= 0 && u <= 1;
+      }
+      else if (length(cross(q - p, r)) <= tolerance * length(r)) {
+        const double t = dot(q - p, r) / dot(r, r), u = t + dot(s, r) / dot(r, r);
+        crossing = std::min(1.0, std::max(t, u)) - std::max(0.0, std::min(t, u)) >
+                   tolerance / length(r);
+      }
+      if (crossing) {
+        fail(error, "The sketch boundary crosses or retraces itself");
+        return {};
+      }
+    }
+  }
+  Vec3 axis{1, 0, 0};
+  if (std::abs(out.normal.x) > .8)
+    axis = {0, 1, 0};
+  Vec3 u = cross(axis, out.normal);
+  u = u / length(u);
+  const Vec3 v = cross(out.normal, u);
+  if (out.model.next_id > std::numeric_limits<Id>::max() - 2) {
+    fail(error, "Source identity budget exhausted");
+    return {};
+  }
+  const Id plane = out.model.next_id++;
+  out.face = out.model.next_id++;
+  out.model.surfaces.push_back({plane, SurfaceKind::Plane, origin, u, v, 0});
+  out.model.faces.push_back({out.face, plane, std::move(boundary), {}, 1});
+  return out;
+}
+
+bool validate_body(const Model &model, Id seed, std::string *error)
+{
+  if (!validate(model, error))
+    return false;
+  Index index(model);
+  if (!index.faces.contains(seed)) {
+    fail(error, "Unknown body face");
+    return false;
+  }
+  struct Use {
+    Id face;
+    int sense;
+  };
+  std::unordered_map<Id, std::vector<Use>> uses;
+  for (const auto &f : model.faces) {
+    for (const auto *loop : loops(f)) {
+      for (const auto &use : *loop)
+        uses[use.edge].push_back({f.id, f.orientation * (use.reversed ? -1 : 1)});
+    }
+  }
+  std::unordered_set<Id> visited{seed};
+  std::vector<Id> stack{seed};
+  while (!stack.empty()) {
+    const auto &f = *index.faces.at(stack.back());
+    stack.pop_back();
+    for (const auto *loop : loops(f)) {
+      for (const auto &use : *loop) {
+        const auto &adjacent = uses.at(use.edge);
+        if (adjacent.size() != 2 || adjacent[0].sense == adjacent[1].sense) {
+          fail(error, "The result is not a closed consistently oriented boundary");
+          return false;
+        }
+        for (const auto &a : adjacent)
+          if (visited.insert(a.face).second)
+            stack.push_back(a.face);
+      }
+    }
+  }
+  return true;
+}
+
+std::optional<EditResult> extrude(const Profile &profile, double distance, std::string *error)
+{
+  if (!std::isfinite(distance) || distance == 0 || !finite(profile.normal) ||
+      !(length(profile.normal) > 0) || !validate(profile.model, error))
+  {
+    fail(error, "Extrusion needs a valid profile and finite nonzero distance");
+    return {};
+  }
+  if (profile.attached && distance < 0) {
+    fail(error, "An inward cut requires solid intersection and trimming");
+    return {};
+  }
+  const auto *source_face = face(profile.model, profile.face);
+  if (!source_face) {
+    fail(error, "Unknown profile face");
+    return {};
+  }
+  Index index(profile.model);
+  EditResult result;
+  result.model = profile.model;
+  auto &out = result.model;
+  const Vec3 sweep = profile.normal * distance;
+  std::unordered_map<Id, Id> vertices, curves, edges, rails;
+  std::vector<Coedge> all = source_face->outer;
+  for (const auto &hole : source_face->holes)
+    all.insert(all.end(), hole.begin(), hole.end());
+  if (out.next_id > std::numeric_limits<Id>::max() - 4 - all.size() * 10) {
+    fail(error, "Extrusion source identities exhausted");
+    return {};
+  }
+  for (const auto &use : all) {
+    const auto &e = *index.edges.at(use.edge);
+    for (Id id : e.vertices) {
+      if (vertices.contains(id))
+        continue;
+      const Vec3 a = index.vertices.at(id)->position, b = a + sweep;
+      if (a == b || !finite(b)) {
+        fail(error, "Extrusion exceeds source precision or range");
+        return {};
+      }
+      vertices[id] = out.next_id++;
+      out.vertices.push_back({vertices[id], b});
+      const Id c = out.next_id++;
+      out.curves.push_back({c, CurveKind::Line, a, sweep, {}});
+      rails[id] = out.next_id++;
+      out.edges.push_back({rails[id], c, {id, vertices[id]}, 0, 1});
+    }
+    if (!curves.contains(e.curve)) {
+      Curve c = *index.curves.at(e.curve);
+      c.id = out.next_id++;
+      c.origin = c.origin + sweep;
+      curves[e.curve] = c.id;
+      out.curves.push_back(c);
+    }
+    if (!edges.contains(e.id)) {
+      edges[e.id] = out.next_id++;
+      out.edges.push_back({edges[e.id],
+                           curves[e.curve],
+                           {vertices[e.vertices[0]], vertices[e.vertices[1]]},
+                           e.start,
+                           e.end});
+    }
+    const Id support = out.next_id++;
+    const Curve &boundary_curve = *index.curves.at(e.curve);
+    if (boundary_curve.kind == CurveKind::Line) {
+      const Vec3 a = evaluate(boundary_curve, e.start), b = evaluate(boundary_curve, e.end);
+      out.surfaces.push_back({support, SurfaceKind::Plane, a, b - a, sweep, 0});
+    }
+    else {
+      out.surfaces.push_back(
+          {support, SurfaceKind::Extrusion, {}, sweep, {}, e.curve, e.start, e.end});
+    }
+    const int sign = source_face->orientation * (use.reversed ? -1 : 1) * (distance < 0 ? -1 : 1);
+    out.faces.push_back({out.next_id++,
+                         support,
+                         {{e.id, false},
+                          {rails[e.vertices[1]], false},
+                          {edges[e.id], true},
+                          {rails[e.vertices[0]], true}},
+                         {},
+                         sign});
+  }
+  Surface support = *index.surfaces.at(source_face->surface);
+  support.id = out.next_id++;
+  support.origin = support.origin + sweep;
+  out.surfaces.push_back(support);
+  Face cap = *source_face;
+  cap.id = out.next_id++;
+  cap.surface = support.id;
+  cap.orientation *= distance < 0 ? -1 : 1;
+  for (auto *loop : [&]() {
+         std::vector<std::vector<Coedge> *> ls{&cap.outer};
+         for (auto &h : cap.holes)
+           ls.push_back(&h);
+         return ls;
+       }())
+    for (auto &use : *loop)
+      use.edge = edges.at(use.edge);
+  result.selection.mode = 4;
+  result.selection.active = cap.id;
+  result.selection.faces.push_back(cap.id);
+  for (const auto &[old, id] : vertices)
+    result.selection.vertices.push_back(id);
+  for (const auto &[old, id] : edges)
+    result.selection.edges.push_back(id);
+  out.faces.push_back(cap);
+  for (auto it = out.faces.begin(); it != out.faces.end(); ++it) {
+    if (it->id != profile.face)
+      continue;
+    if (profile.attached)
+      out.faces.erase(it);
+    else
+      it->orientation *= distance > 0 ? -1 : 1;
+    break;
+  }
+  if (!validate_body(out, cap.id, error))
+    return {};
+  return result;
+}
+
+std::optional<EditResult> transform_selected(const Model &model,
+                                             Selection selection,
+                                             const Affine &matrix,
+                                             std::string *error)
+{
+  if (!validate(model, error))
+    return {};
+  auto direction = [&](Vec3 p) {
+    return matrix.columns[0] * p.x + matrix.columns[1] * p.y + matrix.columns[2] * p.z;
+  };
+  auto point = [&](Vec3 p) { return direction(p) + matrix.translation; };
+  const double determinant = dot(matrix.columns[0], cross(matrix.columns[1], matrix.columns[2]));
+  if (!std::isfinite(determinant) || determinant == 0 || !finite(matrix.translation)) {
+    fail(error, "An analytic transform needs a finite invertible matrix");
+    return {};
+  }
+  selection = normalize_selection(model, std::move(selection));
+  std::unordered_set<Id> selected(selection.vertices.begin(), selection.vertices.end());
+  std::unordered_set<Id> curves, surfaces;
+  for (const Face &f : model.faces) {
+    bool any = false, all = true;
+    for (const auto *loop : loops(f))
+      for (const Coedge &use : *loop) {
+        for (Id v : edge(model, use.edge)->vertices) {
+          any |= selected.contains(v);
+          all &= selected.contains(v);
+        }
+      }
+    if (any && !all) {
+      bool straight_plane = surface(model, f.surface)->kind == SurfaceKind::Plane && f.holes.empty();
+      for (const Coedge &use : f.outer)
+        straight_plane &= curve(model, edge(model, use.edge)->curve)->kind == CurveKind::Line;
+      if (!straight_plane) {
+        fail(error, "Partial curved-surface deformation needs an analytic construction rule");
+        return {};
+      }
+    }
+    if (all)
+      surfaces.insert(f.surface);
+  }
+  for (const Curve &c : model.curves) {
+    bool any = false, all = true;
+    for (const Edge &e : model.edges)
+      if (e.curve == c.id) {
+        for (Id v : e.vertices) {
+          any |= selected.contains(v);
+          all &= selected.contains(v);
+        }
+      }
+    if (any && !all && c.kind == CurveKind::Conic) {
+      fail(error, "Select the complete arc or conic to transform its exact axes");
+      return {};
+    }
+    if (all && any)
+      curves.insert(c.id);
+  }
+  EditResult result{model, std::move(selection)};
+  for (Vertex &v : result.model.vertices)
+    if (selected.contains(v.id))
+      v.position = point(v.position);
+  for (Curve &c : result.model.curves) {
+    if (curves.contains(c.id)) {
+      c.origin = point(c.origin);
+      c.u = direction(c.u);
+      c.v = direction(c.v);
+    }
+    else if (c.kind == CurveKind::Line) {
+      const Edge *use = nullptr;
+      for (const Edge &e : result.model.edges)
+        if (e.curve == c.id &&
+            (selected.contains(e.vertices[0]) || selected.contains(e.vertices[1])))
+        {
+          if (use) {
+            fail(error, "Shared straight support needs a coordinated endpoint edit");
+            return {};
+          }
+          use = &e;
+        }
+      if (use) {
+        const Vec3 a = vertex(result.model, use->vertices[0])->position,
+                   b = vertex(result.model, use->vertices[1])->position;
+        c.u = (b - a) / (use->end - use->start);
+        c.origin = a - c.u * use->start;
+      }
+    }
+  }
+  for (Surface &s : result.model.surfaces)
+    if (surfaces.contains(s.id)) {
+      s.origin = point(s.origin);
+      s.u = direction(s.u);
+      s.v = direction(s.v);
+    }
+  if (determinant < 0)
+    for (Face &f : result.model.faces)
+      if (surfaces.contains(f.surface))
+        f.orientation = -f.orientation;
+  if (!refit_linear_faces(result.model, error) || !validate(result.model, error))
+    return {};
+  return result;
+}
+
+Selection normalize_selection(const Model &model, Selection selection)
+{
+  const Index index(model);
+  selection.mode = selection.mode & 4 ? 4 : selection.mode & 2 ? 2 : 1;
+  auto clean = [](auto &ids, const auto &valid) {
+    std::erase_if(ids, [&](Id id) { return !valid.contains(id); });
+    std::sort(ids.begin(), ids.end());
+    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+  };
+  clean(selection.vertices, index.vertices);
+  clean(selection.edges, index.edges);
+  clean(selection.faces, index.faces);
+  std::unordered_set<Id> vertices(selection.vertices.begin(), selection.vertices.end());
+  std::unordered_set<Id> edges(selection.edges.begin(), selection.edges.end());
+  auto add = [](auto &ids, auto &set, Id id) {
+    if (id && set.insert(id).second)
+      ids.push_back(id);
+  };
+  if (selection.mode == 4) {
+    selection.edges.clear();
+    edges.clear();
+    for (Id id : selection.faces) {
+      for (const auto *loop : loops(*index.faces.at(id))) {
+        for (const Coedge &use : *loop) {
+          if (index.edges.contains(use.edge))
+            add(selection.edges, edges, use.edge);
+        }
+      }
+    }
+  }
+  if (selection.mode == 2 || selection.mode == 4) {
+    selection.vertices.clear();
+    vertices.clear();
+    for (Id id : selection.edges)
+      for (Id v : index.edges.at(id)->vertices)
+        add(selection.vertices, vertices, v);
+  }
+  else {
+    selection.edges.clear();
+    edges.clear();
+    for (const Edge &e : model.edges) {
+      if (vertices.contains(e.vertices[0]) && vertices.contains(e.vertices[1]))
+        add(selection.edges, edges, e.id);
+    }
+  }
+  if (selection.mode != 4) {
+    selection.faces.clear();
+    for (const Face &f : model.faces) {
+      bool all = !f.outer.empty();
+      for (const auto *loop : loops(f))
+        for (const auto &use : *loop)
+          all &= edges.contains(use.edge);
+      if (all)
+        selection.faces.push_back(f.id);
+    }
+  }
+  if (selection.active && !index.vertices.contains(selection.active) &&
+      !index.edges.contains(selection.active) && !index.faces.contains(selection.active))
+    selection.active = 0;
+  return selection;
+}
+
+}  // namespace blender::solid

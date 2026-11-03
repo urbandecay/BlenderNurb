@@ -364,10 +364,13 @@ static void applyRotation(TransInfo *t)
     }
   }
 
-  if (t->data_type == &TransConvertType_Nurbs) {
+  if (ELEM(t->data_type, &TransConvertType_Nurbs, &TransConvertType_Solid)) {
     float matrix[3][3];
     axis_angle_normalized_to_mat3_with_quadrant(matrix, axis_final, t->values_final[0], quadrant);
-    nurbs_affine_update(t, matrix);
+    if (t->data_type == &TransConvertType_Solid)
+      solid_affine_update(t, matrix);
+    else
+      nurbs_affine_update(t, matrix);
   }
 
   recalc_data(t);

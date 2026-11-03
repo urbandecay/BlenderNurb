@@ -44,6 +44,7 @@
 #include "BKE_object.hh"
 #include "BKE_report.hh"
 #include "BKE_scene.hh"
+#include "BKE_solid_host.hh"
 #include "BKE_tracking.hh"
 
 #include "BLT_translation.hh"
@@ -746,11 +747,21 @@ static wmOperatorStatus apply_objects_internal(bContext *C,
       }
 
       /* adjust data */
-      bke::mesh_transform(*mesh, float4x4(mat), true);
+      if (mesh->solid_storage) {
+        std::string error;
+        if (!bke::solid_host::transform_mesh(*mesh, float4x4(mat), &error)) {
+          BKE_report(reports, RPT_ERROR, error.c_str());
+          return OPERATOR_CANCELLED;
+        }
+      }
+      else
+        bke::mesh_transform(*mesh, float4x4(mat), true);
       /* The determinant of mat will be negative for objects with an odd number of negative scale
        * axes, since the normals will be flipped when scale is applied, we provide the option to
        * flip them back. */
-      if (corrective_flip_normals && math::determinant(float4x4(mat)) < 0.0f) {
+      if (!mesh->solid_storage && corrective_flip_normals &&
+          math::determinant(float4x4(mat)) < 0.0f)
+      {
         bke::mesh_flip_faces(*mesh, IndexMask(mesh->faces_num));
       }
     }

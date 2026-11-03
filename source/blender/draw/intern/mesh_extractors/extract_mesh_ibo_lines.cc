@@ -8,6 +8,7 @@
 
 #include "BLI_array_utils.hh"
 
+#include "BKE_attribute.hh"
 #include "GPU_index_buffer.hh"
 
 #include "extract_mesh.hh"
@@ -34,6 +35,13 @@ static IndexMask calc_mesh_edge_visibility(const MeshRenderData &mr,
     static_assert(ORIGINDEX_NONE == -1);
     visible = array_utils::indices_non_negative(visible, Span(orig_index, mr.edges_num), memory);
   }
+  const auto source_ids = mr.mesh->attributes().lookup<int2>(".solid_edge_id",
+                                                             bke::AttrDomain::Edge);
+  if (source_ids)
+    visible = IndexMask::from_predicate(visible, memory, [&](int i) {
+      const int2 id = source_ids.varray[i];
+      return id.x || id.y;
+    });
   return visible;
 }
 
@@ -200,9 +208,16 @@ static void extract_lines_bm(const MeshRenderData &mr,
   }
 
   const IndexMask non_loose_edges = mr.loose_edges.complement(IndexRange(bm.totedge), memory);
+  const int source_offset = CustomData_get_offset_named(
+      &bm.edata, CD_PROP_INT32_2D, ".solid_edge_id");
   const IndexMask visible_non_loose_edges = IndexMask::from_predicate(
       non_loose_edges, memory, [&](const int i) {
         const BMEdge &edge = *BM_edge_at_index(&const_cast<BMesh &>(bm), i);
+        if (source_offset >= 0) {
+          const int2 &id = *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(&edge, source_offset));
+          if (!id.x && !id.y)
+            return false;
+        }
         return !BM_elem_flag_test_bool(&edge, BM_ELEM_HIDDEN);
       });
 

@@ -668,7 +668,13 @@ class VIEW3D_MT_editor_menus(Menu):
                            edit_object.type in {'CURVE', 'SURFACE'} and
                            getattr(edit_object.data, "is_native_nurbs", False))
 
+        is_solid = bool(edit_object and getattr(edit_object.data, "is_solid_model", False))
         layout.menu("VIEW3D_MT_view")
+        if is_solid:
+            layout.menu("VIEW3D_MT_select_edit_mesh")
+            layout.menu("VIEW3D_MT_solid_draw", text="Add")
+            layout.menu("VIEW3D_MT_edit_solid")
+            return
 
         # Select Menu
         if is_native_nurbs:
@@ -698,7 +704,10 @@ class VIEW3D_MT_editor_menus(Menu):
                 edit_object.type in {'CURVE', 'SURFACE'} and
                 getattr(edit_object.data, "has_tagged_nurbs", False)
             ):
-                layout.menu("VIEW3D_MT_edit_nurbs")
+                if getattr(edit_object.data, "is_solid_model", False):
+                    layout.menu("VIEW3D_MT_edit_solid")
+                else:
+                    layout.menu("VIEW3D_MT_edit_nurbs")
             else:
                 layout.menu("VIEW3D_MT_edit_" + edit_object.type.lower())
 
@@ -1680,6 +1689,10 @@ class VIEW3D_MT_curve_add(Menu):
     bl_options = {'SEARCH_ON_KEY_PRESS'}
 
     def draw(self, context):
+        if context.edit_object and getattr(context.edit_object.data, "is_solid_model", False):
+            VIEW3D_MT_solid_draw.draw(self, context)
+            return
+
         layout = self.layout
 
         layout.operator_context = 'INVOKE_REGION_WIN'
@@ -1732,6 +1745,12 @@ class TOPBAR_MT_edit_curve_add(Menu):
 
     def draw(self, context):
         layout = self.layout
+
+        if getattr(context.active_object.data, "is_solid_model", False):
+            layout.operator_context = 'INVOKE_REGION_WIN'
+            for tool in ("line", "arc", "circle", "ellipse", "rectangle", "polygon"):
+                layout.operator("curve.draw_" + tool, text=tool.title())
+            return
 
         is_surf = context.active_object.type == 'SURFACE'
 
@@ -1809,6 +1828,43 @@ class VIEW3D_MT_lattice_add(Menu):
         layout.operator("object.lattice_add_to_selected", text="Lattice Deform Selected", icon='OUTLINER_OB_LATTICE')
 
 
+class VIEW3D_MT_solid_add(Menu):
+    bl_label = "Solid"
+    bl_options = {'SEARCH_ON_KEY_PRESS'}
+
+    def draw(self, _context):
+        layout = self.layout
+        for kind, label in (("EMPTY", "Sketch"), ("LINE", "Line Sketch"),
+                            ("RECTANGLE", "Rectangle Sketch"), ("CIRCLE", "Circle Sketch")):
+            layout.operator("solid.sketch_add", text=label).type = kind
+
+
+class VIEW3D_MT_solid_draw(Menu):
+    bl_label = "Draw"
+
+    def draw(self, _context):
+        self.layout.operator_context = 'INVOKE_REGION_WIN'
+        for kind in ("line", "arc", "circle", "ellipse", "rectangle", "polygon"):
+            self.layout.operator("curve.draw_" + kind, text="Draw " + kind.title())
+
+
+class VIEW3D_MT_edit_solid(Menu):
+    bl_label = "Solid"
+
+    def draw(self, _context):
+        layout = self.layout
+        layout.operator_context = 'INVOKE_REGION_WIN'
+        layout.operator("solid.extrude", text="Extrude Solid")
+        layout.operator("solid.fill", text="Fill Profile")
+        layout.operator_menu_enum("solid.merge", "type", text="Merge")
+        layout.operator("solid.bevel", text="Bevel Edges")
+        layout.operator("solid.bevel", text="Bevel Vertices").vertices_only = True
+        layout.operator_menu_enum("solid.delete", "type", text="Delete")
+        layout.separator()
+        layout.menu("VIEW3D_MT_solid_draw")
+        layout.menu("VIEW3D_MT_transform")
+
+
 class VIEW3D_MT_add(Menu):
     bl_label = "Add"
     bl_translation_context = i18n_contexts.operator_default
@@ -1829,6 +1885,7 @@ class VIEW3D_MT_add(Menu):
         layout.operator_context = 'EXEC_REGION_WIN'
 
         # layout.operator_menu_enum("object.mesh_add", "type", text="Mesh", icon='OUTLINER_OB_MESH')
+        layout.menu("VIEW3D_MT_solid_add", icon='MESH_CUBE')
         layout.menu("VIEW3D_MT_mesh_add", icon='OUTLINER_OB_MESH')
 
         # layout.operator_menu_enum("object.curve_add", "type", text="Curve", icon='OUTLINER_OB_CURVE')
@@ -3267,6 +3324,10 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
     bl_label = ""
 
     def draw(self, context):
+        if context.edit_object and getattr(context.edit_object.data, "is_solid_model", False):
+            VIEW3D_MT_edit_solid.draw(self, context)
+            return
+
 
         def count_selected_items_for_objects_in_mode():
             selected_verts_len = 0
@@ -4205,6 +4266,9 @@ class VIEW3D_MT_edit_curve_context_menu(Menu):
 
         layout = self.layout
         edit_object = context.edit_object
+        if edit_object and getattr(edit_object.data, "is_solid_model", False):
+            VIEW3D_MT_edit_solid.draw(self, context)
+            return
         if edit_object and getattr(edit_object.data, "is_native_nurbs", False):
             layout.operator_context = 'INVOKE_DEFAULT'
             layout.operator("curve.make_segment", text="Make Edge/Face")
@@ -6876,6 +6940,9 @@ classes = (
     VIEW3D_MT_camera_add,
     VIEW3D_MT_volume_add,
     VIEW3D_MT_lattice_add,
+    VIEW3D_MT_solid_add,
+    VIEW3D_MT_edit_solid,
+    VIEW3D_MT_solid_draw,
     VIEW3D_MT_add,
     VIEW3D_MT_image_add,
     VIEW3D_MT_object,

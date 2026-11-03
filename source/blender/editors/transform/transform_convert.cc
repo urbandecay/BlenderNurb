@@ -709,6 +709,7 @@ static void init_TransDataContainers(TransInfo *t, Object *obact, Span<Object *>
   if (!ELEM(t->data_type,
             &TransConvertType_Curve,
             &TransConvertType_Nurbs,
+            &TransConvertType_Solid,
             &curves::TransConvertType_Curves,
             &pointcloud::TransConvertType_PointCloud,
             &TransConvertType_Lattice,
@@ -856,6 +857,8 @@ static TransConvertTypeInfo *convert_type_get(const TransInfo *t)
   }
   if (t->obedit_type != -1) {
     if (t->obedit_type == OB_MESH) {
+      if (ob && id_cast<const Mesh *>(ob->data)->solid_storage)
+        return &TransConvertType_Solid;
       if (t->mode == TFM_SKIN_RESIZE) {
         return &TransConvertType_MeshSkin;
       }

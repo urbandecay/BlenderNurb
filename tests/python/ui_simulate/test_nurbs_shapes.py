@@ -7,7 +7,7 @@
 import modules.ui_test_utils as ui
 
 
-def construction_modes():
+def construction_modes(*, analytic=False):
     import bpy
     import math
     import hashlib
@@ -25,6 +25,9 @@ def construction_modes():
         return round(p.x) + region.x, round(p.y) + region.y
 
     def totals():
+        if analytic:
+            data=window.view_layer.objects.active.data
+            return (data.solid_vertices_count,data.solid_edges_count)
         stats = window.scene.statistics(window.view_layer).replace(',', '')
         return tuple(map(int, re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+)', stats).groups()))
 
@@ -55,8 +58,10 @@ def construction_modes():
     for obj in tuple(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
     yield e.cursor_position_set(*ui.get_area_center(area), move=True)
-    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
-    yield e.tab().two().numpad_7()
+    yield from ui.call_menu(e, 'Add -> Solid -> Sketch' if analytic else 'Add -> Curve -> Nurbs Line')
+    if not analytic:
+        yield e.tab()
+    yield e.two().numpad_7()
     space.region_3d.view_distance = 15
     window.scene.tool_settings.use_snap = False
     cases = (

@@ -7,7 +7,7 @@
 import modules.ui_test_utils as ui
 
 
-def arc_workflow():
+def arc_workflow(*, analytic=False):
     import bpy
     import re
     from bpy_extras.view3d_utils import (
@@ -20,6 +20,9 @@ def arc_workflow():
     space = area.spaces.active
 
     def counts():
+        if analytic:
+            data=window.view_layer.objects.active.data
+            return (data.solid_vertices_count,data.solid_edges_count,data.solid_faces_count)
         stats = window.scene.statistics(window.view_layer).replace(',', '')
         match = re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+) \| Faces:\d+/(\d+)', stats)
         t.assertIsNotNone(match, stats)
@@ -54,8 +57,10 @@ def arc_workflow():
     for obj in tuple(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
     yield e.cursor_position_set(*ui.get_area_center(area), move=True)
-    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
-    yield e.tab().two().numpad_7()
+    yield from ui.call_menu(e, 'Add -> Solid -> Line Sketch' if analytic else 'Add -> Curve -> Nurbs Line')
+    if not analytic:
+        yield e.tab()
+    yield e.two().numpad_7()
     space.region_3d.view_location = (0, 0, 0)
     space.region_3d.view_distance = 12
     window.scene.tool_settings.use_snap = False
@@ -73,7 +78,7 @@ def arc_workflow():
                 yield e.wheelupmouse()
             yield e.leftmouse()
         t.assertEqual(counts(), (before[0] + 34, before[1] + 33, 0))
-        t.assertTrue(window.view_layer.objects.active.data.is_native_nurbs)
+        t.assertTrue(getattr(window.view_layer.objects.active.data,"is_solid_model" if analytic else "is_native_nurbs"))
         with bpy.context.temp_override(window=window, area=area, region=region):
             tool = window.workspace.tools.from_space_view3d_mode(bpy.context.mode)
             t.assertEqual(tool.idname, 'builtin.select_box')
@@ -110,6 +115,8 @@ def arc_workflow():
     yield e.text('3').ret()
     yield e.cursor_position_set(*screen((0, 2, 0)), move=True)
     yield e.text('-90').ret()
+    t.assertEqual(counts(), before)  # First Enter applies the pending parameter.
+    yield e.ret()
     t.assertEqual(counts(), (before[0] + 33, before[1] + 32, 0))
     added = mesh_points() - before_points
     t.assertGreater(len(added), 4)
@@ -143,6 +150,8 @@ def arc_workflow():
     yield e.cursor_position_set(*screen((2, 0, 0)), move=True)
     yield e.leftmouse()
     yield e.text('360').ret()
+    t.assertEqual(counts(), before)
+    yield e.ret()
     t.assertEqual(counts(), (before[0] + 32, before[1] + 32, 0))
 
     # Backspace returns to chord placement; a degenerate through point cannot commit.

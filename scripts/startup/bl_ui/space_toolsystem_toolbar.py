@@ -1078,6 +1078,21 @@ def curve_draw_settings(context, layout, tool, *, extra=False):
     col.prop(props, "bezier_as_nurbs", text="As NURBS")
 
 
+class _defs_solid:
+    @ToolDef.from_fn
+    def extrude():
+        return dict(
+            idname="builtin.solid_extrude",
+            label="Extrude Solid",
+            description="Extrude vertices, edges, closed profiles or planar faces",
+            icon="ops.curve.extrude_move",
+            operator="solid.extrude",
+            keymap=(
+                ("solid.extrude", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
+            ),
+        )
+
+
 class _defs_nurbs_draw:
     @ToolDef.from_fn
     def line():
@@ -1089,7 +1104,7 @@ class _defs_nurbs_draw:
             idname="builtin.nurbs_draw_line",
             operator="curve.draw_line",
             label="Line",
-            description="Draw connected NURBS line segments. Click to place points; Enter to finish",
+            description="Draw exact connected line segments. Click to place points; Enter to finish",
             icon="rna:NURBS_DRAW_LINE",
             cursor='CROSSHAIR',
             widget="VIEW3D_GGT_nurbs_draw_snap",
@@ -1136,7 +1151,7 @@ class _defs_nurbs_draw:
             idname="builtin.nurbs_draw_arc",
             operator="curve.draw_arc",
             label="Arc",
-            description="Draw a NURBS arc by center and sweep, endpoints and bulge, or three points",
+            description="Draw an exact arc by center and sweep, endpoints and bulge, or three points",
             icon="rna:CURVE_NCURVE",
             cursor='CROSSHAIR',
             widget="VIEW3D_GGT_nurbs_draw_snap",
@@ -1160,7 +1175,7 @@ class _defs_nurbs_draw:
             idname="builtin.nurbs_draw_circle",
             operator="curve.draw_circle",
             label="Circle",
-            description="Draw exact NURBS circles by radius, diameter, three points or tangent curves",
+            description="Draw exact circles by radius, diameter, three points or tangent curves",
             icon="rna:CURVE_NCIRCLE",
             cursor='CROSSHAIR',
             widget="VIEW3D_GGT_nurbs_draw_snap",
@@ -1185,7 +1200,7 @@ class _defs_nurbs_draw:
             idname="builtin.nurbs_draw_ellipse",
             operator="curve.draw_ellipse",
             label="Ellipse",
-            description="Draw a native NURBS ellipse using radCAD construction modes",
+            description="Draw an exact ellipse using radCAD construction modes",
             icon="rna:CURVE_NCIRCLE",
             cursor='CROSSHAIR',
             widget="VIEW3D_GGT_nurbs_draw_snap",
@@ -1208,7 +1223,7 @@ class _defs_nurbs_draw:
             idname="builtin.nurbs_draw_polygon",
             operator="curve.draw_polygon",
             label="Polygon",
-            description="Draw a native NURBS polygon using radCAD construction modes",
+            description="Draw an exact polygon using radCAD construction modes",
             icon="rna:MESH_CIRCLE",
             cursor='CROSSHAIR',
             widget="VIEW3D_GGT_nurbs_draw_snap",
@@ -1230,7 +1245,7 @@ class _defs_nurbs_draw:
             idname="builtin.nurbs_draw_rectangle",
             operator="curve.draw_rectangle",
             label="Rectangle",
-            description="Draw a native NURBS rectangle using radCAD construction modes",
+            description="Draw an exact rectangle using radCAD construction modes",
             icon="rna:MESH_PLANE",
             cursor='CROSSHAIR',
             widget="VIEW3D_GGT_nurbs_draw_snap",
@@ -3027,6 +3042,17 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
     def tools_from_context(cls, context, mode=None):
         if mode is None:
             mode = context.mode
+        solid_mode = (mode == 'EDIT_MESH' and context.edit_object is not None and
+                      getattr(context.edit_object.data, "is_solid_model", False))
+        if solid_mode:
+            yield from cls._tools[None]
+            yield from cls._tools_default
+            yield None
+            yield _defs_solid.extrude
+            yield None
+            yield from (_defs_nurbs_draw.line, _defs_nurbs_draw.arc, _defs_nurbs_draw.circle,
+                        _defs_nurbs_draw.ellipse, _defs_nurbs_draw.polygon, _defs_nurbs_draw.rectangle)
+            return
         for tools in (cls._tools[None], cls._tools.get(mode, ())):
             for item in tools:
                 if not (type(item) is ToolDef) and callable(item):

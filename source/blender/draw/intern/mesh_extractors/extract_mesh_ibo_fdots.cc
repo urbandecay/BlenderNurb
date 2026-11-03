@@ -6,6 +6,7 @@
  * \ingroup draw
  */
 
+#include "BKE_attribute.hh"
 #include "GPU_index_buffer.hh"
 
 #include "extract_mesh.hh"
@@ -29,6 +30,9 @@ static IndexMask calc_face_visibility_mesh(const MeshRenderData &mr, IndexMaskMe
       });
     });
   }
+  if (const auto source_dot = mr.mesh->attributes().lookup<bool>(".solid_face_dot",
+                                                                 bke::AttrDomain::Face))
+    visible = IndexMask::from_bools(visible, source_dot.varray, memory);
   return visible;
 }
 
@@ -53,9 +57,15 @@ static gpu::IndexBufPtr extract_face_dots_bm(const MeshRenderData &mr)
 {
   BMesh &bm = *mr.bm;
   IndexMaskMemory memory;
+  const int source_offset = CustomData_get_offset_named(
+      &bm.pdata, CD_PROP_BOOL, ".solid_face_dot");
   const IndexMask visible_faces = IndexMask::from_predicate(
       IndexRange(bm.totface), memory, [&](const int i) {
-        return !BM_elem_flag_test_bool(BM_face_at_index(&bm, i), BM_ELEM_HIDDEN);
+        const BMFace *face = BM_face_at_index(&bm, i);
+        if (source_offset >= 0 &&
+            !*static_cast<const bool *>(BM_ELEM_CD_GET_VOID_P(face, source_offset)))
+          return false;
+        return !BM_elem_flag_test_bool(face, BM_ELEM_HIDDEN);
       });
   return index_mask_to_ibo(visible_faces);
 }

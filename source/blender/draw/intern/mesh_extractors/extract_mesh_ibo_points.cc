@@ -6,6 +6,7 @@
  * \ingroup draw
  */
 
+#include "BKE_attribute.hh"
 #include "GPU_index_buffer.hh"
 
 #include "draw_subdivision.hh"
@@ -28,6 +29,14 @@ static IndexMask calc_vert_visibility_mesh(const MeshRenderData &mr,
     const int *orig_index = mr.orig_index_vert;
     static_assert(ORIGINDEX_NONE == -1);
     visible = array_utils::indices_non_negative(visible, Span(orig_index, mr.verts_num), memory);
+  }
+  const auto source_ids = mr.mesh->attributes().lookup<int2>(".solid_vertex_id",
+                                                             bke::AttrDomain::Point);
+  if (source_ids) {
+    visible = IndexMask::from_predicate(visible, memory, [&](int i) {
+      const int2 id = source_ids.varray[i];
+      return id.x || id.y;
+    });
   }
   return visible;
 }
@@ -134,10 +143,17 @@ static gpu::IndexBufPtr extract_points_bm(const MeshRenderData &mr)
   BMesh &bm = *mr.bm;
 
   IndexMaskMemory memory;
+  const int source_offset = CustomData_get_offset_named(
+      &bm.vdata, CD_PROP_INT32_2D, ".solid_vertex_id");
   const IndexMask visible_verts = IndexMask::from_predicate(
       IndexRange(bm.totvert), memory, [&](const int i) {
-        return !BM_elem_flag_test_bool(BM_vert_at_index(&const_cast<BMesh &>(bm), i),
-                                       BM_ELEM_HIDDEN);
+        const BMVert *vert = BM_vert_at_index(&const_cast<BMesh &>(bm), i);
+        if (source_offset >= 0) {
+          const int2 &id = *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(vert, source_offset));
+          if (!id.x && !id.y)
+            return false;
+        }
+        return !BM_elem_flag_test_bool(vert, BM_ELEM_HIDDEN);
       });
 
   const int max_index = mr.corners_num + mr.loose_edges.size() * 2 + mr.loose_verts.size();

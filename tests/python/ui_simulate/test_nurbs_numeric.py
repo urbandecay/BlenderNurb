@@ -7,7 +7,7 @@
 import modules.ui_test_utils as ui
 
 
-def deferred_parameters():
+def deferred_parameters(*, analytic=False):
     import bpy
     import hashlib
     import re
@@ -27,6 +27,9 @@ def deferred_parameters():
         return round(co.x) + region.x, round(co.y) + region.y
 
     def totals():
+        if analytic:
+            data=window.view_layer.objects.active.data
+            return (data.solid_vertices_count,data.solid_edges_count)
         stats = window.scene.statistics(window.view_layer).replace(',', '')
         return tuple(map(int, re.search(r'Verts:\d+/(\d+) \| Edges:\d+/(\d+)', stats).groups()))
 
@@ -61,8 +64,10 @@ def deferred_parameters():
     for obj in tuple(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
     yield e.cursor_position_set(*ui.get_area_center(area), move=True)
-    yield from ui.call_menu(e, 'Add -> Curve -> Nurbs Line')
-    yield e.tab().two().numpad_7()
+    yield from ui.call_menu(e, 'Add -> Solid -> Sketch' if analytic else 'Add -> Curve -> Nurbs Line')
+    if not analytic:
+        yield e.tab()
+    yield e.two().numpad_7()
     space.region_3d.view_location = (0, 0, 0)
     space.region_3d.view_distance = 12
     space.overlay.show_floor = False
@@ -70,7 +75,7 @@ def deferred_parameters():
     space.overlay.show_axis_y = False
     window.scene.tool_settings.use_snap = False
 
-    for kind in ('arc', 'circle', 'line', 'spline'):
+    for kind in (('arc','circle','line') if analytic else ('arc', 'circle', 'line', 'spline')):
         with bpy.context.temp_override(window=window, area=area, region=region):
             bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_' + kind)
             props = window.workspace.tools.from_space_view3d_mode(bpy.context.mode).operator_properties(

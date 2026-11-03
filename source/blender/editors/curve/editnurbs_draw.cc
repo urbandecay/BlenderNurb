@@ -12,6 +12,7 @@
 #include <cfloat>
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 #include "BKE_context.hh"
@@ -32,6 +33,7 @@
 #include "DEG_depsgraph_query.hh"
 #include "DNA_curve_types.h"
 #include "DNA_layer_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -54,10 +56,20 @@
 #include "WM_toolsystem.hh"
 #include "WM_types.hh"
 #include "curve_intern.hh"
+#include "exact_drawing.hh"
 
 namespace blender {
 namespace {
 using namespace bke::nurbs;
+using bke::nurbs::evaluate_curve;
+
+/* Bind the const-reference constructor explicitly. Some bundled static C++ runtimes do
+ * not provide the C++20 rvalue constructor; resolving that overload from a graphics driver's
+ * shared runtime mixes ownership of its non-heap classic locale with this executable. */
+class DrawingInput : public std::istringstream {
+ public:
+  explicit DrawingInput(const std::string &text) : std::istringstream(text) {}
+};
 
 struct NativeCenter {
   Object *object;
@@ -79,7 +91,7 @@ enum class DrawNumericMode : uint8_t {
 };
 
 struct DrawData {
-  std::unique_ptr<ed::nurbs::TopologyPreview> source;
+  std::unique_ptr<ed::exact_drawing::Source> source;
   ARegion *region = nullptr;
   ViewOpsData *navigation = nullptr;
   void *draw_handle = nullptr;
@@ -118,7 +130,7 @@ struct DrawData {
   int circle_solution = 0;
   bool circle_tangent_valid = false;
   double3 circle_solution_seed = double3(0);
-  Vector<Vector<const NurbsTopologyEdge *>> circle_chains;
+  Vector<Vector<const ed::exact_drawing::Edge *>> circle_chains;
   Vector<double3> circle_contacts;
   double3 circle_center = double3(0);
   Vector<Vector<float3>> circle_curve_overlays;
@@ -137,6 +149,16 @@ struct DrawData {
   NumInput num{};
   double4x4 inverse;
 };
+
+static bool draw_handle_numeric_event(bContext *C, DrawData &data, const wmEvent *event)
+{
+  /* With no numeric entry active, Backspace undoes a construction point. NumInput's
+   * empty-Backspace reset would otherwise consume that event and start a fake entry. */
+  if (event->type == EVT_BACKSPACEKEY && data.numeric_mode == DrawNumericMode::Automatic &&
+      !hasNumInput(&data.num))
+    return false;
+  return handleNumInput(C, &data.num, event);
+}
 
 static bool is_spline(const wmOperator *op)
 {
@@ -164,7 +186,7 @@ static int shape_type(const wmOperator *op)
 static double arc_sweep_get(wmOperator *op)
 {
   const double value = RNA_float_get(op->ptr, "sweep");
-  std::istringstream input(RNA_string_get(op->ptr, "sweep_exact"));
+  DrawingInput input(RNA_string_get(op->ptr, "sweep_exact"));
   double exact;
   if ((input >> exact) && std::isfinite(exact) && float(exact) == float(value)) {
     return exact;
@@ -273,7 +295,7 @@ static std::optional<Vector<double>> circle_divisions(wmOperator *op)
     parameters.append(circle_parameter_at_angle(2 * M_PI * i / count));
   }
   if (RNA_enum_get(op->ptr, "mode") >= 3 && RNA_boolean_get(op->ptr, "anchor_tangent_markers")) {
-    std::istringstream input(RNA_string_get(op->ptr, "tangent_parameters"));
+    DrawingInput input(RNA_string_get(op->ptr, "tangent_parameters"));
     double t;
     int contacts = 0;
     while (input >> t) {
@@ -406,10 +428,199 @@ static OwnedCurve draw_support(const Span<double3> points,
   return curve;
 }
 
+/* Analytic drawing support uses the same construction gestures and replay parameters as
+ * the established tools. Only this compatibility parameter is normalized; the solid source
+ * stores real angular intervals and closed-form line/conic coefficients. */
+struct DrawingSupport {
+  std::function<std::optional<ed::exact_drawing::Point>(double)> sample;
+  std::optional<solid::Curve> analytic;
+  double sweep = 0;
+  int spans = 0;
+};
+static solid::Vec3 kernel_point(const double3 &p)
+{
+  return {p.x, p.y, p.z};
+}
+static double3 host_point(const solid::Vec3 &p)
+{
+  return {p.x, p.y, p.z};
+}
+static double drawing_angle(const double parameter, const double sweep)
+{
+  const int spans = std::max(1, int(std::ceil(std::abs(sweep) / (M_PI / 2))));
+  const double angle = std::abs(sweep) / spans;
+  const double position = std::clamp(parameter, 0.0, 1.0) * spans;
+  const int span = std::min(int(position), spans - 1);
+  const double t = position - span;
+  return std::copysign(
+      span * angle + 2 * std::atan2(t * std::sin(angle / 2), 1 - t + t * std::cos(angle / 2)),
+      sweep);
+}
+static std::optional<ed::exact_drawing::Point> evaluate_curve(const DrawingSupport &support,
+                                                              double t,
+                                                              std::string * = nullptr)
+{
+  return support.sample(t);
+}
+static std::unique_ptr<DrawingSupport> analytic_support(solid::Curve curve, double sweep)
+{
+  auto result = std::make_unique<DrawingSupport>();
+  result->analytic = curve;
+  result->sweep = sweep;
+  result->spans = std::max(1, int(std::ceil(std::abs(sweep) / (M_PI / 2))));
+  result->sample = [curve, sweep](double t) -> std::optional<ed::exact_drawing::Point> {
+    return ed::exact_drawing::Point{host_point(solid::evaluate(curve, drawing_angle(t, sweep)))};
+  };
+  return result;
+}
+static std::unique_ptr<DrawingSupport> native_support(OwnedCurve support)
+{
+  if (!support)
+    return {};
+  auto result = std::make_unique<DrawingSupport>();
+  if (support->points_num >= 3 && support->order == 3) {
+    result->spans = (support->points_num - 1) / 2;
+    result->sweep = (support->points_num - 1) *
+                    std::acos(std::clamp(support->points[1].weight, 0.0, 1.0));
+  }
+  std::shared_ptr<NurbsCurveGeometry> owner(std::move(support));
+  result->sample = [owner](double t) -> std::optional<ed::exact_drawing::Point> {
+    const auto p = bke::nurbs::evaluate_curve(*owner, t);
+    return p ? std::optional<ed::exact_drawing::Point>(ed::exact_drawing::Point{p->position}) :
+               std::nullopt;
+  };
+  return result;
+}
+static std::unique_ptr<DrawingSupport> drawing_arc(const bool analytic,
+                                                   const Span<double3> points,
+                                                   const int mode,
+                                                   const double3 &normal,
+                                                   const double sweep,
+                                                   const double4x4 &inverse,
+                                                   std::string &error)
+{
+  if (!analytic)
+    return native_support(arc_support(points, mode, normal, sweep, inverse, error));
+  if (points.size() != (mode == 0 ? 2 : 3)) {
+    error = "Place the arc construction points";
+    return {};
+  }
+  std::optional<solid::Curve> curve;
+  double total = sweep;
+  if (mode == 0)
+    curve = solid::circle(
+        kernel_point(points[0]), kernel_point(points[1]), kernel_point(normal), &error);
+  else {
+    double3 through = points[2];
+    if (mode == 1) {
+      const double3 side = math::normalize(math::cross(normal, points[1] - points[0]));
+      const double3 midpoint = (points[0] + points[1]) / 2;
+      through = midpoint + side * math::dot(through - midpoint, side);
+    }
+    curve = solid::circle_through(
+        kernel_point(points[0]), kernel_point(through), kernel_point(points[1]), &error);
+    if (curve) {
+      const solid::Vec3 radial = kernel_point(points[1]) - curve->origin;
+      total = std::atan2(solid::dot(radial, curve->v), solid::dot(radial, curve->u));
+      if (total <= 0)
+        total += 2 * M_PI;
+    }
+  }
+  if (!curve || !std::isfinite(total) || std::abs(total) < 1e-12 || std::abs(total) > 64 * M_PI) {
+    if (error.empty())
+      error = "Arc sweep must be finite and nonzero";
+    return {};
+  }
+  curve->origin = kernel_point(math::transform_point(inverse, host_point(curve->origin)));
+  curve->u = kernel_point(math::transform_direction(inverse, host_point(curve->u)));
+  curve->v = kernel_point(math::transform_direction(inverse, host_point(curve->v)));
+  return analytic_support(*curve, total);
+}
+static std::unique_ptr<DrawingSupport> drawing_circle(const bool analytic,
+                                                      const Span<double3> points,
+                                                      const int mode,
+                                                      const double3 &normal,
+                                                      const double4x4 &inverse,
+                                                      std::string &error)
+{
+  if (!analytic)
+    return native_support(circle_support(points, mode, normal, inverse, error));
+  if (points.size() != (mode == 2 ? 3 : 2)) {
+    error = "Place the circle construction points";
+    return {};
+  }
+  double3 center = points[0], start = points[1], n = normal;
+  if (mode == 1) {
+    center = (points[0] + points[1]) / 2;
+    start = points[0];
+  }
+  else if (mode == 2) {
+    const auto c = solid::circle_through(
+        kernel_point(points[0]), kernel_point(points[1]), kernel_point(points[2]), &error);
+    if (!c)
+      return {};
+    center = host_point(c->origin);
+    start = points[0];
+    n = math::normalize(math::cross(host_point(c->u), host_point(c->v)));
+  }
+  const std::array<double3, 2> radius = {center, start};
+  return drawing_arc(true, radius, 0, n, 2 * M_PI, inverse, error);
+}
+static std::unique_ptr<DrawingSupport> drawing_path(const bool analytic,
+                                                    const Span<double3> points,
+                                                    const bool spline,
+                                                    const bool cv,
+                                                    const int degree,
+                                                    std::string &error)
+{
+  if (!analytic)
+    return native_support(draw_support(points, spline, cv, degree, error));
+  if (spline || points.size() < 2 || points.size() > 256) {
+    error = spline ? "Freeform splines belong to the separate NURBS tools" :
+                     "Place between 2 and 256 points";
+    return {};
+  }
+  auto result = std::make_unique<DrawingSupport>();
+  result->sample =
+      [points = Vector<double3>(points)](double t) -> std::optional<ed::exact_drawing::Point> {
+    const double position = std::clamp(t, 0.0, 1.0) * (points.size() - 1);
+    const int i = std::min(int(position), int(points.size() - 2));
+    return ed::exact_drawing::Point{math::interpolate(points[i], points[i + 1], position - i)};
+  };
+  return result;
+}
+static Vector<double> arc_divisions(const DrawingSupport &support,
+                                    const int count,
+                                    const bool center_arc)
+{
+  const double total = std::abs(support.sweep);
+  Vector<double> result;
+  result.append(0);
+  const bool quarter = count == 0 || (center_arc && total > count * (M_PI / 2) + 1e-10);
+  auto parameter = [&](double angle) {
+    const int spans = support.spans ? support.spans :
+                                      std::max(1, int(std::ceil(total / (M_PI / 2))));
+    const double a = total / spans;
+    const int span = std::min(int(angle / a), spans - 1);
+    const double local = angle - span * a;
+    const double x = std::sin(local / 2), y = std::sin((a - local) / 2);
+    return (span + x / (x + y)) / spans;
+  };
+  if (quarter) {
+    for (double a = M_PI / 2; a < total - 1e-10; a += M_PI / 2)
+      result.append(parameter(a));
+  }
+  else
+    for (int i = 1; i < count; ++i)
+      result.append(parameter(total * i / count));
+  result.append(1);
+  return result;
+}
+
 static Vector<double3> read_points(wmOperator *op)
 {
   Vector<double3> points;
-  std::istringstream input(RNA_string_get(op->ptr, "points"));
+  DrawingInput input(RNA_string_get(op->ptr, "points"));
   double3 point;
   while (input >> point.x >> point.y >> point.z) {
     points.append(point);
@@ -460,12 +671,105 @@ static void ensure_native_centers(bContext *C, DrawData &data, const eSnapMode m
   BKE_view_layer_synced_ensure(*CTX_data_main(C), CTX_data_scene(C), layer);
   for (Base &base : *BKE_view_layer_object_bases_get(layer)) {
     Object *object = base.object;
-    if (!BASE_VISIBLE(CTX_wm_view3d(C), &base) || !ELEM(object->type, OB_CURVES_LEGACY, OB_SURF)) {
+    if (!BASE_VISIBLE(CTX_wm_view3d(C), &base))
+      continue;
+    if (object->type == OB_MESH && id_cast<const Mesh *>(object->data)->solid_storage) {
+      const auto source = bke::solid_host::read(*id_cast<const Mesh *>(object->data));
+      if (!source)
+        continue;
+      const double4x4 transform(object->object_to_world());
+      data.center_objects.append_non_duplicates(object);
+      if (missing & SCE_SNAP_TO_EDGE_MIDPOINT) {
+        for (const auto &edge : source->model->edges) {
+          const auto &curve = *solid::curve(*source->model, edge.curve);
+          /* Arc-length midpoint on the analytic world curve, including nonuniform scale. */
+          auto length_to = [&](double t) {
+            double length = 0;
+            auto previous = math::transform_point(transform,
+                                                  host_point(solid::evaluate(curve, edge.start)));
+            for (int i = 1; i <= 128; ++i) {
+              const auto p = math::transform_point(
+                  transform,
+                  host_point(solid::evaluate(curve, edge.start + (t - edge.start) * i / 128)));
+              length += math::distance(previous, p);
+              previous = p;
+            }
+            return length;
+          };
+          const double half = length_to(edge.end) / 2;
+          double a = 0, b = 1;
+          for (int i = 0; i < 32; ++i) {
+            const double m = (a + b) / 2;
+            if (length_to(edge.start + (edge.end - edge.start) * m) < half)
+              a = m;
+            else
+              b = m;
+          }
+          const auto p = math::transform_point(
+              transform,
+              host_point(
+                  solid::evaluate(curve, edge.start + (edge.end - edge.start) * (a + b) / 2)));
+          data.centers.append({object, p, float3(0), SCE_SNAP_TO_EDGE_MIDPOINT});
+        }
+      }
+      if (missing & SCE_SNAP_TO_FACE_MIDPOINT) {
+        if (const auto display = solid::tessellate(*source->model, 128)) {
+          for (const auto &face : source->model->faces) {
+            const auto &surface = *solid::surface(*source->model, face.surface);
+            if (surface.kind == solid::SurfaceKind::Extrusion) {
+              const auto &curve = *solid::curve(*source->model, surface.curve);
+              const double t = (surface.start + surface.end) / 2;
+              const auto center = solid::evaluate(curve, t) + surface.u * 0.5;
+              const auto tangent = math::transform_direction(transform,
+                                                             host_point(solid::tangent(curve, t)));
+              const auto sweep = math::transform_direction(transform, host_point(surface.u));
+              const auto normal = math::normalize(math::cross(
+                                      tangent * (surface.end - surface.start), sweep)) *
+                                  face.orientation;
+              data.centers.append({object,
+                                   math::transform_point(transform, host_point(center)),
+                                   float3(normal),
+                                   SCE_SNAP_TO_FACE_MIDPOINT});
+              continue;
+            }
+            const double3 reference = math::normalize(
+                math::cross(math::transform_direction(transform, host_point(surface.u)),
+                            math::transform_direction(transform, host_point(surface.v))));
+            double area = 0;
+            double3 center(0), normal(0);
+            for (size_t i = 0; i < display->polygons.size(); ++i) {
+              if (display->face_source[i] != face.id)
+                continue;
+              const auto &polygon = display->polygons[i];
+              for (size_t j = 1; j + 1 < polygon.size(); ++j) {
+                const auto a = math::transform_point(transform,
+                                                     host_point(display->positions[polygon[0]]));
+                const auto b = math::transform_point(transform,
+                                                     host_point(display->positions[polygon[j]]));
+                const auto c = math::transform_point(
+                    transform, host_point(display->positions[polygon[j + 1]]));
+                const auto cross = math::cross(b - a, c - a);
+                const double weight = math::dot(cross, reference);
+                area += weight;
+                center += (a + b + c) * (weight / 3);
+                normal += cross;
+              }
+            }
+            if (std::abs(area) > 0)
+              data.centers.append({object,
+                                   center / area,
+                                   float3(math::normalize(normal)),
+                                   SCE_SNAP_TO_FACE_MIDPOINT});
+          }
+        }
+      }
       continue;
     }
+    if (!ELEM(object->type, OB_CURVES_LEGACY, OB_SURF))
+      continue;
     const auto captured = curve_eval_source_capture(*id_cast<Curve *>(object->data));
     const NurbsGeometry *geometry = object == &data.source->object() ?
-                                        &data.source->source().geometry() :
+                                        data.source->legacy_geometry() :
                                     captured && captured->snapshot ?
                                         &captured->snapshot->geometry() :
                                         nullptr;
@@ -701,6 +1005,8 @@ static bool snap_to_volume(ed::transform::SnapObjectContext *snap_context,
   return has_hits && found;
 }
 
+static bool solid_drawing_commit(bContext *C, wmOperator *op, int kind, std::string &error);
+
 static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
 {
   if (shape_type(op)) {
@@ -710,116 +1016,125 @@ static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
     return arc_exec(C, op);
   }
   std::string error;
-  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
-  Vector<double3> points = read_points(op);
-  if (source && !is_spline(op) && points.size() >= 2) {
-    const double3 delta = points.last() - points[points.size() - 2];
-    const double length = math::length(
-        math::transform_direction(double4x4(source->object().object_to_world()), delta));
-    const float requested = RNA_float_get(op->ptr, "segment_length");
-    if (length > 0 && requested > 0 && requested != float(length)) {
-      points.last() = points[points.size() - 2] + delta * (double(requested) / length);
-    }
-  }
-  auto support = draw_support(points,
-                              is_spline(op),
-                              RNA_enum_get(op->ptr, "method") == 1,
-                              RNA_int_get(op->ptr, "degree"),
-                              error);
-  if (!source || !support) {
-    BKE_report(op->reports, RPT_ERROR, error.c_str());
-    return OPERATOR_CANCELLED;
-  }
-  TopologyEditResult result;
-  result.geometry.reset(geometry_copy(&source->source().geometry()));
-  auto &geometry = *result.geometry;
-  support->id = is_spline(op) ? geometry.next_id++ : 0;
-  const int64_t curve_id = support->id;
-  /* Every polyline corner is a source vertex. A spline has one authoritative support,
-   * with source vertices at its ends; its coefficients remain curve data. */
-  Vector<double> parameters;
-  if (!is_spline(op)) {
-    for (int i = 0; i < points.size(); i++) {
-      parameters.append(double(i) / (points.size() - 1));
-    }
-  }
-  else {
-    const int segments = std::clamp(RNA_int_get(op->ptr, "preview_points"), 1, 256);
-    for (int i = 0; i <= segments; i++) {
-      parameters.append(double(i) / segments);
-    }
-  }
-  Vector<int64_t> references;
-  std::istringstream refs(RNA_string_get(op->ptr, "vertex_references"));
-  int64_t ref;
-  while (refs >> ref) {
-    references.append(ref);
-  }
-  auto index = TopologyIndex::build(geometry);
-  int64_t previous = 0;
-  double previous_gap = 0;
-  const bool closed_line = !is_spline(op) && points.size() > 3 && points.first() == points.last();
-  for (const int i : parameters.index_range()) {
-    const auto evaluated = evaluate_curve(*support, parameters[i], &error);
-    if (!evaluated) {
+  if (ed::solid_editor::edit_poll(C)) {
+    if (!solid_drawing_commit(C, op, 0, error)) {
       BKE_report(op->reports, RPT_ERROR, error.c_str());
       return OPERATOR_CANCELLED;
     }
-    int64_t vertex_id;
-    double gap = 0;
-    const int point_index = is_spline(op) ? (i == 0                     ? 0 :
-                                             i == parameters.size() - 1 ? points.size() - 1 :
-                                                                          -1) :
-                                            i;
-    const NurbsTopologyVertex *anchor = point_index >= 0 && references.size() == points.size() &&
-                                                index ?
-                                            index->vertex(references[point_index]) :
-                                            nullptr;
-    if (anchor && double3(anchor->position) == points[point_index]) {
-      vertex_id = anchor->id;
-      gap = math::distance(double3(anchor->position), evaluated->position);
-      result.vertices.append(vertex_id);
+  }
+  else {
+    auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+    Vector<double3> points = read_points(op);
+    if (source && !is_spline(op) && points.size() >= 2) {
+      const double3 delta = points.last() - points[points.size() - 2];
+      const double length = math::length(
+          math::transform_direction(double4x4(source->object().object_to_world()), delta));
+      const float requested = RNA_float_get(op->ptr, "segment_length");
+      if (length > 0 && requested > 0 && requested != float(length)) {
+        points.last() = points[points.size() - 2] + delta * (double(requested) / length);
+      }
     }
-    else if (closed_line && i == parameters.size() - 1) {
-      vertex_id = result.vertices.first();
+    auto support = draw_support(points,
+                                is_spline(op),
+                                RNA_enum_get(op->ptr, "method") == 1,
+                                RNA_int_get(op->ptr, "degree"),
+                                error);
+    if (!source || !support) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    TopologyEditResult result;
+    result.geometry.reset(geometry_copy(&source->source().geometry()));
+    auto &geometry = *result.geometry;
+    support->id = is_spline(op) ? geometry.next_id++ : 0;
+    const int64_t curve_id = support->id;
+    /* Every polyline corner is a source vertex. A spline has one authoritative support,
+     * with source vertices at its ends; its coefficients remain curve data. */
+    Vector<double> parameters;
+    if (!is_spline(op)) {
+      for (int i = 0; i < points.size(); i++) {
+        parameters.append(double(i) / (points.size() - 1));
+      }
     }
     else {
-      auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
-      vertex->id = geometry.next_id++;
-      std::copy_n(&evaluated->position.x, 3, vertex->position);
-      BLI_addtail(&geometry.vertices, vertex);
-      result.vertices.append(vertex->id);
-      vertex_id = vertex->id;
-    }
-    if (previous) {
-      auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
-      edge->id = geometry.next_id++;
-      edge->vertex_ids[0] = previous;
-      edge->vertex_ids[1] = vertex_id;
-      edge->curve_id = curve_id;
-      edge->tolerance = std::max(previous_gap, gap);
-      edge->parameter_range[0] = parameters[i - 1];
-      edge->parameter_range[1] = parameters[i];
-      if (!is_spline(op)) {
-        auto segment = draw_support(points.as_span().slice(i - 1, 2), false, false, 1, error);
-        segment->id = geometry.next_id++;
-        edge->curve_id = segment->id;
-        edge->parameter_range[0] = 0;
-        edge->parameter_range[1] = 1;
-        BLI_addtail(&geometry.curves, segment.release());
+      const int segments = std::clamp(RNA_int_get(op->ptr, "preview_points"), 1, 256);
+      for (int i = 0; i <= segments; i++) {
+        parameters.append(double(i) / segments);
       }
-      BLI_addtail(&geometry.edges, edge);
-      result.edges.append(edge->id);
     }
-    previous = vertex_id;
-    previous_gap = gap;
-  }
-  if (is_spline(op)) {
-    BLI_addtail(&geometry.curves, support.release());
-  }
-  if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
-    BKE_report(op->reports, RPT_ERROR, error.c_str());
-    return OPERATOR_CANCELLED;
+    Vector<int64_t> references;
+    DrawingInput refs(RNA_string_get(op->ptr, "vertex_references"));
+    int64_t ref;
+    while (refs >> ref) {
+      references.append(ref);
+    }
+    auto index = TopologyIndex::build(geometry);
+    int64_t previous = 0;
+    double previous_gap = 0;
+    const bool closed_line = !is_spline(op) && points.size() > 3 &&
+                             points.first() == points.last();
+    for (const int i : parameters.index_range()) {
+      const auto evaluated = evaluate_curve(*support, parameters[i], &error);
+      if (!evaluated) {
+        BKE_report(op->reports, RPT_ERROR, error.c_str());
+        return OPERATOR_CANCELLED;
+      }
+      int64_t vertex_id;
+      double gap = 0;
+      const int point_index = is_spline(op) ? (i == 0                     ? 0 :
+                                               i == parameters.size() - 1 ? points.size() - 1 :
+                                                                            -1) :
+                                              i;
+      const NurbsTopologyVertex *anchor = point_index >= 0 && references.size() == points.size() &&
+                                                  index ?
+                                              index->vertex(references[point_index]) :
+                                              nullptr;
+      if (anchor && double3(anchor->position) == points[point_index]) {
+        vertex_id = anchor->id;
+        gap = math::distance(double3(anchor->position), evaluated->position);
+        result.vertices.append(vertex_id);
+      }
+      else if (closed_line && i == parameters.size() - 1) {
+        vertex_id = result.vertices.first();
+      }
+      else {
+        auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+        vertex->id = geometry.next_id++;
+        std::copy_n(&evaluated->position.x, 3, vertex->position);
+        BLI_addtail(&geometry.vertices, vertex);
+        result.vertices.append(vertex->id);
+        vertex_id = vertex->id;
+      }
+      if (previous) {
+        auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
+        edge->id = geometry.next_id++;
+        edge->vertex_ids[0] = previous;
+        edge->vertex_ids[1] = vertex_id;
+        edge->curve_id = curve_id;
+        edge->tolerance = std::max(previous_gap, gap);
+        edge->parameter_range[0] = parameters[i - 1];
+        edge->parameter_range[1] = parameters[i];
+        if (!is_spline(op)) {
+          auto segment = draw_support(points.as_span().slice(i - 1, 2), false, false, 1, error);
+          segment->id = geometry.next_id++;
+          edge->curve_id = segment->id;
+          edge->parameter_range[0] = 0;
+          edge->parameter_range[1] = 1;
+          BLI_addtail(&geometry.curves, segment.release());
+        }
+        BLI_addtail(&geometry.edges, edge);
+        result.edges.append(edge->id);
+      }
+      previous = vertex_id;
+      previous_gap = gap;
+    }
+    if (is_spline(op)) {
+      BLI_addtail(&geometry.curves, support.release());
+    }
+    if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
   }
   if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
     if (STREQ(tool->idname,
@@ -838,108 +1153,118 @@ static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
 static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
 {
   std::string error;
-  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
-  if (!source) {
-    BKE_report(op->reports, RPT_ERROR, error.c_str());
-    return OPERATOR_CANCELLED;
-  }
-  bool invertible;
-  const double4x4 transform(source->object().object_to_world());
-  const double4x4 inverse = math::invert(transform, invertible);
-  if (!invertible) {
-    BKE_report(op->reports, RPT_ERROR, "Drawing requires an invertible object transform");
-    return OPERATOR_CANCELLED;
-  }
-  Vector<double3> points = read_points(op);
-  for (double3 &point : points) {
-    point = math::transform_point(transform, point);
-  }
-  float normal[3];
-  RNA_float_get_array(op->ptr, "plane_normal", normal);
-  auto support = is_circle(op) ?
-                     circle_support(
-                         points, RNA_enum_get(op->ptr, "mode"), double3(normal), inverse, error) :
-                     arc_support(points,
-                                 RNA_enum_get(op->ptr, "mode"),
-                                 double3(normal),
-                                 arc_sweep_get(op),
-                                 inverse,
-                                 error);
-  if (!support) {
-    BKE_report(op->reports, RPT_ERROR, error.c_str());
-    return OPERATOR_CANCELLED;
-  }
-  TopologyEditResult result;
-  result.geometry.reset(geometry_copy(&source->source().geometry()));
-  auto &geometry = *result.geometry;
-  support->id = geometry.next_id++;
-  const auto index = TopologyIndex::build(geometry);
-  int64_t refs[2] = {0, 0};
-  std::istringstream references(RNA_string_get(op->ptr, "vertex_references"));
-  references >> refs[0] >> refs[1];
-  /* Preview divisions become shared source endpoints on the exact support. */
-  const bool circle = is_circle(op);
-  Vector<double> parameters = arc_divisions(*support,
-                                            RNA_int_get(op->ptr, "preview_points"),
-                                            !circle && RNA_enum_get(op->ptr, "mode") == 0);
-  if (circle) {
-    const auto divisions = circle_divisions(op);
-    if (!divisions) {
-      BKE_report(op->reports, RPT_ERROR, "Invalid circle tangency divisions");
+  if (ed::solid_editor::edit_poll(C)) {
+    if (!solid_drawing_commit(C, op, is_circle(op) ? 2 : 1, error)) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
       return OPERATOR_CANCELLED;
     }
-    parameters = *divisions;
   }
-  const int vertex_count = parameters.size();
-  Vector<int64_t> vertices(vertex_count, 0);
-  Vector<double> tolerances(vertex_count, 0);
-  for (int i = 0; i < vertex_count; i++) {
-    const auto evaluated = evaluate_curve(*support, parameters[i]);
-    if (!evaluated) {
-      BKE_report(op->reports, RPT_ERROR, "Cannot evaluate a circular segment endpoint");
+  else {
+    auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+    if (!source) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
       return OPERATOR_CANCELLED;
     }
-    const double3 point = evaluated->position;
-    const bool end = !circle && i == vertex_count - 1;
-    const auto *anchor = index && (i == 0 || end) ? index->vertex(refs[end ? 1 : 0]) : nullptr;
-    const double gap = anchor ? math::distance(point, double3(anchor->position)) : 0;
-    if (end && double3(support->points[0].position) ==
-                   double3(support->points[support->points_num - 1].position))
-    {
-      vertices[i] = vertices[0];
-      tolerances[i] = tolerances[0];
+    bool invertible;
+    const double4x4 transform(source->object().object_to_world());
+    const double4x4 inverse = math::invert(transform, invertible);
+    if (!invertible) {
+      BKE_report(op->reports, RPT_ERROR, "Drawing requires an invertible object transform");
+      return OPERATOR_CANCELLED;
     }
-    else if (anchor && gap <= 1e-10 * std::max(1.0, double(math::length(point)))) {
-      vertices[i] = anchor->id;
-      tolerances[i] = gap;
+    Vector<double3> points = read_points(op);
+    for (double3 &point : points) {
+      point = math::transform_point(transform, point);
     }
-    else {
-      auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
-      vertex->id = geometry.next_id++;
-      std::copy_n(&point.x, 3, vertex->position);
-      BLI_addtail(&geometry.vertices, vertex);
-      vertices[i] = vertex->id;
+    float normal[3];
+    RNA_float_get_array(op->ptr, "plane_normal", normal);
+    auto support = is_circle(op) ? circle_support(points,
+                                                  RNA_enum_get(op->ptr, "mode"),
+                                                  double3(normal),
+                                                  inverse,
+                                                  error) :
+                                   arc_support(points,
+                                               RNA_enum_get(op->ptr, "mode"),
+                                               double3(normal),
+                                               arc_sweep_get(op),
+                                               inverse,
+                                               error);
+    if (!support) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
     }
-    result.vertices.append_non_duplicates(vertices[i]);
-  }
-  const int edge_count = circle ? vertex_count : vertex_count - 1;
-  for (int i = 0; i < edge_count; i++) {
-    const int next = circle ? (i + 1) % vertex_count : i + 1;
-    auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
-    edge->id = geometry.next_id++;
-    edge->curve_id = support->id;
-    edge->vertex_ids[0] = vertices[i];
-    edge->vertex_ids[1] = vertices[next];
-    edge->parameter_range[0] = parameters[i];
-    edge->parameter_range[1] = i + 1 == vertex_count ? 1 : parameters[i + 1];
-    edge->tolerance = std::max(tolerances[i], tolerances[next]);
-    result.edges.append(edge->id);
-    BLI_addtail(&geometry.edges, edge);
-  }
-  BLI_addtail(&geometry.curves, support.release());
-  if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
-    BKE_report(op->reports, RPT_ERROR, error.c_str());
-    return OPERATOR_CANCELLED;
+    TopologyEditResult result;
+    result.geometry.reset(geometry_copy(&source->source().geometry()));
+    auto &geometry = *result.geometry;
+    support->id = geometry.next_id++;
+    const auto index = TopologyIndex::build(geometry);
+    int64_t refs[2] = {0, 0};
+    DrawingInput references(RNA_string_get(op->ptr, "vertex_references"));
+    references >> refs[0] >> refs[1];
+    /* Preview divisions become shared source endpoints on the exact support. */
+    const bool circle = is_circle(op);
+    Vector<double> parameters = arc_divisions(*support,
+                                              RNA_int_get(op->ptr, "preview_points"),
+                                              !circle && RNA_enum_get(op->ptr, "mode") == 0);
+    if (circle) {
+      const auto divisions = circle_divisions(op);
+      if (!divisions) {
+        BKE_report(op->reports, RPT_ERROR, "Invalid circle tangency divisions");
+        return OPERATOR_CANCELLED;
+      }
+      parameters = *divisions;
+    }
+    const int vertex_count = parameters.size();
+    Vector<int64_t> vertices(vertex_count, 0);
+    Vector<double> tolerances(vertex_count, 0);
+    for (int i = 0; i < vertex_count; i++) {
+      const auto evaluated = evaluate_curve(*support, parameters[i]);
+      if (!evaluated) {
+        BKE_report(op->reports, RPT_ERROR, "Cannot evaluate a circular segment endpoint");
+        return OPERATOR_CANCELLED;
+      }
+      const double3 point = evaluated->position;
+      const bool end = !circle && i == vertex_count - 1;
+      const auto *anchor = index && (i == 0 || end) ? index->vertex(refs[end ? 1 : 0]) : nullptr;
+      const double gap = anchor ? math::distance(point, double3(anchor->position)) : 0;
+      if (end && double3(support->points[0].position) ==
+                     double3(support->points[support->points_num - 1].position))
+      {
+        vertices[i] = vertices[0];
+        tolerances[i] = tolerances[0];
+      }
+      else if (anchor && gap <= 1e-10 * std::max(1.0, double(math::length(point)))) {
+        vertices[i] = anchor->id;
+        tolerances[i] = gap;
+      }
+      else {
+        auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+        vertex->id = geometry.next_id++;
+        std::copy_n(&point.x, 3, vertex->position);
+        BLI_addtail(&geometry.vertices, vertex);
+        vertices[i] = vertex->id;
+      }
+      result.vertices.append_non_duplicates(vertices[i]);
+    }
+    const int edge_count = circle ? vertex_count : vertex_count - 1;
+    for (int i = 0; i < edge_count; i++) {
+      const int next = circle ? (i + 1) % vertex_count : i + 1;
+      auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
+      edge->id = geometry.next_id++;
+      edge->curve_id = support->id;
+      edge->vertex_ids[0] = vertices[i];
+      edge->vertex_ids[1] = vertices[next];
+      edge->parameter_range[0] = parameters[i];
+      edge->parameter_range[1] = i + 1 == vertex_count ? 1 : parameters[i + 1];
+      edge->tolerance = std::max(tolerances[i], tolerances[next]);
+      result.edges.append(edge->id);
+      BLI_addtail(&geometry.edges, edge);
+    }
+    BLI_addtail(&geometry.curves, support.release());
+    if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
   }
   if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
     if (STREQ(tool->idname,
@@ -1006,84 +1331,268 @@ static OwnedCurve ellipse_support(const Span<double3> points, std::string &error
   return curve;
 }
 
+static std::unique_ptr<DrawingSupport> drawing_ellipse(bool analytic,
+                                                       Span<double3> points,
+                                                       std::string &error)
+{
+  if (!analytic)
+    return native_support(ellipse_support(points, error));
+  if (points.size() != 3) {
+    error = "Place both ellipse axes";
+    return {};
+  }
+  const auto curve = solid::ellipse(kernel_point(points[0]),
+                                    kernel_point(points[1] - points[0]),
+                                    kernel_point(points[2] - points[0]),
+                                    &error);
+  return curve ? analytic_support(*curve, 2 * M_PI) : nullptr;
+}
+
+static bool solid_drawing_commit(bContext *C, wmOperator *op, const int kind, std::string &error)
+{
+  auto session = ed::solid_editor::Session::begin(C, &error);
+  if (!session)
+    return false;
+  solid::EditResult result{*session->source().model, {}};
+  auto &model = result.model;
+  auto &selection = result.selection;
+  Vector<double3> points = read_points(op);
+  std::vector<solid::Id> refs;
+  DrawingInput reference_input(RNA_string_get(op->ptr, "vertex_references"));
+  solid::Id id;
+  while (reference_input >> id)
+    refs.push_back(id);
+  const double4x4 transform(session->object().object_to_world());
+  bool invertible;
+  const auto inverse = math::invert(transform, invertible);
+  if (!invertible) {
+    error = "Drawing requires an invertible object transform";
+    return false;
+  }
+  if (kind == 0 || kind == 4) {
+    if ((kind == 0 && (points.size() < 2 || points.size() > 256)) ||
+        (kind == 4 && (points.size() < 4 || points.first() != points.last())))
+    {
+      error = kind == 0 ? "Place between 2 and 256 points" :
+                          "A polygon or rectangle needs a closed boundary";
+      return false;
+    }
+    if (kind == 0) {
+      const double3 delta = points.last() - points[points.size() - 2];
+      const double length = math::length(math::transform_direction(transform, delta));
+      const double requested = RNA_float_get(op->ptr, "segment_length");
+      if (length > 0 && requested > 0 && float(requested) != float(length))
+        points.last() = points[points.size() - 2] + delta * (requested / length);
+    }
+    const bool closed = points.size() > 3 && points.first() == points.last();
+    solid::Id previous = 0, first = 0;
+    for (int i = 1; i < points.size(); ++i) {
+      auto c = solid::line(kernel_point(points[i - 1]), kernel_point(points[i]), &error);
+      auto anchor = [&](int index) -> solid::Id {
+        if (refs.size() != size_t(points.size()))
+          return 0;
+        const auto *v = solid::vertex(model, refs[index]);
+        return v && host_point(v->position) == points[index] ? v->id : 0;
+      };
+      if (!previous)
+        previous = anchor(i - 1);
+      const solid::Id end = closed && i + 1 == points.size() ? first : anchor(i);
+      if (!c || !solid::append_curve(model, *c, 0, 1, previous, end, false, &selection, &error))
+        return false;
+      if (!first)
+        first = model.edges.back().vertices[0];
+      previous = model.edges.back().vertices[1];
+    }
+  }
+  else {
+    const bool circle = kind == 2, ellipse = kind == 3;
+    std::unique_ptr<DrawingSupport> support;
+    if (ellipse)
+      support = drawing_ellipse(true, points, error);
+    else {
+      for (auto &p : points)
+        p = math::transform_point(transform, p);
+      float normal[3];
+      RNA_float_get_array(op->ptr, "plane_normal", normal);
+      support = circle ? drawing_circle(true,
+                                        points,
+                                        RNA_enum_get(op->ptr, "mode"),
+                                        double3(normal),
+                                        inverse,
+                                        error) :
+                         drawing_arc(true,
+                                     points,
+                                     RNA_enum_get(op->ptr, "mode"),
+                                     double3(normal),
+                                     arc_sweep_get(op),
+                                     inverse,
+                                     error);
+    }
+    if (!support || !support->analytic)
+      return false;
+    Vector<double> parameters;
+    if (ellipse) {
+      const int count = RNA_int_get(op->ptr, "preview_points");
+      if (count < 1 || count > 256) {
+        error = "Invalid ellipse divisions";
+        return false;
+      }
+      for (int i = 0; i < count; ++i)
+        parameters.append(circle_parameter_at_angle(2 * M_PI * i / count));
+    }
+    else if (circle) {
+      const auto divisions = circle_divisions(op);
+      if (!divisions || divisions->is_empty()) {
+        error = "Invalid circle tangency divisions";
+        return false;
+      }
+      parameters = *divisions;
+    }
+    else
+      parameters = arc_divisions(
+          *support, RNA_int_get(op->ptr, "preview_points"), RNA_enum_get(op->ptr, "mode") == 0);
+    auto curve = *support->analytic;
+    curve.id = model.next_id++;
+    model.curves.push_back(curve);
+    std::vector<solid::Id> vertices;
+    for (int i = 0; i < parameters.size(); ++i) {
+      const auto p = solid::evaluate(curve, drawing_angle(parameters[i], support->sweep));
+      const bool end = !circle && !ellipse && i + 1 == parameters.size();
+      const solid::Vertex *anchor = !ellipse && (i == 0 || end) && refs.size() >= 2 ?
+                                        solid::vertex(model, refs[end ? 1 : 0]) :
+                                        nullptr;
+      solid::Id vertex_id = 0;
+      const double tolerance = 128 * std::numeric_limits<double>::epsilon() *
+                               std::max(1.0, solid::length(p));
+      if (anchor && solid::length(p - anchor->position) <= tolerance)
+        vertex_id = anchor->id;
+      else if (end && !vertices.empty() &&
+               solid::length(p - solid::vertex(model, vertices.front())->position) <= tolerance)
+        vertex_id = vertices.front();
+      else {
+        vertex_id = model.next_id++;
+        model.vertices.push_back({vertex_id, p});
+      }
+      vertices.push_back(vertex_id);
+      selection.vertices.push_back(vertex_id);
+    }
+    const int edges = circle || ellipse ? parameters.size() : parameters.size() - 1;
+    for (int i = 0; i < edges; ++i) {
+      const int next = (i + 1) % parameters.size();
+      const solid::Id edge = model.next_id++;
+      model.edges.push_back({edge,
+                             curve.id,
+                             {vertices[i], vertices[next]},
+                             drawing_angle(parameters[i], support->sweep),
+                             i + 1 == parameters.size() ?
+                                 support->sweep :
+                                 drawing_angle(parameters[i + 1], support->sweep)});
+      selection.edges.push_back(edge);
+    }
+    if (ellipse && RNA_boolean_get(op->ptr, "keep_foci")) {
+      DrawingInput input(RNA_string_get(op->ptr, "foci"));
+      solid::Vec3 p;
+      while (input >> p.x >> p.y >> p.z) {
+        const auto vertex = model.next_id++;
+        model.vertices.push_back({vertex, p});
+        selection.vertices.push_back(vertex);
+      }
+      if (!input.eof()) {
+        error = "Invalid ellipse focus coordinates";
+        return false;
+      }
+    }
+  }
+  return session->apply(C, std::move(result), &error);
+}
+
 static wmOperatorStatus shape_exec(bContext *C, wmOperator *op)
 {
   std::string error;
-  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
-  const Vector<double3> points = read_points(op);
-  const bool ellipse = shape_type(op) == 1;
-  OwnedCurve support = ellipse ? ellipse_support(points, error) :
-                                 draw_support(
-                                     points.as_span().take_front(std::min<int>(2, points.size())),
-                                     false,
-                                     false,
-                                     1,
-                                     error);
-  if (!source || !support) {
-    BKE_report(op->reports, RPT_ERROR, error.c_str());
-    return OPERATOR_CANCELLED;
-  }
-  TopologyEditResult result;
-  result.geometry.reset(geometry_copy(&source->source().geometry()));
-  auto &geometry = *result.geometry;
-  const int count = ellipse ? RNA_int_get(op->ptr, "preview_points") : points.size() - 1;
-  if (ellipse) {
-    support->id = geometry.next_id++;
-  }
-  Vector<int64_t> vertices;
-  Vector<double> parameters;
-  for (int i = 0; i < count; i++) {
-    const double t = ellipse ? circle_parameter_at_angle(2 * M_PI * i / count) : double(i) / count;
-    const auto point = evaluate_curve(*support, t, &error);
-    if (!point) {
+  if (ed::solid_editor::edit_poll(C)) {
+    if (!solid_drawing_commit(C, op, shape_type(op) == 1 ? 3 : 4, error)) {
       BKE_report(op->reports, RPT_ERROR, error.c_str());
       return OPERATOR_CANCELLED;
     }
-    auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
-    vertex->id = geometry.next_id++;
-    const double3 position = ellipse ? point->position : points[i];
-    std::copy_n(&position.x, 3, vertex->position);
-    BLI_addtail(&geometry.vertices, vertex);
-    vertices.append(vertex->id);
-    result.vertices.append(vertex->id);
-    parameters.append(t);
   }
-  for (int i = 0; i < count; i++) {
-    auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
-    edge->id = geometry.next_id++;
-    edge->vertex_ids[0] = vertices[i];
-    edge->vertex_ids[1] = vertices[(i + 1) % count];
-    edge->curve_id = support->id;
-    edge->parameter_range[0] = parameters[i];
-    edge->parameter_range[1] = i + 1 == count ? 1 : parameters[i + 1];
-    if (!ellipse) {
-      auto segment = draw_support(points.as_span().slice(i, 2), false, false, 1, error);
-      segment->id = geometry.next_id++;
-      edge->curve_id = segment->id;
-      edge->parameter_range[0] = 0;
-      edge->parameter_range[1] = 1;
-      BLI_addtail(&geometry.curves, segment.release());
+  else {
+    auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+    const Vector<double3> points = read_points(op);
+    const bool ellipse = shape_type(op) == 1;
+    OwnedCurve support = ellipse ? ellipse_support(points, error) :
+                                   draw_support(points.as_span().take_front(
+                                                    std::min<int>(2, points.size())),
+                                                false,
+                                                false,
+                                                1,
+                                                error);
+    if (!source || !support) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
     }
-    BLI_addtail(&geometry.edges, edge);
-    result.edges.append(edge->id);
-  }
-  if (ellipse) {
-    BLI_addtail(&geometry.curves, support.release());
-  }
-  if (ellipse && RNA_boolean_get(op->ptr, "keep_foci")) {
-    std::istringstream foci(RNA_string_get(op->ptr, "foci"));
-    double3 position;
-    while (foci >> position.x >> position.y >> position.z) {
+    TopologyEditResult result;
+    result.geometry.reset(geometry_copy(&source->source().geometry()));
+    auto &geometry = *result.geometry;
+    const int count = ellipse ? RNA_int_get(op->ptr, "preview_points") : points.size() - 1;
+    if (ellipse) {
+      support->id = geometry.next_id++;
+    }
+    Vector<int64_t> vertices;
+    Vector<double> parameters;
+    for (int i = 0; i < count; i++) {
+      const double t = ellipse ? circle_parameter_at_angle(2 * M_PI * i / count) :
+                                 double(i) / count;
+      const auto point = evaluate_curve(*support, t, &error);
+      if (!point) {
+        BKE_report(op->reports, RPT_ERROR, error.c_str());
+        return OPERATOR_CANCELLED;
+      }
       auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
       vertex->id = geometry.next_id++;
+      const double3 position = ellipse ? point->position : points[i];
       std::copy_n(&position.x, 3, vertex->position);
       BLI_addtail(&geometry.vertices, vertex);
+      vertices.append(vertex->id);
       result.vertices.append(vertex->id);
+      parameters.append(t);
     }
-  }
-  if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
-    BKE_report(op->reports, RPT_ERROR, error.c_str());
-    return OPERATOR_CANCELLED;
+    for (int i = 0; i < count; i++) {
+      auto *edge = MEM_new<NurbsTopologyEdge>(__func__);
+      edge->id = geometry.next_id++;
+      edge->vertex_ids[0] = vertices[i];
+      edge->vertex_ids[1] = vertices[(i + 1) % count];
+      edge->curve_id = support->id;
+      edge->parameter_range[0] = parameters[i];
+      edge->parameter_range[1] = i + 1 == count ? 1 : parameters[i + 1];
+      if (!ellipse) {
+        auto segment = draw_support(points.as_span().slice(i, 2), false, false, 1, error);
+        segment->id = geometry.next_id++;
+        edge->curve_id = segment->id;
+        edge->parameter_range[0] = 0;
+        edge->parameter_range[1] = 1;
+        BLI_addtail(&geometry.curves, segment.release());
+      }
+      BLI_addtail(&geometry.edges, edge);
+      result.edges.append(edge->id);
+    }
+    if (ellipse) {
+      BLI_addtail(&geometry.curves, support.release());
+    }
+    if (ellipse && RNA_boolean_get(op->ptr, "keep_foci")) {
+      DrawingInput foci(RNA_string_get(op->ptr, "foci"));
+      double3 position;
+      while (foci >> position.x >> position.y >> position.z) {
+        auto *vertex = MEM_new<NurbsTopologyVertex>(__func__);
+        vertex->id = geometry.next_id++;
+        std::copy_n(&position.x, 3, vertex->position);
+        BLI_addtail(&geometry.vertices, vertex);
+        result.vertices.append(vertex->id);
+      }
+    }
+    if (!source->commit(C, std::move(result), SelectionMode::Vertex, &error)) {
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
   }
   if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
     PointerRNA settings;
@@ -1155,7 +1664,7 @@ static void shape_preview(wmOperator *op)
     }
     data.shape_points = {center, center + x * rx, center + y * ry};
     std::string error;
-    auto support = ellipse_support(data.shape_points, error);
+    auto support = drawing_ellipse(data.source->analytic(), data.shape_points, error);
     if (support) {
       for (int i = 0; i <= 192; i++) {
         if (const auto p = evaluate_curve(*support, double(i) / 192)) {
@@ -1284,12 +1793,14 @@ static void rebuild_preview(wmOperator *op)
       point = math::transform_point(data.inverse, point);
     }
   }
-  auto support = data.circle        ? circle_support(points,
+  auto support = data.circle        ? drawing_circle(data.source->analytic(),
+                                              points,
                                               data.arc_mode,
                                               double3(data.plane_normal),
                                               double4x4::identity(),
                                               error) :
-                 data.arc_mode >= 0 ? arc_support(data.arc_mode == 0 && points.size() > 2 ?
+                 data.arc_mode >= 0 ? drawing_arc(data.source->analytic(),
+                                                  data.arc_mode == 0 && points.size() > 2 ?
                                                       points.as_span().take_front(2) :
                                                       points.as_span(),
                                                   data.arc_mode,
@@ -1297,7 +1808,8 @@ static void rebuild_preview(wmOperator *op)
                                                   data.arc_sweep,
                                                   double4x4::identity(),
                                                   error) :
-                                      draw_support(points,
+                                      drawing_path(data.source->analytic(),
+                                                   points,
                                                    data.spline,
                                                    RNA_enum_get(op->ptr, "method") == 1,
                                                    RNA_int_get(op->ptr, "degree"),
@@ -1951,6 +2463,14 @@ static void update_mouse(bContext *C,
                                                                  nullptr,
                                                                  nullptr);
     }
+    if (data.source->analytic() && snap_object &&
+        DEG_get_original(snap_object) == &data.source->object() &&
+        (snap_result & (SCE_SNAP_TO_VERTEX | SCE_SNAP_TO_EDGE | SCE_SNAP_TO_EDGE_MIDPOINT)))
+    {
+      snap_result = SCE_SNAP_TO_NONE;
+      target = unsnapped_target;
+      normal = float3(0);
+    }
     if (snap_object && (snap_result & (SCE_SNAP_TO_FACE_MIDPOINT | SCE_SNAP_TO_EDGE_MIDPOINT)) &&
         data.center_objects.contains(const_cast<Object *>(DEG_get_original(snap_object))))
     {
@@ -2105,12 +2625,11 @@ static void update_mouse(bContext *C,
     if ((snap_mode & SCE_SNAP_TO_EDGE) && !(snap_mode & SCE_SNAP_TO_EDGE_MIDPOINT) &&
         can_snap_active_object)
     {
-      const auto hit = ed::nurbs::topology_edge_under_cursor(
-          C, *data.source, event->mval, nullptr);
+      const auto hit = data.source->edge_under_cursor(C, event->mval);
       if (hit) {
-        const auto index = TopologyIndex::build(data.source->source().geometry());
+        const auto index = ed::exact_drawing::Index::build(data.source->source().geometry());
         const auto *edge = index ? index->edge(*hit) : nullptr;
-        const NurbsCurveGeometry *curve = nullptr;
+        const ed::exact_drawing::Curve *curve = nullptr;
         if (edge) {
           for (const auto &support : data.source->source().geometry().curves) {
             if (support.id == edge->curve_id) {
@@ -2159,7 +2678,8 @@ static void update_mouse(bContext *C,
           if (const auto evaluation = evaluate_curve(*curve, t)) {
             const double3 edge_position = math::transform_point(transform, evaluation->position);
             if (edge_distance < best &&
-                (linear_constraints || position_on_draw_constraint(data, edge_position, inferred_axis)))
+                (linear_constraints ||
+                 position_on_draw_constraint(data, edge_position, inferred_axis)))
             {
               best = edge_distance;
               data.current = edge_position;
@@ -2178,7 +2698,8 @@ static void update_mouse(bContext *C,
         {
           const float distance = math::distance(screen, float2(event->mval));
           if (distance < best &&
-              (linear_constraints || position_on_draw_constraint(data, point, inferred_axis))) {
+              (linear_constraints || position_on_draw_constraint(data, point, inferred_axis)))
+          {
             best = distance;
             data.current = point;
             data.snap_type = SCE_SNAP_TO_POINT;
@@ -2300,7 +2821,7 @@ static void draw_snap_hover(const bContext *context, wmGizmo *gizmo)
   const auto *rv3d = CTX_wm_region_view3d(C);
   const wmEvent *event_state = CTX_wm_window(C)->runtime->eventstate;
   if (!tool || !rv3d || !event_state || (rv3d->rflag & RV3D_NAVIGATING) ||
-      !ed::nurbs::topology_edit_poll(C))
+      !(ed::solid_editor::edit_poll(C) || ed::nurbs::topology_edit_poll(C)))
   {
     return;
   }
@@ -2341,7 +2862,7 @@ static void draw_snap_hover(const bContext *context, wmGizmo *gizmo)
     return;
   }
   DrawData data;
-  data.source = ed::nurbs::TopologyPreview::begin(C, nullptr);
+  data.source = ed::exact_drawing::Source::begin(C, nullptr);
   if (!data.source) {
     return;
   }
@@ -2748,7 +3269,8 @@ static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *ev
       points.append(data.current);
     }
     std::string error;
-    if (!arc_support(points,
+    if (!drawing_arc(data.source->analytic(),
+                     points,
                      data.arc_mode,
                      double3(data.plane_normal),
                      data.arc_sweep,
@@ -2760,7 +3282,7 @@ static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *ev
     }
     std::ostringstream input;
     input << std::setprecision(17);
-    const auto index = TopologyIndex::build(data.source->source().geometry());
+    const auto index = ed::exact_drawing::Index::build(data.source->source().geometry());
     for (const int i : points.index_range()) {
       const auto *vertex = i < data.point_vertices.size() && index ?
                                index->vertex(data.point_vertices[i]) :
@@ -2789,7 +3311,7 @@ static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *ev
     WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
     return result;
   }
-  if (event->val == KM_PRESS && handleNumInput(C, &data.num, event)) {
+  if (event->val == KM_PRESS && draw_handle_numeric_event(C, data, event)) {
     update_mouse(C, op, event);
     return OPERATOR_RUNNING_MODAL;
   }
@@ -2866,7 +3388,8 @@ static wmOperatorStatus arc_modal(bContext *C, wmOperator *op, const wmEvent *ev
   return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
 }
 
-static const NurbsCurveGeometry *find_curve(const NurbsGeometry &geometry, const int64_t id)
+static const ed::exact_drawing::Curve *find_curve(const ed::exact_drawing::Geometry &geometry,
+                                                  const int64_t id)
 {
   for (const auto &curve : geometry.curves) {
     if (curve.id == id) {
@@ -2882,14 +3405,14 @@ static bool circle_load_chains(DrawData &data, std::string &error)
 {
   const auto &snapshot = data.source->source();
   const auto &geometry = snapshot.geometry();
-  Vector<const NurbsTopologyEdge *> pending;
+  Vector<const ed::exact_drawing::Edge *> pending;
   for (const auto &edge : geometry.edges) {
     if (snapshot.selection().edges.contains(edge.id)) {
       pending.append(&edge);
     }
   }
   while (!pending.is_empty()) {
-    Vector<const NurbsTopologyEdge *> chain;
+    Vector<const ed::exact_drawing::Edge *> chain;
     chain.append(pending.pop_last());
     for (int i = 0; i < chain.size(); i++) {
       for (int j = pending.size() - 1; j >= 0; j--) {
@@ -3236,7 +3759,13 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
     Vector<double3> points = data.points;
     points.append(data.current);
     std::string error;
-    if (!circle_support(points, data.arc_mode, double3(data.plane_normal), data.inverse, error)) {
+    if (!drawing_circle(data.source->analytic(),
+                        points,
+                        data.arc_mode,
+                        double3(data.plane_normal),
+                        data.inverse,
+                        error))
+    {
       BKE_report(op->reports, RPT_WARNING, error.c_str());
       return OPERATOR_RUNNING_MODAL;
     }
@@ -3257,7 +3786,7 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
     WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
     return result;
   }
-  if (event->val == KM_PRESS && handleNumInput(C, &data.num, event)) {
+  if (event->val == KM_PRESS && draw_handle_numeric_event(C, data, event)) {
     update_mouse(C, op, event);
     return OPERATOR_RUNNING_MODAL;
   }
@@ -3303,7 +3832,7 @@ static wmOperatorStatus circle_modal(bContext *C, wmOperator *op, const wmEvent 
 static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   std::string error;
-  auto source = ed::nurbs::TopologyPreview::begin(C, &error);
+  auto source = ed::exact_drawing::Source::begin(C, &error);
   if (!source) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
@@ -3586,7 +4115,7 @@ static wmOperatorStatus shape_modal(bContext *C, wmOperator *op, const wmEvent *
       return OPERATOR_RUNNING_MODAL;
     }
     if (event->val == KM_PRESS && event->type != LEFTMOUSE) {
-      handleNumInput(C, &data.num, event);
+      draw_handle_numeric_event(C, data, event);
       update_arc_area_status_text(C, op);
       ED_region_tag_redraw(data.region);
     }
@@ -3701,7 +4230,7 @@ static wmOperatorStatus shape_modal(bContext *C, wmOperator *op, const wmEvent *
               (data.shape == 1 && data.shape_mode != 3 &&
                !(data.shape_mode == 1 && data.points.size() > 1)) ||
               (data.shape == 3 && data.square)) &&
-             handleNumInput(C, &data.num, event))
+             draw_handle_numeric_event(C, data, event))
     {
       /* Direct typing chooses the same stage-dependent default as radCAD. */
       data.numeric_mode = data.shape == 3 ? DrawNumericMode::Width :
@@ -3869,7 +4398,7 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     const double4x4 inverse = data.inverse;
     std::ostringstream points;
     points << std::setprecision(17);
-    const auto index = TopologyIndex::build(data.source->source().geometry());
+    const auto index = ed::exact_drawing::Index::build(data.source->source().geometry());
     for (const int i : data.points.index_range()) {
       const auto *vertex = index ? index->vertex(data.point_vertices[i]) : nullptr;
       const double3 local = vertex ? double3(vertex->position) :
@@ -3896,7 +4425,7 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
     return status;
   }
   if (event->val == KM_PRESS && !data.points.is_empty() &&
-      !(event->type == EVT_TABKEY && data.spline) && handleNumInput(C, &data.num, event))
+      !(event->type == EVT_TABKEY && data.spline) && draw_handle_numeric_event(C, data, event))
   {
     update_mouse(C, op, event);
     return OPERATOR_RUNNING_MODAL;
@@ -3944,14 +4473,18 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
   return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
 }
 
+static bool exact_draw_poll(bContext *C)
+{
+  return ed::solid_editor::edit_poll(C) || ed::nurbs::topology_edit_poll(C);
+}
+
 static void draw_operator(wmOperatorType *ot, const bool spline)
 {
-  ot->name = spline ? "Draw NURBS Spline" : "Draw NURBS Line";
+  ot->name = spline ? "Draw NURBS Spline" : "Draw Line";
   ot->idname = spline ? "CURVE_OT_draw_spline" : "CURVE_OT_draw_line";
-  ot->description = spline ?
-                        "Place fit points or control vertices to draw a native NURBS spline" :
-                        "Place successive points to draw connected native NURBS line segments";
-  ot->poll = ed::nurbs::topology_edit_poll;
+  ot->description = spline ? "Place fit points or control vertices to draw a native NURBS spline" :
+                             "Place successive points to draw exact connected line segments";
+  ot->poll = spline ? ed::nurbs::topology_edit_poll : exact_draw_poll;
   ot->invoke = draw_invoke;
   ot->exec = draw_exec;
   ot->modal = draw_modal;
@@ -4015,11 +4548,11 @@ static void draw_operator(wmOperatorType *ot, const bool spline)
 }
 static void arc_operator(wmOperatorType *ot, const bool circle = false)
 {
-  ot->name = circle ? "Draw NURBS Circle" : "Draw NURBS Arc";
+  ot->name = circle ? "Draw Circle" : "Draw Arc";
   ot->idname = circle ? "CURVE_OT_draw_circle" : "CURVE_OT_draw_arc";
   ot->description =
-      "Draw an exact circular NURBS arc by center and sweep, endpoints and bulge, or three points";
-  ot->poll = ed::nurbs::topology_edit_poll;
+      "Draw an exact circular arc by center and sweep, endpoints and bulge, or three points";
+  ot->poll = exact_draw_poll;
   ot->invoke = draw_invoke;
   ot->exec = draw_exec;
   ot->modal = draw_modal;
@@ -4048,7 +4581,7 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
   RNA_def_enum(ot->srna, "mode", circle ? circle_modes : modes, 0, "Construction", "");
   if (circle) {
     ot->description =
-        "Draw an exact NURBS circle by radius, diameter, three points or selected tangent curves";
+        "Draw an exact circle by radius, diameter, three points or selected tangent curves";
     RNA_def_boolean(ot->srna,
                     "show_source_curves",
                     true,
@@ -4204,13 +4737,11 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
 static void shape_operator(wmOperatorType *ot, const int shape)
 {
   arc_operator(ot);
-  ot->name = shape == 1 ? "Draw NURBS Ellipse" :
-             shape == 2 ? "Draw NURBS Polygon" :
-                          "Draw NURBS Rectangle";
+  ot->name = shape == 1 ? "Draw Ellipse" : shape == 2 ? "Draw Polygon" : "Draw Rectangle";
   ot->idname = shape == 1 ? "CURVE_OT_draw_ellipse" :
                shape == 2 ? "CURVE_OT_draw_polygon" :
                             "CURVE_OT_draw_rectangle";
-  ot->description = "Draw native NURBS geometry with radCAD construction modes";
+  ot->description = "Draw exact geometry with radCAD construction modes";
   ot->exec = shape_exec;
   static const EnumPropertyItem ellipse_modes[] = {
       {0, "RADIUS", 0, "Radius", "Center, major radius, minor radius"},
@@ -4263,7 +4794,7 @@ void VIEW3D_GT_nurbs_draw_snap(wmGizmoType *type)
 void VIEW3D_GGT_nurbs_draw_snap(wmGizmoGroupType *type)
 {
   type->idname = "VIEW3D_GGT_nurbs_draw_snap";
-  type->name = "NURBS Drawing Snap Preview";
+  type->name = "Drawing Snap Preview";
   type->flag = WM_GIZMOGROUPTYPE_3D | WM_GIZMOGROUPTYPE_TOOL_FALLBACK_KEYMAP;
   type->gzmap_params.spaceid = SPACE_VIEW3D;
   type->gzmap_params.regionid = RGN_TYPE_WINDOW;

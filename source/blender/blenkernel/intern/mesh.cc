@@ -16,6 +16,7 @@
 #include "DNA_key_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_solid_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 
@@ -67,6 +68,7 @@
 #include "BKE_multires.hh"
 #include "BKE_object.hh"
 #include "BKE_paint_bvh.hh"
+#include "BKE_solid_host.hh"
 
 #include "DEG_depsgraph.hh"
 #include "DEG_depsgraph_query.hh"
@@ -111,6 +113,8 @@ static void mesh_copy_data(Main *bmain,
 {
   Mesh *mesh_dst = reinterpret_cast<Mesh *>(id_dst);
   const Mesh *mesh_src = reinterpret_cast<const Mesh *>(id_src);
+
+  mesh_dst->solid_storage = bke::solid_host::storage_copy(mesh_src->solid_storage);
 
   mesh_dst->runtime = new bke::MeshRuntime();
   mesh_dst->runtime->deformed_only = mesh_src->runtime->deformed_only;
@@ -249,6 +253,9 @@ static void mesh_free_data(ID *id)
 {
   Mesh *mesh = reinterpret_cast<Mesh *>(id);
 
+  bke::solid_host::storage_free(mesh->solid_storage);
+  mesh->solid_storage = nullptr;
+
   CustomData_free(&mesh->vert_data);
   CustomData_free(&mesh->edge_data);
   CustomData_free(&mesh->fdata_legacy);
@@ -383,6 +390,9 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
   BLO_write_generated_pointer_tag(writer, mesh->attribute_storage.dna_attributes);
 
   writer->write_id_struct(id_address, mesh);
+  if (mesh->solid_storage) {
+    bke::solid_host::storage_write(writer, *mesh->solid_storage);
+  }
   BKE_id_blend_write(writer, &mesh->id);
 
   BKE_defbase_blend_write(writer, &mesh->vertex_group_names);
@@ -421,6 +431,10 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
 static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
 {
   Mesh *mesh = reinterpret_cast<Mesh *>(id);
+  BLO_read_struct(reader, SolidStorage, &mesh->solid_storage);
+  if (mesh->solid_storage) {
+    bke::solid_host::storage_read(reader, *mesh->solid_storage);
+  }
   BLO_read_pointer_array_and_validate_size(reader, &mesh->mat, &mesh->totcol);
   /* This check added for python created meshes. */
   if (!mesh->mat) {
@@ -2018,6 +2032,15 @@ static void translate_positions(MutableSpan<float3> positions, const float3 &tra
 
 void mesh_translate(Mesh &mesh, const float3 &translation, const bool do_shape_keys)
 {
+  if (mesh.solid_storage) {
+    float4x4 matrix = float4x4::identity();
+    matrix.location() = translation;
+    std::string error;
+    if (!solid_host::transform_mesh(mesh, matrix, &error))
+      CLOG_ERROR(&LOG, "%s", error.c_str());
+    return;
+  }
+
   if (math::is_zero(translation)) {
     return;
   }
@@ -2046,6 +2069,13 @@ void mesh_translate(Mesh &mesh, const float3 &translation, const bool do_shape_k
 
 void mesh_transform(Mesh &mesh, const float4x4 &transform, bool do_shape_keys)
 {
+  if (mesh.solid_storage) {
+    std::string error;
+    if (!solid_host::transform_mesh(mesh, transform, &error))
+      CLOG_ERROR(&LOG, "%s", error.c_str());
+    return;
+  }
+
   math::transform_points(transform, mesh.vert_positions_for_write());
 
   if (do_shape_keys && mesh.key) {
