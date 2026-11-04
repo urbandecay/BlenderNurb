@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include "SOL_geometry.hh"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -88,6 +89,22 @@ int main()
        {-1, 1, 1}},
       {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}});
   check(std::abs(volume(cube) - 8) < 1e-12, "Fixture volume");
+  Selection loose_face_selection;
+  loose_face_selection.mode = 4;
+  loose_face_selection.faces = {cube.faces.front().id};
+  auto with_loose_face = duplicate_elements(cube, loose_face_selection, &error);
+  check(bool(with_loose_face), error);
+  Selection body_edge_selection;
+  body_edge_selection.mode = 2;
+  body_edge_selection.edges = {cube.edges.front().id};
+  auto body_bevel = chamfer(with_loose_face->model, body_edge_selection, .125, false, &error);
+  check(bool(body_bevel), error);
+  check(validate_body(body_bevel->model, body_bevel->selection.active, &error), error);
+  check(body_bevel->model.faces.size() == 8, "Bevel must leave the unrelated loose face alone");
+  check(!chamfer(with_loose_face->model, with_loose_face->selection, .125, false, &error),
+        "Bevel of an open face must refuse to claim it is a closed body");
+  check(error.find("1 attached face") != std::string::npos,
+        "Open-edge error must name the problem");
   for (unsigned mask = 1; mask < (1u << cube.edges.size()); ++mask) {
     Selection s;
     s.mode = 2;
@@ -103,6 +120,33 @@ int main()
     if (mask == 4095) {
       auto bytes = encode(r->model, r->selection);
       check(bool(decode(bytes.data(), bytes.size(), &error)), error);
+      auto patched = chamfer(cube, s, .125, false, &error, BevelCornerStyle::Patch);
+      check(bool(patched), error);
+      check(validate_body(patched->model, patched->selection.active, &error), error);
+      check(patched->model.faces.size() == r->model.faces.size() + 8,
+            "Patch join adds a planar cap at each cube corner");
+      int mesh_style_corners = 0;
+      for (const Face &face : patched->model.faces) {
+        if (face.outer.size() != 3)
+          continue;
+        bool mesh_style = true;
+        for (const Coedge &use : face.outer) {
+          const Edge &edge_use = *edge(patched->model, use.edge);
+          const Vec3 p = vertex(patched->model,
+                                edge_use.vertices[use.reversed ? 1 : 0])
+                             ->position;
+          const std::array<double, 3> coordinates = {std::abs(p.x), std::abs(p.y), std::abs(p.z)};
+          int original_planes = 0;
+          for (double coordinate : coordinates)
+            original_planes += std::abs(coordinate - 1) < 1e-9;
+          mesh_style &= original_planes == 1;
+        }
+        mesh_style_corners += mesh_style;
+      }
+      check(mesh_style_corners == 8,
+            "Patch corners must meet the original faces like the mesh bevel");
+      check(volume(patched->model) > 0 && volume(patched->model) < volume(r->model),
+            "Corner patches must trim the sharp bevel join");
     }
   }
   for (const Model &m :

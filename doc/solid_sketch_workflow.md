@@ -34,6 +34,8 @@ spline/control-net authoring remains in the separate NURBS workflow.
    and vertex selection history supply the first/last targets. The cursor target is converted
    into the object's local coordinate system.
 7. Use **Ctrl+B** for a single-segment edge bevel or **Ctrl+Shift+B** for a vertex bevel.
+   The bevel redo panel offers **Corner Join: Sharp/Patch** for flat caps where three or more
+   selected edge bevels meet.
    Wire corners with two straight edges and convex planar closed solids are supported. Width
    is the offset along adjoining faces for an edge chamfer. Multiple adjoining edge cuts
    intersect through the same half-space construction, including corners of higher valence.
@@ -66,8 +68,11 @@ outward direction; inward cuts require intersections and trimming. Affine transf
 complete analytic components. Straight sketch endpoints and planar solid components can move
 independently. Partial conic/curved-surface deformation without an explicit construction rule
 is refused. Merge can weld coincident conic endpoints but does not bend an arc to a new endpoint.
-Solid bevels require a convex planar boundary and currently have one segment; they do not
-implement rounded, concave, or curved-face blends. These limits are
+Solid bevels check the selected connected component, so a separate open sheet in the same
+object no longer blocks beveling a closed body. The selected component still needs a closed,
+convex planar boundary and the bevel has one segment; rounded, concave, and curved-face blends
+are not implemented. Merge by Distance welds nearby vertices but does not create a missing face
+or remove an overlapping face. These limits are
 reported instead of deforming a display mesh or falling back to NURBS.
 
 ## Validation

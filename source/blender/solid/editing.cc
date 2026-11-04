@@ -692,7 +692,12 @@ std::optional<EditResult> delete_elements(const Model &model,
 }
 
 std::optional<EditResult> chamfer(
-    const Model &model, Selection selection, double width, bool vertices_only, std::string *error)
+    const Model &model,
+    Selection selection,
+    double width,
+    bool vertices_only,
+    std::string *error,
+    BevelCornerStyle corner_style)
 {
   if (!validate(model, error))
     return {};
@@ -774,7 +779,58 @@ std::optional<EditResult> chamfer(
   std::unordered_map<Id, Vec3> normals;
   std::unordered_map<Id, std::vector<Id>> uses;
   Set replaced, body_vertices;
+  std::unordered_map<Id, std::vector<Id>> all_uses;
   for (const Face &f : model.faces) {
+    for (const Coedge &use : f.outer)
+      all_uses[use.edge].push_back(f.id);
+    for (const auto &hole : f.holes)
+      for (const Coedge &use : hole)
+        all_uses[use.edge].push_back(f.id);
+  }
+  Set component;
+  std::vector<Id> pending;
+  auto add_face = [&](Id id) {
+    if (component.insert(id).second)
+      pending.push_back(id);
+  };
+  if (!selection.faces.empty())
+    add_face(selection.faces.front());
+  else if (!selection.edges.empty() && !all_uses[selection.edges.front()].empty())
+    add_face(all_uses[selection.edges.front()].front());
+  else if (!selection.vertices.empty()) {
+    for (const Edge &e : model.edges) {
+      if (e.vertices[0] != selection.vertices.front() &&
+          e.vertices[1] != selection.vertices.front())
+        continue;
+      if (!all_uses[e.id].empty()) {
+        add_face(all_uses[e.id].front());
+        break;
+      }
+    }
+  }
+  if (pending.empty()) {
+    fail(error, "Select an edge or vertex on a planar body to bevel");
+    return {};
+  }
+  while (!pending.empty()) {
+    const Face &f = *face(model, pending.back());
+    pending.pop_back();
+    for (const Coedge &use : f.outer)
+      for (Id adjacent : all_uses[use.edge])
+        add_face(adjacent);
+    for (const auto &hole : f.holes)
+      for (const Coedge &use : hole)
+        for (Id adjacent : all_uses[use.edge])
+          add_face(adjacent);
+  }
+  for (Id id : selection.faces)
+    if (!component.contains(id)) {
+      fail(error, "Bevel one connected body at a time");
+      return {};
+    }
+  for (const Face &f : model.faces) {
+    if (!component.contains(f.id))
+      continue;
     if (!linear_face(model, f)) {
       fail(error, "Planar bevel currently requires straight edges and planar faces");
       return {};
@@ -797,7 +853,11 @@ std::optional<EditResult> chamfer(
   }
   for (const auto &[id, faces] : uses)
     if (faces.size() != 2) {
-      fail(error, "Planar solid bevel needs a closed two-face boundary at every edge");
+      if (error)
+        *error = "Selected body edge " + std::to_string(id) + " has " +
+                 std::to_string(faces.size()) +
+                 " attached face(s). Merge by Distance welds points but cannot create a "
+                 "missing face or remove an overlapping face";
       return {};
     }
   // A global half-space construction is certified only for one convex boundary.
@@ -825,8 +885,9 @@ std::optional<EditResult> chamfer(
       Set adjacent;
       for (const Edge &e : model.edges)
         if (e.vertices[0] == id || e.vertices[1] == id)
-          for (Id f : uses[e.id])
-            adjacent.insert(f);
+          if (const auto found = uses.find(e.id); found != uses.end())
+            for (Id f : found->second)
+              adjacent.insert(f);
       for (Id f : adjacent)
         n = n + normals.at(f);
       if (!(length(n) > 0))
@@ -836,6 +897,8 @@ std::optional<EditResult> chamfer(
       const Vec3 origin = vertex(model, id)->position;
       for (const Edge &e : model.edges)
         if (e.vertices[0] == id || e.vertices[1] == id) {
+          if (!uses.contains(e.id))
+            continue;
           const Vec3 along = vertex(model, e.vertices[e.vertices[0] == id ? 1 : 0])->position -
                              origin;
           delta = std::min(delta, -dot(n, along / length(along)) * width);
@@ -867,10 +930,47 @@ std::optional<EditResult> chamfer(
     fail(error, "Select convex solid edges or vertices to bevel");
     return {};
   }
+  std::map<Id, Cut> patch_cuts;
+  if (!vertices_only && corner_style == BevelCornerStyle::Patch) {
+    const Set selected_edges(selection.edges.begin(), selection.edges.end());
+    for (Id vertex_id : body_vertices) {
+      int selected_incident_edges = 0;
+      std::set<Id> adjacent_faces;
+      for (const Edge &e : model.edges) {
+        if (!uses.contains(e.id) ||
+            (e.vertices[0] != vertex_id && e.vertices[1] != vertex_id))
+          continue;
+        selected_incident_edges += selected_edges.contains(e.id);
+        for (Id face_id : uses.at(e.id))
+          adjacent_faces.insert(face_id);
+      }
+      if (selected_incident_edges < 3)
+        continue;
+      Vec3 normal;
+      for (Id face_id : adjacent_faces)
+        normal = normal + normals.at(face_id);
+      if (!(length(normal) > eps))
+        continue;
+      normal = normal / length(normal);
+      const Vec3 origin = vertex(model, vertex_id)->position;
+      double along_edge = std::numeric_limits<double>::max();
+      for (const Edge &e : model.edges) {
+        if (!uses.contains(e.id) ||
+            (e.vertices[0] != vertex_id && e.vertices[1] != vertex_id))
+          continue;
+        const Id other = e.vertices[e.vertices[0] == vertex_id ? 1 : 0];
+        const Vec3 direction = vertex(model, other)->position - origin;
+        along_edge = std::min(along_edge, -dot(normal, direction / length(direction)));
+      }
+      if (along_edge > eps)
+        patch_cuts.emplace(vertex_id,
+                           Cut{normal, dot(normal, origin) - 2 * width * along_edge});
+    }
+  }
   EditResult result{model, {}};
   Model &out = result.model;
   Set bevel_faces;
-  for (const Cut &cut : cuts) {
+  auto apply_cut = [&](const Cut &cut) -> bool {
     std::map<Pair, Id> intersections;
     Set cap;
     std::vector<Polygon> clipped;
@@ -915,10 +1015,10 @@ std::optional<EditResult> chamfer(
         clipped.push_back({p.id, std::move(points)});
     }
     if (!removed)
-      continue;
+      return true;
     if (cap.size() < 3 || clipped.empty()) {
       fail(error, "Bevel width consumes the solid");
-      return {};
+      return false;
     }
     Vec3 center;
     for (Id id : cap)
@@ -936,6 +1036,14 @@ std::optional<EditResult> chamfer(
     bevel_faces.insert(id);
     clipped.push_back({id, std::move(points)});
     polygons = std::move(clipped);
+    return true;
+  };
+  for (const Cut &cut : cuts)
+    if (!apply_cut(cut))
+      return {};
+  for (const auto &entry : patch_cuts) {
+    if (!apply_cut(entry.second))
+      return {};
   }
   if (!install_polygons(out, replaced, polygons, false, error))
     return {};
@@ -953,7 +1061,7 @@ std::optional<EditResult> chamfer(
   if (!result.selection.faces.empty())
     result.selection.active = result.selection.faces.back();
   result.selection = normalize_selection(out, std::move(result.selection));
-  if (result.selection.faces.empty() || !validate_body(out, out.faces.front().id, error))
+  if (result.selection.faces.empty() || !validate_body(out, result.selection.faces.front(), error))
     return {};
   return result;
 }

@@ -161,11 +161,13 @@ std::optional<EditResult> merge_vertices(const Model &model,
                                          double threshold = 1e-4,
                                          std::string *error = nullptr);
 /** Exact planar bevel by half-space construction, including multi-edge corner intersections. */
+enum class BevelCornerStyle { Sharp, Patch };
 std::optional<EditResult> chamfer(const Model &model,
                                   Selection selection,
                                   double width,
                                   bool vertices_only = false,
-                                  std::string *error = nullptr);
+                                  std::string *error = nullptr,
+                                  BevelCornerStyle corner_style = BevelCornerStyle::Sharp);
 enum class DeleteMode { Vertices, Edges, Faces, OnlyFaces };
 std::optional<EditResult> delete_elements(const Model &model,
                                           Selection selection,

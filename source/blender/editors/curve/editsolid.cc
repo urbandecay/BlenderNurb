@@ -324,6 +324,7 @@ struct ExtrudeModal {
   bool elements = false;
   bool bevel = false;
   bool vertices_only = false;
+  solid::BevelCornerStyle corner_style = solid::BevelCornerStyle::Sharp;
   int axis = -1;
   solid::Vec3 offset;
   float depth = 1;
@@ -365,7 +366,8 @@ static void update(bContext *C, wmOperator *op)
                                             source.selection,
                                             std::abs(data.distance),
                                             data.vertices_only,
-                                            &data.error) :
+                                            &data.error,
+                                            data.corner_style) :
                 data.elements ? solid::extrude_elements(
                                     *source.model, source.selection, data.offset, &data.error) :
                                 solid::extrude(data.profile, data.distance, &data.error);
@@ -556,6 +558,27 @@ static wmOperatorStatus duplicate_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static wmOperatorStatus translate_delta_exec(bContext *C, wmOperator *op)
+{
+  std::string error;
+  auto session = ed::solid_editor::Session::begin(C, &error);
+  if (!session) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  float offset[3];
+  RNA_float_get_array(op->ptr, "offset", offset);
+  solid::Affine transform;
+  transform.translation = {offset[0], offset[1], offset[2]};
+  auto result = solid::transform_selected(
+      *session->source().model, session->source().selection, transform, &error);
+  if (!result || !session->apply(C, std::move(*result), &error)) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  return OPERATOR_FINISHED;
+}
+
 static wmOperatorStatus merge_exec(bContext *C, wmOperator *op)
 {
   std::string error;
@@ -580,11 +603,15 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
 {
   std::string error;
   auto session = ed::solid_editor::Session::begin(C, &error);
+  const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
+                                         session->source().selection.mode == 1);
+  const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
   auto result = session ? solid::chamfer(*session->source().model,
                                          session->source().selection,
                                          RNA_float_get(op->ptr, "offset"),
-                                         RNA_boolean_get(op->ptr, "vertices_only"),
-                                         &error) :
+                                         vertices_only,
+                                         &error,
+                                         corner_style) :
                           std::nullopt;
   if (!result || !session->apply(C, std::move(*result), &error)) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
@@ -598,12 +625,15 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
     return bevel_exec(C, op);
   std::string error;
   auto session = ed::solid_editor::Session::begin(C, &error);
-  const bool vertices_only = RNA_boolean_get(op->ptr, "vertices_only");
+  const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
+                                         session->source().selection.mode == 1);
+  const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
   auto check = session ? solid::chamfer(*session->source().model,
                                         session->source().selection,
                                         RNA_float_get(op->ptr, "offset"),
                                         vertices_only,
-                                        &error) :
+                                        &error,
+                                        corner_style) :
                          std::nullopt;
   if (!check) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
@@ -613,6 +643,7 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   data->preview = std::move(session);
   data->bevel = true;
   data->vertices_only = vertices_only;
+  data->corner_style = corner_style;
   data->initial_mouse = float2(event->mval);
   const auto &source = data->preview->source();
   const auto p = solid::vertex(*source.model, source.selection.vertices.front())->position;
@@ -737,6 +768,26 @@ void SOLID_OT_duplicate(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+void SOLID_OT_translate_delta(wmOperatorType *ot)
+{
+  ot->name = "Translate Solid Source by Delta";
+  ot->idname = "SOLID_OT_translate_delta";
+  ot->description = "Apply one incremental offset to selected analytic geometry during a modal tool";
+  ot->poll = solid_edit_poll;
+  ot->exec = translate_delta_exec;
+  ot->flag = OPTYPE_INTERNAL;
+  RNA_def_float_vector(ot->srna,
+                       "offset",
+                       3,
+                       nullptr,
+                       -FLT_MAX,
+                       FLT_MAX,
+                       "Offset",
+                       "Incremental offset in object-local coordinates",
+                       -100,
+                       100);
+}
+
 void SOLID_OT_merge(wmOperatorType *ot)
 {
   ot->name = "Merge Solid Vertices";
@@ -783,6 +834,16 @@ void SOLID_OT_bevel(wmOperatorType *ot)
                   false,
                   "Vertices Only",
                   "Bevel selected vertices instead of edges");
+  static const EnumPropertyItem corner_styles[] = {
+      {0, "SHARP", 0, "Sharp", "Join edge bevels at one point"},
+      {1, "PATCH", 0, "Patch", "Add a flat patch where three or more beveled edges meet"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  RNA_def_enum(ot->srna,
+               "corner_style",
+               corner_styles,
+               0,
+               "Corner Join",
+               "How selected edge bevels meet at a corner");
 }
 void SOLID_OT_delete(wmOperatorType *ot)
 {

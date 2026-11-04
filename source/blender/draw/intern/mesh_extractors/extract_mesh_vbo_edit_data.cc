@@ -39,7 +39,14 @@ static void mesh_render_data_edge_flag(const MeshRenderData &mr,
   if (BM_elem_flag_test(eed, BM_ELEM_SEAM)) {
     eattr.e_flag |= VFLAG_EDGE_SEAM;
   }
-  if (!BM_elem_flag_test(eed, BM_ELEM_SMOOTH)) {
+  /* Analytic solids use sharp display edges to preserve their custom corner normals. In Edit
+   * Mode the render mesh can be a wrapper without the owning Mesh's solid-storage marker, so
+   * identify it by the source-ID layer carried by the BMesh itself. These are generated display
+   * edges, not user-authored sharp marks, and must not draw the cyan sharp-edge overlay. */
+  const bool is_analytic_solid = (mr.mesh && mr.mesh->solid_storage) ||
+                                 (mr.bm && CustomData_has_layer_named(
+                                               &mr.bm->edata, CD_PROP_INT32_2D, ".solid_edge_id"));
+  if (!is_analytic_solid && !BM_elem_flag_test(eed, BM_ELEM_SMOOTH)) {
     eattr.e_flag |= VFLAG_EDGE_SHARP;
   }
 
