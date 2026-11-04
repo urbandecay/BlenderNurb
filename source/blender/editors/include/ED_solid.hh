@@ -8,6 +8,7 @@
 namespace blender {
 struct bContext;
 struct Object;
+struct BMPartialUpdate;
 }  // namespace blender
 
 namespace blender::ed::solid_editor {
@@ -19,6 +20,10 @@ class Session {
   Object *object_;
   bke::solid_host::Snapshot source_;
   uint64_t revision_;
+  bool rigid_selection_ = false;
+  std::vector<bool> display_position_mask_, display_normal_mask_;
+  BMPartialUpdate *partial_cache_ = nullptr;
+  std::vector<bool> partial_mask_;
   std::vector<solid::Vec3> display_positions_, display_normals_;
   solid::Affine display_matrix_;
   bool display_preview_ = false;
@@ -26,6 +31,9 @@ class Session {
   Session(Object &object, bke::solid_host::Snapshot source);
 
  public:
+  ~Session();
+  Session(const Session &) = delete;
+  Session &operator=(const Session &) = delete;
   static std::unique_ptr<Session> begin(bContext *C, std::string *error = nullptr);
   Object &object() const
   {

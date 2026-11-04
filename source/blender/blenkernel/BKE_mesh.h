@@ -51,6 +51,8 @@ enum eMeshBatchDirtyMode : int8_t {
   BKE_MESH_BATCH_DIRTY_SHADING,
   BKE_MESH_BATCH_DIRTY_UVEDIT_ALL,
   BKE_MESH_BATCH_DIRTY_UVEDIT_SELECT,
+  /** Whole edit mesh moved rigidly; topology, selection and materials are unchanged. */
+  BKE_MESH_BATCH_DIRTY_RIGID_TRANSFORM,
 };
 
 /* `mesh.cc` */

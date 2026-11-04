@@ -455,6 +455,23 @@ void DRW_mesh_batch_cache_dirty_tag(Mesh *mesh, eMeshBatchDirtyMode mode)
     case BKE_MESH_BATCH_DIRTY_SELECT_PAINT:
       discard_buffers(cache, {VBOType::PaintOverlayFlag}, {IBOType::LinesPaintMask});
       break;
+    case BKE_MESH_BATCH_DIRTY_RIGID_TRANSFORM:
+      if (cache.subdiv_cache) {
+        cache.is_dirty = true;
+        break;
+      }
+      discard_buffers(cache,
+                      {VBOType::Position,
+                       VBOType::CornerNormal,
+                       VBOType::VertexNormal,
+                       VBOType::FaceDotPosition,
+                       VBOType::FaceDotNormal,
+                       VBOType::Tangents,
+                       VBOType::Orco,
+                       VBOType::MeshAnalysis,
+                       VBOType::SkinRoots},
+                      {});
+      break;
     case BKE_MESH_BATCH_DIRTY_ALL:
       cache.is_dirty = true;
       break;

@@ -213,3 +213,125 @@ normalized once by the previous implementation using a zero-angle rotation),
 `/tmp/solid-matrix-api.log`, `/tmp/solid-matrix-ui.log`, and
 `/tmp/solid-matrix-ui-normals.log`. The previous executable is preserved as
 `build_linux/bin/blender-before-matrix-drag`.
+
+## Five additional optimization trials — all discarded
+
+Tested all five proposals against the retained matrix-drag build. Each performance
+trial used three alternating before/after pairs, 32 mouse events on the same
+20-subdivision scene, and discarded the first five frame intervals. The following
+are medians of the three per-run medians; each row has its own contemporary baseline.
+Desktop load varied, so compare within each row rather than between rows.
+
+| Trial | Baseline frame ms | Candidate frame ms | Decision |
+| --- | ---: | ---: | --- |
+| 1. Reuse face triangulation | 21.68 | 22.94 | Discard: no repeatable gain |
+| 2. Transform geometric normals instead of recomputing them | 21.95 | 21.59 | Discard: small difference within run variation |
+| 3. Remove duplicate geometry tags and notifiers | 22.69 | 22.17 | Discard: no reliable update-stage or frame improvement |
+| 4. Replace per-vertex overflow preflight with eight bounding-box corners | 24.95 | 26.62 | Discard: no repeatable gain |
+| 5. Preserve graphics index/selection buffers during rigid motion | 19.74 | 17.23 | Discard: visual correctness failure |
+
+Trial 5 initially looked promising: about 50.7 to 58.0 FPS, with improvements in all
+three pairs. Numeric geometry, bounds, normals, cancel, confirmation and dependency
+checks passed. The final screenshot comparison nevertheless showed that the shaded
+surface was not synchronized with the selected edges while dragging; a full update
+on confirmation corrected its appearance. This violates the requirement that the
+solid look correct throughout rotation and not change appearance on confirmation.
+
+Confirmed the visual failure against the baseline with identical inputs and a
+0.6-second pause before taking the image, so ongoing motion and image accumulation
+would not explain the difference. In the object crop (x=1010..1260, y=395..610), the
+baseline had zero gray-to-gray pixels changing by more than 10 RGB levels at
+confirmation; the graphics prototype had 1,032. Screenshots also showed visibly
+incorrect corner shading during the prototype's drag. The missing drawing-cache
+refresh was not isolated, and none of that prototype was retained or installed.
+
+Restored the original matrix-drag implementation, including its normal geometry
+updates. Do not treat the prototype's FPS as a shipped improvement. These trials
+produced no additional retained performance change.
+
+Additional regression checks cover derived geometric normals (1e-4 tolerance for
+roundoff from tiny float display triangles; existing analytic corner-normal checks
+remain at 2e-6), evaluated vertex positions and bounds during a drag, and another
+mesh using Shrinkwrap to follow the solid during rotation and return on cancel.
+
+Artifacts: `/tmp/solid-five-trials/trial{1,2,3,4,5}.json`, corresponding
+`trialN-{before,after}-{0,1,2}.log` files, `compare.py`, `bench.py`, source snapshots
+for rejected trials, and `gpu-trial.patch`. The JSON field `cpu_stage_ms` in trials
+1–4 is a legacy label for wall-clock update-stage time, not measured process CPU
+time. Trial 5 correctly labels it `update_stage_ms`.
+
+Visual evidence: `/tmp/solid-five-trials/{baseline,gpu}-settled-{during,confirmed}.png`.
+Prototype checks: `trial5-api.log`, `trial5-ui.log`, `trial5-dependent.log`.
+Restored-build checks: `final-api.log`, `final-ui.log`; build/install logs:
+`final-build.log`, `final-install.log`.
+
+## Mesh-inspired follow-up trials — retained partial updates and corrected drawing reuse
+
+Compared Blender's `transform_convert_mesh.cc` partial update path and
+`transform_convert_object.cc` object matrix path against solid editing. Each timing
+comparison below used three alternating before/after pairs, 32 modal mouse events,
+and excluded the first five viewport draw intervals. Numbers are medians of per-run
+medians. They measure displayed update intervals, not background operator throughput.
+Each row has its own contemporary baseline; desktop load varies.
+
+| Experiment | Baseline frame ms | Candidate frame ms | Result |
+| --- | ---: | ---: | --- |
+| Whole-solid drag using temporary object transform channels | 18.72 | 16.80 | Discarded: origin and transform fields change during Edit Mode, then revert on confirmation |
+| Partial edit reuses checked connectivity and affected normal/triangle regions | 388.98 | 255.29 | Retained; improved all three pairs, but analytic construction remained expensive |
+| Extend matrix drag to an isolated selected component | 392.84 | 28.40 | Retained; about 2.55 to 35.21 FPS before drawing reuse |
+| Corrected drawing-cache reuse on whole-solid rotation | 19.04 | 17.30 | Retained; about 52.53 to 57.81 FPS, improved all three pairs |
+| Add corrected drawing reuse to isolated-component matrix drag | 27.42 | 22.06 | Retained together; about 36.47 to 45.32 FPS, improved all three pairs |
+
+The partial scene is one analytic object containing two copies of the captured
+20-subdivision filleted solid, with only the second component selected. It has
+22,144 display vertices. These results do not describe moving an arbitrary face
+of a connected curved solid. Connected edits retain their analytic construction
+rules; compatible edits reuse verified display connectivity and cache the affected
+BMesh region rather than replacing the entire edit mesh.
+
+An isolated-component matrix drag is allowed only when no source edge, face
+(including holes), curve support or surface support spans moving and stationary
+parts. Display movement is selected by source IDs, including sampled vertices and
+face-corner normals. Unselected display coordinates remain unchanged. Confirmation
+transforms and validates the independent analytic source once and leaves the live
+BMesh coordinates and normals untouched. The object matrix and origin stay fixed.
+
+### Drawing-cache failure isolated and corrected
+
+Preserving face triangulation alone did not fix the previous visual failure.
+Discarding all graphics buffers while bypassing geometry evaluation also failed.
+The missing signal was to Workbench: its completed shaded image can be reused until
+`DEG_get_update_count` changes. Edit overlays can update independently. The cache
+prototype therefore moved edit edges while leaving a previously rendered surface
+on screen, even after a stationary pause.
+
+The retained path dirties position/normal-dependent graphics buffers while keeping
+connectivity and selection buffers. It requests an object transform evaluation,
+without changing transform channels, to refresh Workbench's accumulated image.
+It also invalidates mesh position/normal/bounds caches and refreshes evaluated
+bounds. Face triangulation stays consistent with retained graphics indices during
+rigid movement. The regular geometry evaluation path remains active for modifiers,
+dependent geometry, rendered/material views, or evaluated data that does not
+share the unchanged edit BMesh directly.
+
+With the same 0.6-second stationary screenshot comparison used earlier, the fixed
+whole-solid trial had zero gray surface pixels changing by more than 10 RGB levels
+at confirmation (the broken trial had 3,158 in the contemporary run). The combined
+partial-component build likewise had zero changed gray pixels in the selected
+component crop `(1142,515)..(1421,773)`, with mean gray difference zero. Numeric
+coordinates also remain exactly unchanged on confirmation in the retained path.
+
+Validation: **19 API tests and 9 viewport tests passed**. Checks include fresh
+analytic source sampling after component rotation and connected planar deformation,
+unchanged stationary geometry, original object matrix, live movement, exact corner
+normal/coordinate preservation on cancel and confirmation, undo/redo, Shrinkwrap
+dependency updates, source-face selection, angled filleting, and vertex/edge/face
+duplication. Built and installed to `build_linux/bin`.
+
+Artifacts in `/tmp/solid-mesh-trials/`: `object.json`, `partial.json`, `component.json`,
+`cache3.json`, `integrated.json`, corresponding paired logs, scripts and discarded
+source snapshots; `api-final.log`, `ui-final.log`, `build-final.log`, `install-final.log`;
+`{base,object,cache,cache2,cache3,component-final}-{during,confirmed}.png`,
+`component-visual.json`. `update_stage_ms` is wall-clock editor-stage duration,
+not process CPU usage. Performance comparisons ran without concurrent builds or
+other test runs. No temporary object-channel transform code was retained.

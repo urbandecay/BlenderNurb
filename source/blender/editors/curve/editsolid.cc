@@ -8,14 +8,17 @@
 #include <cmath>
 #include <cstdlib>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
 
+#include "BLI_bit_vector.hh"
 #include "BLI_listbase_iterator.hh"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
@@ -27,13 +30,17 @@
 #include "BKE_context.hh"
 #include "BKE_customdata.hh"
 #include "BKE_editmesh.hh"
+#include "BKE_editmesh_cache.hh"
 #include "BKE_mesh.h"
 #include "BKE_mesh.hh"
+#include "BKE_mesh_wrapper.hh"
+#include "BKE_object_types.hh"
 #include "BKE_report.hh"
 #include "BKE_solid_host.hh"
 #include "BKE_unit.hh"
 
 #include "DEG_depsgraph.hh"
+#include "DEG_depsgraph_query.hh"
 
 #include "ED_mesh.hh"
 #include "ED_numinput.hh"
@@ -60,9 +67,59 @@ bool edit_poll(bContext *C)
   return object && object->type == OB_MESH && id_cast<const Mesh *>(object->data)->solid_storage;
 }
 
+/* A partial rigid drag is safe only when no edge, face or analytic support
+ * straddles the selected and stationary portions of the source. */
+static bool isolated_selection(const bke::solid_host::Snapshot &source)
+{
+  const auto &m = *source.model;
+  const std::unordered_set<solid::Id> vertices(source.selection.vertices.begin(),
+                                               source.selection.vertices.end());
+  if (vertices.empty())
+    return false;
+  std::unordered_map<solid::Id, bool> edges, curves, surfaces;
+  auto assign = [](auto &map, solid::Id id, bool moving) {
+    const auto [it, inserted] = map.emplace(id, moving);
+    return inserted || it->second == moving;
+  };
+  for (const auto &e : m.edges) {
+    const bool moving = vertices.contains(e.vertices[0]);
+    if (moving != vertices.contains(e.vertices[1]) || !assign(curves, e.curve, moving))
+      return false;
+    edges[e.id] = moving;
+  }
+  for (const auto &f : m.faces) {
+    if (f.outer.empty())
+      return false;
+    const bool moving = edges.at(f.outer.front().edge);
+    auto same = [&](const auto &loop) {
+      return std::all_of(
+          loop.begin(), loop.end(), [&](const auto &use) { return edges.at(use.edge) == moving; });
+    };
+    if (!same(f.outer) || !std::all_of(f.holes.begin(), f.holes.end(), same) ||
+        !assign(surfaces, f.surface, moving))
+      return false;
+  }
+  for (const auto &surface : m.surfaces) {
+    if (!surfaces.contains(surface.id))
+      continue;
+    for (solid::Id curve : {surface.curve, surface.other_curve})
+      if (curve && (!curves.contains(curve) || curves.at(curve) != surfaces.at(surface.id)))
+        return false;
+  }
+  return true;
+}
+
 Session::Session(Object &object, bke::solid_host::Snapshot source)
     : object_(&object), source_(std::move(source)), revision_(source_.revision)
 {
+  rigid_selection_ = source_.selection.vertices.size() == source_.model->vertices.size() ||
+                     isolated_selection(source_);
+}
+
+Session::~Session()
+{
+  if (partial_cache_)
+    BM_mesh_partial_destroy(partial_cache_);
 }
 
 std::unique_ptr<Session> Session::begin(bContext *C, std::string *error)
@@ -133,7 +190,9 @@ static bool replace_display(bContext *C,
                             bke::solid_host::Snapshot candidate,
                             uint64_t &revision,
                             std::string *error,
-                            bool reuse_topology = false)
+                            bool reuse_topology = false,
+                            BMPartialUpdate **partial_cache = nullptr,
+                            std::vector<bool> *partial_mask = nullptr)
 {
   Mesh &mesh = *id_cast<Mesh *>(object.data);
   candidate.selection = solid::normalize_selection(*candidate.model,
@@ -154,6 +213,35 @@ static bool replace_display(bContext *C,
     return false;
   ++revision;
   const auto profile_publish = std::chrono::steady_clock::now();
+  if (partial_cache && reused) {
+    BMesh &bm = *mesh.runtime->edit_mesh->bm;
+    BitVector<> mask(bm.totvert, false);
+    std::vector<bool> changed(bm.totvert, false);
+    int count = 0;
+    for (int i = 0; i < bm.totvert; ++i) {
+      const auto &p = candidate.display_samples->positions[i];
+      const float3 next(p.x, p.y, p.z);
+      if (next != float3(BM_vert_at_index(&bm, i)->co)) {
+        mask[i].set();
+        changed[i] = true;
+        ++count;
+      }
+    }
+    if (!*partial_cache || changed != *partial_mask) {
+      if (*partial_cache)
+        BM_mesh_partial_destroy(*partial_cache);
+      BMPartialUpdate_Params params{};
+      params.do_normals = true;
+      params.do_tessellate = true;
+      *partial_cache = BM_mesh_partial_create_from_verts(bm, params, mask, count);
+      *partial_mask = std::move(changed);
+    }
+  }
+  else if (partial_cache && *partial_cache) {
+    BM_mesh_partial_destroy(*partial_cache);
+    *partial_cache = nullptr;
+    partial_mask->clear();
+  }
   if (reused)
     update_display_vertices(mesh, *candidate.display_samples, true);
   if (!reused)
@@ -163,8 +251,12 @@ static bool replace_display(bContext *C,
     EDBM_mesh_make(&object, candidate.selection.mode, false);
   const auto profile_bmesh = std::chrono::steady_clock::now();
   EDBMUpdate_Params update{};
-  update.calc_looptris = true;
-  update.calc_normals = true;
+  const bool partial = partial_cache && *partial_cache && reused;
+  if (partial)
+    BKE_editmesh_looptris_and_normals_calc_with_partial(mesh.runtime->edit_mesh.get(),
+                                                        *partial_cache);
+  update.calc_looptris = !partial;
+  update.calc_normals = !partial;
   update.is_destructive = !reused;
   EDBM_update(&mesh, &update);
   if (std::getenv("BLENDER_SOLID_PROFILE")) {
@@ -227,15 +319,27 @@ bool Session::apply(bContext *C,
       next.display_samples = std::move(samples);
     }
   }
-  return replace_display(C, *object_, std::move(next), revision_, error, reuse_topology);
+  const bool partial = affine && !reuse_topology;
+  if (!partial && partial_cache_) {
+    BM_mesh_partial_destroy(partial_cache_);
+    partial_cache_ = nullptr;
+    partial_mask_.clear();
+  }
+  return replace_display(C,
+                         *object_,
+                         std::move(next),
+                         revision_,
+                         error,
+                         reuse_topology || partial,
+                         partial ? &partial_cache_ : nullptr,
+                         partial ? &partial_mask_ : nullptr);
 }
 
-/* A rigid whole-source drag changes the existing visible BMesh immediately.
+/* A rigid drag of complete source components changes the visible BMesh immediately.
  * Source construction and validation are deferred to confirmation. */
 bool Session::can_preview_affine(const solid::Affine &m) const
 {
-  if (revision_ != source_.revision ||
-      source_.selection.vertices.size() != source_.model->vertices.size())
+  if (revision_ != source_.revision || !rigid_selection_)
     return false;
   const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
   const double error = std::abs(solid::dot(a, a) - 1) + std::abs(solid::dot(b, b) - 1) +
@@ -247,6 +351,52 @@ bool Session::can_preview_affine(const solid::Affine &m) const
 
 static void affine_display_update(bContext *C, Mesh &mesh)
 {
+  /* Reuse evaluated geometry only when it directly shares this BMesh and
+   * no modifier, dependent geometry or render engine needs geometry evaluation. */
+  Object *object = CTX_data_edit_object(C);
+  const View3D *view = CTX_wm_view3d(C);
+  Object *evaluated_object = nullptr;
+  Mesh *evaluated = nullptr;
+  bool eligible = view && ELEM(view->shading.type, OB_WIRE, OB_SOLID) && object &&
+                  object->modifiers.first == nullptr;
+  if (eligible) {
+    const Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+    evaluated_object = DEG_get_evaluated(depsgraph, object);
+    evaluated = evaluated_object ? id_cast<Mesh *>(evaluated_object->data) : nullptr;
+    eligible = evaluated && evaluated != &mesh &&
+               evaluated->runtime->wrapper_type == ME_WRAPPER_TYPE_BMESH &&
+               evaluated->runtime->edit_mesh &&
+               evaluated->runtime->edit_mesh->bm == mesh.runtime->edit_mesh->bm &&
+               (!evaluated->runtime->edit_data ||
+                evaluated->runtime->edit_data->vert_positions.is_empty());
+    if (eligible)
+      DEG_foreach_dependent_ID(depsgraph, &mesh.id, [&](ID *id) {
+        if (id != &mesh.id && id != &object->id && GS(id->name) != ID_SCE)
+          eligible = false;
+      });
+  }
+  if (eligible) {
+    if (mesh.runtime->edit_mesh->looptris.is_empty())
+      BKE_editmesh_looptris_calc(mesh.runtime->edit_mesh.get());
+    EDBM_mesh_normals_update(mesh.runtime->edit_mesh.get());
+    mesh.tag_positions_changed();
+    evaluated->tag_positions_changed();
+    BKE_mesh_wrapper_tag_positions_changed(evaluated);
+    const auto bounds = evaluated->bounds_min_max();
+    object->runtime->bounds_eval = bounds;
+    evaluated_object->runtime->bounds_eval = bounds;
+    const auto dirty = BKE_MESH_BATCH_DIRTY_RIGID_TRANSFORM;
+    BKE_mesh_batch_cache_dirty_tag(&mesh, dirty);
+    BKE_mesh_batch_cache_dirty_tag(evaluated, dirty);
+    /* Workbench may reuse its completed shaded image until the depsgraph changes.
+     * A transform evaluation refreshes that image without changing the object matrix
+     * or re-evaluating independent geometry. A redraw notifier alone is insufficient. */
+    DEG_id_tag_update(&object->id, ID_RECALC_TRANSFORM);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &mesh);
+    if (std::getenv("BLENDER_SOLID_PROFILE"))
+      fprintf(stderr, "SOLID_GPU_REUSE\n");
+    return;
+  }
   EDBMUpdate_Params update{};
   update.calc_looptris = true;
   update.calc_normals = true;
@@ -269,6 +419,46 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
     return false;
   BM_mesh_elem_table_ensure(bm, BM_VERT | BM_FACE);
   if (display_positions_.empty()) {
+    if (source_.selection.vertices.size() != source_.model->vertices.size()) {
+      BM_mesh_elem_index_ensure(bm, BM_VERT);
+      display_position_mask_.resize(bm->totvert, false);
+      const std::unordered_set<solid::Id> selected_vertices(source_.selection.vertices.begin(),
+                                                            source_.selection.vertices.end());
+      const std::unordered_set<solid::Id> selected_edges(source_.selection.edges.begin(),
+                                                         source_.selection.edges.end());
+      const std::unordered_set<solid::Id> selected_faces(source_.selection.faces.begin(),
+                                                         source_.selection.faces.end());
+      auto offset = [](CustomData &data, const char *name) {
+        return CustomData_get_offset_named(&data, CD_PROP_INT32_2D, name);
+      };
+      auto id = [](const auto *element, int offset) -> solid::Id {
+        if (offset < 0)
+          return 0;
+        const auto &value = *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(element, offset));
+        return uint64_t(uint32_t(value.x)) | (uint64_t(uint32_t(value.y)) << 32);
+      };
+      const int vo = offset(bm->vdata, ".solid_vertex_id"),
+                eo = offset(bm->edata, ".solid_edge_id"), fo = offset(bm->pdata, ".solid_face_id");
+      for (int i = 0; i < bm->totvert; ++i)
+        display_position_mask_[i] = selected_vertices.contains(id(BM_vert_at_index(bm, i), vo));
+      BMIter iter;
+      BMEdge *e;
+      BM_ITER_MESH (e, &iter, bm, BM_EDGES_OF_MESH)
+        if (selected_edges.contains(id(e, eo))) {
+          display_position_mask_[BM_elem_index_get(e->v1)] = true;
+          display_position_mask_[BM_elem_index_get(e->v2)] = true;
+        }
+      for (int i = 0; i < bm->totface; ++i) {
+        BMFace *f = BM_face_at_index(bm, i);
+        const bool moving = selected_faces.contains(id(f, fo));
+        BMLoop *loop = BM_FACE_FIRST_LOOP(f);
+        do {
+          display_normal_mask_.push_back(moving);
+          if (moving)
+            display_position_mask_[BM_elem_index_get(loop->v)] = true;
+        } while ((loop = loop->next) != BM_FACE_FIRST_LOOP(f));
+      }
+    }
     for (int i = 0; i < bm->totvert; ++i) {
       const float *p = BM_vert_at_index(bm, i)->co;
       display_positions_.push_back({p[0], p[1], p[2]});
@@ -287,8 +477,10 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
   const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
   auto position = [&](solid::Vec3 p) { return a * p.x + b * p.y + c * p.z + m.translation; };
   /* Reject overflow before changing any displayed coordinate. */
-  for (const auto &original : display_positions_) {
-    const auto p = position(original);
+  for (size_t i = 0; i < display_positions_.size(); ++i) {
+    if (!display_position_mask_.empty() && !display_position_mask_[i])
+      continue;
+    const auto p = position(display_positions_[i]);
     if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
         std::abs(p.x) > FLT_MAX || std::abs(p.y) > FLT_MAX || std::abs(p.z) > FLT_MAX)
     {
@@ -298,6 +490,8 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
     }
   }
   for (int i = 0; i < bm->totvert; ++i) {
+    if (!display_position_mask_.empty() && !display_position_mask_[i])
+      continue;
     const auto p = position(display_positions_[i]);
     copy_v3_v3(BM_vert_at_index(bm, i)->co, float3(p.x, p.y, p.z));
   }
@@ -306,7 +500,10 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
     BMFace *f = BM_face_at_index(bm, i);
     BMLoop *loop = BM_FACE_FIRST_LOOP(f);
     do {
+      const bool moving = display_normal_mask_.empty() || display_normal_mask_[index];
       const auto original = display_normals_[index++];
+      if (!moving)
+        continue;
       auto n = a * original.x + b * original.y + c * original.z;
       const double size = solid::length(n);
       if (size > 0)
@@ -350,6 +547,11 @@ bool Session::commit_affine(bContext *C, std::string *error)
 
 bool Session::restore(bContext *C, std::string *error)
 {
+  if (partial_cache_) {
+    BM_mesh_partial_destroy(partial_cache_);
+    partial_cache_ = nullptr;
+    partial_mask_.clear();
+  }
   if (display_restored_ && revision_ == source_.revision)
     return true;
   if (display_preview_) {

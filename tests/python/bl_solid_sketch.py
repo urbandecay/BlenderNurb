@@ -51,12 +51,19 @@ class SolidSketchTest(unittest.TestCase):
                 evaluated.to_mesh_clear()
 
         before = display()
+        bm = bmesh.from_edit_mesh(obj.data)
+        geometric_normals = [v.normal.copy() for v in bm.verts] + [f.normal.copy() for f in bm.faces]
         angle = .371
         self.assertEqual(bpy.ops.transform.rotate(value=angle, orient_axis='Z',
                                                   center_override=(0, 0, 0)), {'FINISHED'})
         after = display()
         rotation = Matrix.Rotation(angle, 3, 'Z')
         self.assertEqual(before[2], after[2])
+        bm = bmesh.from_edit_mesh(obj.data)
+        rotated_normals = [v.normal.copy() for v in bm.verts] + [f.normal.copy() for f in bm.faces]
+        # Derived normals use tiny float display triangles; allow their roundoff.
+        for a, b in zip(geometric_normals, rotated_normals):
+            self.assertLess((rotation @ a - b).length, 1e-4)
         for a, b in zip(before[0], after[0]):
             self.assertLess((rotation @ a - b).length, 2e-6)
         for a, b in zip(before[1], after[1]):
@@ -79,6 +86,57 @@ class SolidSketchTest(unittest.TestCase):
             self.assertLess(tree.find(point)[2], 2e-6)
         for a, b in zip(after[1], rebuilt[1]):
             self.assertLess((a - b).length, 2e-6)
+
+    def test_partial_transforms_match_fresh_source_sampling(self):
+        from mathutils import Matrix, Vector
+        from mathutils.kdtree import KDTree
+
+        for component in (False, True):
+            with self.subTest(component=component):
+                self.setUp()
+                bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+                bpy.ops.solid.extrude(distance=2)
+                if component:
+                    bpy.ops.mesh.select_mode(type='EDGE')
+                    bpy.ops.mesh.select_all(action='SELECT')
+                    bpy.ops.solid.bevel(offset=.2, segments=1)
+                    bpy.ops.mesh.select_mode(type='VERT')
+                    bpy.ops.mesh.select_all(action='SELECT')
+                    bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (4, 0, 0)})
+                else:
+                    self.source_select('VERT', lambda v: v.co.z > 1.99)
+                obj = bpy.context.object
+                original_matrix = obj.matrix_world.copy()
+                bm = bmesh.from_edit_mesh(obj.data)
+                before = [v.co.copy() for v in bm.verts]
+                moving = [p.x > 2 if component else p.z > 1.99 for p in before]
+                if component:
+                    rotation = Matrix.Rotation(.371, 3, 'Z')
+                    self.assertEqual(bpy.ops.transform.rotate(value=.371, orient_axis='Z',
+                                                              center_override=(0, 0, 0)), {'FINISHED'})
+                else:
+                    self.assertEqual(bpy.ops.transform.translate(value=(0, 0, .4)), {'FINISHED'})
+                bm = bmesh.from_edit_mesh(obj.data)
+                self.assertEqual(len(before), len(bm.verts))
+                for v, p, selected in zip(bm.verts, before, moving):
+                    expected = (rotation @ p if component else p + Vector((0, 0, .4))) if selected else p
+                    self.assertLess((v.co - expected).length, 2e-6)
+                self.assertEqual(obj.matrix_world, original_matrix)
+                positions = [v.co.copy() for v in bm.verts]
+                layer = bm.loops.layers.float_vector['custom_normal']
+                normals = [loop[layer].copy() for f in bm.faces for loop in f.loops]
+                self.assertEqual(bpy.ops.solid.duplicate(), {'FINISHED'})
+                rebuilt = bmesh.from_edit_mesh(obj.data)
+                tree = KDTree(len(rebuilt.verts))
+                for i, v in enumerate(rebuilt.verts):
+                    tree.insert(v.co, i)
+                tree.balance()
+                for p in positions:
+                    self.assertLess(tree.find(p)[2], 2e-6)
+                layer = rebuilt.loops.layers.float_vector['custom_normal']
+                fresh_normals = [loop[layer].copy() for f in rebuilt.faces for loop in f.loops]
+                for old, fresh in zip(normals, fresh_normals):
+                    self.assertLess((old - fresh).length, 2e-6)
 
     def setUp(self):
         if bpy.context.object and bpy.context.object.mode != 'OBJECT':

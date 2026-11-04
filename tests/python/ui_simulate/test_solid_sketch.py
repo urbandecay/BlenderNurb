@@ -35,6 +35,11 @@ def fillet_rotation_cancel_and_undo():
         return [tuple(loop[layer]) for face in bm.faces for loop in face.loops]
 
     before = positions()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        # Seed evaluated bounds so stale bounds during a drag cannot pass unnoticed.
+        bpy.context.view_layer.update()
+        obj = window.view_layer.objects.active
+        tuple(obj.evaluated_get(bpy.context.evaluated_depsgraph_get()).bound_box)
     before_normals = normals()
     yield e.r().z().text('20').esc()
     t.assertEqual(positions(), before)
@@ -42,6 +47,21 @@ def fillet_rotation_cancel_and_undo():
     yield e.r().z().text('20')
     during_drag = positions()
     during_normals = normals()
+    # The evaluated mesh used by drawing and picking must follow the live BMesh.
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.context.view_layer.update()
+        obj = window.view_layer.objects.active
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        mesh = evaluated.to_mesh()
+        try:
+            t.assertEqual([tuple(v.co) for v in mesh.vertices], during_drag)
+            for axis in range(3):
+                t.assertAlmostEqual(min(p[axis] for p in evaluated.bound_box),
+                                    min(p[axis] for p in during_drag), places=5)
+                t.assertAlmostEqual(max(p[axis] for p in evaluated.bound_box),
+                                    max(p[axis] for p in during_drag), places=5)
+        finally:
+            evaluated.to_mesh_clear()
     t.assertNotEqual(during_drag, before)
     yield e.ret()
     rotated = positions()
@@ -514,3 +534,115 @@ def vertex_extrude_merge_menu_and_delete():
     yield e.a()
     yield from ui.call_menu(e, 'Solid -> Delete -> Vertices')
     t.assertEqual(window.view_layer.objects.active.data.solid_vertices_count, 0)
+
+
+def fillet_rotation_updates_dependent_mesh():
+    import bpy
+    from mathutils import Vector
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.solid.sketch_add(type='RECTANGLE')
+        bpy.ops.solid.extrude(distance=2)
+        source = window.view_layer.objects.active
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.solid.bevel(offset=.2, segments=1)
+        bpy.ops.mesh.select_mode(type='VERT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        mesh = bpy.data.meshes.new('Dependent point')
+        mesh.from_pydata([(1.5, 0, 1)], [], [])
+        dependent = bpy.data.objects.new('Dependent point', mesh)
+        bpy.context.collection.objects.link(dependent)
+        shrinkwrap = dependent.modifiers.new('Follow solid', 'SHRINKWRAP')
+        shrinkwrap.target = source
+        shrinkwrap.wrap_method = 'NEAREST_SURFACEPOINT'
+
+    def position():
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.context.view_layer.update()
+            evaluated = dependent.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                return Vector(mesh.vertices[0].co)
+            finally:
+                evaluated.to_mesh_clear()
+
+    before = position()
+    yield e.r().z().text('20')
+    t.assertGreater((position() - before).length, .01)
+    yield e.esc()
+    t.assertLess((position() - before).length, 1e-5)
+
+
+def _partial_transform_cancel_and_undo(component):
+    import bpy
+    import bmesh
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        if component:
+            bpy.ops.mesh.select_mode(type='EDGE')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.solid.bevel(offset=.2, segments=1)
+            bpy.ops.mesh.select_mode(type='VERT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (4, 0, 0)})
+        else:
+            bpy.ops.mesh.select_mode(type='VERT')
+            bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+            for element in (*bm.faces, *bm.edges, *bm.verts):
+                element.select_set(False)
+            for vertex in bm.verts:
+                vertex.select_set(vertex.co.z > 1.99)
+            bm.select_flush_mode()
+            bmesh.update_edit_mesh(window.view_layer.objects.active.data)
+        bpy.ops.ed.undo_push(message='Partial solid before transform')
+    obj = window.view_layer.objects.active
+    matrix = obj.matrix_world.copy()
+
+    def snapshot():
+        bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+        layer = bm.loops.layers.float_vector['custom_normal']
+        return ([tuple(v.co) for v in bm.verts],
+                [tuple(loop[layer]) for face in bm.faces for loop in face.loops])
+
+    before = snapshot()
+    stationary = [i for i, p in enumerate(before[0]) if p[0] < 2] if component else [
+        i for i, p in enumerate(before[0]) if p[2] < .01]
+    command = e.r().z().text('20') if component else e.g().z().text('.4')
+    yield command
+    during = snapshot()
+    t.assertNotEqual(during[0], before[0])
+    t.assertEqual(obj.matrix_world, matrix)
+    for i in stationary:
+        t.assertEqual(during[0][i], before[0][i])
+    yield e.esc()
+    t.assertEqual(snapshot(), before)
+    yield e.r().z().text('20') if component else e.g().z().text('.4')
+    during = snapshot()
+    yield e.ret()
+    t.assertEqual(snapshot(), during)
+    t.assertEqual(window.view_layer.objects.active.matrix_world, matrix)
+    yield e.ctrl.z()
+    t.assertEqual(snapshot(), before)
+    yield e.ctrl.shift.z()
+    t.assertEqual(snapshot(), during)
+
+
+def isolated_fillet_component_rotation():
+    yield from _partial_transform_cancel_and_undo(True)
+
+
+def connected_planar_face_move():
+    yield from _partial_transform_cancel_and_undo(False)
