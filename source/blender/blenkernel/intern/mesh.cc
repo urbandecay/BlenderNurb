@@ -499,6 +499,40 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
    * RGBA colors. */
 }
 
+static void mesh_blend_read_after_liblink(BlendLibReader * /*reader*/, ID *id)
+{
+  Mesh *mesh = reinterpret_cast<Mesh *>(id);
+  if (!mesh->solid_storage) {
+    return;
+  }
+  /* Solid mesh geometry is a saved viewport adapter. Rebuild it from the analytic source so
+   * older files pick up current display tessellation instead of retaining stale generated data. */
+  if (mesh->key) {
+    CLOG_WARN(&LOG,
+              "Skipping analytic solid display rebuild for mesh '%s' because it has shape keys",
+              mesh->id.name + 2);
+    return;
+  }
+  std::string error;
+  const auto source = bke::solid_host::read(*mesh, &error);
+  if (!source) {
+    CLOG_WARN(&LOG,
+              "Failed to read analytic solid source for mesh '%s': %s",
+              mesh->id.name + 2,
+              error.c_str());
+    return;
+  }
+  auto display = bke::solid_host::display_mesh(*source, 64, &error);
+  if (!display) {
+    CLOG_WARN(&LOG,
+              "Failed to rebuild analytic solid display mesh '%s': %s",
+              mesh->id.name + 2,
+              error.c_str());
+    return;
+  }
+  BKE_mesh_nomain_to_mesh(display.release(), mesh, nullptr, false);
+}
+
 IDTypeInfo IDType_ID_ME = {
     .id_code = Mesh::id_type,
     .id_filter = FILTER_ID_ME,
@@ -523,7 +557,7 @@ IDTypeInfo IDType_ID_ME = {
 
     .blend_write = mesh_blend_write,
     .blend_read_data = mesh_blend_read_data,
-    .blend_read_after_liblink = nullptr,
+    .blend_read_after_liblink = mesh_blend_read_after_liblink,
 
     .blend_read_undo_preserve = nullptr,
 

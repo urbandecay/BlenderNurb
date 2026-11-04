@@ -8,6 +8,9 @@
  * Bevel wrapper around #BM_mesh_bevel
  */
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "DNA_curveprofile_types.h"
 #include "bmesh.hh"
 #include "bmesh_tools.hh"
@@ -41,6 +44,10 @@ void bmo_bevel_exec(BMesh *bm, BMOperator *op)
   const int vmesh_method = BMO_slot_int_get(op->slots_in, "vmesh_method");
 
   if (offset > 0) {
+    const bool profile_counts = std::getenv("BLENDER_BEVEL_PROFILE") != nullptr;
+    const int before_verts = bm->totvert;
+    const int before_edges = bm->totedge;
+    const int before_faces = bm->totface;
     BMOIter siter;
     BMEdge *e;
     BMVert *v;
@@ -86,6 +93,19 @@ void bmo_bevel_exec(BMesh *bm, BMOperator *op)
                   vmesh_method,
                   CustomData_get_offset_named(&bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert"),
                   CustomData_get_offset_named(&bm->edata, CD_PROP_FLOAT, "bevel_weight_edge"));
+
+    if (profile_counts) {
+      fprintf(stderr,
+              "MESH_BEVEL_COUNTS segments=%d before_v=%d before_e=%d before_f=%d "
+              "after_v=%d after_e=%d after_f=%d\n",
+              seg,
+              before_verts,
+              before_edges,
+              before_faces,
+              bm->totvert,
+              bm->totedge,
+              bm->totface);
+    }
 
     BMO_slot_buffer_from_enabled_hflag(bm, op, op->slots_out, "faces.out", BM_FACE, BM_ELEM_TAG);
     BMO_slot_buffer_from_enabled_hflag(bm, op, op->slots_out, "edges.out", BM_EDGE, BM_ELEM_TAG);

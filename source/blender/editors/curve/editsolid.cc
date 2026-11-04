@@ -273,6 +273,28 @@ static bool replace_display(bContext *C,
             ms(profile_bmesh, now),
             int(reused));
   }
+  if (std::getenv("BLENDER_BEVEL_PROFILE")) {
+    const solid::Model &model = *candidate.model;
+    const solid::DisplayMesh &samples = *candidate.display_samples;
+    const BMesh &bm = *mesh.runtime->edit_mesh->bm;
+    fprintf(stderr,
+            "SOLID_DISPLAY_COUNTS object=%s source_v=%zu source_e=%zu source_f=%zu "
+            "sample_v=%zu sample_boundary_e=%zu sample_f=%zu mesh_v=%d mesh_e=%d mesh_f=%d "
+            "edit_v=%d edit_e=%d edit_f=%d\n",
+            object.id.name + 2,
+            model.vertices.size(),
+            model.edges.size(),
+            model.faces.size(),
+            samples.positions.size(),
+            samples.edges.size(),
+            samples.polygons.size(),
+            mesh.verts_num,
+            mesh.edges_num,
+            mesh.faces_num,
+            bm.totvert,
+            bm.totedge,
+            bm.totface);
+  }
   DEG_id_tag_update(&mesh.id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, &mesh);
   WM_event_add_notifier(C, NC_GEOM | ND_SELECT, &mesh);

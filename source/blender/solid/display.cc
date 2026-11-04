@@ -5,7 +5,11 @@
 #include "SOL_geometry.hh"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <map>
 #include <numbers>
 #include <unordered_map>
 #include <unordered_set>
@@ -16,6 +20,7 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
 {
   if (!validate(model, error))
     return {};
+  const bool log_breakdown = std::getenv("BLENDER_BEVEL_PROFILE") != nullptr;
   segments = std::clamp(segments, 8, 4096);
   DisplayMesh mesh;
   std::unordered_map<Id, int> vertices;
@@ -25,9 +30,31 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
   std::unordered_map<Id, std::vector<int>> paths;
   std::unordered_map<Id, std::vector<Id>> edge_groups;
   std::unordered_map<Id, int> ruled_rails;
+  std::unordered_set<Id> small_sphere_edges, large_sphere_edges;
+  std::array<size_t, 6> source_faces_by_kind{};
+  std::array<size_t, 6> display_faces_by_kind{};
+  std::map<std::pair<int, int>, size_t> sphere_patch_histogram;
   for (const Face &f : model.faces) {
+    if (log_breakdown) {
+      source_faces_by_kind[size_t(surface(model, f.surface)->kind)]++;
+    }
     for (const Coedge &use : f.outer)
       edge_groups[use.edge].push_back(f.group ? f.group : f.id);
+    if (surface(model, f.surface)->kind == SurfaceKind::Sphere) {
+      /* Fillet corner spheres are already split into triangular source patches. A
+       * short exact conic edge on those patches is one source subdivision; splitting
+       * it again to satisfy the global display target over-tessellates low segment
+       * counts. Keep one display span when every adjacent sphere patch is this small. */
+      bool small_patch = f.outer.size() == 3;
+      for (const Coedge &use : f.outer) {
+        const Edge &e = *edge(model, use.edge);
+        const Curve &c = *curve(model, e.curve);
+        small_patch &= c.kind == CurveKind::Conic &&
+                       std::abs(e.end - e.start) <= std::numbers::pi / 16;
+      }
+      for (const Coedge &use : f.outer)
+        (small_patch ? small_sphere_edges : large_sphere_edges).insert(use.edge);
+    }
     if (surface(model, f.surface)->kind == SurfaceKind::Ruled && f.outer.size() == 4) {
       const Surface &s = *surface(model, f.surface);
       const Curve &a = *curve(model, s.curve), &b = *curve(model, s.other_curve);
@@ -43,6 +70,8 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
         ruled_rails[f.outer[side].edge] = std::max(ruled_rails[f.outer[side].edge], count);
     }
   }
+  for (Id edge_id : large_sphere_edges)
+    small_sphere_edges.erase(edge_id);
   auto point = [&](Vec3 p, Id id) {
     const int index = int(mesh.positions.size());
     mesh.positions.push_back(p);
@@ -58,11 +87,15 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
   for (const auto &e : model.edges) {
     edges[e.id] = &e;
     const auto &c = *curves.at(e.curve);
-    const int count = c.kind == CurveKind::Cubic || c.kind == CurveKind::RationalQuadratic ?
+    const int count = c.kind == CurveKind::Cubic ?
                           std::max(2, int(std::ceil(std::abs(e.end - e.start) * segments / 4))) :
+                      c.kind == CurveKind::RationalQuadratic ?
+                          std::max(1, int(std::ceil(std::abs(e.end - e.start) * segments / 4))) :
                       c.kind == CurveKind::Line ?
                           (ruled_rails.contains(e.id) ? ruled_rails.at(e.id) : 1) :
-                          std::max(2,
+                      small_sphere_edges.contains(e.id) ?
+                          1 :
+                          std::max(1,
                                    int(std::ceil(std::abs(e.end - e.start) /
                                                  (2 * std::numbers::pi) * segments)));
     auto &path = paths[e.id];
@@ -88,6 +121,9 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
     mesh.polygons.push_back(std::move(points));
     mesh.corner_normals.push_back(std::move(normals));
     mesh.face_source.push_back(f.group ? f.group : f.id);
+    if (log_breakdown) {
+      display_faces_by_kind[size_t(surface(model, f.surface)->kind)]++;
+    }
   };
   for (const auto &f : model.faces) {
     const auto &s = *surfaces.at(f.surface);
@@ -251,8 +287,6 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
       for (int id : boundary)
         center = center + local(mesh.positions[id]);
       center = center / length(center);
-      const int center_id = point(s.origin + s.u * center.x + s.v * center.y + s.w * center.z, 0);
-      std::vector<int> previous(boundary.size(), center_id);
       /* A fillet may already be split into hundreds of small spherical source
        * patches. Sampling every patch like a complete corner multiplies the
        * display density with each source subdivision. Scale interior sampling
@@ -264,6 +298,22 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
         extent = std::max(extent, std::acos(std::clamp(dot(center, q), -1.0, 1.0)));
       }
       const int rings = std::max(1, int(std::ceil(extent * std::max(2, segments / 8))));
+      if (log_breakdown) {
+        sphere_patch_histogram[{rings, int(boundary.size())}]++;
+      }
+      /* Small analytic patches already subdivide the corner surface. Keep the
+       * sampled boundary as one smooth display polygon instead of adding a center
+       * vertex and fanning the patch into several display triangles. */
+      if (rings == 1) {
+        std::vector<Vec3> normals;
+        normals.reserve(boundary.size());
+        for (int id : boundary)
+          normals.push_back(normal(local(mesh.positions[id])));
+        polygon(boundary, std::move(normals), f);
+        continue;
+      }
+      const int center_id = point(s.origin + s.u * center.x + s.v * center.y + s.w * center.z, 0);
+      std::vector<int> previous(boundary.size(), center_id);
       for (int ring = 1; ring <= rings; ++ring) {
         std::vector<int> current;
         for (int id : boundary) {
@@ -329,6 +379,31 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
         }
         polygon({bottom[i], bottom[i + 1], top[i + 1], top[i]}, std::move(normals), f);
       }
+    }
+  }
+  if (log_breakdown) {
+    static constexpr const char *kind_names[] = {
+        "plane", "extrusion", "sphere", "cylinder", "blend", "ruled"};
+    fprintf(stderr, "SOLID_TESSELLATION_BREAKDOWN");
+    for (size_t i = 0; i < source_faces_by_kind.size(); ++i) {
+      fprintf(stderr,
+              " %s_source=%zu %s_display=%zu",
+              kind_names[i],
+              source_faces_by_kind[i],
+              kind_names[i],
+              display_faces_by_kind[i]);
+    }
+    fprintf(stderr, "\n");
+    if (!sphere_patch_histogram.empty()) {
+      fprintf(stderr, "SOLID_SPHERE_PATCH_HISTOGRAM");
+      for (const auto &[key, count] : sphere_patch_histogram) {
+        fprintf(stderr,
+                " rings_%d_boundary_%d=%zu",
+                key.first,
+                key.second,
+                count);
+      }
+      fprintf(stderr, "\n");
     }
   }
   return mesh;

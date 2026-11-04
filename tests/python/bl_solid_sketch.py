@@ -15,16 +15,72 @@ import bpy
 
 class SolidSketchTest(unittest.TestCase):
     def test_subdivided_fillet_does_not_resample_each_patch_as_a_whole_corner(self):
+        for (segments, expected_mesh_faces, expected_source_faces, expected_display_vertices,
+             expected_display_faces) in (
+            (20, 2646, 3446, 2256, 3446),
+            (32, 6534, 8582, 4680, 8582),
+        ):
+            if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+            for existing in list(bpy.data.objects):
+                bpy.data.objects.remove(existing, do_unlink=True)
+            bpy.ops.mesh.primitive_cube_add(size=2)
+            mesh_obj = bpy.context.object
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            self.assertEqual(
+                bpy.ops.mesh.bevel(offset=.2, segments=segments, profile=.5), {'FINISHED'})
+            self.assertEqual(len(bmesh.from_edit_mesh(mesh_obj.data).faces), expected_mesh_faces)
+            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.data.objects.remove(mesh_obj, do_unlink=True)
+
+            bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+            obj = bpy.context.object
+            bpy.ops.solid.extrude(distance=2)
+            bpy.ops.mesh.select_mode(type='EDGE')
+            bpy.ops.mesh.select_all(action='SELECT')
+            self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=segments), {'FINISHED'})
+            self.assertEqual(obj.data.solid_faces_count, expected_source_faces)
+            bm = bmesh.from_edit_mesh(obj.data)
+            self.assertEqual(len(bm.verts), expected_display_vertices)
+            self.assertEqual(len(bm.faces), expected_display_faces)
+            self.assertTrue(all(v.co.length < 4 for v in bm.verts))
+
+            bpy.context.view_layer.update()
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            display = evaluated.to_mesh()
+            try:
+                self.assertEqual(len(display.polygons), expected_display_faces)
+                self.assertEqual(len(display.vertices), expected_display_vertices)
+                self.assertTrue(all(p.use_smooth for p in display.polygons))
+            finally:
+                evaluated.to_mesh_clear()
+
+    def test_saved_solid_rebuilds_current_display_mesh_on_load(self):
         bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
         obj = bpy.context.object
+        name = obj.name
         bpy.ops.solid.extrude(distance=2)
         bpy.ops.mesh.select_mode(type='EDGE')
         bpy.ops.mesh.select_all(action='SELECT')
         self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=20), {'FINISHED'})
+        self.assertEqual(len(obj.data.polygons), 3446)
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        # The analytic source stays intact if the saved display adapter is absent.
+        obj.data.clear_geometry()
+        self.assertTrue(obj.data.is_solid_model)
+        self.assertEqual(len(obj.data.polygons), 0)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'solid-display-rebuild.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+
+        obj = bpy.data.objects[name]
+        self.assertTrue(obj.data.is_solid_model)
         self.assertEqual(obj.data.solid_faces_count, 3446)
-        bm = bmesh.from_edit_mesh(obj.data)
-        self.assertLess(len(bm.faces), 40000)
-        self.assertTrue(all(v.co.length < 4 for v in bm.verts))
+        self.assertEqual(len(obj.data.vertices), 2256)
+        self.assertEqual(len(obj.data.polygons), 3446)
 
     def test_fillet_rotation_preserves_display_and_analytic_normals(self):
         from mathutils import Matrix

@@ -79,6 +79,13 @@ plus whether topology was reused. Final timing output is in
 `/tmp/solid_rotation_stable_final.log`; pre-fix stage output is in
 `/tmp/solid_rotation_stages.log`. This logging is opt-in.
 
+For topology counts, launch Blender with `BLENDER_BEVEL_PROFILE=1`. A mesh bevel prints
+`MESH_BEVEL_COUNTS` with the BMesh totals before and after the operation. A solid update prints
+`SOLID_DISPLAY_COUNTS` with analytic source counts, sampled display counts, final Mesh datablock
+counts, and edit BMesh counts. `sample_boundary_e` is only the analytic edge sample list; it is
+not the complete display edge count because face tessellation also creates internal edges. This
+distinguishes the solid's mathematical faces from the polygons Blender actually draws.
+
 ## Repeated optimization loop — retained changes
 
 A preserved executable, `../build_linux/bin/blender-solid-rotation-baseline`, supplies the
@@ -335,3 +342,130 @@ source snapshots; `api-final.log`, `ui-final.log`, `build-final.log`, `install-f
 `component-visual.json`. `update_stage_ms` is wall-clock editor-stage duration,
 not process CPU usage. Performance comparisons ran without concurrent builds or
 other test runs. No temporary object-channel transform code was retained.
+
+
+## Matched mesh bevel versus analytic fillet viewport rotation
+
+The first viewport comparison above used 32 mesh bevel segments against one solid
+fillet segment. That was a mismatch. I reran the tests with the same segment count
+on both tools: once at one segment, and again at 32. Each comparison has three
+alternating mesh/solid pairs. Every run uses a 2-unit cube, bevel width 0.2, the
+same simulated rotation path, 32 displayed updates, and excludes the first five.
+Both runs use the same visible viewport and confirm without moving the geometry.
+
+| Matching segment count | Mesh display vertices / faces | Mesh FPS | Solid display vertices / faces | Solid FPS |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 24 / 26 | 59.80 | 3,080 / 3,270 | 59.31 |
+| 32 | 6,536 / 6,534 | 59.92 | 25,352 / 49,926 | 33.64 |
+
+The one-segment row does **not** compare the same shape: one mesh bevel segment is
+a flat chamfer, while one solid segment is still a curved fillet. At 32 segments,
+both produce rounded profiles. In that matched case, the mesh reached about 60 FPS
+and the solid about 34 FPS. The solid display had about 3.9 times as many vertices
+and 7.6 times as many faces. The viewport cap limited the mesh result, so this test
+cannot say how much faster it would run above 60 FPS. It does show that the current
+32-segment solid display is substantially heavier than the 32-segment mesh bevel.
+
+At the visually comparable settings used in the earlier trial (32 mesh segments,
+one exact solid segment), both reached roughly 60 FPS, but those subdivision counts
+were not equal. The test cannot be used to claim the solid is faster. The equal-32
+comparison instead identifies display tessellation density as a likely contributor
+to the solid's slower rotation; confirming the share of CPU time would need a separate
+uncapped or per-stage timing measurement.
+
+Reproduction helper: `tests/python/solid_viewport_rotation_benchmark.py`. It replaces
+the factory startup scene and exits Blender when finished. Run each segment count for
+both `SOLID_BENCH_KIND=mesh` and `SOLID_BENCH_KIND=solid`, setting
+`SOLID_BENCH_SEGMENTS=1` or `32`. Three paired run logs and summaries are in
+`/tmp/solid-mesh-viewport-matched/`.
+
+## Display tessellation fix
+
+The 32-segment result above exposed redundant display geometry. Each small analytic
+sphere patch at a rounded corner already has a triangular boundary. The tessellator
+was splitting each of its three short curved edges into at least two display edges,
+then fanning that six-point boundary into more triangles. It also resampled each
+short rational-curve segment even though the source fillet had already divided that
+curve into 32 pieces.
+
+The tessellator now keeps a small triangular sphere patch as one display triangle
+with the exact analytic normal at each corner. It gives a small rational-curve piece
+one display span, while still sampling a larger unsplit curve according to viewport
+resolution. This changes only the display mesh; the analytic fillet construction,
+source faces, and requested segment count are unchanged.
+
+Three alternating viewport runs per tool, with both tools set to 32 segments:
+
+| Geometry | Display vertices / faces | Median rotation rate |
+| --- | ---: | ---: |
+| Blender mesh bevel | 6,536 / 6,534 | 59.85 FPS |
+| Analytic solid fillet, before fix | 25,352 / 49,926 | 33.64 FPS |
+| Analytic solid fillet, after fix | 12,872 / 9,734 | 60.62 FPS |
+
+The solid's displayed polygons fell by about 81% from the original result, and its
+rotation reached the same approximately 60 FPS viewport cap as the mesh in this test.
+It still draws more vertices and faces than the mesh, so matching FPS here does not
+prove they will perform equally above the cap or on a heavier scene. The solid's
+32-segment exact corner representation also has more source patches than the mesh's
+bevel strips; the fix removes redundant *display* samples rather than merging those
+analytic patches.
+
+The 32-segment Python regression now checks both source and evaluated display counts.
+All 19 solid API tests passed after the final tessellation change. Six viewport
+integration tests also passed, covering fillet rotation/undo, angled whole-body
+filleting, source-face picking, dependent display updates, isolated component
+rotation, and connected planar face movement. Benchmark details and raw paired runs
+are in `/tmp/solid-mesh-viewport-after2-run.log` and
+`/tmp/solid-mesh-viewport-after/`.
+
+## Simple cube face-count diagnosis — November 4, 2026
+
+To isolate the count mismatch, created the same 2-unit cube twice, beveled every
+edge to width 0.2, and compared mesh bevel and solid fillet at 20 and 32 segments.
+The mesh bevel uses profile 0.5. Counts below distinguish the solid's analytic
+source faces from the polygons that make up its viewport display.
+
+| Segments | Mesh bevel faces | Solid source faces | Solid display faces |
+| ---: | ---: | ---: | ---: |
+| 20 | 2,646 | 3,446 | 3,446 |
+| 32 | 6,534 | 8,582 | 8,582 |
+
+Before the display change, 816 sphere patches at 20 segments and 384 patches at 32
+segments had one extra sampled boundary point. The tessellator fanned each patch into
+four polygons. It now draws each small patch as one face and keeps the same boundary
+points and per-corner normals. That removed 2,448 display faces at 20 segments and
+1,152 at 32. The source solid is unchanged. The viewport already had smooth shading
+enabled on every face.
+
+| Segments | Mesh vertices / faces | Solid display vertices / faces | Solid source faces |
+| ---: | ---: | ---: | ---: |
+| 20 | 2,648 / 2,646 | 2,256 / 3,446 | 3,446 |
+| 32 | 6,536 / 6,534 | 4,680 / 8,582 | 8,582 |
+
+This also removed unused center vertices from the small sphere patches: 3,200 at
+20 segments and 8,192 at 32. A 640×640 Workbench render before and after looked the
+same; the image RMSE was 8.65e-5 on a 0–1 scale. This is a visual check from one
+view, not a guarantee for every angle or lighting setup.
+
+The solid source itself still has more corner patches than the mesh bevel. For these
+settings the analytic source creates 8 × segments² spherical patches, while the
+mesh bevel output contains 8 × 0.75 × segments² corner faces. The two kernels use
+different corner layouts, so the solid still displays more faces at equal segment
+counts even after removing the extra display fan.
+
+The old saved display caused a separate mismatch. Earlier live-scene logs showed
+14,166 display faces; the preserved rotation capture held 155,046. Those are saved
+generated Mesh counts, not analytic source counts. Runtime display samples are not
+serialized, so the old loader kept that saved Mesh instead of rebuilding it. Mesh
+loading now rebuilds the display after the source and datablock links are read. A
+regression test clears the saved display, reloads the file, and confirms it rebuilds
+3,446 faces from the intact 3,446-face source. I also opened the captured live `.blend`
+with the rebuilt binary: its 155,046-face display rebuilt to 3,926 faces; the source
+still has 3,446 faces. That edited solid has three displayed faces per ruled source
+patch (720 total); the clean cube has one per patch (240 total).
+
+Reproduction: set `BLENDER_BEVEL_PROFILE=1` and run
+`/tmp/solid_vs_mesh_cube_counts.py` with the built Blender binary. The log prints
+mesh totals, analytic source/display totals, surface-kind breakdowns, and sphere
+patch boundary histograms. The solid API suite checks both segment counts, smooth
+shading, and rebuilding the saved display on load.
