@@ -319,6 +319,61 @@ bool transform_mesh(Mesh &mesh, const float4x4 &matrix, std::string *error)
   return true;
 }
 
+bool display_is_flat(const Mesh &mesh)
+{
+  if (mesh.runtime->edit_mesh) {
+    const BMesh &bm = *mesh.runtime->edit_mesh->bm;
+    BMIter iter;
+    BMFace *face;
+    if (!bm.totface)
+      return false;
+    BM_ITER_MESH (face, &iter, const_cast<BMesh *>(&bm), BM_FACES_OF_MESH) {
+      if (BM_elem_flag_test(face, BM_ELEM_SMOOTH))
+        return false;
+    }
+    return true;
+  }
+  const auto sharp = mesh.attributes().lookup<bool>("sharp_face", AttrDomain::Face);
+  if (!mesh.faces_num || !sharp)
+    return false;
+  for (int i = 0; i < mesh.faces_num; ++i)
+    if (!sharp.varray[i])
+      return false;
+  return true;
+}
+
+bool set_display_shading(Mesh &mesh, const bool smooth, std::string *error)
+{
+  OwnedMesh analytic;
+  if (smooth) {
+    const auto source = read(mesh, error);
+    if (!source)
+      return false;
+    analytic = display_mesh(*source, 64, error);
+    if (!analytic || analytic->corners_num != mesh.corners_num) {
+      if (error && analytic)
+        *error = "Solid display topology does not match its analytic normals";
+      return false;
+    }
+  }
+  auto attributes = mesh.attributes_for_write();
+  auto normals = attributes.lookup_or_add_for_write_span<float3>("custom_normal", AttrDomain::Corner);
+  if (smooth) {
+    const VArraySpan<float3> source_normals = *analytic->attributes().lookup<float3>(
+        "custom_normal", AttrDomain::Corner);
+    normals.span.copy_from(source_normals);
+  }
+  else {
+    const auto faces = mesh.faces();
+    const auto face_normals = mesh.face_normals_true();
+    for (const int i : faces.index_range())
+      normals.span.slice(faces[i]).fill(face_normals[i]);
+  }
+  normals.finish();
+  mesh_smooth_set(mesh, smooth, true);
+  return true;
+}
+
 void MeshDeleter::operator()(Mesh *mesh) const
 {
   if (mesh)

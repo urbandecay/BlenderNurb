@@ -469,3 +469,57 @@ Reproduction: set `BLENDER_BEVEL_PROFILE=1` and run
 mesh totals, analytic source/display totals, surface-kind breakdowns, and sphere
 patch boundary histograms. The solid API suite checks both segment counts, smooth
 shading, and rebuilding the saved display on load.
+
+## Solid Shade Flat and Shade Smooth
+
+The solid's float corner-normal attribute took precedence over Blender's smooth
+face flags, so Shade Flat changed the flags while still drawing analytic smooth
+normals. The object shading operators now write geometric polygon normals for
+Flat and restore analytic surface normals for Smooth. Both retain the float normal
+layer used by the fast transform path. Display rebuilding preserves a fully flat
+solid across source edits, datablock transforms, and file loading; display vertex
+updates also retain flat normals where faces are flat.
+
+The new regression failed on the previous executable and passes on the rebuilt
+one. It checks distinct flat normals, restoration of smooth normals, unchanged
+topology/source counts, Edit Mode rotation, and save/reopen. All 21 API cases pass.
+Workbench renders of the same cube confirm different lighting in Flat and Smooth,
+particularly with the reflection-check matcap. Render artifacts are
+`/tmp/solid-shade-{flat,smooth}.png` and
+`/tmp/solid-shade-{flat,smooth}-reflect.png`.
+
+## Free rotation dropping out of the rigid preview
+
+Close framing of the captured 4,290-face solid reproduced an angle-dependent
+slowdown in unconstrained rotation. A free drag could begin near 20 ms per frame
+and then spike to 180–223 ms. The profile changed from `SOLID_AFFINE_DRAG` to
+`SOLID_DISPLAY_PROFILE`, with 106–120 ms spent rebuilding display samples on
+some events. X-constrained rotation remained near 20 ms per frame.
+
+The float matrices supplied by Blender's rotation operator sometimes had a summed
+orthogonality error above the preview's `1e-6` tolerance. Instrumentation measured
+errors from approximately `1.01e-6` to `1.64e-6`. The first rejection invoked source
+transformation/publication, advancing the session revision and preventing the
+remaining events in that drag from returning to the rigid preview.
+
+The solid transform adapter now restores a proper rotation basis in double
+precision before converting it to object-local coordinates. This applies only to
+rotation: resize matrices retain scale/shear, and nonuniform object scale still
+undergoes the original local-coordinate rigidity check. Both preview and source
+confirmation use the corrected matrix. `BLENDER_SOLID_PROFILE=1` reports input
+errors above the old threshold as `SOLID_ROTATION_MATRIX corrected_error=...`.
+
+The original close-framed sequence after the fix measured 18.7–20.1 ms median
+frames, with no display rebuild fallbacks. A longer run of three free drags and
+one X drag (64 mouse samples each) recorded zero fallbacks and 39 corrected input
+matrices. Free-drag medians were 20.2–20.9 ms (48–50 FPS), with a worst frame of
+31.3 ms; cancellation restored vertex coordinates and custom normals bit for bit.
+Logs: `/tmp/solid-free-close-fixed.log` and `/tmp/solid-free-long-fixed.log`.
+
+The generated 32-segment solid benchmark also passed unconstrained rotation at
+16.53 ms / 60.49 FPS with 8,582 display faces. Confirmation retained the displayed
+coordinates exactly. Set `SOLID_BENCH_ROTATION=FREE` when running
+`tests/python/solid_viewport_rotation_benchmark.py` with `--enable-event-simulate`;
+the previous default only measured Z-constrained rotation. All 22 solid API tests
+pass, including arbitrary-axis rotation under uniform/nonuniform object scale and
+nonuniform resizing. Build and `git diff --check` pass.

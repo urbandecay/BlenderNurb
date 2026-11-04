@@ -52,6 +52,7 @@
 #include "BKE_main.hh"
 #include "BKE_material.hh"
 #include "BKE_mesh.hh"
+#include "BKE_solid_host.hh"
 #include "BKE_modifier.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_nurbs_edit.hh"
@@ -1561,6 +1562,13 @@ static wmOperatorStatus shade_smooth_exec(bContext *C, wmOperator *op)
     bool changed = false;
     if (GS(data->name) == ID_ME) {
       Mesh &mesh = *reinterpret_cast<Mesh *>(data);
+      if (mesh.solid_storage && (use_flat || use_smooth)) {
+        std::string error;
+        if (!bke::solid_host::set_display_shading(mesh, use_smooth, &error)) {
+          BKE_report(op->reports, RPT_ERROR, error.c_str());
+          continue;
+        }
+      }
       const bool keep_sharp_edges = RNA_boolean_get(op->ptr, "keep_sharp_edges");
       bke::mesh_smooth_set(mesh, use_smooth || use_smooth_by_angle, keep_sharp_edges);
       if (use_smooth_by_angle) {

@@ -37,6 +37,7 @@
 #include "BKE_main.hh"
 #include "BKE_material.hh"
 #include "BKE_mesh.hh"
+#include "BKE_solid_host.hh"
 #include "BKE_nurbs_edit.hh"
 #include "BKE_mesh_runtime.hh"
 #include "BKE_mesh_wrapper.hh"
@@ -1108,6 +1109,10 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src, Mesh *mesh_dst, Object *ob, bool pr
   }
 
   const bool verts_num_changed = mesh_dst->verts_num != mesh_src->verts_num;
+
+  if (mesh_dst->solid_storage && solid_host::display_is_flat(*mesh_dst)) {
+    solid_host::set_display_shading(*mesh_src, false);
+  }
 
   BKE_mesh_clear_geometry_and_metadata(mesh_dst);
 

@@ -14,6 +14,90 @@ import bpy
 
 
 class SolidSketchTest(unittest.TestCase):
+    def test_arbitrary_rotation_preserves_world_geometry_and_resize(self):
+        from mathutils import Matrix, Vector
+
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.mesh.select_all(action='SELECT')
+        obj = bpy.context.object
+        orientation = Vector((.62358183, -.50694573, .59510642)).to_track_quat('Z', 'Y').to_matrix()
+        angle = 2.348279
+        rotation = Matrix.Rotation(angle, 3, orientation.col[2])
+
+        def world_positions():
+            bpy.context.view_layer.update()
+            return [obj.matrix_world @ v.co for v in bmesh.from_edit_mesh(obj.data).verts]
+
+        # An arbitrary rotation must remain accurate with either uniform or
+        # nonuniform object scale. The latter is non-rigid in local coordinates.
+        for scale in ((1, 1, 1), (2, 1, .7)):
+            obj.scale = scale
+            before = world_positions()
+            self.assertEqual(bpy.ops.transform.rotate(
+                value=angle, orient_axis='Z', orient_type='GLOBAL',
+                orient_matrix_type='GLOBAL', orient_matrix=orientation,
+                constraint_axis=(False, False, True), center_override=(0, 0, 0)), {'FINISHED'})
+            for a, b in zip(before, world_positions()):
+                self.assertLess((rotation @ a - b).length, 5e-6)
+
+        before = world_positions()
+        factors = Vector((1.3, .8, 1.1))
+        self.assertEqual(bpy.ops.transform.resize(
+            value=factors, orient_type='GLOBAL', center_override=(0, 0, 0)), {'FINISHED'})
+        for a, b in zip(before, world_positions()):
+            self.assertLess((Vector(tuple(a[i] * factors[i] for i in range(3))) - b).length, 5e-6)
+
+    def test_flat_and_smooth_solid_normals_survive_edits_and_reload(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        obj = bpy.context.object
+        name = obj.name
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.solid.bevel(offset=.2, segments=4)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        topology = (len(obj.data.vertices), len(obj.data.polygons), obj.data.solid_faces_count)
+        smooth = [n.vector.copy() for n in obj.data.corner_normals]
+
+        def check_flat():
+            mesh = obj.data
+            self.assertTrue(all(not p.use_smooth for p in mesh.polygons))
+            for p in mesh.polygons:
+                normal = mesh.corner_normals[p.loop_start].vector
+                self.assertGreater(normal.dot(p.normal), .999)
+                for i in p.loop_indices:
+                    self.assertLess((mesh.corner_normals[i].vector - normal).length, 2e-6)
+
+        self.assertEqual(bpy.ops.object.shade_flat(), {'FINISHED'})
+        check_flat()
+        self.assertTrue(any((n.vector - s).length > .01
+                            for n, s in zip(obj.data.corner_normals, smooth)))
+        self.assertEqual(bpy.ops.object.shade_smooth(), {'FINISHED'})
+        for n, s in zip(obj.data.corner_normals, smooth):
+            self.assertLess((n.vector - s).length, 2e-6)
+        bpy.ops.object.shade_flat()
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_mode(type='VERT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.transform.rotate(value=.25, orient_axis='Z')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        check_flat()
+        self.assertEqual((len(obj.data.vertices), len(obj.data.polygons),
+                          obj.data.solid_faces_count), topology)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'solid-shading.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+        obj = bpy.data.objects[name]
+        check_flat()
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        bpy.ops.object.shade_smooth()
+        self.assertTrue(all(p.use_smooth for p in obj.data.polygons))
+        self.assertTrue(any((obj.data.corner_normals[i].vector - p.normal).length > .01
+                            for p in obj.data.polygons for i in p.loop_indices))
+
     def test_subdivided_fillet_does_not_resample_each_patch_as_a_whole_corner(self):
         for (segments, expected_mesh_faces, expected_source_faces, expected_display_vertices,
              expected_display_faces) in (

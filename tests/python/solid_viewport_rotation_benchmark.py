@@ -2,6 +2,10 @@
 
 Run in a visible Blender session with event simulation enabled and set
 SOLID_BENCH_KIND=mesh or SOLID_BENCH_KIND=solid plus SOLID_BENCH_SEGMENTS=1 or 32.
+Set SOLID_BENCH_ROTATION=FREE to exercise unconstrained view-axis rotation,
+or X/Y/Z for an axis constraint (default Z). Use BLENDER_SOLID_PROFILE=1 to
+check that rigid solid drags emit SOLID_AFFINE_DRAG, with no
+SOLID_DISPLAY_PROFILE rebuilds before confirmation.
 The script replaces the startup scene with a 2-unit cube, measures modal viewport
 draw intervals and exits Blender. Both tools use width 0.2 and the same segment
 count. Note that one mesh bevel segment makes a chamfer, while the solid's one
@@ -12,6 +16,8 @@ import bpy, bmesh, json, math, os, statistics, time
 
 kind = os.environ['SOLID_BENCH_KIND']
 segments = int(os.environ.get('SOLID_BENCH_SEGMENTS', '1'))
+rotation_mode = os.environ.get('SOLID_BENCH_ROTATION', 'Z').upper()
+assert rotation_mode in {'FREE', 'X', 'Y', 'Z'}, rotation_mode
 area = next(a for a in bpy.context.screen.areas if a.type == 'VIEW_3D')
 window = bpy.context.window
 region = next(r for r in area.regions if r.type == 'WINDOW')
@@ -72,6 +78,7 @@ def finish():
         print('VIEWPORT_BENCH_RESULT ' + json.dumps({
             'kind': kind,
             'segments': segments,
+            'rotation': rotation_mode,
             'display_vertices': counts[0],
             'display_faces': counts[1],
             'frame_ms': frames,
@@ -99,7 +106,11 @@ def draw():
 def start():
     global handle
     with bpy.context.temp_override(window=window, area=area, region=region):
-        bpy.ops.transform.rotate('INVOKE_DEFAULT', orient_axis='Z', constraint_axis=(False, False, True))
+        if rotation_mode == 'FREE':
+            bpy.ops.transform.rotate('INVOKE_DEFAULT')
+        else:
+            bpy.ops.transform.rotate('INVOKE_DEFAULT', orient_axis=rotation_mode,
+                                     constraint_axis=tuple(rotation_mode == axis for axis in 'XYZ'))
     handle = bpy.types.SpaceView3D.draw_handler_add(draw, (), 'WINDOW', 'POST_PIXEL')
     state['started'] = True
     state['send_time'] = time.perf_counter()

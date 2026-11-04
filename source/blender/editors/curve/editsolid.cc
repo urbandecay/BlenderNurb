@@ -176,9 +176,15 @@ static bool update_display_vertices(Mesh &mesh, const solid::DisplayMesh &displa
     copy_v3_v3(BM_vert_at_index(bm, int(i))->co, float3(p.x, p.y, p.z));
   }
   for (size_t i = 0; i < display.polygons.size(); ++i) {
-    BMLoop *loop = BM_FACE_FIRST_LOOP(BM_face_at_index(bm, int(i)));
+    BMFace *face = BM_face_at_index(bm, int(i));
+    float flat_normal[3];
+    const bool flat = !BM_elem_flag_test(face, BM_ELEM_SMOOTH);
+    if (flat)
+      BM_face_calc_normal(face, flat_normal);
+    BMLoop *loop = BM_FACE_FIRST_LOOP(face);
     for (const auto &n : display.corner_normals[i]) {
-      copy_v3_v3(BM_ELEM_CD_GET_FLOAT_P(loop, normal_offset), float3(n.x, n.y, n.z));
+      copy_v3_v3(BM_ELEM_CD_GET_FLOAT_P(loop, normal_offset),
+                 flat ? float3(flat_normal) : float3(n.x, n.y, n.z));
       loop = loop->next;
     }
   }

@@ -2,6 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <numbers>
 #include <unordered_map>
 #include <unordered_set>
@@ -185,9 +187,29 @@ void finish_solid(bContext *C, TransInfo *t)
 }  // namespace
 void solid_affine_update(TransInfo *t, const float matrix[3][3])
 {
+  double3x3 linear{float3x3(matrix)};
+  if (t->mode == TFM_ROTATION) {
+    /* View-axis rotations arrive as floats. Roundoff can exceed the rigid-preview
+     * tolerance at some angles, sending an otherwise rigid drag through source
+     * tessellation for the remainder of the operation. Restore a proper rotation
+     * in double precision before converting it into object-local coordinates.
+     * Resize matrices must retain their scale and shear. */
+    const double3 x = math::normalize(linear[0]);
+    const double3 z = math::normalize(math::cross(x, linear[1]));
+    const double3 y = math::cross(z, x);
+    if (std::getenv("BLENDER_SOLID_PROFILE")) {
+      const double3x3 gram = math::transpose(linear) * linear;
+      const double error = std::abs(gram[0][0] - 1) + std::abs(gram[1][1] - 1) +
+                           std::abs(gram[2][2] - 1) + std::abs(gram[0][1]) +
+                           std::abs(gram[0][2]) + std::abs(gram[1][2]);
+      if (error >= 1e-6)
+        fprintf(stderr, "SOLID_ROTATION_MATRIX corrected_error=%.9g\n", error);
+    }
+    linear = double3x3(x, y, z);
+  }
   FOREACH_TRANS_DATA_CONTAINER (t, tc)
     if (auto *data = static_cast<SolidTransform *>(tc->custom.type.data))
-      data->linear = double3x3(float3x3(matrix));
+      data->linear = linear;
 }
 void solid_translation_update(TransInfo *t, const double3 &offset)
 {
