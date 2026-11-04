@@ -7,6 +7,223 @@
 import modules.ui_test_utils as ui
 
 
+def fillet_rotation_cancel_and_undo():
+    import bpy
+    import bmesh
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.solid.sketch_add(type='RECTANGLE')
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.solid.bevel(offset=.2, segments=1)
+        bpy.ops.mesh.select_mode(type='VERT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.ed.undo_push(message='Fillet before rotation')
+
+    def positions():
+        return [tuple(v.co) for v in bmesh.from_edit_mesh(window.view_layer.objects.active.data).verts]
+
+    before = positions()
+    yield e.r().z().text('20').esc()
+    t.assertEqual(positions(), before)
+    yield e.r().z().text('20').ret()
+    rotated = positions()
+    t.assertNotEqual(rotated, before)
+    yield e.ctrl.z()
+    t.assertEqual(positions(), before)
+    yield e.ctrl.shift.z()
+    t.assertEqual(positions(), rotated)
+
+
+def _angled_box_wheel_fillet(all_edges=False):
+    import bpy
+    import bmesh
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.solid.sketch_add(type='RECTANGLE')
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.transform.translate(value=(.4, 0, 0))
+        if all_edges:
+            bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.ed.undo_push(message='Angled solid before wheel fillet')
+    mesh = window.view_layer.objects.active.data
+    t.assertEqual(mesh.solid_faces_count, 6)
+    yield e.ctrl.b().text('0.12')
+    chamfer_count = mesh.solid_faces_count
+    t.assertGreater(chamfer_count, 6)
+    yield e.wheelupmouse()
+    rounded_count = mesh.solid_faces_count
+    t.assertGreater(rounded_count, 6)
+    t.assertGreater(len(bmesh.from_edit_mesh(mesh).faces), rounded_count)
+    t.assertTrue(all(edge.is_manifold for edge in bmesh.from_edit_mesh(mesh).edges))
+    yield e.wheelupmouse()
+    t.assertGreaterEqual(mesh.solid_faces_count, rounded_count)
+    yield e.wheeldownmouse().wheeldownmouse()
+    t.assertEqual(mesh.solid_faces_count, chamfer_count)
+    yield e.wheelupmouse().ret()
+    t.assertEqual(mesh.solid_faces_count, rounded_count)
+    yield e.ctrl.z()
+    t.assertEqual(window.view_layer.objects.active.data.solid_faces_count, 6)
+    yield e.ctrl.shift.z()
+    t.assertEqual(window.view_layer.objects.active.data.solid_faces_count, rounded_count)
+
+
+def angled_top_face_wheel_fillet():
+    yield from _angled_box_wheel_fillet()
+
+
+def angled_whole_box_wheel_fillet():
+    yield from _angled_box_wheel_fillet(all_edges=True)
+
+
+def smooth_fillet_trim_pieces_select_as_one_face():
+    import bpy
+    import bmesh
+    import math
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.solid.sketch_add(type='RECTANGLE')
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.transform.translate(value=(.4, 0, 0))
+        bpy.ops.solid.bevel(offset=.35, segments=1)
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.wm.tool_set_by_id(name='builtin.select_box')
+    yield e.numpad_1()
+    area.spaces.active.region_3d.view_location = (.2, 0, 1)
+    area.spaces.active.region_3d.view_distance = 3.6
+    yield
+    selected = None
+    for degrees in (45, 84):
+        angle = math.radians(degrees)
+        point = Vector((.2, -.65 - .35 * math.sin(angle), 1.65 + .35 * math.cos(angle)))
+        co = location_3d_to_region_2d(region, area.spaces.active.region_3d, point)
+        yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+        yield e.leftmouse()
+        current = {i for i, face in enumerate(bmesh.from_edit_mesh(window.view_layer.objects.active.data).faces)
+                   if face.select}
+        t.assertGreater(len(current), 1)
+        if selected is not None:
+            t.assertEqual(current, selected)
+        selected = current
+        yield e.alt.a()
+
+
+def starter_line_extrusion_returns_to_selection():
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    yield from ui.call_menu(e, 'Add -> Solid -> Line Sketch')
+    def active_tool():
+        return window.workspace.tools.from_space_view3d_mode('EDIT_MESH').idname
+    t.assertEqual(active_tool(), 'builtin.nurbs_draw_line')
+    yield e.e().z().text('2').esc()
+    t.assertEqual(active_tool(), 'builtin.nurbs_draw_line')
+    t.assertEqual(window.view_layer.objects.active.data.solid_faces_count, 0)
+    yield e.e().z().text('2').ret()
+    t.assertEqual(window.view_layer.objects.active.data.solid_faces_count, 1)
+    t.assertEqual(active_tool(), 'builtin.select_box')
+
+
+def starter_line_extrusion_exec_returns_to_selection():
+    import bpy
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    yield from ui.call_menu(e, 'Add -> Solid -> Line Sketch')
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.solid.extrude(offset=(0, 0, 2)), {'FINISHED'})
+    t.assertEqual(window.view_layer.objects.active.data.solid_faces_count, 1)
+    t.assertEqual(window.workspace.tools.from_space_view3d_mode('EDIT_MESH').idname, 'builtin.select_box')
+
+
+def fillet_click_selects_source_face():
+    import bpy
+    import bmesh
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        bpy.ops.solid.sketch_add(type='RECTANGLE')
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.solid.bevel(offset=.2, segments=1)
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.wm.tool_set_by_id(name='builtin.select_box')
+    yield e.numpad_1()
+    area.spaces.active.region_3d.view_location = (0, 0, 1)
+    area.spaces.active.region_3d.view_distance = 6
+    yield
+    point = Vector((0, -.8 - .2 / 2**.5, 1.8 + .2 / 2**.5))
+    co = location_3d_to_region_2d(region, area.spaces.active.region_3d, point)
+    yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+    yield e.leftmouse()
+    mesh = window.view_layer.objects.active.data
+    t.assertEqual(sum(f.select for f in bmesh.from_edit_mesh(mesh).faces), 16)
+    yield e.shift.leftmouse()
+    t.assertEqual(sum(f.select for f in bmesh.from_edit_mesh(mesh).faces), 0)
+
+
+def sketch_rightclick_returns_to_selection():
+    import bpy
+    from mathutils import Vector
+    from bpy_extras.view3d_utils import location_3d_to_region_2d
+
+    e, t, window = ui.test_window()
+    area = ui.get_window_area_by_type(window, 'VIEW_3D')
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    yield e.cursor_position_set(*ui.get_area_center(area), move=True)
+    yield e.a().x().ret()
+    yield from ui.call_menu(e, 'Add -> Solid -> Line Sketch')
+    yield e.rightmouse()
+    t.assertEqual(window.workspace.tools.from_space_view3d_mode('EDIT_MESH').idname, 'builtin.select_box')
+    with bpy.context.temp_override(window=window, area=area, region=region):
+        t.assertEqual(bpy.ops.wm.tool_set_by_id(name='builtin.solid_extrude'), {'FINISHED'})
+        t.assertEqual(window.workspace.tools.from_space_view3d_mode('EDIT_MESH').idname, 'builtin.solid_extrude')
+        bpy.ops.wm.tool_set_by_id(name='builtin.nurbs_draw_line')
+    yield e.numpad_7()
+    area.spaces.active.region_3d.view_location = (0, 0, 0)
+    area.spaces.active.region_3d.view_distance = 10
+    window.scene.tool_settings.use_snap = False
+    yield
+    for point in ((2, 2, 0), (3, 2, 0)):
+        co = location_3d_to_region_2d(region, area.spaces.active.region_3d, Vector(point))
+        yield e.cursor_position_set(round(co.x) + region.x, round(co.y) + region.y, move=True)
+        yield e.leftmouse()
+    yield e.rightmouse()
+    t.assertEqual(window.workspace.tools.from_space_view3d_mode('EDIT_MESH').idname, 'builtin.select_box')
+    t.assertEqual(window.view_layer.objects.active.data.solid_edges_count, 2)
+
+
 def empty_sketch_activates_line_and_extrudes():
     import bpy
 

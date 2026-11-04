@@ -23,6 +23,26 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
   std::unordered_map<Id, const Surface *> surfaces;
   std::unordered_map<Id, const Edge *> edges;
   std::unordered_map<Id, std::vector<int>> paths;
+  std::unordered_map<Id, std::vector<Id>> edge_groups;
+  std::unordered_map<Id, int> ruled_rails;
+  for (const Face &f : model.faces) {
+    for (const Coedge &use : f.outer)
+      edge_groups[use.edge].push_back(f.group ? f.group : f.id);
+    if (surface(model, f.surface)->kind == SurfaceKind::Ruled && f.outer.size() == 4) {
+      const Surface &s = *surface(model, f.surface);
+      const Curve &a = *curve(model, s.curve), &b = *curve(model, s.other_curve);
+      const Vec3 offset = evaluate(b, s.reverse_second ? 1 : 0) -
+                          evaluate(a, s.reverse_first ? 1 : 0);
+      const bool translated = a.kind == CurveKind::RationalQuadratic &&
+                              b.kind == CurveKind::RationalQuadratic && a.w == b.w &&
+                              length(b.u - a.u - offset) < 1e-11 &&
+                              length(evaluate(b, s.reverse_second ? 0 : 1) -
+                                     evaluate(a, s.reverse_first ? 0 : 1) - offset) < 1e-11;
+      const int count = translated ? 1 : 4;
+      for (int side : {1, 3})
+        ruled_rails[f.outer[side].edge] = std::max(ruled_rails[f.outer[side].edge], count);
+    }
+  }
   auto point = [&](Vec3 p, Id id) {
     const int index = int(mesh.positions.size());
     mesh.positions.push_back(p);
@@ -38,8 +58,10 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
   for (const auto &e : model.edges) {
     edges[e.id] = &e;
     const auto &c = *curves.at(e.curve);
-    const int count = c.kind == CurveKind::Line ?
-                          1 :
+    const int count = c.kind == CurveKind::Cubic || c.kind == CurveKind::RationalQuadratic ?
+                          std::max(2, int(std::ceil(std::abs(e.end - e.start) * segments / 4))) :
+                      c.kind == CurveKind::Line ?
+                          (ruled_rails.contains(e.id) ? ruled_rails.at(e.id) : 1) :
                           std::max(2,
                                    int(std::ceil(std::abs(e.end - e.start) /
                                                  (2 * std::numbers::pi) * segments)));
@@ -52,7 +74,8 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
     path.push_back(vertices.at(e.vertices[1]));
     for (int i = 0; i < count; i++) {
       mesh.edges.push_back({path[i], path[i + 1]});
-      mesh.edge_source.push_back(e.id);
+      const auto &groups = edge_groups[e.id];
+      mesh.edge_source.push_back(groups.size() == 2 && groups[0] == groups[1] ? 0 : e.id);
     }
   }
   auto polygon = [&](std::vector<int> points, std::vector<Vec3> normals, const Face &f) {
@@ -64,7 +87,7 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
     }
     mesh.polygons.push_back(std::move(points));
     mesh.corner_normals.push_back(std::move(normals));
-    mesh.face_source.push_back(f.id);
+    mesh.face_source.push_back(f.group ? f.group : f.id);
   };
   for (const auto &f : model.faces) {
     const auto &s = *surfaces.at(f.surface);
@@ -88,16 +111,201 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
       const Vec3 normal = cross(s.u, s.v) / length(cross(s.u, s.v));
       polygon(boundary, std::vector<Vec3>(boundary.size(), normal), f);
     }
+    else if (s.kind == SurfaceKind::Ruled) {
+      auto oriented = [&](const Coedge &use, bool reverse) {
+        auto path = paths.at(use.edge);
+        if (use.reversed != reverse)
+          std::reverse(path.begin(), path.end());
+        return path;
+      };
+      const auto first = oriented(f.outer[0], false), last = oriented(f.outer[2], true),
+                 left = oriented(f.outer[3], true), right = oriented(f.outer[1], false);
+      if (first.size() != last.size() || left.size() != right.size()) {
+        if (error)
+          *error = "Ruled fillet boundary samples do not agree";
+        return {};
+      }
+      const Curve &a = *curves.at(s.curve), &b = *curves.at(s.other_curve);
+      const int rows = first.size() - 1, columns = left.size() - 1;
+      std::vector<std::vector<int>> grid(rows + 1, std::vector<int>(columns + 1));
+      for (int i = 0; i <= rows; ++i)
+        for (int j = 0; j <= columns; ++j) {
+          if (i == 0)
+            grid[i][j] = left[j];
+          else if (i == rows)
+            grid[i][j] = right[j];
+          else if (j == 0)
+            grid[i][j] = first[i];
+          else if (j == columns)
+            grid[i][j] = last[i];
+          else
+            grid[i][j] = point(
+                evaluate_ruled(
+                    s, a, b, s.start + (s.end - s.start) * double(i) / rows, double(j) / columns),
+                0);
+        }
+      for (int i = 0; i < rows; ++i)
+        for (int j = 0; j < columns; ++j) {
+          std::vector<int> points;
+          std::vector<Vec3> normals;
+          for (const auto &[r, c] : {std::pair{i, j},
+                                     std::pair{i + 1, j},
+                                     std::pair{i + 1, j + 1},
+                                     std::pair{i, j + 1}})
+          {
+            Vec3 n = ruled_normal(
+                s, a, b, s.start + (s.end - s.start) * double(r) / rows, double(c) / columns);
+            if (!(length(n) > 0)) {
+              if (error)
+                *error = "Degenerate ruled fillet tangent frame";
+              return {};
+            }
+            points.push_back(grid[r][c]);
+            normals.push_back(n / length(n));
+          }
+          polygon(std::move(points), std::move(normals), f);
+        }
+    }
+    else if (s.kind == SurfaceKind::Blend) {
+      auto oriented = [&](const Coedge &use, bool reverse) {
+        auto path = paths.at(use.edge);
+        if (use.reversed != reverse)
+          std::reverse(path.begin(), path.end());
+        return path;
+      };
+      const auto side0 = oriented(f.outer.front(), false);
+      const auto side1 = oriented(f.outer[f.outer.size() - 2], true);
+      const auto top = oriented(f.outer.back(), true);
+      const bool collapsed = f.outer.size() == 3;
+      const auto bottom = collapsed ? std::vector<int>{} : oriented(f.outer[1], false);
+      if (side0.size() != side1.size() || (!collapsed && top.size() != bottom.size())) {
+        if (error)
+          *error = "Corner blend boundary sampling does not agree";
+        return {};
+      }
+      const int rows = side0.size() - 1, columns = top.size() - 1;
+      std::vector<std::vector<int>> grid(rows + 1, std::vector<int>(columns + 1));
+      for (int i = 0; i <= rows; ++i)
+        for (int j = 0; j <= columns; ++j) {
+          if (j == 0)
+            grid[i][j] = side0[i];
+          else if (j == columns)
+            grid[i][j] = side1[i];
+          else if (i == 0)
+            grid[i][j] = top[j];
+          else if (i == rows)
+            grid[i][j] = collapsed ? side0.back() : bottom[j];
+          else {
+            const double theta = s.start + (s.end - s.start) * double(i) / rows,
+                         v = s.blend_v_start +
+                             (s.blend_v_end - s.blend_v_start) * double(j) / columns;
+            grid[i][j] = point(evaluate_blend(s, theta, v), 0);
+          }
+        }
+      for (int i = 0; i < rows; ++i)
+        for (int j = 0; j < columns; ++j) {
+          std::vector<int> points;
+          std::vector<Vec3> normals;
+          for (const auto &[r, c] : {std::pair{i, j},
+                                     std::pair{i + 1, j},
+                                     std::pair{i + 1, j + 1},
+                                     std::pair{i, j + 1}})
+          {
+            if (!points.empty() && points.back() == grid[r][c])
+              continue;
+            const double theta = s.start + (s.end - s.start) * double(r) / rows,
+                         v = s.blend_v_start +
+                             (s.blend_v_end - s.blend_v_start) * double(c) / columns;
+            Vec3 normal = cross(blend_theta_tangent(s, theta, v), blend_v_direction(s, v));
+            if (!(length(normal) > 0)) {
+              if (error)
+                *error = "Degenerate corner blend normal";
+              return {};
+            }
+            points.push_back(grid[r][c]);
+            normals.push_back(normal / length(normal));
+          }
+          polygon(std::move(points), std::move(normals), f);
+        }
+    }
+    else if (s.kind == SurfaceKind::Sphere) {
+      const double det = dot(s.u, cross(s.v, s.w));
+      auto local = [&](Vec3 p) {
+        p = p - s.origin;
+        return Vec3{dot(p, cross(s.v, s.w)) / det,
+                    dot(p, cross(s.w, s.u)) / det,
+                    dot(p, cross(s.u, s.v)) / det};
+      };
+      auto normal = [&](Vec3 q) {
+        Vec3 n = (cross(s.v, s.w) * q.x + cross(s.w, s.u) * q.y + cross(s.u, s.v) * q.z) /
+                 std::abs(det);
+        return n / length(n);
+      };
+      std::vector<int> boundary;
+      for (const Coedge &use : f.outer) {
+        const auto &path = paths.at(use.edge);
+        for (size_t i = 0; i + 1 < path.size(); ++i)
+          boundary.push_back(path[use.reversed ? path.size() - 1 - i : i]);
+      }
+      Vec3 center;
+      for (int id : boundary)
+        center = center + local(mesh.positions[id]);
+      center = center / length(center);
+      const int center_id = point(s.origin + s.u * center.x + s.v * center.y + s.w * center.z, 0);
+      std::vector<int> previous(boundary.size(), center_id);
+      /* A fillet may already be split into hundreds of small spherical source
+       * patches. Sampling every patch like a complete corner multiplies the
+       * display density with each source subdivision. Scale interior sampling
+       * by this patch's angular extent; shared boundary samples stay unchanged. */
+      double extent = 0;
+      for (int id : boundary) {
+        Vec3 q = local(mesh.positions[id]);
+        q = q / length(q);
+        extent = std::max(extent, std::acos(std::clamp(dot(center, q), -1.0, 1.0)));
+      }
+      const int rings = std::max(1, int(std::ceil(extent * std::max(2, segments / 8))));
+      for (int ring = 1; ring <= rings; ++ring) {
+        std::vector<int> current;
+        for (int id : boundary) {
+          if (ring == rings) {
+            current.push_back(id);
+            continue;
+          }
+          Vec3 q = center * (1 - double(ring) / rings) +
+                   local(mesh.positions[id]) * (double(ring) / rings);
+          q = q / length(q);
+          current.push_back(point(s.origin + s.u * q.x + s.v * q.y + s.w * q.z, 0));
+        }
+        for (size_t i = 0; i < boundary.size(); ++i) {
+          const size_t j = (i + 1) % boundary.size();
+          std::vector<int> points = ring == 1 ?
+                                        std::vector<int>{center_id, current[i], current[j]} :
+                                        std::vector<int>{
+                                            previous[i], current[i], current[j], previous[j]};
+          std::vector<Vec3> normals;
+          for (int id : points)
+            normals.push_back(normal(local(mesh.positions[id])));
+          polygon(std::move(points), std::move(normals), f);
+        }
+        previous = std::move(current);
+      }
+    }
     else {
       if (f.outer.size() != 4 || !f.holes.empty()) {
         if (error)
           *error = "An extrusion wall needs its four analytic boundary uses";
         return {};
       }
-      const auto &bottom = paths.at(f.outer[0].edge);
-      const auto &top = paths.at(f.outer[2].edge);
+      auto bottom = paths.at(f.outer[0].edge);
+      auto top = paths.at(f.outer[2].edge);
+      if (s.kind == SurfaceKind::Cylinder) {
+        if (f.outer[0].reversed)
+          std::reverse(bottom.begin(), bottom.end());
+        if (!f.outer[2].reversed)
+          std::reverse(top.begin(), top.end());
+      }
       const auto &e = *edges.at(f.outer[0].edge);
-      const auto &c = *curves.at(s.curve);
+      const auto &c = *curves.at(s.kind == SurfaceKind::Cylinder ? e.curve : s.curve);
       if (bottom.size() != top.size()) {
         if (error)
           *error = "Extrusion boundary parameterizations do not agree";
@@ -106,8 +314,11 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
       for (size_t i = 0; i + 1 < bottom.size(); i++) {
         std::vector<Vec3> normals;
         for (size_t j : {i, i + 1, i + 1, i}) {
-          const double t = e.start + (e.end - e.start) * double(j) / (bottom.size() - 1);
-          Vec3 n = cross(tangent(c, t) * (e.end - e.start), s.u);
+          const bool reversed = s.kind == SurfaceKind::Cylinder && f.outer[0].reversed;
+          const double fraction = double(j) / (bottom.size() - 1);
+          const double t = e.start + (e.end - e.start) * (reversed ? 1 - fraction : fraction);
+          Vec3 n = cross(tangent(c, t) * ((reversed ? -1 : 1) * (e.end - e.start)),
+                         s.kind == SurfaceKind::Cylinder ? s.w : s.u);
           const double size = length(n);
           if (!(size > 0)) {
             if (error)

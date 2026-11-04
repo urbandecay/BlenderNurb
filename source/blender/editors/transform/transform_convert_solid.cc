@@ -131,7 +131,8 @@ void recalc_solid(TransInfo *t)
       matrix.columns[i] = {local[i].x, local[i].y, local[i].z};
     matrix.translation = {translation.x, translation.y, translation.z};
     auto candidate = solid::transform_selected(*source.model, source.selection, matrix, &error);
-    if (!candidate || !data->session->apply(t->context, std::move(*candidate), &error)) {
+    const bool complete = source.selection.vertices.size() == source.model->vertices.size();
+    if (!candidate || !data->session->apply(t->context, std::move(*candidate), &error, complete, &matrix)) {
       BKE_report(t->reports, RPT_ERROR, error.c_str());
       t->state = TRANS_CANCEL;
       if (data->changed)

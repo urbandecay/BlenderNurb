@@ -1,11 +1,12 @@
 # Independent analytic solid workflow
 
 This replacement implements a new kernel in `source/blender/solid`. It uses double precision
-lines and conics, plane and extrusion surfaces, vertices, edges, oriented boundary uses and
-faces. It has no dependency on Blender, NURBS, rational surface evaluation, or BMesh. Circles
+lines, conics and rational quadratic profiles, plane, extrusion, ruled and affine sphere
+surfaces, vertices, edges, oriented boundary uses and faces. It has no dependency on Blender,
+the NURBS library, or BMesh. Circles
 and ellipses are stored as `center + u*cos(t) + v*sin(t)`, with angular edge intervals. Lines
-are `origin + u*t`. There are no knot vectors, weights, surface grids, fitting, or conversion
-through the existing NURBS kernel in the solid path.
+are `origin + u*t`. Rounded junction profiles store three control points and weights directly, without knot
+vectors, general surface grids, fitting, or conversion through the existing NURBS kernel.
 
 A Mesh datablock hosts an independently serialized solid payload and a replaceable display
 mesh. It is a viewport adapter, not the authoritative source. Display points and faces retain
@@ -30,12 +31,18 @@ spline/control-net authoring remains in the separate NURBS workflow.
 5. In Vertex mode, select a vertex and press **E** to extend an edge from it. Select an open
    edge or chain and press **E** to sweep a surface. Use **X/Y/Z** to constrain the translation,
    type a distance, or move freely in the viewport plane. Ctrl snaps the translation.
+   Confirming an extrusion while a sketch drawing tool is active returns to Select Box,
+   including extrusion of the starter Line Sketch into a face.
 6. Use **M** for merge at center/first/last/cursor, by distance, or collapse. The active vertex
    and vertex selection history supply the first/last targets. The cursor target is converted
    into the object's local coordinate system.
-7. Use **Ctrl+B** for a single-segment edge bevel or **Ctrl+Shift+B** for a vertex bevel.
+7. Use **Ctrl+B** for an edge bevel or **Ctrl+Shift+B** for a vertex chamfer.
+   **Segments** in the redo panel (or the mouse wheel during bevel) uses 0 for a flat chamfer,
+   1 for an exact curved fillet without extra source divisions, and higher values for divided
+   curved source patches. Width is measured along the adjacent faces, as in the native NURBS
+   bevel; it is not a constant-radius prescription on skewed geometry.
    The bevel redo panel offers **Corner Join: Sharp/Patch** for flat caps where three or more
-   selected edge bevels meet.
+   selected edge chamfers meet. Fillets use shared conic profiles, ruled strips and affine spherical corner surfaces.
    Wire corners with two straight edges and convex planar closed solids are supported. Width
    is the offset along adjoining faces for an edge chamfer. Multiple adjoining edge cuts
    intersect through the same half-space construction, including corners of higher valence.
@@ -58,7 +65,7 @@ Changing display sampling does not increase source topology.
 ## Current boundaries
 
 This is an analytic sketch and component-editing foundation, not a complete general CAD kernel.
-It does not implement solid booleans, rounded fillets, general intersections/trimming, feature history, constraints, or inference
+It does not implement solid booleans, general intersections/trimming, feature history, constraints, or inference
 of nested sketch loops. Planar face hole display is explicitly unsupported. Structural source
 validation and oriented edge-incidence checks are not a general geometric self-intersection
 proof. Collisions with unrelated source bodies are not certified.
@@ -70,8 +77,21 @@ independently. Partial conic/curved-surface deformation without an explicit cons
 is refused. Merge can weld coincident conic endpoints but does not bend an arc to a new endpoint.
 Solid bevels check the selected connected component, so a separate open sheet in the same
 object no longer blocks beveling a closed body. The selected component still needs a closed,
-convex planar boundary and the bevel has one segment; rounded, concave, and curved-face blends
-are not implemented. Merge by Distance welds nearby vertices but does not create a missing face
+convex planar boundary. Fillets support selected straight edges on convex planar bodies with
+three incident faces at each affected corner. Face widths are balanced across the selection;
+adjoining strips share one rational conic profile at a two-edge junction. There is no separate
+setback wedge at that junction. Three-edge junctions use affine spherical octants. The source
+construction is implemented in the independent solid kernel and follows the native NURBS
+bevel's stations and shared profiles. Width follows face-offset semantics; skewed corner
+transitions are not necessarily constant-radius cylinders or spheres.
+
+The subdivision count divides the same analytic geometry, while viewport sampling remains
+independent. Each strip segment has one selectable source face. Higher-valence rounded corners,
+vertex-only fillets, concave blends and blends on existing curved faces need additional
+constructions. Source storage version 5 adds rational quadratic curves and ruled supports,
+and reads versions 1 through 4, including legacy cylinder and setback blend supports. Existing
+fillets keep their saved geometry; undo and recreate an old fillet to use the new construction.
+Merge by Distance welds nearby vertices but does not create a missing face
 or remove an overlapping face. These limits are
 reported instead of deforming a display mesh or falling back to NURBS.
 

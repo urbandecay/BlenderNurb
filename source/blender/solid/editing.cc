@@ -69,6 +69,16 @@ double tolerance(const Model &m)
 }
 void compact_supports(Model &m)
 {
+  std::unordered_map<Id, Id> group_representatives;
+  for (const Face &f : m.faces)
+    if (f.group) {
+      auto [it, added] = group_representatives.try_emplace(f.group, f.id);
+      if (!added)
+        it->second = std::min(it->second, f.id);
+    }
+  for (Face &f : m.faces)
+    if (f.group)
+      f.group = group_representatives.at(f.group);
   Set curves, surfaces;
   for (const Edge &e : m.edges)
     curves.insert(e.curve);
@@ -76,8 +86,11 @@ void compact_supports(Model &m)
     surfaces.insert(f.surface);
   std::erase_if(m.surfaces, [&](const Surface &s) { return !surfaces.contains(s.id); });
   for (const Surface &s : m.surfaces)
-    if (s.kind == SurfaceKind::Extrusion)
+    if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled)
       curves.insert(s.curve);
+  for (const Surface &s : m.surfaces)
+    if (s.kind == SurfaceKind::Ruled)
+      curves.insert(s.other_curve);
   std::erase_if(m.curves, [&](const Curve &c) { return !curves.contains(c.id); });
 }
 struct Polygon {
@@ -294,8 +307,12 @@ std::optional<EditResult> duplicate_elements(const Model &model,
     if (faces.contains(f.id))
       surfaces.insert(f.surface);
   for (const Surface &s : model.surfaces)
-    if (surfaces.contains(s.id) && s.kind == SurfaceKind::Extrusion)
+    if (surfaces.contains(s.id) &&
+        (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled))
       curves.insert(s.curve);
+  for (const Surface &s : model.surfaces)
+    if (surfaces.contains(s.id) && s.kind == SurfaceKind::Ruled)
+      curves.insert(s.other_curve);
   const size_t count = vertices.size() + edges.size() + faces.size() + curves.size() +
                        surfaces.size();
   if (count > std::numeric_limits<Id>::max() - out.next_id) {
@@ -336,13 +353,17 @@ std::optional<EditResult> duplicate_elements(const Model &model,
   for (Surface s : model.surfaces)
     if (surfaces.contains(s.id)) {
       s.id = ids.at(s.id);
-      if (s.kind == SurfaceKind::Extrusion)
+      if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled)
         s.curve = ids.at(s.curve);
+      if (s.kind == SurfaceKind::Ruled)
+        s.other_curve = ids.at(s.other_curve);
       out.surfaces.push_back(s);
     }
   for (Face f : model.faces)
     if (faces.contains(f.id)) {
       f.id = ids.at(f.id);
+      if (f.group)
+        f.group = ids.contains(f.group) ? ids.at(f.group) : 0;
       f.surface = ids.at(f.surface);
       for (Coedge &use : f.outer)
         use.edge = ids.at(use.edge);
@@ -422,6 +443,10 @@ std::optional<EditResult> extrude_elements(const Model &model,
       Curve shifted = c;
       shifted.id = out.next_id++;
       shifted.origin = shifted.origin + offset;
+      if (shifted.kind == CurveKind::RationalQuadratic) {
+        shifted.u = shifted.u + offset;
+        shifted.v = shifted.v + offset;
+      }
       curves[e.curve] = shifted.id;
       out.curves.push_back(shifted);
     }
@@ -691,13 +716,12 @@ std::optional<EditResult> delete_elements(const Model &model,
   return result;
 }
 
-std::optional<EditResult> chamfer(
-    const Model &model,
-    Selection selection,
-    double width,
-    bool vertices_only,
-    std::string *error,
-    BevelCornerStyle corner_style)
+std::optional<EditResult> chamfer(const Model &model,
+                                  Selection selection,
+                                  double width,
+                                  bool vertices_only,
+                                  std::string *error,
+                                  BevelCornerStyle corner_style)
 {
   if (!validate(model, error))
     return {};
@@ -937,8 +961,7 @@ std::optional<EditResult> chamfer(
       int selected_incident_edges = 0;
       std::set<Id> adjacent_faces;
       for (const Edge &e : model.edges) {
-        if (!uses.contains(e.id) ||
-            (e.vertices[0] != vertex_id && e.vertices[1] != vertex_id))
+        if (!uses.contains(e.id) || (e.vertices[0] != vertex_id && e.vertices[1] != vertex_id))
           continue;
         selected_incident_edges += selected_edges.contains(e.id);
         for (Id face_id : uses.at(e.id))
@@ -955,16 +978,14 @@ std::optional<EditResult> chamfer(
       const Vec3 origin = vertex(model, vertex_id)->position;
       double along_edge = std::numeric_limits<double>::max();
       for (const Edge &e : model.edges) {
-        if (!uses.contains(e.id) ||
-            (e.vertices[0] != vertex_id && e.vertices[1] != vertex_id))
+        if (!uses.contains(e.id) || (e.vertices[0] != vertex_id && e.vertices[1] != vertex_id))
           continue;
         const Id other = e.vertices[e.vertices[0] == vertex_id ? 1 : 0];
         const Vec3 direction = vertex(model, other)->position - origin;
         along_edge = std::min(along_edge, -dot(normal, direction / length(direction)));
       }
       if (along_edge > eps)
-        patch_cuts.emplace(vertex_id,
-                           Cut{normal, dot(normal, origin) - 2 * width * along_edge});
+        patch_cuts.emplace(vertex_id, Cut{normal, dot(normal, origin) - 2 * width * along_edge});
     }
   }
   EditResult result{model, {}};

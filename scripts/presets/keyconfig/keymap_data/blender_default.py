@@ -7096,6 +7096,8 @@ def km_3d_view_tool_nurbs_draw(params, *, spline=False):
         {"items": [
             ("curve.draw_spline" if spline else "curve.draw_line",
              {"type": params.tool_mouse, "value": 'PRESS'}, None),
+            ("wm.tool_set_by_id", {"type": 'RIGHTMOUSE', "value": 'PRESS'},
+             {"properties": [("name", "builtin.select_box")]}),
         ]},
     )
 

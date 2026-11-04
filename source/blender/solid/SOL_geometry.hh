@@ -40,7 +40,7 @@ double dot(Vec3 a, Vec3 b);
 Vec3 cross(Vec3 a, Vec3 b);
 double length(Vec3 a);
 
-enum class CurveKind : uint8_t { Line, Conic };
+enum class CurveKind : uint8_t { Line, Conic, Cubic, RationalQuadratic };
 
 /** Line: origin + u*t. Conic: origin + u*cos(t) + v*sin(t).
  * Independent axes retain exact ellipse/shear geometry under affine object transforms.
@@ -49,6 +49,9 @@ struct Curve {
   Id id = 0;
   CurveKind kind = CurveKind::Line;
   Vec3 origin, u, v;
+  /** Cubic: origin + u*t + v*t*t + w*t*t*t.
+   * RationalQuadratic: origin/u/v are three points and w holds their weights. */
+  Vec3 w;
 };
 
 struct Vertex {
@@ -67,7 +70,7 @@ struct Coedge {
   bool reversed = false;
 };
 
-enum class SurfaceKind : uint8_t { Plane, Extrusion };
+enum class SurfaceKind : uint8_t { Plane, Extrusion, Sphere, Cylinder, Blend, Ruled };
 
 /** Plane: origin + u*s + v*t. Extrusion: curve(start + (end-start)*s) + u*t. */
 struct Surface {
@@ -76,6 +79,16 @@ struct Surface {
   Vec3 origin, u, v;
   Id curve = 0;
   double start = 0, end = 1;
+  /** Sphere: x*x+y*y+z*z=1. Cylinder: x*x+y*y=1.
+   * Both use the affine frame origin + u*x + v*y + w*z. */
+  Vec3 w;
+  /** Analytic conic/Hermite corner: conic(theta) +
+   * (cos(theta) - blend_cot*sin(theta))*polynomial(v). */
+  std::array<Vec3, 4> blend{};
+  double blend_cot = 0, blend_v_start = 0, blend_v_end = 1;
+  /** Ruled surface between curve and other_curve; start/end trim the profile parameter. */
+  Id other_curve = 0;
+  bool reverse_first = false, reverse_second = false;
 };
 
 struct Face {
@@ -83,6 +96,8 @@ struct Face {
   std::vector<Coedge> outer;
   std::vector<std::vector<Coedge>> holes;
   int orientation = 1;
+  /** First physical face of one logical surface patch; zero means this face alone. */
+  Id group = 0;
 };
 
 struct Model {
@@ -104,6 +119,13 @@ Selection normalize_selection(const Model &model, Selection selection);
 
 Vec3 evaluate(const Curve &curve, double parameter);
 Vec3 tangent(const Curve &curve, double parameter);
+Vec3 evaluate_blend(const Surface &surface, double theta, double v);
+Vec3 blend_theta_tangent(const Surface &surface, double theta, double v);
+Vec3 blend_v_direction(const Surface &surface, double v);
+Vec3 evaluate_ruled(
+    const Surface &surface, const Curve &first, const Curve &last, double u, double v);
+Vec3 ruled_normal(
+    const Surface &surface, const Curve &first, const Curve &last, double u, double v);
 const Vertex *vertex(const Model &model, Id id);
 const Curve *curve(const Model &model, Id id);
 const Edge *edge(const Model &model, Id id);
@@ -162,6 +184,11 @@ std::optional<EditResult> merge_vertices(const Model &model,
                                          std::string *error = nullptr);
 /** Exact planar bevel by half-space construction, including multi-edge corner intersections. */
 enum class BevelCornerStyle { Sharp, Patch };
+std::optional<EditResult> fillet(const Model &model,
+                                 Selection selection,
+                                 double width,
+                                 int subdivisions,
+                                 std::string *error = nullptr);
 std::optional<EditResult> chamfer(const Model &model,
                                   Selection selection,
                                   double width,
@@ -196,8 +223,8 @@ struct DisplayMesh {
   std::vector<Id> vertex_source, edge_source, face_source;
   std::vector<std::vector<Vec3>> corner_normals;
 };
-/** Derived display only: planar faces have boundary polygons and conic walls have strips.
- * No surface grids, curve fitting, source reconstruction or per-frame source serialization. */
+/** Derived display only: planar faces have boundary polygons, conic walls have strips and
+ * corner blends have sampled patches. Display samples never become source geometry. */
 std::optional<DisplayMesh> tessellate(const Model &model,
                                       int circle_segments = 64,
                                       std::string *error = nullptr);

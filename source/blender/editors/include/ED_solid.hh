@@ -31,7 +31,11 @@ class Session {
   {
     return source_;
   }
-  bool apply(bContext *C, solid::EditResult candidate, std::string *error = nullptr);
+  bool apply(bContext *C,
+             solid::EditResult candidate,
+             std::string *error = nullptr,
+             bool reuse_topology = false,
+             const solid::Affine *affine = nullptr);
   bool restore(bContext *C, std::string *error = nullptr);
 };
 

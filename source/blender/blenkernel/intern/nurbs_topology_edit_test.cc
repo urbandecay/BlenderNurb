@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <vector>
 
 #include "BLI_memory_utils.hh"
@@ -38,6 +39,7 @@
 
 #include "nurbs_test_geometry.hh"
 #include "testing/testing.h"
+#include "SOL_geometry.hh"
 
 namespace blender::bke::nurbs::tests {
 
@@ -278,6 +280,190 @@ static std::pair<OwnedGeometry, int64_t> bevel_fixture(const bool closed)
   }
   auto bent = extrude_edges(*sheet, {&corner, 1}, {0, 0, 2}, 0);
   return {bent ? std::move(bent->geometry) : nullptr, corner};
+}
+
+TEST_F(NurbsTopologyEditTest, IndependentSolidFilletMatchesNativeSharedProfileReference)
+{
+  namespace analytic = blender::solid;
+  for (const double skew : {.4, 1.4}) for (const bool tapered : {false, true}) {
+    SCOPED_TRACE(skew);
+    auto [base, ignored] = bevel_fixture(true);
+    ASSERT_TRUE(base);
+    Vector<VertexTransform> transforms;
+    double4x4 matrix = double4x4::identity();
+    matrix.location().x = skew;
+    if (tapered) {
+      matrix[0][0] = .65;
+      matrix[1][1] = .85;
+    }
+    for (const auto &v : base->vertices)
+      if (v.position[2] == 2)
+        transforms.append({v.id, matrix});
+    std::string error;
+    auto changed = transform_vertices(*base, transforms, 1e-9, &error);
+    ASSERT_TRUE(changed) << error;
+    const NurbsGeometry &native = *changed->geometry;
+    const auto index = TopologyIndex::build(native);
+    ASSERT_TRUE(index);
+    analytic::Model model;
+    std::map<int64_t, analytic::Id> vertices, edges;
+    auto vec = [](const double *p) { return analytic::Vec3{p[0], p[1], p[2]}; };
+    for (const auto &v : native.vertices) {
+      vertices[v.id] = model.next_id;
+      model.vertices.push_back({model.next_id++, vec(v.position)});
+    }
+    for (const auto &e : native.edges) {
+      analytic::Selection added;
+      ASSERT_TRUE(
+          analytic::append_curve(model,
+                                 *analytic::line(vec(index->vertex(e.vertex_ids[0])->position),
+                                                 vec(index->vertex(e.vertex_ids[1])->position)),
+                                 0,
+                                 1,
+                                 vertices.at(e.vertex_ids[0]),
+                                 vertices.at(e.vertex_ids[1]),
+                                 false,
+                                 &added,
+                                 &error))
+          << error;
+      edges[e.id] = added.edges.front();
+    }
+    for (const auto &f : native.faces) {
+      analytic::Face face;
+      for (const auto &use : static_cast<const NurbsTopologyLoop *>(f.loops.first)->edge_uses)
+        face.outer.push_back({edges.at(use.edge_id), bool(use.reversed)});
+      const auto &a = *analytic::edge(model, face.outer[0].edge),
+                 &b = *analytic::edge(model, face.outer[1].edge);
+      const analytic::Vec3
+          p = analytic::vertex(model, a.vertices[face.outer[0].reversed ? 1 : 0])->position,
+          q = analytic::vertex(model, a.vertices[face.outer[0].reversed ? 0 : 1])->position,
+          r = analytic::vertex(model, b.vertices[face.outer[1].reversed ? 0 : 1])->position;
+      const analytic::Vec3 u = q - p, n = analytic::cross(u, r - p);
+      const analytic::Id support = model.next_id++;
+      model.surfaces.push_back({support,
+                                analytic::SurfaceKind::Plane,
+                                p,
+                                u,
+                                analytic::cross(n / analytic::length(n), u)});
+      face.id = model.next_id++;
+      face.surface = support;
+      face.orientation = f.orientation;
+      model.faces.push_back(face);
+    }
+    ASSERT_TRUE(analytic::validate(model, &error)) << error;
+    for (const bool all_edges : {false, true})
+      for (const double width : {.1, .35, .6}) {
+        SCOPED_TRACE(tapered);
+        SCOPED_TRACE(all_edges);
+        SCOPED_TRACE(width);
+        Vector<int64_t> selected;
+        analytic::Selection selection;
+        selection.mode = 2;
+        for (const auto &e : native.edges)
+          if (all_edges || (index->vertex(e.vertex_ids[0])->position[2] == 2 &&
+                            index->vertex(e.vertex_ids[1])->position[2] == 2))
+          {
+            selected.append(e.id);
+            selection.edges.push_back(edges.at(e.id));
+          }
+        BevelOffsetInfo info;
+        auto reference = bevel_edges(
+            native, selected, {.offset = width, .segments = 1}, &error, &info);
+        ASSERT_TRUE(reference) << error;
+        auto result = analytic::fillet(model, selection, width, 1, &error);
+        ASSERT_TRUE(result) << error;
+        const auto reference_index = TopologyIndex::build(*reference->geometry);
+        ASSERT_TRUE(reference_index);
+        int matched_profiles = 0;
+        for (const analytic::Edge &e : result->model.edges) {
+          const auto &c = *analytic::curve(result->model, e.curve);
+          if (c.kind != analytic::CurveKind::RationalQuadratic)
+            continue;
+          const auto p = analytic::vertex(result->model, e.vertices[0])->position,
+                     q = analytic::vertex(result->model, e.vertices[1])->position;
+          const NurbsTopologyEdge *match = nullptr;
+          bool reversed = false;
+          for (const auto &candidate : reference->geometry->edges) {
+            const auto a = vec(reference_index->vertex(candidate.vertex_ids[0])->position),
+                       b = vec(reference_index->vertex(candidate.vertex_ids[1])->position);
+            if (analytic::length(a - p) < 2e-8 && analytic::length(b - q) < 2e-8) {
+              match = &candidate;
+              break;
+            }
+            if (analytic::length(b - p) < 2e-8 && analytic::length(a - q) < 2e-8) {
+              match = &candidate;
+              reversed = true;
+              break;
+            }
+          }
+          ASSERT_NE(match, nullptr);
+          const NurbsCurveGeometry *curve = nullptr;
+          for (const auto &candidate : reference->geometry->curves)
+            if (candidate.id == match->curve_id)
+              curve = &candidate;
+          ASSERT_NE(curve, nullptr);
+          for (double t : {0.0, .125, .25, .5, .75, .875, 1.0}) {
+            const auto expected = evaluate_curve(
+                *curve,
+                match->parameter_range[0] +
+                    (match->parameter_range[1] - match->parameter_range[0]) *
+                        (reversed ? 1 - t : t),
+                &error);
+            ASSERT_TRUE(expected) << error;
+            EXPECT_LT(analytic::length(analytic::evaluate(c, e.start + (e.end - e.start) * t) -
+                                       vec(&expected->position.x)),
+                      2e-8);
+          }
+          ++matched_profiles;
+        }
+        EXPECT_GT(matched_profiles, 0);
+        for (const analytic::Surface &s : result->model.surfaces) {
+          if (s.kind != analytic::SurfaceKind::Ruled)
+            continue;
+          const auto &a = *analytic::curve(result->model, s.curve),
+                     &b = *analytic::curve(result->model, s.other_curve);
+          const NurbsSurfaceGeometry *match = nullptr;
+          bool reverse_u = false, reverse_v = false;
+          for (const auto &candidate : reference->geometry->surfaces) {
+            if (candidate.order_u != 3 || candidate.points_u != 3 || candidate.order_v != 2 ||
+                candidate.points_v != 2)
+              continue;
+            for (bool ru : {false, true})
+              for (bool rv : {false, true}) {
+                bool same = true;
+                for (double u : {0.0, 1.0})
+                  for (double v : {0.0, 1.0}) {
+                    const auto expected = evaluate_surface(
+                        candidate, {ru ? 1 - u : u, rv ? 1 - v : v}, &error);
+                    same &= expected && analytic::length(analytic::evaluate_ruled(s, a, b, u, v) -
+                                                         vec(&expected->position.x)) < 2e-8;
+                  }
+                if (same) {
+                  match = &candidate;
+                  reverse_u = ru;
+                  reverse_v = rv;
+                }
+              }
+          }
+          ASSERT_NE(match, nullptr);
+          for (double u : {.125, .375, .5, .75, .875})
+            for (double v : {.125, .5, .875}) {
+              const double nu = reverse_u ? 1 - u : u, lambda = reverse_v ? 1 - v : v;
+              double d[2] = {};
+              for (int row = 0; row < 2; ++row)
+                d[row] = (1 - nu) * (1 - nu) * match->points[row * 3].weight +
+                         2 * nu * (1 - nu) * match->points[row * 3 + 1].weight +
+                         nu * nu * match->points[row * 3 + 2].weight;
+              const double nv = lambda * d[0] / ((1 - lambda) * d[1] + lambda * d[0]);
+              const auto expected = evaluate_surface(*match, {nu, nv}, &error);
+              ASSERT_TRUE(expected) << error;
+              EXPECT_LT(analytic::length(analytic::evaluate_ruled(s, a, b, u, v) -
+                                         vec(&expected->position.x)),
+                        2e-8);
+            }
+        }
+      }
+  }
 }
 
 TEST_F(NurbsTopologyEditTest, BevelAllowsEvaluationRoundoffButRejectsRealBoundaryGaps)

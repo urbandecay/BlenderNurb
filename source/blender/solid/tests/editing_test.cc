@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <set>
 
 using namespace blender::solid;
 static void check(bool condition, const std::string &error)
@@ -14,6 +15,58 @@ static void check(bool condition, const std::string &error)
   if (!condition) {
     std::cerr << error << '\n';
     std::exit(1);
+  }
+}
+
+static void check_shared_profile_joins(const Model &model)
+{
+  std::map<Id, std::vector<std::pair<Id, size_t>>> uses;
+  int strips = 0;
+  for (const Face &f : model.faces) {
+    const Surface &surface_ref = *surface(model, f.surface);
+    check(surface_ref.kind != SurfaceKind::Blend,
+          "Reference fillet must not add setback corner wedges");
+    if (surface_ref.kind == SurfaceKind::Ruled) {
+      ++strips;
+      check(curve(model, surface_ref.curve)->kind == CurveKind::RationalQuadratic &&
+                curve(model, surface_ref.other_curve)->kind == CurveKind::RationalQuadratic,
+            "Ruled fillet needs shared rational conic profiles");
+    }
+    for (size_t i = 0; i < f.outer.size(); ++i)
+      uses[f.outer[i].edge].push_back({f.id, i});
+  }
+  check(strips > 0, "Fillet must contain ruled conic strips");
+  auto normal = [&](const Face &f, size_t index, double fraction) {
+    const Surface &s = *surface(model, f.surface);
+    if (s.kind == SurfaceKind::Plane) {
+      Vec3 n = cross(s.u, s.v) * f.orientation;
+      return n / length(n);
+    }
+    const double t = f.outer[index].reversed ? 1 - fraction : fraction;
+    const double u = s.start + (s.end - s.start) * (index == 0 ? t :
+                                                    index == 2 ? 1 - t :
+                                                    index == 1 ? 1 :
+                                                                 0);
+    const double v = index == 0 ? 0 : index == 2 ? 1 : index == 1 ? t : 1 - t;
+    Vec3 n = ruled_normal(s, *curve(model, s.curve), *curve(model, s.other_curve), u, v) *
+             f.orientation;
+    return n / length(n);
+  };
+  for (const auto &[id, adjacent] : uses) {
+    check(adjacent.size() == 2, "Reference bevel must have a shared closed boundary");
+    const Face &a = *face(model, adjacent[0].first), &b = *face(model, adjacent[1].first);
+    const auto ka = surface(model, a.surface)->kind, kb = surface(model, b.surface)->kind;
+    if ((ka != SurfaceKind::Ruled && ka != SurfaceKind::Plane) ||
+        (kb != SurfaceKind::Ruled && kb != SurfaceKind::Plane))
+      continue;
+    if (curve(model, edge(model, id)->curve)->kind != CurveKind::Line)
+      continue;
+    if (ka != SurfaceKind::Ruled && kb != SurfaceKind::Ruled)
+      continue;
+    for (double t : {.125, .25, .5, .75, .875})
+      check(dot(normal(a, adjacent[0].second, t), normal(b, adjacent[1].second, t)) > 1 - 1e-9,
+            "Fillet rails must remain tangent to their original planes and neighboring "
+            "subdivisions");
   }
 }
 static Model polyhedron(const std::vector<Vec3> &points,
@@ -89,6 +142,253 @@ int main()
        {-1, 1, 1}},
       {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}});
   check(std::abs(volume(cube) - 8) < 1e-12, "Fixture volume");
+  {
+    Selection selected;
+    selected.mode = 2;
+    selected.edges = {cube.edges.front().id};
+    const auto rounded = fillet(cube, selected, .2, 1, &error);
+    check(bool(rounded), error);
+    Selection cap;
+    cap.mode = 4;
+    for (const Face &f : rounded->model.faces) {
+      if (surface(rounded->model, f.surface)->kind != SurfaceKind::Plane)
+        continue;
+      for (const Coedge &use : f.outer)
+        if (curve(rounded->model, edge(rounded->model, use.edge)->curve)->kind ==
+            CurveKind::RationalQuadratic)
+          cap.faces = {f.id};
+    }
+    check(!cap.faces.empty(), "Single-edge fillet must leave an exact rounded planar end face");
+    const auto copy = duplicate_elements(rounded->model, cap, &error);
+    check(bool(copy), error);
+    const auto profile = prepare_profile(copy->model, copy->selection, &error);
+    check(bool(profile), error);
+    const auto extended = extrude(*profile, .3, &error);
+    check(bool(extended), error);
+    check(validate_body(extended->model, extended->selection.active, &error), error);
+    check(bool(tessellate(extended->model, 32, &error)), error);
+  }
+  {
+    const Model angled = polyhedron(
+        {{-1, -1, -1},
+         {1, -1, -1},
+         {1, 1, -1},
+         {-1, 1, -1},
+         {-.6, -1, 1},
+         {1.4, -1, 1},
+         {1.4, 1, 1},
+         {-.6, 1, 1}},
+        {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}});
+    Selection cap;
+    cap.mode = 4;
+    cap.faces = {angled.faces[1].id};
+    auto rounded = fillet(angled, cap, .35, 1, &error);
+    check(bool(rounded), error);
+    check_shared_profile_joins(rounded->model);
+    const auto display = tessellate(rounded->model, 64, &error);
+    check(bool(display), error);
+    std::set<Id> logical_faces(display->face_source.begin(), display->face_source.end());
+    check(logical_faces.size() == 10,
+          "One segment must match six planes and four shared-profile strips");
+    const auto bytes = encode(rounded->model, rounded->selection);
+    const auto restored = decode(bytes.data(), bytes.size(), &error);
+    check(bool(restored), error);
+    check_shared_profile_joins(restored->model);
+    Selection all;
+    all.mode = 4;
+    for (const Face &f : restored->model.faces)
+      all.faces.push_back(f.id);
+    Affine reflection;
+    reflection.columns = {{{-1.1, 0, 0}, {.15, 1.2, 0}, {0, 0, .9}}};
+    const auto transformed = transform_selected(restored->model, all, reflection, &error);
+    check(bool(transformed), error);
+    check_shared_profile_joins(transformed->model);
+    const auto copied = duplicate_elements(transformed->model, all, &error);
+    check(bool(copied), error);
+    check(validate_body(copied->model, copied->selection.faces.front(), &error), error);
+    Affine move;
+    move.translation = {4, 0, 0};
+    const auto moved = transform_selected(copied->model, copied->selection, move, &error);
+    check(bool(moved), error);
+    check_shared_profile_joins(moved->model);
+  }
+  {
+    const Model skew = polyhedron(
+        {{-1.4, -1, -1},
+         {.6, -1, -1},
+         {1.4, 1, -1},
+         {-.6, 1, -1},
+         {-1.4, -1, 1},
+         {.6, -1, 1},
+         {1.4, 1, 1},
+         {-.6, 1, 1}},
+        {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}});
+    Selection selected;
+    selected.mode = 4;
+    selected.faces = {skew.faces[1].id};
+    for (int divisions : {1, 3}) {
+      auto rounded = fillet(skew, selected, .12, divisions, &error);
+      check(bool(rounded), error);
+      check_shared_profile_joins(rounded->model);
+      check(validate_body(rounded->model, rounded->selection.active, &error), error);
+      check(bool(tessellate(rounded->model, 32, &error)), error);
+      const auto bytes = encode(rounded->model, rounded->selection);
+      check(bool(decode(bytes.data(), bytes.size(), &error)), error);
+    }
+  }
+  for (const Face &f : cube.faces) {
+    Selection selected;
+    selected.mode = 4;
+    selected.faces = {f.id};
+    for (int divisions : {1, 3}) {
+      auto rounded = fillet(cube, selected, .12, divisions, &error);
+      check(bool(rounded), error);
+      check_shared_profile_joins(rounded->model);
+      check(validate_body(rounded->model, rounded->selection.active, &error), error);
+      const auto display = tessellate(rounded->model, 32, &error);
+      check(bool(display), error);
+      std::map<std::pair<int, int>, int> incidence;
+      for (const auto &polygon : display->polygons)
+        for (size_t i = 0; i < polygon.size(); ++i)
+          incidence[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
+      for (const auto &[pair, count] : incidence)
+        check(count == 2, "Face perimeter fillet display must be watertight");
+    }
+  }
+  for (const Model &oblique :
+       {polyhedron(
+            {{-1.4, -1, -1},
+             {.6, -1, -1},
+             {.6, 1, -1},
+             {-1.4, 1, -1},
+             {-.6, -1, 1},
+             {1.4, -1, 1},
+             {1.4, 1, 1},
+             {-.6, 1, 1}},
+            {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}}),
+        polyhedron(
+            {{-1, -1, -1},
+             {1, -1, -1},
+             {1, 1, -1},
+             {-1, 1, -1},
+             {-.65, -.8, 1},
+             {.65, -.8, 1},
+             {.65, .8, 1},
+             {-.65, .8, 1}},
+            {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}})})
+  {
+    for (const Edge &e : oblique.edges) {
+      Selection selected;
+      selected.mode = 2;
+      selected.edges = {e.id};
+      for (int divisions : {1, 3}) {
+        auto rounded = fillet(oblique, selected, .12, divisions, &error);
+        check(bool(rounded), error);
+        check(validate_body(rounded->model, rounded->selection.active, &error), error);
+        const auto display = tessellate(rounded->model, 32, &error);
+        check(bool(display), error);
+        std::map<std::pair<int, int>, int> incidence;
+        for (const auto &polygon : display->polygons)
+          for (size_t i = 0; i < polygon.size(); ++i)
+            incidence[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
+        for (const auto &[pair, count] : incidence)
+          check(count == 2, "Oblique fillet display must be watertight");
+        const auto bytes = encode(rounded->model, rounded->selection);
+        check(bool(decode(bytes.data(), bytes.size(), &error)), error);
+      }
+    }
+  }
+  for (const Model &angled :
+       {polyhedron(
+            {{-1.4, -1, -1},
+             {.6, -1, -1},
+             {.6, 1, -1},
+             {-1.4, 1, -1},
+             {-.6, -1, 1},
+             {1.4, -1, 1},
+             {1.4, 1, 1},
+             {-.6, 1, 1}},
+            {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}}),
+        polyhedron(
+            {{-1, -1, -1},
+             {1, -1, -1},
+             {1, 1, -1},
+             {-1, 1, -1},
+             {-.65, -.8, 1},
+             {.65, -.8, 1},
+             {.65, .8, 1},
+             {-.65, .8, 1}},
+            {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}})})
+  {
+    for (const Face &f : angled.faces) {
+      Selection selected;
+      selected.mode = 4;
+      selected.faces = {f.id};
+      for (int divisions : {1, 3}) {
+        auto rounded = fillet(angled, selected, .12, divisions, &error);
+        check(bool(rounded), error);
+        check_shared_profile_joins(rounded->model);
+        check(validate_body(rounded->model, rounded->selection.active, &error), error);
+        const auto display = tessellate(rounded->model, 32, &error);
+        check(bool(display), error);
+        std::map<std::pair<int, int>, int> incidence;
+        for (const auto &polygon : display->polygons)
+          for (size_t i = 0; i < polygon.size(); ++i)
+            incidence[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
+        for (const auto &[pair, count] : incidence)
+          check(count == 2, "Mixed-angle face fillet must have a watertight display");
+      }
+    }
+  }
+  for (const Edge &e : cube.edges) {
+    Selection selected;
+    selected.mode = 2;
+    selected.edges = {e.id};
+    for (int subdivisions : {1, 3}) {
+      auto rounded = fillet(cube, selected, .2, subdivisions, &error);
+      check(bool(rounded), error);
+      check(validate_body(rounded->model, rounded->selection.active, &error), error);
+      check(bool(tessellate(rounded->model, 32, &error)), error);
+    }
+  }
+  {
+    Selection selected;
+    selected.mode = 2;
+    for (const Edge &e : cube.edges)
+      if (std::abs(vertex(cube, e.vertices[1])->position.z -
+                   vertex(cube, e.vertices[0])->position.z) > 1)
+        selected.edges.push_back(e.id);
+    auto rounded = fillet(cube, selected, .2, 2, &error);
+    check(bool(rounded), error);
+    check(validate_body(rounded->model, rounded->selection.active, &error), error);
+    check(bool(tessellate(rounded->model, 32, &error)), error);
+  }
+  for (int subdivisions : {1, 2, 3}) {
+    Selection selected;
+    selected.mode = 2;
+    for (const Edge &e : cube.edges)
+      selected.edges.push_back(e.id);
+    auto rounded = fillet(cube, selected, .2, subdivisions, &error);
+    check(bool(rounded), error);
+    check(validate_body(rounded->model, rounded->selection.active, &error), error);
+    int cylinders = 0, spheres = 0;
+    for (const Surface &s : rounded->model.surfaces) {
+      cylinders += s.kind == SurfaceKind::Ruled;
+      spheres += s.kind == SurfaceKind::Sphere;
+    }
+    check(cylinders == 12 * subdivisions, "Fillet must split exact cylinder strips");
+    check(spheres == 8 * subdivisions * subdivisions, "Fillet must split exact sphere corners");
+    const auto display = tessellate(rounded->model, 32, &error);
+    check(bool(display), error);
+    std::map<std::pair<int, int>, int> incidence;
+    for (const auto &polygon : display->polygons)
+      for (size_t i = 0; i < polygon.size(); ++i)
+        incidence[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
+    for (const auto &[edge, count] : incidence)
+      check(count == 2, "Fillet display must have a watertight shared boundary");
+    const auto bytes = encode(rounded->model, rounded->selection);
+    check(bool(decode(bytes.data(), bytes.size(), &error)), error);
+  }
   Selection loose_face_selection;
   loose_face_selection.mode = 4;
   loose_face_selection.faces = {cube.faces.front().id};
@@ -132,9 +432,7 @@ int main()
         bool mesh_style = true;
         for (const Coedge &use : face.outer) {
           const Edge &edge_use = *edge(patched->model, use.edge);
-          const Vec3 p = vertex(patched->model,
-                                edge_use.vertices[use.reversed ? 1 : 0])
-                             ->position;
+          const Vec3 p = vertex(patched->model, edge_use.vertices[use.reversed ? 1 : 0])->position;
           const std::array<double, 3> coordinates = {std::abs(p.x), std::abs(p.y), std::abs(p.z)};
           int original_planes = 0;
           for (double coordinate : coordinates)

@@ -122,6 +122,44 @@ std::vector<const std::vector<Coedge> *> loops(const Face &face)
 }
 Vec3 area_integral(const Curve &c, double a, double b)
 {
+  if (c.kind == CurveKind::RationalQuadratic) {
+    /* Quadrature is only used to determine planar profile area and orientation.
+     * The source curve and extrusion retain their exact rational representation. */
+    constexpr double nodes[] = {.09501250983763744,
+                                .2816035507792589,
+                                .4580167776572274,
+                                .6178762444026438,
+                                .7554044083550030,
+                                .8656312023878318,
+                                .9445750230732326,
+                                .9894009349916499};
+    constexpr double weights[] = {.1894506104550685,
+                                  .1826034150449236,
+                                  .1691565193950025,
+                                  .1495959888165767,
+                                  .1246289712555339,
+                                  .09515851168249278,
+                                  .06225352393864789,
+                                  .02715245941175409};
+    Vec3 integral;
+    for (int i = 0; i < 8; ++i) {
+      for (const double sign : {-1.0, 1.0}) {
+        const double t = (a + b) * .5 + sign * nodes[i] * (b - a) * .5;
+        integral = integral + cross(evaluate(c, t), tangent(c, t)) * weights[i];
+      }
+    }
+    return integral * ((b - a) * .5);
+  }
+  if (c.kind == CurveKind::Cubic) {
+    const std::array<Vec3, 4> coefficients{c.origin, c.u, c.v, c.w};
+    Vec3 integral;
+    for (int i = 0; i < 4; ++i)
+      for (int j = 1; j < 4; ++j)
+        integral = integral +
+                   cross(coefficients[i], coefficients[j]) *
+                       (double(j) * (std::pow(b, i + j) - std::pow(a, i + j)) / (i + j));
+    return integral;
+  }
   if (c.kind == CurveKind::Line) {
     return cross(evaluate(c, a), evaluate(c, b));
   }
@@ -153,6 +191,12 @@ const Face *face(const Model &m, Id id)
 
 Vec3 evaluate(const Curve &c, double t)
 {
+  if (c.kind == CurveKind::RationalQuadratic) {
+    const double a = (1 - t) * (1 - t) * c.w.x, b = 2 * t * (1 - t) * c.w.y, d = t * t * c.w.z;
+    return (c.origin * a + c.u * b + c.v * d) / (a + b + d);
+  }
+  if (c.kind == CurveKind::Cubic)
+    return c.origin + (c.u + (c.v + c.w * t) * t) * t;
   if (c.kind == CurveKind::Line)
     return c.origin + c.u * t;
   const auto sc = sin_cos(t);
@@ -160,10 +204,49 @@ Vec3 evaluate(const Curve &c, double t)
 }
 Vec3 tangent(const Curve &c, double t)
 {
+  if (c.kind == CurveKind::RationalQuadratic) {
+    const double a = (1 - t) * (1 - t) * c.w.x, b = 2 * t * (1 - t) * c.w.y, d = t * t * c.w.z;
+    const double da = -2 * (1 - t) * c.w.x, db = (2 - 4 * t) * c.w.y, dd = 2 * t * c.w.z;
+    return (c.origin * da + c.u * db + c.v * dd - evaluate(c, t) * (da + db + dd)) / (a + b + d);
+  }
+  if (c.kind == CurveKind::Cubic)
+    return c.u + c.v * (2 * t) + c.w * (3 * t * t);
   if (c.kind == CurveKind::Line)
     return c.u;
   const auto sc = sin_cos(t);
   return c.v * sc[1] - c.u * sc[0];
+}
+
+Vec3 evaluate_blend(const Surface &s, double theta, double v)
+{
+  const Vec3 p = s.blend[0] + (s.blend[1] + (s.blend[2] + s.blend[3] * v) * v) * v;
+  return s.origin + s.u * std::cos(theta) + s.v * std::sin(theta) +
+         p * (std::cos(theta) - s.blend_cot * std::sin(theta));
+}
+Vec3 blend_theta_tangent(const Surface &s, double theta, double v)
+{
+  const Vec3 p = s.blend[0] + (s.blend[1] + (s.blend[2] + s.blend[3] * v) * v) * v;
+  return s.v * std::cos(theta) - s.u * std::sin(theta) -
+         p * (std::sin(theta) + s.blend_cot * std::cos(theta));
+}
+Vec3 blend_v_direction(const Surface &s, double v)
+{
+  return s.blend[1] + s.blend[2] * (2 * v) + s.blend[3] * (3 * v * v);
+}
+
+Vec3 evaluate_ruled(const Surface &s, const Curve &a, const Curve &b, double u, double v)
+{
+  return evaluate(a, s.reverse_first ? 1 - u : u) * (1 - v) +
+         evaluate(b, s.reverse_second ? 1 - u : u) * v;
+}
+Vec3 ruled_normal(const Surface &s, const Curve &a, const Curve &b, double u, double v)
+{
+  const Vec3 first = evaluate(a, s.reverse_first ? 1 - u : u),
+             last = evaluate(b, s.reverse_second ? 1 - u : u);
+  const Vec3 du = tangent(a, s.reverse_first ? 1 - u : u) *
+                      ((s.reverse_first ? -1 : 1) * (1 - v)) +
+                  tangent(b, s.reverse_second ? 1 - u : u) * ((s.reverse_second ? -1 : 1) * v);
+  return cross(du, last - first);
 }
 
 std::optional<Curve> line(Vec3 a, Vec3 b, std::string *error)
@@ -281,8 +364,12 @@ bool validate(const Model &m, std::string *error)
       goto invalid;
   }
   for (const auto &c : m.curves) {
-    if (!identity(c.id) || !finite(c.origin) || !finite(c.u) || !finite(c.v) ||
-        (c.kind != CurveKind::Line && c.kind != CurveKind::Conic) || !(length(c.u) > 0) ||
+    if (!identity(c.id) || !finite(c.origin) || !finite(c.u) || !finite(c.v) || !finite(c.w) ||
+        (c.kind != CurveKind::Line && c.kind != CurveKind::Conic && c.kind != CurveKind::Cubic &&
+         c.kind != CurveKind::RationalQuadratic) ||
+        (c.kind != CurveKind::RationalQuadratic && !(length(c.u) > 0)) ||
+        (c.kind == CurveKind::RationalQuadratic &&
+         (!(c.w.x > 0) || !(c.w.y > 0) || !(c.w.z > 0) || c.origin == c.v)) ||
         !std::isfinite(length(c.u)) ||
         (c.kind == CurveKind::Conic &&
          (!(length(cross(c.u, c.v)) > 0) || !std::isfinite(length(cross(c.u, c.v))))))
@@ -302,8 +389,16 @@ bool validate(const Model &m, std::string *error)
       goto invalid;
   }
   for (const auto &s : m.surfaces) {
-    if (!identity(s.id) || !finite(s.origin) || !finite(s.u) || !finite(s.v) ||
-        (s.kind != SurfaceKind::Plane && s.kind != SurfaceKind::Extrusion) ||
+    if (!identity(s.id) || !finite(s.origin) || !finite(s.u) || !finite(s.v) || !finite(s.w) ||
+        (s.kind != SurfaceKind::Plane && s.kind != SurfaceKind::Extrusion &&
+         s.kind != SurfaceKind::Sphere && s.kind != SurfaceKind::Cylinder &&
+         s.kind != SurfaceKind::Blend && s.kind != SurfaceKind::Ruled) ||
+        (s.kind == SurfaceKind::Ruled &&
+         (!index.curves.contains(s.curve) || !index.curves.contains(s.other_curve) ||
+          !std::isfinite(s.start) || !std::isfinite(s.end) || s.start < 0 || s.end > 1 ||
+          s.start >= s.end)) ||
+        ((s.kind == SurfaceKind::Sphere || s.kind == SurfaceKind::Cylinder) &&
+         !(std::abs(dot(s.u, cross(s.v, s.w))) > 0)) ||
         (s.kind == SurfaceKind::Plane &&
          (!(length(cross(s.u, s.v)) > 0) || !std::isfinite(length(cross(s.u, s.v))))) ||
         (s.kind == SurfaceKind::Extrusion &&
@@ -313,7 +408,8 @@ bool validate(const Model &m, std::string *error)
   }
   for (const auto &f : m.faces) {
     if (!identity(f.id) || !index.surfaces.contains(f.surface) ||
-        (f.orientation != 1 && f.orientation != -1))
+        (f.orientation != 1 && f.orientation != -1) ||
+        (f.group && (!index.faces.contains(f.group) || index.faces.at(f.group)->group != f.group)))
       goto invalid;
     for (const auto *loop : loops(f)) {
       if (loop->empty())
@@ -342,15 +438,129 @@ bool validate(const Model &m, std::string *error)
           const double tolerance =
               256 * std::numeric_limits<double>::epsilon() *
               std::max({1.0, length(support.origin), length(c.origin), length(c.u), length(c.v)});
+          if (c.kind == CurveKind::RationalQuadratic) {
+            if (std::abs(dot(c.origin - support.origin, n)) > tolerance ||
+                std::abs(dot(c.u - support.origin, n)) > tolerance ||
+                std::abs(dot(c.v - support.origin, n)) > tolerance)
+              goto invalid;
+            continue;
+          }
           if (std::abs(dot(c.origin - support.origin, n)) > tolerance ||
               std::abs(dot(c.u, n)) > tolerance ||
-              (c.kind == CurveKind::Conic && std::abs(dot(c.v, n)) > tolerance))
+              (c.kind != CurveKind::Line && std::abs(dot(c.v, n)) > tolerance) ||
+              (c.kind == CurveKind::Cubic && std::abs(dot(c.w, n)) > tolerance))
             goto invalid;
         }
     }
+    else if (support.kind == SurfaceKind::Ruled) {
+      if (f.outer.size() != 4 || !f.holes.empty())
+        goto invalid;
+      const Curve &a = *index.curves.at(support.curve), &b = *index.curves.at(support.other_curve);
+      for (int i = 0; i < 4; ++i) {
+        const Coedge &use = f.outer[i];
+        const Edge &e = *index.edges.at(use.edge);
+        for (double t : {0.0, .25, .5, .75, 1.0}) {
+          const double u = support.start + (support.end - support.start) * (i == 0 ? t :
+                                                                            i == 2 ? 1 - t :
+                                                                            i == 1 ? 1 :
+                                                                                     0);
+          const double v = i == 0 ? 0 : i == 1 ? t : i == 2 ? 1 : 1 - t;
+          const Vec3 actual = evaluate(*index.curves.at(e.curve),
+                                       e.start + (e.end - e.start) * (use.reversed ? 1 - t : t));
+          if (length(actual - evaluate_ruled(support, a, b, u, v)) >
+              1e-8 * std::max(1.0, length(actual)))
+            goto invalid;
+        }
+      }
+    }
+    else if (support.kind == SurfaceKind::Blend) {
+      if ((f.outer.size() != 3 && f.outer.size() != 4) || !f.holes.empty() ||
+          !std::isfinite(support.blend_cot) || !std::isfinite(support.start) ||
+          !std::isfinite(support.end) || support.start >= support.end ||
+          !std::isfinite(support.blend_v_start) || !std::isfinite(support.blend_v_end) ||
+          support.blend_v_start >= support.blend_v_end)
+        goto invalid;
+      for (Vec3 p : support.blend)
+        if (!finite(p))
+          goto invalid;
+      const bool collapsed = f.outer.size() == 3;
+      for (size_t i = 0; i < f.outer.size(); ++i) {
+        const Coedge &use = f.outer[i];
+        const Edge &e = *index.edges.at(use.edge);
+        for (double fraction : {0.0, .25, .5, .75, 1.0}) {
+          double theta, v;
+          if (i == 0) {
+            theta = support.start + (support.end - support.start) * fraction;
+            v = support.blend_v_start;
+          }
+          else if (i == f.outer.size() - 1) {
+            theta = support.start;
+            v = support.blend_v_end + (support.blend_v_start - support.blend_v_end) * fraction;
+          }
+          else if (!collapsed && i == 1) {
+            theta = support.end;
+            v = support.blend_v_start + (support.blend_v_end - support.blend_v_start) * fraction;
+          }
+          else {
+            theta = support.end + (support.start - support.end) * fraction;
+            v = support.blend_v_end;
+          }
+          const Vec3 point = evaluate(*index.curves.at(e.curve),
+                                      e.start + (e.end - e.start) *
+                                                    (use.reversed ? 1 - fraction : fraction));
+          if (length(point - evaluate_blend(support, theta, v)) >
+              1e-8 * std::max(1.0, length(point)))
+            goto invalid;
+        }
+      }
+    }
+    else if (support.kind == SurfaceKind::Sphere || support.kind == SurfaceKind::Cylinder) {
+      const bool cylinder = support.kind == SurfaceKind::Cylinder;
+      if (f.outer.size() != (cylinder ? 4 : 3) || !f.holes.empty())
+        goto invalid;
+      if (cylinder) {
+        const Edge &a = *index.edges.at(f.outer[0].edge), &b = *index.edges.at(f.outer[2].edge);
+        if (index.curves.at(a.curve)->kind != CurveKind::Conic ||
+            index.curves.at(b.curve)->kind != CurveKind::Conic)
+          goto invalid;
+      }
+      const double det = dot(support.u, cross(support.v, support.w));
+      if (cylinder) {
+        auto local = [&](Vec3 p) {
+          p = p - support.origin;
+          return Vec3{dot(p, cross(support.v, support.w)) / det,
+                      dot(p, cross(support.w, support.u)) / det,
+                      dot(p, cross(support.u, support.v)) / det};
+        };
+        const Edge &a = *index.edges.at(f.outer[0].edge), &b = *index.edges.at(f.outer[2].edge);
+        for (double fraction : {0.0, .25, .5, .75, 1.0}) {
+          const double ta = a.start +
+                            (a.end - a.start) * (f.outer[0].reversed ? 1 - fraction : fraction);
+          const double tb = b.start +
+                            (b.end - b.start) * (f.outer[2].reversed ? fraction : 1 - fraction);
+          const Vec3 pa = local(evaluate(*index.curves.at(a.curve), ta)),
+                     pb = local(evaluate(*index.curves.at(b.curve), tb));
+          if (std::abs(pa.x - pb.x) > 1e-8 || std::abs(pa.y - pb.y) > 1e-8 || pb.z <= pa.z)
+            goto invalid;
+        }
+      }
+      for (const Coedge &use : f.outer) {
+        const Edge &e = *index.edges.at(use.edge);
+        const Curve &c = *index.curves.at(e.curve);
+        if (!cylinder && c.kind != CurveKind::Conic && c.kind != CurveKind::RationalQuadratic)
+          goto invalid;
+        for (double t : {0.0, 0.25, 0.5, 0.75, 1.0}) {
+          const Vec3 p = evaluate(c, e.start + (e.end - e.start) * t) - support.origin;
+          const Vec3 q{dot(p, cross(support.v, support.w)) / det,
+                       dot(p, cross(support.w, support.u)) / det,
+                       dot(p, cross(support.u, support.v)) / det};
+          if (std::abs(q.x * q.x + q.y * q.y + (cylinder ? 0 : q.z * q.z) - 1) > 1e-8)
+            goto invalid;
+        }
+      }
+    }
     else {
-      if (f.outer.size() != 4 || !f.holes.empty() || f.outer[0].reversed || f.outer[1].reversed ||
-          !f.outer[2].reversed || !f.outer[3].reversed)
+      if (f.outer.size() != 4 || !f.holes.empty() || f.outer[0].reversed || !f.outer[2].reversed)
         goto invalid;
       const Edge &bottom = *index.edges.at(f.outer[0].edge),
                  &top = *index.edges.at(f.outer[2].edge);
@@ -359,8 +569,10 @@ bool validate(const Model &m, std::string *error)
         return std::abs(x - y) <= 128 * std::numeric_limits<double>::epsilon() *
                                       std::max({1.0, std::abs(x), std::abs(y)});
       };
+      const Vec3 control_shift = a.kind == CurveKind::RationalQuadratic ? support.u : Vec3{};
       if (bottom.curve != support.curve || a.kind != b.kind ||
-          !near(a.origin + support.u, b.origin) || !near(a.u, b.u) || !near(a.v, b.v) ||
+          !near(a.origin + support.u, b.origin) || !near(a.u + control_shift, b.u) ||
+          !near(a.v + control_shift, b.v) || !near(a.w, b.w) ||
           !parameter_agrees(bottom.start, support.start) ||
           !parameter_agrees(bottom.end, support.end) ||
           !parameter_agrees(bottom.start, top.start) || !parameter_agrees(bottom.end, top.end))
@@ -483,8 +695,15 @@ std::optional<Profile> prepare_profile(const Model &source,
     /* Subtract the same origin before integration to avoid large-translation cancellation. */
     Curve local = c;
     local.origin = local.origin - origin;
+    if (c.kind == CurveKind::RationalQuadratic) {
+      local.u = local.u - origin;
+      local.v = local.v - origin;
+    }
     area = area + area_integral(local, e.start, e.end) * (use.reversed ? -1 : 1);
-    scale = std::max({scale, length(c.origin - origin), length(c.u), length(c.v)});
+    scale = std::max({scale,
+                      length(c.origin - origin),
+                      length(c.kind == CurveKind::RationalQuadratic ? local.u : c.u),
+                      length(c.kind == CurveKind::RationalQuadratic ? local.v : c.v)});
   }
   if (!(length(area) > 0) || !finite(area)) {
     fail(error, "The sketch must enclose nonzero planar area");
@@ -494,9 +713,12 @@ std::optional<Profile> prepare_profile(const Model &source,
   const double tolerance = 256 * std::numeric_limits<double>::epsilon() * std::max(1.0, scale);
   for (const auto &use : boundary) {
     const auto &c = *index.curves.at(index.edges.at(use.edge)->curve);
+    const Vec3 u = c.kind == CurveKind::RationalQuadratic ? c.u - origin : c.u;
+    const Vec3 v = c.kind == CurveKind::RationalQuadratic ? c.v - origin : c.v;
     if (std::abs(dot(c.origin - origin, out.normal)) > tolerance ||
-        std::abs(dot(c.u, out.normal)) > tolerance ||
-        (c.kind == CurveKind::Conic && std::abs(dot(c.v, out.normal)) > tolerance))
+        std::abs(dot(u, out.normal)) > tolerance ||
+        (c.kind != CurveKind::Line && std::abs(dot(v, out.normal)) > tolerance) ||
+        (c.kind == CurveKind::Cubic && std::abs(dot(c.w, out.normal)) > tolerance))
     {
       fail(error, "Solid extrusion requires coplanar analytic sketch curves");
       return {};
@@ -656,6 +878,10 @@ std::optional<EditResult> extrude(const Profile &profile, double distance, std::
       Curve c = *index.curves.at(e.curve);
       c.id = out.next_id++;
       c.origin = c.origin + sweep;
+      if (c.kind == CurveKind::RationalQuadratic) {
+        c.u = c.u + sweep;
+        c.v = c.v + sweep;
+      }
       curves[e.curve] = c.id;
       out.curves.push_back(c);
     }
@@ -744,17 +970,26 @@ std::optional<EditResult> transform_selected(const Model &model,
   selection = normalize_selection(model, std::move(selection));
   std::unordered_set<Id> selected(selection.vertices.begin(), selection.vertices.end());
   std::unordered_set<Id> curves, surfaces;
+  bool needs_refit = false;
+  const bool complete = selected.size() == model.vertices.size();
+  const Index index(model);
   for (const Face &f : model.faces) {
+    if (complete) {
+      surfaces.insert(f.surface);
+      continue;
+    }
     bool any = false, all = true;
     for (const auto *loop : loops(f))
       for (const Coedge &use : *loop) {
-        for (Id v : edge(model, use.edge)->vertices) {
+        for (Id v : index.edges.at(use.edge)->vertices) {
           any |= selected.contains(v);
           all &= selected.contains(v);
         }
       }
     if (any && !all) {
-      bool straight_plane = surface(model, f.surface)->kind == SurfaceKind::Plane && f.holes.empty();
+      needs_refit = true;
+      bool straight_plane = surface(model, f.surface)->kind == SurfaceKind::Plane &&
+                            f.holes.empty();
       for (const Coedge &use : f.outer)
         straight_plane &= curve(model, edge(model, use.edge)->curve)->kind == CurveKind::Line;
       if (!straight_plane) {
@@ -765,16 +1000,23 @@ std::optional<EditResult> transform_selected(const Model &model,
     if (all)
       surfaces.insert(f.surface);
   }
-  for (const Curve &c : model.curves) {
-    bool any = false, all = true;
-    for (const Edge &e : model.edges)
-      if (e.curve == c.id) {
-        for (Id v : e.vertices) {
-          any |= selected.contains(v);
-          all &= selected.contains(v);
-        }
+  struct CurveSelection { bool any = false, all = true; };
+  std::unordered_map<Id, CurveSelection> curve_selection;
+  if (!complete)
+    for (const Edge &e : model.edges) {
+      auto &state = curve_selection[e.curve];
+      for (Id v : e.vertices) {
+        state.any |= selected.contains(v);
+        state.all &= selected.contains(v);
       }
-    if (any && !all && c.kind == CurveKind::Conic) {
+    }
+  for (const Curve &c : model.curves) {
+    if (complete) {
+      curves.insert(c.id);
+      continue;
+    }
+    const auto [any, all] = curve_selection[c.id];
+    if (any && !all && c.kind != CurveKind::Line) {
       fail(error, "Select the complete arc or conic to transform its exact axes");
       return {};
     }
@@ -788,8 +1030,15 @@ std::optional<EditResult> transform_selected(const Model &model,
   for (Curve &c : result.model.curves) {
     if (curves.contains(c.id)) {
       c.origin = point(c.origin);
-      c.u = direction(c.u);
-      c.v = direction(c.v);
+      if (c.kind == CurveKind::RationalQuadratic) {
+        c.u = point(c.u);
+        c.v = point(c.v);
+      }
+      else {
+        c.u = direction(c.u);
+        c.v = direction(c.v);
+        c.w = direction(c.w);
+      }
     }
     else if (c.kind == CurveKind::Line) {
       const Edge *use = nullptr;
@@ -816,12 +1065,17 @@ std::optional<EditResult> transform_selected(const Model &model,
       s.origin = point(s.origin);
       s.u = direction(s.u);
       s.v = direction(s.v);
+      s.w = direction(s.w);
+      for (Vec3 &coefficient : s.blend)
+        coefficient = direction(coefficient);
     }
   if (determinant < 0)
     for (Face &f : result.model.faces)
       if (surfaces.contains(f.surface))
         f.orientation = -f.orientation;
-  if (!refit_linear_faces(result.model, error) || !validate(result.model, error))
+  /* Affine transforms already move complete support planes exactly. Rebuilding them
+   * changes identities and ordering unnecessarily, and defeats display topology reuse. */
+  if ((needs_refit && !refit_linear_faces(result.model, error)) || !validate(result.model, error))
     return {};
   return result;
 }
@@ -838,6 +1092,18 @@ Selection normalize_selection(const Model &model, Selection selection)
   clean(selection.vertices, index.vertices);
   clean(selection.edges, index.edges);
   clean(selection.faces, index.faces);
+  if (selection.mode == 4) {
+    std::unordered_set<Id> groups;
+    std::unordered_set<Id> faces(selection.faces.begin(), selection.faces.end());
+    for (Id id : selection.faces) {
+      const Face &f = *index.faces.at(id);
+      groups.insert(f.group ? f.group : f.id);
+    }
+    for (const Face &f : model.faces)
+      if (groups.contains(f.group ? f.group : f.id) &&
+          faces.insert(f.id).second)
+        selection.faces.push_back(f.id);
+  }
   std::unordered_set<Id> vertices(selection.vertices.begin(), selection.vertices.end());
   std::unordered_set<Id> edges(selection.edges.begin(), selection.edges.end());
   auto add = [](auto &ids, auto &set, Id id) {

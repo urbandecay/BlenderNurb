@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "MEM_guardedalloc.h"
 
@@ -28,6 +29,7 @@ namespace blender::bke::solid_host {
 namespace {
 struct Runtime {
   std::shared_ptr<const solid::Model> model;
+  std::shared_ptr<const solid::DisplayMesh> display_samples;
   solid::Selection selection;
   std::string error;
 };
@@ -144,7 +146,8 @@ std::optional<Snapshot> read(const Mesh &mesh, std::string *error)
       *error = runtime.error;
     return {};
   }
-  return Snapshot{runtime.model, runtime.selection, mesh.solid_storage->revision};
+  return Snapshot{
+      runtime.model, runtime.selection, mesh.solid_storage->revision, runtime.display_samples};
 }
 
 std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error)
@@ -178,8 +181,9 @@ std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error)
           }
         }
         std::vector<solid::Id> selected_ids;
+        const std::unordered_set<solid::Id> previous(ids.begin(), ids.end());
         for (const auto &[id, count] : counts) {
-          const bool was_selected = selected(ids, id);
+          const bool was_selected = previous.contains(id);
           if ((was_selected && count.selected == count.total) ||
               (!was_selected && count.selected > 0))
             selected_ids.push_back(id);
@@ -191,6 +195,9 @@ std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error)
   read_domain(bm.edata, BM_EDGES_OF_MESH, ".solid_edge_id", selection.edges);
   read_domain(bm.pdata, BM_FACES_OF_MESH, ".solid_face_id", selection.faces);
   std::vector<solid::Id> ordered;
+  std::unordered_set<solid::Id> ordered_ids;
+  const std::unordered_set<solid::Id> selected_vertices(selection.vertices.begin(),
+                                                       selection.vertices.end());
   for (const BMEditSelection *item = static_cast<const BMEditSelection *>(bm.selected.first); item;
        item = item->next)
   {
@@ -208,11 +215,11 @@ std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error)
     if (!id)
       continue;
     selection.active = id;
-    if (item->htype == BM_VERT && selected(selection.vertices, id) && !selected(ordered, id))
+    if (item->htype == BM_VERT && selected_vertices.contains(id) && ordered_ids.insert(id).second)
       ordered.push_back(id);
   }
   for (solid::Id id : selection.vertices)
-    if (!selected(ordered, id))
+    if (ordered_ids.insert(id).second)
       ordered.push_back(id);
   selection.vertices = std::move(ordered);
   selection = solid::normalize_selection(*source->model, std::move(selection));
@@ -242,14 +249,20 @@ void sync_edit_selection(Mesh &mesh)
   BMVert *v;
   BMEdge *e;
   BMFace *f;
+  const std::unordered_set<solid::Id> vertices(source->selection.vertices.begin(),
+                                               source->selection.vertices.end());
+  const std::unordered_set<solid::Id> edges(source->selection.edges.begin(),
+                                            source->selection.edges.end());
+  const std::unordered_set<solid::Id> faces(source->selection.faces.begin(),
+                                            source->selection.faces.end());
   BM_ITER_MESH (v, &iter, &bm, BM_VERTS_OF_MESH)
-    if (selected(source->selection.vertices, source_id(reinterpret_cast<BMElem *>(v), v_offset)))
+    if (vertices.contains(source_id(reinterpret_cast<BMElem *>(v), v_offset)))
       BM_vert_select_set(&bm, v, true);
   BM_ITER_MESH (e, &iter, &bm, BM_EDGES_OF_MESH)
-    if (selected(source->selection.edges, source_id(reinterpret_cast<BMElem *>(e), e_offset)))
+    if (edges.contains(source_id(reinterpret_cast<BMElem *>(e), e_offset)))
       BM_edge_select_set(&bm, e, true);
   BM_ITER_MESH (f, &iter, &bm, BM_FACES_OF_MESH)
-    if (selected(source->selection.faces, source_id(reinterpret_cast<BMElem *>(f), f_offset)))
+    if (faces.contains(source_id(reinterpret_cast<BMElem *>(f), f_offset)))
       BM_face_select_set(&bm, f, true);
   BM_mesh_select_mode_flush(&bm);
 }
@@ -265,6 +278,8 @@ bool publish(Mesh &mesh, Snapshot candidate, uint64_t expected, std::string *err
     return false;
   }
   auto &runtime = ensure(*mesh.solid_storage);
+  if (candidate.model != runtime.model || candidate.display_samples)
+    runtime.display_samples = candidate.display_samples;
   runtime.model = std::move(candidate.model);
   runtime.selection = solid::normalize_selection(*runtime.model, std::move(candidate.selection));
   runtime.error.clear();
@@ -314,7 +329,13 @@ OwnedMesh display_mesh(const Snapshot &source, int circle_segments, std::string 
 {
   if (!source.model)
     return {};
-  const auto display = solid::tessellate(*source.model, circle_segments, error);
+  const auto sampled = source.display_samples && circle_segments == 64 ?
+                           std::optional<solid::DisplayMesh>{} :
+                           solid::tessellate(*source.model, circle_segments, error);
+  const solid::DisplayMesh *display = source.display_samples && circle_segments == 64 ?
+                                          source.display_samples.get() :
+                                      sampled ? &*sampled :
+                                                nullptr;
   if (!display)
     return {};
   int corners = 0;
@@ -405,8 +426,15 @@ OwnedMesh display_mesh(const Snapshot &source, int circle_segments, std::string 
     for (const auto &n : polygon)
       normals.append(float3(n.x, n.y, n.z));
   }
-  if (normals.size() == corners && corners)
-    bke::mesh_set_custom_normals_normalized(*mesh, normals);
+  if (normals.size() == corners && corners) {
+    /* The analytic evaluator already supplies normalized corner normals. Store those
+     * vectors directly, as the native NURBS display does. Encoding them in legacy fan
+     * spaces recalculates mesh normals and sharp edges on every source update. */
+    auto custom_normals = attributes.lookup_or_add_for_write_span<float3>("custom_normal",
+                                                                          AttrDomain::Corner);
+    custom_normals.span.copy_from(normals);
+    custom_normals.finish();
+  }
   return mesh;
 }
 

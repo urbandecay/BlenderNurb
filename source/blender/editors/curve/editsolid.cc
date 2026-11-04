@@ -2,7 +2,9 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <algorithm>
 #include <cfloat>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <unordered_map>
@@ -12,14 +14,19 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_listbase_iterator.hh"
 #include "BLI_math_matrix.hh"
+#include "BLI_math_vector.h"
 #include "BLI_math_vector.hh"
 #include "BLI_math_vector_types.hh"
 #include "BLI_string.h"
 
+#include "BKE_attribute.hh"
 #include "BKE_context.hh"
+#include "BKE_customdata.hh"
+#include "BKE_editmesh.hh"
 #include "BKE_mesh.h"
 #include "BKE_mesh.hh"
 #include "BKE_report.hh"
@@ -72,39 +79,155 @@ std::unique_ptr<Session> Session::begin(bContext *C, std::string *error)
   return std::unique_ptr<Session>(new Session(object, std::move(*source)));
 }
 
+/* Keep mesh transform's existing edit topology when the independently evaluated source
+ * produces the same connectivity. Coordinates and analytic normals still come from the
+ * current source, so repeated transforms never accumulate display-coordinate drift. */
+static bool update_display_vertices(Mesh &mesh, const solid::DisplayMesh &display, bool apply)
+{
+  if (!mesh.runtime->edit_mesh)
+    return false;
+  BMesh *bm = mesh.runtime->edit_mesh->bm;
+  if (bm->totvert != display.positions.size() || bm->totface != display.polygons.size())
+    return false;
+  const int normal_offset = CustomData_get_offset_named(
+      &bm->ldata, CD_PROP_FLOAT3, "custom_normal");
+  if (normal_offset < 0)
+    return false;
+  for (const auto &p : display.positions) {
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
+        std::abs(p.x) > FLT_MAX || std::abs(p.y) > FLT_MAX || std::abs(p.z) > FLT_MAX)
+      return false;
+  }
+  BM_mesh_elem_table_ensure(bm, BM_VERT | BM_FACE);
+  BM_mesh_elem_index_ensure(bm, BM_VERT);
+  for (size_t i = 0; i < display.polygons.size(); ++i) {
+    BMFace *f = BM_face_at_index(bm, int(i));
+    const auto &polygon = display.polygons[i];
+    if (f->len != polygon.size() || display.corner_normals[i].size() != polygon.size())
+      return false;
+    BMLoop *loop = BM_FACE_FIRST_LOOP(f);
+    for (int v : polygon) {
+      if (BM_elem_index_get(loop->v) != v)
+        return false;
+      loop = loop->next;
+    }
+  }
+  if (!apply)
+    return true;
+  for (size_t i = 0; i < display.positions.size(); ++i) {
+    const auto &p = display.positions[i];
+    copy_v3_v3(BM_vert_at_index(bm, int(i))->co, float3(p.x, p.y, p.z));
+  }
+  for (size_t i = 0; i < display.polygons.size(); ++i) {
+    BMLoop *loop = BM_FACE_FIRST_LOOP(BM_face_at_index(bm, int(i)));
+    for (const auto &n : display.corner_normals[i]) {
+      copy_v3_v3(BM_ELEM_CD_GET_FLOAT_P(loop, normal_offset), float3(n.x, n.y, n.z));
+      loop = loop->next;
+    }
+  }
+  return true;
+}
+
 static bool replace_display(bContext *C,
                             Object &object,
                             bke::solid_host::Snapshot candidate,
                             uint64_t &revision,
-                            std::string *error)
+                            std::string *error,
+                            bool reuse_topology = false)
 {
   Mesh &mesh = *id_cast<Mesh *>(object.data);
   candidate.selection = solid::normalize_selection(*candidate.model,
                                                    std::move(candidate.selection));
-  auto display = bke::solid_host::display_mesh(candidate, 64, error);
-  if (!display || !bke::solid_host::publish(mesh, candidate, revision, error))
+  const auto profile_start = std::chrono::steady_clock::now();
+  if (!candidate.display_samples) {
+    auto samples = solid::tessellate(*candidate.model, 64, error);
+    if (!samples)
+      return false;
+    candidate.display_samples = std::make_shared<const solid::DisplayMesh>(std::move(*samples));
+  }
+  const bool reused = reuse_topology &&
+                      update_display_vertices(mesh, *candidate.display_samples, false);
+  auto display = reused ? bke::solid_host::OwnedMesh{} :
+                          bke::solid_host::display_mesh(candidate, 64, error);
+  const auto profile_display = std::chrono::steady_clock::now();
+  if ((!reused && !display) || !bke::solid_host::publish(mesh, candidate, revision, error))
     return false;
   ++revision;
-  BKE_mesh_nomain_to_mesh(display.release(), &mesh, &object, false);
+  const auto profile_publish = std::chrono::steady_clock::now();
+  if (reused)
+    update_display_vertices(mesh, *candidate.display_samples, true);
+  if (!reused)
+    BKE_mesh_nomain_to_mesh(display.release(), &mesh, &object, false);
   CTX_data_scene(C)->toolsettings->selectmode = candidate.selection.mode;
-  EDBM_mesh_make(&object, candidate.selection.mode, false);
+  if (!reused)
+    EDBM_mesh_make(&object, candidate.selection.mode, false);
+  const auto profile_bmesh = std::chrono::steady_clock::now();
   EDBMUpdate_Params update{};
   update.calc_looptris = true;
   update.calc_normals = true;
-  update.is_destructive = true;
+  update.is_destructive = !reused;
   EDBM_update(&mesh, &update);
+  if (std::getenv("BLENDER_SOLID_PROFILE")) {
+    const auto now = std::chrono::steady_clock::now();
+    auto ms = [](auto a, auto b) {
+      return std::chrono::duration<double, std::milli>(b - a).count();
+    };
+    fprintf(stderr,
+            "SOLID_DISPLAY_PROFILE display_ms=%.3f publish_ms=%.3f rebuild_ms=%.3f update_ms=%.3f "
+            "reused_topology=%d\n",
+            ms(profile_start, profile_display),
+            ms(profile_display, profile_publish),
+            ms(profile_publish, profile_bmesh),
+            ms(profile_bmesh, now),
+            int(reused));
+  }
   DEG_id_tag_update(&mesh.id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, &mesh);
   WM_event_add_notifier(C, NC_GEOM | ND_SELECT, &mesh);
   return true;
 }
 
-bool Session::apply(bContext *C, solid::EditResult candidate, std::string *error)
+bool Session::apply(bContext *C,
+                    solid::EditResult candidate,
+                    std::string *error,
+                    bool reuse_topology,
+                    const solid::Affine *affine)
 {
   bke::solid_host::Snapshot next{std::make_shared<const solid::Model>(std::move(candidate.model)),
                                  std::move(candidate.selection),
                                  revision_};
-  return replace_display(C, *object_, std::move(next), revision_, error);
+  if (reuse_topology && affine) {
+    const auto &m = *affine;
+    const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
+    const double det = solid::dot(a, solid::cross(b, c));
+    const double orthogonal_error = std::abs(solid::dot(a, a) - 1) +
+                                    std::abs(solid::dot(b, b) - 1) +
+                                    std::abs(solid::dot(c, c) - 1) + std::abs(solid::dot(a, b)) +
+                                    std::abs(solid::dot(a, c)) + std::abs(solid::dot(b, c));
+    if (det > 0 && orthogonal_error < 1e-6) {
+      /* Loaded files have no runtime samples. Keep the immutable starting
+       * samples in this modal session too, otherwise every mouse movement
+       * tessellates the entire source again. */
+      if (!source_.display_samples) {
+        auto samples = solid::tessellate(*source_.model, 64, error);
+        if (!samples)
+          return false;
+        source_.display_samples = std::make_shared<const solid::DisplayMesh>(std::move(*samples));
+      }
+      auto samples = std::make_shared<solid::DisplayMesh>(*source_.display_samples);
+      for (solid::Vec3 &p : samples->positions)
+        p = a * p.x + b * p.y + c * p.z + m.translation;
+      const solid::Vec3 na = solid::cross(b, c) / det, nb = solid::cross(c, a) / det,
+                        nc = solid::cross(a, b) / det;
+      for (auto &polygon : samples->corner_normals)
+        for (solid::Vec3 &n : polygon) {
+          n = na * n.x + nb * n.y + nc * n.z;
+          n = n / solid::length(n);
+        }
+      next.display_samples = std::move(samples);
+    }
+  }
+  return replace_display(C, *object_, std::move(next), revision_, error, reuse_topology);
 }
 
 bool Session::restore(bContext *C, std::string *error)
@@ -119,6 +242,24 @@ namespace {
 static double3 host_point(const solid::Vec3 &p)
 {
   return {p.x, p.y, p.z};
+}
+
+static std::optional<solid::EditResult> bevel_result(const solid::Model &model,
+                                                     solid::Selection selection,
+                                                     double width,
+                                                     bool vertices_only,
+                                                     std::string *error,
+                                                     solid::BevelCornerStyle corner_style,
+                                                     int subdivisions)
+{
+  if (subdivisions > 0) {
+    if (vertices_only) {
+      *error = "Select body edges or faces for a fillet; vertex-only fillets are not implemented";
+      return {};
+    }
+    return solid::fillet(model, std::move(selection), width, subdivisions, error);
+  }
+  return solid::chamfer(model, std::move(selection), width, vertices_only, error, corner_style);
 }
 
 static wmOperatorStatus sketch_add_exec(bContext *C, wmOperator *op)
@@ -291,6 +432,14 @@ static double distance_get(wmOperator *op)
   return float(value) == displayed ? value : double(displayed);
 }
 
+static void finish_sketch_extrusion(bContext *C)
+{
+  if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
+    if (STRPREFIX(tool->idname, "builtin.nurbs_draw_"))
+      WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
+  }
+}
+
 static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
 {
   std::string error;
@@ -314,6 +463,7 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
   }
+  finish_sketch_extrusion(C);
   return OPERATOR_FINISHED;
 }
 
@@ -325,6 +475,7 @@ struct ExtrudeModal {
   bool bevel = false;
   bool vertices_only = false;
   solid::BevelCornerStyle corner_style = solid::BevelCornerStyle::Sharp;
+  int subdivisions = 0;
   int axis = -1;
   solid::Vec3 offset;
   float depth = 1;
@@ -362,12 +513,13 @@ static void update(bContext *C, wmOperator *op)
   auto &data = *static_cast<ExtrudeModal *>(op->customdata);
   data.error.clear();
   const auto &source = data.preview->source();
-  auto result = data.bevel    ? solid::chamfer(*source.model,
-                                            source.selection,
-                                            std::abs(data.distance),
-                                            data.vertices_only,
-                                            &data.error,
-                                            data.corner_style) :
+  auto result = data.bevel    ? bevel_result(*source.model,
+                                          source.selection,
+                                          std::abs(data.distance),
+                                          data.vertices_only,
+                                          &data.error,
+                                          data.corner_style,
+                                          data.subdivisions) :
                 data.elements ? solid::extrude_elements(
                                     *source.model, source.selection, data.offset, &data.error) :
                                 solid::extrude(data.profile, data.distance, &data.error);
@@ -380,18 +532,27 @@ static void update(bContext *C, wmOperator *op)
     }
   }
   char status[512];
-  if (data.valid) {
+  if (data.valid && data.bevel) {
+    BLI_snprintf(
+        status,
+        sizeof(status),
+        "Bevel / Fillet Solid: %.9g | Segments: %d (Wheel) | LMB/Enter: Confirm | Esc: Cancel",
+        data.distance,
+        data.subdivisions);
+  }
+  else if (data.valid) {
     BLI_snprintf(status,
                  sizeof(status),
                  "%s: %.9g | X/Y/Z: Axis | Ctrl: Snap | "
                  "LMB/Enter: Confirm | RMB/Esc: Cancel",
-                 data.bevel ? "Bevel Solid (1 segment)" : "Extrude Solid",
+                 data.bevel ? "Bevel / Fillet Solid" : "Extrude Solid",
                  data.distance);
   }
   else {
     BLI_snprintf(status,
                  sizeof(status),
-                 "Extrude Solid: %s | Move mouse or type distance | Esc: Cancel",
+                 "%s: %s | Move mouse or type distance | Esc: Cancel",
+                 data.bevel ? "Bevel / Fillet Solid" : "Extrude Solid",
                  data.error.c_str());
   }
   ED_workspace_status_text(C, status);
@@ -458,6 +619,13 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
 static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<ExtrudeModal *>(op->customdata);
+  if (data.bevel && event->val == KM_PRESS && ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE)) {
+    data.subdivisions = std::clamp(
+        data.subdivisions + (event->type == WHEELUPMOUSE ? 1 : -1), 0, 32);
+    RNA_int_set(op->ptr, "segments", data.subdivisions);
+    update(C, op);
+    return OPERATOR_RUNNING_MODAL;
+  }
   if (event->val == KM_PRESS && ELEM(event->type, EVT_ESCKEY, RIGHTMOUSE)) {
     extrude_cancel(C, op);
     return OPERATOR_CANCELLED;
@@ -478,7 +646,10 @@ static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent
         RNA_float_set_array(op->ptr, "offset", offset);
       }
     }
+    const bool extruded = !data.bevel;
     cleanup(C, op);
+    if (extruded)
+      finish_sketch_extrusion(C);
     return OPERATOR_FINISHED;
   }
   if (data.elements && event->val == KM_PRESS && ELEM(event->type, EVT_XKEY, EVT_YKEY, EVT_ZKEY)) {
@@ -606,12 +777,13 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
   const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
-  auto result = session ? solid::chamfer(*session->source().model,
-                                         session->source().selection,
-                                         RNA_float_get(op->ptr, "offset"),
-                                         vertices_only,
-                                         &error,
-                                         corner_style) :
+  auto result = session ? bevel_result(*session->source().model,
+                                       session->source().selection,
+                                       RNA_float_get(op->ptr, "offset"),
+                                       vertices_only,
+                                       &error,
+                                       corner_style,
+                                       RNA_int_get(op->ptr, "segments")) :
                           std::nullopt;
   if (!result || !session->apply(C, std::move(*result), &error)) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
@@ -628,12 +800,13 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
   const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
-  auto check = session ? solid::chamfer(*session->source().model,
-                                        session->source().selection,
-                                        RNA_float_get(op->ptr, "offset"),
-                                        vertices_only,
-                                        &error,
-                                        corner_style) :
+  auto check = session ? bevel_result(*session->source().model,
+                                      session->source().selection,
+                                      RNA_float_get(op->ptr, "offset"),
+                                      vertices_only,
+                                      &error,
+                                      corner_style,
+                                      RNA_int_get(op->ptr, "segments")) :
                          std::nullopt;
   if (!check) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
@@ -644,6 +817,7 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   data->bevel = true;
   data->vertices_only = vertices_only;
   data->corner_style = corner_style;
+  data->subdivisions = RNA_int_get(op->ptr, "segments");
   data->initial_mouse = float2(event->mval);
   const auto &source = data->preview->source();
   const auto p = solid::vertex(*source.model, source.selection.vertices.front())->position;
@@ -657,8 +831,9 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   data->num.unit_sys = CTX_data_scene(C)->unit.system;
   data->num.unit_type[0] = B_UNIT_LENGTH;
   op->customdata = data;
-  ED_workspace_status_text(
-      C, "Bevel Solid (1 segment): Move mouse or type width | Enter: Confirm | Esc: Cancel");
+  ED_workspace_status_text(C,
+                           "Bevel / Fillet Solid: Move mouse or type width | Wheel: Subdivisions "
+                           "| Enter: Confirm | Esc: Cancel");
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
 }
@@ -772,7 +947,8 @@ void SOLID_OT_translate_delta(wmOperatorType *ot)
 {
   ot->name = "Translate Solid Source by Delta";
   ot->idname = "SOLID_OT_translate_delta";
-  ot->description = "Apply one incremental offset to selected analytic geometry during a modal tool";
+  ot->description =
+      "Apply one incremental offset to selected analytic geometry during a modal tool";
   ot->poll = solid_edit_poll;
   ot->exec = translate_delta_exec;
   ot->flag = OPTYPE_INTERNAL;
@@ -813,27 +989,38 @@ void SOLID_OT_bevel(wmOperatorType *ot)
 {
   ot->name = "Bevel Solid";
   ot->idname = "SOLID_OT_bevel";
-  ot->description = "Create exact one-segment bevels on convex planar solid edges or vertices";
+  ot->description =
+      "Chamfer planar solid edges or round a shared network with analytic conic profiles";
   ot->poll = solid_edit_poll;
   ot->exec = bevel_exec;
   ot->invoke = bevel_invoke;
   ot->modal = extrude_modal;
   ot->cancel = extrude_cancel;
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
-  RNA_def_float_distance(ot->srna,
-                         "offset",
-                         0.1f,
-                         1e-8f,
-                         FLT_MAX,
-                         "Width",
-                         "Distance along adjoining faces",
-                         .001f,
-                         1);
+  RNA_def_float_distance(
+      ot->srna,
+      "offset",
+      0.1f,
+      1e-8f,
+      FLT_MAX,
+      "Width",
+      "Width along adjacent faces in object-local units, matching the native bevel workflow",
+      .001f,
+      1);
   RNA_def_boolean(ot->srna,
                   "vertices_only",
                   false,
                   "Vertices Only",
                   "Bevel selected vertices instead of edges");
+  RNA_def_int(ot->srna,
+              "segments",
+              0,
+              0,
+              32,
+              "Segments",
+              "0: flat chamfer; 1: exact curved fillet; higher values split the curved surfaces",
+              0,
+              8);
   static const EnumPropertyItem corner_styles[] = {
       {0, "SHARP", 0, "Sharp", "Join edge bevels at one point"},
       {1, "PATCH", 0, "Patch", "Add a flat patch where three or more beveled edges meet"},

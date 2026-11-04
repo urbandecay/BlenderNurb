@@ -24,6 +24,8 @@ struct Snapshot {
   std::shared_ptr<const solid::Model> model;
   solid::Selection selection;
   uint64_t revision = 0;
+  /** Derived double-precision samples belonging to this immutable model (64 segments). */
+  std::shared_ptr<const solid::DisplayMesh> display_samples;
 };
 
 SolidStorage *storage_create(solid::Model model,

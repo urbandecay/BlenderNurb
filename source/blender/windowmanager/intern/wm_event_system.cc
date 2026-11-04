@@ -1323,7 +1323,9 @@ static void wm_operator_finished(bContext *C,
                                  const bool has_undo_step,
                                  const bool has_register)
 {
-  if (STRPREFIX(op->type->idname, "MESH_OT_")) {
+  if (STRPREFIX(op->type->idname, "MESH_OT_") ||
+      STRPREFIX(op->type->idname, "VIEW3D_OT_select"))
+  {
     if (Object *object = CTX_data_edit_object(C)) {
       if (object->type == OB_MESH && id_cast<const Mesh *>(object->data)->solid_storage)
         bke::solid_host::sync_edit_selection(*id_cast<Mesh *>(object->data));

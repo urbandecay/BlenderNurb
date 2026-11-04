@@ -3062,7 +3062,9 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
 
     @classmethod
     def tools_all(cls):
-        yield from cls._tools.items()
+        # The solid toolbar is selected from object data rather than a distinct mode.
+        for mode, tools in cls._tools.items():
+            yield mode, (*tools, _defs_solid.extrude) if mode == 'EDIT_MESH' else tools
 
     # Private tool lists for convenient reuse in `_tools`.
 

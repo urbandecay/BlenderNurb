@@ -1038,14 +1038,28 @@ def _activate_by_item(context, space_type, item, index, *, as_fallback=False):
 
     gizmo_group = item.widget or ""
 
+    def keymap_name(tool_item):
+        if tool_item is None or tool_item.keymap is None:
+            return ""
+        keymap = tool_item.keymap
+        # Context-dependent tools may appear after initial toolbar registration.
+        # Resolve their callbacks before passing a keymap name to RNA.
+        if callable(keymap[0]):
+            keyconfig = context.window_manager.keyconfigs.default
+            if keyconfig is None:
+                return ""
+            context_descr = context.mode.replace("_", " ").title()
+            cls._km_action_simple(keyconfig, keyconfig, context_descr, tool_item.label, keymap)
+        return keymap[0]
+
     idname_fallback = (item_fallback and item_fallback.idname) or ""
-    keymap_fallback = (item_fallback and item_fallback.keymap and item_fallback.keymap[0]) or ""
+    keymap_fallback = keymap_name(item_fallback)
     if keymap_fallback:
         keymap_fallback = keymap_fallback + " (fallback)"
 
     tool.setup(
         idname=item.idname,
-        keymap=item.keymap[0] if item.keymap is not None else "",
+        keymap=keymap_name(item),
         cursor=item.cursor or 'DEFAULT',
         options=item.options or set(),
         gizmo_group=gizmo_group,

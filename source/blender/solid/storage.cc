@@ -92,7 +92,7 @@ std::vector<uint8_t> encode(const Model &m, const Selection &input_selection)
   const Selection selection = normalize_selection(m, input_selection);
   Writer out;
   out.integer(magic);
-  out.integer(1);
+  out.integer(5);
   out.integer(m.next_id);
   out.sequence(m.vertices, [&](const Vertex &v) {
     out.integer(v.id);
@@ -104,6 +104,7 @@ std::vector<uint8_t> encode(const Model &m, const Selection &input_selection)
     out.point(c.origin);
     out.point(c.u);
     out.point(c.v);
+    out.point(c.w);
   });
   out.sequence(m.edges, [&](const Edge &e) {
     out.integer(e.id);
@@ -122,6 +123,15 @@ std::vector<uint8_t> encode(const Model &m, const Selection &input_selection)
     out.integer(s.curve);
     out.scalar(s.start);
     out.scalar(s.end);
+    out.point(s.w);
+    for (Vec3 coefficient : s.blend)
+      out.point(coefficient);
+    out.scalar(s.blend_cot);
+    out.scalar(s.blend_v_start);
+    out.scalar(s.blend_v_end);
+    out.integer(s.other_curve);
+    out.integer(s.reverse_first);
+    out.integer(s.reverse_second);
   });
   auto coedge = [&](const Coedge &use) {
     out.integer(use.edge);
@@ -131,6 +141,7 @@ std::vector<uint8_t> encode(const Model &m, const Selection &input_selection)
     out.integer(f.id);
     out.integer(f.surface);
     out.integer(f.orientation > 0 ? 1 : 0);
+    out.integer(f.group);
     out.sequence(f.outer, coedge);
     out.sequence(f.holes, [&](const std::vector<Coedge> &hole) { out.sequence(hole, coedge); });
   });
@@ -153,7 +164,10 @@ std::optional<EditResult> decode(const uint8_t *data, size_t size, std::string *
     if (checksum(data, size - 8) != tail.integer())
       throw std::runtime_error("Analytic source checksum mismatch");
     Reader in{data, size - 8};
-    if (in.integer() != magic || in.integer() != 1)
+    if (in.integer() != magic)
+      throw std::runtime_error("Unsupported analytic source version");
+    const uint64_t version = in.integer();
+    if (version < 1 || version > 5)
       throw std::runtime_error("Unsupported analytic source version");
     EditResult result;
     auto &m = result.model;
@@ -168,12 +182,14 @@ std::optional<EditResult> decode(const uint8_t *data, size_t size, std::string *
       Curve c;
       c.id = in.integer();
       const auto kind = in.integer();
-      if (kind > 1)
+      if (kind > 3 || (version < 5 && kind > 2) || (version < 4 && kind > 1))
         throw std::runtime_error("Unsupported analytic curve type");
       c.kind = CurveKind(kind);
       c.origin = in.point();
       c.u = in.point();
       c.v = in.point();
+      if (version >= 4)
+        c.w = in.point();
       return c;
     });
     m.edges = in.sequence<Edge>([&]() {
@@ -190,7 +206,8 @@ std::optional<EditResult> decode(const uint8_t *data, size_t size, std::string *
       Surface s;
       s.id = in.integer();
       const auto kind = in.integer();
-      if (kind > 1)
+      if (kind > 5 || (version < 5 && kind > 4) || (version < 4 && kind > 3) ||
+          (version < 3 && kind > 2) || (version == 1 && kind > 1))
         throw std::runtime_error("Unsupported analytic surface type");
       s.kind = SurfaceKind(kind);
       s.origin = in.point();
@@ -199,6 +216,20 @@ std::optional<EditResult> decode(const uint8_t *data, size_t size, std::string *
       s.curve = in.integer();
       s.start = in.scalar();
       s.end = in.scalar();
+      if (version >= 2)
+        s.w = in.point();
+      if (version >= 4) {
+        for (Vec3 &coefficient : s.blend)
+          coefficient = in.point();
+        s.blend_cot = in.scalar();
+        s.blend_v_start = in.scalar();
+        s.blend_v_end = in.scalar();
+      }
+      if (version >= 5) {
+        s.other_curve = in.integer();
+        s.reverse_first = in.integer() != 0;
+        s.reverse_second = in.integer() != 0;
+      }
       return s;
     });
     auto coedge = [&]() {
@@ -218,6 +249,8 @@ std::optional<EditResult> decode(const uint8_t *data, size_t size, std::string *
       if (sense > 1)
         throw std::runtime_error("Invalid face sense");
       f.orientation = sense ? 1 : -1;
+      if (version >= 4)
+        f.group = in.integer();
       f.outer = in.sequence<Coedge>(coedge);
       f.holes = in.sequence<std::vector<Coedge>>([&]() { return in.sequence<Coedge>(coedge); });
       return f;

@@ -39,6 +39,7 @@ set(SRC
 
 set(LIB
   PRIVATE bf::blenkernel
+  PRIVATE bf::bmesh
   PRIVATE bf::animrig
   PRIVATE bf::blenlib
   PRIVATE bf::blentranslation

@@ -14,6 +14,72 @@ import bpy
 
 
 class SolidSketchTest(unittest.TestCase):
+    def test_subdivided_fillet_does_not_resample_each_patch_as_a_whole_corner(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        obj = bpy.context.object
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=20), {'FINISHED'})
+        self.assertEqual(obj.data.solid_faces_count, 3446)
+        bm = bmesh.from_edit_mesh(obj.data)
+        self.assertLess(len(bm.faces), 40000)
+        self.assertTrue(all(v.co.length < 4 for v in bm.verts))
+
+    def test_fillet_rotation_preserves_display_and_analytic_normals(self):
+        from mathutils import Matrix
+
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        obj = bpy.context.object
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=1), {'FINISHED'})
+        bpy.ops.mesh.select_mode(type='VERT')
+        bpy.ops.mesh.select_all(action='SELECT')
+
+        def display():
+            bpy.context.view_layer.update()
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            mesh = evaluated.to_mesh()
+            try:
+                self.assertEqual(mesh.attributes['custom_normal'].data_type, 'FLOAT_VECTOR')
+                return ([v.co.copy() for v in mesh.vertices],
+                        [n.vector.copy() for n in mesh.corner_normals],
+                        [tuple(f.vertices) for f in mesh.polygons])
+            finally:
+                evaluated.to_mesh_clear()
+
+        before = display()
+        angle = .371
+        self.assertEqual(bpy.ops.transform.rotate(value=angle, orient_axis='Z',
+                                                  center_override=(0, 0, 0)), {'FINISHED'})
+        after = display()
+        rotation = Matrix.Rotation(angle, 3, 'Z')
+        self.assertEqual(before[2], after[2])
+        for a, b in zip(before[0], after[0]):
+            self.assertLess((rotation @ a - b).length, 2e-6)
+        for a, b in zip(before[1], after[1]):
+            self.assertLess((rotation @ a - b).length, 2e-6)
+        for _ in range(8):
+            self.assertEqual(bpy.ops.transform.rotate(value=.03, orient_axis='Z',
+                                                      center_override=(0, 0, 0)), {'FINISHED'})
+        after = display()
+        # Duplication rebuilds both components from source rather than using the
+        # transformed display cache. The original must agree with fresh sampling.
+        self.assertEqual(bpy.ops.solid.duplicate(), {'FINISHED'})
+        rebuilt = display()
+        self.assertEqual(len(rebuilt[0]), 2 * len(after[0]))
+        from mathutils.kdtree import KDTree
+        tree = KDTree(len(rebuilt[0]))
+        for index, point in enumerate(rebuilt[0]):
+            tree.insert(point, index)
+        tree.balance()
+        for point in after[0]:
+            self.assertLess(tree.find(point)[2], 2e-6)
+        for a, b in zip(after[1], rebuilt[1]):
+            self.assertLess((a - b).length, 2e-6)
+
     def setUp(self):
         if bpy.context.object and bpy.context.object.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
