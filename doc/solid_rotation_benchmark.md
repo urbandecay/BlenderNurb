@@ -168,3 +168,48 @@ Artifacts: `/tmp/solid-live-info.json`, `/tmp/solid-live-captured.blend`,
 `/tmp/solid-live-modal-after2.log`, `/tmp/solid-live-api-final.log`,
 `/tmp/solid-live-ui-checks.log`. The earlier modal-before/after files used the
 incorrect event-send clock and their FPS numbers must not be used.
+
+## Matrix updates during whole-solid drags
+
+Whole-source rigid transforms now update the existing visible BMesh directly from
+its starting coordinates and custom normals. Each mouse event applies a matrix;
+source model copying, selection normalization, construction and validation happen
+once when the user confirms. Confirmation publishes the transformed analytic model
+without replacing or repositioning the displayed BMesh. Cancel restores the exact
+starting coordinates and corner normal floats. Partial edits, scale and transforms
+that are not rigid in object space retain the existing analytic edit path.
+
+The source remains authoritative: display coordinates never become analytic input.
+A source transform is computed from the original analytic model and final matrix.
+
+Three alternating comparisons on the same 20-subdivision captured solid, with its
+previous excessive sampling already corrected, produced these median draw intervals:
+
+| Trial | Previous implementation | Matrix drag |
+| --- | ---: | ---: |
+| 1 | 117.53 ms | 24.44 ms |
+| 2 (order reversed) | 84.29 ms | 23.42 ms |
+| 3 | 86.95 ms | 24.84 ms |
+| Median of the three trials | **86.95 ms / 11.50 FPS** | **24.44 ms / 40.92 FPS** |
+
+Retained the matrix path: about 3.56 times the update rate, a 71.9% reduction in
+frame interval. Measurements use successive viewport POST_PIXEL draws during mouse
+rotation, excluding the initial three frames, with confirmation after 14 events.
+Every run also asserts that all 11,072 visible vertex coordinates are bit-for-bit
+identical before and after confirmation. These desktop results vary with load.
+There is still a source commit/validation cost when confirming, but that operation
+leaves the displayed coordinates untouched.
+
+Validation: all 18 API tests pass, including comparing rotated display geometry and
+normals against a fresh analytic rebuild. Three viewport checks pass; the rotation
+check now verifies that geometry visibly changes *during* rotation, stays identical
+on confirmation, and supports cancel, undo and redo. An additional check verifies
+exact corner normal restoration on cancel and preservation on confirmation.
+
+Artifacts: `/tmp/solid-matrix-input.blend` (same analytic shape as the live capture,
+normalized once by the previous implementation using a zero-angle rotation),
+`/tmp/solid-matrix-modal-bench.py`, `/tmp/solid-matrix-compare/results.json`,
+`/tmp/solid-matrix-compare/{before,matrix}-{0,1,2}.log`,
+`/tmp/solid-matrix-api.log`, `/tmp/solid-matrix-ui.log`, and
+`/tmp/solid-matrix-ui-normals.log`. The previous executable is preserved as
+`build_linux/bin/blender-before-matrix-drag`.

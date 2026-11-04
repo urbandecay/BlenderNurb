@@ -230,8 +230,150 @@ bool Session::apply(bContext *C,
   return replace_display(C, *object_, std::move(next), revision_, error, reuse_topology);
 }
 
+/* A rigid whole-source drag changes the existing visible BMesh immediately.
+ * Source construction and validation are deferred to confirmation. */
+bool Session::can_preview_affine(const solid::Affine &m) const
+{
+  if (revision_ != source_.revision ||
+      source_.selection.vertices.size() != source_.model->vertices.size())
+    return false;
+  const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
+  const double error = std::abs(solid::dot(a, a) - 1) + std::abs(solid::dot(b, b) - 1) +
+                       std::abs(solid::dot(c, c) - 1) + std::abs(solid::dot(a, b)) +
+                       std::abs(solid::dot(a, c)) + std::abs(solid::dot(b, c));
+  return solid::dot(a, solid::cross(b, c)) > 0 && error < 1e-6 && std::isfinite(m.translation.x) &&
+         std::isfinite(m.translation.y) && std::isfinite(m.translation.z);
+}
+
+static void affine_display_update(bContext *C, Mesh &mesh)
+{
+  EDBMUpdate_Params update{};
+  update.calc_looptris = true;
+  update.calc_normals = true;
+  update.is_destructive = false;
+  EDBM_update(&mesh, &update);
+  DEG_id_tag_update(&mesh.id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
+  WM_event_add_notifier(C, NC_GEOM | ND_DATA, &mesh);
+}
+
+bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *error)
+{
+  Mesh &mesh = *id_cast<Mesh *>(object_->data);
+  if (!can_preview_affine(m) || !mesh.runtime->edit_mesh)
+    return false;
+  const auto start = std::chrono::steady_clock::now();
+  BMesh *bm = mesh.runtime->edit_mesh->bm;
+  const int normal_offset = CustomData_get_offset_named(
+      &bm->ldata, CD_PROP_FLOAT3, "custom_normal");
+  if (normal_offset < 0 && bm->totloop != 0)
+    return false;
+  BM_mesh_elem_table_ensure(bm, BM_VERT | BM_FACE);
+  if (display_positions_.empty()) {
+    for (int i = 0; i < bm->totvert; ++i) {
+      const float *p = BM_vert_at_index(bm, i)->co;
+      display_positions_.push_back({p[0], p[1], p[2]});
+    }
+    for (int i = 0; i < bm->totface; ++i) {
+      BMFace *f = BM_face_at_index(bm, i);
+      BMLoop *loop = BM_FACE_FIRST_LOOP(f);
+      do {
+        const float *n = BM_ELEM_CD_GET_FLOAT_P(loop, normal_offset);
+        display_normals_.push_back({n[0], n[1], n[2]});
+      } while ((loop = loop->next) != BM_FACE_FIRST_LOOP(f));
+    }
+  }
+  if (display_positions_.size() != bm->totvert || display_normals_.size() != bm->totloop)
+    return false;
+  const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
+  auto position = [&](solid::Vec3 p) { return a * p.x + b * p.y + c * p.z + m.translation; };
+  /* Reject overflow before changing any displayed coordinate. */
+  for (const auto &original : display_positions_) {
+    const auto p = position(original);
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
+        std::abs(p.x) > FLT_MAX || std::abs(p.y) > FLT_MAX || std::abs(p.z) > FLT_MAX)
+    {
+      if (error)
+        *error = "Solid transform exceeds display coordinate range";
+      return false;
+    }
+  }
+  for (int i = 0; i < bm->totvert; ++i) {
+    const auto p = position(display_positions_[i]);
+    copy_v3_v3(BM_vert_at_index(bm, i)->co, float3(p.x, p.y, p.z));
+  }
+  size_t index = 0;
+  for (int i = 0; i < bm->totface; ++i) {
+    BMFace *f = BM_face_at_index(bm, i);
+    BMLoop *loop = BM_FACE_FIRST_LOOP(f);
+    do {
+      const auto original = display_normals_[index++];
+      auto n = a * original.x + b * original.y + c * original.z;
+      const double size = solid::length(n);
+      if (size > 0)
+        n = n / size;
+      copy_v3_v3(BM_ELEM_CD_GET_FLOAT_P(loop, normal_offset), float3(n.x, n.y, n.z));
+    } while ((loop = loop->next) != BM_FACE_FIRST_LOOP(f));
+  }
+  display_matrix_ = m;
+  display_preview_ = true;
+  display_restored_ = false;
+  affine_display_update(C, mesh);
+  if (std::getenv("BLENDER_SOLID_PROFILE"))
+    fprintf(stderr,
+            "SOLID_AFFINE_DRAG update_ms=%.3f\n",
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+                .count());
+  return true;
+}
+
+bool Session::commit_affine(bContext *C, std::string *error)
+{
+  if (!display_preview_)
+    return true;
+  auto result = solid::transform_selected(
+      *source_.model, source_.selection, display_matrix_, error);
+  if (!result)
+    return false;
+  bke::solid_host::Snapshot next{std::make_shared<const solid::Model>(std::move(result->model)),
+                                 std::move(result->selection),
+                                 revision_};
+  Mesh &mesh = *id_cast<Mesh *>(object_->data);
+  if (!bke::solid_host::publish(mesh, std::move(next), revision_, error))
+    return false;
+  ++revision_;
+  display_preview_ = false;
+  /* The same BMesh already occupies the confirmed position. Do not replace it. */
+  DEG_id_tag_update(&mesh.id, ID_RECALC_GEOMETRY | ID_RECALC_SYNC_TO_EVAL);
+  WM_event_add_notifier(C, NC_GEOM | ND_DATA, &mesh);
+  return true;
+}
+
 bool Session::restore(bContext *C, std::string *error)
 {
+  if (display_restored_ && revision_ == source_.revision)
+    return true;
+  if (display_preview_) {
+    solid::Affine identity;
+    identity.columns = {solid::Vec3{1, 0, 0}, solid::Vec3{0, 1, 0}, solid::Vec3{0, 0, 1}};
+    if (!preview_affine(C, identity, error))
+      return false;
+    /* Preserve the original floats exactly, including custom normals. */
+    Mesh &mesh = *id_cast<Mesh *>(object_->data);
+    BMesh *bm = mesh.runtime->edit_mesh->bm;
+    const int offset = CustomData_get_offset_named(&bm->ldata, CD_PROP_FLOAT3, "custom_normal");
+    size_t index = 0;
+    for (int i = 0; i < bm->totface; ++i) {
+      BMFace *f = BM_face_at_index(bm, i);
+      BMLoop *loop = BM_FACE_FIRST_LOOP(f);
+      do {
+        const auto n = display_normals_[index++];
+        copy_v3_v3(BM_ELEM_CD_GET_FLOAT_P(loop, offset), float3(n.x, n.y, n.z));
+      } while ((loop = loop->next) != BM_FACE_FIRST_LOOP(f));
+    }
+    display_preview_ = false;
+    display_restored_ = true;
+    return true;
+  }
   return replace_display(C, *object_, source_, revision_, error);
 }
 

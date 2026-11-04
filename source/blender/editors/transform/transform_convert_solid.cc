@@ -130,9 +130,29 @@ void recalc_solid(TransInfo *t)
     for (int i = 0; i < 3; ++i)
       matrix.columns[i] = {local[i].x, local[i].y, local[i].z};
     matrix.translation = {translation.x, translation.y, translation.z};
+    if (data->session->can_preview_affine(matrix)) {
+      if (data->session->preview_affine(t->context, matrix, &error)) {
+        data->changed = true;
+        continue;
+      }
+      BKE_report(t->reports, RPT_ERROR, error.empty() ? "Solid display transform failed" : error.c_str());
+      t->state = TRANS_CANCEL;
+      if (data->changed)
+        data->session->restore(t->context, nullptr);
+      data->changed = false;
+      continue;
+    }
+    /* Changing from a rigid drag to a deformation returns to the source first. */
+    if (data->session->has_affine_preview() && !data->session->restore(t->context, &error)) {
+      BKE_report(t->reports, RPT_ERROR, error.c_str());
+      t->state = TRANS_CANCEL;
+      continue;
+    }
     auto candidate = solid::transform_selected(*source.model, source.selection, matrix, &error);
     const bool complete = source.selection.vertices.size() == source.model->vertices.size();
-    if (!candidate || !data->session->apply(t->context, std::move(*candidate), &error, complete, &matrix)) {
+    if (!candidate ||
+        !data->session->apply(t->context, std::move(*candidate), &error, complete, &matrix))
+    {
       BKE_report(t->reports, RPT_ERROR, error.c_str());
       t->state = TRANS_CANCEL;
       if (data->changed)
@@ -143,10 +163,24 @@ void recalc_solid(TransInfo *t)
     data->changed = true;
   }
 }
-void finish_solid(bContext *, TransInfo *t)
+void finish_solid(bContext *C, TransInfo *t)
 {
-  if (t->state == TRANS_CANCEL)
+  if (t->state == TRANS_CANCEL) {
     recalc_solid(t);
+    return;
+  }
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
+    auto *data = static_cast<SolidTransform *>(tc->custom.type.data);
+    if (!data || !data->changed)
+      continue;
+    std::string error;
+    if (!data->session->commit_affine(C, &error)) {
+      BKE_report(t->reports, RPT_ERROR, error.c_str());
+      data->session->restore(C, nullptr);
+      t->state = TRANS_CANCEL;
+      data->changed = false;
+    }
+  }
 }
 }  // namespace
 void solid_affine_update(TransInfo *t, const float matrix[3][3])

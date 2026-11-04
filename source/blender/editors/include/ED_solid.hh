@@ -19,6 +19,10 @@ class Session {
   Object *object_;
   bke::solid_host::Snapshot source_;
   uint64_t revision_;
+  std::vector<solid::Vec3> display_positions_, display_normals_;
+  solid::Affine display_matrix_;
+  bool display_preview_ = false;
+  bool display_restored_ = false;
   Session(Object &object, bke::solid_host::Snapshot source);
 
  public:
@@ -37,6 +41,13 @@ class Session {
              bool reuse_topology = false,
              const solid::Affine *affine = nullptr);
   bool restore(bContext *C, std::string *error = nullptr);
+  bool can_preview_affine(const solid::Affine &matrix) const;
+  bool has_affine_preview() const
+  {
+    return display_preview_;
+  }
+  bool preview_affine(bContext *C, const solid::Affine &matrix, std::string *error);
+  bool commit_affine(bContext *C, std::string *error);
 };
 
 }  // namespace blender::ed::solid_editor

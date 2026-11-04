@@ -29,11 +29,24 @@ def fillet_rotation_cancel_and_undo():
     def positions():
         return [tuple(v.co) for v in bmesh.from_edit_mesh(window.view_layer.objects.active.data).verts]
 
+    def normals():
+        bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
+        layer = bm.loops.layers.float_vector['custom_normal']
+        return [tuple(loop[layer]) for face in bm.faces for loop in face.loops]
+
     before = positions()
+    before_normals = normals()
     yield e.r().z().text('20').esc()
     t.assertEqual(positions(), before)
-    yield e.r().z().text('20').ret()
+    t.assertEqual(normals(), before_normals)
+    yield e.r().z().text('20')
+    during_drag = positions()
+    during_normals = normals()
+    t.assertNotEqual(during_drag, before)
+    yield e.ret()
     rotated = positions()
+    t.assertEqual(rotated, during_drag)  # Confirmation must not move any visible vertex.
+    t.assertEqual(normals(), during_normals)
     t.assertNotEqual(rotated, before)
     yield e.ctrl.z()
     t.assertEqual(positions(), before)
