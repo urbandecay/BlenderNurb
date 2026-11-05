@@ -211,6 +211,12 @@ bool validate_body(const Model &model, Id seed_face, std::string *error = nullpt
 class ValidatedModel {
   std::shared_ptr<const Model> model_;
   explicit ValidatedModel(std::shared_ptr<const Model> model) : model_(std::move(model)) {}
+  static ValidatedModel from_validated_extrusion(std::shared_ptr<const Model> model)
+  {
+    assert(model);
+    return ValidatedModel(std::move(model));
+  }
+  friend class PreparedExtrusion;
  public:
   static std::optional<ValidatedModel> create(std::shared_ptr<const Model> model,
                                              std::string *error = nullptr);

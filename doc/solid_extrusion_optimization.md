@@ -57,10 +57,10 @@ Some intermediate measurements overlapped builds/other tests and were discarded 
 
 ## Remaining cost
 
-The heavy solid still contains 8,582 analytic faces. Result construction, full body checks,
-model copying and one validation of the immutable publication candidate remain. General curved
-profiles still use full display tessellation. Copy-on-write model storage and local geometric
-validation would require a larger change and stronger invariants than this optimization.
+The heavy solid still contains 8,582 analytic faces. Each preview still copies the source model
+and constructs its new faces. Curved profiles still use full display tessellation. A preview-only
+edit-mesh path that delays making the analytic B-rep until confirmation could reduce more work,
+but would change how preview selection, cancellation and publication fit together.
 
 ## Reproduce
 
@@ -70,3 +70,43 @@ SOLID_BEVEL_CASE=bevel32 SOLID_BEVEL_MODAL_UPDATES=20 SOLID_BEVEL_MODAL_WARMUP=3
 ```
 
 The extrusion benchmark reuses the existing modal benchmark environment option names.
+
+## Follow-up efficiency study
+
+Starting from the pushed preview path above, profiling found duplicate full geometry validation:
+extrusion validated the result, then the editor validated the same result again before publishing
+it. It also rebuilt the same edge/face closure map on every mouse update.
+
+The first change made the editor reuse the exact immutable-model validation certificate. That
+raised the heavy test from 20.9 Hz to about 25 Hz. Profiling then showed the full geometry scan
+still dominated. The final change validates only the extrusion delta against the checked,
+unchanged source: it verifies the source entities are still an exact prefix, checks all new
+vertices, curves, edges, surfaces and faces, then proves the result is closed. The closure proof
+is cached separately for positive and negative sweeps because distance changes coordinates but
+not topology. Other operations and the public full validator still do complete checks.
+
+The GUI benchmark uses a 2x2x3 box with a width-0.2, 32-segment fillet, the same selected planar
+end cap, 40 simulated distance updates, five warmup draws and analytic normals. Final runs both
+cancelled and confirmed; each preserved the expected geometry and selection.
+
+| Version | Median draw interval | Draw rate |
+| --- | ---: | ---: |
+| Before this study | 47.753 ms | 20.9 Hz |
+| Final delta check, cancel | 25.787 ms | 38.8 Hz |
+| Final delta check, confirm | 24.323 ms | 41.1 Hz |
+| Final build after fresh-ID guard, confirm | 23.088 ms | 43.3 Hz |
+| Final build after fresh-ID guard, cancel | 22.740 ms | 44.0 Hz |
+
+Across the two final runs, previews took about 47% less time per update and ran about 91% faster.
+A plain box stayed at about 60 Hz. The heavy display remained 4,684 vertices, 13,268
+edges and 8,586 faces, so the gain came from less CPU work, not simpler visible geometry.
+
+The kernel tests still run the full validator against preview results, including checking that
+each preview is a closed valid body, and compare cached display data with full tessellation. The
+test suites passed, including 4,095 bevel edge combinations. Curved-profile fallback, normal
+switching, cancellation and confirmation are covered.
+
+The remaining large opportunity is preview-only mesh updates with analytic solid creation
+deferred until confirmation. That could avoid copying the full B-rep during each drag, but it is a
+larger workflow change involving selection identities, cancel/confirm state and publication, so
+it was left for a separate study.

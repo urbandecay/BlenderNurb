@@ -49,6 +49,11 @@ class Session {
              bool reuse_topology = false,
              const solid::Affine *affine = nullptr,
              std::shared_ptr<const solid::DisplayMesh> samples = nullptr);
+  /** Publish a preview that already owns the exact immutable model certificate and samples. */
+  bool apply(bContext *C,
+             bke::solid_host::Snapshot candidate,
+             std::string *error = nullptr,
+             bool reuse_topology = false);
   bool restore(bContext *C, std::string *error = nullptr);
   bool can_preview_affine(const solid::Affine &matrix) const;
   bool has_affine_preview() const

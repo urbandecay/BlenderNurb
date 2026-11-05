@@ -109,10 +109,13 @@ int main()
   require(bool(cylinder), error);
   auto circle_extrusion = PreparedExtrusion::create(*disc_profile, &error);
   require(bool(circle_extrusion), error);
-  for (double distance : {.2, .7}) {
+  for (double distance : {.2, .7, -.2}) {
     auto preview = circle_extrusion->preview(distance, true, &error);
-    auto reference = preview ? tessellate(preview->result.model, 64, &error) : std::nullopt;
+    auto reference = preview ? tessellate(*preview->model, 64, &error) : std::nullopt;
     require(bool(preview) && bool(reference), error);
+    require(preview->validation && preview->validation->matches(preview->model),
+            "Curved extrusion validation must belong to its exact immutable model");
+    require(validate_body(*preview->model, preview->selection.active, &error), error);
     require(preview->samples->positions == reference->positions &&
                 preview->samples->corner_normals == reference->corner_normals,
             "Curved extrusion fallback changed geometry or shading");

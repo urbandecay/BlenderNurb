@@ -367,23 +367,51 @@ bool append_curve(Model &model,
   return true;
 }
 
-bool validate(const Model &m, std::string *error)
+static bool validate_impl(const Model &m, std::string *error, const Model *trusted_source = nullptr)
 {
-  if (m.next_id == 0) {
+  if (m.next_id == 0 || (trusted_source && m.next_id < trusted_source->next_id)) {
     fail(error, "Invalid source identity counter");
+    return false;
+  }
+  if (trusted_source &&
+      (m.vertices.size() < trusted_source->vertices.size() ||
+       m.curves.size() < trusted_source->curves.size() ||
+       m.edges.size() < trusted_source->edges.size() ||
+       m.surfaces.size() < trusted_source->surfaces.size() ||
+       trusted_source->faces.empty() ||
+       m.faces.size() < trusted_source->faces.size() - 1))
+  {
+    fail(error, "Extrusion result lost trusted source geometry");
     return false;
   }
   Index index(m);
   const size_t item_count = m.vertices.size() + m.curves.size() + m.edges.size() +
                             m.surfaces.size() + m.faces.size();
-  const bool compact_ids = m.next_id / 8 < item_count;
+  const bool compact_ids = !trusted_source && m.next_id / 8 < item_count;
   std::vector<uint8_t> used_ids(compact_ids ? size_t(m.next_id) : 0, 0);
   std::unordered_set<Id> sparse_ids;
-  if (!compact_ids)
+  if (trusted_source) {
+    const size_t trusted_count = trusted_source->vertices.size() + trusted_source->curves.size() +
+                                 trusted_source->edges.size() + trusted_source->surfaces.size() +
+                                 trusted_source->faces.size();
+    if (item_count < trusted_count) {
+      fail(error, "Extrusion result lost trusted source geometry");
+      return false;
+    }
+    sparse_ids.reserve(item_count - trusted_count);
+  }
+  else if (!compact_ids) {
     sparse_ids.reserve(item_count);
+  }
   auto identity = [&](Id id) {
+    /* IDs below the validated source counter belong to the trusted, immutable input. The
+     * extrusion allocator gives every new entity a monotonically increasing ID after it. */
+    if (trusted_source && id && id < trusted_source->next_id)
+      return true;
     if (!id || id >= m.next_id)
       return false;
+    if (trusted_source)
+      return sparse_ids.insert(id).second;
     if (!compact_ids)
       return sparse_ids.insert(id).second;
     const bool fresh = !used_ids[id];
@@ -396,10 +424,14 @@ bool validate(const Model &m, std::string *error)
   };
   std::vector<BoundarySamples> boundary_samples;
   for (const auto &v : m.vertices) {
+    if (trusted_source && v.id && v.id < trusted_source->next_id)
+      continue;
     if (!identity(v.id) || !finite(v.position))
       goto invalid;
   }
   for (const auto &c : m.curves) {
+    if (trusted_source && c.id && c.id < trusted_source->next_id)
+      continue;
     if (!identity(c.id) || !finite(c.origin) || !finite(c.u) || !finite(c.v) || !finite(c.w) ||
         (c.kind != CurveKind::Line && c.kind != CurveKind::Conic && c.kind != CurveKind::Cubic &&
          c.kind != CurveKind::RationalQuadratic) ||
@@ -412,6 +444,8 @@ bool validate(const Model &m, std::string *error)
       goto invalid;
   }
   for (const auto &e : m.edges) {
+    if (trusted_source && e.id && e.id < trusted_source->next_id)
+      continue;
     if (!identity(e.id) || !index.curves.contains(e.curve) ||
         !index.vertices.contains(e.vertices[0]) || !index.vertices.contains(e.vertices[1]) ||
         !std::isfinite(e.start) || !std::isfinite(e.end) || !std::isfinite(e.end - e.start) ||
@@ -425,6 +459,8 @@ bool validate(const Model &m, std::string *error)
       goto invalid;
   }
   for (const auto &s : m.surfaces) {
+    if (trusted_source && s.id && s.id < trusted_source->next_id)
+      continue;
     if (!identity(s.id) || !finite(s.origin) || !finite(s.u) || !finite(s.v) || !finite(s.w) ||
         (s.kind != SurfaceKind::Plane && s.kind != SurfaceKind::Extrusion &&
          s.kind != SurfaceKind::Sphere && s.kind != SurfaceKind::Cylinder &&
@@ -443,6 +479,11 @@ bool validate(const Model &m, std::string *error)
       goto invalid;
   }
   for (const auto &f : m.faces) {
+    if (trusted_source && f.id && f.id < trusted_source->next_id) {
+      if (!identity(f.id) || (f.orientation != 1 && f.orientation != -1))
+        goto invalid;
+      continue;
+    }
     if (!identity(f.id) || !index.surfaces.contains(f.surface) ||
         (f.orientation != 1 && f.orientation != -1) ||
         (f.group && (!index.faces.contains(f.group) || index.faces.at(f.group)->group != f.group)))
@@ -631,6 +672,108 @@ bool validate(const Model &m, std::string *error)
   return true;
 invalid:
   fail(error, "Invalid analytic geometry, identity, boundary or source reference");
+  return false;
+}
+
+bool validate(const Model &m, std::string *error)
+{
+  return validate_impl(m, error);
+}
+
+static bool validate_extrusion_delta(const Profile &profile,
+                                    const Model &result,
+                                    std::string *error)
+{
+  const Model &source = profile.model;
+  /* The fast check is valid only for an exact extrusion copy: all source entities remain the
+   * original prefix except for deleting/reorienting the selected profile face. Verify that
+   * assumption before trusting source validation for the unchanged geometry. */
+  if (result.vertices.size() < source.vertices.size() || result.curves.size() < source.curves.size() ||
+      result.edges.size() < source.edges.size() || result.surfaces.size() < source.surfaces.size())
+  {
+    fail(error, "Extrusion result lost trusted source geometry");
+    return false;
+  }
+  for (size_t i = 0; i < source.vertices.size(); ++i)
+    if (result.vertices[i].id != source.vertices[i].id ||
+        result.vertices[i].position != source.vertices[i].position)
+      goto invalid_source;
+  for (size_t i = source.vertices.size(); i < result.vertices.size(); ++i)
+    if (result.vertices[i].id < source.next_id)
+      goto invalid_source;
+  for (size_t i = 0; i < source.curves.size(); ++i) {
+    const Curve &a = source.curves[i], &b = result.curves[i];
+    if (a.id != b.id || a.kind != b.kind || a.origin != b.origin || a.u != b.u || a.v != b.v ||
+        a.w != b.w)
+      goto invalid_source;
+  }
+  for (size_t i = source.curves.size(); i < result.curves.size(); ++i)
+    if (result.curves[i].id < source.next_id)
+      goto invalid_source;
+  for (size_t i = 0; i < source.edges.size(); ++i) {
+    const Edge &a = source.edges[i], &b = result.edges[i];
+    if (a.id != b.id || a.curve != b.curve || a.vertices != b.vertices || a.start != b.start ||
+        a.end != b.end)
+      goto invalid_source;
+  }
+  for (size_t i = source.edges.size(); i < result.edges.size(); ++i)
+    if (result.edges[i].id < source.next_id)
+      goto invalid_source;
+  for (size_t i = 0; i < source.surfaces.size(); ++i) {
+    const Surface &a = source.surfaces[i], &b = result.surfaces[i];
+    if (a.id != b.id || a.kind != b.kind || a.origin != b.origin || a.u != b.u || a.v != b.v ||
+        a.curve != b.curve || a.start != b.start || a.end != b.end || a.w != b.w ||
+        a.blend != b.blend || a.blend_cot != b.blend_cot ||
+        a.blend_v_start != b.blend_v_start || a.blend_v_end != b.blend_v_end ||
+        a.other_curve != b.other_curve || a.reverse_first != b.reverse_first ||
+        a.reverse_second != b.reverse_second)
+      goto invalid_source;
+  }
+  for (size_t i = source.surfaces.size(); i < result.surfaces.size(); ++i)
+    if (result.surfaces[i].id < source.next_id)
+      goto invalid_source;
+  {
+    const IdIndex<Face> source_faces(source.faces);
+    std::unordered_set<Id> seen_source_faces;
+    seen_source_faces.reserve(source.faces.size());
+    auto same_loop = [](const std::vector<Coedge> &a, const std::vector<Coedge> &b) {
+      if (a.size() != b.size())
+        return false;
+      for (size_t i = 0; i < a.size(); ++i)
+        if (a[i].edge != b[i].edge || a[i].reversed != b[i].reversed)
+          return false;
+      return true;
+    };
+    auto same_face_except_orientation = [&](const Face &a, const Face &b) {
+      if (a.id != b.id || a.surface != b.surface || a.group != b.group ||
+          !same_loop(a.outer, b.outer) || a.holes.size() != b.holes.size())
+        return false;
+      for (size_t i = 0; i < a.holes.size(); ++i)
+        if (!same_loop(a.holes[i], b.holes[i]))
+          return false;
+      return true;
+    };
+    for (const Face &f : result.faces) {
+      if (source_faces.contains(f.id)) {
+        const Face &original = *source_faces.at(f.id);
+        if ((f.id == profile.face && profile.attached) ||
+            !same_face_except_orientation(original, f) ||
+            (f.id != profile.face && f.orientation != original.orientation) ||
+            (f.orientation != 1 && f.orientation != -1) || !seen_source_faces.insert(f.id).second)
+          goto invalid_source;
+      }
+      else if (f.id < source.next_id) {
+        goto invalid_source;
+      }
+    }
+    for (const Face &f : source.faces)
+      if (seen_source_faces.contains(f.id) == (f.id == profile.face && profile.attached))
+        goto invalid_source;
+  }
+  return validate_impl(result, error, &source);
+
+invalid_source:
+  fail(error, "Extrusion changed trusted source geometry outside its profile face");
   return false;
 }
 
@@ -838,10 +981,8 @@ std::optional<Profile> prepare_profile(const Model &source,
   return out;
 }
 
-bool validate_body(const Model &model, Id seed, std::string *error)
+static bool validate_body_topology(const Model &model, Id seed, std::string *error)
 {
-  if (!validate(model, error))
-    return false;
   Index index(model, false);
   if (!index.faces.contains(seed)) {
     fail(error, "Unknown body face");
@@ -880,8 +1021,17 @@ bool validate_body(const Model &model, Id seed, std::string *error)
   return true;
 }
 
+bool validate_body(const Model &model, Id seed, std::string *error)
+{
+  return validate(model, error) && validate_body_topology(model, seed, error);
+}
+
 static std::optional<EditResult> extrude_impl(
-    const Profile &profile, double distance, std::string *error, bool check_source)
+    const Profile &profile,
+    double distance,
+    std::string *error,
+    bool check_source,
+    bool check_body = true)
 {
   if (!std::isfinite(distance) || distance == 0 || !finite(profile.normal) ||
       !(length(profile.normal) > 0) || (check_source && !validate(profile.model, error)))
@@ -1000,7 +1150,7 @@ static std::optional<EditResult> extrude_impl(
       it->orientation *= distance > 0 ? -1 : 1;
     break;
   }
-  if (!validate_body(out, cap.id, error))
+  if (check_body && !validate_body(out, cap.id, error))
     return {};
   return result;
 }
@@ -1025,9 +1175,25 @@ std::optional<EditResult> PreparedExtrusion::evaluate(double distance, std::stri
 std::optional<PreparedExtrusion::Preview> PreparedExtrusion::preview(
     double distance, bool analytic, std::string *error)
 {
-  auto result = evaluate(distance, error);
+  /* The immutable input was validated before the modal tool started. Validate only the generated
+   * delta; untouched source geometry retains its existing validation proof. */
+  auto result = extrude_impl(profile_, distance, error, false, false);
   if (!result)
     return {};
+  auto model = std::make_shared<const Model>(std::move(result->model));
+  if (!validate_extrusion_delta(profile_, *model, error))
+    return {};
+  /* Extrusion distance changes coordinates, never IDs or incidence. Its sign can change
+   * orientation, so verify positive and negative sweeps separately, then reuse the matching
+   * topology proof for later modal updates. */
+  const uint8_t sign_bit = distance > 0 ? 1 : 2;
+  if (!(validated_distance_signs_ & sign_bit)) {
+    if (!validate_body_topology(*model, result->selection.active, error))
+      return {};
+    validated_distance_signs_ |= sign_bit;
+  }
+  std::optional<ValidatedModel> validation =
+      ValidatedModel::from_validated_extrusion(model);
   const Face &cap = *face(profile_.model, profile_.face);
   bool linear = distance > 0 && cap.holes.empty() && cap.outer.size() == 4;
   for (const Coedge &use : cap.outer)
@@ -1041,20 +1207,23 @@ std::optional<PreparedExtrusion::Preview> PreparedExtrusion::preview(
    * profiles and normal-method changes take the full tessellation path. */
   if (display_cache_) {
     samples = *display_cache_;
-    const IdIndex<Vertex> vertices(result->model.vertices);
+    const IdIndex<Vertex> vertices(model->vertices);
     for (size_t i = 0; i < samples.positions.size(); ++i)
       if (samples.vertex_source[i])
         samples.positions[i] = vertices.at(samples.vertex_source[i])->position;
   }
   else {
-    auto generated = tessellate(result->model, 64, error, analytic);
+    auto generated = tessellate(*validation, 64, error, analytic);
     if (!generated)
       return {};
     samples = std::move(*generated);
     if (linear)
       display_cache_ = samples;
   }
-  return Preview{std::move(*result), std::make_shared<const DisplayMesh>(std::move(samples))};
+  return Preview{std::move(model),
+                 std::move(result->selection),
+                 std::move(validation),
+                 std::make_shared<const DisplayMesh>(std::move(samples))};
 }
 
 std::optional<EditResult> transform_selected(const Model &model,

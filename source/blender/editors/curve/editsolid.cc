@@ -373,6 +373,25 @@ bool Session::apply(bContext *C,
                          partial ? &partial_mask_ : nullptr);
 }
 
+bool Session::apply(bContext *C,
+                    bke::solid_host::Snapshot candidate,
+                    std::string *error,
+                    bool reuse_topology)
+{
+  if (partial_cache_) {
+    BM_mesh_partial_destroy(partial_cache_);
+    partial_cache_ = nullptr;
+    partial_mask_.clear();
+  }
+  candidate.revision = revision_;
+  return replace_display(C,
+                         *object_,
+                         std::move(candidate),
+                         revision_,
+                         error,
+                         reuse_topology);
+}
+
 /* A rigid drag of complete source components changes the visible BMesh immediately.
  * Source construction and validation are deferred to confirmation. */
 bool Session::can_preview_affine(const solid::Affine &m) const
@@ -904,16 +923,19 @@ static void update(bContext *C, wmOperator *op)
     extrusion = data.profile->preview(
         data.distance, bke::solid_host::display_uses_analytic_normals(mesh), &data.error);
   }
-  auto result = data.bevel    ? bevel_result(*source.model,
-                                          source.selection,
-                                          std::abs(data.distance),
-                                          data.vertices_only,
-                                          &data.error,
-                                          data.corner_style,
-                                          data.subdivisions) :
-                data.elements ? solid::extrude_elements(
-                                    *source.model, source.selection, data.offset, &data.error) :
-                                extrusion ? std::optional<solid::EditResult>(std::move(extrusion->result)) : std::nullopt;
+  std::optional<solid::EditResult> result;
+  if (data.bevel) {
+    result = bevel_result(*source.model,
+                          source.selection,
+                          std::abs(data.distance),
+                          data.vertices_only,
+                          &data.error,
+                          data.corner_style,
+                          data.subdivisions);
+  }
+  else if (data.elements) {
+    result = solid::extrude_elements(*source.model, source.selection, data.offset, &data.error);
+  }
   const auto kernel_end = profile_bevel ? std::chrono::steady_clock::now() :
                                           std::chrono::steady_clock::time_point{};
   const size_t result_vertices = profile_bevel && result ? result->model.vertices.size() : 0;
@@ -921,8 +943,17 @@ static void update(bContext *C, wmOperator *op)
   const size_t result_faces = profile_bevel && result ? result->model.faces.size() : 0;
   /* Extrusion distances and bevel widths usually preserve connectivity. The adapter checks it and
    * rebuilds when segment counts or the generated boundary change. */
-  data.valid = result && data.preview->apply(C, std::move(*result), &data.error, true, nullptr,
-                                                  extrusion ? extrusion->samples : nullptr);
+  if (extrusion) {
+    bke::solid_host::Snapshot candidate{std::move(extrusion->model),
+                                        std::move(extrusion->selection),
+                                        source.revision,
+                                        std::move(extrusion->samples),
+                                        std::move(extrusion->validation)};
+    data.valid = data.preview->apply(C, std::move(candidate), &data.error, true);
+  }
+  else {
+    data.valid = result && data.preview->apply(C, std::move(*result), &data.error, true);
+  }
   if (profile_bevel) {
     const auto profile_end = std::chrono::steady_clock::now();
     const double kernel_ms = std::chrono::duration<double, std::milli>(kernel_end - profile_start)

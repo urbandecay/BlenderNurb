@@ -8,11 +8,14 @@ namespace blender::solid {
 class PreparedExtrusion {
   Profile profile_;
   std::optional<DisplayMesh> display_cache_;
+  uint8_t validated_distance_signs_ = 0;
   explicit PreparedExtrusion(Profile profile) : profile_(std::move(profile)) {}
  public:
   static std::optional<PreparedExtrusion> create(Profile profile, std::string *error = nullptr);
   struct Preview {
-    EditResult result;
+    std::shared_ptr<const Model> model;
+    Selection selection;
+    std::optional<ValidatedModel> validation;
     std::shared_ptr<const DisplayMesh> samples;
   };
   std::optional<Preview> preview(double distance, bool analytic, std::string *error = nullptr);

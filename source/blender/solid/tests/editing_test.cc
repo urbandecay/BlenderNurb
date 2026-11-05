@@ -430,6 +430,9 @@ int main()
           auto preview = prepared->preview(distance, analytic, &error);
           auto reference = tessellate(regular->model, 64, &error, analytic);
           check(bool(preview) && bool(reference), error);
+          check(preview->validation && preview->validation->matches(preview->model),
+                "Extrusion preview validation must belong to its exact immutable model");
+          check(validate_body(*preview->model, preview->selection.active, &error), error);
           check(preview->samples->positions == reference->positions &&
                     preview->samples->polygons == reference->polygons &&
                     preview->samples->vertex_source == reference->vertex_source &&
