@@ -17,13 +17,11 @@
 
 namespace blender::solid {
 
-std::optional<DisplayMesh> tessellate(const Model &model,
+static std::optional<DisplayMesh> tessellate_impl(const Model &model,
                                       int segments,
                                       std::string *error,
                                       const bool calculate_normals)
 {
-  if (!validate(model, error))
-    return {};
   const bool log_breakdown = std::getenv("BLENDER_BEVEL_PROFILE") != nullptr;
   segments = std::clamp(segments, 8, 4096);
   DisplayMesh mesh;
@@ -430,6 +428,20 @@ std::optional<DisplayMesh> tessellate(const Model &model,
     }
   }
   return mesh;
+}
+
+std::optional<DisplayMesh> tessellate(const Model &model, int segments,
+                                      std::string *error, bool calculate_normals)
+{
+  if (!validate(model, error))
+    return {};
+  return tessellate_impl(model, segments, error, calculate_normals);
+}
+
+std::optional<DisplayMesh> tessellate(const ValidatedModel &model, int segments,
+                                      std::string *error, bool calculate_normals)
+{
+  return tessellate_impl(model.model(), segments, error, calculate_normals);
 }
 
 }  // namespace blender::solid

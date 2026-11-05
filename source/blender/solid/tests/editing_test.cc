@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Blender Authors
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include "SOL_geometry.hh"
+#include "extrusion.hh"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -406,6 +407,44 @@ int main()
         incidence[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
     for (const auto &[edge, count] : incidence)
       check(count == 2, "Fillet display must have a watertight shared boundary");
+    if (subdivisions == 1 || subdivisions == 32) {
+      Selection cap_selection;
+      cap_selection.mode = 4;
+      for (const Face &f : rounded->model.faces)
+        if (surface(rounded->model, f.surface)->kind == SurfaceKind::Plane) {
+          cap_selection.faces = {f.id};
+          break;
+        }
+      auto cap_profile = prepare_profile(rounded->model, cap_selection, &error);
+      check(bool(cap_profile), error);
+      auto prepared = PreparedExtrusion::create(*cap_profile, &error);
+      check(bool(prepared), error);
+      for (double distance : {.1, .7}) {
+        auto regular = extrude(*cap_profile, distance, &error);
+        auto cached = prepared->evaluate(distance, &error);
+        check(bool(regular) && bool(cached), error);
+        check(encode(regular->model, regular->selection) ==
+                  encode(cached->model, cached->selection),
+              "Prepared extrusion changed exact geometry or selection");
+        for (bool analytic : {true, true, false, false}) {
+          auto preview = prepared->preview(distance, analytic, &error);
+          auto reference = tessellate(regular->model, 64, &error, analytic);
+          check(bool(preview) && bool(reference), error);
+          check(preview->samples->positions == reference->positions &&
+                    preview->samples->polygons == reference->polygons &&
+                    preview->samples->vertex_source == reference->vertex_source &&
+                    preview->samples->face_source == reference->face_source,
+                "Extrusion sample cache changed geometry or selectable identities");
+          for (size_t i = 0; i < reference->corner_normals.size(); ++i)
+            for (size_t j = 0; j < reference->corner_normals[i].size(); ++j)
+              check(length(preview->samples->corner_normals[i][j] -
+                           reference->corner_normals[i][j]) < 1e-12,
+                    "Extrusion sample cache changed shading normals");
+        }
+      }
+      check(!prepared->evaluate(0, &error), "Prepared extrusion accepted zero distance");
+      check(!prepared->evaluate(-1, &error), "Prepared extrusion accepted an unsupported inward cut");
+    }
     const auto bytes = encode(rounded->model, rounded->selection);
     check(bool(decode(bytes.data(), bytes.size(), &error)), error);
   }

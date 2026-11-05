@@ -4,6 +4,7 @@
 
 #include "SOL_geometry.hh"
 #include "id_index.hh"
+#include "extrusion.hh"
 
 #include <algorithm>
 #include <cmath>
@@ -633,13 +634,20 @@ invalid:
   return false;
 }
 
+std::optional<ValidatedModel> ValidatedModel::create(std::shared_ptr<const Model> model,
+                                                      std::string *error)
+{
+  if (!model || !validate(*model, error))
+    return {};
+  return ValidatedModel(std::move(model));
+}
+
 std::optional<Profile> prepare_profile(const Model &source,
                                        const Selection &selected,
                                        std::string *error)
 {
   if (!validate(source, error))
     return {};
-  Index index(source);
   Profile out;
   out.model = source;
   const Face *existing = nullptr;
@@ -666,6 +674,7 @@ std::optional<Profile> prepare_profile(const Model &source,
     out.attached = incidence == 2;
     return out;
   }
+  Index index(source);
   std::unordered_set<Id> pending(selected.edges.begin(), selected.edges.end());
   if (pending.empty() && !selected.vertices.empty()) {
     const std::unordered_set<Id> verts(selected.vertices.begin(), selected.vertices.end());
@@ -871,10 +880,11 @@ bool validate_body(const Model &model, Id seed, std::string *error)
   return true;
 }
 
-std::optional<EditResult> extrude(const Profile &profile, double distance, std::string *error)
+static std::optional<EditResult> extrude_impl(
+    const Profile &profile, double distance, std::string *error, bool check_source)
 {
   if (!std::isfinite(distance) || distance == 0 || !finite(profile.normal) ||
-      !(length(profile.normal) > 0) || !validate(profile.model, error))
+      !(length(profile.normal) > 0) || (check_source && !validate(profile.model, error)))
   {
     fail(error, "Extrusion needs a valid profile and finite nonzero distance");
     return {};
@@ -993,6 +1003,58 @@ std::optional<EditResult> extrude(const Profile &profile, double distance, std::
   if (!validate_body(out, cap.id, error))
     return {};
   return result;
+}
+
+std::optional<EditResult> extrude(const Profile &profile, double distance, std::string *error)
+{
+  return extrude_impl(profile, distance, error, true);
+}
+
+std::optional<PreparedExtrusion> PreparedExtrusion::create(Profile profile, std::string *error)
+{
+  if (!validate(profile.model, error))
+    return {};
+  return PreparedExtrusion(std::move(profile));
+}
+
+std::optional<EditResult> PreparedExtrusion::evaluate(double distance, std::string *error) const
+{
+  return extrude_impl(profile_, distance, error, false);
+}
+
+std::optional<PreparedExtrusion::Preview> PreparedExtrusion::preview(
+    double distance, bool analytic, std::string *error)
+{
+  auto result = evaluate(distance, error);
+  if (!result)
+    return {};
+  const Face &cap = *face(profile_.model, profile_.face);
+  bool linear = distance > 0 && cap.holes.empty() && cap.outer.size() == 4;
+  for (const Coedge &use : cap.outer)
+    linear &= curve(profile_.model, edge(profile_.model, use.edge)->curve)->kind == CurveKind::Line;
+  if (!linear || (display_cache_ && display_cache_->has_analytic_normals != analytic))
+    display_cache_.reset();
+  DisplayMesh samples;
+  /* A positive straight-quad sweep changes only its new source vertices. The side
+   * polygons have no interior samples, their normal directions stay fixed, and all
+   * zero-ID curve/surface samples belong to the unchanged original body. Other
+   * profiles and normal-method changes take the full tessellation path. */
+  if (display_cache_) {
+    samples = *display_cache_;
+    const IdIndex<Vertex> vertices(result->model.vertices);
+    for (size_t i = 0; i < samples.positions.size(); ++i)
+      if (samples.vertex_source[i])
+        samples.positions[i] = vertices.at(samples.vertex_source[i])->position;
+  }
+  else {
+    auto generated = tessellate(result->model, 64, error, analytic);
+    if (!generated)
+      return {};
+    samples = std::move(*generated);
+    if (linear)
+      display_cache_ = samples;
+  }
+  return Preview{std::move(*result), std::make_shared<const DisplayMesh>(std::move(samples))};
 }
 
 std::optional<EditResult> transform_selected(const Model &model,

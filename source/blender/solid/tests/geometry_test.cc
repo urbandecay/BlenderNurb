@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "SOL_geometry.hh"
+#include "extrusion.hh"
 
 #include <algorithm>
 #include <chrono>
@@ -106,6 +107,16 @@ int main()
   require(bool(disc_profile), error);
   const auto cylinder = extrude(*disc_profile, 3, &error);
   require(bool(cylinder), error);
+  auto circle_extrusion = PreparedExtrusion::create(*disc_profile, &error);
+  require(bool(circle_extrusion), error);
+  for (double distance : {.2, .7}) {
+    auto preview = circle_extrusion->preview(distance, true, &error);
+    auto reference = preview ? tessellate(preview->result.model, 64, &error) : std::nullopt;
+    require(bool(preview) && bool(reference), error);
+    require(preview->samples->positions == reference->positions &&
+                preview->samples->corner_normals == reference->corner_normals,
+            "Curved extrusion fallback changed geometry or shading");
+  }
   require(cylinder->model.faces.size() == 3, "An analytic cylinder needs two planes and one wall");
   require(disc.curves.size() == 1 && disc.curves[0].kind == CurveKind::Conic,
           "Circle did not retain one analytic entity");
@@ -200,6 +211,20 @@ int main()
                 6;
   }
   require(std::abs(volume - 12 * std::numbers::pi) < .1, "Wrong display volume or winding");
+  auto immutable = std::make_shared<const Model>(cylinder->model);
+  auto checked = ValidatedModel::create(immutable, &error);
+  require(bool(checked) && checked->matches(immutable), "Validated snapshot lost its source");
+  require(!checked->matches(std::make_shared<const Model>(cylinder->model)),
+          "Validation certificate accepted another source pointer");
+  auto checked_display = tessellate(*checked, 64, &error);
+  require(bool(checked_display) && checked_display->positions == display->positions &&
+              checked_display->polygons == display->polygons &&
+              checked_display->corner_normals == display->corner_normals,
+          "Validated tessellation changed geometry or normals");
+  Model invalid_snapshot = cylinder->model;
+  invalid_snapshot.edges.front().curve = 0;
+  require(!ValidatedModel::create(std::make_shared<const Model>(invalid_snapshot), &error),
+          "Invalid geometry received a validation certificate");
   const auto bytes = encode(cylinder->model, cylinder->selection);
   const auto restored = decode(bytes.data(), bytes.size(), &error);
   require(bool(restored), error);

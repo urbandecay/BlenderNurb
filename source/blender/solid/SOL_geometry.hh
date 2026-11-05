@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -205,6 +206,18 @@ bool refit_linear_faces(Model &model, std::string *error = nullptr);
 bool validate(const Model &model, std::string *error = nullptr);
 bool validate_body(const Model &model, Id seed_face, std::string *error = nullptr);
 
+/** Validation certificate for an immutable source snapshot. The owner must not retain
+ * mutable aliases. A certificate cannot be reused for another model pointer. */
+class ValidatedModel {
+  std::shared_ptr<const Model> model_;
+  explicit ValidatedModel(std::shared_ptr<const Model> model) : model_(std::move(model)) {}
+ public:
+  static std::optional<ValidatedModel> create(std::shared_ptr<const Model> model,
+                                             std::string *error = nullptr);
+  const Model &model() const { return *model_; }
+  bool matches(const std::shared_ptr<const Model> &model) const { return model == model_; }
+};
+
 struct Affine {
   std::array<Vec3, 3> columns{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
   Vec3 translation;
@@ -227,6 +240,12 @@ struct DisplayMesh {
 /** Derived display only: planar faces have boundary polygons, conic walls have strips and
  * corner blends have sampled patches. Display samples never become source geometry. */
 std::optional<DisplayMesh> tessellate(const Model &model,
+                                      int circle_segments = 64,
+                                      std::string *error = nullptr,
+                                      bool calculate_normals = true);
+
+/** Tessellate an already checked immutable snapshot without repeating validation. */
+std::optional<DisplayMesh> tessellate(const ValidatedModel &model,
                                       int circle_segments = 64,
                                       std::string *error = nullptr,
                                       bool calculate_normals = true);

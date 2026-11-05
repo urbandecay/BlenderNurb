@@ -267,7 +267,8 @@ bool publish(Mesh &mesh, Snapshot candidate, uint64_t expected, std::string *err
 {
   if (!mesh.solid_storage || mesh.solid_storage->revision != expected || !candidate.model ||
       expected == std::numeric_limits<uint64_t>::max() ||
-      !solid::validate(*candidate.model, error))
+      (!(candidate.validation && candidate.validation->matches(candidate.model)) &&
+       !solid::validate(*candidate.model, error)))
   {
     if (error && error->empty())
       *error = "Analytic source changed before the edit could be committed";

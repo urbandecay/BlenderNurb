@@ -2,6 +2,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "extrusion.hh"
 #include <algorithm>
 #include <cfloat>
 #include <chrono>
@@ -204,9 +205,13 @@ static bool replace_display(bContext *C,
   candidate.selection = solid::normalize_selection(*candidate.model,
                                                    std::move(candidate.selection));
   const auto profile_start = std::chrono::steady_clock::now();
+  if (!candidate.validation || !candidate.validation->matches(candidate.model))
+    candidate.validation = solid::ValidatedModel::create(candidate.model, error);
+  if (!candidate.validation)
+    return false;
   const bool analytic = bke::solid_host::display_uses_analytic_normals(mesh);
   if (!candidate.display_samples || candidate.display_samples->has_analytic_normals != analytic) {
-    auto samples = solid::tessellate(*candidate.model, 64, error, analytic);
+    auto samples = solid::tessellate(*candidate.validation, 64, error, analytic);
     if (!samples)
       return false;
     candidate.display_samples = std::make_shared<const solid::DisplayMesh>(std::move(*samples));
@@ -312,11 +317,13 @@ bool Session::apply(bContext *C,
                     solid::EditResult candidate,
                     std::string *error,
                     bool reuse_topology,
-                    const solid::Affine *affine)
+                    const solid::Affine *affine,
+                    std::shared_ptr<const solid::DisplayMesh> samples)
 {
   bke::solid_host::Snapshot next{std::make_shared<const solid::Model>(std::move(candidate.model)),
                                  std::move(candidate.selection),
                                  revision_};
+  next.display_samples = std::move(samples);
   if (reuse_topology && affine) {
     const auto &m = *affine;
     const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
@@ -845,7 +852,7 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
 struct ExtrudeModal {
   MEM_CXX_CLASS_ALLOC_FUNCS("Solid extrusion");
   std::unique_ptr<ed::solid_editor::Session> preview;
-  solid::Profile profile;
+  std::optional<solid::PreparedExtrusion> profile;
   bool elements = false;
   bool bevel = false;
   bool vertices_only = false;
@@ -891,6 +898,12 @@ static void update(bContext *C, wmOperator *op)
   const bool profile_bevel = data.bevel && std::getenv("BLENDER_BEVEL_PROFILE");
   const auto profile_start = profile_bevel ? std::chrono::steady_clock::now() :
                                              std::chrono::steady_clock::time_point{};
+  std::optional<solid::PreparedExtrusion::Preview> extrusion;
+  if (!data.bevel && !data.elements) {
+    const Mesh &mesh = *id_cast<Mesh *>(data.preview->object().data);
+    extrusion = data.profile->preview(
+        data.distance, bke::solid_host::display_uses_analytic_normals(mesh), &data.error);
+  }
   auto result = data.bevel    ? bevel_result(*source.model,
                                           source.selection,
                                           std::abs(data.distance),
@@ -900,15 +913,16 @@ static void update(bContext *C, wmOperator *op)
                                           data.subdivisions) :
                 data.elements ? solid::extrude_elements(
                                     *source.model, source.selection, data.offset, &data.error) :
-                                solid::extrude(data.profile, data.distance, &data.error);
+                                extrusion ? std::optional<solid::EditResult>(std::move(extrusion->result)) : std::nullopt;
   const auto kernel_end = profile_bevel ? std::chrono::steady_clock::now() :
                                           std::chrono::steady_clock::time_point{};
   const size_t result_vertices = profile_bevel && result ? result->model.vertices.size() : 0;
   const size_t result_edges = profile_bevel && result ? result->model.edges.size() : 0;
   const size_t result_faces = profile_bevel && result ? result->model.faces.size() : 0;
-  /* Width changes usually preserve connectivity. The display adapter checks it and
+  /* Extrusion distances and bevel widths usually preserve connectivity. The adapter checks it and
    * rebuilds when segment counts or the generated boundary change. */
-  data.valid = result && data.preview->apply(C, std::move(*result), &data.error, data.bevel);
+  data.valid = result && data.preview->apply(C, std::move(*result), &data.error, true, nullptr,
+                                                  extrusion ? extrusion->samples : nullptr);
   if (profile_bevel) {
     const auto profile_end = std::chrono::steady_clock::now();
     const double kernel_ms = std::chrono::duration<double, std::milli>(kernel_end - profile_start)
@@ -982,14 +996,20 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
   auto *data = MEM_new<ExtrudeModal>(__func__);
   data->preview = std::move(preview);
   data->elements = !profile;
-  if (profile)
-    data->profile = std::move(*profile);
+  if (profile) {
+    data->profile = solid::PreparedExtrusion::create(std::move(*profile), &error);
+    if (!data->profile) {
+      MEM_delete(data);
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+  }
   data->initial_mouse = float2(event->mval);
   const double4x4 transform(data->preview->object().object_to_world());
   const auto &source = data->preview->source();
   const auto *vertex = solid::vertex(*source.model, source.selection.vertices.front());
   const float3 center(math::transform_point(transform, host_point(vertex->position)));
-  const solid::Vec3 normal = data->elements ? solid::Vec3{0, 0, 1} : data->profile.normal;
+  const solid::Vec3 normal = data->elements ? solid::Vec3{0, 0, 1} : data->profile->normal();
   const float3 direction(math::transform_direction(transform, host_point(normal)));
   data->depth = ED_view3d_calc_zfac(CTX_wm_region_view3d(C), center);
   const double scale = math::length(direction);
