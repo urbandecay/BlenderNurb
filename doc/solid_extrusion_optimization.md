@@ -110,3 +110,30 @@ The remaining large opportunity is preview-only mesh updates with analytic solid
 deferred until confirmation. That could avoid copying the full B-rep during each drag, but it is a
 larger workflow change involving selection identities, cancel/confirm state and publication, so
 it was left for a separate study.
+
+## Additional edit-mesh update study
+
+Profiling the current preview path showed that Blender recalculated normals and triangulation for
+the whole edit mesh after every drag. On the 8,586-face preview, the full `EDBM_update` portion
+took about 1.5 ms per update. The extrusion moves only the cap and its adjacent walls, so this
+used Blender's existing partial-update mechanism: it marks the vertices whose coordinates
+changed and recalculates normals/triangles in their affected region. The topology check already
+proves that the display mesh matches the current BMesh; the update now reuses that proof instead
+of scanning all faces a second time before applying coordinates.
+
+In the partial-update run, `EDBM_update` itself fell to roughly 0.02 ms. Building the changed
+vertex mask and recalculating the affected region takes about 0.6 ms, for around 1 ms net saved
+per drag update. Repeated 40-update GUI runs with five warmups measured 50.3, 50.5 and 50.6 Hz
+for the same 32-segment fillet, including confirm and cancel. Geometry and selection were
+preserved. The plain box stayed at 59.2 Hz.
+
+The display stayed at 4,684 vertices, 13,268 edges and 8,586 faces. The main remaining CPU work
+inside the extrusion preview is model construction/copying (about 3.4 ms), checking the generated
+geometry against the trusted source (about 3.4 ms), and copying/updating cached display samples
+(about 0.9 ms). Reducing those further would mean caching more source indexes or changing how the
+preview shares model/display data. The larger option is to defer building the analytic result
+until confirmation; that needs a separate design for live preview, selection and cancel/confirm.
+
+The final build passed the analytic and editing kernel tests, including the 4,095 bevel edge
+combinations. The interactive benchmark also passed its confirmation and cancellation geometry
+checks.

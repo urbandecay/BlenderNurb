@@ -140,7 +140,10 @@ std::unique_ptr<Session> Session::begin(bContext *C, std::string *error)
 /* Keep mesh transform's existing edit topology when the independently evaluated source
  * produces the same connectivity. Coordinates and analytic normals still come from the
  * current source, so repeated transforms never accumulate display-coordinate drift. */
-static bool update_display_vertices(Mesh &mesh, const solid::DisplayMesh &display, bool apply)
+static bool update_display_vertices(Mesh &mesh,
+                                   const solid::DisplayMesh &display,
+                                   bool apply,
+                                   bool topology_validated = false)
 {
   if (!mesh.runtime->edit_mesh)
     return false;
@@ -150,24 +153,26 @@ static bool update_display_vertices(Mesh &mesh, const solid::DisplayMesh &displa
   const int normal_offset = CustomData_get_offset_named(
       &bm->ldata, CD_PROP_FLOAT3, "custom_normal");
 
-  for (const auto &p : display.positions) {
-    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
-        std::abs(p.x) > FLT_MAX || std::abs(p.y) > FLT_MAX || std::abs(p.z) > FLT_MAX)
-      return false;
-  }
   BM_mesh_elem_table_ensure(bm, BM_VERT | BM_FACE);
   BM_mesh_elem_index_ensure(bm, BM_VERT);
-  for (size_t i = 0; i < display.polygons.size(); ++i) {
-    BMFace *f = BM_face_at_index(bm, int(i));
-    const auto &polygon = display.polygons[i];
-    if (f->len != polygon.size() ||
-        (normal_offset >= 0 && display.corner_normals[i].size() != polygon.size()))
-      return false;
-    BMLoop *loop = BM_FACE_FIRST_LOOP(f);
-    for (int v : polygon) {
-      if (BM_elem_index_get(loop->v) != v)
+  if (!topology_validated) {
+    for (const auto &p : display.positions) {
+      if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
+          std::abs(p.x) > FLT_MAX || std::abs(p.y) > FLT_MAX || std::abs(p.z) > FLT_MAX)
         return false;
-      loop = loop->next;
+    }
+    for (size_t i = 0; i < display.polygons.size(); ++i) {
+      BMFace *f = BM_face_at_index(bm, int(i));
+      const auto &polygon = display.polygons[i];
+      if (f->len != polygon.size() ||
+          (normal_offset >= 0 && display.corner_normals[i].size() != polygon.size()))
+        return false;
+      BMLoop *loop = BM_FACE_FIRST_LOOP(f);
+      for (int v : polygon) {
+        if (BM_elem_index_get(loop->v) != v)
+          return false;
+        loop = loop->next;
+      }
     }
   }
   if (!apply)
@@ -255,7 +260,7 @@ static bool replace_display(bContext *C,
     partial_mask->clear();
   }
   if (reused)
-    update_display_vertices(mesh, *candidate.display_samples, true);
+    update_display_vertices(mesh, *candidate.display_samples, true, true);
   if (!reused)
     BKE_mesh_nomain_to_mesh(display.release(), &mesh, &object, false);
   CTX_data_scene(C)->toolsettings->selectmode = candidate.selection.mode;
@@ -378,7 +383,8 @@ bool Session::apply(bContext *C,
                     std::string *error,
                     bool reuse_topology)
 {
-  if (partial_cache_) {
+  const bool partial_reuse = reuse_topology;
+  if (!partial_reuse && partial_cache_) {
     BM_mesh_partial_destroy(partial_cache_);
     partial_cache_ = nullptr;
     partial_mask_.clear();
@@ -389,7 +395,9 @@ bool Session::apply(bContext *C,
                          std::move(candidate),
                          revision_,
                          error,
-                         reuse_topology);
+                         reuse_topology,
+                         partial_reuse ? &partial_cache_ : nullptr,
+                         partial_reuse ? &partial_mask_ : nullptr);
 }
 
 /* A rigid drag of complete source components changes the visible BMesh immediately.
