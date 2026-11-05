@@ -888,6 +888,9 @@ static void update(bContext *C, wmOperator *op)
   auto &data = *static_cast<ExtrudeModal *>(op->customdata);
   data.error.clear();
   const auto &source = data.preview->source();
+  const bool profile_bevel = data.bevel && std::getenv("BLENDER_BEVEL_PROFILE");
+  const auto profile_start = profile_bevel ? std::chrono::steady_clock::now() :
+                                             std::chrono::steady_clock::time_point{};
   auto result = data.bevel    ? bevel_result(*source.model,
                                           source.selection,
                                           std::abs(data.distance),
@@ -898,7 +901,35 @@ static void update(bContext *C, wmOperator *op)
                 data.elements ? solid::extrude_elements(
                                     *source.model, source.selection, data.offset, &data.error) :
                                 solid::extrude(data.profile, data.distance, &data.error);
+  const auto kernel_end = profile_bevel ? std::chrono::steady_clock::now() :
+                                          std::chrono::steady_clock::time_point{};
+  const size_t result_vertices = profile_bevel && result ? result->model.vertices.size() : 0;
+  const size_t result_edges = profile_bevel && result ? result->model.edges.size() : 0;
+  const size_t result_faces = profile_bevel && result ? result->model.faces.size() : 0;
   data.valid = result && data.preview->apply(C, std::move(*result), &data.error);
+  if (profile_bevel) {
+    const auto profile_end = std::chrono::steady_clock::now();
+    const double kernel_ms = std::chrono::duration<double, std::milli>(kernel_end - profile_start)
+                                 .count();
+    const double apply_ms = std::chrono::duration<double, std::milli>(profile_end - kernel_end)
+                                .count();
+    fprintf(stderr,
+            "SOLID_BEVEL_UPDATE kernel_ms=%.3f apply_ms=%.3f total_ms=%.3f valid=%d "
+            "width=%.9g segments=%d source_v=%zu source_e=%zu source_f=%zu "
+            "result_v=%zu result_e=%zu result_f=%zu\n",
+            kernel_ms,
+            apply_ms,
+            kernel_ms + apply_ms,
+            data.valid,
+            data.distance,
+            data.subdivisions,
+            source.model->vertices.size(),
+            source.model->edges.size(),
+            source.model->faces.size(),
+            result_vertices,
+            result_edges,
+            result_faces);
+  }
   if (!data.valid) {
     /* Do not leave a stale, apparently valid extrusion visible at a rejected distance. */
     std::string restore_error;
@@ -1147,11 +1178,18 @@ static wmOperatorStatus merge_exec(bContext *C, wmOperator *op)
 }
 static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
 {
+  const bool profile_bevel = std::getenv("BLENDER_BEVEL_PROFILE");
+  const auto profile_start = profile_bevel ? std::chrono::steady_clock::now() :
+                                             std::chrono::steady_clock::time_point{};
   std::string error;
   auto session = ed::solid_editor::Session::begin(C, &error);
+  const auto session_end = profile_bevel ? std::chrono::steady_clock::now() :
+                                           std::chrono::steady_clock::time_point{};
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
   const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
+  const auto kernel_start = profile_bevel ? std::chrono::steady_clock::now() :
+                                            std::chrono::steady_clock::time_point{};
   auto result = session ? bevel_result(*session->source().model,
                                        session->source().selection,
                                        RNA_float_get(op->ptr, "offset"),
@@ -1160,7 +1198,39 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
                                        corner_style,
                                        RNA_int_get(op->ptr, "segments")) :
                           std::nullopt;
-  if (!result || !session->apply(C, std::move(*result), &error)) {
+  const auto kernel_end = profile_bevel ? std::chrono::steady_clock::now() :
+                                          std::chrono::steady_clock::time_point{};
+  const size_t result_vertices = profile_bevel && result ? result->model.vertices.size() : 0;
+  const size_t result_edges = profile_bevel && result ? result->model.edges.size() : 0;
+  const size_t result_faces = profile_bevel && result ? result->model.faces.size() : 0;
+  const size_t result_surfaces = profile_bevel && result ? result->model.surfaces.size() : 0;
+  const bool valid = result && session->apply(C, std::move(*result), &error);
+  if (profile_bevel) {
+    const auto profile_end = std::chrono::steady_clock::now();
+    const double session_ms = std::chrono::duration<double, std::milli>(session_end - profile_start)
+                                  .count();
+    const double kernel_ms = std::chrono::duration<double, std::milli>(kernel_end - kernel_start)
+                                 .count();
+    const double apply_ms = std::chrono::duration<double, std::milli>(profile_end - kernel_end)
+                                .count();
+    fprintf(stderr,
+            "SOLID_BEVEL_EXEC session_ms=%.3f kernel_ms=%.3f apply_ms=%.3f total_ms=%.3f "
+            "valid=%d width=%.9g segments=%d source_s=%zu result_v=%zu result_e=%zu "
+            "result_f=%zu result_s=%zu\n",
+            session_ms,
+            kernel_ms,
+            apply_ms,
+            std::chrono::duration<double, std::milli>(profile_end - profile_start).count(),
+            valid,
+            RNA_float_get(op->ptr, "offset"),
+            RNA_int_get(op->ptr, "segments"),
+            session ? session->source().model->surfaces.size() : 0,
+            result_vertices,
+            result_edges,
+            result_faces,
+            result_surfaces);
+  }
+  if (!valid) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
   }
@@ -1170,11 +1240,15 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
 {
   if (!CTX_wm_region_view3d(C))
     return bevel_exec(C, op);
+  const bool profile_bevel = std::getenv("BLENDER_BEVEL_PROFILE");
+  const auto invoke_start = std::chrono::steady_clock::now();
   std::string error;
   auto session = ed::solid_editor::Session::begin(C, &error);
+  const auto session_end = std::chrono::steady_clock::now();
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
   const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
+  const auto kernel_start = std::chrono::steady_clock::now();
   auto check = session ? bevel_result(*session->source().model,
                                       session->source().selection,
                                       RNA_float_get(op->ptr, "offset"),
@@ -1183,6 +1257,22 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
                                       corner_style,
                                       RNA_int_get(op->ptr, "segments")) :
                          std::nullopt;
+  const auto kernel_end = std::chrono::steady_clock::now();
+  if (profile_bevel) {
+    const double session_ms = std::chrono::duration<double, std::milli>(session_end - invoke_start)
+                                  .count();
+    const double preflight_ms = std::chrono::duration<double, std::milli>(kernel_end - kernel_start)
+                                    .count();
+    fprintf(stderr,
+            "SOLID_BEVEL_INVOKE session_ms=%.3f preflight_ms=%.3f total_ms=%.3f valid=%d "
+            "width=%.9g segments=%d\n",
+            session_ms,
+            preflight_ms,
+            std::chrono::duration<double, std::milli>(kernel_end - invoke_start).count(),
+            bool(check),
+            RNA_float_get(op->ptr, "offset"),
+            RNA_int_get(op->ptr, "segments"));
+  }
   if (!check) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
