@@ -31,14 +31,27 @@ struct SolidTransform {
 };
 void create_solid(bContext *C, TransInfo *t)
 {
-  if (t->data_container_len != 1 ||
-      !ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE, TFM_DUMMY) ||
-      (t->flag & T_PROP_EDIT_ALL))
-  {
-    if (t->mode != TFM_DUMMY)
+  if (t->data_container_len != 1) {
+    if (t->mode != TFM_DUMMY) {
+      BKE_report(
+          t->reports, RPT_ERROR, "Analytic solid component transforms require one edit object");
+    }
+    return;
+  }
+  if (!ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_TRACKBALL, TFM_RESIZE, TFM_DUMMY)) {
+    if (t->mode != TFM_DUMMY) {
       BKE_report(t->reports,
                  RPT_ERROR,
                  "Analytic solids support move, rotate and scale of exact components");
+    }
+    return;
+  }
+  if (t->flag & T_PROP_EDIT_ALL) {
+    if (t->mode != TFM_DUMMY) {
+      BKE_report(t->reports,
+                 RPT_ERROR,
+                 "Analytic solid transforms do not support proportional editing; turn it off");
+    }
     return;
   }
   std::string error;

@@ -127,6 +127,11 @@ static void applyTrackball(TransInfo *t)
 
   float axis_final[3], angle_final;
   applyTrackballValue_calc_axis_angle(t, phi, axis_final, &angle_final);
+  if (t->data_type == &TransConvertType_Solid) {
+    float matrix[3][3];
+    axis_angle_normalized_to_mat3(matrix, axis_final, angle_final);
+    solid_affine_update(t, matrix);
+  }
   applyTrackballValue(t, axis_final, angle_final);
 
   recalc_data(t);
