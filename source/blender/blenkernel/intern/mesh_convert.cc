@@ -1110,8 +1110,11 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src, Mesh *mesh_dst, Object *ob, bool pr
 
   const bool verts_num_changed = mesh_dst->verts_num != mesh_src->verts_num;
 
-  if (mesh_dst->solid_storage && solid_host::display_is_flat(*mesh_dst)) {
-    solid_host::set_display_shading(*mesh_src, false);
+  if (mesh_dst->solid_storage) {
+    const bool flat = solid_host::display_is_flat(*mesh_dst);
+    const bool analytic = solid_host::display_uses_analytic_normals(*mesh_dst);
+    if (flat || !analytic)
+      solid_host::set_display_shading(*mesh_src, !flat, nullptr, analytic);
   }
 
   BKE_mesh_clear_geometry_and_metadata(mesh_dst);

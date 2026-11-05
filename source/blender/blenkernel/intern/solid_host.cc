@@ -312,7 +312,7 @@ bool transform_mesh(Mesh &mesh, const float4x4 &matrix, std::string *error)
   Snapshot next{std::make_shared<const solid::Model>(std::move(transformed->model)),
                 source->selection,
                 source->revision};
-  auto display = display_mesh(next, 64, error);
+  auto display = display_mesh(next, 64, error, display_uses_analytic_normals(mesh));
   if (!display || !publish(mesh, next, source->revision, error))
     return false;
   BKE_mesh_nomain_to_mesh(display.release(), &mesh, nullptr, false);
@@ -342,26 +342,55 @@ bool display_is_flat(const Mesh &mesh)
   return true;
 }
 
-bool set_display_shading(Mesh &mesh, const bool smooth, std::string *error)
+bool display_uses_analytic_normals(const Mesh &mesh)
 {
-  OwnedMesh analytic;
+  if (mesh.runtime->edit_mesh) {
+    const BMesh &bm = *mesh.runtime->edit_mesh->bm;
+    return !CustomData_has_layer_named(&bm.vdata, CD_PROP_BOOL, ".solid_blender_normals");
+  }
+  return !mesh.attributes().contains(".solid_blender_normals");
+}
+
+bool set_display_shading(Mesh &mesh, const bool smooth, std::string *error, const bool analytic)
+{
+  if (!analytic) {
+    auto attributes = mesh.attributes_for_write();
+    attributes.remove("custom_normal");
+    if (!attributes.contains(".solid_blender_normals"))
+      attributes.add<bool>(".solid_blender_normals", AttrDomain::Point, AttributeInitValue(true));
+    mesh_smooth_set(mesh, smooth, true);
+    return true;
+  }
+  std::shared_ptr<const solid::DisplayMesh> samples;
   if (smooth) {
     const auto source = read(mesh, error);
     if (!source)
       return false;
-    analytic = display_mesh(*source, 64, error);
-    if (!analytic || analytic->corners_num != mesh.corners_num) {
-      if (error && analytic)
+    samples = source->display_samples;
+    if (!samples || !samples->has_analytic_normals) {
+      auto generated = solid::tessellate(*source->model, 64, error);
+      if (!generated)
+        return false;
+      samples = std::make_shared<const solid::DisplayMesh>(std::move(*generated));
+      ensure(*mesh.solid_storage).display_samples = samples;
+    }
+    size_t corners = 0;
+    for (const auto &polygon : samples->corner_normals)
+      corners += polygon.size();
+    if (corners != size_t(mesh.corners_num)) {
+      if (error)
         *error = "Solid display topology does not match its analytic normals";
       return false;
     }
   }
-  auto attributes = mesh.attributes_for_write();
-  auto normals = attributes.lookup_or_add_for_write_span<float3>("custom_normal", AttrDomain::Corner);
+  mesh.attributes_for_write().remove(".solid_blender_normals");
+  auto normals = mesh.attributes_for_write().lookup_or_add_for_write_span<float3>(
+      "custom_normal", AttrDomain::Corner);
   if (smooth) {
-    const VArraySpan<float3> source_normals = *analytic->attributes().lookup<float3>(
-        "custom_normal", AttrDomain::Corner);
-    normals.span.copy_from(source_normals);
+    int corner = 0;
+    for (const auto &polygon : samples->corner_normals)
+      for (const auto &n : polygon)
+        normals.span[corner++] = float3(n.x, n.y, n.z);
   }
   else {
     const auto faces = mesh.faces();
@@ -380,17 +409,20 @@ void MeshDeleter::operator()(Mesh *mesh) const
     BKE_id_free(nullptr, mesh);
 }
 
-OwnedMesh display_mesh(const Snapshot &source, int circle_segments, std::string *error)
+OwnedMesh display_mesh(const Snapshot &source,
+                       int circle_segments,
+                       std::string *error,
+                       const bool analytic_normals)
 {
   if (!source.model)
     return {};
-  const auto sampled = source.display_samples && circle_segments == 64 ?
-                           std::optional<solid::DisplayMesh>{} :
-                           solid::tessellate(*source.model, circle_segments, error);
-  const solid::DisplayMesh *display = source.display_samples && circle_segments == 64 ?
-                                          source.display_samples.get() :
-                                      sampled ? &*sampled :
-                                                nullptr;
+  const bool reuse_samples = source.display_samples && circle_segments == 64 &&
+                             source.display_samples->has_analytic_normals == analytic_normals;
+  const auto sampled = reuse_samples ? std::optional<solid::DisplayMesh>{} :
+                                      solid::tessellate(
+                                          *source.model, circle_segments, error, analytic_normals);
+  const solid::DisplayMesh *display = reuse_samples ? source.display_samples.get() :
+                                     sampled ? &*sampled : nullptr;
   if (!display)
     return {};
   int corners = 0;
@@ -475,6 +507,10 @@ OwnedMesh display_mesh(const Snapshot &source, int circle_segments, std::string 
   f_select.finish();
   face_dot.finish();
   mesh_calc_edges(*mesh, true, false);
+  if (!analytic_normals) {
+    attributes.add<bool>(".solid_blender_normals", AttrDomain::Point, AttributeInitValue(true));
+    return mesh;
+  }
   Vector<float3> normals;
   normals.reserve(corners);
   for (const auto &polygon : display->corner_normals) {

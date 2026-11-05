@@ -119,6 +119,14 @@ int main()
   require(!validate(bad_wall, &error), "A curved wall detached from its cap was accepted");
   const auto display = tessellate(cylinder->model, 64, &error);
   require(bool(display), error);
+  const auto native_display = tessellate(cylinder->model, 64, &error, false);
+  require(bool(native_display), error);
+  require(!native_display->has_analytic_normals, "Native display reports analytic normals");
+  require(native_display->positions == display->positions, "Normal method changed positions");
+  require(native_display->polygons == display->polygons, "Normal method changed topology");
+  for (const auto &normals : native_display->corner_normals)
+    require(normals.empty(), "Native display generated analytic normals");
+
   require(display->polygons.size() == 66,
           "Cylinder display should use boundary strips and two caps");
   double volume = 0;

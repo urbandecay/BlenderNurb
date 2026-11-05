@@ -2002,7 +2002,9 @@ class VIEW3D_MT_object(Menu):
 
         layout.separator()
 
-        layout.operator("object.shade_smooth")
+        layout.operator("object.shade_smooth").solid_normal_method = 'BLENDER'
+        if ob and ob.type == 'MESH' and ob.data.is_solid_model:
+            layout.operator("object.shade_smooth", text="Shade Analytic").solid_normal_method = 'ANALYTIC'
         if ob and ob.type in {'MESH', 'CURVE', 'FONT'}:
             layout.operator("object.shade_auto_smooth")
         layout.operator("object.shade_flat")
@@ -2240,7 +2242,9 @@ class VIEW3D_MT_object_context_menu(Menu):
         # Shared among some object types.
         if obj is not None:
             if obj.type in {'MESH', 'CURVE', 'SURFACE'}:
-                layout.operator("object.shade_smooth")
+                layout.operator("object.shade_smooth").solid_normal_method = 'BLENDER'
+                if obj.type == 'MESH' and obj.data.is_solid_model:
+                    layout.operator("object.shade_smooth", text="Shade Analytic").solid_normal_method = 'ANALYTIC'
                 if obj.type == 'MESH':
                     layout.operator("object.shade_auto_smooth")
                 layout.operator("object.shade_flat")
@@ -2318,7 +2322,7 @@ class VIEW3D_MT_object_shading(Menu):
 
     def draw(self, _context):
         layout = self.layout
-        layout.operator("object.shade_smooth", text="Smooth")
+        layout.operator("object.shade_smooth", text="Smooth").solid_normal_method = 'BLENDER'
         layout.operator("object.shade_flat", text="Flat")
 
 

@@ -36,8 +36,12 @@ void storage_free(SolidStorage *storage);
 void storage_write(BlendWriter *writer, const SolidStorage &storage);
 void storage_read(BlendDataReader *reader, SolidStorage &storage);
 std::optional<Snapshot> read(const Mesh &mesh, std::string *error = nullptr);
-/** Update display normals without changing analytic geometry or its sampling cache. */
-bool set_display_shading(Mesh &mesh, bool smooth, std::string *error = nullptr);
+/** Select the viewport normal source without changing analytic geometry. */
+bool set_display_shading(Mesh &mesh,
+                         bool smooth,
+                         std::string *error = nullptr,
+                         bool analytic = true);
+bool display_uses_analytic_normals(const Mesh &mesh);
 bool display_is_flat(const Mesh &mesh);
 /** Read only source identities from the edit selection; never import display coordinates. */
 std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error = nullptr);
@@ -59,6 +63,7 @@ struct MeshDeleter {
 using OwnedMesh = std::unique_ptr<Mesh, MeshDeleter>;
 OwnedMesh display_mesh(const Snapshot &source,
                        int circle_segments = 64,
-                       std::string *error = nullptr);
+                       std::string *error = nullptr,
+                       bool analytic_normals = true);
 
 }  // namespace blender::bke::solid_host

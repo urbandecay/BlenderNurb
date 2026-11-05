@@ -217,6 +217,7 @@ std::optional<EditResult> transform_selected(const Model &model,
                                              std::string *error = nullptr);
 
 struct DisplayMesh {
+  bool has_analytic_normals = true;
   std::vector<Vec3> positions;
   std::vector<std::array<int, 2>> edges;
   std::vector<std::vector<int>> polygons;
@@ -227,7 +228,8 @@ struct DisplayMesh {
  * corner blends have sampled patches. Display samples never become source geometry. */
 std::optional<DisplayMesh> tessellate(const Model &model,
                                       int circle_segments = 64,
-                                      std::string *error = nullptr);
+                                      std::string *error = nullptr,
+                                      bool calculate_normals = true);
 
 /** Versioned, bounded, endian-independent source storage. Display data is never serialized. */
 std::vector<uint8_t> encode(const Model &model, const Selection &selection);

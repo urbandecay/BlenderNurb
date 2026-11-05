@@ -17,6 +17,8 @@ import bpy, bmesh, json, math, os, statistics, time
 kind = os.environ['SOLID_BENCH_KIND']
 segments = int(os.environ.get('SOLID_BENCH_SEGMENTS', '1'))
 rotation_mode = os.environ.get('SOLID_BENCH_ROTATION', 'Z').upper()
+normal_method = os.environ.get('SOLID_BENCH_NORMALS', 'ANALYTIC').upper()
+assert normal_method in {'ANALYTIC', 'BLENDER'}
 assert rotation_mode in {'FREE', 'X', 'Y', 'Z'}, rotation_mode
 area = next(a for a in bpy.context.screen.areas if a.type == 'VIEW_3D')
 window = bpy.context.window
@@ -41,6 +43,9 @@ else:
     bpy.ops.mesh.select_mode(type='EDGE')
     bpy.ops.mesh.select_all(action='SELECT')
     assert bpy.ops.solid.bevel(offset=.2, segments=segments) == {'FINISHED'}
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.shade_smooth(solid_normal_method=normal_method)
+    bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_mode(type='VERT')
     bpy.ops.mesh.select_all(action='SELECT')
 
@@ -75,8 +80,11 @@ def finish():
     def done():
         bm2 = bmesh.from_edit_mesh(obj.data)
         after = [tuple(v.co) for v in bm2.verts]
+        if kind == 'solid':
+            assert (bm2.loops.layers.float_vector.get('custom_normal') is not None) == (normal_method == 'ANALYTIC')
         print('VIEWPORT_BENCH_RESULT ' + json.dumps({
             'kind': kind,
+            'normal_method': normal_method if kind == 'solid' else 'MESH',
             'segments': segments,
             'rotation': rotation_mode,
             'display_vertices': counts[0],

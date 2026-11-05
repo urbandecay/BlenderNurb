@@ -7,7 +7,7 @@
 import modules.ui_test_utils as ui
 
 
-def fillet_rotation_cancel_and_undo():
+def _fillet_rotation_cancel_and_undo(native=False):
     import bpy
     import bmesh
 
@@ -22,6 +22,10 @@ def fillet_rotation_cancel_and_undo():
         bpy.ops.mesh.select_mode(type='EDGE')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.solid.bevel(offset=.2, segments=1)
+        if native:
+            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.shade_smooth()
+            bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_mode(type='VERT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.ed.undo_push(message='Fillet before rotation')
@@ -31,7 +35,11 @@ def fillet_rotation_cancel_and_undo():
 
     def normals():
         bm = bmesh.from_edit_mesh(window.view_layer.objects.active.data)
-        layer = bm.loops.layers.float_vector['custom_normal']
+        layer = bm.loops.layers.float_vector.get('custom_normal')
+        if native:
+            t.assertIsNone(layer)
+            return None
+        t.assertIsNotNone(layer)
         return [tuple(loop[layer]) for face in bm.faces for loop in face.loops]
 
     before = positions()
@@ -72,6 +80,14 @@ def fillet_rotation_cancel_and_undo():
     t.assertEqual(positions(), before)
     yield e.ctrl.shift.z()
     t.assertEqual(positions(), rotated)
+
+
+def fillet_rotation_cancel_and_undo():
+    yield from _fillet_rotation_cancel_and_undo()
+
+
+def native_smooth_rotation_cancel_and_undo():
+    yield from _fillet_rotation_cancel_and_undo(native=True)
 
 
 def _angled_box_wheel_fillet(all_edges=False):

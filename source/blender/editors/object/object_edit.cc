@@ -34,6 +34,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
+#include "BKE_attribute.hh"
 #include "BKE_anim_visualization.h"
 #include "BKE_collection.hh"
 #include "BKE_constraint.h"
@@ -1562,15 +1563,24 @@ static wmOperatorStatus shade_smooth_exec(bContext *C, wmOperator *op)
     bool changed = false;
     if (GS(data->name) == ID_ME) {
       Mesh &mesh = *reinterpret_cast<Mesh *>(data);
-      if (mesh.solid_storage && (use_flat || use_smooth)) {
+      if (mesh.solid_storage && (use_flat || use_smooth || use_smooth_by_angle)) {
         std::string error;
-        if (!bke::solid_host::set_display_shading(mesh, use_smooth, &error)) {
+        const bool analytic = use_flat ? bke::solid_host::display_uses_analytic_normals(mesh) :
+                                         use_smooth &&
+                                             RNA_enum_get(op->ptr, "solid_normal_method") == 0;
+        if (!bke::solid_host::set_display_shading(mesh, !use_flat, &error, analytic)) {
           BKE_report(op->reports, RPT_ERROR, error.c_str());
           continue;
         }
       }
       const bool keep_sharp_edges = RNA_boolean_get(op->ptr, "keep_sharp_edges");
-      bke::mesh_smooth_set(mesh, use_smooth || use_smooth_by_angle, keep_sharp_edges);
+      if (mesh.solid_storage) {
+        if (!keep_sharp_edges)
+          mesh.attributes_for_write().remove("sharp_edge");
+      }
+      else {
+        bke::mesh_smooth_set(mesh, use_smooth || use_smooth_by_angle, keep_sharp_edges);
+      }
       if (use_smooth_by_angle) {
         const float angle = RNA_float_get(op->ptr, "angle");
         bke::mesh_sharp_edges_set_from_angle(mesh, angle, keep_sharp_edges);
@@ -1639,6 +1649,18 @@ void OBJECT_OT_shade_flat(wmOperatorType *ot)
 
 void OBJECT_OT_shade_smooth(wmOperatorType *ot)
 {
+  static const EnumPropertyItem normal_methods[] = {
+      {0, "ANALYTIC", 0, "Analytic", "Use normals from the solid's analytic surfaces"},
+      {1, "BLENDER", 0, "Blender Smooth", "Calculate smooth normals from the display mesh"},
+      {0, nullptr, 0, nullptr, nullptr},
+  };
+  RNA_def_enum(ot->srna,
+               "solid_normal_method",
+               normal_methods,
+               1,
+               "Solid Normals",
+               "Normal calculation method for analytic solids");
+
   /* identifiers */
   ot->name = "Shade Smooth";
   ot->description = "Render and display faces smooth, using interpolated vertex normals";

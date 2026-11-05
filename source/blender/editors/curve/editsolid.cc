@@ -148,8 +148,7 @@ static bool update_display_vertices(Mesh &mesh, const solid::DisplayMesh &displa
     return false;
   const int normal_offset = CustomData_get_offset_named(
       &bm->ldata, CD_PROP_FLOAT3, "custom_normal");
-  if (normal_offset < 0)
-    return false;
+
   for (const auto &p : display.positions) {
     if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
         std::abs(p.x) > FLT_MAX || std::abs(p.y) > FLT_MAX || std::abs(p.z) > FLT_MAX)
@@ -160,7 +159,8 @@ static bool update_display_vertices(Mesh &mesh, const solid::DisplayMesh &displa
   for (size_t i = 0; i < display.polygons.size(); ++i) {
     BMFace *f = BM_face_at_index(bm, int(i));
     const auto &polygon = display.polygons[i];
-    if (f->len != polygon.size() || display.corner_normals[i].size() != polygon.size())
+    if (f->len != polygon.size() ||
+        (normal_offset >= 0 && display.corner_normals[i].size() != polygon.size()))
       return false;
     BMLoop *loop = BM_FACE_FIRST_LOOP(f);
     for (int v : polygon) {
@@ -175,7 +175,7 @@ static bool update_display_vertices(Mesh &mesh, const solid::DisplayMesh &displa
     const auto &p = display.positions[i];
     copy_v3_v3(BM_vert_at_index(bm, int(i))->co, float3(p.x, p.y, p.z));
   }
-  for (size_t i = 0; i < display.polygons.size(); ++i) {
+  for (size_t i = 0; normal_offset >= 0 && i < display.polygons.size(); ++i) {
     BMFace *face = BM_face_at_index(bm, int(i));
     float flat_normal[3];
     const bool flat = !BM_elem_flag_test(face, BM_ELEM_SMOOTH);
@@ -204,8 +204,9 @@ static bool replace_display(bContext *C,
   candidate.selection = solid::normalize_selection(*candidate.model,
                                                    std::move(candidate.selection));
   const auto profile_start = std::chrono::steady_clock::now();
-  if (!candidate.display_samples) {
-    auto samples = solid::tessellate(*candidate.model, 64, error);
+  const bool analytic = bke::solid_host::display_uses_analytic_normals(mesh);
+  if (!candidate.display_samples || candidate.display_samples->has_analytic_normals != analytic) {
+    auto samples = solid::tessellate(*candidate.model, 64, error, analytic);
     if (!samples)
       return false;
     candidate.display_samples = std::make_shared<const solid::DisplayMesh>(std::move(*samples));
@@ -213,7 +214,7 @@ static bool replace_display(bContext *C,
   const bool reused = reuse_topology &&
                       update_display_vertices(mesh, *candidate.display_samples, false);
   auto display = reused ? bke::solid_host::OwnedMesh{} :
-                          bke::solid_host::display_mesh(candidate, 64, error);
+                          bke::solid_host::display_mesh(candidate, 64, error, analytic);
   const auto profile_display = std::chrono::steady_clock::now();
   if ((!reused && !display) || !bke::solid_host::publish(mesh, candidate, revision, error))
     return false;
@@ -328,8 +329,10 @@ bool Session::apply(bContext *C,
       /* Loaded files have no runtime samples. Keep the immutable starting
        * samples in this modal session too, otherwise every mouse movement
        * tessellates the entire source again. */
-      if (!source_.display_samples) {
-        auto samples = solid::tessellate(*source_.model, 64, error);
+      const bool analytic = bke::solid_host::display_uses_analytic_normals(
+          *id_cast<Mesh *>(object_->data));
+      if (!source_.display_samples || source_.display_samples->has_analytic_normals != analytic) {
+        auto samples = solid::tessellate(*source_.model, 64, error, analytic);
         if (!samples)
           return false;
         source_.display_samples = std::make_shared<const solid::DisplayMesh>(std::move(*samples));
@@ -443,8 +446,7 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
   BMesh *bm = mesh.runtime->edit_mesh->bm;
   const int normal_offset = CustomData_get_offset_named(
       &bm->ldata, CD_PROP_FLOAT3, "custom_normal");
-  if (normal_offset < 0 && bm->totloop != 0)
-    return false;
+
   BM_mesh_elem_table_ensure(bm, BM_VERT | BM_FACE);
   if (display_positions_.empty()) {
     if (source_.selection.vertices.size() != source_.model->vertices.size()) {
@@ -491,7 +493,7 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
       const float *p = BM_vert_at_index(bm, i)->co;
       display_positions_.push_back({p[0], p[1], p[2]});
     }
-    for (int i = 0; i < bm->totface; ++i) {
+    for (int i = 0; normal_offset >= 0 && i < bm->totface; ++i) {
       BMFace *f = BM_face_at_index(bm, i);
       BMLoop *loop = BM_FACE_FIRST_LOOP(f);
       do {
@@ -500,7 +502,8 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
       } while ((loop = loop->next) != BM_FACE_FIRST_LOOP(f));
     }
   }
-  if (display_positions_.size() != bm->totvert || display_normals_.size() != bm->totloop)
+  if (display_positions_.size() != bm->totvert ||
+      (normal_offset >= 0 && display_normals_.size() != bm->totloop))
     return false;
   const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
   auto position = [&](solid::Vec3 p) { return a * p.x + b * p.y + c * p.z + m.translation; };
@@ -524,7 +527,7 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
     copy_v3_v3(BM_vert_at_index(bm, i)->co, float3(p.x, p.y, p.z));
   }
   size_t index = 0;
-  for (int i = 0; i < bm->totface; ++i) {
+  for (int i = 0; normal_offset >= 0 && i < bm->totface; ++i) {
     BMFace *f = BM_face_at_index(bm, i);
     BMLoop *loop = BM_FACE_FIRST_LOOP(f);
     do {
@@ -592,7 +595,7 @@ bool Session::restore(bContext *C, std::string *error)
     BMesh *bm = mesh.runtime->edit_mesh->bm;
     const int offset = CustomData_get_offset_named(&bm->ldata, CD_PROP_FLOAT3, "custom_normal");
     size_t index = 0;
-    for (int i = 0; i < bm->totface; ++i) {
+    for (int i = 0; offset >= 0 && i < bm->totface; ++i) {
       BMFace *f = BM_face_at_index(bm, i);
       BMLoop *loop = BM_FACE_FIRST_LOOP(f);
       do {

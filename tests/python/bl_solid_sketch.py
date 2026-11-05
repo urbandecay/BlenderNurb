@@ -48,6 +48,71 @@ class SolidSketchTest(unittest.TestCase):
         for a, b in zip(before, world_positions()):
             self.assertLess((Vector(tuple(a[i] * factors[i] for i in range(3))) - b).length, 5e-6)
 
+    def test_native_smooth_wire_extrusion(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        obj = bpy.context.object
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.shade_smooth()
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.assertEqual(bpy.ops.solid.extrude(distance=2), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertIsNone(obj.data.attributes.get('custom_normal'))
+        self.assertIsNotNone(obj.data.attributes.get('.solid_blender_normals'))
+
+    def test_native_smooth_survives_solid_edits_and_reload(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        obj = bpy.context.object
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.shade_smooth()
+
+        def check_native():
+            self.assertIsNone(obj.data.attributes.get('custom_normal'))
+            self.assertIsNotNone(obj.data.attributes.get('.solid_blender_normals'))
+            self.assertTrue(all(p.use_smooth for p in obj.data.polygons))
+            self.assertTrue(all(abs(n.vector.length - 1) < 2e-5
+                                for n in obj.data.corner_normals))
+
+        check_native()
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=4), {'FINISHED'})
+        bpy.ops.mesh.select_mode(type='VERT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        normals_before = [n.vector.copy() for n in obj.data.corner_normals]
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.assertEqual(bpy.ops.transform.rotate(value=.35, orient_axis='Z'), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        from mathutils import Matrix
+        rotation = Matrix.Rotation(.35, 3, 'Z')
+        # Mesh normals are recomputed from float coordinates and angle weights.
+        for before, after in zip(normals_before, obj.data.corner_normals):
+            self.assertLess((rotation @ before - after.vector).length, 1e-4)
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.assertEqual(bpy.ops.transform.resize(value=(1.2, .8, 1.1)), {'FINISHED'})
+        bpy.ops.object.mode_set(mode='OBJECT')
+        check_native()
+        name = obj.name
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'native-solid.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+        obj = bpy.data.objects[name]
+        check_native()
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        bpy.ops.object.shade_flat()
+        self.assertIsNone(obj.data.attributes.get('custom_normal'))
+        self.assertTrue(all(not p.use_smooth for p in obj.data.polygons))
+        bpy.ops.object.shade_smooth(solid_normal_method='ANALYTIC')
+        self.assertIsNotNone(obj.data.attributes.get('custom_normal'))
+        self.assertIsNone(obj.data.attributes.get('.solid_blender_normals'))
+        self.assertTrue(all(p.use_smooth for p in obj.data.polygons))
+        bpy.ops.object.shade_smooth()
+        check_native()
+
     def test_flat_and_smooth_solid_normals_survive_edits_and_reload(self):
         bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
         obj = bpy.context.object
@@ -73,7 +138,7 @@ class SolidSketchTest(unittest.TestCase):
         check_flat()
         self.assertTrue(any((n.vector - s).length > .01
                             for n, s in zip(obj.data.corner_normals, smooth)))
-        self.assertEqual(bpy.ops.object.shade_smooth(), {'FINISHED'})
+        self.assertEqual(bpy.ops.object.shade_smooth(solid_normal_method='ANALYTIC'), {'FINISHED'})
         for n, s in zip(obj.data.corner_normals, smooth):
             self.assertLess((n.vector - s).length, 2e-6)
         bpy.ops.object.shade_flat()
@@ -93,7 +158,7 @@ class SolidSketchTest(unittest.TestCase):
         check_flat()
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
-        bpy.ops.object.shade_smooth()
+        bpy.ops.object.shade_smooth(solid_normal_method='ANALYTIC')
         self.assertTrue(all(p.use_smooth for p in obj.data.polygons))
         self.assertTrue(any((obj.data.corner_normals[i].vector - p.normal).length > .01
                             for p in obj.data.polygons for i in p.loop_indices))

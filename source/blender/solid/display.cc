@@ -16,13 +16,17 @@
 
 namespace blender::solid {
 
-std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::string *error)
+std::optional<DisplayMesh> tessellate(const Model &model,
+                                      int segments,
+                                      std::string *error,
+                                      const bool calculate_normals)
 {
   if (!validate(model, error))
     return {};
   const bool log_breakdown = std::getenv("BLENDER_BEVEL_PROFILE") != nullptr;
   segments = std::clamp(segments, 8, 4096);
   DisplayMesh mesh;
+  mesh.has_analytic_normals = calculate_normals;
   std::unordered_map<Id, int> vertices;
   std::unordered_map<Id, const Curve *> curves;
   std::unordered_map<Id, const Surface *> surfaces;
@@ -119,6 +123,8 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
         n = n * -1;
     }
     mesh.polygons.push_back(std::move(points));
+    if (!calculate_normals)
+      normals.clear();
     mesh.corner_normals.push_back(std::move(normals));
     mesh.face_source.push_back(f.group ? f.group : f.id);
     if (log_breakdown) {
@@ -144,8 +150,9 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
           *error = "A planar face needs a nondegenerate boundary";
         return {};
       }
-      const Vec3 normal = cross(s.u, s.v) / length(cross(s.u, s.v));
-      polygon(boundary, std::vector<Vec3>(boundary.size(), normal), f);
+      const Vec3 normal = calculate_normals ? cross(s.u, s.v) / length(cross(s.u, s.v)) :
+                                              Vec3{};
+      polygon(boundary, std::vector<Vec3>(calculate_normals ? boundary.size() : 0, normal), f);
     }
     else if (s.kind == SurfaceKind::Ruled) {
       auto oriented = [&](const Coedge &use, bool reverse) {
@@ -189,15 +196,17 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
                                      std::pair{i + 1, j + 1},
                                      std::pair{i, j + 1}})
           {
-            Vec3 n = ruled_normal(
-                s, a, b, s.start + (s.end - s.start) * double(r) / rows, double(c) / columns);
+            Vec3 n = calculate_normals ?
+                         ruled_normal(s, a, b, s.start + (s.end - s.start) * double(r) / rows,
+                                      double(c) / columns) : Vec3{0, 0, 1};
             if (!(length(n) > 0)) {
               if (error)
                 *error = "Degenerate ruled fillet tangent frame";
               return {};
             }
             points.push_back(grid[r][c]);
-            normals.push_back(n / length(n));
+            if (calculate_normals)
+              normals.push_back(n / length(n));
           }
           polygon(std::move(points), std::move(normals), f);
         }
@@ -252,14 +261,17 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
             const double theta = s.start + (s.end - s.start) * double(r) / rows,
                          v = s.blend_v_start +
                              (s.blend_v_end - s.blend_v_start) * double(c) / columns;
-            Vec3 normal = cross(blend_theta_tangent(s, theta, v), blend_v_direction(s, v));
+            Vec3 normal = calculate_normals ?
+                              cross(blend_theta_tangent(s, theta, v), blend_v_direction(s, v)) :
+                              Vec3{0, 0, 1};
             if (!(length(normal) > 0)) {
               if (error)
                 *error = "Degenerate corner blend normal";
               return {};
             }
             points.push_back(grid[r][c]);
-            normals.push_back(normal / length(normal));
+            if (calculate_normals)
+              normals.push_back(normal / length(normal));
           }
           polygon(std::move(points), std::move(normals), f);
         }
@@ -273,6 +285,8 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
                     dot(p, cross(s.u, s.v)) / det};
       };
       auto normal = [&](Vec3 q) {
+        if (!calculate_normals)
+          return Vec3{};
         Vec3 n = (cross(s.v, s.w) * q.x + cross(s.w, s.u) * q.y + cross(s.u, s.v) * q.z) /
                  std::abs(det);
         return n / length(n);
@@ -308,7 +322,8 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
         std::vector<Vec3> normals;
         normals.reserve(boundary.size());
         for (int id : boundary)
-          normals.push_back(normal(local(mesh.positions[id])));
+          if (calculate_normals)
+            normals.push_back(normal(local(mesh.positions[id])));
         polygon(boundary, std::move(normals), f);
         continue;
       }
@@ -334,7 +349,8 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
                                             previous[i], current[i], current[j], previous[j]};
           std::vector<Vec3> normals;
           for (int id : points)
-            normals.push_back(normal(local(mesh.positions[id])));
+            if (calculate_normals)
+              normals.push_back(normal(local(mesh.positions[id])));
           polygon(std::move(points), std::move(normals), f);
         }
         previous = std::move(current);
@@ -367,15 +383,18 @@ std::optional<DisplayMesh> tessellate(const Model &model, int segments, std::str
           const bool reversed = s.kind == SurfaceKind::Cylinder && f.outer[0].reversed;
           const double fraction = double(j) / (bottom.size() - 1);
           const double t = e.start + (e.end - e.start) * (reversed ? 1 - fraction : fraction);
-          Vec3 n = cross(tangent(c, t) * ((reversed ? -1 : 1) * (e.end - e.start)),
-                         s.kind == SurfaceKind::Cylinder ? s.w : s.u);
+          Vec3 n = calculate_normals ?
+                       cross(tangent(c, t) * ((reversed ? -1 : 1) * (e.end - e.start)),
+                             s.kind == SurfaceKind::Cylinder ? s.w : s.u) :
+                       Vec3{0, 0, 1};
           const double size = length(n);
           if (!(size > 0)) {
             if (error)
               *error = "Degenerate extrusion wall normal";
             return {};
           }
-          normals.push_back(n / size);
+          if (calculate_normals)
+            normals.push_back(n / size);
         }
         polygon({bottom[i], bottom[i + 1], top[i + 1], top[i]}, std::move(normals), f);
       }
