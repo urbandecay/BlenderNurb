@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "extrusion.hh"
+#include "id_index.hh"
 #include <algorithm>
 #include <cfloat>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -115,6 +117,51 @@ Session::Session(Object &object, bke::solid_host::Snapshot source)
 {
   rigid_selection_ = source_.selection.vertices.size() == source_.model->vertices.size() ||
                      isolated_selection(source_);
+  if (!rigid_selection_ && source_.selection.mode == 4) {
+    const auto &model = *source_.model;
+    const solid::IdIndex<solid::Vertex> vertices(model.vertices);
+    const solid::IdIndex<solid::Edge> edges(model.edges);
+    const solid::IdIndex<solid::Curve> curves(model.curves);
+    const solid::IdIndex<solid::Surface> surfaces(model.surfaces);
+    const std::unordered_set<solid::Id> selected(source_.selection.vertices.begin(),
+                                                source_.selection.vertices.end());
+    std::unordered_map<solid::Id, int> curve_uses;
+    for (const auto &edge : model.edges)
+      ++curve_uses[edge.curve];
+    for (const auto &edge : model.edges)
+      if ((selected.contains(edge.vertices[0]) || selected.contains(edge.vertices[1])) &&
+          (curves.at(edge.curve)->kind != solid::CurveKind::Line ||
+           curve_uses.at(edge.curve) != 1))
+        return;
+    for (const auto &face : model.faces) {
+      bool affected = false;
+      for (const auto &use : face.outer)
+        for (auto id : edges.at(use.edge)->vertices)
+          affected |= selected.contains(id);
+      for (const auto &hole : face.holes)
+        for (const auto &use : hole)
+          for (auto id : edges.at(use.edge)->vertices)
+            affected |= selected.contains(id);
+      if (!affected)
+        continue;
+      if (!face.holes.empty() || face.outer.size() < 3 || face.outer.size() > 4 ||
+          surfaces.at(face.surface)->kind != solid::SurfaceKind::Plane) {
+        planar_faces_.clear();
+        return;
+      }
+      std::vector<PlanarPoint> points;
+      for (const auto &use : face.outer) {
+        const auto &edge = *edges.at(use.edge);
+        if (curves.at(edge.curve)->kind != solid::CurveKind::Line) {
+          planar_faces_.clear();
+          return;
+        }
+        const auto id = edge.vertices[use.reversed ? 1 : 0];
+        points.push_back({vertices.at(id)->position, selected.contains(id)});
+      }
+      planar_faces_.push_back(std::move(points));
+    }
+  }
 }
 
 Session::~Session()
@@ -400,13 +447,44 @@ bool Session::apply(bContext *C,
                          partial_reuse ? &partial_mask_ : nullptr);
 }
 
-/* A rigid drag of complete source components changes the visible BMesh immediately.
- * Source construction and validation are deferred to confirmation. */
+/* Complete rigid components and convex straight planar face translations can update the
+ * visible BMesh exactly. Source construction and validation are deferred to confirmation. */
 bool Session::can_preview_affine(const solid::Affine &m) const
 {
-  if (revision_ != source_.revision || !rigid_selection_)
+  if (revision_ != source_.revision || (!rigid_selection_ && planar_faces_.empty()))
     return false;
   const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
+  if (!rigid_selection_) {
+    if (a != solid::Vec3{1, 0, 0} || b != solid::Vec3{0, 1, 0} ||
+        c != solid::Vec3{0, 0, 1})
+      return false;
+    for (const auto &face : planar_faces_) {
+      auto point = [&](size_t i) {
+        return face[i].position + (face[i].moving ? m.translation : solid::Vec3{});
+      };
+      solid::Vec3 normal, original;
+      double scale = 1;
+      for (size_t i = 1; i + 1 < face.size(); ++i) {
+        normal = normal + solid::cross(point(i) - point(0), point(i + 1) - point(0));
+        original = original + solid::cross(face[i].position - face[0].position,
+                                           face[i + 1].position - face[0].position);
+        scale = std::max(scale, solid::length(point(i)));
+      }
+      const double length = solid::length(normal);
+      if (!(length > 0) || !std::isfinite(length) || solid::dot(normal, original) <= 0)
+        return false;
+      for (size_t i = 0; i < face.size(); ++i)
+        if (std::abs(solid::dot(point(i) - point(0), normal) / length) >
+            1024 * std::numeric_limits<double>::epsilon() * scale)
+          return false;
+      /* Existing triangle indices remain valid for convex planar triangles/quads. */
+      for (size_t i = 0; i < face.size(); ++i)
+        if (!(solid::dot(solid::cross(point((i + 1) % face.size()) - point(i),
+                                     point((i + 2) % face.size()) - point((i + 1) % face.size())),
+                         normal) > 0))
+          return false;
+    }
+  }
   const double error = std::abs(solid::dot(a, a) - 1) + std::abs(solid::dot(b, b) - 1) +
                        std::abs(solid::dot(c, c) - 1) + std::abs(solid::dot(a, b)) +
                        std::abs(solid::dot(a, c)) + std::abs(solid::dot(b, c));
@@ -563,10 +641,23 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
   size_t index = 0;
   for (int i = 0; normal_offset >= 0 && i < bm->totface; ++i) {
     BMFace *f = BM_face_at_index(bm, i);
+    bool deformed = false;
+    if (!rigid_selection_) {
+      BMLoop *l = BM_FACE_FIRST_LOOP(f);
+      do {
+        deformed |= display_position_mask_[BM_elem_index_get(l->v)];
+      } while ((l = l->next) != BM_FACE_FIRST_LOOP(f));
+      if (deformed)
+        BM_face_calc_normal(f, f->no);
+    }
     BMLoop *loop = BM_FACE_FIRST_LOOP(f);
     do {
       const bool moving = display_normal_mask_.empty() || display_normal_mask_[index];
       const auto original = display_normals_[index++];
+      if (deformed) {
+        copy_v3_v3(BM_ELEM_CD_GET_FLOAT_P(loop, normal_offset), f->no);
+        continue;
+      }
       if (!moving)
         continue;
       auto n = a * original.x + b * original.y + c * original.z;
@@ -582,7 +673,8 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
   affine_display_update(C, mesh);
   if (std::getenv("BLENDER_SOLID_PROFILE"))
     fprintf(stderr,
-            "SOLID_AFFINE_DRAG update_ms=%.3f\n",
+            "%s update_ms=%.3f\n",
+            rigid_selection_ ? "SOLID_AFFINE_DRAG" : "SOLID_PLANAR_DRAG",
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
                 .count());
   return true;
@@ -592,10 +684,23 @@ bool Session::commit_affine(bContext *C, std::string *error)
 {
   if (!display_preview_)
     return true;
+  const auto start = std::chrono::steady_clock::now();
   auto result = solid::transform_selected(
       *source_.model, source_.selection, display_matrix_, error);
   if (!result)
     return false;
+  if (!rigid_selection_) {
+    /* Reconcile the display with the checked source once, on confirmation. */
+    if (!apply(C, std::move(*result), error))
+      return false;
+    display_preview_ = false;
+    if (std::getenv("BLENDER_SOLID_PROFILE"))
+      fprintf(stderr,
+              "SOLID_PLANAR_COMMIT update_ms=%.3f\n",
+              std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+                  .count());
+    return true;
+  }
   bke::solid_host::Snapshot next{std::make_shared<const solid::Model>(std::move(result->model)),
                                  std::move(result->selection),
                                  revision_};

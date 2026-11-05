@@ -21,6 +21,12 @@ class Session {
   bke::solid_host::Snapshot source_;
   uint64_t revision_;
   bool rigid_selection_ = false;
+  /** A face translation with only straight planar neighbors can deform the display exactly. */
+  struct PlanarPoint {
+    solid::Vec3 position;
+    bool moving;
+  };
+  std::vector<std::vector<PlanarPoint>> planar_faces_;
   std::vector<bool> display_position_mask_, display_normal_mask_;
   BMPartialUpdate *partial_cache_ = nullptr;
   std::vector<bool> partial_mask_;

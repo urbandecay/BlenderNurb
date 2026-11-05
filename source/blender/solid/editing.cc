@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "SOL_geometry.hh"
+#include "id_index.hh"
 
 #include <algorithm>
 #include <cmath>
@@ -164,8 +165,9 @@ bool install_polygons(Model &m,
     }
   erase_ids(m.faces, replaced);
   std::map<Pair, Id> edge_map;
+  const IdIndex<Curve> curve_index(m.curves);
   for (const Edge &e : m.edges)
-    if (curve(m, e.curve)->kind == CurveKind::Line)
+    if (curve_index.at(e.curve)->kind == CurveKind::Line)
       edge_map.try_emplace(key(e.vertices[0], e.vertices[1]), e.id);
   auto add_face = [&](const std::vector<Id> &points, Id id) {
     const Vec3 normal = area(m, points);
@@ -386,8 +388,14 @@ bool refit_linear_faces(Model &m, std::string *error)
 {
   Set replaced;
   std::vector<Polygon> polygons;
+  const IdIndex<Surface> surfaces(m.surfaces);
+  const IdIndex<Edge> edges(m.edges);
+  const IdIndex<Curve> curves(m.curves);
   for (const Face &f : m.faces)
-    if (linear_face(m, f)) {
+    if (f.holes.empty() && surfaces.at(f.surface)->kind == SurfaceKind::Plane &&
+        std::all_of(f.outer.begin(), f.outer.end(), [&](const Coedge &use) {
+          return curves.at(edges.at(use.edge)->curve)->kind == CurveKind::Line;
+        })) {
       auto points = boundary(m, f);
       if (f.orientation < 0)
         std::reverse(points.begin(), points.end());
