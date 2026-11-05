@@ -35,33 +35,50 @@ std::optional<DisplayMesh> tessellate(const Model &model,
   std::unordered_map<Id, std::vector<Id>> edge_groups;
   std::unordered_map<Id, int> ruled_rails;
   std::unordered_set<Id> small_sphere_edges, large_sphere_edges;
+  /* Build the index before inspecting faces: the generic ID helpers scan the model. */
+  vertices.reserve(model.vertices.size());
+  curves.reserve(model.curves.size());
+  surfaces.reserve(model.surfaces.size());
+  edges.reserve(model.edges.size());
+  paths.reserve(model.edges.size());
+  edge_groups.reserve(model.edges.size());
+  ruled_rails.reserve(model.edges.size());
+  small_sphere_edges.reserve(model.edges.size());
+  large_sphere_edges.reserve(model.edges.size());
+  for (const Curve &c : model.curves)
+    curves.emplace(c.id, &c);
+  for (const Surface &s : model.surfaces)
+    surfaces.emplace(s.id, &s);
+  for (const Edge &e : model.edges)
+    edges.emplace(e.id, &e);
   std::array<size_t, 6> source_faces_by_kind{};
   std::array<size_t, 6> display_faces_by_kind{};
   std::map<std::pair<int, int>, size_t> sphere_patch_histogram;
   for (const Face &f : model.faces) {
+    const Surface &face_surface = *surfaces.at(f.surface);
     if (log_breakdown) {
-      source_faces_by_kind[size_t(surface(model, f.surface)->kind)]++;
+      source_faces_by_kind[size_t(face_surface.kind)]++;
     }
     for (const Coedge &use : f.outer)
       edge_groups[use.edge].push_back(f.group ? f.group : f.id);
-    if (surface(model, f.surface)->kind == SurfaceKind::Sphere) {
+    if (face_surface.kind == SurfaceKind::Sphere) {
       /* Fillet corner spheres are already split into triangular source patches. A
        * short exact conic edge on those patches is one source subdivision; splitting
        * it again to satisfy the global display target over-tessellates low segment
        * counts. Keep one display span when every adjacent sphere patch is this small. */
       bool small_patch = f.outer.size() == 3;
       for (const Coedge &use : f.outer) {
-        const Edge &e = *edge(model, use.edge);
-        const Curve &c = *curve(model, e.curve);
+        const Edge &e = *edges.at(use.edge);
+        const Curve &c = *curves.at(e.curve);
         small_patch &= c.kind == CurveKind::Conic &&
                        std::abs(e.end - e.start) <= std::numbers::pi / 16;
       }
       for (const Coedge &use : f.outer)
         (small_patch ? small_sphere_edges : large_sphere_edges).insert(use.edge);
     }
-    if (surface(model, f.surface)->kind == SurfaceKind::Ruled && f.outer.size() == 4) {
-      const Surface &s = *surface(model, f.surface);
-      const Curve &a = *curve(model, s.curve), &b = *curve(model, s.other_curve);
+    if (face_surface.kind == SurfaceKind::Ruled && f.outer.size() == 4) {
+      const Surface &s = face_surface;
+      const Curve &a = *curves.at(s.curve), &b = *curves.at(s.other_curve);
       const Vec3 offset = evaluate(b, s.reverse_second ? 1 : 0) -
                           evaluate(a, s.reverse_first ? 1 : 0);
       const bool translated = a.kind == CurveKind::RationalQuadratic &&
@@ -84,12 +101,7 @@ std::optional<DisplayMesh> tessellate(const Model &model,
   };
   for (const auto &v : model.vertices)
     vertices[v.id] = point(v.position, v.id);
-  for (const auto &c : model.curves)
-    curves[c.id] = &c;
-  for (const auto &s : model.surfaces)
-    surfaces[s.id] = &s;
   for (const auto &e : model.edges) {
-    edges[e.id] = &e;
     const auto &c = *curves.at(e.curve);
     const int count = c.kind == CurveKind::Cubic ?
                           std::max(2, int(std::ceil(std::abs(e.end - e.start) * segments / 4))) :
@@ -128,7 +140,7 @@ std::optional<DisplayMesh> tessellate(const Model &model,
     mesh.corner_normals.push_back(std::move(normals));
     mesh.face_source.push_back(f.group ? f.group : f.id);
     if (log_breakdown) {
-      display_faces_by_kind[size_t(surface(model, f.surface)->kind)]++;
+      display_faces_by_kind[size_t(surfaces.at(f.surface)->kind)]++;
     }
   };
   for (const auto &f : model.faces) {

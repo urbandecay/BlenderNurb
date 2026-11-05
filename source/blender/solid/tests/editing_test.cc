@@ -363,7 +363,7 @@ int main()
     check(validate_body(rounded->model, rounded->selection.active, &error), error);
     check(bool(tessellate(rounded->model, 32, &error)), error);
   }
-  for (int subdivisions : {1, 2, 3}) {
+  for (int subdivisions : {1, 2, 3, 32}) {
     Selection selected;
     selected.mode = 2;
     for (const Edge &e : cube.edges)
@@ -380,6 +380,18 @@ int main()
     check(spheres == 8 * subdivisions * subdivisions, "Fillet must split exact sphere corners");
     const auto display = tessellate(rounded->model, 32, &error);
     check(bool(display), error);
+    const auto native_display = tessellate(rounded->model, 32, &error, false);
+    check(bool(native_display), error);
+    check(native_display->positions == display->positions &&
+              native_display->polygons == display->polygons &&
+              native_display->vertex_source == display->vertex_source &&
+              native_display->edge_source == display->edge_source &&
+              native_display->face_source == display->face_source,
+          "Normal method must preserve fillet geometry and selection identities");
+    check(!native_display->has_analytic_normals,
+          "Native shading must not request analytic normals");
+    for (const auto &normals : native_display->corner_normals)
+      check(normals.empty(), "Native shading must not generate analytic corner normals");
     std::map<std::pair<int, int>, int> incidence;
     for (const auto &polygon : display->polygons)
       for (size_t i = 0; i < polygon.size(); ++i)

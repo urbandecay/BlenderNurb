@@ -906,7 +906,9 @@ static void update(bContext *C, wmOperator *op)
   const size_t result_vertices = profile_bevel && result ? result->model.vertices.size() : 0;
   const size_t result_edges = profile_bevel && result ? result->model.edges.size() : 0;
   const size_t result_faces = profile_bevel && result ? result->model.faces.size() : 0;
-  data.valid = result && data.preview->apply(C, std::move(*result), &data.error);
+  /* Width changes usually preserve connectivity. The display adapter checks it and
+   * rebuilds when segment counts or the generated boundary change. */
+  data.valid = result && data.preview->apply(C, std::move(*result), &data.error, data.bevel);
   if (profile_bevel) {
     const auto profile_end = std::chrono::steady_clock::now();
     const double kernel_ms = std::chrono::duration<double, std::milli>(kernel_end - profile_start)

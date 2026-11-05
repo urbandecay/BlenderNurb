@@ -28,6 +28,11 @@ struct Station {
 struct Ref {
   Id curve, a, b;
   bool reverse = false;
+  Curve geometry;
+};
+struct EdgeRef {
+  Id id;
+  std::array<Id, 2> vertices;
 };
 struct Octant {
   Vec3 center;
@@ -276,7 +281,7 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       octants[v] = corner;
     }
   std::map<Key, Ref> profiles;
-  std::map<Key, Id> edges;
+  std::map<Key, EdgeRef> edges;
   std::map<Key, Id> profile_points;
   auto profile = [&](Id a, Id b, Id v, double weight) -> Ref {
     const Key key = std::minmax(a, b);
@@ -292,13 +297,15 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       weight = std::sqrt(.5);
     }
     const Id id = out.next_id++;
-    out.curves.push_back({id,
-                          CurveKind::RationalQuadratic,
-                          vertex(out, a)->position,
-                          control,
-                          vertex(out, b)->position,
-                          {1, weight, 1}});
-    Ref ref{id, a, b, false};
+    /* Own the curve value: appending more curves may reallocate out.curves. */
+    Curve geometry{id,
+                   CurveKind::RationalQuadratic,
+                   vertex(out, a)->position,
+                   control,
+                   vertex(out, b)->position,
+                   {1, weight, 1}};
+    out.curves.push_back(geometry);
+    Ref ref{id, a, b, false, geometry};
     profiles[key] = ref;
     profile_points[{id, 0}] = a;
     profile_points[{id, Id(divisions)}] = b;
@@ -308,24 +315,24 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
     const int at = ref.reverse ? divisions - k : k;
     const Key key{ref.curve, Id(at)};
     if (!profile_points.contains(key))
-      profile_points[key] = point(evaluate(*curve(out, ref.curve), double(at) / divisions));
+      profile_points[key] = point(evaluate(ref.geometry, double(at) / divisions));
     return profile_points.at(key);
   };
   auto boundary = [&](Id a, Id b, Id support, double start, double end, Id reuse = 0) -> Coedge {
     const Key key = std::minmax(a, b);
     if (edges.contains(key)) {
-      const Edge &e = *edge(out, edges.at(key));
+      const EdgeRef &e = edges.at(key);
       return {e.id, e.vertices[0] != a};
     }
     const Id id = reuse ? reuse : out.next_id++;
     out.edges.push_back({id, support, {a, b}, start, end});
-    edges[key] = id;
+    edges[key] = {id, {a, b}};
     return {id, false};
   };
   auto line = [&](Id a, Id b, Id reuse = 0) {
     const Key key = std::minmax(a, b);
     if (edges.contains(key)) {
-      const Edge &e = *edge(out, edges.at(key));
+      const EdgeRef &e = edges.at(key);
       return Coedge{e.id, e.vertices[0] != a};
     }
     const Id support = out.next_id++;
@@ -389,8 +396,7 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       s.reverse_second = refs[1].reverse;
       s.start = u0;
       s.end = u1;
-      const Vec3 n = ruled_normal(
-          s, *curve(out, s.curve), *curve(out, s.other_curve), (u0 + u1) * .5, .5);
+      const Vec3 n = ruled_normal(s, refs[0].geometry, refs[1].geometry, (u0 + u1) * .5, .5);
       const int orientation = dot(n, normals.at(adjacent[0]) + normals.at(adjacent[1])) > 0 ? 1 :
                                                                                               -1;
       const Id face_id = out.next_id++;
@@ -452,7 +458,9 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       Id vertex;
       Vec3 unit;
     };
-    std::map<std::pair<int, int>, Node> grid;
+    /* Integer grid coordinates have a small, fixed bound (divisions <= 32). */
+    std::vector<Node> nodes((divisions + 1) * (divisions + 1));
+    auto grid = [&](int i, int j) -> Node & { return nodes[i * (divisions + 1) + j]; };
     auto quarter = [](Vec3 a, Vec3 b, double t) {
       const double w = std::sqrt(.5), d = (1 - t) * (1 - t) + 2 * w * t * (1 - t) + t * t;
       return (a * ((1 - t) * (1 - t)) + (a + b) * (2 * w * t * (1 - t)) + b * (t * t)) / d;
@@ -473,12 +481,12 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
           node.unit = unit({double(divisions - i - j), double(i), double(j)});
           node.vertex = point(mapped(node.unit));
         }
-        grid[{i, j}] = node;
+        grid(i, j) = node;
       }
     auto arc = [&](Node a, Node b) {
       const Key key = std::minmax(a.vertex, b.vertex);
       if (edges.contains(key)) {
-        const Edge &e = *edge(out, edges.at(key));
+        const EdgeRef &e = edges.at(key);
         return Coedge{e.id, e.vertices[0] != a.vertex};
       }
       const double cosine = std::clamp(dot(a.unit, b.unit), -1.0, 1.0), angle = std::acos(cosine);
@@ -510,9 +518,9 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
     };
     for (int i = 0; i < divisions; ++i)
       for (int j = 0; j < divisions - i; ++j) {
-        triangle(grid.at({i, j}), grid.at({i + 1, j}), grid.at({i, j + 1}));
+        triangle(grid(i, j), grid(i + 1, j), grid(i, j + 1));
         if (i + j + 1 < divisions)
-          triangle(grid.at({i + 1, j}), grid.at({i + 1, j + 1}), grid.at({i, j + 1}));
+          triangle(grid(i + 1, j), grid(i + 1, j + 1), grid(i, j + 1));
       }
   }
   std::set<Id> used_surfaces, used_curves;

@@ -91,16 +91,25 @@ struct Index {
   std::unordered_map<Id, const Edge *> edges;
   std::unordered_map<Id, const Surface *> surfaces;
   std::unordered_map<Id, const Face *> faces;
-  explicit Index(const Model &m)
+  explicit Index(const Model &m, bool include_geometry = true)
   {
+    vertices.reserve(m.vertices.size());
+    if (include_geometry)
+      curves.reserve(m.curves.size());
+    edges.reserve(m.edges.size());
+    if (include_geometry)
+      surfaces.reserve(m.surfaces.size());
+    faces.reserve(m.faces.size());
     for (const auto &v : m.vertices)
       vertices.emplace(v.id, &v);
-    for (const auto &v : m.curves)
-      curves.emplace(v.id, &v);
+    if (include_geometry)
+      for (const auto &v : m.curves)
+        curves.emplace(v.id, &v);
     for (const auto &v : m.edges)
       edges.emplace(v.id, &v);
-    for (const auto &v : m.surfaces)
-      surfaces.emplace(v.id, &v);
+    if (include_geometry)
+      for (const auto &v : m.surfaces)
+        surfaces.emplace(v.id, &v);
     for (const auto &v : m.faces)
       faces.emplace(v.id, &v);
   }
@@ -358,6 +367,8 @@ bool validate(const Model &m, std::string *error)
   }
   Index index(m);
   std::unordered_set<Id> ids;
+  ids.reserve(m.vertices.size() + m.curves.size() + m.edges.size() + m.surfaces.size() +
+              m.faces.size());
   auto identity = [&](Id id) { return id && id < m.next_id && ids.insert(id).second; };
   for (const auto &v : m.vertices) {
     if (!identity(v.id) || !finite(v.position))
@@ -524,13 +535,13 @@ bool validate(const Model &m, std::string *error)
             index.curves.at(b.curve)->kind != CurveKind::Conic)
           goto invalid;
       }
-      const double det = dot(support.u, cross(support.v, support.w));
+      const Vec3 vw = cross(support.v, support.w), wu = cross(support.w, support.u),
+                 uv = cross(support.u, support.v);
+      const double det = dot(support.u, vw);
       if (cylinder) {
         auto local = [&](Vec3 p) {
           p = p - support.origin;
-          return Vec3{dot(p, cross(support.v, support.w)) / det,
-                      dot(p, cross(support.w, support.u)) / det,
-                      dot(p, cross(support.u, support.v)) / det};
+          return Vec3{dot(p, vw) / det, dot(p, wu) / det, dot(p, uv) / det};
         };
         const Edge &a = *index.edges.at(f.outer[0].edge), &b = *index.edges.at(f.outer[2].edge);
         for (double fraction : {0.0, .25, .5, .75, 1.0}) {
@@ -551,9 +562,7 @@ bool validate(const Model &m, std::string *error)
           goto invalid;
         for (double t : {0.0, 0.25, 0.5, 0.75, 1.0}) {
           const Vec3 p = evaluate(c, e.start + (e.end - e.start) * t) - support.origin;
-          const Vec3 q{dot(p, cross(support.v, support.w)) / det,
-                       dot(p, cross(support.w, support.u)) / det,
-                       dot(p, cross(support.u, support.v)) / det};
+          const Vec3 q{dot(p, vw) / det, dot(p, wu) / det, dot(p, uv) / det};
           if (std::abs(q.x * q.x + q.y * q.y + (cylinder ? 0 : q.z * q.z) - 1) > 1e-8)
             goto invalid;
         }
@@ -1082,7 +1091,8 @@ std::optional<EditResult> transform_selected(const Model &model,
 
 Selection normalize_selection(const Model &model, Selection selection)
 {
-  const Index index(model);
+  /* Selection only references topology, never curve or surface support IDs. */
+  const Index index(model, false);
   selection.mode = selection.mode & 4 ? 4 : selection.mode & 2 ? 2 : 1;
   auto clean = [](auto &ids, const auto &valid) {
     std::erase_if(ids, [&](Id id) { return !valid.contains(id); });

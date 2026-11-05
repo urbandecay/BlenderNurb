@@ -59,10 +59,6 @@ int2 split_id(solid::Id id)
 {
   return {int32_t(uint32_t(id)), int32_t(uint32_t(id >> 32))};
 }
-bool selected(const std::vector<solid::Id> &ids, solid::Id id)
-{
-  return id && std::find(ids.begin(), ids.end(), id) != ids.end();
-}
 }  // namespace
 
 SolidStorage *storage_create(solid::Model model, solid::Selection selection, std::string *error)
@@ -473,28 +469,37 @@ OwnedMesh display_mesh(const Snapshot &source,
     if (id && !aliases.empty())
       face_dot.span[aliases[aliases.size() / 2]] = true;
 
+  /* Selection membership is queried per display element; avoid rescanning a large
+   * face/edge selection for each sampled polygon and boundary. */
+  const std::unordered_set<solid::Id> selected_vertices(source.selection.vertices.begin(),
+                                                      source.selection.vertices.end());
+  const std::unordered_set<solid::Id> selected_edges(source.selection.edges.begin(),
+                                                   source.selection.edges.end());
+  const std::unordered_set<solid::Id> selected_faces(source.selection.faces.begin(),
+                                                   source.selection.faces.end());
   for (const int i : v_id.span.index_range()) {
     v_id.span[i] = split_id(display->vertex_source[i]);
-    v_select.span[i] = selected(source.selection.vertices, display->vertex_source[i]);
+    v_select.span[i] = display->vertex_source[i] &&
+                       selected_vertices.contains(display->vertex_source[i]);
   }
   for (const int i : e_id.span.index_range()) {
     e_id.span[i] = split_id(display->edge_source[i]);
-    e_select.span[i] = selected(source.selection.edges, display->edge_source[i]);
+    e_select.span[i] = display->edge_source[i] && selected_edges.contains(display->edge_source[i]);
   }
   for (const int i : f_id.span.index_range()) {
     f_id.span[i] = split_id(display->face_source[i]);
-    f_select.span[i] = selected(source.selection.faces, display->face_source[i]);
+    f_select.span[i] = display->face_source[i] && selected_faces.contains(display->face_source[i]);
   }
   /* Sampling vertices inherit source edge/face display selection, but retain ID zero:
    * they can never become independent source points when selection is read back. */
   for (size_t i = 0; i < display->edges.size(); ++i) {
-    if (selected(source.selection.edges, display->edge_source[i])) {
+    if (display->edge_source[i] && selected_edges.contains(display->edge_source[i])) {
       for (int v : display->edges[i])
         v_select.span[v] = true;
     }
   }
   for (size_t i = 0; i < display->polygons.size(); ++i) {
-    if (selected(source.selection.faces, display->face_source[i])) {
+    if (display->face_source[i] && selected_faces.contains(display->face_source[i])) {
       for (int v : display->polygons[i])
         v_select.span[v] = true;
     }

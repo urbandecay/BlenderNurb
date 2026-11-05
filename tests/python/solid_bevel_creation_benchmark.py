@@ -15,6 +15,8 @@ Windowed, once per method/case:
     --enable-event-simulate --python tests/python/solid_bevel_creation_benchmark.py
   SOLID_BEVEL_KIND=solid SOLID_BEVEL_CASE=fillet blender --factory-startup \
     --enable-event-simulate --python tests/python/solid_bevel_creation_benchmark.py
+Modal regression options (solid only):
+  SOLID_BEVEL_NORMALS=BLENDER SOLID_BEVEL_CONFIRM=1 SOLID_BEVEL_CHANGE_SEGMENTS=1
 Same numeric subdivision count, background only:
   SOLID_BEVEL_CASE=fillet_same_count SOLID_BEVEL_TRIALS=2 blender --background \
     --python tests/python/solid_bevel_creation_benchmark.py
@@ -145,7 +147,27 @@ def windowed_benchmark():
         raise ValueError("Modal warmup must be shorter than modal updates")
     segments = CASES[case][kind]
     obj = create_cube(kind)
+    normal_method = os.environ.get("SOLID_BEVEL_NORMALS", "ANALYTIC")
+    confirm = os.environ.get("SOLID_BEVEL_CONFIRM", "0") == "1"
+    change_segments = os.environ.get("SOLID_BEVEL_CHANGE_SEGMENTS", "0") == "1"
+    if kind == "solid":
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.ops.object.shade_smooth(solid_normal_method=normal_method)
+        bpy.ops.object.mode_set(mode="EDIT")
 
+    def geometry_snapshot():
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.verts.index_update()
+        return (
+            tuple(tuple(v.co) for v in bm.verts),
+            tuple(tuple(v.index for v in e.verts) for e in bm.edges),
+            tuple(tuple(v.index for v in f.verts) for f in bm.faces),
+            tuple(v.select for v in bm.verts),
+            tuple(e.select for e in bm.edges),
+            tuple(f.select for f in bm.faces),
+        )
+
+    original_geometry = geometry_snapshot()
     window = bpy.context.window
     area = next(area for area in bpy.context.screen.areas if area.type == "VIEW_3D")
     region = next(region for region in area.regions if region.type == "WINDOW")
@@ -191,9 +213,20 @@ def windowed_benchmark():
     def finish():
         state["active"] = False
         remove_handler()
-        window.event_simulate(type="ESC", value="PRESS")
+        final_preview = geometry_snapshot()
+        window.event_simulate(type="RET" if confirm else "ESC", value="PRESS")
 
         def report_after_cancel():
+            expected = final_preview if confirm else original_geometry
+            if geometry_snapshot() != expected:
+                print("SOLID_BEVEL_REGRESSION_FAILED: geometry/selection changed on exit", flush=True)
+                os._exit(1)
+            if kind == "solid":
+                bm = bmesh.from_edit_mesh(obj.data)
+                has_custom = bm.loops.layers.float_vector.get("custom_normal") is not None
+                if has_custom != (normal_method == "ANALYTIC"):
+                    print("SOLID_BEVEL_REGRESSION_FAILED: wrong normal method", flush=True)
+                    os._exit(1)
             retained = state["draw_times"][MODAL_WARMUP:]
             intervals_ms = [
                 (later - earlier) * 1000 for earlier, later in zip(retained, retained[1:])
@@ -208,6 +241,10 @@ def windowed_benchmark():
             print("SOLID_BEVEL_MODAL_BENCHMARK " + json.dumps({
                 "kind": kind,
                 "case": case,
+                "normal_method": normal_method if kind == "solid" else "BLENDER",
+                "exit_action": "confirm" if confirm else "cancel",
+                "geometry_and_selection_preserved_on_exit": True,
+                "segment_changes": change_segments,
                 "width_target": WIDTH,
                 "segments": segments,
                 "target_mouse_delta_pixels": state["target_delta"],
@@ -238,6 +275,11 @@ def windowed_benchmark():
 
             bpy.app.timers.register(stop_sampling, first_interval=0.05)
             return None
+        if change_segments and index in (MODAL_UPDATES // 3, 2 * MODAL_UPDATES // 3):
+            window.event_simulate(
+                type="WHEELUPMOUSE" if index == MODAL_UPDATES // 3 else "WHEELDOWNMOUSE",
+                value="PRESS",
+            )
         # Vary the width by a few viewport pixels so every event triggers a real bevel rebuild.
         delta = state["target_delta"] + (index % 5 - 2)
         simulate_mouse(state["start_x"] + delta)
