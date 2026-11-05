@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 # Deliberately independent: no curve, surface, BMesh, NURBS or Blender kernel libraries.
-add_library(bf_solid_analytic STATIC geometry.cc editing.cc fillet.cc fillet_trimmed.cc display.cc storage.cc SOL_geometry.hh fillet_intern.hh)
+add_library(bf_solid_analytic STATIC geometry.cc editing.cc fillet.cc fillet_trimmed.cc display.cc storage.cc SOL_geometry.hh fillet_intern.hh id_index.hh)
 target_include_directories(bf_solid_analytic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(bf_solid_analytic PUBLIC cxx_std_20)
 

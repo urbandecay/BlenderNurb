@@ -378,6 +378,14 @@ int main()
     }
     check(cylinders == 12 * subdivisions, "Fillet must split exact cylinder strips");
     check(spheres == 8 * subdivisions * subdivisions, "Fillet must split exact sphere corners");
+    Model detached = rounded->model;
+    for (auto it = detached.surfaces.rbegin(); it != detached.surfaces.rend(); ++it)
+      if (it->kind == SurfaceKind::Sphere) {
+        it->origin.x += .01;
+        break;
+      }
+    check(!validate(detached, &error),
+          "Cached shared-edge samples must still be checked against each corner support");
     const auto display = tessellate(rounded->model, 32, &error);
     check(bool(display), error);
     const auto native_display = tessellate(rounded->model, 32, &error, false);

@@ -4,7 +4,9 @@
 
 #include "SOL_geometry.hh"
 
+#include <algorithm>
 #include <chrono>
+#include <limits>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -107,6 +109,67 @@ int main()
   require(cylinder->model.faces.size() == 3, "An analytic cylinder needs two planes and one wall");
   require(disc.curves.size() == 1 && disc.curves[0].kind == CurveKind::Conic,
           "Circle did not retain one analytic entity");
+  // ID indexing must handle compact, sparse, and near-limit identities equally.
+  for (int layout : {0, 1, 2}) {
+    Model renumbered = cylinder->model;
+    auto remap = [&](Id id) -> Id {
+      if (!id)
+        return 0;
+      return layout == 0 ? id : layout == 1 ? id * (Id(1) << 40) :
+                                            std::numeric_limits<Id>::max() - 10000 + id;
+    };
+    renumbered.next_id = remap(renumbered.next_id);
+    for (auto &v : renumbered.vertices)
+      v.id = remap(v.id);
+    for (auto &c : renumbered.curves)
+      c.id = remap(c.id);
+    for (auto &e : renumbered.edges) {
+      e.id = remap(e.id);
+      e.curve = remap(e.curve);
+      for (auto &v : e.vertices)
+        v = remap(v);
+    }
+    for (auto &s : renumbered.surfaces) {
+      s.id = remap(s.id);
+      s.curve = remap(s.curve);
+      s.other_curve = remap(s.other_curve);
+    }
+    for (auto &f : renumbered.faces) {
+      f.id = remap(f.id);
+      f.surface = remap(f.surface);
+      f.group = remap(f.group);
+      for (auto &use : f.outer)
+        use.edge = remap(use.edge);
+    }
+    std::reverse(renumbered.edges.begin(), renumbered.edges.end());
+    std::reverse(renumbered.faces.begin(), renumbered.faces.end());
+    require(validate_body(renumbered, remap(cylinder->selection.active), &error), error);
+    require(bool(tessellate(renumbered, 32, &error)), error);
+    Model duplicate = renumbered;
+    duplicate.vertices.push_back(duplicate.vertices.front());
+    require(!validate(duplicate, &error), "Duplicate source identity was accepted");
+    Model missing = renumbered;
+    missing.edges.front().curve = std::numeric_limits<Id>::max();
+    require(!validate(missing, &error), "Missing high-ID curve reference was accepted");
+  }
+  Model annulus = profile->model;
+  const Vec3 inner[] = {{-1, -1, 0}, {-1, 1, 0}, {1, 1, 0}, {1, -1, 0}};
+  Id inner_first = 0, inner_previous = 0;
+  std::vector<Coedge> hole;
+  for (int i = 0; i < 4; ++i) {
+    Selection added;
+    require(append_curve(annulus, *line(inner[i], inner[(i + 1) % 4]), 0, 1,
+                         inner_previous, i == 3 ? inner_first : 0, false, &added, &error), error);
+    const Edge &e = annulus.edges.back();
+    if (!inner_first)
+      inner_first = e.vertices[0];
+    inner_previous = e.vertices[1];
+    hole.push_back({e.id, false});
+  }
+  annulus.faces.front().holes.push_back(hole);
+  require(validate(annulus, &error), error);
+  annulus.faces.front().holes.front().pop_back();
+  require(!validate(annulus, &error), "Open inner boundary was accepted");
   Model bad_plane = profile->model;
   bad_plane.surfaces.front().origin.z += 0.1;
   require(!validate(bad_plane, &error), "Boundary curves detached from their plane were accepted");

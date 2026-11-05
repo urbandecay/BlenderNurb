@@ -75,3 +75,41 @@ SOLID_BEVEL_CASE=fillet_same_count SOLID_BEVEL_TRIALS=6 blender --background --f
 BLENDER_BEVEL_PROFILE=1 BLENDER_SOLID_PROFILE=1 SOLID_BEVEL_KIND=solid SOLID_BEVEL_CASE=fillet_same_count SOLID_BEVEL_MODAL_UPDATES=12 SOLID_BEVEL_MODAL_WARMUP=2 SOLID_BEVEL_CONFIRM=1 blender --factory-startup --enable-event-simulate --python tests/python/solid_bevel_creation_benchmark.py
 SOLID_BEVEL_KIND=solid SOLID_BEVEL_NORMALS=BLENDER SOLID_BEVEL_CONFIRM=1 SOLID_BEVEL_CHANGE_SEGMENTS=1 blender --factory-startup --enable-event-simulate --python tests/python/solid_bevel_creation_benchmark.py
 ```
+
+## Follow-up after pushed commit b345ebc12f9
+
+A second optimization pass retained these changes:
+
+- A shared temporary ID index uses contiguous pointer slots for compact identity ranges and
+  bounded hash tables for sparse ranges. It is used by validation, selection, and display lookup.
+- Duplicate-ID validation uses compact byte markers when the identity range is bounded relative
+  to model size; sparse/large ranges still use hashed membership.
+- Outer boundaries and hole loops are visited without allocating temporary pointer vectors.
+- Body validation builds only topology indexes and reserves its edge-adjacency table.
+- Sphere/cylinder boundary checks cache five exact curve evaluations per shared edge within
+  each validation call. Every sample is still checked against each adjacent face's own support.
+
+Fresh 32-subdivision measurements (seven measured trials after one warmup):
+
+| Follow-up stage | Synchronous solid bevel median |
+| --- | ---: |
+| Pushed b345ebc12f9 baseline | 141.328 ms |
+| Compact geometry indexes and body-adjacency reserve | 134.527 ms |
+| Also compact display indexes, identity markers, and boundary iteration | 125.503 ms |
+| Also shared-edge curve-sample caching | 103.871 ms |
+| Final repeat | 108.263 ms |
+
+This is another roughly 23–26% reduction in creation time. The live 32-subdivision preview
+measured 9.0 Hz (median draw interval 111.161 ms, p95 117.259 ms), compared with the previous
+recorded run at 6.7 Hz. Normal one-subdivision creation remained around 7 ms; its display
+cadence remains near 60 Hz. The geometry counts are unchanged.
+
+Validation passed the full analytic and editing suites, live confirmation/cancellation and
+wheel changes with both normal methods, and the existing byte-for-byte geometry comparison.
+Additional regressions cover sparse IDs, IDs near UINT64_MAX, duplicate and missing IDs,
+closed/open hole boundaries, and a detached sphere support sharing cached edge samples.
+
+Scratch storage is bounded by actual model size rather than arbitrary identity magnitudes.
+The shared-edge sample cache adds temporary memory proportional to edge count (five Vec3
+values plus a flag per edge when sphere/cylinder checks are needed). No geometry validation
+passes are skipped, and the source/file representation and display geometry stay unchanged.

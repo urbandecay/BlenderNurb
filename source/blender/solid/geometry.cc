@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "SOL_geometry.hh"
+#include "id_index.hh"
 
 #include <algorithm>
 #include <cmath>
@@ -86,32 +87,18 @@ template<typename T> const T *find(const std::vector<T> &items, Id id)
   return it == items.end() ? nullptr : &*it;
 }
 struct Index {
-  std::unordered_map<Id, const Vertex *> vertices;
-  std::unordered_map<Id, const Curve *> curves;
-  std::unordered_map<Id, const Edge *> edges;
-  std::unordered_map<Id, const Surface *> surfaces;
-  std::unordered_map<Id, const Face *> faces;
+  IdIndex<Vertex> vertices;
+  IdIndex<Curve> curves;
+  IdIndex<Edge> edges;
+  IdIndex<Surface> surfaces;
+  IdIndex<Face> faces;
   explicit Index(const Model &m, bool include_geometry = true)
+      : vertices(m.vertices),
+        curves(include_geometry ? IdIndex<Curve>(m.curves) : IdIndex<Curve>()),
+        edges(m.edges),
+        surfaces(include_geometry ? IdIndex<Surface>(m.surfaces) : IdIndex<Surface>()),
+        faces(m.faces)
   {
-    vertices.reserve(m.vertices.size());
-    if (include_geometry)
-      curves.reserve(m.curves.size());
-    edges.reserve(m.edges.size());
-    if (include_geometry)
-      surfaces.reserve(m.surfaces.size());
-    faces.reserve(m.faces.size());
-    for (const auto &v : m.vertices)
-      vertices.emplace(v.id, &v);
-    if (include_geometry)
-      for (const auto &v : m.curves)
-        curves.emplace(v.id, &v);
-    for (const auto &v : m.edges)
-      edges.emplace(v.id, &v);
-    if (include_geometry)
-      for (const auto &v : m.surfaces)
-        surfaces.emplace(v.id, &v);
-    for (const auto &v : m.faces)
-      faces.emplace(v.id, &v);
   }
 };
 Id begin_vertex(const Edge &e, const Coedge &use)
@@ -122,12 +109,32 @@ Id end_vertex(const Edge &e, const Coedge &use)
 {
   return e.vertices[use.reversed ? 0 : 1];
 }
-std::vector<const std::vector<Coedge> *> loops(const Face &face)
+/* Iterate the outer boundary and holes without allocating a temporary pointer vector. */
+struct FaceLoops {
+  const Face &face;
+  struct Iterator {
+    const Face &face;
+    size_t index;
+    const std::vector<Coedge> *operator*() const
+    {
+      return index == 0 ? &face.outer : &face.holes[index - 1];
+    }
+    Iterator &operator++()
+    {
+      ++index;
+      return *this;
+    }
+    bool operator!=(const Iterator &other) const
+    {
+      return index != other.index;
+    }
+  };
+  Iterator begin() const { return {face, 0}; }
+  Iterator end() const { return {face, face.holes.size() + 1}; }
+};
+FaceLoops loops(const Face &face)
 {
-  std::vector<const std::vector<Coedge> *> result{&face.outer};
-  for (const auto &loop : face.holes)
-    result.push_back(&loop);
-  return result;
+  return {face};
 }
 Vec3 area_integral(const Curve &c, double a, double b)
 {
@@ -366,10 +373,27 @@ bool validate(const Model &m, std::string *error)
     return false;
   }
   Index index(m);
-  std::unordered_set<Id> ids;
-  ids.reserve(m.vertices.size() + m.curves.size() + m.edges.size() + m.surfaces.size() +
-              m.faces.size());
-  auto identity = [&](Id id) { return id && id < m.next_id && ids.insert(id).second; };
+  const size_t item_count = m.vertices.size() + m.curves.size() + m.edges.size() +
+                            m.surfaces.size() + m.faces.size();
+  const bool compact_ids = m.next_id / 8 < item_count;
+  std::vector<uint8_t> used_ids(compact_ids ? size_t(m.next_id) : 0, 0);
+  std::unordered_set<Id> sparse_ids;
+  if (!compact_ids)
+    sparse_ids.reserve(item_count);
+  auto identity = [&](Id id) {
+    if (!id || id >= m.next_id)
+      return false;
+    if (!compact_ids)
+      return sparse_ids.insert(id).second;
+    const bool fresh = !used_ids[id];
+    used_ids[id] = 1;
+    return fresh;
+  };
+  struct BoundarySamples {
+    bool ready = false;
+    std::array<Vec3, 5> points;
+  };
+  std::vector<BoundarySamples> boundary_samples;
   for (const auto &v : m.vertices) {
     if (!identity(v.id) || !finite(v.position))
       goto invalid;
@@ -560,8 +584,18 @@ bool validate(const Model &m, std::string *error)
         const Curve &c = *index.curves.at(e.curve);
         if (!cylinder && c.kind != CurveKind::Conic && c.kind != CurveKind::RationalQuadratic)
           goto invalid;
-        for (double t : {0.0, 0.25, 0.5, 0.75, 1.0}) {
-          const Vec3 p = evaluate(c, e.start + (e.end - e.start) * t) - support.origin;
+        /* Adjacent corner patches share edges. Reuse exact curve evaluations,
+         * but still check every sample against each face's own support frame. */
+        if (boundary_samples.empty())
+          boundary_samples.resize(m.edges.size());
+        auto &samples = boundary_samples[size_t(&e - m.edges.data())];
+        if (!samples.ready) {
+          for (size_t i = 0; i < samples.points.size(); ++i)
+            samples.points[i] = evaluate(c, e.start + (e.end - e.start) * (double(i) * .25));
+          samples.ready = true;
+        }
+        for (Vec3 sample : samples.points) {
+          const Vec3 p = sample - support.origin;
           const Vec3 q{dot(p, vw) / det, dot(p, wu) / det, dot(p, uv) / det};
           if (std::abs(q.x * q.x + q.y * q.y + (cylinder ? 0 : q.z * q.z) - 1) > 1e-8)
             goto invalid;
@@ -799,7 +833,7 @@ bool validate_body(const Model &model, Id seed, std::string *error)
 {
   if (!validate(model, error))
     return false;
-  Index index(model);
+  Index index(model, false);
   if (!index.faces.contains(seed)) {
     fail(error, "Unknown body face");
     return false;
@@ -809,6 +843,7 @@ bool validate_body(const Model &model, Id seed, std::string *error)
     int sense;
   };
   std::unordered_map<Id, std::vector<Use>> uses;
+  uses.reserve(model.edges.size());
   for (const auto &f : model.faces) {
     for (const auto *loop : loops(f)) {
       for (const auto &use : *loop)

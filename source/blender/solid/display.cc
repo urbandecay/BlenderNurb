@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "SOL_geometry.hh"
+#include "id_index.hh"
 
 #include <algorithm>
 #include <array>
@@ -28,29 +29,20 @@ std::optional<DisplayMesh> tessellate(const Model &model,
   DisplayMesh mesh;
   mesh.has_analytic_normals = calculate_normals;
   std::unordered_map<Id, int> vertices;
-  std::unordered_map<Id, const Curve *> curves;
-  std::unordered_map<Id, const Surface *> surfaces;
-  std::unordered_map<Id, const Edge *> edges;
+  const IdIndex<Curve> curves(model.curves);
+  const IdIndex<Surface> surfaces(model.surfaces);
+  const IdIndex<Edge> edges(model.edges);
   std::unordered_map<Id, std::vector<int>> paths;
   std::unordered_map<Id, std::vector<Id>> edge_groups;
   std::unordered_map<Id, int> ruled_rails;
   std::unordered_set<Id> small_sphere_edges, large_sphere_edges;
   /* Build the index before inspecting faces: the generic ID helpers scan the model. */
   vertices.reserve(model.vertices.size());
-  curves.reserve(model.curves.size());
-  surfaces.reserve(model.surfaces.size());
-  edges.reserve(model.edges.size());
   paths.reserve(model.edges.size());
   edge_groups.reserve(model.edges.size());
   ruled_rails.reserve(model.edges.size());
   small_sphere_edges.reserve(model.edges.size());
   large_sphere_edges.reserve(model.edges.size());
-  for (const Curve &c : model.curves)
-    curves.emplace(c.id, &c);
-  for (const Surface &s : model.surfaces)
-    surfaces.emplace(s.id, &s);
-  for (const Edge &e : model.edges)
-    edges.emplace(e.id, &e);
   std::array<size_t, 6> source_faces_by_kind{};
   std::array<size_t, 6> display_faces_by_kind{};
   std::map<std::pair<int, int>, size_t> sphere_patch_histogram;
