@@ -461,6 +461,26 @@ MeshRenderData mesh_render_data_create(Object &object,
     mr.eed_act = BM_mesh_active_edge_get(mr.bm);
     mr.eve_act = BM_mesh_active_vert_get(mr.bm);
 
+    /* A solid source element can be represented by many sampled BMesh elements. Remember the
+     * active source IDs so the edit overlay can highlight all of those display aliases together. */
+    auto solid_source_id = [](const BMElem *element, const int offset) {
+      return !element || offset < 0 ? int2(0) :
+                                     *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(element,
+                                                                                       offset));
+    };
+    mr.solid_vertex_id_offset = CustomData_get_offset_named(
+        &mr.bm->vdata, CD_PROP_INT32_2D, ".solid_vertex_id");
+    mr.solid_edge_id_offset = CustomData_get_offset_named(
+        &mr.bm->edata, CD_PROP_INT32_2D, ".solid_edge_id");
+    mr.solid_face_id_offset = CustomData_get_offset_named(
+        &mr.bm->pdata, CD_PROP_INT32_2D, ".solid_face_id");
+    mr.solid_active_vertex_id = solid_source_id(
+        reinterpret_cast<const BMElem *>(mr.eve_act), mr.solid_vertex_id_offset);
+    mr.solid_active_edge_id = solid_source_id(
+        reinterpret_cast<const BMElem *>(mr.eed_act), mr.solid_edge_id_offset);
+    mr.solid_active_face_id = solid_source_id(
+        reinterpret_cast<const BMElem *>(mr.efa_act), mr.solid_face_id_offset);
+
     mr.vert_crease_ofs = CustomData_get_offset_named(&mr.bm->vdata, CD_PROP_FLOAT, "crease_vert");
     mr.edge_crease_ofs = CustomData_get_offset_named(&mr.bm->edata, CD_PROP_FLOAT, "crease_edge");
     mr.bweight_ofs = CustomData_get_offset_named(

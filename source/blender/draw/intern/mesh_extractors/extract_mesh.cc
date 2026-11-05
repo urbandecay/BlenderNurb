@@ -27,7 +27,12 @@ void mesh_render_data_face_flag(const MeshRenderData &mr,
                                 const BMUVOffsets &offsets,
                                 EditLoopData &eattr)
 {
-  if (efa == mr.efa_act) {
+  const bool solid_face_alias_active =
+      (mr.solid_active_face_id.x != 0 || mr.solid_active_face_id.y != 0) &&
+      mr.solid_face_id_offset >= 0 &&
+      *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(efa, mr.solid_face_id_offset)) ==
+          mr.solid_active_face_id;
+  if (efa == mr.efa_act || solid_face_alias_active) {
     eattr.v_flag |= VFLAG_FACE_ACTIVE;
   }
   if (BM_elem_flag_test(efa, BM_ELEM_SELECT)) {

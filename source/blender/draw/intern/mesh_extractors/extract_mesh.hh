@@ -103,6 +103,13 @@ struct MeshRenderData {
   BMEdge *eed_act;
   BMFace *efa_act;
   BMFace *efa_act_uv;
+  /** Active source element IDs for analytic solids, shared by their display-mesh aliases. */
+  int2 solid_active_vertex_id = int2(0);
+  int2 solid_active_edge_id = int2(0);
+  int2 solid_active_face_id = int2(0);
+  int solid_vertex_id_offset = -1;
+  int solid_edge_id_offset = -1;
+  int solid_face_id_offset = -1;
   VArraySpan<int> material_indices;
 
   bke::MeshNormalDomain normals_domain;

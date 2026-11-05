@@ -24,7 +24,12 @@ static void mesh_render_data_edge_flag(const MeshRenderData &mr,
   const bool is_vertex_select_mode = (ts != nullptr) && (ts->selectmode & SCE_SELECT_VERTEX) != 0;
   const bool is_face_only_select_mode = (ts != nullptr) && (ts->selectmode == SCE_SELECT_FACE);
 
-  if (eed == mr.eed_act) {
+  const bool solid_edge_alias_active =
+      (mr.solid_active_edge_id.x != 0 || mr.solid_active_edge_id.y != 0) &&
+      mr.solid_edge_id_offset >= 0 &&
+      *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(eed, mr.solid_edge_id_offset)) ==
+          mr.solid_active_edge_id;
+  if (eed == mr.eed_act || solid_edge_alias_active) {
     eattr.e_flag |= VFLAG_EDGE_ACTIVE;
   }
   if (!is_vertex_select_mode && BM_elem_flag_test(eed, BM_ELEM_SELECT)) {
@@ -56,9 +61,29 @@ static void mesh_render_data_edge_flag(const MeshRenderData &mr,
    * This isn't ideal since it can't be used when mixing edge/face modes
    * but it's still better than not being able to see the active face. */
   if (is_face_only_select_mode) {
-    if (mr.efa_act != nullptr) {
-      if (BM_edge_in_face(eed, mr.efa_act)) {
-        eattr.e_flag |= VFLAG_EDGE_ACTIVE;
+    if (mr.efa_act != nullptr && BM_edge_in_face(eed, mr.efa_act)) {
+      eattr.e_flag |= VFLAG_EDGE_ACTIVE;
+    }
+    /* A solid face can have many display triangles. Its actual boundary edges retain a source
+     * edge ID, while triangulation diagonals have ID zero. Highlight the full source-face boundary
+     * without turning every internal display edge into an active edge. */
+    if ((mr.solid_active_face_id.x != 0 || mr.solid_active_face_id.y != 0) &&
+        mr.solid_face_id_offset >= 0 && mr.solid_edge_id_offset >= 0)
+    {
+      const int2 &source_edge_id = *static_cast<const int2 *>(
+          BM_ELEM_CD_GET_VOID_P(eed, mr.solid_edge_id_offset));
+      if (source_edge_id.x != 0 || source_edge_id.y != 0) {
+        for (const BMLoop *loop = eed->l; loop != nullptr; loop = loop->radial_next) {
+          const int2 &source_face_id = *static_cast<const int2 *>(
+              BM_ELEM_CD_GET_VOID_P(loop->f, mr.solid_face_id_offset));
+          if (source_face_id == mr.solid_active_face_id) {
+            eattr.e_flag |= VFLAG_EDGE_ACTIVE;
+            break;
+          }
+          if (loop->radial_next == eed->l) {
+            break;
+          }
+        }
       }
     }
   }
@@ -90,7 +115,12 @@ static void mesh_render_data_vert_flag(const MeshRenderData &mr,
                                        const BMVert *eve,
                                        EditLoopData &eattr)
 {
-  if (eve == mr.eve_act) {
+  const bool solid_vertex_alias_active =
+      (mr.solid_active_vertex_id.x != 0 || mr.solid_active_vertex_id.y != 0) &&
+      mr.solid_vertex_id_offset >= 0 &&
+      *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(eve, mr.solid_vertex_id_offset)) ==
+          mr.solid_active_vertex_id;
+  if (eve == mr.eve_act || solid_vertex_alias_active) {
     eattr.e_flag |= VFLAG_VERT_ACTIVE;
   }
   if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
