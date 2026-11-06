@@ -4296,6 +4296,11 @@ static wmOperatorStatus shape_modal(bContext *C, wmOperator *op, const wmEvent *
 static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<DrawData *>(op->customdata);
+  if (event->type == EVT_ESCKEY && event->val == KM_PRESS) {
+    draw_exit(C, op);
+    WM_toolsystem_ref_set_by_id(C, "builtin.select_box");
+    return OPERATOR_CANCELLED;
+  }
   /* Include overlapping headers/toolbars when deciding which region owns input.
    * PASS_THROUGH alone lets regular UI handlers run; combining it with RUNNING_MODAL
    * stops dispatch before those handlers. The modal operator remains registered. */
@@ -4336,35 +4341,6 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
   }
   if (ELEM(event->type, MIDDLEMOUSE, WHEELUPMOUSE, WHEELDOWNMOUSE)) {
     return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
-  }
-  if (event->type == EVT_ESCKEY && event->val == KM_PRESS) {
-    if (data.numeric_mode != DrawNumericMode::Automatic || hasNumInput(&data.num)) {
-      if (data.numeric_mode == DrawNumericMode::Segments) {
-        RNA_int_set(op->ptr, "preview_points", data.numeric_initial_segments);
-      }
-      if (data.circle && data.arc_mode == 1 &&
-          ELEM(data.numeric_mode, DrawNumericMode::Radius, DrawNumericMode::Diameter))
-      {
-        data.circle_input_radius = data.numeric_initial_circle_input_radius;
-      }
-      if (data.arc_mode >= 0) {
-        arc_num_reset(C, data);
-      }
-      else {
-        initNumInput(&data.num);
-        data.num.unit_sys = CTX_data_scene(C)->unit.system;
-        data.num.unit_type[0] = B_UNIT_LENGTH;
-        data.num.flag |= NUM_USE_DOUBLE;
-        data.numeric_mode = DrawNumericMode::Automatic;
-        data.numeric_label.clear();
-      }
-      rebuild_preview(op);
-      update_arc_area_status_text(C, op);
-      ED_region_tag_redraw(data.region);
-      return OPERATOR_RUNNING_MODAL;
-    }
-    draw_exit(C, op);
-    return OPERATOR_CANCELLED;
   }
   if (data.shape) {
     return shape_modal(C, op, event);
