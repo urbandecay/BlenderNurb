@@ -34,6 +34,7 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
   std::unordered_map<Id, std::vector<Id>> edge_groups;
   std::unordered_map<Id, int> ruled_rails;
   std::unordered_set<Id> small_sphere_edges, large_sphere_edges;
+  std::unordered_map<Id, size_t> sphere_support_face_count;
   /* Build the index before inspecting faces: the generic ID helpers scan the model. */
   vertices.reserve(model.vertices.size());
   paths.reserve(model.edges.size());
@@ -46,6 +47,8 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
   std::map<std::pair<int, int>, size_t> sphere_patch_histogram;
   for (const Face &f : model.faces) {
     const Surface &face_surface = *surfaces.at(f.surface);
+    if (face_surface.kind == SurfaceKind::Sphere)
+      sphere_support_face_count[f.surface]++;
     if (log_breakdown) {
       source_faces_by_kind[size_t(face_surface.kind)]++;
     }
@@ -313,7 +316,10 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
         q = q / length(q);
         extent = std::max(extent, std::acos(std::clamp(dot(center, q), -1.0, 1.0)));
       }
-      const int rings = std::max(1, int(std::ceil(extent * std::max(2, segments / 8))));
+      const bool shared_sphere_support = sphere_support_face_count[s.id] > 1;
+      const int rings = shared_sphere_support ?
+                            1 :
+                            std::max(1, int(std::ceil(extent * std::max(2, segments / 8))));
       if (log_breakdown) {
         sphere_patch_histogram[{rings, int(boundary.size())}]++;
       }

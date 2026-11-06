@@ -6,13 +6,20 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <set>
 
 namespace blender::solid {
 
 std::optional<EditResult> fillet(
-    const Model &model, Selection selection, double width, int subdivisions, std::string *error)
+    const Model &model,
+    Selection selection,
+    double width,
+    int subdivisions,
+    std::string *error,
+    bool vertices_only,
+    std::string *warning)
 {
   auto reject = [&](const char *message) -> std::optional<EditResult> {
     if (error)
@@ -24,6 +31,8 @@ std::optional<EditResult> fillet(
   if (!std::isfinite(width) || width <= 0 || subdivisions < 1 || subdivisions > 32)
     return reject("Fillet needs a positive width and 1 to 32 subdivisions");
   selection = normalize_selection(model, std::move(selection));
+  if (vertices_only || selection.mode == 1)
+    return fillet_vertices(model, std::move(selection), width, subdivisions, error, warning);
   if (selection.edges.empty())
     return reject("Select the edges of a closed convex planar body to fillet");
   std::map<Id, std::vector<Id>> uses;

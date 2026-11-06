@@ -764,14 +764,12 @@ static std::optional<solid::EditResult> bevel_result(const solid::Model &model,
                                                      bool vertices_only,
                                                      std::string *error,
                                                      solid::BevelCornerStyle corner_style,
-                                                     int subdivisions)
+                                                     int subdivisions,
+                                                     std::string *warning = nullptr)
 {
   if (subdivisions > 0) {
-    if (vertices_only) {
-      *error = "Select body edges or faces for a fillet; vertex-only fillets are not implemented";
-      return {};
-    }
-    return solid::fillet(model, std::move(selection), width, subdivisions, error);
+    return solid::fillet(
+        model, std::move(selection), width, subdivisions, error, vertices_only, warning);
   }
   return solid::chamfer(model, std::move(selection), width, vertices_only, error, corner_style);
 }
@@ -1400,6 +1398,7 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
   const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
+  std::string warning;
   const auto kernel_start = profile_bevel ? std::chrono::steady_clock::now() :
                                             std::chrono::steady_clock::time_point{};
   auto result = session ? bevel_result(*session->source().model,
@@ -1408,7 +1407,8 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
                                        vertices_only,
                                        &error,
                                        corner_style,
-                                       RNA_int_get(op->ptr, "segments")) :
+                                       RNA_int_get(op->ptr, "segments"),
+                                       &warning) :
                           std::nullopt;
   const auto kernel_end = profile_bevel ? std::chrono::steady_clock::now() :
                                           std::chrono::steady_clock::time_point{};
@@ -1446,6 +1446,8 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
   }
+  if (!warning.empty())
+    BKE_report(op->reports, RPT_WARNING, warning.c_str());
   return OPERATOR_FINISHED;
 }
 static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -1460,6 +1462,7 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
   const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
+  std::string warning;
   const auto kernel_start = std::chrono::steady_clock::now();
   auto check = session ? bevel_result(*session->source().model,
                                       session->source().selection,
@@ -1467,7 +1470,8 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
                                       vertices_only,
                                       &error,
                                       corner_style,
-                                      RNA_int_get(op->ptr, "segments")) :
+                                      RNA_int_get(op->ptr, "segments"),
+                                      &warning) :
                          std::nullopt;
   const auto kernel_end = std::chrono::steady_clock::now();
   if (profile_bevel) {
@@ -1489,6 +1493,8 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
   }
+  if (!warning.empty())
+    BKE_report(op->reports, RPT_WARNING, warning.c_str());
   auto *data = MEM_new<ExtrudeModal>(__func__);
   data->preview = std::move(session);
   data->bevel = true;

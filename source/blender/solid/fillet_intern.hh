@@ -14,4 +14,10 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
                                                int subdivisions,
                                                double eps,
                                                std::string *error);
+std::optional<EditResult> fillet_vertices(const Model &model,
+                                         Selection selection,
+                                         double width,
+                                         int subdivisions,
+                                         std::string *error,
+                                         std::string *warning);
 }

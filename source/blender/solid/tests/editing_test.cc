@@ -143,6 +143,81 @@ int main()
        {-1, 1, 1}},
       {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}});
   check(std::abs(volume(cube) - 8) < 1e-12, "Fixture volume");
+  for (int subdivisions : {1, 2, 3}) {
+    Selection selected;
+    selected.mode = 1;
+    selected.vertices = {cube.vertices.front().id};
+    const auto rounded = fillet(cube, selected, .2, subdivisions, &error, true);
+    check(bool(rounded), error);
+    check(rounded->selection.mode == 1, "Vertex fillet must preserve vertex selection mode");
+    check(validate_body(rounded->model, cube.faces.front().id, &error), error);
+    int spherical_faces = 0;
+    for (const Face &f : rounded->model.faces)
+      spherical_faces += surface(rounded->model, f.surface)->kind == SurfaceKind::Sphere;
+    check(spherical_faces == subdivisions * subdivisions,
+          "Vertex fillet must create one spherical patch per subdivision cell");
+    const auto display = tessellate(rounded->model, 32, &error);
+    check(bool(display), error);
+    std::map<std::pair<int, int>, int> display_edges;
+    for (const auto &polygon : display->polygons)
+      for (size_t i = 0; i < polygon.size(); ++i)
+        display_edges[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
+    for (const auto &[edge_pair, uses] : display_edges)
+      check(uses == 2, "Vertex fillet display must remain watertight");
+    if (subdivisions == 2)
+      check(volume(rounded->model) > 0 && volume(rounded->model) < volume(cube),
+            "Vertex fillet must remove the sharp corner without inverting the solid");
+  }
+  {
+    Selection all_vertices;
+    all_vertices.mode = 1;
+    for (const Vertex &v : cube.vertices)
+      all_vertices.vertices.push_back(v.id);
+    auto vertex_chamfer = chamfer(cube, all_vertices, .1, true, &error);
+    check(bool(vertex_chamfer), error);
+
+    Selection all_edges;
+    all_edges.mode = 2;
+    for (const Edge &e : vertex_chamfer->model.edges)
+      all_edges.edges.push_back(e.id);
+    auto edge_chamfer = chamfer(vertex_chamfer->model, all_edges, .1, false, &error);
+    check(bool(edge_chamfer), error);
+
+    auto face_area = [](const Model &model, const Face &f) {
+      Vec3 sum;
+      for (size_t i = 0; i < f.outer.size(); ++i) {
+        auto loop_start = [&](const Coedge &use) {
+          const Edge &e = *edge(model, use.edge);
+          return e.vertices[use.reversed ? 1 : 0];
+        };
+        const Vec3 a = vertex(model, loop_start(f.outer[i]))->position;
+        const Vec3 b = vertex(model, loop_start(f.outer[(i + 1) % f.outer.size()]))->position;
+        sum = sum + cross(a, b);
+      }
+      return length(sum) * .5;
+    };
+    const Face *largest_face = &edge_chamfer->model.faces.front();
+    for (const Face &f : edge_chamfer->model.faces)
+      if (surface(edge_chamfer->model, f.surface)->kind == SurfaceKind::Plane &&
+          face_area(edge_chamfer->model, f) > face_area(edge_chamfer->model, *largest_face))
+        largest_face = &f;
+    Selection selected_face;
+    selected_face.mode = 4;
+    selected_face.faces = {largest_face->id};
+    auto face_fillet = fillet(edge_chamfer->model, selected_face, .05, 2, &error);
+    check(bool(face_fillet), error);
+
+    Selection all_after_face_fillet;
+    all_after_face_fillet.mode = 1;
+    for (const Vertex &v : face_fillet->model.vertices)
+      all_after_face_fillet.vertices.push_back(v.id);
+    std::string warning;
+    auto vertex_fillet = fillet(
+        face_fillet->model, all_after_face_fillet, .05, 2, &error, true, &warning);
+    check(bool(vertex_fillet), error);
+    check(validate_body(vertex_fillet->model, face_fillet->model.faces.front().id, &error), error);
+    check(!warning.empty(), "Mixed vertex selections must explain which corners were skipped");
+  }
   {
     Selection selected;
     selected.mode = 2;

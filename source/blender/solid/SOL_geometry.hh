@@ -185,11 +185,15 @@ std::optional<EditResult> merge_vertices(const Model &model,
                                          std::string *error = nullptr);
 /** Exact planar bevel by half-space construction, including multi-edge corner intersections. */
 enum class BevelCornerStyle { Sharp, Patch };
+/** Fillet selected edges, faces, or selected convex vertices with one to 32 subdivisions.
+ * Vertex-only fillets currently support corners bounded by three planar faces. */
 std::optional<EditResult> fillet(const Model &model,
                                  Selection selection,
                                  double width,
                                  int subdivisions,
-                                 std::string *error = nullptr);
+                                 std::string *error = nullptr,
+                                 bool vertices_only = false,
+                                 std::string *warning = nullptr);
 std::optional<EditResult> chamfer(const Model &model,
                                   Selection selection,
                                   double width,
