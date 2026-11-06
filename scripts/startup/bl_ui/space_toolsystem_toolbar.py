@@ -1078,21 +1078,6 @@ def curve_draw_settings(context, layout, tool, *, extra=False):
     col.prop(props, "bezier_as_nurbs", text="As NURBS")
 
 
-class _defs_solid:
-    @ToolDef.from_fn
-    def extrude():
-        return dict(
-            idname="builtin.solid_extrude",
-            label="Extrude Solid",
-            description="Extrude vertices, edges, closed profiles or planar faces",
-            icon="ops.curve.extrude_move",
-            operator="solid.extrude",
-            keymap=(
-                ("solid.extrude", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
-            ),
-        )
-
-
 class _defs_nurbs_draw:
     @ToolDef.from_fn
     def line():
@@ -3048,8 +3033,6 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             yield from cls._tools[None]
             yield from cls._tools_default
             yield None
-            yield _defs_solid.extrude
-            yield None
             yield from (_defs_nurbs_draw.line, _defs_nurbs_draw.arc, _defs_nurbs_draw.circle,
                         _defs_nurbs_draw.ellipse, _defs_nurbs_draw.polygon, _defs_nurbs_draw.rectangle)
             return
@@ -3064,7 +3047,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
     def tools_all(cls):
         # The solid toolbar is selected from object data rather than a distinct mode.
         for mode, tools in cls._tools.items():
-            yield mode, (*tools, _defs_solid.extrude) if mode == 'EDIT_MESH' else tools
+            yield mode, tools
 
     # Private tool lists for convenient reuse in `_tools`.
 

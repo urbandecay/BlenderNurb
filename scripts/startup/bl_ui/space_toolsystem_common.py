@@ -1071,6 +1071,19 @@ def _activate_by_item(context, space_type, item, index, *, as_fallback=False):
         keymap_fallback=keymap_fallback,
     )
 
+    # Drawing construction methods are horizontal buttons in Tool Settings.
+    # Reveal that row when choosing a drawing tool, including in saved layouts
+    # where the tool header is hidden.
+    if (space_type == 'VIEW_3D' and item.idname.startswith("builtin.nurbs_draw_") and
+            context.space_data.type == 'VIEW_3D'):
+        context.space_data.show_region_tool_header = True
+        header = next((region for region in context.area.regions if region.type == 'HEADER'), None)
+        tool_header = next((region for region in context.area.regions if region.type == 'TOOL_HEADER'), None)
+        if (header is not None and tool_header is not None and
+                header.alignment in {'TOP', 'BOTTOM'} and header.alignment != tool_header.alignment):
+            with context.temp_override(region=tool_header):
+                bpy.ops.screen.region_flip()
+
     if (
             (gizmo_group != "") and
             (props := tool.gizmo_group_properties(gizmo_group))
