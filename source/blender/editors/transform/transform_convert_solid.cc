@@ -2,6 +2,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include <cmath>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <numbers>
@@ -28,6 +29,8 @@ struct SolidTransform {
   double3 offset = double3(0);
   double3x3 linear = double3x3::identity();
   bool changed = false;
+  std::chrono::steady_clock::time_point profile_last_face_update{};
+  size_t profile_face_update_count = 0;
 };
 void create_solid(bContext *C, TransInfo *t)
 {
@@ -120,6 +123,67 @@ void recalc_solid(TransInfo *t)
     auto *data = static_cast<SolidTransform *>(tc->custom.type.data);
     if (!data)
       continue;
+    const auto profile_start = std::chrono::steady_clock::now();
+    const auto &source = data->session->source();
+    const bool profile_face_move = std::getenv("BLENDER_SOLID_PROFILE") &&
+                                   !source.selection.faces.empty();
+    auto log_face_update = [&](const char *path, const solid::Affine *matrix = nullptr) {
+      if (!profile_face_move) {
+        return;
+      }
+      const auto now = std::chrono::steady_clock::now();
+      const double callback_ms = std::chrono::duration<double, std::milli>(now - profile_start)
+                                     .count();
+      const double callback_gap_ms =
+          data->profile_last_face_update == std::chrono::steady_clock::time_point{} ?
+              0.0 :
+              std::chrono::duration<double, std::milli>(now - data->profile_last_face_update)
+                  .count();
+      data->profile_last_face_update = now;
+      ++data->profile_face_update_count;
+
+      char axes[5];
+      int axes_len = 0;
+      if (!(t->con.mode & CON_APPLY)) {
+        axes[axes_len++] = 'F';
+        axes[axes_len++] = 'R';
+        axes[axes_len++] = 'E';
+        axes[axes_len++] = 'E';
+      }
+      else {
+        if (t->con.mode & CON_AXIS0) {
+          axes[axes_len++] = 'X';
+        }
+        if (t->con.mode & CON_AXIS1) {
+          axes[axes_len++] = 'Y';
+        }
+        if (t->con.mode & CON_AXIS2) {
+          axes[axes_len++] = 'Z';
+        }
+        if (axes_len == 0) {
+          axes[axes_len++] = '?';
+        }
+      }
+      axes[axes_len] = '\0';
+
+      const solid::Vec3 delta = matrix ? matrix->translation : solid::Vec3{};
+      fprintf(stderr,
+              "SOLID_FACE_DRAG update=%zu constraint_axes=%s constraint_text=\"%.*s\" "
+              "path=%s callback_ms=%.3f callback_gap_ms=%.3f selected_faces=%zu "
+              "solid_faces=%zu local_delta=(%.6f,%.6f,%.6f)\n",
+              data->profile_face_update_count,
+              axes,
+              int(sizeof(t->con.text)),
+              t->con.text,
+              path,
+              callback_ms,
+              callback_gap_ms,
+              source.selection.faces.size(),
+              source.model->faces.size(),
+              delta.x,
+              delta.y,
+              delta.z);
+    };
     std::string error;
     if (t->state == TRANS_CANCEL) {
       if (data->changed && !data->session->restore(t->context, &error))
@@ -127,7 +191,6 @@ void recalc_solid(TransInfo *t)
       data->changed = false;
       continue;
     }
-    const auto &source = data->session->source();
     const double3x3 world(float3x3(tc->obedit->object_to_world()));
     bool invertible;
     const auto inverse = math::invert(world, invertible);
@@ -148,8 +211,10 @@ void recalc_solid(TransInfo *t)
     if (data->session->can_preview_affine(matrix)) {
       if (data->session->preview_affine(t->context, matrix, &error)) {
         data->changed = true;
+        log_face_update("display_preview", &matrix);
         continue;
       }
+      log_face_update("display_preview_failed", &matrix);
       BKE_report(t->reports, RPT_ERROR, error.empty() ? "Solid display transform failed" : error.c_str());
       t->state = TRANS_CANCEL;
       if (data->changed)
@@ -168,6 +233,7 @@ void recalc_solid(TransInfo *t)
     if (!candidate ||
         !data->session->apply(t->context, std::move(*candidate), &error, complete, &matrix))
     {
+      log_face_update("source_rebuild_failed", &matrix);
       BKE_report(t->reports, RPT_ERROR, error.c_str());
       t->state = TRANS_CANCEL;
       if (data->changed)
@@ -176,6 +242,7 @@ void recalc_solid(TransInfo *t)
       continue;
     }
     data->changed = true;
+    log_face_update("source_rebuild", &matrix);
   }
 }
 void finish_solid(bContext *C, TransInfo *t)

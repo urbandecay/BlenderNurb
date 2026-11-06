@@ -867,6 +867,44 @@ static std::optional<solid::Profile> prepare(const ed::solid_editor::Session &se
   return solid::prepare_profile(*session.source().model, session.source().selection, &error);
 }
 
+static solid::Selection selection_for_face(const solid::Model &model,
+                                            const solid::Id face_id,
+                                            const int mode)
+{
+  solid::Selection selection;
+  selection.mode = mode & 4 ? 4 : mode & 2 ? 2 : 1;
+  const solid::Face *face = solid::face(model, face_id);
+  if (!face)
+    return selection;
+  if (selection.mode == 4) {
+    selection.faces.push_back(face_id);
+    selection.active = face_id;
+    return selection;
+  }
+  auto select_boundary = [&](const std::vector<solid::Coedge> &loop) {
+    for (const solid::Coedge &use : loop) {
+      const solid::Edge *edge = solid::edge(model, use.edge);
+      if (!edge)
+        continue;
+      if (selection.mode == 2) {
+        selection.edges.push_back(edge->id);
+      }
+      else {
+        selection.vertices.push_back(edge->vertices[0]);
+        selection.vertices.push_back(edge->vertices[1]);
+      }
+    }
+  };
+  select_boundary(face->outer);
+  for (const auto &hole : face->holes)
+    select_boundary(hole);
+  if (selection.mode == 2 && !selection.edges.empty())
+    selection.active = selection.edges.back();
+  else if (selection.mode == 1 && !selection.vertices.empty())
+    selection.active = selection.vertices.back();
+  return selection;
+}
+
 static wmOperatorStatus fill_exec(bContext *C, wmOperator *op)
 {
   std::string error;
@@ -920,9 +958,9 @@ static wmOperatorStatus fill_exec(bContext *C, wmOperator *op)
     }
   }
   solid::Selection selection;
-  selection.mode = 4;
+  selection.mode = session->source().selection.mode;
   if (profile)
-    selection.faces.push_back(profile->face);
+    selection = selection_for_face(profile->model, profile->face, selection.mode);
   if (!profile || !session->apply(C, {std::move(profile->model), std::move(selection)}, &error)) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
@@ -959,6 +997,7 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
   std::string error;
   auto preview = ed::solid_editor::Session::begin(C, &error);
   auto profile = preview ? prepare(*preview, error) : std::nullopt;
+  const int selection_mode = preview ? preview->source().selection.mode : 1;
   std::optional<solid::EditResult> result;
   float offset[3];
   RNA_float_get_array(op->ptr, "offset", offset);
@@ -973,6 +1012,9 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
   }
   else if (profile)
     result = solid::extrude(*profile, distance_get(op), &error);
+  if (result && profile && !vector_offset)
+    result->selection = selection_for_face(
+        result->model, result->selection.active, selection_mode);
   if (!result || !preview->apply(C, std::move(*result), &error)) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
@@ -988,6 +1030,7 @@ struct ExtrudeModal {
   bool elements = false;
   bool bevel = false;
   bool vertices_only = false;
+  int selection_mode = 1;
   solid::BevelCornerStyle corner_style = solid::BevelCornerStyle::Sharp;
   int subdivisions = 0;
   int axis = -1;
@@ -1062,6 +1105,8 @@ static void update(bContext *C, wmOperator *op)
                                         source.revision,
                                         std::move(extrusion->samples),
                                         std::move(extrusion->validation)};
+    candidate.selection = selection_for_face(
+        *candidate.model, candidate.selection.active, data.selection_mode);
     data.valid = data.preview->apply(C, std::move(candidate), &data.error, true);
   }
   else {
@@ -1140,6 +1185,7 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
   auto *data = MEM_new<ExtrudeModal>(__func__);
   data->preview = std::move(preview);
   data->elements = !profile;
+  data->selection_mode = data->preview->source().selection.mode;
   if (profile) {
     data->profile = solid::PreparedExtrusion::create(std::move(*profile), &error);
     if (!data->profile) {
