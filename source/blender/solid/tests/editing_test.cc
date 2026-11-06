@@ -657,6 +657,46 @@ int main()
   check(bool(wire_bevel), error);
   check(wire_bevel->model.vertices.size() == 4 && wire_bevel->model.edges.size() == 3,
         "Wire vertex bevel");
+  auto wire_vertex_fillet = fillet(tip->model, tip_selection, .1, 1, &error, true);
+  check(bool(wire_vertex_fillet), error);
+  check(wire_vertex_fillet->selection.mode == 1 && wire_vertex_fillet->model.edges.size() == 3 &&
+            std::any_of(wire_vertex_fillet->model.curves.begin(),
+                        wire_vertex_fillet->model.curves.end(),
+                        [](const Curve &c) { return c.kind == CurveKind::Conic; }),
+        "A selected wire vertex must make a curved fillet and stay in vertex mode");
+  Selection wire_edge_selection;
+  wire_edge_selection.mode = 2;
+  for (const Edge &e : tip->model.edges)
+    if (e.vertices[0] == tip->model.vertices[1].id ||
+        e.vertices[1] == tip->model.vertices[1].id)
+    {
+      wire_edge_selection.edges = {e.id};
+      break;
+    }
+  auto selected_wire_edge_bevel = chamfer(tip->model, wire_edge_selection, .1, true, &error);
+  check(bool(selected_wire_edge_bevel), error);
+  check(selected_wire_edge_bevel->selection.mode == 2 &&
+            !selected_wire_edge_bevel->selection.edges.empty() &&
+            selected_wire_edge_bevel->model.faces.empty(),
+        "Ctrl+Shift+B on a wire edge must keep edge mode and bevel its corners");
+  auto selected_wire_edge_fillet = fillet(tip->model, wire_edge_selection, .1, 3, &error, true);
+  check(bool(selected_wire_edge_fillet), error);
+  check(selected_wire_edge_fillet->selection.mode == 2 &&
+            selected_wire_edge_fillet->selection.edges.size() == 3 &&
+            selected_wire_edge_fillet->model.faces.empty(),
+        "Segmented Ctrl+Shift+B on a wire edge must keep edge mode and select its fillet");
+  double wire_fillet_angle = 0;
+  for (Id id : selected_wire_edge_fillet->selection.edges) {
+    const Edge &e = *edge(selected_wire_edge_fillet->model, id);
+    const Curve &arc = *curve(selected_wire_edge_fillet->model, e.curve);
+    check(arc.kind == CurveKind::Conic,
+          "A segmented wire fillet must use exact circular arcs, not straight chamfer edges");
+    check(std::abs(length(arc.u) - .1) < 1e-10,
+          "Wire fillet radius must match the requested width at a right-angle corner");
+    wire_fillet_angle += std::abs(e.end - e.start);
+  }
+  check(std::abs(wire_fillet_angle - std::acos(-1.0) * .5) < 1e-10,
+        "Wire fillet subdivisions must share one exact quarter-circle");
   Model separate;
   Selection endpoints;
   check(append_curve(separate, *line({0, 0, 0}, {1, 0, 0}), 0, 1, 0, 0, false, nullptr, &error),

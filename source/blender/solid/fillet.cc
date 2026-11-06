@@ -31,6 +31,8 @@ std::optional<EditResult> fillet(
   if (!std::isfinite(width) || width <= 0 || subdivisions < 1 || subdivisions > 32)
     return reject("Fillet needs a positive width and 1 to 32 subdivisions");
   selection = normalize_selection(model, std::move(selection));
+  if (model.faces.empty())
+    return fillet_wire_vertices(model, std::move(selection), width, subdivisions, error);
   if (vertices_only || selection.mode == 1)
     return fillet_vertices(model, std::move(selection), width, subdivisions, error, warning);
   if (selection.edges.empty())

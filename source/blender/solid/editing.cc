@@ -741,7 +741,7 @@ std::optional<EditResult> chamfer(const Model &model,
   if (model.faces.empty()) {
     EditResult result{model, {}};
     Model &out = result.model;
-    result.selection.mode = 1;
+    result.selection.mode = selection.mode;
     std::map<std::pair<Id, Id>, Id> trimmed;
     Set corners;
     std::unordered_map<Id, double> requested;
@@ -802,6 +802,15 @@ std::optional<EditResult> chamfer(const Model &model,
     if (!reset_lines(out, error))
       return {};
     compact_supports(out);
+    if (result.selection.mode == 2) {
+      const Set selected_vertices(result.selection.vertices.begin(),
+                                  result.selection.vertices.end());
+      for (const Edge &e : out.edges)
+        if (selected_vertices.contains(e.vertices[0]) && selected_vertices.contains(e.vertices[1]))
+          result.selection.edges.push_back(e.id);
+      if (!result.selection.edges.empty())
+        result.selection.active = result.selection.edges.back();
+    }
     result.selection = normalize_selection(out, std::move(result.selection));
     if (!validate(out, error))
       return {};

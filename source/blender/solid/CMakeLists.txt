@@ -7,6 +7,7 @@ add_library(bf_solid_analytic STATIC
   geometry.cc
   editing.cc
   fillet.cc
+  fillet_wire.cc
   fillet_vertices.cc
   fillet_trimmed.cc
   display.cc

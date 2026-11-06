@@ -20,4 +20,9 @@ std::optional<EditResult> fillet_vertices(const Model &model,
                                          int subdivisions,
                                          std::string *error,
                                          std::string *warning);
+std::optional<EditResult> fillet_wire_vertices(const Model &model,
+                                              Selection selection,
+                                              double width,
+                                              int subdivisions,
+                                              std::string *error);
 }
