@@ -183,6 +183,40 @@ static int shape_type(const wmOperator *op)
                                                               0;
 }
 
+static int draw_segment_minimum(const bool analytic,
+                                const bool circle,
+                                const int shape,
+                                const int arc_mode)
+{
+  if (shape == 1 || circle) {
+    return analytic ? 1 : 4;
+  }
+  if (shape == 2) {
+    return 3;
+  }
+  if (shape == 3) {
+    return 4;
+  }
+  if (arc_mode >= 0) {
+    return analytic ? 1 : 0;
+  }
+  return 1;
+}
+
+static void draw_clamp_segment_count(wmOperator *op, const bool analytic)
+{
+  if (!is_spline(op) && !is_arc(op) && !is_circle(op) && !shape_type(op)) {
+    return;
+  }
+  const bool circle = is_circle(op);
+  const int shape = shape_type(op);
+  const int arc_mode = is_arc(op) || circle ? RNA_enum_get(op->ptr, "mode") : -1;
+  const int minimum = draw_segment_minimum(analytic, circle, shape, arc_mode);
+  RNA_int_set(op->ptr,
+              "preview_points",
+              std::clamp(RNA_int_get(op->ptr, "preview_points"), minimum, 256));
+}
+
 static double arc_sweep_get(wmOperator *op)
 {
   const double value = RNA_float_get(op->ptr, "sweep");
@@ -594,9 +628,12 @@ static Vector<double> arc_divisions(const DrawingSupport &support,
                                     const bool center_arc)
 {
   const double total = std::abs(support.sweep);
+  const int segments = support.analytic ? std::max(1, count) : std::max(0, count);
   Vector<double> result;
   result.append(0);
-  const bool quarter = count == 0 || (center_arc && total > count * (M_PI / 2) + 1e-10);
+  const bool quarter = !support.analytic &&
+                       (segments == 0 ||
+                        (center_arc && total > segments * (M_PI / 2) + 1e-10));
   auto parameter = [&](double angle) {
     const int spans = support.spans ? support.spans :
                                       std::max(1, int(std::ceil(total / (M_PI / 2))));
@@ -611,8 +648,8 @@ static Vector<double> arc_divisions(const DrawingSupport &support,
       result.append(parameter(a));
   }
   else
-    for (int i = 1; i < count; ++i)
-      result.append(parameter(total * i / count));
+    for (int i = 1; i < segments; ++i)
+      result.append(parameter(total * i / segments));
   result.append(1);
   return result;
 }
@@ -1152,6 +1189,7 @@ static wmOperatorStatus draw_exec(bContext *C, wmOperator *op)
 
 static wmOperatorStatus arc_exec(bContext *C, wmOperator *op)
 {
+  draw_clamp_segment_count(op, ed::solid_editor::edit_poll(C));
   std::string error;
   if (ed::solid_editor::edit_poll(C)) {
     if (!solid_drawing_commit(C, op, is_circle(op) ? 2 : 1, error)) {
@@ -1508,6 +1546,7 @@ static bool solid_drawing_commit(bContext *C, wmOperator *op, const int kind, st
 
 static wmOperatorStatus shape_exec(bContext *C, wmOperator *op)
 {
+  draw_clamp_segment_count(op, ed::solid_editor::edit_poll(C));
   std::string error;
   if (ed::solid_editor::edit_poll(C)) {
     if (!solid_drawing_commit(C, op, shape_type(op) == 1 ? 3 : 4, error)) {
@@ -2944,7 +2983,8 @@ static void draw_apply_segment_input(wmOperator *op)
   if (!applyNumInput(&data.num, &count)) {
     return;
   }
-  const int minimum = data.circle ? 4 : data.arc_mode >= 0 ? 0 : 1;
+  const int minimum = draw_segment_minimum(
+      data.source->analytic(), data.circle, data.shape, data.arc_mode);
   RNA_int_set(op->ptr, "preview_points", std::clamp(int(std::lround(count)), minimum, 256));
 }
 
@@ -3849,6 +3889,7 @@ static wmOperatorStatus draw_invoke(bContext *C, wmOperator *op, const wmEvent *
     data->locked = false;
   }
   data->arc_mode = is_arc(op) || data->circle ? RNA_enum_get(op->ptr, "mode") : -1;
+  draw_clamp_segment_count(op, data->source->analytic());
   bool invertible;
   data->inverse = math::invert(double4x4(data->source->object().object_to_world()), invertible);
   if (!invertible) {
@@ -4044,7 +4085,10 @@ static wmOperatorStatus shape_modal(bContext *C, wmOperator *op, const wmEvent *
         if (mode == DrawNumericMode::Segments) {
           RNA_int_set(op->ptr,
                       "preview_points",
-                      std::clamp(int(std::lround(value)), data.shape == 1 ? 4 : 3, 256));
+                      std::clamp(int(std::lround(value)),
+                                 draw_segment_minimum(
+                                     data.source->analytic(), data.circle, data.shape, data.arc_mode),
+                                 256));
         }
         else if (mode == DrawNumericMode::Width || mode == DrawNumericMode::Height) {
           auto [x, y] = arc_plane_axes(double3(data.plane_normal));
@@ -4276,10 +4320,8 @@ static wmOperatorStatus draw_modal(bContext *C, wmOperator *op, const wmEvent *e
       ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE) && event->val == KM_PRESS &&
       !(event->modifier & KM_CTRL))
   {
-    const int minimum = data.shape         ? (data.shape == 1 ? 4 : 3) :
-                        data.circle        ? 4 :
-                        data.arc_mode >= 0 ? 0 :
-                                             1;
+    const int minimum = draw_segment_minimum(
+        data.source->analytic(), data.circle, data.shape, data.arc_mode);
     RNA_int_set(op->ptr,
                 "preview_points",
                 std::clamp(RNA_int_get(op->ptr, "preview_points") +
@@ -4557,7 +4599,9 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
   ot->exec = draw_exec;
   ot->modal = draw_modal;
   ot->cancel = draw_exit;
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+  /* Construction modes live in the active tool settings. Don't leave the last-operation redo
+   * panel open after an interactive drawing tool finishes. */
+  ot->flag = OPTYPE_UNDO;
   static const EnumPropertyItem modes[] = {
       {0, "CENTER", 0, "Center", "Center, start point, then signed sweep"},
       {1, "ENDPOINTS", 0, "2 Point", "Start and end points, then bulge height"},
@@ -4720,12 +4764,12 @@ static void arc_operator(wmOperatorType *ot, const bool circle = false)
   RNA_def_int(ot->srna,
               "preview_points",
               32,
-              circle ? 4 : 0,
+              circle ? 1 : 0,
               256,
               "Segments",
               circle ? "Exact circular edges and shared endpoints; matches the preview divisions" :
                        "Arc edges and shared endpoints; zero uses 90 degree divisions",
-              circle ? 4 : 0,
+              circle ? 1 : 0,
               128);
   RNA_def_int(ot->srna, "preview_point_size", 5, 1, 50, "Marker Size", "", 1, 20);
   RNA_def_boolean(ot->srna,
@@ -4767,7 +4811,7 @@ static void shape_operator(wmOperatorType *ot, const int shape)
                                            rectangle_modes);
   prop = RNA_struct_type_find_property(ot->srna, "preview_points");
   RNA_def_property_int_default(prop, shape == 1 ? 32 : shape == 2 ? 6 : 4);
-  RNA_def_property_range(prop, shape == 1 ? 4 : 3, 256);
+  RNA_def_property_range(prop, shape == 1 ? 1 : 3, 256);
   RNA_def_property_ui_text(
       prop, shape == 2 ? "Sides" : "Segments", "Preview and committed endpoints");
   if (shape == 3) {
