@@ -25,4 +25,12 @@ std::optional<EditResult> fillet_wire_vertices(const Model &model,
                                               double width,
                                               int subdivisions,
                                               std::string *error);
+/** Bevel a selected circular cap of an analytic extrusion. Returns handled=false when the
+ * selection is not this supported case, so the general bevel path can continue. */
+std::optional<EditResult> bevel_circular_cap(const Model &model,
+                                             const Selection &selection,
+                                             double width,
+                                             int subdivisions,
+                                             std::string *error,
+                                             bool &handled);
 }

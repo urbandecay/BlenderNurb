@@ -467,8 +467,7 @@ static bool validate_impl(const Model &m, std::string *error, const Model *trust
          s.kind != SurfaceKind::Blend && s.kind != SurfaceKind::Ruled) ||
         (s.kind == SurfaceKind::Ruled &&
          (!index.curves.contains(s.curve) || !index.curves.contains(s.other_curve) ||
-          !std::isfinite(s.start) || !std::isfinite(s.end) || s.start < 0 || s.end > 1 ||
-          s.start >= s.end)) ||
+          !std::isfinite(s.start) || !std::isfinite(s.end) || s.start == s.end)) ||
         ((s.kind == SurfaceKind::Sphere || s.kind == SurfaceKind::Cylinder) &&
          !(std::abs(dot(s.u, cross(s.v, s.w))) > 0)) ||
         (s.kind == SurfaceKind::Plane &&

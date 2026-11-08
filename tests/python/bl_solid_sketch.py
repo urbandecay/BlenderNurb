@@ -396,6 +396,34 @@ class SolidSketchTest(unittest.TestCase):
             bpy.ops.object.mode_set(mode='OBJECT')
             self.assertAlmostEqual(self.volume(obj), math.pi * 4 * 2, delta=0.5)
 
+    def test_circular_cap_bevel_selection_modes(self):
+        # Extrusion keeps vertex mode. A complete cap selected through its source vertices
+        # must reach the circular bevel path just as a directly selected face does.
+        for divisions in (1, 4, 7):
+            for mode in ('VERT', 'EDGE', 'FACE'):
+                for segments in (0, 4):
+                    for end in (0, 2):
+                        with self.subTest(divisions=divisions, mode=mode, segments=segments, end=end):
+                            self.setUp()
+                            bpy.ops.solid.sketch_add(type='EMPTY')
+                            bpy.ops.curve.draw_circle(points='0 0 0 1 0 0', preview_points=divisions)
+                            bpy.ops.solid.extrude(distance=2)
+                            obj = bpy.context.object
+                            if mode == 'VERT':
+                                predicate = lambda v: abs(v.co.z - end) < 1e-5
+                            elif mode == 'EDGE':
+                                predicate = lambda e: all(abs(v.co.z - end) < 1e-5 for v in e.verts)
+                            else:
+                                predicate = lambda f: all(abs(v.co.z - end) < 1e-5 for v in f.verts)
+                            self.source_select(mode, predicate)
+                            before_mode = tuple(bpy.context.tool_settings.mesh_select_mode)
+                            self.assertEqual(bpy.ops.solid.bevel(offset=.15, segments=segments), {'FINISHED'})
+                            self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), before_mode)
+                            bpy.ops.object.mode_set(mode='OBJECT')
+                            result_volume = self.volume(obj)
+                            self.assertGreater(result_volume, 5.5)
+                            self.assertLess(result_volume, 2 * math.pi)
+
     def test_drawn_closed_profile_and_reopen(self):
         bpy.ops.solid.sketch_add(type='EMPTY')
         self.assertEqual(bpy.ops.curve.draw_line(points='0 0 0 2 0 0 2 3 0 0 3 0 0 0 0'), {'FINISHED'})

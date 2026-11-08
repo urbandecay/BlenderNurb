@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "SOL_geometry.hh"
+#include "fillet_intern.hh"
 #include "id_index.hh"
 
 #include <algorithm>
@@ -737,6 +738,12 @@ std::optional<EditResult> chamfer(const Model &model,
   if (!std::isfinite(width) || width <= 0) {
     fail(error, "Bevel width must be finite and positive");
     return {};
+  }
+  {
+    bool handled = false;
+    auto circular_cap = bevel_circular_cap(model, selection, width, 1, error, handled);
+    if (handled)
+      return circular_cap;
   }
   if (model.faces.empty()) {
     EditResult result{model, {}};
