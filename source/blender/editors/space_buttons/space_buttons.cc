@@ -235,6 +235,7 @@ Vector<eSpaceButtons_Context> ED_buttons_tabs_list(const SpaceProperties *sbuts,
   add_tab(BCONTEXT_PHYSICS);
   add_tab(BCONTEXT_CONSTRAINT);
   add_tab(BCONTEXT_DATA);
+  add_tab(BCONTEXT_SOLID);
   add_tab(BCONTEXT_MATERIAL);
 
   add_spacer();
@@ -268,6 +269,8 @@ static const char *buttons_main_region_context_string(const short mainb)
       return "object";
     case BCONTEXT_DATA:
       return "data";
+    case BCONTEXT_SOLID:
+      return "solid";
     case BCONTEXT_MATERIAL:
       return "material";
     case BCONTEXT_TEXTURE:

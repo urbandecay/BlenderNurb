@@ -166,7 +166,8 @@ class DATA_PT_context_mesh(MeshButtonsPanel, Panel):
 
 
 class DATA_PT_solid_model(MeshButtonsPanel, Panel):
-    bl_label = "Solid"
+    bl_label = "Solid Model"
+    bl_context = "solid"
     COMPAT_ENGINES = {
         'BLENDER_RENDER',
         'BLENDER_EEVEE',

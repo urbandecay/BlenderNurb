@@ -111,6 +111,7 @@ enum eSpaceButtons_Context : short {
   BCONTEXT_COLLECTION = 17,
   BCONTEXT_STRIP = 18,
   BCONTEXT_STRIP_MODIFIER = 19,
+  BCONTEXT_SOLID = 20,
 
   /* Keep last. */
   BCONTEXT_TOT,

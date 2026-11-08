@@ -578,6 +578,7 @@ const EnumPropertyItem buttons_context_items[] = {
      "Object Constraint Properties"},
     {BCONTEXT_MODIFIER, "MODIFIER", ICON_MODIFIER, "Modifiers", "Modifier Properties"},
     {BCONTEXT_DATA, "DATA", ICON_NONE, "Data", "Object Data Properties"},
+    {BCONTEXT_SOLID, "SOLID", ICON_MESH_CUBE, "Solid", "Analytic Solid Properties"},
     {BCONTEXT_MATERIAL, "MATERIAL", ICON_MATERIAL, "Material", "Material Properties"},
     {BCONTEXT_TEXTURE, "TEXTURE", ICON_TEXTURE, "Texture", "Texture Properties"},
     {BCONTEXT_PARTICLE, "PARTICLES", ICON_PARTICLES, "Particles", "Particle Properties"},
@@ -5885,7 +5886,7 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 static void rna_def_space_properties_filter(StructRNA *srna)
 {
   /* Order must follow `buttons_context_items`. */
-  constexpr std::array<StringRefNull, 17> filter_items = {
+  constexpr std::array<StringRefNull, 18> filter_items = {
       "show_properties_tool",
       "show_properties_scene",
       "show_properties_render",
@@ -5897,6 +5898,7 @@ static void rna_def_space_properties_filter(StructRNA *srna)
       "show_properties_constraints",
       "show_properties_modifiers",
       "show_properties_data",
+      "show_properties_solid",
       "show_properties_material",
       "show_properties_texture",
       "show_properties_particles",
