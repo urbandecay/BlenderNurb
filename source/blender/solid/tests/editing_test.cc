@@ -143,6 +143,50 @@ int main()
        {-1, 1, 1}},
       {{0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4}, {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}});
   check(std::abs(volume(cube) - 8) < 1e-12, "Fixture volume");
+  {
+    Selection selected_face;
+    selected_face.mode = 4;
+    selected_face.faces = {cube.faces[1].id};
+    const auto raised = extrude_elements(cube, selected_face, {0, 0, .4}, &error);
+    check(bool(raised), "Planar face extrusion: " + error);
+    check(raised->selection.mode == 4 && raised->selection.faces.size() == 1,
+          "Face extrusion must keep the translated cap selected in face mode");
+    check(validate_body(raised->model, raised->selection.active, &error), error);
+    check(raised->model.faces.size() == cube.faces.size() + 4,
+          "Extruding a body face must add a cap and four side walls");
+  }
+  {
+    Selection corner_vertex;
+    corner_vertex.mode = 1;
+    corner_vertex.vertices = {cube.vertices.front().id};
+    const auto rounded = fillet(cube, corner_vertex, .2, 3, &error, true);
+    check(bool(rounded), error);
+    const Face *corner_patch = nullptr;
+    for (const Face &f : rounded->model.faces)
+      if (surface(rounded->model, f.surface)->kind == SurfaceKind::Sphere && f.outer.size() == 4) {
+        corner_patch = &f;
+        break;
+      }
+    check(corner_patch != nullptr, "Find a curved quad on the rounded solid corner");
+    Selection selected_patch;
+    selected_patch.mode = 4;
+    selected_patch.faces = {corner_patch->id};
+    const auto raised = extrude_elements(rounded->model, selected_patch, {.13, .07, -.2}, &error);
+    check(bool(raised), "Curved face extrusion: " + error);
+    check(raised->selection.mode == 4 && raised->selection.faces.size() == 1,
+          "Curved face extrusion must stay in face mode and select its cap");
+    check(face(raised->model, corner_patch->id) == nullptr,
+          "Curved face extrusion must move the source face and replace it with the cap");
+    check(validate_body(raised->model, raised->selection.active, &error), error);
+    const auto display = tessellate(raised->model, 32, &error);
+    check(bool(display), error);
+    std::map<std::pair<int, int>, int> edge_uses;
+    for (const auto &polygon : display->polygons)
+      for (size_t i = 0; i < polygon.size(); ++i)
+        edge_uses[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
+    for (const auto &[edge_pair, uses] : edge_uses)
+      check(uses == 2, "Curved face extrusion must not leave a hole in the displayed solid");
+  }
   for (int subdivisions : {1, 2, 3}) {
     Selection selected;
     selected.mode = 1;
@@ -154,8 +198,11 @@ int main()
     int spherical_faces = 0;
     for (const Face &f : rounded->model.faces)
       spherical_faces += surface(rounded->model, f.surface)->kind == SurfaceKind::Sphere;
-    const int expected_corner_faces = subdivisions == 1 ? 1 :
-        3 * (subdivisions / 2) * (subdivisions - subdivisions / 2) + subdivisions % 2;
+    const int expected_corner_faces = subdivisions == 1 ?
+                                          1 :
+                                          3 * (subdivisions / 2) *
+                                                  (subdivisions - subdivisions / 2) +
+                                              subdivisions % 2;
     check(spherical_faces == expected_corner_faces,
           "Vertex fillet must create three structured quad grids");
     const auto display = tessellate(rounded->model, 32, &error);
@@ -169,6 +216,43 @@ int main()
     if (subdivisions == 2)
       check(volume(rounded->model) > 0 && volume(rounded->model) < volume(cube),
             "Vertex fillet must remove the sharp corner without inverting the solid");
+  }
+  {
+    Selection top_face;
+    top_face.mode = 4;
+    top_face.faces = {cube.faces[1].id};
+    auto top_rounded = fillet(cube, top_face, .12, 2, &error);
+    check(bool(top_rounded), error);
+    std::set<Id> existing_curved_surfaces;
+    for (const Surface &s : top_rounded->model.surfaces)
+      if (s.kind != SurfaceKind::Plane)
+        existing_curved_surfaces.insert(s.id);
+
+    Selection bottom_edge;
+    bottom_edge.mode = 2;
+    for (const Edge &e : top_rounded->model.edges) {
+      const Vec3 a = vertex(top_rounded->model, e.vertices[0])->position;
+      const Vec3 b = vertex(top_rounded->model, e.vertices[1])->position;
+      if (a.z == -1 && b.z == -1 && a.y == -1 && b.y == -1) {
+        bottom_edge.edges = {e.id};
+        break;
+      }
+    }
+    check(bottom_edge.edges.size() == 1, "Find bottom edge beside the existing top fillet");
+    auto bottom_rounded = fillet(top_rounded->model, bottom_edge, .1, 1, &error);
+    check(bool(bottom_rounded), error);
+    check(validate_body(bottom_rounded->model, bottom_rounded->selection.active, &error), error);
+    for (Id id : existing_curved_surfaces)
+      check(surface(bottom_rounded->model, id),
+            "A new edge fillet must preserve earlier curved fillet surfaces");
+    const auto display = tessellate(bottom_rounded->model, 32, &error);
+    check(bool(display), error);
+    std::map<std::pair<int, int>, int> display_edges;
+    for (const auto &polygon : display->polygons)
+      for (size_t i = 0; i < polygon.size(); ++i)
+        display_edges[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
+    for (const auto &[edge_pair, uses] : display_edges)
+      check(uses == 2, "Repeated solid fillets must keep the displayed body watertight");
   }
   {
     Selection all_vertices;

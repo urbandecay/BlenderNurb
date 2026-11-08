@@ -409,6 +409,239 @@ bool refit_linear_faces(Model &m, std::string *error)
   return install_polygons(m, replaced, polygons, false, error);
 }
 
+static std::optional<EditResult> extrude_face_region(const Model &model,
+                                                     const Selection &selection,
+                                                     const Vec3 offset,
+                                                     std::string *error)
+{
+  struct FaceUse {
+    const Face *face = nullptr;
+    Coedge use;
+  };
+  Set selected_faces(selection.faces.begin(), selection.faces.end());
+  Set selected_edges, selected_vertices, selected_curves, selected_surfaces;
+  std::unordered_map<Id, std::vector<FaceUse>> edge_uses;
+  for (const Face &f : model.faces) {
+    auto collect = [&](const std::vector<Coedge> &loop) {
+      for (const Coedge &use : loop)
+        edge_uses[use.edge].push_back({&f, use});
+    };
+    collect(f.outer);
+    for (const auto &hole : f.holes)
+      collect(hole);
+    if (!selected_faces.contains(f.id))
+      continue;
+    selected_surfaces.insert(f.surface);
+    auto add_edges = [&](const std::vector<Coedge> &loop) {
+      for (const Coedge &use : loop) {
+        selected_edges.insert(use.edge);
+        const Edge &e = *edge(model, use.edge);
+        selected_vertices.insert(e.vertices.begin(), e.vertices.end());
+        selected_curves.insert(e.curve);
+      }
+    };
+    add_edges(f.outer);
+    for (const auto &hole : f.holes)
+      add_edges(hole);
+  }
+  if (selected_faces.empty()) {
+    fail(error, "Select a face region to extrude");
+    return {};
+  }
+  for (const Surface &s : model.surfaces)
+    if (selected_surfaces.contains(s.id)) {
+      if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled ||
+          s.kind == SurfaceKind::Cone)
+        selected_curves.insert(s.curve);
+      if (s.kind == SurfaceKind::Ruled)
+        selected_curves.insert(s.other_curve);
+    }
+
+  std::unordered_map<Id, FaceUse> boundary_edges;
+  Set boundary_vertices;
+  for (Id id : selected_edges) {
+    const auto &uses = edge_uses.at(id);
+    const FaceUse *selected_use = nullptr;
+    size_t selected_count = 0;
+    for (const FaceUse &use : uses)
+      if (selected_faces.contains(use.face->id)) {
+        selected_count++;
+        selected_use = &use;
+      }
+    if (selected_count == 0 || (selected_count == uses.size() && uses.size() > 1))
+      continue;
+    if (!selected_use) {
+      fail(error, "The selected face region has an invalid boundary");
+      return {};
+    }
+    boundary_edges.emplace(id, *selected_use);
+    const Edge &e = *edge(model, id);
+    boundary_vertices.insert(e.vertices.begin(), e.vertices.end());
+  }
+  if (boundary_edges.empty()) {
+    fail(error, "The selected face region has no boundary to extrude");
+    return {};
+  }
+
+  Set surfaces;
+  for (const Surface &s : model.surfaces)
+    if (selected_surfaces.contains(s.id))
+      surfaces.insert(s.id);
+  const uint64_t new_ids = selected_vertices.size() + selected_curves.size() +
+                           selected_edges.size() + surfaces.size() + selected_faces.size() +
+                           boundary_vertices.size() * 2 + boundary_edges.size() * 2;
+  if (new_ids > std::numeric_limits<Id>::max() - model.next_id) {
+    fail(error, "Face extrusion source identities exhausted");
+    return {};
+  }
+
+  EditResult result{model, {}};
+  Model &out = result.model;
+  std::unordered_map<Id, Id> ids;
+  auto allocate = [&](const auto &items, const Set &chosen) {
+    for (const auto &item : items)
+      if (chosen.contains(item.id))
+        ids[item.id] = out.next_id++;
+  };
+  allocate(model.vertices, selected_vertices);
+  allocate(model.curves, selected_curves);
+  allocate(model.edges, selected_edges);
+  allocate(model.surfaces, surfaces);
+  allocate(model.faces, selected_faces);
+  for (const Vertex &source : model.vertices)
+    if (selected_vertices.contains(source.id))
+      out.vertices.push_back({ids.at(source.id), source.position + offset});
+  for (const Curve &source : model.curves)
+    if (selected_curves.contains(source.id)) {
+      Curve copy = source;
+      copy.id = ids.at(source.id);
+      copy.origin = copy.origin + offset;
+      if (copy.kind == CurveKind::RationalQuadratic) {
+        copy.u = copy.u + offset;
+        copy.v = copy.v + offset;
+      }
+      out.curves.push_back(copy);
+    }
+  for (const Edge &source : model.edges)
+    if (selected_edges.contains(source.id)) {
+      Edge copy = source;
+      copy.id = ids.at(source.id);
+      copy.curve = ids.at(source.curve);
+      copy.vertices = {ids.at(source.vertices[0]), ids.at(source.vertices[1])};
+      out.edges.push_back(copy);
+    }
+  for (const Surface &source : model.surfaces)
+    if (surfaces.contains(source.id)) {
+      Surface copy = source;
+      copy.id = ids.at(source.id);
+      copy.origin = copy.origin + offset;
+      if (copy.kind == SurfaceKind::Extrusion || copy.kind == SurfaceKind::Ruled ||
+          copy.kind == SurfaceKind::Cone)
+        copy.curve = ids.at(copy.curve);
+      if (copy.kind == SurfaceKind::Ruled)
+        copy.other_curve = ids.at(copy.other_curve);
+      out.surfaces.push_back(copy);
+    }
+  for (const Face &source : model.faces)
+    if (selected_faces.contains(source.id)) {
+      Face copy = source;
+      copy.id = ids.at(source.id);
+      copy.surface = ids.at(source.surface);
+      if (copy.group)
+        copy.group = ids.contains(copy.group) ? ids.at(copy.group) : 0;
+      auto remap = [&](std::vector<Coedge> &loop) {
+        for (Coedge &use : loop)
+          use.edge = ids.at(use.edge);
+      };
+      remap(copy.outer);
+      for (auto &hole : copy.holes)
+        remap(hole);
+      result.selection.faces.push_back(copy.id);
+      out.faces.push_back(std::move(copy));
+    }
+
+  std::unordered_map<Id, Id> rails;
+  for (Id id : boundary_vertices) {
+    const Vec3 from = vertex(model, id)->position;
+    const Id curve_id = out.next_id++;
+    out.curves.push_back({curve_id, CurveKind::Line, from, offset, {}});
+    const Id rail = out.next_id++;
+    out.edges.push_back({rail, curve_id, {id, ids.at(id)}, 0, 1});
+    rails[id] = rail;
+  }
+  for (const auto &[id, selected_use] : boundary_edges) {
+    const Edge &source = *edge(model, id);
+    const Curve &source_curve = *curve(model, source.curve);
+    const Vec3 a = evaluate(source_curve, source.start), b = evaluate(source_curve, source.end);
+    const Id support = out.next_id++;
+    if (source_curve.kind == CurveKind::Line) {
+      if (length(cross(b - a, offset)) <=
+          tolerance(model) * std::max(length(b - a), length(offset)))
+      {
+        fail(error, "Extrusion along a boundary edge would create a zero-area wall");
+        return {};
+      }
+      out.surfaces.push_back({support, SurfaceKind::Plane, a, b - a, offset, 0});
+    }
+    else {
+      out.surfaces.push_back({support,
+                              SurfaceKind::Extrusion,
+                              {},
+                              offset,
+                              {},
+                              source.curve,
+                              source.start,
+                              source.end});
+    }
+    const int orientation = selected_use.face->orientation * (selected_use.use.reversed ? -1 : 1);
+    out.faces.push_back({out.next_id++,
+                         support,
+                         {{id, false},
+                          {rails.at(source.vertices[1]), false},
+                          {ids.at(id), true},
+                          {rails.at(source.vertices[0]), true}},
+                         {},
+                         orientation});
+  }
+
+  std::erase_if(out.faces, [&](const Face &f) { return selected_faces.contains(f.id); });
+  Set used_edges, used_vertices;
+  for (const Face &f : out.faces) {
+    for (const Coedge &use : f.outer)
+      used_edges.insert(use.edge);
+    for (const auto &hole : f.holes)
+      for (const Coedge &use : hole)
+        used_edges.insert(use.edge);
+  }
+  std::erase_if(out.edges, [&](const Edge &e) {
+    return selected_edges.contains(e.id) && !used_edges.contains(e.id);
+  });
+  for (const Edge &e : out.edges)
+    used_vertices.insert(e.vertices.begin(), e.vertices.end());
+  std::erase_if(out.vertices, [&](const Vertex &v) {
+    return selected_vertices.contains(v.id) && !used_vertices.contains(v.id);
+  });
+  result.selection.mode = 4;
+  result.selection.active = selected_faces.contains(selection.active) ?
+                                ids.at(selection.active) :
+                                result.selection.faces.back();
+  result.selection = normalize_selection(out, std::move(result.selection));
+  compact_supports(out);
+  if (!validate(out, error))
+    return {};
+
+  bool source_is_closed = true;
+  for (Id id : selected_faces) {
+    std::string ignored;
+    source_is_closed &= validate_body(model, id, &ignored);
+  }
+  if (source_is_closed)
+    for (Id id : result.selection.faces)
+      if (!validate_body(out, id, error))
+        return {};
+  return result;
+}
+
 std::optional<EditResult> extrude_elements(const Model &model,
                                            Selection selection,
                                            Vec3 offset,
@@ -418,9 +651,11 @@ std::optional<EditResult> extrude_elements(const Model &model,
     return {};
   selection = normalize_selection(model, std::move(selection));
   if (!finite(offset) || !(length(offset) > 0) || selection.vertices.empty()) {
-    fail(error, "Select vertices or edges and use a nonzero finite extrusion offset");
+    fail(error, "Select faces, vertices, or edges and use a nonzero finite extrusion offset");
     return {};
   }
+  if (selection.mode == 4 && !selection.faces.empty())
+    return extrude_face_region(model, selection, offset, error);
   EditResult result{model, {}};
   Model &out = result.model;
   result.selection.mode = selection.mode == 2 ? 2 : 1;

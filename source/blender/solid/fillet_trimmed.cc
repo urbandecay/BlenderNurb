@@ -354,6 +354,27 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
                           {}});
     return boundary(a, b, support, 0, 1, reuse);
   };
+  auto keep_or_rebuild = [&](Id original_id, Id from, Id to, Id a, Id b) -> Coedge {
+    const Edge &original = *edge(model, original_id);
+    const Key key = std::minmax(a, b);
+    if (edges.contains(key)) {
+      const EdgeRef &existing = edges.at(key);
+      return {existing.id, existing.vertices[0] != a};
+    }
+    if (a == from && b == to) {
+      out.edges.push_back(original);
+      edges[key] = {original.id, original.vertices};
+      return {original.id, original.vertices[0] != a};
+    }
+    if (curve(model, original.curve)->kind != CurveKind::Line) {
+      return {};
+    }
+    const bool forward = original.vertices[0] == from;
+    Coedge use = forward ? line(a, b, original.id) : line(b, a, original.id);
+    if (!forward)
+      use.reversed = !use.reversed;
+    return use;
+  };
   std::map<Id, double> weights;
   for (Id id : selected) {
     const auto &f = uses.at(id);
@@ -423,10 +444,16 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       if (selected.contains(c.outgoing))
         loop.push_back(line(stations[face_station.at({c.vertex, f})].vertex,
                             stations[face_station.at({next.vertex, f})].vertex));
-      else
-        loop.push_back(line(station_vertex(c.vertex, c.outgoing),
-                            station_vertex(next.vertex, c.outgoing),
-                            c.outgoing));
+      else {
+        const Coedge use = keep_or_rebuild(c.outgoing,
+                                           c.vertex,
+                                           next.vertex,
+                                           station_vertex(c.vertex, c.outgoing),
+                                           station_vertex(next.vertex, c.outgoing));
+        if (!use.edge)
+          return reject("Fillet would need to move an existing curved boundary edge");
+        loop.push_back(use);
+      }
       if (affected.contains(next.vertex) && !face_station.contains({next.vertex, f})) {
         const Id a = station_vertex(next.vertex, next.incoming),
                  b = station_vertex(next.vertex, next.outgoing);

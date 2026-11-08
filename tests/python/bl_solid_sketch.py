@@ -367,6 +367,36 @@ class SolidSketchTest(unittest.TestCase):
             bm.free()
             evaluated.to_mesh_clear()
 
+    def test_face_extrusion_closes_caps_and_preserves_face_mode(self):
+        # A planar cap uses profile extrusion; a rounded corner face takes the general
+        # face-region path. Both should leave a closed body and keep face selection active.
+        self.setUp()
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda face: all(abs(v.co.z - 2) < 1e-5 for v in face.verts))
+        self.assertEqual(bpy.ops.solid.extrude(distance=.5), {'FINISHED'})
+        self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), (False, False, True))
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertGreater(self.volume(obj), 8)
+
+        self.setUp()
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('VERT', lambda v: v.co.x < -.99 and v.co.y < -.99 and v.co.z < .01)
+        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=3, vertices_only=True), {'FINISHED'})
+        self.source_select(
+            'FACE', lambda face: (face.calc_center_median().x < -.75 and
+                                  face.calc_center_median().y < -.75 and
+                                  face.calc_center_median().z < .25))
+        bm = bmesh.from_edit_mesh(obj.data)
+        self.assertTrue(any(face.select for face in bm.faces), "Select a rounded corner face")
+        self.assertEqual(bpy.ops.solid.extrude(offset=(-.2, -.2, -.2)), {'FINISHED'})
+        self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), (False, False, True))
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertGreater(self.volume(obj), 0)
+
     def test_rectangle_and_editable_cap(self):
         self.assertEqual(bpy.ops.solid.sketch_add(type='RECTANGLE', size=2), {'FINISHED'})
         obj = bpy.context.object
