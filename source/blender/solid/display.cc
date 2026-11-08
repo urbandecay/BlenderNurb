@@ -42,8 +42,8 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
   ruled_rails.reserve(model.edges.size());
   small_sphere_edges.reserve(model.edges.size());
   large_sphere_edges.reserve(model.edges.size());
-  std::array<size_t, 6> source_faces_by_kind{};
-  std::array<size_t, 6> display_faces_by_kind{};
+  std::array<size_t, 7> source_faces_by_kind{};
+  std::array<size_t, 7> display_faces_by_kind{};
   std::map<std::pair<int, int>, size_t> sphere_patch_histogram;
   for (const Face &f : model.faces) {
     const Surface &face_surface = *surfaces.at(f.surface);
@@ -215,6 +215,42 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
           }
           polygon(std::move(points), std::move(normals), f);
         }
+    }
+    else if (s.kind == SurfaceKind::Cone) {
+      auto oriented = [&](const Coedge &use) {
+        auto path = paths.at(use.edge);
+        if (use.reversed)
+          std::reverse(path.begin(), path.end());
+        return path;
+      };
+      const auto base_path = oriented(f.outer[0]);
+      const auto apex_path = oriented(f.outer[1]);
+      if (base_path.size() < 2 || apex_path.size() < 2 ||
+          base_path.back() != apex_path.front())
+      {
+        if (error)
+          *error = "Conical fillet boundaries do not meet";
+        return {};
+      }
+      const int apex = apex_path.back();
+      const Curve &base = *curves.at(s.curve);
+      for (size_t i = 0; i + 1 < base_path.size(); ++i) {
+        const double t0 = s.start + (s.end - s.start) * double(i) / (base_path.size() - 1);
+        const double t1 = s.start + (s.end - s.start) * double(i + 1) / (base_path.size() - 1);
+        const double tm = (t0 + t1) * .5;
+        const Vec3 n0 = cone_normal(s, base, t0), n1 = cone_normal(s, base, t1),
+                   nm = cone_normal(s, base, tm);
+        if (!(length(n0) > 0) || !(length(n1) > 0) || !(length(nm) > 0)) {
+          if (error)
+            *error = "Degenerate conical fillet normal";
+          return {};
+        }
+        polygon({base_path[i], base_path[i + 1], apex},
+                calculate_normals ?
+                    std::vector<Vec3>{n0 / length(n0), n1 / length(n1), nm / length(nm)} :
+                    std::vector<Vec3>{},
+                f);
+      }
     }
     else if (s.kind == SurfaceKind::Blend) {
       auto oriented = [&](const Coedge &use, bool reverse) {

@@ -251,6 +251,16 @@ Vec3 blend_v_direction(const Surface &s, double v)
   return s.blend[1] + s.blend[2] * (2 * v) + s.blend[3] * (3 * v * v);
 }
 
+Vec3 evaluate_cone(const Surface &s, const Curve &base, const double theta, const double v)
+{
+  return evaluate(base, theta) * (1 - v) + s.origin * v;
+}
+
+Vec3 cone_normal(const Surface &s, const Curve &base, const double theta)
+{
+  return cross(tangent(base, theta), s.origin - evaluate(base, theta));
+}
+
 Vec3 evaluate_ruled(const Surface &s, const Curve &a, const Curve &b, double u, double v)
 {
   return evaluate(a, s.reverse_first ? 1 - u : u) * (1 - v) +
@@ -464,10 +474,14 @@ static bool validate_impl(const Model &m, std::string *error, const Model *trust
     if (!identity(s.id) || !finite(s.origin) || !finite(s.u) || !finite(s.v) || !finite(s.w) ||
         (s.kind != SurfaceKind::Plane && s.kind != SurfaceKind::Extrusion &&
          s.kind != SurfaceKind::Sphere && s.kind != SurfaceKind::Cylinder &&
-         s.kind != SurfaceKind::Blend && s.kind != SurfaceKind::Ruled) ||
+         s.kind != SurfaceKind::Blend && s.kind != SurfaceKind::Ruled &&
+         s.kind != SurfaceKind::Cone) ||
         (s.kind == SurfaceKind::Ruled &&
          (!index.curves.contains(s.curve) || !index.curves.contains(s.other_curve) ||
           !std::isfinite(s.start) || !std::isfinite(s.end) || s.start == s.end)) ||
+        (s.kind == SurfaceKind::Cone &&
+         (!index.curves.contains(s.curve) || !std::isfinite(s.start) ||
+          !std::isfinite(s.end) || s.start == s.end)) ||
         ((s.kind == SurfaceKind::Sphere || s.kind == SurfaceKind::Cylinder) &&
          !(std::abs(dot(s.u, cross(s.v, s.w))) > 0)) ||
         (s.kind == SurfaceKind::Plane &&
@@ -544,6 +558,37 @@ static bool validate_impl(const Model &m, std::string *error, const Model *trust
           const Vec3 actual = evaluate(*index.curves.at(e.curve),
                                        e.start + (e.end - e.start) * (use.reversed ? 1 - t : t));
           if (length(actual - evaluate_ruled(support, a, b, u, v)) >
+              1e-8 * std::max(1.0, length(actual)))
+            goto invalid;
+        }
+      }
+    }
+    else if (support.kind == SurfaceKind::Cone) {
+      if (f.outer.size() != 3 || !f.holes.empty())
+        goto invalid;
+      const Curve &base = *index.curves.at(support.curve);
+      if (base.kind != CurveKind::Conic || index.edges.at(f.outer[0].edge)->curve != base.id)
+        goto invalid;
+      for (int i = 0; i < 3; ++i) {
+        const Coedge &use = f.outer[i];
+        const Edge &e = *index.edges.at(use.edge);
+        for (double t : {0.0, .25, .5, .75, 1.0}) {
+          double theta, v;
+          if (i == 0) {
+            theta = support.start + (support.end - support.start) * t;
+            v = 0;
+          }
+          else if (i == 1) {
+            theta = support.end;
+            v = t;
+          }
+          else {
+            theta = support.start;
+            v = 1 - t;
+          }
+          const Vec3 actual = evaluate(*index.curves.at(e.curve),
+                                       e.start + (e.end - e.start) * (use.reversed ? 1 - t : t));
+          if (length(actual - evaluate_cone(support, base, theta, v)) >
               1e-8 * std::max(1.0, length(actual)))
             goto invalid;
         }

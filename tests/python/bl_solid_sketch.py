@@ -424,6 +424,40 @@ class SolidSketchTest(unittest.TestCase):
                             self.assertGreater(result_volume, 5.5)
                             self.assertLess(result_volume, 2 * math.pi)
 
+    def test_circular_cap_bevel_collapses_to_shared_apex(self):
+        for end in (0.0, 2.0):
+            for segments in (1, 4):
+                with self.subTest(end=end, segments=segments):
+                    self.setUp()
+                    bpy.ops.solid.sketch_add(type='EMPTY')
+                    bpy.ops.curve.draw_circle(points='0 0 0 1 0 0', preview_points=8)
+                    self.assertEqual(bpy.ops.solid.extrude(distance=2), {'FINISHED'})
+                    obj = bpy.context.object
+                    self.source_select(
+                        'FACE', lambda face: all(abs(v.co.z - end) < 1e-5 for v in face.verts))
+                    self.assertEqual(bpy.ops.solid.bevel(offset=1.2, segments=segments),
+                                     {'FINISHED'})
+                    bpy.ops.object.mode_set(mode='OBJECT')
+
+                    # Widths past the cylinder radius clamp at the exact pointed limit. The cap
+                    # uses triangular conic sectors sharing one apex and remains watertight.
+                    apexes = [v.co for v in obj.data.vertices
+                              if abs(v.co.x) < 1e-5 and abs(v.co.y) < 1e-5 and
+                              abs(v.co.z - end) < 1e-5]
+                    self.assertEqual(len(apexes), 1)
+                    self.assertGreater(self.volume(obj), 0)
+                    if end == 2.0 and segments == 4:
+                        with tempfile.TemporaryDirectory() as directory:
+                            path = os.path.join(directory, 'pointed-cap.blend')
+                            bpy.ops.wm.save_as_mainfile(filepath=path)
+                            bpy.ops.wm.open_mainfile(filepath=path)
+                        obj = bpy.context.object
+                        self.assertTrue(obj.data.is_solid_model)
+                        self.assertEqual(sum(abs(v.co.x) < 1e-5 and abs(v.co.y) < 1e-5 and
+                                             abs(v.co.z - end) < 1e-5
+                                             for v in obj.data.vertices), 1)
+                        self.assertGreater(self.volume(obj), 0)
+
     def test_fill_caps_extruded_loop_on_solid(self):
         bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
         self.assertEqual(bpy.ops.solid.extrude(offset=(0, 0, 2)), {'FINISHED'})

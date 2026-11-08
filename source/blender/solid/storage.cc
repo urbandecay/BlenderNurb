@@ -92,7 +92,7 @@ std::vector<uint8_t> encode(const Model &m, const Selection &input_selection)
   const Selection selection = normalize_selection(m, input_selection);
   Writer out;
   out.integer(magic);
-  out.integer(5);
+  out.integer(6);
   out.integer(m.next_id);
   out.sequence(m.vertices, [&](const Vertex &v) {
     out.integer(v.id);
@@ -167,7 +167,7 @@ std::optional<EditResult> decode(const uint8_t *data, size_t size, std::string *
     if (in.integer() != magic)
       throw std::runtime_error("Unsupported analytic source version");
     const uint64_t version = in.integer();
-    if (version < 1 || version > 5)
+    if (version < 1 || version > 6)
       throw std::runtime_error("Unsupported analytic source version");
     EditResult result;
     auto &m = result.model;
@@ -206,7 +206,8 @@ std::optional<EditResult> decode(const uint8_t *data, size_t size, std::string *
       Surface s;
       s.id = in.integer();
       const auto kind = in.integer();
-      if (kind > 5 || (version < 5 && kind > 4) || (version < 4 && kind > 3) ||
+      if (kind > 6 || (version < 6 && kind > 5) || (version < 5 && kind > 4) ||
+          (version < 4 && kind > 3) ||
           (version < 3 && kind > 2) || (version == 1 && kind > 1))
         throw std::runtime_error("Unsupported analytic surface type");
       s.kind = SurfaceKind(kind);

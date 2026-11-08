@@ -530,7 +530,8 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
   for (const Edge &e : out.edges)
     used_curves.insert(e.curve);
   for (const Surface &s : out.surfaces) {
-    if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled)
+    if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled ||
+        s.kind == SurfaceKind::Cone)
       used_curves.insert(s.curve);
     if (s.kind == SurfaceKind::Ruled)
       used_curves.insert(s.other_curve);

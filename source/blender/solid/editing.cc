@@ -88,7 +88,8 @@ void compact_supports(Model &m)
     surfaces.insert(f.surface);
   std::erase_if(m.surfaces, [&](const Surface &s) { return !surfaces.contains(s.id); });
   for (const Surface &s : m.surfaces)
-    if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled)
+    if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled ||
+        s.kind == SurfaceKind::Cone)
       curves.insert(s.curve);
   for (const Surface &s : m.surfaces)
     if (s.kind == SurfaceKind::Ruled)
@@ -311,7 +312,8 @@ std::optional<EditResult> duplicate_elements(const Model &model,
       surfaces.insert(f.surface);
   for (const Surface &s : model.surfaces)
     if (surfaces.contains(s.id) &&
-        (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled))
+        (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled ||
+         s.kind == SurfaceKind::Cone))
       curves.insert(s.curve);
   for (const Surface &s : model.surfaces)
     if (surfaces.contains(s.id) && s.kind == SurfaceKind::Ruled)
@@ -356,7 +358,8 @@ std::optional<EditResult> duplicate_elements(const Model &model,
   for (Surface s : model.surfaces)
     if (surfaces.contains(s.id)) {
       s.id = ids.at(s.id);
-      if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled)
+      if (s.kind == SurfaceKind::Extrusion || s.kind == SurfaceKind::Ruled ||
+          s.kind == SurfaceKind::Cone)
         s.curve = ids.at(s.curve);
       if (s.kind == SurfaceKind::Ruled)
         s.other_curve = ids.at(s.other_curve);

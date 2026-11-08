@@ -769,6 +769,23 @@ static void ensure_native_centers(bContext *C, DrawData &data, const eSnapMode m
                                    SCE_SNAP_TO_FACE_MIDPOINT});
               continue;
             }
+            if (surface.kind == solid::SurfaceKind::Cone) {
+              const auto &curve = *solid::curve(*source->model, surface.curve);
+              const double t = (surface.start + surface.end) / 2;
+              const auto base = solid::evaluate(curve, t);
+              const auto center = (base + surface.origin) * 0.5;
+              const auto tangent = math::transform_direction(transform,
+                                                             host_point(solid::tangent(curve, t)));
+              const auto generator = math::transform_direction(
+                  transform, host_point(surface.origin - base));
+              const auto normal = math::normalize(math::cross(tangent, generator)) *
+                                  face.orientation;
+              data.centers.append({object,
+                                   math::transform_point(transform, host_point(center)),
+                                   float3(normal),
+                                   SCE_SNAP_TO_FACE_MIDPOINT});
+              continue;
+            }
             const double3 reference = math::normalize(
                 math::cross(math::transform_direction(transform, host_point(surface.u)),
                             math::transform_direction(transform, host_point(surface.v))));

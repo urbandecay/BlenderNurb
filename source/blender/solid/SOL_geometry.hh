@@ -71,9 +71,10 @@ struct Coedge {
   bool reversed = false;
 };
 
-enum class SurfaceKind : uint8_t { Plane, Extrusion, Sphere, Cylinder, Blend, Ruled };
+enum class SurfaceKind : uint8_t { Plane, Extrusion, Sphere, Cylinder, Blend, Ruled, Cone };
 
-/** Plane: origin + u*s + v*t. Extrusion: curve(start + (end-start)*s) + u*t. */
+/** Plane: origin + u*s + v*t. Extrusion: curve(start + (end-start)*s) + u*t.
+ * Cone: apex at origin, linearly ruled to the trimmed conic base. */
 struct Surface {
   Id id = 0;
   SurfaceKind kind = SurfaceKind::Plane;
@@ -123,6 +124,8 @@ Vec3 tangent(const Curve &curve, double parameter);
 Vec3 evaluate_blend(const Surface &surface, double theta, double v);
 Vec3 blend_theta_tangent(const Surface &surface, double theta, double v);
 Vec3 blend_v_direction(const Surface &surface, double v);
+Vec3 evaluate_cone(const Surface &surface, const Curve &base, double theta, double v);
+Vec3 cone_normal(const Surface &surface, const Curve &base, double theta);
 Vec3 evaluate_ruled(
     const Surface &surface, const Curve &first, const Curve &last, double u, double v);
 Vec3 ruled_normal(

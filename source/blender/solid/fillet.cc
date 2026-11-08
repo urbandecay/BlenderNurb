@@ -181,10 +181,15 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
       *error = body_error;
     return {};
   }
-  if (width >= std::min(radius_u, radius_v) - eps)
-    return reject("Fillet width must be smaller than the cylinder radius");
-  if (width >= length(sweep) - eps)
+  const double radius = (radius_u + radius_v) * .5;
+  const double height = length(sweep);
+  const bool apex_limit = radius + eps < height;
+  const bool collapse_to_apex = apex_limit && width >= radius - eps;
+  if (!apex_limit && width >= height - eps)
     return reject("Fillet width must be smaller than the cylinder height");
+  if (!collapse_to_apex && width >= radius - eps)
+    return reject("Fillet width must be smaller than the cylinder radius");
+  const double fillet_width = collapse_to_apex ? radius : width;
 
   std::unordered_set<Id> rail_edges;
   for (const auto &item : walls) {
@@ -217,13 +222,15 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
   std::vector<Id> station_curves(steps + 1);
   const Curve source_ring = ring;
   for (int i = 0; i <= steps; ++i) {
+    if (collapse_to_apex && i == steps)
+      continue;
     const double angle = (std::numbers::pi * .5) * double(i) / steps;
-    const double radius = radius_u - width + width * std::cos(angle);
-    const double inset = width * (1 - std::sin(angle));
+    const double station_radius = radius_u - fillet_width + fillet_width * std::cos(angle);
+    const double inset = fillet_width * (1 - std::sin(angle));
     Curve station = source_ring;
     station.origin = source_ring.origin + inward * inset;
-    station.u = source_ring.u * (radius / radius_u);
-    station.v = source_ring.v * (radius / radius_u);
+    station.u = source_ring.u * (station_radius / radius_u);
+    station.v = source_ring.v * (station_radius / radius_u);
     if (i == 0) {
       station.id = source_ring.id;
       station_curves[i] = station.id;
@@ -240,9 +247,18 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
 
   std::vector<std::map<Id, Id>> station_vertices(steps + 1);
   std::vector<std::map<Id, Id>> station_edges(steps + 1);
+  Id apex_vertex = 0;
   for (Id v : ring_vertices) {
     const Vec3 radial = vertex(model, v)->position - source_ring.origin;
     for (int i = 0; i <= steps; ++i) {
+      if (collapse_to_apex && i == steps) {
+        if (!apex_vertex) {
+          apex_vertex = out.next_id++;
+          out.vertices.push_back({apex_vertex, source_ring.origin});
+        }
+        station_vertices[i][v] = apex_vertex;
+        continue;
+      }
       const Curve &station = *curve(out, station_curves[i]);
       const double factor = length(station.u) / radius_u;
       const double inset = dot(station.origin - source_ring.origin, inward);
@@ -269,6 +285,8 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
     });
     base->curve = station_curves[0];
     for (int i = 1; i <= steps; ++i) {
+      if (collapse_to_apex && i == steps)
+        break;
       const Id id = out.next_id++;
       out.edges.push_back({id,
                            station_curves[i],
@@ -279,11 +297,16 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
       station_edges[i][source.id] = id;
     }
   }
-  Face *out_cap = &*std::find_if(out.faces.begin(), out.faces.end(), [&](const Face &f) {
-    return f.id == cap.id;
-  });
-  for (Coedge &use : out_cap->outer)
-    use.edge = station_edges[steps].at(use.edge);
+  if (collapse_to_apex) {
+    std::erase_if(out.faces, [&](const Face &f) { return f.id == cap.id; });
+  }
+  else {
+    Face *out_cap = &*std::find_if(out.faces.begin(), out.faces.end(), [&](const Face &f) {
+      return f.id == cap.id;
+    });
+    for (Coedge &use : out_cap->outer)
+      use.edge = station_edges[steps].at(use.edge);
+  }
 
   for (const auto &item : walls) {
     const AdjacentWall &adjacent = item.second;
@@ -294,7 +317,7 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
                                            [&](const Surface &s) {
                                              return s.id == wall->surface;
                                            });
-    wall_surface->u = wall_surface->u + inward * (top_end ? width : -width);
+    wall_surface->u = wall_surface->u + inward * (top_end ? fillet_width : -fillet_width);
   }
   for (Id id : rail_edges) {
     Edge *rail = &*std::find_if(out.edges.begin(), out.edges.end(), [&](const Edge &e) {
@@ -339,18 +362,29 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
       const Edge &source = *edge(model, cap_use.edge);
       Surface support;
       support.id = out.next_id++;
-      support.kind = SurfaceKind::Ruled;
       support.curve = station_curves[i];
-      support.other_curve = station_curves[i + 1];
       support.start = source.start;
       support.end = source.end;
       const double parameter = (source.start + source.end) * .5;
-      const Vec3 point = evaluate_ruled(
-          support, *curve(out, support.curve), *curve(out, support.other_curve), parameter, .5);
+      const bool cone_end = collapse_to_apex && i == steps - 1;
+      Vec3 point, raw_normal;
+      if (cone_end) {
+        support.kind = SurfaceKind::Cone;
+        support.origin = vertex(out, apex_vertex)->position;
+        const Curve &base = *curve(out, support.curve);
+        point = evaluate(base, parameter);
+        raw_normal = cross(tangent(base, parameter), support.origin - point);
+      }
+      else {
+        support.kind = SurfaceKind::Ruled;
+        support.other_curve = station_curves[i + 1];
+        point = evaluate_ruled(
+            support, *curve(out, support.curve), *curve(out, support.other_curve), parameter, .5);
+        raw_normal = ruled_normal(
+            support, *curve(out, support.curve), *curve(out, support.other_curve), parameter, .5);
+      }
       const Vec3 axial = inward * dot(point - source_ring.origin, inward);
       const Vec3 radial = point - source_ring.origin - axial;
-      const Vec3 raw_normal = ruled_normal(
-          support, *curve(out, support.curve), *curve(out, support.other_curve), parameter, .5);
       if (!(length(raw_normal) > eps) || !(length(radial) > eps))
         return reject("Fillet generated a degenerate circular strip");
       int orientation = dot(raw_normal, radial / length(radial) + cap_normal) > 0 ? 1 : -1;
@@ -363,14 +397,22 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
         orientation = -orientation;
       }
       const Id lower = station_edges[i].at(source.id);
-      const Id upper = station_edges[i + 1].at(source.id);
       const Id rail_start = rails.at({i, source.vertices[0]});
       const Id rail_end = rails.at({i, source.vertices[1]});
       std::vector<Coedge> loop;
-      if (!first_reversed)
-        loop = {{lower, false}, {rail_end, false}, {upper, true}, {rail_start, true}};
-      else
-        loop = {{lower, true}, {rail_start, false}, {upper, false}, {rail_end, true}};
+      if (cone_end) {
+        if (!first_reversed)
+          loop = {{lower, false}, {rail_end, false}, {rail_start, true}};
+        else
+          loop = {{lower, true}, {rail_start, false}, {rail_end, true}};
+      }
+      else {
+        const Id upper = station_edges[i + 1].at(source.id);
+        if (!first_reversed)
+          loop = {{lower, false}, {rail_end, false}, {upper, true}, {rail_start, true}};
+        else
+          loop = {{lower, true}, {rail_start, false}, {upper, false}, {rail_end, true}};
+      }
       const Id surface_id = support.id;
       const Id face_id = out.next_id++;
       out.surfaces.push_back(support);
@@ -390,7 +432,8 @@ std::optional<EditResult> fillet_circular_cap(const Model &model,
   else if (selection.mode == 2)
     result.selection.active = result.selection.edges.front();
   result.selection = normalize_selection(out, std::move(result.selection));
-  if (!validate_body(out, cap.id, error))
+  const Id seed_face = walls.begin()->second.face;
+  if (!validate_body(out, seed_face, error))
     return {};
   return result;
 }
