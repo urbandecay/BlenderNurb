@@ -18,6 +18,14 @@ bl_file_extensions_image_and_movie = ";".join((
 ))
 
 
+def _extrude_analytic_solid_if_needed(context):
+    """Route legacy Edit Mesh extrusion shortcuts through the analytic Solid tool."""
+    ob = context.object
+    if ob and ob.type == 'MESH' and ob.data.is_solid_model:
+        return bpy.ops.solid.extrude('INVOKE_REGION_WIN')
+    return None
+
+
 class VIEW3D_OT_edit_mesh_extrude_individual_move(Operator):
     """Extrude each individual face separately along local normals"""
     bl_label = "Extrude Individual and Move"
@@ -28,6 +36,10 @@ class VIEW3D_OT_edit_mesh_extrude_individual_move(Operator):
         return context.mode == 'EDIT_MESH'
 
     def execute(self, context):
+        solid_result = _extrude_analytic_solid_if_needed(context)
+        if solid_result is not None:
+            return solid_result
+
         from bpy_extras.object_utils import object_report_if_active_shape_key_is_locked
 
         ob = context.object
@@ -104,6 +116,10 @@ class VIEW3D_OT_edit_mesh_extrude_move(Operator):
             return {'CANCELLED'}
 
         mesh = ob.data
+
+        solid_result = _extrude_analytic_solid_if_needed(context)
+        if solid_result is not None:
+            return solid_result
 
         totface = mesh.total_face_sel
         totedge = mesh.total_edge_sel
@@ -196,6 +212,10 @@ class VIEW3D_OT_edit_mesh_extrude_manifold_normal(Operator):
         return context.mode == 'EDIT_MESH'
 
     def execute(self, context):
+        solid_result = _extrude_analytic_solid_if_needed(context)
+        if solid_result is not None:
+            return solid_result
+
         from bpy_extras.object_utils import object_report_if_active_shape_key_is_locked
 
         if object_report_if_active_shape_key_is_locked(context.object, self):

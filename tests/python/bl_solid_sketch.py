@@ -14,6 +14,28 @@ import bpy
 
 
 class SolidSketchTest(unittest.TestCase):
+    def test_legacy_view3d_extrusion_operators_dispatch_to_analytic_solids(self):
+        operators = (
+            bpy.ops.view3d.edit_mesh_extrude_individual_move,
+            bpy.ops.view3d.edit_mesh_extrude_move_normal,
+            bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten,
+            bpy.ops.view3d.edit_mesh_extrude_manifold_normal,
+        )
+        for operator in operators:
+            with self.subTest(operator=operator.idname()):
+                self.setUp()
+                bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+                obj = bpy.context.object
+                self.assertEqual(bpy.ops.solid.extrude(distance=2), {'FINISHED'})
+                self.source_select('FACE', lambda face: all(abs(v.co.z - 2) < 1e-5
+                                                              for v in face.verts))
+                before = obj.data.solid_faces_count
+
+                self.assertEqual(operator(), {'FINISHED'})
+                self.assertGreater(obj.data.solid_faces_count, before)
+                self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode),
+                                 (False, False, True))
+
     def test_arbitrary_rotation_preserves_world_geometry_and_resize(self):
         from mathutils import Matrix, Vector
 
