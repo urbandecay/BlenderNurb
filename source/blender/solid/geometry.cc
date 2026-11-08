@@ -905,6 +905,9 @@ std::optional<Profile> prepare_profile(const Model &source,
   }
   out.normal = area / length(area);
   const double tolerance = 256 * std::numeric_limits<double>::epsilon() * std::max(1.0, scale);
+  int boundary_orientation = 0;
+  int attached_edges = 0;
+  int independent_edges = 0;
   for (const auto &use : boundary) {
     const auto &c = *index.curves.at(index.edges.at(use.edge)->curve);
     const Vec3 u = c.kind == CurveKind::RationalQuadratic ? c.u - origin : c.u;
@@ -917,16 +920,34 @@ std::optional<Profile> prepare_profile(const Model &source,
       fail(error, "Solid extrusion requires coplanar analytic sketch curves");
       return {};
     }
+    int incident_faces = 0;
     for (const auto &f : source.faces) {
       for (const auto *loop : loops(f)) {
         for (const auto &item : *loop) {
           if (item.edge == use.edge) {
-            fail(error, "Select a body face or an independent sketch");
-            return {};
+            if (++incident_faces > 1) {
+              fail(error, "Fill can only cap an open face boundary, not an interior edge loop");
+              return {};
+            }
+            const int required_orientation =
+                -f.orientation * (item.reversed ? -1 : 1) * (use.reversed ? -1 : 1);
+            if (boundary_orientation && boundary_orientation != required_orientation) {
+              fail(error, "The open boundary does not have a consistent face orientation");
+              return {};
+            }
+            boundary_orientation = required_orientation;
           }
         }
       }
     }
+    if (incident_faces)
+      attached_edges++;
+    else
+      independent_edges++;
+  }
+  if (attached_edges && independent_edges) {
+    fail(error, "Fill needs a complete open face boundary or an independent sketch");
+    return {};
   }
   /* Straight boundaries have an analytic intersection test. Reject crossed or retraced
    * strokes before constructing a face; sampled viewport wires are not a validity test. */
@@ -976,7 +997,8 @@ std::optional<Profile> prepare_profile(const Model &source,
   const Id plane = out.model.next_id++;
   out.face = out.model.next_id++;
   out.model.surfaces.push_back({plane, SurfaceKind::Plane, origin, u, v, 0});
-  out.model.faces.push_back({out.face, plane, std::move(boundary), {}, 1});
+  out.model.faces.push_back(
+      {out.face, plane, std::move(boundary), {}, boundary_orientation ? boundary_orientation : 1});
   return out;
 }
 

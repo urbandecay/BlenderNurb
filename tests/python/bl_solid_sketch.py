@@ -424,6 +424,17 @@ class SolidSketchTest(unittest.TestCase):
                             self.assertGreater(result_volume, 5.5)
                             self.assertLess(result_volume, 2 * math.pi)
 
+    def test_fill_caps_extruded_loop_on_solid(self):
+        bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+        self.assertEqual(bpy.ops.solid.extrude(offset=(0, 0, 2)), {'FINISHED'})
+        obj = bpy.context.object
+        self.assertEqual(bpy.ops.solid.fill(), {'FINISHED'})
+        self.source_select('EDGE', lambda edge: all(abs(v.co.z) < 1e-5 for v in edge.verts))
+        self.assertEqual(bpy.ops.solid.fill(), {'FINISHED'})
+        self.assertEqual(obj.data.solid_faces_count, 3)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.assertAlmostEqual(self.volume(obj), math.pi * 2, delta=.5)
+
     def test_drawn_closed_profile_and_reopen(self):
         bpy.ops.solid.sketch_add(type='EMPTY')
         self.assertEqual(bpy.ops.curve.draw_line(points='0 0 0 2 0 0 2 3 0 0 3 0 0 0 0'), {'FINISHED'})

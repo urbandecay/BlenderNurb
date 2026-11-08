@@ -1569,7 +1569,7 @@ void SOLID_OT_fill(wmOperatorType *ot)
 {
   ot->name = "Fill Solid Sketch";
   ot->idname = "SOLID_OT_fill";
-  ot->description = "Fill one closed planar sketch with an exact plane and its original curves";
+  ot->description = "Fill a closed planar sketch or cap an open planar face boundary";
   ot->exec = fill_exec;
   ot->poll = solid_edit_poll;
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
