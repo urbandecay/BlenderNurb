@@ -53,7 +53,8 @@ std::optional<EditResult> fillet_vertices(const Model &model,
                                           double width,
                                           int subdivisions,
                                           std::string *error,
-                                          std::string *warning)
+                                          std::string *warning,
+                                          CornerTopology corner_topology)
 {
   auto reject = [&](const char *message) -> std::optional<EditResult> {
     if (error)
@@ -461,28 +462,47 @@ std::optional<EditResult> fillet_vertices(const Model &model,
 
   for (auto &[vertex_id, patch] : patches) {
     auto node = [&](int i, int j) -> const PatchNode & { return patch.nodes.at({i, j}); };
-    auto triangle = [&](const PatchNode &a, const PatchNode &b, const PatchNode &c) {
-      const Coedge ab = add_patch_edge(patch, a, b), bc = add_patch_edge(patch, b, c),
-                   ca = add_patch_edge(patch, c, a);
-      if (!ab.edge || !bc.edge || !ca.edge)
-        return false;
-      const Id face_id = out.next_id++;
-      out.faces.push_back({face_id, patch.surface, {ab, bc, ca}, {}, patch.face_orientation});
-      return true;
-    };
-    for (int i = 0; i < subdivisions; ++i) {
-      for (int j = 0; j < subdivisions - i; ++j) {
-        if (!triangle(node(i, j), node(i + 1, j), node(i, j + 1)))
-          return reject("Vertex fillet generated a degenerate spherical patch");
-        if (i + j + 1 < subdivisions &&
-            !triangle(node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)))
-          return reject("Vertex fillet generated a degenerate spherical patch");
+    std::optional<PatchNode> center_node;
+    auto corner_node = [&](const CornerPatchCoordinate coordinate) -> PatchNode {
+      if (coordinate.first >= 0)
+        return node(coordinate.first, coordinate.second);
+      if (!center_node) {
+        const Vec3 q = Vec3{1, 1, 1} / std::sqrt(3.0);
+        center_node = PatchNode{
+            add_point(patch.origin + patch.axes[0] * q.x + patch.axes[1] * q.y +
+                      patch.axes[2] * q.z),
+            q};
       }
+      return *center_node;
+    };
+    for (const CornerPatchFace &corners : corner_patch_faces(subdivisions, corner_topology)) {
+      std::vector<PatchNode> loop;
+      loop.reserve(corners.size());
+      for (const CornerPatchCoordinate &coordinate : corners)
+        loop.push_back(corner_node(coordinate));
+      std::vector<Coedge> boundary;
+      boundary.reserve(loop.size());
+      for (size_t i = 0; i < loop.size(); ++i) {
+        const Coedge use = add_patch_edge(patch, loop[i], loop[(i + 1) % loop.size()]);
+        if (!use.edge)
+          return reject("Vertex fillet generated a degenerate spherical patch");
+        boundary.push_back(use);
+      }
+      const Id face_id = out.next_id++;
+      out.faces.push_back(
+          {face_id, patch.surface, std::move(boundary), {}, patch.face_orientation});
     }
     (void)vertex_id;
   }
 
   std::erase_if(out.vertices, [&](const Vertex &v) { return processed.contains(v.id); });
+  std::set<Id> used_vertices;
+  for (const Edge &e : out.edges)
+    used_vertices.insert(e.vertices.begin(), e.vertices.end());
+  std::erase_if(out.vertices, [&](const Vertex &v) {
+    return generated_vertices.contains(v.id) && !used_vertices.contains(v.id);
+  });
+  std::erase_if(generated_vertices, [&](const Id id) { return !used_vertices.contains(id); });
   std::set<Id> used_surfaces, used_curves;
   for (const Face &f : out.faces)
     used_surfaces.insert(f.surface);

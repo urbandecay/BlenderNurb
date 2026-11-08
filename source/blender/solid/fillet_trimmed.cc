@@ -50,6 +50,7 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
                                                const std::map<Id, std::vector<Id>> &vertex_faces,
                                                double width,
                                                int divisions,
+                                               CornerTopology corner_topology,
                                                double eps,
                                                std::string *error)
 {
@@ -248,12 +249,14 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
   width = std::min(width, limit * (1 - 1e-9));
   EditResult result{model, {}};
   Model &out = result.model;
+  std::set<Id> generated_vertices;
   std::erase_if(out.faces, [&](const Face &f) { return normals.contains(f.id); });
   std::erase_if(out.edges, [&](const Edge &e) { return body_edges.contains(e.id); });
   std::erase_if(out.vertices, [&](const Vertex &v) { return affected.contains(v.id); });
   auto point = [&](Vec3 p) {
     const Id id = out.next_id++;
     out.vertices.push_back({id, p});
+    generated_vertices.insert(id);
     return id;
   };
   for (Station &s : stations)
@@ -499,7 +502,29 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
                             mapped(perpendicular) - o.center});
       return boundary(a.vertex, b.vertex, c, 0, angle);
     };
-    auto triangle = [&](Node a, Node b, Node c) {
+    std::optional<Node> center_node;
+    auto corner_node = [&](const CornerPatchCoordinate coordinate) -> Node {
+      if (coordinate.first >= 0)
+        return grid(coordinate.first, coordinate.second);
+      if (!center_node) {
+        const Vec3 q = unit({1, 1, 1});
+        center_node = Node{point(mapped(q)), q};
+      }
+      return *center_node;
+    };
+    for (const CornerPatchFace &corners : corner_patch_faces(divisions, corner_topology)) {
+      std::vector<Node> loop;
+      loop.reserve(corners.size());
+      for (const CornerPatchCoordinate &coordinate : corners)
+        loop.push_back(corner_node(coordinate));
+      std::vector<Coedge> boundary;
+      boundary.reserve(loop.size());
+      for (size_t i = 0; i < loop.size(); ++i) {
+        const Coedge use = arc(loop[i], loop[(i + 1) % loop.size()]);
+        if (!use.edge)
+          return reject("Rounded bevel generated a degenerate corner patch");
+        boundary.push_back(use);
+      }
       Surface s;
       s.id = out.next_id++;
       s.kind = SurfaceKind::Sphere;
@@ -511,17 +536,11 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       out.surfaces.push_back(s);
       out.faces.push_back({f,
                            s.id,
-                           {arc(a, b), arc(b, c), arc(c, a)},
+                           std::move(boundary),
                            {},
                            dot(s.u, cross(s.v, s.w)) > 0 ? 1 : -1});
       result.selection.faces.push_back(f);
-    };
-    for (int i = 0; i < divisions; ++i)
-      for (int j = 0; j < divisions - i; ++j) {
-        triangle(grid(i, j), grid(i + 1, j), grid(i, j + 1));
-        if (i + j + 1 < divisions)
-          triangle(grid(i + 1, j), grid(i + 1, j + 1), grid(i, j + 1));
-      }
+    }
   }
   std::set<Id> used_surfaces, used_curves;
   for (const Face &f : out.faces)
@@ -537,6 +556,12 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       used_curves.insert(s.other_curve);
   }
   std::erase_if(out.curves, [&](const Curve &c) { return !used_curves.contains(c.id); });
+  std::set<Id> used_vertices;
+  for (const Edge &e : out.edges)
+    used_vertices.insert(e.vertices.begin(), e.vertices.end());
+  std::erase_if(out.vertices, [&](const Vertex &v) {
+    return generated_vertices.contains(v.id) && !used_vertices.contains(v.id);
+  });
   result.selection.active = result.selection.faces.front();
   result.selection = normalize_selection(out, std::move(result.selection));
   if (!validate_body(out, result.selection.active, error))

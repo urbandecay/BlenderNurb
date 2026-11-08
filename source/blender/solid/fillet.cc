@@ -532,7 +532,8 @@ std::optional<EditResult> fillet(
     int subdivisions,
     std::string *error,
     bool vertices_only,
-    std::string *warning)
+    std::string *warning,
+    CornerTopology corner_topology)
 {
   auto reject = [&](const char *message) -> std::optional<EditResult> {
     if (error)
@@ -554,7 +555,8 @@ std::optional<EditResult> fillet(
       return circular_cap;
   }
   if (vertices_only || selection.mode == 1)
-    return fillet_vertices(model, std::move(selection), width, subdivisions, error, warning);
+    return fillet_vertices(
+        model, std::move(selection), width, subdivisions, error, warning, corner_topology);
   if (selection.edges.empty())
     return reject("Select the edges of a closed convex planar body to fillet");
   std::map<Id, std::vector<Id>> uses;
@@ -655,7 +657,15 @@ std::optional<EditResult> fillet(
       if (dot(vertex(model, v)->position - origin, normals[id]) > eps)
         return reject("Fillet currently supports convex bodies at the selected edge");
   }
-  return fillet_trimmed_edges(
-      model, selection, normals, uses, vertex_faces, width, subdivisions, eps, error);
+  return fillet_trimmed_edges(model,
+                              selection,
+                              normals,
+                              uses,
+                              vertex_faces,
+                              width,
+                              subdivisions,
+                              corner_topology,
+                              eps,
+                              error);
 }
 }  // namespace blender::solid

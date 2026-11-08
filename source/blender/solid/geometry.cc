@@ -637,7 +637,8 @@ static bool validate_impl(const Model &m, std::string *error, const Model *trust
     }
     else if (support.kind == SurfaceKind::Sphere || support.kind == SurfaceKind::Cylinder) {
       const bool cylinder = support.kind == SurfaceKind::Cylinder;
-      if (f.outer.size() != (cylinder ? 4 : 3) || !f.holes.empty())
+      if ((cylinder && f.outer.size() != 4) ||
+          (!cylinder && f.outer.size() != 3 && f.outer.size() != 4) || !f.holes.empty())
         goto invalid;
       if (cylinder) {
         const Edge &a = *index.edges.at(f.outer[0].edge), &b = *index.edges.at(f.outer[2].edge);

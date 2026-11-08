@@ -77,7 +77,8 @@ class SolidSketchTest(unittest.TestCase):
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_mode(type='EDGE')
         bpy.ops.mesh.select_all(action='SELECT')
-        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=4), {'FINISHED'})
+        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=4,
+                                             corner_topology='TRIANGLES'), {'FINISHED'})
         bpy.ops.mesh.select_mode(type='VERT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -120,7 +121,7 @@ class SolidSketchTest(unittest.TestCase):
         bpy.ops.solid.extrude(distance=2)
         bpy.ops.mesh.select_mode(type='EDGE')
         bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.solid.bevel(offset=.2, segments=4)
+        bpy.ops.solid.bevel(offset=.2, segments=4, corner_topology='TRIANGLES')
         bpy.ops.object.mode_set(mode='OBJECT')
         topology = (len(obj.data.vertices), len(obj.data.polygons), obj.data.solid_faces_count)
         smooth = [n.vector.copy() for n in obj.data.corner_normals]
@@ -188,7 +189,9 @@ class SolidSketchTest(unittest.TestCase):
             bpy.ops.solid.extrude(distance=2)
             bpy.ops.mesh.select_mode(type='EDGE')
             bpy.ops.mesh.select_all(action='SELECT')
-            self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=segments), {'FINISHED'})
+            self.assertEqual(bpy.ops.solid.bevel(offset=.2,
+                                                 segments=segments,
+                                                 corner_topology='TRIANGLES'), {'FINISHED'})
             self.assertEqual(obj.data.solid_faces_count, expected_source_faces)
             bm = bmesh.from_edit_mesh(obj.data)
             self.assertEqual(len(bm.verts), expected_display_vertices)
@@ -212,7 +215,8 @@ class SolidSketchTest(unittest.TestCase):
         bpy.ops.solid.extrude(distance=2)
         bpy.ops.mesh.select_mode(type='EDGE')
         bpy.ops.mesh.select_all(action='SELECT')
-        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=20), {'FINISHED'})
+        self.assertEqual(bpy.ops.solid.bevel(offset=.2, segments=20,
+                                             corner_topology='TRIANGLES'), {'FINISHED'})
         self.assertEqual(len(obj.data.polygons), 3446)
         bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -724,6 +728,32 @@ class SolidSketchTest(unittest.TestCase):
             obj = bpy.data.objects[name]
             self.assertTrue(obj.data.is_solid_model)
             self.assertAlmostEqual(self.volume(obj), before, places=6)
+
+    def test_bevel_corner_topology_quads_and_triangles(self):
+        properties = bpy.ops.solid.bevel.get_rna_type().properties
+        prop = properties.get('corner_topology')
+        self.assertIsNotNone(prop)
+        self.assertEqual(prop.default, 'QUADS')
+        self.assertNotIn('corner_style', properties)
+
+        for mode in ('EDGE', 'VERT'):
+            for segments in (3, 4):
+                with self.subTest(mode=mode, segments=segments):
+                    face_counts = {}
+                    for topology in ('QUADS', 'TRIANGLES'):
+                        self.setUp()
+                        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+                        bpy.ops.solid.extrude(distance=2)
+                        self.source_select(mode, lambda element: True)
+                        result = bpy.ops.solid.bevel(offset=.15,
+                                                     segments=segments,
+                                                     corner_topology=topology,
+                                                     vertices_only=(mode == 'VERT'))
+                        self.assertEqual(result, {'FINISHED'})
+                        obj = bpy.context.object
+                        self.assertTrue(obj.data.is_solid_model)
+                        face_counts[topology] = obj.data.solid_faces_count
+                    self.assertLess(face_counts['QUADS'], face_counts['TRIANGLES'])
 
     def test_vertex_bevel_and_delete(self):
         bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)

@@ -770,15 +770,22 @@ static std::optional<solid::EditResult> bevel_result(const solid::Model &model,
                                                      double width,
                                                      bool vertices_only,
                                                      std::string *error,
-                                                     solid::BevelCornerStyle corner_style,
                                                      int subdivisions,
+                                                     solid::CornerTopology corner_topology,
                                                      std::string *warning = nullptr)
 {
   if (subdivisions > 0) {
     return solid::fillet(
-        model, std::move(selection), width, subdivisions, error, vertices_only, warning);
+        model,
+        std::move(selection),
+        width,
+        subdivisions,
+        error,
+        vertices_only,
+        warning,
+        corner_topology);
   }
-  return solid::chamfer(model, std::move(selection), width, vertices_only, error, corner_style);
+  return solid::chamfer(model, std::move(selection), width, vertices_only, error);
 }
 
 static wmOperatorStatus sketch_add_exec(bContext *C, wmOperator *op)
@@ -1040,8 +1047,8 @@ struct ExtrudeModal {
   bool bevel = false;
   bool vertices_only = false;
   int selection_mode = 1;
-  solid::BevelCornerStyle corner_style = solid::BevelCornerStyle::Sharp;
   int subdivisions = 0;
+  solid::CornerTopology corner_topology = solid::CornerTopology::Quads;
   int axis = -1;
   solid::Vec3 offset;
   float depth = 1;
@@ -1109,8 +1116,8 @@ static void update(bContext *C, wmOperator *op)
                           std::abs(data.distance),
                           data.vertices_only,
                           &data.error,
-                          data.corner_style,
-                          data.subdivisions);
+                          data.subdivisions,
+                          data.corner_topology);
   }
   else if (data.elements) {
     result = solid::extrude_elements(*source.model, source.selection, data.offset, &data.error);
@@ -1479,7 +1486,8 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
                                            std::chrono::steady_clock::time_point{};
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
-  const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
+  const auto corner_topology = solid::CornerTopology(
+      RNA_enum_get(op->ptr, "corner_topology"));
   std::string warning;
   const auto kernel_start = profile_bevel ? std::chrono::steady_clock::now() :
                                             std::chrono::steady_clock::time_point{};
@@ -1488,8 +1496,8 @@ static wmOperatorStatus bevel_exec(bContext *C, wmOperator *op)
                                        RNA_float_get(op->ptr, "offset"),
                                        vertices_only,
                                        &error,
-                                       corner_style,
                                        RNA_int_get(op->ptr, "segments"),
+                                       corner_topology,
                                        &warning) :
                           std::nullopt;
   const auto kernel_end = profile_bevel ? std::chrono::steady_clock::now() :
@@ -1543,7 +1551,8 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   const auto session_end = std::chrono::steady_clock::now();
   const bool vertices_only = session && (RNA_boolean_get(op->ptr, "vertices_only") ||
                                          session->source().selection.mode == 1);
-  const auto corner_style = solid::BevelCornerStyle(RNA_enum_get(op->ptr, "corner_style"));
+  const auto corner_topology = solid::CornerTopology(
+      RNA_enum_get(op->ptr, "corner_topology"));
   std::string warning;
   const auto kernel_start = std::chrono::steady_clock::now();
   auto check = session ? bevel_result(*session->source().model,
@@ -1551,8 +1560,8 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
                                       RNA_float_get(op->ptr, "offset"),
                                       vertices_only,
                                       &error,
-                                      corner_style,
                                       RNA_int_get(op->ptr, "segments"),
+                                      corner_topology,
                                       &warning) :
                          std::nullopt;
   const auto kernel_end = std::chrono::steady_clock::now();
@@ -1581,7 +1590,7 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   data->preview = std::move(session);
   data->bevel = true;
   data->vertices_only = vertices_only;
-  data->corner_style = corner_style;
+  data->corner_topology = corner_topology;
   data->subdivisions = RNA_int_get(op->ptr, "segments");
   data->region = CTX_wm_region(C);
   float center3d[3];
@@ -1805,16 +1814,16 @@ void SOLID_OT_bevel(wmOperatorType *ot)
               "0: flat chamfer; 1: exact curved fillet; higher values split the curved surfaces",
               0,
               8);
-  static const EnumPropertyItem corner_styles[] = {
-      {0, "SHARP", 0, "Sharp", "Join edge bevels at one point"},
-      {1, "PATCH", 0, "Patch", "Add a flat patch where three or more beveled edges meet"},
+  static const EnumPropertyItem corner_topologies[] = {
+      {0, "QUADS", 0, "Quads", "Use a quad-dominant layout for rounded corner patches"},
+      {1, "TRIANGLES", 0, "Triangles", "Split rounded corner patches into triangles"},
       {0, nullptr, 0, nullptr, nullptr}};
   RNA_def_enum(ot->srna,
-               "corner_style",
-               corner_styles,
+               "corner_topology",
+               corner_topologies,
                0,
-               "Corner Join",
-               "How selected edge bevels meet at a corner");
+               "Corner Topology",
+               "Odd segment counts require one triangle to keep the patch boundary matched");
 }
 void SOLID_OT_delete(wmOperatorType *ot)
 {

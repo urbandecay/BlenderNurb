@@ -165,6 +165,35 @@ class DATA_PT_context_mesh(MeshButtonsPanel, Panel):
             layout.template_ID(space, "pin_id")
 
 
+class DATA_PT_solid_model(MeshButtonsPanel, Panel):
+    bl_label = "Solid"
+    COMPAT_ENGINES = {
+        'BLENDER_RENDER',
+        'BLENDER_EEVEE',
+        'BLENDER_WORKBENCH',
+    }
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and context.mesh.is_solid_model
+
+    def draw(self, context):
+        mesh = context.mesh
+        layout = self.layout
+
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        layout.label(text="Source Topology")
+        layout.prop(mesh, "solid_vertices_count", text="Vertices")
+        layout.prop(mesh, "solid_edges_count", text="Edges")
+        layout.prop(mesh, "solid_faces_count", text="Faces")
+
+        layout.separator()
+        layout.label(
+            text="Exact source is stored separately from the display mesh.", icon='INFO')
+
+
 class DATA_PT_texture_space(MeshButtonsPanel, Panel):
     bl_label = "Texture Space"
     bl_options = {'DEFAULT_CLOSED'}
@@ -721,6 +750,7 @@ classes = (
     MESH_UL_uvmaps,
     MESH_UL_attributes,
     DATA_PT_context_mesh,
+    DATA_PT_solid_model,
     DATA_PT_vertex_groups,
     DATA_PT_shape_keys,
     DATA_PT_uv_texture,

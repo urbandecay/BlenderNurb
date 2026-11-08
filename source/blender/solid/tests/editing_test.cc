@@ -154,8 +154,13 @@ int main()
     int spherical_faces = 0;
     for (const Face &f : rounded->model.faces)
       spherical_faces += surface(rounded->model, f.surface)->kind == SurfaceKind::Sphere;
-    check(spherical_faces == subdivisions * subdivisions,
-          "Vertex fillet must create one spherical patch per subdivision cell");
+    const int expected_corner_faces = subdivisions == 1 ?
+                                          1 :
+                                      subdivisions % 2 == 0 ?
+                                          subdivisions * subdivisions / 2 :
+                                          (3 * subdivisions + 1) / 2;
+    check(spherical_faces == expected_corner_faces,
+          "Vertex fillet must create a quad-dominant spherical patch");
     const auto display = tessellate(rounded->model, 32, &error);
     check(bool(display), error);
     std::map<std::pair<int, int>, int> display_edges;
@@ -453,7 +458,12 @@ int main()
       spheres += s.kind == SurfaceKind::Sphere;
     }
     check(cylinders == 12 * subdivisions, "Fillet must split exact cylinder strips");
-    check(spheres == 8 * subdivisions * subdivisions, "Fillet must split exact sphere corners");
+    const int corner_faces = subdivisions == 1 ?
+                                 1 :
+                             subdivisions % 2 == 0 ?
+                                 subdivisions * subdivisions / 2 :
+                                 (3 * subdivisions + 1) / 2;
+    check(spheres == 8 * corner_faces, "Fillet must create quad-dominant exact sphere corners");
     Model detached = rounded->model;
     for (auto it = detached.surfaces.rbegin(); it != detached.surfaces.rend(); ++it)
       if (it->kind == SurfaceKind::Sphere) {
