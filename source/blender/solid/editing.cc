@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "SOL_geometry.hh"
+#include "extrusion.hh"
 #include "fillet_intern.hh"
 #include "id_index.hh"
 
@@ -409,11 +410,22 @@ bool refit_linear_faces(Model &m, std::string *error)
   return install_polygons(m, replaced, polygons, false, error);
 }
 
+struct FaceRegionExtrusionMaps {
+  std::vector<std::pair<Id, Id>> vertices;
+  std::vector<std::pair<Id, Id>> curves;
+  std::vector<std::pair<Id, Id>> surfaces;
+  std::vector<std::pair<Id, Id>> rail_curves;
+  std::vector<Id> wall_surfaces;
+};
+
 static std::optional<EditResult> extrude_face_region(const Model &model,
                                                      const Selection &selection,
                                                      const Vec3 offset,
-                                                     std::string *error)
+                                                     std::string *error,
+                                                     FaceRegionExtrusionMaps *maps = nullptr)
 {
+  if (maps)
+    *maps = {};
   struct FaceUse {
     const Face *face = nullptr;
     Coedge use;
@@ -508,6 +520,14 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
   allocate(model.edges, selected_edges);
   allocate(model.surfaces, surfaces);
   allocate(model.faces, selected_faces);
+  if (maps) {
+    for (Id id : selected_vertices)
+      maps->vertices.emplace_back(id, ids.at(id));
+    for (Id id : selected_curves)
+      maps->curves.emplace_back(id, ids.at(id));
+    for (Id id : surfaces)
+      maps->surfaces.emplace_back(id, ids.at(id));
+  }
   for (const Vertex &source : model.vertices)
     if (selected_vertices.contains(source.id))
       out.vertices.push_back({ids.at(source.id), source.position + offset});
@@ -568,6 +588,8 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
     const Id rail = out.next_id++;
     out.edges.push_back({rail, curve_id, {id, ids.at(id)}, 0, 1});
     rails[id] = rail;
+    if (maps)
+      maps->rail_curves.emplace_back(curve_id, id);
   }
   for (const auto &[id, selected_use] : boundary_edges) {
     const Edge &source = *edge(model, id);
@@ -593,6 +615,8 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
                               source.start,
                               source.end});
     }
+    if (maps)
+      maps->wall_surfaces.push_back(support);
     const int orientation = selected_use.face->orientation * (selected_use.use.reversed ? -1 : 1);
     out.faces.push_back({out.next_id++,
                          support,
@@ -640,6 +664,261 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
       if (!validate_body(out, id, error))
         return {};
   return result;
+}
+
+struct PreparedFaceRegionExtrusion::Impl {
+  std::shared_ptr<const Model> source;
+  Selection source_selection;
+  std::shared_ptr<const Model> template_model;
+  Selection result_selection;
+  FaceRegionExtrusionMaps maps;
+  std::vector<bool> translated_samples;
+  std::shared_ptr<const DisplayMesh> display_cache;
+  Vec3 template_offset;
+  Vec3 display_offset;
+  bool display_analytic = true;
+};
+
+static bool update_face_region_wall_normals(const Model &model,
+                                            const std::vector<Id> &wall_surfaces,
+                                            DisplayMesh &display,
+                                            std::string *error)
+{
+  if (!display.has_analytic_normals)
+    return true;
+  const Set walls(wall_surfaces.begin(), wall_surfaces.end());
+  std::unordered_map<Id, const Face *> faces;
+  std::unordered_map<Id, size_t> polygon_counts, polygon_steps;
+  for (const Face &face : model.faces)
+    if (walls.contains(face.surface))
+      faces[face.id] = &face;
+  for (Id source : display.face_source)
+    if (faces.contains(source))
+      ++polygon_counts[source];
+
+  const IdIndex<Surface> surfaces(model.surfaces);
+  const IdIndex<Edge> edges(model.edges);
+  const IdIndex<Curve> curves(model.curves);
+  for (size_t i = 0; i < display.polygons.size(); ++i) {
+    const auto found = faces.find(display.face_source[i]);
+    if (found == faces.end())
+      continue;
+    const Face &face = *found->second;
+    const Surface &surface = *surfaces.at(face.surface);
+    auto &normals = display.corner_normals[i];
+    if (normals.size() != display.polygons[i].size()) {
+      fail(error, "Curved extrusion display normals do not match the face boundary");
+      return false;
+    }
+    if (surface.kind == SurfaceKind::Plane) {
+      Vec3 normal = cross(surface.u, surface.v);
+      const double size = length(normal);
+      if (!(size > 0) || !std::isfinite(size)) {
+        fail(error, "Degenerate planar extrusion wall normal");
+        return false;
+      }
+      normal = normal / size;
+      if (face.orientation < 0)
+        normal = normal * -1;
+      std::fill(normals.begin(), normals.end(), normal);
+      continue;
+    }
+    if (surface.kind != SurfaceKind::Extrusion || face.outer.size() != 4 ||
+        display.polygons[i].size() != 4)
+    {
+      fail(error, "Unsupported curved extrusion wall display");
+      return false;
+    }
+    const Edge &edge = *edges.at(face.outer[0].edge);
+    const Curve &curve = *curves.at(surface.curve);
+    const size_t step = polygon_steps[face.id]++;
+    const size_t segments = polygon_counts.at(face.id);
+    if (segments == 0) {
+      fail(error, "Curved extrusion wall has no display segments");
+      return false;
+    }
+    auto normal_at = [&](const size_t sample) -> std::optional<Vec3> {
+      const double fraction = double(sample) / segments;
+      const double parameter = edge.start + (edge.end - edge.start) * fraction;
+      Vec3 normal = cross(tangent(curve, parameter) * (edge.end - edge.start), surface.u);
+      double size = length(normal);
+      if (size <= 1e-12 * length(tangent(curve, parameter)) *
+                      std::abs(edge.end - edge.start) * length(surface.u) &&
+          (sample == 0 || sample == segments))
+      {
+        const double inside = sample == 0 ? 1e-6 : 1 - 1e-6;
+        const double limit_parameter = edge.start + (edge.end - edge.start) * inside;
+        normal = cross(tangent(curve, limit_parameter) * (edge.end - edge.start), surface.u);
+        size = length(normal);
+      }
+      if (!(size > 0) || !std::isfinite(size))
+        return {};
+      return normal / size;
+    };
+    auto first = normal_at(step), second = normal_at(step + 1);
+    if (!first || !second) {
+      fail(error, "Degenerate extrusion wall normal");
+      return false;
+    }
+    normals = {*first, *second, *second, *first};
+    if (face.orientation < 0) {
+      std::reverse(normals.begin(), normals.end());
+      for (Vec3 &normal : normals)
+        normal = normal * -1;
+    }
+  }
+  return true;
+}
+
+PreparedFaceRegionExtrusion::PreparedFaceRegionExtrusion(std::unique_ptr<Impl> impl)
+    : impl_(std::move(impl))
+{
+}
+
+PreparedFaceRegionExtrusion::PreparedFaceRegionExtrusion(PreparedFaceRegionExtrusion &&) noexcept =
+    default;
+PreparedFaceRegionExtrusion &PreparedFaceRegionExtrusion::operator=(
+    PreparedFaceRegionExtrusion &&) noexcept = default;
+PreparedFaceRegionExtrusion::~PreparedFaceRegionExtrusion() = default;
+
+std::optional<PreparedFaceRegionExtrusion> PreparedFaceRegionExtrusion::create(
+    std::shared_ptr<const Model> model, Selection selection, std::string *error)
+{
+  if (!model || !validate(*model, error))
+    return {};
+  selection = normalize_selection(*model, std::move(selection));
+  if (selection.mode != 4 || selection.faces.empty()) {
+    fail(error, "Select a face region to extrude");
+    return {};
+  }
+  auto impl = std::make_unique<Impl>();
+  impl->source = std::move(model);
+  impl->source_selection = std::move(selection);
+  return PreparedFaceRegionExtrusion(std::move(impl));
+}
+
+std::optional<PreparedFaceRegionExtrusion::Preview> PreparedFaceRegionExtrusion::preview(
+    Vec3 offset, bool analytic, std::string *error)
+{
+  if (!impl_ || !finite(offset) || !(length(offset) > 0)) {
+    fail(error, "Use a nonzero finite extrusion offset");
+    return {};
+  }
+
+  if (!impl_->template_model) {
+    auto result = extrude_face_region(
+        *impl_->source, impl_->source_selection, offset, error, &impl_->maps);
+    if (!result)
+      return {};
+    impl_->template_model = std::make_shared<const Model>(std::move(result->model));
+    impl_->result_selection = std::move(result->selection);
+    impl_->template_offset = offset;
+
+    std::unordered_set<Id> cap_sources;
+    for (Id id : impl_->result_selection.faces) {
+      const Face *cap = face(*impl_->template_model, id);
+      if (cap)
+        cap_sources.insert(cap->group ? cap->group : cap->id);
+    }
+
+    auto validation = ValidatedModel::from_validated_extrusion(impl_->template_model);
+    auto samples = tessellate(validation, 64, error, analytic);
+    if (!samples)
+      return {};
+    impl_->translated_samples.assign(samples->positions.size(), false);
+    for (size_t i = 0; i < samples->polygons.size(); ++i)
+      if (cap_sources.contains(samples->face_source[i]))
+        for (int vertex : samples->polygons[i])
+          impl_->translated_samples[size_t(vertex)] = true;
+    impl_->display_offset = offset;
+    impl_->display_analytic = analytic;
+    impl_->display_cache = std::make_shared<const DisplayMesh>(std::move(*samples));
+    return Preview{impl_->template_model,
+                   impl_->result_selection,
+                   std::move(validation),
+                   impl_->display_cache};
+  }
+
+  Model model = *impl_->template_model;
+  const Vec3 delta = offset - impl_->template_offset;
+  std::unordered_map<Id, Vertex *> vertices;
+  std::unordered_map<Id, Curve *> curves;
+  std::unordered_map<Id, Surface *> surfaces;
+  vertices.reserve(model.vertices.size());
+  curves.reserve(model.curves.size());
+  surfaces.reserve(model.surfaces.size());
+  for (Vertex &item : model.vertices)
+    vertices[item.id] = &item;
+  for (Curve &item : model.curves)
+    curves[item.id] = &item;
+  for (Surface &item : model.surfaces)
+    surfaces[item.id] = &item;
+
+  const IdIndex<Vertex> source_vertices(impl_->source->vertices);
+  for (const auto &[source, copy] : impl_->maps.vertices)
+    vertices.at(copy)->position = source_vertices.at(source)->position + offset;
+  for (const auto &[source, copy] : impl_->maps.curves) {
+    Curve &curve = *curves.at(copy);
+    curve.origin = curve.origin + delta;
+    if (curve.kind == CurveKind::RationalQuadratic) {
+      curve.u = curve.u + delta;
+      curve.v = curve.v + delta;
+    }
+  }
+  for (const auto &[source, copy] : impl_->maps.surfaces)
+    surfaces.at(copy)->origin = surfaces.at(copy)->origin + delta;
+  for (const auto &[rail_curve, source_vertex] : impl_->maps.rail_curves) {
+    Curve &curve = *curves.at(rail_curve);
+    curve.origin = source_vertices.at(source_vertex)->position;
+    curve.u = offset;
+  }
+  for (Id id : impl_->maps.wall_surfaces) {
+    Surface &surface = *surfaces.at(id);
+    if (surface.kind == SurfaceKind::Plane)
+      surface.v = offset;
+    else if (surface.kind == SurfaceKind::Extrusion)
+      surface.u = offset;
+    else {
+      fail(error, "Unsupported face-region extrusion wall");
+      return {};
+    }
+  }
+  if (!validate(model, error))
+    return {};
+  auto model_ptr = std::make_shared<const Model>(std::move(model));
+  auto validation = ValidatedModel::from_validated_extrusion(model_ptr);
+  std::shared_ptr<const DisplayMesh> samples;
+  if (impl_->display_cache && impl_->display_analytic == analytic) {
+    DisplayMesh updated = *impl_->display_cache;
+    const Vec3 sample_delta = offset - impl_->display_offset;
+    for (size_t i = 0; i < impl_->translated_samples.size(); ++i)
+      if (impl_->translated_samples[i])
+        updated.positions[i] = updated.positions[i] + sample_delta;
+    if (!update_face_region_wall_normals(*model_ptr, impl_->maps.wall_surfaces, updated, error))
+      return {};
+    samples = std::make_shared<const DisplayMesh>(std::move(updated));
+  }
+  else {
+    auto generated = tessellate(validation, 64, error, analytic);
+    if (!generated)
+      return {};
+    impl_->display_offset = offset;
+    impl_->display_analytic = analytic;
+    impl_->translated_samples.assign(generated->positions.size(), false);
+    std::unordered_set<Id> cap_sources;
+    for (Id id : impl_->result_selection.faces) {
+      const Face *cap = face(*model_ptr, id);
+      if (cap)
+        cap_sources.insert(cap->group ? cap->group : cap->id);
+    }
+    for (size_t i = 0; i < generated->polygons.size(); ++i)
+      if (cap_sources.contains(generated->face_source[i]))
+        for (int vertex : generated->polygons[i])
+          impl_->translated_samples[size_t(vertex)] = true;
+    impl_->display_cache = std::make_shared<const DisplayMesh>(*generated);
+    samples = std::move(impl_->display_cache);
+  }
+  return Preview{std::move(model_ptr), impl_->result_selection, std::move(validation), samples};
 }
 
 std::optional<EditResult> extrude_elements(const Model &model,

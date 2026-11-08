@@ -186,6 +186,46 @@ int main()
         edge_uses[std::minmax(polygon[i], polygon[(i + 1) % polygon.size()])]++;
     for (const auto &[edge_pair, uses] : edge_uses)
       check(uses == 2, "Curved face extrusion must not leave a hole in the displayed solid");
+
+    auto prepared = PreparedFaceRegionExtrusion::create(
+        std::make_shared<const Model>(rounded->model), selected_patch, &error);
+    check(bool(prepared), "Prepare a curved face-region extrusion: " + error);
+    for (const Vec3 offset : {Vec3{.13, .07, -.2}, Vec3{.26, .14, -.4}, Vec3{.1, .2, -.15}}) {
+      auto regular = extrude_elements(rounded->model, selected_patch, offset, &error);
+      auto preview = prepared->preview(offset, true, &error);
+      check(bool(regular) && bool(preview), "Prepared curved extrusion preview: " + error);
+      check(encode(regular->model, regular->selection) ==
+                encode(*preview->model, preview->selection),
+            "Prepared curved extrusion changed exact geometry or selection");
+      check(preview->validation && preview->validation->matches(preview->model),
+            "Curved extrusion validation must belong to its exact preview model");
+      auto reference = tessellate(regular->model, 64, &error, true);
+      check(bool(reference), error);
+      check(preview->samples->positions == reference->positions &&
+                preview->samples->polygons == reference->polygons &&
+                preview->samples->vertex_source == reference->vertex_source &&
+                preview->samples->face_source == reference->face_source,
+            "Prepared curved extrusion changed display geometry or selectable identities");
+      for (size_t i = 0; i < reference->corner_normals.size(); ++i)
+        for (size_t j = 0; j < reference->corner_normals[i].size(); ++j)
+          check(length(preview->samples->corner_normals[i][j] -
+                       reference->corner_normals[i][j]) < 1e-12,
+                "Prepared curved extrusion changed shading normals");
+    }
+    const Vec3 native_offset{.2, .1, -.1};
+    auto native_regular = extrude_elements(rounded->model, selected_patch, native_offset, &error);
+    auto native_preview = prepared->preview(native_offset, false, &error);
+    auto native_reference = native_regular ?
+                                tessellate(native_regular->model, 64, &error, false) :
+                                std::nullopt;
+    check(bool(native_regular) && bool(native_preview) && bool(native_reference), error);
+    check(native_preview->samples->positions == native_reference->positions &&
+              native_preview->samples->polygons == native_reference->polygons,
+          "Native-normal mode changed prepared curved extrusion geometry");
+    for (const auto &normals : native_preview->samples->corner_normals)
+      check(normals.empty(), "Native-normal previews must not retain analytic corner normals");
+    check(!prepared->preview({0, 0, 0}, true, &error),
+          "Prepared curved extrusion accepted a zero offset");
   }
   for (int subdivisions : {1, 2, 3}) {
     Selection selected;

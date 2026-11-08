@@ -231,6 +231,7 @@ class ValidatedModel {
     return ValidatedModel(std::move(model));
   }
   friend class PreparedExtrusion;
+  friend class PreparedFaceRegionExtrusion;
  public:
   static std::optional<ValidatedModel> create(std::shared_ptr<const Model> model,
                                              std::string *error = nullptr);

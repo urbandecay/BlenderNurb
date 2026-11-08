@@ -1043,6 +1043,7 @@ struct ExtrudeModal {
   ARegion *region = nullptr;
   void *draw_handle_pixel = nullptr;
   std::optional<solid::PreparedExtrusion> profile;
+  std::optional<solid::PreparedFaceRegionExtrusion> region_extrusion;
   bool elements = false;
   bool bevel = false;
   bool vertices_only = false;
@@ -1104,12 +1105,27 @@ static void update(bContext *C, wmOperator *op)
   const auto profile_start = profile_bevel ? std::chrono::steady_clock::now() :
                                              std::chrono::steady_clock::time_point{};
   std::optional<solid::PreparedExtrusion::Preview> extrusion;
+  std::optional<solid::PreparedFaceRegionExtrusion::Preview> region_extrusion;
+  std::optional<solid::EditResult> result;
   if (!data.bevel && !data.elements) {
     const Mesh &mesh = *id_cast<Mesh *>(data.preview->object().data);
     extrusion = data.profile->preview(
         data.distance, bke::solid_host::display_uses_analytic_normals(mesh), &data.error);
   }
-  std::optional<solid::EditResult> result;
+  else if (!data.bevel && data.elements) {
+    const Mesh &mesh = *id_cast<Mesh *>(data.preview->object().data);
+    if (source.selection.mode == 4 && !source.selection.faces.empty()) {
+      if (!data.region_extrusion)
+        data.region_extrusion = solid::PreparedFaceRegionExtrusion::create(
+            source.model, source.selection, &data.error);
+      if (data.region_extrusion)
+        region_extrusion = data.region_extrusion->preview(
+            data.offset, bke::solid_host::display_uses_analytic_normals(mesh), &data.error);
+    }
+    else {
+      result = solid::extrude_elements(*source.model, source.selection, data.offset, &data.error);
+    }
+  }
   if (data.bevel && data.distance > 0) {
     result = bevel_result(*source.model,
                           source.selection,
@@ -1118,9 +1134,6 @@ static void update(bContext *C, wmOperator *op)
                           &data.error,
                           data.subdivisions,
                           data.corner_topology);
-  }
-  else if (data.elements) {
-    result = solid::extrude_elements(*source.model, source.selection, data.offset, &data.error);
   }
   const auto kernel_end = profile_bevel ? std::chrono::steady_clock::now() :
                                           std::chrono::steady_clock::time_point{};
@@ -1137,6 +1150,14 @@ static void update(bContext *C, wmOperator *op)
                                         std::move(extrusion->validation)};
     candidate.selection = selection_for_face(
         *candidate.model, candidate.selection.active, data.selection_mode);
+    data.valid = data.preview->apply(C, std::move(candidate), &data.error, true);
+  }
+  else if (region_extrusion) {
+    bke::solid_host::Snapshot candidate{std::move(region_extrusion->model),
+                                        std::move(region_extrusion->selection),
+                                        source.revision,
+                                        std::move(region_extrusion->samples),
+                                        std::move(region_extrusion->validation)};
     data.valid = data.preview->apply(C, std::move(candidate), &data.error, true);
   }
   else if (data.bevel && data.distance <= 0) {

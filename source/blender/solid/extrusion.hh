@@ -22,4 +22,27 @@ class PreparedExtrusion {
   Vec3 normal() const { return profile_.normal; }
   std::optional<EditResult> evaluate(double distance, std::string *error = nullptr) const;
 };
+
+/** Cache the topology and display samples for a face-region extrusion modal preview. */
+class PreparedFaceRegionExtrusion {
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+  explicit PreparedFaceRegionExtrusion(std::unique_ptr<Impl> impl);
+
+ public:
+  struct Preview {
+    std::shared_ptr<const Model> model;
+    Selection selection;
+    std::optional<ValidatedModel> validation;
+    std::shared_ptr<const DisplayMesh> samples;
+  };
+
+  PreparedFaceRegionExtrusion(PreparedFaceRegionExtrusion &&) noexcept;
+  PreparedFaceRegionExtrusion &operator=(PreparedFaceRegionExtrusion &&) noexcept;
+  ~PreparedFaceRegionExtrusion();
+
+  static std::optional<PreparedFaceRegionExtrusion> create(
+      std::shared_ptr<const Model> model, Selection selection, std::string *error = nullptr);
+  std::optional<Preview> preview(Vec3 offset, bool analytic, std::string *error = nullptr);
+};
 }  // namespace blender::solid
