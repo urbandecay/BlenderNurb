@@ -755,6 +755,39 @@ class SolidSketchTest(unittest.TestCase):
                         face_counts[topology] = obj.data.solid_faces_count
                     self.assertLess(face_counts['QUADS'], face_counts['TRIANGLES'])
 
+    def test_quad_corner_spacing_matches_native_mesh_bevel(self):
+        from mathutils.kdtree import KDTree
+
+        width = .55
+        for segments in (3, 4, 5, 6, 8, 16):
+            with self.subTest(segments=segments):
+                self.setUp()
+                bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 1))
+                native = bpy.context.object
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.select_all(action='SELECT')
+                bpy.ops.mesh.bevel(offset=width, segments=segments, profile=.5)
+                bpy.ops.object.mode_set(mode='OBJECT')
+                reference = [v.co + native.location for v in native.data.vertices
+                             if v.co.x > 1 - width - 1e-5 and
+                             v.co.y < width - 1 + 1e-5 and v.co.z > 1 - width - 1e-5]
+
+                bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+                bpy.ops.solid.extrude(distance=2)
+                self.source_select('EDGE', lambda edge: True)
+                bpy.ops.solid.bevel(offset=width, segments=segments, corner_topology='QUADS')
+                obj = bpy.context.object
+                bpy.ops.object.mode_set(mode='OBJECT')
+                tree = KDTree(len(obj.data.vertices))
+                for i, vertex in enumerate(obj.data.vertices):
+                    tree.insert(vertex.co, i)
+                tree.balance()
+                # Compare the independent analytic template with native mesh bevel spacing,
+                # including odd center triangles, within 0.25% of the fillet width.
+                self.assertTrue(reference)
+                for point in reference:
+                    self.assertLess(tree.find(point)[2], width * .0025)
+
     def test_vertex_bevel_and_delete(self):
         bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
         bpy.ops.solid.extrude(distance=2)

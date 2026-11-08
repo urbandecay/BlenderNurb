@@ -314,11 +314,19 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
     profile_points[{id, Id(divisions)}] = b;
     return ref;
   };
+  auto parameter = [&](int k) {
+    const double t = double(k) / divisions;
+    if (corner_topology != CornerTopology::Quads)
+      return t;
+    const double a = std::sin(std::numbers::pi * .25 * t),
+                 b = std::sin(std::numbers::pi * .25 * (1 - t));
+    return a / (a + b);
+  };
   auto profile_point = [&](Ref ref, int k) {
     const int at = ref.reverse ? divisions - k : k;
     const Key key{ref.curve, Id(at)};
     if (!profile_points.contains(key))
-      profile_points[key] = point(evaluate(ref.geometry, double(at) / divisions));
+      profile_points[key] = point(evaluate(ref.geometry, parameter(at)));
     return profile_points.at(key);
   };
   auto boundary = [&](Id a, Id b, Id support, double start, double end, Id reuse = 0) -> Coedge {
@@ -373,7 +381,7 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
                           joint_weights.contains(v) ? joint_weights.at(v) : weights.at(id));
     }
     for (int i = 0; i < divisions; ++i) {
-      const double u0 = double(i) / divisions, u1 = double(i + 1) / divisions;
+      const double u0 = parameter(i), u1 = parameter(i + 1);
       const Id a = profile_point(refs[0], i), b = profile_point(refs[0], i + 1),
                c = profile_point(refs[1], i + 1), d = profile_point(refs[1], i);
       Coedge first = boundary(a,
@@ -428,7 +436,7 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
         Ref ref = profiles.at(key);
         ref.reverse = ref.a != a;
         for (int k = 0; k < divisions; ++k) {
-          const double u0 = double(k) / divisions, u1 = double(k + 1) / divisions;
+          const double u0 = parameter(k), u1 = parameter(k + 1);
           loop.push_back(boundary(profile_point(ref, k),
                                   profile_point(ref, k + 1),
                                   ref.curve,
@@ -472,13 +480,13 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
       for (int j = 0; j <= divisions - i; ++j) {
         Node node;
         if (j == 0) {
-          node = {profile_point(ab, i), quarter({1, 0, 0}, {0, 1, 0}, double(i) / divisions)};
+          node = {profile_point(ab, i), quarter({1, 0, 0}, {0, 1, 0}, parameter(i))};
         }
         else if (i == 0) {
-          node = {profile_point(ac, j), quarter({1, 0, 0}, {0, 0, 1}, double(j) / divisions)};
+          node = {profile_point(ac, j), quarter({1, 0, 0}, {0, 0, 1}, parameter(j))};
         }
         else if (i + j == divisions) {
-          node = {profile_point(bc, j), quarter({0, 1, 0}, {0, 0, 1}, double(j) / divisions)};
+          node = {profile_point(bc, j), quarter({0, 1, 0}, {0, 0, 1}, parameter(j))};
         }
         else {
           node.unit = unit({double(divisions - i - j), double(i), double(j)});
@@ -502,21 +510,10 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
                             mapped(perpendicular) - o.center});
       return boundary(a.vertex, b.vertex, c, 0, angle);
     };
-    std::optional<Node> center_node;
-    auto corner_node = [&](const CornerPatchCoordinate coordinate) -> Node {
-      if (coordinate.first >= 0)
-        return grid(coordinate.first, coordinate.second);
-      if (!center_node) {
-        const Vec3 q = unit({1, 1, 1});
-        center_node = Node{point(mapped(q)), q};
-      }
-      return *center_node;
-    };
-    for (const CornerPatchFace &corners : corner_patch_faces(divisions, corner_topology)) {
-      std::vector<Node> loop;
-      loop.reserve(corners.size());
-      for (const CornerPatchCoordinate &coordinate : corners)
-        loop.push_back(corner_node(coordinate));
+    auto sample = [&](int i, int j) { return grid(i, j); };
+    auto create = [&](Vec3 q) { return Node{point(mapped(q)), q}; };
+    Id shared_support = 0;
+    for (const auto &loop : corner_patch_nodes(divisions, corner_topology, sample, create)) {
       std::vector<Coedge> boundary;
       boundary.reserve(loop.size());
       for (size_t i = 0; i < loop.size(); ++i) {
@@ -526,14 +523,17 @@ std::optional<EditResult> fillet_trimmed_edges(const Model &model,
         boundary.push_back(use);
       }
       Surface s;
-      s.id = out.next_id++;
+      s.id = shared_support ? shared_support : out.next_id++;
       s.kind = SurfaceKind::Sphere;
       s.origin = o.center;
       s.u = o.axes[0];
       s.v = o.axes[1];
       s.w = o.axes[2];
       const Id f = out.next_id++;
-      out.surfaces.push_back(s);
+      if (!shared_support)
+        out.surfaces.push_back(s);
+      if (corner_topology == CornerTopology::Quads)
+        shared_support = s.id;
       out.faces.push_back({f,
                            s.id,
                            std::move(boundary),

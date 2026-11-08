@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <map>
+#include <numbers>
 #include <set>
 
 namespace blender::solid {
@@ -34,7 +35,7 @@ Id end_vertex(const Model &model, const Coedge &use)
 
 struct PatchNode {
   Id id = 0;
-  Vec3 q;
+  Vec3 unit;
 };
 
 struct VertexPatch {
@@ -328,6 +329,15 @@ std::optional<EditResult> fillet_vertices(const Model &model,
       for (int j = 0; j <= subdivisions - i; ++j) {
         Vec3 q{double(subdivisions - i - j), double(i), double(j)};
         q = q / length(q);
+        if (corner_topology == CornerTopology::Quads) {
+          const double angle = std::numbers::pi * .5;
+          if (j == 0)
+            q = {std::cos(angle * i / subdivisions), std::sin(angle * i / subdivisions), 0};
+          else if (i == 0)
+            q = {std::cos(angle * j / subdivisions), 0, std::sin(angle * j / subdivisions)};
+          else if (i + j == subdivisions)
+            q = {0, std::cos(angle * j / subdivisions), std::sin(angle * j / subdivisions)};
+        }
         Id id = 0;
         if (i + j == 0)
           id = add_point(patch.origin + patch.axes[0]);
@@ -398,14 +408,14 @@ std::optional<EditResult> fillet_vertices(const Model &model,
       const Edge &e = *edge(out, found->second);
       return Coedge{e.id, e.vertices[0] != a.id};
     }
-    const double cosine = std::clamp(dot(a.q, b.q), -1.0, 1.0);
+    const double cosine = std::clamp(dot(a.unit, b.unit), -1.0, 1.0);
     const double angle = std::acos(cosine);
-    const Vec3 perpendicular = b.q - a.q * cosine;
+    const Vec3 perpendicular = b.unit - a.unit * cosine;
     const double perpendicular_length = length(perpendicular);
     if (!(angle > 0) || !(perpendicular_length > 0))
       return Coedge{};
     const Id curve_id = out.next_id++;
-    const Vec3 u = patch.axes[0] * a.q.x + patch.axes[1] * a.q.y + patch.axes[2] * a.q.z;
+    const Vec3 u = patch.axes[0] * a.unit.x + patch.axes[1] * a.unit.y + patch.axes[2] * a.unit.z;
     const Vec3 v = (patch.axes[0] * perpendicular.x + patch.axes[1] * perpendicular.y +
                     patch.axes[2] * perpendicular.z) /
                    perpendicular_length;
@@ -461,25 +471,12 @@ std::optional<EditResult> fillet_vertices(const Model &model,
   }
 
   for (auto &[vertex_id, patch] : patches) {
-    auto node = [&](int i, int j) -> const PatchNode & { return patch.nodes.at({i, j}); };
-    std::optional<PatchNode> center_node;
-    auto corner_node = [&](const CornerPatchCoordinate coordinate) -> PatchNode {
-      if (coordinate.first >= 0)
-        return node(coordinate.first, coordinate.second);
-      if (!center_node) {
-        const Vec3 q = Vec3{1, 1, 1} / std::sqrt(3.0);
-        center_node = PatchNode{
-            add_point(patch.origin + patch.axes[0] * q.x + patch.axes[1] * q.y +
-                      patch.axes[2] * q.z),
-            q};
-      }
-      return *center_node;
+    auto sample = [&](int i, int j) { return patch.nodes.at({i, j}); };
+    auto create = [&](Vec3 q) {
+      return PatchNode{add_point(patch.origin + patch.axes[0] * q.x + patch.axes[1] * q.y +
+                                 patch.axes[2] * q.z), q};
     };
-    for (const CornerPatchFace &corners : corner_patch_faces(subdivisions, corner_topology)) {
-      std::vector<PatchNode> loop;
-      loop.reserve(corners.size());
-      for (const CornerPatchCoordinate &coordinate : corners)
-        loop.push_back(corner_node(coordinate));
+    for (const auto &loop : corner_patch_nodes(subdivisions, corner_topology, sample, create)) {
       std::vector<Coedge> boundary;
       boundary.reserve(loop.size());
       for (size_t i = 0; i < loop.size(); ++i) {

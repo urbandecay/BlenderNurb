@@ -2,76 +2,74 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 #include "SOL_geometry.hh"
+#include "fillet_corner_grid.hh"
 #include <map>
 #include <utility>
 #include <vector>
 
 namespace blender::solid {
-using CornerPatchCoordinate = std::pair<int, int>;
-using CornerPatchFace = std::vector<CornerPatchCoordinate>;
-
-/** Build a face layout over a triangular corner patch. A negative coordinate marks the shared
- * center vertex used by the quad-dominant layout for odd subdivision counts. */
-inline std::vector<CornerPatchFace> corner_patch_faces(const int divisions,
-                                                       const CornerTopology topology)
+/** Three rectangular grids meet at the corner center. Boundary nodes are reused verbatim so
+ * the corner remains sewn to the adjacent fillet strips. Odd counts leave one central triangle. */
+template<typename Sample, typename Create>
+auto corner_patch_nodes(const int divisions,
+                        const CornerTopology topology,
+                        Sample sample,
+                        Create create)
 {
-  std::vector<CornerPatchFace> faces;
-  if (topology == CornerTopology::Triangles) {
+  using Node = decltype(sample(0, 0));
+  std::vector<std::vector<Node>> faces;
+  if (topology == CornerTopology::Triangles || divisions == 1) {
     for (int i = 0; i < divisions; ++i) {
       for (int j = 0; j < divisions - i; ++j) {
-        faces.push_back({{i, j}, {i + 1, j}, {i, j + 1}});
-        if (i + j + 1 < divisions) {
-          faces.push_back({{i + 1, j}, {i + 1, j + 1}, {i, j + 1}});
-        }
+        faces.push_back({sample(i, j), sample(i + 1, j), sample(i, j + 1)});
+        if (i + j + 1 < divisions)
+          faces.push_back({sample(i + 1, j), sample(i + 1, j + 1), sample(i, j + 1)});
       }
     }
     return faces;
   }
-
-  if (divisions > 1 && divisions % 2 == 0) {
-    /* Tile the triangular grid with four-triangle corner blocks. Each block becomes two quads. */
-    for (int i = 0; i < divisions; i += 2) {
-      for (int j = 0; j < divisions - i; j += 2) {
-        if (i + j + 2 <= divisions) {
-          const CornerPatchCoordinate a{i, j}, ab{i + 1, j}, b{i + 2, j},
-              bc{i + 1, j + 1}, c{i, j + 2}, ca{i, j + 1};
-          faces.push_back({a, ab, b, bc});
-          faces.push_back({a, bc, c, ca});
-        }
-        if (i + j + 4 <= divisions) {
-          const CornerPatchCoordinate a{i + 2, j}, ac{i + 2, j + 1}, c{i + 2, j + 2},
-              cb{i + 1, j + 2}, b{i, j + 2}, ba{i + 1, j + 1};
-          faces.push_back({a, ac, c, cb});
-          faces.push_back({a, cb, b, ba});
-        }
-      }
+  const FilletCornerGrid shape = fillet_corner_grid(divisions);
+  const FilletCornerGrid topology_grid(divisions);
+  std::map<int, Node> nodes;
+  auto node = [&](int side, int row, int column) {
+    const int index = topology_grid.index(side, row, column);
+    if (nodes.contains(index))
+      return nodes.at(index);
+    column = index % (divisions + 1);
+    row = (index / (divisions + 1)) % (divisions / 2 + 1);
+    side = index / ((divisions + 1) * (divisions / 2 + 1));
+    Node result;
+    if (row == 0) {
+      result = side == 0 ? sample(column, 0) :
+               side == 1 ? sample(divisions - column, column) : sample(0, divisions - column);
     }
-    return faces;
-  }
-
-  if (divisions <= 1) {
-    faces.push_back({{0, 0}, {1, 0}, {0, 1}});
-    return faces;
-  }
-
-  /* An odd number of divisions gives an odd boundary edge count, so one triangle is required.
-   * Pair the remaining fan sectors into quads around one shared center vertex. */
-  std::vector<CornerPatchCoordinate> boundary;
-  boundary.reserve(size_t(3 * divisions));
-  for (int i = 0; i <= divisions; ++i) {
-    boundary.emplace_back(i, 0);
-  }
-  for (int i = 1; i <= divisions; ++i) {
-    boundary.emplace_back(divisions - i, i);
-  }
-  for (int j = divisions - 1; j > 0; --j) {
-    boundary.emplace_back(0, j);
-  }
-  constexpr CornerPatchCoordinate center{-1, -1};
-  for (size_t i = 0; i + 2 < boundary.size(); i += 2) {
-    faces.push_back({center, boundary[i], boundary[i + 1], boundary[i + 2]});
-  }
-  faces.push_back({center, boundary.back(), boundary.front()});
+    else if (column == 0) {
+      result = side == 0 ? sample(0, row) :
+               side == 1 ? sample(divisions - row, 0) : sample(row, divisions - row);
+    }
+    else {
+      const double r = double(row) * shape.segments / divisions,
+                   c = double(column) * shape.segments / divisions;
+      const int r0 = int(std::floor(r)), c0 = int(std::floor(c));
+      const double u = r - r0, v = c - c0;
+      const int r1 = r0 + (u > 1e-12), c1 = c0 + (v > 1e-12);
+      Vec3 q = shape.at(side, r0, c0) * ((1 - u) * (1 - v)) +
+               shape.at(side, r1, c0) * (u * (1 - v)) +
+               shape.at(side, r0, c1) * ((1 - u) * v) +
+               shape.at(side, r1, c1) * (u * v);
+      result = create(q / length(q));
+    }
+    nodes.emplace(index, result);
+    return result;
+  };
+  const int half = divisions / 2, odd = divisions % 2;
+  for (int side = 0; side < 3; ++side)
+    for (int row = 0; row < half; ++row)
+      for (int column = 0; column < half + odd; ++column)
+        faces.push_back({node(side, row, column), node(side, row, column + 1),
+                         node(side, row + 1, column + 1), node(side, row + 1, column)});
+  if (odd)
+    faces.push_back({node(0, half, half), node(1, half, half), node(2, half, half)});
   return faces;
 }
 

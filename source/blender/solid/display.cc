@@ -59,7 +59,7 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
        * short exact conic edge on those patches is one source subdivision; splitting
        * it again to satisfy the global display target over-tessellates low segment
        * counts. Keep one display span when every adjacent sphere patch is this small. */
-      bool small_patch = f.outer.size() == 3;
+      bool small_patch = f.outer.size() == 3 || f.outer.size() == 4;
       for (const Coedge &use : f.outer) {
         const Edge &e = *edges.at(use.edge);
         const Curve &c = *curves.at(e.curve);

@@ -13,6 +13,7 @@ add_library(bf_solid_analytic STATIC
   display.cc
   storage.cc
   SOL_geometry.hh
+  fillet_corner_grid.hh
   fillet_intern.hh
   id_index.hh
   extrusion.hh

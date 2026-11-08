@@ -154,13 +154,10 @@ int main()
     int spherical_faces = 0;
     for (const Face &f : rounded->model.faces)
       spherical_faces += surface(rounded->model, f.surface)->kind == SurfaceKind::Sphere;
-    const int expected_corner_faces = subdivisions == 1 ?
-                                          1 :
-                                      subdivisions % 2 == 0 ?
-                                          subdivisions * subdivisions / 2 :
-                                          (3 * subdivisions + 1) / 2;
+    const int expected_corner_faces = subdivisions == 1 ? 1 :
+        3 * (subdivisions / 2) * (subdivisions - subdivisions / 2) + subdivisions % 2;
     check(spherical_faces == expected_corner_faces,
-          "Vertex fillet must create a quad-dominant spherical patch");
+          "Vertex fillet must create three structured quad grids");
     const auto display = tessellate(rounded->model, 32, &error);
     check(bool(display), error);
     std::map<std::pair<int, int>, int> display_edges;
@@ -458,12 +455,32 @@ int main()
       spheres += s.kind == SurfaceKind::Sphere;
     }
     check(cylinders == 12 * subdivisions, "Fillet must split exact cylinder strips");
-    const int corner_faces = subdivisions == 1 ?
-                                 1 :
-                             subdivisions % 2 == 0 ?
-                                 subdivisions * subdivisions / 2 :
-                                 (3 * subdivisions + 1) / 2;
-    check(spheres == 8 * corner_faces, "Fillet must create quad-dominant exact sphere corners");
+    check(spheres == 8, "Quad fillets must share one exact sphere support per corner");
+    for (const Face &f : rounded->model.faces) {
+      const Surface &support = *surface(rounded->model, f.surface);
+      if (support.kind != SurfaceKind::Sphere || f.outer.size() != 4)
+        continue;
+      auto local = [&](Vec3 p) {
+        p = p - support.origin;
+        const double det = dot(support.u, cross(support.v, support.w));
+        return Vec3{dot(p, cross(support.v, support.w)) / det,
+                    dot(p, cross(support.w, support.u)) / det,
+                    dot(p, cross(support.u, support.v)) / det};
+      };
+      std::vector<Vec3> points;
+      for (const Coedge &use : f.outer) {
+        const Edge &e = *edge(rounded->model, use.edge);
+        points.push_back(local(vertex(rounded->model, e.vertices[use.reversed ? 1 : 0])->position));
+      }
+      for (int i = 0; i < 4; ++i) {
+        const Vec3 q = points[i];
+        Vec3 a = points[(i + 3) % 4], b = points[(i + 1) % 4];
+        a = a - q * dot(a, q);
+        b = b - q * dot(b, q);
+        check(length(cross(a, b)) > 1e-4 * length(a) * length(b),
+              "A corner quad must have four genuine corners, without a straight middle vertex");
+      }
+    }
     Model detached = rounded->model;
     for (auto it = detached.surfaces.rbegin(); it != detached.surfaces.rend(); ++it)
       if (it->kind == SurfaceKind::Sphere) {
