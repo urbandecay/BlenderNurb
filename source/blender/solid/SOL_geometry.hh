@@ -250,6 +250,10 @@ std::optional<EditResult> transform_selected(const Model &model,
                                              const Affine &transform,
                                              std::string *error = nullptr);
 
+/** Recognize a translated cap joined to fixed boundaries by extrusion walls. */
+std::optional<std::vector<Id>> extrusion_cap_wall_surfaces(const Model &model,
+                                                         const Selection &selection);
+
 struct DisplayMesh {
   bool has_analytic_normals = true;
   std::vector<Vec3> positions;
@@ -258,6 +262,13 @@ struct DisplayMesh {
   std::vector<Id> vertex_source, edge_source, face_source;
   std::vector<std::vector<Vec3>> corner_normals;
 };
+/** Update cached cap samples and exact wall normals after a cap translation. */
+std::optional<DisplayMesh> translated_cap_samples(const Model &source,
+                                                  const Selection &selection,
+                                                  const Model &result,
+                                                  const DisplayMesh &samples,
+                                                  Vec3 translation,
+                                                  std::string *error = nullptr);
 /** Derived display only: planar faces have boundary polygons, conic walls have strips and
  * corner blends have sampled patches. Display samples never become source geometry. */
 std::optional<DisplayMesh> tessellate(const Model &model,

@@ -21,6 +21,7 @@ class Session {
   bke::solid_host::Snapshot source_;
   uint64_t revision_;
   bool rigid_selection_ = false;
+  bool extrusion_cap_translation_ = false;
   /** A face translation with only straight planar neighbors can deform the display exactly. */
   struct PlanarPoint {
     solid::Vec3 position;

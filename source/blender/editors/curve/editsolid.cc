@@ -126,6 +126,13 @@ Session::Session(Object &object, bke::solid_host::Snapshot source)
                      isolated_selection(source_);
   if (!rigid_selection_ && source_.selection.mode == 4) {
     const auto &model = *source_.model;
+    const auto walls = solid::extrusion_cap_wall_surfaces(model, source_.selection);
+    if (walls && std::any_of(walls->begin(), walls->end(), [&](solid::Id id) {
+          return solid::surface(model, id)->kind == solid::SurfaceKind::Extrusion;
+        })) {
+      extrusion_cap_translation_ = true;
+      return;
+    }
     const solid::IdIndex<solid::Vertex> vertices(model.vertices);
     const solid::IdIndex<solid::Edge> edges(model.edges);
     const solid::IdIndex<solid::Curve> curves(model.curves);
@@ -458,7 +465,7 @@ bool Session::apply(bContext *C,
  * visible BMesh exactly. Source construction and validation are deferred to confirmation. */
 bool Session::can_preview_affine(const solid::Affine &m) const
 {
-  if (revision_ != source_.revision || (!rigid_selection_ && planar_faces_.empty()))
+  if (revision_ != source_.revision || (!rigid_selection_ && !extrusion_cap_translation_ && planar_faces_.empty()))
     return false;
   const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
   if (!rigid_selection_) {
@@ -624,6 +631,61 @@ bool Session::preview_affine(bContext *C, const solid::Affine &m, std::string *e
   if (display_positions_.size() != bm->totvert ||
       (normal_offset >= 0 && display_normals_.size() != bm->totloop))
     return false;
+  if (extrusion_cap_translation_) {
+    const bool analytic = bke::solid_host::display_uses_analytic_normals(mesh);
+    if (!source_.display_samples || source_.display_samples->has_analytic_normals != analytic) {
+      auto samples = solid::tessellate(*source_.model, 64, error, analytic);
+      if (!samples)
+        return false;
+      source_.display_samples = std::make_shared<const solid::DisplayMesh>(std::move(*samples));
+    }
+    /* Only the swept wall normals change during a cap translation. Keep exact source
+     * construction and validation at confirmation, as for the planar display preview. */
+    solid::Model walls = *source_.model;
+    const auto wall_ids = solid::extrusion_cap_wall_surfaces(*source_.model, source_.selection);
+    if (!wall_ids)
+      return false;
+    const std::unordered_set<solid::Id> wall_supports(wall_ids->begin(), wall_ids->end());
+    for (solid::Surface &support : walls.surfaces) {
+      if (!wall_supports.contains(support.id))
+        continue;
+      if (support.kind == solid::SurfaceKind::Extrusion) {
+        support.u = support.u + m.translation;
+      }
+      else {
+        const auto f = std::find_if(walls.faces.begin(), walls.faces.end(), [&](const auto &face) {
+          return face.surface == support.id;
+        });
+        if (f == walls.faces.end())
+          return false;
+        const auto &base = *solid::edge(walls, f->outer[0].edge);
+        const auto &top = *solid::edge(walls, f->outer[2].edge);
+        const auto origin = solid::vertex(walls, base.vertices[0])->position;
+        const auto along = solid::vertex(walls, base.vertices[1])->position - origin;
+        const auto across = solid::vertex(walls, top.vertices[0])->position - origin;
+        const double sign = solid::dot(solid::cross(along, across),
+                                        solid::cross(support.u, support.v)) < 0 ? -1 : 1;
+        support.u = along;
+        support.v = (across + m.translation) * sign;
+      }
+    }
+    auto samples = solid::translated_cap_samples(*source_.model,
+                                                source_.selection,
+                                                walls,
+                                                *source_.display_samples,
+                                                m.translation,
+                                                error);
+    if (!samples || !update_display_vertices(mesh, *samples, true))
+      return false;
+    display_matrix_ = m;
+    display_preview_ = true;
+    display_restored_ = false;
+    affine_display_update(C, mesh);
+    if (std::getenv("BLENDER_SOLID_PROFILE"))
+      fprintf(stderr, "SOLID_CURVED_CAP_DRAG update_ms=%.3f\n",
+              std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+    return true;
+  }
   const auto &a = m.columns[0], &b = m.columns[1], &c = m.columns[2];
   auto position = [&](solid::Vec3 p) { return a * p.x + b * p.y + c * p.z + m.translation; };
   /* Reject overflow before changing any displayed coordinate. */

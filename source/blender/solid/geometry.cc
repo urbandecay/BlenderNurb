@@ -1298,6 +1298,46 @@ std::optional<PreparedExtrusion::Preview> PreparedExtrusion::preview(
                  std::make_shared<const DisplayMesh>(std::move(samples))};
 }
 
+std::optional<std::vector<Id>> extrusion_cap_wall_surfaces(const Model &model,
+                                                          const Selection &selection)
+{
+  if (selection.mode != 4 || selection.faces.empty())
+    return {};
+  const std::unordered_set<Id> selected(selection.vertices.begin(), selection.vertices.end());
+  const Index index(model);
+  std::vector<Id> walls;
+  for (const Face &f : model.faces) {
+    bool any = false, all = true;
+    for (const auto *loop : loops(f))
+      for (const Coedge &use : *loop)
+        for (Id id : index.edges.at(use.edge)->vertices) {
+          any |= selected.contains(id);
+          all &= selected.contains(id);
+        }
+    if (!any || all)
+      continue;
+    const Surface &support = *index.surfaces.at(f.surface);
+    if (!f.holes.empty() || f.outer.size() != 4 ||
+        (support.kind != SurfaceKind::Plane && support.kind != SurfaceKind::Extrusion))
+      return {};
+    const Edge &bottom = *index.edges.at(f.outer[0].edge);
+    const Edge &top = *index.edges.at(f.outer[2].edge);
+    for (Id id : bottom.vertices)
+      if (selected.contains(id))
+        return {};
+    for (Id id : top.vertices)
+      if (!selected.contains(id))
+        return {};
+    for (int side : {1, 3})
+      if (index.curves.at(index.edges.at(f.outer[side].edge)->curve)->kind != CurveKind::Line)
+        return {};
+    walls.push_back(f.surface);
+  }
+  if (walls.empty())
+    return {};
+  return walls;
+}
+
 std::optional<EditResult> transform_selected(const Model &model,
                                              Selection selection,
                                              const Affine &matrix,
@@ -1316,6 +1356,10 @@ std::optional<EditResult> transform_selected(const Model &model,
   }
   selection = normalize_selection(model, std::move(selection));
   std::unordered_set<Id> selected(selection.vertices.begin(), selection.vertices.end());
+  const bool translation = matrix.columns == Affine{}.columns;
+  const auto cap_walls = translation ? extrusion_cap_wall_surfaces(model, selection) :
+                                       std::nullopt;
+  std::unordered_set<Id> swept_surfaces;
   std::unordered_set<Id> curves, surfaces;
   bool needs_refit = false;
   const bool complete = selected.size() == model.vertices.size();
@@ -1334,6 +1378,10 @@ std::optional<EditResult> transform_selected(const Model &model,
         }
       }
     if (any && !all) {
+      if (cap_walls && index.surfaces.at(f.surface)->kind == SurfaceKind::Extrusion) {
+        swept_surfaces.insert(f.surface);
+        continue;
+      }
       needs_refit = true;
       bool straight_plane = surface(model, f.surface)->kind == SurfaceKind::Plane &&
                             f.holes.empty();
@@ -1407,7 +1455,9 @@ std::optional<EditResult> transform_selected(const Model &model,
       }
     }
   }
-  for (Surface &s : result.model.surfaces)
+  for (Surface &s : result.model.surfaces) {
+    if (swept_surfaces.contains(s.id))
+      s.u = s.u + matrix.translation;
     if (surfaces.contains(s.id)) {
       s.origin = point(s.origin);
       s.u = direction(s.u);
@@ -1416,6 +1466,7 @@ std::optional<EditResult> transform_selected(const Model &model,
       for (Vec3 &coefficient : s.blend)
         coefficient = direction(coefficient);
     }
+  }
   if (determinant < 0)
     for (Face &f : result.model.faces)
       if (surfaces.contains(f.surface))

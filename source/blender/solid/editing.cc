@@ -674,7 +674,6 @@ struct PreparedFaceRegionExtrusion::Impl {
   FaceRegionExtrusionMaps maps;
   std::vector<bool> translated_samples;
   std::shared_ptr<const DisplayMesh> display_cache;
-  Vec3 template_offset;
   Vec3 display_offset;
   bool display_analytic = true;
 };
@@ -770,6 +769,48 @@ static bool update_face_region_wall_normals(const Model &model,
   return true;
 }
 
+std::optional<DisplayMesh> translated_cap_samples(const Model &source,
+                                                  const Selection &selection,
+                                                  const Model &result,
+                                                  const DisplayMesh &samples,
+                                                  Vec3 translation,
+                                                  std::string *error)
+{
+  const auto walls = extrusion_cap_wall_surfaces(source, selection);
+  if (!walls) {
+    fail(error, "Select an extrusion cap to translate its wall samples");
+    return {};
+  }
+  const Set wall_supports(walls->begin(), walls->end());
+  const Set selected(selection.faces.begin(), selection.faces.end());
+  Set cap_sources;
+  std::vector<Id> updated_walls;
+  for (const Face &f : source.faces) {
+    if (selected.contains(f.id))
+      cap_sources.insert(f.group ? f.group : f.id);
+    if (wall_supports.contains(f.surface)) {
+      const Face *updated = face(result, f.id);
+      if (!updated) {
+        fail(error, "Cap translation changed wall topology");
+        return {};
+      }
+      updated_walls.push_back(updated->surface);
+    }
+  }
+  DisplayMesh display = samples;
+  std::vector<bool> moving(display.positions.size(), false);
+  for (size_t i = 0; i < display.polygons.size(); ++i)
+    if (cap_sources.contains(display.face_source[i]))
+      for (int vertex : display.polygons[i])
+        moving[size_t(vertex)] = true;
+  for (size_t i = 0; i < moving.size(); ++i)
+    if (moving[i])
+      display.positions[i] = display.positions[i] + translation;
+  if (!update_face_region_wall_normals(result, updated_walls, display, error))
+    return {};
+  return display;
+}
+
 PreparedFaceRegionExtrusion::PreparedFaceRegionExtrusion(std::unique_ptr<Impl> impl)
     : impl_(std::move(impl))
 {
@@ -812,7 +853,6 @@ std::optional<PreparedFaceRegionExtrusion::Preview> PreparedFaceRegionExtrusion:
       return {};
     impl_->template_model = std::make_shared<const Model>(std::move(result->model));
     impl_->result_selection = std::move(result->selection);
-    impl_->template_offset = offset;
 
     std::unordered_set<Id> cap_sources;
     for (Id id : impl_->result_selection.faces) {
@@ -840,7 +880,6 @@ std::optional<PreparedFaceRegionExtrusion::Preview> PreparedFaceRegionExtrusion:
   }
 
   Model model = *impl_->template_model;
-  const Vec3 delta = offset - impl_->template_offset;
   std::unordered_map<Id, Vertex *> vertices;
   std::unordered_map<Id, Curve *> curves;
   std::unordered_map<Id, Surface *> surfaces;
@@ -859,14 +898,15 @@ std::optional<PreparedFaceRegionExtrusion::Preview> PreparedFaceRegionExtrusion:
     vertices.at(copy)->position = source_vertices.at(source)->position + offset;
   for (const auto &[source, copy] : impl_->maps.curves) {
     Curve &curve = *curves.at(copy);
-    curve.origin = curve.origin + delta;
+    const Curve &original = *solid::curve(*impl_->source, source);
+    curve.origin = original.origin + offset;
     if (curve.kind == CurveKind::RationalQuadratic) {
-      curve.u = curve.u + delta;
-      curve.v = curve.v + delta;
+      curve.u = original.u + offset;
+      curve.v = original.v + offset;
     }
   }
   for (const auto &[source, copy] : impl_->maps.surfaces)
-    surfaces.at(copy)->origin = surfaces.at(copy)->origin + delta;
+    surfaces.at(copy)->origin = surface(*impl_->source, source)->origin + offset;
   for (const auto &[rail_curve, source_vertex] : impl_->maps.rail_curves) {
     Curve &curve = *curves.at(rail_curve);
     curve.origin = source_vertices.at(source_vertex)->position;
@@ -916,7 +956,7 @@ std::optional<PreparedFaceRegionExtrusion::Preview> PreparedFaceRegionExtrusion:
         for (int vertex : generated->polygons[i])
           impl_->translated_samples[size_t(vertex)] = true;
     impl_->display_cache = std::make_shared<const DisplayMesh>(*generated);
-    samples = std::move(impl_->display_cache);
+    samples = impl_->display_cache;
   }
   return Preview{std::move(model_ptr), impl_->result_selection, std::move(validation), samples};
 }

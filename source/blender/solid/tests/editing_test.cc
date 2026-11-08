@@ -187,6 +187,34 @@ int main()
     for (const auto &[edge_pair, uses] : edge_uses)
       check(uses == 2, "Curved face extrusion must not leave a hole in the displayed solid");
 
+    const Selection cap_selection = normalize_selection(raised->model, raised->selection);
+    check(bool(extrusion_cap_wall_surfaces(raised->model, cap_selection)),
+          "Recognize the curved cap's extrusion walls");
+    const auto cap_samples = tessellate(raised->model, 64, &error);
+    check(bool(cap_samples), error);
+    for (Vec3 delta : {Vec3{.03, -.02, .05}, Vec3{-.01, .04, -.03}, Vec3{}}) {
+      Affine translation;
+      translation.translation = delta;
+      auto moved = transform_selected(raised->model, cap_selection, translation, &error);
+      check(bool(moved), "Translate a curved extrusion cap: " + error);
+      check(validate_body(moved->model, moved->selection.active, &error), error);
+      check(moved->selection.mode == 4 && moved->selection.faces == cap_selection.faces,
+            "Moving a curved cap must preserve face mode and selected source faces");
+      auto cached = translated_cap_samples(raised->model, cap_selection, moved->model,
+                                          *cap_samples, delta, &error);
+      auto fresh = tessellate(moved->model, 64, &error);
+      check(bool(cached) && bool(fresh), error);
+      check(cached->polygons == fresh->polygons && cached->positions.size() == fresh->positions.size(),
+            "Moving a curved cap must preserve display topology");
+      for (size_t i = 0; i < fresh->positions.size(); ++i)
+        check(length(cached->positions[i] - fresh->positions[i]) < 1e-10,
+              "Cached curved cap translation disagrees with exact tessellation");
+      for (size_t i = 0; i < fresh->corner_normals.size(); ++i)
+        for (size_t j = 0; j < fresh->corner_normals[i].size(); ++j)
+          check(length(cached->corner_normals[i][j] - fresh->corner_normals[i][j]) < 1e-10,
+                "Curved cap translation must retain exact wall shading");
+    }
+
     auto prepared = PreparedFaceRegionExtrusion::create(
         std::make_shared<const Model>(rounded->model), selected_patch, &error);
     check(bool(prepared), "Prepare a curved face-region extrusion: " + error);
@@ -201,11 +229,14 @@ int main()
             "Curved extrusion validation must belong to its exact preview model");
       auto reference = tessellate(regular->model, 64, &error, true);
       check(bool(reference), error);
-      check(preview->samples->positions == reference->positions &&
+      check(preview->samples->positions.size() == reference->positions.size() &&
                 preview->samples->polygons == reference->polygons &&
                 preview->samples->vertex_source == reference->vertex_source &&
                 preview->samples->face_source == reference->face_source,
             "Prepared curved extrusion changed display geometry or selectable identities");
+      for (size_t i = 0; i < reference->positions.size(); ++i)
+        check(length(preview->samples->positions[i] - reference->positions[i]) < 1e-10,
+              "Prepared curved extrusion sample coordinates must match exact evaluation");
       for (size_t i = 0; i < reference->corner_normals.size(); ++i)
         for (size_t j = 0; j < reference->corner_normals[i].size(); ++j)
           check(length(preview->samples->corner_normals[i][j] -
