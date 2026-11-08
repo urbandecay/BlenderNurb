@@ -786,7 +786,8 @@ std::optional<ValidatedModel> ValidatedModel::create(std::shared_ptr<const Model
 
 std::optional<Profile> prepare_profile(const Model &source,
                                        const Selection &selected,
-                                       std::string *error)
+                                       std::string *error,
+                                       const bool allow_boundary_cap)
 {
   if (!validate(source, error))
     return {};
@@ -939,6 +940,10 @@ std::optional<Profile> prepare_profile(const Model &source,
           }
         }
       }
+    }
+    if (incident_faces && !allow_boundary_cap) {
+      fail(error, "Select a body face or an independent sketch");
+      return {};
     }
     if (incident_faces)
       attached_edges++;

@@ -428,12 +428,38 @@ class SolidSketchTest(unittest.TestCase):
         bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
         self.assertEqual(bpy.ops.solid.extrude(offset=(0, 0, 2)), {'FINISHED'})
         obj = bpy.context.object
+        self.assertEqual(bpy.ops.solid.extrude(distance=1), {'FINISHED'})
         self.assertEqual(bpy.ops.solid.fill(), {'FINISHED'})
         self.source_select('EDGE', lambda edge: all(abs(v.co.z) < 1e-5 for v in edge.verts))
         self.assertEqual(bpy.ops.solid.fill(), {'FINISHED'})
-        self.assertEqual(obj.data.solid_faces_count, 3)
+        self.assertEqual(obj.data.solid_faces_count, 4)
         bpy.ops.object.mode_set(mode='OBJECT')
-        self.assertAlmostEqual(self.volume(obj), math.pi * 2, delta=.5)
+        self.assertAlmostEqual(self.volume(obj), math.pi * 3, delta=.5)
+
+    def test_extrude_open_fillet_rim_then_fill(self):
+        for divisions in (1, 7):
+            for mode in ('VERT', 'EDGE'):
+                with self.subTest(divisions=divisions, mode=mode):
+                    self.setUp()
+                    bpy.ops.solid.sketch_add(type='EMPTY')
+                    bpy.ops.curve.draw_circle(points='0 0 0 1 0 0', preview_points=divisions)
+                    bpy.ops.solid.extrude(distance=2)
+                    obj = bpy.context.object
+                    self.source_select('FACE', lambda f: all(abs(v.co.z - 2) < 1e-5 for v in f.verts))
+                    bpy.ops.solid.bevel(offset=.2, segments=4)
+                    self.source_select('FACE', lambda f: all(abs(v.co.z - 2) < 1e-5 for v in f.verts))
+                    bpy.ops.solid.delete(type='ONLY_FACE')
+                    if mode == 'VERT':
+                        predicate = lambda v: abs(v.co.z - 2) < 1e-5
+                    else:
+                        predicate = lambda e: all(abs(v.co.z - 2) < 1e-5 for v in e.verts)
+                    self.source_select(mode, predicate)
+                    before_mode = tuple(bpy.context.tool_settings.mesh_select_mode)
+                    self.assertEqual(bpy.ops.solid.extrude(distance=1), {'FINISHED'})
+                    self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), before_mode)
+                    self.assertEqual(bpy.ops.solid.fill(), {'FINISHED'})
+                    bpy.ops.object.mode_set(mode='OBJECT')
+                    self.assertGreater(self.volume(obj), math.pi * 2)
 
     def test_drawn_closed_profile_and_reopen(self):
         bpy.ops.solid.sketch_add(type='EMPTY')

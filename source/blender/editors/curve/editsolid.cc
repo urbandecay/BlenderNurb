@@ -860,9 +860,11 @@ static bool solid_edit_poll(bContext *C)
 }
 
 static std::optional<solid::Profile> prepare(const ed::solid_editor::Session &session,
-                                             std::string &error)
+                                             std::string &error,
+                                             const bool allow_boundary_cap = false)
 {
-  return solid::prepare_profile(*session.source().model, session.source().selection, &error);
+  return solid::prepare_profile(
+      *session.source().model, session.source().selection, &error, allow_boundary_cap);
 }
 
 static solid::Selection selection_for_face(const solid::Model &model,
@@ -907,7 +909,7 @@ static wmOperatorStatus fill_exec(bContext *C, wmOperator *op)
 {
   std::string error;
   auto session = ed::solid_editor::Session::begin(C, &error);
-  auto profile = session ? prepare(*session, error) : std::nullopt;
+  auto profile = session ? prepare(*session, error, true) : std::nullopt;
   if (session && !profile) {
     const auto &source = session->source();
     solid::EditResult connected{*source.model, source.selection};
@@ -951,7 +953,7 @@ static wmOperatorStatus fill_exec(bContext *C, wmOperator *op)
           return OPERATOR_FINISHED;
         }
         error.clear();
-        profile = solid::prepare_profile(connected.model, connected.selection, &error);
+        profile = solid::prepare_profile(connected.model, connected.selection, &error, true);
       }
     }
   }

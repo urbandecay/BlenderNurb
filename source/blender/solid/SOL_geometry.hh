@@ -156,9 +156,12 @@ struct Profile {
   Vec3 normal;
   bool attached = false;
 };
+/** Boundary capping is for Fill. Extrusion must leave open rims as element selections so
+ * they extend as surfaces rather than becoming temporary closed-solid profiles. */
 std::optional<Profile> prepare_profile(const Model &source,
                                        const Selection &selection,
-                                       std::string *error = nullptr);
+                                       std::string *error = nullptr,
+                                       bool allow_boundary_cap = false);
 
 struct EditResult {
   Model model;
