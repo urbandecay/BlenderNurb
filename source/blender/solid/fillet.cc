@@ -404,7 +404,82 @@ std::optional<EditResult> bevel_circular_cap(const Model &model,
                                              std::string *error,
                                              bool &handled)
 {
-  return fillet_circular_cap(model, selection, width, subdivisions, error, handled);
+  handled = false;
+  if (selection.faces.size() <= 1)
+    return fillet_circular_cap(model, selection, width, subdivisions, error, handled);
+
+  std::vector<Id> cap_ids;
+  std::unordered_set<Id> adjacent_walls;
+  for (Id face_id : selection.faces) {
+    Selection single;
+    single.mode = 4;
+    single.faces = {face_id};
+    single = normalize_selection(model, std::move(single));
+    bool face_handled = false;
+    auto probe = fillet_circular_cap(model, single, width, subdivisions, error, face_handled);
+    if (face_handled) {
+      handled = true;
+      if (!probe)
+        return {};
+      cap_ids.push_back(face_id);
+      const Face &cap = *face(model, face_id);
+      for (const Coedge &use : cap.outer)
+        for (const Face &adjacent : model.faces)
+          if (adjacent.id != face_id &&
+              std::any_of(adjacent.outer.begin(), adjacent.outer.end(), [&](const Coedge &item) {
+                return item.edge == use.edge;
+              }))
+          {
+            adjacent_walls.insert(adjacent.id);
+          }
+    }
+  }
+  if (cap_ids.empty())
+    return {};
+  for (Id face_id : selection.faces) {
+    if (std::find(cap_ids.begin(), cap_ids.end(), face_id) != cap_ids.end())
+      continue;
+    if (selection.mode != 1 || !adjacent_walls.contains(face_id) ||
+        surface(model, face(model, face_id)->surface)->kind != SurfaceKind::Extrusion)
+    {
+      return {};
+    }
+  }
+
+  handled = true;
+  EditResult result{model, {}};
+  std::vector<Id> generated_faces;
+  for (Id cap_id : cap_ids) {
+    Selection single;
+    single.mode = 4;
+    single.faces = {cap_id};
+    single = normalize_selection(result.model, std::move(single));
+    bool face_handled = false;
+    auto beveled = fillet_circular_cap(
+        result.model, single, width, subdivisions, error, face_handled);
+    if (!face_handled || !beveled)
+      return {};
+    std::unordered_set<Id> previous;
+    for (const Face &f : result.model.faces)
+      previous.insert(f.id);
+    for (const Face &f : beveled->model.faces)
+      if (!previous.contains(f.id))
+        generated_faces.push_back(f.id);
+    result.model = std::move(beveled->model);
+  }
+  result.selection.mode = 4;
+  result.selection.faces = std::move(generated_faces);
+  result.selection.active = result.selection.faces.front();
+  result.selection = normalize_selection(result.model, std::move(result.selection));
+  result.selection.mode = selection.mode;
+  if (selection.mode == 1)
+    result.selection.active = result.selection.vertices.front();
+  else if (selection.mode == 2)
+    result.selection.active = result.selection.edges.front();
+  result.selection = normalize_selection(result.model, std::move(result.selection));
+  if (!validate_body(result.model, cap_ids.front(), error))
+    return {};
+  return result;
 }
 
 std::optional<EditResult> fillet(
@@ -430,7 +505,7 @@ std::optional<EditResult> fillet(
     return fillet_wire_vertices(model, std::move(selection), width, subdivisions, error);
   {
     bool handled = false;
-    auto circular_cap = fillet_circular_cap(
+    auto circular_cap = bevel_circular_cap(
         model, selection, width, subdivisions, error, handled);
     if (handled)
       return circular_cap;

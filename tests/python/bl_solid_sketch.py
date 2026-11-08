@@ -372,7 +372,7 @@ class SolidSketchTest(unittest.TestCase):
         self.assertFalse(bpy.ops.curve.nurbs_control_points_toggle.poll())
         self.assertEqual(obj.mode, 'EDIT')
         self.assertEqual(bpy.ops.solid.extrude(distance=3), {'FINISHED'})
-        self.assertEqual(tuple(bpy.context.scene.tool_settings.mesh_select_mode), (False, False, True))
+        self.assertEqual(tuple(bpy.context.scene.tool_settings.mesh_select_mode), (True, False, False))
         self.assertEqual(bpy.ops.solid.extrude(distance=1), {'FINISHED'})
         bpy.ops.object.mode_set(mode='OBJECT')
         self.assertAlmostEqual(self.volume(obj), 64, places=5)
@@ -402,19 +402,19 @@ class SolidSketchTest(unittest.TestCase):
         for divisions in (1, 4, 7):
             for mode in ('VERT', 'EDGE', 'FACE'):
                 for segments in (0, 4):
-                    for end in (0, 2):
-                        with self.subTest(divisions=divisions, mode=mode, segments=segments, end=end):
+                    for ends in ((0,), (2,), (0, 2)):
+                        with self.subTest(divisions=divisions, mode=mode, segments=segments, ends=ends):
                             self.setUp()
                             bpy.ops.solid.sketch_add(type='EMPTY')
                             bpy.ops.curve.draw_circle(points='0 0 0 1 0 0', preview_points=divisions)
                             bpy.ops.solid.extrude(distance=2)
                             obj = bpy.context.object
                             if mode == 'VERT':
-                                predicate = lambda v: abs(v.co.z - end) < 1e-5
+                                predicate = lambda v: any(abs(v.co.z - end) < 1e-5 for end in ends)
                             elif mode == 'EDGE':
-                                predicate = lambda e: all(abs(v.co.z - end) < 1e-5 for v in e.verts)
+                                predicate = lambda e: any(all(abs(v.co.z - end) < 1e-5 for v in e.verts) for end in ends)
                             else:
-                                predicate = lambda f: all(abs(v.co.z - end) < 1e-5 for v in f.verts)
+                                predicate = lambda f: any(all(abs(v.co.z - end) < 1e-5 for v in f.verts) for end in ends)
                             self.source_select(mode, predicate)
                             before_mode = tuple(bpy.context.tool_settings.mesh_select_mode)
                             self.assertEqual(bpy.ops.solid.bevel(offset=.15, segments=segments), {'FINISHED'})
