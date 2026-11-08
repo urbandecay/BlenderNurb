@@ -282,24 +282,6 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
   return false;
 }
 
-static bool buttons_context_path_solid(ButsContextPath *path)
-{
-  const int original_length = path->len;
-  if (!buttons_context_path_data(path, OB_MESH)) {
-    return false;
-  }
-
-  const PointerRNA &ptr = path->ptr[path->len - 1];
-  if (!RNA_struct_is_a(ptr.type, RNA_Mesh) || !ptr.data ||
-      !static_cast<const Mesh *>(ptr.data)->solid_storage)
-  {
-    path->len = original_length;
-    return false;
-  }
-
-  return true;
-}
-
 static bool buttons_context_path_modifier(ButsContextPath *path)
 {
   if (buttons_context_path_object(path)) {
@@ -616,9 +598,6 @@ static bool buttons_context_path(
       break;
     case BCONTEXT_DATA:
       found = buttons_context_path_data(path, -1);
-      break;
-    case BCONTEXT_SOLID:
-      found = buttons_context_path_solid(path);
       break;
     case BCONTEXT_PARTICLE:
       found = buttons_context_path_particle(path);
