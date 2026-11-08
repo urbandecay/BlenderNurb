@@ -13,7 +13,6 @@
 #include <map>
 #include <numbers>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace blender::solid {
 
@@ -24,6 +23,12 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
 {
   const bool log_breakdown = std::getenv("BLENDER_BEVEL_PROFILE") != nullptr;
   segments = std::clamp(segments, 8, 4096);
+  /* Source bevel divisions describe editable faces. Display sampling must still follow
+   * their exact curved supports, even when a corner has only a few source quads. */
+  if (std::any_of(model.surfaces.begin(), model.surfaces.end(), [](const Surface &s) {
+        return s.kind == SurfaceKind::Sphere;
+      }))
+    segments = std::max(segments, 128);
   DisplayMesh mesh;
   mesh.has_analytic_normals = calculate_normals;
   std::unordered_map<Id, int> vertices;
@@ -33,42 +38,21 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
   std::unordered_map<Id, std::vector<int>> paths;
   std::unordered_map<Id, std::vector<Id>> edge_groups;
   std::unordered_map<Id, int> ruled_rails;
-  std::unordered_set<Id> small_sphere_edges, large_sphere_edges;
-  std::unordered_map<Id, size_t> sphere_support_face_count;
   /* Build the index before inspecting faces: the generic ID helpers scan the model. */
   vertices.reserve(model.vertices.size());
   paths.reserve(model.edges.size());
   edge_groups.reserve(model.edges.size());
   ruled_rails.reserve(model.edges.size());
-  small_sphere_edges.reserve(model.edges.size());
-  large_sphere_edges.reserve(model.edges.size());
   std::array<size_t, 7> source_faces_by_kind{};
   std::array<size_t, 7> display_faces_by_kind{};
   std::map<std::pair<int, int>, size_t> sphere_patch_histogram;
   for (const Face &f : model.faces) {
     const Surface &face_surface = *surfaces.at(f.surface);
-    if (face_surface.kind == SurfaceKind::Sphere)
-      sphere_support_face_count[f.surface]++;
     if (log_breakdown) {
       source_faces_by_kind[size_t(face_surface.kind)]++;
     }
     for (const Coedge &use : f.outer)
       edge_groups[use.edge].push_back(f.group ? f.group : f.id);
-    if (face_surface.kind == SurfaceKind::Sphere) {
-      /* Fillet corner spheres are already split into triangular source patches. A
-       * short exact conic edge on those patches is one source subdivision; splitting
-       * it again to satisfy the global display target over-tessellates low segment
-       * counts. Keep one display span when every adjacent sphere patch is this small. */
-      bool small_patch = f.outer.size() == 3 || f.outer.size() == 4;
-      for (const Coedge &use : f.outer) {
-        const Edge &e = *edges.at(use.edge);
-        const Curve &c = *curves.at(e.curve);
-        small_patch &= c.kind == CurveKind::Conic &&
-                       std::abs(e.end - e.start) <= std::numbers::pi / 16;
-      }
-      for (const Coedge &use : f.outer)
-        (small_patch ? small_sphere_edges : large_sphere_edges).insert(use.edge);
-    }
     if (face_surface.kind == SurfaceKind::Ruled && f.outer.size() == 4) {
       const Surface &s = face_surface;
       const Curve &a = *curves.at(s.curve), &b = *curves.at(s.other_curve);
@@ -84,8 +68,6 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
         ruled_rails[f.outer[side].edge] = std::max(ruled_rails[f.outer[side].edge], count);
     }
   }
-  for (Id edge_id : large_sphere_edges)
-    small_sphere_edges.erase(edge_id);
   auto point = [&](Vec3 p, Id id) {
     const int index = int(mesh.positions.size());
     mesh.positions.push_back(p);
@@ -102,8 +84,6 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
                           std::max(1, int(std::ceil(std::abs(e.end - e.start) * segments / 4))) :
                       c.kind == CurveKind::Line ?
                           (ruled_rails.contains(e.id) ? ruled_rails.at(e.id) : 1) :
-                      small_sphere_edges.contains(e.id) ?
-                          1 :
                           std::max(1,
                                    int(std::ceil(std::abs(e.end - e.start) /
                                                  (2 * std::numbers::pi) * segments)));
@@ -352,10 +332,7 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
         q = q / length(q);
         extent = std::max(extent, std::acos(std::clamp(dot(center, q), -1.0, 1.0)));
       }
-      const bool shared_sphere_support = sphere_support_face_count[s.id] > 1;
-      const int rings = shared_sphere_support ?
-                            1 :
-                            std::max(1, int(std::ceil(extent * std::max(2, segments / 8))));
+      const int rings = std::max(1, int(std::ceil(extent * segments / (2 * std::numbers::pi))));
       if (log_breakdown) {
         sphere_patch_histogram[{rings, int(boundary.size())}]++;
       }
@@ -431,7 +408,19 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
                        cross(tangent(c, t) * ((reversed ? -1 : 1) * (e.end - e.start)),
                              s.kind == SurfaceKind::Cylinder ? s.w : s.u) :
                        Vec3{0, 0, 1};
-          const double size = length(n);
+          double size = length(n);
+          /* A curved wall can meet a rail tangentially at an endpoint. The
+           * surface normal there is its one-sided limit, not a missing face. */
+          const Vec3 sweep = s.kind == SurfaceKind::Cylinder ? s.w : s.u;
+          if (calculate_normals &&
+              size <= 1e-12 * length(tangent(c, t)) * std::abs(e.end - e.start) * length(sweep) &&
+              (j == 0 || j + 1 == bottom.size()))
+          {
+            const double inside = fraction == 0 ? 1e-6 : 1 - 1e-6;
+            const double limit_t = e.start + (e.end - e.start) * (reversed ? 1 - inside : inside);
+            n = cross(tangent(c, limit_t) * ((reversed ? -1 : 1) * (e.end - e.start)), sweep);
+            size = length(n);
+          }
           if (!(size > 0)) {
             if (error)
               *error = "Degenerate extrusion wall normal";
