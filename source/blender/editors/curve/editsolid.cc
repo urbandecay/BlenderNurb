@@ -23,6 +23,7 @@
 
 #include "BLI_bit_vector.hh"
 #include "BLI_listbase_iterator.hh"
+#include "BLI_math_matrix.h"
 #include "BLI_math_matrix.hh"
 #include "BLI_math_vector.h"
 #include "BLI_math_vector.hh"
@@ -39,6 +40,7 @@
 #include "BKE_mesh_wrapper.hh"
 #include "BKE_object_types.hh"
 #include "BKE_report.hh"
+#include "BKE_screen.hh"
 #include "BKE_solid_host.hh"
 #include "BKE_unit.hh"
 
@@ -49,7 +51,10 @@
 #include "ED_numinput.hh"
 #include "ED_object.hh"
 #include "ED_screen.hh"
+#include "ED_space_api.hh"
 #include "ED_solid.hh"
+#include "ED_transform.hh"
+#include "ED_util.hh"
 #include "ED_view3d.hh"
 
 #include "RNA_access.hh"
@@ -63,6 +68,8 @@
 
 namespace blender {
 namespace ed::solid_editor {
+
+constexpr float solid_bevel_mouse_pixel_margin = 5.0f;
 
 bool edit_poll(bContext *C)
 {
@@ -1026,6 +1033,8 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
 struct ExtrudeModal {
   MEM_CXX_CLASS_ALLOC_FUNCS("Solid extrusion");
   std::unique_ptr<ed::solid_editor::Session> preview;
+  ARegion *region = nullptr;
+  void *draw_handle_pixel = nullptr;
   std::optional<solid::PreparedExtrusion> profile;
   bool elements = false;
   bool bevel = false;
@@ -1040,6 +1049,13 @@ struct ExtrudeModal {
   float2 initial_mouse;
   float2 direction = {0, 1};
   double units_per_pixel = 0;
+  float bevel_center[2] = {};
+  double bevel_start_length = 0;
+  double bevel_start_offset = 0;
+  double bevel_mouse_margin = 0;
+  double bevel_units_per_pixel = 0;
+  bool bevel_precision = false;
+  bool bevel_snap = false;
   double distance = 0;
   bool valid = false;
   std::string error;
@@ -1047,7 +1063,11 @@ struct ExtrudeModal {
 
 static void cleanup(bContext *C, wmOperator *op)
 {
-  MEM_delete(static_cast<ExtrudeModal *>(op->customdata));
+  auto *data = static_cast<ExtrudeModal *>(op->customdata);
+  if (data && data->draw_handle_pixel && data->region) {
+    ED_region_draw_cb_exit(data->region->runtime->type, data->draw_handle_pixel);
+  }
+  MEM_delete(data);
   op->customdata = nullptr;
   ED_workspace_status_text(C, nullptr);
   ED_region_tag_redraw(CTX_wm_region(C));
@@ -1147,7 +1167,8 @@ static void update(bContext *C, wmOperator *op)
     BLI_snprintf(
         status,
         sizeof(status),
-        "Bevel / Fillet Solid: %.9g | Segments: %d (Wheel) | LMB/Enter: Confirm | Esc: Cancel",
+        "Bevel / Fillet Solid: %.9g | Shift: Precision | Ctrl: Snap | "
+        "Segments: %d (Wheel) | LMB/Enter: Confirm | Esc: Cancel",
         data.distance,
         data.subdivisions);
   }
@@ -1306,26 +1327,51 @@ static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent
     update(C, op);
   }
   else if (event->type == MOUSEMOVE && !hasNumInput(&data.num)) {
-    data.distance = math::dot(float2(event->mval) - data.initial_mouse, data.direction) *
-                    data.units_per_pixel;
-    if (event->modifier & KM_CTRL) {
-      data.distance = std::round(data.distance * 10) / 10;
+    if (data.bevel) {
+      const double length = math::distance(float2(event->mval), float2(data.bevel_center));
+      const bool precision = event->modifier & KM_SHIFT;
+      const bool snap = event->modifier & KM_CTRL;
+      if (precision != data.bevel_precision || snap != data.bevel_snap) {
+        /* Rebase when a modifier changes so the preview does not jump. */
+        data.bevel_start_offset = data.distance;
+        data.bevel_start_length = length;
+        data.bevel_mouse_margin = 0;
+        data.bevel_precision = precision;
+        data.bevel_snap = snap;
+      }
+      data.distance = std::max(
+          0.0,
+          data.bevel_start_offset +
+              (length - data.bevel_start_length - data.bevel_mouse_margin) *
+                  data.bevel_units_per_pixel * (data.bevel_precision ? 0.1 : 1.0));
+      if (data.bevel_snap) {
+        const double snap_step = data.bevel_precision ? 0.01 : 0.1;
+        data.distance = std::round(data.distance / snap_step) * snap_step;
+      }
+      data.distance = std::min(data.distance, 1e6);
     }
-    if (data.elements) {
-      data.offset = {};
-      if (data.axis >= 0)
-        data.offset[data.axis] = data.distance;
-      else {
-        float3 delta;
-        ED_view3d_win_to_delta(
-            CTX_wm_region(C), float2(event->mval) - data.initial_mouse, data.depth, delta);
-        const auto local = math::transform_direction(data.preview->object().world_to_object(),
-                                                     delta);
-        data.offset = {local.x, local.y, local.z};
-        if (event->modifier & KM_CTRL)
-          for (int i = 0; i < 3; ++i)
-            data.offset[i] = std::round(data.offset[i] * 10) / 10;
-        data.distance = solid::length(data.offset);
+    else {
+      data.distance = math::dot(float2(event->mval) - data.initial_mouse, data.direction) *
+                      data.units_per_pixel;
+      if (event->modifier & KM_CTRL) {
+        data.distance = std::round(data.distance * 10) / 10;
+      }
+      if (data.elements) {
+        data.offset = {};
+        if (data.axis >= 0)
+          data.offset[data.axis] = data.distance;
+        else {
+          float3 delta;
+          ED_view3d_win_to_delta(
+              CTX_wm_region(C), float2(event->mval) - data.initial_mouse, data.depth, delta);
+          const auto local = math::transform_direction(data.preview->object().world_to_object(),
+                                                       delta);
+          data.offset = {local.x, local.y, local.z};
+          if (event->modifier & KM_CTRL)
+            for (int i = 0; i < 3; ++i)
+              data.offset[i] = std::round(data.offset[i] * 10) / 10;
+          data.distance = solid::length(data.offset);
+        }
       }
     }
     update(C, op);
@@ -1503,22 +1549,41 @@ static wmOperatorStatus bevel_invoke(bContext *C, wmOperator *op, const wmEvent 
   data->vertices_only = vertices_only;
   data->corner_style = corner_style;
   data->subdivisions = RNA_int_get(op->ptr, "segments");
-  data->initial_mouse = float2(event->mval);
-  const auto &source = data->preview->source();
-  const auto p = solid::vertex(*source.model, source.selection.vertices.front())->position;
-  const float3 center = math::transform_point(data->preview->object().object_to_world(),
-                                              float3(p.x, p.y, p.z));
-  data->units_per_pixel = ED_view3d_pixel_size(CTX_wm_region_view3d(C), center);
-  data->direction = {1, 0};
+  data->region = CTX_wm_region(C);
+  float center3d[3];
+  if (!ed::transform::calculateTransformCenter(
+          C, V3D_AROUND_CENTER_MEDIAN, center3d, data->bevel_center))
+  {
+    MEM_delete(data);
+    BKE_report(op->reports, RPT_ERROR, "Could not find the selected geometry center for bevel");
+    return OPERATOR_CANCELLED;
+  }
+  data->bevel_start_length = math::distance(float2(event->mval), float2(data->bevel_center));
+  data->bevel_mouse_margin = ed::solid_editor::solid_bevel_mouse_pixel_margin;
+  const float object_scale = mat4_to_scale(data->preview->object().object_to_world().ptr());
+  data->bevel_units_per_pixel = ED_view3d_pixel_size(
+                                    CTX_wm_region_view3d(C), center3d) /
+                                object_scale;
+  if (!std::isfinite(data->bevel_units_per_pixel) || data->bevel_units_per_pixel <= 0) {
+    MEM_delete(data);
+    BKE_report(
+        op->reports, RPT_ERROR, "Bevel Solid requires a usable object and viewport scale");
+    return OPERATOR_CANCELLED;
+  }
   initNumInput(&data->num);
   data->num.flag |= NUM_USE_DOUBLE;
   data->num.idx_max = 0;
   data->num.unit_sys = CTX_data_scene(C)->unit.system;
   data->num.unit_type[0] = B_UNIT_LENGTH;
   op->customdata = data;
+  data->draw_handle_pixel = ED_region_draw_cb_activate(data->region->runtime->type,
+                                                       ED_region_draw_mouse_line_cb,
+                                                       data->bevel_center,
+                                                       REGION_DRAW_POST_PIXEL);
   ED_workspace_status_text(C,
-                           "Bevel / Fillet Solid: Move mouse or type width | Wheel: Subdivisions "
-                           "| Enter: Confirm | Esc: Cancel");
+                           "Bevel / Fillet Solid: Move away from selection center to set width | "
+                           "Shift: Precision | Ctrl: Snap | Wheel: Segments | "
+                           "Enter: Confirm | Esc: Cancel");
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
 }
@@ -1681,7 +1746,7 @@ void SOLID_OT_bevel(wmOperatorType *ot)
   ot->invoke = bevel_invoke;
   ot->modal = extrude_modal;
   ot->cancel = extrude_cancel;
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_GRAB_CURSOR_XY | OPTYPE_BLOCKING;
   RNA_def_float_distance(
       ot->srna,
       "offset",

@@ -41,7 +41,7 @@ TRIALS = int(os.environ.get("SOLID_BEVEL_TRIALS", "6"))
 WARMUP = 1
 MODAL_UPDATES = int(os.environ.get("SOLID_BEVEL_MODAL_UPDATES", "35"))
 MODAL_WARMUP = int(os.environ.get("SOLID_BEVEL_MODAL_WARMUP", "5"))
-MESH_MODAL_MOUSE_MARGIN_PIXELS = 4
+BEVEL_MODAL_MOUSE_MARGIN_PIXELS = 5
 
 CASES = {
     "chamfer": {"mesh": 1, "solid": 0},
@@ -174,15 +174,15 @@ def windowed_benchmark():
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.view3d.view_selected(use_all_regions=False)
     bm = bmesh.from_edit_mesh(obj.data)
-    if kind == "solid":
-        # The solid tool scales width at its first selected source vertex. Mesh bevel scales from
-        # the median of the selected geometry.
-        center_local = bm.verts[0].co.copy()
-    else:
-        center_local = sum((vert.co for vert in bm.verts), Vector((0.0, 0.0, 0.0))) / max(
-            1, len(bm.verts)
-        )
+    selected_verts = [vert for vert in bm.verts if vert.select]
+    center_local = sum((vert.co for vert in selected_verts), Vector((0.0, 0.0, 0.0))) / max(
+        1, len(selected_verts)
+    )
     center_world = obj.matrix_world @ center_local
+    mouse_direction_name = os.environ.get("SOLID_BEVEL_MOUSE_DIRECTION", "x").lower()
+    if mouse_direction_name not in ("x", "y"):
+        raise ValueError("SOLID_BEVEL_MOUSE_DIRECTION must be x or y")
+    mouse_direction = (1, 0) if mouse_direction_name == "x" else (0, 1)
 
     state = {
         "active": False,
@@ -195,14 +195,15 @@ def windowed_benchmark():
         "pixels_per_unit": None,
         "start_x": None,
         "start_y": None,
+        "confirmed_width": None,
     }
 
-    def simulate_mouse(local_x):
+    def simulate_mouse(delta):
         window.event_simulate(
             type="MOUSEMOVE",
             value="NOTHING",
-            x=region.x + local_x,
-            y=region.y + state["start_y"],
+            x=region.x + state["start_x"] + round(mouse_direction[0] * delta),
+            y=region.y + state["start_y"] + round(mouse_direction[1] * delta),
         )
 
     def remove_handler():
@@ -218,9 +219,28 @@ def windowed_benchmark():
 
         def report_after_cancel():
             expected = final_preview if confirm else original_geometry
-            if geometry_snapshot() != expected:
+            actual = geometry_snapshot()
+            # Mesh bevel may intentionally change the selection when confirming. Compare its
+            # resulting geometry to the last preview while still checking selection on cancel.
+            geometry_matches = (
+                actual[:3] == expected[:3] if confirm and kind == "mesh" else actual == expected
+            )
+            if not geometry_matches:
                 print("SOLID_BEVEL_REGRESSION_FAILED: geometry/selection changed on exit", flush=True)
                 os._exit(1)
+            if confirm:
+                operator_id = "mesh.bevel" if kind == "mesh" else "solid.bevel"
+                state["confirmed_width"] = bpy.context.window_manager.operator_properties_last(
+                    operator_id
+                ).offset
+                tolerance = max(0.005, 1.5 / state["pixels_per_unit"])
+                if abs(state["confirmed_width"] - WIDTH) > tolerance:
+                    print(
+                        "SOLID_BEVEL_REGRESSION_FAILED: mouse drag produced width "
+                        f"{state['confirmed_width']:.6g}, expected {WIDTH:.6g} ± {tolerance:.6g}",
+                        flush=True,
+                    )
+                    os._exit(1)
             if kind == "solid":
                 bm = bmesh.from_edit_mesh(obj.data)
                 has_custom = bm.loops.layers.float_vector.get("custom_normal") is not None
@@ -243,10 +263,13 @@ def windowed_benchmark():
                 "case": case,
                 "normal_method": normal_method if kind == "solid" else "BLENDER",
                 "exit_action": "confirm" if confirm else "cancel",
-                "geometry_and_selection_preserved_on_exit": True,
+                "geometry_preserved_on_exit": True,
+                "selection_restored_on_cancel": not confirm,
                 "segment_changes": change_segments,
                 "width_target": WIDTH,
+                "confirmed_width": state["confirmed_width"],
                 "segments": segments,
+                "mouse_direction": mouse_direction_name,
                 "target_mouse_delta_pixels": state["target_delta"],
                 "projected_pixels_per_world_unit": round(state["pixels_per_unit"], 3),
                 "mouse_events_sent": state["send_count"],
@@ -281,8 +304,8 @@ def windowed_benchmark():
                 value="PRESS",
             )
         # Vary the width by a few viewport pixels so every event triggers a real bevel rebuild.
-        delta = state["target_delta"] + (index % 5 - 2)
-        simulate_mouse(state["start_x"] + delta)
+        jitter = 0 if index == MODAL_UPDATES - 1 else index % 5 - 2
+        simulate_mouse(state["target_delta"] + jitter)
         state["send_count"] += 1
         # Keep changing the width at a faster cadence than a normal display refresh. Blender's
         # event loop naturally delays subsequent input while a bevel update is still running.
@@ -311,15 +334,16 @@ def windowed_benchmark():
         if pixels_per_unit <= 0:
             raise RuntimeError("Could not calculate viewport width scale")
         state["pixels_per_unit"] = pixels_per_unit
-        mouse_margin = MESH_MODAL_MOUSE_MARGIN_PIXELS if kind == "mesh" else 0
-        state["target_delta"] = max(1, round(WIDTH * pixels_per_unit) + mouse_margin)
-        state["start_x"] = round(center_2d.x + 40)
-        state["start_y"] = round(center_2d.y)
+        state["target_delta"] = max(
+            1, round(WIDTH * pixels_per_unit) + BEVEL_MODAL_MOUSE_MARGIN_PIXELS
+        )
+        state["start_x"] = round(center_2d.x + mouse_direction[0] * 40)
+        state["start_y"] = round(center_2d.y + mouse_direction[1] * 40)
         state["handle"] = bpy.types.SpaceView3D.draw_handler_add(
             draw_callback, (), "WINDOW", "POST_PIXEL"
         )
         # Put the pointer at a known start location before invoking the modal tool.
-        simulate_mouse(state["start_x"])
+        simulate_mouse(0)
         bpy.app.timers.register(start_modal, first_interval=0.2)
         return None
 
