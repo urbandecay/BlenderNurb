@@ -36,7 +36,8 @@ import bpy
 from mathutils import Vector
 
 
-WIDTH = 0.2
+WIDTH = float(os.environ.get("SOLID_BEVEL_WIDTH", "0.2"))
+EXPECT_LIMITED_WIDTH = os.environ.get("SOLID_BEVEL_EXPECT_LIMITED", "0") == "1"
 TRIALS = int(os.environ.get("SOLID_BEVEL_TRIALS", "6"))
 WARMUP = 1
 MODAL_UPDATES = int(os.environ.get("SOLID_BEVEL_MODAL_UPDATES", "35"))
@@ -173,6 +174,8 @@ def windowed_benchmark():
     region = next(region for region in area.regions if region.type == "WINDOW")
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.view3d.view_selected(use_all_regions=False)
+    if EXPECT_LIMITED_WIDTH:
+        area.spaces.active.region_3d.view_distance *= 3
     bm = bmesh.from_edit_mesh(obj.data)
     selected_verts = [vert for vert in bm.verts if vert.select]
     center_local = sum((vert.co for vert in selected_verts), Vector((0.0, 0.0, 0.0))) / max(
@@ -234,10 +237,20 @@ def windowed_benchmark():
                     operator_id
                 ).offset
                 tolerance = max(0.005, 1.5 / state["pixels_per_unit"])
-                if abs(state["confirmed_width"] - WIDTH) > tolerance:
+                width_matches = (
+                    0 < state["confirmed_width"] < WIDTH
+                    if EXPECT_LIMITED_WIDTH
+                    else abs(state["confirmed_width"] - WIDTH) <= tolerance
+                )
+                if not width_matches:
+                    expected_width = (
+                        f"a valid clamped width below {WIDTH:.6g}"
+                        if EXPECT_LIMITED_WIDTH
+                        else f"{WIDTH:.6g} ± {tolerance:.6g}"
+                    )
                     print(
                         "SOLID_BEVEL_REGRESSION_FAILED: mouse drag produced width "
-                        f"{state['confirmed_width']:.6g}, expected {WIDTH:.6g} ± {tolerance:.6g}",
+                        f"{state['confirmed_width']:.6g}, expected {expected_width}",
                         flush=True,
                     )
                     os._exit(1)
@@ -268,6 +281,7 @@ def windowed_benchmark():
                 "segment_changes": change_segments,
                 "width_target": WIDTH,
                 "confirmed_width": state["confirmed_width"],
+                "width_limit_expected": EXPECT_LIMITED_WIDTH,
                 "segments": segments,
                 "mouse_direction": mouse_direction_name,
                 "target_mouse_delta_pixels": state["target_delta"],
@@ -304,12 +318,26 @@ def windowed_benchmark():
                 value="PRESS",
             )
         # Vary the width by a few viewport pixels so every event triggers a real bevel rebuild.
-        jitter = 0 if index == MODAL_UPDATES - 1 else index % 5 - 2
-        simulate_mouse(state["target_delta"] + jitter)
+        if EXPECT_LIMITED_WIDTH and index == 0:
+            # Start with a known valid cube bevel before moving beyond the solid's limit.
+            mouse_width = 0.5
+        elif EXPECT_LIMITED_WIDTH:
+            target_width = WIDTH + 0.5
+            progress = (index - 1) / max(1, MODAL_UPDATES - 2)
+            mouse_width = 0.5 + (target_width - 0.5) * progress
+        else:
+            jitter = 0 if index == MODAL_UPDATES - 1 else index % 5 - 2
+            mouse_width = max(
+                0,
+                (state["target_delta"] + jitter - BEVEL_MODAL_MOUSE_MARGIN_PIXELS)
+                / state["pixels_per_unit"],
+            )
+        delta = round(mouse_width * state["pixels_per_unit"]) + BEVEL_MODAL_MOUSE_MARGIN_PIXELS
+        simulate_mouse(delta)
         state["send_count"] += 1
         # Keep changing the width at a faster cadence than a normal display refresh. Blender's
         # event loop naturally delays subsequent input while a bevel update is still running.
-        return 0.001
+        return 0.05 if EXPECT_LIMITED_WIDTH else 0.001
 
     def draw_callback():
         if not state["active"] or bpy.context.region != region:
@@ -334,8 +362,9 @@ def windowed_benchmark():
         if pixels_per_unit <= 0:
             raise RuntimeError("Could not calculate viewport width scale")
         state["pixels_per_unit"] = pixels_per_unit
+        mouse_target_width = WIDTH + 0.5 if EXPECT_LIMITED_WIDTH else WIDTH
         state["target_delta"] = max(
-            1, round(WIDTH * pixels_per_unit) + BEVEL_MODAL_MOUSE_MARGIN_PIXELS
+            1, round(mouse_target_width * pixels_per_unit) + BEVEL_MODAL_MOUSE_MARGIN_PIXELS
         )
         state["start_x"] = round(center_2d.x + mouse_direction[0] * 40)
         state["start_y"] = round(center_2d.y + mouse_direction[1] * 40)
@@ -355,7 +384,10 @@ def windowed_benchmark():
                     "INVOKE_DEFAULT", offset=WIDTH, segments=segments, profile=0.5, affect="EDGES"
                 )
             else:
-                result = bpy.ops.solid.bevel("INVOKE_DEFAULT", offset=WIDTH, segments=segments)
+                invoke_width = 0.1 if EXPECT_LIMITED_WIDTH else WIDTH
+                result = bpy.ops.solid.bevel(
+                    "INVOKE_DEFAULT", offset=invoke_width, segments=segments
+                )
             state["invoke_ms"] = (time.perf_counter() - start) * 1000
         if result != {"RUNNING_MODAL"}:
             remove_handler()

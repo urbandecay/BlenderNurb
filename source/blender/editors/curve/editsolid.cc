@@ -1054,8 +1054,11 @@ struct ExtrudeModal {
   double bevel_start_offset = 0;
   double bevel_mouse_margin = 0;
   double bevel_units_per_pixel = 0;
+  double bevel_last_valid_distance = 0;
   bool bevel_precision = false;
   bool bevel_snap = false;
+  bool bevel_has_valid_preview = false;
+  bool bevel_limit_reached = false;
   double distance = 0;
   bool valid = false;
   std::string error;
@@ -1100,7 +1103,7 @@ static void update(bContext *C, wmOperator *op)
         data.distance, bke::solid_host::display_uses_analytic_normals(mesh), &data.error);
   }
   std::optional<solid::EditResult> result;
-  if (data.bevel) {
+  if (data.bevel && data.distance > 0) {
     result = bevel_result(*source.model,
                           source.selection,
                           std::abs(data.distance),
@@ -1129,8 +1132,30 @@ static void update(bContext *C, wmOperator *op)
         *candidate.model, candidate.selection.active, data.selection_mode);
     data.valid = data.preview->apply(C, std::move(candidate), &data.error, true);
   }
+  else if (data.bevel && data.distance <= 0) {
+    data.valid = data.preview->restore(C, &data.error);
+    data.bevel_has_valid_preview = false;
+    data.bevel_limit_reached = false;
+  }
   else {
-    data.valid = result && data.preview->apply(C, std::move(*result), &data.error, true);
+    const bool candidate_valid = result &&
+                                 data.preview->apply(C, std::move(*result), &data.error, true);
+    if (data.bevel && candidate_valid) {
+      data.valid = true;
+      data.bevel_has_valid_preview = true;
+      data.bevel_last_valid_distance = data.distance;
+      data.bevel_limit_reached = false;
+    }
+    else if (data.bevel && data.bevel_has_valid_preview) {
+      /* Keep the last published bevel visible and confirmable when the requested width
+       * exceeds the solid's geometric limit. Moving back to a valid width resumes updates. */
+      data.valid = true;
+      data.distance = data.bevel_last_valid_distance;
+      data.bevel_limit_reached = true;
+    }
+    else {
+      data.valid = candidate_valid;
+    }
   }
   if (profile_bevel) {
     const auto profile_end = std::chrono::steady_clock::now();
@@ -1155,7 +1180,7 @@ static void update(bContext *C, wmOperator *op)
             result_edges,
             result_faces);
   }
-  if (!data.valid) {
+  if (!data.valid && (!data.bevel || !data.bevel_has_valid_preview)) {
     /* Do not leave a stale, apparently valid extrusion visible at a rejected distance. */
     std::string restore_error;
     if (!data.preview->restore(C, &restore_error)) {
@@ -1163,7 +1188,16 @@ static void update(bContext *C, wmOperator *op)
     }
   }
   char status[512];
-  if (data.valid && data.bevel) {
+  if (data.valid && data.bevel && data.bevel_limit_reached) {
+    BLI_snprintf(
+        status,
+        sizeof(status),
+        "Bevel / Fillet Solid: %.9g (last valid width) | Shift: Precision | Ctrl: Snap | "
+        "Segments: %d (Wheel) | Enter: Keep | Esc: Cancel",
+        data.distance,
+        data.subdivisions);
+  }
+  else if (data.valid && data.bevel) {
     BLI_snprintf(
         status,
         sizeof(status),
