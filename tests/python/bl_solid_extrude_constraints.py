@@ -18,6 +18,7 @@ CASES = (
     ('ALONG_NORMALS_CURVED', bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten),
     ('MANIFOLD_CURVED', bpy.ops.view3d.edit_mesh_extrude_manifold_normal),
     ('ALONG_NORMALS_ELLIPTICAL', bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten),
+    ('INDIVIDUAL_CURVED', bpy.ops.view3d.edit_mesh_extrude_individual_move),
 )
 if os.environ.get('SOLID_CONSTRAINT_CASE'):
     CASES = tuple(c for c in CASES if c[0] == os.environ['SOLID_CONSTRAINT_CASE'])
@@ -56,6 +57,8 @@ def setup():
     bpy.ops.mesh.select_mode(type='FACE')
     bm = bmesh.from_edit_mesh(obj.data)
     bm.normal_update()
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()
     top = (next(f for f in bm.faces if min(f.normal) > .12 and
                 f.calc_center_median().x > (1.5 if 'ELLIPTICAL' in case_name else .75) and
                 f.calc_center_median().y > .75 and
@@ -65,17 +68,36 @@ def setup():
         f.select_set(False)
     top.select_set(True)
     bm.faces.active = top
+    candidate_indices = []
+    if case_name == 'INDIVIDUAL_CURVED':
+        def corner_face(face):
+            center = face.calc_center_median()
+            return (min(face.normal) > .12 and center.x > .75 and center.y > .75 and
+                    center.z > 1.75)
+        candidate_indices = [face.index for face in bm.faces if corner_face(face)]
+        candidate_indices.sort(
+            key=lambda index: (bm.faces[index].calc_center_median() -
+                               top.calc_center_median()).length)
     bmesh.update_edit_mesh(obj.data)
     state['obj'] = obj
     bm.faces.index_update()
-    selected_index = top.index
+    active_source_index = top.index
     bpy.ops.object.mode_set(mode='OBJECT')
     mesh = obj.data
     ids = mesh.attributes['.solid_face_id'].data
-    selected_id = tuple(ids[selected_index].value)
-    polygons = [f for f in mesh.polygons if tuple(ids[f.index].value) == selected_id]
+    selected_ids = {tuple(ids[active_source_index].value)}
+    if case_name == 'INDIVIDUAL_CURVED':
+        for index in candidate_indices:
+            selected_ids.add(tuple(ids[index].value))
+            if len(selected_ids) >= 3:
+                break
+    if case_name == 'INDIVIDUAL_CURVED' and len(selected_ids) < 3:
+        fail('The curved-face fixture did not select three analytic faces')
+    polygons = [f for f in mesh.polygons if tuple(ids[f.index].value) in selected_ids]
     indices = {i for f in polygons for i in f.vertices}
     state['original'] = sorted(tuple(mesh.vertices[i].co) for i in indices)
+    state['individual'] = case_name == 'INDIVIDUAL_CURVED'
+    state['selected_poly_count'] = len(polygons)
     local_normal = Vector()
     for f in polygons:
         n = sum((mesh.corner_normals[i].vector for i in f.loop_indices), Vector()).normalized()
@@ -91,7 +113,7 @@ def setup():
         element.select_set(False)
     for polygon in polygons:
         bm.faces[polygon.index].select_set(True)
-    bm.faces.active = bm.faces[selected_index]
+    bm.faces.active = bm.faces[active_source_index]
     bm.select_flush_mode()
     bmesh.update_edit_mesh(obj.data)
     area.spaces.active.region_3d.view_perspective = 'ORTHO'
@@ -130,6 +152,18 @@ def invoke():
 def check_cap():
     bm = bmesh.from_edit_mesh(state['obj'].data)
     selected = [f for f in bm.faces if f.select]
+    if state.get('individual'):
+        if len(selected) != state['selected_poly_count']:
+            fail(('Individual extrusion did not select all new caps', len(selected),
+                  state['selected_poly_count']))
+        cap_center = sum((v.co for f in selected for v in f.verts), Vector()) / sum(
+            len(f.verts) for f in selected)
+        delta = cap_center - Vector(state['center'])
+        if delta.dot(state['normal']) <= .00001:
+            fail(('Individual corner faces did not extrude outward', tuple(delta)))
+        if bpy.context.tool_settings.mesh_select_mode[:] != (False, False, True):
+            fail('Individual extrusion changed face selection mode')
+        return
     cap_vertices = sorted(tuple(v.co) for v in {v for f in selected for v in f.verts})
     if len(cap_vertices) != len(state['original']):
         fail(('Extrusion changed the cap sampling', len(cap_vertices), len(state['original'])))

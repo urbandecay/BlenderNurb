@@ -206,6 +206,47 @@ int main()
           rounded->model, selected_patch, amount, &error);
       check(bool(individual), "Individual curved normal extrusion: " + error);
     }
+    std::vector<Id> corner_patches;
+    for (const Face &f : rounded->model.faces)
+      if (f.surface == corner_patch->surface && f.outer.size() == 4)
+        corner_patches.push_back(f.id);
+    check(corner_patches.size() >= 3, "Find neighboring curved corner faces");
+    Selection selected_corner_patches;
+    selected_corner_patches.mode = 4;
+    selected_corner_patches.faces.assign(corner_patches.begin(), corner_patches.begin() + 3);
+    selected_corner_patches.active = selected_corner_patches.faces.back();
+    const auto individual_corner = extrude_individual_normals(
+        rounded->model, selected_corner_patches, .03, &error);
+    check(bool(individual_corner), "Individual extrusion of adjacent corner faces: " + error);
+    check(individual_corner->selection.mode == 4 &&
+              individual_corner->selection.faces.size() == 3,
+          "Individual corner extrusion must select each new cap in face mode");
+    check(validate_body(individual_corner->model,
+                        individual_corner->selection.active,
+                        &error),
+          "Adjacent individual corner extrusion must remain closed: " + error);
+    std::vector<Vec3> individual_offsets;
+    for (Id id : selected_corner_patches.faces) {
+      const Face &f = *face(rounded->model, id);
+      std::vector<Vec3> points;
+      for (const Coedge &use : f.outer) {
+        const Edge &e = *edge(rounded->model, use.edge);
+        points.push_back(vertex(rounded->model, e.vertices[use.reversed ? 1 : 0])->position);
+      }
+      Vec3 normal{};
+      for (size_t i = 1; i + 1 < points.size(); ++i)
+        normal = normal + cross(points[i] - points[0], points[i + 1] - points[0]);
+      normal = normal * double(f.orientation);
+      normal = normal * (.03 / length(normal));
+      individual_offsets.push_back(normal);
+    }
+    const auto discrete_corner = extrude_faces_individually(
+        rounded->model, selected_corner_patches, individual_offsets, &error);
+    check(bool(discrete_corner), "Discrete extrusion of adjacent corner faces: " + error);
+    check(discrete_corner->selection.mode == 4 && discrete_corner->selection.faces.size() == 3,
+          "Discrete corner extrusion must select each new cap in face mode");
+    check(validate_body(discrete_corner->model, discrete_corner->selection.active, &error),
+          "Discrete individual corner extrusion must remain closed: " + error);
     Model scaled = rounded->model;
     auto scale_point = [](Vec3 p) { return Vec3{2 * p.x, p.y, p.z}; };
     for (Vertex &v : scaled.vertices)

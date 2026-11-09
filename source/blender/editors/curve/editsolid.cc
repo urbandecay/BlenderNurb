@@ -1118,6 +1118,32 @@ static std::optional<std::vector<solid::Vec3>> selected_face_normal_sums(
   return sums;
 }
 
+static std::optional<solid::EditResult> extrude_individual_faces(
+    const bke::solid_host::Snapshot &source, const double distance, std::string *error)
+{
+  if (source.selection.faces.size() == 1) {
+    auto result = solid::extrude_individual_normals(
+        *source.model, source.selection, distance, error);
+    if (result)
+      return result;
+    /* Some analytic supports have no exact parallel-offset construction. For
+     * individual extrusion, a rigid cap moved along its sampled face normal is
+     * still the same operation Blender performs on a mesh face. */
+    if (error)
+      error->clear();
+  }
+
+  const auto normal_sums = selected_face_normal_sums(source, error);
+  if (!normal_sums)
+    return {};
+  std::vector<solid::Vec3> offsets;
+  offsets.reserve(normal_sums->size());
+  for (const solid::Vec3 normal : *normal_sums)
+    offsets.push_back(normal * (distance / solid::length(normal)));
+  return solid::extrude_faces_individually(
+      *source.model, source.selection, offsets, error);
+}
+
 static void finish_sketch_extrusion(bContext *C)
 {
   if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
@@ -1138,7 +1164,12 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
   RNA_float_get_array(op->ptr, "offset", offset);
   const bool vector_offset = !math::is_zero(float3(offset));
   const bool normals_method = method == 1 || method == 2;
-  if (preview && normals_method && profile && !profile->attached) {
+  if (preview && method == 2 && selection_mode == 4 &&
+      !preview->source().selection.faces.empty())
+  {
+    result = extrude_individual_faces(preview->source(), distance_get(op), &error);
+  }
+  else if (preview && method == 1 && profile && !profile->attached) {
     result = solid::extrude(*profile, distance_get(op), &error);
   }
   else if (preview && normals_method && selection_mode == 4 &&
@@ -1343,8 +1374,7 @@ static void update(bContext *C, wmOperator *op)
                                                &data.error);
       }
       else if (data.per_face_extrude) {
-        result = solid::extrude_individual_normals(
-            *source.model, source.selection, data.distance, &data.error);
+        result = extrude_individual_faces(source, data.distance, &data.error);
       }
       else {
         if (!data.region_extrusion)
@@ -1495,7 +1525,9 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
   auto preview = ed::solid_editor::Session::begin(C, &error);
   const int method = RNA_enum_get(op->ptr, "method");
   auto profile = preview ? prepare(*preview, error) : std::nullopt;
-  if (preview && profile && profile->attached && preview->source().selection.mode == 4) {
+  if (preview && preview->source().selection.mode == 4 &&
+      ((method == 1 && profile && profile->attached) || method == 2))
+  {
     profile.reset();
     error.clear();
   }
