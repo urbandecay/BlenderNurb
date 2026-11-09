@@ -22,7 +22,10 @@ def _extrude_analytic_solid_if_needed(context):
     """Route legacy Edit Mesh extrusion shortcuts through the analytic Solid tool."""
     ob = context.object
     if ob and ob.type == 'MESH' and ob.data.is_solid_model:
-        return bpy.ops.solid.extrude('INVOKE_REGION_WIN')
+        result = bpy.ops.solid.extrude('INVOKE_REGION_WIN')
+        # The nested Solid operator owns the modal handler; finish this wrapper so Blender
+        # doesn't keep the legacy wrapper alive as a second modal operator.
+        return {'FINISHED'} if 'RUNNING_MODAL' in result else result
     return None
 
 
