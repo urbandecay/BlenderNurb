@@ -762,7 +762,9 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
         BKE_report(op->reports, RPT_ERROR, error.c_str());
         return OPERATOR_CANCELLED;
       }
-      BKE_report(op->reports, RPT_INFO, "Solid Boolean complete; circular surfaces preserved");
+      BKE_report(op->reports,
+                 RPT_INFO,
+                 "Solid Boolean complete; analytic cylinder surfaces preserved");
       return OPERATOR_FINISHED;
     }
   }

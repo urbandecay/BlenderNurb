@@ -680,17 +680,68 @@ class SolidSketchTest(unittest.TestCase):
                 self.assertEqual(bpy.ops.solid.boolean(**kwargs), {'FINISHED'})
                 self.assertAlmostEqual(self.volume(obj), expected, delta=.025)
 
-    def test_unsupported_curved_boolean_keeps_original_source(self):
+    def test_elliptical_cylinder_boolean_keeps_analytic_boundaries(self):
+        for operation in ('UNION', 'SUBTRACT', 'INTERSECT', 'SPLIT'):
+            with self.subTest(operation=operation):
+                self.setUp()
+                bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                bpy.ops.solid.extrude(distance=2)
+                obj = bpy.context.object
+                self.source_select('FACE', lambda f: True)
+                bpy.ops.transform.resize(value=(2, 1, 1))
+                bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (.5, 0, .2)})
+                self.source_select('FACE', lambda f: True)
+                self.assertEqual(bpy.ops.solid.boolean(operation_mode=operation), {'FINISHED'})
+                self.assertLess(obj.data.solid_vertices_count, 24)
+                self.assertLess(obj.data.solid_edges_count, 48)
+                self.assertLess(obj.data.solid_faces_count, 28)
+                radius_x, radius_y, height, offset = 2.0, 1.0, 2.0, .5
+                overlap_area = (2 * radius_x * radius_y * math.acos(offset / (2 * radius_x)) -
+                                .5 * offset * radius_y / radius_x *
+                                math.sqrt(4 * radius_x * radius_x - offset * offset))
+                overlap = overlap_area * (height - .2)
+                whole = math.pi * radius_x * radius_y * height
+                expected = {'UNION': 2 * whole - overlap,
+                            'SUBTRACT': whole - overlap,
+                            'INTERSECT': overlap,
+                            'SPLIT': whole}[operation]
+                self.assertAlmostEqual(self.volume(obj), expected, delta=.04)
+
+    def test_rotated_elliptical_cylinder_boolean_is_closed(self):
+        volumes = {}
+        for operation in ('UNION', 'SUBTRACT', 'INTERSECT', 'SPLIT'):
+            with self.subTest(operation=operation):
+                self.setUp()
+                bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                bpy.ops.solid.extrude(distance=2)
+                obj = bpy.context.object
+                self.source_select('FACE', lambda f: True)
+                bpy.ops.transform.resize(value=(2, 1, 1))
+                bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (.5, 0, .2)})
+                bpy.ops.transform.rotate(value=.4, orient_axis='Z')
+                self.source_select('FACE', lambda f: True)
+                self.assertEqual(bpy.ops.solid.boolean(operation_mode=operation), {'FINISHED'})
+                self.assertLess(obj.data.solid_vertices_count, 24)
+                self.assertLess(obj.data.solid_edges_count, 48)
+                self.assertLess(obj.data.solid_faces_count, 28)
+                volumes[operation] = self.volume(obj)
+        # Union/intersection and subtraction/intersection must partition the analytic inputs.
+        whole = math.pi * 2 * 2
+        self.assertAlmostEqual(volumes['UNION'] + volumes['INTERSECT'], 2 * whole, delta=.05)
+        self.assertAlmostEqual(volumes['SUBTRACT'] + volumes['INTERSECT'], whole, delta=.05)
+        self.assertAlmostEqual(volumes['SPLIT'], whole, delta=.05)
+
+    def test_skewed_cylinder_boolean_keeps_original_source(self):
         bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
         bpy.ops.solid.extrude(distance=2)
         obj = bpy.context.object
         self.source_select('FACE', lambda f: True)
-        bpy.ops.transform.resize(value=(2, 1, 1))
         bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (.5, 0, .2)})
+        bpy.ops.transform.rotate(value=.3, orient_axis='Y')
         self.source_select('FACE', lambda f: True)
         before = [tuple(v.co) for v in bmesh.from_edit_mesh(obj.data).verts]
         counts = (obj.data.solid_vertices_count, obj.data.solid_edges_count, obj.data.solid_faces_count)
-        with self.assertRaisesRegex(RuntimeError, 'not supported analytically'):
+        with self.assertRaisesRegex(RuntimeError, 'parallel axes'):
             bpy.ops.solid.boolean()
         self.assertEqual(before, [tuple(v.co) for v in bmesh.from_edit_mesh(obj.data).verts])
         self.assertEqual(counts, (obj.data.solid_vertices_count,

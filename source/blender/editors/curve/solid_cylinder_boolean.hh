@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <optional>
 #include <vector>
@@ -14,8 +15,8 @@ namespace blender::ed::solid_editor::cylinder_boolean {
 using namespace solid;
 constexpr double tau = 2 * std::numbers::pi;
 struct Cylinder {
-  Vec3 center, axis, radial;
-  double radius, low, high;
+  Vec3 center, axis, radial_x, radial_y;
+  double radius_x, radius_y, low, high;
 };
 inline std::optional<Cylinder> recognize(const Model &model, const std::vector<Id> &faces)
 {
@@ -34,15 +35,17 @@ inline std::optional<Cylinder> recognize(const Model &model, const std::vector<I
   const solid::Curve *c = curve(model, wall->curve);
   if (!c || c->kind != CurveKind::Conic || std::abs(wall->end - wall->start - tau) > 1e-9)
     return {};
-  const double r = length(c->u), h = length(wall->u);
-  if (!(r > 0 && h > 0) || std::abs(length(c->v) - r) > r * 1e-10 ||
-      std::abs(dot(c->u, c->v)) > r * r * 1e-10 || std::abs(dot(c->u, wall->u)) > r * h * 1e-10 ||
-      std::abs(dot(c->v, wall->u)) > r * h * 1e-10)
+  const double rx = length(c->u), ry = length(c->v), h = length(wall->u);
+  if (!(rx > 0 && ry > 0 && h > 0) ||
+      std::abs(dot(c->u, c->v)) > rx * ry * 1e-10 ||
+      std::abs(dot(c->u, wall->u)) > rx * h * 1e-10 ||
+      std::abs(dot(c->v, wall->u)) > ry * h * 1e-10)
     return {};
-  return Cylinder{c->origin, wall->u / h, c->u / r, r, 0, h};
+  return Cylinder{c->origin, wall->u / h, c->u / rx, c->v / ry, rx, ry, 0, h};
 }
 
-/* Exact circular boundaries in a shared frame. Only intersection events create topology;
+/* Exact circular and elliptical boundaries in a shared frame. Only intersection events create
+ * topology;
  * viewport sampling density never determines source vertices, edges or faces. */
 struct Builder {
   Model &m;
@@ -67,7 +70,8 @@ struct Builder {
   }
   Vec3 point(int i, double t, double z) const
   {
-    return c[i].center + axis * z + (x * std::cos(t) + y * std::sin(t)) * c[i].radius;
+    return c[i].center + axis * z + c[i].radial_x * (std::cos(t) * c[i].radius_x) +
+           c[i].radial_y * (std::sin(t) * c[i].radius_y);
   }
   Id edge_at(solid::Curve curve, double a, double b)
   {
@@ -91,8 +95,8 @@ struct Builder {
     solid::Curve curve;
     curve.kind = CurveKind::Conic;
     curve.origin = c[i].center + axis * z;
-    curve.u = x * c[i].radius;
-    curve.v = y * c[i].radius;
+    curve.u = c[i].radial_x * c[i].radius_x;
+    curve.v = c[i].radial_y * c[i].radius_y;
     return edge_at(curve, a, b);
   }
   Id rail(Vec3 p, Vec3 q)
@@ -105,7 +109,10 @@ struct Builder {
   bool inside_other(int i, double t) const
   {
     Vec3 delta = point(i, t, 0) - c[1 - i].center;
-    return dot(delta, delta) < c[1 - i].radius * c[1 - i].radius;
+    const Cylinder &other = c[1 - i];
+    const double u = dot(delta, other.radial_x) / other.radius_x;
+    const double v = dot(delta, other.radial_y) / other.radius_y;
+    return u * u + v * v < 1.0;
   }
   bool value(int op, bool a, bool b) const
   {
@@ -175,10 +182,12 @@ struct Builder {
         const solid::Curve &curve = *solid::curve(m, e.curve);
         Vec3 origin = curve.origin - c[0].center;
         double a = e.start, b = e.end;
-        double r = length(curve.u);
-        double term = r * (dot(origin, x) * (std::sin(b) - std::sin(a)) -
-                           dot(origin, y) * (std::cos(b) - std::cos(a))) +
-                      r * r * (b - a);
+        auto cross_2d = [&](Vec3 u, Vec3 v) {
+          return dot(u, x) * dot(v, y) - dot(u, y) * dot(v, x);
+        };
+        const double term = cross_2d(origin, curve.u) * (std::cos(a) - std::cos(b)) +
+                            cross_2d(origin, curve.v) * (std::sin(b) - std::sin(a)) +
+                            cross_2d(curve.u, curve.v) * (b - a);
         area += (use.reversed ? -1 : 1) * term;
       }
       if (area < 0) {
@@ -256,7 +265,7 @@ struct Builder {
 };
 inline bool append(Model &out, Cylinder a, Cylinder b, int op, std::string *error)
 {
-  Vec3 axis = a.axis, x = a.radial, y = cross(axis, x);
+  Vec3 axis = a.axis, x = a.radial_x, y = cross(axis, x);
   if (length(cross(axis, b.axis)) > 1e-10) {
     if (error)
       *error = "Analytic cylinder Boolean requires parallel axes";
@@ -271,10 +280,17 @@ inline bool append(Model &out, Cylinder a, Cylinder b, int op, std::string *erro
   Vec3 delta = b.center - a.center;
   double distance = length(delta);
   build.first_vertex = out.vertices.size();
-  if (distance > std::abs(a.radius - b.radius) + 1e-10 && distance < a.radius + b.radius - 1e-10) {
-    double along = (a.radius * a.radius - b.radius * b.radius + distance * distance) /
+  const bool circles = std::abs(a.radius_x - a.radius_y) < a.radius_x * 1e-10 &&
+                       std::abs(b.radius_x - b.radius_y) < b.radius_x * 1e-10 &&
+                       dot(a.radial_x, b.radial_x) > 1.0 - 1e-10 &&
+                       dot(a.radial_y, b.radial_y) > 1.0 - 1e-10 &&
+                       dot(a.radial_y, y) > 1.0 - 1e-10;
+  if (circles && distance > std::abs(a.radius_x - b.radius_x) + 1e-10 &&
+      distance < a.radius_x + b.radius_x - 1e-10)
+  {
+    double along = (a.radius_x * a.radius_x - b.radius_x * b.radius_x + distance * distance) /
                    (2 * distance);
-    double h = std::sqrt(std::max(0.0, a.radius * a.radius - along * along));
+    double h = std::sqrt(std::max(0.0, a.radius_x * a.radius_x - along * along));
     Vec3 center = a.center + delta * (along / distance), side = cross(axis, delta / distance) * h;
     for (int i = 0; i < 2; ++i) {
       for (Vec3 p : {center + side, center - side}) {
@@ -289,12 +305,78 @@ inline bool append(Model &out, Cylinder a, Cylinder b, int op, std::string *erro
     }
   }
   else {
-    if (distance <= std::abs(a.radius - b.radius) + 1e-10) {
+    /* Find crossings of the exact conic boundaries. Sampling is only used to bracket roots;
+     * intersection edges remain analytic conics and the sampling does not create topology. */
+    constexpr int root_brackets = 2048;
+    auto implicit = [&](int i, double t) {
+      Vec3 delta = build.point(i, t, 0) - build.c[1 - i].center;
+      const Cylinder &other = build.c[1 - i];
+      const double u = dot(delta, other.radial_x) / other.radius_x;
+      const double v = dot(delta, other.radial_y) / other.radius_y;
+      return u * u + v * v - 1.0;
+    };
+    double nearest_boundary = std::numeric_limits<double>::infinity();
+    for (int i = 0; i < 2; ++i) {
+      std::vector<double> roots;
+      double t0 = 0.0, f0 = implicit(i, t0);
+      nearest_boundary = std::min(nearest_boundary, std::abs(f0));
+      for (int j = 1; j <= root_brackets; ++j) {
+        const double t1 = tau * j / root_brackets;
+        const double f1 = implicit(i, t1);
+        nearest_boundary = std::min(nearest_boundary, std::abs(f1));
+        if ((f0 < 0) != (f1 < 0)) {
+          double lo = t0, hi = t1, flo = f0;
+          for (int k = 0; k < 64; ++k) {
+            const double mid = (lo + hi) * 0.5;
+            const double fm = implicit(i, mid);
+            if ((flo < 0) != (fm < 0))
+              hi = mid;
+            else {
+              lo = mid;
+              flo = fm;
+            }
+          }
+          roots.push_back((lo + hi) * 0.5);
+        }
+        t0 = t1;
+        f0 = f1;
+      }
+      std::sort(roots.begin(), roots.end());
+      roots.erase(std::unique(roots.begin(),
+                              roots.end(),
+                              [](double lhs, double rhs) { return std::abs(lhs - rhs) < 1e-9; }),
+                  roots.end());
+      if (roots.size() > 1 && roots.size() % 2 == 0) {
+        build.cuts[i] = std::move(roots);
+        build.cuts[i].push_back(build.cuts[i][0] + tau);
+      }
+      else if (!roots.empty()) {
+        if (error)
+          *error = "Elliptical cylinder intersection could not be resolved safely";
+        return false;
+      }
+    }
+    const bool any_roots = !build.cuts[0].empty() || !build.cuts[1].empty();
+    if (!any_roots && nearest_boundary < 1e-10) {
       if (error)
-        *error = "Nested or tangent cylinder Boolean needs trimmed cap support";
+        *error = "Tangent cylinder Boolean needs trimmed cap support";
       return false;
     }
-    build.cuts = {std::vector<double>{0, tau}, std::vector<double>{0, tau}};
+    if (any_roots) {
+      if (build.cuts[0].empty() || build.cuts[1].empty()) {
+        if (error)
+          *error = "Elliptical cylinder intersection could not be resolved safely";
+        return false;
+      }
+    }
+    else {
+      if (build.inside_other(0, 0) || build.inside_other(1, 0)) {
+        if (error)
+          *error = "Nested cylinder Boolean needs trimmed cap support";
+        return false;
+      }
+      build.cuts = {std::vector<double>{0, tau}, std::vector<double>{0, tau}};
+    }
   }
   return build.run(op, error);
 }
