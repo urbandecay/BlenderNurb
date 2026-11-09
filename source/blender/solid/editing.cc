@@ -822,6 +822,47 @@ std::optional<EditResult> extrude_manifold(const Model &model,
     fail(error, "Select a face region for manifold extrusion");
     return {};
   }
+  /* Push an existing cap along its supporting walls. This preserves the same
+   * cap and wall topology when extending or retracting an earlier extrusion. */
+  bool movable_cap = selection.vertices.size() < model.vertices.size();
+  const bool swept_cap = bool(extrusion_cap_wall_surfaces(model, selection));
+  const Set selected_vertices(selection.vertices.begin(), selection.vertices.end());
+  for (const Face &f : model.faces) {
+    bool any = false, all = true;
+    for (const Coedge &use : f.outer)
+      for (Id id : edge(model, use.edge)->vertices) {
+        any |= selected_vertices.contains(id);
+        all &= selected_vertices.contains(id);
+      }
+    if (!any || all)
+      continue;
+    const Surface &s = *surface(model, f.surface);
+    if (s.kind == SurfaceKind::Plane) {
+      const Vec3 normal = cross(s.u, s.v);
+      movable_cap &= std::abs(dot(normal, offset)) <=
+                     1e-10 * length(normal) * length(offset);
+    }
+    else {
+      movable_cap &= swept_cap && s.kind == SurfaceKind::Extrusion;
+    }
+  }
+  if (movable_cap) {
+    Affine translation;
+    translation.translation = offset;
+    std::string ignored;
+    auto moved = transform_selected(model, selection, translation, &ignored);
+    if (moved) {
+      bool closed = true;
+      for (Id id : moved->selection.faces)
+        closed &= validate_body(moved->model, id, &ignored);
+      if (closed) {
+        if (std::find(moved->selection.faces.begin(), moved->selection.faces.end(),
+                      moved->selection.active) == moved->selection.faces.end())
+          moved->selection.active = moved->selection.faces.front();
+        return moved;
+      }
+    }
+  }
   auto result = extrude_face_region(model, selection, offset, error);
   if (!result)
     return {};

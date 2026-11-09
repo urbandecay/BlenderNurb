@@ -1218,7 +1218,7 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
                                      &error);
   else if (profile)
     result = solid::extrude(*profile, distance_get(op), &error);
-  if (result && profile && !vector_offset)
+  if (result && profile && !vector_offset && method != 3 && method != 2)
     result->selection = selection_for_face(
         result->model, result->selection.active, selection_mode);
   if (!result || !preview->apply(C, std::move(*result), &error)) {
@@ -1549,7 +1549,7 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
   const int method = RNA_enum_get(op->ptr, "method");
   auto profile = preview ? prepare(*preview, error) : std::nullopt;
   if (preview && preview->source().selection.mode == 4 &&
-      ((method == 1 && profile && profile->attached) || method == 2))
+      ((profile && profile->attached) || method == 2 || method == 3))
   {
     profile.reset();
     error.clear();

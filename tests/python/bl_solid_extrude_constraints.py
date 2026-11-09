@@ -13,6 +13,7 @@ from mathutils import Vector
 from bpy_extras import view3d_utils
 
 CASES = (
+    ('REGION', bpy.ops.view3d.edit_mesh_extrude_move_normal),
     ('ALONG_NORMALS', bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten),
     ('MANIFOLD', bpy.ops.view3d.edit_mesh_extrude_manifold_normal),
     ('ALONG_NORMALS_CURVED', bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten),
@@ -80,6 +81,7 @@ def setup():
                                top.calc_center_median()).length)
     bmesh.update_edit_mesh(obj.data)
     state['obj'] = obj
+    state['base_volume'] = bm.calc_volume(signed=False)
     bm.faces.index_update()
     active_source_index = top.index
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -151,6 +153,8 @@ def invoke():
 
 def check_cap():
     bm = bmesh.from_edit_mesh(state['obj'].data)
+    if CASES[state['case']][0] == 'MANIFOLD' and len(bm.faces) != 6:
+        fail(('Manifold preview added a section to the flat prism', len(bm.faces)))
     selected = [f for f in bm.faces if f.select]
     if state.get('individual'):
         if len(selected) != state['selected_poly_count']:
@@ -204,6 +208,15 @@ def confirm():
 
 def verify():
     check_cap()
+    if CASES[state['case']][0] == 'MANIFOLD_CURVED':
+        face_count = state['obj'].data.solid_faces_count
+        for amount in (.05, -.025, -.1):
+            result = bpy.ops.solid.extrude(method='MANIFOLD', distance=amount)
+            if result != {'FINISHED'} or state['obj'].data.solid_faces_count != face_count:
+                fail(('Extending/retracting a curved cap added a section', amount, result))
+        bm = bmesh.from_edit_mesh(state['obj'].data)
+        if bm.calc_volume(signed=False) >= state['base_volume']:
+            fail('Pushing the curved cap below its attachment did not create a recess')
     print('SOLID_NORMAL_CONSTRAINT_PASS', CASES[state['case']][0], flush=True)
     state['case'] += 1
     if state['case'] == len(CASES):

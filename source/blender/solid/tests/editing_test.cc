@@ -189,13 +189,9 @@ int main()
     }
     check(std::abs(volume(current) - 12.8) < 1e-10,
           "Repeated manifold push-pull must extend one continuous solid prism");
-    const int merged_sides = int(std::count_if(current.faces.begin(),
-                                               current.faces.end(),
-                                               [&](const Face &f) {
-                                                 return f.id != cap.active && f.outer.size() > 4;
-                                               }));
-    check(merged_sides >= 4,
-          "Manifold push-pull must merge each new side wall into its coplanar side face");
+    check(current.vertices.size() == cube.vertices.size() &&
+              current.edges.size() == cube.edges.size(),
+          "Repeated manifold pushes must preserve the prism boundary without section seams");
 
     Selection top_face;
     top_face.mode = 4;
@@ -332,6 +328,23 @@ int main()
     check(bool(tessellate(scaled_extrusion->model, 32, &error)), error);
     const auto raised = extrude_elements(rounded->model, selected_patch, {.13, .07, -.2}, &error);
     check(bool(raised), "Curved face extrusion: " + error);
+    const auto extended = extrude_manifold(
+        raised->model, raised->selection, {.065, .035, -.1}, &error);
+    check(bool(extended), "Extend an existing curved extrusion: " + error);
+    check(extended->model.faces.size() == raised->model.faces.size() &&
+              extended->model.vertices.size() == raised->model.vertices.size(),
+          "Extending a curved extrusion must move its cap without adding a section");
+    const auto retracted = extrude_manifold(
+        extended->model, extended->selection, {-.13, -.07, .2}, &error);
+    check(bool(retracted), "Retract an existing curved extrusion: " + error);
+    check(retracted->model.faces.size() == raised->model.faces.size() &&
+              retracted->model.vertices.size() == raised->model.vertices.size(),
+          "Retracting a curved extrusion must shorten its existing walls");
+    const auto recessed = extrude_manifold(
+        retracted->model, retracted->selection, {-.13, -.07, .2}, &error);
+    check(bool(recessed), "Push a curved cap past its original attachment: " + error);
+    check(recessed->model.faces.size() == raised->model.faces.size(),
+          "Pushing past the attachment must reuse the walls for the recessed pocket");
     check(raised->selection.mode == 4 && raised->selection.faces.size() == 1,
           "Curved face extrusion must stay in face mode and select its cap");
     check(face(raised->model, corner_patch->id) == nullptr,
