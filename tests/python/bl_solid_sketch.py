@@ -14,12 +14,133 @@ import bpy
 
 
 class SolidSketchTest(unittest.TestCase):
+    def test_extrusion_matches_native_mesh_on_adjacent_and_all_faces(self):
+        for method in ('REGION', 'INDIVIDUAL', 'ALONG_NORMALS'):
+            for count in (2, 3, 6):
+                for even in ((False, True) if method == 'ALONG_NORMALS' else (False,)):
+                    with self.subTest(method=method, count=count, even=even):
+                        self.setUp()
+                        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+                        bpy.ops.solid.extrude(distance=2)
+                        solid = bpy.context.object
+                        predicate = lambda f: (count == 6 or f.normal.z > .9 or
+                                               f.normal.x > .9 or
+                                               (count == 3 and f.normal.y > .9))
+                        self.source_select('FACE', predicate)
+                        bm = bmesh.from_edit_mesh(solid.data)
+                        bm.verts.index_update()
+                        positions = [tuple(v.co) for v in bm.verts]
+                        polygons = [[v.index for v in f.verts] for f in bm.faces]
+                        bpy.ops.object.mode_set(mode='OBJECT')
+                        mesh = bpy.data.meshes.new('Native extrusion reference')
+                        mesh.from_pydata(positions, [], polygons)
+                        reference = bpy.data.objects.new('Native extrusion reference', mesh)
+                        bpy.context.collection.objects.link(reference)
+                        solid.select_set(False)
+                        reference.select_set(True)
+                        bpy.context.view_layer.objects.active = reference
+                        bpy.ops.object.mode_set(mode='EDIT')
+                        self.source_select('FACE', predicate)
+                        if method == 'REGION':
+                            bpy.ops.mesh.extrude_region_move(
+                                TRANSFORM_OT_translate={'value': (.2, .3, .4)})
+                        elif method == 'INDIVIDUAL':
+                            bpy.ops.mesh.extrude_faces_move(
+                                TRANSFORM_OT_shrink_fatten={'value': .4})
+                        else:
+                            bpy.ops.mesh.extrude_region_shrink_fatten(
+                                TRANSFORM_OT_shrink_fatten={'value': .4, 'use_even_offset': even})
+                        def signature(obj):
+                            bm = bmesh.from_edit_mesh(obj.data)
+                            def coordinates(v):
+                                return tuple(round(x, 5) for x in v.co)
+                            def face_cycle(f):
+                                points = tuple(coordinates(v) for v in f.verts)
+                                return min(points[i:] + points[:i] for i in range(len(points)))
+                            return (sorted(coordinates(v) for v in bm.verts),
+                                    sorted(face_cycle(f) for f in bm.faces),
+                                    sum(f.select for f in bm.faces))
+                        expected = signature(reference)
+                        bpy.ops.object.mode_set(mode='OBJECT')
+                        reference.select_set(False)
+                        solid.select_set(True)
+                        bpy.context.view_layer.objects.active = solid
+                        bpy.ops.object.mode_set(mode='EDIT')
+                        kwargs = {'method': method, 'use_even_offset': even} if method == 'ALONG_NORMALS' else {}
+                        if method == 'REGION':
+                            kwargs = {'offset': (.2, .3, .4)}
+                        operator = bpy.ops.solid.extrude_individual if method == 'INDIVIDUAL' else bpy.ops.solid.extrude
+                        self.assertEqual(operator(
+                            distance=.4, **kwargs), {'FINISHED'})
+                        self.assertEqual(signature(solid), expected)
+                        self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode),
+                                         (False, False, True))
+
+    def test_normal_extrusion_of_connected_rounded_body(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        bpy.ops.mesh.select_mode(type='EDGE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.solid.bevel(offset=.2, segments=3)
+        bpy.ops.mesh.select_mode(type='FACE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        self.assertEqual(bpy.ops.solid.extrude(method='ALONG_NORMALS', distance=.05), {'FINISHED'})
+        bm = bmesh.from_edit_mesh(obj.data)
+        selected = {v for f in bm.faces if f.select for v in f.verts}
+        self.assertTrue(selected)
+        for axis, minimum, maximum in ((0, -1.05, 1.05), (1, -1.05, 1.05), (2, -.05, 2.05)):
+            self.assertAlmostEqual(min(v.co[axis] for v in selected), minimum, places=5)
+            self.assertAlmostEqual(max(v.co[axis] for v in selected), maximum, places=5)
+        self.assertTrue(all(e.is_manifold for e in bm.edges))
+        self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), (False, False, True))
+
+    def test_curved_normal_extrusion_preserves_cylinder_axis(self):
+        for method in ('ALONG_NORMALS', 'INDIVIDUAL'):
+            for amount in (.2, -.2):
+                with self.subTest(method=method, amount=amount):
+                    self.setUp()
+                    bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                    bpy.ops.solid.extrude(distance=2)
+                    obj = bpy.context.object
+                    self.source_select('FACE', lambda f: abs(f.normal.z) < .5)
+                    operator = (bpy.ops.solid.extrude_individual if method == 'INDIVIDUAL'
+                                else bpy.ops.solid.extrude)
+                    self.assertEqual(operator(method=method, distance=amount), {'FINISHED'})
+                    bm = bmesh.from_edit_mesh(obj.data)
+                    selected = {v for f in bm.faces if f.select for v in f.verts}
+                    self.assertTrue(selected)
+                    for v in selected:
+                        self.assertAlmostEqual(math.hypot(v.co.x, v.co.y), 1 + amount, places=5)
+                    self.assertAlmostEqual(min(v.co.z for v in selected), 0, places=5)
+                    self.assertAlmostEqual(max(v.co.z for v in selected), 2, places=5)
+                    self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode),
+                                     (False, False, True))
+                    self.assertAlmostEqual(self.volume(obj), math.pi * (1 + amount)**2 * 2,
+                                           delta=.03)
+
+    def test_solid_toolbar_exposes_extrusion_tools(self):
+        from bl_ui.space_toolsystem_toolbar import VIEW3D_PT_tools_active
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        ids = set()
+        def collect(items):
+            for item in items:
+                if hasattr(item, 'idname'):
+                    ids.add(item.idname)
+                elif isinstance(item, tuple):
+                    collect(item)
+        collect(VIEW3D_PT_tools_active.tools_from_context(bpy.context))
+        self.assertTrue({'builtin.extrude_region', 'builtin.extrude_manifold',
+                         'builtin.extrude_along_normals', 'builtin.extrude_individual',
+                         'builtin.extrude_to_cursor'}.issubset(ids))
+
     def test_legacy_view3d_extrusion_operators_dispatch_to_analytic_solids(self):
         operators = (
             bpy.ops.view3d.edit_mesh_extrude_individual_move,
             bpy.ops.view3d.edit_mesh_extrude_move_normal,
             bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten,
             bpy.ops.view3d.edit_mesh_extrude_manifold_normal,
+            bpy.ops.view3d.edit_mesh_extrude_cursor,
         )
         for operator in operators:
             with self.subTest(operator=operator.idname()):
@@ -35,6 +156,35 @@ class SolidSketchTest(unittest.TestCase):
                 self.assertGreater(obj.data.solid_faces_count, before)
                 self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode),
                                  (False, False, True))
+
+    def test_individual_face_extrusion_uses_each_analytic_normal(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        obj = bpy.context.object
+        self.assertEqual(bpy.ops.solid.extrude(distance=2), {'FINISHED'})
+        self.source_select('FACE', lambda face: (
+            all(abs(v.co.z) < 1e-5 for v in face.verts) or
+            all(abs(v.co.z - 2) < 1e-5 for v in face.verts)))
+        before = obj.data.solid_faces_count
+
+        self.assertEqual(bpy.ops.solid.extrude(method='INDIVIDUAL', distance=.4), {'FINISHED'})
+        self.assertEqual(obj.data.solid_faces_count, before + 8)
+        self.assertEqual(obj.data.total_face_sel, 2)
+        self.assertAlmostEqual(self.volume(obj), 11.2, places=5)
+
+    def test_repeat_solid_extrusion_commits_as_one_face_mode_edit(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        obj = bpy.context.object
+        self.assertEqual(bpy.ops.solid.extrude(distance=2), {'FINISHED'})
+        self.source_select('FACE', lambda face: all(abs(v.co.z - 2) < 1e-5 for v in face.verts))
+
+        before = obj.data.solid_faces_count
+        self.assertEqual(bpy.ops.solid.extrude_repeat(
+            steps=2, offset=(0, 0, .25)), {'FINISHED'})
+        self.assertEqual(obj.data.solid_faces_count, before + 8)
+        self.assertEqual(obj.data.total_face_sel, 1)
+        self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode),
+                         (False, False, True))
+        self.assertAlmostEqual(max(v.co.z for v in obj.data.vertices), 2.5, places=5)
 
     def test_arbitrary_rotation_preserves_world_geometry_and_resize(self):
         from mathutils import Matrix, Vector

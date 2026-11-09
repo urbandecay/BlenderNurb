@@ -63,7 +63,8 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
                               length(b.u - a.u - offset) < 1e-11 &&
                               length(evaluate(b, s.reverse_second ? 0 : 1) -
                                      evaluate(a, s.reverse_first ? 0 : 1) - offset) < 1e-11;
-      const int count = translated ? 1 : 4;
+      const bool bilinear = a.kind == CurveKind::Line && b.kind == CurveKind::Line;
+      const int count = translated || bilinear ? 1 : 4;
       for (int side : {1, 3})
         ruled_rails[f.outer[side].edge] = std::max(ruled_rails[f.outer[side].edge], count);
     }

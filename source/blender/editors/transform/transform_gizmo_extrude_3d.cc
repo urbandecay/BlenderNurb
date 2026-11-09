@@ -14,6 +14,8 @@
 
 #include "BKE_context.hh"
 #include "BKE_global.hh"
+#include "BKE_idtype.hh"
+#include "BKE_mesh.hh"
 #include "BKE_scene.hh"
 
 #include "RNA_access.hh"
@@ -78,9 +80,11 @@ struct GizmoExtrudeGroup {
 
   /* Depends on object type. */
   int normal_axis;
+  bool is_solid_model;
 
   struct {
     float normal_mat3[3][3]; /* Use Z axis for normal. */
+    float axis_mat3[3][3];
     int orientation_index;
   } data;
 
@@ -144,11 +148,14 @@ static void gizmo_mesh_extrude_setup(const bContext *C, wmGizmoGroup *gzgroup)
     }
   }
 
+  const Object *obact = CTX_data_active_object(C);
+  const bool is_solid_model = obact->type == OB_MESH &&
+                              id_cast<const Mesh *>(obact->data)->solid_storage;
+  ggd->is_solid_model = is_solid_model;
   {
     const char *op_idname = nullptr;
-    const Object *obact = CTX_data_active_object(C);
     if (obact->type == OB_MESH) {
-      op_idname = "MESH_OT_extrude_context_move";
+      op_idname = is_solid_model ? "SOLID_OT_extrude" : "MESH_OT_extrude_context_move";
       ggd->normal_axis = 2;
     }
     else if (obact->type == OB_CURVES_LEGACY) {
@@ -185,7 +192,12 @@ static void gizmo_mesh_extrude_setup(const bContext *C, wmGizmoGroup *gzgroup)
   /* XYZ & normal axis extrude. */
   for (int i = 0; i < 4; i++) {
     PointerRNA *ptr = WM_gizmo_operator_set(ggd->invoke_xyz_no[i], 0, ggd->ot_extrude, nullptr);
-    {
+    if (is_solid_model) {
+      RNA_boolean_set(ptr, "release_confirm", true);
+      if (i == 3)
+        RNA_enum_set(ptr, "method", 1);
+    }
+    else {
       bool constraint[3] = {false, false, false};
       constraint[(i < 3) ? i : ggd->normal_axis] = true;
       PointerRNA macroptr = RNA_pointer_get(ptr, "TRANSFORM_OT_translate");
@@ -196,19 +208,29 @@ static void gizmo_mesh_extrude_setup(const bContext *C, wmGizmoGroup *gzgroup)
 
   {
     PointerRNA *ptr = WM_gizmo_operator_set(ggd->invoke_view, 0, ggd->ot_extrude, nullptr);
-    PointerRNA macroptr = RNA_pointer_get(ptr, "TRANSFORM_OT_translate");
-    RNA_boolean_set(&macroptr, "release_confirm", true);
+    if (is_solid_model) {
+      RNA_boolean_set(ptr, "release_confirm", true);
+    }
+    else {
+      PointerRNA macroptr = RNA_pointer_get(ptr, "TRANSFORM_OT_translate");
+      RNA_boolean_set(&macroptr, "release_confirm", true);
 
-    const bool constraint[3] = {false, false, false};
-    RNA_boolean_set_array(&macroptr, "constraint_axis", constraint);
+      const bool constraint[3] = {false, false, false};
+      RNA_boolean_set_array(&macroptr, "constraint_axis", constraint);
+    }
   }
 
   /* Adjust extrude. */
   for (int i = 0; i < 2; i++) {
     wmGizmo *gz = ggd->adjust[i];
     PointerRNA *ptr = WM_gizmo_operator_set(gz, 0, ggd->ot_extrude, nullptr);
-    PointerRNA macroptr = RNA_pointer_get(ptr, "TRANSFORM_OT_translate");
-    RNA_boolean_set(&macroptr, "release_confirm", true);
+    if (is_solid_model) {
+      RNA_boolean_set(ptr, "release_confirm", true);
+    }
+    else {
+      PointerRNA macroptr = RNA_pointer_get(ptr, "TRANSFORM_OT_translate");
+      RNA_boolean_set(&macroptr, "release_confirm", true);
+    }
     wmGizmoOpElem *gzop = WM_gizmo_operator_get(gz, 0);
     gzop->is_redo = true;
   }
@@ -269,6 +291,7 @@ static void gizmo_mesh_extrude_refresh(const bContext *C, wmGizmoGroup *gzgroup)
   if (!use_normal) {
     copy_m3_m3(ggd->data.normal_mat3, tbounds.axis);
   }
+  copy_m3_m3(ggd->data.axis_mat3, tbounds.axis);
 
   /* Offset the add icon. */
   mul_v3_v3fl(ggd->invoke_xyz_no[3]->matrix_offset[3],
@@ -279,7 +302,7 @@ static void gizmo_mesh_extrude_refresh(const bContext *C, wmGizmoGroup *gzgroup)
   /* Adjust current operator. */
   /* Don't use 'WM_operator_last_redo' because selection actions will be ignored. */
   wmOperator *op = static_cast<wmOperator *>(CTX_wm_manager(C)->runtime->operators.last);
-  bool has_redo = (op && op->type == ggd->ot_extrude);
+  bool has_redo = !ggd->is_solid_model && (op && op->type == ggd->ot_extrude);
   wmOperator *op_xform = static_cast<wmOperator *>(has_redo ? op->macro.last : nullptr);
 
   bool adjust_is_flip = false;
@@ -379,6 +402,7 @@ static void gizmo_mesh_extrude_draw_prepare(const bContext *C, wmGizmoGroup *gzg
       float mat[3][3];
       copy_m3_m4(mat, rv3d->viewinv);
       normalize_m3(mat);
+      copy_m3_m3(ggd->data.axis_mat3, mat);
       gizmo_mesh_extrude_orientation_matrix_set(ggd, mat);
       break;
     }
@@ -411,6 +435,20 @@ static void gizmo_mesh_extrude_invoke_prepare(const bContext * /*C*/,
                                               const wmEvent * /*event*/)
 {
   GizmoExtrudeGroup *ggd = static_cast<GizmoExtrudeGroup *>(gzgroup->customdata);
+  if (ggd->is_solid_model) {
+    if (ELEM(gz, ggd->adjust[0], ggd->adjust[1], ggd->invoke_view)) {
+      return;
+    }
+    const int i = BLI_array_findindex(ggd->invoke_xyz_no, ARRAY_SIZE(ggd->invoke_xyz_no), &gz);
+    BLI_assert(i != -1);
+    if (i < 3) {
+      wmGizmoOpElem *gzop = WM_gizmo_operator_get(gz, 0);
+      RNA_float_set_array(&gzop->ptr,
+                          "axis_direction",
+                          ggd->data.axis_mat3[i]);
+    }
+    return;
+  }
   if (ELEM(gz, ggd->adjust[0], ggd->adjust[1])) {
     /* Set properties for redo. */
     wmGizmoOpElem *gzop = WM_gizmo_operator_get(gz, 0);

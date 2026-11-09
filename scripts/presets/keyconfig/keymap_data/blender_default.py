@@ -4912,9 +4912,9 @@ def km_edit_mesh(params):
         op_tool_optional(
             ("transform.vert_slide", {"type": 'V', "value": 'PRESS', "shift": True}, None),
             (op_tool_cycle, "builtin.vertex_slide"), params),
-        ("mesh.dupli_extrude_cursor", {"type": params.action_mouse, "value": 'CLICK', "ctrl": True},
+        ("view3d.edit_mesh_extrude_cursor", {"type": params.action_mouse, "value": 'CLICK', "ctrl": True},
          {"properties": [("rotate_source", True)]}),
-        ("mesh.dupli_extrude_cursor", {"type": params.action_mouse, "value": 'CLICK', "shift": True, "ctrl": True},
+        ("view3d.edit_mesh_extrude_cursor", {"type": params.action_mouse, "value": 'CLICK', "shift": True, "ctrl": True},
          {"properties": [("rotate_source", False)]}),
         op_menu("VIEW3D_MT_edit_mesh_delete", {"type": 'X', "value": 'PRESS'}),
         op_menu("VIEW3D_MT_edit_mesh_delete", {"type": 'DEL', "value": 'PRESS'}),
@@ -6820,8 +6820,8 @@ def km_3d_view_tool_edit_mesh_extrude_region(params):
         "3D View Tool: Edit Mesh, Extrude Region",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("mesh.extrude_context_move", {**params.tool_maybe_tweak_event, **params.tool_modifier},
-             {"properties": [("TRANSFORM_OT_translate", [("release_confirm", True)])]}),
+            ("view3d.edit_mesh_extrude_move_normal", {**params.tool_maybe_tweak_event, **params.tool_modifier},
+             {"properties": [("release_confirm", True)]}),
         ]},
     )
 
@@ -6831,16 +6831,8 @@ def km_3d_view_tool_edit_mesh_extrude_manifold(params):
         "3D View Tool: Edit Mesh, Extrude Manifold",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("mesh.extrude_manifold", {**params.tool_maybe_tweak_event, **params.tool_modifier},
-             {"properties": [
-                 ("MESH_OT_extrude_region", [("use_dissolve_ortho_edges", True)]),
-                 ("TRANSFORM_OT_translate", [
-                     ("release_confirm", True),
-                     ("use_automerge_and_split", True),
-                     ("constraint_axis", (False, False, True)),
-                     ("orient_type", 'NORMAL'),
-                 ]),
-             ]}),
+            ("view3d.edit_mesh_extrude_manifold_normal", {**params.tool_maybe_tweak_event, **params.tool_modifier},
+             {"properties": [("release_confirm", True)]}),
         ]},
     )
 
@@ -6850,8 +6842,8 @@ def km_3d_view_tool_edit_mesh_extrude_along_normals(params):
         "3D View Tool: Edit Mesh, Extrude Along Normals",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("mesh.extrude_region_shrink_fatten", {**params.tool_maybe_tweak_event, **params.tool_modifier},
-             {"properties": [("TRANSFORM_OT_shrink_fatten", [("release_confirm", True)])]}),
+            ("view3d.edit_mesh_extrude_move_shrink_fatten", {**params.tool_maybe_tweak_event, **params.tool_modifier},
+             {"properties": [("use_even_offset", False), ("release_confirm", True)]}),
         ]},
     )
 
@@ -6861,8 +6853,8 @@ def km_3d_view_tool_edit_mesh_extrude_individual(params):
         "3D View Tool: Edit Mesh, Extrude Individual",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("mesh.extrude_faces_move", {**params.tool_maybe_tweak_event, **params.tool_modifier},
-             {"properties": [("TRANSFORM_OT_shrink_fatten", [("release_confirm", True)])]}),
+            ("view3d.edit_mesh_extrude_individual_move", {**params.tool_maybe_tweak_event, **params.tool_modifier},
+             {"properties": [("release_confirm", True)]}),
         ]},
     )
 
@@ -6873,7 +6865,7 @@ def km_3d_view_tool_edit_mesh_extrude_to_cursor(params):
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
             # No need for `tool_modifier` since this takes all input.
-            ("mesh.dupli_extrude_cursor", {"type": params.tool_mouse, "value": 'PRESS'}, None),
+            ("view3d.edit_mesh_extrude_cursor", {"type": params.tool_mouse, "value": 'PRESS'}, None),
             # Support LMB click-drag for RMB key-map.
             *(([] if (params.select_mouse == 'LEFTMOUSE') else [
                 ("transform.translate", {"type": params.tool_mouse, "value": 'CLICK_DRAG'},

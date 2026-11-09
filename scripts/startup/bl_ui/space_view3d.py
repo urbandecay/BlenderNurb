@@ -1854,7 +1854,12 @@ class VIEW3D_MT_edit_solid(Menu):
     def draw(self, _context):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
-        layout.operator("solid.extrude", text="Extrude Solid")
+        layout.operator("solid.extrude", text="Extrude Region").method = 'REGION'
+        layout.operator("solid.extrude", text="Extrude Along Normals").method = 'ALONG_NORMALS'
+        layout.operator("solid.extrude_individual", text="Extrude Individual Faces")
+        layout.operator("solid.extrude", text="Extrude Manifold").method = 'MANIFOLD'
+        layout.operator("solid.extrude", text="Extrude to Cursor").method = 'CURSOR'
+        layout.operator("solid.extrude_repeat", text="Repeat Extrusion")
         layout.operator("solid.fill", text="Fill Profile")
         layout.operator("solid.duplicate_move", text="Duplicate")
         layout.operator_menu_enum("solid.merge", "type", text="Merge")
@@ -3381,7 +3386,10 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
 
             col.separator()
 
-            col.operator("mesh.extrude_vertices_move", text="Extrude Vertices")
+            if context.object and context.object.data.is_solid_model:
+                col.operator("solid.extrude", text="Extrude Vertices")
+            else:
+                col.operator("mesh.extrude_vertices_move", text="Extrude Vertices")
             col.operator("mesh.bevel", text="Bevel Vertices").affect = 'VERTICES'
 
             if selected_verts_len > 1:
@@ -3432,7 +3440,10 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
 
             col.separator()
 
-            col.operator("mesh.extrude_edges_move", text="Extrude Edges")
+            if context.object and context.object.data.is_solid_model:
+                col.operator("solid.extrude", text="Extrude Edges")
+            else:
+                col.operator("mesh.extrude_edges_move", text="Extrude Edges")
             col.operator("mesh.bevel", text="Bevel Edges").affect = 'EDGES'
             if selected_edges_len >= 2:
                 col.operator("mesh.bridge_edge_loops")
@@ -3504,7 +3515,10 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
 
             col.operator("view3d.edit_mesh_extrude_move_normal", text="Extrude Faces")
             col.operator("view3d.edit_mesh_extrude_move_shrink_fatten", text="Extrude Faces Along Normals")
-            col.operator("mesh.extrude_faces_move", text="Extrude Individual Faces")
+            if context.object and context.object.data.is_solid_model:
+                col.operator("solid.extrude_individual", text="Extrude Individual Faces")
+            else:
+                col.operator("mesh.extrude_faces_move", text="Extrude Individual Faces")
 
             col.operator("mesh.inset")
             col.operator("mesh.poke")
@@ -3564,6 +3578,21 @@ class VIEW3D_MT_edit_mesh_extrude(Menu):
         ob = context.object
         mesh = ob.data
 
+        if mesh.is_solid_model:
+            if mesh.total_face_sel:
+                layout.operator("solid.extrude", text="Extrude Faces").method = 'REGION'
+                layout.operator("solid.extrude", text="Extrude Faces Along Normals").method = 'ALONG_NORMALS'
+                layout.operator("solid.extrude_individual", text="Extrude Individual Faces")
+                layout.operator("solid.extrude", text="Extrude Manifold").method = 'MANIFOLD'
+            if mesh.total_edge_sel and (select_mode[0] or select_mode[1]):
+                layout.operator("solid.extrude", text="Extrude Edges")
+            if mesh.total_vert_sel and select_mode[0]:
+                layout.operator("solid.extrude", text="Extrude Vertices")
+            if mesh.total_face_sel or mesh.total_edge_sel or mesh.total_vert_sel:
+                layout.operator("solid.extrude", text="Extrude to Cursor").method = 'CURSOR'
+                layout.operator("solid.extrude_repeat", text="Repeat Extrusion")
+            return
+
         if mesh.total_face_sel:
             layout.operator("view3d.edit_mesh_extrude_move_normal", text="Extrude Faces")
             layout.operator("view3d.edit_mesh_extrude_move_shrink_fatten", text="Extrude Faces Along Normals")
@@ -3586,12 +3615,16 @@ class VIEW3D_MT_edit_mesh_extrude(Menu):
 class VIEW3D_MT_edit_mesh_vertices(Menu):
     bl_label = "Vertex"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        layout.operator("mesh.extrude_vertices_move", text="Extrude Vertices")
-        layout.operator("mesh.dupli_extrude_cursor").rotate_source = True
+        if context.object and context.object.data.is_solid_model:
+            layout.operator("solid.extrude", text="Extrude Vertices")
+            layout.operator("solid.extrude", text="Extrude to Cursor").method = 'CURSOR'
+        else:
+            layout.operator("mesh.extrude_vertices_move", text="Extrude Vertices")
+            layout.operator("view3d.edit_mesh_extrude_cursor").rotate_source = True
         layout.operator("mesh.bevel", text="Bevel Vertices").affect = 'VERTICES'
 
         layout.separator()
@@ -3638,14 +3671,17 @@ class VIEW3D_MT_edit_mesh_vertices(Menu):
 class VIEW3D_MT_edit_mesh_edges(Menu):
     bl_label = "Edge"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
 
         with_freestyle = bpy.app.build_options.freestyle
 
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        layout.operator("mesh.extrude_edges_move", text="Extrude Edges")
+        if context.object and context.object.data.is_solid_model:
+            layout.operator("solid.extrude", text="Extrude Edges")
+        else:
+            layout.operator("mesh.extrude_edges_move", text="Extrude Edges")
         layout.operator("mesh.bevel", text="Bevel Edges").affect = 'EDGES'
         layout.operator("mesh.bridge_edge_loops")
         layout.operator("mesh.screw")
@@ -3739,7 +3775,7 @@ class VIEW3D_MT_edit_mesh_faces(Menu):
 
         layout.operator("view3d.edit_mesh_extrude_move_normal", text="Extrude Faces")
         layout.operator("view3d.edit_mesh_extrude_move_shrink_fatten", text="Extrude Faces Along Normals")
-        layout.operator("mesh.extrude_faces_move", text="Extrude Individual Faces")
+        layout.operator("view3d.edit_mesh_extrude_individual_move", text="Extrude Individual Faces")
 
         layout.separator()
 

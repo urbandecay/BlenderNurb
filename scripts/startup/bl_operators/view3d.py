@@ -18,11 +18,13 @@ bl_file_extensions_image_and_movie = ";".join((
 ))
 
 
-def _extrude_analytic_solid_if_needed(context):
+def _extrude_analytic_solid_if_needed(context, method='REGION', release_confirm=False, use_even_offset=False):
     """Route legacy Edit Mesh extrusion shortcuts through the analytic Solid tool."""
     ob = context.object
     if ob and ob.type == 'MESH' and ob.data.is_solid_model:
-        result = bpy.ops.solid.extrude('INVOKE_REGION_WIN')
+        operator = bpy.ops.solid.extrude_individual if method == 'INDIVIDUAL' else bpy.ops.solid.extrude
+        result = operator(
+            'INVOKE_REGION_WIN', method=method, release_confirm=release_confirm, use_even_offset=use_even_offset)
         # The nested Solid operator owns the modal handler; finish this wrapper so Blender
         # doesn't keep the legacy wrapper alive as a second modal operator.
         return {'FINISHED'} if 'RUNNING_MODAL' in result else result
@@ -34,12 +36,19 @@ class VIEW3D_OT_edit_mesh_extrude_individual_move(Operator):
     bl_label = "Extrude Individual and Move"
     bl_idname = "view3d.edit_mesh_extrude_individual_move"
 
+    release_confirm: BoolProperty(
+        name="Release Confirms",
+        default=False,
+        description="Confirm the extrusion when the initiating drag is released",
+    )
+
     @classmethod
     def poll(cls, context):
         return context.mode == 'EDIT_MESH'
 
     def execute(self, context):
-        solid_result = _extrude_analytic_solid_if_needed(context)
+        solid_result = _extrude_analytic_solid_if_needed(
+            context, method='INDIVIDUAL', release_confirm=self.release_confirm)
         if solid_result is not None:
             return solid_result
 
@@ -62,28 +71,28 @@ class VIEW3D_OT_edit_mesh_extrude_individual_move(Operator):
                 TRANSFORM_OT_translate={
                     "orient_type": 'NORMAL',
                     "constraint_axis": (False, False, True),
-                    "release_confirm": False,
+                    "release_confirm": self.release_confirm,
                 },
             )
         elif select_mode[2] and totface > 1:
             bpy.ops.mesh.extrude_faces_move(
                 'INVOKE_REGION_WIN',
                 TRANSFORM_OT_shrink_fatten={
-                    "release_confirm": False,
+                    "release_confirm": self.release_confirm,
                 },
             )
         elif select_mode[1] and totedge >= 1:
             bpy.ops.mesh.extrude_edges_move(
                 'INVOKE_REGION_WIN',
                 TRANSFORM_OT_translate={
-                    "release_confirm": False,
+                    "release_confirm": self.release_confirm,
                 },
             )
         else:
             bpy.ops.mesh.extrude_vertices_move(
                 'INVOKE_REGION_WIN',
                 TRANSFORM_OT_translate={
-                    "release_confirm": False,
+                    "release_confirm": self.release_confirm,
                 },
             )
 
@@ -105,6 +114,11 @@ class VIEW3D_OT_edit_mesh_extrude_move(Operator):
         default=False,
         description="Dissolves adjacent faces and intersects new geometry",
     )
+    release_confirm: BoolProperty(
+        name="Release Confirms",
+        default=False,
+        description="Confirm the extrusion when the initiating drag is released",
+    )
 
     @classmethod
     def poll(cls, context):
@@ -120,7 +134,11 @@ class VIEW3D_OT_edit_mesh_extrude_move(Operator):
 
         mesh = ob.data
 
-        solid_result = _extrude_analytic_solid_if_needed(context)
+        method = ('ALONG_NORMALS' if use_vert_normals else
+                  'MANIFOLD' if dissolve_and_intersect else 'REGION')
+        solid_result = _extrude_analytic_solid_if_needed(
+            context, method=method, release_confirm=operator.release_confirm,
+            use_even_offset=getattr(operator, "use_even_offset", False))
         if solid_result is not None:
             return solid_result
 
@@ -133,7 +151,8 @@ class VIEW3D_OT_edit_mesh_extrude_move(Operator):
                 bpy.ops.mesh.extrude_region_shrink_fatten(
                     'INVOKE_REGION_WIN',
                     TRANSFORM_OT_shrink_fatten={
-                        "release_confirm": False,
+                        "release_confirm": operator.release_confirm,
+                        "use_even_offset": getattr(operator, "use_even_offset", False),
                     },
                 )
             elif dissolve_and_intersect:
@@ -145,7 +164,7 @@ class VIEW3D_OT_edit_mesh_extrude_move(Operator):
                     TRANSFORM_OT_translate={
                         "orient_type": 'NORMAL',
                         "constraint_axis": (False, False, True),
-                        "release_confirm": False,
+                        "release_confirm": operator.release_confirm,
                     },
                 )
             else:
@@ -154,7 +173,7 @@ class VIEW3D_OT_edit_mesh_extrude_move(Operator):
                     TRANSFORM_OT_translate={
                         "orient_type": 'NORMAL',
                         "constraint_axis": (False, False, True),
-                        "release_confirm": False,
+                        "release_confirm": operator.release_confirm,
                     },
                 )
 
@@ -168,13 +187,13 @@ class VIEW3D_OT_edit_mesh_extrude_move(Operator):
                     # Not a popular choice, too restrictive for retopology.
                     # "constraint_axis": (True, True, False),
                     "constraint_axis": (False, False, False),
-                    "release_confirm": False,
+                    "release_confirm": operator.release_confirm,
                 })
         else:
             bpy.ops.mesh.extrude_region_move(
                 'INVOKE_REGION_WIN',
                 TRANSFORM_OT_translate={
-                    "release_confirm": False,
+                    "release_confirm": operator.release_confirm,
                 },
             )
 
@@ -194,6 +213,17 @@ class VIEW3D_OT_edit_mesh_extrude_shrink_fatten(Operator):
     bl_label = "Extrude and Move on Individual Normals"
     bl_idname = "view3d.edit_mesh_extrude_move_shrink_fatten"
 
+    use_even_offset: BoolProperty(
+        name="Even Offset",
+        default=False,
+        description="Keep mesh extrusion offsets even around corners",
+    )
+    release_confirm: BoolProperty(
+        name="Release Confirms",
+        default=False,
+        description="Confirm the extrusion when the initiating drag is released",
+    )
+
     @classmethod
     def poll(cls, context):
         return context.mode == 'EDIT_MESH'
@@ -210,12 +240,19 @@ class VIEW3D_OT_edit_mesh_extrude_manifold_normal(Operator):
     bl_label = "Extrude Manifold Along Normals"
     bl_idname = "view3d.edit_mesh_extrude_manifold_normal"
 
+    release_confirm: BoolProperty(
+        name="Release Confirms",
+        default=False,
+        description="Confirm the extrusion when the initiating drag is released",
+    )
+
     @classmethod
     def poll(cls, context):
         return context.mode == 'EDIT_MESH'
 
     def execute(self, context):
-        solid_result = _extrude_analytic_solid_if_needed(context)
+        solid_result = _extrude_analytic_solid_if_needed(
+            context, method='MANIFOLD', release_confirm=self.release_confirm)
         if solid_result is not None:
             return solid_result
 
@@ -231,9 +268,36 @@ class VIEW3D_OT_edit_mesh_extrude_manifold_normal(Operator):
             TRANSFORM_OT_translate={
                 "orient_type": 'NORMAL',
                 "constraint_axis": (False, False, True),
-                "release_confirm": False,
+                "release_confirm": self.release_confirm,
             },
         )
+        return {'FINISHED'}
+
+    def invoke(self, context, _event):
+        return self.execute(context)
+
+
+class VIEW3D_OT_edit_mesh_extrude_cursor(Operator):
+    """Extrude selected geometry with the cursor-driven mesh workflow."""
+    bl_label = "Extrude to Cursor"
+    bl_idname = "view3d.edit_mesh_extrude_cursor"
+
+    rotate_source: BoolProperty(
+        name="Rotate Source",
+        default=True,
+        description="Rotate the original selection toward the extrusion direction",
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
+
+    def execute(self, context):
+        solid_result = _extrude_analytic_solid_if_needed(context, method='CURSOR')
+        if solid_result is not None:
+            return solid_result
+        bpy.ops.mesh.dupli_extrude_cursor(
+            'INVOKE_REGION_WIN', rotate_source=self.rotate_source)
         return {'FINISHED'}
 
     def invoke(self, context, _event):
@@ -318,6 +382,7 @@ classes = (
     VIEW3D_OT_edit_mesh_extrude_move,
     VIEW3D_OT_edit_mesh_extrude_shrink_fatten,
     VIEW3D_OT_edit_mesh_extrude_manifold_normal,
+    VIEW3D_OT_edit_mesh_extrude_cursor,
     VIEW3D_OT_transform_gizmo_set,
     VIEW3D_FH_camera_background_image,
     VIEW3D_FH_vdb_volume,

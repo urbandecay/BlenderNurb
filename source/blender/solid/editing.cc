@@ -155,7 +155,8 @@ bool install_polygons(Model &m,
                       const Set &replaced,
                       const std::vector<Polygon> &polygons,
                       bool drop_degenerate,
-                      std::string *error)
+                      std::string *error,
+                      bool ruled_quads = false)
 {
   Set old_edges, old_vertices;
   for (const Face &f : m.faces)
@@ -235,6 +236,20 @@ bool install_polygons(Model &m,
     if (planar) {
       if (!add_face(points, polygon.id))
         return false;
+    }
+    else if (ruled_quads && points.size() == 4) {
+      if (!add_face(points, polygon.id))
+        return false;
+      Surface &s = m.surfaces.back();
+      s.kind = SurfaceKind::Ruled;
+      auto profile = [&](Id a, Id b) {
+        const Id id = m.next_id++;
+        const Vec3 origin = vertex(m, a)->position;
+        m.curves.push_back({id, CurveKind::Line, origin, vertex(m, b)->position - origin, {}});
+        return id;
+      };
+      s.curve = profile(points[0], points[1]);
+      s.other_curve = profile(points[3], points[2]);
     }
     else {
       auto split = triangles(m, points, error);
@@ -422,8 +437,17 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
                                                      const Selection &selection,
                                                      const Vec3 offset,
                                                      std::string *error,
-                                                     FaceRegionExtrusionMaps *maps = nullptr)
+                                                     FaceRegionExtrusionMaps *maps = nullptr,
+                                                     const Affine *cap_transform = nullptr)
 {
+  auto direction = [&](Vec3 p) {
+    return cap_transform ? cap_transform->columns[0] * p.x +
+                               cap_transform->columns[1] * p.y +
+                               cap_transform->columns[2] * p.z : p;
+  };
+  auto point = [&](Vec3 p) {
+    return direction(p) + (cap_transform ? cap_transform->translation : offset);
+  };
   if (maps)
     *maps = {};
   struct FaceUse {
@@ -490,10 +514,7 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
     const Edge &e = *edge(model, id);
     boundary_vertices.insert(e.vertices.begin(), e.vertices.end());
   }
-  if (boundary_edges.empty()) {
-    fail(error, "The selected face region has no boundary to extrude");
-    return {};
-  }
+  const bool keep_original_shell = boundary_edges.empty();
 
   Set surfaces;
   for (const Surface &s : model.surfaces)
@@ -530,15 +551,20 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
   }
   for (const Vertex &source : model.vertices)
     if (selected_vertices.contains(source.id))
-      out.vertices.push_back({ids.at(source.id), source.position + offset});
+      out.vertices.push_back({ids.at(source.id), point(source.position)});
   for (const Curve &source : model.curves)
     if (selected_curves.contains(source.id)) {
       Curve copy = source;
       copy.id = ids.at(source.id);
-      copy.origin = copy.origin + offset;
+      copy.origin = point(source.origin);
       if (copy.kind == CurveKind::RationalQuadratic) {
-        copy.u = copy.u + offset;
-        copy.v = copy.v + offset;
+        copy.u = point(source.u);
+        copy.v = point(source.v);
+      }
+      else {
+        copy.u = direction(source.u);
+        copy.v = direction(source.v);
+        copy.w = direction(source.w);
       }
       out.curves.push_back(copy);
     }
@@ -554,7 +580,12 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
     if (surfaces.contains(source.id)) {
       Surface copy = source;
       copy.id = ids.at(source.id);
-      copy.origin = copy.origin + offset;
+      copy.origin = point(source.origin);
+      copy.u = direction(source.u);
+      copy.v = direction(source.v);
+      copy.w = direction(source.w);
+      for (Vec3 &coefficient : copy.blend)
+        coefficient = direction(coefficient);
       if (copy.kind == SurfaceKind::Extrusion || copy.kind == SurfaceKind::Ruled ||
           copy.kind == SurfaceKind::Cone)
         copy.curve = ids.at(copy.curve);
@@ -584,7 +615,7 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
   for (Id id : boundary_vertices) {
     const Vec3 from = vertex(model, id)->position;
     const Id curve_id = out.next_id++;
-    out.curves.push_back({curve_id, CurveKind::Line, from, offset, {}});
+    out.curves.push_back({curve_id, CurveKind::Line, from, cap_transform ? point(from) - from : offset, {}});
     const Id rail = out.next_id++;
     out.edges.push_back({rail, curve_id, {id, ids.at(id)}, 0, 1});
     rails[id] = rail;
@@ -596,7 +627,17 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
     const Curve &source_curve = *curve(model, source.curve);
     const Vec3 a = evaluate(source_curve, source.start), b = evaluate(source_curve, source.end);
     const Id support = out.next_id++;
-    if (source_curve.kind == CurveKind::Line) {
+    if (cap_transform) {
+      Surface wall;
+      wall.id = support;
+      wall.kind = SurfaceKind::Ruled;
+      wall.curve = source.curve;
+      wall.other_curve = ids.at(source.curve);
+      wall.start = source.start;
+      wall.end = source.end;
+      out.surfaces.push_back(wall);
+    }
+    else if (source_curve.kind == CurveKind::Line) {
       if (length(cross(b - a, offset)) <=
           tolerance(model) * std::max(length(b - a), length(offset)))
       {
@@ -628,7 +669,14 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
                          orientation});
   }
 
-  std::erase_if(out.faces, [&](const Face &f) { return selected_faces.contains(f.id); });
+  if (keep_original_shell) {
+    for (Face &f : out.faces)
+      if (selected_faces.contains(f.id))
+        f.orientation *= -1;
+  }
+  else {
+    std::erase_if(out.faces, [&](const Face &f) { return selected_faces.contains(f.id); });
+  }
   Set used_edges, used_vertices;
   for (const Face &f : out.faces) {
     for (const Coedge &use : f.outer)
@@ -664,6 +712,416 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
       if (!validate_body(out, id, error))
         return {};
   return result;
+}
+
+static std::optional<Affine> normal_offset_transform(const Model &model,
+                                                     const Face &selected_face,
+                                                     double distance,
+                                                     std::string *error)
+{
+  const Surface &support = *surface(model, selected_face.surface);
+  if (support.kind == SurfaceKind::Plane) {
+    const Vec3 n = cross(support.u, support.v) * double(selected_face.orientation);
+    Affine transform;
+    transform.translation = n * (distance / length(n));
+    return transform;
+  }
+  if (support.kind != SurfaceKind::Sphere && support.kind != SurfaceKind::Cylinder &&
+      support.kind != SurfaceKind::Extrusion && support.kind != SurfaceKind::Ruled) {
+    fail(error, "This surface needs a general analytic offset construction");
+    return {};
+  }
+  Vec3 center = support.origin, u = support.u, v = support.v, axis = support.w;
+  const bool sphere = support.kind == SurfaceKind::Sphere;
+  double sign = selected_face.orientation;
+  if (sphere) {
+    sign *= dot(u, cross(v, axis)) < 0 ? -1 : 1;
+  }
+  else {
+    if (support.kind == SurfaceKind::Ruled) {
+      const Curve &a = *curve(model, support.curve);
+      const Curve &b = *curve(model, support.other_curve);
+      const Vec3 p = evaluate(a, 0), q = evaluate(a, .5), r = evaluate(a, 1);
+      const Vec3 ab = q - p, ac = r - p, n = cross(ab, ac);
+      if (!(dot(n, n) > 1e-24)) {
+        fail(error, "This ruled surface needs a general analytic offset surface");
+        return {};
+      }
+      center = p + (cross(ac, n) * dot(ab, ab) + cross(n, ab) * dot(ac, ac)) /
+                       (2 * dot(n, n));
+      u = p - center;
+      axis = evaluate(b, support.reverse_second ? 1 : 0) -
+             evaluate(a, support.reverse_first ? 1 : 0);
+      v = cross(n / length(n), u);
+      for (double t : {0.0, .25, .5, .75, 1.0}) {
+        const Vec3 pa = evaluate(a, support.reverse_first ? 1 - t : t);
+        const Vec3 pb = evaluate(b, support.reverse_second ? 1 - t : t);
+        if (length(pb - pa - axis) > 1e-9 * std::max(1.0, length(axis)) ||
+            std::abs(length(pa - center) - length(u)) > 1e-9 * length(u))
+        {
+          fail(error, "This ruled surface is not a circular cylindrical strip");
+          return {};
+        }
+      }
+    }
+    if (support.kind == SurfaceKind::Extrusion) {
+      const Curve &profile = *curve(model, support.curve);
+      if (profile.kind != CurveKind::Conic) {
+        fail(error, "This swept surface needs a general analytic offset surface");
+        return {};
+      }
+      center = profile.origin;
+      u = profile.u;
+      v = profile.v;
+      axis = support.u;
+    }
+    const Coedge &use = selected_face.outer.front();
+    const Edge &e = *edge(model, use.edge);
+    const Curve &c = *curve(model, e.curve);
+    const Vec3 p = evaluate(c, (e.start + e.end) * .5) - center;
+    const Vec3 n = cross(tangent(c, (e.start + e.end) * .5) *
+                             ((e.end - e.start) * (use.reversed ? -1 : 1)), axis);
+    sign *= dot(n, p) < 0 ? -1 : 1;
+  }
+  const double radius = length(u), height = length(axis);
+  if (!(radius > 0) || !(height > 0) ||
+      std::abs(length(v) - radius) > 1e-9 * radius ||
+      (sphere && std::abs(height - radius) > 1e-9 * radius) ||
+      std::abs(dot(u, v)) > 1e-9 * radius * radius ||
+      std::abs(dot(u, axis)) > 1e-9 * radius * height ||
+      std::abs(dot(v, axis)) > 1e-9 * radius * height)
+  {
+    fail(error, "A noncircular affine surface needs a general analytic offset surface");
+    return {};
+  }
+  const double scale = (radius + sign * distance) / radius;
+  if (!(scale > 1e-10)) {
+    fail(error, "Normal extrusion would collapse or invert the curved surface");
+    return {};
+  }
+  axis = axis / height;
+  Affine transform;
+  for (int i = 0; i < 3; ++i) {
+    Vec3 basis{};
+    basis[i] = 1;
+    transform.columns[i] = sphere ? basis * scale :
+        basis * scale + axis * (axis[i] * (1 - scale));
+  }
+  transform.translation = center - (transform.columns[0] * center.x +
+                                    transform.columns[1] * center.y +
+                                    transform.columns[2] * center.z);
+  return transform;
+}
+
+std::optional<EditResult> extrude_region_normals(const Model &model,
+                                                Selection selection,
+                                                double distance,
+                                                bool even_offset,
+                                                std::string *error)
+{
+  if (!validate(model, error) || !std::isfinite(distance) || distance == 0)
+    return {};
+  selection = normalize_selection(model, std::move(selection));
+  if (selection.mode != 4 || selection.faces.empty()) {
+    fail(error, "Select a face region to extrude along normals");
+    return {};
+  }
+  /* A planar region translates rigidly, including exact arcs and circles. */
+  Vec3 plane_normal{};
+  bool parallel_planes = true;
+  for (Id id : selection.faces) {
+    const Face &f = *face(model, id);
+    const Surface &s = *surface(model, f.surface);
+    if (s.kind != SurfaceKind::Plane) {
+      parallel_planes = false;
+      break;
+    }
+    Vec3 n = cross(s.u, s.v) * double(f.orientation);
+    n = n / length(n);
+    if (length(plane_normal) == 0)
+      plane_normal = n;
+    else
+      parallel_planes &= dot(n, plane_normal) > 1 - 1e-10;
+  }
+  if (parallel_planes)
+    return extrude_elements(model, selection, plane_normal * distance, error);
+  bool curved_region = false;
+  for (Id id : selection.faces)
+    curved_region |= surface(model, face(model, id)->surface)->kind != SurfaceKind::Plane;
+  if (curved_region) {
+    auto direction = [](const Affine &a, Vec3 p) {
+      return a.columns[0] * p.x + a.columns[1] * p.y + a.columns[2] * p.z;
+    };
+    auto point = [&](const Affine &a, Vec3 p) { return direction(a, p) + a.translation; };
+    std::unordered_map<Id, Affine> vertices, curves, surfaces;
+    Affine seed;
+    bool first = true;
+    const double eps = std::max(1e-9, tolerance(model) * 16);
+    for (Id id : selection.faces) {
+      const Face &f = *face(model, id);
+      const Surface &support = *surface(model, f.surface);
+      auto transform = normal_offset_transform(model, f, distance, error);
+      if (!transform)
+        return {};
+      if (first) {
+        seed = *transform;
+        first = false;
+      }
+      surfaces[f.surface] = *transform;
+      auto collect = [&](const std::vector<Coedge> &loop) {
+        for (const Coedge &use : loop) {
+          const Edge &e = *edge(model, use.edge);
+          const Curve &c = *curve(model, e.curve);
+          for (Id v : e.vertices) {
+            const Vec3 p = vertex(model, v)->position;
+            if (vertices.contains(v) &&
+                length(point(vertices.at(v), p) - point(*transform, p)) > eps)
+              return false;
+            vertices.try_emplace(v, *transform);
+          }
+          if (curves.contains(e.curve))
+            for (double fraction : {0.0, .25, .5, .75, 1.0}) {
+              const Vec3 p = evaluate(c, e.start + (e.end - e.start) * fraction);
+              if (length(point(curves.at(e.curve), p) - point(*transform, p)) > eps)
+                return false;
+            }
+          curves.try_emplace(e.curve, *transform);
+        }
+        return true;
+      };
+      if (!collect(f.outer)) {
+        fail(error, "These offset faces need a new intersection at their shared boundary");
+        return {};
+      }
+      for (const auto &hole : f.holes)
+        if (!collect(hole)) {
+          fail(error, "Offset hole boundaries need a new surface intersection");
+          return {};
+        }
+      if (support.kind == SurfaceKind::Extrusion || support.kind == SurfaceKind::Ruled ||
+          support.kind == SurfaceKind::Cone)
+        curves.try_emplace(support.curve, *transform);
+      if (support.kind == SurfaceKind::Ruled)
+        curves.try_emplace(support.other_curve, *transform);
+    }
+    FaceRegionExtrusionMaps maps;
+    auto result = extrude_face_region(model, selection, {}, error, &maps, &seed);
+    if (!result)
+      return {};
+    Model &out = result->model;
+    for (const auto &[original, copy] : maps.vertices) {
+      const Vec3 p = vertex(model, original)->position;
+      for (Vertex &v : out.vertices)
+        if (v.id == copy) {
+          v.position = point(vertices.at(original), p);
+          break;
+        }
+    }
+    for (const auto &[original, copy] : maps.curves) {
+      const Curve &source = *curve(model, original);
+      const Affine &a = curves.at(original);
+      for (Curve &c : out.curves)
+        if (c.id == copy) {
+          c.origin = point(a, source.origin);
+          if (source.kind == CurveKind::RationalQuadratic) {
+            c.u = point(a, source.u);
+            c.v = point(a, source.v);
+          }
+          else {
+            c.u = direction(a, source.u);
+            c.v = direction(a, source.v);
+            c.w = direction(a, source.w);
+          }
+          break;
+        }
+    }
+    for (const auto &[original, copy] : maps.surfaces) {
+      const Surface &source = *surface(model, original);
+      const Affine &a = surfaces.at(original);
+      for (Surface &s : out.surfaces)
+        if (s.id == copy) {
+          s.origin = point(a, source.origin);
+          s.u = direction(a, source.u);
+          s.v = direction(a, source.v);
+          s.w = direction(a, source.w);
+          for (size_t i = 0; i < s.blend.size(); ++i)
+            s.blend[i] = direction(a, source.blend[i]);
+          break;
+        }
+    }
+    for (const auto &[rail, source] : maps.rail_curves) {
+      const Vec3 p = vertex(model, source)->position;
+      for (Curve &c : out.curves)
+        if (c.id == rail) {
+          c.u = point(vertices.at(source), p) - p;
+          break;
+        }
+    }
+    if (!validate(out, error))
+      return {};
+    return result;
+  }
+  struct Contribution { Vec3 normal; double angle; };
+  struct BoundaryUse { Id a, b; int count = 0; };
+  std::unordered_map<Id, std::vector<Contribution>> contributions;
+  std::unordered_map<Id, BoundaryUse> uses;
+  const Set selected(selection.faces.begin(), selection.faces.end());
+  std::vector<Polygon> caps;
+  bool delete_original = false;
+  for (const Face &f : model.faces) {
+    if (!selected.contains(f.id))
+      continue;
+    if (!linear_face(model, f)) {
+      fail(error, "Connected normal extrusion needs straight analytic boundaries for this region");
+      return {};
+    }
+    std::vector<Id> points = boundary(model, f);
+    if (f.orientation < 0)
+      std::reverse(points.begin(), points.end());
+    const Vec3 n = area(model, points);
+    const Vec3 normal = n / length(n);
+    for (size_t i = 0; i < points.size(); ++i) {
+      const Id id = points[i], next = points[(i + 1) % points.size()];
+      const Vec3 center = vertex(model, id)->position;
+      const Vec3 a = vertex(model, points[(i + points.size() - 1) % points.size()])->position - center;
+      const Vec3 b = vertex(model, next)->position - center;
+      const double angle = std::acos(std::clamp(dot(a, b) / (length(a) * length(b)), -1.0, 1.0));
+      contributions[id].push_back({normal, angle});
+    }
+    for (const Coedge &use : f.outer) {
+      const Edge &e = *edge(model, use.edge);
+      auto &entry = uses[use.edge];
+      entry.a = e.vertices[(use.reversed != (f.orientation < 0)) ? 1 : 0];
+      entry.b = e.vertices[(use.reversed != (f.orientation < 0)) ? 0 : 1];
+      ++entry.count;
+    }
+    caps.push_back({f.id, std::move(points)});
+  }
+  for (const Face &f : model.faces)
+    if (!selected.contains(f.id))
+      for (const Coedge &use : f.outer)
+        delete_original |= uses.contains(use.edge);
+
+  EditResult result{model, {}};
+  Model &out = result.model;
+  std::unordered_map<Id, Id> copies;
+  for (const auto &[id, entries] : contributions) {
+    Vec3 normal{};
+    for (const Contribution &entry : entries)
+      normal = normal + entry.normal * entry.angle;
+    if (!(length(normal) > 1e-12)) {
+      fail(error, "Selected face normals cancel at a shared vertex");
+      return {};
+    }
+    normal = normal / length(normal);
+    double shell = 0, angle = 0;
+    for (const Contribution &entry : entries) {
+      const double cosine = std::abs(dot(normal, entry.normal));
+      shell += entry.angle * (cosine < 1e-8 ? 1 : 1 / cosine);
+      angle += entry.angle;
+    }
+    const Id copy = out.next_id++;
+    copies[id] = copy;
+    out.vertices.push_back({copy, vertex(model, id)->position +
+                                      normal * (distance * (even_offset ? shell / angle : 1))});
+  }
+  std::vector<Polygon> polygons;
+  result.selection.mode = 4;
+  for (const Polygon &cap : caps) {
+    Polygon moved{out.next_id++, {}};
+    for (Id id : cap.points)
+      moved.points.push_back(copies.at(id));
+    result.selection.faces.push_back(moved.id);
+    if (cap.id == selection.active)
+      result.selection.active = moved.id;
+    polygons.push_back(std::move(moved));
+  }
+  for (const auto &[id, use] : uses)
+    if (use.count == 1)
+      polygons.push_back({out.next_id++, {use.a, use.b, copies.at(use.b), copies.at(use.a)}});
+  if (!delete_original)
+    for (Face &f : out.faces)
+      if (selected.contains(f.id))
+        f.orientation *= -1;
+  if (!install_polygons(out, delete_original ? selected : Set{}, polygons, false, error, true))
+    return {};
+  if (!result.selection.active)
+    result.selection.active = result.selection.faces.back();
+  result.selection = normalize_selection(out, std::move(result.selection));
+  if (!validate(out, error))
+    return {};
+  return result;
+}
+
+std::optional<EditResult> extrude_individual_normals(const Model &model,
+                                                    Selection selection,
+                                                    double distance,
+                                                    std::string *error)
+{
+  selection = normalize_selection(model, std::move(selection));
+  if (selection.mode != 4 || selection.faces.empty()) {
+    fail(error, "Select faces to extrude individually");
+    return {};
+  }
+  EditResult result{model, {}};
+  result.selection.mode = 4;
+  for (Id id : selection.faces) {
+    Selection single;
+    single.mode = 4;
+    single.faces = {id};
+    single.active = id;
+    auto next = extrude_region_normals(result.model, single, distance, false, error);
+    if (!next)
+      return {};
+    result.model = std::move(next->model);
+    result.selection.faces.insert(result.selection.faces.end(),
+                                  next->selection.faces.begin(), next->selection.faces.end());
+    if (id == selection.active || !result.selection.active)
+      result.selection.active = next->selection.active;
+  }
+  result.selection = normalize_selection(result.model, std::move(result.selection));
+  return result;
+}
+
+std::optional<EditResult> extrude_faces_individually(const Model &model,
+                                                     Selection selection,
+                                                     const std::vector<Vec3> &offsets,
+                                                     std::string *error)
+{
+  if (!validate(model, error))
+    return {};
+  selection = normalize_selection(model, std::move(selection));
+  if (selection.mode != 4 || selection.faces.empty() || offsets.size() != selection.faces.size()) {
+    fail(error, "Select faces with one extrusion offset for each face");
+    return {};
+  }
+
+  Model result_model = model;
+  Selection result_selection;
+  result_selection.mode = 4;
+  for (size_t i = 0; i < selection.faces.size(); ++i) {
+    const Id source_face = selection.faces[i];
+    if (!face(result_model, source_face) || !finite(offsets[i]) || !(length(offsets[i]) > 0)) {
+      fail(error, "Each selected face needs a finite nonzero extrusion offset");
+      return {};
+    }
+    Selection single_face;
+    single_face.mode = 4;
+    single_face.faces = {source_face};
+    single_face.active = source_face;
+    auto extruded = extrude_face_region(result_model, single_face, offsets[i], error);
+    if (!extruded)
+      return {};
+    result_model = std::move(extruded->model);
+    result_selection.faces.insert(result_selection.faces.end(),
+                                  extruded->selection.faces.begin(),
+                                  extruded->selection.faces.end());
+    result_selection.active = extruded->selection.active;
+  }
+  result_selection = normalize_selection(result_model, std::move(result_selection));
+  if (!validate(result_model, error))
+    return {};
+  return EditResult{std::move(result_model), std::move(result_selection)};
 }
 
 struct PreparedFaceRegionExtrusion::Impl {

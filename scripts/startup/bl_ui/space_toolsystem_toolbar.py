@@ -825,21 +825,21 @@ class _defs_edit_mesh:
             ),
             icon="ops.mesh.extrude_manifold",
             widget="VIEW3D_GGT_tool_generic_handle_normal",
+            operator="view3d.edit_mesh_extrude_manifold_normal",
             keymap=(),
         )
 
     @ToolDef.from_fn
     def extrude_normals():
         def draw_settings(_context, layout, tool):
-            props = tool.operator_properties("mesh.extrude_region_shrink_fatten")
-            props_macro = props.TRANSFORM_OT_shrink_fatten
-            layout.prop(props_macro, "use_even_offset")
+            props = tool.operator_properties("view3d.edit_mesh_extrude_move_shrink_fatten")
+            layout.prop(props, "use_even_offset")
         return dict(
             idname="builtin.extrude_along_normals",
             label="Extrude Along Normals",
             icon="ops.mesh.extrude_region_shrink_fatten",
             widget="VIEW3D_GGT_tool_generic_handle_normal",
-            operator="mesh.extrude_region_shrink_fatten",
+            operator="view3d.edit_mesh_extrude_move_shrink_fatten",
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -851,13 +851,14 @@ class _defs_edit_mesh:
             label="Extrude Individual",
             icon="ops.mesh.extrude_faces_move",
             widget="VIEW3D_GGT_tool_generic_handle_normal",
+            operator="view3d.edit_mesh_extrude_individual_move",
             keymap=(),
         )
 
     @ToolDef.from_fn
     def extrude_cursor():
         def draw_settings(_context, layout, tool):
-            props = tool.operator_properties("mesh.dupli_extrude_cursor")
+            props = tool.operator_properties("view3d.edit_mesh_extrude_cursor")
             layout.prop(props, "rotate_source")
 
         return dict(
@@ -866,6 +867,7 @@ class _defs_edit_mesh:
             cursor='CROSSHAIR',
             icon="ops.mesh.dupli_extrude_cursor",
             widget=None,
+            operator="view3d.edit_mesh_extrude_cursor",
             keymap=(),
             draw_settings=draw_settings,
         )
@@ -3032,6 +3034,10 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
         if solid_mode:
             yield from cls._tools[None]
             yield from cls._tools_default
+            yield None
+            yield (_defs_edit_mesh.extrude, _defs_edit_mesh.extrude_manifold,
+                   _defs_edit_mesh.extrude_normals, _defs_edit_mesh.extrude_individual,
+                   _defs_edit_mesh.extrude_cursor)
             yield None
             yield from (_defs_nurbs_draw.line, _defs_nurbs_draw.arc, _defs_nurbs_draw.circle,
                         _defs_nurbs_draw.ellipse, _defs_nurbs_draw.polygon, _defs_nurbs_draw.rectangle)

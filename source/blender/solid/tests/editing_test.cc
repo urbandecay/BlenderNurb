@@ -156,6 +156,21 @@ int main()
           "Extruding a body face must add a cap and four side walls");
   }
   {
+    Selection selected_faces;
+    selected_faces.mode = 4;
+    selected_faces.faces = {cube.faces[0].id, cube.faces[1].id};
+    const std::vector<Vec3> offsets{{0, 0, -.4}, {0, 0, .4}};
+    const auto extruded = extrude_faces_individually(cube, selected_faces, offsets, &error);
+    check(bool(extruded), "Individual planar face extrusion: " + error);
+    check(extruded->selection.mode == 4 && extruded->selection.faces.size() == 2,
+          "Individual face extrusion must keep both caps selected in face mode");
+    check(extruded->model.faces.size() == cube.faces.size() + 8,
+          "Extruding two cube faces individually must add four walls per face");
+    check(validate_body(extruded->model, extruded->selection.active, &error), error);
+    check(std::abs(volume(extruded->model) - 11.2) < 1e-10,
+          "Individual cap extrusions must extend both ends by their own offsets");
+  }
+  {
     Selection corner_vertex;
     corner_vertex.mode = 1;
     corner_vertex.vertices = {cube.vertices.front().id};
@@ -171,6 +186,26 @@ int main()
     Selection selected_patch;
     selected_patch.mode = 4;
     selected_patch.faces = {corner_patch->id};
+    const Surface &original_sphere = *surface(rounded->model, corner_patch->surface);
+    for (double amount : {.04, -.04}) {
+      const auto offset_patch = extrude_region_normals(
+          rounded->model, selected_patch, amount, false, &error);
+      check(bool(offset_patch), "Curved normal extrusion: " + error);
+      const Face &cap = *face(offset_patch->model, offset_patch->selection.active);
+      const Surface &offset_sphere = *surface(offset_patch->model, cap.surface);
+      check(offset_sphere.kind == SurfaceKind::Sphere &&
+                length(offset_sphere.origin - original_sphere.origin) < 1e-10,
+            "Normal extrusion must preserve the sphere center rather than translate its face");
+      const double sign = corner_patch->orientation *
+          (dot(original_sphere.u, cross(original_sphere.v, original_sphere.w)) < 0 ? -1 : 1);
+      check(std::abs(length(offset_sphere.u) - length(original_sphere.u) - sign * amount) < 1e-10,
+            "Every point of a spherical cap must move by the requested normal distance");
+      check(validate_body(offset_patch->model, cap.id, &error), error);
+      check(bool(tessellate(offset_patch->model, 32, &error)), error);
+      const auto individual = extrude_individual_normals(
+          rounded->model, selected_patch, amount, &error);
+      check(bool(individual), "Individual curved normal extrusion: " + error);
+    }
     const auto raised = extrude_elements(rounded->model, selected_patch, {.13, .07, -.2}, &error);
     check(bool(raised), "Curved face extrusion: " + error);
     check(raised->selection.mode == 4 && raised->selection.faces.size() == 1,

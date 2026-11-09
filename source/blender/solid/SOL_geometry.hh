@@ -269,6 +269,21 @@ std::optional<DisplayMesh> translated_cap_samples(const Model &source,
                                                   const DisplayMesh &samples,
                                                   Vec3 translation,
                                                   std::string *error = nullptr);
+/** Extrude connected caps along angle-weighted vertex normals without splitting shared vertices. */
+std::optional<EditResult> extrude_region_normals(const Model &model,
+                                                Selection selection,
+                                                double distance,
+                                                bool even_offset,
+                                                std::string *error = nullptr);
+/** Extrude each selected analytic face separately, using one offset per selected face. */
+std::optional<EditResult> extrude_individual_normals(const Model &model,
+                                                    Selection selection,
+                                                    double distance,
+                                                    std::string *error = nullptr);
+std::optional<EditResult> extrude_faces_individually(const Model &model,
+                                                     Selection selection,
+                                                     const std::vector<Vec3> &offsets,
+                                                     std::string *error = nullptr);
 /** Derived display only: planar faces have boundary polygons, conic walls have strips and
  * corner blends have sampled patches. Display samples never become source geometry. */
 std::optional<DisplayMesh> tessellate(const Model &model,

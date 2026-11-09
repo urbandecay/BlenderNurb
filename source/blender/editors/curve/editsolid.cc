@@ -1060,6 +1060,64 @@ static double distance_get(wmOperator *op)
   return float(value) == displayed ? value : double(displayed);
 }
 
+static std::optional<std::vector<solid::Vec3>> selected_face_normal_sums(
+    const bke::solid_host::Snapshot &source, std::string *error)
+{
+  if (!source.display_samples || source.selection.faces.empty()) {
+    if (error)
+      *error = "Select one or more faces to extrude along their normals";
+    return {};
+  }
+  const solid::DisplayMesh &display = *source.display_samples;
+  std::vector<solid::Vec3> sums(source.selection.faces.size());
+  std::vector<double> areas(source.selection.faces.size(), 0.0);
+  std::vector<solid::Vec3> representatives(source.selection.faces.size());
+  for (size_t polygon_index = 0; polygon_index < display.polygons.size(); ++polygon_index) {
+    const auto found = std::find(source.selection.faces.begin(),
+                                 source.selection.faces.end(),
+                                 display.face_source[polygon_index]);
+    if (found == source.selection.faces.end())
+      continue;
+    const std::vector<int> &polygon = display.polygons[polygon_index];
+    if (polygon.size() < 3)
+      continue;
+    const solid::Vec3 origin = display.positions[size_t(polygon[0])];
+    solid::Vec3 area_normal{};
+    for (size_t i = 1; i + 1 < polygon.size(); ++i)
+      area_normal = area_normal + solid::cross(
+                                      display.positions[size_t(polygon[i])] - origin,
+                                      display.positions[size_t(polygon[i + 1])] - origin);
+    const double area = solid::length(area_normal) * .5;
+    if (!(area > 0))
+      continue;
+    solid::Vec3 normal = area_normal / solid::length(area_normal);
+    if (polygon_index < display.corner_normals.size() &&
+        display.corner_normals[polygon_index].size() == polygon.size())
+    {
+      solid::Vec3 smooth_normal{};
+      for (const solid::Vec3 corner_normal : display.corner_normals[polygon_index])
+        smooth_normal = smooth_normal + corner_normal;
+      if (solid::length(smooth_normal) > 0)
+        normal = smooth_normal / solid::length(smooth_normal);
+    }
+    const size_t face_index = size_t(found - source.selection.faces.begin());
+    if (areas[face_index] == 0)
+      representatives[face_index] = normal;
+    sums[face_index] = sums[face_index] + normal * area;
+    areas[face_index] += area;
+  }
+  for (size_t i = 0; i < sums.size(); ++i) {
+    if (areas[i] > 0 && solid::length(sums[i]) < areas[i] * 1e-10)
+      sums[i] = representatives[i] * areas[i];
+    if (!(areas[i] > 0) || !(solid::length(sums[i]) > 0)) {
+      if (error)
+        *error = "Could not calculate an analytic extrusion direction for every selected face";
+      return {};
+    }
+  }
+  return sums;
+}
+
 static void finish_sketch_extrusion(bContext *C)
 {
   if (bToolRef *tool = WM_toolsystem_ref_from_context(C)) {
@@ -1074,11 +1132,28 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
   auto preview = ed::solid_editor::Session::begin(C, &error);
   auto profile = preview ? prepare(*preview, error) : std::nullopt;
   const int selection_mode = preview ? preview->source().selection.mode : 1;
+  const int method = RNA_enum_get(op->ptr, "method");
   std::optional<solid::EditResult> result;
   float offset[3];
   RNA_float_get_array(op->ptr, "offset", offset);
   const bool vector_offset = !math::is_zero(float3(offset));
-  if (preview && (vector_offset || !profile)) {
+  const bool normals_method = method == 1 || method == 2;
+  if (preview && normals_method && profile && !profile->attached) {
+    result = solid::extrude(*profile, distance_get(op), &error);
+  }
+  else if (preview && normals_method && selection_mode == 4 &&
+           !preview->source().selection.faces.empty())
+  {
+    error.clear();
+    result = method == 1 ?
+        solid::extrude_region_normals(*preview->source().model,
+                                      preview->source().selection,
+                                      distance_get(op),
+                                      RNA_boolean_get(op->ptr, "use_even_offset"), &error) :
+        solid::extrude_individual_normals(*preview->source().model,
+                                          preview->source().selection, distance_get(op), &error);
+  }
+  else if (preview && (vector_offset || !profile)) {
     error.clear();
     result = solid::extrude_elements(*preview->source().model,
                                      preview->source().selection,
@@ -1086,6 +1161,11 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
                                                      solid::Vec3{0, 0, distance_get(op)},
                                      &error);
   }
+  else if (preview && profile && profile->attached && selection_mode == 4)
+    result = solid::extrude_elements(*preview->source().model,
+                                     preview->source().selection,
+                                     profile->normal * distance_get(op),
+                                     &error);
   else if (profile)
     result = solid::extrude(*profile, distance_get(op), &error);
   if (result && profile && !vector_offset)
@@ -1099,6 +1179,78 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static wmOperatorStatus extrude_repeat_exec(bContext *C, wmOperator *op)
+{
+  std::string error;
+  auto session = ed::solid_editor::Session::begin(C, &error);
+  if (!session) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+
+  const int steps = RNA_int_get(op->ptr, "steps");
+  if (steps == 0)
+    return OPERATOR_FINISHED;
+
+  float offset[3];
+  PropertyRNA *offset_property = RNA_struct_find_property(op->ptr, "offset");
+  if (RNA_property_is_set(op->ptr, offset_property)) {
+    RNA_property_float_get_array(op->ptr, offset_property, offset);
+  }
+  else if (const RegionView3D *rv3d = CTX_wm_region_view3d(C)) {
+    normalize_v3_v3(offset, rv3d->persinv[2]);
+  }
+  else {
+    offset[0] = 0;
+    offset[1] = 0;
+    offset[2] = 1;
+  }
+  mul_v3_fl(offset, RNA_float_get(op->ptr, "scale_offset"));
+  const solid::Vec3 delta{offset[0], offset[1], offset[2]};
+
+  const auto &source = session->source();
+  solid::Model model = *source.model;
+  solid::Selection selection = source.selection;
+  for (int i = 0; i < steps; ++i) {
+    std::optional<solid::EditResult> next;
+    bool used_profile = false;
+    if (i == 0) {
+      error.clear();
+      auto profile = solid::prepare_profile(model, selection, &error);
+      if (profile && !profile->attached) {
+        used_profile = true;
+        const double distance = solid::dot(delta, profile->normal);
+        if (distance == 0) {
+          error = "Repeated extrusion of a sketch needs an offset along its profile normal";
+          break;
+        }
+        next = solid::extrude(*profile, distance, &error);
+        if (next)
+          next->selection = selection_for_face(
+              next->model, next->selection.active, source.selection.mode);
+      }
+    }
+    if (!used_profile) {
+      error.clear();
+      next = solid::extrude_elements(model, selection, delta, &error);
+    }
+    if (!next)
+      break;
+    model = std::move(next->model);
+    selection = std::move(next->selection);
+  }
+
+  if (error.empty() && !session->apply(C, {std::move(model), std::move(selection)}, &error)) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  if (!error.empty()) {
+    BKE_report(op->reports, RPT_ERROR, error.c_str());
+    return OPERATOR_CANCELLED;
+  }
+  return OPERATOR_FINISHED;
+}
+
 struct ExtrudeModal {
   MEM_CXX_CLASS_ALLOC_FUNCS("Solid extrusion");
   std::unique_ptr<ed::solid_editor::Session> preview;
@@ -1109,10 +1261,16 @@ struct ExtrudeModal {
   bool elements = false;
   bool bevel = false;
   bool vertices_only = false;
+  bool normal_mouse = false;
+  bool per_face_extrude = false;
+  bool even_offset_initial = false;
   int selection_mode = 1;
+  int method = 0;
   int subdivisions = 0;
   solid::CornerTopology corner_topology = solid::CornerTopology::Quads;
   int axis = -1;
+  solid::Vec3 extrusion_direction{0, 0, 1};
+  std::vector<solid::Vec3> face_normals;
   solid::Vec3 offset;
   float depth = 1;
   NumInput num{};
@@ -1177,12 +1335,25 @@ static void update(bContext *C, wmOperator *op)
   else if (!data.bevel && data.elements) {
     const Mesh &mesh = *id_cast<Mesh *>(data.preview->object().data);
     if (source.selection.mode == 4 && !source.selection.faces.empty()) {
-      if (!data.region_extrusion)
-        data.region_extrusion = solid::PreparedFaceRegionExtrusion::create(
-            source.model, source.selection, &data.error);
-      if (data.region_extrusion)
-        region_extrusion = data.region_extrusion->preview(
-            data.offset, bke::solid_host::display_uses_analytic_normals(mesh), &data.error);
+      if (data.method == 1) {
+        result = solid::extrude_region_normals(*source.model,
+                                               source.selection,
+                                               data.distance,
+                                               RNA_boolean_get(op->ptr, "use_even_offset"),
+                                               &data.error);
+      }
+      else if (data.per_face_extrude) {
+        result = solid::extrude_individual_normals(
+            *source.model, source.selection, data.distance, &data.error);
+      }
+      else {
+        if (!data.region_extrusion)
+          data.region_extrusion = solid::PreparedFaceRegionExtrusion::create(
+              source.model, source.selection, &data.error);
+        if (data.region_extrusion)
+          region_extrusion = data.region_extrusion->preview(
+              data.offset, bke::solid_host::display_uses_analytic_normals(mesh), &data.error);
+      }
     }
     else {
       result = solid::extrude_elements(*source.model, source.selection, data.offset, &data.error);
@@ -1322,7 +1493,12 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
   }
   std::string error;
   auto preview = ed::solid_editor::Session::begin(C, &error);
+  const int method = RNA_enum_get(op->ptr, "method");
   auto profile = preview ? prepare(*preview, error) : std::nullopt;
+  if (preview && profile && profile->attached && preview->source().selection.mode == 4) {
+    profile.reset();
+    error.clear();
+  }
   if (!preview || (!profile && preview->source().selection.vertices.empty())) {
     BKE_report(op->reports, RPT_ERROR, error.c_str());
     return OPERATOR_CANCELLED;
@@ -1331,6 +1507,52 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
   data->preview = std::move(preview);
   data->elements = !profile;
   data->selection_mode = data->preview->source().selection.mode;
+  data->method = method;
+  data->even_offset_initial = RNA_boolean_get(op->ptr, "use_even_offset");
+  if (method != 4 && data->selection_mode == 4 &&
+      !data->preview->source().selection.faces.empty())
+  {
+    error.clear();
+    const auto normal_sums = selected_face_normal_sums(data->preview->source(), &error);
+    if (!normal_sums) {
+      MEM_delete(data);
+      BKE_report(op->reports, RPT_ERROR, error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    solid::Vec3 total{};
+    for (const solid::Vec3 normal : *normal_sums) {
+      const solid::Vec3 unit = normal / solid::length(normal);
+      data->face_normals.push_back(unit);
+      total = total + normal;
+    }
+    if (solid::length(total) > 1e-12) {
+      data->extrusion_direction = total / solid::length(total);
+    }
+    else {
+      const auto active = std::find(data->preview->source().selection.faces.begin(),
+                                    data->preview->source().selection.faces.end(),
+                                    data->preview->source().selection.active);
+      const size_t active_index = active == data->preview->source().selection.faces.end() ?
+                                      0 :
+                                      size_t(active -
+                                             data->preview->source().selection.faces.begin());
+      data->extrusion_direction = data->face_normals[active_index];
+    }
+    data->normal_mouse = true;
+    data->per_face_extrude = method == 2;
+  }
+  float axis_direction[3];
+  RNA_float_get_array(op->ptr, "axis_direction", axis_direction);
+  if (!is_zero_v3(axis_direction)) {
+    const float3 local_direction = math::transform_direction(
+        data->preview->object().world_to_object(), float3(axis_direction));
+    if (math::length_squared(local_direction) > 1e-20f) {
+      const float3 unit_direction = math::normalize(local_direction);
+      data->extrusion_direction = {unit_direction.x, unit_direction.y, unit_direction.z};
+      data->normal_mouse = true;
+      data->per_face_extrude = false;
+    }
+  }
   if (profile) {
     data->profile = solid::PreparedExtrusion::create(std::move(*profile), &error);
     if (!data->profile) {
@@ -1344,7 +1566,8 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
   const auto &source = data->preview->source();
   const auto *vertex = solid::vertex(*source.model, source.selection.vertices.front());
   const float3 center(math::transform_point(transform, host_point(vertex->position)));
-  const solid::Vec3 normal = data->elements ? solid::Vec3{0, 0, 1} : data->profile->normal();
+  const solid::Vec3 normal = data->normal_mouse ? data->extrusion_direction :
+                             data->elements ? solid::Vec3{0, 0, 1} : data->profile->normal();
   const float3 direction(math::transform_direction(transform, host_point(normal)));
   data->depth = ED_view3d_calc_zfac(CTX_wm_region_view3d(C), center);
   const double scale = math::length(direction);
@@ -1382,6 +1605,15 @@ static wmOperatorStatus extrude_invoke(bContext *C, wmOperator *op, const wmEven
 static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   auto &data = *static_cast<ExtrudeModal *>(op->customdata);
+  if (!data.bevel && data.method == 1 &&
+      ELEM(event->type, EVT_LEFTALTKEY, EVT_RIGHTALTKEY) &&
+      ELEM(event->val, KM_PRESS, KM_RELEASE))
+  {
+    RNA_boolean_set(op->ptr, "use_even_offset",
+                     data.even_offset_initial != (event->val == KM_PRESS));
+    update(C, op);
+    return OPERATOR_RUNNING_MODAL;
+  }
   if (data.bevel && event->val == KM_PRESS && ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE)) {
     data.subdivisions = std::clamp(
         data.subdivisions + (event->type == WHEELUPMOUSE ? 1 : -1), 0, 32);
@@ -1393,7 +1625,11 @@ static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent
     extrude_cancel(C, op);
     return OPERATOR_CANCELLED;
   }
-  if (event->val == KM_PRESS && ELEM(event->type, LEFTMOUSE, EVT_RETKEY, EVT_PADENTER)) {
+  const bool release_confirm = !data.bevel && RNA_boolean_get(op->ptr, "release_confirm");
+  if ((event->type == LEFTMOUSE &&
+       event->val == (release_confirm ? KM_RELEASE : KM_PRESS)) ||
+      (event->val == KM_PRESS && ELEM(event->type, EVT_RETKEY, EVT_PADENTER)))
+  {
     if (!data.valid) {
       return OPERATOR_RUNNING_MODAL;
     }
@@ -1417,6 +1653,9 @@ static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent
   }
   if (data.elements && event->val == KM_PRESS && ELEM(event->type, EVT_XKEY, EVT_YKEY, EVT_ZKEY)) {
     data.axis = event->type == EVT_XKEY ? 0 : event->type == EVT_YKEY ? 1 : 2;
+    data.normal_mouse = false;
+    data.per_face_extrude = false;
+    data.method = 0;
     const auto &source = data.preview->source();
     const auto p = solid::vertex(*source.model, source.selection.vertices.front())->position;
     const float3 center = math::transform_point(data.preview->object().object_to_world(),
@@ -1445,8 +1684,10 @@ static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent
   else if (event->val == KM_PRESS && handleNumInput(C, &data.num, event)) {
     applyNumInput(&data.num, &data.distance);
     if (data.elements) {
-      data.offset = {};
-      data.offset[data.axis < 0 ? 2 : data.axis] = data.distance;
+      data.offset = data.normal_mouse ? data.extrusion_direction * data.distance :
+                                       solid::Vec3{};
+      if (!data.normal_mouse)
+        data.offset[data.axis < 0 ? 2 : data.axis] = data.distance;
     }
     update(C, op);
   }
@@ -1482,7 +1723,9 @@ static wmOperatorStatus extrude_modal(bContext *C, wmOperator *op, const wmEvent
       }
       if (data.elements) {
         data.offset = {};
-        if (data.axis >= 0)
+        if (data.normal_mouse)
+          data.offset = data.extrusion_direction * data.distance;
+        else if (data.axis >= 0)
           data.offset[data.axis] = data.distance;
         else {
           float3 delta;
@@ -1780,6 +2023,35 @@ void SOLID_OT_extrude(wmOperatorType *ot)
   ot->modal = extrude_modal;
   ot->cancel = extrude_cancel;
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+  static const EnumPropertyItem methods[] = {
+      {0, "REGION", 0, "Region", "Extrude the selected connected region as one piece"},
+      {1, "ALONG_NORMALS", 0, "Along Normals", "Extrude selected faces along their analytic normals"},
+      {2, "INDIVIDUAL", 0, "Individual Faces", "Extrude each selected analytic face separately"},
+      {3, "MANIFOLD", 0, "Manifold", "Extrude while preserving a closed analytic boundary"},
+      {4, "CURSOR", 0, "Cursor Drag", "Move the extrusion freely in the viewport plane"},
+      {0, nullptr, 0, nullptr, nullptr}};
+  RNA_def_enum(ot->srna, "method", methods, 0, "Method", "Extrusion behavior");
+  RNA_def_boolean(ot->srna, "use_even_offset", false, "Even Offset",
+                  "Compensate shared vertex offsets for the angle between selected faces");
+  PropertyRNA *release_confirm = RNA_def_boolean(
+      ot->srna,
+      "release_confirm",
+      false,
+      "Release Confirms",
+      "Confirm the extrusion when the initiating drag is released");
+  RNA_def_property_flag(release_confirm, PROP_HIDDEN | PROP_SKIP_SAVE);
+  PropertyRNA *axis_direction = RNA_def_float_vector(
+      ot->srna,
+      "axis_direction",
+      3,
+      nullptr,
+      -FLT_MAX,
+      FLT_MAX,
+      "Axis Direction",
+      "World-space direction used by the extrusion gizmo",
+      -1,
+      1);
+  RNA_def_property_flag(axis_direction, PROP_HIDDEN | PROP_SKIP_SAVE);
   RNA_def_float_distance(ot->srna,
                          "distance",
                          1,
@@ -1806,6 +2078,55 @@ void SOLID_OT_extrude(wmOperatorType *ot)
                        "Translation for vertex or edge extrusion in object-local coordinates",
                        -100,
                        100);
+}
+
+void SOLID_OT_extrude_individual(wmOperatorType *ot)
+{
+  SOLID_OT_extrude(ot);
+  ot->name = "Extrude Individual Solid Faces";
+  ot->idname = "SOLID_OT_extrude_individual";
+  ot->description = "Extrude every selected face separately along its own normal";
+  RNA_def_property_enum_default(RNA_struct_type_find_property(ot->srna, "method"), 2);
+}
+
+void SOLID_OT_extrude_repeat(wmOperatorType *ot)
+{
+  ot->name = "Repeat Solid Extrusion";
+  ot->description = "Extrude selected analytic elements repeatedly by one exact offset";
+  ot->idname = "SOLID_OT_extrude_repeat";
+  ot->exec = extrude_repeat_exec;
+  ot->poll = solid_edit_poll;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_int(ot->srna,
+              "steps",
+              10,
+              0,
+              1000000,
+              "Steps",
+              "Number of repeated extrusions",
+              0,
+              180);
+  PropertyRNA *prop = RNA_def_float_vector_xyz(ot->srna,
+                                               "offset",
+                                               3,
+                                               nullptr,
+                                               -100000,
+                                               100000,
+                                               "Offset",
+                                               "Per-step offset in object-local coordinates",
+                                               -1000,
+                                               1000);
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  RNA_def_float(ot->srna,
+                "scale_offset",
+                1.0f,
+                0.0f,
+                1e12f,
+                "Scale Offset",
+                "Scale the per-step offset",
+                0.0f,
+                100.0f);
 }
 
 void SOLID_OT_duplicate(wmOperatorType *ot)
