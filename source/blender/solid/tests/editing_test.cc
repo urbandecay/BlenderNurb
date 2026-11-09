@@ -196,6 +196,16 @@ int main()
                                                }));
     check(merged_sides >= 4,
           "Manifold push-pull must merge each new side wall into its coplanar side face");
+
+    Selection top_face;
+    top_face.mode = 4;
+    top_face.faces = {cube.faces[1].id};
+    top_face.active = top_face.faces.front();
+    const auto pocket = extrude_manifold(cube, top_face, {0, 0, -.4}, &error);
+    check(bool(pocket), "Inward manifold push-pull: " + error);
+    check(std::abs(volume(pocket->model) - 6.4) < 1e-10,
+          "Inward manifold push-pull must create a pocket in the solid");
+    check(validate_body(pocket->model, pocket->selection.active, &error), error);
   }
   {
     Selection corner_vertex;

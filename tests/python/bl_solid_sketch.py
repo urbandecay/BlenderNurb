@@ -108,6 +108,16 @@ class SolidSketchTest(unittest.TestCase):
         self.assertTrue(all(e.is_manifold for e in bm.edges))
         self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), (False, False, True))
 
+        self.setUp()
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda f: all(abs(v.co.z - 2) < 1e-5 for v in f.verts))
+        self.assertEqual(bpy.ops.solid.extrude(method='MANIFOLD', distance=-.4), {'FINISHED'})
+        self.assertAlmostEqual(self.volume(obj), 6.4, places=5)
+        bm = bmesh.from_edit_mesh(obj.data)
+        self.assertTrue(all(e.is_manifold for e in bm.edges))
+
     def test_curved_normal_extrusion_preserves_cylinder_axis(self):
         for method in ('ALONG_NORMALS', 'INDIVIDUAL'):
             for amount in (.2, -.2):
