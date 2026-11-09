@@ -3580,10 +3580,16 @@ class VIEW3D_MT_edit_mesh_extrude(Menu):
 
         if mesh.is_solid_model:
             if mesh.total_face_sel:
-                layout.operator("solid.extrude", text="Extrude Faces").method = 'REGION'
-                layout.operator("solid.extrude", text="Extrude Faces Along Normals").method = 'ALONG_NORMALS'
-                layout.operator("solid.extrude_individual", text="Extrude Individual Faces")
-                layout.operator("solid.extrude", text="Extrude Manifold").method = 'MANIFOLD'
+                # Use the same Solid-aware wrappers as the regular Mesh menu. The
+                # keymap binds E to the region wrapper, and Blender can only show a
+                # menu shortcut when the row uses that exact operator identifier.
+                layout.operator("view3d.edit_mesh_extrude_move_normal", text="Extrude Faces")
+                layout.operator("view3d.edit_mesh_extrude_move_shrink_fatten",
+                                text="Extrude Faces Along Normals")
+                layout.operator("view3d.edit_mesh_extrude_individual_move",
+                                text="Extrude Individual Faces")
+                layout.operator("view3d.edit_mesh_extrude_manifold_normal",
+                                text="Extrude Manifold")
             if mesh.total_edge_sel and (select_mode[0] or select_mode[1]):
                 layout.operator("solid.extrude", text="Extrude Edges")
             if mesh.total_vert_sel and select_mode[0]:
