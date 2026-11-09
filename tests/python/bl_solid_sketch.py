@@ -566,6 +566,270 @@ class SolidSketchTest(unittest.TestCase):
             bm.free()
             evaluated.to_mesh_clear()
 
+    def make_boolean_pair(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda face: True)
+        self.assertEqual(bpy.ops.solid.duplicate(), {'FINISHED'})
+        # Offset in all three axes to avoid coincident faces while retaining an
+        # analytically known overlap volume of 1.2 * 1.6 * 1.7 = 3.264.
+        self.assertEqual(bpy.ops.transform.translate(value=(.8, .4, .3)), {'FINISHED'})
+        self.source_select('FACE', lambda face: True)
+        return obj
+
+    def test_boolean_operations_match_expected_volumes_for_each_solver(self):
+        expected = {
+            'UNION': 12.736,
+            'SUBTRACT': 4.736,
+            'INTERSECT': 3.264,
+            # Split keeps both the inside and outside pieces of the target.
+            'SPLIT': 8.0,
+        }
+        for solver in ('FLOAT', 'EXACT', 'MANIFOLD'):
+            for operation, volume in expected.items():
+                with self.subTest(solver=solver, operation=operation):
+                    self.setUp()
+                    obj = self.make_boolean_pair()
+                    self.assertEqual(
+                        bpy.ops.solid.boolean(operation_mode=operation, solver=solver),
+                        {'FINISHED'},
+                    )
+                    self.assertAlmostEqual(self.volume(obj), volume, places=4)
+                    self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode),
+                                     (False, False, True))
+                    bm = bmesh.from_edit_mesh(obj.data)
+                    self.assertTrue(all(edge.is_manifold for edge in bm.edges))
+                    self.assertFalse(any(
+                        edge.link_faces[0].normal.dot(edge.link_faces[1].normal) > 1 - 1e-6
+                        for edge in bm.edges), 'Boolean left diagonals inside flat faces')
+
+    def test_boolean_curved_solid_keeps_closed_analytic_output(self):
+        bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda face: True)
+        self.assertEqual(bpy.ops.solid.duplicate(), {'FINISHED'})
+        self.assertEqual(bpy.ops.transform.translate(value=(.5, 0, .2)), {'FINISHED'})
+        self.source_select('FACE', lambda face: True)
+        self.assertEqual(
+            bpy.ops.solid.boolean(operation_mode='UNION', solver='EXACT'), {'FINISHED'})
+        self.assertGreater(self.volume(obj), 0)
+        self.assertGreater(obj.data.solid_faces_count, 6)
+
+    def test_cylinder_boolean_keeps_analytic_boundaries(self):
+        for operation in ('UNION', 'SUBTRACT', 'INTERSECT', 'SPLIT'):
+            for shift in ((.5, 0, .2), (.5, .3, 0), (.5, .3, 2.5)):
+                with self.subTest(operation=operation, shift=shift):
+                    self.setUp()
+                    bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                    bpy.ops.solid.extrude(distance=2)
+                    obj = bpy.context.object
+                    self.source_select('FACE', lambda f: True)
+                    bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': shift})
+                    self.source_select('FACE', lambda f: True)
+                    self.assertEqual(bpy.ops.solid.boolean(operation_mode=operation), {'FINISHED'})
+                    if operation == 'INTERSECT' and shift[2] > 2:
+                        self.assertEqual(obj.data.solid_faces_count, 0)
+                        continue
+                    self.assertLess(obj.data.solid_vertices_count, 20)
+                    self.assertLess(obj.data.solid_edges_count, 40)
+                    self.assertLess(obj.data.solid_faces_count, 24)
+                    d = math.hypot(shift[0], shift[1])
+                    overlap_area = 2 * math.acos(d / 2) - .5 * d * math.sqrt(4 - d*d)
+                    overlap = overlap_area * max(0, 2 - abs(shift[2]))
+                    expected = {'UNION': 4*math.pi - overlap,
+                                'SUBTRACT': 2*math.pi - overlap,
+                                'INTERSECT': overlap, 'SPLIT': 2*math.pi}[operation]
+                    self.assertAlmostEqual(self.volume(obj), expected, delta=.025)
+                    # Freshly sampling the retained source must reproduce the curved result.
+                    count = obj.data.solid_vertices_count
+                    bpy.ops.object.mode_set(mode='OBJECT')
+                    bpy.ops.object.mode_set(mode='EDIT')
+                    self.assertEqual(obj.data.solid_vertices_count, count)
+
+    def test_cylinder_boolean_after_native_selection_mode_changes(self):
+        bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        bpy.ops.mesh.select_mode(type='FACE')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (.5, 0, .2)})
+        bpy.ops.mesh.select_all(action='SELECT')
+        for mode in ('VERT', 'EDGE', 'FACE'):
+            bpy.ops.mesh.select_mode(type=mode)
+        self.assertEqual(bpy.ops.solid.boolean(), {'FINISHED'})
+
+    def test_cylinder_boolean_rotations_and_cutter_options(self):
+        area = 2 * math.acos(.25) - .25 * math.sqrt(3.75)
+        overlap = area * 1.8
+        cases = (({'operation_mode': 'UNION'}, 4*math.pi-overlap),
+                 ({'operation_mode': 'SUBTRACT', 'keep_cutter': True}, 4*math.pi-overlap),
+                 ({'operation_mode': 'SUBTRACT', 'swap_subtract': True}, 2*math.pi-overlap),
+                 ({'operation_mode': 'SUBTRACT', 'invert_cutter': True}, overlap),
+                 ({'operation_mode': 'SPLIT', 'keep_cutter': True}, 4*math.pi))
+        for kwargs, expected in cases:
+            with self.subTest(kwargs=kwargs):
+                self.setUp()
+                bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                bpy.ops.solid.extrude(distance=2)
+                obj = bpy.context.object
+                self.source_select('FACE', lambda f: True)
+                bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (.5, 0, .2)})
+                self.source_select('FACE', lambda f: True)
+                bpy.ops.transform.rotate(value=.37, orient_axis='Y', center_override=(0, 0, 0))
+                self.assertEqual(bpy.ops.solid.boolean(**kwargs), {'FINISHED'})
+                self.assertAlmostEqual(self.volume(obj), expected, delta=.025)
+
+    def test_unsupported_curved_boolean_keeps_original_source(self):
+        bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda f: True)
+        bpy.ops.transform.resize(value=(2, 1, 1))
+        bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (.5, 0, .2)})
+        self.source_select('FACE', lambda f: True)
+        before = [tuple(v.co) for v in bmesh.from_edit_mesh(obj.data).verts]
+        counts = (obj.data.solid_vertices_count, obj.data.solid_edges_count, obj.data.solid_faces_count)
+        with self.assertRaisesRegex(RuntimeError, 'not supported analytically'):
+            bpy.ops.solid.boolean()
+        self.assertEqual(before, [tuple(v.co) for v in bmesh.from_edit_mesh(obj.data).verts])
+        self.assertEqual(counts, (obj.data.solid_vertices_count,
+                                  obj.data.solid_edges_count, obj.data.solid_faces_count))
+
+    def test_boolean_skewed_extrusions_with_limited_dissolve(self):
+        # Reproduce the line -> skewed face -> solid -> translated duplicate workflow
+        # recorded in the user crash log. Exercise dissolve on non-axis-aligned faces.
+        for solver in ('FLOAT', 'EXACT', 'MANIFOLD'):
+            volumes = {}
+            for operation in ('UNION', 'SUBTRACT', 'INTERSECT', 'SPLIT'):
+                with self.subTest(solver=solver, operation=operation):
+                    self.setUp()
+                    bpy.ops.solid.sketch_add(type='LINE', size=1)
+                    bpy.ops.solid.extrude(distance=2.0503589207262558,
+                                          offset=(.642019, 1.91148, .371516))
+                    self.source_select('FACE', lambda f: True)
+                    bpy.ops.solid.extrude(distance=2.2814648045139863)
+                    obj = bpy.context.object
+                    original = self.volume(obj)
+                    self.source_select('FACE', lambda f: True)
+                    bpy.ops.solid.duplicate_move(
+                        TRANSFORM_OT_translate={'value': (.8989, .656221, -1.11859)})
+                    self.source_select('FACE', lambda f: True)
+                    self.assertEqual(bpy.ops.solid.boolean(
+                        operation_mode=operation, solver=solver,
+                        limited_dissolve=True), {'FINISHED'})
+                    volumes[operation] = self.volume(obj)
+                    bm = bmesh.from_edit_mesh(obj.data)
+                    self.assertFalse(any(
+                        edge.link_faces[0].normal.dot(edge.link_faces[1].normal) > 1 - 1e-6
+                        for edge in bm.edges), 'Skewed flat faces retained Boolean diagonals')
+            self.assertAlmostEqual(volumes['UNION'] + volumes['INTERSECT'],
+                                   2 * original, places=4)
+            self.assertAlmostEqual(volumes['SUBTRACT'] + volumes['INTERSECT'],
+                                   original, places=4)
+            self.assertAlmostEqual(volumes['SPLIT'], original, places=4)
+
+    def test_boolean_disjoint_bodies_and_dissolve_redo_options(self):
+        for solver in ('FLOAT', 'EXACT', 'MANIFOLD'):
+            for operation, expected in (('UNION', 16), ('SUBTRACT', 8),
+                                         ('INTERSECT', 0), ('SPLIT', 8)):
+                for dissolve, per_iteration in ((False, False), (True, False), (True, True)):
+                    with self.subTest(solver=solver, operation=operation,
+                                      dissolve=dissolve, per_iteration=per_iteration):
+                        self.setUp()
+                        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+                        bpy.ops.solid.extrude(distance=2)
+                        obj = bpy.context.object
+                        self.source_select('FACE', lambda f: True)
+                        bpy.ops.solid.duplicate_move(TRANSFORM_OT_translate={'value': (4, 0, 0)})
+                        self.source_select('FACE', lambda f: True)
+                        self.assertEqual(bpy.ops.solid.boolean(
+                            operation_mode=operation, solver=solver,
+                            limited_dissolve=dissolve, dissolve_per_iteration=per_iteration),
+                            {'FINISHED'})
+                        if expected:
+                            self.assertAlmostEqual(self.volume(obj), expected, places=4)
+                        else:
+                            self.assertEqual(obj.data.solid_faces_count, 0)
+
+    def test_solid_selection_sync_preserves_active_vertex_and_edge(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE')
+        bpy.ops.solid.extrude(distance=2)
+        for mode in ('VERT', 'EDGE'):
+            self.source_select(mode, lambda element: True)
+            bm = bmesh.from_edit_mesh(bpy.context.object.data)
+            elements = bm.verts if mode == 'VERT' else bm.edges
+            active = next(iter(elements))
+            bm.select_history.clear()
+            bm.select_history.add(active)
+            bpy.ops.mesh.select_linked(delimit=set())
+            self.assertEqual(bm.select_history.active, active)
+            self.assertTrue(active.select)
+
+    def test_boolean_preserves_mode_and_selects_result_vertices_edges_and_faces(self):
+        for mode, expected in (('VERT', (True, False, False)),
+                               ('EDGE', (False, True, False)),
+                               ('FACE', (False, False, True))):
+            with self.subTest(mode=mode):
+                self.setUp()
+                obj = self.make_boolean_pair()
+                bpy.ops.mesh.select_mode(type=mode)
+                bpy.ops.mesh.select_all(action='SELECT')
+                self.assertEqual(bpy.ops.solid.boolean(), {'FINISHED'})
+                self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), expected)
+                bm = bmesh.from_edit_mesh(obj.data)
+                # These flags drive the native edit overlay's orange vertex/edge/face colors.
+                for elements in (bm.verts, bm.edges, bm.faces):
+                    self.assertTrue(elements)
+                    self.assertTrue(all(element.select for element in elements))
+                self.assertIsNotNone(bm.select_history.active)
+                self.assertTrue(bm.select_history.active.select)
+                self.assertAlmostEqual(self.volume(obj), 12.736, places=4)
+
+    def test_boolean_keep_cutter_and_swapped_subtraction(self):
+        self.setUp()
+        obj = self.make_boolean_pair()
+        self.assertEqual(
+            bpy.ops.solid.boolean(operation_mode='SUBTRACT', solver='EXACT', keep_cutter=True),
+            {'FINISHED'},
+        )
+        self.assertAlmostEqual(self.volume(obj), 12.736, places=4)
+
+        self.setUp()
+        obj = self.make_boolean_pair()
+        self.assertEqual(
+            bpy.ops.solid.boolean(operation_mode='SUBTRACT', solver='EXACT', swap_subtract=True),
+            {'FINISHED'},
+        )
+        self.assertAlmostEqual(self.volume(obj), 4.736, places=4)
+
+    def test_manifold_normal_extrusion_rebuilds_missing_samples_after_reload(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+
+        for step in range(4):
+            top = 2.0 + step * .2
+            self.source_select('FACE', lambda face, z=top: all(abs(v.co.z - z) < 1e-5
+                                                                for v in face.verts))
+            self.assertEqual(
+                bpy.ops.solid.extrude(method='MANIFOLD', distance=.2), {'FINISHED'})
+
+        name = obj.name
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'manifold-extrusion-no-display-cache.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+
+        obj = bpy.data.objects[name]
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        self.source_select('FACE', lambda face: all(abs(v.co.z - 2.8) < 1e-5
+                                                      for v in face.verts))
+        self.assertEqual(bpy.ops.solid.extrude(method='MANIFOLD', distance=.2), {'FINISHED'})
+        self.assertAlmostEqual(self.volume(obj), 12.0, places=5)
+
     def test_low_division_corner_sampling_and_single_face_extrusion(self):
         from mathutils import Vector
 

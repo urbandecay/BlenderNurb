@@ -153,6 +153,7 @@ std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error)
     return source;
   const BMesh &bm = *mesh.runtime->edit_mesh->bm;
   auto &selection = source->selection;
+  const std::unordered_set<solid::Id> previous_edges(selection.edges.begin(), selection.edges.end());
   selection.mode = bm.selectmode & 4 ? 4 : bm.selectmode & 2 ? 2 : 1;
   auto read_domain =
       [&](const CustomData &data, int iter_type, const char *name, std::vector<solid::Id> &ids) {
@@ -190,6 +191,29 @@ std::optional<Snapshot> read_edit(const Mesh &mesh, std::string *error)
   read_domain(bm.vdata, BM_VERTS_OF_MESH, ".solid_vertex_id", selection.vertices);
   read_domain(bm.edata, BM_EDGES_OF_MESH, ".solid_edge_id", selection.edges);
   read_domain(bm.pdata, BM_FACES_OF_MESH, ".solid_face_id", selection.faces);
+  if (selection.mode == 2) {
+    /* A periodic face's closing rail is source topology, but its two uses belong to the same
+     * logical face and are suppressed in the sampled edge IDs. Preserve that implicit edge
+     * when its endpoints are selected, so switching to edge mode does not drop the curved wall. */
+    std::unordered_set<solid::Id> represented;
+    const int offset = CustomData_get_offset_named(&bm.edata, CD_PROP_INT32_2D, ".solid_edge_id");
+    if (offset >= 0) {
+      BMIter iter;
+      BMEdge *edge;
+      BM_ITER_MESH (edge, &iter, const_cast<BMesh *>(&bm), BM_EDGES_OF_MESH) {
+        const int2 &id = *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(edge, offset));
+        represented.insert(uint64_t(uint32_t(id.x)) | (uint64_t(uint32_t(id.y)) << 32));
+      }
+      const std::unordered_set<solid::Id> vertices(selection.vertices.begin(), selection.vertices.end());
+      for (const solid::Edge &edge : source->model->edges) {
+        if (previous_edges.contains(edge.id) && !represented.contains(edge.id) && vertices.contains(edge.vertices[0]) &&
+            vertices.contains(edge.vertices[1]))
+        {
+          selection.edges.push_back(edge.id);
+        }
+      }
+    }
+  }
   std::vector<solid::Id> ordered;
   std::unordered_set<solid::Id> ordered_ids;
   const std::unordered_set<solid::Id> selected_vertices(selection.vertices.begin(),
@@ -230,6 +254,14 @@ void sync_edit_selection(Mesh &mesh)
   if (!publish(mesh, *source, source->revision, nullptr))
     return;
   BMesh &bm = *mesh.runtime->edit_mesh->bm;
+  /* Deselecting the sampled display also clears BMesh selection history. Keep its ordered
+   * elements so source-selection synchronization preserves the native active white highlight. */
+  std::vector<BMElem *> history;
+  for (const BMEditSelection *item = static_cast<const BMEditSelection *>(bm.selected.first); item;
+       item = item->next)
+  {
+    history.push_back(item->ele);
+  }
   BM_mesh_elem_hflag_disable_all(&bm, BM_VERT | BM_EDGE | BM_FACE, BM_ELEM_SELECT, false);
   auto source_id = [](const BMElem *element, int offset) -> solid::Id {
     if (offset < 0)
@@ -261,6 +293,11 @@ void sync_edit_selection(Mesh &mesh)
     if (faces.contains(source_id(reinterpret_cast<BMElem *>(f), f_offset)))
       BM_face_select_set(&bm, f, true);
   BM_mesh_select_mode_flush(&bm);
+  for (BMElem *element : history) {
+    if (BM_elem_flag_test(element, BM_ELEM_SELECT)) {
+      BM_select_history_store(&bm, element);
+    }
+  }
 }
 
 bool publish(Mesh &mesh, Snapshot candidate, uint64_t expected, std::string *error)

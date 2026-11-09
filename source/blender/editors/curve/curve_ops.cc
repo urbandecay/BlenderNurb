@@ -29,6 +29,7 @@ void ED_operatortypes_curve()
   WM_operatortype_append(SOLID_OT_extrude);
   WM_operatortype_append(SOLID_OT_extrude_individual);
   WM_operatortype_append(SOLID_OT_extrude_repeat);
+  WM_operatortype_append(SOLID_OT_boolean);
   WM_operatortype_append(SOLID_OT_fill);
   WM_operatortype_append(SOLID_OT_duplicate);
   WM_operatortype_append(SOLID_OT_translate_delta);

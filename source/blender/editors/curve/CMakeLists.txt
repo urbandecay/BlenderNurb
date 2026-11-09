@@ -25,6 +25,8 @@ set(SRC
   editfont_undo.cc
   editnurbs.cc
   editsolid.cc
+  edit_solid_boolean.cc
+  solid_cylinder_boolean.hh
   exact_drawing.cc
   exact_drawing.hh
   editnurbs_ops.cc
@@ -46,6 +48,7 @@ set(LIB
   PRIVATE bf::depsgraph
   PRIVATE bf::dna
   PRIVATE bf::extern::curve_fit_nd
+  PRIVATE bf::geometry
   PRIVATE bf::gpu
   PRIVATE bf::intern::clog
   PRIVATE bf::intern::guardedalloc

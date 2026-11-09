@@ -1860,6 +1860,8 @@ class VIEW3D_MT_edit_solid(Menu):
         layout.operator("solid.extrude", text="Extrude Manifold").method = 'MANIFOLD'
         layout.operator("solid.extrude", text="Extrude to Cursor").method = 'CURSOR'
         layout.operator("solid.extrude_repeat", text="Repeat Extrusion")
+        layout.separator()
+        layout.operator_menu_enum("solid.boolean", "operation_mode", text="Boolean")
         layout.operator("solid.fill", text="Fill Profile")
         layout.operator("solid.duplicate_move", text="Duplicate")
         layout.operator_menu_enum("solid.merge", "type", text="Merge")

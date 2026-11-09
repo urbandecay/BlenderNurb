@@ -34,6 +34,7 @@ void SOLID_OT_sketch_add(wmOperatorType *ot);
 void SOLID_OT_extrude(wmOperatorType *ot);
 void SOLID_OT_extrude_individual(wmOperatorType *ot);
 void SOLID_OT_extrude_repeat(wmOperatorType *ot);
+void SOLID_OT_boolean(wmOperatorType *ot);
 void SOLID_OT_fill(wmOperatorType *ot);
 void SOLID_OT_duplicate(wmOperatorType *ot);
 void SOLID_OT_translate_delta(wmOperatorType *ot);

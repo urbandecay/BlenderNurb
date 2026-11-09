@@ -325,8 +325,35 @@ static bool replace_display(bContext *C,
   if (!reused)
     BKE_mesh_nomain_to_mesh(display.release(), &mesh, &object, false);
   CTX_data_scene(C)->toolsettings->selectmode = candidate.selection.mode;
-  if (!reused)
+  if (!reused) {
     EDBM_mesh_make(&object, candidate.selection.mode, false);
+    /* Rebuilding the display mesh loses BMesh selection history. Restore the active source
+     * element so the native overlay distinguishes it from the rest of the selection. */
+    BMesh *bm = mesh.runtime->edit_mesh->bm;
+    const bool face_mode = candidate.selection.mode == SCE_SELECT_FACE;
+    const bool edge_mode = candidate.selection.mode == SCE_SELECT_EDGE;
+    const CustomData &data = face_mode ? bm->pdata : edge_mode ? bm->edata : bm->vdata;
+    const char *name = face_mode ? ".solid_face_id" :
+                       edge_mode ? ".solid_edge_id" : ".solid_vertex_id";
+    const int offset = CustomData_get_offset_named(&data, CD_PROP_INT32_2D, name);
+    if (offset >= 0 && candidate.selection.active) {
+      BMIter iter;
+      BMElem *element;
+      BM_ITER_MESH (element, &iter, bm,
+                    face_mode ? BM_FACES_OF_MESH : edge_mode ? BM_EDGES_OF_MESH : BM_VERTS_OF_MESH)
+      {
+        const int2 &value = *static_cast<const int2 *>(BM_ELEM_CD_GET_VOID_P(element, offset));
+        const solid::Id id = uint64_t(uint32_t(value.x)) | (uint64_t(uint32_t(value.y)) << 32);
+        if (id == candidate.selection.active && BM_elem_flag_test(element, BM_ELEM_SELECT)) {
+          BM_select_history_store(bm, element);
+          if (face_mode) {
+            BM_mesh_active_face_set(bm, reinterpret_cast<BMFace *>(element));
+          }
+          break;
+        }
+      }
+    }
+  }
   const auto profile_bmesh = std::chrono::steady_clock::now();
   EDBMUpdate_Params update{};
   const bool partial = partial_cache && *partial_cache && reused;
@@ -1063,39 +1090,65 @@ static double distance_get(wmOperator *op)
 static std::optional<std::vector<solid::Vec3>> selected_face_normal_sums(
     const bke::solid_host::Snapshot &source, std::string *error)
 {
-  if (!source.display_samples || source.selection.faces.empty()) {
+  if (source.selection.faces.empty()) {
     if (error)
       *error = "Select one or more faces to extrude along their normals";
     return {};
   }
-  const solid::DisplayMesh &display = *source.display_samples;
+
+  std::optional<solid::DisplayMesh> generated_display;
+  const solid::DisplayMesh *display = source.display_samples.get();
+  auto display_has_selected_faces = [&]() {
+    if (!display || display->face_source.size() != display->polygons.size())
+      return false;
+    std::unordered_set<solid::Id> missing(source.selection.faces.begin(),
+                                          source.selection.faces.end());
+    for (const solid::Id face_id : display->face_source)
+      missing.erase(face_id);
+    return missing.empty();
+  };
+  /* Display samples are runtime-only and may be absent after loading or after a source edit that
+   * did not retain its tessellation cache. Rebuild them from the same immutable model used by the
+   * extrusion, and also recover from a stale cache whose face IDs no longer cover the selection. */
+  if (!display_has_selected_faces()) {
+    generated_display = solid::tessellate(*source.model, 64, error);
+    if (!generated_display)
+      return {};
+    display = &*generated_display;
+  }
+  if (!display_has_selected_faces()) {
+    if (error)
+      *error = "Could not map selected Solid faces to display samples for normal extrusion";
+    return {};
+  }
+
   std::vector<solid::Vec3> sums(source.selection.faces.size());
   std::vector<double> areas(source.selection.faces.size(), 0.0);
   std::vector<solid::Vec3> representatives(source.selection.faces.size());
-  for (size_t polygon_index = 0; polygon_index < display.polygons.size(); ++polygon_index) {
+  for (size_t polygon_index = 0; polygon_index < display->polygons.size(); ++polygon_index) {
     const auto found = std::find(source.selection.faces.begin(),
                                  source.selection.faces.end(),
-                                 display.face_source[polygon_index]);
+                                 display->face_source[polygon_index]);
     if (found == source.selection.faces.end())
       continue;
-    const std::vector<int> &polygon = display.polygons[polygon_index];
+    const std::vector<int> &polygon = display->polygons[polygon_index];
     if (polygon.size() < 3)
       continue;
-    const solid::Vec3 origin = display.positions[size_t(polygon[0])];
+    const solid::Vec3 origin = display->positions[size_t(polygon[0])];
     solid::Vec3 area_normal{};
     for (size_t i = 1; i + 1 < polygon.size(); ++i)
       area_normal = area_normal + solid::cross(
-                                      display.positions[size_t(polygon[i])] - origin,
-                                      display.positions[size_t(polygon[i + 1])] - origin);
+                                      display->positions[size_t(polygon[i])] - origin,
+                                      display->positions[size_t(polygon[i + 1])] - origin);
     const double area = solid::length(area_normal) * .5;
     if (!(area > 0))
       continue;
     solid::Vec3 normal = area_normal / solid::length(area_normal);
-    if (polygon_index < display.corner_normals.size() &&
-        display.corner_normals[polygon_index].size() == polygon.size())
+    if (polygon_index < display->corner_normals.size() &&
+        display->corner_normals[polygon_index].size() == polygon.size())
     {
       solid::Vec3 smooth_normal{};
-      for (const solid::Vec3 corner_normal : display.corner_normals[polygon_index])
+      for (const solid::Vec3 corner_normal : display->corner_normals[polygon_index])
         smooth_normal = smooth_normal + corner_normal;
       if (solid::length(smooth_normal) > 0)
         normal = smooth_normal / solid::length(smooth_normal);
