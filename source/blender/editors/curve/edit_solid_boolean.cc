@@ -667,12 +667,8 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
     if (count == 0) {
       continue;
     }
-    if (count != component.faces.size()) {
-      BKE_report(op->reports,
-                 RPT_ERROR,
-                 "Select complete disconnected Solid bodies for Boolean operations");
-      return OPERATOR_CANCELLED;
-    }
+    /* A selected face identifies its disconnected body as a Boolean operand. Process the whole
+     * body so users can choose operands by selecting a visible face on each one. */
     if (!solid::validate_body(model, component.faces.front(), &error)) {
       BKE_report(op->reports, RPT_ERROR, error.c_str());
       return OPERATOR_CANCELLED;
@@ -687,7 +683,9 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
     }
   }
   if (selected_components.size() < 2) {
-    BKE_report(op->reports, RPT_ERROR, "Select at least two disconnected Solid bodies");
+    BKE_report(op->reports,
+               RPT_ERROR,
+               "Select faces from at least two disconnected Solid bodies");
     return OPERATOR_CANCELLED;
   }
   if (cutter_component < 0) {
@@ -701,6 +699,10 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
                                                                    selected_components[0];
     auto a = cylinder_boolean::recognize(model, components[other].faces);
     auto b = cylinder_boolean::recognize(model, components[cutter_component].faces);
+    if (a && !b)
+      b = cylinder_boolean::recognize_prism(model, components[cutter_component].faces, a->axis);
+    else if (b && !a)
+      a = cylinder_boolean::recognize_prism(model, components[other].faces, b->axis);
     if (a && b) {
       const int mode = RNA_enum_get(op->ptr, "operation_mode");
       const bool swap = RNA_boolean_get(op->ptr, "swap_subtract");

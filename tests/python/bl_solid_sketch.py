@@ -731,6 +731,42 @@ class SolidSketchTest(unittest.TestCase):
         self.assertAlmostEqual(volumes['SUBTRACT'] + volumes['INTERSECT'], whole, delta=.05)
         self.assertAlmostEqual(volumes['SPLIT'], whole, delta=.05)
 
+    def test_cylinder_box_boolean_keeps_curved_source(self):
+        for solver in ('FLOAT', 'EXACT', 'MANIFOLD'):
+            for operation in ('UNION', 'SUBTRACT', 'INTERSECT', 'SPLIT'):
+                for swap in ((False, True) if operation == 'SUBTRACT' else (False,)):
+                    with self.subTest(solver=solver, operation=operation, swap=swap):
+                        self.setUp()
+                        bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                        bpy.ops.solid.extrude(distance=2)
+                        obj = bpy.context.object
+                        bpy.ops.curve.draw_line(
+                            points='0 -1.5 .3 2 -1.5 .3 2 1.5 .3 0 1.5 .3 0 -1.5 .3')
+                        bpy.ops.solid.extrude(distance=1.4)
+                        self.source_select('FACE', lambda f: True)
+                        bpy.ops.transform.rotate(value=.37, orient_axis='Y',
+                                                 center_override=(0, 0, 0))
+                        self.source_select('FACE', lambda f: f.normal.z > .9)
+                        bm = bmesh.from_edit_mesh(obj.data)
+                        bm.select_history.clear()
+                        bm.select_history.add(next(
+                            f for f in bm.faces if len(f.verts) == 4 and f.normal.z > .9))
+                        bmesh.update_edit_mesh(obj.data, loop_triangles=False, destructive=False)
+                        self.assertEqual(bpy.ops.solid.boolean(
+                            operation_mode=operation, solver=solver, swap_subtract=swap), {'FINISHED'})
+                        overlap = .7 * math.pi
+                        expected = {'UNION': 8.4 + 2 * math.pi - overlap,
+                                    'SUBTRACT': (8.4 if swap else 2 * math.pi) - overlap,
+                                    'INTERSECT': overlap,
+                                    'SPLIT': 2 * math.pi}[operation]
+                        self.assertAlmostEqual(self.volume(obj), expected, delta=.03)
+                        self.assertLess(obj.data.solid_vertices_count, 50)
+                        self.assertLess(obj.data.solid_faces_count, 45)
+                        count = obj.data.solid_vertices_count
+                        bpy.ops.object.mode_set(mode='OBJECT')
+                        bpy.ops.object.mode_set(mode='EDIT')
+                        self.assertEqual(obj.data.solid_vertices_count, count)
+
     def test_skewed_cylinder_boolean_keeps_original_source(self):
         bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
         bpy.ops.solid.extrude(distance=2)

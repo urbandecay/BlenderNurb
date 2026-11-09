@@ -17,6 +17,8 @@ constexpr double tau = 2 * std::numbers::pi;
 struct Cylinder {
   Vec3 center, axis, radial_x, radial_y;
   double radius_x, radius_y, low, high;
+  /** Offsets around a planar prism profile; empty for an ellipse. */
+  std::vector<Vec3> polygon;
 };
 inline std::optional<Cylinder> recognize(const Model &model, const std::vector<Id> &faces)
 {
@@ -41,7 +43,65 @@ inline std::optional<Cylinder> recognize(const Model &model, const std::vector<I
       std::abs(dot(c->u, wall->u)) > rx * h * 1e-10 ||
       std::abs(dot(c->v, wall->u)) > ry * h * 1e-10)
     return {};
-  return Cylinder{c->origin, wall->u / h, c->u / rx, c->v / ry, rx, ry, 0, h};
+  return Cylinder{c->origin, wall->u / h, c->u / rx, c->v / ry, rx, ry, 0, h, {}};
+}
+
+inline std::optional<Cylinder> recognize_prism(const Model &model,
+                                              const std::vector<Id> &faces,
+                                              Vec3 axis)
+{
+  std::vector<const Face *> caps;
+  for (Id id : faces) {
+    const Face &f = *face(model, id);
+    const Surface &s = *surface(model, f.surface);
+    if (s.kind != SurfaceKind::Plane || !f.holes.empty())
+      return {};
+    const Vec3 normal = cross(s.u, s.v) / length(cross(s.u, s.v));
+    const double alignment = std::abs(dot(normal, axis));
+    if (alignment > 1 - 1e-10)
+      caps.push_back(&f);
+    else if (alignment > 1e-10)
+      return {};
+    for (Coedge use : f.outer)
+      if (curve(model, edge(model, use.edge)->curve)->kind != CurveKind::Line)
+        return {};
+  }
+  if (caps.size() != 2)
+    return {};
+  auto ring = [&](const Face &f) {
+    std::vector<Vec3> result;
+    for (Coedge use : f.outer) {
+      const Edge &e = *edge(model, use.edge);
+      result.push_back(vertex(model, e.vertices[use.reversed ? 1 : 0])->position);
+    }
+    return result;
+  };
+  auto lower = ring(*caps[0]), upper = ring(*caps[1]);
+  if (lower.size() < 3 || upper.size() != lower.size() || faces.size() != lower.size() + 2)
+    return {};
+  if (dot(upper[0] - lower[0], axis) < 0)
+    std::swap(lower, upper);
+  const Vec3 center = lower[0];
+  const double height = dot(upper[0] - center, axis);
+  if (height < 1e-10)
+    return {};
+  for (Vec3 p : lower) {
+    if (std::abs(dot(p - center, axis)) > 1e-9 ||
+        std::none_of(upper.begin(), upper.end(), [&](Vec3 q) {
+          return length(q - p - axis * height) < 1e-9;
+        }))
+      return {};
+  }
+  double area = 0;
+  for (size_t i = 0; i < lower.size(); ++i)
+    area += dot(cross(lower[i] - center, lower[(i + 1) % lower.size()] - center), axis);
+  if (area < 0)
+    std::reverse(lower.begin(), lower.end());
+  for (Vec3 &p : lower)
+    p = p - center;
+  Vec3 x = lower[1] - lower[0];
+  x = x / length(x);
+  return Cylinder{center, axis, x, cross(axis, x), 1, 1, 0, height, std::move(lower)};
 }
 
 /* Exact circular and elliptical boundaries in a shared frame. Only intersection events create
@@ -70,6 +130,15 @@ struct Builder {
   }
   Vec3 point(int i, double t, double z) const
   {
+    if (!c[i].polygon.empty()) {
+      const int count = int(c[i].polygon.size());
+      t = std::fmod(t, double(count));
+      if (t < 0)
+        t += count;
+      const int j = int(std::floor(t));
+      return c[i].center + axis * z + c[i].polygon[j] * (1 - (t - j)) +
+             c[i].polygon[(j + 1) % count] * (t - j);
+    }
     return c[i].center + axis * z + c[i].radial_x * (std::cos(t) * c[i].radius_x) +
            c[i].radial_y * (std::sin(t) * c[i].radius_y);
   }
@@ -92,6 +161,8 @@ struct Builder {
   }
   Id arc(int i, double a, double b, double z)
   {
+    if (!c[i].polygon.empty())
+      return rail(point(i, a, z), point(i, b, z));
     solid::Curve curve;
     curve.kind = CurveKind::Conic;
     curve.origin = c[i].center + axis * z;
@@ -110,6 +181,17 @@ struct Builder {
   {
     Vec3 delta = point(i, t, 0) - c[1 - i].center;
     const Cylinder &other = c[1 - i];
+    if (!other.polygon.empty()) {
+      bool inside = false;
+      for (size_t j = 0, k = other.polygon.size() - 1; j < other.polygon.size(); k = j++) {
+        const Vec3 a = other.polygon[j], b = other.polygon[k];
+        const double ay = dot(a, y), by = dot(b, y), py = dot(delta, y);
+        if ((ay > py) != (by > py) &&
+            dot(delta, x) < dot(a, x) + (py - ay) * dot(b - a, x) / (by - ay))
+          inside = !inside;
+      }
+      return inside;
+    }
     const double u = dot(delta, other.radial_x) / other.radius_x;
     const double v = dot(delta, other.radial_y) / other.radius_y;
     return u * u + v * v < 1.0;
@@ -137,6 +219,13 @@ struct Builder {
     s.start = a;
     s.end = b;
     s.u = axis * (z1 - z0);
+    if (!c[i].polygon.empty()) {
+      s.kind = SurfaceKind::Plane;
+      s.curve = 0;
+      s.origin = point(i, a, z0);
+      s.u = point(i, b, z0) - s.origin;
+      s.v = axis * (z1 - z0);
+    }
     m.surfaces.push_back(s);
     Id id = m.next_id++;
     m.faces.push_back(
@@ -185,7 +274,10 @@ struct Builder {
         auto cross_2d = [&](Vec3 u, Vec3 v) {
           return dot(u, x) * dot(v, y) - dot(u, y) * dot(v, x);
         };
-        const double term = cross_2d(origin, curve.u) * (std::cos(a) - std::cos(b)) +
+        const double term = curve.kind == CurveKind::Line ?
+                                cross_2d(evaluate(curve, a) - c[0].center,
+                                         evaluate(curve, b) - c[0].center) :
+                            cross_2d(origin, curve.u) * (std::cos(a) - std::cos(b)) +
                             cross_2d(origin, curve.v) * (std::sin(b) - std::sin(a)) +
                             cross_2d(curve.u, curve.v) * (b - a);
         area += (use.reversed ? -1 : 1) * term;
@@ -231,7 +323,10 @@ struct Builder {
       if (!cap(op, z[k], below, above, 1, error) || !cap(op, z[k], below, above, -1, error))
         return false;
     }
-    for (const auto &ids : walls) {
+    for (int i = 0; i < 2; ++i) {
+      if (!c[i].polygon.empty())
+        continue;
+      const auto &ids = walls[i];
       std::vector<Id> remaining = ids;
       while (!remaining.empty()) {
         Id group = remaining.back();
@@ -280,6 +375,51 @@ inline bool append(Model &out, Cylinder a, Cylinder b, int op, std::string *erro
   Vec3 delta = b.center - a.center;
   double distance = length(delta);
   build.first_vertex = out.vertices.size();
+  if (!a.polygon.empty() || !b.polygon.empty()) {
+    const int p = a.polygon.empty() ? 1 : 0, e = 1 - p;
+    const Cylinder &ellipse = build.c[e];
+    const int count = int(build.c[p].polygon.size());
+    for (int j = 0; j <= count; ++j)
+      build.cuts[p].push_back(double(j));
+    for (int j = 0; j < count; ++j) {
+      const Vec3 start = build.point(p, j, 0), end = build.point(p, j + 1, 0);
+      const Vec3 d = start - ellipse.center, direction = end - start;
+      const double u = dot(d, ellipse.radial_x) / ellipse.radius_x;
+      const double v = dot(d, ellipse.radial_y) / ellipse.radius_y;
+      const double du = dot(direction, ellipse.radial_x) / ellipse.radius_x;
+      const double dv = dot(direction, ellipse.radial_y) / ellipse.radius_y;
+      const double aa = du * du + dv * dv, bb = 2 * (u * du + v * dv);
+      const double cc = u * u + v * v - 1;
+      const double discriminant = bb * bb - 4 * aa * cc;
+      if (discriminant <= 1e-14 * aa * aa)
+        continue;
+      for (double root : {(-bb - std::sqrt(discriminant)) / (2 * aa),
+                          (-bb + std::sqrt(discriminant)) / (2 * aa)})
+      {
+        if (root < -1e-10 || root > 1 + 1e-10)
+          continue;
+        root = std::clamp(root, 0.0, 1.0);
+        build.cuts[p].push_back(j + root);
+        double angle = std::atan2(v + dv * root, u + du * root);
+        if (angle < 0)
+          angle += tau;
+        build.cuts[e].push_back(angle);
+      }
+    }
+    for (int i = 0; i < 2; ++i) {
+      auto &cuts = build.cuts[i];
+      std::sort(cuts.begin(), cuts.end());
+      cuts.erase(std::unique(cuts.begin(), cuts.end(), [](double lhs, double rhs) {
+                   return std::abs(lhs - rhs) < 1e-9;
+                 }),
+                 cuts.end());
+    }
+    if (build.cuts[e].empty())
+      build.cuts[e] = {0, tau};
+    else
+      build.cuts[e].push_back(build.cuts[e].front() + tau);
+    return build.run(op, error);
+  }
   const bool circles = std::abs(a.radius_x - a.radius_y) < a.radius_x * 1e-10 &&
                        std::abs(b.radius_x - b.radius_y) < b.radius_x * 1e-10 &&
                        dot(a.radial_x, b.radial_x) > 1.0 - 1e-10 &&
