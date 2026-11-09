@@ -714,6 +714,173 @@ static std::optional<EditResult> extrude_face_region(const Model &model,
   return result;
 }
 
+static Id coedge_start(const Model &model, const Coedge &use)
+{
+  const Edge &e = *edge(model, use.edge);
+  return e.vertices[use.reversed ? 1 : 0];
+}
+
+static Id coedge_end(const Model &model, const Coedge &use)
+{
+  const Edge &e = *edge(model, use.edge);
+  return e.vertices[use.reversed ? 0 : 1];
+}
+
+static bool merge_coplanar_faces(Model &model,
+                                 const Id keep_id,
+                                 const Id remove_id,
+                                 const Id shared_id)
+{
+  const Face *keep = face(model, keep_id), *remove = face(model, remove_id);
+  if (!keep || !remove || !linear_face(model, *keep) || !linear_face(model, *remove))
+    return false;
+  const Surface &keep_surface = *surface(model, keep->surface);
+  const Surface &remove_surface = *surface(model, remove->surface);
+  Vec3 normal = cross(keep_surface.u, keep_surface.v) * double(keep->orientation);
+  Vec3 other_normal = cross(remove_surface.u, remove_surface.v) * double(remove->orientation);
+  if (!(length(normal) > 0) || !(length(other_normal) > 0))
+    return false;
+  normal = normal / length(normal);
+  other_normal = other_normal / length(other_normal);
+  if (dot(normal, other_normal) < 1 - 1e-10)
+    return false;
+  const double scale = std::max({1.0,
+                                 length(keep_surface.origin),
+                                 length(remove_surface.origin),
+                                 length(keep_surface.u),
+                                 length(keep_surface.v),
+                                 length(remove_surface.u),
+                                 length(remove_surface.v)});
+  const double eps = 128 * std::numeric_limits<double>::epsilon() * scale;
+  for (const Coedge &use : remove->outer) {
+    const Edge &e = *edge(model, use.edge);
+    for (Id id : e.vertices)
+      if (std::abs(dot(vertex(model, id)->position - keep_surface.origin, normal)) > eps)
+        return false;
+  }
+
+  auto shared_index = [&](const Face &f) {
+    for (size_t i = 0; i < f.outer.size(); ++i)
+      if (f.outer[i].edge == shared_id)
+        return i;
+    return f.outer.size();
+  };
+  const size_t keep_shared = shared_index(*keep), remove_shared = shared_index(*remove);
+  if (keep_shared == keep->outer.size() || remove_shared == remove->outer.size())
+    return false;
+  std::vector<Coedge> keep_path, remove_path;
+  for (size_t step = 1; step < keep->outer.size(); ++step)
+    keep_path.push_back(keep->outer[(keep_shared + step) % keep->outer.size()]);
+  for (size_t step = 1; step < remove->outer.size(); ++step)
+    remove_path.push_back(remove->outer[(remove_shared + step) % remove->outer.size()]);
+  if (keep_path.empty() || remove_path.empty())
+    return false;
+  auto paths_join = [&]() {
+    return coedge_end(model, keep_path.back()) == coedge_start(model, remove_path.front()) &&
+           coedge_end(model, remove_path.back()) == coedge_start(model, keep_path.front());
+  };
+  if (!paths_join()) {
+    std::reverse(remove_path.begin(), remove_path.end());
+    for (Coedge &use : remove_path)
+      use.reversed = !use.reversed;
+  }
+  if (!paths_join())
+    return false;
+  std::vector<Coedge> merged = std::move(keep_path);
+  merged.insert(merged.end(), remove_path.begin(), remove_path.end());
+  for (Face &f : model.faces)
+    if (f.id == keep_id) {
+      f.outer = std::move(merged);
+      break;
+    }
+  std::erase_if(model.faces, [&](const Face &f) { return f.id == remove_id; });
+
+  size_t remaining_uses = 0;
+  for (const Face &f : model.faces)
+    for (const Coedge &use : f.outer)
+      remaining_uses += use.edge == shared_id;
+  if (remaining_uses != 0)
+    return false;
+  std::erase_if(model.edges, [&](const Edge &e) { return e.id == shared_id; });
+  Set used_vertices;
+  for (const Edge &e : model.edges)
+    used_vertices.insert(e.vertices.begin(), e.vertices.end());
+  std::erase_if(model.vertices, [&](const Vertex &v) { return !used_vertices.contains(v.id); });
+  compact_supports(model);
+  return true;
+}
+
+std::optional<EditResult> extrude_manifold(const Model &model,
+                                           Selection selection,
+                                           Vec3 offset,
+                                           std::string *error)
+{
+  if (!validate(model, error) || !finite(offset) || !(length(offset) > 0))
+    return {};
+  selection = normalize_selection(model, std::move(selection));
+  if (selection.mode != 4 || selection.faces.empty()) {
+    fail(error, "Select a face region for manifold extrusion");
+    return {};
+  }
+  auto result = extrude_face_region(model, selection, offset, error);
+  if (!result)
+    return {};
+  bool source_is_closed = true;
+  for (Id id : selection.faces) {
+    std::string ignored;
+    source_is_closed &= validate_body(model, id, &ignored);
+  }
+  Set caps(result->selection.faces.begin(), result->selection.faces.end());
+  Set manifold_walls;
+  for (const Face &f : result->model.faces)
+    if (f.id >= model.next_id && !caps.contains(f.id))
+      manifold_walls.insert(f.id);
+
+  bool changed;
+  do {
+    changed = false;
+    std::vector<Id> walls(manifold_walls.begin(), manifold_walls.end());
+    std::sort(walls.begin(), walls.end());
+    for (Id wall_id : walls) {
+      const Face *wall = face(result->model, wall_id);
+      if (!wall)
+        continue;
+      for (const Coedge &use : wall->outer) {
+        Id neighbor_id = 0;
+        size_t edge_uses = 0;
+        for (const Face &candidate : result->model.faces)
+          if (candidate.id != wall_id)
+            for (const Coedge &candidate_use : candidate.outer)
+              if (candidate_use.edge == use.edge) {
+                neighbor_id = candidate.id;
+                ++edge_uses;
+              }
+        if (edge_uses != 1 || caps.contains(neighbor_id))
+          continue;
+        const bool neighbor_is_wall = manifold_walls.contains(neighbor_id);
+        const Id keep_id = neighbor_is_wall ? wall_id : neighbor_id;
+        const Id remove_id = neighbor_is_wall ? neighbor_id : wall_id;
+        if (!merge_coplanar_faces(result->model, keep_id, remove_id, use.edge))
+          continue;
+        manifold_walls.erase(remove_id);
+        changed = true;
+        break;
+      }
+      if (changed)
+        break;
+    }
+  } while (changed);
+
+  result->selection = normalize_selection(result->model, std::move(result->selection));
+  if (!validate(result->model, error))
+    return {};
+  if (source_is_closed)
+    for (Id id : result->selection.faces)
+      if (!validate_body(result->model, id, error))
+        return {};
+  return result;
+}
+
 static std::optional<Affine> normal_offset_transform(const Model &model,
                                                      const Face &selected_face,
                                                      double distance,

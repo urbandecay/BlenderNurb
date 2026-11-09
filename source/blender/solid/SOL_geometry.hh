@@ -284,6 +284,11 @@ std::optional<EditResult> extrude_faces_individually(const Model &model,
                                                      Selection selection,
                                                      const std::vector<Vec3> &offsets,
                                                      std::string *error = nullptr);
+/** Extrude a face region and dissolve new side seams against coplanar neighboring faces. */
+std::optional<EditResult> extrude_manifold(const Model &model,
+                                           Selection selection,
+                                           Vec3 offset,
+                                           std::string *error = nullptr);
 /** Derived display only: planar faces have boundary polygons, conic walls have strips and
  * corner blends have sampled patches. Display samples never become source geometry. */
 std::optional<DisplayMesh> tessellate(const Model &model,

@@ -1164,7 +1164,26 @@ static wmOperatorStatus extrude_exec(bContext *C, wmOperator *op)
   RNA_float_get_array(op->ptr, "offset", offset);
   const bool vector_offset = !math::is_zero(float3(offset));
   const bool normals_method = method == 1 || method == 2;
-  if (preview && method == 2 && selection_mode == 4 &&
+  if (preview && method == 3 && selection_mode == 4 &&
+      !preview->source().selection.faces.empty())
+  {
+    solid::Vec3 manifold_offset{offset[0], offset[1], offset[2]};
+    if (!vector_offset) {
+      const auto normal_sums = selected_face_normal_sums(preview->source(), &error);
+      if (normal_sums) {
+        solid::Vec3 normal{};
+        for (const solid::Vec3 sum : *normal_sums)
+          normal = normal + sum;
+        if (!(solid::length(normal) > 1e-12))
+          normal = normal_sums->front();
+        manifold_offset = normal * (distance_get(op) / solid::length(normal));
+      }
+    }
+    if (solid::length(manifold_offset) > 0)
+      result = solid::extrude_manifold(
+          *preview->source().model, preview->source().selection, manifold_offset, &error);
+  }
+  else if (preview && method == 2 && selection_mode == 4 &&
       !preview->source().selection.faces.empty())
   {
     result = extrude_individual_faces(preview->source(), distance_get(op), &error);
@@ -1366,7 +1385,11 @@ static void update(bContext *C, wmOperator *op)
   else if (!data.bevel && data.elements) {
     const Mesh &mesh = *id_cast<Mesh *>(data.preview->object().data);
     if (source.selection.mode == 4 && !source.selection.faces.empty()) {
-      if (data.method == 1) {
+      if (data.method == 3) {
+        result = solid::extrude_manifold(
+            *source.model, source.selection, data.offset, &data.error);
+      }
+      else if (data.method == 1) {
         result = solid::extrude_region_normals(*source.model,
                                                source.selection,
                                                data.distance,

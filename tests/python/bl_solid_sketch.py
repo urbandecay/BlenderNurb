@@ -95,6 +95,19 @@ class SolidSketchTest(unittest.TestCase):
         self.assertTrue(all(e.is_manifold for e in bm.edges))
         self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), (False, False, True))
 
+    def test_manifold_extrusion_merges_repeated_coplanar_side_walls(self):
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda f: all(abs(v.co.z - 2) < 1e-5 for v in f.verts))
+        for _ in range(3):
+            self.assertEqual(bpy.ops.solid.extrude(method='MANIFOLD', distance=.4), {'FINISHED'})
+            self.assertEqual(obj.data.solid_faces_count, 6)
+        self.assertAlmostEqual(self.volume(obj), 12.8, places=5)
+        bm = bmesh.from_edit_mesh(obj.data)
+        self.assertTrue(all(e.is_manifold for e in bm.edges))
+        self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode), (False, False, True))
+
     def test_curved_normal_extrusion_preserves_cylinder_axis(self):
         for method in ('ALONG_NORMALS', 'INDIVIDUAL'):
             for amount in (.2, -.2):
@@ -153,7 +166,11 @@ class SolidSketchTest(unittest.TestCase):
                 before = obj.data.solid_faces_count
 
                 self.assertEqual(operator(), {'FINISHED'})
-                self.assertGreater(obj.data.solid_faces_count, before)
+                if operator.idname() == 'VIEW3D_OT_edit_mesh_extrude_manifold_normal':
+                    self.assertEqual(obj.data.solid_faces_count, before)
+                else:
+                    self.assertGreater(obj.data.solid_faces_count, before)
+                self.assertGreater(self.volume(obj), 8)
                 self.assertEqual(tuple(bpy.context.tool_settings.mesh_select_mode),
                                  (False, False, True))
 

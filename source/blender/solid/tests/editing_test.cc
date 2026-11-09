@@ -171,6 +171,33 @@ int main()
           "Individual cap extrusions must extend both ends by their own offsets");
   }
   {
+    Model current = cube;
+    Selection cap;
+    cap.mode = 4;
+    cap.faces = {cube.faces[1].id};
+    cap.active = cap.faces.front();
+    for (int i = 0; i < 3; ++i) {
+      const auto pushed = extrude_manifold(current, cap, {0, 0, .4}, &error);
+      check(bool(pushed), "Manifold push-pull: " + error);
+      current = pushed->model;
+      cap = pushed->selection;
+      check(cap.mode == 4 && cap.faces.size() == 1,
+            "Manifold push-pull must keep its moved cap selected");
+      check(current.faces.size() == cube.faces.size(),
+            "Manifold push-pull must dissolve the coplanar side seams after each step");
+      check(validate_body(current, cap.active, &error), error);
+    }
+    check(std::abs(volume(current) - 12.8) < 1e-10,
+          "Repeated manifold push-pull must extend one continuous solid prism");
+    const int merged_sides = int(std::count_if(current.faces.begin(),
+                                               current.faces.end(),
+                                               [&](const Face &f) {
+                                                 return f.id != cap.active && f.outer.size() > 4;
+                                               }));
+    check(merged_sides >= 4,
+          "Manifold push-pull must merge each new side wall into its coplanar side face");
+  }
+  {
     Selection corner_vertex;
     corner_vertex.mode = 1;
     corner_vertex.vertices = {cube.vertices.front().id};
