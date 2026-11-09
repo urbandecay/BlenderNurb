@@ -119,6 +119,7 @@ struct Builder {
   std::vector<SavedEdge> saved;
   std::array<std::vector<Id>, 2> walls;
   size_t first_vertex = 0;
+  bool nested_circular_cross_section = false;
   Id vertex_at(Vec3 p)
   {
     for (size_t i = first_vertex; i < m.vertices.size(); ++i)
@@ -148,7 +149,8 @@ struct Builder {
     Id va = vertex_at(p), vb = vertex_at(q);
     for (const SavedEdge &s : saved) {
       const Edge &e = *edge(m, s.id);
-      if (e.vertices == std::array<Id, 2>{va, vb} &&
+      if ((e.vertices == std::array<Id, 2>{va, vb} ||
+           e.vertices == std::array<Id, 2>{vb, va}) &&
           length(s.midpoint - mid) < 1e-10 * std::max(1.0, length(mid)))
         return e.id;
     }
@@ -247,6 +249,7 @@ struct Builder {
         if (inner != outer)
           uses.push_back({arc(i, a, b, z), !inner});
       }
+    std::vector<std::vector<Coedge>> loops;
     while (!uses.empty()) {
       std::vector<Coedge> loop{uses.back()};
       uses.pop_back();
@@ -265,7 +268,10 @@ struct Builder {
         loop.push_back(*it);
         uses.erase(it);
       }
-      double area = 0;
+      loops.push_back(std::move(loop));
+    }
+    auto area = [&](const std::vector<Coedge> &loop) {
+      double value = 0;
       for (Coedge use : loop) {
         const Edge &e = *edge(m, use.edge);
         const solid::Curve &curve = *solid::curve(m, e.curve);
@@ -280,13 +286,89 @@ struct Builder {
                             cross_2d(origin, curve.u) * (std::cos(a) - std::cos(b)) +
                             cross_2d(origin, curve.v) * (std::sin(b) - std::sin(a)) +
                             cross_2d(curve.u, curve.v) * (b - a);
-        area += (use.reversed ? -1 : 1) * term;
+        value += (use.reversed ? -1 : 1) * term;
       }
-      if (area < 0) {
+      return value;
+    };
+    std::vector<double> areas;
+    for (const auto &loop : loops)
+      areas.push_back(area(loop));
+    std::vector<int> negative, positive;
+    for (int i = 0; i < int(areas.size()); ++i)
+      (areas[i] < 0 ? negative : positive).push_back(i);
+    if (nested_circular_cross_section && loops.size() == 2 && negative.size() == 1 &&
+        positive.size() == 1)
+    {
+      if (negative.size() != 1 || positive.size() != 1 || loops[negative[0]].size() != 2 ||
+          loops[positive[0]].size() != 2 || c[0].polygon.size() || c[1].polygon.size())
+      {
         if (error)
-          *error = "Cylinder Boolean with an internal circular hole needs trimmed cap support";
+          *error = "This Boolean cap has a hole pattern that needs analytic trimming";
         return false;
       }
+      /* Split a circular annulus into two planar sectors. The radial seams keep the source face
+       * representation simple while preserving exact circular boundaries. */
+      auto start_vertex = [&](Coedge use) {
+        return edge(m, use.edge)->vertices[use.reversed ? 1 : 0];
+      };
+      auto end_vertex = [&](Coedge use) {
+        return edge(m, use.edge)->vertices[use.reversed ? 0 : 1];
+      };
+      const int outer_index = areas[positive[0]] * sign > 0 ? positive[0] : negative[0];
+      const int hole_index = outer_index == positive[0] ? negative[0] : positive[0];
+      std::vector<Coedge> outer = loops[outer_index], hole = loops[hole_index];
+      std::array<bool, 2> used_holes{};
+      auto bridge = [&](Vec3 from, Vec3 to) {
+        const Id id = rail(from, to);
+        return Coedge{id, edge(m, id)->vertices[0] != vertex_at(from)};
+      };
+      for (Coedge outer_arc : outer) {
+        const Vec3 os = vertex(m, start_vertex(outer_arc))->position;
+        const Vec3 oe = vertex(m, end_vertex(outer_arc))->position;
+        int best = -1;
+        double best_cost = std::numeric_limits<double>::infinity();
+        for (int j = 0; j < 2; ++j) {
+          if (used_holes[j])
+            continue;
+          const Vec3 hs = vertex(m, start_vertex(hole[j]))->position;
+          const Vec3 he = vertex(m, end_vertex(hole[j]))->position;
+          const double cost = length(oe - hs) + length(he - os);
+          if (cost < best_cost) {
+            best = j;
+            best_cost = cost;
+          }
+        }
+        if (best < 0)
+          return false;
+        used_holes[best] = true;
+        const Coedge hole_arc = hole[best];
+        const Coedge outer_to_hole = bridge(oe, vertex(m, start_vertex(hole_arc))->position);
+        const Coedge hole_to_outer = bridge(vertex(m, end_vertex(hole_arc))->position, os);
+        Surface s;
+        s.id = m.next_id++;
+        s.kind = SurfaceKind::Plane;
+        s.origin = c[0].center + axis * z;
+        s.u = x;
+        s.v = y;
+        m.surfaces.push_back(s);
+        m.faces.push_back({m.next_id++,
+                           s.id,
+                           {outer_arc,
+                            outer_to_hole,
+                            hole_arc,
+                            hole_to_outer},
+                           {},
+                           sign});
+      }
+      return true;
+    }
+    if (nested_circular_cross_section && loops.size() > 1 && !negative.empty()) {
+      if (error)
+        *error = "This Boolean cap has multiple internal loops that need analytic trimming";
+      return false;
+    }
+    for (std::vector<Coedge> &loop : loops) {
+      const int orientation = nested_circular_cross_section && area(loop) < 0 ? -sign : sign;
       Surface s;
       s.id = m.next_id++;
       s.kind = SurfaceKind::Plane;
@@ -294,7 +376,7 @@ struct Builder {
       s.u = x;
       s.v = y;
       m.surfaces.push_back(s);
-      m.faces.push_back({m.next_id++, s.id, std::move(loop), {}, sign});
+      m.faces.push_back({m.next_id++, s.id, std::move(loop), {}, orientation});
     }
     return true;
   }
@@ -421,11 +503,11 @@ inline bool append(Model &out, Cylinder a, Cylinder b, int op, std::string *erro
     return build.run(op, error);
   }
   const bool circles = std::abs(a.radius_x - a.radius_y) < a.radius_x * 1e-10 &&
-                       std::abs(b.radius_x - b.radius_y) < b.radius_x * 1e-10 &&
-                       dot(a.radial_x, b.radial_x) > 1.0 - 1e-10 &&
-                       dot(a.radial_y, b.radial_y) > 1.0 - 1e-10 &&
-                       dot(a.radial_y, y) > 1.0 - 1e-10;
-  if (circles && distance > std::abs(a.radius_x - b.radius_x) + 1e-10 &&
+                       std::abs(b.radius_x - b.radius_y) < b.radius_x * 1e-10;
+  const bool aligned_circle_frames = circles && dot(a.radial_x, b.radial_x) > 1.0 - 1e-10 &&
+                                     dot(a.radial_y, b.radial_y) > 1.0 - 1e-10 &&
+                                     dot(a.radial_y, y) > 1.0 - 1e-10;
+  if (aligned_circle_frames && distance > std::abs(a.radius_x - b.radius_x) + 1e-10 &&
       distance < a.radius_x + b.radius_x - 1e-10)
   {
     double along = (a.radius_x * a.radius_x - b.radius_x * b.radius_x + distance * distance) /
@@ -510,12 +592,26 @@ inline bool append(Model &out, Cylinder a, Cylinder b, int op, std::string *erro
       }
     }
     else {
-      if (build.inside_other(0, 0) || build.inside_other(1, 0)) {
+      const bool nested = build.inside_other(0, 0) || build.inside_other(1, 0);
+      if (nested && !circles) {
         if (error)
-          *error = "Nested cylinder Boolean needs trimmed cap support";
+          *error = "Nested elliptical cylinder Boolean needs analytic cap trimming";
         return false;
       }
-      build.cuts = {std::vector<double>{0, tau}, std::vector<double>{0, tau}};
+      if (nested) {
+        build.nested_circular_cross_section = true;
+        const Vec3 direction = distance > 1e-10 ? delta / distance : x;
+        for (int i = 0; i < 2; ++i) {
+          const Vec3 radial = i == 0 ? direction : direction * -1;
+          double angle = std::atan2(dot(radial, build.c[i].radial_y),
+                                    dot(radial, build.c[i].radial_x));
+          if (angle < 0)
+            angle += tau;
+          build.cuts[i] = {angle, angle + std::numbers::pi, angle + tau};
+        }
+      }
+      else
+        build.cuts = {std::vector<double>{0, tau}, std::vector<double>{0, tau}};
     }
   }
   return build.run(op, error);

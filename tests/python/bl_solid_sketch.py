@@ -767,6 +767,72 @@ class SolidSketchTest(unittest.TestCase):
                         bpy.ops.object.mode_set(mode='EDIT')
                         self.assertEqual(obj.data.solid_vertices_count, count)
 
+    def test_boolean_cutter_follows_active_face_edge_and_vertex(self):
+        for mode in ('FACE', 'EDGE', 'VERT'):
+            with self.subTest(mode=mode):
+                self.setUp()
+                bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                bpy.ops.solid.extrude(distance=2)
+                obj = bpy.context.object
+                bpy.ops.curve.draw_line(
+                    points='0 -1.5 .3 2 -1.5 .3 2 1.5 .3 0 1.5 .3 0 -1.5 .3')
+                bpy.ops.solid.extrude(distance=1.4)
+                self.source_select('FACE', lambda f: True)
+                bpy.ops.transform.rotate(value=.37, orient_axis='Y',
+                                         center_override=(0, 0, 0))
+                bm = bmesh.from_edit_mesh(obj.data)
+                bm.faces.index_update()
+                bm.edges.index_update()
+                bm.verts.index_update()
+                caps = [f for f in bm.faces if f.normal.z > .9]
+                self.assertEqual(len(caps), 2)
+                box_cap = next(f for f in caps if len(f.verts) == 4)
+                face_ids = {f.index for f in caps}
+                edge_ids = {e.index for f in caps for e in f.edges}
+                vert_ids = {v.index for f in caps for v in f.verts}
+                active_face = box_cap.index
+                active_edge = box_cap.edges[0].index
+                active_vert = box_cap.verts[0].index
+                bpy.ops.mesh.select_mode(type=mode)
+                bm = bmesh.from_edit_mesh(obj.data)
+                bm.verts.ensure_lookup_table()
+                bm.edges.ensure_lookup_table()
+                bm.faces.ensure_lookup_table()
+                for element in (*bm.faces, *bm.edges, *bm.verts):
+                    element.select_set(False)
+                if mode == 'FACE':
+                    selected, active = [bm.faces[i] for i in face_ids], bm.faces[active_face]
+                elif mode == 'EDGE':
+                    selected, active = [bm.edges[i] for i in edge_ids], bm.edges[active_edge]
+                else:
+                    selected, active = [bm.verts[i] for i in vert_ids], bm.verts[active_vert]
+                for element in selected:
+                    element.select_set(True)
+                bm.select_flush_mode()
+                bm.select_history.clear()
+                bm.select_history.add(active)
+                bmesh.update_edit_mesh(obj.data, loop_triangles=False, destructive=False)
+                self.assertEqual(bpy.ops.solid.boolean(operation_mode='SUBTRACT'), {'FINISHED'})
+                self.assertAlmostEqual(self.volume(obj), 1.3 * math.pi, delta=.03)
+
+    def test_nested_cylinder_subtraction_keeps_analytic_cap_rims(self):
+        bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda f: True)
+        self.assertEqual(bpy.ops.solid.duplicate(), {'FINISHED'})
+        self.assertEqual(bpy.ops.transform.resize(value=(.5, .5, .7)), {'FINISHED'})
+        self.source_select('FACE', lambda f: True)
+        bm = bmesh.from_edit_mesh(obj.data)
+        cutter_cap = next(f for f in bm.faces if f.normal.z > .9 and f.calc_area() < 2)
+        bm.select_history.clear()
+        bm.select_history.add(cutter_cap)
+        bmesh.update_edit_mesh(obj.data, loop_triangles=False, destructive=False)
+        self.assertEqual(bpy.ops.solid.boolean(operation_mode='SUBTRACT'), {'FINISHED'})
+        self.assertAlmostEqual(self.volume(obj), 2 * math.pi - .25 * math.pi * 1.4, delta=.03)
+        self.assertLess(obj.data.solid_vertices_count, 24)
+        self.assertLess(obj.data.solid_faces_count, 24)
+
     def test_skewed_cylinder_boolean_keeps_original_source(self):
         bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
         bpy.ops.solid.extrude(distance=2)

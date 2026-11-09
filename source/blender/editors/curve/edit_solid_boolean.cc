@@ -654,6 +654,9 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
   const bke::solid_host::Snapshot &source = session->source();
   const solid::Model &model = *source.model;
   const FaceSet selected_faces(source.selection.faces.begin(), source.selection.faces.end());
+  const FaceSet selected_edges(source.selection.edges.begin(), source.selection.edges.end());
+  const FaceSet selected_vertices(source.selection.vertices.begin(),
+                                  source.selection.vertices.end());
   const std::vector<Component> components = components_for_faces(model);
 
   std::vector<int> selected_components;
@@ -661,14 +664,31 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
   int cutter_component = -1;
   for (const int i : IndexRange(components.size())) {
     const Component &component = components[i];
-    const size_t count = std::count_if(component.faces.begin(),
-                                       component.faces.end(),
-                                       [&](const Id id) { return selected_faces.contains(id); });
-    if (count == 0) {
+    FaceSet component_edges, component_vertices;
+    for (Id face_id : component.faces) {
+      const solid::Face &f = *solid::face(model, face_id);
+      auto add_loop = [&](const std::vector<solid::Coedge> &loop) {
+        for (const solid::Coedge &use : loop) {
+          component_edges.insert(use.edge);
+          const solid::Edge *edge = solid::edge(model, use.edge);
+          component_vertices.insert(edge->vertices.begin(), edge->vertices.end());
+        }
+      };
+      add_loop(f.outer);
+      for (const auto &hole : f.holes)
+        add_loop(hole);
+    }
+    const bool selected = std::any_of(component.faces.begin(), component.faces.end(),
+                                      [&](Id id) { return selected_faces.contains(id); }) ||
+                          std::any_of(component_edges.begin(), component_edges.end(),
+                                      [&](Id id) { return selected_edges.contains(id); }) ||
+                          std::any_of(component_vertices.begin(), component_vertices.end(),
+                                      [&](Id id) { return selected_vertices.contains(id); });
+    if (!selected) {
       continue;
     }
-    /* A selected face identifies its disconnected body as a Boolean operand. Process the whole
-     * body so users can choose operands by selecting a visible face on each one. */
+    /* Any selected element identifies the complete disconnected body as an operand. This follows
+     * the active Face/Edge/Vertex selection used by the mesh Boolean workflow. */
     if (!solid::validate_body(model, component.faces.front(), &error)) {
       BKE_report(op->reports, RPT_ERROR, error.c_str());
       return OPERATOR_CANCELLED;
@@ -676,8 +696,9 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
     selected_components.push_back(i);
     consumed_faces.insert(component.faces.begin(), component.faces.end());
     if (cutter_component < 0 &&
-        std::find(component.faces.begin(), component.faces.end(), source.selection.active) !=
-            component.faces.end())
+        (std::find(component.faces.begin(), component.faces.end(), source.selection.active) !=
+             component.faces.end() || component_edges.contains(source.selection.active) ||
+         component_vertices.contains(source.selection.active)))
     {
       cutter_component = i;
     }
