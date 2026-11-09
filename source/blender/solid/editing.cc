@@ -791,6 +791,55 @@ static std::optional<Affine> normal_offset_transform(const Model &model,
       std::abs(dot(u, axis)) > 1e-9 * radius * height ||
       std::abs(dot(v, axis)) > 1e-9 * radius * height)
   {
+    /* Non-uniformly scaled corner fillets are affine ellipsoids. Their parallel
+     * surfaces are not affine ellipsoids, so they cannot use the radial scale
+     * construction below. Keep the selected analytic face intact and extrude
+     * it along its representative surface normal instead of rejecting it. */
+    if (support.kind == SurfaceKind::Sphere || support.kind == SurfaceKind::Cylinder) {
+      Set boundary_vertices;
+      Vec3 center;
+      for (const Coedge &use : selected_face.outer) {
+        const Edge &e = *edge(model, use.edge);
+        for (Id id : e.vertices)
+          if (boundary_vertices.insert(id).second) {
+            center = center + vertex(model, id)->position;
+          }
+      }
+      if (boundary_vertices.empty()) {
+        fail(error, "The curved face has no boundary vertices for its normal");
+        return {};
+      }
+      center = center / double(boundary_vertices.size());
+      const Vec3 delta = center - support.origin;
+      const double determinant = dot(u, cross(v, axis));
+      if (std::abs(determinant) <= 1e-24) {
+        fail(error, "The curved face has a degenerate normal frame");
+        return {};
+      }
+      Vec3 local{dot(delta, cross(v, axis)) / determinant,
+                 dot(delta, cross(axis, u)) / determinant,
+                 dot(delta, cross(u, v)) / determinant};
+      if (support.kind == SurfaceKind::Sphere) {
+        if (!(length(local) > 1e-24)) {
+          fail(error, "The curved face has a degenerate normal");
+          return {};
+        }
+        local = local / length(local);
+      }
+      else {
+        local.z = 0;
+      }
+      Vec3 normal = cross(v, axis) * local.x + cross(axis, u) * local.y +
+                    cross(u, v) * local.z;
+      normal = normal * ((determinant < 0 ? -1.0 : 1.0) * sign);
+      if (!(length(normal) > 1e-24)) {
+        fail(error, "The curved face has a degenerate normal");
+        return {};
+      }
+      Affine transform;
+      transform.translation = normal * (distance / length(normal));
+      return transform;
+    }
     fail(error, "A noncircular affine surface needs a general analytic offset surface");
     return {};
   }

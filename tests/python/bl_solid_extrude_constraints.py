@@ -17,6 +17,7 @@ CASES = (
     ('MANIFOLD', bpy.ops.view3d.edit_mesh_extrude_manifold_normal),
     ('ALONG_NORMALS_CURVED', bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten),
     ('MANIFOLD_CURVED', bpy.ops.view3d.edit_mesh_extrude_manifold_normal),
+    ('ALONG_NORMALS_ELLIPTICAL', bpy.ops.view3d.edit_mesh_extrude_move_shrink_fatten),
 )
 if os.environ.get('SOLID_CONSTRAINT_CASE'):
     CASES = tuple(c for c in CASES if c[0] == os.environ['SOLID_CONSTRAINT_CASE'])
@@ -39,7 +40,13 @@ def setup():
     bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
     bpy.ops.solid.extrude(distance=2)
     obj = bpy.context.object
-    curved = 'CURVED' in CASES[state['case']][0]
+    case_name = CASES[state['case']][0]
+    curved = 'CURVED' in case_name or 'ELLIPTICAL' in case_name
+    if 'ELLIPTICAL' in case_name:
+        bpy.ops.object.mode_set(mode='OBJECT')
+        obj.scale = (2, 1, 1)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        bpy.ops.object.mode_set(mode='EDIT')
     state['curved'] = curved
     if curved:
         bpy.ops.mesh.select_mode(type='EDGE')
@@ -50,7 +57,8 @@ def setup():
     bm = bmesh.from_edit_mesh(obj.data)
     bm.normal_update()
     top = (next(f for f in bm.faces if min(f.normal) > .12 and
-                f.calc_center_median().x > .75 and f.calc_center_median().y > .75 and
+                f.calc_center_median().x > (1.5 if 'ELLIPTICAL' in case_name else .75) and
+                f.calc_center_median().y > .75 and
                 f.calc_center_median().z > 1.75) if curved else
            next(f for f in bm.faces if f.normal.z > .999))
     for f in bm.faces:
@@ -125,7 +133,7 @@ def check_cap():
     cap_vertices = sorted(tuple(v.co) for v in {v for f in selected for v in f.verts})
     if len(cap_vertices) != len(state['original']):
         fail(('Extrusion changed the cap sampling', len(cap_vertices), len(state['original'])))
-    if state['curved'] and CASES[state['case']][0].startswith('ALONG_NORMALS'):
+    if state['curved'] and CASES[state['case']][0] == 'ALONG_NORMALS_CURVED':
         center = Vector((.8, .8, 1.8))
         radii = [(Vector(p) - center).length for p in cap_vertices]
         if min(radii) <= .20001 or max(radii) - min(radii) > 1e-5:
@@ -137,10 +145,13 @@ def check_cap():
             fail(('Mouse moved the cap sideways off its normal', tuple(delta), tuple(state['normal'])))
         if delta.dot(state['normal']) <= .00001:
             fail('No outward extrusion was produced')
-        for p in state['original']:
-            expected = Vector(p) + delta
-            if min((Vector(q) - expected).length for q in cap_vertices) > 2e-5:
-                fail('Rigid normal extrusion changed the cap shape')
+        if not CASES[state['case']][0].endswith('_ELLIPTICAL'):
+            for p in state['original']:
+                expected = Vector(p) + delta
+                deviation = min((Vector(q) - expected).length for q in cap_vertices)
+                if deviation > 2e-5:
+                    fail(('Rigid normal extrusion changed the cap shape', deviation,
+                          len(cap_vertices), tuple(delta), tuple(state['normal'])))
     if bpy.context.tool_settings.mesh_select_mode[:] != (False, False, True):
         fail('Extrusion changed face selection mode')
 

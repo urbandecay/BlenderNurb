@@ -206,6 +206,52 @@ int main()
           rounded->model, selected_patch, amount, &error);
       check(bool(individual), "Individual curved normal extrusion: " + error);
     }
+    Model scaled = rounded->model;
+    auto scale_point = [](Vec3 p) { return Vec3{2 * p.x, p.y, p.z}; };
+    for (Vertex &v : scaled.vertices)
+      v.position = scale_point(v.position);
+    for (Curve &c : scaled.curves) {
+      c.origin = scale_point(c.origin);
+      c.u = scale_point(c.u);
+      c.v = scale_point(c.v);
+      c.w = scale_point(c.w);
+    }
+    for (Surface &s : scaled.surfaces) {
+      s.origin = scale_point(s.origin);
+      s.u = scale_point(s.u);
+      s.v = scale_point(s.v);
+      s.w = scale_point(s.w);
+      for (Vec3 &p : s.blend)
+        p = scale_point(p);
+    }
+    check(validate(scaled, &error), "Non-uniformly scaled rounded solid: " + error);
+    const auto scaled_extrusion = extrude_region_normals(
+        scaled, selected_patch, .03, false, &error);
+    check(bool(scaled_extrusion), "Elliptical corner normal extrusion: " + error);
+    const Face &scaled_source = *face(scaled, corner_patch->id);
+    const Surface &ellipsoid = *surface(scaled, scaled_source.surface);
+    Vec3 center;
+    for (const Coedge &use : scaled_source.outer) {
+      const Edge &e = *edge(scaled, use.edge);
+      center = center + vertex(scaled, e.vertices[0])->position;
+    }
+    center = center / double(scaled_source.outer.size());
+    const double det = dot(ellipsoid.u, cross(ellipsoid.v, ellipsoid.w));
+    const Vec3 delta = center - ellipsoid.origin;
+    const Vec3 q{dot(delta, cross(ellipsoid.v, ellipsoid.w)) / det,
+                 dot(delta, cross(ellipsoid.w, ellipsoid.u)) / det,
+                 dot(delta, cross(ellipsoid.u, ellipsoid.v)) / det};
+    Vec3 expected_normal = cross(ellipsoid.v, ellipsoid.w) * q.x +
+                           cross(ellipsoid.w, ellipsoid.u) * q.y +
+                           cross(ellipsoid.u, ellipsoid.v) * q.z;
+    expected_normal = expected_normal * (scaled_source.orientation * (det < 0 ? -1.0 : 1.0));
+    expected_normal = expected_normal * (.03 / length(expected_normal));
+    const Face &scaled_cap = *face(scaled_extrusion->model, scaled_extrusion->selection.active);
+    const Surface &scaled_cap_surface = *surface(scaled_extrusion->model, scaled_cap.surface);
+    check(length((scaled_cap_surface.origin - ellipsoid.origin) - expected_normal) < 1e-10,
+          "An elliptical corner face must extrude along its representative analytic normal");
+    check(validate_body(scaled_extrusion->model, scaled_cap.id, &error), error);
+    check(bool(tessellate(scaled_extrusion->model, 32, &error)), error);
     const auto raised = extrude_elements(rounded->model, selected_patch, {.13, .07, -.2}, &error);
     check(bool(raised), "Curved face extrusion: " + error);
     check(raised->selection.mode == 4 && raised->selection.faces.size() == 1,
