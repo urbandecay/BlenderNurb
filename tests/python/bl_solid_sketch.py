@@ -586,7 +586,10 @@ class SolidSketchTest(unittest.TestCase):
             # Split keeps both the inside and outside pieces of the target.
             'SPLIT': 8.0,
         }
-        for solver in ('FLOAT', 'EXACT', 'MANIFOLD'):
+        solvers = ['FLOAT', 'EXACT', 'MANIFOLD']
+        if 'SOLID' in bpy.ops.solid.boolean.get_rna_type().properties['solver'].enum_items:
+            solvers.append('SOLID')
+        for solver in solvers:
             for operation, volume in expected.items():
                 with self.subTest(solver=solver, operation=operation):
                     self.setUp()
@@ -603,6 +606,79 @@ class SolidSketchTest(unittest.TestCase):
                     self.assertFalse(any(
                         edge.link_faces[0].normal.dot(edge.link_faces[1].normal) > 1 - 1e-6
                         for edge in bm.edges), 'Boolean left diagonals inside flat faces')
+
+    def test_native_boolean_inner_loops_and_reload(self):
+        if 'SOLID' not in bpy.ops.solid.boolean.get_rna_type().properties['solver'].enum_items:
+            self.skipTest('Native Solid Boolean is not available')
+        bpy.ops.solid.sketch_add(type='RECTANGLE', size=1)
+        bpy.ops.solid.extrude(distance=2)
+        obj = bpy.context.object
+        self.source_select('FACE', lambda face: True)
+        bpy.ops.solid.duplicate()
+        bpy.ops.transform.resize(value=(.4, .4, 2), center_override=(0, 0, 0))
+        bpy.ops.transform.translate(value=(0, 0, -1))
+        self.source_select('FACE', lambda face: True)
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.select_history.clear()
+        bm.select_history.add(next(face for face in bm.faces if all(
+            abs(v.co.x) < .401 and abs(v.co.y) < .401 for v in face.verts)))
+        bmesh.update_edit_mesh(obj.data, loop_triangles=False, destructive=False)
+        self.assertEqual(bpy.ops.solid.boolean(operation_mode='SUBTRACT', solver='SOLID'), {'FINISHED'})
+        self.assertAlmostEqual(self.volume(obj), 6.72, places=5)
+        self.assertEqual((obj.data.solid_vertices_count, obj.data.solid_edges_count,
+                          obj.data.solid_faces_count), (16, 24, 10))
+        bpy.ops.object.mode_set(mode='OBJECT')
+        name = obj.name
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'native-boolean-hole.blend')
+            bpy.ops.wm.save_as_mainfile(filepath=path)
+            bpy.ops.wm.open_mainfile(filepath=path)
+        obj = bpy.data.objects[name]
+        self.assertTrue(obj.data.is_solid_model)
+        self.assertAlmostEqual(self.volume(obj), 6.72, places=5)
+        self.assertEqual((obj.data.solid_vertices_count, obj.data.solid_edges_count,
+                          obj.data.solid_faces_count), (16, 24, 10))
+
+    def test_native_boolean_oblique_planar_cutter_and_reload(self):
+        for operation, swap, expected in (('INTERSECT', False, math.pi),
+                                          ('SUBTRACT', False, math.pi),
+                                          ('SUBTRACT', True, 64000-math.pi),
+                                          ('UNION', False, 64000+math.pi),
+                                          ('SPLIT', False, 2*math.pi)):
+            with self.subTest(operation=operation, swap=swap):
+                self.setUp()
+                bpy.ops.solid.sketch_add(type='CIRCLE', size=1)
+                bpy.ops.solid.extrude(distance=2)
+                obj = bpy.context.object
+                bpy.ops.curve.draw_line(points='-1 -1 0 1 -1 0 1 1 0 -1 1 0 -1 -1 0')
+                bpy.ops.solid.extrude(distance=2)
+                self.source_select('FACE', lambda f: len(f.verts) == 4 and f.normal.z > .9)
+                bpy.ops.mesh.select_linked()
+                bpy.ops.transform.resize(value=(20, 20, 20), center_override=(0, 0, 0))
+                angle = .37
+                bpy.ops.transform.rotate(value=angle, orient_axis='Y', center_override=(0, 0, 0))
+                bpy.ops.transform.translate(value=(-20*math.cos(angle)-20*math.sin(angle), 0,
+                                                   1+20*math.sin(angle)-20*math.cos(angle)))
+                self.source_select('FACE', lambda f: True)
+                bm = bmesh.from_edit_mesh(obj.data)
+                bm.select_history.clear()
+                bm.select_history.add(next(f for f in bm.faces if any(v.co.length > 3 for v in f.verts)))
+                bmesh.update_edit_mesh(obj.data, loop_triangles=False, destructive=False)
+                self.assertEqual(bpy.ops.solid.boolean(operation_mode=operation, solver='SOLID',
+                                                       swap_subtract=swap), {'FINISHED'})
+                self.assertAlmostEqual(self.volume(obj), expected, delta=.08)
+                self.assertLess(obj.data.solid_faces_count, 30)
+                bpy.ops.object.mode_set(mode='OBJECT')
+                name = obj.name
+                count = obj.data.solid_faces_count
+                with tempfile.TemporaryDirectory() as directory:
+                    path = os.path.join(directory, 'native-oblique-cutter.blend')
+                    bpy.ops.wm.save_as_mainfile(filepath=path)
+                    bpy.ops.wm.open_mainfile(filepath=path)
+                obj = bpy.data.objects[name]
+                self.assertTrue(obj.data.is_solid_model)
+                self.assertEqual(obj.data.solid_faces_count, count)
+                self.assertAlmostEqual(self.volume(obj), expected, delta=.08)
 
     def test_boolean_curved_solid_keeps_closed_analytic_output(self):
         bpy.ops.solid.sketch_add(type='CIRCLE', size=1)

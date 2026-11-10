@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "ED_solid.hh"
+#include "SOL_boolean.hh"
+#include "SOL_boolean_replay.hh"
 #include "curve_intern.hh"
 #include "solid_cylinder_boolean.hh"
 
@@ -38,8 +40,15 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <span>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -50,6 +59,172 @@ namespace {
 using solid::Id;
 using FaceSet = std::unordered_set<Id>;
 using OwnedMesh = bke::solid_host::OwnedMesh;
+
+using TraceClock = std::chrono::steady_clock;
+
+bool boolean_trace_enabled()
+{
+  static const bool enabled = [] {
+    const char *value = std::getenv("BLENDER_SOLID_BOOLEAN_TRACE");
+    return value && value[0] != '\0' && !(value[0] == '0' && value[1] == '\0');
+  }();
+  return enabled;
+}
+
+double elapsed_milliseconds(const TraceClock::time_point start)
+{
+  return std::chrono::duration<double, std::milli>(TraceClock::now() - start).count();
+}
+
+const char *operation_name(const solid::BooleanOperation operation)
+{
+  switch (operation) {
+    case solid::BooleanOperation::Union:
+      return "union";
+    case solid::BooleanOperation::Subtract:
+      return "subtract";
+    case solid::BooleanOperation::Intersect:
+      return "intersect";
+  }
+  return "unknown";
+}
+
+void trace_ids(const char *name, const std::span<const Id> ids)
+{
+  constexpr size_t limit = 32;
+  std::fprintf(stderr, ",\"%s\":[", name);
+  for (size_t i = 0; i < std::min(ids.size(), limit); ++i) {
+    std::fprintf(stderr, "%s%llu", i ? "," : "", static_cast<unsigned long long>(ids[i]));
+  }
+  std::fprintf(stderr, "],\"%s_truncated\":%s", name, ids.size() > limit ? "true" : "false");
+}
+
+void trace_kernel_result(const solid::BooleanResult &result,
+                         const solid::BooleanOperation operation,
+                         const std::span<const Id> first,
+                         const std::span<const Id> second)
+{
+  if (!boolean_trace_enabled()) {
+    return;
+  }
+  std::fprintf(stderr,
+               "{\"kind\":\"solid_boolean_kernel\",\"operation\":\"%s\",\"status\":\"%s\","
+               "\"path\":\"%s\",\"first_face_count\":%zu,\"second_face_count\":%zu,"
+               "\"result_face_count\":%zu",
+               operation_name(operation),
+               solid::boolean_status_name(result.status),
+               solid::boolean_path_name(result.diagnostics.path),
+               result.diagnostics.first_face_count,
+               result.diagnostics.second_face_count,
+               result.diagnostics.result_face_count);
+  trace_ids("first_face_ids", first);
+  trace_ids("second_face_ids", second);
+  constexpr size_t timing_limit = 16;
+  std::fprintf(stderr, ",\"timings_ms\":[");
+  const size_t timing_count = std::min(result.diagnostics.timings.size(), timing_limit);
+  for (size_t i = 0; i < timing_count; ++i) {
+    const solid::BooleanTiming &timing = result.diagnostics.timings[i];
+    std::fprintf(stderr,
+                 "%s{\"stage\":\"%s\",\"milliseconds\":%.6f}",
+                 i ? "," : "",
+                 solid::boolean_stage_name(timing.stage),
+                 timing.milliseconds);
+  }
+  std::fprintf(stderr,
+               "],\"timings_truncated\":%s}\n",
+               result.diagnostics.timings.size() > timing_limit ? "true" : "false");
+}
+
+void trace_operator_result(const char *path,
+                           const char *status,
+                           const double total_ms,
+                           const double publication_ms,
+                           const Id active_element,
+                           const std::span<const Id> active_ids,
+                           const std::span<const Id> cutter_ids,
+                           const int mode,
+                           const int solver,
+                           const bool swap,
+                           const bool invert,
+                           const bool keep,
+                           const bool intersect_each,
+                           const bool merge,
+                           const bool limited_dissolve,
+                           const bool dissolve_per_iteration)
+{
+  if (!boolean_trace_enabled()) {
+    return;
+  }
+  std::fprintf(stderr,
+               "{\"kind\":\"solid_boolean_operator\",\"path\":\"%s\",\"status\":\"%s\","
+               "\"operation_mode\":%d,\"solver\":%d,\"active_element_id\":%llu,"
+               "\"swap_subtract\":%s,\"invert_cutter\":%s,\"keep_cutter\":%s,"
+               "\"intersect_with_cutter\":%s,\"merge_results\":%s,\"limited_dissolve\":%s,"
+               "\"dissolve_per_iteration\":%s,\"total_ms\":%.6f,\"publication_ms\":%.6f",
+               path,
+               status,
+               mode,
+               solver,
+               static_cast<unsigned long long>(active_element),
+               swap ? "true" : "false",
+               invert ? "true" : "false",
+               keep ? "true" : "false",
+               intersect_each ? "true" : "false",
+               merge ? "true" : "false",
+               limited_dissolve ? "true" : "false",
+               dissolve_per_iteration ? "true" : "false",
+               total_ms,
+               publication_ms);
+  trace_ids("selected_face_ids", active_ids);
+  trace_ids("cutter_face_ids", cutter_ids);
+  std::fprintf(stderr, "}\n");
+}
+
+/** A separate opt-in capture saves the exact kernel request in native coordinates. Diagnostic
+ * I/O never changes the Boolean outcome. Analytic editor-only shortcuts do not use this format. */
+void capture_boolean_failure(const solid::Model &source,
+                             const std::vector<Id> &first,
+                             const std::vector<Id> &second,
+                             const solid::BooleanOperation operation)
+{
+  const char *directory = std::getenv("BLENDER_SOLID_BOOLEAN_CAPTURE_DIR");
+  if (!directory || directory[0] == '\0') {
+    return;
+  }
+  static std::atomic<uint64_t> serial{0};
+  const uint64_t capture_index = serial.fetch_add(1);
+  constexpr uint64_t capture_limit = 16;
+  if (capture_index >= capture_limit) {
+    if (capture_index == capture_limit) {
+      std::fprintf(stderr, "{\"kind\":\"solid_boolean_capture\",\"status\":\"limit_reached\"}\n");
+    }
+    return;
+  }
+  try {
+    const auto bytes = solid::encode_boolean_replay({source, first, second, operation});
+    if (bytes.empty()) {
+      std::fprintf(stderr, "{\"kind\":\"solid_boolean_capture\",\"status\":\"unencodable\"}\n");
+      return;
+    }
+    const auto timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    const std::string filename = "solid-boolean-" + std::to_string(timestamp) + "-" +
+                                 std::to_string(capture_index) + ".solidbool";
+    const std::filesystem::path folder(directory);
+    std::filesystem::create_directories(folder);
+    std::ofstream file(folder / filename, std::ios::binary);
+    file.exceptions(std::ios::badbit | std::ios::failbit);
+    file.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
+    file.close();
+    std::fprintf(stderr,
+                 "{\"kind\":\"solid_boolean_capture\",\"status\":\"written\","
+                 "\"file\":\"%s\",\"bytes\":%zu}\n",
+                 filename.c_str(),
+                 bytes.size());
+  }
+  catch (const std::exception &) {
+    std::fprintf(stderr, "{\"kind\":\"solid_boolean_capture\",\"status\":\"write_failed\"}\n");
+  }
+}
 
 OwnedMesh triangulate_nonplanar(OwnedMesh mesh, bool float_tolerance = false);
 
@@ -628,6 +803,142 @@ bool validate_result(const solid::Model &model, const FaceSet &boolean_faces, st
   return true;
 }
 
+std::optional<solid::EditResult> native_boolean(const solid::Model &model,
+                                                const std::vector<Component> &components,
+                                                const std::vector<int> &selected,
+                                                const int cutter_index,
+                                                const solid::Selection &source_selection,
+                                                wmOperator *op,
+                                                std::string *error)
+{
+  using Operation = solid::BooleanOperation;
+  auto face_ids = [](const solid::Model &m) {
+    FaceSet result;
+    for (const solid::Face &face : m.faces)
+      result.insert(face.id);
+    return result;
+  };
+  auto body = [&](int index) {
+    solid::Model result;
+    FaceSet keep(components[index].faces.begin(), components[index].faces.end()), discard;
+    for (const solid::Face &face : model.faces)
+      if (!keep.contains(face.id))
+        discard.insert(face.id);
+    append_source_components(result, model, keep, discard);
+    return result;
+  };
+  auto apply = [&](const solid::Model &a, const solid::Model &b, Operation operation) {
+    solid::Model combined;
+    append_source_components(combined, a, face_ids(a), {});
+    std::vector<Id> a_faces, b_faces;
+    for (const solid::Face &face : combined.faces)
+      a_faces.push_back(face.id);
+    const size_t first = combined.faces.size();
+    append_source_components(combined, b, face_ids(b), {});
+    for (size_t i = first; i < combined.faces.size(); ++i)
+      b_faces.push_back(combined.faces[i].id);
+    solid::BooleanResult boolean_result = solid::boolean_bodies_result(
+        combined, a_faces, b_faces, operation);
+    trace_kernel_result(boolean_result, operation, a_faces, b_faces);
+    if (!boolean_result.succeeded() || !boolean_result.model) {
+      capture_boolean_failure(combined, a_faces, b_faces, operation);
+      if (error) {
+        *error = boolean_result.message.empty() ? "Native Solid Boolean failed" :
+                                                  boolean_result.message;
+      }
+      return std::optional<solid::Model>();
+    }
+    return std::move(boolean_result.model);
+  };
+  const int mode = RNA_enum_get(op->ptr, "operation_mode");
+  const bool swap = RNA_boolean_get(op->ptr, "swap_subtract");
+  const bool intersect_each = RNA_boolean_get(op->ptr, "intersect_with_cutter");
+  const bool keep = RNA_boolean_get(op->ptr, "keep_cutter") && mode != 0 && !(mode == 1 && swap) &&
+                    !(mode == 2 && !intersect_each);
+  const solid::Model cutter = body(cutter_index);
+  std::vector<solid::Model> outputs;
+  if (mode == 0 || (mode == 1 && swap) || (mode == 2 && !intersect_each)) {
+    solid::Model result = cutter;
+    const Operation operation = mode == 0 ? Operation::Union :
+                                mode == 2 || RNA_boolean_get(op->ptr, "invert_cutter") ?
+                                            Operation::Intersect :
+                                            Operation::Subtract;
+    for (const int index : selected) {
+      if (index == cutter_index)
+        continue;
+      auto next = apply(result, body(index), operation);
+      if (!next)
+        return {};
+      result = std::move(*next);
+    }
+    outputs.push_back(std::move(result));
+  }
+  else {
+    for (const int index : selected) {
+      if (index == cutter_index)
+        continue;
+      const solid::Model target = body(index);
+      const Operation operation = mode == 2 || (mode == 1 &&
+                                                RNA_boolean_get(op->ptr, "invert_cutter")) ?
+                                      Operation::Intersect :
+                                      Operation::Subtract;
+      auto result = apply(target, cutter, operation);
+      if (!result)
+        return {};
+      outputs.push_back(std::move(*result));
+      if (mode == 3) {
+        auto inside = apply(target, cutter, Operation::Intersect);
+        if (!inside)
+          return {};
+        outputs.push_back(std::move(*inside));
+      }
+    }
+    if (mode != 3 && RNA_boolean_get(op->ptr, "merge_results") && outputs.size() > 1) {
+      solid::Model merged = std::move(outputs.front());
+      for (size_t i = 1; i < outputs.size(); ++i) {
+        auto result = apply(merged, outputs[i], Operation::Union);
+        if (!result)
+          return {};
+        merged = std::move(*result);
+      }
+      outputs.clear();
+      outputs.push_back(std::move(merged));
+    }
+  }
+  FaceSet preserve, discard;
+  for (int index = 0; index < int(components.size()); ++index) {
+    const bool consumed = std::find(selected.begin(), selected.end(), index) != selected.end();
+    for (const Id id : components[index].faces)
+      (consumed && !(keep && index == cutter_index) ? discard : preserve).insert(id);
+  }
+  solid::EditResult result;
+  if (!append_source_components(result.model, model, preserve, discard))
+    return {};
+  const size_t first_vertex = result.model.vertices.size(), first_edge = result.model.edges.size(),
+               first_face = result.model.faces.size();
+  for (const solid::Model &output : outputs)
+    if (!append_source_components(result.model, output, face_ids(output), {}))
+      return {};
+  FaceSet generated;
+  for (size_t i = first_face; i < result.model.faces.size(); ++i)
+    generated.insert(result.model.faces[i].id);
+  if (!validate_result(result.model, generated, error))
+    return {};
+  result.selection.mode = source_selection.mode;
+  for (size_t i = first_vertex; i < result.model.vertices.size(); ++i)
+    result.selection.vertices.push_back(result.model.vertices[i].id);
+  for (size_t i = first_edge; i < result.model.edges.size(); ++i)
+    result.selection.edges.push_back(result.model.edges[i].id);
+  for (size_t i = first_face; i < result.model.faces.size(); ++i)
+    result.selection.faces.push_back(result.model.faces[i].id);
+  const auto &active = result.selection.mode == 4 ? result.selection.faces :
+                       result.selection.mode == 2 ? result.selection.edges :
+                                                    result.selection.vertices;
+  if (!active.empty())
+    result.selection.active = active.front();
+  return result;
+}
+
 geometry::boolean::Solver solver_from_rna(const int value)
 {
   switch (value) {
@@ -645,6 +956,7 @@ geometry::boolean::Solver solver_from_rna(const int value)
 
 static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
 {
+  const TraceClock::time_point operator_start = TraceClock::now();
   std::string error;
   auto session = Session::begin(C, &error);
   if (!session) {
@@ -678,11 +990,14 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
       for (const auto &hole : f.holes)
         add_loop(hole);
     }
-    const bool selected = std::any_of(component.faces.begin(), component.faces.end(),
+    const bool selected = std::any_of(component.faces.begin(),
+                                      component.faces.end(),
                                       [&](Id id) { return selected_faces.contains(id); }) ||
-                          std::any_of(component_edges.begin(), component_edges.end(),
+                          std::any_of(component_edges.begin(),
+                                      component_edges.end(),
                                       [&](Id id) { return selected_edges.contains(id); }) ||
-                          std::any_of(component_vertices.begin(), component_vertices.end(),
+                          std::any_of(component_vertices.begin(),
+                                      component_vertices.end(),
                                       [&](Id id) { return selected_vertices.contains(id); });
     if (!selected) {
       continue;
@@ -697,20 +1012,99 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
     consumed_faces.insert(component.faces.begin(), component.faces.end());
     if (cutter_component < 0 &&
         (std::find(component.faces.begin(), component.faces.end(), source.selection.active) !=
-             component.faces.end() || component_edges.contains(source.selection.active) ||
+             component.faces.end() ||
+         component_edges.contains(source.selection.active) ||
          component_vertices.contains(source.selection.active)))
     {
       cutter_component = i;
     }
   }
   if (selected_components.size() < 2) {
-    BKE_report(op->reports,
-               RPT_ERROR,
-               "Select faces from at least two disconnected Solid bodies");
+    BKE_report(op->reports, RPT_ERROR, "Select faces from at least two disconnected Solid bodies");
     return OPERATOR_CANCELLED;
   }
   if (cutter_component < 0) {
     cutter_component = selected_components.front();
+  }
+
+  const int trace_mode = RNA_enum_get(op->ptr, "operation_mode");
+  const int trace_solver = RNA_enum_get(op->ptr, "solver");
+  const bool trace_swap = RNA_boolean_get(op->ptr, "swap_subtract");
+  const bool trace_invert = RNA_boolean_get(op->ptr, "invert_cutter");
+  const bool trace_keep = RNA_boolean_get(op->ptr, "keep_cutter");
+  const bool trace_intersect_each = RNA_boolean_get(op->ptr, "intersect_with_cutter");
+  const bool trace_merge = RNA_boolean_get(op->ptr, "merge_results");
+  const bool trace_limited_dissolve = RNA_boolean_get(op->ptr, "limited_dissolve");
+  const bool trace_dissolve_per_iteration = RNA_boolean_get(op->ptr, "dissolve_per_iteration");
+  std::vector<Id> trace_selected_ids;
+  if (boolean_trace_enabled()) {
+    for (const int index : selected_components) {
+      trace_selected_ids.insert(
+          trace_selected_ids.end(), components[index].faces.begin(), components[index].faces.end());
+    }
+  }
+  const std::span<const Id> cutter_ids(components[cutter_component].faces);
+  auto emit_operator_trace = [&](const char *path,
+                                 const char *status,
+                                 const TraceClock::time_point start,
+                                 const double publication_ms) {
+    if (!boolean_trace_enabled()) {
+      return;
+    }
+    trace_operator_result(path,
+                          status,
+                          elapsed_milliseconds(start),
+                          publication_ms,
+                          source.selection.active,
+                          trace_selected_ids,
+                          cutter_ids,
+                          trace_mode,
+                          trace_solver,
+                          trace_swap,
+                          trace_invert,
+                          trace_keep,
+                          trace_intersect_each,
+                          trace_merge,
+                          trace_limited_dissolve,
+                          trace_dissolve_per_iteration);
+  };
+
+  const int boolean_solver = RNA_enum_get(op->ptr, "solver");
+  const bool planar_native =
+      boolean_solver == 3 &&
+      std::all_of(consumed_faces.begin(), consumed_faces.end(), [&](const Id id) {
+        const solid::Face *f = solid::face(model, id);
+        if (solid::surface(model, f->surface)->kind != solid::SurfaceKind::Plane)
+          return false;
+        auto linear = [&](const auto &loop) {
+          return std::all_of(loop.begin(), loop.end(), [&](const auto &use) {
+            return solid::curve(model, solid::edge(model, use.edge)->curve)->kind ==
+                   solid::CurveKind::Line;
+          });
+        };
+        return linear(f->outer) && std::all_of(f->holes.begin(), f->holes.end(), linear);
+      });
+  if (planar_native) {
+    auto result = native_boolean(
+        model, components, selected_components, cutter_component, source.selection, op, &error);
+    if (!result) {
+      emit_operator_trace("native_planar", "failed", operator_start, 0.0);
+      BKE_report(
+          op->reports, RPT_ERROR, error.empty() ? "Native Solid Boolean failed" : error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    const TraceClock::time_point publication_start = TraceClock::now();
+    const bool published = session->apply(C, std::move(*result), &error);
+    const double publication_ms = elapsed_milliseconds(publication_start);
+    emit_operator_trace(
+        "native_planar", published ? "success" : "failed", operator_start, publication_ms);
+    if (!published) {
+      BKE_report(
+          op->reports, RPT_ERROR, error.empty() ? "Native Solid Boolean failed" : error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    BKE_report(op->reports, RPT_INFO, "Native Solid Boolean complete");
+    return OPERATOR_FINISHED;
   }
 
   /* Keep circular extrusion supports analytic instead of converting their sampled strips
@@ -746,6 +1140,7 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
         if (!preserve.contains(id))
           discard.insert(id);
       if (!append_source_components(result, model, preserve, discard)) {
+        emit_operator_trace("analytic_cylinder", "failed", operator_start, 0.0);
         BKE_report(op->reports, RPT_ERROR, "Could not preserve unselected Solid bodies");
         return OPERATOR_CANCELLED;
       }
@@ -765,6 +1160,7 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
       for (size_t i = first_face; i < result.faces.size(); ++i)
         output_faces.insert(result.faces[i].id);
       if (!success || !validate_result(result, output_faces, &error)) {
+        emit_operator_trace("analytic_cylinder", "failed", operator_start, 0.0);
         BKE_report(op->reports, RPT_ERROR, error.c_str());
         return OPERATOR_CANCELLED;
       }
@@ -781,15 +1177,42 @@ static wmOperatorStatus solid_boolean_exec(bContext *C, wmOperator *op)
                                                  selection.vertices;
       if (!active.empty())
         selection.active = active.front();
-      if (!session->apply(C, {std::move(result), std::move(selection)}, &error)) {
+      const TraceClock::time_point publication_start = TraceClock::now();
+      const bool published = session->apply(C, {std::move(result), std::move(selection)}, &error);
+      const double publication_ms = elapsed_milliseconds(publication_start);
+      emit_operator_trace(
+          "analytic_cylinder", published ? "success" : "failed", operator_start, publication_ms);
+      if (!published) {
         BKE_report(op->reports, RPT_ERROR, error.c_str());
         return OPERATOR_CANCELLED;
       }
-      BKE_report(op->reports,
-                 RPT_INFO,
-                 "Solid Boolean complete; analytic cylinder surfaces preserved");
+      BKE_report(
+          op->reports, RPT_INFO, "Solid Boolean complete; analytic cylinder surfaces preserved");
       return OPERATOR_FINISHED;
     }
+  }
+
+  if (boolean_solver == 3) {
+    auto result = native_boolean(
+        model, components, selected_components, cutter_component, source.selection, op, &error);
+    if (!result) {
+      emit_operator_trace("native_general", "failed", operator_start, 0.0);
+      BKE_report(
+          op->reports, RPT_ERROR, error.empty() ? "Native Solid Boolean failed" : error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    const TraceClock::time_point publication_start = TraceClock::now();
+    const bool published = session->apply(C, std::move(*result), &error);
+    const double publication_ms = elapsed_milliseconds(publication_start);
+    emit_operator_trace(
+        "native_general", published ? "success" : "failed", operator_start, publication_ms);
+    if (!published) {
+      BKE_report(
+          op->reports, RPT_ERROR, error.empty() ? "Native Solid Boolean failed" : error.c_str());
+      return OPERATOR_CANCELLED;
+    }
+    BKE_report(op->reports, RPT_INFO, "Native Solid Boolean complete");
+    return OPERATOR_FINISHED;
   }
 
   const solid::DisplayMesh *display = source.display_samples.get();
@@ -1111,6 +1534,7 @@ void SOLID_OT_boolean(wmOperatorType *ot)
       {0, nullptr, 0, nullptr, nullptr},
   };
   static const EnumPropertyItem solvers[] = {
+      {3, "SOLID", 0, "Solid", "Native Solid Boolean preserving analytic surfaces and trim curves"},
       {0, "FLOAT", 0, "Float", "Fast, with limitations on overlapping geometry"},
       {1, "EXACT", 0, "Exact", "More robust for overlaps, but slower"},
       {2, "MANIFOLD", 0, "Manifold", "Fast solver for closed manifold bodies"},
@@ -1125,7 +1549,7 @@ void SOLID_OT_boolean(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   RNA_def_enum(ot->srna, "operation_mode", operations, 0, "Operation", "Boolean operation");
-  RNA_def_enum(ot->srna, "solver", solvers, 1, "Solver", "Mesh Boolean solver");
+  RNA_def_enum(ot->srna, "solver", solvers, 3, "Solver", "Boolean solver");
   RNA_def_boolean(
       ot->srna, "keep_cutter", false, "Keep Cutter", "Keep the active body as a separate result");
   RNA_def_boolean(ot->srna,

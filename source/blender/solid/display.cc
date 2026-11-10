@@ -11,10 +11,103 @@
 #include <cstdio>
 #include <cstdlib>
 #include <map>
+#include <limits>
 #include <numbers>
 #include <unordered_map>
 
 namespace blender::solid {
+
+/* Bridge inner loops only in display topology, then clip ears using existing
+ * boundary sample indices. Analytic source curves and faces remain unchanged. */
+static std::optional<std::vector<std::array<int, 3>>> triangulate_display_loops(
+    std::vector<std::vector<int>> rings, const std::vector<Vec3> &positions, const Vec3 normal)
+{
+  if (rings.empty()) return {};
+  double scale = 1;
+  for (const auto &ring : rings)
+    for (int i : ring) scale = std::max(scale, length(positions[i]));
+  const double eps = 256 * std::numeric_limits<double>::epsilon() * scale;
+  auto side = [&](Vec3 a, Vec3 b, Vec3 p) { return dot(cross(b-a,p-a),normal); };
+  auto area = [&](const std::vector<int> &ring) {
+    double result = 0; const Vec3 origin = positions[ring.front()];
+    for (size_t i=0; i<ring.size(); ++i)
+      result += side(origin,positions[ring[i]],positions[ring[(i+1)%ring.size()]]);
+    return result;
+  };
+  if (area(rings[0]) < 0) std::reverse(rings[0].begin(),rings[0].end());
+  for (size_t i=1; i<rings.size(); ++i)
+    if (area(rings[i]) > 0) std::reverse(rings[i].begin(),rings[i].end());
+  const Vec3 x = (positions[rings[0][1]]-positions[rings[0][0]]) /
+                 length(positions[rings[0][1]]-positions[rings[0][0]]);
+  const Vec3 y = cross(normal,x);
+  auto inside = [&](Vec3 p) {
+    bool value = false;
+    for (const auto &ring : rings)
+      for (size_t i=0; i<ring.size(); ++i) {
+        const Vec3 a=positions[ring[i]]-p, b=positions[ring[(i+1)%ring.size()]]-p;
+        const double ay=dot(a,y), by=dot(b,y);
+        if ((ay>0)!=(by>0) && 0 < dot(a,x)+(dot(b,x)-dot(a,x))*(-ay)/(by-ay)) value=!value;
+      }
+    return value;
+  };
+  auto intersects = [&](int ai,int bi,int ci,int di) {
+    if (ai==ci || ai==di || bi==ci || bi==di) return false;
+    const Vec3 a=positions[ai],b=positions[bi],c=positions[ci],d=positions[di];
+    const double ab=length(b-a), cd=length(d-c);
+    const double ac=side(a,b,c), ad=side(a,b,d), ca=side(c,d,a), cb=side(c,d,b);
+    if (((ac>eps*ab && ad < -eps*ab)||(ad>eps*ab && ac < -eps*ab)) &&
+        ((ca>eps*cd && cb < -eps*cd)||(cb>eps*cd && ca < -eps*cd))) return true;
+    for (const Vec3 p : {c,d}) {
+      const double t=dot(p-a,b-a)/dot(b-a,b-a);
+      if (t>0 && t<1 && length(p-a-(b-a)*t)<=eps) return true;
+    }
+    return false;
+  };
+  std::vector<int> polygon=rings[0];
+  for (size_t hi=1; hi<rings.size(); ++hi) {
+    const auto &hole=rings[hi];
+    size_t outer_index=0,hole_index=0; double best=std::numeric_limits<double>::infinity();
+    for (size_t h=0; h<hole.size(); ++h)
+      for (size_t o=0; o<polygon.size(); ++o) {
+        const int a=hole[h],b=polygon[o]; const double size=length(positions[b]-positions[a]);
+        if (size>=best || size<=eps || !inside((positions[a]+positions[b])*.5)) continue;
+        bool blocked=false;
+        for (const auto &ring : rings)
+          for (size_t i=0; i<ring.size(); ++i)
+            blocked |= intersects(a,b,ring[i],ring[(i+1)%ring.size()]);
+        for (size_t i=0;i<polygon.size();++i)
+          blocked |= intersects(a,b,polygon[i],polygon[(i+1)%polygon.size()]);
+        if (!blocked) { best=size;outer_index=o;hole_index=h; }
+      }
+    if (!std::isfinite(best)) return {};
+    std::vector<int> joined(polygon.begin(),polygon.begin()+outer_index+1);
+    for (size_t i=0;i<=hole.size();++i) joined.push_back(hole[(hole_index+i)%hole.size()]);
+    joined.push_back(polygon[outer_index]);
+    joined.insert(joined.end(),polygon.begin()+outer_index+1,polygon.end());
+    polygon=std::move(joined);
+  }
+  std::vector<std::array<int,3>> triangles;
+  while (polygon.size()>3) {
+    bool clipped=false;
+    for (size_t i=0;i<polygon.size();++i) {
+      const int ai=polygon[(i+polygon.size()-1)%polygon.size()],bi=polygon[i],ci=polygon[(i+1)%polygon.size()];
+      const Vec3 a=positions[ai],b=positions[bi],c=positions[ci];
+      if (side(a,b,c)<=eps*std::max(length(b-a),length(c-b))) continue;
+      bool occupied=false;
+      for (int index:polygon) {
+        const Vec3 p=positions[index];
+        if (index==ai || index==bi || index==ci || length(p-a)<=eps || length(p-b)<=eps || length(p-c)<=eps) continue;
+        if (side(a,b,p)>=-eps*length(b-a) && side(b,c,p)>=-eps*length(c-b) &&
+            side(c,a,p)>=-eps*length(a-c)) { occupied=true;break; }
+      }
+      if (occupied) continue;
+      triangles.push_back({ai,bi,ci});polygon.erase(polygon.begin()+i);clipped=true;break;
+    }
+    if (!clipped) return {};
+  }
+  if (polygon.size()==3) triangles.push_back({polygon[0],polygon[1],polygon[2]});
+  return triangles;
+}
 
 static std::optional<DisplayMesh> tessellate_impl(const Model &model,
                                       int segments,
@@ -53,6 +146,9 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
     }
     for (const Coedge &use : f.outer)
       edge_groups[use.edge].push_back(f.group ? f.group : f.id);
+    for (const auto &hole : f.holes)
+      for (const Coedge use : hole)
+        edge_groups[use.edge].push_back(f.group ? f.group : f.id);
     if (face_surface.kind == SurfaceKind::Ruled && f.outer.size() == 4) {
       const Surface &s = face_surface;
       const Curve &a = *curves.at(s.curve), &b = *curves.at(s.other_curve);
@@ -119,12 +215,26 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
   };
   for (const auto &f : model.faces) {
     const auto &s = *surfaces.at(f.surface);
-    if (s.kind == SurfaceKind::Plane) {
-      if (!f.holes.empty()) {
-        if (error)
-          *error = "Planar hole triangulation is not implemented in the analytic display adapter";
-        return {};
+    bool compact_cylinder = false;
+    if (s.kind == SurfaceKind::Cylinder && f.outer.size() == 4 && f.holes.empty()) {
+      const Edge &a = *edges.at(f.outer[0].edge), &b = *edges.at(f.outer[2].edge);
+      const Curve &ca = *curves.at(a.curve), &cb = *curves.at(b.curve);
+      compact_cylinder = ca.kind == CurveKind::Conic && cb.kind == CurveKind::Conic;
+      const Vec3 vw = cross(s.v, s.w), wu = cross(s.w, s.u), uv = cross(s.u, s.v);
+      const double det = dot(s.u, vw);
+      for (double fraction : {0., .25, .5, .75, 1.}) {
+        if (!compact_cylinder) break;
+        const double ta = a.start + (a.end - a.start) *
+                                          (f.outer[0].reversed ? 1 - fraction : fraction);
+        const double tb = b.start + (b.end - b.start) *
+                                          (f.outer[2].reversed ? fraction : 1 - fraction);
+        const Vec3 pa = evaluate(ca, ta), pb = evaluate(cb, tb), delta = pb - pa;
+        compact_cylinder = std::abs(dot(delta, vw) / det) <= 1e-8 &&
+                           std::abs(dot(delta, wu) / det) <= 1e-8 &&
+                           dot(delta, uv) / det > 0;
       }
+    }
+    if (s.kind == SurfaceKind::Plane) {
       std::vector<int> boundary;
       for (const auto &use : f.outer) {
         const auto &path = paths.at(use.edge);
@@ -138,7 +248,30 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
       }
       const Vec3 normal = calculate_normals ? cross(s.u, s.v) / length(cross(s.u, s.v)) :
                                               Vec3{};
-      polygon(boundary, std::vector<Vec3>(calculate_normals ? boundary.size() : 0, normal), f);
+      if (f.holes.empty()) {
+        polygon(boundary, std::vector<Vec3>(calculate_normals ? boundary.size() : 0, normal), f);
+      }
+      else {
+        std::vector<std::vector<int>> rings{boundary};
+        for (const auto &hole : f.holes) {
+          std::vector<int> ring;
+          for (const Coedge use : hole) {
+            const auto &path = paths.at(use.edge);
+            for (size_t i=0; i+1<path.size(); ++i)
+              ring.push_back(path[use.reversed ? path.size()-1-i : i]);
+          }
+          rings.push_back(std::move(ring));
+        }
+        const Vec3 support_normal = cross(s.u,s.v)/length(cross(s.u,s.v));
+        auto triangles = triangulate_display_loops(std::move(rings), mesh.positions, support_normal);
+        if (!triangles) {
+          if (error) *error = "Planar face inner loops could not be tessellated for display";
+          return {};
+        }
+        for (const auto &triangle : *triangles)
+          polygon({triangle[0],triangle[1],triangle[2]},
+                  std::vector<Vec3>(calculate_normals ? 3 : 0,normal), f);
+      }
     }
     else if (s.kind == SurfaceKind::Ruled) {
       auto oriented = [&](const Coedge &use, bool reverse) {
@@ -297,6 +430,106 @@ static std::optional<DisplayMesh> tessellate_impl(const Model &model,
           }
           polygon(std::move(points), std::move(normals), f);
         }
+    }
+    else if (s.kind == SurfaceKind::Cylinder && !compact_cylinder)
+    {
+      // Unwrap the trim loops in the cylinder's own (theta, height) chart.
+      // Triangles and refinement vertices belong exclusively to display data.
+      const Vec3 vw = cross(s.v, s.w), wu = cross(s.w, s.u), uv = cross(s.u, s.v);
+      const double det = dot(s.u, vw), period = 2 * std::numbers::pi;
+      std::vector<Vec3> parameters;
+      std::vector<int> display_indices;
+      std::vector<std::vector<int>> rings;
+      double center = 0;
+      auto append_ring = [&](const std::vector<Coedge> &uses, bool hole) {
+        std::vector<int> ring;
+        double previous = 0;
+        for (const Coedge use : uses) {
+          const auto &path = paths.at(use.edge);
+          for (size_t i = 0; i + 1 < path.size(); ++i) {
+            const int id = path[use.reversed ? path.size() - 1 - i : i];
+            const Vec3 p = mesh.positions[id] - s.origin;
+            double theta = std::atan2(dot(p, wu) / det, dot(p, vw) / det);
+            if (!ring.empty()) theta += period * std::round((previous - theta) / period);
+            previous = theta;
+            ring.push_back(int(parameters.size()));
+            parameters.push_back({theta, dot(p, uv) / det, 0});
+            display_indices.push_back(id);
+          }
+        }
+        if (ring.size() < 3) return false;
+        double mean = 0;
+        for (int id : ring) mean += parameters[id].x / ring.size();
+        if (hole) {
+          const double shift = period * std::round((center - mean) / period);
+          for (int id : ring) parameters[id].x += shift;
+        }
+        else center = mean;
+        // A loop winding around the entire cylinder needs an explicit seam
+        // connection in topology; do not invent one across the periodic chart.
+        if (std::abs(parameters[ring.front()].x - parameters[ring.back()].x) > std::numbers::pi)
+          return false;
+        rings.push_back(std::move(ring));
+        return true;
+      };
+      bool valid = append_ring(f.outer, false);
+      for (const auto &hole : f.holes) valid &= append_ring(hole, true);
+      if (!valid) {
+        if (error) *error = "Cylindrical trim loop needs a valid periodic chart";
+        return {};
+      }
+      auto triangles = triangulate_display_loops(rings, parameters, {0, 0, 1});
+      if (!triangles) {
+        if (error) *error = "Cylindrical face trim loops could not be tessellated";
+        return {};
+      }
+      double step = period / std::max(4, segments);
+      // Retain boundary samples shared with neighboring faces. A rational arc
+      // need not advance uniformly in theta under its native parameterization.
+      for (const auto &ring : rings)
+        for (size_t i = 0; i < ring.size(); ++i)
+          step = std::max(step, std::abs(parameters[ring[i]].x -
+                                         parameters[ring[(i + 1) % ring.size()]].x));
+      std::map<std::pair<int, int>, int> midpoints;
+      size_t cursor = 0;
+      while (cursor < triangles->size()) {
+        const auto tri = (*triangles)[cursor++];
+        int longest = 0;
+        for (int i = 1; i < 3; ++i)
+          if (std::abs(parameters[tri[i]].x - parameters[tri[(i + 1) % 3]].x) >
+              std::abs(parameters[tri[longest]].x - parameters[tri[(longest + 1) % 3]].x))
+            longest = i;
+        const int a = tri[longest], b = tri[(longest + 1) % 3], c = tri[(longest + 2) % 3];
+        if (std::abs(parameters[a].x - parameters[b].x) > step * (1 + 1e-10)) {
+          if (triangles->size() > 1000000) {
+            if (error) *error = "Cylindrical display refinement exceeded its geometry budget";
+            return {};
+          }
+          const std::pair<int, int> key = std::minmax(a, b);
+          auto [it, added] = midpoints.emplace(key, int(parameters.size()));
+          if (added) {
+            const Vec3 q = (parameters[a] + parameters[b]) / 2;
+            parameters.push_back(q);
+            display_indices.push_back(point(s.origin + s.u * std::cos(q.x) +
+                                                   s.v * std::sin(q.x) + s.w * q.y, 0));
+          }
+          const int mid = it->second;
+          triangles->push_back({a, mid, c});
+          triangles->push_back({mid, b, c});
+          continue;
+        }
+        std::vector<Vec3> normals;
+        std::vector<int> points;
+        for (int id : tri) {
+          points.push_back(display_indices[id]);
+          if (calculate_normals) {
+            const double theta = parameters[id].x;
+            Vec3 normal = cross(s.u * -std::sin(theta) + s.v * std::cos(theta), s.w);
+            normals.push_back(normal / length(normal));
+          }
+        }
+        polygon(std::move(points), std::move(normals), f);
+      }
     }
     else if (s.kind == SurfaceKind::Sphere) {
       const double det = dot(s.u, cross(s.v, s.w));

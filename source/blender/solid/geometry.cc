@@ -637,34 +637,67 @@ static bool validate_impl(const Model &m, std::string *error, const Model *trust
     }
     else if (support.kind == SurfaceKind::Sphere || support.kind == SurfaceKind::Cylinder) {
       const bool cylinder = support.kind == SurfaceKind::Cylinder;
-      if ((cylinder && f.outer.size() != 4) ||
-          (!cylinder && f.outer.size() != 3 && f.outer.size() != 4) || !f.holes.empty())
+      if (!cylinder && ((f.outer.size() != 3 && f.outer.size() != 4) || !f.holes.empty()))
         goto invalid;
-      if (cylinder) {
-        const Edge &a = *index.edges.at(f.outer[0].edge), &b = *index.edges.at(f.outer[2].edge);
-        if (index.curves.at(a.curve)->kind != CurveKind::Conic ||
-            index.curves.at(b.curve)->kind != CurveKind::Conic)
-          goto invalid;
-      }
       const Vec3 vw = cross(support.v, support.w), wu = cross(support.w, support.u),
                  uv = cross(support.u, support.v);
       const double det = dot(support.u, vw);
       if (cylinder) {
-        auto local = [&](Vec3 p) {
-          p = p - support.origin;
+        auto local_direction = [&](Vec3 p) {
           return Vec3{dot(p, vw) / det, dot(p, wu) / det, dot(p, uv) / det};
         };
-        const Edge &a = *index.edges.at(f.outer[0].edge), &b = *index.edges.at(f.outer[2].edge);
-        for (double fraction : {0.0, .25, .5, .75, 1.0}) {
-          const double ta = a.start +
-                            (a.end - a.start) * (f.outer[0].reversed ? 1 - fraction : fraction);
-          const double tb = b.start +
-                            (b.end - b.start) * (f.outer[2].reversed ? fraction : 1 - fraction);
-          const Vec3 pa = local(evaluate(*index.curves.at(a.curve), ta)),
-                     pb = local(evaluate(*index.curves.at(b.curve), tb));
-          if (std::abs(pa.x - pb.x) > 1e-8 || std::abs(pa.y - pb.y) > 1e-8 || pb.z <= pa.z)
-            goto invalid;
+        auto radial_dot = [](Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y; };
+        for (const auto *loop : loops(f)) {
+          for (const Coedge use : *loop) {
+            const Curve &c = *index.curves.at(index.edges.at(use.edge)->curve);
+            const Vec3 p = local_direction(c.origin - support.origin);
+            const Vec3 a = local_direction(c.u), b = local_direction(c.v);
+            // Validate the whole support curve algebraically, rather than
+            // accepting a few sampled points on a four-edge wall template.
+            if (c.kind == CurveKind::Line) {
+              if (std::abs(radial_dot(p,p) - 1) > 1e-8 ||
+                  radial_dot(a,a) > 1e-16)
+                goto invalid;
+            }
+            else if (c.kind == CurveKind::Conic) {
+              if (std::abs(radial_dot(p,p) + .5 * (radial_dot(a,a) + radial_dot(b,b)) - 1) > 1e-8 ||
+                  std::abs(radial_dot(p,a)) > 1e-8 || std::abs(radial_dot(p,b)) > 1e-8 ||
+                  std::abs(radial_dot(a,a) - radial_dot(b,b)) > 1e-8 ||
+                  std::abs(radial_dot(a,b)) > 1e-8)
+                goto invalid;
+            }
+            else if (c.kind == CurveKind::Cubic) {
+              const Vec3 d = local_direction(c.w);
+              if (std::abs(radial_dot(p,p) - 1) > 1e-8 || radial_dot(a,a) > 1e-16 ||
+                  radial_dot(b,b) > 1e-16 || radial_dot(d,d) > 1e-16)
+                goto invalid;
+            }
+            else if (c.kind == CurveKind::RationalQuadratic) {
+              const Vec3 q = local_direction(c.u - support.origin);
+              const Vec3 r = local_direction(c.v - support.origin);
+              const std::array<double, 3> x{p.x*c.w.x, 2*(q.x*c.w.y-p.x*c.w.x),
+                                           p.x*c.w.x-2*q.x*c.w.y+r.x*c.w.z};
+              const std::array<double, 3> y{p.y*c.w.x, 2*(q.y*c.w.y-p.y*c.w.x),
+                                           p.y*c.w.x-2*q.y*c.w.y+r.y*c.w.z};
+              const std::array<double, 3> weights{c.w.x, 2*(c.w.y-c.w.x),
+                                                 c.w.x-2*c.w.y+c.w.z};
+              std::array<double, 5> coefficients{}, scales{};
+              for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j) {
+                  coefficients[i+j] += x[i]*x[j] + y[i]*y[j] - weights[i]*weights[j];
+                  scales[i+j] += std::abs(x[i]*x[j]) + std::abs(y[i]*y[j]) +
+                                 std::abs(weights[i]*weights[j]);
+                }
+              for (int i = 0; i < 5; ++i)
+                if (std::abs(coefficients[i]) > 1e-8 * std::max(1., scales[i]))
+                  goto invalid;
+            }
+            else {
+              goto invalid;
+            }
+          }
         }
+        continue;
       }
       for (const Coedge &use : f.outer) {
         const Edge &e = *index.edges.at(use.edge);
